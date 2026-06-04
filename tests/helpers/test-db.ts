@@ -246,8 +246,18 @@ export async function buildTemplateDatabase(opts?: { quiet?: boolean }): Promise
       const raw = fs.readFileSync(path.join(dir, file), 'utf8');
       const statements = raw.split('--> statement-breakpoint').map(s => s.trim()).filter(Boolean);
       for (const stmt of statements) {
+        // Strip CONCURRENTLY from CREATE INDEX statements: the template build
+        // runs inside an implicit transaction context (postgres-js single
+        // connection) and Postgres refuses `CREATE INDEX CONCURRENTLY` inside
+        // any transaction block. The template DB is fresh + empty, so a plain
+        // CREATE INDEX is semantically identical and instant. This also covers
+        // any future migration that uses CONCURRENTLY.
+        const normalizedStmt = stmt.replace(
+          /\bcreate(\s+unique)?\s+index\s+concurrently\b/gi,
+          (_, unique) => `CREATE${unique ? unique.toUpperCase() : ''} INDEX`,
+        );
         try {
-          await tpl.unsafe(stmt);
+          await tpl.unsafe(normalizedStmt);
         } catch (err) {
           const msg = (err as Error).message;
           // Tolerate idempotent re-application: a prior partial build may

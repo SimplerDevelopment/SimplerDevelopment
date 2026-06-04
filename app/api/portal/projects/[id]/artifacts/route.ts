@@ -33,11 +33,20 @@ function getRole(session: any): string {
 }
 
 async function getAuthedProject(projectId: number) {
-  const session = await auth();
+  // Parallelize auth() and the project lookup. The project row doesn't depend
+  // on the session, and the staff/client gate runs after both resolve.
+  const [session, projectRows] = await Promise.all([
+    auth(),
+    db
+      .select({ id: projects.id, clientId: projects.clientId })
+      .from(projects)
+      .where(eq(projects.id, projectId))
+      .limit(1),
+  ]);
   if (!session?.user?.id) return { error: NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 }) };
   const userId = parseInt(session.user.id, 10);
 
-  const [project] = await db.select({ id: projects.id, clientId: projects.clientId }).from(projects).where(eq(projects.id, projectId)).limit(1);
+  const project = projectRows[0];
   if (!project) return { error: NextResponse.json({ success: false, message: 'Project not found' }, { status: 404 }) };
 
   const role = getRole(session);
@@ -52,7 +61,7 @@ async function getAuthedProject(projectId: number) {
 }
 
 export async function GET(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
@@ -62,13 +71,27 @@ export async function GET(
   const result = await getAuthedProject(projectId);
   if ('error' in result) return result.error;
 
+  // Pagination — default 100, capped at 200.
+  const url = new URL(req.url);
+  const limit = Math.min(200, Math.max(1, parseInt(url.searchParams.get('limit') ?? '100', 10) || 100));
+  const page = Math.max(1, parseInt(url.searchParams.get('page') ?? '1', 10) || 1);
+  const offset = (page - 1) * limit;
+
   const artifacts = await db
     .select()
     .from(projectArtifacts)
     .where(eq(projectArtifacts.projectId, projectId))
-    .orderBy(desc(projectArtifacts.pinned), desc(projectArtifacts.createdAt));
+    .orderBy(desc(projectArtifacts.pinned), desc(projectArtifacts.createdAt))
+    .limit(limit)
+    .offset(offset);
 
-  return NextResponse.json({ success: true, data: artifacts });
+  // Short cache for the picker open / tab switch case. Pinned/order changes
+  // will be slightly stale for up to 10s; the artifact list is not a
+  // collaborative live document and link/unlink is a user-initiated reload.
+  return NextResponse.json(
+    { success: true, data: artifacts, page, limit },
+    { headers: { 'Cache-Control': 'private, max-age=10' } },
+  );
 }
 
 export async function POST(

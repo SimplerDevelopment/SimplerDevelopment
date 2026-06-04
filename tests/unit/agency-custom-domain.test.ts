@@ -9,6 +9,15 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
+// `unstable_cache` requires an incremental-cache context (only available in
+// a real Next.js request). In the unit environment we stub it to be a
+// pass-through so the module's in-memory TTL cache (the cache Map) is the
+// only caching layer under test — which is exactly what these tests target.
+vi.mock('next/cache', () => ({
+  unstable_cache: (fn: (...args: unknown[]) => unknown) => fn,
+  revalidateTag: vi.fn(),
+}));
+
 interface ClientRow {
   id: number;
   customDomain: string | null;
@@ -36,15 +45,18 @@ vi.mock('@/lib/db/schema', () => {
         },
       },
     );
-  return {
+  return new Proxy({
     clients: wrap('clients'),
-  };
+  }, { has: (t, p) => (p in t) || !(p === "then" || p === "__esModule" || p === "default" || typeof p !== "string"), get: (t, p) => (p in t) ? t[p] : ((p === "then" || p === "__esModule" || p === "default" || typeof p !== "string") ? undefined : wrap(p)) });
 });
 
 vi.mock('drizzle-orm', () => ({
   eq: (a: unknown, b: unknown) => ({ op: 'eq', a, b }),
   and: (...args: unknown[]) => ({ op: 'and', args: args.filter(Boolean) }),
   isNotNull: (a: unknown) => ({ op: 'isNotNull', a }),
+  isNull: (a: unknown) => ({ op: 'isNull', a }),
+  or: (...args: unknown[]) => ({ op: 'or', args: args.filter(Boolean) }),
+  inArray: (a: unknown, list: unknown[]) => ({ op: 'inArray', a, list }),
 }));
 
 function evalPredicate(filter: unknown, row: Record<string, unknown>): boolean {

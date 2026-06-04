@@ -313,7 +313,11 @@ export const bookingPages = pgTable('booking_pages', {
   createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
-});
+}, (t) => [
+  // E2 perf — admin booking lists every page joined to clients ordered by
+  // createdAt; per-client booking-page filters also hit this path.
+  index('booking_pages_client_idx').on(t.clientId),
+]);
 
 // Per-member availability overrides for booking pages
 
@@ -377,7 +381,13 @@ export const bookings = pgTable('bookings', {
   reminderSentAt: timestamp('reminder_sent_at'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
-});
+}, (t) => [
+  // E2 perf — admin booking aggregator groups by bookingPageId; the upcoming
+  // window scans by (startTime, status). Per-client filters also exist.
+  index('bookings_client_idx').on(t.clientId),
+  index('bookings_booking_page_idx').on(t.bookingPageId),
+  index('bookings_start_status_idx').on(t.startTime, t.status),
+]);
 
 // ─── BOOKING ATTENDEES (group / class bookings) ───────────────────────────
 // Used only when the parent booking_pages.bookingType = 'group'. For

@@ -152,6 +152,8 @@ vi.mock('drizzle-orm', () => ({
       raw: (s: string) => ({ _kind: 'sql-raw', s }),
     },
   ),
+  isNull: (a: unknown) => ({ op: 'isNull', a }),
+  or: (...args: unknown[]) => ({ op: 'or', args: args.filter(Boolean) }),
 }));
 
 // ---------------------------------------------------------------------------

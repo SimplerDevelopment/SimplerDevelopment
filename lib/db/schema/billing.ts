@@ -66,7 +66,11 @@ export const invoices = pgTable('invoices', {
   createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
-});
+}, (t) => [
+  // E2 perf — admin clients list aggregates paid totals per client; the
+  // dashboard groups by status; the recent-invoices panel orders by createdAt.
+  index('invoices_client_status_created_idx').on(t.clientId, t.status, t.createdAt),
+]);
 
 export const invoiceItems = pgTable('invoice_items', {
   id: serial('id').primaryKey(),

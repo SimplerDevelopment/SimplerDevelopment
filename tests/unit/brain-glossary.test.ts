@@ -94,6 +94,8 @@ vi.mock('drizzle-orm', () => ({
   asc: () => ({}),
   desc: () => ({}),
   sql: Object.assign((..._args: unknown[]) => ({}), {}),
+  isNull: (a: unknown) => ({ op: 'isNull', a }),
+  or: (...args: unknown[]) => ({ op: 'or', args: args.filter(Boolean) }),
 }));
 
 /**

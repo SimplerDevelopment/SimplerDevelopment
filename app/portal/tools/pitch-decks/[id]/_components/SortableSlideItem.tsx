@@ -1,7 +1,7 @@
 /** Sortable slide item rendered in the left-rail SlideList. Drag handle, checkbox, double-click rename, hover actions. */
 'use client';
 
-import { useState } from 'react';
+import { memo, useState } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { PitchDeckSlideV2 } from '@/lib/db/schema';
@@ -33,7 +33,7 @@ export interface SortableSlideItemProps {
   surveyFieldCount?: number;
 }
 
-export function SortableSlideItem({
+function SortableSlideItemImpl({
   slide, index, isActive, isSelected, onClick, onRename, onDuplicate, onRemove, onToggleSelect,
   onPublish, onCancelDraft, publishing, canRemove, surveyFieldCount,
 }: SortableSlideItemProps) {
@@ -195,3 +195,32 @@ export function SortableSlideItem({
     </div>
   );
 }
+
+/**
+ * Memoized so toggling activeSlide / setHasUnsavedChanges in the parent
+ * doesn't re-render every slide row — only the previously-active and the
+ * newly-active rows flip `isActive`. Custom equality is intentionally tight:
+ *
+ *  - slide reference: a slide-level mutation (rename, blocks change, draft
+ *    toggle) must repaint that row's title/badges; we identity-compare
+ *    because the page rebuilds the slides array immutably on every edit
+ *  - isActive / isSelected / publishing / canRemove: visible primitives
+ *  - surveyFieldCount: rendered in the badge
+ *  - callbacks (onClick etc.): identity is unstable on every page render,
+ *    so we deliberately *exclude* them from the equality check. The render
+ *    output doesn't depend on callback identity, only on whether the
+ *    callback exists — captured by `!!onPublish` / `!!onCancelDraft`.
+ */
+export const SortableSlideItem = memo(SortableSlideItemImpl, (prev, next) => {
+  return (
+    prev.slide === next.slide &&
+    prev.index === next.index &&
+    prev.isActive === next.isActive &&
+    prev.isSelected === next.isSelected &&
+    prev.publishing === next.publishing &&
+    prev.canRemove === next.canRemove &&
+    prev.surveyFieldCount === next.surveyFieldCount &&
+    !!prev.onPublish === !!next.onPublish &&
+    !!prev.onCancelDraft === !!next.onCancelDraft
+  );
+});

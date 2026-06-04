@@ -22,6 +22,16 @@ vi.mock('@/lib/portal-client', () => ({
   getPortalClient: (...args: unknown[]) => getPortalClientMock(...args),
 }));
 
+const canUserEditProjectMock = vi.fn();
+vi.mock('@/lib/portal/project-access', () => ({
+  canUserEditProject: (...args: unknown[]) => canUserEditProjectMock(...args),
+}));
+
+const checkWipLimitMock = vi.fn();
+vi.mock('@/lib/portal/wip-limit', () => ({
+  checkWipLimit: (...args: unknown[]) => checkWipLimitMock(...args),
+}));
+
 const logCardActivityMock = vi.fn();
 vi.mock('@/lib/pm-activity', () => ({
   logCardActivity: (...args: unknown[]) => logCardActivityMock(...args),
@@ -51,6 +61,9 @@ vi.mock('drizzle-orm', () => ({
       raw: (s: string) => ({ op: 'sql.raw', s }),
     },
   ),
+  isNull: (a: unknown) => ({ op: 'isNull', a }),
+  or: (...args: unknown[]) => ({ op: 'or', args: args.filter(Boolean) }),
+  inArray: (a: unknown, list: unknown[]) => ({ op: 'inArray', a, list }),
 }));
 
 // schema — proxy tables so `table.col` and `eq(table.col, x)` are inert
@@ -67,13 +80,13 @@ vi.mock('@/lib/db/schema', () => {
         },
       },
     );
-  return {
+  return new Proxy({
     kanbanCards: wrap('kanbanCards'),
     kanbanColumns: wrap('kanbanColumns'),
     projects: wrap('projects'),
     chatConversations: wrap('chatConversations'),
     chatMessages: wrap('chatMessages'),
-  };
+  }, { has: (t, p) => (p in t) || !(p === "then" || p === "__esModule" || p === "default" || typeof p !== "string"), get: (t, p) => (p in t) ? t[p] : ((p === "then" || p === "__esModule" || p === "default" || typeof p !== "string") ? undefined : wrap(p)) });
 });
 
 // ---- db mock with select-queue + capture for writes ----
@@ -226,6 +239,8 @@ beforeEach(() => {
   unwatchMock.mockReset().mockResolvedValue(undefined);
   verifyUnsubscribeMock.mockReset();
   publishConversationUpdateMock.mockReset().mockResolvedValue(undefined);
+  canUserEditProjectMock.mockReset().mockResolvedValue(true); // default: can edit
+  checkWipLimitMock.mockReset().mockResolvedValue({ allowed: true }); // default: no wip block
 });
 
 // ===========================================================================
@@ -305,11 +320,13 @@ describe('POST /api/portal/cards', () => {
       makeJsonRequest('http://x/api/portal/cards', 'POST', { title: 't' }),
     );
     expect(res.status).toBe(400);
-    expect((await res.json()).message).toMatch(/columnId and title/i);
+    expect((await res.json()).message).toMatch(/columnId/i);
   });
 
   it('returns 400 when title is empty/whitespace', async () => {
     authMock.mockResolvedValue(STAFF_SESSION);
+    // title validation happens after column lookup
+    selectQueue.push([{ id: 1, projectId: 5 }]); // column found
     const res = await cardsRoute.POST(
       makeJsonRequest('http://x/api/portal/cards', 'POST', { columnId: 1, title: '   ' }),
     );
@@ -370,7 +387,7 @@ describe('POST /api/portal/cards', () => {
     expect((insert.values as Record<string, unknown>).description).toBeNull();
     expect((insert.values as Record<string, unknown>).dueDate).toBeNull();
     expect((insert.values as Record<string, unknown>).createdBy).toBe(7);
-    expect(logCardActivityMock).toHaveBeenCalledWith(50, 7, 'card.created', { title: 'New' });
+    expect(logCardActivityMock).toHaveBeenCalledWith(50, 7, 'card.created', { title: 'New', fromTemplateId: null });
   });
 
   it('uses nextNumber=1 when max is null (first card in project)', async () => {

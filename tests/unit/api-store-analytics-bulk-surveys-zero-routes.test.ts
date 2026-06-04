@@ -42,6 +42,9 @@ vi.mock('drizzle-orm', () => ({
       join: (parts: unknown[], sep: unknown) => ({ __sqlJoin: true, parts, sep }),
     },
   ),
+  isNull: (a: unknown) => ({ op: 'isNull', a }),
+  or: (...args: unknown[]) => ({ op: 'or', args: args.filter(Boolean) }),
+  inArray: (a: unknown, list: unknown[]) => ({ op: 'inArray', a, list }),
 }));
 
 // ---------------------------------------------------------------------------
@@ -99,6 +102,15 @@ vi.mock('@/lib/portal-client', () => ({
 const createCrmNotificationMock = vi.fn().mockResolvedValue({ id: 1 });
 vi.mock('@/lib/crm/notifications', () => ({
   createCrmNotification: (...args: unknown[]) => createCrmNotificationMock(...args),
+}));
+
+// Transparent passthrough so withCronHealth doesn't hit the DB insert/update
+// for health tracking, and doesn't add spurious db.update() calls to assertions.
+vi.mock('@/lib/cron-health', () => ({
+  withCronHealth: (
+    _opts: unknown,
+    handler: (req: Request) => Promise<Response>,
+  ) => handler,
 }));
 
 // ---------------------------------------------------------------------------

@@ -33,6 +33,9 @@
     "db:studio": "drizzle-kit studio",
     "db:seed": "tsx scripts/seed-admin.ts",
     "db:seed:admin-e2e": "tsx scripts/seed-admin-e2e.ts",
+    "db:seed:brain-taxonomy": "tsx scripts/brain/seed-taxonomy-topics.ts",
+    "backfill:brain-taxonomy:preview": "tsx scripts/brain/backfill-taxonomy.ts --mode=preview",
+    "backfill:brain-taxonomy:apply": "tsx scripts/brain/backfill-taxonomy.ts --mode=apply",
     "android": "expo run:android",
     "ios": "expo run:ios"
   },
@@ -91,6 +94,7 @@
     "postgres": "^3.4.8",
     "react": "19.2.3",
     "react-dom": "19.2.3",
+    "react-draggable": "^4.5.0",
     "react-fast-marquee": "^1.6.5",
     "react-force-graph-2d": "^1.29.1",
     "react-hook-form": "^7.71.0",
@@ -140,10 +144,12 @@
     "@vitejs/plugin-react": "^5.1.2",
     "@vitest/coverage-v8": "^4.1.5",
     "c8": "^11.0.0",
+    "dependency-cruiser": "^17.4.3",
     "drizzle-kit": "^0.31.8",
     "eslint": "^9",
     "eslint-config-next": "16.1.1",
     "jsdom": "^27.4.0",
+    "knip": "^6.14.2",
     "msw": "^2.13.4",
     "pixelmatch": "^7.2.0",
     "playwright": "^1.58.0",
@@ -155,10 +161,11 @@
     "vitest": "^4.1.5",
     "wait-on": "^9.0.5"
   },
+  "// overrides": "jsdom is aliased via \"$jsdom\" (track the devDep), NOT hard-pinned — a fixed jsdom version (and its transitive pins below) propagates through bun overrides onto the Playwright + chrome-devtools MCP browser stacks and breaks them. Do not re-pin jsdom.",
   "overrides": {
     "fast-xml-parser": ">=4.5.0",
     "html-encoding-sniffer": "4.0.0",
-    "jsdom": "27.3.0",
+    "jsdom": "$jsdom",
     "@asamuzakjp/css-color": "4.1.1"
   }
 }

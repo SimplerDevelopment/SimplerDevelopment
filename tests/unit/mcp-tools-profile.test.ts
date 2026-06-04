@@ -84,7 +84,7 @@ vi.mock('@/lib/db/schema', () => {
       Object.fromEntries(cols.map((c) => [c, { name: c, table: name }])),
     ) as Record<string, unknown>;
   const blank = (name: string) => make(name, 'id');
-  return {
+  return new Proxy({
     projects: blank('projects'),
     kanbanCards: blank('kanbanCards'),
     kanbanColumns: blank('kanbanColumns'),
@@ -167,7 +167,7 @@ vi.mock('@/lib/db/schema', () => {
     aiCreditLedger: blank('aiCreditLedger'),
     hostedSites: blank('hostedSites'),
     googleWorkspaceUserConnections: blank('googleWorkspaceUserConnections'),
-  };
+  }, { has: (t, p) => (p in t) || !(p === "then" || p === "__esModule" || p === "default" || typeof p !== "string"), get: (t, p) => (p in t) ? t[p] : ((p === "then" || p === "__esModule" || p === "default" || typeof p !== "string") ? undefined : new Proxy({ __table: String(p) }, { get: (_x, c) => c === "__table" ? String(p) : (typeof c === "string" ? { __col: c, __table: String(p) } : undefined) })) });
 });
 
 vi.mock('drizzle-orm', () => ({
@@ -200,6 +200,7 @@ vi.mock('@/lib/portal-auth', () => ({
 
 vi.mock('next/cache', () => ({
   revalidatePath: vi.fn(),
+  unstable_cache: (fn: (...a: unknown[]) => unknown) => fn,
 }));
 
 vi.mock('@/lib/pm-activity', () => ({ logCardActivity: vi.fn() }));

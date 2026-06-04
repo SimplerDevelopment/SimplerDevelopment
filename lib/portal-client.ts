@@ -1,6 +1,8 @@
+import { cache } from 'react';
+import { unstable_cache } from 'next/cache';
 import { db } from '@/lib/db';
 import { clients, clientMembers, clientWebsites, clientServices, services, users } from '@/lib/db/schema';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, inArray } from 'drizzle-orm';
 import { cookies } from 'next/headers';
 import {
   IMPERSONATE_COOKIE,
@@ -15,8 +17,13 @@ const ACTIVE_CLIENT_COOKIE = 'sd-active-client';
  * If a valid `sd_impersonate_client_id` cookie is present AND the user is
  * staff, that impersonation target takes priority over normal resolution.
  * All existing call sites work without changes.
+ *
+ * Wrapped in `React.cache` so repeated calls within a single request (e.g.
+ * middleware + every server component + every server-only API route invoked
+ * during the same render) dedupe to one DB query. Safe because the resolver
+ * is read-only and the cache is per-request.
  */
-export async function getPortalClient(userId: number, preferredClientId?: number) {
+export const getPortalClient = cache(async (userId: number, preferredClientId?: number) => {
   // Check for staff impersonation first — short-circuits the membership lookup.
   // We re-fetch the role from the DB rather than trusting any JWT/session
   // floating around, so this resolver is safe to call anywhere (server
@@ -68,12 +75,13 @@ export async function getPortalClient(userId: number, preferredClientId?: number
 
   // Default to first available
   return allClients[0];
-}
+});
 
 /**
  * Returns ALL clients a user has access to (via team membership or direct ownership).
+ * Wrapped in `React.cache` for per-request dedupe.
  */
-export async function getPortalClients(userId: number) {
+export const getPortalClients = cache(async (userId: number) => {
   // Get all clients via team membership
   const teamRows = await db
     .select({ client: clients, role: clientMembers.role })
@@ -97,14 +105,46 @@ export async function getPortalClients(userId: number) {
   }
 
   return result;
+});
+
+/**
+ * Resolve a website the URL's `[siteId]` refers to, scoped across ALL clients
+ * the user can access — NOT just the active/preferred one. This mirrors the
+ * access check in `app/portal/websites/[siteId]/layout.tsx`, so deep links and
+ * cross-client navigation don't 404 when the site belongs to a non-active
+ * accessible client (a portal user can have multiple clients/sites).
+ *
+ * Returns the full site row plus its OWNING client (use this, not the active
+ * client, for any client-scoped data on the page — e.g. a new post's clientId).
+ * Returns null when the user has no access to that site → callers should
+ * `notFound()`.
+ */
+export async function resolvePortalSite(userId: number, siteId: number) {
+  if (Number.isNaN(siteId)) return null;
+  const accessible = await getPortalClients(userId);
+  if (accessible.length === 0) return null;
+  const [site] = await db
+    .select()
+    .from(clientWebsites)
+    .where(
+      and(
+        eq(clientWebsites.id, siteId),
+        inArray(clientWebsites.clientId, accessible.map((c) => c.id)),
+      ),
+    )
+    .limit(1);
+  if (!site) return null;
+  const client = accessible.find((c) => c.id === site.clientId) ?? accessible[0];
+  return { site, client };
 }
 
 /**
  * Returns the user's role on a specific client, or null if the user has no
  * access. 'owner' is returned for legacy direct-owned rows (clients.userId)
  * even when no clientMembers record exists.
+ * Wrapped in `React.cache` for per-request dedupe.
  */
-export async function getPortalRole(userId: number, clientId: number): Promise<'owner' | 'admin' | 'member' | 'viewer' | null> {
+export const getPortalRole = cache(async (userId: number, clientId: number): Promise<'owner' | 'admin' | 'member' | 'viewer' | null> => {
   const [client] = await db.select({ userId: clients.userId }).from(clients).where(eq(clients.id, clientId)).limit(1);
   if (client && client.userId === userId) return 'owner';
   const [member] = await db
@@ -114,12 +154,13 @@ export async function getPortalRole(userId: number, clientId: number): Promise<'
     .limit(1);
   if (!member) return null;
   return (member.role as 'owner' | 'admin' | 'member' | 'viewer') ?? null;
-}
+});
 
 /**
  * Returns all clients with the user's role for each (used by the switcher API).
+ * Wrapped in `React.cache` for per-request dedupe.
  */
-export async function getPortalClientsWithRoles(userId: number) {
+export const getPortalClientsWithRoles = cache(async (userId: number) => {
   // Team memberships with roles
   const teamRows = await db
     .select({ client: clients, role: clientMembers.role })
@@ -143,13 +184,14 @@ export async function getPortalClientsWithRoles(userId: number) {
   }
 
   return result;
-}
+});
 
 /**
  * Resolves and authorises a client website for a given user + siteId.
  * Returns the site row if the user's client account owns it, otherwise null.
+ * Wrapped in `React.cache` for per-request dedupe.
  */
-export async function resolveClientSite(userId: number, siteId: number, preferredClientId?: number) {
+export const resolveClientSite = cache(async (userId: number, siteId: number, preferredClientId?: number) => {
   const client = await getPortalClient(userId, preferredClientId);
   if (!client) return null;
   const [site] = await db
@@ -158,13 +200,14 @@ export async function resolveClientSite(userId: number, siteId: number, preferre
     .where(and(eq(clientWebsites.id, siteId), eq(clientWebsites.clientId, client.id)))
     .limit(1);
   return site ?? null;
-}
+});
 
 /**
  * Checks if a client has an active subscription for a service by category slug.
  * Returns the service row if subscribed, null otherwise.
+ * Wrapped in `React.cache` for per-request dedupe.
  */
-export async function checkServiceSubscription(clientId: number, category: string) {
+export const checkServiceSubscription = cache(async (clientId: number, category: string) => {
   const [row] = await db
     .select({ service: services, subscription: clientServices })
     .from(clientServices)
@@ -178,16 +221,24 @@ export async function checkServiceSubscription(clientId: number, category: strin
     )
     .limit(1);
   return row ?? null;
-}
+});
 
 /**
- * Gets the service catalog entry for a given category.
+ * Gets the service catalog entry for a given category. Cross-request cached
+ * via `unstable_cache` (5min TTL, tag `services-catalog`) — service catalog
+ * is admin-curated and almost never changes between renders.
  */
-export async function getServiceByCategory(category: string) {
+const _getServiceByCategoryUncached = async (category: string) => {
   const [svc] = await db
     .select()
     .from(services)
     .where(and(eq(services.category, category), eq(services.active, true)))
     .limit(1);
   return svc ?? null;
-}
+};
+
+export const getServiceByCategory = unstable_cache(
+  _getServiceByCategoryUncached,
+  ['portal-service-by-category'],
+  { revalidate: 300, tags: ['services-catalog'] },
+);

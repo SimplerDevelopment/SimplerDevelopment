@@ -40,6 +40,10 @@ function CardRow({ c, badge }: { c: StandupCard; badge?: string }) {
   return (
     <Link
       href={`/portal/projects/${c.projectId}?card=${c.id}`}
+      // Standup view typically renders many card rows across multiple
+      // sections; viewport prefetch on every link DDoSes the project detail
+      // route. Defer prefetch to hover.
+      prefetch={false}
       className="flex items-start gap-2 px-3 py-2 rounded border border-border bg-card hover:border-primary/50 hover:shadow-sm transition-all"
     >
       <div className="flex-1 min-w-0">

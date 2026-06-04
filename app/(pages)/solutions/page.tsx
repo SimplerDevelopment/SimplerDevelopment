@@ -4,15 +4,26 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
 import { FadeIn } from '@/components/animations/FadeIn';
 import { SlideIn } from '@/components/animations/SlideIn';
+import { CodeLogo3D } from '@/components/three/CodeLogo3D';
+import { MaintenanceNotice, SOLUTIONS_UNDER_MAINTENANCE } from '@/components/marketing/MaintenanceNotice';
 
 export const metadata = generateSEO({
   title: 'Platform Features',
-  description: 'Website builder, email marketing, CRM, booking, project management, AI chatbot, and more — all in one platform',
+  description: 'Website builder, online store, publishing & content calendar, email marketing, CRM, contracts & e-signature, booking, surveys, A/B experiments, project management, help desk, Company Brain AI, AI chatbot, automations, white-label agency, and more — 18 tools in one platform',
   path: '/solutions',
 });
 
+const NUMBER_WORDS = [
+  'Zero', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten',
+  'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen',
+  'Eighteen', 'Nineteen', 'Twenty', 'Twenty-One', 'Twenty-Two', 'Twenty-Three', 'Twenty-Four',
+];
+const numberWord = (n: number): string => NUMBER_WORDS[n] ?? String(n);
+
 export default function SolutionsPage() {
+  if (SOLUTIONS_UNDER_MAINTENANCE) return <MaintenanceNotice />;
   const solutions = getAllSolutions();
+  const toolCount = solutions.length;
 
   return (
     <div className="min-h-screen">
@@ -20,21 +31,29 @@ export default function SolutionsPage() {
       <section className="relative py-24 md:py-32 overflow-hidden bg-dot-grid">
         <div className="absolute inset-0 bg-gradient-to-b from-background via-background/95 to-background" />
         <div className="container mx-auto px-4 relative z-10">
-          <div className="max-w-3xl">
-            <FadeIn>
-              <p className="text-primary font-mono text-sm font-semibold mb-4 tracking-wider">// PLATFORM</p>
-            </FadeIn>
-            <FadeIn delay={0.1}>
-              <h1 className="font-display text-5xl md:text-7xl font-bold mb-6 leading-[1.05]">
-                Every Tool Your Business{' '}
-                <span className="text-primary">Actually Needs</span>
-              </h1>
-            </FadeIn>
-            <FadeIn delay={0.2}>
-              <p className="text-xl text-muted-foreground max-w-xl">
-                Eight integrated tools that replace a dozen subscriptions. Website, email, CRM, booking, projects, AI, and more — all working together from one dashboard.
-              </p>
-              <div className="mt-6 w-20 h-1 bg-gradient-to-r from-primary to-accent-warm rounded-full" />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-center">
+            {/* Left column — copy */}
+            <div className="max-w-xl">
+              <FadeIn immediate>
+                <p className="text-primary font-mono text-sm font-semibold mb-4 tracking-wider">{`// PLATFORM`}</p>
+              </FadeIn>
+              <FadeIn immediate delay={0.1}>
+                <h1 className="font-display text-5xl md:text-7xl font-bold mb-6 leading-[1.05]">
+                  Every Tool Your Business{' '}
+                  <span className="text-primary">Actually Needs</span>
+                </h1>
+              </FadeIn>
+              <FadeIn immediate delay={0.2}>
+                <p className="text-xl text-muted-foreground">
+                  {numberWord(toolCount)} integrated tools that replace your entire SaaS stack. Websites, stores, a content calendar, email, CRM, booking, surveys, A/B testing, projects, a help desk, an AI Company Brain, white-label agency, and more — all working together from one dashboard.
+                </p>
+                <div className="mt-6 w-20 h-1 bg-gradient-to-r from-primary to-accent-warm rounded-full" />
+              </FadeIn>
+            </div>
+
+            {/* Right column — 3D code logo */}
+            <FadeIn immediate delay={0.3}>
+              <CodeLogo3D className="h-[320px] w-full md:h-[440px] lg:h-[480px]" />
             </FadeIn>
           </div>
         </div>
@@ -94,7 +113,7 @@ export default function SolutionsPage() {
                           className="font-mono text-sm font-semibold mb-3 tracking-wider"
                           style={{ color: solution.color }}
                         >
-                          // {String(index + 1).padStart(2, '0')}
+                          {`// ${String(index + 1).padStart(2, '0')}`}
                         </p>
                         <div
                           className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold mb-5"
@@ -135,9 +154,9 @@ export default function SolutionsPage() {
           <div className="max-w-5xl mx-auto">
             <FadeIn>
               <div className="text-center mb-16">
-                <p className="font-mono text-sm font-semibold mb-3 tracking-wider opacity-50">// ALL-IN-ONE</p>
+                <p className="font-mono text-sm font-semibold mb-3 tracking-wider opacity-50">{`// ALL-IN-ONE`}</p>
                 <h2 className="font-display text-3xl md:text-4xl font-bold mb-4">
-                  Why One Platform Beats Five
+                  Why One Platform Beats {numberWord(toolCount - 1)}
                 </h2>
                 <p className="text-lg opacity-70 max-w-2xl mx-auto">
                   Everything connected, everything managed, everything working together
@@ -170,12 +189,12 @@ export default function SolutionsPage() {
 
         <div className="container mx-auto px-4 text-center relative z-10">
           <FadeIn>
-            <p className="text-primary font-mono text-sm font-semibold mb-4 tracking-wider">// NEXT STEP</p>
+            <p className="text-primary font-mono text-sm font-semibold mb-4 tracking-wider">{`// NEXT STEP`}</p>
             <h2 className="font-display text-4xl md:text-5xl font-bold mb-6">
               Ready to Simplify Everything?
             </h2>
             <p className="text-xl text-muted-foreground mb-10 max-w-2xl mx-auto">
-              Book a free consultation and we'll walk you through the platform. See exactly how it works for your business.
+              Book a free consultation and we&apos;ll walk you through the platform. See exactly how it works for your business.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button href="/contact" size="lg">

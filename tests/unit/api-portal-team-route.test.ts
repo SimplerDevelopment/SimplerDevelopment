@@ -24,6 +24,9 @@ vi.mock('@/lib/portal-client', () => ({
 vi.mock('drizzle-orm', () => ({
   eq: (a: unknown, b: unknown) => ({ op: 'eq', a, b }),
   and: (...args: unknown[]) => ({ op: 'and', args }),
+  isNull: (a: unknown) => ({ op: 'isNull', a }),
+  or: (...args: unknown[]) => ({ op: 'or', args: args.filter(Boolean) }),
+  inArray: (a: unknown, list: unknown[]) => ({ op: 'inArray', a, list }),
 }));
 
 vi.mock('@/lib/db/schema', () => {
@@ -38,11 +41,11 @@ vi.mock('@/lib/db/schema', () => {
         },
       },
     );
-  return {
+  return new Proxy({
     users: wrap('users'),
     clients: wrap('clients'),
     clientMembers: wrap('clientMembers'),
-  };
+  }, { has: (t, p) => (p in t) || !(p === "then" || p === "__esModule" || p === "default" || typeof p !== "string"), get: (t, p) => (p in t) ? t[p] : ((p === "then" || p === "__esModule" || p === "default" || typeof p !== "string") ? undefined : wrap(p)) });
 });
 
 const hashMock = vi.fn(async () => 'HASHED_PLACEHOLDER');

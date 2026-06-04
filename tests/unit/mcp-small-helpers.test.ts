@@ -49,9 +49,9 @@ vi.mock('@/lib/db/schema', () => {
   const col = (name: string) => ({ name });
   const make = (...cols: string[]) =>
     Object.fromEntries(cols.map((c) => [c, col(c)])) as Record<string, unknown>;
-  return {
+  return new Proxy({
     mcpPendingChanges: make('id', 'status', 'createdAt', 'errorMessage'),
-  };
+  }, { has: (t, p) => (p in t) || !(p === "then" || p === "__esModule" || p === "default" || typeof p !== "string"), get: (t, p) => (p in t) ? t[p] : ((p === "then" || p === "__esModule" || p === "default" || typeof p !== "string") ? undefined : new Proxy({ __table: String(p) }, { get: (_x, c) => c === "__table" ? String(p) : (typeof c === "string" ? { __col: c, __table: String(p) } : undefined) })) });
 });
 
 vi.mock('drizzle-orm', () => ({
@@ -62,6 +62,8 @@ vi.mock('drizzle-orm', () => ({
     vi.fn((...args: unknown[]) => ({ __tag: 'sql', args })),
     { raw: vi.fn((s: string) => ({ __tag: 'sql.raw', s })) },
   ),
+  isNull: (a: unknown) => ({ op: 'isNull', a }),
+  or: (...args: unknown[]) => ({ op: 'or', args: args.filter(Boolean) }),
 }));
 
 vi.mock('@/lib/mcp-auth', () => ({
@@ -71,7 +73,8 @@ vi.mock('@/lib/mcp-auth', () => ({
     granted.includes(`${required.split(':')[0]}:*`),
 }));
 
-vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }));
+vi.mock('next/cache', () => ({ revalidatePath: vi.fn(), unstable_cache: (fn: (...a: unknown[]) => unknown) => fn,
+}));
 vi.mock('@/lib/portal-auth', () => ({ hasServiceAccess: vi.fn(async () => true) }));
 
 // Stub every per-domain registrar that tools/index.ts re-exports. Each gets a

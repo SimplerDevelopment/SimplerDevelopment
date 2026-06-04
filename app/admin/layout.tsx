@@ -1,6 +1,8 @@
 'use client';
 
-import SessionProvider from '@/components/SessionProvider';
+// SessionProvider is mounted once at the app root in `app/layout.tsx`.
+// Re-wrapping here would spin up an extra /api/auth/session poll, so we just
+// render the admin chrome and let the root provider supply the session.
 import AdminSidebar from '@/components/admin/AdminSidebar';
 import { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
@@ -41,28 +43,24 @@ export default function AdminLayout({
 
   if (isLoginPage) {
     return (
-      <SessionProvider>
-        <div className="min-h-screen flex items-center justify-center bg-background">
-          {children}
-        </div>
-      </SessionProvider>
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        {children}
+      </div>
     );
   }
 
   return (
-    <SessionProvider>
-      <div className="min-h-screen bg-background">
-        {!isPostEditScreen && <AdminSidebar />}
-        <div
-          className={`transition-all duration-300 ${
-            isPostEditScreen ? '' : (isCollapsed ? 'lg:pl-16' : 'lg:pl-64')
-          }`}
-        >
-          <main className="min-h-screen">
-            {children}
-          </main>
-        </div>
+    <div className="min-h-screen bg-background">
+      {!isPostEditScreen && <AdminSidebar />}
+      <div
+        className={`transition-all duration-300 ${
+          isPostEditScreen ? '' : (isCollapsed ? 'lg:pl-16' : 'lg:pl-64')
+        }`}
+      >
+        <main className="min-h-screen">
+          {children}
+        </main>
       </div>
-    </SessionProvider>
+    </div>
   );
 }

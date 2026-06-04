@@ -30,6 +30,8 @@ const mocks = vi.hoisted(() => {
       values: vi.fn(() => makeThenable(resolver)),
       returning: vi.fn(() => makeThenable(resolver)),
       set: vi.fn(() => makeThenable(resolver)),
+      leftJoin: vi.fn(() => makeThenable(resolver)),
+      innerJoin: vi.fn(() => makeThenable(resolver)),
     };
     return obj;
   }
@@ -65,10 +67,23 @@ vi.mock('@/lib/db/schema', () => ({
   },
   orderItems: {
     orderId: 'orderItems.orderId',
+    designId: 'orderItems.designId',
   },
   orderStatusHistory: {
     orderId: 'orderStatusHistory.orderId',
     createdAt: 'orderStatusHistory.createdAt',
+  },
+  designs: {
+    id: 'designs.id',
+    name: 'designs.name',
+    thumbnailUrl: 'designs.thumbnailUrl',
+  },
+  easypostEvents: {
+    id: 'easypostEvents.id',
+    processedAt: 'easypostEvents.processedAt',
+    eventType: 'easypostEvents.eventType',
+    payload: 'easypostEvents.payload',
+    orderId: 'easypostEvents.orderId',
   },
   storeCustomerMessages: {
     id: 'storeCustomerMessages.id',
@@ -86,6 +101,9 @@ vi.mock('drizzle-orm', () => ({
   eq: (a: unknown, b: unknown) => ({ op: 'eq', a, b }),
   and: (...conds: unknown[]) => ({ op: 'and', conds }),
   desc: (col: unknown) => ({ op: 'desc', col }),
+  isNull: (a: unknown) => ({ op: 'isNull', a }),
+  or: (...args: unknown[]) => ({ op: 'or', args: args.filter(Boolean) }),
+  inArray: (a: unknown, list: unknown[]) => ({ op: 'inArray', a, list }),
 }));
 
 vi.mock('@/lib/storefront/customer-auth', () => ({
@@ -202,12 +220,14 @@ describe('GET /api/storefront/[siteId]/account/orders/[orderNumber]', () => {
   it('returns order with items and history on success', async () => {
     mocks.requireCustomer.mockResolvedValue(SESSION);
     const order = { id: 7, orderNumber: 'ORD-7', customerEmail: 'a@b.com' };
-    const items = [{ id: 100, orderId: 7, productId: 1 }];
+    const rawItems = [{ id: 100, orderId: 7, productId: 1 }];
     const history = [
       { id: 200, orderId: 7, status: 'shipped' },
       { id: 201, orderId: 7, status: 'placed' },
     ];
-    queue([order], items, history);
+    const trackingEvents: unknown[] = [];
+    // Order lookup, then Promise.all([items+design join, history, trackingEvents])
+    queue([order], rawItems, history, trackingEvents);
     const res = await orderDetailRoute.GET(
       getReq(),
       paramsFor({ siteId: '1', orderNumber: 'ORD-7' }),
@@ -215,7 +235,12 @@ describe('GET /api/storefront/[siteId]/account/orders/[orderNumber]', () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.success).toBe(true);
-    expect(body.data).toEqual({ order, items, history });
+    expect(body.data.order).toEqual(order);
+    expect(body.data.history).toEqual(history);
+    expect(body.data.trackingEvents).toEqual([]);
+    // items are mapped — check core fields
+    expect(body.data.items).toHaveLength(1);
+    expect(body.data.items[0]).toMatchObject({ id: 100, orderId: 7, productId: 1, design: null });
   });
 });
 

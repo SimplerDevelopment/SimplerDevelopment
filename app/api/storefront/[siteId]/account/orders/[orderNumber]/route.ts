@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { orders, orderItems, orderStatusHistory, easypostEvents } from '@/lib/db/schema';
-import { and, eq, desc } from 'drizzle-orm';
+import { orders, orderItems, orderStatusHistory, easypostEvents, designs } from '@/lib/db/schema';
+import { and, eq, desc, isNull } from 'drizzle-orm';
 import { requireCustomer } from '@/lib/storefront/customer-auth';
 
 /**
@@ -24,8 +24,30 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ site
 
   if (!order) return NextResponse.json({ success: false, message: 'Order not found' }, { status: 404 });
 
-  const [items, history, trackingEvents] = await Promise.all([
-    db.select().from(orderItems).where(eq(orderItems.orderId, order.id)),
+  // Fetch items with design thumbnail join, order status history, and EasyPost tracking events.
+  const [itemsWithDesign, history, trackingEvents] = await Promise.all([
+    db.select({
+      id: orderItems.id,
+      orderId: orderItems.orderId,
+      productId: orderItems.productId,
+      variantId: orderItems.variantId,
+      designId: orderItems.designId,
+      productName: orderItems.productName,
+      variantName: orderItems.variantName,
+      sku: orderItems.sku,
+      unitPrice: orderItems.unitPrice,
+      quantity: orderItems.quantity,
+      total: orderItems.total,
+      createdAt: orderItems.createdAt,
+      designRowId: designs.id,
+      designName: designs.name,
+      designThumbnailUrl: designs.thumbnailUrl,
+    })
+      .from(orderItems)
+      .leftJoin(designs, and(
+        eq(designs.id, orderItems.designId),
+      ))
+      .where(eq(orderItems.orderId, order.id)),
     db.select().from(orderStatusHistory).where(eq(orderStatusHistory.orderId, order.id)).orderBy(desc(orderStatusHistory.createdAt)),
     db.select({
       processedAt: easypostEvents.processedAt,
@@ -37,6 +59,28 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ site
       .orderBy(desc(easypostEvents.processedAt))
       .limit(10),
   ]);
+
+  const items = itemsWithDesign.map(row => ({
+    id: row.id,
+    orderId: row.orderId,
+    productId: row.productId,
+    variantId: row.variantId,
+    designId: row.designId,
+    productName: row.productName,
+    variantName: row.variantName,
+    sku: row.sku,
+    unitPrice: row.unitPrice,
+    quantity: row.quantity,
+    total: row.total,
+    createdAt: row.createdAt,
+    design: row.designRowId
+      ? {
+          id: row.designRowId,
+          name: row.designName,
+          thumbnailUrl: row.designThumbnailUrl,
+        }
+      : null,
+  }));
 
   return NextResponse.json({
     success: true,

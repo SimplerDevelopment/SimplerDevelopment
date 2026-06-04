@@ -256,13 +256,19 @@ export function usePostForm({ siteId, post, mode, editorMode, ydoc }: UsePostFor
   // entirely when a Yjs doc is connected — the realtime-server persists
   // snapshots to Postgres independently and a parallel REST autosave would
   // race that write.
-  const initialBlocksRef = useRef(JSON.stringify(blocks));
+  //
+  // The previous version called JSON.stringify(blocks) on every effect run
+  // — past ~30 blocks that's measurable cost on every keystroke. The state
+  // tree is immutable, so reference equality on the blocks array IS the
+  // change signal: anything that mutated something in the tree handed us a
+  // new top-level array via setBlocks(prev => …). We only fall back to a
+  // cheap structural fingerprint to skip the first effect run on mount.
+  const lastSeenBlocksRef = useRef<Block[]>(blocks);
   useEffect(() => {
     if (mode !== 'edit' || editorMode !== 'iframe') return;
     if (ydoc) return; // realtime owns persistence
-    const currentContent = JSON.stringify(blocks);
-    if (currentContent === initialBlocksRef.current) return;
-    initialBlocksRef.current = currentContent;
+    if (lastSeenBlocksRef.current === blocks) return; // no actual change
+    lastSeenBlocksRef.current = blocks;
 
     if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
     autosaveTimer.current = setTimeout(() => {

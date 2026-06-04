@@ -27,6 +27,8 @@ vi.mock('drizzle-orm', () => ({
     }),
     {},
   ),
+  isNull: (a: unknown) => ({ op: 'isNull', a }),
+  inArray: (a: unknown, list: unknown[]) => ({ op: 'inArray', a, list }),
 }));
 
 vi.mock('@/lib/db/schema', () => {
@@ -41,11 +43,11 @@ vi.mock('@/lib/db/schema', () => {
         },
       },
     );
-  return {
+  return new Proxy({
     categories: wrap('categories'),
     tags: wrap('tags'),
     blockTemplates: wrap('blockTemplates'),
-  };
+  }, { has: (t, p) => (p in t) || !(p === "then" || p === "__esModule" || p === "default" || typeof p !== "string"), get: (t, p) => (p in t) ? t[p] : ((p === "then" || p === "__esModule" || p === "default" || typeof p !== "string") ? undefined : wrap(p)) });
 });
 
 interface UpdateCall {

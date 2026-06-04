@@ -45,6 +45,10 @@ vi.mock('@/lib/db', () => {
   };
 });
 
+// vi.mock calls above are hoisted; this static import is resolved after mocks.
+// vi.resetModules() removed — usage-rollup has no module-level mutable state.
+import { rollupClientPeriod } from '@/lib/billing/usage-rollup';
+
 function reset() {
   state.selectQueue = [];
   state.insertCalls = [];
@@ -66,13 +70,11 @@ function setup(opts: { total: string; included: string; unitPriceCents: number }
 
 describe('includedQuantity allowance', () => {
   beforeEach(() => {
-    vi.resetModules();
     reset();
   });
 
   it('total below included → billable=0, billedCents=0', async () => {
     setup({ total: '40', included: '50', unitPriceCents: 5 });
-    const { rollupClientPeriod } = await import('@/lib/billing/usage-rollup');
     const [r] = await rollupClientPeriod(1, '2026-05', { periodEndUnix: 100 });
     expect(r.total).toBe(40);
     expect(r.included).toBe(50);
@@ -82,7 +84,7 @@ describe('includedQuantity allowance', () => {
 
   it('total exactly equals included → billable=0', async () => {
     setup({ total: '50', included: '50', unitPriceCents: 5 });
-    const { rollupClientPeriod } = await import('@/lib/billing/usage-rollup');
+
     const [r] = await rollupClientPeriod(1, '2026-05', { periodEndUnix: 100 });
     expect(r.billable).toBe(0);
     expect(r.billedCents).toBe(0);
@@ -90,7 +92,7 @@ describe('includedQuantity allowance', () => {
 
   it('total above included → billable=delta, billedCents=delta*price (rounded)', async () => {
     setup({ total: '125', included: '50', unitPriceCents: 5 });
-    const { rollupClientPeriod } = await import('@/lib/billing/usage-rollup');
+
     const [r] = await rollupClientPeriod(1, '2026-05', { periodEndUnix: 100 });
     expect(r.billable).toBe(75);
     expect(r.billedCents).toBe(375); // 75 * 5
@@ -98,7 +100,7 @@ describe('includedQuantity allowance', () => {
 
   it('zero included → billable equals total', async () => {
     setup({ total: '125', included: '0', unitPriceCents: 5 });
-    const { rollupClientPeriod } = await import('@/lib/billing/usage-rollup');
+
     const [r] = await rollupClientPeriod(1, '2026-05', { periodEndUnix: 100 });
     expect(r.billable).toBe(125);
     expect(r.billedCents).toBe(625);
@@ -106,7 +108,7 @@ describe('includedQuantity allowance', () => {
 
   it('fractional values are preserved through math, cents rounded', async () => {
     setup({ total: '70.6', included: '50.4', unitPriceCents: 7 });
-    const { rollupClientPeriod } = await import('@/lib/billing/usage-rollup');
+
     const [r] = await rollupClientPeriod(1, '2026-05', { periodEndUnix: 100 });
     expect(r.billable).toBeCloseTo(20.2, 4);
     // 20.2 * 7 = 141.4 → rounded to 141
@@ -123,7 +125,7 @@ describe('includedQuantity allowance', () => {
         includedQuantity: '50', status: 'active',
       }],
     ];
-    const { rollupClientPeriod } = await import('@/lib/billing/usage-rollup');
+
     const [r] = await rollupClientPeriod(1, '2026-05', { periodEndUnix: 100 });
     expect(r.total).toBe(0);
     expect(r.included).toBe(50);
@@ -133,7 +135,7 @@ describe('includedQuantity allowance', () => {
 
   it('persists totalQuantity, includedQuantity, billableQuantity in audit row', async () => {
     setup({ total: '125.5', included: '50.5', unitPriceCents: 5 });
-    const { rollupClientPeriod } = await import('@/lib/billing/usage-rollup');
+
     await rollupClientPeriod(1, '2026-05', { periodEndUnix: 100 });
     expect(state.insertCalls).toHaveLength(1);
     const v = state.insertCalls[0].values as Record<string, string | number | null>;

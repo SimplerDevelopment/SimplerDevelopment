@@ -140,6 +140,8 @@ vi.mock('drizzle-orm', () => ({
     (parts: TemplateStringsArray, ...vals: unknown[]) => ({ __op: 'sql', parts: [...parts], vals }),
     {},
   ),
+  isNull: (a: unknown) => ({ op: 'isNull', a }),
+  or: (...args: unknown[]) => ({ op: 'or', args: args.filter(Boolean) }),
 }));
 
 vi.mock('drizzle-orm/pg-core', () => ({

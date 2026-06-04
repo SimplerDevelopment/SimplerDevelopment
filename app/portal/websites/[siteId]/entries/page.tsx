@@ -4,7 +4,7 @@ import { and, eq } from 'drizzle-orm';
 import { auth } from '@/lib/auth';
 import { redirect, notFound } from 'next/navigation';
 import Link from 'next/link';
-import { getPortalClient } from '@/lib/portal-client';
+import { resolvePortalSite } from '@/lib/portal-client';
 import ContentList from '../ContentList';
 import UploadHtmlPageButton from '@/components/portal/UploadHtmlPageButton';
 
@@ -21,16 +21,9 @@ export default async function PortalCmsEntriesPage({
   if (!session?.user?.id) redirect('/portal/login');
 
   const userId = parseInt(session.user.id, 10);
-  const client = await getPortalClient(userId);
-  if (!client) redirect('/portal/dashboard');
-
-  const [site] = await db
-    .select()
-    .from(clientWebsites)
-    .where(and(eq(clientWebsites.id, parseInt(siteId)), eq(clientWebsites.clientId, client.id)))
-    .limit(1);
-
-  if (!site) notFound();
+  const resolved = await resolvePortalSite(userId, parseInt(siteId));
+  if (!resolved) notFound();
+  const { site } = resolved;
 
   const [sitePosts, contentTypes] = await Promise.all([
     db.select().from(posts).where(eq(posts.websiteId, site.id)).orderBy(posts.updatedAt),

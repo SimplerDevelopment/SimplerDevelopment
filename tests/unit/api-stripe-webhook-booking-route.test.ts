@@ -106,6 +106,9 @@ vi.mock('drizzle-orm', () => ({
     strings,
     vals,
   }),
+  isNull: (a: unknown) => ({ op: 'isNull', a }),
+  or: (...args: unknown[]) => ({ op: 'or', args: args.filter(Boolean) }),
+  inArray: (a: unknown, list: unknown[]) => ({ op: 'inArray', a, list }),
 }));
 
 vi.mock('@/lib/db', () => {
@@ -153,6 +156,7 @@ vi.mock('@/lib/db', () => {
 vi.mock('@/lib/email/booking-emails', () => ({
   sendGuestConfirmation: (...args: unknown[]) => emailState.sendGuestConfirmation(...args),
   sendHostNotification: (...args: unknown[]) => emailState.sendHostNotification(...args),
+  loadBookingBrand: (..._args: unknown[]) => Promise.resolve(null),
 }));
 
 vi.mock('@/lib/google-calendar', () => ({

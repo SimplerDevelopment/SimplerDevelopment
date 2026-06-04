@@ -46,6 +46,7 @@ vi.mock('drizzle-orm', () => ({
       raw: (s: string) => ({ op: 'sql.raw', value: s }),
     },
   ),
+  inArray: (a: unknown, list: unknown[]) => ({ op: 'inArray', a, list }),
 }));
 
 vi.mock('@/lib/db/schema', () => {
@@ -60,7 +61,7 @@ vi.mock('@/lib/db/schema', () => {
         },
       },
     );
-  return {
+  return new Proxy({
     crmNotifications: wrap('crm_notifications'),
     microsoftTeamsUserConnections: wrap('microsoft_teams_user_connections'),
     posts: wrap('posts'),
@@ -69,7 +70,7 @@ vi.mock('@/lib/db/schema', () => {
     kanbanCards: wrap('kanban_cards'),
     kanbanCardChecklistItems: wrap('kanban_card_checklist_items'),
     projects: wrap('projects'),
-  };
+  }, { has: (t, p) => (p in t) || !(p === "then" || p === "__esModule" || p === "default" || typeof p !== "string"), get: (t, p) => (p in t) ? t[p] : ((p === "then" || p === "__esModule" || p === "default" || typeof p !== "string") ? undefined : wrap(p)) });
 });
 
 // ---------------------------------------------------------------------------
@@ -657,6 +658,7 @@ describe('PATCH /api/portal/checklist-items/[id]', () => {
     selectQueue.push([{ id: 50, projectId: 200 }]);
     getPortalClientMock.mockResolvedValue({ id: 33 });
     selectQueue.push([{ id: 200, clientId: 33, isPrivate: true }]);
+    selectQueue.push([{ role: 'editor' }]); // projectMembers (canUserEditProject)
     updateReturningQueue.push([{ id: 1, text: 'edited' }]);
 
     const res = await checklistItemRoute.PATCH(

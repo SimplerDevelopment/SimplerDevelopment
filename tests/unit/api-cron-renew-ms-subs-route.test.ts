@@ -35,13 +35,20 @@ const dbMock = {
       where: vi.fn(() => Promise.resolve(selectState.rows)),
     })),
   })),
-  update: vi.fn(() => ({
+  update: vi.fn((table?: unknown) => ({
     set: vi.fn((values: Record<string, unknown>) => {
-      updateCalls.push({ set: values });
+      // Skip cronHealth tracking updates so tests can count business-logic updates only.
+      const isCronHealth = typeof table === 'object' && table !== null && 'name' in (table as Record<string, unknown>) && (table as Record<string, unknown>).name === 'cron_health.name';
+      if (!isCronHealth) updateCalls.push({ set: values });
       return {
         where: vi.fn(() => Promise.resolve()),
       };
     }),
+  })),
+  insert: vi.fn(() => ({
+    values: vi.fn(() => ({
+      onConflictDoUpdate: vi.fn(() => Promise.resolve()),
+    })),
   })),
 };
 
@@ -69,6 +76,10 @@ class FakeGraphRequestError extends Error {
   }
 }
 
+vi.mock('@/lib/db/schema/cronHealth', () => ({
+  cronHealth: { name: 'cron_health.name' },
+}));
+
 vi.mock('@/lib/db', () => ({
   db: dbMock,
 }));
@@ -88,6 +99,7 @@ vi.mock('drizzle-orm', () => ({
   or: vi.fn((...args) => ({ _op: 'or', args })),
   isNull: vi.fn((a) => ({ _op: 'isNull', a })),
   lt: vi.fn((a, b) => ({ _op: 'lt', a, b })),
+  inArray: (a: unknown, list: unknown[]) => ({ op: 'inArray', a, list }),
 }));
 
 vi.mock('@/lib/microsoft/oauth', () => ({
@@ -118,6 +130,7 @@ describe('GET /api/cron/renew-microsoft-subscriptions', () => {
     updateCalls.length = 0;
     dbMock.select.mockClear();
     dbMock.update.mockClear();
+    dbMock.insert.mockClear();
     createTranscriptsSubscriptionMock.mockReset();
     renewTranscriptsSubscriptionMock.mockReset();
     getEnvMicrosoftCredentialsMock.mockReset();

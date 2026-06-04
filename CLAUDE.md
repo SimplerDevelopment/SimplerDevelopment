@@ -51,7 +51,7 @@ This is a ~357k-line monorepo (app 157k / lib 81k / components 119k LOC). Contex
 
 ## Don't-touch zones
 
-- `drizzle/*.sql` — generated only; edit `lib/db/schema.ts`, then `bun run db:generate`
+- `drizzle/*.sql` — generated only; edit `lib/db/schema/` (per-domain modules), then `bun run db:generate`
 - `bun.lock` — package changes go through `bun add` / `bun remove`
 - `worktree-agent-*` branches — created by isolated agents in other sessions; never delete from here
 - Repo-root debug artifacts (`*.png`, `_tmp-*.cjs`, `editor-snapshot.md`, `audit-verify-*.png`, `edit-*.png`, `editor-*.png`) — stale; do not Read them, do not commit new ones (use `docs/screenshots/` if needed)

@@ -72,6 +72,7 @@ vi.mock('drizzle-orm', () => ({
     }),
     { raw: (s: string) => ({ __sql_raw: true, s }) },
   ),
+  isNull: (a: unknown) => ({ op: 'isNull', a }),
 }));
 
 // schema — proxy tables.
@@ -88,12 +89,12 @@ vi.mock('@/lib/db/schema', () => {
         },
       },
     );
-  return {
+  return new Proxy({
     bookingPages: wrap('bookingPages'),
     bookingWaivers: wrap('bookingWaivers'),
     clientWebsites: wrap('clientWebsites'),
     websiteEnvironments: wrap('websiteEnvironments'),
-  };
+  }, { has: (t, p) => (p in t) || !(p === "then" || p === "__esModule" || p === "default" || typeof p !== "string"), get: (t, p) => (p in t) ? t[p] : ((p === "then" || p === "__esModule" || p === "default" || typeof p !== "string") ? undefined : wrap(p)) });
 });
 
 // ---------------------------------------------------------------------------

@@ -62,12 +62,12 @@ vi.mock('@/lib/db/schema', () => {
         },
       },
     );
-  return {
+  return new Proxy({
     brainNotes: wrap('brainNotes'),
     brainKbLinks: wrap('brainKbLinks'),
     brainCustomFieldValues: wrap('brainCustomFieldValues'),
     brainAuditLogs: wrap('brainAuditLogs'),
-  };
+  }, { has: (t, p) => (p in t) || !(p === "then" || p === "__esModule" || p === "default" || typeof p !== "string"), get: (t, p) => (p in t) ? t[p] : ((p === "then" || p === "__esModule" || p === "default" || typeof p !== "string") ? undefined : wrap(p)) });
 });
 
 vi.mock('drizzle-orm', () => ({

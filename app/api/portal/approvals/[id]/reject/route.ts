@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { revalidateTag } from 'next/cache';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { mcpPendingChanges } from '@/lib/db/schema';
@@ -47,6 +48,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     })
     .where(eq(mcpPendingChanges.id, changeId))
     .returning();
+
+  // Invalidate the per-client approvals-count cache used by the layout bell.
+  try { revalidateTag(`approvals:${client.id}`, 'max'); } catch { /* ignore */ }
 
   return NextResponse.json({ success: true, data: updated });
 }

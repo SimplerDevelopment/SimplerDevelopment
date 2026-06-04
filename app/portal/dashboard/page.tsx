@@ -14,7 +14,7 @@ import { formatCents, ticketStatusColor, invoiceStatusColor, invoiceStatusLabel 
 import { getPortalClient } from '@/lib/portal-client';
 import { getBrainProfile } from '@/lib/brain/profiles';
 import CreditBalance from '@/components/portal/CreditBalance';
-import { BrainDashboardWidgets } from '@/components/portal/BrainDashboardWidgets';
+import { BrainDashboardWidgetsServer } from '@/components/portal/brain-dashboard';
 import { EnableBrainBanner } from '@/components/portal/EnableBrainBanner';
 
 const SERVICE_META: Record<string, { icon: string; color: string; bgColor: string; href: string; description: string; cta: string }> = {
@@ -183,9 +183,11 @@ export default async function PortalDashboardPage() {
         )}
       </div>
 
-      {/* Brain — operational layer (top of dashboard when enabled) */}
+      {/* Brain — operational layer (top of dashboard when enabled).
+          Streams in via Suspense so the rest of the dashboard doesn't block
+          on the brain dashboard's cached-but-still-not-instant fetch. */}
       {brainEnabled ? (
-        <BrainDashboardWidgets />
+        <BrainDashboardWidgetsServer clientId={client.id} />
       ) : (
         <EnableBrainBanner />
       )}

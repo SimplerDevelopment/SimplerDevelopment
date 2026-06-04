@@ -95,10 +95,16 @@ function compute(config: SurveyRecommendationConfig, answers: Record<string, unk
     }
   }
   const cleanSweep = max === config.questions.length;
-  if (cleanSweep) secondaryKey = null;
+  // Binary / mutually-exclusive verdicts show only the winner. Without this, a
+  // non-unanimous (e.g. 2-1) vote populates a secondary card — and when the two
+  // offerings are opposites (pre-qualified vs. declined) the applicant sees both
+  // "you're approved" and "not a fit" at once. Default on for ≤2 offerings.
+  const exclusiveOutcomes = config.exclusiveOutcomes ?? config.offerings.length <= 2;
+  if (cleanSweep || exclusiveOutcomes) secondaryKey = null;
 
-  // Always-also bottom card — suppressed if it's already primary or secondary.
-  let alsoAlsoKey = config.alwaysAlsoOfferingKey ?? null;
+  // Always-also bottom card — suppressed for exclusive outcomes, or if it's
+  // already the primary or secondary.
+  let alsoAlsoKey = exclusiveOutcomes ? null : (config.alwaysAlsoOfferingKey ?? null);
   if (alsoAlsoKey && (alsoAlsoKey === primaryKey || alsoAlsoKey === secondaryKey)) {
     alsoAlsoKey = null;
   }

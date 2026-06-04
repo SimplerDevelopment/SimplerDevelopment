@@ -31,6 +31,9 @@ vi.mock('drizzle-orm', () => ({
   and: (...args: unknown[]) => ({ op: 'and', args }),
   asc: (a: unknown) => ({ op: 'asc', a }),
   desc: (a: unknown) => ({ op: 'desc', a }),
+  isNull: (a: unknown) => ({ op: 'isNull', a }),
+  or: (...args: unknown[]) => ({ op: 'or', args: args.filter(Boolean) }),
+  inArray: (a: unknown, list: unknown[]) => ({ op: 'inArray', a, list }),
 }));
 
 // Schema mock — wraps tables as Proxies returning column placeholders.
@@ -46,12 +49,12 @@ vi.mock('@/lib/db/schema', () => {
         },
       },
     );
-  return {
+  return new Proxy({
     brainNotes: wrap('brainNotes'),
     brainCustomFields: wrap('brainCustomFields'),
     brainCustomFieldValues: wrap('brainCustomFieldValues'),
     brainAuditLogs: wrap('brainAuditLogs'),
-  };
+  }, { has: (t, p) => (p in t) || !(p === "then" || p === "__esModule" || p === "default" || typeof p !== "string"), get: (t, p) => (p in t) ? t[p] : ((p === "then" || p === "__esModule" || p === "default" || typeof p !== "string") ? undefined : wrap(p)) });
 });
 
 // DB mock — thenable chain backed by FIFO queues per operation.

@@ -23,6 +23,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 vi.mock('next/cache', () => ({
   revalidatePath: vi.fn(),
+  unstable_cache: (fn: (...a: unknown[]) => unknown) => fn,
 }));
 
 vi.mock('@/lib/email', () => ({
@@ -41,6 +42,9 @@ vi.mock('drizzle-orm', () => ({
   eq: (a: unknown, b: unknown) => ({ op: 'eq', a, b }),
   and: (...args: unknown[]) => ({ op: 'and', args: args.filter(Boolean) }),
   desc: (a: unknown) => ({ op: 'desc', a }),
+  isNull: (a: unknown) => ({ op: 'isNull', a }),
+  or: (...args: unknown[]) => ({ op: 'or', args: args.filter(Boolean) }),
+  inArray: (a: unknown, list: unknown[]) => ({ op: 'inArray', a, list }),
 }));
 
 vi.mock('@/lib/db/schema', () => {
@@ -642,7 +646,12 @@ describe('applyPendingChange — pitch_deck_slides:replace_slides', () => {
       payload: { slides },
     });
     await applyPendingChange(change as never, 10, 1);
-    expect((patch as Record<string, unknown>)?.slides).toBe(slides);
+    // replace_slides now builds a new array (each slide wrapped with draft metadata)
+    const patchSlides = (patch as Record<string, unknown>)?.slides as Array<Record<string, unknown>>;
+    expect(Array.isArray(patchSlides)).toBe(true);
+    expect(patchSlides).toHaveLength(1);
+    expect(patchSlides[0].id).toBe('s1');
+    expect(patchSlides[0].label).toBe('One');
     expect((patch as Record<string, unknown>)?.formatVersion).toBe(2);
   });
 });
@@ -685,7 +694,8 @@ describe('applyPendingChange — pitch_deck_slides:add_slide', () => {
     expect(slides).toHaveLength(2);
     expect(slides[1].id).toBe('s2');
     expect(slides[1].label).toBe('B');
-    expect(slides[1].notes).toBe('n');
+    // notes is now staged in the slide's draft sub-object
+    expect((slides[1].draft as Record<string, unknown>)?.notes).toBe('n');
   });
 
   it('auto-generates an id when payload.id is absent', async () => {

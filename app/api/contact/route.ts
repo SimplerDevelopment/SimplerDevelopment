@@ -1,11 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { getResend } from '@/lib/email';
 
 // Hidden form field — bots fill it; humans don't. Drop silently with a 200
-// so the bot doesn't learn it's been detected. Defense in depth before this
-// route gets wired to Resend (TODO below); pair with a CAPTCHA when sending
-// is enabled.
+// so the bot doesn't learn it's been detected. Pair with a CAPTCHA if abuse
+// shows up.
 const HONEYPOT_FIELD = 'website';
+
+// Where contact-form submissions are delivered.
+const CONTACT_INBOX = 'info@simplerdevelopment.com';
+const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'SimplerDevelopment <noreply@simplerdevelopment.com>';
+
+/** Escape user-supplied text before interpolating into the email HTML. */
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
 
 const contactSchema = z.object({
   name: z.string().min(2).max(200),
@@ -26,27 +40,42 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate the request body
-    const validatedData = contactSchema.parse(body);
+    const { name, email, subject, message } = contactSchema.parse(body);
 
-    // TODO: In Phase 7, integrate with Resend to send emails
-    // For now, just log the submission
+    const safeName = escapeHtml(name);
+    const safeEmail = escapeHtml(email);
+    const safeSubject = subject ? escapeHtml(subject) : 'No subject';
+    const safeMessage = escapeHtml(message).replace(/\n/g, '<br />');
 
-    // Simulate email sending
-    // In production, this would use Resend:
-    // const { Resend } = require('resend');
-    // const resend = new Resend(process.env.RESEND_API_KEY);
-    // await resend.emails.send({
-    //   from: 'info@simplerdevelopment.com',
-    //   to: 'admin@simplerdevelopment.com',
-    //   subject: validatedData.subject || 'New Contact Form Submission',
-    //   html: `
-    //     <h2>New Contact Form Submission</h2>
-    //     <p><strong>From:</strong> ${validatedData.name} (${validatedData.email})</p>
-    //     <p><strong>Subject:</strong> ${validatedData.subject || 'No subject'}</p>
-    //     <p><strong>Message:</strong></p>
-    //     <p>${validatedData.message}</p>
-    //   `,
-    // });
+    const html = `
+      <h2>New Contact Form Submission</h2>
+      <p><strong>From:</strong> ${safeName} (${safeEmail})</p>
+      <p><strong>Subject:</strong> ${safeSubject}</p>
+      <p><strong>Message:</strong></p>
+      <p>${safeMessage}</p>
+    `;
+
+    // No Resend key configured (e.g. local dev): log and succeed so the form
+    // still works without a mail provider.
+    if (!process.env.RESEND_API_KEY) {
+      console.warn('[contact] RESEND_API_KEY not set — submission logged, not emailed:', {
+        name, email, subject,
+      });
+      return NextResponse.json({ message: 'Message sent successfully' }, { status: 200 });
+    }
+
+    const result = await getResend().emails.send({
+      from: FROM_EMAIL,
+      to: CONTACT_INBOX,
+      replyTo: email,
+      subject: subject ? `Contact form: ${subject}` : 'New Contact Form Submission',
+      html,
+    });
+
+    if (result.error) {
+      console.error('[contact] Resend error:', JSON.stringify(result.error));
+      return NextResponse.json({ error: 'Failed to send message' }, { status: 500 });
+    }
 
     return NextResponse.json(
       { message: 'Message sent successfully' },

@@ -37,6 +37,7 @@ vi.mock('@/lib/brain/industry-templates', () => ({
 const listPromotionTargetsMock = vi.fn();
 vi.mock('@/lib/brain/tasks', () => ({
   listPromotionTargets: (...args: unknown[]) => listPromotionTargetsMock(...args),
+  countTasks: (..._args: unknown[]) => Promise.resolve(0),
 }));
 
 const listEnabledAdaptersMock = vi.fn();

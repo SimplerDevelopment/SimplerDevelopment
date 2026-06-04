@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { sanitizeRichHtml } from '@/lib/security/sanitize-html';
+import CrmCompanyTypeaheadPicker from '@/components/portal/CrmCompanyTypeaheadPicker';
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -35,11 +36,6 @@ interface Contact {
   firstName: string;
   lastName: string;
   email: string | null;
-}
-
-interface Company {
-  id: number;
-  name: string;
 }
 
 interface Deal {
@@ -110,8 +106,11 @@ export default function ProposalEditorPage() {
 
   const [proposal, setProposal] = useState<Proposal | null>(null);
   const [contacts, setContacts] = useState<Contact[]>([]);
-  const [companies, setCompanies] = useState<Company[]>([]);
   const [deals, setDeals] = useState<Deal[]>([]);
+  // Display label for the typeahead picker. Seeded from the proposal's
+  // denormalised `companyName` after load so the closed-state of the
+  // dropdown reads correctly before any search happens.
+  const [companyLabel, setCompanyLabel] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -161,6 +160,7 @@ export default function ProposalEditorPage() {
     setSummary(p.summary ?? '');
     setContactId(p.contactId ? String(p.contactId) : '');
     setCompanyId(p.companyId ? String(p.companyId) : '');
+    setCompanyLabel(p.companyName ?? null);
     setDealId(p.dealId ? String(p.dealId) : '');
     setAccentColor(p.accentColor ?? '#2563eb');
     setLogoUrl(p.logoUrl ?? '');
@@ -175,13 +175,15 @@ export default function ProposalEditorPage() {
 
   useEffect(() => {
     loadProposal();
+    // Company picker uses typeahead (?q=<query>) below — no bulk fetch needed;
+    // the pre-existing companyName on the loaded proposal seeds the closed-
+    // state label of the picker. Contacts is still bulk-loaded at limit=100 —
+    // TODO(perf): convert to typeahead when the contacts route gains ?q=.
     Promise.all([
-      fetch('/api/portal/crm/contacts?limit=1000').then(r => r.json()),
-      fetch('/api/portal/crm/companies?limit=5000').then(r => r.json()),
+      fetch('/api/portal/crm/contacts?limit=100').then(r => r.json()),
       fetch('/api/portal/crm/deals?status=open').then(r => r.json()),
-    ]).then(([c, co, d]) => {
+    ]).then(([c, d]) => {
       setContacts(c.data?.contacts ?? c.data ?? []);
-      setCompanies(co.data?.companies ?? co.data ?? []);
       setDeals(d.data ?? []);
     });
   }, [loadProposal]);
@@ -340,7 +342,7 @@ export default function ProposalEditorPage() {
 
   /* Contact / Company display for preview */
   const selectedContact = contacts.find(c => c.id === Number(contactId));
-  const selectedCompany = companies.find(c => c.id === Number(companyId));
+  const selectedCompanyName = companyId ? companyLabel : null;
 
   if (loading) {
     return (
@@ -486,10 +488,15 @@ export default function ProposalEditorPage() {
               </div>
               <div>
                 <label className="block text-xs font-medium text-muted-foreground mb-1">Company</label>
-                <select value={companyId} onChange={e => setCompanyId(e.target.value)} className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50">
-                  <option value="">None</option>
-                  {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
+                <CrmCompanyTypeaheadPicker
+                  value={companyId}
+                  selectedLabel={companyLabel}
+                  onChange={opt => {
+                    setCompanyId(opt ? String(opt.id) : '');
+                    setCompanyLabel(opt ? opt.name : null);
+                  }}
+                  placeholder="Select company…"
+                />
               </div>
               <div>
                 <label className="block text-xs font-medium text-muted-foreground mb-1">Deal</label>
@@ -804,11 +811,11 @@ export default function ProposalEditorPage() {
                   )}
 
                   {/* Recipient */}
-                  {(selectedContact || selectedCompany) && (
+                  {(selectedContact || selectedCompanyName) && (
                     <p className="text-xs text-muted-foreground">
                       Prepared for: {selectedContact ? `${selectedContact.firstName} ${selectedContact.lastName}` : ''}
-                      {selectedContact && selectedCompany ? ' at ' : ''}
-                      {selectedCompany ? selectedCompany.name : ''}
+                      {selectedContact && selectedCompanyName ? ' at ' : ''}
+                      {selectedCompanyName ?? ''}
                     </p>
                   )}
 

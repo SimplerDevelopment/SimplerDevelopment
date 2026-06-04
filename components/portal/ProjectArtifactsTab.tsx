@@ -105,11 +105,19 @@ export default function ProjectArtifactsTab({ projectId, canEdit }: Props) {
     };
   }, [projectId]);
 
-  // Lazy-load /available the first time the picker opens.
+  // Lazy-load /available whenever the picker opens or the type/search filter
+  // changes. The endpoint now REQUIRES `?type=`, so empty typeFilter sends
+  // `type=all` for a small browse-all sample. Selecting a chip rescopes to a
+  // single bounded type query.
   useEffect(() => {
-    if (!showPicker || availableLoaded) return;
+    if (!showPicker) return;
     let alive = true;
-    fetch(`/api/portal/projects/${projectId}/artifacts/available`)
+    setAvailableLoaded(false);
+    const params = new URLSearchParams();
+    params.set('type', typeFilter || 'all');
+    const q = search.trim();
+    if (q) params.set('q', q);
+    fetch(`/api/portal/projects/${projectId}/artifacts/available?${params.toString()}`)
       .then(r => (r.ok ? r.json() : null))
       .then(data => {
         if (!alive) return;
@@ -120,7 +128,7 @@ export default function ProjectArtifactsTab({ projectId, canEdit }: Props) {
     return () => {
       alive = false;
     };
-  }, [showPicker, availableLoaded, projectId]);
+  }, [showPicker, projectId, typeFilter, search]);
 
   // Close picker on outside click.
   useEffect(() => {
@@ -151,12 +159,13 @@ export default function ProjectArtifactsTab({ projectId, canEdit }: Props) {
       );
   }, [available, artifacts, typeFilter, search]);
 
-  // Type chips: only show types that actually have available items.
-  const availableTypes = useMemo(() => {
-    const set = new Set<string>();
-    for (const a of available) set.add(a.type);
-    return Array.from(set);
-  }, [available]);
+  // Type chips: show the full supported set. We can't derive from `available`
+  // anymore because the picker now scopes the fetch to a single type at a
+  // time (see /artifacts/available — it requires ?type=).
+  const availableTypes = useMemo(
+    () => Object.keys(ARTIFACT_LABELS),
+    [],
+  );
 
   async function linkArtifact(type: string, artifactId: number) {
     const res = await fetch(`/api/portal/projects/${projectId}/artifacts`, {

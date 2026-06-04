@@ -26,7 +26,7 @@ Drizzle ORM schema + DB client. **All data access flows through here.**
 ## Drizzle footguns
 
 - In `sql\`\`` correlated subqueries, **hard-code `table.column` for outer refs**. `${table.col}` interpolation emits unqualified column names and silently returns 0. (See memory `feedback_drizzle_correlated_subqueries`.)
-- `brain_embeddings` exists in DB + code but is NOT in `lib/db/schema`. `drizzle-kit push --force` WILL drop it. Don't run `--force` against shared DBs.
+- `brain_embeddings`: the TABLE is declared in `lib/db/schema/brain.ts` (added so push won't drop it — we lost it once and recovered from a prod dump). But its pgvector **HNSW index** is NOT in schema (managed via `drizzle/0061_brain_embeddings.sql`) — drizzle-kit can't reconcile HNSW indexes, so `drizzle-kit push --force` silently drops the index. Never run `--force` against a DB with real brain data; use journaled `bun run db:migrate`.
 - The Drizzle migration tracker is currently out-of-sync with disk in prod. `bun run db:migrate` against prod fails; schema changes are hand-applied. (See memory `project_sd2026_drizzle_tracker_drift`.)
 
 ## Pointers

@@ -48,6 +48,8 @@ vi.mock('drizzle-orm', () => ({
     }),
     {},
   ),
+  isNull: (a: unknown) => ({ op: 'isNull', a }),
+  or: (...args: unknown[]) => ({ op: 'or', args: args.filter(Boolean) }),
 }));
 
 vi.mock('@/lib/db/schema', () => {
@@ -62,7 +64,7 @@ vi.mock('@/lib/db/schema', () => {
         },
       },
     );
-  return {
+  return new Proxy({
     supportTickets: wrap('supportTickets'),
     clientMembers: wrap('clientMembers'),
     users: wrap('users'),
@@ -73,7 +75,7 @@ vi.mock('@/lib/db/schema', () => {
     crmActivities: wrap('crmActivities'),
     crmCustomFields: wrap('crmCustomFields'),
     crmCustomFieldValues: wrap('crmCustomFieldValues'),
-  };
+  }, { has: (t, p) => (p in t) || !(p === "then" || p === "__esModule" || p === "default" || typeof p !== "string"), get: (t, p) => (p in t) ? t[p] : ((p === "then" || p === "__esModule" || p === "default" || typeof p !== "string") ? undefined : wrap(p)) });
 });
 
 // ---- db mock: queues for select/update/delete returning rows ----

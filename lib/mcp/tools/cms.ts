@@ -318,11 +318,23 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
         if (e instanceof BlockGateError) return json({ error: e.message });
         throw e;
       }
+      // A `posts_fork` draft already carries its OWN entity approval link (the
+      // reviewer approves the fork to publish it live). Under a
+      // require_cms_approval key, a follow-up posts_update on that fork would
+      // otherwise be staged into a SEPARATE pending_change — orphaning the edit
+      // from the fork link the caller was handed, so the fork's preview shows
+      // the unmodified clone ("nothing changed"). Apply edits to an unpublished
+      // fork directly; its publish is the gate. (Setting `published: true` IS
+      // that publish, so it still stages. Plain non-fork drafts also still
+      // stage — AI edits on a require-approval key stay reviewable.)
+      const isUnpublishedForkEdit =
+        post.parentPostId != null && !post.published && rest.published !== true;
       const result = await stageOrApply({
         ctx,
         entityType: 'post',
         operation: 'update',
         entityId: id,
+        skipApproval: isUnpublishedForkEdit,
         summary: `Update post #${id}${rest.title ? ` → "${rest.title}"` : ''}${rest.published === true ? ' + publish' : ''}`,
         payload: { id, ...rest },
         originalSnapshot: { title: post.title, published: post.published, excerpt: post.excerpt, content: post.content, customCss: post.customCss, customJs: post.customJs, seoTitle: post.seoTitle, seoDescription: post.seoDescription, ogImage: post.ogImage, canonicalUrl: post.canonicalUrl, noIndex: post.noIndex },

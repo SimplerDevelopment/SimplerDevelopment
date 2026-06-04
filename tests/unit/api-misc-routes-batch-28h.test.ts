@@ -32,10 +32,18 @@ vi.mock('@/lib/s3/upload', () => ({
   uploadToS3: (...args: unknown[]) => uploadToS3Mock(...args),
 }));
 
+const canUserEditProjectMock = vi.fn();
+vi.mock('@/lib/portal/project-access', () => ({
+  canUserEditProject: (...args: unknown[]) => canUserEditProjectMock(...args),
+}));
+
 // drizzle-orm — stub operators to plain objects (we don't introspect them)
 vi.mock('drizzle-orm', () => ({
   eq: (a: unknown, b: unknown) => ({ op: 'eq', a, b }),
   and: (...args: unknown[]) => ({ op: 'and', args }),
+  isNull: (a: unknown) => ({ op: 'isNull', a }),
+  or: (...args: unknown[]) => ({ op: 'or', args: args.filter(Boolean) }),
+  inArray: (a: unknown, list: unknown[]) => ({ op: 'inArray', a, list }),
 }));
 
 // schema — proxy tables so `table.col` and `eq(table.col, x)` are inert
@@ -51,7 +59,7 @@ vi.mock('@/lib/db/schema', () => {
         },
       },
     );
-  return {
+  return new Proxy({
     kanbanCards: wrap('kanbanCards'),
     kanbanCardDependencies: wrap('kanbanCardDependencies'),
     kanbanCardFiles: wrap('kanbanCardFiles'),
@@ -59,7 +67,7 @@ vi.mock('@/lib/db/schema', () => {
     kanbanLabels: wrap('kanbanLabels'),
     kanbanColumns: wrap('kanbanColumns'),
     projects: wrap('projects'),
-  };
+  }, { has: (t, p) => (p in t) || !(p === "then" || p === "__esModule" || p === "default" || typeof p !== "string"), get: (t, p) => (p in t) ? t[p] : ((p === "then" || p === "__esModule" || p === "default" || typeof p !== "string") ? undefined : wrap(p)) });
 });
 
 // ---- db mock with select-queue + capture for writes ----
@@ -223,6 +231,8 @@ beforeEach(() => {
   getPortalClientMock.mockReset();
   logCardActivityMock.mockReset().mockResolvedValue(undefined);
   uploadToS3Mock.mockReset();
+  canUserEditProjectMock.mockReset();
+  canUserEditProjectMock.mockResolvedValue(false); // default: read-only
 });
 
 // ===========================================================================
@@ -381,6 +391,7 @@ describe('POST /api/portal/cards/[id]/dependencies', () => {
     selectQueue.push([{ id: 2, projectId: 5, title: 'Blocker' }]); // blocker
     selectQueue.push([]); // no reciprocal
     getPortalClientMock.mockResolvedValue({ id: 33 });
+    canUserEditProjectMock.mockResolvedValueOnce(true); // client has edit access
     const res = await dependenciesRoute.POST(
       makeJsonRequest('http://x/api/portal/cards/1/dependencies', 'POST', { blockerCardId: 2 }),
       makeParams('1'),

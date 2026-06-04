@@ -2,12 +2,14 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { siteConfig } from '@/config/site';
 import { ThemeToggle } from './ThemeToggle';
 import { UserDropdown } from './UserDropdown';
 import { Button } from './Button';
+import { SolutionsMegaMenu } from './SolutionsMegaMenu';
 
 export function Navigation() {
   const { data: session } = useSession();
@@ -17,10 +19,13 @@ export function Navigation() {
   const toggleMobileMenu = () => setMobileMenuOpen(!mobileMenuOpen);
   const closeMobileMenu = () => setMobileMenuOpen(false);
 
-  // Close menu on route change
+  // Close menu on route change. Guarded so we only write state when the menu
+  // is actually open; syncing UI visibility to the route is a legitimate
+  // effect, not a cascading-render smell.
   useEffect(() => {
-    closeMobileMenu();
-  }, [pathname]);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (mobileMenuOpen) closeMobileMenu();
+  }, [pathname]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Prevent body scroll when menu is open
   useEffect(() => {
@@ -36,6 +41,7 @@ export function Navigation() {
 
   const navLinks = [
     { href: '/solutions', label: 'Solutions' },
+    { href: '/pricing', label: 'Pricing' },
     { href: '/about', label: 'About' },
     { href: '/blog', label: 'Blog' },
   ];
@@ -73,7 +79,14 @@ export function Navigation() {
                 </Link>
               )}
               <Link href="/" className="text-xl font-heading flex items-center" onClick={closeMobileMenu}>
-                <img src="/iconLogo.png" alt="" className="nav-logo-icon" />
+                <Image
+                  src="/iconLogo.png"
+                  alt=""
+                  width={56}
+                  height={56}
+                  className="nav-logo-icon"
+                  priority
+                />
                 <span><b>Simpler</b> Development</span>
               </Link>
             </div>
@@ -82,17 +95,21 @@ export function Navigation() {
             <div className="hidden md:flex items-center space-x-8">
               {!pathname.startsWith('/admin') && (
                 <>
-                  {navLinks.map((link) => (
-                    <Link
-                      key={link.href}
-                      href={link.href}
-                      className={`text-sm font-heading font-semibold hover:text-primary transition-colors ${
-                        pathname === link.href ? 'text-primary' : ''
-                      }`}
-                    >
-                      {link.label}
-                    </Link>
-                  ))}
+                  {navLinks.map((link) =>
+                    link.href === '/solutions' ? (
+                      <SolutionsMegaMenu key={link.href} />
+                    ) : (
+                      <Link
+                        key={link.href}
+                        href={link.href}
+                        className={`text-sm font-heading font-semibold hover:text-primary transition-colors ${
+                          pathname === link.href ? 'text-primary' : ''
+                        }`}
+                      >
+                        {link.label}
+                      </Link>
+                    )
+                  )}
                 </>
               )}
 

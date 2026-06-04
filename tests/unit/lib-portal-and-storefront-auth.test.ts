@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // @vitest-environment node
 /**
  * Security-critical unit tests for two auth helpers:
@@ -21,6 +22,9 @@ vi.mock('drizzle-orm', () => ({
   eq: (col: unknown, val: unknown) => ({ __op: 'eq', col, val }),
   and: (...conds: unknown[]) => ({ __op: 'and', conds }),
   gt: (col: unknown, val: unknown) => ({ __op: 'gt', col, val }),
+  isNull: (a: unknown) => ({ op: 'isNull', a }),
+  or: (...args: unknown[]) => ({ op: 'or', args: args.filter(Boolean) }),
+  inArray: (a: unknown, list: unknown[]) => ({ op: 'inArray', a, list }),
 }));
 
 vi.mock('@/lib/db/schema', () => ({

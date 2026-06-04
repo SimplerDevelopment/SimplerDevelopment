@@ -10,6 +10,7 @@ import {
 import { wrapWithTypeTemplate } from '@/lib/blocks/template-wrap';
 import { expandLoopsInContent, type LoopPaginationContext } from '@/lib/blocks/html-render-loops';
 import { SiteBlockRenderer } from '@/components/blocks/render/SiteBlockRenderer';
+import { HeroPreload } from '@/components/blocks/render/HeroPreload';
 import { prefetchHtmlEmbeds } from '@/lib/blocks/prefetch-embeds';
 import { ProductPage } from '@/components/storefront/ProductPage';
 import { ShopPage } from '@/components/storefront/ShopPage';
@@ -199,6 +200,7 @@ export default async function ClientSitePage({ params, searchParams }: PageProps
     );
     return (
       <>
+        <HeroPreload content={content} />
         <SiteBlockRenderer
           content={content}
           siteId={site.id}
@@ -253,33 +255,83 @@ export default async function ClientSitePage({ params, searchParams }: PageProps
 
   // Blog listing
   if (pageSlug === 'blog') {
-    const blogPosts = await getClientBlogPosts(site.id);
+    const allBlogPosts = await getClientBlogPosts(site.id);
+
+    // Server-side pagination. Page size 12; ?page=N selects the slice. Sites with
+    // <= one page of posts render exactly as before (no pager shown).
+    const BLOG_PAGE_SIZE = 12;
+    const totalPosts = allBlogPosts.length;
+    const totalPages = Math.max(1, Math.ceil(totalPosts / BLOG_PAGE_SIZE));
+    const blogPage = Math.min(Math.max(1, currentPage), totalPages);
+    const start = (blogPage - 1) * BLOG_PAGE_SIZE;
+    const blogPosts = allBlogPosts.slice(start, start + BLOG_PAGE_SIZE);
+    const pageHref = (n: number) => (n <= 1 ? '/blog' : `/blog?page=${n}`);
+    const pageNumbers: number[] = [];
+    const win = 2;
+    for (let i = Math.max(1, blogPage - win); i <= Math.min(totalPages, blogPage + win); i++) pageNumbers.push(i);
 
     return (
       <div className="max-w-4xl mx-auto px-4 py-8">
         <h1 className="text-3xl font-bold mb-8">Blog</h1>
-        {blogPosts.length === 0 ? (
+        {totalPosts === 0 ? (
           <p className="text-gray-500">No posts yet.</p>
         ) : (
-          <div className="space-y-8">
-            {blogPosts.map((post) => (
-              <article key={post.id} className="border-b border-gray-200 pb-6">
-                <Link href={`/blog/${post.slug}`} className="group">
-                  <h2 className="text-xl font-semibold group-hover:text-blue-600 transition-colors">
-                    {post.title}
-                  </h2>
-                  {post.excerpt && (
-                    <p className="text-gray-600 mt-2">{post.excerpt}</p>
-                  )}
-                  {post.publishedAt && (
-                    <time className="text-sm text-gray-400 mt-2 block">
-                      {new Date(post.publishedAt).toLocaleDateString()}
-                    </time>
-                  )}
-                </Link>
-              </article>
-            ))}
-          </div>
+          <>
+            <div className="space-y-8">
+              {blogPosts.map((post) => (
+                <article key={post.id} className="border-b border-gray-200 pb-6">
+                  <Link href={`/blog/${post.slug}`} className="group">
+                    <h2 className="text-xl font-semibold group-hover:text-blue-600 transition-colors">
+                      {post.title}
+                    </h2>
+                    {post.excerpt && (
+                      <p className="text-gray-600 mt-2">{post.excerpt}</p>
+                    )}
+                    {post.publishedAt && (
+                      <time className="text-sm text-gray-400 mt-2 block">
+                        {new Date(post.publishedAt).toLocaleDateString()}
+                      </time>
+                    )}
+                  </Link>
+                </article>
+              ))}
+            </div>
+
+            {totalPages > 1 && (
+              <nav aria-label="Blog pagination" className="mt-12 flex flex-wrap items-center justify-center gap-2 text-sm">
+                {blogPage > 1 && (
+                  <Link href={pageHref(blogPage - 1)} rel="prev" className="rounded-md border border-gray-200 px-3 py-2 font-medium text-gray-600 transition-colors hover:border-gray-300 hover:bg-gray-50">← Prev</Link>
+                )}
+                {pageNumbers[0] > 1 && (
+                  <>
+                    <Link href={pageHref(1)} className="rounded-md border border-gray-200 px-3 py-2 text-gray-600 hover:bg-gray-50">1</Link>
+                    {pageNumbers[0] > 2 && <span className="px-1 text-gray-400">…</span>}
+                  </>
+                )}
+                {pageNumbers.map((n) => (
+                  <Link
+                    key={n}
+                    href={pageHref(n)}
+                    aria-current={n === blogPage ? 'page' : undefined}
+                    className={n === blogPage
+                      ? 'rounded-md border border-transparent bg-gray-900 px-3 py-2 font-semibold text-white'
+                      : 'rounded-md border border-gray-200 px-3 py-2 text-gray-600 transition-colors hover:bg-gray-50'}
+                  >
+                    {n}
+                  </Link>
+                ))}
+                {pageNumbers[pageNumbers.length - 1] < totalPages && (
+                  <>
+                    {pageNumbers[pageNumbers.length - 1] < totalPages - 1 && <span className="px-1 text-gray-400">…</span>}
+                    <Link href={pageHref(totalPages)} className="rounded-md border border-gray-200 px-3 py-2 text-gray-600 hover:bg-gray-50">{totalPages}</Link>
+                  </>
+                )}
+                {blogPage < totalPages && (
+                  <Link href={pageHref(blogPage + 1)} rel="next" className="rounded-md border border-gray-200 px-3 py-2 font-medium text-gray-600 transition-colors hover:border-gray-300 hover:bg-gray-50">Next →</Link>
+                )}
+              </nav>
+            )}
+          </>
         )}
       </div>
     );
@@ -300,12 +352,14 @@ export default async function ClientSitePage({ params, searchParams }: PageProps
 
     const blogType = await getPostTypeForPost(site.id, post.postType);
     const ab = await applyAbToPostContent({ postId: post.id, content: post.content, skip: preview });
+    const blogContent = await prefetchHtmlEmbeds(
+      await expandLoopsInContent(site.id, wrapWithTypeTemplate(ab.content, blogType?.template), post.id, pagination),
+    );
     return (
       <div>
+        <HeroPreload content={blogContent} />
         <SiteBlockRenderer
-          content={await prefetchHtmlEmbeds(
-            await expandLoopsInContent(site.id, wrapWithTypeTemplate(ab.content, blogType?.template), post.id, pagination),
-          )}
+          content={blogContent}
           siteId={site.id}
           branding={branding}
           site={siteLayer}
@@ -335,13 +389,15 @@ export default async function ClientSitePage({ params, searchParams }: PageProps
 
   const pageType = await getPostTypeForPost(site.id, page.postType);
   const ab = await applyAbToPostContent({ postId: page.id, content: page.content, skip: preview });
+  const pageContent = await prefetchHtmlEmbeds(
+    await expandLoopsInContent(site.id, wrapWithTypeTemplate(ab.content, pageType?.template), page.id, pagination),
+  );
 
   return (
     <div>
+      <HeroPreload content={pageContent} />
       <SiteBlockRenderer
-        content={await prefetchHtmlEmbeds(
-          await expandLoopsInContent(site.id, wrapWithTypeTemplate(ab.content, pageType?.template), page.id, pagination),
-        )}
+        content={pageContent}
         siteId={site.id}
         branding={branding}
         site={siteLayer}

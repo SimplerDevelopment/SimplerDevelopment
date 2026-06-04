@@ -27,6 +27,7 @@ vi.mock('drizzle-orm', () => ({
   asc: (a: unknown) => ({ op: 'asc', a }),
   inArray: (a: unknown, b: unknown) => ({ op: 'inArray', a, b }),
   sql: () => ({ op: 'sql' }),
+  isNull: (a: unknown) => ({ op: 'isNull', a }),
 }));
 
 vi.mock('@/lib/db/schema', () => {
@@ -42,14 +43,14 @@ vi.mock('@/lib/db/schema', () => {
         },
       },
     );
-  return {
+  return new Proxy({
     media: wrap('media'),
     posts: wrap('posts'),
     postRevisions: wrap('postRevisions'),
     postCategories: wrap('postCategories'),
     postTags: wrap('postTags'),
     clientWebsites: wrap('clientWebsites'),
-  };
+  }, { has: (t, p) => (p in t) || !(p === "then" || p === "__esModule" || p === "default" || typeof p !== "string"), get: (t, p) => (p in t) ? t[p] : ((p === "then" || p === "__esModule" || p === "default" || typeof p !== "string") ? undefined : wrap(p)) });
 });
 
 const authMock = vi.fn();

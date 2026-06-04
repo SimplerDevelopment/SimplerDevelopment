@@ -87,6 +87,25 @@ export function SiteNavClient({
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
+  // Publish the fixed nav's live height as a CSS variable so the page layout
+  // can reserve space beneath an opaque nav (the content otherwise renders
+  // underneath the `position: fixed` bar and gets clipped at the top). The
+  // 'transparent' template intentionally overlays the hero, so the layout
+  // ignores this variable in that case. ResizeObserver keeps it correct across
+  // breakpoints and the scrolled/condensed state.
+  const navRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const el = navRef.current;
+    if (!el) return;
+    const setVar = () =>
+      document.documentElement.style.setProperty('--site-nav-h', `${el.offsetHeight}px`);
+    setVar();
+    const ro = new ResizeObserver(setVar);
+    ro.observe(el);
+    window.addEventListener('resize', setVar);
+    return () => { ro.disconnect(); window.removeEventListener('resize', setVar); };
+  }, []);
+
   // When transparent, show scrolled style after scroll
   const showScrolled = isTransparent ? scrolled : true;
   const currentBg = showScrolled ? (isTransparent ? 'rgba(255,255,255,0.95)' : navBg) : 'transparent';
@@ -354,6 +373,7 @@ export function SiteNavClient({
 
   return (
     <nav
+      ref={navRef}
       className="fixed top-0 left-0 right-0 z-50 transition-all duration-500"
       style={{
         backgroundColor: currentBg,

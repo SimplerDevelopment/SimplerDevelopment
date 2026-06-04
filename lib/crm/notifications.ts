@@ -7,6 +7,23 @@ import {
   type NotificationDelivery,
 } from '@/lib/db/schema';
 import { eq, and, ne, or } from 'drizzle-orm';
+import { revalidateTag } from 'next/cache';
+
+/**
+ * Invalidate the per-user `notifications:<userId>` cache tag used by
+ * `/api/portal/crm/notifications` so a newly-inserted notification surfaces
+ * on the recipient's next bell-bar poll without waiting out the 15s TTL.
+ */
+function invalidateNotificationsCache(userIds: number[]): void {
+  for (const userId of userIds) {
+    try {
+      revalidateTag(`notifications:${userId}`, 'max');
+    } catch {
+      // Non-route context (e.g. called from a cron worker or background job).
+      // The 15s TTL will catch up on the next poll.
+    }
+  }
+}
 
 /**
  * Per-user notification preference gate.
@@ -69,6 +86,7 @@ export async function createCrmNotification(params: {
       metadata,
     })
     .returning();
+  if (notification) invalidateNotificationsCache([params.userId]);
   return notification;
 }
 
@@ -124,6 +142,7 @@ export async function notifyAllClientUsers(params: {
     .values(values)
     .returning();
 
+  invalidateNotificationsCache(filtered.map((m) => m.userId));
   return notifications;
 }
 
@@ -185,5 +204,7 @@ export async function notifyApprovers(params: {
     metadata: mode === 'digest_daily' ? { digest: true } : null,
   }));
 
-  return db.insert(crmNotifications).values(values).returning();
+  const inserted = await db.insert(crmNotifications).values(values).returning();
+  invalidateNotificationsCache(filtered.map((f) => f.userId));
+  return inserted;
 }

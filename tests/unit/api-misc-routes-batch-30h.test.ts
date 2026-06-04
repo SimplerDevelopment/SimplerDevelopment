@@ -48,6 +48,7 @@ vi.mock('drizzle-orm', () => ({
       raw: (s: string) => ({ op: 'sql.raw', s }),
     },
   ),
+  inArray: (a: unknown, list: unknown[]) => ({ op: 'inArray', a, list }),
 }));
 
 // schema — proxy tables
@@ -64,14 +65,14 @@ vi.mock('@/lib/db/schema', () => {
         },
       },
     );
-  return {
+  return new Proxy({
     crmProposals: wrap('crmProposals'),
     crmContacts: wrap('crmContacts'),
     crmCompanies: wrap('crmCompanies'),
     crmDeals: wrap('crmDeals'),
     crmScoringRules: wrap('crmScoringRules'),
     crmTags: wrap('crmTags'),
-  };
+  }, { has: (t, p) => (p in t) || !(p === "then" || p === "__esModule" || p === "default" || typeof p !== "string"), get: (t, p) => (p in t) ? t[p] : ((p === "then" || p === "__esModule" || p === "default" || typeof p !== "string") ? undefined : wrap(p)) });
 });
 
 // ---------------------------------------------------------------------------
@@ -293,7 +294,7 @@ describe('POST /api/portal/crm/proposals/[id]/send', () => {
     getPortalClientMock.mockResolvedValue({ id: 5 });
     selectQueue.push([]); // no proposal
     const res = await proposalsSendRoute.POST(
-      makeReq('http://x/api/portal/crm/proposals/9/send', { method: 'POST' }),
+      makeJsonReq('http://x/api/portal/crm/proposals/9/send', 'POST', { recipientEmail: 'test@example.com' }),
       { params: Promise.resolve({ id: '9' }) },
     );
     expect(res.status).toBe(404);
@@ -307,7 +308,7 @@ describe('POST /api/portal/crm/proposals/[id]/send', () => {
       { id: 9, clientToken: 'tok123', status: 'accepted' },
     ]);
     const res = await proposalsSendRoute.POST(
-      makeReq('http://x/api/portal/crm/proposals/9/send', { method: 'POST' }),
+      makeJsonReq('http://x/api/portal/crm/proposals/9/send', 'POST', { recipientEmail: 'test@example.com' }),
       { params: Promise.resolve({ id: '9' }) },
     );
     expect(res.status).toBe(400);
@@ -331,7 +332,7 @@ describe('POST /api/portal/crm/proposals/[id]/send', () => {
       },
     ]);
     const res = await proposalsSendRoute.POST(
-      makeReq('http://x/api/portal/crm/proposals/9/send', { method: 'POST' }),
+      makeJsonReq('http://x/api/portal/crm/proposals/9/send', 'POST', { recipientEmail: 'client@example.com' }),
       { params: Promise.resolve({ id: '9' }) },
     );
     expect(res.status).toBe(200);
@@ -357,7 +358,7 @@ describe('POST /api/portal/crm/proposals/[id]/send', () => {
       { id: 9, clientToken: 'tok123', status: 'sent' },
     ]);
     const res = await proposalsSendRoute.POST(
-      makeReq('http://x/api/portal/crm/proposals/9/send', { method: 'POST' }),
+      makeJsonReq('http://x/api/portal/crm/proposals/9/send', 'POST', { recipientEmail: 'client@example.com' }),
       { params: Promise.resolve({ id: '9' }) },
     );
     expect(res.status).toBe(200);

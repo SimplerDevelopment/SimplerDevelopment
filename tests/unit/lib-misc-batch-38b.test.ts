@@ -79,6 +79,8 @@ vi.mock('drizzle-orm', () => ({
   eq: (a: unknown, b: unknown) => ({ __op: 'eq', a, b }),
   and: (...parts: unknown[]) => ({ __op: 'and', parts }),
   isNull: (a: unknown) => ({ __op: 'isNull', a }),
+  or: (...args: unknown[]) => ({ op: 'or', args: args.filter(Boolean) }),
+  inArray: (a: unknown, list: unknown[]) => ({ op: 'inArray', a, list }),
 }));
 
 // Imports happen after mocks

@@ -68,12 +68,14 @@ export async function fetchContacts(): Promise<Contact[]> {
   return data?.contacts ?? [];
 }
 
-export async function fetchCompanies(): Promise<Company[]> {
-  const res = await fetch('/api/portal/crm/companies?limit=5000');
-  const j = (await res.json()) as Envelope<{ companies?: Company[] } | Company[]>;
-  const data = j.data;
-  if (Array.isArray(data)) return data;
-  return data?.companies ?? [];
+/** Typeahead fetcher for company-picker dropdowns. Returns id/name/logoUrl only,
+ *  capped at 50 rows. Wire to a debounced onChange (~200ms) on the input.
+ *  This replaces the legacy `fetchCompanies()` bulk loader — the company list
+ *  outgrew the "load first 200 into a <select>" UX, see perf/phase1. */
+export async function fetchCompaniesTypeahead(query: string): Promise<Pick<Company, 'id' | 'name'>[]> {
+  const res = await fetch(`/api/portal/crm/companies?q=${encodeURIComponent(query)}`);
+  const j = (await res.json()) as Envelope<{ companies?: Pick<Company, 'id' | 'name'>[] }>;
+  return j.data?.companies ?? [];
 }
 
 export async function createCompany(name: string): Promise<Envelope<Company>> {

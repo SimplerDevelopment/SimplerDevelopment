@@ -135,7 +135,7 @@ vi.mock('@/lib/db/schema', () => {
         },
       },
     );
-  return {
+  return new Proxy({
     clients: wrap('clients'),
     clientMembers: wrap('clientMembers'),
     users: wrap('users'),
@@ -143,7 +143,7 @@ vi.mock('@/lib/db/schema', () => {
     aiMessages: wrap('aiMessages'),
     brainProfiles: wrap('brainProfiles'),
     brainMeetings: wrap('brainMeetings'),
-  };
+  }, { has: (t, p) => (p in t) || !(p === "then" || p === "__esModule" || p === "default" || typeof p !== "string"), get: (t, p) => (p in t) ? t[p] : ((p === "then" || p === "__esModule" || p === "default" || typeof p !== "string") ? undefined : wrap(p)) });
 });
 
 // ---------------------------------------------------------------------------
@@ -154,6 +154,9 @@ vi.mock('drizzle-orm', () => ({
   eq: (a: unknown, b: unknown) => ({ op: 'eq', a, b }),
   and: (...args: unknown[]) => ({ op: 'and', args: args.filter(Boolean) }),
   sql: (..._args: unknown[]) => ({ op: 'sql' }),
+  isNull: (a: unknown) => ({ op: 'isNull', a }),
+  or: (...args: unknown[]) => ({ op: 'or', args: args.filter(Boolean) }),
+  inArray: (a: unknown, list: unknown[]) => ({ op: 'inArray', a, list }),
 }));
 
 function resolveOperand(operand: unknown, row: Record<string, unknown>): unknown {

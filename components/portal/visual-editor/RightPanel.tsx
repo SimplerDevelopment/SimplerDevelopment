@@ -1,13 +1,34 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { DynamicPropertyPanel } from '../DynamicPropertyPanel';
 import { StyleVariantsButton } from '@/components/blocks/visual/StyleVariantsButton';
 import type { Block, ColumnsBlock } from '@/types/blocks';
 import type { Breakpoint } from '@/types/responsive';
 import type { ComponentManifestEntry } from '@/types/visual-editor';
-import { BlockContentEditor } from './BlockContentEditor';
 import { ElementStyleEditor } from './ElementStyleEditor';
 import { BLOCK_ICON_MAP } from './_lib/block-icon-map';
+
+/**
+ * Lazy-load the heavy per-block content editor. BlockContentEditor is 2000+ LoC
+ * and statically imports HtmlRenderEditor (1700 LoC, pulls @codemirror/lang-html
+ * + @dnd-kit). Splitting the chunk shaves a couple hundred KB of JS off the
+ * initial editor route — the form panel is only needed once a block is selected
+ * AND the user is on the Content tab.
+ */
+const EditorPanelSkeleton = () => (
+  <div className="space-y-2 animate-pulse">
+    <div className="h-3 w-20 bg-muted rounded" />
+    <div className="h-8 bg-muted rounded" />
+    <div className="h-3 w-16 bg-muted rounded" />
+    <div className="h-8 bg-muted rounded" />
+  </div>
+);
+
+const BlockContentEditor = dynamic(
+  () => import('./BlockContentEditor').then((m) => ({ default: m.BlockContentEditor })),
+  { ssr: false, loading: () => <EditorPanelSkeleton /> },
+);
 
 /**
  * Right side panel — collapsible chrome that hosts the per-block content/style

@@ -12,10 +12,10 @@ const CSP_REPORT_ONLY = [
   "img-src 'self' data: blob: https:",
   "media-src 'self' blob: https:",
   "font-src 'self' data: https:",
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://www.googletagmanager.com https://www.google-analytics.com",
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://www.googletagmanager.com https://www.google-analytics.com https://assets.calendly.com",
   "style-src 'self' 'unsafe-inline' https:",
   "connect-src 'self' https: wss:",
-  "frame-src 'self' https://js.stripe.com https://hooks.stripe.com https://www.youtube.com https://player.vimeo.com",
+  "frame-src 'self' https://js.stripe.com https://hooks.stripe.com https://www.youtube.com https://player.vimeo.com https://calendly.com",
   "frame-ancestors 'self'",
   "base-uri 'self'",
   "form-action 'self'",
@@ -26,12 +26,24 @@ const SECURITY_HEADERS = [
   { key: 'X-Content-Type-Options', value: 'nosniff' },
   { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
   { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
-  { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(self), payment=(self), interest-cohort=()' },
+  // microphone=(self) enables the portal's WebRTC voice assistant (getUserMedia)
+  // on same-origin pages. Camera stays disabled. If we later want mic limited to
+  // /portal only, move this header into middleware keyed on the pathname.
+  { key: 'Permissions-Policy', value: 'camera=(), microphone=(self), geolocation=(self), payment=(self), interest-cohort=()' },
   { key: 'Content-Security-Policy-Report-Only', value: CSP_REPORT_ONLY },
 ];
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // The in-build `next build` TypeScript recheck re-type-checks the whole
+  // ~357k-line app in a single worker and exhausts the heap (OOM/SIGABRT) on
+  // both local and the Vercel build container (made worse by the Sentry plugin).
+  // Types are still gated outside the build — `tsc --noEmit` runs in the
+  // pre-push hook and CI — so skipping the redundant in-build pass keeps the
+  // type guarantee while letting the production build complete reliably.
+  typescript: {
+    ignoreBuildErrors: true,
+  },
   // Limit static generation workers to avoid exhausting Postgres connections
   experimental: {
     workerThreads: false,

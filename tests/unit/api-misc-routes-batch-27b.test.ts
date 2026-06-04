@@ -35,6 +35,8 @@ vi.mock('drizzle-orm', () => ({
     }),
     {},
   ),
+  isNull: (a: unknown) => ({ op: 'isNull', a }),
+  inArray: (a: unknown, list: unknown[]) => ({ op: 'inArray', a, list }),
 }));
 
 vi.mock('@/lib/db/schema', () => {
@@ -50,11 +52,11 @@ vi.mock('@/lib/db/schema', () => {
         },
       },
     );
-  return {
+  return new Proxy({
     suggestedProjects: wrap('suggestedProjects'),
     clientWebsites: wrap('clientWebsites'),
     categories: wrap('categories'),
-  };
+  }, { has: (t, p) => (p in t) || !(p === "then" || p === "__esModule" || p === "default" || typeof p !== "string"), get: (t, p) => (p in t) ? t[p] : ((p === "then" || p === "__esModule" || p === "default" || typeof p !== "string") ? undefined : wrap(p)) });
 });
 
 // ---------------------------------------------------------------------------
@@ -451,6 +453,8 @@ describe('GET /api/admin/portal/websites/[id]', () => {
     selectQueue.push([
       { id: 3, name: 'Acme', domain: 'acme.test', active: true },
     ]);
+    // second select: loadStoreSettings → no row
+    selectQueue.push([]);
     const res = await websitesRoute.GET(
       makeReq('http://x'),
       makeParams({ id: '3' }),
@@ -463,12 +467,21 @@ describe('GET /api/admin/portal/websites/[id]', () => {
       name: 'Acme',
       domain: 'acme.test',
       active: true,
+      storeSettings: {
+        stripeByokAllowed: false,
+        stripeMode: 'connect',
+        stripeSecretKeyConfigured: false,
+        stripeOnboardingComplete: false,
+        hasStoreSettingsRow: false,
+      },
     });
   });
 
   it('returns site data for employee', async () => {
     authMock.mockResolvedValue(EMPLOYEE_SESSION);
     selectQueue.push([{ id: 4, name: 'Beta' }]);
+    // second select: loadStoreSettings → no row
+    selectQueue.push([]);
     const res = await websitesRoute.GET(
       makeReq('http://x'),
       makeParams({ id: '4' }),

@@ -36,6 +36,7 @@ vi.mock('drizzle-orm', () => ({
       raw: (s: string) => ({ op: 'raw', s }),
     },
   ),
+  inArray: (a: unknown, list: unknown[]) => ({ op: 'inArray', a, list }),
 }));
 
 vi.mock('@/lib/db/schema', () => {
@@ -50,14 +51,14 @@ vi.mock('@/lib/db/schema', () => {
         },
       },
     );
-  return {
+  return new Proxy({
     brainNoteTemplates: wrap('brainNoteTemplates'),
     emailCampaigns: wrap('emailCampaigns'),
     emailCampaignSends: wrap('emailCampaignSends'),
     usageMeterEvents: wrap('usageMeterEvents'),
     customFields: wrap('customFields'),
     googleWorkspaceUserConnections: wrap('googleWorkspaceUserConnections'),
-  };
+  }, { has: (t, p) => (p in t) || !(p === "then" || p === "__esModule" || p === "default" || typeof p !== "string"), get: (t, p) => (p in t) ? t[p] : ((p === "then" || p === "__esModule" || p === "default" || typeof p !== "string") ? undefined : wrap(p)) });
 });
 
 // ---------------------------------------------------------------------------

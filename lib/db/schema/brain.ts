@@ -1,6 +1,6 @@
 // Company Brain: meetings, AI-extracted review items, relationships, notes, and the automation engine.
 
-import { pgTable, serial, varchar, text, timestamp, boolean, integer, json, uniqueIndex, index, vector } from 'drizzle-orm/pg-core';
+import { pgTable, serial, varchar, text, timestamp, boolean, integer, json, uniqueIndex, index, vector, type AnyPgColumn } from 'drizzle-orm/pg-core';
 import { users } from './auth';
 import { clients } from './sites';
 import { crmCompanies, crmContacts, crmDeals } from './crm';
@@ -78,7 +78,12 @@ export const automationRules = pgTable('automation_rules', {
   createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
-});
+}, (t) => [
+  // E2 perf — automations admin filters by clientId; the per-tenant rules
+  // list is the hot path. (The partial 'failed' index on automation_logs is
+  // declared in SQL only since Drizzle doesn't support partial indexes here.)
+  index('automation_rules_client_idx').on(t.clientId),
+]);
 
 // ─── SURVEYS ────────────────────────────────────────────────────────────────
 
@@ -161,13 +166,21 @@ export const brainMeetings = pgTable('brain_meetings', {
   reviewedBy: integer('reviewed_by').references(() => users.id, { onDelete: 'set null' }),
   reviewedAt: timestamp('reviewed_at'),
   confidentialityLevel: varchar('confidentiality_level', { length: 20 }).default('standard').notNull(),
-  source: varchar('source', { length: 50 }).default('paste').notNull(), // 'paste' | 'upload' | 'google_doc' | 'google_drive_watch' | 'google_meet_recording' | 'teams_transcript' | 'zoom'
+  source: varchar('source', { length: 50 }).default('paste').notNull(), // 'paste' | 'upload' | 'google_doc' | 'google_drive_watch' | 'google_meet_recording' | 'teams_transcript' | 'zoom' | 'live_voice'
   sourceRef: varchar('source_ref', { length: 500 }).notNull(), // adapter-supplied dedupe key; (clientId, sourceRef) unique
   sourceMetadata: json('source_metadata').$type<Record<string, unknown>>().default({}),
   createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
-}, (t) => [uniqueIndex('brain_meetings_client_source_ref_idx').on(t.clientId, t.sourceRef)]);
+}, (t) => [
+  uniqueIndex('brain_meetings_client_source_ref_idx').on(t.clientId, t.sourceRef),
+  index('brain_meetings_client_meeting_date_idx').on(t.clientId, t.meetingDate),
+  // listMeetings default ORDER BY created_at DESC — paired with client filter.
+  // Drizzle doesn't expose .desc() inside index().on(), but the planner uses
+  // a plain btree forward+backward, so (client_id, created_at) covers the
+  // ORDER BY ... DESC case fine. See drizzle/0130_perf_brain_trigram_indexes.sql.
+  index('brain_meetings_client_created_idx').on(t.clientId, t.createdAt),
+]);
 
 export const brainMeetingParticipants = pgTable('brain_meeting_participants', {
   id: serial('id').primaryKey(),
@@ -204,7 +217,10 @@ export const brainTasks = pgTable('brain_tasks', {
   createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
-});
+}, (t) => [
+  index('brain_tasks_client_status_due_idx').on(t.clientId, t.status, t.dueDate),
+  index('brain_tasks_client_owner_idx').on(t.clientId, t.ownerId),
+]);
 
 // What kind of record an AI proposal would become if approved.
 
@@ -383,12 +399,16 @@ export const brainAiReviewItems = pgTable('brain_ai_review_items', {
   // Routing-by-expertise — Phase 6. Populated by lib/brain/review-routing.ts.
   // SUGGESTIONS, not assignments — the actual reviewer on approval is recorded
   // in reviewedBy. A person can query "items routed to me" via the index below.
-  suggestedReviewerPersonId: integer('suggested_reviewer_person_id').references((): any => brainPeople.id, { onDelete: 'set null' }),
+  suggestedReviewerPersonId: integer('suggested_reviewer_person_id').references((): AnyPgColumn => brainPeople.id, { onDelete: 'set null' }),
   suggestedReviewerScore: integer('suggested_reviewer_score'),
   suggestedReviewerReason: text('suggested_reviewer_reason'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 }, (t) => [
   index('brain_ai_review_items_suggested_reviewer_idx').on(t.suggestedReviewerPersonId),
+  // E2 perf — admin/approvals dashboard filters by (clientId, status) sorted
+  // by createdAt; the review queue panel also scans by status only.
+  index('brain_ai_review_items_client_status_created_idx').on(t.clientId, t.status, t.createdAt),
+  index('brain_ai_review_items_status_idx').on(t.status),
 ]);
 
 export type BrainAiJobType = 'process_meeting' | 'embed' | 'summarize_doc' | 'crm_classify';
@@ -458,7 +478,10 @@ export const brainRelationshipOverlays = pgTable('brain_relationship_overlays', 
   staleAfterDays: integer('stale_after_days'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
-});
+}, (t) => [
+  index('brain_relationship_overlays_client_company_idx').on(t.clientId, t.companyId),
+  index('brain_relationship_overlays_client_deal_idx').on(t.clientId, t.dealId),
+]);
 
 // ─── BRAIN KNOWLEDGE ─────────────────────────────────────────────────────────
 // Free-form notes/documents linked to relationships, deals, contacts, or
@@ -481,6 +504,12 @@ export const brainNotes = pgTable('brain_notes', {
   tags: json('tags').$type<string[]>().default([]).notNull(),
   confidentialityLevel: varchar('confidentiality_level', { length: 20 }).default('standard').notNull(),
   pinned: boolean('pinned').default(false).notNull(),
+  // BRAIN-1 taxonomy status — replaces the legacy flat tags
+  // (`pending_deletion`, `short_note_review` from BRAIN-12) which Phase 2 will
+  // migrate. 'canonical' = gold-standard reference, 'draft' = in progress
+  // (default), 'stub' = under-quality / needs work, 'duplicate' = replaced by
+  // another note. Faceted filtering hits this column directly.
+  status: varchar('status', { length: 20 }).$type<'canonical' | 'draft' | 'stub' | 'duplicate'>().default('draft').notNull(),
   // Provenance — 'manual' for user-authored, 'ai_review' when promoted from a
   // brain_ai_review_items row of type 'note', 'document_import' for future
   // upload pipelines.
@@ -503,7 +532,13 @@ export const brainNotes = pgTable('brain_notes', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
   deletedAt: timestamp('deleted_at'),
-});
+}, (t) => [
+  index('brain_notes_client_updated_idx').on(t.clientId, t.updatedAt),
+  index('brain_notes_client_company_idx').on(t.clientId, t.companyId),
+  index('brain_notes_client_deal_idx').on(t.clientId, t.dealId),
+  index('brain_notes_client_pinned_idx').on(t.clientId, t.pinned),
+  index('brain_notes_status_idx').on(t.status),
+]);
 
 // Brain note templates — reusable note bodies a tenant can apply manually, via
 // slash command, on a daily cron, or auto-attached to a new meeting. Bodies
@@ -608,7 +643,15 @@ export const brainEmbeddingJobs = pgTable('brain_embedding_jobs', {
   lastError: text('last_error'),
   enqueuedAt: timestamp('enqueued_at').defaultNow().notNull(),
   startedAt: timestamp('started_at'),
-});
+}, (t) => [
+  // REQUIRED by the enqueue_embedding_job() trigger's `ON CONFLICT (entity_type,
+  // entity_id)` upsert. Created in migration 0064, but it MUST also be declared
+  // here or `drizzle-kit push`-built databases (e.g. realprod_dryrun) omit it and
+  // every posts/notes/meetings write 500s with Postgres 42P10. Do not remove.
+  uniqueIndex('brain_embedding_jobs_entity_unique_idx').on(t.entityType, t.entityId),
+  // Worker read pattern: oldest pending first (also from 0064).
+  index('brain_embedding_jobs_status_idx').on(t.status, t.enqueuedAt),
+]);
 
 // Embedding storage. One row per (entity, chunk). Vectors are written via raw
 // SQL in lib/brain/embeddings.ts (pgvector accepts a `[1,2,…]::vector` literal,
@@ -644,6 +687,12 @@ export const brainEmbeddings = pgTable('brain_embeddings', {
   index('brain_embeddings_client_idx').on(t.clientId),
   index('brain_embeddings_entity_idx').on(t.entityType, t.entityId),
   uniqueIndex('brain_embeddings_entity_chunk_idx').on(t.entityType, t.entityId, t.chunkIndex),
+  // Pre-filter for the HNSW vector search in lib/brain/embeddings.ts:
+  //   WHERE client_id = $1 AND entity_type IN (...)
+  // The HNSW index alone handles the ORDER BY vector <=> q; this composite
+  // makes the predicate selective so the planner narrows the candidate set
+  // before the cosine scan. See drizzle/0130_perf_brain_trigram_indexes.sql.
+  index('brain_embeddings_client_entity_idx').on(t.clientId, t.entityType),
 ]);
 
 // Obsidian-style link graph for KB-imported notes. Each row is one [[link]]
@@ -825,7 +874,7 @@ export const brainDecisions = pgTable('brain_decisions', {
   // Supersede chain (immutable replacement, never edit-in-place). Self-FK
   // declared via the `(): any => brainDecisions.id` pattern to break the
   // circular type inference Drizzle would otherwise hit.
-  supersededByDecisionId: integer('superseded_by_decision_id').references((): any => brainDecisions.id, { onDelete: 'set null' }),
+  supersededByDecisionId: integer('superseded_by_decision_id').references((): AnyPgColumn => brainDecisions.id, { onDelete: 'set null' }),
   // Optional anchors — usually one of these is set.
   meetingId: integer('meeting_id').references(() => brainMeetings.id, { onDelete: 'set null' }),
   noteId: integer('note_id').references(() => brainNotes.id, { onDelete: 'set null' }),
@@ -855,7 +904,7 @@ export const brainDecisions = pgTable('brain_decisions', {
 export const brainTopics = pgTable('brain_topics', {
   id: serial('id').primaryKey(),
   clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
-  parentId: integer('parent_id').references((): any => brainTopics.id, { onDelete: 'cascade' }),
+  parentId: integer('parent_id').references((): AnyPgColumn => brainTopics.id, { onDelete: 'cascade' }),
   name: varchar('name', { length: 150 }).notNull(),
   slug: varchar('slug', { length: 150 }).notNull(),
   path: varchar('path', { length: 1000 }).notNull(),    // '/ops/hiring/eng' — derived, kept in sync
@@ -913,7 +962,7 @@ export const brainPeople = pgTable('brain_people', {
   fullName: varchar('full_name', { length: 200 }).notNull(),
   email: varchar('email', { length: 255 }),
   // Reports-to chain (self-FK). Null = top of chain (CEO/founder/independent).
-  managerId: integer('manager_id').references((): any => brainPeople.id, { onDelete: 'set null' }),
+  managerId: integer('manager_id').references((): AnyPgColumn => brainPeople.id, { onDelete: 'set null' }),
   title: varchar('title', { length: 200 }),
   startDate: timestamp('start_date'),
   endDate: timestamp('end_date'),
@@ -945,13 +994,13 @@ export type NewBrainPerson = typeof brainPeople.$inferInsert;
 export const brainOrgUnits = pgTable('brain_org_units', {
   id: serial('id').primaryKey(),
   clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
-  parentId: integer('parent_id').references((): any => brainOrgUnits.id, { onDelete: 'cascade' }),
+  parentId: integer('parent_id').references((): AnyPgColumn => brainOrgUnits.id, { onDelete: 'cascade' }),
   name: varchar('name', { length: 150 }).notNull(),
   slug: varchar('slug', { length: 150 }).notNull(),
   path: varchar('path', { length: 1000 }).notNull(),
   description: text('description'),
   // Optional unit head — must belong to the same client.
-  leadPersonId: integer('lead_person_id').references((): any => brainPeople.id, { onDelete: 'set null' }),
+  leadPersonId: integer('lead_person_id').references((): AnyPgColumn => brainPeople.id, { onDelete: 'set null' }),
   color: varchar('color', { length: 20 }),
   icon: varchar('icon', { length: 50 }),
   sortOrder: integer('sort_order').default(0).notNull(),

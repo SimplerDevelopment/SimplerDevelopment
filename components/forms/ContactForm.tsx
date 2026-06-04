@@ -35,7 +35,7 @@ export function ContactForm() {
     setSubmitStatus('idle');
 
     try {
-      const response = await fetch('https://n8n.simplerdevelopment.com/webhook/contact-form-submission', {
+      const response = await fetch('/api/contact', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

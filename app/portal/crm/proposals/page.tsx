@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import CrmCompanyTypeaheadPicker from '@/components/portal/CrmCompanyTypeaheadPicker';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -48,11 +49,6 @@ interface Contact {
   firstName: string;
   lastName: string;
   email?: string;
-}
-
-interface Company {
-  id: number;
-  name: string;
 }
 
 interface Deal {
@@ -141,10 +137,13 @@ function ProposalsAndDecksPage() {
   // Proposal state
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
-  const [companies, setCompanies] = useState<Company[]>([]);
   const [deals, setDeals] = useState<Deal[]>([]);
   const [templates, setTemplates] = useState<Template[]>([]);
   const [proposalsLoading, setProposalsLoading] = useState(true);
+  // Display label for the currently-selected company in the new-proposal form.
+  // Required so the typeahead picker can show the chosen company name in its
+  // closed state without re-fetching when the user opens the form.
+  const [formCompanyLabel, setFormCompanyLabel] = useState<string | null>(null);
 
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
@@ -213,14 +212,16 @@ function ProposalsAndDecksPage() {
   }, [fetchDecks]);
 
   useEffect(() => {
+    // Company picker uses typeahead (?q=<query>) below — no bulk fetch needed.
+    // TODO(perf): contacts picker is still bulk-fetched at limit=100; convert
+    // to a typeahead pattern in a follow-up once the contacts route gains a
+    // typeahead mode (the company route is the only one carrying ?q= today).
     Promise.all([
-      fetch('/api/portal/crm/contacts?limit=1000').then(r => r.json()),
-      fetch('/api/portal/crm/companies?limit=5000').then(r => r.json()),
+      fetch('/api/portal/crm/contacts?limit=100').then(r => r.json()),
       fetch('/api/portal/crm/deals?status=open').then(r => r.json()),
       fetch('/api/portal/crm/proposal-templates').then(r => r.json()),
-    ]).then(([c, co, d, t]) => {
+    ]).then(([c, d, t]) => {
       setContacts(c.data?.contacts ?? c.data ?? []);
-      setCompanies(co.data?.companies ?? co.data ?? []);
       setDeals(d.data ?? []);
       setTemplates(t.data ?? []);
     });
@@ -305,6 +306,7 @@ function ProposalsAndDecksPage() {
     }
     setShowForm(false);
     setForm({ title: '', contactId: '', companyId: '', dealId: '', templateId: '' });
+    setFormCompanyLabel(null);
     setTemplateSections([]);
     setTemplateLineItems([]);
     setTemplateFees([]);
@@ -512,16 +514,15 @@ function ProposalsAndDecksPage() {
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-muted-foreground mb-1">Company</label>
-                  <select
+                  <CrmCompanyTypeaheadPicker
                     value={form.companyId}
-                    onChange={e => setForm(f => ({ ...f, companyId: e.target.value }))}
-                    className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
-                  >
-                    <option value="">Select company...</option>
-                    {companies.map(c => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
-                    ))}
-                  </select>
+                    selectedLabel={formCompanyLabel}
+                    onChange={opt => {
+                      setForm(f => ({ ...f, companyId: opt ? String(opt.id) : '' }));
+                      setFormCompanyLabel(opt ? opt.name : null);
+                    }}
+                    placeholder="Select company..."
+                  />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-muted-foreground mb-1">Deal (optional)</label>

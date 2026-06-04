@@ -23,7 +23,7 @@ async function ownsCampaign(clientId: number, campaignId: number) {
   return c ?? null;
 }
 
-export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   // Service access check
   const authResult = await authorizePortal({ action: 'read', requireService: 'email' });
   if (isAuthError(authResult)) return authResult.response;
@@ -37,6 +37,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   if (!await ownsCampaign(client.id, campaignId)) {
     return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
   }
+
+  const url = new URL(req.url);
+  const mode = url.searchParams.get('mode'); // 'editor' = skip legacy mirrors
 
   const [campaign] = await db
     .select({
@@ -76,6 +79,40 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     .where(eq(emailCampaigns.id, campaignId))
     .limit(1);
 
+  // ── Slim large payloads ──────────────────────────────────────────────────
+  // The campaign row historically returns THREE copies of the body:
+  //   htmlContent   → final rendered HTML (always regenerated at send time)
+  //   blockContent  → legacy BlockEditorData mirror
+  //   contentBlocks → canonical Block[] (the source of truth in editor mode)
+  //
+  // Trim rules (additive-only — default response still returns every field):
+  //   - When ?mode=editor OR the campaign uses the block editor
+  //     (useBlockEditor=true), drop blockContent — contentBlocks is the
+  //     source of truth, blockContent is a legacy mirror of the same tree.
+  //   - When ?mode=editor AND contentBlocks is non-empty, drop htmlContent
+  //     — the send path regenerates it from contentBlocks via
+  //     renderBlocksToEmailHtml, so the editor doesn't need the cached copy.
+  //     (We intentionally do NOT drop htmlContent in default mode because
+  //     the existing campaign detail view renders it directly; that's the
+  //     "preserve backward compat" guarantee.)
+  //
+  // Use a typed copy so we can selectively delete optional fields. We
+  // intentionally cast `campaign` to a partial because Drizzle's inferred
+  // type would forbid `delete` on required fields.
+  const slimCampaign: Record<string, unknown> | null = campaign
+    ? { ...(campaign as Record<string, unknown>) }
+    : null;
+  if (slimCampaign) {
+    const hasContentBlocks = Array.isArray(slimCampaign.contentBlocks) && (slimCampaign.contentBlocks as unknown[]).length > 0;
+    const useBlockEditor = slimCampaign.useBlockEditor === true;
+    if (mode === 'editor' || useBlockEditor) {
+      delete slimCampaign.blockContent;
+    }
+    if (mode === 'editor' && hasContentBlocks) {
+      delete slimCampaign.htmlContent;
+    }
+  }
+
   const sends = await db
     .select({
       id: emailCampaignSends.id,
@@ -91,7 +128,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     .where(eq(emailCampaignSends.campaignId, campaignId))
     .limit(100);
 
-  return NextResponse.json({ success: true, data: { campaign, sends } });
+  return NextResponse.json({ success: true, data: { campaign: slimCampaign, sends } });
 }
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {

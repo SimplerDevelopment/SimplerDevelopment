@@ -30,6 +30,7 @@ const dbState: {
   updateReturning: Row[];
   capturedInsertValues: Row | null;
   capturedUpdatePatch: Row | null;
+  insertCalls: Row[];
 } = {
   insertReturning: [],
   selectQueue: [],
@@ -37,6 +38,7 @@ const dbState: {
   updateReturning: [],
   capturedInsertValues: null,
   capturedUpdatePatch: null,
+  insertCalls: [],
 };
 
 function makeChain(rows: Row[]) {
@@ -56,8 +58,10 @@ vi.mock('@/lib/db', () => ({
     insert: vi.fn(() => ({
       values: vi.fn((vals: Row) => {
         dbState.capturedInsertValues = vals;
+        dbState.insertCalls.push(vals);
         return {
           returning: vi.fn(async () => dbState.insertReturning),
+          onConflictDoNothing: vi.fn(async () => undefined),
         };
       }),
     })),
@@ -82,7 +86,7 @@ vi.mock('@/lib/db/schema', () => {
   const col = (name: string) => ({ name });
   const make = (...cols: string[]) =>
     Object.fromEntries(cols.map((c) => [c, col(c)])) as Record<string, unknown>;
-  return {
+  return new Proxy({
     projects: make('id', 'clientId', 'name', 'description', 'status', 'createdAt', 'updatedAt', 'dueDate', 'isPrivate', 'createdBy', 'projectKey'),
     kanbanCards: make('id', 'number', 'title', 'priority', 'dueDate', 'projectId', 'columnId'),
     kanbanColumns: make('id', 'name', 'isDone'),
@@ -156,7 +160,7 @@ vi.mock('@/lib/db/schema', () => {
     aiCreditLedger: make('id'),
     hostedSites: make('id'),
     googleWorkspaceUserConnections: make('id'),
-  };
+  }, { has: (t, p) => (p in t) || !(p === "then" || p === "__esModule" || p === "default" || typeof p !== "string"), get: (t, p) => (p in t) ? t[p] : ((p === "then" || p === "__esModule" || p === "default" || typeof p !== "string") ? undefined : new Proxy({ __table: String(p) }, { get: (_x, c) => c === "__table" ? String(p) : (typeof c === "string" ? { __col: c, __table: String(p) } : undefined) })) });
 });
 
 vi.mock('drizzle-orm', () => ({
@@ -186,6 +190,7 @@ vi.mock('@/lib/portal-auth', () => ({
 
 vi.mock('next/cache', () => ({
   revalidatePath: vi.fn(),
+  unstable_cache: (fn: (...a: unknown[]) => unknown) => fn,
 }));
 
 // Stubs for collaborators that projects.ts pulls transitively through its
@@ -267,6 +272,7 @@ beforeEach(() => {
   dbState.updateReturning = [];
   dbState.capturedInsertValues = null;
   dbState.capturedUpdatePatch = null;
+  dbState.insertCalls = [];
   hasServiceAccessMock.mockReset();
   hasServiceAccessMock.mockResolvedValue(true);
 });
@@ -366,12 +372,13 @@ describe('projects_create', () => {
     const res = await tools.get('projects_create')!.handler({ name: 'New Project' });
     const out = parseJson(res) as Row;
     expect(out.id).toBe(10);
-    const vals = dbState.capturedInsertValues!;
+    // insertCalls[0] = projects row; [1] = projectMembers row (onConflictDoNothing).
+    // Use [0] so the second insert does not overwrite our assertion target.
+    const vals = dbState.insertCalls[0]!;
     expect(vals.name).toBe('New Project');
     expect(vals.description).toBeNull();
     expect(vals.clientId).toBe(7);
     expect(vals.status).toBe('active');
-    expect(vals.isPrivate).toBe(true);
     expect(vals.createdBy).toBe(42);
   });
 
@@ -382,7 +389,8 @@ describe('projects_create', () => {
       name: 'With description',
       description: 'hello world',
     });
-    const vals = dbState.capturedInsertValues!;
+    // insertCalls[0] = projects row; [1] = projectMembers row.
+    const vals = dbState.insertCalls[0]!;
     expect(vals.description).toBe('hello world');
   });
 

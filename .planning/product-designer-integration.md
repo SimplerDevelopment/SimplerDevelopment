@@ -2,6 +2,7 @@
 
 Branch: `feat/product-designer` (off `staging`)
 Source: `/Users/dancoyle/productDesigner` (Next.js 14 + Fabric.js v6.7.1)
+Also porting from: `~/monorepo/packages/philaprints` (philaprints product-customization designer)
 Target: `simplerdevelopment2026` portal + storefront ecommerce
 
 ## Goal
@@ -27,22 +28,24 @@ Let merchants (portal admins) mark a product as **designable** and configure pri
 - `zustand@^5` — store
 - `uuid@^11` — layer ids
 - `use-debounce@^10` — debounced inputs
+- `react-draggable` — layer dragging
 - (`immer`, `react-icons`, `html2canvas`, `@aws-sdk/client-s3` already installed)
 
 ## Schema additions (`lib/db/schema/store.ts`)
 
 ### New columns
 
-- `products.isDesignable boolean NOT NULL DEFAULT false`
+- `products.isDesignable boolean NOT NULL DEFAULT false` — surface-based designer (Fabric.js canvas)
+- `products.designable boolean NOT NULL DEFAULT false` — philaprints-style designer (styles + sides)
 - `cartItems.designId uuid` (FK → designs.id, ON DELETE SET NULL)
 - `orderItems.designId uuid` (FK → designs.id, ON DELETE SET NULL)
 - `orderItems.designSnapshot jsonb` (frozen layers payload at checkout time, so deleting a design doesn't break orders)
 - `orderItems.printReadyUrl varchar(500)` (S3 url after webhook render)
 
-### New tables
+### New tables (in `lib/db/schema/store.ts`)
 
 ```ts
-productDesignSurfaces      // per-product canvas surface config
+productDesignSurfaces      // per-product canvas surface config (Fabric.js approach)
   id serial pk
   productId int notnull → products.id (cascade)
   name varchar(80) notnull             // "Front", "Back", "Left sleeve"
@@ -74,6 +77,7 @@ designs                    // saved customer designs
   thumbnailUrl varchar(500)
   renderedUrl varchar(500)             // hi-res print file, post-webhook
   status varchar(20) default 'draft'   // draft, finalized, rendered
+  isTemplate boolean default false     // site-wide reusable template
   createdAt, updatedAt
   index(websiteId), index(customerId), index(sessionId)
 
@@ -87,6 +91,15 @@ designAssets               // user-uploaded images for designs (not the rendered
   createdAt
 ```
 
+### New tables (in `lib/db/schema/productDesigner.ts` — philaprints integration)
+
+```ts
+productStyles      // designable product variants with mockup imagery
+productSides       // front/back/sleeve images per style + printable bounds
+designAssets       // shared icon/art library entries (per website)
+productDesigns     // saved customer designs (anonymous via sessionId or user)
+```
+
 ## API routes
 
 ### Portal admin (auth required, tenant-scoped)
@@ -94,8 +107,11 @@ designAssets               // user-uploaded images for designs (not the rendered
 - `POST   /api/portal/websites/[siteId]/store/products/[productId]/design-surfaces` — create
 - `PATCH  /api/portal/websites/[siteId]/store/products/[productId]/design-surfaces/[surfaceId]` — update
 - `DELETE /api/portal/websites/[siteId]/store/products/[productId]/design-surfaces/[surfaceId]` — delete
+- `GET/POST/PUT/DELETE /products/[productId]/styles`
+- `GET/POST/PUT/DELETE /products/[productId]/styles/[styleId]/sides`
+- `GET/POST/PUT/DELETE /design-assets` (per-website art/icon library)
 
-(`isDesignable` toggle reuses existing `PATCH /api/portal/websites/[siteId]/store/products/[productId]`.)
+(`isDesignable`/`designable` toggles reuse existing `PATCH /api/portal/websites/[siteId]/store/products/[productId]`.)
 
 ### Storefront (public, scoped by siteId)
 - `POST   /api/storefront/[siteId]/designs` — create design (returns `{id}`)
@@ -103,45 +119,27 @@ designAssets               // user-uploaded images for designs (not the rendered
 - `PUT    /api/storefront/[siteId]/designs/[designId]` — autosave update
 - `POST   /api/storefront/[siteId]/designs/[designId]/assets` — upload image (multipart → S3)
 - `POST   /api/storefront/[siteId]/designs/[designId]/finalize` — mark finalized + generate thumbnail
+- `GET    /products/[productId]/styles` — styles+sides for a product
 
 Cart attach: extend `POST /api/storefront/[siteId]/cart` to accept `designId` in body, store on `cartItems.designId`.
 
-## Components ported into `components/storefront/designer/`
+## Components
 
-| New path | From |
-|---|---|
-| `DesignCanvas.tsx` | `components/canvas/design-canvas.tsx` |
-| `LayersPanel.tsx` | `components/EnhancedLayersPanel.tsx` |
-| `PropertiesPanel.tsx` | `components/panels/properties-panel.tsx` |
-| `AddLayerPanel.tsx` | `components/panels/add-layer-panel.tsx` |
-| `SurfaceSelector.tsx` | `components/canvas/side-selector.tsx` (renamed surface→slug-driven) |
-| `BatchPropertiesPanel.tsx` | `components/BatchPropertiesPanel.tsx` |
-| `CanvasControls.tsx` | `components/canvas/canvas-controls.tsx` |
-| `stores/canvasStore.ts` | `lib/stores/canvas-store.ts` |
-| `lib/canvas/*` | `lib/canvas/*` (layer-factory, selection-manager, font-virtualizer, history-manager) |
-| `hooks/useAutoSave.ts` | `lib/hooks/useAutoSave.ts` |
-| `hooks/useKeyboardShortcuts.ts` | `lib/hooks/useKeyboardShortcuts.ts` |
-| `hooks/useMobileGestures.ts` | `lib/hooks/useMobileGestures.ts` |
-
-Top-level page:
-- `app/sites/[domain]/designer/[productSlug]/page.tsx` — server component fetches product + surfaces + (optional) existing design from sessionId/customerId; renders `<DesignerClient/>`
-- `components/storefront/designer/DesignerClient.tsx` — the assembled designer shell
-
-Add a **"Customize"** button to the existing storefront product page when `product.isDesignable === true`, linking to `/designer/[productSlug]`.
+- `components/storefront/designer/` — Fabric.js canvas designer components
+- `components/product-designer/` — philaprints-ported designer components
 
 ## Portal admin UI
 
 Extend `app/portal/websites/[siteId]/store/products/[productId]/page.tsx`:
-1. New section: **Customization** (collapsible)
-   - Toggle: `isDesignable`
-   - If on → embedded `DesignSurfacesEditor` (table of surfaces: name, slug, mockup, print bounds; add/edit/delete)
-2. New component: `components/portal/store/DesignSurfacesEditor.tsx`
+1. New section: **Customization** (collapsible) with design mode selector (standard/store/customer)
+   - If mode !== standard → embedded `DesignSurfacesEditor` for surface config
+2. `app/portal/websites/[siteId]/store/products/[productId]/designer/page.tsx` — redirect to storefront designer in staff mode
 
 ## Webhook hook-in
 
 In `app/api/stripe/webhook/ecommerce/route.ts`, on `payment_intent.succeeded` after `paymentStatus='paid'`:
 - For each `orderItem` with `designId`, enqueue a server-side render → S3 → update `orderItems.printReadyUrl` and `designs.renderedUrl`, `designs.status='rendered'`.
-- For MVP: skip server render and just snapshot the design's data URL thumbnail; surface raw `designs.layersBySurface` + `productDesignSurfaces.mockupImage` to merchant for manual download. A real server-side compositor (node-canvas / Puppeteer) is a follow-up.
+- For MVP: skip server render and just snapshot the design's data URL thumbnail; surface raw `designs.layersBySurface` + `productDesignSurfaces.mockupImage` to merchant for manual download.
 
 ## Constraints from memory
 

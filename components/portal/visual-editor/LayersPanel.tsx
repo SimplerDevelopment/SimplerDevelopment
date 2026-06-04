@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { memo, useState } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { useSortable } from '@dnd-kit/sortable';
 import type { Block } from '@/types/blocks';
@@ -11,8 +11,15 @@ import { BLOCK_ICON_MAP } from './_lib/block-icon-map';
  * accordion items all expand into nested children. Selection, multi-select,
  * rename, and delete all happen here; drag/drop sortable hooks are wired up
  * by the parent DndContext + SortableContext.
+ *
+ * Wrapped in React.memo with a custom equality check so selecting block A
+ * doesn't re-render the entire tree of unrelated layer rows. Selection state
+ * is the field that flips most often during normal editing, so we re-render
+ * only when this specific block transitions in/out of the selection set; the
+ * block reference change covers content edits, and the callback identities
+ * are stable from the parent.
  */
-export function LayerItem({
+function LayerItemComponent({
   block,
   depth,
   selectedBlockId,
@@ -152,6 +159,47 @@ export function LayerItem({
     </div>
   );
 }
+
+/**
+ * Custom equality predicate for the memoized LayerItem. Re-renders when:
+ *  - the block reference changes (content/structure edit on THIS block)
+ *  - this block's selected status changes (single-select or multi-select set)
+ *  - depth / showDropIndicator change (drag/drop visuals)
+ *  - the callback identities change (rare — parent should memoize them)
+ *
+ * Critically does NOT re-render when an UNRELATED block becomes selected:
+ * `selectedBlockId` and `selectedBlockIds` change for the whole tree on every
+ * selection, so we project them onto "is THIS block selected" before the
+ * comparison. With ~100 layers a click used to re-render all 100; now it
+ * re-renders the 2 that actually flipped.
+ */
+function layerItemPropsAreEqual(
+  prev: Parameters<typeof LayerItemComponent>[0],
+  next: Parameters<typeof LayerItemComponent>[0],
+): boolean {
+  if (prev.block !== next.block) return false;
+  if (prev.depth !== next.depth) return false;
+  if (prev.showDropIndicator !== next.showDropIndicator) return false;
+  if (prev.onSelect !== next.onSelect) return false;
+  if (prev.onDelete !== next.onDelete) return false;
+  if (prev.onUpdate !== next.onUpdate) return false;
+  if (prev.onContextMenu !== next.onContextMenu) return false;
+  const id = prev.block.id;
+  const prevSelected = !!id && (
+    (prev.selectedBlockIds ?? []).length > 1
+      ? (prev.selectedBlockIds ?? []).includes(id)
+      : prev.selectedBlockId === id
+  );
+  const nextSelected = !!id && (
+    (next.selectedBlockIds ?? []).length > 1
+      ? (next.selectedBlockIds ?? []).includes(id)
+      : next.selectedBlockId === id
+  );
+  if (prevSelected !== nextSelected) return false;
+  return true;
+}
+
+export const LayerItem = memo(LayerItemComponent, layerItemPropsAreEqual);
 
 // ─── Container Drop Zone ─────────────────────────────────────────────────────
 

@@ -12,11 +12,36 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 vi.mock('@/lib/db', () => ({
   db: {
     execute: vi.fn().mockResolvedValue({ rows: [] }),
+    insert: vi.fn(() => ({
+      values: vi.fn(() => ({
+        onConflictDoUpdate: vi.fn().mockResolvedValue(undefined),
+      })),
+    })),
+    update: vi.fn(() => ({
+      set: vi.fn(() => ({
+        where: vi.fn().mockResolvedValue(undefined),
+      })),
+    })),
   },
 }));
 
 vi.mock('@/lib/crm/notifications', () => ({
   createCrmNotification: vi.fn().mockResolvedValue({ id: 1 }),
+}));
+
+vi.mock('@/lib/db/schema/cronHealth', () => ({
+  cronHealth: {
+    name: { __col: 'name' },
+    runCount: { __col: 'run_count' },
+  },
+}));
+
+vi.mock('drizzle-orm', () => ({
+  eq: (a: unknown, b: unknown) => ({ op: 'eq', a, b }),
+  sql: Object.assign(
+    (strings: TemplateStringsArray, ...values: unknown[]) => ({ __sql: true, strings: Array.from(strings), values }),
+    {},
+  ),
 }));
 
 describe('GET /api/cron/stale-crm-deals — auth + envelope', () => {

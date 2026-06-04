@@ -409,7 +409,7 @@ function MyTasksPageInner() {
                     >
                       {sourceIcon(p.source)}
                     </span>
-                    <Link href={headerHref} className="font-semibold text-foreground hover:text-primary transition-colors truncate">
+                    <Link href={headerHref} prefetch={false} className="font-semibold text-foreground hover:text-primary transition-colors truncate">
                       {p.name}
                     </Link>
                     {p.clientName && <span className="text-xs text-muted-foreground ml-2 shrink-0">· {p.clientName}</span>}
@@ -451,6 +451,10 @@ function MyTasksPageInner() {
                         </button>
                         <Link
                           href={c.linkUrl}
+                          // Each task row points to a heavy project / brain
+                          // detail page. With dozens of tasks per page, viewport
+                          // prefetch storms the server — defer to hover.
+                          prefetch={false}
                           className="flex items-center gap-3 flex-1 min-w-0"
                         >
                           <span

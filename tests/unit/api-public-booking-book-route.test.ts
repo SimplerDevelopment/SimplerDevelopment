@@ -104,6 +104,9 @@ vi.mock('drizzle-orm', () => ({
     (strings: TemplateStringsArray, ...values: unknown[]) => ({ kind: 'sql', strings, values }),
     {},
   ),
+  isNull: (a: unknown) => ({ op: 'isNull', a }),
+  or: (...args: unknown[]) => ({ op: 'or', args: args.filter(Boolean) }),
+  inArray: (a: unknown, list: unknown[]) => ({ op: 'inArray', a, list }),
 }));
 
 // Email + integration mocks
@@ -112,6 +115,7 @@ const sendHostNotification = vi.fn().mockResolvedValue(undefined);
 vi.mock('@/lib/email/booking-emails', () => ({
   sendGuestConfirmation: (...args: unknown[]) => sendGuestConfirmation(...args),
   sendHostNotification: (...args: unknown[]) => sendHostNotification(...args),
+  loadBookingBrand: (..._args: unknown[]) => Promise.resolve(null),
 }));
 
 const createCalendarEvent = vi.fn().mockResolvedValue({ meetingLink: null });

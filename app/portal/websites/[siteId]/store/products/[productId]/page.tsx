@@ -54,6 +54,7 @@ interface ProductForm {
   isDesignable: boolean;
   designMode: ProductDesignMode;
   metadata: Record<string, string>;
+  designable: boolean;
   priceCents: number;
   compareAtPriceCents: number;
   costPriceCents: number;
@@ -199,6 +200,7 @@ const defaultForm: ProductForm = {
   isDesignable: false,
   designMode: 'standard',
   metadata: {},
+  designable: false,
   priceCents: 0,
   compareAtPriceCents: 0,
   costPriceCents: 0,
@@ -269,6 +271,7 @@ export default function ProductEditPage() {
             isDesignable: designMode === 'customer',
             designMode,
             metadata,
+            designable: p.designable || false,
             priceCents: moneyToCents(p.priceCents ?? p.price),
             compareAtPriceCents: moneyToCents(p.compareAtPriceCents ?? p.compareAtPrice),
             costPriceCents: moneyToCents(p.costPriceCents ?? p.costPrice),
@@ -532,6 +535,22 @@ export default function ProductEditPage() {
       {/* Title */}
       <h1 className="text-2xl font-bold text-foreground">{isNew ? 'New Product' : 'Edit Product'}</h1>
 
+      {/* Designer tab link */}
+      {!isNew && form.designable && (
+        <div className="flex items-center gap-2">
+          <Link
+            href={`/portal/websites/${siteId}/store/products/${productId}/designer`}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-accent text-foreground rounded-lg text-sm font-medium hover:bg-accent/80 transition-colors"
+          >
+            <span className="material-icons text-base">design_services</span>
+            Open Designer Setup
+          </Link>
+          <span className="text-xs text-muted-foreground">
+            Configure styles, sides, and the asset library for the customer designer.
+          </span>
+        </div>
+      )}
+
       {/* Messages */}
       {error && (
         <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm dark:bg-red-900/20 dark:border-red-800 dark:text-red-400">
@@ -612,6 +631,32 @@ export default function ProductEditPage() {
                 />
               </button>
               <span className="text-sm text-muted-foreground">{form.featured ? 'Yes' : 'No'}</span>
+            </div>
+          </div>
+        </div>
+        <div className="space-y-1.5 pt-2 border-t border-border">
+          <label className={labelClass}>Customer-designable product</label>
+          <div className="flex items-start gap-3 pt-1.5">
+            <button
+              type="button"
+              onClick={() => updateField('designable', !form.designable)}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors flex-shrink-0 ${
+                form.designable ? 'bg-primary' : 'bg-border'
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  form.designable ? 'translate-x-6' : 'translate-x-1'
+                }`}
+              />
+            </button>
+            <div className="flex-1">
+              <span className="text-sm text-muted-foreground block">
+                {form.designable ? 'Enabled' : 'Disabled'}
+              </span>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Lets customers create their own design on this product. Set up styles &amp; sides in the Designer tab.
+              </p>
             </div>
           </div>
         </div>

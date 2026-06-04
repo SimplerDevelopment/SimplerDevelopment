@@ -63,6 +63,7 @@ vi.mock('drizzle-orm', () => ({
   sql: Object.assign((..._args: unknown[]) => ({ op: 'sql' }), {
     raw: (s: string) => ({ op: 'raw', s }),
   }),
+  inArray: (a: unknown, list: unknown[]) => ({ op: 'inArray', a, list }),
 }));
 
 // schema — proxy tables. We also re-export the NOTIFICATION_TYPES /
@@ -81,7 +82,7 @@ vi.mock('@/lib/db/schema', () => {
         },
       },
     );
-  return {
+  return new Proxy({
     media: wrap('media'),
     brandingProfiles: wrap('brandingProfiles'),
     brandingMessaging: wrap('brandingMessaging'),
@@ -93,7 +94,7 @@ vi.mock('@/lib/db/schema', () => {
       'deal_assigned',
     ] as const,
     NOTIFICATION_DELIVERIES: ['instant', 'digest_daily', 'off'] as const,
-  };
+  }, { has: (t, p) => (p in t) || !(p === "then" || p === "__esModule" || p === "default" || typeof p !== "string"), get: (t, p) => (p in t) ? t[p] : ((p === "then" || p === "__esModule" || p === "default" || typeof p !== "string") ? undefined : wrap(p)) });
 });
 
 // ---- db mock with select-queue + write capture --------------------------------

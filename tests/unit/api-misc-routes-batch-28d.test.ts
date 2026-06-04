@@ -21,6 +21,7 @@ vi.mock('@/lib/brain/entitlement', () => ({
 const suggestCrmTargetsMock = vi.fn();
 vi.mock('@/lib/brain/relationships', () => ({
   suggestCrmTargets: (...args: unknown[]) => suggestCrmTargetsMock(...args),
+  countRelationships: (..._args: unknown[]) => Promise.resolve(0),
 }));
 
 const getDashboardSummaryMock = vi.fn();

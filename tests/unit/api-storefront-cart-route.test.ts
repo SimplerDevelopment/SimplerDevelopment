@@ -23,6 +23,7 @@ const mocks = vi.hoisted(() => {
       limit: vi.fn(() => makeThenable(resolver)),
       orderBy: vi.fn(() => makeThenable(resolver)),
       innerJoin: vi.fn(() => makeThenable(resolver)),
+      leftJoin: vi.fn(() => makeThenable(resolver)),
       from: vi.fn(() => makeThenable(resolver)),
       values: vi.fn(() => makeThenable(resolver)),
       returning: vi.fn(() => makeThenable(resolver)),
@@ -85,6 +86,11 @@ vi.mock('@/lib/db/schema', () => ({
     active: 'productVariants.active',
     name: 'productVariants.name',
   },
+  designs: {
+    id: 'designs.id',
+    name: 'designs.name',
+    thumbnailUrl: 'designs.thumbnailUrl',
+  },
 }));
 
 vi.mock('drizzle-orm', () => ({
@@ -97,6 +103,9 @@ vi.mock('drizzle-orm', () => ({
     },
     {},
   ),
+  isNull: (a: unknown) => ({ op: 'isNull', a }),
+  or: (...args: unknown[]) => ({ op: 'or', args: args.filter(Boolean) }),
+  inArray: (a: unknown, list: unknown[]) => ({ op: 'inArray', a, list }),
 }));
 
 const { GET, POST, PUT, DELETE } = await import(

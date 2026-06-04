@@ -33,6 +33,7 @@ vi.mock('drizzle-orm', () => ({
     (...args: unknown[]) => ({ op: 'sql', args }),
     { raw: (s: string) => ({ op: 'sql.raw', s }) },
   ),
+  isNull: (a: unknown) => ({ op: 'isNull', a }),
 }));
 
 vi.mock('@/lib/db/schema', () => {
@@ -48,7 +49,7 @@ vi.mock('@/lib/db/schema', () => {
         },
       },
     );
-  return {
+  return new Proxy({
     tags: wrap('tags'),
     posts: wrap('posts'),
     categories: wrap('categories'),
@@ -63,7 +64,7 @@ vi.mock('@/lib/db/schema', () => {
     productCategories: wrap('productCategories'),
     bulkPricingRules: wrap('bulkPricingRules'),
     storeSettings: wrap('storeSettings'),
-  };
+  }, { has: (t, p) => (p in t) || !(p === "then" || p === "__esModule" || p === "default" || typeof p !== "string"), get: (t, p) => (p in t) ? t[p] : ((p === "then" || p === "__esModule" || p === "default" || typeof p !== "string") ? undefined : wrap(p)) });
 });
 
 // data/posts mocks — used by posts list, posts [slug], and tags routes.

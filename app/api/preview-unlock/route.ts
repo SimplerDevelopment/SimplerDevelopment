@@ -86,9 +86,16 @@ export async function POST(req: Request) {
   const requestProto = req.headers.get('x-forwarded-proto') || (requestHost.startsWith('localhost') ? 'http' : 'https');
 
   let url: string;
-  if (isProductionAppHost(requestHost)) {
+  if (bareHost(requestHost) === bareHost(tenantHost)) {
+    // Visitor is already on the tenant's own host (subdomain or custom domain).
+    // Unlock here and land on the site root — NOT the internal /sites/<domain>/
+    // path, which would double-prefix into <host>/sites/<host>/ and 404.
+    url = `${requestProto}://${requestHost}/api/sites/unlock?s=${site.id}&t=${token}`;
+  } else if (isProductionAppHost(requestHost)) {
     url = `https://${tenantHost}/api/sites/unlock?s=${site.id}&t=${token}`;
   } else {
+    // Some other host (localhost, *.vercel.app, white-label) that can only reach
+    // the tenant via the internal /sites/<domain>/ rewrite — keep the prefix.
     const next = encodeURIComponent(`/sites/${tenantHost}/`);
     url = `${requestProto}://${requestHost}/api/sites/unlock?s=${site.id}&t=${token}&next=${next}`;
   }

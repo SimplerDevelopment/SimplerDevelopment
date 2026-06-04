@@ -21,6 +21,7 @@ import type { PortalMcpContext } from '@/lib/mcp-auth';
 
 vi.mock('next/cache', () => ({
   revalidatePath: vi.fn(),
+  unstable_cache: (fn: (...a: unknown[]) => unknown) => fn,
 }));
 
 vi.mock('@/lib/portal-auth', () => ({
@@ -180,6 +181,7 @@ vi.mock('@/lib/db/schema', () => {
     websiteEnvironments: t(['id']), websiteEnvVars: t(['id']), clients: t(['id']),
     aiCreditBalances: t(['id']), aiCreditLedger: t(['id']), hostedSites: t(['id']),
     googleWorkspaceUserConnections: t(['id']),
+    mcpApprovalLinks: t(['id', 'token', 'entityType', 'entityId', 'summary', 'status', 'clientId', 'requestedBy', 'createdAt', 'expiresAt', 'resolvedAt']),
   };
 });
 

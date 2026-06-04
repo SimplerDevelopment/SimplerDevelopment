@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/ban-ts-comment, react-hooks/rules-of-hooks, @typescript-eslint/no-require-imports */
 // @vitest-environment jsdom
 import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -918,7 +919,8 @@ describe('BlockContentEditor — columns block (ColumnsEditor)', () => {
     const cbs = container.querySelectorAll('input[type="checkbox"]');
     fireEvent.click(cbs[0]);
     expect(onUpdate).toHaveBeenCalledWith({ stackOnMobile: false });
-    fireEvent.click(cbs[1]);
+    // cbs[1] is now "Stack on tablet"; cbs[2] is "Reverse when stacked"
+    fireEvent.click(cbs[2]);
     expect(onUpdate).toHaveBeenCalledWith({ reverseOnStack: true });
   });
 

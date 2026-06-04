@@ -47,20 +47,22 @@ vi.mock('@/lib/db/schema', () => {
         },
       },
     );
-  return {
+  return new Proxy({
     clientWebsites: wrap('clientWebsites'),
     posts: wrap('posts'),
     postTypes: wrap('postTypes'),
     customFields: wrap('customFields'),
     siteNavigation: wrap('siteNavigation'),
     blockTemplates: wrap('blockTemplates'),
-  };
+  }, { has: (t, p) => (p in t) || !(p === "then" || p === "__esModule" || p === "default" || typeof p !== "string"), get: (t, p) => (p in t) ? t[p] : ((p === "then" || p === "__esModule" || p === "default" || typeof p !== "string") ? undefined : wrap(p)) });
 });
 
 vi.mock('drizzle-orm', () => ({
   eq: (a: unknown, b: unknown) => ({ op: 'eq', a, b }),
   and: (...args: unknown[]) => ({ op: 'and', args: args.filter(Boolean) }),
   inArray: (a: unknown, list: unknown[]) => ({ op: 'inArray', a, list }),
+  isNull: (a: unknown) => ({ op: 'isNull', a }),
+  or: (...args: unknown[]) => ({ op: 'or', args: args.filter(Boolean) }),
 }));
 
 function evalPredicate(filter: unknown, row: Record<string, unknown>): boolean {

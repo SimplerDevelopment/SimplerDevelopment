@@ -39,6 +39,7 @@ import {
 } from '@/lib/db/schema';
 import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
 import { logAudit } from './audit';
+import { revalidateBrainDashboard } from './dashboard';
 
 // ─── tx helper (Pattern B for assignRequiredReadToOrgUnit) ───────────────────
 
@@ -259,6 +260,7 @@ export async function assignRequiredRead(
   }
 
   // Org-unit fan-out — Pattern B.
+  // documentsRequiredReadsPending tile may bump from any of the branches below.
   if (args.targetType === 'org_unit' && args.expandOrgUnit) {
     // Verify the org_unit exists in this tenant.
     const [unit] = await db
@@ -290,7 +292,7 @@ export async function assignRequiredRead(
       return { assigned: 0, alreadyAssigned: 0, expandedTo: [] };
     }
 
-    return db.transaction(async (tx) => {
+    const fanoutResult = await db.transaction(async (tx) => {
       // Look up existing person-target rows in one query to compute the
       // already-assigned count without fighting onConflict.
       const existing = await tx
@@ -354,6 +356,8 @@ export async function assignRequiredRead(
 
       return { assigned, alreadyAssigned: alreadyAssigned.size, expandedTo: personIds };
     });
+    if (fanoutResult.assigned > 0) revalidateBrainDashboard(clientId);
+    return fanoutResult;
   }
 
   // Single-row path — Pattern A.
@@ -436,6 +440,7 @@ export async function assignRequiredRead(
       dueAt: args.dueAt ?? null,
     },
   });
+  revalidateBrainDashboard(clientId);
   return { assigned: 1, alreadyAssigned: 0 };
 }
 
@@ -675,6 +680,7 @@ export async function removeRequiredRead(
       force: !!opts.force,
     },
   });
+  revalidateBrainDashboard(clientId);
   return { removed: true };
 }
 
@@ -790,6 +796,9 @@ export async function acknowledge(
       hasNote: noteTrim.length > 0,
     },
   });
+  // An ack can flip a required-read from "pending" to "satisfied" in the
+  // documentsRequiredReadsPending dashboard count — bump.
+  revalidateBrainDashboard(clientId);
   return ack;
 }
 

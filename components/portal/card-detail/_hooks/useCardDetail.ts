@@ -22,6 +22,7 @@ import type {
   CardDetailModalProps,
   ChecklistItem,
   Comment,
+  CustomFieldValue,
   DependencyRef,
   FileAttachment,
   Label,
@@ -52,6 +53,7 @@ export interface UseCardDetail {
   artifacts: Artifact[];
   availableArtifacts: AvailableArtifact[];
   artifactsLoaded: boolean;
+  customFields: CustomFieldValue[];
 
   /* Edit drafts / per-section UI flags */
   editingTitle: boolean;
@@ -204,8 +206,10 @@ export function useCardDetail({
   const [artifacts, setArtifacts] = useState<Artifact[]>([]);
   const [availableArtifacts, setAvailableArtifacts] = useState<AvailableArtifact[]>([]);
   const [artifactsLoaded, setArtifactsLoaded] = useState(false);
+  const [availableArtifactsLoaded, setAvailableArtifactsLoaded] = useState(false);
   const [showArtifactPicker, setShowArtifactPicker] = useState(false);
   const [artifactTypeFilter, setArtifactTypeFilter] = useState('');
+  const [customFields, setCustomFields] = useState<CustomFieldValue[]>([]);
 
   /* ─── Initial load ────────────────────────────────────────────────── */
 
@@ -213,11 +217,14 @@ export function useCardDetail({
     let cancelled = false;
     async function load() {
       try {
-        const [cardRes, usersRes] = await Promise.all([
-          api.fetchCardBundle(cardId),
-          api.fetchMentionableUsers(),
-        ]);
-        let projectId: number | null = null;
+        // The card bundle now returns everything the modal needs in ONE
+        // request — card + comments/files/labels/activity/checklist/assignees/
+        // deps AND the project label palette, sibling cards, mentionable users,
+        // linked artifacts, and custom fields. Opening a card is a single
+        // round-trip. The heavy availableArtifacts scan is still deferred until
+        // the artifact picker is opened.
+        const cardRes = await api.fetchCardBundle(cardId);
+        if (cancelled) return;
         if (cardRes.success && cardRes.data) {
           const d = cardRes.data as {
             card: CardDetail;
@@ -231,8 +238,12 @@ export function useCardDetail({
             watching?: boolean;
             blockers?: DependencyRef[];
             blocking?: DependencyRef[];
+            projectLabels?: Label[];
+            projectCards?: DependencyRef[];
+            mentionableUsers?: MentionUser[];
+            artifacts?: Artifact[];
+            customFields?: CustomFieldValue[];
           };
-          if (cancelled) return;
           setCard(d.card);
           setTimeLogs(d.timeLogs);
           const allFiles: FileAttachment[] = d.files ?? [];
@@ -250,28 +261,11 @@ export function useCardDetail({
           setWatching(d.watching ?? false);
           setBlockers(d.blockers ?? []);
           setBlocking(d.blocking ?? []);
-          projectId = d.card?.projectId ?? null;
-        }
-        if (usersRes.success && Array.isArray(usersRes.data)) {
-          if (!cancelled) setMentionUsers(usersRes.data as MentionUser[]);
-        }
-        if (projectId != null) {
-          const [labelsRes, cardsRes] = await Promise.all([
-            api.fetchProjectLabels(projectId),
-            api.fetchProjectCards(projectId),
-          ]);
-          if (!cancelled && labelsRes.success && Array.isArray(labelsRes.data)) setProjectLabels(labelsRes.data as Label[]);
-          // Eager-load project cards so the dependencies picker, parent
-          // breadcrumb, and hierarchy view all share one cached list.
-          if (!cancelled && cardsRes.success && Array.isArray(cardsRes.data)) setProjectCards(cardsRes.data as DependencyRef[]);
-        }
-        const [aRes, availRes] = await Promise.all([
-          api.fetchArtifacts(cardId),
-          api.fetchAvailableArtifacts(cardId),
-        ]);
-        if (!cancelled) {
-          if (aRes.success && Array.isArray(aRes.data)) setArtifacts(aRes.data as Artifact[]);
-          if (availRes.success && Array.isArray(availRes.data)) setAvailableArtifacts(availRes.data as AvailableArtifact[]);
+          setProjectLabels(d.projectLabels ?? []);
+          setProjectCards(d.projectCards ?? []);
+          setMentionUsers(d.mentionableUsers ?? []);
+          setArtifacts(d.artifacts ?? []);
+          setCustomFields(d.customFields ?? []);
           setArtifactsLoaded(true);
         }
       } catch (e) {
@@ -285,6 +279,19 @@ export function useCardDetail({
       cancelled = true;
     };
   }, [cardId]);
+
+  /* ─── Lazy-load the artifact library only when the picker opens ──────── */
+
+  useEffect(() => {
+    if (!showArtifactPicker || availableArtifactsLoaded) return;
+    let cancelled = false;
+    api.fetchAvailableArtifacts(cardId).then(res => {
+      if (cancelled) return;
+      if (res.success && Array.isArray(res.data)) setAvailableArtifacts(res.data as AvailableArtifact[]);
+      setAvailableArtifactsLoaded(true);
+    }).catch(() => { if (!cancelled) setAvailableArtifactsLoaded(true); });
+    return () => { cancelled = true; };
+  }, [showArtifactPicker, availableArtifactsLoaded, cardId]);
 
   /* ─── Esc to close (when not editing) ─────────────────────────────── */
 
@@ -549,6 +556,7 @@ export function useCardDetail({
     artifacts,
     availableArtifacts,
     artifactsLoaded,
+    customFields,
 
     editingTitle,
     setEditingTitle,

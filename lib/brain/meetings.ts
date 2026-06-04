@@ -13,6 +13,7 @@ import { eq, and, desc, asc, sql } from 'drizzle-orm';
 import { logAudit } from './audit';
 import { getMeetingAdapter, type AdapterContext, type NormalizedMeetingInput } from './meeting-sources';
 import { stripQuotedReply } from './strip-quoted';
+import { revalidateBrainDashboard } from './dashboard';
 
 export type BrainMeeting = typeof brainMeetings.$inferSelect;
 export type BrainMeetingParticipant = typeof brainMeetingParticipants.$inferSelect;
@@ -108,14 +109,84 @@ interface MeetingWithParticipants extends BrainMeeting {
   };
 }
 
-export async function listMeetings(clientId: number, opts?: { status?: BrainMeetingStatus; limit?: number }): Promise<BrainMeeting[]> {
+/**
+ * Slim row shape returned by {@link listMeetings} by default. Omits the
+ * heavy text columns — `transcript` can be tens of KB per meeting and
+ * `aiSummary` / `humanSummary` add up fast across a tenant's history. The
+ * list pages (`/portal/brain/communications`, the dashboard recent-comms
+ * panel) only render id/title/date/status/source/createdAt + sourceMetadata.
+ * Detail loaders (`getMeeting`) and the MCP fetch path keep returning the
+ * full row including transcript.
+ *
+ * Defined as a structural shape rather than `Omit<BrainMeeting, ...>` so the
+ * type doesn't force TS to materialize `BrainMeeting`'s full key set, which
+ * cascades into "property missing" errors at consumer sites when
+ * `drizzle-orm` typings are unavailable in a partial typecheck.
+ */
+export interface BrainMeetingListItem {
+  id: number;
+  clientId: number;
+  companyId: number | null;
+  dealId: number | null;
+  title: string;
+  meetingDate: Date | null;
+  status: BrainMeetingStatus;
+  reviewedBy: number | null;
+  reviewedAt: Date | null;
+  confidentialityLevel: string;
+  source: string;
+  sourceRef: string;
+  sourceMetadata: Record<string, unknown> | null;
+  createdBy: number | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export async function listMeetings(
+  clientId: number,
+  opts?: { status?: BrainMeetingStatus; limit?: number; includeTranscript?: boolean },
+): Promise<BrainMeetingListItem[]> {
   const conditions = [eq(brainMeetings.clientId, clientId)];
   if (opts?.status) conditions.push(eq(brainMeetings.status, opts.status));
-  const rows = await db.select().from(brainMeetings)
+
+  if (opts?.includeTranscript) {
+    // Opt-in path — return rows including transcript/aiSummary/humanSummary.
+    // Returned as BrainMeetingListItem[] for a uniform signature; callers that
+    // need the full BrainMeeting shape can cast or use a sibling helper. The
+    // MCP path is the main caller; it forwards the rows verbatim to the model
+    // which doesn't care about TS narrowing.
+    const rows = await db.select().from(brainMeetings)
+      .where(and(...conditions))
+      .orderBy(desc(brainMeetings.createdAt))
+      .limit(opts.limit ?? 100);
+    return rows as BrainMeetingListItem[];
+  }
+
+  // Slim projection — drops transcript/aiSummary/humanSummary. Every other
+  // column is preserved so existing list-page renderers (which read
+  // sourceMetadata, source, status, etc.) keep working.
+  return db.select({
+    id: brainMeetings.id,
+    clientId: brainMeetings.clientId,
+    companyId: brainMeetings.companyId,
+    dealId: brainMeetings.dealId,
+    title: brainMeetings.title,
+    meetingDate: brainMeetings.meetingDate,
+    status: brainMeetings.status,
+    reviewedBy: brainMeetings.reviewedBy,
+    reviewedAt: brainMeetings.reviewedAt,
+    confidentialityLevel: brainMeetings.confidentialityLevel,
+    source: brainMeetings.source,
+    sourceRef: brainMeetings.sourceRef,
+    sourceMetadata: brainMeetings.sourceMetadata,
+    createdBy: brainMeetings.createdBy,
+    createdAt: brainMeetings.createdAt,
+    updatedAt: brainMeetings.updatedAt,
+  })
+    .from(brainMeetings)
     .where(and(...conditions))
     .orderBy(desc(brainMeetings.createdAt))
     .limit(opts?.limit ?? 100);
-  return rows;
 }
 
 export async function getMeeting(clientId: number, meetingId: number): Promise<MeetingWithParticipants | null> {
@@ -281,6 +352,8 @@ export async function createMeetingFromAdapter({ adapterId, input, ctx, link }: 
     metadata: { adapterId: adapter.id, sourceRef: normalized.sourceRef, byteCount: normalized.transcript.length },
   });
 
+  // Meetings feed the recentMeetings / needsReviewMeetings dashboard tiles.
+  revalidateBrainDashboard(ctx.clientId);
   return meeting;
 }
 
@@ -315,6 +388,8 @@ export async function updateMeetingStatus(
   const [updated] = await db.update(brainMeetings).set(update)
     .where(and(eq(brainMeetings.id, meetingId), eq(brainMeetings.clientId, clientId)))
     .returning();
+  // Status flips drive whether a meeting shows up in needsReviewMeetings.
+  if (updated) revalidateBrainDashboard(clientId);
   return updated ?? null;
 }
 
@@ -333,7 +408,7 @@ export async function setMeetingAiSummary(
 }
 
 export async function deleteMeeting(clientId: number, meetingId: number): Promise<boolean> {
-  return await db.transaction(async (tx) => {
+  const deleted = await db.transaction(async (tx) => {
     // brain_ai_review_items.sourceId has no FK, so we must clean up orphans
     // explicitly before deleting the meeting. Without this the review queue
     // keeps showing items pointing at a meeting that no longer exists.
@@ -348,4 +423,6 @@ export async function deleteMeeting(clientId: number, meetingId: number): Promis
       .returning({ id: brainMeetings.id });
     return result.length > 0;
   });
+  if (deleted) revalidateBrainDashboard(clientId);
+  return deleted;
 }

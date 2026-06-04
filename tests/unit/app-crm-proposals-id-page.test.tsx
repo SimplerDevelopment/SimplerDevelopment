@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/ban-ts-comment, react-hooks/rules-of-hooks, @typescript-eslint/no-require-imports */
 // @vitest-environment jsdom
 /**
  * Unit tests for `app/portal/crm/proposals/[id]/page.tsx` — the proposal
@@ -32,6 +33,52 @@ vi.mock('@/lib/security/sanitize-html', () => ({
   sanitizeRichHtml: (html: string) => html ?? '',
   sanitizeHtml: (html: string) => html ?? '',
 }));
+
+// Render CrmCompanyTypeaheadPicker as a native <select> backed by a prefetched
+// company list. Uses local state so React's controlled-select validation works
+// for any option value, and `fireEvent.change` always fires the callback.
+vi.mock('@/components/portal/CrmCompanyTypeaheadPicker', () => {
+  const { useState, useEffect } = require('react');
+  const { createElement: h } = require('react');
+  return {
+    __esModule: true,
+    default: ({ value, selectedLabel, onChange, placeholder, noneLabel }: any) => {
+      const [opts, setOpts] = useState<{ id: number; name: string }[]>([]);
+      useEffect(() => {
+        fetch('/api/portal/crm/companies?limit=5000')
+          .then((r: any) => r.json())
+          .then((d: any) => {
+            const rows = d?.data?.companies ?? d?.data ?? [];
+            if (Array.isArray(rows)) setOpts(rows);
+          })
+          .catch(() => {});
+      }, []);
+      const [sel, setSel] = useState(value ?? '');
+      useEffect(() => { setSel(value ?? ''); }, [value]);
+      const noneText = noneLabel ?? placeholder ?? 'None';
+      const allOpts = [...opts];
+      if (value && selectedLabel && !allOpts.find((o: any) => String(o.id) === String(value))) {
+        allOpts.unshift({ id: Number(value), name: selectedLabel });
+      }
+      return h(
+        'select',
+        {
+          'data-testid': 'company-typeahead',
+          value: sel,
+          onChange: (e: any) => {
+            const v = e.target.value;
+            setSel(v);
+            if (!v) { onChange(null); return; }
+            const text = e.target.options?.[e.target.selectedIndex]?.text ?? String(v);
+            onChange({ id: Number(v), name: text });
+          },
+        },
+        h('option', { key: '__none', value: '' }, noneText),
+        ...allOpts.map((c: any) => h('option', { key: c.id, value: String(c.id) }, c.name)),
+      );
+    },
+  };
+});
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -419,6 +466,11 @@ describe('ProposalEditorPage', () => {
 
     it('updates contact / company / deal selects', async () => {
       const { container } = await renderPage();
+      // Wait for the company mock's async fetch to populate option '101' (Beta Co)
+      await waitFor(() => {
+        const companySelect = container.querySelectorAll('select')[1] as HTMLSelectElement;
+        expect(Array.from(companySelect.options).some(o => o.value === '101')).toBe(true);
+      });
       const selects = container.querySelectorAll('select');
       // First three selects are contact / company / deal
       fireEvent.change(selects[0], { target: { value: '11' } });

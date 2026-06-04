@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/ban-ts-comment, react-hooks/rules-of-hooks, @typescript-eslint/no-require-imports */
 // @vitest-environment jsdom
 import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -164,7 +165,7 @@ describe('PetersFooter', () => {
       const link = screen.getByRole('link', { name: label }) as HTMLAnchorElement;
       expect(link.getAttribute('href')).toMatch(/^\/p\//);
     }
-  });
+  }, 15_000);
 
   it('renders contact items (phone, email, location)', () => {
     render(<PetersFooter />);

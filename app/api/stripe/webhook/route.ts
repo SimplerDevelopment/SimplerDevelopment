@@ -3,6 +3,7 @@ import { db } from '@/lib/db';
 import { invoices, clients, clientServices } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { addPurchasedCredits, grantMonthlyCredits } from '@/lib/ai-credits';
+import { revalidateAdminDashboard } from '@/lib/admin/dashboard-cache';
 
 export const runtime = 'nodejs';
 
@@ -50,6 +51,9 @@ export async function POST(req: Request) {
           stripeCheckoutSessionId: session.id,
           updatedAt: new Date(),
         }).where(eq(invoices.id, invoiceId));
+        // E2 — invoice paid changes outstanding + collected totals on the
+        // admin dashboard; invalidate the cached fan-out.
+        revalidateAdminDashboard();
       }
 
       // --- Service purchase ---

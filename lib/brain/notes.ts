@@ -47,6 +47,48 @@ interface ListOpts {
   offset?: number;
   sort?: NoteSort;
   order?: NoteOrder;
+  /**
+   * Return the full row including `body` markdown. Default false — the list
+   * path projects only the columns the sidebar/UI renders. Detail views and
+   * AI ingestion paths that need the body must opt in explicitly. Mostly here
+   * to keep MCP and the browser-extension "related notes" snippets working
+   * without forcing them to refetch each note one-by-one.
+   */
+  includeBody?: boolean;
+}
+
+/**
+ * Columns the slim list path projects. Excludes `body` (up to 50 KB/note),
+ * `confidentialityLevel`, `attachmentStoredKey`, `attachmentUrl`,
+ * `attachmentMimeType`, `attachmentFileSize`, `reviewItemId`, and `createdBy`
+ * — none of which the list pane renders, and three of which are bulky enough
+ * to dominate the response on a tag with many notes.
+ *
+ * Detail loaders (`getNote`, `getNoteBySourceUrl`) keep returning the full
+ * row.
+ *
+ * Defined as a structural shape rather than `Omit<BrainNote, ...>` so the
+ * type doesn't force TS to materialize `BrainNote`'s full key set, which
+ * cascades into "property missing" errors at consumer sites when
+ * `drizzle-orm` typings are unavailable in a partial typecheck.
+ */
+export interface BrainNoteListItem {
+  id: number;
+  clientId: number;
+  title: string;
+  meetingId: number | null;
+  relationshipOverlayId: number | null;
+  companyId: number | null;
+  dealId: number | null;
+  contactId: number | null;
+  tags: string[];
+  pinned: boolean;
+  source: string;
+  sourceUrl: string | null;
+  attachmentFilename: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  deletedAt: Date | null;
 }
 
 /** Build the WHERE conditions shared by listNotes and countNotes. */
@@ -95,7 +137,22 @@ function buildNoteFilters(clientId: number, opts: ListOpts) {
   return conds;
 }
 
-export async function listNotes(clientId: number, opts: ListOpts = {}): Promise<BrainNote[]> {
+// Function overloads so callers that opt into `includeBody: true` get the
+// full BrainNote shape back, while the slim default returns BrainNoteListItem.
+// Both shapes are array-of-row; the response wrapper at the route layer is
+// where pagination metadata lives.
+export async function listNotes(
+  clientId: number,
+  opts: ListOpts & { includeBody: true },
+): Promise<BrainNote[]>;
+export async function listNotes(
+  clientId: number,
+  opts?: ListOpts,
+): Promise<BrainNoteListItem[]>;
+export async function listNotes(
+  clientId: number,
+  opts: ListOpts = {},
+): Promise<BrainNote[] | BrainNoteListItem[]> {
   const conds = buildNoteFilters(clientId, opts);
   const sort: NoteSort = opts.sort ?? 'updated';
   const order: NoteOrder = opts.order ?? (sort === 'title' ? 'asc' : 'desc');
@@ -111,11 +168,46 @@ export async function listNotes(clientId: number, opts: ListOpts = {}): Promise<
     return [desc(brainNotes.pinned), order === 'asc' ? sql`lower(${brainNotes.title}) asc` : sql`lower(${brainNotes.title}) desc`];
   })();
 
-  return db.select().from(brainNotes)
+  const limit = opts.limit ?? 200;
+  const offset = opts.offset ?? 0;
+
+  if (opts.includeBody) {
+    return db.select().from(brainNotes)
+      .where(and(...conds))
+      .orderBy(...orderBy)
+      .limit(limit)
+      .offset(offset);
+  }
+
+  // Default slim projection — drops `body` (up to 50 KB/note), attachment
+  // URL/key/mime/size, confidentialityLevel, reviewItemId, createdBy. The
+  // knowledge sidebar (`components/brain/NoteListPane.tsx`) renders only
+  // `{ id, title, tags, pinned, updatedAt, attachmentFilename }`; the rest
+  // is kept because other list-page surfaces (graph view, MCP, dataview
+  // blocks) still expect the relation/anchor columns and the timestamps.
+  return db.select({
+    id: brainNotes.id,
+    clientId: brainNotes.clientId,
+    title: brainNotes.title,
+    meetingId: brainNotes.meetingId,
+    relationshipOverlayId: brainNotes.relationshipOverlayId,
+    companyId: brainNotes.companyId,
+    dealId: brainNotes.dealId,
+    contactId: brainNotes.contactId,
+    tags: brainNotes.tags,
+    pinned: brainNotes.pinned,
+    source: brainNotes.source,
+    sourceUrl: brainNotes.sourceUrl,
+    attachmentFilename: brainNotes.attachmentFilename,
+    createdAt: brainNotes.createdAt,
+    updatedAt: brainNotes.updatedAt,
+    deletedAt: brainNotes.deletedAt,
+  })
+    .from(brainNotes)
     .where(and(...conds))
     .orderBy(...orderBy)
-    .limit(opts.limit ?? 200)
-    .offset(opts.offset ?? 0);
+    .limit(limit)
+    .offset(offset);
 }
 
 /** Count rows matching the same filter set as listNotes — for pagination total. */

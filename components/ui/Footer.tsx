@@ -70,6 +70,21 @@ export function Footer() {
                 </Link>
               </li>
               <li>
+                <Link href="/solutions/ecommerce" className="text-muted-foreground hover:text-primary transition-colors">
+                  Online Store
+                </Link>
+              </li>
+              <li>
+                <Link href="/solutions/company-brain" className="text-muted-foreground hover:text-primary transition-colors">
+                  Company Brain
+                </Link>
+              </li>
+              <li>
+                <Link href="/solutions/automations" className="text-muted-foreground hover:text-primary transition-colors">
+                  Automations
+                </Link>
+              </li>
+              <li>
                 <Link href="/solutions" className="text-muted-foreground hover:text-primary transition-colors">
                   All Features
                 </Link>
@@ -81,6 +96,11 @@ export function Footer() {
           <div>
             <h4 className="text-sm font-semibold mb-4">Company</h4>
             <ul className="space-y-2.5 text-sm">
+              <li>
+                <Link href="/pricing" className="text-muted-foreground hover:text-primary transition-colors">
+                  Pricing
+                </Link>
+              </li>
               <li>
                 <Link href="/about" className="text-muted-foreground hover:text-primary transition-colors">
                   About Us

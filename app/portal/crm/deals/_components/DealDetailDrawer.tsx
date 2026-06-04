@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Select from 'react-select';
 import CrmCustomFieldsPanel from '@/components/portal/CrmCustomFieldsPanel';
+import CrmCompanyTypeaheadPicker from '@/components/portal/CrmCompanyTypeaheadPicker';
 import MarkdownView from '@/components/portal/MarkdownView';
 import * as api from '../_lib/api';
 import {
@@ -30,7 +31,6 @@ interface DealDetailDrawerProps {
   deal: Deal;
   pipelines: Pipeline[];
   contacts: Contact[];
-  companies: Company[];
   onCompanyCreated: (c: Company) => void;
   onContactCreated: (c: Contact) => void;
   onSaved: () => void;
@@ -47,7 +47,6 @@ export default function DealDetailDrawer({
   deal,
   pipelines,
   contacts,
-  companies,
   onCompanyCreated,
   onContactCreated,
   onSaved,
@@ -66,6 +65,10 @@ export default function DealDetailDrawer({
     expectedCloseDate: formatDateForInput(deal.expectedCloseDate),
     notes: deal.notes ?? '',
   });
+  // Display label for the currently-selected company in the typeahead picker.
+  // Seeded from the deal's denormalised companyName so the closed-state of
+  // the dropdown reads correctly before any search has happened.
+  const [companyLabel, setCompanyLabel] = useState<string | null>(deal.companyName ?? null);
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState('');
   const [editNotesPreview, setEditNotesPreview] = useState(false);
@@ -161,6 +164,7 @@ export default function DealDetailDrawer({
     if (!d.success || !d.data) return;
     onCompanyCreated(d.data);
     setEditForm((f) => ({ ...f, companyId: String(d.data!.id), contactId: '' }));
+    setCompanyLabel(d.data.name);
     setNewCompanyName('');
     setShowNewCompany(false);
   }
@@ -481,20 +485,19 @@ export default function DealDetailDrawer({
                     </button>
                   </div>
                 ) : (
-                  <select
+                  <CrmCompanyTypeaheadPicker
                     value={editForm.companyId}
-                    onChange={(e) =>
-                      setEditForm((f) => ({ ...f, companyId: e.target.value, contactId: '' }))
-                    }
-                    className={inputClass}
-                  >
-                    <option value="">None</option>
-                    {companies.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
-                      </option>
-                    ))}
-                  </select>
+                    selectedLabel={companyLabel}
+                    onChange={(opt) => {
+                      setEditForm((f) => ({
+                        ...f,
+                        companyId: opt ? String(opt.id) : '',
+                        contactId: '',
+                      }));
+                      setCompanyLabel(opt ? opt.name : null);
+                    }}
+                    placeholder="Select company…"
+                  />
                 )}
               </div>
 
@@ -563,7 +566,7 @@ export default function DealDetailDrawer({
                       <p className="text-[10px] text-muted-foreground flex items-center gap-1">
                         <span className="material-icons text-[10px]">link</span>
                         Will be assigned to{' '}
-                        {companies.find((c) => c.id === Number(editForm.companyId))?.name}
+                        {companyLabel ?? `company #${editForm.companyId}`}
                       </p>
                     )}
                   </div>

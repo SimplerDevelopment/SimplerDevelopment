@@ -83,6 +83,8 @@ import {
   updateNote,
   type BulkOp,
 } from './notes';
+import { classifyNotes, type NoteClassification } from './classify-notes';
+import { applyClassifications } from './apply-classifications';
 import {
   listInitiatives,
   getInitiativeById,
@@ -372,7 +374,10 @@ export function registerBrainToolsOnSdk(server: McpServer, ctx: PortalMcpContext
     },
     async (args) => {
       if (!hasScope(ctx.scopes, 'brain:read')) return denied('brain:read');
-      return json(await listMeetings(clientId, { status: args.status, limit: args.limit }));
+      // MCP consumers historically received full rows including transcripts;
+      // keep that behaviour explicit via `includeTranscript: true` so the slim
+      // default list path doesn't silently strip fields a model might rely on.
+      return json(await listMeetings(clientId, { status: args.status, limit: args.limit, includeTranscript: true }));
     },
   );
 
@@ -891,7 +896,9 @@ export function registerBrainToolsOnSdk(server: McpServer, ctx: PortalMcpContext
         trashed: args.trashed,
       };
       const [notes, total] = await Promise.all([
-        listNotes(clientId, { ...filters, limit, offset }),
+        // includeBody: true because this MCP tool returns a 400-char preview
+        // and the body length; the default slim list projection drops body.
+        listNotes(clientId, { ...filters, limit, offset, includeBody: true }),
         countNotes(clientId, filters),
       ]);
       // Trim bodies for list responses; full body is available via brain_get_note.
@@ -1135,6 +1142,158 @@ export function registerBrainToolsOnSdk(server: McpServer, ctx: PortalMcpContext
       if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
       const summary = await bulkUpdateNotes(clientId, args.ids, args.op as BulkOp, ctx.userId);
       return json({ updated: summary.updated, skipped: summary.failed });
+    },
+  );
+
+  // ── KNOWLEDGE — taxonomy classification (BRAIN-1) ────────────────────────
+  // Zod enums mirroring the union slug types from ./classify-notes. Kept
+  // inline so the input schema is self-describing for MCP clients.
+  const sourceSlugEnum = z.enum([
+    'slate-kb', 'competitor', 'own-marketing',
+    'industry-news', 'research-brief', 'meeting-transcript', 'linkedin-draft',
+  ]);
+  const slateAreaSlugEnum = z.enum([
+    'queries', 'deliver', 'portals', 'forms',
+    'workflows', 'reports', 'permissions', 'integrations', 'none',
+  ]);
+  const audienceSlugEnum = z.enum([
+    'vp-enrollment', 'slate-admin', 'advancement',
+    'internal-only', 'prospect-facing',
+  ]);
+  const contentTypeSlugEnum = z.enum([
+    'how-to', 'case-study', 'reference', 'opinion',
+    'transcript', 'news', 'service-page',
+  ]);
+  const recencySlugEnum = z.enum(['evergreen', 'current-12mo', 'archive']);
+  const competitorSlugEnum = z.enum([
+    'carnegie', 'enrollmentfuel', 'rhb', 'waybetter',
+    'human-capital', 'huron', 'bwf',
+  ]);
+  const noteStatusSlugEnum = z.enum(['canonical', 'draft', 'stub', 'duplicate']);
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_classify_notes',
+    {
+      title: 'Classify Brain knowledge notes (BRAIN-1 taxonomy)',
+      description: 'Run the LLM classifier across knowledge notes to assign source / slate-area / audience / content-type / recency / competitor / status facets. Pass an explicit `noteIds` array OR `all:true` (one is required). `dryRun:true` (DEFAULT) returns counts + a 5-row sample only — token-budget safe for thousands of notes. `dryRun:false` returns the full per-note classifications (minus `reasoning`) so they can be fed to brain_apply_classifications. No DB writes either way — this tool only previews.',
+      inputSchema: {
+        noteIds: z.array(z.number().int().positive()).max(500).optional(),
+        all: z.boolean().optional(),
+        limit: z.number().int().min(1).max(500).optional(),
+        concurrency: z.number().int().min(1).max(8).optional(),
+        dryRun: z.boolean().optional().default(true).describe('When true (default), return counts + 5-row sample only. When false, return all classifications (without reasoning).'),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      const hasIds = Array.isArray(args.noteIds) && args.noteIds.length > 0;
+      const all = args.all === true;
+      if (!hasIds && !all) {
+        return err('brain_classify_notes requires either `noteIds` (a non-empty array) or `all:true`.');
+      }
+      if (hasIds && all) {
+        return err('brain_classify_notes accepts `noteIds` OR `all:true`, not both.');
+      }
+      const out = await classifyNotes({
+        clientId,
+        noteIds: hasIds ? args.noteIds : undefined,
+        all: all || undefined,
+        limit: args.limit,
+        concurrency: args.concurrency,
+        actorId: ctx.userId,
+      });
+      const dryRun = args.dryRun !== false; // default true
+      if (dryRun) {
+        const countsBySource: Record<string, number> = {};
+        const countsByContentType: Record<string, number> = {};
+        const countsByStatus: Record<string, number> = {};
+        for (const c of out.classifications) {
+          countsBySource[c.source] = (countsBySource[c.source] ?? 0) + 1;
+          countsByContentType[c.contentType] = (countsByContentType[c.contentType] ?? 0) + 1;
+          countsByStatus[c.status] = (countsByStatus[c.status] ?? 0) + 1;
+        }
+        return json({
+          dryRun: true,
+          classifiedCount: out.classifications.length,
+          skippedCount: out.skipped.length,
+          countsBySource,
+          countsByContentType,
+          countsByStatus,
+          sampleClassifications: out.classifications.slice(0, 5).map((c) => ({
+            noteId: c.noteId,
+            source: c.source,
+            slateAreas: c.slateAreas,
+            audiences: c.audiences,
+            contentType: c.contentType,
+            recency: c.recency,
+            competitor: c.competitor ?? null,
+            status: c.status,
+            confidence: c.confidence,
+          })),
+          tokensUsed: out.tokensUsed,
+          costUsd: out.costUsd,
+        });
+      }
+      return json({
+        dryRun: false,
+        classifications: out.classifications.map((c) => ({
+          noteId: c.noteId,
+          source: c.source,
+          slateAreas: c.slateAreas,
+          audiences: c.audiences,
+          contentType: c.contentType,
+          recency: c.recency,
+          competitor: c.competitor ?? null,
+          status: c.status,
+          confidence: c.confidence,
+          // reasoning intentionally dropped — verbose, blows the token budget.
+        })),
+        skipped: out.skipped,
+        tokensUsed: out.tokensUsed,
+        costUsd: out.costUsd,
+      });
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_apply_classifications',
+    {
+      title: 'Apply Brain note classifications (BRAIN-1 taxonomy)',
+      description: 'Persist classifier output from brain_classify_notes: writes the brain_notes.status enum and attaches the matching reserved taxonomy topics. Rows below `minConfidence` (default 0.7) are routed to the AI review queue when `routeBelowMinToReview` is true (default), otherwise silently skipped. Idempotent — re-applying counts existing attachments as `attachmentsExisted`. Echo: { notesUpdated, topicsAttached, attachmentsExisted, routedToReview, skippedTotal, skipped (first 20) }.',
+      inputSchema: {
+        classifications: z.array(z.object({
+          noteId: z.number().int().positive(),
+          source: sourceSlugEnum,
+          slateAreas: z.array(slateAreaSlugEnum),
+          audiences: z.array(audienceSlugEnum),
+          contentType: contentTypeSlugEnum,
+          recency: recencySlugEnum,
+          competitor: competitorSlugEnum.nullable().optional(),
+          status: noteStatusSlugEnum,
+          confidence: z.number().min(0).max(1),
+          reasoning: z.string().optional(),
+        })).min(1).max(500),
+        minConfidence: z.number().min(0).max(1).optional(),
+        routeBelowMinToReview: z.boolean().optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      const out = await applyClassifications({
+        clientId,
+        classifications: args.classifications as NoteClassification[],
+        actorId: ctx.userId,
+        minConfidence: args.minConfidence,
+        routeBelowMinToReview: args.routeBelowMinToReview,
+      });
+      return json({
+        notesUpdated: out.notesUpdated,
+        topicsAttached: out.topicsAttached,
+        attachmentsExisted: out.attachmentsExisted,
+        routedToReview: out.routedToReview,
+        skippedTotal: out.skipped.length,
+        skipped: out.skipped.slice(0, 20),
+      });
     },
   );
 

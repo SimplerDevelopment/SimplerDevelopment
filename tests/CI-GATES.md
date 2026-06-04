@@ -1,22 +1,36 @@
-# SD2026 — CI gates (required PR checks)
+# SD2026 — CI gates (local)
 
-Source of truth for the four gates a PR to `staging` must clear, plus how
-to override them locally for debugging. Floors are intentionally pragmatic —
-60% project-wide / 50% branches — so the gate is *meaningful* without
-forcing churn in slow-moving areas. Higher-risk modules are bumped per-glob.
+**There is no GitHub Actions / no remote CI.** This project lives in a local
+multi-project repo whose only git remote is a local folder, so CI runs **on
+your machine** via `scripts/ci-local.sh`, wired into git hooks under
+`.githooks/` (pre-commit = fast checks on staged files, pre-push = full gate).
+Run it by hand any time:
 
-## The four gates
+```bash
+scripts/ci-local.sh          # full gate: boundaries, budgets, docs, lint, typecheck, unit
+scripts/ci-local.sh --quick  # cheap checks only (seconds, no tsc/tests)
+scripts/ci-local.sh --tenancy # + multi-tenant leak regression (needs local DB)
+scripts/ci-local.sh --full   # + tenancy + critical e2e (needs DB + Playwright)
+```
 
-| Gate                          | Job                | Where                                                       |
-|-------------------------------|--------------------|-------------------------------------------------------------|
-| Vitest coverage thresholds    | `unit-coverage`    | `.github/workflows/sd2026-coverage.yml`                     |
-| Coverage diff PR comment      | `coverage-diff-comment` | same workflow (informational; never blocks)            |
-| Tenancy regression `@tenancy` | `tenancy`          | same workflow (also `sd2026-tenancy.yml` workflow_dispatch) |
-| Critical e2e `@critical`      | `critical-e2e`     | same workflow                                               |
+## The gates
 
-The vitest thresholds are the gate — `bunx vitest run --coverage` exits
-non-zero if any threshold fails, which fails the workflow job. The job
-status is what GitHub branch protection consumes.
+| Gate                          | Command                                          |
+|-------------------------------|--------------------------------------------------|
+| Architecture boundaries       | `bunx depcruise` via `.dependency-cruiser.cjs`   |
+| File-size budget / god files  | `bun scripts/check-file-budget.ts`               |
+| Doc drift                     | `bun scripts/check-doc-drift.ts`                 |
+| Lint                          | `bun run lint`                                   |
+| Typecheck                     | `bunx tsc --noEmit`                              |
+| Unit tests                    | `bun run test:unit`                              |
+| Tenancy regression `@tenancy` | `bun run test:tenancy` (`--tenancy` / `--full`)  |
+| Critical e2e `@critical`      | `bun run test:critical` (`--full`)               |
+| Dead code (informational)     | `bunx knip`                                       |
+
+The vitest coverage thresholds below still apply when you run coverage, but
+are **not** currently a blocking gate (unit-only coverage is low — see
+`tests/CLAUDE.md`). They document the intended floors for when coverage is
+healthy enough to enforce.
 
 ## Coverage floors
 
@@ -97,32 +111,21 @@ When iterating, you sometimes need to run vitest without the threshold gate
    relaxation. The branch protection rule on `staging` will reject the PR
    anyway once it's set up.
 
-## Required-for-merge — manual GitHub Settings step
+## Enforcement — local git hooks
 
-The workflow jobs above don't enforce anything until they're listed as
-**required status checks** on the `staging` branch. That requires repo
-admin and is not something a workflow can configure for itself. To enable:
+There is no branch protection to configure (no GitHub remote). Enforcement is
+the pre-push hook in `.githooks/`, installed via:
 
-1. GitHub → repo Settings → Branches → "Branch protection rules".
-2. Add rule for `staging` (or edit the existing one).
-3. Under "Require status checks to pass before merging", add:
-   - `sd2026 — coverage gate / Unit + integration coverage`
-   - `sd2026 — coverage gate / Tenancy regression (@tenancy)`
-   - `sd2026 — coverage gate / Critical e2e (@critical)`
-4. Save.
+```bash
+git config core.hooksPath simplerdevelopment2026/.githooks
+```
 
-The diff-comment job (`coverage-diff-comment`) is intentionally **not**
-required — it's informational, and if the base-coverage job degrades it
-should not block merge.
+- **pre-commit** — fast checks on staged files (eslint + file-budget + doc-drift).
+- **pre-push** — full `scripts/ci-local.sh` gate, but only when the push touches
+  `simplerdevelopment2026/` files.
 
-## Coverage publishing — out of scope
+Bypass for a one-off: `git commit --no-verify` / `git push --no-verify`.
 
-The README badge is currently static (`60%` / orange). To make it dynamic
-we'd need either:
-
-- Codecov / Coveralls — accepts `lcov.info` directly; replace the badge URL.
-- A custom shields.io endpoint backed by `coverage-summary.json` uploaded
-  somewhere public per-merge.
-
-Neither is wired up. The `lcov.info` is uploaded as a workflow artifact on
-every PR run; that's the input the publisher would consume.
+If this ever moves to a real GitHub remote, port `scripts/ci-local.sh` into a
+`.github/workflows/` job and list its steps as required status checks — the
+gate logic is already centralized in that one script.

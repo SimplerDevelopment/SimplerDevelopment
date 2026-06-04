@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { revalidateTag } from 'next/cache';
 import { auth } from '@/lib/auth';
 import { getPortalClient } from '@/lib/portal-client';
 import { db } from '@/lib/db';
@@ -87,6 +88,9 @@ export async function PUT(
     updatedAt: new Date(),
   }).where(eq(brandingProfiles.id, id)).returning();
 
+  // Invalidate cross-request brand-profile cache for this client.
+  try { revalidateTag(`brand-profile:${client.id}`, 'max'); } catch { /* ignore */ }
+
   return NextResponse.json({ success: true, data: updated });
 }
 
@@ -106,6 +110,9 @@ export async function DELETE(
   if (!existing) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
 
   await db.delete(brandingProfiles).where(eq(brandingProfiles.id, id));
+
+  // Invalidate cross-request brand-profile cache for this client.
+  try { revalidateTag(`brand-profile:${client.id}`, 'max'); } catch { /* ignore */ }
 
   return NextResponse.json({ success: true });
 }

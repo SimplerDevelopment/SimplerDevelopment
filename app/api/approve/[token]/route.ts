@@ -145,7 +145,7 @@ async function applyApproval(link: ApprovalLinkRow): Promise<void> {
       .update(mcpPendingChanges)
       .set({ status: 'approved', reviewedAt: new Date(), appliedAt: new Date() })
       .where(eq(mcpPendingChanges.id, change.id));
-    revalidatePath('/portal', 'layout');
+    try { revalidatePath('/portal', 'layout'); } catch { /* outside request context */ }
     return;
   }
 
@@ -163,8 +163,10 @@ async function applyApproval(link: ApprovalLinkRow): Promise<void> {
         .update(posts)
         .set({ published: true, publishedAt: new Date(), updatedAt: new Date() })
         .where(eq(posts.id, link.entityId));
-      revalidatePath('/sites', 'layout');
-      revalidatePath('/portal', 'layout');
+      try {
+        revalidatePath('/sites', 'layout');
+        revalidatePath('/portal', 'layout');
+      } catch { /* outside request context */ }
       return;
     }
     case 'pitch_deck': {
@@ -192,7 +194,7 @@ async function applyApproval(link: ApprovalLinkRow): Promise<void> {
           updatedAt: new Date(),
         })
         .where(eq(pitchDecks.id, link.entityId));
-      revalidatePath('/portal', 'layout');
+      try { revalidatePath('/portal', 'layout'); } catch { /* outside request context */ }
       return;
     }
     case 'email_campaign': {
@@ -221,8 +223,10 @@ async function applyApproval(link: ApprovalLinkRow): Promise<void> {
           .set({ status: 'active', updatedAt: new Date() })
           .where(eq(surveys.id, link.entityId));
       }
-      revalidatePath('/sites', 'layout');
-      revalidatePath('/portal', 'layout');
+      try {
+        revalidatePath('/sites', 'layout');
+        revalidatePath('/portal', 'layout');
+      } catch { /* outside request context */ }
       return;
     }
     case 'booking_page': {
@@ -240,8 +244,10 @@ async function applyApproval(link: ApprovalLinkRow): Promise<void> {
           .set({ active: true, updatedAt: new Date() })
           .where(eq(bookingPages.id, link.entityId));
       }
-      revalidatePath('/book', 'layout');
-      revalidatePath('/portal', 'layout');
+      try {
+        revalidatePath('/book', 'layout');
+        revalidatePath('/portal', 'layout');
+      } catch { /* outside request context */ }
       return;
     }
     case 'block_template': {
@@ -271,7 +277,7 @@ async function applyApproval(link: ApprovalLinkRow): Promise<void> {
       if (draft.tags !== undefined) patch.tags = draft.tags;
       if (draft.lockedFields !== undefined) patch.lockedFields = draft.lockedFields;
       await db.update(blockTemplates).set(patch).where(eq(blockTemplates.id, link.entityId));
-      revalidatePath('/portal', 'layout');
+      try { revalidatePath('/portal', 'layout'); } catch { /* outside request context */ }
       return;
     }
     default:

@@ -51,6 +51,7 @@ vi.mock('@/lib/brain/tasks', () => ({
   getTask: vi.fn(async (_c: number, id: number) => (id === 999 ? null : { id, title: 'T' })),
   listTasks: vi.fn(async () => [{ id: 1 }]),
   updateTask: vi.fn(async (_c: number, id: number) => (id === 999 ? null : { id, title: 'U' })),
+  countTasks: (..._args: unknown[]) => Promise.resolve(0),
 }));
 
 vi.mock('@/lib/brain/relationships', () => ({
@@ -58,6 +59,7 @@ vi.mock('@/lib/brain/relationships', () => ({
   getRelationship: vi.fn(async (_c: number, id: number) => (id === 999 ? null : { id, type: 'r' })),
   listRelationships: vi.fn(async () => [{ id: 1 }]),
   updateOverlay: vi.fn(async (_c: number, id: number) => (id === 999 ? null : { id, summary: 'x' })),
+  countRelationships: (..._args: unknown[]) => Promise.resolve(0),
 }));
 
 vi.mock('@/lib/brain/review', () => ({
@@ -248,6 +250,7 @@ vi.mock('drizzle-orm', () => ({
   inArray: vi.fn(() => ({})),
   ilike: vi.fn(() => ({})),
   sql: Object.assign(vi.fn(() => ({})), { raw: vi.fn(() => ({})) }),
+  isNull: (a: unknown) => ({ op: 'isNull', a }),
 }));
 
 // ── helpers ─────────────────────────────────────────────────────────────────

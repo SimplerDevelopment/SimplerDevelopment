@@ -6,6 +6,7 @@ import { getPortalClient } from '@/lib/portal-client';
 import { eq, count } from 'drizzle-orm';
 import { emitEvent } from '@/lib/automation';
 import { computeSlaDeadlines } from '@/lib/tickets/sla';
+import { revalidateAdminDashboard } from '@/lib/admin/dashboard-cache';
 
 export async function GET() {
   const session = await auth();
@@ -60,6 +61,9 @@ export async function POST(req: Request) {
   });
 
   emitEvent('ticket.created', client.id, userId, { id: ticket.id, number: ticket.number, subject: ticket.subject, category: ticket.category, priority: ticket.priority, status: 'open' });
+
+  // E2 — invalidate the admin dashboard cache (counts the new open ticket).
+  revalidateAdminDashboard();
 
   return NextResponse.json({ success: true, data: ticket });
 }

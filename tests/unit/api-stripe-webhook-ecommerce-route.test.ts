@@ -69,9 +69,39 @@ vi.mock('stripe', () => {
     webhooks = {
       constructEvent: (...args: unknown[]) => stripeState.constructEvent(...args),
     };
+    // Static errors namespace so instanceof checks work in the route
+    static errors = {
+      StripeSignatureVerificationError: class StripeSignatureVerificationError extends Error {},
+    };
   }
   return { default: Stripe };
 });
+
+// Mock getStripeClient so the route gets our spy-equipped Stripe instance without
+// needing STRIPE_SECRET_KEY to be set. The Stripe class above is used because
+// the stripe module is already mocked — but getStripeClient is a separate import
+// so we provide a factory that creates an instance of the mocked Stripe class.
+vi.mock('@/lib/stripe', () => ({
+  getStripeClient: () => ({
+    webhooks: {
+      constructEvent: (...args: unknown[]) => stripeState.constructEvent(...args),
+    },
+  }),
+}));
+
+// resolveSiteStripe is called on the metadata-derived websiteId path to check
+// if the site is BYOK. Return a Connect (non-byok) context so processing continues.
+vi.mock('@/lib/stripe/site-stripe', () => ({
+  resolveSiteStripe: vi.fn().mockResolvedValue({
+    mode: 'connect',
+    stripe: { webhooks: { constructEvent: (...args: unknown[]) => stripeState.constructEvent(...args) } },
+    webhookSecret: null,
+  }),
+  SiteStripeError: class SiteStripeError extends Error {
+    code: string;
+    constructor(message: string, code: string) { super(message); this.code = code; }
+  },
+}));
 
 vi.mock('@/lib/db/schema', () => {
   function tableProxy(name: string) {
@@ -102,6 +132,9 @@ vi.mock('drizzle-orm', () => ({
     strings,
     vals,
   }),
+  isNull: (a: unknown) => ({ op: 'isNull', a }),
+  or: (...args: unknown[]) => ({ op: 'or', args: args.filter(Boolean) }),
+  inArray: (a: unknown, list: unknown[]) => ({ op: 'inArray', a, list }),
 }));
 
 vi.mock('@/lib/db', () => {
@@ -226,36 +259,38 @@ beforeEach(() => {
 // ---------------------------------------------------------------------------
 
 describe('POST /api/stripe/webhook/ecommerce — configuration guards', () => {
-  it('returns 500 when STRIPE_SECRET_KEY is missing', async () => {
-    delete process.env.STRIPE_SECRET_KEY;
-    const { POST } = await import('@/app/api/stripe/webhook/ecommerce/route');
-    const res = await POST(makeRequest('{}'));
-    expect(res.status).toBe(500);
-    const json = (await res.json()) as JsonResponse;
-    expect(json.error).toMatch(/stripe not configured/i);
-  });
-
-  it('returns 500 when STRIPE_ECOMMERCE_WEBHOOK_SECRET is missing', async () => {
+  it('returns 500 when STRIPE_ECOMMERCE_WEBHOOK_SECRET is missing (platform path)', async () => {
     delete process.env.STRIPE_ECOMMERCE_WEBHOOK_SECRET;
     const { POST } = await import('@/app/api/stripe/webhook/ecommerce/route');
     const res = await POST(makeRequest('{}'));
     expect(res.status).toBe(500);
-    const json = (await res.json()) as JsonResponse;
-    expect(json.error).toMatch(/stripe not configured/i);
+    const json = await res.json() as Record<string, unknown>;
+    // Route returns { success: false, message: '...', code: 'no_secret' }
+    expect(json.code).toBe('no_secret');
+  });
+
+  it('returns 500 when both stripe env vars are missing', async () => {
+    delete process.env.STRIPE_SECRET_KEY;
+    delete process.env.STRIPE_ECOMMERCE_WEBHOOK_SECRET;
+    const { POST } = await import('@/app/api/stripe/webhook/ecommerce/route');
+    const res = await POST(makeRequest('{}'));
+    expect(res.status).toBe(500);
+    const json = await res.json() as Record<string, unknown>;
+    expect(json.code).toBe('no_secret');
   });
 });
 
 describe('POST /api/stripe/webhook/ecommerce — signature verification', () => {
-  it('returns 400 when constructEvent throws (invalid signature)', async () => {
+  it('returns 401 when constructEvent throws (invalid signature)', async () => {
     stripeState.constructEvent.mockImplementation(() => {
       throw new Error('Invalid signature');
     });
     const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     const { POST } = await import('@/app/api/stripe/webhook/ecommerce/route');
     const res = await POST(makeRequest('{}', 'bad'));
-    expect(res.status).toBe(400);
-    const json = (await res.json()) as JsonResponse;
-    expect(json.error).toBe('webhook_error');
+    expect(res.status).toBe(401);
+    const json = await res.json() as Record<string, unknown>;
+    expect(json.code).toBe('invalid_signature');
     expect(stripeState.constructEvent).toHaveBeenCalledTimes(1);
     errSpy.mockRestore();
   });
@@ -314,9 +349,11 @@ describe('POST /api/stripe/webhook/ecommerce — payment_intent.succeeded', () =
   });
 
   it('skips and logs when the referenced order does not exist', async () => {
+    // Include websiteId in metadata so the route reaches the order lookup;
+    // orderId 999 is not in the DB (empty selectQueue) so it logs + skips.
     stripeState.constructEvent.mockReturnValue({
       type: 'payment_intent.succeeded',
-      data: { object: { id: 'pi_missing', metadata: { orderId: '999' } } },
+      data: { object: { id: 'pi_missing', metadata: { orderId: '999', websiteId: '1' } } },
     });
     dbState.selectQueue.push([]); // orders lookup -> empty
 
@@ -399,7 +436,7 @@ describe('POST /api/stripe/webhook/ecommerce — payment_intent.succeeded', () =
   it('increments discountCodes.usedCount when the order used a discount code', async () => {
     stripeState.constructEvent.mockReturnValue({
       type: 'payment_intent.succeeded',
-      data: { object: { id: 'pi_disc', metadata: { orderId: '500' } } },
+      data: { object: { id: 'pi_disc', metadata: { orderId: '500', websiteId: '1' } } },
     });
     dbState.selectQueue.push([{ ...DEFAULT_ORDER, discountCode: 'SAVE10' }]);
     dbState.selectQueue.push([]); // no items
@@ -415,7 +452,7 @@ describe('POST /api/stripe/webhook/ecommerce — payment_intent.succeeded', () =
   it('does not touch discountCodes when the order has no discount code', async () => {
     stripeState.constructEvent.mockReturnValue({
       type: 'payment_intent.succeeded',
-      data: { object: { id: 'pi_nodisc', metadata: { orderId: '500' } } },
+      data: { object: { id: 'pi_nodisc', metadata: { orderId: '500', websiteId: '1' } } },
     });
     dbState.selectQueue.push([{ ...DEFAULT_ORDER, discountCode: null }]);
     dbState.selectQueue.push([]);
@@ -431,7 +468,7 @@ describe('POST /api/stripe/webhook/ecommerce — payment_intent.succeeded', () =
   it('handles single-name customers (lastName -> empty string) without crashing', async () => {
     stripeState.constructEvent.mockReturnValue({
       type: 'payment_intent.succeeded',
-      data: { object: { id: 'pi_solo', metadata: { orderId: '500' } } },
+      data: { object: { id: 'pi_solo', metadata: { orderId: '500', websiteId: '1' } } },
     });
     dbState.selectQueue.push([{ ...DEFAULT_ORDER, customerName: 'Madonna' }]);
     dbState.selectQueue.push([]);
@@ -447,7 +484,7 @@ describe('POST /api/stripe/webhook/ecommerce — payment_intent.succeeded', () =
   it('continues even if sendTransactionalEmail rejects (.catch swallow)', async () => {
     stripeState.constructEvent.mockReturnValue({
       type: 'payment_intent.succeeded',
-      data: { object: { id: 'pi_emailfail', metadata: { orderId: '500' } } },
+      data: { object: { id: 'pi_emailfail', metadata: { orderId: '500', websiteId: '1' } } },
     });
     dbState.selectQueue.push([DEFAULT_ORDER]);
     dbState.selectQueue.push([]);
@@ -465,7 +502,7 @@ describe('POST /api/stripe/webhook/ecommerce — payment_intent.succeeded', () =
   it('does not decrement variant inventory when item has no variantId', async () => {
     stripeState.constructEvent.mockReturnValue({
       type: 'payment_intent.succeeded',
-      data: { object: { id: 'pi_novar', metadata: { orderId: '500' } } },
+      data: { object: { id: 'pi_novar', metadata: { orderId: '500', websiteId: '1' } } },
     });
     dbState.selectQueue.push([DEFAULT_ORDER]);
     dbState.selectQueue.push([
@@ -495,7 +532,7 @@ describe('POST /api/stripe/webhook/ecommerce — payment_intent.payment_failed',
   it('marks the order failed, inserts history, and sends a retry email', async () => {
     stripeState.constructEvent.mockReturnValue({
       type: 'payment_intent.payment_failed',
-      data: { object: { id: 'pi_fail', metadata: { orderId: '500' } } },
+      data: { object: { id: 'pi_fail', metadata: { orderId: '500', websiteId: '1' } } },
     });
     dbState.selectQueue.push([DEFAULT_ORDER]); // lookup after update
 
@@ -523,7 +560,7 @@ describe('POST /api/stripe/webhook/ecommerce — payment_intent.payment_failed',
   it('skips the failure email when the order row cannot be re-loaded', async () => {
     stripeState.constructEvent.mockReturnValue({
       type: 'payment_intent.payment_failed',
-      data: { object: { id: 'pi_fail_gone', metadata: { orderId: '500' } } },
+      data: { object: { id: 'pi_fail_gone', metadata: { orderId: '500', websiteId: '1' } } },
     });
     dbState.selectQueue.push([]); // lookup returns nothing
 
@@ -549,7 +586,7 @@ describe('POST /api/stripe/webhook/ecommerce — charge.refunded', () => {
   it('is a no-op when the order cannot be found', async () => {
     stripeState.constructEvent.mockReturnValue({
       type: 'charge.refunded',
-      data: { object: { id: 'ch_missing', amount_refunded: 1000, metadata: { orderId: '500' } } },
+      data: { object: { id: 'ch_missing', amount_refunded: 1000, metadata: { orderId: '500', websiteId: '1' } } },
     });
     dbState.selectQueue.push([]); // empty order lookup
 
@@ -564,7 +601,7 @@ describe('POST /api/stripe/webhook/ecommerce — charge.refunded', () => {
     stripeState.constructEvent.mockReturnValue({
       type: 'charge.refunded',
       data: {
-        object: { id: 'ch_ok', amount_refunded: 2500, metadata: { orderId: '500' } },
+        object: { id: 'ch_ok', amount_refunded: 2500, metadata: { orderId: '500', websiteId: '1' } },
       },
     });
     dbState.selectQueue.push([DEFAULT_ORDER]);

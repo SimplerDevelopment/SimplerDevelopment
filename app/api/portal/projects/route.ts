@@ -1,14 +1,15 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { projects, projectMembers, kanbanColumns, kanbanLabels, cardTemplates } from '@/lib/db/schema';
-import { eq, and, inArray } from 'drizzle-orm';
+import { eq, and, inArray, sql } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
 import { isPortalStaff } from '@/lib/portal';
 import { emitEvent } from '@/lib/automation';
 import type { ProjectRole } from '@/lib/portal/project-permissions';
+import { revalidateAdminDashboard } from '@/lib/admin/dashboard-cache';
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
 
@@ -17,11 +18,45 @@ export async function GET() {
   const client = await getPortalClient(userId);
   if (!client) return NextResponse.json({ success: false, message: 'Client not found' }, { status: 404 });
 
-  const all = await db.select().from(projects).where(eq(projects.clientId, client.id)).orderBy(projects.createdAt);
+  const url = req.nextUrl;
+  const page = Math.max(1, parseInt(url.searchParams.get('page') || '1', 10));
+  const limit = Math.min(
+    200,
+    Math.max(1, parseInt(url.searchParams.get('limit') || '50', 10))
+  );
+  const offset = (page - 1) * limit;
+
+  // Slim list projection — omit `description` (long text) since the list view
+  // doesn't render it; the detail endpoint refetches the full row.
+  const where = eq(projects.clientId, client.id);
+
+  const [countResult] = await db
+    .select({ total: sql<number>`count(*)::int` })
+    .from(projects)
+    .where(where);
+
+  const all = await db
+    .select({
+      id: projects.id,
+      name: projects.name,
+      projectKey: projects.projectKey,
+      clientId: projects.clientId,
+      status: projects.status,
+      startDate: projects.startDate,
+      dueDate: projects.dueDate,
+      createdBy: projects.createdBy,
+      createdAt: projects.createdAt,
+      updatedAt: projects.updatedAt,
+    })
+    .from(projects)
+    .where(where)
+    .orderBy(projects.createdAt)
+    .limit(limit)
+    .offset(offset);
 
   // Decorate each project with the caller's role. Staff resolve to owner without
   // needing a member row; non-staff see only projects where they have a row.
-  let decorated: Array<typeof projects.$inferSelect & { myRole: ProjectRole }>;
+  let decorated: Array<(typeof all)[number] & { myRole: ProjectRole }>;
   if (staff) {
     decorated = all.map(p => ({ ...p, myRole: 'owner' as ProjectRole }));
   } else {
@@ -40,6 +75,9 @@ export async function GET() {
   return NextResponse.json({
     success: true,
     data: decorated,
+    total: countResult.total,
+    page,
+    limit,
   });
 }
 
@@ -135,6 +173,9 @@ export async function POST(req: Request) {
   }
 
   emitEvent('project.created', client.id, userId, { id: project.id, name: project.name, status: project.status, clonedFrom: source?.id ?? null });
+
+  // E2 — invalidate the admin dashboard cache (active-project count bumped).
+  revalidateAdminDashboard();
 
   return NextResponse.json({ success: true, data: { ...project, myRole: 'owner' as ProjectRole } }, { status: 201 });
 }

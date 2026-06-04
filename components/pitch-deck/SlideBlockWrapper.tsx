@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, type ReactNode, type MouseEventHandler } from 'react';
 import type { PitchDeckTheme, PitchDeckSlideV2 } from '@/lib/db/schema';
 import { BlockRenderer } from '@/components/blocks/render/BlockRenderer';
 
@@ -16,13 +16,26 @@ interface SlideBlockWrapperProps {
    * so the embedded HTML can occupy the full viewport.
    */
   fullBleed?: boolean;
+  /**
+   * Editor escape hatch: when provided, render this instead of the default
+   * `<BlockRenderer/>`. The deck editor passes `<EditableBlockRenderer/>` so the
+   * edit-mode preview shares the EXACT same theme chrome (CSS vars, font scoping,
+   * link/heading rules, background image/video) as the live presentation — the two
+   * pipelines can't drift. When omitted, the live `<BlockRenderer/>` is used.
+   */
+  children?: ReactNode;
+  /**
+   * Editor escape hatch: click handler on the inner content stage. The editor
+   * wires this to deselect blocks when the slide background is clicked.
+   */
+  onContentBackgroundClick?: MouseEventHandler<HTMLDivElement>;
 }
 
 /**
  * Renders a pitch deck slide's blocks wrapped with the deck's theme styling.
  * Used in both the editor preview and the presentation viewer.
  */
-export function SlideBlockWrapper({ slide, theme, className, presentation = false, fullBleed = false }: SlideBlockWrapperProps) {
+export function SlideBlockWrapper({ slide, theme, className, presentation = false, fullBleed = false, children, onContentBackgroundClick }: SlideBlockWrapperProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const content = JSON.stringify({
     blocks: slide.blocks,
@@ -110,6 +123,7 @@ export function SlideBlockWrapper({ slide, theme, className, presentation = fals
       `}</style>
       <div
         className="w-full min-h-full flex flex-col relative z-10"
+        onClick={onContentBackgroundClick}
         style={{
           ['--slide-primary' as string]: theme.primaryColor,
           ['--slide-accent' as string]: theme.accentColor,
@@ -127,7 +141,7 @@ export function SlideBlockWrapper({ slide, theme, className, presentation = fals
           }
           style={fullBleed ? undefined : { marginTop: 'auto', marginBottom: 'auto' }}
         >
-          <BlockRenderer content={content} />
+          {children ?? <BlockRenderer content={content} />}
         </div>
       </div>
     </div>

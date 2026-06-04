@@ -35,6 +35,7 @@ import {
 import { eq, and, asc, desc } from 'drizzle-orm';
 import { logAudit } from './audit';
 import { attachTopics } from './topics';
+import { revalidateBrainDashboard } from './dashboard';
 
 export type BrainAiReviewItem = typeof brainAiReviewItems.$inferSelect;
 
@@ -105,7 +106,7 @@ interface ApproveItemResult {
  * without inserting a duplicate target record.
  */
 export async function approveReviewItem(args: ApproveItemArgs): Promise<ApproveItemResult> {
-  return db.transaction(async (tx) => {
+  const result = await db.transaction(async (tx) => {
     const [item] = await tx.select().from(brainAiReviewItems)
       .where(and(eq(brainAiReviewItems.id, args.itemId), eq(brainAiReviewItems.clientId, args.clientId)))
       .limit(1);
@@ -436,6 +437,9 @@ export async function approveReviewItem(args: ApproveItemArgs): Promise<ApproveI
 
     return { item: updated, resultEntityType, resultEntityId };
   });
+  // Pending review item count + (often) tasks/decisions/meetings changed.
+  revalidateBrainDashboard(args.clientId);
+  return result;
 }
 
 export async function rejectReviewItem(args: { clientId: number; itemId: number; actorId: number; reason?: string }): Promise<BrainAiReviewItem | null> {
@@ -457,6 +461,7 @@ export async function rejectReviewItem(args: { clientId: number; itemId: number;
     entityId: args.itemId,
     metadata: { proposedType: updated.proposedType, reason: args.reason ?? null },
   });
+  revalidateBrainDashboard(args.clientId);
   return updated;
 }
 

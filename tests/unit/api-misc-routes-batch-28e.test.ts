@@ -30,6 +30,7 @@ vi.mock('@/lib/brain/relationships', () => ({
   getRelationship: (...args: unknown[]) => getRelationshipMock(...args),
   updateOverlay: (...args: unknown[]) => updateOverlayMock(...args),
   deleteOverlay: (...args: unknown[]) => deleteOverlayMock(...args),
+  countRelationships: (..._args: unknown[]) => Promise.resolve(0),
 }));
 
 // search lib
@@ -44,6 +45,7 @@ const createTaskMock = vi.fn();
 vi.mock('@/lib/brain/tasks', () => ({
   listTasks: (...args: unknown[]) => listTasksMock(...args),
   createTask: (...args: unknown[]) => createTaskMock(...args),
+  countTasks: (..._args: unknown[]) => Promise.resolve(0),
 }));
 
 // audit
@@ -65,10 +67,10 @@ vi.mock('@/lib/db/schema', () => {
         },
       },
     );
-  return {
+  return new Proxy({
     brainRelationshipOverlays: wrap('brainRelationshipOverlays'),
     brainTasks: wrap('brainTasks'),
-  };
+  }, { has: (t, p) => (p in t) || !(p === "then" || p === "__esModule" || p === "default" || typeof p !== "string"), get: (t, p) => (p in t) ? t[p] : ((p === "then" || p === "__esModule" || p === "default" || typeof p !== "string") ? undefined : wrap(p)) });
 });
 
 // ---- modules under test (loaded AFTER mocks) ----
@@ -136,6 +138,8 @@ describe('GET /api/portal/brain/relationships', () => {
       priority: undefined,
       status: undefined,
       staleOnly: false,
+      limit: 100,
+      offset: 0,
     });
   });
 
@@ -157,6 +161,8 @@ describe('GET /api/portal/brain/relationships', () => {
       priority: 'high',
       status: 'active',
       staleOnly: true,
+      limit: 100,
+      offset: 0,
     });
   });
 
@@ -767,6 +773,8 @@ describe('GET /api/portal/brain/tasks', () => {
       ownerId: undefined,
       meetingId: undefined,
       needsReview: undefined,
+      limit: 100,
+      offset: 0,
     });
   });
 
@@ -787,6 +795,8 @@ describe('GET /api/portal/brain/tasks', () => {
       ownerId: 11,
       meetingId: 22,
       needsReview: true,
+      limit: 100,
+      offset: 0,
     });
   });
 
@@ -805,6 +815,8 @@ describe('GET /api/portal/brain/tasks', () => {
       ownerId: undefined,
       meetingId: undefined,
       needsReview: false,
+      limit: 100,
+      offset: 0,
     });
   });
 
@@ -823,6 +835,8 @@ describe('GET /api/portal/brain/tasks', () => {
       ownerId: undefined,
       meetingId: undefined,
       needsReview: undefined,
+      limit: 100,
+      offset: 0,
     });
   });
 });

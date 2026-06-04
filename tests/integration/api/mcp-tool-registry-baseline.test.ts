@@ -71,8 +71,10 @@ const EXPECTED_TOOLS: readonly string[] = [
   'gift_certificates_issue',
   'gift_certificates_list',
   // ── brain ───────────────────────────────────────────────────────────
+  'brain_apply_classifications',
   'brain_approve_review_item',
   'brain_bulk_update_notes',
+  'brain_classify_notes',
   'brain_create_meeting',
   'brain_create_note',
   'brain_create_note_from_template',
