@@ -9,7 +9,7 @@ import { MaintenanceNotice, SOLUTIONS_UNDER_MAINTENANCE } from '@/components/mar
 
 export const metadata = generateSEO({
   title: 'Platform Features',
-  description: 'Website builder, online store, publishing & content calendar, email marketing, CRM, contracts & e-signature, invoicing, booking, surveys, A/B experiments, project management, help desk, Company Brain AI, AI chatbot, automations, white-label agency, and more — 19 tools in one platform',
+  description: 'Website builder, online store, publishing & content calendar, email marketing, CRM, contracts & e-signature, booking, surveys, A/B experiments, project management, help desk, Company Brain AI, AI chatbot, automations, white-label agency, and more — 18 tools in one platform',
   path: '/solutions',
 });
 
@@ -45,7 +45,7 @@ export default function SolutionsPage() {
               </FadeIn>
               <FadeIn immediate delay={0.2}>
                 <p className="text-xl text-muted-foreground">
-                  {numberWord(toolCount)} integrated tools that replace your entire SaaS stack. Websites, stores, a content calendar, email, CRM, invoicing, booking, surveys, A/B testing, projects, a help desk, an AI Company Brain, white-label agency, and more — all working together from one dashboard.
+                  {numberWord(toolCount)} integrated tools that replace your entire SaaS stack. Websites, stores, a content calendar, email, CRM, booking, surveys, A/B testing, projects, a help desk, an AI Company Brain, white-label agency, and more — all working together from one dashboard.
                 </p>
                 <div className="mt-6 w-20 h-1 bg-gradient-to-r from-primary to-accent-warm rounded-full" />
               </FadeIn>

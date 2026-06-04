@@ -28,7 +28,6 @@ const portalFeatures = [
   { title: 'Email Marketing', description: 'Campaigns, subscriber lists, automations, and engagement tracking', icon: 'email', href: '/solutions/email-marketing', color: '#8b5cf6' },
   { title: 'CRM', description: 'Contacts, deals, proposals, and your full sales pipeline', icon: 'groups', href: '/solutions/crm', color: '#0ea5e9' },
   { title: 'Contracts & E-Sign', description: 'Branded proposals and legally binding contracts with built-in e-signature', icon: 'draw', href: '/solutions/contracts', color: '#b45309' },
-  { title: 'Invoicing & Payments', description: 'Send itemized invoices and get paid securely by card via Stripe', icon: 'receipt_long', href: '/solutions/invoicing', color: '#0369a1' },
   { title: 'Online Booking', description: 'Scheduling pages with calendar sync and automatic reminders', icon: 'calendar_month', href: '/solutions/booking', color: '#10b981' },
   { title: 'Surveys & Forms', description: 'Smart forms with branching logic, scoring, and auto-routing to your CRM', icon: 'ballot', href: '/solutions/surveys', color: '#e11d48' },
   { title: 'A/B Experiments', description: 'Split-test pages and pitch deck slides with built-in significance testing', icon: 'science', href: '/solutions/experiments', color: '#65a30d' },
@@ -85,7 +84,7 @@ export function HomeClient({ recentPosts = [] }: { recentPosts?: BlogPostWithRel
                   </FadeIn>
                   <FadeIn delay={0.3} immediate>
                     <p className="text-lg md:text-xl text-muted-foreground mb-10 max-w-xl leading-relaxed">
-                      Websites, online stores, email, CRM, booking, surveys, projects, an AI Company Brain, and more — nineteen connected tools in one place. Built and backed by a full-service agency.
+                      Websites, online stores, email, CRM, booking, surveys, projects, an AI Company Brain, and more — eighteen connected tools in one place. Built and backed by a full-service agency.
                     </p>
                   </FadeIn>
                   <FadeIn delay={0.4} immediate>
@@ -127,7 +126,7 @@ export function HomeClient({ recentPosts = [] }: { recentPosts?: BlogPostWithRel
             <FadeIn>
               <p className="text-primary font-mono text-sm font-semibold mb-3 tracking-wider text-center">{'// THE PLATFORM'}</p>
               <h2 className="font-display text-3xl md:text-4xl font-bold mb-4 text-center">
-                Nineteen tools. One platform.
+                Eighteen tools. One platform.
               </h2>
               <p className="text-lg text-muted-foreground text-center max-w-2xl mx-auto mb-12">
                 Stop paying for a dozen subscriptions that don&apos;t talk to each other. Everything you need is here.
