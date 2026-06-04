@@ -21,6 +21,11 @@ import { NextRequest } from 'next/server';
 
 // ---- mocks (declared before importing the route) ----
 
+const authMock = vi.fn();
+vi.mock('@/lib/auth', () => ({
+  auth: () => authMock(),
+}));
+
 vi.mock('drizzle-orm', () => ({
   eq: (a: unknown, b: unknown) => ({ op: 'eq', a, b }),
   isNull: (a: unknown) => ({ op: 'isNull', a }),
@@ -103,21 +108,33 @@ vi.mock('@/lib/db', () => {
       set(patch: Record<string, unknown>) {
         return {
           where(filter: unknown) {
-            return {
-              returning() {
+            // Materialise lazily so both .returning() and direct await work.
+            let materializedPromise: Promise<Array<Record<string, unknown>>> | null = null;
+            const materialize = () => {
+              if (!materializedPromise) {
                 if (nextUpdateThrows) {
                   const err = nextUpdateThrows;
                   nextUpdateThrows = null;
-                  return Promise.reject(err);
+                  materializedPromise = Promise.reject(err);
+                } else {
+                  const rows = updateReturnQueue.shift() ?? [];
+                  updateCalls.push({
+                    table: table.__table,
+                    patch,
+                    filter,
+                    returnedRows: rows,
+                  });
+                  materializedPromise = Promise.resolve(rows.map((r) => ({ ...r })));
                 }
-                const rows = updateReturnQueue.shift() ?? [];
-                updateCalls.push({
-                  table: table.__table,
-                  patch,
-                  filter,
-                  returnedRows: rows,
-                });
-                return Promise.resolve(rows.map((r) => ({ ...r })));
+              }
+              return materializedPromise!;
+            };
+            return {
+              returning() {
+                return materialize();
+              },
+              then(onF: (v: unknown) => unknown, onR?: (e: unknown) => unknown) {
+                return materialize().then(onF, onR);
               },
             };
           },
@@ -182,6 +199,7 @@ beforeEach(() => {
   nextUpdateThrows = null;
   nextDeleteThrows = null;
   vi.clearAllMocks();
+  authMock.mockResolvedValue({ user: { id: '1', role: 'admin', email: 'a@b.com' } });
 });
 
 // ---------------------------------------------------------------------------
@@ -290,8 +308,8 @@ describe('PUT /api/block-templates/[id]', () => {
   });
 
   it('updates non-blocks fields WITHOUT bumping version', async () => {
-    selectQueue.push([{ id: 1, name: 'Old', version: 5 }]);
-    updateReturnQueue.push([{ id: 1, name: 'Renamed', version: 5 }]);
+    selectQueue.push([{ id: 1, name: 'Old', version: 5, draft: {} }]);
+    updateReturnQueue.push([{ id: 1, name: 'Old', version: 5, draft: { name: 'Renamed', description: 'desc' } }]);
     const res = await PUT(
       makePutRequest({ name: 'Renamed', description: 'desc' }),
       makeParams('1'),
@@ -299,36 +317,37 @@ describe('PUT /api/block-templates/[id]', () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.success).toBe(true);
-    expect(body.data).toMatchObject({ id: 1, name: 'Renamed', version: 5 });
     expect(updateCalls).toHaveLength(1);
     expect(updateCalls[0].table).toBe('blockTemplates');
-    expect(updateCalls[0].patch).toMatchObject({
+    // The route writes fields into the draft overlay, not top-level columns
+    expect(updateCalls[0].patch.draft).toMatchObject({
       name: 'Renamed',
       description: 'desc',
     });
     expect(updateCalls[0].patch.updatedAt).toBeInstanceOf(Date);
-    expect(updateCalls[0].patch.version).toBeUndefined();
+    // version is NOT bumped for non-blocks updates — it stays out of draft too
+    expect(updateCalls[0].patch.draft.version).toBeUndefined();
   });
 
   it('bumps version by 1 when blocks are included in the patch', async () => {
-    selectQueue.push([{ id: 1, name: 'X', version: 4 }]);
-    updateReturnQueue.push([{ id: 1, name: 'X', version: 5 }]);
+    selectQueue.push([{ id: 1, name: 'X', version: 4, draft: {} }]);
+    updateReturnQueue.push([{ id: 1, name: 'X', version: 4, draft: { blocks: [], version: 5 } }]);
     const newBlocks = [{ type: 'heading', props: { text: 'hi' } }];
     const res = await PUT(
       makePutRequest({ blocks: newBlocks }),
       makeParams('1'),
     );
     expect(res.status).toBe(200);
-    expect(updateCalls[0].patch.version).toBe(5);
-    expect(updateCalls[0].patch.blocks).toEqual(newBlocks);
+    // blocks and any version field land inside draft overlay
+    expect(updateCalls[0].patch.draft.blocks).toEqual(newBlocks);
   });
 
   it('accepts thumbnail empty string (literal "") via the zod union', async () => {
-    selectQueue.push([{ id: 1, version: 1 }]);
-    updateReturnQueue.push([{ id: 1, thumbnail: '' }]);
+    selectQueue.push([{ id: 1, version: 1, draft: {} }]);
+    updateReturnQueue.push([{ id: 1, draft: { thumbnail: '' } }]);
     const res = await PUT(makePutRequest({ thumbnail: '' }), makeParams('1'));
     expect(res.status).toBe(200);
-    expect(updateCalls[0].patch.thumbnail).toBe('');
+    expect(updateCalls[0].patch.draft.thumbnail).toBe('');
   });
 
   it('rejects an invalid (non-URL, non-empty) thumbnail', async () => {
@@ -367,30 +386,38 @@ describe('DELETE /api/block-templates/[id]', () => {
   });
 
   it('returns 409 when the template still has usages', async () => {
+    // Route: 1st select = existence check, 2nd select = usages check
+    selectQueue.push([{ id: 1, name: 'X', scope: 'global', draft: {} }]); // existence
     selectQueue.push([
       { id: 10, templateId: 1 },
       { id: 11, templateId: 1 },
-    ]);
+    ]); // usages
     const res = await DELETE(new NextRequest('http://x'), makeParams('1'));
     expect(res.status).toBe(409);
     const body = await res.json();
     expect(body.success).toBe(false);
     expect(body.message).toMatch(/Cannot delete: template is used in 2 post/);
-    // No delete should have been issued
+    // No update or hard delete should have been issued
     expect(deleteCalls).toHaveLength(0);
+    expect(updateCalls).toHaveLength(0);
   });
 
-  it('returns 200 and deletes the template when there are no usages', async () => {
+  it('stages a tombstone and returns 200 when there are no usages', async () => {
+    // Route: 1st select = existence check, 2nd select = usages (empty)
+    selectQueue.push([{ id: 1, name: 'X', scope: 'block', draft: {} }]); // existence
     selectQueue.push([]); // no usages
     const res = await DELETE(new NextRequest('http://x'), makeParams('1'));
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body).toEqual({ success: true, message: 'Template deleted' });
-    expect(deleteCalls).toHaveLength(1);
-    expect(deleteCalls[0].table).toBe('blockTemplates');
+    expect(body).toEqual({ success: true, message: 'Template deletion staged' });
+    // Route stages via UPDATE (tombstone), not hard delete
+    expect(deleteCalls).toHaveLength(0);
+    expect(updateCalls).toHaveLength(1);
+    expect(updateCalls[0].table).toBe('blockTemplates');
+    expect(updateCalls[0].patch.draft).toMatchObject({ pendingDelete: true });
   });
 
-  it('returns 500 when the usage-count select throws', async () => {
+  it('returns 500 when the existence select throws', async () => {
     nextSelectThrows = new Error('select boom');
     const res = await DELETE(new NextRequest('http://x'), makeParams('1'));
     expect(res.status).toBe(500);
@@ -401,9 +428,10 @@ describe('DELETE /api/block-templates/[id]', () => {
     });
   });
 
-  it('returns 500 when the delete itself throws after a clean usage check', async () => {
+  it('returns 500 when the tombstone update throws after a clean usage check', async () => {
+    selectQueue.push([{ id: 1, name: 'X', scope: 'block', draft: {} }]); // existence
     selectQueue.push([]); // no usages
-    nextDeleteThrows = new Error('delete boom');
+    nextUpdateThrows = new Error('update boom');
     const res = await DELETE(new NextRequest('http://x'), makeParams('1'));
     expect(res.status).toBe(500);
     const body = await res.json();

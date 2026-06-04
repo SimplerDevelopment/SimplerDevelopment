@@ -50,7 +50,7 @@ Database uses Drizzle ORM with PostgreSQL.
 - `pitchDecks` - Presentation-format content
 
 ### Schema Location
-`/lib/db/schema.ts` (large file, ~114KB)
+`lib/db/schema/` — split into per-domain modules (e.g. `lib/db/schema/crm.ts`, `lib/db/schema/cms.ts`). The barrel `lib/db/schema/index.ts` re-exports everything. Consumers import from `@/lib/db/schema`.
 
 ### Multi-Tenant Pattern
 All content tables have `websiteId` column:
@@ -113,7 +113,7 @@ SimplerDevelopment hosts multiple client websites. Key concepts:
 | Visual previews | `/components/blocks/visual/{Name}BlockPreview.tsx` |
 | Block settings UI | `/components/blocks/visual/BlockSettings.tsx` |
 | Block icons/metadata | `/lib/utils/blockIcons.tsx` |
-| Database schema | `/lib/db/schema.ts` |
+| Database schema | `lib/db/schema/` (per-domain modules; barrel: `lib/db/schema/index.ts`) |
 | API routes | `/app/api/` |
 | Block helpers | `/lib/utils/blockHelpers.ts` |
 | Responsive utilities | `/lib/utils/responsiveClasses.ts` |

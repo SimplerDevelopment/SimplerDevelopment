@@ -30,7 +30,9 @@
     ],
     "deny": [
       "Edit(bun.lock)",
-      "Write(bun.lock)"
+      "Write(bun.lock)",
+      "Edit(drizzle/**)",
+      "Write(drizzle/**)"
     ]
   },
   "hooks": {
@@ -64,7 +66,7 @@
           {
             "type": "command",
             "command": "bash .claude/hooks/stop-qa-gate.sh",
-            "timeout": 120
+            "timeout": 300
           }
         ]
       }

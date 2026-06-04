@@ -45,7 +45,7 @@ When you discover a new heavy column, **add a row to this table in the same PR**
 
 Use this when reviewing a tool whose response is too large.
 
-1. **Read the schema** for the underlying table (`Grep "^export const <table>" lib/db/schema.ts`). Identify columns >~10 KB typical or unbounded text/json.
+1. **Read the schema** for the underlying table (`Grep "^export const <table>" lib/db/schema/`). The schema is split into per-domain modules under `lib/db/schema/` — grep across the directory to find the right file. Identify columns >~10 KB typical or unbounded text/json.
 2. **Define slim/full projections** at module level (after `revalidateForWrite`, before `buildMcpServer`):
    ```ts
    const SLIM_FOO_COLUMNS = {

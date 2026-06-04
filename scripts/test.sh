@@ -140,7 +140,9 @@ if [[ "$LAYER" == "all" || "$LAYER" == "e2e" ]]; then
   PW_ARGS=()
   [[ -n "$TAG"   ]] && PW_ARGS+=(--grep "$TAG")
   [[ -n "$SHARD" ]] && PW_ARGS+=(--shard="$SHARD")
-  run_step "e2e" npx playwright test "${PW_ARGS[@]}" --reporter=list,html
+  # Use the `${arr[@]+"${arr[@]}"}` idiom so an EMPTY array doesn't trip
+  # `set -u` ("unbound variable") on macOS's default bash 3.2.
+  run_step "e2e" npx playwright test ${PW_ARGS[@]+"${PW_ARGS[@]}"} --reporter=list,html
 
   # Clean shutdown so V8 coverage flushes to disk
   echo ">> stopping server"

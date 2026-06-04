@@ -22,21 +22,21 @@ vi.mock('@/lib/security/sanitize-html', () => ({
 // Survey visibility predicate — make every field visible unless we override
 // in a specific test. Defining as `let` so individual tests can swap the
 // implementation.
-const isFieldVisibleMock = vi.fn((_field: any, _answers: any) => true);
+const isFieldVisibleMock = vi.fn((_field: { id: string }, _answers: Record<string, unknown>) => true);
 vi.mock('@/lib/survey-logic', () => ({
-  isFieldVisible: (...args: any[]) => isFieldVisibleMock(...args),
+  isFieldVisible: (...args: unknown[]) => isFieldVisibleMock(...args as [{ id: string }, Record<string, unknown>]),
 }));
 
 // BrandingProvider — render children directly.
 vi.mock('@/contexts/BrandingContext', () => ({
-  BrandingProvider: ({ children }: any) =>
+  BrandingProvider: ({ children }: { children: React.ReactNode }) =>
     React.createElement('div', { 'data-testid': 'branding-provider' }, children),
 }));
 
 // Slide content wrappers — replace with skinny markers so we can assert which
 // slide kind / which slide-id is rendered.
 vi.mock('@/components/pitch-deck/SlideBlockWrapper', () => ({
-  SlideBlockWrapper: ({ slide, fullBleed }: any) =>
+  SlideBlockWrapper: ({ slide, fullBleed }: { slide?: { id?: string }; fullBleed?: boolean }) =>
     React.createElement(
       'div',
       {
@@ -49,11 +49,11 @@ vi.mock('@/components/pitch-deck/SlideBlockWrapper', () => ({
 }));
 
 vi.mock('@/components/pitch-deck/DecisionSlideRenderer', () => ({
-  DecisionSlideRenderer: ({ title, options, onChoose }: any) =>
+  DecisionSlideRenderer: ({ title, options, onChoose }: { title: string; options: { id: string; label: string; pathGroup: string }[]; onChoose: (pg: string) => void }) =>
     React.createElement(
       'div',
       { 'data-testid': 'decision-renderer', 'data-title': title },
-      ...options.map((o: any) =>
+      ...options.map((o) =>
         React.createElement(
           'button',
           {
@@ -68,7 +68,7 @@ vi.mock('@/components/pitch-deck/DecisionSlideRenderer', () => ({
 }));
 
 vi.mock('@/components/pitch-deck/SurveySlideRenderer', () => ({
-  SurveySlideRenderer: ({ field, onNext, onBack, isLastQuestion, isSubmitting }: any) =>
+  SurveySlideRenderer: ({ field, onNext, onBack, isLastQuestion, isSubmitting }: { field?: { id?: string }; onNext: () => void; onBack: () => void; isLastQuestion?: boolean; isSubmitting?: boolean }) =>
     React.createElement(
       'div',
       {
@@ -91,7 +91,7 @@ vi.mock('@/components/pitch-deck/SurveySlideRenderer', () => ({
 }));
 
 vi.mock('@/components/pitch-deck/SurveyRecommendationRenderer', () => ({
-  SurveyRecommendationRenderer: ({ config }: any) =>
+  SurveyRecommendationRenderer: ({ config }: { config?: { bookUrl?: string } }) =>
     React.createElement(
       'div',
       { 'data-testid': 'rec-renderer', 'data-book-url': config?.bookUrl },
@@ -101,7 +101,7 @@ vi.mock('@/components/pitch-deck/SurveyRecommendationRenderer', () => ({
 
 // ─── Component under test ───────────────────────────────────────────────────
 
-import PitchDeckPresentation from '@/app/sites/[domain]/pitch-deck/[slug]/PitchDeckPresentation';
+import PitchDeckPresentation from '@/app/sites/[domain]/slides/[slug]/PitchDeckPresentation';
 import type {
   PitchDeckSlideV2,
   PitchDeckTheme,
@@ -122,7 +122,7 @@ function blockSlide(id: string, overrides: Partial<PitchDeckSlideV2> = {}): Pitc
   return {
     id,
     label: id,
-    blocks: [{ type: 'heading', text: id } as any],
+    blocks: [{ type: 'heading', text: id } as unknown],
     ...overrides,
   };
 }
@@ -131,7 +131,7 @@ function htmlEmbedSlide(id: string, width: string = 'full'): PitchDeckSlideV2 {
   return {
     id,
     label: id,
-    blocks: [{ type: 'html-embed', html: '<p>x</p>', width } as any],
+    blocks: [{ type: 'html-embed', html: '<p>x</p>', width } as unknown],
   };
 }
 
@@ -162,7 +162,7 @@ function surveySlideMarker(id: string, surveyId: number): PitchDeckSlideV2 {
   };
 }
 
-function field(id: string, overrides: any = {}): any {
+function field(id: string, overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
     id,
     type: 'text',
@@ -381,11 +381,13 @@ describe('PitchDeckPresentation', () => {
     const { container } = render(
       <PitchDeckPresentation slides={slides} theme={baseTheme} title="d" />,
     );
-    const arrowsTxt = Array.from(container.querySelectorAll('button')).map(
+    // Exclude disabled buttons — the mobile footer always renders both arrows
+    // but disables the prev arrow on the first slide and next on the last.
+    const enabledArrowsTxt = Array.from(container.querySelectorAll('button:not([disabled])')).map(
       (b) => b.textContent || '',
     );
-    expect(arrowsTxt.some((t) => t.includes('chevron_right'))).toBe(true);
-    expect(arrowsTxt.some((t) => t.includes('chevron_left'))).toBe(false);
+    expect(enabledArrowsTxt.some((t) => t.includes('chevron_right'))).toBe(true);
+    expect(enabledArrowsTxt.some((t) => t.includes('chevron_left'))).toBe(false);
   });
 
   it('renders both arrows on a middle slide', () => {
@@ -407,10 +409,12 @@ describe('PitchDeckPresentation', () => {
     const { container } = render(
       <PitchDeckPresentation slides={slides} theme={baseTheme} title="d" />,
     );
-    const arrowsTxt = Array.from(container.querySelectorAll('button')).map(
+    // Exclude disabled buttons — the mobile footer always renders chevron_right
+    // but disables it on the last slide rather than hiding it.
+    const enabledArrowsTxt = Array.from(container.querySelectorAll('button:not([disabled])')).map(
       (b) => b.textContent || '',
     );
-    expect(arrowsTxt.some((t) => t.includes('chevron_right'))).toBe(false);
+    expect(enabledArrowsTxt.some((t) => t.includes('chevron_right'))).toBe(false);
   });
 
   // --- Touch swipe ----------------------------------------------------------
@@ -421,8 +425,8 @@ describe('PitchDeckPresentation', () => {
       <PitchDeckPresentation slides={slides} theme={baseTheme} title="d" />,
     );
     const root = container.querySelector('.deck-root') as HTMLElement;
-    fireEvent.touchStart(root, { touches: [{ clientX: 200 } as any] });
-    fireEvent.touchEnd(root, { changedTouches: [{ clientX: 50 } as any] });
+    fireEvent.touchStart(root, { touches: [{ clientX: 200 } as unknown] });
+    fireEvent.touchEnd(root, { changedTouches: [{ clientX: 50 } as unknown] });
     expect(screen.getByTestId('block-wrapper').getAttribute('data-slide-id')).toBe('s2');
   });
 
@@ -432,8 +436,8 @@ describe('PitchDeckPresentation', () => {
       <PitchDeckPresentation slides={slides} theme={baseTheme} title="d" />,
     );
     const root = container.querySelector('.deck-root') as HTMLElement;
-    fireEvent.touchStart(root, { touches: [{ clientX: 100 } as any] });
-    fireEvent.touchEnd(root, { changedTouches: [{ clientX: 80 } as any] });
+    fireEvent.touchStart(root, { touches: [{ clientX: 100 } as unknown] });
+    fireEvent.touchEnd(root, { changedTouches: [{ clientX: 80 } as unknown] });
     expect(screen.getByTestId('block-wrapper').getAttribute('data-slide-id')).toBe('s1');
   });
 
@@ -443,7 +447,7 @@ describe('PitchDeckPresentation', () => {
       <PitchDeckPresentation slides={slides} theme={baseTheme} title="d" />,
     );
     const root = container.querySelector('.deck-root') as HTMLElement;
-    fireEvent.touchEnd(root, { changedTouches: [{ clientX: 50 } as any] });
+    fireEvent.touchEnd(root, { changedTouches: [{ clientX: 50 } as unknown] });
     expect(screen.getByTestId('block-wrapper').getAttribute('data-slide-id')).toBe('s1');
   });
 
@@ -452,7 +456,7 @@ describe('PitchDeckPresentation', () => {
   it('responds to a data-deck-action="next-slide" click', () => {
     const slides = [
       blockSlide('s1', {
-        blocks: [{ type: 'html-embed', html: '<button data-deck-action="next-slide">go</button>', width: 'narrow' } as any],
+        blocks: [{ type: 'html-embed', html: '<button data-deck-action="next-slide">go</button>', width: 'narrow' } as unknown],
       }),
       blockSlide('s2'),
     ];
@@ -859,7 +863,7 @@ describe('PitchDeckPresentation', () => {
           offerings: [],
           questions: [],
           bookUrl: 'https://book.example.com',
-        } as any,
+        } as unknown,
       },
     };
     vi.spyOn(window, 'fetch').mockResolvedValue(
@@ -909,7 +913,7 @@ describe('PitchDeckPresentation', () => {
     );
     // Stash original location, swap with a writable spy
     const orig = window.location;
-    const fakeLocation: any = { href: '' };
+    const fakeLocation: { href: string } = { href: '' };
     Object.defineProperty(window, 'location', {
       value: new Proxy(fakeLocation, {
         get(t, k) {
@@ -968,7 +972,7 @@ describe('PitchDeckPresentation', () => {
   // --- Conditional visibility ---------------------------------------------
 
   it('skips invisible survey fields via isFieldVisible', () => {
-    isFieldVisibleMock.mockImplementation((f: any) => f.id !== 'q1');
+    isFieldVisibleMock.mockImplementation((f: { id: string }) => f.id !== 'q1');
     const slides = [surveySlideMarker('sv', 30)];
     const surveys = {
       30: {
@@ -1089,7 +1093,7 @@ describe('PitchDeckPresentation', () => {
         slides={slides}
         theme={baseTheme}
         title="d"
-        branding={{ buttonStyle: 'rounded' } as any}
+        branding={{ buttonStyle: 'rounded' } as unknown}
       />,
     );
     expect(screen.getByTestId('branding-provider')).toBeInTheDocument();

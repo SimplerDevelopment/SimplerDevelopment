@@ -544,7 +544,7 @@ Process each marketing page (about, services, contact, pricing, team, etc.):
 
 ### Navigation Setup
 
-After creating marketing pages, set up the site navigation. Read `lib/db/schema.ts` for the `siteNavigation` table:
+After creating marketing pages, set up the site navigation. The `siteNavigation` table lives in the appropriate domain module under `lib/db/schema/` — grep for it there:
 
 ```typescript
 import { siteNavigation } from './lib/db/schema';
@@ -745,7 +745,7 @@ Before implementing, read these files for the exact patterns and types:
 
 | What | Path |
 |------|------|
-| DB schema (all tables) | `lib/db/schema.ts` |
+| DB schema (all tables) | `lib/db/schema/` (per-domain modules; barrel: `lib/db/schema/index.ts`) |
 | Block type definitions | `types/blocks.ts` |
 | Website creation API | `app/api/portal/cms/websites/route.ts` |
 | Post creation API | `app/api/portal/cms/websites/[siteId]/posts/route.ts` |

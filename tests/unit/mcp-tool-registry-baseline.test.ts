@@ -7,6 +7,12 @@
  * refactor — every tool name, scope guard, and minimum config field must
  * survive the move from the monolith into per-domain tool modules.
  *
+ * Unit-layer on purpose: the registry assertion only builds the server and reads
+ * tool NAMES (handlers never run), so it needs no DB — `@/lib/db` is mocked to
+ * dodge its import-time DATABASE_URL throw. Living in tests/unit/ means it runs
+ * in the DEFAULT gate, so tool drift fails on every commit (it previously sat in
+ * the integration layer, out of the default gate, and drifted red unseen — 131 tools).
+ *
  * @critical
  */
 import { describe, it, expect, vi } from 'vitest';
@@ -25,6 +31,10 @@ vi.mock('@/lib/brain/profiles', () => ({
   getOrCreateBrainProfile: vi.fn(async () => ({ id: 1, clientId: 1 })),
   getBrainProfile: vi.fn(async () => ({ id: 1, clientId: 1 })),
 }));
+// `@/lib/db` throws at import if DATABASE_URL is unset (lib/db/index.ts). Tool
+// handlers reference `db` but never execute here (we only read registered NAMES),
+// so a no-op stub lets this run DB-free in the unit gate.
+vi.mock('@/lib/db', () => ({ db: {} }));
 
 import { buildMcpServer } from '@/lib/mcp/server';
 
@@ -33,44 +43,41 @@ import { buildMcpServer } from '@/lib/mcp/server';
 // (branding, storefront, brain, post-types, approvals). Ordering does not
 // matter — the assertion is on set membership.
 const EXPECTED_TOOLS: readonly string[] = [
-  // ── ai ──────────────────────────────────────────────────────────────
+  // ── ai ──
   'ai_conversations_get',
   'ai_conversations_list',
-  // ── billing ─────────────────────────────────────────────────────────
   'ai_credits_balance',
   'ai_credits_ledger',
-  'invoices_get',
-  'invoices_list',
-  // ── approvals ───────────────────────────────────────────────────────
+  // ── approvals ──
   'approvals_approve',
   'approvals_get',
   'approvals_list',
   'approvals_reject',
-  // ── automations ─────────────────────────────────────────────────────
+  // ── automations ──
   'automations_create',
   'automations_delete',
   'automations_list',
   'automations_toggle',
   'automations_update',
-  // ── block templates ─────────────────────────────────────────────────
+  // ── block ──
   'block_templates_create',
   'block_templates_delete',
   'block_templates_fork',
   'block_templates_get',
   'block_templates_list',
+  'block_templates_publish',
   'block_templates_update',
-  // ── bookings ────────────────────────────────────────────────────────
+  // ── booking ──
   'booking_pages_create',
   'booking_pages_get',
   'booking_pages_list',
   'booking_pages_update',
+  // ── bookings ──
   'bookings_cancel',
   'bookings_get',
   'bookings_list',
   'bookings_update',
-  'gift_certificates_issue',
-  'gift_certificates_list',
-  // ── brain ───────────────────────────────────────────────────────────
+  // ── brain ──
   'brain_apply_classifications',
   'brain_approve_review_item',
   'brain_bulk_update_notes',
@@ -83,9 +90,42 @@ const EXPECTED_TOOLS: readonly string[] = [
   'brain_create_saved_search',
   'brain_create_task',
   'brain_dashboard_summary',
+  'brain_decisions_create',
+  'brain_decisions_get',
+  'brain_decisions_list',
+  'brain_decisions_reject',
+  'brain_decisions_supersede',
+  'brain_decisions_update',
   'brain_delete_note',
   'brain_delete_note_template',
   'brain_delete_saved_search',
+  'brain_document_acknowledgments_list_for_document',
+  'brain_document_acknowledgments_list_for_person',
+  'brain_document_compliance_report',
+  'brain_document_required_reads_assign',
+  'brain_document_required_reads_list_for_document',
+  'brain_document_required_reads_list_for_person',
+  'brain_document_required_reads_remove',
+  'brain_document_versions_edit_draft',
+  'brain_document_versions_get',
+  'brain_document_versions_list',
+  'brain_documents_acknowledge',
+  'brain_documents_archive',
+  'brain_documents_create',
+  'brain_documents_delete',
+  'brain_documents_get',
+  'brain_documents_link',
+  'brain_documents_list',
+  'brain_documents_promote_from_note',
+  'brain_documents_publish',
+  'brain_documents_unarchive',
+  'brain_documents_unlink',
+  'brain_documents_update',
+  'brain_expertise_tags_create',
+  'brain_expertise_tags_delete',
+  'brain_expertise_tags_list',
+  'brain_expertise_tags_merge',
+  'brain_expertise_tags_update',
   'brain_get_company',
   'brain_get_contact',
   'brain_get_deal',
@@ -97,6 +137,28 @@ const EXPECTED_TOOLS: readonly string[] = [
   'brain_get_review_item',
   'brain_get_saved_search',
   'brain_get_task',
+  'brain_glossary_bulk_import',
+  'brain_glossary_create',
+  'brain_glossary_delete',
+  'brain_glossary_get',
+  'brain_glossary_list',
+  'brain_glossary_lookup',
+  'brain_glossary_update',
+  'brain_goals_checkin',
+  'brain_goals_create',
+  'brain_goals_delete',
+  'brain_goals_get',
+  'brain_goals_list',
+  'brain_goals_update',
+  'brain_initiatives_close',
+  'brain_initiatives_create',
+  'brain_initiatives_get',
+  'brain_initiatives_link',
+  'brain_initiatives_links',
+  'brain_initiatives_list',
+  'brain_initiatives_reopen',
+  'brain_initiatives_unlink',
+  'brain_initiatives_update',
   'brain_link_meeting',
   'brain_list_companies',
   'brain_list_contacts',
@@ -110,17 +172,69 @@ const EXPECTED_TOOLS: readonly string[] = [
   'brain_list_review_items',
   'brain_list_saved_searches',
   'brain_list_tasks',
+  'brain_org_units_add_member',
+  'brain_org_units_create',
+  'brain_org_units_delete',
+  'brain_org_units_get',
+  'brain_org_units_list',
+  'brain_org_units_merge',
+  'brain_org_units_move',
+  'brain_org_units_remove_member',
+  'brain_org_units_set_primary',
+  'brain_org_units_tree',
+  'brain_org_units_update',
+  'brain_people_attach_expertise',
+  'brain_people_create',
+  'brain_people_delete',
+  'brain_people_detach_expertise',
+  'brain_people_get',
+  'brain_people_list',
+  'brain_people_update',
+  'brain_playbook_run_steps_complete',
+  'brain_playbook_run_steps_skip',
+  'brain_playbook_runs_abort',
+  'brain_playbook_runs_active_for_entity',
+  'brain_playbook_runs_advance',
+  'brain_playbook_runs_get',
+  'brain_playbook_runs_list',
+  'brain_playbook_runs_start',
+  'brain_playbooks_activate',
+  'brain_playbooks_add_step',
+  'brain_playbooks_archive',
+  'brain_playbooks_create',
+  'brain_playbooks_delete',
+  'brain_playbooks_get',
+  'brain_playbooks_list',
+  'brain_playbooks_remove_step',
+  'brain_playbooks_reorder_steps',
+  'brain_playbooks_update',
+  'brain_playbooks_update_step',
   'brain_propose_task',
   'brain_reject_review_item',
   'brain_restore_note',
+  'brain_review_items_list_for_reviewer',
+  'brain_review_items_suggest_reviewer',
   'brain_search',
+  'brain_topics_attach',
+  'brain_topics_create',
+  'brain_topics_delete',
+  'brain_topics_detach',
+  'brain_topics_entities',
+  'brain_topics_get',
+  'brain_topics_import_from_tags',
+  'brain_topics_list',
+  'brain_topics_merge',
+  'brain_topics_move',
+  'brain_topics_tree',
+  'brain_topics_update',
   'brain_update_note',
   'brain_update_note_template',
   'brain_update_relationship',
   'brain_update_saved_search',
   'brain_update_task',
   'brain_upsert_note_by_url',
-  // ── branding ────────────────────────────────────────────────────────
+  'brain_who_knows',
+  // ── branding ──
   'branding_audit',
   'branding_check_contrast',
   'branding_create_profile',
@@ -130,20 +244,15 @@ const EXPECTED_TOOLS: readonly string[] = [
   'branding_list_profiles',
   'branding_update_messaging',
   'branding_update_profile',
-  // ── client ──────────────────────────────────────────────────────────
+  // ── client ──
   'client_get',
   'client_update',
-  // ── crm contracts / proposals ───────────────────────────────────────
+  // ── contracts ──
   'contracts_create',
   'contracts_get',
   'contracts_list',
   'contracts_void',
-  'proposals_create',
-  'proposals_get',
-  'proposals_list',
-  'proposals_send',
-  'proposals_update',
-  // ── crm ─────────────────────────────────────────────────────────────
+  // ── crm ──
   'crm_activities_create',
   'crm_activities_list',
   'crm_companies_create',
@@ -178,18 +287,20 @@ const EXPECTED_TOOLS: readonly string[] = [
   'crm_pipelines_update_stage',
   'crm_saved_views_list',
   'crm_scoring_rules_list',
-  // ── decks ───────────────────────────────────────────────────────────
+  // ── decks ──
   'decks_add_slide',
   'decks_create',
   'decks_delete',
   'decks_fork',
   'decks_get',
   'decks_list',
+  'decks_publish_all',
+  'decks_publish_slide',
   'decks_replace_slides',
   'decks_update',
   'decks_upload_html',
   'decks_upload_html_zip',
-  // ── email ───────────────────────────────────────────────────────────
+  // ── email ──
   'email_campaigns_create',
   'email_campaigns_delete',
   'email_campaigns_fork',
@@ -209,13 +320,19 @@ const EXPECTED_TOOLS: readonly string[] = [
   'email_subscribers_update',
   'email_templates_create',
   'email_templates_list',
-  // ── hosting ─────────────────────────────────────────────────────────
+  // ── gift ──
+  'gift_certificates_issue',
+  'gift_certificates_list',
+  // ── hosting ──
   'hosting_get',
   'hosting_list',
-  // ── integrations ────────────────────────────────────────────────────
+  // ── integrations ──
   'integrations_list',
   'integrations_revoke',
-  // ── kanban ──────────────────────────────────────────────────────────
+  // ── invoices ──
+  'invoices_get',
+  'invoices_list',
+  // ── kanban ──
   'kanban_card_add_blocker',
   'kanban_card_add_comment',
   'kanban_card_artifact_link',
@@ -231,6 +348,9 @@ const EXPECTED_TOOLS: readonly string[] = [
   'kanban_card_list_comments',
   'kanban_card_log_time',
   'kanban_card_remove_blocker',
+  'kanban_card_templates_create',
+  'kanban_card_templates_delete',
+  'kanban_card_templates_list',
   'kanban_card_unassign',
   'kanban_checklist_add',
   'kanban_checklist_delete',
@@ -246,22 +366,28 @@ const EXPECTED_TOOLS: readonly string[] = [
   'kanban_labels_update',
   'kanban_list_board',
   'kanban_move_card',
+  'kanban_propose_sprint',
+  'kanban_recurrences_create',
+  'kanban_recurrences_delete',
+  'kanban_recurrences_list',
   'kanban_update_card',
   'kanban_update_column',
-  // ── media ───────────────────────────────────────────────────────────
+  // ── media ──
   'media_delete',
   'media_list',
+  'media_register',
   'media_upload_from_url',
-  // ── my tasks / projects ─────────────────────────────────────────────
+  'media_upload_presign',
+  // ── my ──
   'my_tasks_list',
-  'projects_create',
-  'projects_list',
-  'projects_update',
-  // ── nav ─────────────────────────────────────────────────────────────
+  // ── nav ──
   'nav_create',
   'nav_delete',
   'nav_list',
-  // ── post types ──────────────────────────────────────────────────────
+  'nav_publish',
+  'nav_publish_all',
+  'nav_update',
+  // ── post ──
   'post_types_create',
   'post_types_delete',
   'post_types_fields_create',
@@ -275,7 +401,7 @@ const EXPECTED_TOOLS: readonly string[] = [
   'post_types_update',
   'post_types_update_code',
   'post_types_update_template',
-  // ── posts / sites ───────────────────────────────────────────────────
+  // ── posts ──
   'posts_create',
   'posts_delete',
   'posts_fork',
@@ -286,21 +412,44 @@ const EXPECTED_TOOLS: readonly string[] = [
   'posts_update',
   'posts_upload_html',
   'posts_upload_html_zip',
+  // ── profile ──
   'profile_get',
   'profile_update',
+  // ── project ──
+  'project_members_list',
+  'project_members_remove',
+  'project_members_set',
+  // ── projects ──
+  'projects_artifact_link',
+  'projects_artifact_toggle_pin',
+  'projects_artifact_unlink',
+  'projects_artifacts_list',
+  'projects_create',
+  'projects_list',
+  'projects_propose_artifact_link',
+  'projects_update',
+  // ── proposals ──
+  'proposals_create',
+  'proposals_get',
+  'proposals_list',
+  'proposals_send',
+  'proposals_update',
+  // ── service ──
   'service_catalog_list',
   'service_requests_create',
   'service_requests_list',
+  // ── sites ──
   'sites_get_custom_code',
   'sites_list',
+  'sites_publish_custom_code',
   'sites_update',
   'sites_update_custom_code',
-  // ── sprints ─────────────────────────────────────────────────────────
+  // ── sprints ──
   'sprints_create',
   'sprints_delete',
   'sprints_list',
   'sprints_update',
-  // ── storefront ──────────────────────────────────────────────────────
+  // ── store ──
   'store_categories_create',
   'store_categories_list',
   'store_customer_messages_list',
@@ -328,39 +477,40 @@ const EXPECTED_TOOLS: readonly string[] = [
   'store_reviews_list',
   'store_reviews_moderate',
   'store_settings_get',
-  // ── suggested projects / surveys ────────────────────────────────────
+  // ── suggested ──
   'suggested_project_requests_create',
   'suggested_projects_list',
+  // ── surveys ──
   'surveys_create',
   'surveys_fork',
   'surveys_get',
   'surveys_list',
   'surveys_list_responses',
   'surveys_update',
-  // ── taxonomies ──────────────────────────────────────────────────────
+  // ── taxonomies ──
   'taxonomies_create_category',
   'taxonomies_create_tag',
   'taxonomies_list',
-  // ── team ────────────────────────────────────────────────────────────
+  // ── team ──
   'team_invite',
   'team_list_members',
   'team_remove_member',
   'team_update_role',
-  // ── tickets ─────────────────────────────────────────────────────────
+  // ── tickets ──
   'tickets_attach_file_from_url',
   'tickets_create',
   'tickets_get',
   'tickets_list',
   'tickets_reply',
   'tickets_update',
-  // ── website domains / env vars ──────────────────────────────────────
+  // ── website ──
   'website_domains_add',
   'website_domains_list',
   'website_domains_remove',
   'website_env_vars_delete',
   'website_env_vars_list',
   'website_env_vars_set',
-  // ── meta ────────────────────────────────────────────────────────────
+  // ── whoami ──
   'whoami',
 ];
 
