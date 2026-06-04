@@ -548,10 +548,16 @@ export const solutions: SolutionData[] = [
   },
 ];
 
+// Slugs hidden from the public marketing site: excluded from the /solutions
+// listing + sitemap and their detail pages 404. Reversible — remove a slug
+// here to restore it (the data below is kept intact).
+const HIDDEN_SLUGS = new Set<string>(['invoicing']);
+
 export function getSolutionBySlug(slug: string): SolutionData | undefined {
+  if (HIDDEN_SLUGS.has(slug)) return undefined;
   return solutions.find((solution) => solution.slug === slug);
 }
 
 export function getAllSolutions(): SolutionData[] {
-  return solutions;
+  return solutions.filter((solution) => !HIDDEN_SLUGS.has(solution.slug));
 }
