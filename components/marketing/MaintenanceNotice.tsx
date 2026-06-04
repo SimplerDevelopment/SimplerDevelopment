@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/Button';
  * the two early-return imports in app/(pages)/solutions/page.tsx and
  * app/(pages)/solutions/[slug]/page.tsx).
  */
-export const SOLUTIONS_UNDER_MAINTENANCE = true;
+export const SOLUTIONS_UNDER_MAINTENANCE = false;
 
 export function MaintenanceNotice() {
   return (
