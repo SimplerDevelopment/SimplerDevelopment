@@ -27,5 +27,9 @@ export function GET(req: Request) {
     // MCP server URL. We persist and echo it but don't currently constrain
     // tokens by audience beyond that.
     resource_indicators_supported: true,
+    // SEP-991: ChatGPT and other MCP clients use their connector URL as the
+    // client_id. We fetch the metadata document from that URL to get
+    // redirect_uris without requiring pre-registration (CIMD).
+    client_id_metadata_document_supported: true,
   });
 }
