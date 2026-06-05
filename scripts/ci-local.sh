@@ -46,8 +46,6 @@ step "doc drift"                       bun scripts/check-doc-drift.ts
 # Whole-repo lint is a backlog (the repo doesn't pass eslint cleanly yet), so it's
 # informational here. NEW lint errors are blocked per-commit by .githooks/pre-commit,
 # which lints only the files you touch. Burn the backlog down, then promote to `step`.
-info "lint backlog (eslint)"           bun run lint
-
 if [ "$QUICK" = 0 ]; then
   step "typecheck (tsc)" bunx tsc --noEmit
   info "dead code (knip)" bunx knip --no-exit-code
