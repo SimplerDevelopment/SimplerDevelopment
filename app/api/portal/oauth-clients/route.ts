@@ -54,9 +54,10 @@ export async function GET() {
   return NextResponse.json({ success: true, data: rows });
 }
 
-/** POST /api/portal/oauth-clients — mint a confidential OAuth client owned by
- *  the caller's tenant. Returns the raw `client_secret` exactly once; only the
- *  SHA-256 hash and a UI preview remain afterward. The client is stamped with
+/** POST /api/portal/oauth-clients — mint an OAuth client owned by the caller's
+ *  tenant. Confidential clients (client_secret_basic / client_secret_post)
+ *  receive a one-time client_secret. Public PKCE clients (none) receive only
+ *  a client_id — no secret is generated or stored. The client is stamped with
  *  `ownerClientId`, which (a) scopes all future list/rotate/delete to this
  *  tenant and (b) restricts who may authorize it (see /oauth/authorize). */
 export async function POST(req: Request) {
@@ -83,15 +84,17 @@ export async function POST(req: Request) {
   const authMethod = typeof body.token_endpoint_auth_method === 'string'
     ? body.token_endpoint_auth_method
     : 'client_secret_basic';
-  if (authMethod !== 'client_secret_basic' && authMethod !== 'client_secret_post') {
+  if (authMethod !== 'client_secret_basic' && authMethod !== 'client_secret_post' && authMethod !== 'none') {
     return NextResponse.json(
-      { success: false, message: 'token_endpoint_auth_method must be client_secret_basic or client_secret_post' },
+      { success: false, message: 'token_endpoint_auth_method must be client_secret_basic, client_secret_post, or none' },
       { status: 400 },
     );
   }
 
+  const isPublicClient = authMethod === 'none';
   const clientId = randomClientId();
-  const { secret, hash, preview } = generateClientSecret();
+  // Public PKCE clients have no secret — skip generation entirely.
+  const secretData = isPublicClient ? null : generateClientSecret();
   const now = new Date();
   const [record] = await db.insert(oauthClients).values({
     clientId,
@@ -99,9 +102,9 @@ export async function POST(req: Request) {
     redirectUris: redirectUris as string[],
     clientUri: typeof body.client_uri === 'string' ? body.client_uri.slice(0, 500) : null,
     tokenEndpointAuthMethod: authMethod,
-    clientSecretHash: hash,
-    clientSecretPreview: preview,
-    clientSecretCreatedAt: now,
+    clientSecretHash: secretData?.hash ?? null,
+    clientSecretPreview: secretData?.preview ?? null,
+    clientSecretCreatedAt: secretData ? now : null,
     ownerClientId: ctx.clientId,
     ownerUserId: ctx.userId,
   }).returning();
@@ -110,7 +113,7 @@ export async function POST(req: Request) {
     success: true,
     data: {
       client_id: record.clientId,
-      client_secret: secret, // shown exactly once
+      ...(secretData ? { client_secret: secretData.secret } : {}), // shown exactly once; omitted for public clients
       client_secret_preview: record.clientSecretPreview,
       client_name: record.clientName,
       redirect_uris: record.redirectUris,

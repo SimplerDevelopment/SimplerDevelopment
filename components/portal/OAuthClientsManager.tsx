@@ -16,7 +16,7 @@ interface OAuthClient {
 
 interface RevealedSecret {
   clientId: string;
-  clientSecret: string;
+  clientSecret: string | null; // null for public (PKCE-only) clients
 }
 
 interface OAuthClientsManagerProps {
@@ -25,8 +25,8 @@ interface OAuthClientsManagerProps {
 }
 
 export default function OAuthClientsManager({
-  heading = 'OAuth apps (client credentials)',
-  subheading = 'Register confidential OAuth apps that authenticate using a client_id and client_secret. The secret is shown only once at creation or rotation — store it securely.',
+  heading = 'OAuth apps',
+  subheading = 'Register OAuth apps for AI assistants and integrations. Public (PKCE-only) clients suit ChatGPT, Claude.ai, and other MCP hosts. Confidential clients add a client_secret for server-to-server integrations. Secrets are shown only once.',
 }: OAuthClientsManagerProps) {
   const [clients, setClients] = useState<OAuthClient[]>([]);
   const [loading, setLoading] = useState(true);
@@ -37,7 +37,7 @@ export default function OAuthClientsManager({
   // Create form state
   const [clientName, setClientName] = useState('');
   const [redirectUris, setRedirectUris] = useState<string[]>(['']);
-  const [authMethod, setAuthMethod] = useState<'client_secret_basic' | 'client_secret_post'>('client_secret_basic');
+  const [authMethod, setAuthMethod] = useState<'client_secret_basic' | 'client_secret_post' | 'none'>('client_secret_basic');
   const [clientUri, setClientUri] = useState('');
   const [createError, setCreateError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
@@ -88,7 +88,7 @@ export default function OAuthClientsManager({
       });
       const json = await res.json();
       if (!json.success) { setCreateError(json.message ?? 'Failed to create app'); return; }
-      setRevealed({ clientId: json.data.client_id, clientSecret: json.data.client_secret });
+      setRevealed({ clientId: json.data.client_id, clientSecret: json.data.client_secret ?? null });
       resetCreateForm();
       setShowCreate(false);
       load();
@@ -161,8 +161,10 @@ export default function OAuthClientsManager({
       {revealed && (
         <div className="rounded-md border border-amber-400 bg-amber-50 dark:bg-amber-950/20 p-4 space-y-3">
           <div className="flex items-center gap-2 text-amber-800 dark:text-amber-300 font-medium">
-            <span className="material-icons text-base">warning</span>
-            Save these credentials now — the secret won&apos;t be shown again
+            <span className="material-icons text-base">{revealed.clientSecret ? 'warning' : 'info'}</span>
+            {revealed.clientSecret
+              ? "Save these credentials now — the secret won’t be shown again"
+              : 'Public client created — copy your client_id below'}
           </div>
           <div className="space-y-2">
             <div>
@@ -180,27 +182,29 @@ export default function OAuthClientsManager({
                 </button>
               </div>
             </div>
-            <div>
-              <p className="text-xs font-medium text-muted-foreground mb-1">client_secret</p>
-              <div className="flex items-center gap-2">
-                <code className="flex-1 block p-2 bg-background border border-border rounded text-xs break-all">
-                  {revealed.clientSecret}
-                </code>
-                <button
-                  onClick={() => navigator.clipboard.writeText(revealed.clientSecret)}
-                  className="inline-flex items-center gap-1 text-xs px-2 py-1 border border-border rounded hover:bg-muted"
-                >
-                  <span className="material-icons text-[14px] leading-none">content_copy</span>
-                  Copy
-                </button>
+            {revealed.clientSecret && (
+              <div>
+                <p className="text-xs font-medium text-muted-foreground mb-1">client_secret</p>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 block p-2 bg-background border border-border rounded text-xs break-all">
+                    {revealed.clientSecret}
+                  </code>
+                  <button
+                    onClick={() => navigator.clipboard.writeText(revealed.clientSecret!)}
+                    className="inline-flex items-center gap-1 text-xs px-2 py-1 border border-border rounded hover:bg-muted"
+                  >
+                    <span className="material-icons text-[14px] leading-none">content_copy</span>
+                    Copy
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
           </div>
           <button
             onClick={() => setRevealed(null)}
             className="text-xs px-2 py-1 border border-border rounded hover:bg-muted"
           >
-            I&apos;ve saved it
+            {revealed.clientSecret ? "I’ve saved it" : 'Done'}
           </button>
         </div>
       )}
@@ -260,11 +264,12 @@ export default function OAuthClientsManager({
             <label className="block text-sm font-medium mb-1">Token endpoint auth method</label>
             <select
               value={authMethod}
-              onChange={e => setAuthMethod(e.target.value as 'client_secret_basic' | 'client_secret_post')}
+              onChange={e => setAuthMethod(e.target.value as 'client_secret_basic' | 'client_secret_post' | 'none')}
               className="w-full px-3 py-2 border border-border rounded-md bg-background text-sm"
             >
               <option value="client_secret_basic">HTTP Basic (client_secret_basic)</option>
               <option value="client_secret_post">POST body (client_secret_post)</option>
+              <option value="none">PKCE only / public client (no secret)</option>
             </select>
           </div>
 
