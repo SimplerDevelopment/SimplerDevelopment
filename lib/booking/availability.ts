@@ -2,11 +2,13 @@ import { db } from '@/lib/db';
 import { bookingDateOverrides, bookingPageMembers } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
 import type { BookingAvailabilitySlot } from '@/lib/db/schema';
+import { zonedDateStr, zonedDayOfWeek, zonedMinutesOfDay } from '@/lib/booking/timezone';
 
 type PageLike = {
   id: number;
   duration: number;
   availability: unknown;
+  timezone: string | null;
 };
 
 /**
@@ -14,8 +16,8 @@ type PageLike = {
  *
  * Returns true iff `slotStart` lands on a valid bookable slot boundary inside
  * the booking page's configured availability for that date. This MIRRORS the
- * slot generation in `app/api/public/booking/[slug]/slots/route.ts` — same UTC
- * clock-time interpretation, same duration grid, same date-override and
+ * slot generation in `app/api/public/booking/[slug]/slots/route.ts` — same
+ * page-timezone wall-clock windows, same duration grid, same date-override and
  * per-staff-availability precedence — so any time the slots API *offers* will
  * pass, and only times it would never offer are rejected.
  *
@@ -28,7 +30,8 @@ export async function isSlotWithinAvailability(
   slotStart: Date,
   staffId?: number | null,
 ): Promise<boolean> {
-  const dateStr = slotStart.toISOString().slice(0, 10); // UTC date (matches slots route)
+  const tz = page.timezone || 'UTC';
+  const dateStr = zonedDateStr(slotStart, tz); // calendar date in the page timezone
 
   // Date overrides take precedence over the weekly availability grid.
   const [override] = await db.select().from(bookingDateOverrides)
@@ -59,7 +62,7 @@ export async function isSlotWithinAvailability(
         .limit(1);
       if (member?.availability) memberAvailability = member.availability as BookingAvailabilitySlot[];
     }
-    const dayOfWeek = slotStart.getUTCDay();
+    const dayOfWeek = zonedDayOfWeek(slotStart, tz);
     const availability = memberAvailability || (page.availability as BookingAvailabilitySlot[]) || [];
     timeWindows = availability
       .filter(s => s.day === dayOfWeek && s.enabled)
@@ -68,7 +71,7 @@ export async function isSlotWithinAvailability(
 
   if (timeWindows.length === 0) return false;
 
-  const slotMinutes = slotStart.getUTCHours() * 60 + slotStart.getUTCMinutes();
+  const slotMinutes = zonedMinutesOfDay(slotStart, tz); // wall-clock minutes in the page timezone
   const duration = page.duration;
 
   for (const w of timeWindows) {

@@ -3,6 +3,7 @@ import { db } from '@/lib/db';
 import { bookingPages, bookings, bookingAttendees, bookingDateOverrides, bookingPageMembers } from '@/lib/db/schema';
 import { eq, and, gte, lte, ne, sql } from 'drizzle-orm';
 import type { BookingAvailabilitySlot } from '@/lib/db/schema';
+import { zonedWallTimeToUtc } from '@/lib/booking/timezone';
 
 export async function GET(req: Request, { params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -147,8 +148,10 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
     const windowEnd = endHour * 60 + endMin;
 
     for (let mins = windowStart; mins + slotDuration <= windowEnd; mins += slotDuration) {
-      const slotStart = new Date(dateStr + 'T00:00:00Z');
-      slotStart.setUTCHours(Math.floor(mins / 60), mins % 60, 0, 0);
+      // Availability windows are wall-clock times in the page's timezone; convert
+      // each slot to the correct UTC instant (DST-aware) instead of treating the
+      // clock time as UTC. See lib/booking/timezone.ts.
+      const slotStart = zonedWallTimeToUtc(dateStr, Math.floor(mins / 60), mins % 60, page.timezone || 'UTC');
 
       const slotEnd = new Date(slotStart.getTime() + slotDuration * 60 * 1000);
 
