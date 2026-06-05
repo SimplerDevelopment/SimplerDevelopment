@@ -87,6 +87,38 @@ export function parseBasicAuthHeader(header: string | null): { clientId: string;
   return { clientId, clientSecret };
 }
 
+export interface CimdDocument {
+  redirect_uris: string[];
+  client_name?: string;
+  token_endpoint_auth_method?: string;
+}
+
+/** Fetch a Client ID Metadata Document (SEP-991 / draft-ietf-oauth-client-metadata-document).
+ *  Used when the client_id is an HTTPS URL (e.g. ChatGPT MCP connectors).
+ *  Returns null on any network error, non-200, or missing/empty redirect_uris. */
+export async function fetchCimdDocument(url: string): Promise<CimdDocument | null> {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'https:') return null;
+    const res = await fetch(url, {
+      headers: { Accept: 'application/json' },
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!res.ok) return null;
+    const doc = await res.json();
+    if (!Array.isArray(doc.redirect_uris) || doc.redirect_uris.length === 0) return null;
+    return {
+      redirect_uris: (doc.redirect_uris as unknown[]).filter((u): u is string => typeof u === 'string'),
+      client_name: typeof doc.client_name === 'string' ? doc.client_name : undefined,
+      token_endpoint_auth_method: typeof doc.token_endpoint_auth_method === 'string'
+        ? doc.token_endpoint_auth_method
+        : 'none',
+    };
+  } catch {
+    return null;
+  }
+}
+
 export function sha256(input: string): string {
   return crypto.createHash('sha256').update(input).digest('hex');
 }

@@ -104,7 +104,7 @@ async function attachBlogRelations(rows: BlogListRow[]): Promise<BlogPostWithRel
  * list-visible fields (title/excerpt/cover/category/tags).
  */
 export async function revalidateBlogPostsCache(): Promise<void> {
-  revalidateTag(BLOG_CACHE_TAG);
+  revalidateTag(BLOG_CACHE_TAG, 'max');
 }
 
 // These helpers back main-domain blog routes (app/(pages)/blog/*) and must
