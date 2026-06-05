@@ -2,7 +2,6 @@
 
 import Link from 'next/link';
 import { ReactNode } from 'react';
-import { motion } from 'framer-motion';
 import { useBranding } from '@/contexts/BrandingContext';
 
 type ButtonVariant = 'default' | 'outline' | 'ghost' | 'warm';
@@ -61,16 +60,15 @@ export function Button({
     if (bs.primaryBg && !style?.borderColor) brandStyle.borderColor = bs.primaryBg;
   }
 
-  const baseClasses = `inline-flex items-center justify-center font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none ${variantClasses[variant]} ${sizes[size]} ${!btnRadius ? 'rounded-lg' : ''} ${className}`;
+  // `group` + CSS transforms replace the former framer-motion whileHover/whileTap
+  // scale — same hover-grow / tap-shrink feel with zero JS (framer-motion was a
+  // major hydration / Total-Blocking-Time cost on every marketing page).
+  const baseClasses = `group inline-flex items-center justify-center font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none ${variantClasses[variant]} ${sizes[size]} ${!btnRadius ? 'rounded-lg' : ''} ${className}`;
 
   const content = (
-    <motion.span
-      whileHover={{ scale: 1.02 }}
-      whileTap={{ scale: 0.98 }}
-      className="inline-flex items-center gap-2"
-    >
+    <span className="inline-flex items-center gap-2 transition-transform duration-150 ease-out motion-safe:group-hover:scale-[1.02] motion-safe:group-active:scale-[0.98]">
       {children}
-    </motion.span>
+    </span>
   );
 
   if (href && !disabled) {
