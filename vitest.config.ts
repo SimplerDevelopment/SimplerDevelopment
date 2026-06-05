@@ -14,7 +14,7 @@ export default defineConfig({
     setupFiles: ['./tests/setup.ts'],
     coverage: {
       provider: 'v8',
-      reporter: ['html', 'lcov', 'text-summary', 'json'],
+      reporter: ['html', 'lcov', 'text-summary', 'json', 'json-summary'],
       reportsDirectory: 'coverage/vitest',
       include: [
         'app/**/*.{ts,tsx}',
