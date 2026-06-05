@@ -272,27 +272,15 @@ export function HomeClient({ recentPosts = [] }: { recentPosts?: BlogPostWithRel
                     <SlideIn key={post.id} direction="up" delay={index * 0.1}>
                       <Link href={`/blog/${post.slug}`} className="group block h-full">
                         <article className="h-full rounded-xl border border-border bg-background overflow-hidden transition-all hover:shadow-lg hover:border-primary/30">
-                          <div className="relative aspect-[16/10] overflow-hidden bg-muted">
-                            {post.coverImage ? (
-                              <img src={post.coverImage} alt={post.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
-                            ) : (
-                              <div className="w-full h-full bg-gradient-to-br from-primary/15 to-primary/5 flex items-center justify-center">
-                                <span className="material-icons text-6xl text-primary/20">article</span>
-                              </div>
-                            )}
-                            {category && (
-                              <div className="absolute top-3 left-3">
-                                <span
-                                  className="px-3 py-1 rounded-full text-xs font-bold text-white"
-                                  style={{ backgroundColor: category.color || undefined }}
-                                >
-                                  {category.name}
-                                </span>
-                              </div>
-                            )}
-                          </div>
-
                           <div className="p-5">
+                            {category && (
+                              <span
+                                className="inline-block mb-3 px-3 py-1 rounded-full text-xs font-bold text-white"
+                                style={{ backgroundColor: category.color || undefined }}
+                              >
+                                {category.name}
+                              </span>
+                            )}
                             <h3 className="font-bold text-lg mb-2 group-hover:text-primary transition-colors line-clamp-2 leading-snug">
                               {post.title}
                             </h3>
