@@ -221,6 +221,14 @@ export default function PitchDeckPresentation({ slides, theme, title, isDraft, s
     return () => window.removeEventListener('hashchange', applyHash);
   }, []);
 
+  // Reset scroll to the top on every slide change. Slides can be taller than the
+  // viewport (esp. on mobile), so advancing while scrolled down would otherwise
+  // leave the next slide starting mid-content. Runs on mount + whenever `current`
+  // changes (via goTo, hashchange, or survey/decision auto-advance).
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  }, [current]);
+
   const goTo = useCallback((visibleIdx: number, dir?: 'next' | 'prev') => {
     if (visibleIdx < 0 || visibleIdx >= visibleCount || isAnimating) return;
     setDirection(dir || (visibleIdx > current ? 'next' : 'prev'));
@@ -241,6 +249,10 @@ export default function PitchDeckPresentation({ slides, theme, title, isDraft, s
   // After path injection, advance past the decision slide
   useEffect(() => {
     if (!pendingAdvance) return;
+    // One-shot flag reset: clear it immediately so this advance fires once after
+    // path injection. Synchronous setState here is intentional and guarded by the
+    // early return above.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setPendingAdvance(false);
     // visibleSlideIndices is now recalculated with the injected path
     if (current + 1 < visibleCount) {
