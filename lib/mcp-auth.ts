@@ -72,7 +72,10 @@ export async function resolvePortalApiKey(rawKey: string): Promise<PortalMcpCont
  * can treat both auth methods identically downstream.
  */
 export async function resolveOAuthToken(rawToken: string): Promise<PortalMcpContext | null> {
-  if (!rawToken.startsWith(OAUTH_TOKEN_PREFIX)) return null;
+  if (!rawToken.startsWith(OAUTH_TOKEN_PREFIX)) {
+    console.error('[mcp-auth] resolveOAuthToken: wrong prefix');
+    return null;
+  }
 
   const hash = hashPortalApiKey(rawToken);
   const [record] = await db
@@ -81,16 +84,28 @@ export async function resolveOAuthToken(rawToken: string): Promise<PortalMcpCont
     .where(eq(oauthAccessTokens.tokenHash, hash))
     .limit(1);
 
-  if (!record) return null;
-  if (record.revokedAt) return null;
-  if (record.expiresAt && record.expiresAt < new Date()) return null;
+  if (!record) {
+    console.error('[mcp-auth] resolveOAuthToken: no record for hash', hash.slice(0, 8));
+    return null;
+  }
+  if (record.revokedAt) {
+    console.error('[mcp-auth] resolveOAuthToken: token revoked', record.id);
+    return null;
+  }
+  if (record.expiresAt && record.expiresAt < new Date()) {
+    console.error('[mcp-auth] resolveOAuthToken: token expired', record.id, record.expiresAt);
+    return null;
+  }
 
   const [client] = await db
     .select()
     .from(clients)
     .where(eq(clients.id, record.clientId))
     .limit(1);
-  if (!client) return null;
+  if (!client) {
+    console.error('[mcp-auth] resolveOAuthToken: no client for clientId', record.clientId);
+    return null;
+  }
 
   db.update(oauthAccessTokens)
     .set({ lastUsedAt: new Date() })
