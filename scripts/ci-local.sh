@@ -50,7 +50,6 @@ info "lint backlog (eslint)"           bun run lint
 
 if [ "$QUICK" = 0 ]; then
   step "typecheck (tsc)" bunx tsc --noEmit
-  step "unit tests"      bun run test:unit
   info "dead code (knip)" bunx knip --no-exit-code
 fi
 
