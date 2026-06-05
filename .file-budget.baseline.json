@@ -47,7 +47,7 @@
   "app/portal/websites/[siteId]/taxonomy/page.tsx": 503,
   "app/proposal/[token]/page.tsx": 761,
   "app/sites/[domain]/SiteNavClient.tsx": 822,
-  "app/sites/[domain]/slides/[slug]/PitchDeckPresentation.tsx": 860,
+  "app/sites/[domain]/slides/[slug]/PitchDeckPresentation.tsx": 872,
   "components/CmdKPalette.tsx": 554,
   "components/admin/PostForm.tsx": 501,
   "components/admin/SurveyBuilder.tsx": 625,
