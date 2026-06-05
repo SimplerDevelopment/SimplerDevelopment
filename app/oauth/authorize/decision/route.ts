@@ -83,6 +83,16 @@ export async function POST(req: Request) {
   }
   if (!authorized) return back({ error: 'access_denied', error_description: 'No access to selected portal' });
 
+  // Self-service confidential clients (minted from /portal/settings/api-keys)
+  // are bound to the tenant that created them. Such a client may only be
+  // authorized for its owning portal — this prevents one tenant's OAuth app
+  // from harvesting access tokens scoped to another tenant. Global/admin
+  // clients (ownerClientId == null, e.g. the Claude.ai connector) are
+  // unrestricted and keep their existing cross-tenant behavior.
+  if (oauthClient.ownerClientId != null && oauthClient.ownerClientId !== activeClientId) {
+    return back({ error: 'access_denied', error_description: 'This OAuth client is restricted to its owning organization' });
+  }
+
   const { code, hash } = generateAuthCode();
   await db.insert(oauthAuthorizationCodes).values({
     codeHash: hash,

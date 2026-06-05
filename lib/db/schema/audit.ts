@@ -30,6 +30,15 @@ export const oauthClients = pgTable('oauth_clients', {
   /** Free-form software identifiers from the DCR request. */
   softwareId: varchar('software_id', { length: 200 }),
   softwareVersion: varchar('software_version', { length: 64 }),
+  /** Tenant ownership for self-service confidential clients minted from the
+   *  portal (`/portal/settings/api-keys`). NULL = a global/admin registration
+   *  (Claude.ai connector, admin-minted client) with no single owning tenant.
+   *  When set, the client may only be authorized by users of this same portal
+   *  client (enforced in /oauth/authorize/decision), and only this tenant can
+   *  list / rotate / delete it. */
+  ownerClientId: integer('owner_client_id').references(() => clients.id, { onDelete: 'cascade' }),
+  /** The portal user who minted the self-service client (audit only). */
+  ownerUserId: integer('owner_user_id').references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
