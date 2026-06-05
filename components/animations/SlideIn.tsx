@@ -1,7 +1,4 @@
-'use client';
-
-import { motion } from 'framer-motion';
-import { ReactNode } from 'react';
+import { CSSProperties, ReactNode } from 'react';
 
 type Direction = 'left' | 'right' | 'up' | 'down';
 
@@ -14,19 +11,12 @@ interface SlideInProps {
   className?: string;
 }
 
-const getInitialPosition = (direction: Direction, distance: number) => {
-  switch (direction) {
-    case 'left':
-      return { x: -distance, y: 0 };
-    case 'right':
-      return { x: distance, y: 0 };
-    case 'up':
-      return { x: 0, y: -distance };
-    case 'down':
-      return { x: 0, y: distance };
-  }
-};
-
+/**
+ * Scroll-reveal slide-in. Pure CSS — no framer-motion, no client JS. Reveals via
+ * a CSS scroll-driven animation where supported (Chromium) and otherwise plays
+ * once on load. The travel distance/direction is driven by CSS custom properties
+ * consumed by `.sd-slide` in app/globals.css.
+ */
 export function SlideIn({
   children,
   direction = 'up',
@@ -35,21 +25,18 @@ export function SlideIn({
   distance = 50,
   className = '',
 }: SlideInProps) {
-  const initial = getInitialPosition(direction, distance);
+  const axis = direction === 'left' || direction === 'right' ? 'X' : 'Y';
+  const sign = direction === 'left' || direction === 'up' ? -1 : 1;
+
+  const style = {
+    '--sd-slide-translate': `${sign * distance}px`,
+  } as CSSProperties & Record<string, string>;
+  if (delay) style.animationDelay = `${delay}s`;
+  if (duration !== 0.6) style.animationDuration = `${duration}s`;
 
   return (
-    <motion.div
-      initial={{ ...initial, opacity: 0 }}
-      whileInView={{ x: 0, y: 0, opacity: 1 }}
-      viewport={{ once: true, margin: '-100px' }}
-      transition={{
-        duration,
-        delay,
-        ease: [0.25, 0.1, 0.25, 1],
-      }}
-      className={className}
-    >
+    <div className={`sd-slide sd-slide--${axis === 'X' ? 'x' : 'y'} ${className}`} style={style}>
       {children}
-    </motion.div>
+    </div>
   );
 }
