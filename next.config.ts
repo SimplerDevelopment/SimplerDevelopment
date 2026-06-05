@@ -22,7 +22,17 @@ const CSP_REPORT_ONLY = [
 ].join('; ');
 
 const SECURITY_HEADERS = [
-  { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' },
+  // Per-host HSTS only — intentionally NO `includeSubDomains` / `preload`.
+  // Tenant sites live on *.simplerdevelopment.com with per-subdomain TLS certs that
+  // Vercel provisions lazily (when a subdomain is created). We deliberately keep HSTS
+  // scoped to each host: a single bare `max-age` per host hard-enforces HTTPS on that
+  // host only. We avoid `includeSubDomains` + `preload` because, if the apex ever began
+  // emitting them and was submitted to the preload list, browsers would pre-enforce
+  // valid-cert HTTPS on EVERY *.simplerdevelopment.com — including a brand-new tenant
+  // whose cert hasn't finished provisioning — making it unreachable with no bypass.
+  // `preload` is also a one-way door (removal takes months to roll through browsers).
+  // The apex 307 already only emits bare `max-age`; this keeps the app header consistent.
+  { key: 'Strict-Transport-Security', value: 'max-age=63072000' },
   { key: 'X-Content-Type-Options', value: 'nosniff' },
   { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
   { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
