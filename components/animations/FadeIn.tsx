@@ -1,7 +1,4 @@
-'use client';
-
-import { motion } from 'framer-motion';
-import { ReactNode } from 'react';
+import { CSSProperties, ReactNode } from 'react';
 
 interface FadeInProps {
   children: ReactNode;
@@ -9,14 +6,22 @@ interface FadeInProps {
   duration?: number;
   className?: string;
   /**
-   * Play the animation on mount instead of waiting for the element to scroll
-   * into view. Use for above-the-fold content (e.g. hero CTAs): the scroll
-   * `whileInView` path uses a `-100px` viewport margin, so an element sitting
-   * near the fold on load can fall outside the detection area and never reveal.
+   * Render the content fully visible on first paint instead of revealing it on
+   * scroll. Use for above-the-fold content (e.g. the hero H1/CTAs): the element
+   * must NOT be hidden behind an animation, or it blocks Largest Contentful
+   * Paint until JS/animation runs. (This used to be a framer-motion
+   * `motion.div` starting at opacity 0, which pushed the hero LCP to ~7s on
+   * throttled mobile.)
    */
   immediate?: boolean;
 }
 
+/**
+ * Scroll-reveal fade-up. Pure CSS — no framer-motion, no client JS — so it adds
+ * nothing to hydration/Total Blocking Time. Below-the-fold content reveals via a
+ * CSS scroll-driven animation in browsers that support it (Chromium), and
+ * gracefully plays once on load elsewhere. See `.sd-reveal` in app/globals.css.
+ */
 export function FadeIn({
   children,
   delay = 0,
@@ -24,24 +29,17 @@ export function FadeIn({
   className = '',
   immediate = false,
 }: FadeInProps) {
-  const reveal = immediate
-    ? { animate: { opacity: 1, y: 0 } }
-    : {
-        whileInView: { opacity: 1, y: 0 },
-        viewport: { once: true, margin: '-100px' },
-      };
+  if (immediate) {
+    return <div className={className}>{children}</div>;
+  }
+
+  const style: CSSProperties = {};
+  if (delay) style.animationDelay = `${delay}s`;
+  if (duration !== 0.6) style.animationDuration = `${duration}s`;
+
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      {...reveal}
-      transition={{
-        duration,
-        delay,
-        ease: [0.25, 0.1, 0.25, 1],
-      }}
-      className={className}
-    >
+    <div className={`sd-reveal ${className}`} style={Object.keys(style).length ? style : undefined}>
       {children}
-    </motion.div>
+    </div>
   );
 }
