@@ -2,7 +2,110 @@
 
 import { db } from '@/lib/db';
 import { posts, categories, tags, postCategories, postTags } from '@/lib/db/schema';
-import { eq, desc, and, isNull } from 'drizzle-orm';
+import { eq, desc, and, isNull, inArray } from 'drizzle-orm';
+import { unstable_cache, revalidateTag } from 'next/cache';
+
+// ─── Blog list caching ──────────────────────────────────────────────────────
+// The marketing home page and /blog list are rendered dynamically (the root
+// layout reads headers()), so before caching, every visit re-ran these queries
+// live. getAllBlogPosts also (a) SELECT *'d the heavy `content` JSON blob for
+// EVERY post just to render title/excerpt cards, and (b) issued 1+2N round
+// trips (a category + tags query per post) — which pushed production home/blog
+// TTFB to ~7s. We now (1) select only list columns (never `content` — the
+// single-post page fetches that separately), (2) batch all relations into 2
+// queries via inArray, and (3) wrap the result in the Data Cache so the DB is
+// hit at most once per revalidate window instead of once per request.
+const BLOG_CACHE_TAG = 'blog-posts';
+const BLOG_REVALIDATE_SECONDS = 600; // 10 min; busted immediately on post mutations via revalidateBlogPostsCache()
+
+// List/card views never read `content`; omitting the blob is the single biggest
+// win (posts can carry tens of KB of block JSON each).
+const blogListColumns = {
+  id: posts.id,
+  slug: posts.slug,
+  title: posts.title,
+  excerpt: posts.excerpt,
+  coverImage: posts.coverImage,
+  published: posts.published,
+  publishedAt: posts.publishedAt,
+  createdAt: posts.createdAt,
+  updatedAt: posts.updatedAt,
+};
+
+type BlogListRow = {
+  id: number;
+  slug: string;
+  title: string;
+  excerpt: string | null;
+  coverImage: string | null;
+  published: boolean;
+  publishedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+// Attach category + tags to a set of list rows using exactly two batched
+// queries (replaces the previous per-post N+1). `content` is set to '' because
+// list/card consumers never read it; the single-post route uses
+// getBlogPostBySlug which fetches the real content.
+async function attachBlogRelations(rows: BlogListRow[]): Promise<BlogPostWithRelations[]> {
+  if (rows.length === 0) return [];
+  const ids = rows.map((r) => r.id);
+
+  const catRows = await db
+    .select({
+      postId: postCategories.postId,
+      id: categories.id,
+      name: categories.name,
+      slug: categories.slug,
+      color: categories.color,
+    })
+    .from(postCategories)
+    .innerJoin(categories, eq(postCategories.categoryId, categories.id))
+    .where(inArray(postCategories.postId, ids));
+
+  const tagRows = await db
+    .select({
+      postId: postTags.postId,
+      id: tags.id,
+      name: tags.name,
+      slug: tags.slug,
+    })
+    .from(postTags)
+    .innerJoin(tags, eq(postTags.tagId, tags.id))
+    .where(inArray(postTags.postId, ids));
+
+  const categoryByPost = new Map<number, BlogPostWithRelations['category']>();
+  for (const c of catRows) {
+    // First category wins, mirroring the previous .limit(1) behaviour.
+    if (!categoryByPost.has(c.postId)) {
+      categoryByPost.set(c.postId, { id: c.id, name: c.name, slug: c.slug, color: c.color });
+    }
+  }
+
+  const tagsByPost = new Map<number, BlogPostWithRelations['tags']>();
+  for (const t of tagRows) {
+    const list = tagsByPost.get(t.postId) ?? [];
+    list.push({ id: t.id, name: t.name, slug: t.slug });
+    tagsByPost.set(t.postId, list);
+  }
+
+  return rows.map((row) => ({
+    ...row,
+    content: '',
+    category: categoryByPost.get(row.id),
+    tags: tagsByPost.get(row.id) ?? [],
+  }));
+}
+
+/**
+ * Invalidate the cached blog list/featured/category queries. Call after any
+ * mutation that changes which global blog posts are published or their
+ * list-visible fields (title/excerpt/cover/category/tags).
+ */
+export async function revalidateBlogPostsCache(): Promise<void> {
+  revalidateTag(BLOG_CACHE_TAG);
+}
 
 // These helpers back main-domain blog routes (app/(pages)/blog/*) and must
 // ONLY return SimplerDevelopment's own "global" blog posts — rows where
@@ -45,12 +148,13 @@ export interface BlogCategory {
 }
 
 /**
- * Get all published blog posts sorted by published date
+ * Get all published global blog posts sorted by published date.
+ * Cached in the Data Cache (see BLOG_REVALIDATE_SECONDS / BLOG_CACHE_TAG).
  */
-export async function getAllBlogPosts(): Promise<BlogPostWithRelations[]> {
+async function getAllBlogPostsUncached(): Promise<BlogPostWithRelations[]> {
   try {
     const publishedPosts = await db
-      .select()
+      .select(blogListColumns)
       .from(posts)
       .where(and(
         eq(posts.published, true),
@@ -59,47 +163,22 @@ export async function getAllBlogPosts(): Promise<BlogPostWithRelations[]> {
       ))
       .orderBy(desc(posts.publishedAt));
 
-    // Fetch related data for each post
-    const postsWithRelations = await Promise.all(
-      publishedPosts.map(async (post) => {
-        // Get category
-        const postCategory = await db
-          .select({
-            id: categories.id,
-            name: categories.name,
-            slug: categories.slug,
-            color: categories.color,
-          })
-          .from(postCategories)
-          .innerJoin(categories, eq(postCategories.categoryId, categories.id))
-          .where(eq(postCategories.postId, post.id))
-          .limit(1);
-
-        // Get tags
-        const postTagsList = await db
-          .select({
-            id: tags.id,
-            name: tags.name,
-            slug: tags.slug,
-          })
-          .from(postTags)
-          .innerJoin(tags, eq(postTags.tagId, tags.id))
-          .where(eq(postTags.postId, post.id));
-
-        return {
-          ...post,
-          category: postCategory[0] || undefined,
-          tags: postTagsList,
-        };
-      })
-    );
-
-    return postsWithRelations;
+    return await attachBlogRelations(publishedPosts);
   } catch (error) {
     console.error('Error fetching blog posts:', error);
     // Return empty array if database is not available (e.g., during build)
     return [];
   }
+}
+
+const getAllBlogPostsCached = unstable_cache(
+  getAllBlogPostsUncached,
+  ['blog-all-posts'],
+  { revalidate: BLOG_REVALIDATE_SECONDS, tags: [BLOG_CACHE_TAG] },
+);
+
+export async function getAllBlogPosts(): Promise<BlogPostWithRelations[]> {
+  return getAllBlogPostsCached();
 }
 
 /**
@@ -160,9 +239,10 @@ export async function getBlogPostBySlug(slug: string): Promise<BlogPostWithRelat
 }
 
 /**
- * Get all blog posts by category slug
+ * Get all blog posts by category slug.
+ * Cached per-slug in the Data Cache.
  */
-export async function getBlogPostsByCategory(categorySlug: string): Promise<BlogPostWithRelations[]> {
+async function getBlogPostsByCategoryUncached(categorySlug: string): Promise<BlogPostWithRelations[]> {
   try {
     // First get the category
     const category = await db
@@ -177,20 +257,9 @@ export async function getBlogPostsByCategory(categorySlug: string): Promise<Blog
 
     const categoryId = category[0].id;
 
-    // Get posts in this category
+    // Get posts in this category (list columns only — no `content` blob)
     const categoryPosts = await db
-      .select({
-        id: posts.id,
-        slug: posts.slug,
-        title: posts.title,
-        excerpt: posts.excerpt,
-        content: posts.content,
-        coverImage: posts.coverImage,
-        published: posts.published,
-        publishedAt: posts.publishedAt,
-        createdAt: posts.createdAt,
-        updatedAt: posts.updatedAt,
-      })
+      .select(blogListColumns)
       .from(posts)
       .innerJoin(postCategories, eq(posts.id, postCategories.postId))
       .where(
@@ -203,38 +272,30 @@ export async function getBlogPostsByCategory(categorySlug: string): Promise<Blog
       )
       .orderBy(desc(posts.publishedAt));
 
-    // Fetch related data for each post
-    const postsWithRelations = await Promise.all(
-      categoryPosts.map(async (post) => {
-        // Get tags
-        const postTagsList = await db
-          .select({
-            id: tags.id,
-            name: tags.name,
-            slug: tags.slug,
-          })
-          .from(postTags)
-          .innerJoin(tags, eq(postTags.tagId, tags.id))
-          .where(eq(postTags.postId, post.id));
-
-        return {
-          ...post,
-          category: {
-            id: category[0].id,
-            name: category[0].name,
-            slug: category[0].slug,
-            color: category[0].color,
-          },
-          tags: postTagsList,
-        };
-      })
-    );
-
-    return postsWithRelations;
+    // Batch the relations, then overwrite category with the known one (every
+    // post here belongs to `category[0]` by construction).
+    const withRelations = await attachBlogRelations(categoryPosts);
+    const known = {
+      id: category[0].id,
+      name: category[0].name,
+      slug: category[0].slug,
+      color: category[0].color,
+    };
+    return withRelations.map((post) => ({ ...post, category: known }));
   } catch (error) {
     console.error(`Error fetching blog posts for category ${categorySlug}:`, error);
     return [];
   }
+}
+
+const getBlogPostsByCategoryCached = unstable_cache(
+  getBlogPostsByCategoryUncached,
+  ['blog-posts-by-category'],
+  { revalidate: BLOG_REVALIDATE_SECONDS, tags: [BLOG_CACHE_TAG] },
+);
+
+export async function getBlogPostsByCategory(categorySlug: string): Promise<BlogPostWithRelations[]> {
+  return getBlogPostsByCategoryCached(categorySlug);
 }
 
 /**
@@ -300,9 +361,37 @@ export async function getCategoryBySlug(slug: string): Promise<BlogCategory | nu
 }
 
 /**
- * Get featured blog posts (limit to first 3)
+ * Get featured blog posts (the 3 most recent) for the marketing home page.
+ * Dedicated lean query: only the 3 needed rows, no `content` blob, relations
+ * batched, result cached. Previously this fetched ALL posts via
+ * getAllBlogPosts and sliced — the dominant cause of the ~7s home-page TTFB.
  */
+async function getFeaturedBlogPostsUncached(): Promise<BlogPostWithRelations[]> {
+  try {
+    const recent = await db
+      .select(blogListColumns)
+      .from(posts)
+      .where(and(
+        eq(posts.published, true),
+        eq(posts.postType, 'blog'),
+        isNull(posts.websiteId),
+      ))
+      .orderBy(desc(posts.publishedAt))
+      .limit(3);
+
+    return await attachBlogRelations(recent);
+  } catch (error) {
+    console.error('Error fetching featured blog posts:', error);
+    return [];
+  }
+}
+
+const getFeaturedBlogPostsCached = unstable_cache(
+  getFeaturedBlogPostsUncached,
+  ['blog-featured-posts'],
+  { revalidate: BLOG_REVALIDATE_SECONDS, tags: [BLOG_CACHE_TAG] },
+);
+
 export async function getFeaturedBlogPosts(): Promise<BlogPostWithRelations[]> {
-  const allPosts = await getAllBlogPosts();
-  return allPosts.slice(0, 3);
+  return getFeaturedBlogPostsCached();
 }

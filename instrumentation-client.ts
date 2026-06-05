@@ -6,11 +6,29 @@ if (dsn) {
   Sentry.init({
     dsn,
     environment: process.env.NEXT_PUBLIC_SENTRY_ENVIRONMENT ?? process.env.NODE_ENV,
-    tracesSampleRate: Number(process.env.NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE ?? 0.1),
-    // Replays are off by default to stay inside the free-tier quota. Flip to
-    // a small number (e.g. 0.01) once you have a Sentry plan that includes them.
+    // CLIENT-SIDE PERFORMANCE TRACING IS OFF. browserTracingIntegration patches
+    // fetch/XHR/history and spins up PerformanceObserver + web-vitals reporting
+    // on every page load — work that dominated mobile Total Blocking Time on the
+    // public marketing pages (the Sentry chunk alone was ~1s of main-thread time
+    // on a throttled device) for little practical benefit. Server-side tracing
+    // (sentry.server.config.ts) is unaffected and still captures backend perf.
+    tracesSampleRate: 0,
+    // Session Replay (rrweb) stays off — heavy, and outside the free-tier quota.
     replaysSessionSampleRate: 0,
     replaysOnErrorSampleRate: 0,
+    // Keep lightweight error/crash capture, but strip the heavy performance and
+    // replay integrations from the default set so they neither instrument the
+    // page nor run on load. Global error + unhandled-rejection handlers remain.
+    integrations: (defaultIntegrations) =>
+      defaultIntegrations.filter(
+        (integration) =>
+          ![
+            'BrowserTracing',
+            'Replay',
+            'ReplayCanvas',
+            'BrowserProfiling',
+          ].includes(integration.name),
+      ),
     enabled: process.env.NODE_ENV === 'production',
   });
 }

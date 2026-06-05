@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import { posts, postCategories, postTags, postCustomFieldValues, customFields, postTypes } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
+import { revalidateBlogPostsCache } from '@/lib/actions/blog';
 
 const updatePostSchema = z.object({
   title: z.string().min(1).optional(),
@@ -183,6 +184,8 @@ export async function PUT(
       }
     }
 
+    await revalidateBlogPostsCache();
+
     return NextResponse.json({ success: true, data: updatedPost });
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -230,6 +233,8 @@ export async function DELETE(
         { status: 404 }
       );
     }
+
+    await revalidateBlogPostsCache();
 
     return NextResponse.json({
       success: true,
