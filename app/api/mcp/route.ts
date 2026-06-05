@@ -18,6 +18,11 @@ function unauthorized(req: Request) {
 }
 
 async function handle(req: Request): Promise<Response> {
+  const authHeader = req.headers.get('authorization') ?? req.headers.get('Authorization');
+  const authDiag = authHeader
+    ? `present prefix=${authHeader.slice(0, 20)}`
+    : 'MISSING';
+  console.error('[mcp] auth header:', authDiag);
   const ctx = await resolvePortalFromRequest(req);
   if (!ctx) return unauthorized(req);
 
