@@ -47,7 +47,7 @@ step "doc drift"                       bun scripts/check-doc-drift.ts
 # informational here. NEW lint errors are blocked per-commit by .githooks/pre-commit,
 # which lints only the files you touch. Burn the backlog down, then promote to `step`.
 if [ "$QUICK" = 0 ]; then
-  step "typecheck (tsc)" node --max-old-space-size=4096 node_modules/.bin/tsc --noEmit
+  step "typecheck (tsc)" node --max-old-space-size=6144 node_modules/.bin/tsc --noEmit
   info "dead code (knip)" bunx knip --no-exit-code
 fi
 
