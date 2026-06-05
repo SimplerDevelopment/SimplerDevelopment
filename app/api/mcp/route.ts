@@ -10,7 +10,8 @@ function unauthorized(req: Request) {
   // RFC 9728 — point MCP clients at the protected-resource metadata so they
   // can discover the authorization server and start the OAuth dance.
   const origin = originFromRequest(req);
-  const challenge = `Bearer realm="simplerdevelopment-mcp", resource_metadata="${origin}/.well-known/oauth-protected-resource"`;
+  // MCP spec 2025-11-25 §Authorization: no realm, resource_metadata + scope.
+  const challenge = `Bearer resource_metadata="${origin}/.well-known/oauth-protected-resource", scope="*"`;
   return new Response(
     JSON.stringify({ jsonrpc: '2.0', error: { code: -32001, message: 'Unauthorized' } }),
     { status: 401, headers: { 'Content-Type': 'application/json', 'WWW-Authenticate': challenge } }
@@ -18,11 +19,6 @@ function unauthorized(req: Request) {
 }
 
 async function handle(req: Request): Promise<Response> {
-  const authHeader = req.headers.get('authorization') ?? req.headers.get('Authorization');
-  const authDiag = authHeader
-    ? `present prefix=${authHeader.slice(0, 20)}`
-    : 'MISSING';
-  console.error('[mcp] auth header:', authDiag);
   const ctx = await resolvePortalFromRequest(req);
   if (!ctx) return unauthorized(req);
 
