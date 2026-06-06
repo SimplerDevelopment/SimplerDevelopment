@@ -52,6 +52,28 @@ The ONLY reason coverage never emitted was reportOnFailure being false (config w
 the wrong branch). v8 is fine; istanbul was installed then removed (not needed).
 Rank with: node .planning/rank-from-final.mjs  OR  check files with check-files.mjs.
 
+## STABLE MEASUREMENT RECIPE (critical — the number swings otherwise)
+Coverage workers OOM-crash under machine load (Spotlight/GitKraken/Chrome push
+load avg >100 on 8 cores), randomly dropping 30-80 already-tested files per run →
+measured % swings 40-53%. For a TRUE number, run with LOW concurrency + no parallel
+grinding:
+  TMPDIR=/Users/dancoyle/.cache/vitest-tmp NODE_OPTIONS="--max-old-space-size=4096" \
+    npx vitest run --project=unit --coverage --maxWorkers=2 --testTimeout=60000
+A clean run = 0 "Worker exited" crashes, ~606 files, ~20,179 tests. That gave the
+first trustworthy number: **52.84% statements (57,859/109,486)** after batch 9.
+Validate with: node .planning/check-files.mjs <substr...> (known files show real %).
+DO NOT measure with maxWorkers>=3 or while dispatching worker batches (causes crashes).
+
+## BULK-RESTORE proven tests (huge efficiency win)
+The branch rebases dropped ~57 original coverage-climb test files (commit 31888bf59).
+~23 cover currently-0% source and restore+pass cleanly (the rest duplicate batches 7-9):
+  git ls-tree -r --name-only 31888bf59 | grep tests/unit/.*test > old.txt
+  comm against on-disk (INCLUDE subdirs!) → restore the net-new, drop dups.
+Restored 23 (commit 00adcab01): block-content-editor (885), brain-note-list-pane (708),
+gradient-builder, crm-notification-bell, crm-custom-fields-panel, glossary-term-form,
+note-custom-fields-panel, visual-block-editor, ai-portal-tools-*, mcp-tools-{cms,kanban},
++more. 1116 tests, lint clean. ALWAYS check git history for a lost test before re-writing.
+
 ## RE-MEASURE after recovery — get real % + re-rank before B7.
 
 ## Queue (top-60 rank minus done; skip canvas/webgl-hard + already-≥70%)
