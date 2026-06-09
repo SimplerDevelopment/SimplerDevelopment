@@ -135,7 +135,7 @@
   "lib/mcp/tools/cms.ts": 2217,
   "lib/mcp/tools/crm.ts": 1671,
   "lib/mcp/tools/email.ts": 844,
-  "lib/mcp/tools/kanban.ts": 1483,
+  "lib/mcp/tools/kanban.ts": 1485,
   "lib/mcp/tools/pitch-decks.ts": 967,
   "lib/mcp/tools/projects.ts": 589,
   "lib/plugins/handlers/postcaptain-tools/complete.ts": 508,

@@ -33,7 +33,7 @@ Several pages exceed 1000 lines. **Do not Read them into the main thread; spawn 
 - `app/portal/brain/automations/page.tsx` (1504)
 - `app/portal/tools/pitch-decks/[id]/page.tsx` (1457)
 - `app/portal/websites/[siteId]/store/products/[productId]/page.tsx` (1410)
-- `app/portal/websites/[siteId]/store/settings/page.tsx` (1385)
+- `app/portal/websites/[siteId]/store/settings/page.tsx` (1551)
 - `app/portal/brain/tasks/page.tsx` (1221)
 - `app/portal/websites/[siteId]/branding/page.tsx` (1125)
 
