@@ -12,6 +12,7 @@ This is a ~357k-line monorepo (app 157k / lib 81k / components 119k LOC). Contex
 - **Before reading a file >500 lines, spawn a subagent.** Use `Explore` for "where is X / how does Y work"; use `block-implementer`-style atomic workers for changes. The main thread should not hold 2000-line god files. See god-file lists inside each nested `CLAUDE.md`.
 - **For broad cross-cutting questions ("how does the auth flow work end-to-end"), prefer `graphify-out/` over grep** when it exists and is recent. Otherwise spawn an `Explore` subagent.
 - **Don't read documentation speculatively.** Pointers at the bottom of this file are read-on-demand; only follow when the task touches that area.
+- **Escalation contract (worker → boss):** If a task turns out to need a design/architecture decision, hits an unknown root cause, requires touching files outside your assigned scope, would break a test you can't cleanly fix, or is otherwise beyond a straightforward mechanical change — **stop**. Return a message starting with `ESCALATE:` covering: (1) what you completed, (2) exactly where you got stuck, (3) why it exceeds a worker task, (4) what the boss needs (file/line, error, decision required), (5) recommended next step. Revert any half-done risky edits before returning.
 
 ## Run / build / test (non-guessable commands only)
 
@@ -46,6 +47,8 @@ This is a ~357k-line monorepo (app 157k / lib 81k / components 119k LOC). Contex
 | New MCP tool | `simplerdev-mcp-tool` (handler + schema + scope guard registered in lockstep) |
 | New client site from a URL | `site-migration` |
 | Block-editor audit | `block-orchestrator` to drive, `block-implementer` for one-off fixes |
+| Slim down an MCP tool response | `simplerdev-mcp-token-budget` |
+| Autonomous dev loop (hands-off) | `dev-block` skill (see `.claude/HANDS_OFF_DEV_PLAN.md`) |
 | E2E test authoring | `/e2e-writer`. Running existing E2E: `/e2e-runner`. Visual QA: `/qa` |
 | Visual diff (port verification) | `/visual-compare` |
 
@@ -83,9 +86,11 @@ These are reference docs. Don't read them speculatively; only when the task touc
 Each holds invariants + pointers for one area. Loaded automatically by Claude Code when working in that subtree.
 
 - `app/portal/CLAUDE.md` — tenant routing, site-resolver, API envelope, god-file warnings
+- `app/admin/CLAUDE.md` — global admin panel patterns, internal-only routes, super-admin guards
 - `lib/blocks/CLAUDE.md` — block registry + the "blocks are universal" invariant
 - `lib/mcp/CLAUDE.md` — tool registrar pattern, scope guards, token-budget rules, registry baseline test
 - `lib/db/CLAUDE.md` — Drizzle migration workflow, tenancy invariants, footguns
+- `lib/ai/CLAUDE.md` — Company Brain / embeddings / RAG patterns; 70%-coverage-floor domain
 - `components/portal/visual-editor/CLAUDE.md` — postMessage protocol, god-file warnings
 - `tests/CLAUDE.md` — layer responsibilities, gate commands, layer-picking rule
 

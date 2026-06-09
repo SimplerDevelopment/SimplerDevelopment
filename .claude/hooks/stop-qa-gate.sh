@@ -1,13 +1,8 @@
 #!/usr/bin/env bash
-# Stop hook — advisory QA gate. Runs lint + typecheck if this session touched code.
-# Non-blocking by default: outputs a one-line summary into the transcript.
-#
-# Env switches (all OFF by default; compose freely):
-#   SIMPLERDEV_QA_GATE_TESTS=1  also run the fast unit suite (bun run test:unit) — no browser/DB.
-#   SIMPLERDEV_QA_GATE_BLOCK=1  block stop (exit 2) when any enabled check is red. Use for
-#                               nightly/autonomous runs. NOTE: Claude ends the turn with a warning
-#                               after 8 consecutive Stop-hook blocks (override CLAUDE_CODE_STOP_HOOK_BLOCK_CAP).
-#   HANDS_OFF=1                 append one pass/fail entry to .claude/learnings.md QA log section.
+# Stop hook — QA gate. Runs typecheck + lint (and optionally fast unit tests) if this session touched code.
+# Blocking by default: set SIMPLERDEV_QA_GATE_SOFT=1 to downgrade to advisory-only output.
+# Set SIMPLERDEV_QA_GATE_TESTS=1 to also run bun test:unit (~30s, no browser/DB).
+# When HANDS_OFF=1, also appends one entry to .claude/learnings.md QA log section.
 set +e
 set -u
 
@@ -24,7 +19,7 @@ tsc_rc=$?
 lint_out=$(bun run lint 2>&1)
 lint_rc=$?
 
-# Unit tests — opt-in (fast, no browser/DB). Stays rc=0 when disabled so it never affects the gate.
+# Optional: fast unit tests (~30s, no browser/DB) — SIMPLERDEV_QA_GATE_TESTS=1
 test_rc=0
 test_out=""
 ran_tests=0
@@ -96,8 +91,8 @@ PYEOF
 fi
 
 if any_red; then
-  if [ "${SIMPLERDEV_QA_GATE_BLOCK:-0}" = "1" ]; then
-    echo "QA gate BLOCKING stop because SIMPLERDEV_QA_GATE_BLOCK=1" >&2
+  if [ "${SIMPLERDEV_QA_GATE_SOFT:-0}" != "1" ]; then
+    echo "QA gate BLOCKING: fix failures before stopping. Set SIMPLERDEV_QA_GATE_SOFT=1 to override." >&2
     exit 2
   fi
 fi

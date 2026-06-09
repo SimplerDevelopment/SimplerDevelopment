@@ -46,6 +46,16 @@
             "timeout": 3
           }
         ]
+      },
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/guard-config-writes.sh",
+            "timeout": 3
+          }
+        ]
       }
     ],
     "PostToolUse": [
