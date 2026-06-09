@@ -269,11 +269,26 @@ export function StyleSettings({ block, onChange, currentViewport }: StyleSetting
   const updateResponsiveStyle = (property: string, value: string | number | boolean | null | undefined) => {
     const existing = block.responsiveStyle || {};
     const existingBp = existing[currentViewport] || {};
+
+    // When writing a flex or grid sub-property and display isn't yet stored for
+    // this viewport (neither in responsiveStyle nor in block.style), anchor the
+    // effective display value so the generated CSS class has the right context.
+    // Without this, flex-direction/justify-content etc. have no effect because
+    // the element has no explicit display and the browser defaults to block.
+    const FLEX_SUBPROPS = ['flexDirection', 'justifyContent', 'alignItems', 'flexWrap', 'gap'];
+    const GRID_SUBPROPS = ['gridTemplateColumns', 'gridTemplateRows', 'gridGap'];
+    const coWrite: Partial<typeof existingBp> = {};
+    if (!existingBp.display && !style.display) {
+      if (FLEX_SUBPROPS.includes(property)) coWrite.display = 'flex';
+      if (GRID_SUBPROPS.includes(property)) coWrite.display = 'grid';
+    }
+
     onChange({
       responsiveStyle: {
         ...existing,
         [currentViewport]: {
           ...existingBp,
+          ...coWrite,
           [property]: value,
         },
       },

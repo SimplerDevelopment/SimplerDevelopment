@@ -60,7 +60,7 @@
   "components/blocks/render/EditableBlockRenderer.tsx": 998,
   "components/blocks/render/SurveyFormInline.tsx": 1193,
   "components/blocks/visual/ColumnsBlockPreview.tsx": 906,
-  "components/blocks/visual/StyleSettings.tsx": 856,
+  "components/blocks/visual/StyleSettings.tsx": 871,
   "components/blocks/visual/block-settings/panels/DynamicPanel.tsx": 802,
   "components/blocks/visual/block-settings/panels/FormPanel.tsx": 848,
   "components/blocks/visual/block-settings/panels/SectionsPanel.tsx": 1500,
