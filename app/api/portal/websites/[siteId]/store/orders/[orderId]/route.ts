@@ -72,6 +72,9 @@ export async function GET(_req: Request, { params }: Params) {
     unitPrice: row.unitPrice,
     quantity: row.quantity,
     total: row.total,
+    // Cents-suffixed aliases — the order-detail UI reads `*Cents` fields.
+    unitPriceCents: row.unitPrice,
+    totalCents: row.total,
     createdAt: row.createdAt,
     // `design` resolves to null both when the order line has no designId
     // AND when the referenced design row no longer exists (left-join miss).
@@ -87,7 +90,19 @@ export async function GET(_req: Request, { params }: Params) {
 
   return NextResponse.json({
     success: true,
-    data: { ...order, items, statusHistory: history },
+    data: {
+      ...order,
+      // Cents-suffixed aliases + plural note key — match the order-detail UI's
+      // field convention (the raw columns are already in cents).
+      subtotalCents: order.subtotal,
+      shippingCents: order.shippingTotal,
+      taxCents: order.taxTotal,
+      discountCents: order.discountTotal,
+      totalCents: order.total,
+      internalNotes: order.internalNote,
+      items,
+      statusHistory: history,
+    },
   });
 }
 
