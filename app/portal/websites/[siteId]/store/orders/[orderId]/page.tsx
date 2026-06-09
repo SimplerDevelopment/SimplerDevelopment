@@ -45,6 +45,7 @@ interface Order {
   id: number;
   orderNumber: string;
   status: string;
+  paymentStatus?: string | null;
   customerName: string;
   customerEmail: string;
   customerPhone?: string | null;
@@ -67,6 +68,10 @@ interface Order {
   labelCostCents?: number | null;
   labelPurchasedAt?: string | null;
   easypostShipmentId?: string | null;
+  printfulOrderId?: string | null;
+  printfulFulfillmentStatus?: string | null;
+  printfulFulfillmentError?: string | null;
+  printfulSubmittedAt?: string | null;
 }
 
 interface RateQuote {
@@ -94,6 +99,14 @@ const statusColors: Record<string, string> = {
   delivered: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
   cancelled: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
   refunded: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
+};
+
+const printfulStatusColors: Record<string, string> = {
+  pending: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
+  in_process: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+  fulfilled: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+  cancelled: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+  failed: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
 };
 
 const statusOptions = ['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded'];
@@ -126,6 +139,11 @@ export default function OrderDetailPage() {
   const [trackingUrl, setTrackingUrl] = useState('');
   const [internalNotes, setInternalNotes] = useState('');
 
+  // ─── Printful fulfillment state ────────────────────────────────────────
+  const [fulfillmentProvider, setFulfillmentProvider] = useState<string>('manual');
+  const [printfulSubmitting, setPrintfulSubmitting] = useState(false);
+  const [printfulError, setPrintfulError] = useState('');
+
   // ─── Shipping label state ──────────────────────────────────────────────
   const [rates, setRates] = useState<RateQuote[] | null>(null);
   const [parcelSummary, setParcelSummary] = useState<ParcelSummary | null>(null);
@@ -139,14 +157,20 @@ export default function OrderDetailPage() {
   const loadOrder = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${base}/orders/${orderId}`);
-      const data = await res.json();
-      if (data.success && data.data) {
-        setOrder(data.data);
-        setNewStatus(data.data.status);
-        setTrackingNumber(data.data.trackingNumber || '');
-        setTrackingUrl(data.data.trackingUrl || '');
-        setInternalNotes(data.data.internalNotes || '');
+      const [orderRes, settingsRes] = await Promise.all([
+        fetch(`${base}/orders/${orderId}`),
+        fetch(`${base}/settings`),
+      ]);
+      const [orderData, settingsData] = await Promise.all([orderRes.json(), settingsRes.json()]);
+      if (orderData.success && orderData.data) {
+        setOrder(orderData.data);
+        setNewStatus(orderData.data.status);
+        setTrackingNumber(orderData.data.trackingNumber || '');
+        setTrackingUrl(orderData.data.trackingUrl || '');
+        setInternalNotes(orderData.data.internalNotes || '');
+      }
+      if (settingsData.success && settingsData.data) {
+        setFulfillmentProvider(settingsData.data.fulfillmentProvider || 'manual');
       }
     } catch {
       // fail silently
@@ -156,8 +180,8 @@ export default function OrderDetailPage() {
   };
 
   useEffect(() => {
-    loadOrder();
-  }, []);
+    void loadOrder(); // eslint-disable-line react-hooks/set-state-in-effect
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const updateStatus = async () => {
     if (!newStatus || newStatus === order?.status) return;
@@ -337,6 +361,26 @@ export default function OrderDetailPage() {
       setLabelError('Failed to refund label.');
     } finally {
       setLabelRefunding(false);
+    }
+  };
+
+  const submitToPrintful = async () => {
+    setPrintfulSubmitting(true);
+    setPrintfulError('');
+    setSuccess('');
+    try {
+      const res = await fetch(`${base}/orders/${orderId}/printful/submit`, { method: 'POST' });
+      const data = await res.json();
+      if (data.success) {
+        setSuccess('Order submitted to Printful.');
+        loadOrder();
+      } else {
+        setPrintfulError(data.message || 'Failed to submit order to Printful.');
+      }
+    } catch {
+      setPrintfulError('Failed to submit order to Printful.');
+    } finally {
+      setPrintfulSubmitting(false);
     }
   };
 
@@ -778,6 +822,74 @@ export default function OrderDetailPage() {
           </div>
         )}
       </div>
+
+      {/* Printful Fulfillment */}
+      {fulfillmentProvider === 'printful' && (
+        <div className="bg-card border border-border rounded-xl p-6 space-y-4">
+          <h2 className="font-semibold text-foreground flex items-center gap-2">
+            <span className="material-icons text-lg text-muted-foreground">print</span>
+            Printful Fulfillment
+          </h2>
+
+          {printfulError && (
+            <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm dark:bg-red-900/20 dark:border-red-800 dark:text-red-400">
+              <span className="material-icons text-base">error</span>
+              {printfulError}
+            </div>
+          )}
+
+          {order.printfulOrderId ? (
+            <div className="space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Status</p>
+                  <span
+                    className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium mt-1 ${
+                      printfulStatusColors[order.printfulFulfillmentStatus || ''] || 'bg-gray-100 text-gray-700'
+                    }`}
+                  >
+                    {order.printfulFulfillmentStatus || 'unknown'}
+                  </span>
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Printful Order ID</p>
+                  <p className="text-foreground font-mono text-xs mt-1">#{order.printfulOrderId}</p>
+                </div>
+                {order.printfulSubmittedAt && (
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Submitted At</p>
+                    <p className="text-foreground mt-1">{new Date(order.printfulSubmittedAt).toLocaleString()}</p>
+                  </div>
+                )}
+              </div>
+              {order.printfulFulfillmentStatus === 'failed' && order.printfulFulfillmentError && (
+                <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm dark:bg-red-900/20 dark:border-red-800 dark:text-red-400">
+                  <span className="material-icons text-base flex-shrink-0">error_outline</span>
+                  <p>{order.printfulFulfillmentError}</p>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">Not yet submitted to Printful.</p>
+              {order.paymentStatus === 'paid' && (
+                <button
+                  onClick={submitToPrintful}
+                  disabled={printfulSubmitting}
+                  className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+                >
+                  {printfulSubmitting ? (
+                    <span className="material-icons text-base animate-spin">refresh</span>
+                  ) : (
+                    <span className="material-icons text-base">send</span>
+                  )}
+                  Submit to Printful
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Internal Notes */}
       <div className="bg-card border border-border rounded-xl p-6 space-y-4">

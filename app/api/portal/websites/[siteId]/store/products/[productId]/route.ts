@@ -137,7 +137,7 @@ export async function PUT(req: Request, { params }: Params) {
     if (body[f] !== undefined) updateData[f] = body[f];
   }
 
-  const intFields = ['price', 'compareAtPrice', 'costPrice', 'quantity', 'categoryId'];
+  const intFields = ['price', 'compareAtPrice', 'costPrice', 'quantity', 'categoryId', 'printfulVariantId'];
   for (const f of intFields) {
     if (body[f] !== undefined) updateData[f] = body[f] != null ? parseInt(String(body[f])) : null;
   }
@@ -160,6 +160,22 @@ export async function PUT(req: Request, { params }: Params) {
       .limit(1);
     if (existing) {
       return NextResponse.json({ success: false, message: 'A product with this slug already exists' }, { status: 409 });
+    }
+  }
+
+  // Update printfulVariantId per variant if provided
+  if (body.variants && Array.isArray(body.variants)) {
+    for (const v of body.variants as Array<{ id?: unknown; printfulVariantId?: unknown }>) {
+      if (v.id == null) continue;
+      const variantId = parseInt(String(v.id));
+      if (!Number.isFinite(variantId)) continue;
+      if (v.printfulVariantId !== undefined) {
+        const pvid = v.printfulVariantId == null ? null : parseInt(String(v.printfulVariantId));
+        await db
+          .update(productVariants)
+          .set({ printfulVariantId: pvid })
+          .where(and(eq(productVariants.id, variantId), eq(productVariants.productId, product.id)));
+      }
     }
   }
 

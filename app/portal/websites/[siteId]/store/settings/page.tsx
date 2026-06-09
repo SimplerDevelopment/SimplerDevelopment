@@ -58,6 +58,11 @@ interface StoreSettings {
   stripeSecretKeyLast4: string | null;
   stripePublishableKey: string | null;
   stripeWebhookSecretConfigured: boolean;
+  // Printful fulfillment
+  fulfillmentProvider: 'manual' | 'printful';
+  printfulApiKeyConfigured: boolean;
+  printfulApiKeyLast4: string | null;
+  printfulStoreId: string | null;
 }
 
 interface StripeTestResultOk {
@@ -124,6 +129,10 @@ export default function StoreSettingsPage() {
   const [stripeTestResult, setStripeTestResult] = useState<StripeTestResult | null>(null);
   const [webhookUrlCopied, setWebhookUrlCopied] = useState(false);
 
+  // Printful state
+  const [printfulApiKeyInput, setPrintfulApiKeyInput] = useState('');
+  const [savingPrintfulApiKey, setSavingPrintfulApiKey] = useState(false);
+
   const load = async () => {
     setLoading(true);
     try {
@@ -138,8 +147,8 @@ export default function StoreSettingsPage() {
   };
 
   useEffect(() => {
-    load();
-  }, []);
+    void load(); // eslint-disable-line react-hooks/set-state-in-effect
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSave = async () => {
     if (!settings) return;
@@ -160,10 +169,13 @@ export default function StoreSettingsPage() {
         stripeSecretKeyConfigured: _ro8,
         stripeSecretKeyLast4: _ro9,
         stripeWebhookSecretConfigured: _ro10,
+        // Printful read-only fields (server-derived)
+        printfulApiKeyConfigured: _ro11,
+        printfulApiKeyLast4: _ro12,
         ...mutable
       } = settings;
       void _ro1; void _ro2; void _ro3; void _ro4; void _ro5; void _ro6;
-      void _ro7; void _ro8; void _ro9; void _ro10;
+      void _ro7; void _ro8; void _ro9; void _ro10; void _ro11; void _ro12;
       const payload = {
         ...mutable,
         taxRate: settings.taxRate / 100, // Convert percentage to decimal for API
@@ -452,6 +464,57 @@ export default function StoreSettingsPage() {
       setTimeout(() => setWebhookUrlCopied(false), 1500);
     } catch {
       // ignore
+    }
+  };
+
+  // Printful API key handlers ─────────────────────────────────────────────
+  const savePrintfulApiKey = async () => {
+    if (!printfulApiKeyInput) return;
+    setSavingPrintfulApiKey(true);
+    setError('');
+    setSuccess('');
+    try {
+      const res = await fetch(`${base}/settings`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ printfulApiKeyPlaintext: printfulApiKeyInput }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setSuccess('Printful API key saved.');
+        setPrintfulApiKeyInput('');
+        await load();
+      } else {
+        setError(data.message || 'Failed to save Printful API key.');
+      }
+    } catch {
+      setError('Something went wrong.');
+    } finally {
+      setSavingPrintfulApiKey(false);
+    }
+  };
+
+  const clearPrintfulApiKey = async () => {
+    setSavingPrintfulApiKey(true);
+    setError('');
+    setSuccess('');
+    try {
+      const res = await fetch(`${base}/settings`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ printfulApiKeyClear: true }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setSuccess('Printful API key cleared.');
+        await load();
+      } else {
+        setError(data.message || 'Failed to clear Printful API key.');
+      }
+    } catch {
+      setError('Something went wrong.');
+    } finally {
+      setSavingPrintfulApiKey(false);
     }
   };
 
@@ -1113,6 +1176,109 @@ export default function StoreSettingsPage() {
                   )}
                 </div>
               ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Fulfillment Provider */}
+      <div className="bg-card border border-border rounded-xl p-6 space-y-4">
+        <h2 className="font-semibold text-foreground flex items-center gap-2">
+          <span className="material-icons text-lg text-muted-foreground">print</span>
+          Fulfillment
+        </h2>
+        <p className="text-sm text-muted-foreground">
+          Choose how orders are fulfilled. Manual means you handle fulfillment yourself; Printful automatically submits print-on-demand orders.
+        </p>
+
+        <div className="flex flex-wrap gap-3">
+          {(['manual', 'printful'] as const).map((opt) => (
+            <label
+              key={opt}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg border cursor-pointer text-sm ${
+                settings.fulfillmentProvider === opt
+                  ? 'border-primary bg-primary/5 text-foreground'
+                  : 'border-border bg-background text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <input
+                type="radio"
+                name="fulfillmentProvider"
+                className="sr-only"
+                checked={settings.fulfillmentProvider === opt}
+                onChange={() => updateField('fulfillmentProvider', opt)}
+              />
+              <span className="material-icons text-base">
+                {opt === 'manual' ? 'tune' : 'print'}
+              </span>
+              {opt === 'manual' ? 'Manual' : 'Printful (Print-on-Demand)'}
+            </label>
+          ))}
+        </div>
+
+        {settings.fulfillmentProvider === 'printful' && (
+          <div className="space-y-5 pt-2 border-t border-border">
+            {/* API key */}
+            <div className="space-y-2">
+              <label className={labelClass}>Printful API Key</label>
+              <div className="flex flex-wrap items-center gap-2 text-sm">
+                <span className="material-icons text-base text-muted-foreground">
+                  {settings.printfulApiKeyConfigured ? 'lock' : 'lock_open'}
+                </span>
+                <span className={settings.printfulApiKeyConfigured ? 'text-foreground' : 'text-muted-foreground'}>
+                  {settings.printfulApiKeyConfigured
+                    ? `Key set, ends in …${settings.printfulApiKeyLast4 ?? '????'}`
+                    : 'No key configured'}
+                </span>
+                {settings.printfulApiKeyConfigured && (
+                  <button
+                    type="button"
+                    onClick={clearPrintfulApiKey}
+                    disabled={savingPrintfulApiKey}
+                    className="ml-auto flex items-center gap-1 px-3 py-1.5 rounded-lg border border-border text-xs hover:bg-muted/40 transition-colors disabled:opacity-50"
+                  >
+                    <span className="material-icons text-sm">delete</span>
+                    Clear key
+                  </button>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <input
+                  type="password"
+                  value={printfulApiKeyInput}
+                  onChange={(e) => setPrintfulApiKeyInput(e.target.value)}
+                  placeholder="Printful API key"
+                  className={inputClass}
+                  autoComplete="off"
+                />
+                <button
+                  type="button"
+                  onClick={savePrintfulApiKey}
+                  disabled={savingPrintfulApiKey || !printfulApiKeyInput}
+                  className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 whitespace-nowrap"
+                >
+                  {savingPrintfulApiKey && <span className="material-icons text-base animate-spin">refresh</span>}
+                  Save key
+                </button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Enter your Printful API key from Printful &rarr; Dashboard &rarr; API &rarr; Keys. Stored encrypted at rest (AES-256-GCM).
+              </p>
+            </div>
+
+            {/* Printful Store ID */}
+            <div className="space-y-1.5">
+              <label className={labelClass}>Printful Store ID</label>
+              <input
+                type="text"
+                value={settings.printfulStoreId ?? ''}
+                onChange={(e) => updateField('printfulStoreId', e.target.value || null)}
+                placeholder="e.g. 12345678"
+                className={inputClass}
+              />
+              <p className="text-xs text-muted-foreground">
+                Found in your Printful dashboard URL or under Store Settings. Saved with the main &quot;Save Settings&quot; button.
+              </p>
             </div>
           </div>
         )}

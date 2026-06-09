@@ -67,16 +67,33 @@ function projectSettings(s: StoreSettingsRow) {
   const stripeSecretKeyConfigured = !!s.stripeSecretKeyEncrypted;
   const stripeWebhookSecretConfigured = !!s.stripeWebhookSecretEncrypted;
 
+  // Printful API key projection — never ship ciphertext or plaintext key.
+  let printfulApiKeyConfigured = false;
+  let printfulApiKeyLast4: string | null = null;
+  if (s.printfulApiKeyEncrypted) {
+    try {
+      const plaintext = decryptApiKey(s.printfulApiKeyEncrypted);
+      printfulApiKeyConfigured = true;
+      printfulApiKeyLast4 = plaintext.slice(-4);
+    } catch (err) {
+      console.warn('[store/settings] printful api key decrypt failed', err);
+      printfulApiKeyConfigured = false;
+      printfulApiKeyLast4 = null;
+    }
+  }
+
   // Strip ciphertext columns from the response — never ship them to the client.
   const {
     easypostApiKeyEncrypted: _easypostCt,
     stripeSecretKeyEncrypted: _stripeSecretCt,
     stripeWebhookSecretEncrypted: _stripeWebhookCt,
+    printfulApiKeyEncrypted: _printfulCt,
     ...rest
   } = s;
   void _easypostCt;
   void _stripeSecretCt;
   void _stripeWebhookCt;
+  void _printfulCt;
   return {
     ...rest,
     easypostApiKeyConfigured,
@@ -84,6 +101,8 @@ function projectSettings(s: StoreSettingsRow) {
     stripeSecretKeyConfigured,
     stripeSecretKeyLast4,
     stripeWebhookSecretConfigured,
+    printfulApiKeyConfigured,
+    printfulApiKeyLast4,
   };
 }
 
@@ -153,6 +172,11 @@ export async function PUT(
     stripePublishableKey,
     stripeWebhookSecretPlaintext,
     stripeWebhookSecretClear,
+    // Printful fulfillment fields
+    fulfillmentProvider,
+    printfulApiKeyPlaintext,
+    printfulApiKeyClear,
+    printfulStoreId,
   } = body;
 
   const updateData: Record<string, unknown> = { updatedAt: new Date() };
@@ -323,6 +347,31 @@ export async function PUT(
       );
     }
     updateData.stripeWebhookSecretEncrypted = encryptApiKey(stripeWebhookSecretPlaintext);
+  }
+
+  // Printful fulfillment fields ─────────────────────────────────────────────
+  if (fulfillmentProvider !== undefined) {
+    if (fulfillmentProvider !== 'manual' && fulfillmentProvider !== 'printful') {
+      return NextResponse.json(
+        { success: false, message: "fulfillmentProvider must be 'manual' or 'printful'" },
+        { status: 400 },
+      );
+    }
+    updateData.fulfillmentProvider = fulfillmentProvider;
+  }
+
+  if (printfulStoreId !== undefined) {
+    updateData.printfulStoreId = printfulStoreId === '' ? null : printfulStoreId;
+  }
+
+  // Clear takes precedence over plaintext — if both arrive, clear wins.
+  if (printfulApiKeyClear === true) {
+    updateData.printfulApiKeyEncrypted = null;
+    if (typeof printfulApiKeyPlaintext === 'string' && printfulApiKeyPlaintext.length > 0) {
+      warnings.push('printfulApiKeyPlaintext was ignored because printfulApiKeyClear=true was also set');
+    }
+  } else if (typeof printfulApiKeyPlaintext === 'string' && printfulApiKeyPlaintext.length > 0) {
+    updateData.printfulApiKeyEncrypted = encryptApiKey(printfulApiKeyPlaintext);
   }
 
   // Upsert: create if not exists, then update
