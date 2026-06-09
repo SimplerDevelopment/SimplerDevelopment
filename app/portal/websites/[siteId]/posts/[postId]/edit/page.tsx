@@ -1,5 +1,5 @@
 import { db } from '@/lib/db';
-import { clientWebsites, posts, postCategories, postTags } from '@/lib/db/schema';
+import { posts, postCategories, postTags } from '@/lib/db/schema';
 import { and, eq } from 'drizzle-orm';
 import { auth } from '@/lib/auth';
 import { redirect, notFound } from 'next/navigation';
@@ -37,20 +37,14 @@ export default async function PortalEditPostPage({
   ]);
 
   // Build iframe URL for visual editor
-  // Managed sites (no Vercel project) use the main app's /sites/ route for the iframe
-  // Standalone sites use their actual domain/subdomain
-  const isManaged = !site.vercelProjectId;
+  // Always use internal /sites/ route — avoids X-Frame-Options SAMEORIGIN block
+  // when the portal is accessed from a tenant subdomain (different origin to site domain)
   const subdomain = site.subdomain;
   const fullDomain = site.vercelDomain || (subdomain ? `${subdomain}.simplerdevelopment.com` : null);
   const appUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://simplerdevelopment.com';
   const previewToken = generatePreviewToken(site.id);
-  const siteUrl = isManaged && fullDomain
-    ? `${appUrl}/sites/${fullDomain}`
-    : site.domain
-      ? `https://${site.domain}`
-      : fullDomain
-        ? `https://${fullDomain}`
-        : null;
+  const siteIdentifier = fullDomain || site.domain || null;
+  const siteUrl = siteIdentifier ? `${appUrl}/sites/${siteIdentifier}` : null;
 
   // Public URL always points to the internal /sites/ route for draft preview
   // (subdomain doesn't share auth cookies with the main app)

@@ -1,6 +1,3 @@
-import { db } from '@/lib/db';
-import { clientWebsites } from '@/lib/db/schema';
-import { and, eq } from 'drizzle-orm';
 import { auth } from '@/lib/auth';
 import { redirect, notFound } from 'next/navigation';
 import { resolvePortalSite } from '@/lib/portal-client';
@@ -23,18 +20,13 @@ export default async function PortalNewPostPage({
   const { site, client } = resolved;
 
   // Build iframe URL for visual editor
-  // Managed sites (no Vercel project) use the main app's /sites/ route for the iframe
-  const isManaged = !site.vercelProjectId;
+  // Always use internal /sites/ route — avoids X-Frame-Options SAMEORIGIN block
+  // when the portal is accessed from a tenant subdomain (different origin to site domain)
   const subdomain = site.subdomain;
   const fullDomain = site.vercelDomain || (subdomain ? `${subdomain}.simplerdevelopment.com` : null);
   const appUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://simplerdevelopment.com';
-  const siteUrl = isManaged && fullDomain
-    ? `${appUrl}/sites/${fullDomain}`
-    : site.domain
-      ? `https://${site.domain}`
-      : fullDomain
-        ? `https://${fullDomain}`
-        : null;
+  const siteIdentifier = fullDomain || site.domain || null;
+  const siteUrl = siteIdentifier ? `${appUrl}/sites/${siteIdentifier}` : null;
 
   const previewToken = generatePreviewToken(site.id);
   const publicUrl = fullDomain
