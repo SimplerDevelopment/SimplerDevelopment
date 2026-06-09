@@ -64,6 +64,14 @@ vi.mock('drizzle-orm', () => ({
   inArray: (a: unknown, list: unknown[]) => ({ op: 'inArray', a, list }),
 }));
 
+// blog.ts now wraps its list queries in unstable_cache. The unit env has no
+// Next incremental-cache context, so pass the wrapped fn through unchanged and
+// no-op revalidateTag — these tests exercise the query logic, not the cache.
+vi.mock('next/cache', () => ({
+  unstable_cache: <T,>(fn: T) => fn,
+  revalidateTag: vi.fn(),
+}));
+
 function getCol(ref: unknown): { col: string; table: string } | null {
   const r = ref as { __col?: string; __table?: string } | undefined;
   if (!r?.__col || !r.__table) return null;
@@ -81,7 +89,7 @@ function readField(row: Record<string, unknown>, ref: unknown): unknown {
 function evalPredicate(filter: unknown, row: Record<string, unknown>): boolean {
   if (!filter) return true;
   if (typeof filter !== 'object') return true;
-  const f = filter as { op?: string; a?: unknown; b?: unknown; args?: unknown[] };
+  const f = filter as { op?: string; a?: unknown; b?: unknown; args?: unknown[]; list?: unknown[] };
   switch (f.op) {
     case 'eq': {
       const left = readField(row, f.a);
@@ -92,6 +100,10 @@ function evalPredicate(filter: unknown, row: Record<string, unknown>): boolean {
     case 'isNull': {
       const left = readField(row, f.a);
       return left === null || left === undefined;
+    }
+    case 'inArray': {
+      const left = readField(row, f.a);
+      return (f.list ?? []).includes(left);
     }
     default:
       return true;

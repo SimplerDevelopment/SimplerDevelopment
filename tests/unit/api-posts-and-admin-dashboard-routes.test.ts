@@ -22,6 +22,10 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
+vi.mock('@/lib/actions/blog', () => ({
+  revalidateBlogPostsCache: vi.fn().mockResolvedValue(undefined),
+}));
+
 // ===========================================================================
 // Shared schema mock
 // ===========================================================================

@@ -21,10 +21,12 @@ const CSP_REPORT_ONLY = [
   "form-action 'self'",
 ].join('; ');
 
-const SECURITY_HEADERS = [
+// Base security headers applied to all routes. X-Frame-Options is intentionally
+// absent here — it is applied only to portal/admin/API routes below so that
+// /sites/** pages remain embeddable cross-origin in the visual editor iframe.
+const SECURITY_HEADERS_BASE = [
   { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' },
   { key: 'X-Content-Type-Options', value: 'nosniff' },
-  { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
   { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
   // microphone=(self) enables the portal's WebRTC voice assistant (getUserMedia)
   // on same-origin pages. Camera stays disabled. If we later want mic limited to
@@ -32,6 +34,11 @@ const SECURITY_HEADERS = [
   { key: 'Permissions-Policy', value: 'camera=(), microphone=(self), geolocation=(self), payment=(self), interest-cohort=()' },
   { key: 'Content-Security-Policy-Report-Only', value: CSP_REPORT_ONLY },
 ];
+
+// X-Frame-Options applied only to routes that must never be framed externally.
+// /sites/:path* is intentionally excluded — the visual editor embeds it in an
+// iframe from a different origin (tenant subdomain → site domain).
+const FRAME_DENY_HEADERS = [{ key: 'X-Frame-Options', value: 'SAMEORIGIN' }];
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
@@ -101,7 +108,11 @@ const nextConfig: NextConfig = {
 
   async headers() {
     return [
-      { source: '/:path*', headers: SECURITY_HEADERS },
+      { source: '/:path*', headers: SECURITY_HEADERS_BASE },
+      { source: '/portal/:path*', headers: FRAME_DENY_HEADERS },
+      { source: '/admin/:path*', headers: FRAME_DENY_HEADERS },
+      { source: '/api/:path*', headers: FRAME_DENY_HEADERS },
+      // /sites/:path* intentionally has no X-Frame-Options — visual editor must embed it
     ];
   },
 };

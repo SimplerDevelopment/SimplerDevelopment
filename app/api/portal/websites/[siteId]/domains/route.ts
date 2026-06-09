@@ -1,23 +1,10 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { getPortalClient } from '@/lib/portal-client';
+import { resolvePortalSite } from '@/lib/portal-client';
 import { db } from '@/lib/db';
 import { clientWebsites, websiteDomains } from '@/lib/db/schema';
 import { and, eq } from 'drizzle-orm';
 import { addDomain, getDomainConfig, resolveDomainProjectId } from '@/lib/vercel';
-
-async function getSiteForClient(userId: number, siteId: string) {
-  const client = await getPortalClient(userId);
-  if (!client) return null;
-
-  const [site] = await db
-    .select()
-    .from(clientWebsites)
-    .where(and(eq(clientWebsites.id, parseInt(siteId)), eq(clientWebsites.clientId, client.id)))
-    .limit(1);
-
-  return site || null;
-}
 
 /** GET - List all domains for a website */
 export async function GET(
@@ -28,8 +15,9 @@ export async function GET(
   if (!session?.user?.id) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
 
   const { siteId } = await params;
-  const site = await getSiteForClient(parseInt(session.user.id, 10), siteId);
-  if (!site) return NextResponse.json({ success: false, message: 'Website not found' }, { status: 404 });
+  const resolved = await resolvePortalSite(parseInt(session.user.id, 10), parseInt(siteId));
+  if (!resolved) return NextResponse.json({ success: false, message: 'Website not found' }, { status: 404 });
+  const { site } = resolved;
 
   const domains = await db
     .select()
@@ -49,8 +37,9 @@ export async function POST(
   if (!session?.user?.id) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
 
   const { siteId } = await params;
-  const site = await getSiteForClient(parseInt(session.user.id, 10), siteId);
-  if (!site) return NextResponse.json({ success: false, message: 'Website not found' }, { status: 404 });
+  const resolved = await resolvePortalSite(parseInt(session.user.id, 10), parseInt(siteId));
+  if (!resolved) return NextResponse.json({ success: false, message: 'Website not found' }, { status: 404 });
+  const { site } = resolved;
 
   // Shared-hosted sites (no dedicated Vercel project) attach domains to the
   // main platform project — resolveDomainProjectId handles both cases.

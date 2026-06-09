@@ -1,8 +1,9 @@
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { oauthClients, oauthAuthorizationCodes, clientMembers, clients as clientsTbl } from '@/lib/db/schema';
+import { oauthAuthorizationCodes, clientMembers, clients as clientsTbl } from '@/lib/db/schema';
 import { and, eq } from 'drizzle-orm';
 import { generateAuthCode, redirectUriMatches } from '@/lib/oauth/server';
+import { resolveOrRegisterOAuthClient } from '@/lib/oauth/cimd';
 import { parseRequestedScopes } from '@/lib/oauth/scopes';
 
 export const runtime = 'nodejs';
@@ -28,7 +29,7 @@ export async function POST(req: Request) {
 
   if (!clientId || !redirectUri) return bail(400, 'Missing client_id or redirect_uri');
 
-  const [oauthClient] = await db.select().from(oauthClients).where(eq(oauthClients.clientId, clientId)).limit(1);
+  const oauthClient = await resolveOrRegisterOAuthClient(clientId);
   if (!oauthClient) return bail(400, 'Unknown client');
   if (!redirectUriMatches(oauthClient.redirectUris, redirectUri)) return bail(400, 'redirect_uri mismatch');
 
@@ -82,6 +83,16 @@ export async function POST(req: Request) {
     authorized = !!owned;
   }
   if (!authorized) return back({ error: 'access_denied', error_description: 'No access to selected portal' });
+
+  // Self-service confidential clients (minted from /portal/settings/api-keys)
+  // are bound to the tenant that created them. Such a client may only be
+  // authorized for its owning portal — this prevents one tenant's OAuth app
+  // from harvesting access tokens scoped to another tenant. Global/admin
+  // clients (ownerClientId == null, e.g. the Claude.ai connector) are
+  // unrestricted and keep their existing cross-tenant behavior.
+  if (oauthClient.ownerClientId != null && oauthClient.ownerClientId !== activeClientId) {
+    return back({ error: 'access_denied', error_description: 'This OAuth client is restricted to its owning organization' });
+  }
 
   const { code, hash } = generateAuthCode();
   await db.insert(oauthAuthorizationCodes).values({

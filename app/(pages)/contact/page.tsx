@@ -4,10 +4,10 @@ import { BookingFormInline } from '@/components/blocks/render/BookingFormInline'
 import { FadeIn } from '@/components/animations/FadeIn';
 import { SlideIn } from '@/components/animations/SlideIn';
 
-// "Strategy Call" booking page on the SimplerDevelopment client (client id 1)
-// in the portal — replaces the old Calendly embed so bookings flow through our
-// own platform. Served publicly at /book/<slug>.
-const BOOKING_SLUG = 'strategy-call-1779312110054';
+// "30 Minute Consultation" booking page (#9) on the SimplerDevelopment client
+// (client id 104) in the portal — bookings flow through our own platform.
+// Served publicly at /book/<slug>.
+const BOOKING_SLUG = '30-minute-consultation-mq0h6cgc';
 
 export const metadata = generateSEO({
   title: 'Contact Us',
@@ -41,8 +41,8 @@ export default function ContactPage() {
                 <p className="text-sm text-muted-foreground mb-6">
                   Book a 30-minute call to discuss your project
                 </p>
-                {/* Internal booking embed (replaces Calendly) — SimplerDevelopment's
-                    "Strategy Call" booking page from the client portal. */}
+                {/* Internal booking embed — SimplerDevelopment's "30 Minute
+                    Consultation" booking page (#9) from the client portal. */}
                 <BookingFormInline slug={BOOKING_SLUG} showPageTitle={false} />
               </div>
             </SlideIn>

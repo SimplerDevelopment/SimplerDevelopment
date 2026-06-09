@@ -20,6 +20,7 @@ const APP_HOSTNAMES = new Set([
   '127.0.0.1:3100',
   'simplerdevelopment.com',
   'www.simplerdevelopment.com',
+  'staging.simplerdevelopment.com',
 ]);
 
 function getAppHostname(): string | null {
@@ -178,12 +179,20 @@ export async function middleware(req: NextRequest) {
       return NextResponse.next();
     }
 
-    // Subdomain portal/booking access: let these through to the main app
+    // Portal paths are only valid on the main app domain. Any subdomain that
+    // reaches here (e.g. a client subdomain with /portal in the path) gets
+    // redirected to the canonical app URL so portal auth + session work correctly.
     const subdomain = extractSubdomain(host);
-    if (subdomain && (pathname.startsWith('/portal') || pathname.startsWith('/book'))) {
-      const response = NextResponse.next();
-      if (pathname.startsWith('/portal')) response.headers.set('x-portal-subdomain', subdomain);
-      return response;
+    if (subdomain && pathname.startsWith('/portal')) {
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.simplerdevelopment.com';
+      const target = new URL(req.nextUrl.toString());
+      target.host = new URL(appUrl).host;
+      return NextResponse.redirect(target.toString(), { status: 308 });
+    }
+
+    // Booking subdomain passthrough — /book is used on client subdomains legitimately
+    if (subdomain && pathname.startsWith('/book')) {
+      return NextResponse.next();
     }
 
     // ── White-label custom domain ────────────────────────────────────────────
@@ -292,7 +301,6 @@ async function handlePluginRoute(
   const firstSlash = remainder.indexOf('/');
   const slug =
     firstSlash === -1 ? remainder : remainder.slice(0, firstSlash);
-  const pathSuffix = firstSlash === -1 ? '' : remainder.slice(firstSlash);
 
   // 1. Authenticate. No session → bounce to login with `callbackUrl` so the
   //    user returns to the plugin page after sign-in.

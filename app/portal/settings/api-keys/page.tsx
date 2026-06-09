@@ -1,6 +1,7 @@
 'use client';
 
 import McpApiKeysManager from '@/components/portal/McpApiKeysManager';
+import OAuthClientsManager from '@/components/portal/OAuthClientsManager';
 import OAuthTokensManager from '@/components/portal/OAuthTokensManager';
 
 export default function ApiKeysPage() {
@@ -9,6 +10,8 @@ export default function ApiKeysPage() {
       <McpApiKeysManager />
 
       <OAuthTokensManager />
+
+      <OAuthClientsManager />
 
       <div className="rounded-md border border-border p-4 space-y-2 text-sm">
         <h3 className="font-medium">Connect to Claude</h3>

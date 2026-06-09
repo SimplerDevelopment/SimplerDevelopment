@@ -27,6 +27,7 @@ interface ProductVariant {
   quantity: number;
   active: boolean;
   options: Record<string, string>;
+  printfulVariantId: number | null;
 }
 
 interface BulkPricingRule {
@@ -72,6 +73,7 @@ interface ProductForm {
   options: ProductOption[];
   variants: ProductVariant[];
   bulkPricing: BulkPricingRule[];
+  printfulVariantId: number | null;
 }
 
 function generateSlug(name: string) {
@@ -140,6 +142,7 @@ function normalizeVariant(variant: {
   quantity?: number | null;
   active?: boolean | null;
   options?: Record<string, string> | null;
+  printfulVariantId?: number | null;
 }): ProductVariant {
   return {
     id: variant.id,
@@ -149,6 +152,7 @@ function normalizeVariant(variant: {
     quantity: variant.quantity ?? 0,
     active: variant.active ?? true,
     options: variant.options ?? {},
+    printfulVariantId: variant.printfulVariantId ?? null,
   };
 }
 
@@ -218,6 +222,7 @@ const defaultForm: ProductForm = {
   options: [],
   variants: [],
   bulkPricing: [],
+  printfulVariantId: null,
 };
 
 export default function ProductEditPage() {
@@ -289,6 +294,7 @@ export default function ProductEditPage() {
             options: (p.options || []).map(normalizeProductOption),
             variants: (p.variants || []).map(normalizeVariant),
             bulkPricing: (p.bulkPricing || p.bulkPricingRules || []).map(normalizeBulkRule),
+            printfulVariantId: p.printfulVariantId ?? null,
           });
           if (p.seoTitle || p.seoDescription) setShowSeo(true);
           if (p.options?.length || p.variants?.length) setShowVariants(true);
@@ -411,6 +417,7 @@ export default function ProductEditPage() {
       quantity: 0,
       active: true,
       options: combo,
+      printfulVariantId: null,
     }));
     updateField('variants', variants);
   };
@@ -788,6 +795,38 @@ export default function ProductEditPage() {
         </div>
       </div>
 
+      {/* Fulfillment */}
+      <div className="bg-card border border-border rounded-xl p-6 space-y-4">
+        <h2 className="font-semibold text-foreground flex items-center gap-2">
+          <span className="material-icons text-lg text-muted-foreground">print</span>
+          Fulfillment
+        </h2>
+        {form.variants.length === 0 ? (
+          <div className="space-y-1.5 max-w-xs">
+            <label className={labelClass}>Printful Variant ID</label>
+            <input
+              type="number"
+              min="1"
+              value={form.printfulVariantId ?? ''}
+              onChange={(e) =>
+                updateField('printfulVariantId', e.target.value ? parseInt(e.target.value) : null)
+              }
+              placeholder="e.g. 4012"
+              className={inputClass}
+            />
+            <p className="text-xs text-muted-foreground">
+              Printful catalog variant ID — find this in Printful&apos;s Product Catalog. Required for automatic print-on-demand fulfillment via Printful.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <p className="text-sm text-muted-foreground">
+              Set the Printful Variant ID per variant in the Options &amp; Variants section below. Required for automatic print-on-demand fulfillment via Printful.
+            </p>
+          </div>
+        )}
+      </div>
+
       {/* Images */}
       <div className="bg-card border border-border rounded-xl p-6 space-y-4">
         <div className="flex items-center justify-between">
@@ -1136,6 +1175,7 @@ export default function ProductEditPage() {
                       <th className="px-3 py-2 text-xs font-medium text-muted-foreground">SKU</th>
                       <th className="px-3 py-2 text-xs font-medium text-muted-foreground">Price ($)</th>
                       <th className="px-3 py-2 text-xs font-medium text-muted-foreground">Quantity</th>
+                      <th className="px-3 py-2 text-xs font-medium text-muted-foreground">Printful ID</th>
                       <th className="px-3 py-2 text-xs font-medium text-muted-foreground">Active</th>
                     </tr>
                   </thead>
@@ -1167,6 +1207,22 @@ export default function ProductEditPage() {
                             value={variant.quantity}
                             onChange={(e) => updateVariant(i, 'quantity', parseInt(e.target.value) || 0)}
                             className="w-16 px-2 py-1 rounded border border-border bg-background text-foreground text-xs focus:outline-none focus:ring-1 focus:ring-primary/40"
+                          />
+                        </td>
+                        <td className="px-3 py-2">
+                          <input
+                            type="number"
+                            min="1"
+                            value={variant.printfulVariantId ?? ''}
+                            onChange={(e) =>
+                              updateVariant(
+                                i,
+                                'printfulVariantId',
+                                e.target.value ? parseInt(e.target.value) : null,
+                              )
+                            }
+                            placeholder="—"
+                            className="w-20 px-2 py-1 rounded border border-border bg-background text-foreground text-xs focus:outline-none focus:ring-1 focus:ring-primary/40"
                           />
                         </td>
                         <td className="px-3 py-2">
@@ -1270,7 +1326,7 @@ export default function ProductEditPage() {
                       <div className="flex items-start gap-3">
                         <span className="material-icons text-primary">design_services</span>
                         <div>
-                          <div className="text-sm font-semibold text-foreground">Edit this product's design</div>
+                          <div className="text-sm font-semibold text-foreground">Edit this product&apos;s design</div>
                           <div className="text-xs text-muted-foreground mt-1">
                             Opens the same canvas editor customers use, in staff mode — load the saved layers, tweak them, save back to the same design row. Skips add-to-cart.
                           </div>

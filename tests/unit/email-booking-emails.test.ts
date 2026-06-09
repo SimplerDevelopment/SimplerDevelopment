@@ -20,6 +20,12 @@ vi.mock('@/lib/email', () => ({
   },
 }));
 
+// booking-emails.ts imports `db` from @/lib/db at module top (used only by
+// loadBookingBrand, which these tests never call). lib/db/index.ts throws at
+// import time when DATABASE_URL is unset (the unit env), so stub it out. The
+// send* helpers under test take a brand snapshot directly and never touch db.
+vi.mock('@/lib/db', () => ({ db: {} }));
+
 import {
   sendGuestConfirmation,
   sendHostNotification,
