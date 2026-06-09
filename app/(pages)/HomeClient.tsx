@@ -1,24 +1,20 @@
-'use client';
+// Server Component. The homepage is almost entirely static presentation, so it
+// renders on the server with ZERO hydration — the only interactive pieces are
+// three tiny client islands for the decorative WebGL (HeroBackground,
+// HeroVisualGate, FeaturesBackgroundGate) plus the AccessCodeForm/Button
+// components. This is what keeps mobile TBT low and the hero LCP from waiting
+// behind a full-page hydration. (Previously this whole file was 'use client',
+// which hydrated ~760 DOM nodes and pushed mobile LCP render-delay to ~5s.)
 
-import dynamic from 'next/dynamic';
 import { FadeIn } from '@/components/animations/FadeIn';
 import { SlideIn } from '@/components/animations/SlideIn';
 import { Button } from '@/components/ui/Button';
-import { use3DScene } from '@/hooks/use3DScene';
-import { HeroVisual } from '@/components/sections/HeroVisual';
+import { HeroBackground } from '@/components/sections/HeroBackground';
+import { HeroVisualGate } from '@/components/sections/HeroVisualGate';
+import { FeaturesBackgroundGate } from '@/components/sections/FeaturesBackgroundGate';
 import { AccessCodeForm } from '@/components/marketing/AccessCodeForm';
 import type { BlogPostWithRelations } from '@/lib/actions/blog';
 import Link from 'next/link';
-
-const HeroParticleNetwork = dynamic(() => import('@/components/three/HeroParticleNetwork').then(mod => ({ default: mod.HeroParticleNetwork })), {
-  ssr: false,
-  loading: () => <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-primary/5 animate-pulse" />
-});
-
-const FeaturesBackground = dynamic(() => import('@/components/three/FeaturesBackground').then(mod => ({ default: mod.FeaturesBackground })), {
-  ssr: false,
-  loading: () => null
-});
 
 const portalFeatures = [
   { title: 'AI Connect', description: 'Connect Claude, ChatGPT, and AI tools to your portal via MCP', icon: 'cable', href: '/solutions/ai-connect', color: '#0891b2' },
@@ -48,18 +44,12 @@ const valuePillars = [
 ];
 
 export function HomeClient({ recentPosts = [] }: { recentPosts?: BlogPostWithRelations[] }) {
-  const { supportsWebGL } = use3DScene();
-
   return (
     <>
       {/* ─── HERO ─── */}
       <section className="relative min-h-[75vh] md:min-h-[85vh] w-full overflow-hidden flex items-center py-6 md:py-20">
         <div className="absolute inset-0 z-0">
-          {supportsWebGL ? (
-            <HeroParticleNetwork className="w-full h-full" />
-          ) : (
-            <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-primary/5" />
-          )}
+          <HeroBackground />
         </div>
         <div className="absolute inset-0 z-10 bg-gradient-to-r from-background/90 via-background/60 to-transparent pointer-events-none" />
         <div className="absolute inset-0 z-10 bg-gradient-to-b from-background/40 via-transparent to-background/60 pointer-events-none" />
@@ -103,7 +93,7 @@ export function HomeClient({ recentPosts = [] }: { recentPosts?: BlogPostWithRel
                 {/* Right — access-code centerpiece, layered over HeroVisual + particle network */}
                 <div className="relative mt-10 lg:mt-0">
                   <div className="hidden lg:block absolute inset-0 opacity-60 pointer-events-none">
-                    <HeroVisual />
+                    <HeroVisualGate />
                   </div>
                   <div className="hidden lg:block absolute inset-0 bg-gradient-to-br from-background/40 via-transparent to-background/30 pointer-events-none" />
                   <div className="relative z-10 flex items-center justify-center lg:min-h-[520px]">
@@ -120,7 +110,7 @@ export function HomeClient({ recentPosts = [] }: { recentPosts?: BlogPostWithRel
 
       {/* ─── PORTAL FEATURES GRID ─── */}
       <section className="relative py-20 bg-dot-grid overflow-hidden">
-        <FeaturesBackground />
+        <FeaturesBackgroundGate />
         <div className="container mx-auto px-4 relative z-10">
           <div className="max-w-6xl mx-auto">
             <FadeIn>
