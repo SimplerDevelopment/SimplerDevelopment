@@ -29,6 +29,11 @@ const SITE_CONTACT_OVERRIDES: Record<string, {
   complianceNotes?: string[];
   trustBadges?: Array<{ src: string; alt: string; href?: string; width?: number; height?: number }>;
 }> = {
+  'noraanger': {
+    contactEmail: 'nora.angerlpc@gmail.com',
+    contactPhone: '610-364-5743',
+    contactAddress: ['200 North Monroe Street', 'Media, PA 19063'],
+  },
   'cardiff-main': {
     contactEmail: 'info@cardiff.co',
     contactPhone: '888-234-0166',
