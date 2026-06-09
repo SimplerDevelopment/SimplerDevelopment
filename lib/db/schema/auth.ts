@@ -1,6 +1,6 @@
 // Authentication & user identity (users, API keys, OAuth integrations).
 
-import { pgTable, serial, varchar, text, timestamp, boolean, integer, json } from 'drizzle-orm/pg-core';
+import { pgTable, serial, varchar, text, timestamp, boolean, integer, json, jsonb, unique } from 'drizzle-orm/pg-core';
 import { clientWebsites, clients } from './sites';
 
 export const users = pgTable('users', {
@@ -108,4 +108,25 @@ export const userOnboarding = pgTable('user_onboarding', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
+
+// ─── DASHBOARD WIDGET PREFERENCES ────────────────────────────────────────────
+
+/**
+ * Per-user, per-client dashboard widget layout preferences.
+ * Stores which widgets are visible, their order, and collapsed state.
+ * One row per (userId, clientId) pair — upserted on change, never deleted.
+ */
+export const userDashboardPreferences = pgTable(
+  'user_dashboard_preferences',
+  {
+    id: serial('id').primaryKey(),
+    userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+    /** Shape: { order?: string[]; hidden?: string[]; collapsed?: string[] } */
+    prefs: jsonb('prefs').notNull().default({}),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (t) => [unique().on(t.userId, t.clientId)],
+);
 
