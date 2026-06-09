@@ -20,8 +20,9 @@ export function LayoutContent({ children, isClientSite: isClientSiteProp = false
   const isBooking = pathname.startsWith('/book');
   const isSurvey = pathname.startsWith('/s/');
   const isSitesRoute = pathname.startsWith('/sites/');
+  const isDocs = pathname.startsWith('/docs'); // developer docs ship their own chrome (DocsChrome)
 
-  if (isPetersOutdoor || isAdminOrPortal || isPitchDeck || isBooking || isSurvey || isClientSiteProp || isSitesRoute) {
+  if (isPetersOutdoor || isAdminOrPortal || isPitchDeck || isBooking || isSurvey || isClientSiteProp || isSitesRoute || isDocs) {
     return <>{children}</>;
   }
 
