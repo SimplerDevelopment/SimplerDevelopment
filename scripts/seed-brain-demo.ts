@@ -8,7 +8,7 @@
  * the tenant) and updates instead. Re-running on a seeded tenant should report
  * everything as "found-existing" and mutate nothing.
  *
- * Seeds (per spec, see BRAIN.md §"Seeded data"):
+ * Seeds (per spec, see docs/guides/BRAIN.md §"Seeded data"):
  *   - 1 brain_profiles row (industryTemplate = 'wealth_advisory', enabled=true).
  *   - 2 crm_companies (Acme Wealth Partners, Sunrise Family Office).
  *   - 2 crm_contacts per company.

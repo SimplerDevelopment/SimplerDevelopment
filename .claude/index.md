@@ -4,15 +4,15 @@ Pointers from "I need to work on X" → the right CLAUDE.md / guide / skill. Loa
 
 ## By area
 
-- **Portal pages / tenant UI** → `app/portal/CLAUDE.md` + `@USER_MANAGEMENT.md`
+- **Portal pages / tenant UI** → `app/portal/CLAUDE.md` + `@docs/guides/USER_MANAGEMENT.md`
 - **Admin panel** → `app/admin/**` (no nested file yet; treat as portal-style for now)
 - **Per-tenant public sites** → `app/sites/**`, `app/s/**`
-- **Block registry / schemas** → `lib/blocks/CLAUDE.md` + `@BLOCK_EDITOR_GUIDE.md`
+- **Block registry / schemas** → `lib/blocks/CLAUDE.md` + `@docs/guides/BLOCK_EDITOR_GUIDE.md`
 - **Visual editor (block-based page builder)** → `components/portal/visual-editor/CLAUDE.md` + `simplerdev-visual-editor` skill
-- **Drizzle schema / migrations** → `lib/db/CLAUDE.md` + `@DATABASE.md`
+- **Drizzle schema / migrations** → `lib/db/CLAUDE.md` + `@docs/guides/DATABASE.md`
 - **MCP server / tools** → `lib/mcp/CLAUDE.md` + `simplerdev-mcp-tool` skill
 - **Tests / coverage / gates** → `tests/CLAUDE.md` + `@tests/TESTING_PLAN.md` + `@tests/CI-GATES.md`
-- **Auth / roles / scopes** → `@USER_MANAGEMENT.md`
+- **Auth / roles / scopes** → `@docs/guides/USER_MANAGEMENT.md`
 - **Site resolver / tenancy middleware** → `lib/active-client.ts`, `middleware.ts`
 
 ## By task

@@ -33,6 +33,33 @@ const MOVED_PATHS: { from: string; hint: string }[] = [
     from: 'lib/db/schema.ts',
     hint: 'schema is split into per-domain modules under lib/db/schema/ (barrel: lib/db/schema/index.ts). Import path `@/lib/db/schema` stays valid.',
   },
+  // Backtick-anchored `from` strings below: the matcher is `text.includes(from)`, so using a
+  // leading backtick prevents `docs/guides/DATABASE.md` from matching `` `DATABASE.md` `` checks.
+  // The backtick anchors the match to a code-span start, avoiding false negatives on new paths.
+  {
+    from: '`DATABASE.md',
+    hint: 'moved to docs/guides/DATABASE.md',
+  },
+  {
+    from: '`BLOCK_EDITOR_GUIDE.md',
+    hint: 'moved to docs/guides/BLOCK_EDITOR_GUIDE.md',
+  },
+  {
+    from: '`USER_MANAGEMENT.md',
+    hint: 'moved to docs/guides/USER_MANAGEMENT.md',
+  },
+  {
+    from: '`BRAIN.md',
+    hint: 'moved to docs/guides/BRAIN.md',
+  },
+  {
+    from: '`AB_TESTING_GUIDE.md',
+    hint: 'moved to docs/guides/AB_TESTING_GUIDE.md',
+  },
+  {
+    from: '`HOME_PAGE_FEATURES.md',
+    hint: 'moved to docs/guides/HOME_PAGE_FEATURES.md',
+  },
 ];
 
 function findFiles(cmd: string): string[] {
@@ -47,7 +74,7 @@ const nestedClaudeMds = () =>
 const skillDocs = () =>
   findFiles(`find .claude/skills docs/skills -name '*.md' -not -path '*/node_modules/*' 2>/dev/null`);
 
-const SOURCE_ROOT = /^(app|lib|components|scripts|tests|drizzle|workers|packages|\.github|\.claude)\//;
+const SOURCE_ROOT = /^(app|lib|components|scripts|tests|drizzle|workers|packages|\.github|\.claude|docs)\//;
 const CODE_SPAN = /`([^`\n]+?)`/g;
 // `path.ext` (1234) — a code-span source path immediately followed by a parenthesised line count.
 const LINE_COUNT = /`([^`\n]+?\.\w+)`\s*\((\d{3,5})\)/g;

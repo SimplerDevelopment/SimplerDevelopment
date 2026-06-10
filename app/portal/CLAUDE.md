@@ -45,6 +45,6 @@ Several pages exceed 1000 lines. **Do not Read them into the main thread; spawn 
 
 ## Pointers
 
-- `@USER_MANAGEMENT.md` — auth, roles, scopes
-- `@DATABASE.md` — schema overview (read when you touch a query)
+- `@docs/guides/USER_MANAGEMENT.md` — auth, roles, scopes
+- `@docs/guides/DATABASE.md` — schema overview (read when you touch a query)
 - `@tests/CI-GATES.md` — coverage floors per area

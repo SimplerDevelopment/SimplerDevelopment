@@ -1,6 +1,8 @@
 /**
- * Import US 4-year colleges from us-4yr-colleges-flagged.csv into the
- * PostCaptain (clientId 103) CRM.
+ * Import US 4-year colleges from a CSV file into the PostCaptain (clientId 103) CRM.
+ *
+ * NOTE: us-4yr-colleges-flagged.csv is no longer checked into the repo.
+ * Callers must supply the CSV path via --csv <path>.
  *
  * Each CSV row becomes:
  *   - 1 CRM company (college)
@@ -14,7 +16,7 @@
  *   --dry-run         Parse + plan only, no writes
  *   --limit N         Import only the first N rows
  *   --client-id N     Override clientId (default 103 = Post Captain Consulting)
- *   --csv PATH        Override CSV path
+ *   --csv PATH        Path to the colleges CSV file (required — not bundled in repo)
  */
 
 import * as dotenv from 'dotenv';
