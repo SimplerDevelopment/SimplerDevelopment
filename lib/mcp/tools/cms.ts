@@ -177,7 +177,20 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
         if (!site) return json({ error: 'Site not found' });
       }
       const conds = [] as ReturnType<typeof eq>[];
-      if (websiteId) conds.push(eq(posts.websiteId, websiteId));
+      if (websiteId) {
+        conds.push(eq(posts.websiteId, websiteId));
+      } else {
+        // Tenancy: posts carry only a (nullable) website_id — there is no
+        // client_id column — so the ONLY way to scope to this tenant is via
+        // the client's websites. Without this, omitting websiteId returned
+        // every post across every client (cross-tenant leak). Constrain to
+        // this client's website ids; if it owns none, return nothing.
+        const owned = await db.select({ id: clientWebsites.id }).from(clientWebsites)
+          .where(eq(clientWebsites.clientId, clientId));
+        const ownedIds = owned.map((w) => w.id);
+        if (ownedIds.length === 0) return json([]);
+        conds.push(inArray(posts.websiteId, ownedIds));
+      }
       if (postType) conds.push(eq(posts.postType, postType));
       if (publishedOnly) conds.push(eq(posts.published, true));
       const rows = await db.select(postProjection(includeContent)).from(posts)
