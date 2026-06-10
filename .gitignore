@@ -107,3 +107,9 @@ graphify-out/
 .planning/leads/*secrets*
 .planning/leads/*credentials*
 
+
+# Nested workspace deps + local test/debug artifacts (never commit)
+node_modules/
+.playwright-mcp/
+.vitest-reports/
+test-results/

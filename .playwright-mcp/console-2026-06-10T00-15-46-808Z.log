@@ -1212,3 +1212,531 @@ It can also happen if the client has a browser extension installed which messes 
 [  260332ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
 [  260342ms] [LOG] [Fast Refresh] done in 112ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
 [  260343ms] [LOG] [Fast Refresh] done in 112ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  271612ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  271613ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  272207ms] [LOG] [Fast Refresh] done in 723ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  272208ms] [LOG] [Fast Refresh] done in 722ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  280651ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  280651ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  281252ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  281253ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  281253ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  281253ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  281774ms] [LOG] [Fast Refresh] done in 1224ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  281774ms] [LOG] [Fast Refresh] done in 1225ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  281882ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  281882ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  282007ms] [LOG] [Fast Refresh] done in 225ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  282007ms] [LOG] [Fast Refresh] done in 226ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  282044ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/api/realtime/token:0
+[  282048ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  282048ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  282048ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  282049ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  297091ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  297092ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  297953ms] [LOG] [Fast Refresh] done in 964ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  297954ms] [LOG] [Fast Refresh] done in 963ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  302895ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  302895ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  302998ms] [LOG] [Fast Refresh] done in 223ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  302999ms] [LOG] [Fast Refresh] done in 225ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  306488ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  306488ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  306561ms] [LOG] [Fast Refresh] done in 174ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  306561ms] [LOG] [Fast Refresh] done in 175ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  306582ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/api/portal/notifications?unread=1&limit=1:0
+[  306585ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/api/portal/approvals?count=true:0
+[  307954ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  307955ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  307955ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  307955ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  312049ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  312049ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  312050ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  312050ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  312288ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  312290ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  312394ms] [LOG] [Fast Refresh] done in 207ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  312397ms] [LOG] [Fast Refresh] done in 208ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  312425ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/api/realtime/token:0
+[  312430ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  312430ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  312431ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  312431ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  321249ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  321326ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  321596ms] [LOG] [Fast Refresh] done in 449ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  321598ms] [LOG] [Fast Refresh] done in 439ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  321816ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  321816ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  322981ms] [LOG] [Fast Refresh] done in 1329ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  322982ms] [LOG] [Fast Refresh] done in 1326ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  323085ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  323086ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  323366ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/api/portal/crm/notifications?limit=20:0
+[  323808ms] [LOG] [Fast Refresh] done in 823ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  323808ms] [LOG] [Fast Refresh] done in 823ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  342289ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  342290ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  342431ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  342432ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  342432ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  342432ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  342822ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/api/realtime/token:0
+[  342826ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  342827ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  342827ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  342827ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  343281ms] [LOG] [Fast Refresh] done in 1092ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  343281ms] [LOG] [Fast Refresh] done in 1092ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  350217ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  350218ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  350740ms] [LOG] [Fast Refresh] done in 626ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  350741ms] [LOG] [Fast Refresh] done in 625ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  366344ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  366344ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  366429ms] [LOG] [Fast Refresh] done in 186ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  366430ms] [LOG] [Fast Refresh] done in 186ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  366531ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  366531ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  366672ms] [LOG] [Fast Refresh] done in 242ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  366673ms] [LOG] [Fast Refresh] done in 241ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  366777ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  366777ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  366835ms] [LOG] [Fast Refresh] done in 160ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  366836ms] [LOG] [Fast Refresh] done in 161ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  366943ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  366943ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  367245ms] [LOG] [Fast Refresh] done in 404ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  367246ms] [LOG] [Fast Refresh] done in 403ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  367278ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/api/portal/approvals?count=true:0
+[  367284ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/api/portal/notifications?unread=1&limit=1:0
+[  367288ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/api/portal/crm/notifications?limit=20:0
+[  372829ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  372830ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  372830ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  372830ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  373149ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  373150ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  373207ms] [LOG] [Fast Refresh] done in 158ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  373208ms] [LOG] [Fast Refresh] done in 159ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  373234ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/api/realtime/token:0
+[  373239ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  373239ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  373240ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  373240ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  379796ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  379797ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  379823ms] [LOG] [Fast Refresh] done in 127ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  379824ms] [LOG] [Fast Refresh] done in 128ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  393015ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  393015ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  393023ms] [LOG] [Fast Refresh] done in 109ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  393024ms] [LOG] [Fast Refresh] done in 110ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  393706ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  393706ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  393710ms] [LOG] [Fast Refresh] done in 105ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  393710ms] [LOG] [Fast Refresh] done in 106ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  393841ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  393841ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  393866ms] [LOG] [Fast Refresh] done in 126ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  393866ms] [LOG] [Fast Refresh] done in 127ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  403239ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  403239ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  403240ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  403240ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  403459ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  403459ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  403480ms] [LOG] [Fast Refresh] done in 122ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  403481ms] [LOG] [Fast Refresh] done in 122ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  403493ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/api/realtime/token:0
+[  403497ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  403498ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  403498ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  403499ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  411301ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  411301ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  411325ms] [LOG] [Fast Refresh] done in 127ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  411326ms] [LOG] [Fast Refresh] done in 127ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  411428ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  411428ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  411625ms] [LOG] [Fast Refresh] done in 298ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  411626ms] [LOG] [Fast Refresh] done in 299ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  411658ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/api/portal/crm/notifications?limit=20:0
+[  426444ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  426453ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  426867ms] [LOG] [Fast Refresh] done in 525ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  426868ms] [LOG] [Fast Refresh] done in 518ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  426980ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  426981ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  427304ms] [LOG] [Fast Refresh] done in 425ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  427305ms] [LOG] [Fast Refresh] done in 425ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  427409ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  427409ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  427674ms] [LOG] [Fast Refresh] done in 366ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  427675ms] [LOG] [Fast Refresh] done in 367ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  427780ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  427781ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  428079ms] [LOG] [Fast Refresh] done in 400ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  428080ms] [LOG] [Fast Refresh] done in 399ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  428098ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/api/portal/approvals?count=true:0
+[  428107ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/api/portal/notifications?unread=1&limit=1:0
+[  428182ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  428182ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  428220ms] [LOG] [Fast Refresh] done in 140ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  428221ms] [LOG] [Fast Refresh] done in 140ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  433501ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  433501ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  433501ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  433502ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  434017ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  434019ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  434683ms] [LOG] [Fast Refresh] done in 765ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  434683ms] [LOG] [Fast Refresh] done in 767ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  434704ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/api/realtime/token:0
+[  434709ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  434709ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  434709ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  434710ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  456288ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  456289ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  456337ms] [LOG] [Fast Refresh] done in 148ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  456337ms] [LOG] [Fast Refresh] done in 149ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  456439ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  456441ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  456637ms] [LOG] [Fast Refresh] done in 298ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  456639ms] [LOG] [Fast Refresh] done in 299ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  456746ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/api/portal/crm/notifications?limit=20:0
+[  464710ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  464711ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  464711ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  464711ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  464926ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  464927ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  464940ms] [LOG] [Fast Refresh] done in 114ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  464941ms] [LOG] [Fast Refresh] done in 115ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  464951ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/api/realtime/token:0
+[  464955ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  464956ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  464957ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  464957ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  471443ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  471443ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  473436ms] [LOG] [Fast Refresh] done in 2095ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  473436ms] [LOG] [Fast Refresh] done in 2094ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  478573ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  478573ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  480818ms] [LOG] [Fast Refresh] done in 2353ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  480819ms] [LOG] [Fast Refresh] done in 2352ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  486728ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  486729ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  486994ms] [LOG] [Fast Refresh] done in 366ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  487007ms] [LOG] [Fast Refresh] done in 379ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  487109ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  487109ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  487310ms] [LOG] [Fast Refresh] done in 303ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  487311ms] [LOG] [Fast Refresh] done in 302ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  487412ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  487413ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  488488ms] [LOG] [Fast Refresh] done in 1177ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  488491ms] [LOG] [Fast Refresh] done in 1179ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  488569ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/api/portal/approvals?count=true:0
+[  488581ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/api/portal/notifications?unread=1&limit=1:0
+[  493836ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  493836ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  493841ms] [LOG] [Fast Refresh] done in 107ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  493842ms] [LOG] [Fast Refresh] done in 106ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  494961ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  494962ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  494962ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  494963ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  495348ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  495348ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  495810ms] [LOG] [Fast Refresh] done in 562ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  495810ms] [LOG] [Fast Refresh] done in 563ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  495915ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  495915ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  495920ms] [LOG] [Fast Refresh] done in 106ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  495920ms] [LOG] [Fast Refresh] done in 106ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  496023ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  496023ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  496448ms] [LOG] [Fast Refresh] done in 525ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  496448ms] [LOG] [Fast Refresh] done in 526ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  496473ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/api/realtime/token:0
+[  496477ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  496478ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  496478ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  496479ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  501288ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  501289ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  501635ms] [LOG] [Fast Refresh] done in 448ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  501636ms] [LOG] [Fast Refresh] done in 448ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  501738ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  501739ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  502129ms] [LOG] [Fast Refresh] done in 492ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  502132ms] [LOG] [Fast Refresh] done in 495ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  502156ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/api/portal/crm/notifications?limit=20:0
+[  517151ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  517151ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  517154ms] [LOG] [Fast Refresh] done in 105ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  517155ms] [LOG] [Fast Refresh] done in 104ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  526478ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  526479ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  526479ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  526479ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  526795ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  526795ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  526937ms] [LOG] [Fast Refresh] done in 249ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  526938ms] [LOG] [Fast Refresh] done in 248ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  527040ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  527040ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  527281ms] [LOG] [Fast Refresh] done in 343ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  527282ms] [LOG] [Fast Refresh] done in 342ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  527293ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/api/realtime/token:0
+[  527297ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  527297ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  527297ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  527297ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  539392ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  539447ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  542390ms] [LOG] [Fast Refresh] done in 3100ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  542391ms] [LOG] [Fast Refresh] done in 3099ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  546344ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  546344ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  546786ms] [LOG] [Fast Refresh] done in 544ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  546787ms] [LOG] [Fast Refresh] done in 544ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  546896ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  546896ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  547305ms] [LOG] [Fast Refresh] done in 510ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  547305ms] [LOG] [Fast Refresh] done in 511ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  547410ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  547410ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  547564ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/api/portal/approvals?count=true:0
+[  547572ms] [LOG] [Fast Refresh] done in 264ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  547574ms] [LOG] [Fast Refresh] done in 264ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  547618ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/api/portal/notifications?unread=1&limit=1:0
+[  547736ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/api/portal/crm/notifications?limit=20:0
+[  556840ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  556840ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  556840ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  556840ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  557003ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  557004ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  557005ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  557006ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  557358ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  557359ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  557360ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  557361ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  557741ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  557741ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  557742ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  557742ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  558092ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/api/realtime/token:0
+[  558104ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  558106ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  558109ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  558110ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  565002ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  565002ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  565714ms] [LOG] [Fast Refresh] done in 813ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  565715ms] [LOG] [Fast Refresh] done in 813ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  573626ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  573626ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  574317ms] [LOG] [Fast Refresh] done in 792ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  574317ms] [LOG] [Fast Refresh] done in 791ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  588099ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  588100ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  588100ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  588100ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  588435ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  588443ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  588609ms] [LOG] [Fast Refresh] done in 274ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  588612ms] [LOG] [Fast Refresh] done in 271ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  588663ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/api/realtime/token:0
+[  588669ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  588669ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  588669ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  588669ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  591356ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  591356ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  591513ms] [LOG] [Fast Refresh] done in 257ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  591516ms] [LOG] [Fast Refresh] done in 260ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  591619ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  591619ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  591916ms] [LOG] [Fast Refresh] done in 398ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  591916ms] [LOG] [Fast Refresh] done in 398ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  591940ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/api/portal/crm/notifications?limit=20:0
+[  606375ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  606376ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  607164ms] [LOG] [Fast Refresh] done in 890ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  607165ms] [LOG] [Fast Refresh] done in 890ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  607266ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  607268ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  607474ms] [LOG] [Fast Refresh] done in 308ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  607474ms] [LOG] [Fast Refresh] done in 308ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  607577ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  607577ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  607807ms] [LOG] [Fast Refresh] done in 331ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  607808ms] [LOG] [Fast Refresh] done in 331ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  607911ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  607911ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  608450ms] [LOG] [Fast Refresh] done in 640ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  608450ms] [LOG] [Fast Refresh] done in 640ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  608497ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/api/portal/approvals?count=true:0
+[  608504ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/api/portal/notifications?unread=1&limit=1:0
+[  618669ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  618670ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  618670ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  618670ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  618900ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  618900ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  618906ms] [LOG] [Fast Refresh] done in 109ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  618907ms] [LOG] [Fast Refresh] done in 108ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  618967ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/api/realtime/token:0
+[  618972ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  618973ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  618973ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  618973ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  636391ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  636391ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  636430ms] [LOG] [Fast Refresh] done in 140ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  636430ms] [LOG] [Fast Refresh] done in 139ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  636531ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  636532ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  636644ms] [LOG] [Fast Refresh] done in 213ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  636660ms] [LOG] [Fast Refresh] done in 229ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  636690ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/api/portal/crm/notifications?limit=20:0
+[  648974ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  648975ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  648975ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  648975ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  649194ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  649194ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  649211ms] [LOG] [Fast Refresh] done in 117ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  649211ms] [LOG] [Fast Refresh] done in 118ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  649313ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  649313ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  649354ms] [LOG] [Fast Refresh] done in 143ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  649355ms] [LOG] [Fast Refresh] done in 142ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  649382ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/api/realtime/token:0
+[  649386ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  649386ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  649386ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  649386ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  666344ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  666348ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  666479ms] [LOG] [Fast Refresh] done in 237ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  666480ms] [LOG] [Fast Refresh] done in 233ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  666593ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  666594ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  666816ms] [LOG] [Fast Refresh] done in 326ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  666817ms] [LOG] [Fast Refresh] done in 326ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  666843ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/api/portal/notifications?unread=1&limit=1:0
+[  666851ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/api/portal/approvals?count=true:0
+[  679389ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  679389ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  679389ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  679390ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  679599ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  679599ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  679605ms] [LOG] [Fast Refresh] done in 108ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  679606ms] [LOG] [Fast Refresh] done in 107ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  679618ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/api/realtime/token:0
+[  679621ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  679621ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  679621ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  679621ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  681366ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/api/portal/crm/notifications?limit=20:0
+[  709625ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  709625ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  709625ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  709625ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  709898ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  709898ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  709925ms] [LOG] [Fast Refresh] done in 128ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  709926ms] [LOG] [Fast Refresh] done in 129ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  709939ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/api/realtime/token:0
+[  709943ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  709944ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  709944ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  709944ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  726372ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  726372ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  726452ms] [LOG] [Fast Refresh] done in 180ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  726452ms] [LOG] [Fast Refresh] done in 181ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  726554ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  726554ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  726788ms] [LOG] [Fast Refresh] done in 335ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  726788ms] [LOG] [Fast Refresh] done in 335ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  726895ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  726895ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  727158ms] [LOG] [Fast Refresh] done in 364ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  727159ms] [LOG] [Fast Refresh] done in 364ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  727260ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  727260ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  727357ms] [LOG] [Fast Refresh] done in 197ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  727357ms] [LOG] [Fast Refresh] done in 198ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  727379ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/api/portal/approvals?count=true:0
+[  727387ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/api/portal/notifications?unread=1&limit=1:0
+[  727392ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/api/portal/crm/notifications?limit=20:0
+[  739943ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  739944ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  739944ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  739944ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  740100ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/api/realtime/token:0
+[  740103ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  740103ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  740103ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  740104ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  770106ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  770106ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  770106ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  770106ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  770334ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/api/realtime/token:0
+[  770338ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  770338ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  770338ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  770339ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  771375ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/api/portal/crm/notifications?limit=20:0
+[  786287ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  786287ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  786313ms] [LOG] [Fast Refresh] done in 126ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  786313ms] [LOG] [Fast Refresh] done in 127ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  786490ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  786491ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  786546ms] [LOG] [Fast Refresh] done in 157ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  786546ms] [LOG] [Fast Refresh] done in 157ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  786591ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/api/portal/notifications?unread=1&limit=1:0
+[  786602ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/api/portal/approvals?count=true:0
+[  788085ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  788086ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  788086ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  788086ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  788689ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  788689ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  789128ms] [LOG] [Fast Refresh] done in 631ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  789128ms] [LOG] [Fast Refresh] done in 540ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  794907ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  794907ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  795324ms] [LOG] [Fast Refresh] done in 518ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  795324ms] [LOG] [Fast Refresh] done in 519ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  800339ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  800339ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  800339ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  800339ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  800563ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  800564ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  800606ms] [LOG] [Fast Refresh] done in 144ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  800610ms] [LOG] [Fast Refresh] done in 148ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  800626ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/api/realtime/token:0
+[  800630ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  800630ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  800630ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  800631ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  816347ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/api/portal/crm/notifications?limit=20:0
+[  822397ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  822397ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  826061ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/sites/simplerdevelopment.simplerdevelopment.com/layout-controls-allblocks-test?_edit=true&_token=92db741bd8eb1ea16158baf3d4ee09ebbb150233e73691b6e28217f8b61db613:0
+[  826147ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/portal/websites/241/posts/1760/edit:0
