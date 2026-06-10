@@ -1,6 +1,6 @@
 # SimplerDevelopment 2026 — Agent Notes
 
-Multi-tenant SaaS platform: admin + client portal + per-tenant client websites + CRM + Company Brain (AI/RAG) + automations + Google Workspace + Stripe billing. Note: the root `README.md` is stale — it describes an earlier marketing-site phase. Trust this file and the code.
+Multi-tenant SaaS platform: admin + client portal + per-tenant client websites + CRM + Company Brain (AI/RAG) + automations + Google Workspace + Stripe billing. `README.md` is the human developer-onboarding doc; this file is the agent operating guide.
 
 **Stack:** Next 16.1.1 App Router, React 19, TypeScript 5, Tailwind 4, Drizzle ORM + Postgres, NextAuth v5 (beta), Bun. Lock file is `bun.lock` — always use `bun`, never `npm`.
 
@@ -18,7 +18,7 @@ This is a ~357k-line monorepo (app 157k / lib 81k / components 119k LOC). Contex
 
 - `bun dev` — dev server
 - `bun run lint` — ESLint
-- `tsc --noEmit` — typecheck (no script alias; run after any non-trivial Edit batch)
+- `tsc --noEmit` — typecheck (alias: `bun run typecheck`; run after any non-trivial Edit batch)
 - `scripts/test.sh --layer=unit --no-coverage` — Vitest unit (alias: `bun test`)
 - `scripts/test.sh --layer=integration --no-coverage` — needs DB; locally use `bun test:integration:local` (spins one up)
 - `scripts/test.sh --layer=e2e --no-coverage` — Playwright
@@ -48,7 +48,7 @@ This is a ~357k-line monorepo (app 157k / lib 81k / components 119k LOC). Contex
 | New client site from a URL | `site-migration` |
 | Block-editor audit | `block-orchestrator` to drive, `block-implementer` for one-off fixes |
 | Slim down an MCP tool response | `simplerdev-mcp-token-budget` |
-| Autonomous dev loop (hands-off) | `dev-block` skill (see `.claude/HANDS_OFF_DEV_PLAN.md`) |
+| Autonomous dev loop (hands-off) | `dev-block` skill |
 | E2E test authoring | `/e2e-writer`. Running existing E2E: `/e2e-runner`. Visual QA: `/qa` |
 | Visual diff (port verification) | `/visual-compare` |
 
@@ -72,14 +72,13 @@ This is a ~357k-line monorepo (app 157k / lib 81k / components 119k LOC). Contex
 These are reference docs. Don't read them speculatively; only when the task touches the area.
 
 - `.claude/index.md` — **agent navigation: by-area / by-task / by-question → the right nested CLAUDE.md / skill / guide**
-- `DATABASE.md` — Drizzle setup + posts/categories/tags REST API
-- `BLOCK_EDITOR_GUIDE.md` — block JSON schema, examples, troubleshooting (read when working in `lib/blocks/`)
-- `USER_MANAGEMENT.md` — auth and roles
+- `docs/guides/DATABASE.md` — Drizzle setup + posts/categories/tags REST API
+- `docs/guides/BLOCK_EDITOR_GUIDE.md` — block JSON schema, examples, troubleshooting (read when working in `lib/blocks/`)
+- `docs/guides/USER_MANAGEMENT.md` — auth and roles
 - `tests/TESTING_PLAN.md` — what each test layer is responsible for
 - `tests/CI-GATES.md` — coverage floors (60% project-wide / 70% on lib/billing,ai,agency,esign,chat / 90% on lib/crypto), tenancy + critical-e2e gates, local override flags, required-status-check setup
 - `docs/skills/` — SD-* skills reference (overview, authoring, developer, edit-skills proposal)
 - `.claude/learnings.md` — running retro of mistakes/patterns from autonomous (dev-block) runs; read at session start when running unattended
-- `.claude/HANDS_OFF_DEV_PLAN.md` — plan + state for the hands-off / "code while I sleep" workflow
 
 ### Nested CLAUDE.md files
 

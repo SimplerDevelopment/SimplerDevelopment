@@ -1,227 +1,294 @@
-# SimplerDevelopment.com
+# SimplerDevelopment Platform
 
-[![Coverage](https://img.shields.io/badge/coverage-60%25-orange)](#coverage) [![Tenancy gate](https://img.shields.io/badge/tenancy-required-blue)](tests/CI-GATES.md) [![Critical e2e](https://img.shields.io/badge/critical%20e2e-required-blue)](tests/CI-GATES.md)
+[![Coverage](https://img.shields.io/badge/coverage-60%25-orange)](#testing) [![Tenancy gate](https://img.shields.io/badge/tenancy-required-blue)](tests/CI-GATES.md) [![Critical e2e](https://img.shields.io/badge/critical%20e2e-required-blue)](tests/CI-GATES.md)
 
-> Coverage badge is **static** until a publisher endpoint (e.g. shields.io
-> JSON endpoint backed by an uploaded `coverage-summary.json`) is wired up.
-> The actual gate is enforced by `vitest.config.ts` thresholds and the
-> `.github/workflows/sd2026-coverage.yml` workflow — see
-> [`tests/CI-GATES.md`](tests/CI-GATES.md).
+> Coverage badge is static until a publisher endpoint is wired up. The actual gate is defined in [`tests/CI-GATES.md`](tests/CI-GATES.md).
 
-A modern, interactive website for SimplerDevelopment - a Design, Dev, and Automation Agency. Built with Next.js 16, React 19, Three.js, and a custom block-based content editor.
+SimplerDevelopment is a multi-tenant SaaS platform for a design, development, and automation agency. It provides a global internal admin panel, a per-tenant client portal, and per-tenant public-facing websites — all from a single Next.js monorepo. Core capabilities include a block-based CMS with a visual editor, a CRM, an AI-powered Company Brain (RAG over client knowledge), workflow automations, Google Workspace integration, Stripe billing, e-signatures, and an in-repo MCP server that exposes platform tools to AI agents.
 
-## Features
+---
 
-- Interactive 3D elements using Three.js and React Three Fiber
-- Smooth scroll animations with Framer Motion
-- Dark/Light mode with system preference detection
-- SEO optimized with sitemap, robots.txt, and structured data
-- Custom block-based content editor
-- Responsive design with Tailwind CSS 4
-- Type-safe with TypeScript 5
-- Contact form with validation (React Hook Form + Zod)
+## Architecture overview
 
-## Tech Stack
+### Three route trees, three audiences
 
-- **Framework**: Next.js 16.1.1 (App Router)
-- **React**: 19.2.3
-- **TypeScript**: 5
-- **Styling**: Tailwind CSS 4
-- **3D Graphics**: Three.js, React Three Fiber, React Three Drei
-- **Animations**: Framer Motion
-- **CMS**: Custom block editor (Drizzle + visual editor)
-- **Form Handling**: React Hook Form + Zod
-- **Email**: Resend (planned)
+| Route prefix | Audience | Purpose |
+|---|---|---|
+| `app/admin/**` | Internal (us) | Global admin panel — super-admin operations, cross-tenant views, system health |
+| `app/portal/**` | Per-tenant client | Client-facing portal — websites, CRM, brain, automations, billing, settings |
+| `app/sites/**` and `app/s/**` | Public | Per-tenant public websites rendered from block-based post content |
 
-## Getting Started
+### API envelope
 
-### Prerequisites
+Every API route returns `{ success: true, data: ... }` on success or `{ success: false, error: "..." }` on failure. Tenant routes resolve the active site via `lib/active-client.ts` plus site-resolver middleware — never derive tenant identity from the request body or query params. Use `simplerdev-feature-scaffold` to generate routes in lockstep; do not hand-roll the pattern.
 
-- Node.js 18+ or Bun
-- npm, yarn, pnpm, or bun
+### Tenancy
 
-### Installation
+All data is keyed by `clientId` and `siteId`. Row-level queries must filter on these columns. Run `bun test:tenancy` after any data-access change to verify there is no cross-tenant data leakage.
 
-1. Clone the repository
+### Block-based CMS
+
+Content is stored as typed JSON arrays in `posts.content`. Block schemas live in `lib/blocks/registry.ts`; render cases live in `app/sites/`. Blocks are universal — no block type is client-specific. Use `simplerdev-block-type` to scaffold a new block type (interface, render component, registry entry, and production renderer case all move together).
+
+### Visual editor
+
+The block editor lives at `app/portal/websites/[siteId]/posts/[id]/edit`. It uses an iframe preview with selection/resize overlays and a postMessage protocol between the host shell and the preview frame. See `components/portal/visual-editor/CLAUDE.md` before touching this area.
+
+### Company Brain
+
+AI-powered knowledge base per tenant. Embeddings are generated via OpenAI (`text-embedding-3-small`) and stored in Postgres. Retrieval-augmented generation (RAG) queries route through `lib/ai/` and `lib/brain/`. See `lib/ai/CLAUDE.md` for patterns and the 70% coverage floor that applies to this domain.
+
+### MCP server
+
+An in-repo Model Context Protocol server exposes platform tools to AI agents (Claude Code, Cursor, etc.). Tools are registered in `lib/mcp/` via a tool registrar pattern with scope guards. Use `simplerdev-mcp-tool` to add a new tool — handler, schema, and scope guard are registered in lockstep.
+
+---
+
+## Tech stack
+
+| Layer | Choice |
+|---|---|
+| Framework | Next.js 16.1.1 (App Router) |
+| UI | React 19.2.3 |
+| Language | TypeScript 5 |
+| Styling | Tailwind CSS 4 |
+| ORM / DB | Drizzle ORM + PostgreSQL |
+| Auth | NextAuth v5 beta |
+| Package manager | Bun (lock file: `bun.lock`) — always use `bun`, never `npm` |
+| Unit / integration tests | Vitest 4 |
+| E2E tests | Playwright |
+| Realtime | Yjs + y-websocket (packages/realtime-server) |
+| Billing | Stripe |
+| File storage | AWS S3 |
+| Email | Resend |
+| AI | Anthropic SDK + OpenAI (embeddings) |
+| Error tracking | Sentry |
+| Deployments | Vercel (region: iad1) |
+
+---
+
+## Prerequisites and setup
+
+**Requirements:** Bun 1.3.11+, PostgreSQL 14+, Node.js 20+ (for scripts that use `tsx`).
+
 ```bash
-git clone <repository-url>
-cd simplerdevelopment2026
-```
-
-2. Install dependencies
-```bash
-npm install
-# or
+# 1. Install dependencies
 bun install
-```
 
-3. Set up environment variables
-```bash
+# 2. Copy environment variables and fill in values
 cp .env.example .env.local
 ```
 
-Edit `.env.local` and add your configuration:
-- `DATABASE_URL`: Your Postgres connection string
-- `RESEND_API_KEY`: Your Resend API key (optional, for contact form)
-- `NEXT_PUBLIC_SITE_URL`: Your site URL
-- `DROPBOX_SIGN_API_KEY`: DropboxSign (formerly HelloSign) API key for contract e-signatures (required to send contracts for signature; dev/staging defaults to test_mode=1 so signature credits aren't burned)
-- `DROPBOX_SIGN_WEBHOOK_SECRET`: HMAC secret used to verify `/api/webhooks/dropbox-sign` POST callbacks (defaults to `DROPBOX_SIGN_API_KEY` if unset)
-- `DROPBOX_SIGN_CLIENT_ID`: DropboxSign embedded app client id (required for embedded signing flows)
+Key environment variables to set in `.env.local`:
 
-### Development
+| Variable | Purpose |
+|---|---|
+| `DATABASE_URL` | Postgres connection string |
+| `NEXTAUTH_SECRET` | NextAuth session secret |
+| `ANTHROPIC_API_KEY` | Platform-level Anthropic key (BYOK fallback) |
+| `OPENAI_API_KEY` | Brain embeddings fallback |
+| `STRIPE_SECRET_KEY` | Stripe billing |
+| `ENCRYPTION_KEY` | 64 hex chars — encrypts BYOK client API keys. Generate: `openssl rand -hex 32` |
+| `PORTAL_KMS_KEY` | Base64 key for plugin JWT signing. Generate: `openssl rand -base64 32` |
+| `DROPBOX_SIGN_API_KEY` | E-signature contracts |
 
-Run the development server:
-
-```bash
-npm run dev
-# or
-bun dev
-```
-
-Open [http://localhost:3000](http://localhost:3000) in your browser.
-
-### Build
-
-Build for production:
+See `.env.example` for the full list and descriptions.
 
 ```bash
-npm run build
-# or
-bun run build
+# 3. Run database migrations
+bun run db:migrate
+
+# 4. (Optional) Seed an admin user
+bun run db:seed
 ```
 
-### Start Production Server
+---
+
+## Development
 
 ```bash
-npm start
-# or
-bun start
+bun dev            # start the Next.js dev server at http://localhost:3000
+bun run lint       # ESLint
+bun run typecheck  # tsc --noEmit — run after any non-trivial edit batch
 ```
 
-## Project Structure
+---
+
+## Testing
+
+Tests are split into three layers driven by a single runner script.
+
+| Layer | Path | Runner | Command |
+|---|---|---|---|
+| Unit | `tests/unit/` | Vitest | `bun test` |
+| Integration | `tests/integration/` | Vitest + real DB | `bun test:integration:local` |
+| E2E | `tests/e2e/` | Playwright | `bun run test:e2e` |
+
+### Gate commands
+
+```bash
+# Unit tests
+scripts/test.sh --layer=unit --no-coverage          # alias: bun test
+
+# Integration tests (requires a running DB)
+bun test:integration:local                          # spins up a local DB, then runs
+
+# E2E tests
+scripts/test.sh --layer=e2e --no-coverage
+
+# QA gate — run before declaring any feature done
+bun test:critical                                   # Playwright @critical golden-path subset
+
+# Tenancy regression — run after every data-access change
+bun test:tenancy                                    # integration suite @tenancy tag
+```
+
+### Local CI gate
+
+`scripts/ci-local.sh` runs the full suite of checks locally (architecture boundaries, file-size budgets, doc drift, lint, typecheck, unit tests). It is wired into git pre-commit and pre-push hooks under `.githooks/`.
+
+```bash
+scripts/ci-local.sh           # full gate
+scripts/ci-local.sh --quick   # fast checks only (no tsc/tests)
+scripts/ci-local.sh --full    # + tenancy + critical e2e (needs DB + Playwright)
+```
+
+### Coverage floors
+
+Defined in `vitest.config.ts`. Project-wide: 60% lines/statements/functions, 50% branches. Higher floors apply to `lib/billing`, `lib/ai`, `lib/agency`, `lib/esign`, `lib/chat` (70%) and `lib/crypto` (90%). See [`tests/CI-GATES.md`](tests/CI-GATES.md) for details.
+
+---
+
+## Database and migrations
+
+Schema is defined as per-domain Drizzle modules under `lib/db/schema/`. Migration SQL in `drizzle/*.sql` is **generated — never edit it by hand**.
+
+```bash
+# After editing lib/db/schema/ files:
+bun run db:generate    # generates new migration files under drizzle/
+
+# Apply pending migrations (refuses prod DATABASE_URLs via db:verify-target):
+bun run db:migrate
+
+# Interactive schema browser:
+bun run db:studio
+```
+
+See [`lib/db/CLAUDE.md`](lib/db/CLAUDE.md) for tenancy invariants and footguns.
+
+---
+
+## Project structure
 
 ```
+simplerdevelopment2026/
 ├── app/                    # Next.js App Router
-│   ├── (pages)/           # Page routes
-│   │   ├── about/         # About page
-│   │   ├── blog/          # Blog index and posts
-│   │   ├── contact/       # Contact page
-│   │   └── solutions/     # Solutions pages
-│   ├── api/               # API routes
-│   ├── layout.tsx         # Root layout
-│   ├── robots.ts          # Robots.txt generator
-│   └── sitemap.ts         # Sitemap generator
-├── components/            # React components
-│   ├── animations/        # Animation components
-│   ├── forms/             # Form components
-│   ├── sections/          # Page sections
-│   ├── seo/               # SEO components
-│   ├── three/             # Three.js components
-│   └── ui/                # UI components
-├── config/                # Configuration files
-├── hooks/                 # Custom React hooks
-├── lib/                   # Utilities and helpers
-│   ├── builder/           # Builder.io integration
-│   ├── types/             # TypeScript types
-│   └── utils/             # Utility functions
-└── public/                # Static assets
+│   ├── admin/              # Global internal admin panel
+│   ├── portal/             # Per-tenant client portal
+│   ├── sites/              # Per-tenant public websites (block renderer)
+│   ├── s/                  # Short-URL / alternate public site entry point
+│   ├── api/                # API routes (NextAuth + site-resolver pattern)
+│   └── (pages)/            # Marketing / public pages
+├── components/             # Shared React components
+│   └── portal/visual-editor/  # Visual block editor (iframe + postMessage)
+├── lib/                    # Business logic, utilities, integrations
+│   ├── ai/                 # Company Brain, RAG, embeddings
+│   ├── billing/            # Stripe billing
+│   ├── blocks/             # Block registry and schemas
+│   ├── brain/              # Brain knowledge graph
+│   ├── crm/                # CRM contacts, deals, pipelines
+│   ├── db/                 # Drizzle ORM, schema modules
+│   ├── mcp/                # In-repo MCP server tools
+│   ├── crypto/             # API-key encryption primitives (90% coverage floor)
+│   ├── google/             # Google Workspace integration
+│   └── ...                 # Other feature domains
+├── drizzle/                # Generated migration SQL — do not edit
+├── scripts/                # Dev and CI scripts (test.sh, ci-local.sh, db scripts)
+├── tests/                  # Test suite
+│   ├── unit/               # Vitest unit tests
+│   ├── integration/        # Vitest integration tests (real DB)
+│   └── e2e/                # Playwright E2E tests
+├── workers/                # Background workers (email-inbound)
+├── packages/               # Workspace packages
+│   ├── realtime-server/    # Yjs WebSocket server
+│   ├── sdk/                # Client SDK
+│   └── starter/            # Starter template
+├── docs/                   # Developer documentation
+├── workflows/              # Automation workflow definitions
+├── public/                 # Static assets
+└── vercel.json             # Vercel deployment config (build, crons)
 ```
 
-## Pages
+---
 
-- **Home** (`/`) - Hero, 3D showcase, services grid
-- **About** (`/about`) - Company mission, values, team
-- **Solutions** (`/solutions`) - Services index
-- **Solution Detail** (`/solutions/[slug]`) - Individual service pages
-- **Blog** (`/blog`) - Blog posts index
-- **Blog Post** (`/blog/[slug]`) - Individual blog posts
-- **Contact** (`/contact`) - Contact form
+## Agentic development
 
-## SEO
+This repo is built to be worked on by AI agents (primarily Claude Code) alongside humans. The agent tooling is first-class infrastructure, not an add-on.
 
-The site includes comprehensive SEO optimization:
+### Agent navigation
 
-- Dynamic sitemap.xml
-- Robots.txt
-- Structured data (JSON-LD) for Organization, Website, Articles, and Services
-- Open Graph tags
-- Twitter Card tags
-- Optimized metadata for all pages
+- [`CLAUDE.md`](CLAUDE.md) — the root agent operating guide: architecture invariants, commands, conventions, don't-touch zones.
+- Nested `CLAUDE.md` files carry per-area invariants and god-file warnings, loaded automatically when an agent works in that subtree: `app/portal/`, `app/admin/`, `lib/blocks/`, `lib/mcp/`, `lib/db/`, `lib/ai/`, `components/portal/visual-editor/`, `tests/`.
+- `.claude/index.md` — the navigation map: "I need to work on X" → the right nested guide, skill, or doc.
+- `graphify-out/` — a generated knowledge graph of the codebase, rebuilt on commit via git hooks, used for broad cross-cutting questions.
 
-## Performance
+### Skills (scaffolding workflows)
 
-- Incremental Static Regeneration (ISR) with 60s revalidation
-- WebGL detection and performance optimization
-- Responsive images
-- Code splitting
-- Progressive enhancement for 3D features
+Repeatable engineering tasks are encoded as Claude Code skills so the lockstep pieces never drift apart:
+
+| Skill | Produces |
+|---|---|
+| `simplerdev-feature-scaffold` | CRUD resource: schema + API route (envelope pattern) + e2e test |
+| `simplerdev-block-type` | CMS block: TS interface, render component, registry entry, production renderer case, `/api/blocks` metadata |
+| `simplerdev-mcp-tool` | MCP tool: handler + input schema + scope guard, registered in lockstep |
+| `site-migration` | Imports an existing external website into the platform |
+| `sd-create-page` / `-deck` / `-email` / `-survey` | Portal content authored via the in-repo MCP server, returned as draft + approval URL |
+
+See `docs/skills/` for the full reference.
+
+### Subagents and orchestration
+
+Larger work runs through an orchestration hierarchy: a planning model decomposes work and dispatches well-scoped units to worker agents in parallel (e.g. `block-orchestrator` driving `block-implementer` workers for the CMS-blocks audit). Workers operate under an escalation contract — anything beyond a mechanical change is promoted back to the planner rather than guessed at (see `CLAUDE.md` § Agent operating rules).
+
+### Autonomous dev loop
+
+The `dev-block` skill runs hands-off development sessions driven by an n8n workflow: pick a GitHub issue labeled `claude`, implement, run gates, commit, return structured JSON for the loop to route on. State and retro notes live in `.claude/HANDS_OFF_DEV_PLAN.md` and `.claude/learnings.md`.
+
+### Guardrails (architecture fitness functions)
+
+Agent- and human-authored changes are held to the same automated invariants, wired into the `.githooks/` pre-commit and pre-push hooks:
+
+- `scripts/check-doc-drift.ts` — agent-facing docs may not reference moved or deleted files
+- `scripts/check-file-budget.ts` — file-size budget with a god-file ratchet (new-file cap 800 lines)
+- `.dependency-cruiser.cjs` — architectural boundary rules (route trees, layering)
+- `knip.json` — dead-code detection
+- `scripts/ci-local.sh` — the local CI gate (lint, typecheck, unit tests) run at pre-push
+
+---
+
+## Documentation index
+
+| Document | Contents |
+|---|---|
+| [`CLAUDE.md`](CLAUDE.md) | Agent and contributor operating guide — architecture invariants, commands, conventions, don't-touch zones |
+| [`docs/guides/DATABASE.md`](docs/guides/DATABASE.md) | Drizzle setup, posts/categories/tags REST API |
+| [`docs/guides/BLOCK_EDITOR_GUIDE.md`](docs/guides/BLOCK_EDITOR_GUIDE.md) | Block JSON schema, examples, troubleshooting |
+| [`docs/guides/USER_MANAGEMENT.md`](docs/guides/USER_MANAGEMENT.md) | Auth, roles, NextAuth configuration |
+| [`docs/guides/BRAIN.md`](docs/guides/BRAIN.md) | Company Brain architecture, embedding pipeline, RAG patterns |
+| [`docs/guides/AB_TESTING_GUIDE.md`](docs/guides/AB_TESTING_GUIDE.md) | A/B testing setup and usage |
+| [`tests/TESTING_PLAN.md`](tests/TESTING_PLAN.md) | Full test responsibility model, layer targets |
+| [`tests/CI-GATES.md`](tests/CI-GATES.md) | Gate definitions, coverage floors, local git hook setup |
+
+---
 
 ## Deployment
 
-### Vercel (Recommended)
+The platform deploys to Vercel (region `iad1`) using Next.js framework mode. Install uses `bun install --frozen-lockfile`; build uses `next build`. A set of Vercel cron jobs (defined in `vercel.json`) drive background work including embedding processing, Gmail/Drive watch renewal, automation scheduling, brain daily notes, usage rollup, and booking reminders. See [`vercel.json`](vercel.json) for the full cron schedule.
 
-1. Push your code to GitHub
-2. Import your repository in Vercel
-3. Add environment variables in Vercel dashboard
-4. Deploy
-
-### Other Platforms
-
-The app can be deployed to any platform supporting Next.js 16:
-- Netlify
-- Cloudflare Pages
-- AWS Amplify
-- Self-hosted with Node.js or Docker
-
-## Bring Your Own Key (BYOK)
-
-Clients can connect their own Anthropic and/or OpenAI API keys instead of
-metering against bundled platform AI credits. Keys are stored AES-256-GCM
-encrypted at rest (`client_api_keys.encrypted_key`, see
-`lib/crypto/api-key.ts`) and resolved per call via
-`lib/ai/resolve-client-key.ts` — BYOK first, platform env fallback second.
-
-### How clients add keys
-
-Portal → **Integrations → API Keys** (`/portal/integrations/api-keys`):
-
-1. Click **Add key**, pick a provider, paste the key, label it (e.g. `prod`).
-2. The raw key is encrypted on the server and never returned in any
-   subsequent API response. The list view shows only a masked preview
-   (`sk-ant-…AbC1`).
-3. Remove a key to fall back to platform credits, or rotate by removing +
-   re-adding.
-
-### Supported providers
-
-- **Anthropic** — Claude chat. Used by branding generation, pitch deck
-  generation, the portal AI chat widget, the email assistant, automation
-  NLP parsing, brain meeting/CRM classification.
-- **OpenAI** — Chat (where applicable) AND brain RAG embeddings
-  (`text-embedding-3-small`). One OpenAI key covers both buckets.
-
-### How billing changes with BYOK
-
-- BYOK calls bypass the internal AI credit ledger entirely — the client
-  pays their provider directly. No credit deduction, no payg trigger.
-- A row is appended to `usage_meter_events` per call with
-  `resource='ai_tokens'` and `source='byok'` (vs. `'platform'`) so
-  staff can see per-tenant usage in either column.
-- Tier-aware gating (`lib/ai/plan-gate.ts`): the **Starter** tier
-  requires a BYOK key for the relevant provider. Growth and Scale tiers
-  work with BYOK or bundled platform credits.
-
-### Operator config
-
-Server requires `ENCRYPTION_KEY` (64 hex chars) for the BYOK envelope.
-Generate with `openssl rand -hex 32`. This is independent of the platform
-provider env vars (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`) which remain the
-fallback when no BYOK row exists.
+---
 
 ## License
 
-All rights reserved - SimplerDevelopment
+All rights reserved — SimplerDevelopment
 
-## Support
-
-For issues or questions, please contact: contact@simplerdevelopment.com
+For questions: contact@simplerdevelopment.com

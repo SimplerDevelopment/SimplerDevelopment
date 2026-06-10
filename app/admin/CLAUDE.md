@@ -55,14 +55,14 @@ Do **not** Read these into the main thread — spawn an `Explore` subagent first
 
 ## When in doubt
 
-- Auth / roles → `lib/auth.ts`, `USER_MANAGEMENT.md`
+- Auth / roles → `lib/auth.ts`, `docs/guides/USER_MANAGEMENT.md`
 - DB queries → `lib/admin/` helpers (e.g. `lib/admin/clients-list.ts`)
 - New admin CRUD resource → `simplerdev-feature-scaffold`, then `simplerdev-ui-scaffold`
 - Tenancy regressions → `bun test:tenancy` after any data-access change
 
 ## Pointers
 
-- `@USER_MANAGEMENT.md` — roles (`admin`, `employee`, `client`), NextAuth config
-- `@DATABASE.md` — schema overview
+- `@docs/guides/USER_MANAGEMENT.md` — roles (`admin`, `employee`, `client`), NextAuth config
+- `@docs/guides/DATABASE.md` — schema overview
 - `@app/portal/CLAUDE.md` — the tenant-scoped counterpart to this tree
 - `@tests/CI-GATES.md` — coverage floors

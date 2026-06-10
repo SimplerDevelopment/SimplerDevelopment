@@ -2,7 +2,7 @@
 
 Drizzle ORM schema + DB client. **All data access flows through here.**
 
-> Token budget: keep this file <80 lines. Body in `@DATABASE.md`.
+> Token budget: keep this file <80 lines. Body in `@docs/guides/DATABASE.md`.
 
 ## Layout
 
@@ -31,6 +31,6 @@ Drizzle ORM schema + DB client. **All data access flows through here.**
 
 ## Pointers
 
-- `@DATABASE.md` — schema docs + posts/categories/tags REST API
+- `@docs/guides/DATABASE.md` — schema docs + posts/categories/tags REST API
 - `drizzle.config.ts` — driver config
 - `tests/integration/` — tenancy + integration tests

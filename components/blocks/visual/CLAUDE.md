@@ -27,7 +27,7 @@ Do NOT `Read` this into the main thread — spawn an `Explore` subagent first:
 
 ## Pointers
 
-- Block type registry + JSON schema: `lib/blocks/CLAUDE.md`, `@BLOCK_EDITOR_GUIDE.md`
+- Block type registry + JSON schema: `lib/blocks/CLAUDE.md`, `@docs/guides/BLOCK_EDITOR_GUIDE.md`
 - Visual editor shell (consumes these panels): `components/portal/visual-editor/CLAUDE.md`
 - Adding a new block end-to-end: `simplerdev-block-type` skill
 - Types: `types/blocks.ts`, `types/responsive.ts`

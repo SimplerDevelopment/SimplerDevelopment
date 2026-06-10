@@ -1,10 +1,11 @@
 # SD2026 — CI gates (local)
 
-**There is no GitHub Actions / no remote CI.** This project lives in a local
-multi-project repo whose only git remote is a local folder, so CI runs **on
-your machine** via `scripts/ci-local.sh`, wired into git hooks under
-`.githooks/` (pre-commit = fast checks on staged files, pre-push = full gate).
-Run it by hand any time:
+**There is a GitHub `origin` remote, but no GitHub Actions / no remote CI.**
+The repo pushes to `github.com/DanielPCoyle/simplerdevelopment2026`, but nothing
+runs CI on the server side — so `scripts/ci-local.sh`, wired into git hooks under
+`.githooks/` (pre-commit = fast checks on staged files, pre-push = full gate), is
+the **only** CI in front of a push. It runs **on your machine** on every push to
+`origin` (including the force-push that deploys `staging`). Run it by hand any time:
 
 ```bash
 scripts/ci-local.sh          # full gate: boundaries, budgets, docs, lint, typecheck, unit
@@ -21,8 +22,8 @@ scripts/ci-local.sh --full   # + tenancy + critical e2e (needs DB + Playwright)
 | File-size budget / god files  | `bun scripts/check-file-budget.ts`               |
 | Doc drift                     | `bun scripts/check-doc-drift.ts`                 |
 | Lint                          | `bun run lint`                                   |
-| Typecheck                     | `bunx tsc --noEmit`                              |
-| Unit tests                    | `bun run test:unit`                              |
+| Typecheck                     | `tsc --noEmit` on the committed HEAD in a tmp worktree (via `node_modules/.bin/tsc`, raised heap) |
+| Unit tests                    | `bun run test:unit` (runs as part of ci-local)   |
 | Tenancy regression `@tenancy` | `bun run test:tenancy` (`--tenancy` / `--full`)  |
 | Critical e2e `@critical`      | `bun run test:critical` (`--full`)               |
 | Dead code (informational)     | `bunx knip`                                       |
@@ -62,6 +63,27 @@ they're bumped:
 `lib/crypto` holds API-key + secret-encryption primitives — every branch
 matters, hence the 90/80 floor.
 
+## Pre-push auto-gates
+
+The pre-push hook inspects changed file paths and automatically adds the tenancy
+gate when any of the following are touched:
+
+- `lib/db/` (schema, migrations, query helpers)
+- `app/api/` (API route handlers)
+- `lib/active-client.ts` (tenant resolver)
+
+When those paths appear in the push diff the hook runs `bun test:tenancy` in
+addition to the standard gate — no manual flag required.
+
+**No test DB configured?** The gate looks for `DATABASE_URL_TEST`, then falls
+back to `DATABASE_URL`. If neither is set it **soft-skips**: it prints a loud
+`⚠ TENANCY GATE SKIPPED — no test DB configured (DATABASE_URL_TEST / DATABASE_URL unset).`
+warning and exits 0. This is intentional — a developer without a local DB should
+not be blocked from pushing — and the line is always visible on stdout, never
+silent. Note this is a *configured-vs-unset* check, not a live-reachability probe:
+if a stale `DATABASE_URL` is exported, the suite runs and a connection failure
+will surface as a normal gate failure.
+
 ## Tenancy regression — `bun test:tenancy`
 
 Runs the integration suite filtered to specs/describes tagged `@tenancy`.
@@ -76,6 +98,23 @@ Local:
 bun test:tenancy           # uses your DATABASE_URL_TEST
 bun test:integration:local # spins up a local DB first, then runs full integration
 ```
+
+## Trailing gate / promotion — `scripts/promote-to-prod.sh`
+
+The critical e2e + tenancy suites are intentionally **not** on the push hot
+path (they need a running DB + browser and can take minutes). Instead, after
+every staging deploy `scripts/promote-to-prod.sh` is the mandatory final gate:
+
+1. Runs `bun test:critical` against the **staging** deployment.
+2. Runs `bun test:tenancy` against the staging DB.
+3. Only if both pass is staging declared *eligible* for promotion. **Promotion
+   itself is currently a manual step** — no production remote is wired yet, so
+   the script does not tag or push; on green it prints the suggested future
+   `git push origin staging:production` and exits 0. Wire the real action here
+   once a production target exists.
+
+This keeps the slow suite off the pre-push hook while still gating production
+on a full green run.
 
 ## Critical e2e — `bun test:critical`
 
@@ -111,21 +150,45 @@ When iterating, you sometimes need to run vitest without the threshold gate
    relaxation. The branch protection rule on `staging` will reject the PR
    anyway once it's set up.
 
+## Diff coverage (planned)
+
+`scripts/diff-coverage.sh` will compute coverage only over lines changed in the
+current branch diff (i.e. "did you test what you shipped?"). It is **not yet a
+blocking gate** because vitest 4.0.18 has a known bug that prevents coverage
+emission when any test in the suite fails — until that is resolved the script
+produces unreliable output. Tracked in the project issue log.
+
+## Flake quarantine
+
+A flaky test on the `@critical` golden-path costs more deploy speed than ten
+missing tests. Convention:
+
+1. **Tag immediately** — add `@flaky` to the test the moment it flakes; this
+   prevents it from breaking the next push while you investigate.
+2. **Remove from `@critical`** — untag `@critical` (or move to a separate spec
+   file outside the golden-path set) so `bun test:critical` stays reliable.
+3. **File an issue** — create a tracked issue with a repro and the flake
+   frequency; do not let it go dark in a TODO comment.
+4. **Fix on a separate track** — the fix ships in its own PR; the test is
+   re-promoted to `@critical` only once it has been green for ≥ 20 consecutive
+   runs locally.
+
+There is no acceptable "retry until green" workaround on the critical path.
+
 ## Enforcement — local git hooks
 
-There is no branch protection to configure (no GitHub remote). Enforcement is
-the pre-push hook in `.githooks/`, installed via:
+There's a GitHub `origin` remote but no server-side CI or branch protection, so
+enforcement is the pre-push hook in `.githooks/`, installed via:
 
 ```bash
-git config core.hooksPath simplerdevelopment2026/.githooks
+git config core.hooksPath .githooks
 ```
 
 - **pre-commit** — fast checks on staged files (eslint + file-budget + doc-drift).
-- **pre-push** — full `scripts/ci-local.sh` gate, but only when the push touches
-  `simplerdevelopment2026/` files.
+- **pre-push** — full `scripts/ci-local.sh` gate; fires on every push to `origin`.
 
 Bypass for a one-off: `git commit --no-verify` / `git push --no-verify`.
 
-If this ever moves to a real GitHub remote, port `scripts/ci-local.sh` into a
-`.github/workflows/` job and list its steps as required status checks — the
-gate logic is already centralized in that one script.
+To add server-side CI, port `scripts/ci-local.sh` into a `.github/workflows/`
+job and list its steps as required status checks — the gate logic is already
+centralized in that one script, so the workflow is a thin wrapper.

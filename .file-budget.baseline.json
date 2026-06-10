@@ -132,7 +132,7 @@
   "lib/mcp/approvals.ts": 1194,
   "lib/mcp/blocks-schema.ts": 637,
   "lib/mcp/tools/bookings.ts": 550,
-  "lib/mcp/tools/cms.ts": 2217,
+  "lib/mcp/tools/cms.ts": 2230,
   "lib/mcp/tools/crm.ts": 1671,
   "lib/mcp/tools/email.ts": 844,
   "lib/mcp/tools/kanban.ts": 1485,

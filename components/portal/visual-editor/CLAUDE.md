@@ -42,5 +42,5 @@ A targeted Read with `limit:` + `offset:` is acceptable for surgical edits — f
 ## Pointers
 
 - Block registry: `lib/blocks/CLAUDE.md`
-- Block JSON schema: `@BLOCK_EDITOR_GUIDE.md`
+- Block JSON schema: `@docs/guides/BLOCK_EDITOR_GUIDE.md`
 - Editor route: `app/portal/websites/[siteId]/posts/[id]/edit/`
