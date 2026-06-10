@@ -1,0 +1,15 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - navigation [ref=e3]:
+      - link "SimplerDevelopment" [ref=e5] [cursor=pointer]:
+        - /url: /sites/simplerdevelopment.simplerdevelopment.com
+        - generic [ref=e6]: SimplerDevelopment
+    - main [ref=e7]
+    - contentinfo [ref=e8]:
+      - generic [ref=e9]:
+        - link "SimplerDevelopment" [ref=e12] [cursor=pointer]:
+          - /url: /sites/simplerdevelopment.simplerdevelopment.com
+        - generic [ref=e14]: © 2026 SimplerDevelopment. All rights reserved.
+  - button "Open Next.js Dev Tools" [ref=e20] [cursor=pointer]:
+    - img [ref=e21]
+  - alert [ref=e24]

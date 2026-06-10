@@ -1,0 +1,9 @@
+- generic [active] [ref=e1]:
+  - button "Open Next.js Dev Tools" [ref=e20] [cursor=pointer]:
+    - img [ref=e21]
+  - alert [ref=e24]
+  - generic [ref=e35]:
+    - heading "Oops!" [level=1] [ref=e36]
+    - heading "Something went wrong" [level=2] [ref=e37]
+    - paragraph [ref=e38]: We're sorry, but something unexpected happened. Please try again.
+    - button "Try Again" [ref=e39]

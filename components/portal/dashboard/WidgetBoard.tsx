@@ -102,6 +102,7 @@ export default function WidgetBoard({
   );
   const [screenOptionsOpen, setScreenOptionsOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [widgetSearch, setWidgetSearch] = useState('');
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -176,7 +177,12 @@ export default function WidgetBoard({
           )}
           <button
             type="button"
-            onClick={() => setScreenOptionsOpen((v) => !v)}
+            onClick={() => {
+              setScreenOptionsOpen((v) => {
+                if (v) setWidgetSearch('');
+                return !v;
+              });
+            }}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md border border-border text-foreground hover:bg-accent transition-colors"
           >
             <span className="material-icons text-base">tune</span>
@@ -198,45 +204,96 @@ export default function WidgetBoard({
           solutionMap[w.solution].push(w);
         }
 
+        // Filter widgets by search query (case-insensitive, trim)
+        const trimmedQuery = widgetSearch.trim().toLowerCase();
+        const filteredSolutionOrder = trimmedQuery
+          ? solutionOrder.filter((slug) => {
+              const label = (SOLUTION_LABELS[slug] ?? slug).toLowerCase();
+              return (
+                label.includes(trimmedQuery) ||
+                solutionMap[slug].some(
+                  (w) =>
+                    w.title.toLowerCase().includes(trimmedQuery) ||
+                    w.description.toLowerCase().includes(trimmedQuery),
+                )
+              );
+            })
+          : solutionOrder;
+
+        const filteredSolutionMap: Record<string, AvailableWidgetMeta[]> = {};
+        for (const slug of filteredSolutionOrder) {
+          const label = (SOLUTION_LABELS[slug] ?? slug).toLowerCase();
+          filteredSolutionMap[slug] = trimmedQuery && !label.includes(trimmedQuery)
+            ? solutionMap[slug].filter(
+                (w) =>
+                  w.title.toLowerCase().includes(trimmedQuery) ||
+                  w.description.toLowerCase().includes(trimmedQuery),
+              )
+            : solutionMap[slug];
+        }
+
+        const hasResults = filteredSolutionOrder.some(
+          (slug) => filteredSolutionMap[slug].length > 0,
+        );
+
         return (
           <div className="bg-card border border-border rounded-xl p-5">
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-4">
               Show / hide widgets
             </p>
-            <div className="space-y-5">
-              {solutionOrder.map((slug) => (
-                <div key={slug}>
-                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-                    {SOLUTION_LABELS[slug] ?? slug}
-                  </p>
-                  <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {solutionMap[slug].map((w) => {
-                      const isVisible = !hidden.has(w.id);
-                      return (
-                        <label
-                          key={w.id}
-                          className="flex items-start gap-3 cursor-pointer group"
-                        >
-                          <input
-                            type="checkbox"
-                            className="mt-0.5 h-4 w-4 rounded border-border accent-primary"
-                            checked={isVisible}
-                            onChange={(e) => handleToggleVisibility(w.id, e.target.checked)}
-                          />
-                          <div className="min-w-0">
-                            <p className="text-sm font-medium text-foreground flex items-center gap-1.5">
-                              <span className="material-icons text-sm text-muted-foreground">{w.icon}</span>
-                              {w.title}
-                            </p>
-                            <p className="text-xs text-muted-foreground">{w.description}</p>
-                          </div>
-                        </label>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
+            {/* Search bar */}
+            <div className="relative mb-4">
+              <span className="material-icons absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-base">search</span>
+              <input
+                type="text"
+                value={widgetSearch}
+                onChange={(e) => setWidgetSearch(e.target.value)}
+                placeholder="Search widgets…"
+                className="w-full pl-9 pr-4 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              />
             </div>
+            {!hasResults && trimmedQuery ? (
+              <p className="text-sm text-muted-foreground">
+                No widgets match &ldquo;{widgetSearch.trim()}&rdquo;.
+              </p>
+            ) : (
+              <div className="space-y-5">
+                {filteredSolutionOrder.map((slug) =>
+                  filteredSolutionMap[slug].length === 0 ? null : (
+                    <div key={slug}>
+                      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+                        {SOLUTION_LABELS[slug] ?? slug}
+                      </p>
+                      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {filteredSolutionMap[slug].map((w) => {
+                          const isVisible = !hidden.has(w.id);
+                          return (
+                            <label
+                              key={w.id}
+                              className="flex items-start gap-3 cursor-pointer group"
+                            >
+                              <input
+                                type="checkbox"
+                                className="mt-0.5 h-4 w-4 rounded border-border accent-primary"
+                                checked={isVisible}
+                                onChange={(e) => handleToggleVisibility(w.id, e.target.checked)}
+                              />
+                              <div className="min-w-0">
+                                <p className="text-sm font-medium text-foreground flex items-center gap-1.5">
+                                  <span className="material-icons text-sm text-muted-foreground">{w.icon}</span>
+                                  {w.title}
+                                </p>
+                                <p className="text-xs text-muted-foreground">{w.description}</p>
+                              </div>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ),
+                )}
+              </div>
+            )}
           </div>
         );
       })()}

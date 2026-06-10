@@ -1,0 +1,13 @@
+[   19976ms] [ERROR] Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES @ http://localhost:3000/api/portal/approvals?count=true:0
+[   19989ms] [ERROR] Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES @ http://localhost:3000/api/portal/notifications?unread=1&limit=1:0
+[   20002ms] [ERROR] Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES @ http://localhost:3000/api/portal/crm/notifications?limit=20:0
+[   65001ms] [ERROR] Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES @ http://localhost:3000/api/portal/crm/notifications?limit=20:0
+[   80033ms] [ERROR] Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES @ http://localhost:3000/api/portal/approvals?count=true:0
+[   80034ms] [ERROR] Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES @ http://localhost:3000/api/portal/notifications?unread=1&limit=1:0
+[  110005ms] [ERROR] Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES @ http://localhost:3000/api/portal/crm/notifications?limit=20:0
+[  139972ms] [ERROR] Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES @ http://localhost:3000/api/portal/approvals?count=true:0
+[  140022ms] [ERROR] Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES @ http://localhost:3000/api/portal/notifications?unread=1&limit=1:0
+[  155034ms] [ERROR] Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES @ http://localhost:3000/api/portal/crm/notifications?limit=20:0
+[  199973ms] [ERROR] Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES @ http://localhost:3000/api/portal/approvals?count=true:0
+[  199987ms] [ERROR] Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES @ http://localhost:3000/api/portal/notifications?unread=1&limit=1:0
+[  199999ms] [ERROR] Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES @ http://localhost:3000/api/portal/crm/notifications?limit=20:0

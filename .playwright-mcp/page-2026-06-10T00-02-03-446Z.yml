@@ -1,0 +1,138 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - button "menu" [ref=e3]:
+      - generic [ref=e4]: menu
+    - link "Simpler Development" [ref=e5] [cursor=pointer]:
+      - /url: /portal
+      - generic [ref=e6]: Simpler Development
+    - complementary [ref=e7]:
+      - generic [ref=e8]:
+        - button "close" [ref=e16]:
+          - generic [ref=e17]: close
+        - navigation [ref=e18]:
+          - list [ref=e19]:
+            - listitem [ref=e20]:
+              - link "dashboard Dashboard" [ref=e21] [cursor=pointer]:
+                - /url: /portal/dashboard
+                - generic [ref=e22]: dashboard
+                - generic [ref=e23]: Dashboard
+            - listitem [ref=e24]:
+              - generic [ref=e25] [cursor=pointer]:
+                - generic [ref=e26]: psychology
+                - generic [ref=e27]: Company Brain
+                - generic [ref=e28]: expand_more
+            - listitem [ref=e29]:
+              - generic [ref=e30] [cursor=pointer]:
+                - generic [ref=e31]: view_kanban
+                - generic [ref=e32]: Projects
+                - generic [ref=e33]: expand_more
+            - listitem [ref=e34]:
+              - generic [ref=e35] [cursor=pointer]:
+                - generic [ref=e36]: rocket_launch
+                - generic [ref=e37]: Publishing
+                - generic [ref=e38]: expand_more
+            - listitem [ref=e39]:
+              - generic [ref=e40] [cursor=pointer]:
+                - generic [ref=e41]: contacts
+                - generic [ref=e42]: CRM
+                - generic [ref=e43]: expand_more
+            - listitem [ref=e44]:
+              - generic [ref=e45] [cursor=pointer]:
+                - generic [ref=e46]: email
+                - generic [ref=e47]: Email
+                - generic [ref=e48]: expand_more
+            - listitem [ref=e49]:
+              - generic [ref=e50] [cursor=pointer]:
+                - generic [ref=e51]: poll
+                - generic [ref=e52]: Surveys
+                - generic [ref=e53]: expand_more
+            - listitem [ref=e54]:
+              - generic [ref=e55] [cursor=pointer]:
+                - generic [ref=e56]: slideshow
+                - generic [ref=e57]: Pitches & Proposals
+                - generic [ref=e58]: expand_more
+            - listitem [ref=e59]:
+              - link "language Websites" [ref=e60] [cursor=pointer]:
+                - /url: /portal/websites
+                - generic [ref=e61]: language
+                - generic [ref=e62]: Websites
+            - listitem [ref=e63]:
+              - link "perm_media Media" [ref=e64] [cursor=pointer]:
+                - /url: /portal/media
+                - generic [ref=e65]: perm_media
+                - generic [ref=e66]: Media
+            - listitem [ref=e67]:
+              - link "science A/B Experiments" [ref=e68] [cursor=pointer]:
+                - /url: /portal/experiments
+                - generic [ref=e69]: science
+                - generic [ref=e70]: A/B Experiments
+            - listitem [ref=e71]:
+              - generic [ref=e72] [cursor=pointer]:
+                - generic [ref=e73]: storefront
+                - generic [ref=e74]: Agency
+                - generic [ref=e75]: expand_more
+            - listitem [ref=e76]:
+              - link "settings Settings" [ref=e77] [cursor=pointer]:
+                - /url: /portal/settings
+                - generic [ref=e78]: settings
+                - generic [ref=e79]: Settings
+        - generic [ref=e80]:
+          - button "brightness_auto System Mode swap_horiz" [ref=e81]:
+            - generic [ref=e82]: brightness_auto
+            - generic [ref=e83]: System Mode
+            - generic [ref=e84]: swap_horiz
+          - button "logout Sign Out" [ref=e85]:
+            - generic [ref=e86]: logout
+            - generic [ref=e87]: Sign Out
+    - generic [ref=e88]:
+      - generic [ref=e89]:
+        - link "Notifications" [ref=e90] [cursor=pointer]:
+          - /url: /portal/notifications
+          - generic [ref=e91]: notifications
+        - button "Notifications" [ref=e93]:
+          - generic [ref=e94]: notifications
+      - main [ref=e95]:
+        - generic [ref=e96]:
+          - generic [ref=e97]:
+            - generic [ref=e98]:
+              - heading "Websites" [level=1] [ref=e99]
+              - paragraph [ref=e100]: Manage pages and content for your websites.
+            - link "add New Website" [ref=e101] [cursor=pointer]:
+              - /url: /portal/websites/new
+              - generic [ref=e102]: add
+              - text: New Website
+          - generic [ref=e103]:
+            - link "language CAQ Website center-for-audit-quality-caq-website.simplerdevelopment.com check_circle Live The Center for Audit Quality (CAQ) is an autonomous public policy organization dedicated to enhancing investor confidence and public trust in the global capital markets. article 44 pages Open arrow_forward" [ref=e104] [cursor=pointer]:
+              - /url: /portal/websites/140
+              - generic [ref=e105]:
+                - generic [ref=e106]:
+                  - generic [ref=e108]: language
+                  - generic [ref=e109]:
+                    - heading "CAQ Website" [level=2] [ref=e110]
+                    - paragraph [ref=e111]: center-for-audit-quality-caq-website.simplerdevelopment.com
+                - generic [ref=e112]:
+                  - generic [ref=e113]: check_circle
+                  - text: Live
+              - paragraph [ref=e114]: The Center for Audit Quality (CAQ) is an autonomous public policy organization dedicated to enhancing investor confidence and public trust in the global capital markets.
+              - generic [ref=e115]:
+                - generic [ref=e116]:
+                  - generic [ref=e117]: article
+                  - generic [ref=e118]: 44 pages
+                - generic [ref=e119]:
+                  - generic [ref=e120]: Open
+                  - generic [ref=e121]: arrow_forward
+            - link "add_circle_outline Add another website" [ref=e122] [cursor=pointer]:
+              - /url: /portal/websites/new
+              - generic [ref=e123]: add_circle_outline
+              - paragraph [ref=e124]: Add another website
+          - generic [ref=e125]:
+            - generic [ref=e126]: support_agent
+            - generic [ref=e127]:
+              - paragraph [ref=e128]: Need help with your website?
+              - paragraph [ref=e129]: Our team can assist with setup, DNS, or content.
+            - link "Open a ticket arrow_forward" [ref=e130] [cursor=pointer]:
+              - /url: /portal/tickets/new
+              - text: Open a ticket
+              - generic [ref=e131]: arrow_forward
+  - button "Open Next.js Dev Tools" [ref=e137] [cursor=pointer]:
+    - img [ref=e138]

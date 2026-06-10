@@ -1,0 +1,20 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e19] [cursor=pointer]:
+    - button "Open Next.js Dev Tools" [ref=e20]:
+      - img [ref=e21]
+    - generic [ref=e25]:
+      - button "Open issues overlay" [ref=e26]:
+        - generic [ref=e27]:
+          - generic [ref=e28]: "2"
+          - generic [ref=e29]: "3"
+        - generic [ref=e30]:
+          - text: Issue
+          - generic [ref=e31]: s
+      - button "Collapse issues badge" [ref=e32]:
+        - img [ref=e33]
+  - alert [ref=e24]
+  - generic [ref=e35]:
+    - heading "Oops!" [level=1] [ref=e36]
+    - heading "Something went wrong" [level=2] [ref=e37]
+    - paragraph [ref=e38]: We're sorry, but something unexpected happened. Please try again.
+    - button "Try Again" [ref=e39]

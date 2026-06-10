@@ -1,0 +1,34 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e4]:
+    - generic [ref=e5]:
+      - paragraph [ref=e6]: Client Portal
+      - heading "Simpler Development" [level=1] [ref=e7]
+    - generic [ref=e8]:
+      - heading "Sign in to your portal" [level=2] [ref=e9]
+      - generic [ref=e10]:
+        - generic [ref=e11]:
+          - generic [ref=e12]: Email
+          - textbox "you@company.com" [ref=e13]: info@danielpcoyle.com
+        - generic [ref=e14]:
+          - generic [ref=e15]: Password
+          - generic [ref=e16]:
+            - textbox "••••••••" [ref=e17]: Action*(!@
+            - button "visibility" [ref=e18]:
+              - generic [ref=e19]: visibility
+        - button "refresh Signing in..." [disabled] [ref=e43]:
+          - generic [ref=e44]: refresh
+          - text: Signing in...
+      - link "Forgot your password?" [ref=e22] [cursor=pointer]:
+        - /url: /portal/forgot-password
+    - paragraph [ref=e23]:
+      - text: Need access?
+      - link "Contact us" [ref=e24] [cursor=pointer]:
+        - /url: /contact
+  - button "Open Next.js Dev Tools" [ref=e45] [cursor=pointer]:
+    - generic [ref=e48]:
+      - text: Compiling
+      - generic [ref=e49]:
+        - generic [ref=e50]: .
+        - generic [ref=e51]: .
+        - generic [ref=e52]: .
+  - alert [ref=e34]

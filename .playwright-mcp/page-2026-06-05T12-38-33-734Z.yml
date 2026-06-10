@@ -1,0 +1,361 @@
+- generic [active] [ref=e1]:
+  - navigation [ref=e2]:
+    - generic [ref=e4]:
+      - link "Simpler Development" [ref=e6] [cursor=pointer]:
+        - /url: /
+        - generic [ref=e7]: Simpler Development
+      - generic [ref=e8]:
+        - button "Toggle theme" [ref=e9]:
+          - img [ref=e10]
+        - button "Toggle mobile menu" [ref=e12]:
+          - img [ref=e13]
+  - generic [ref=e17]:
+    - generic [ref=e18]: Navigation
+    - link "Solutions" [ref=e19] [cursor=pointer]:
+      - /url: /solutions
+      - generic [ref=e20]: Solutions
+    - link "Pricing" [ref=e21] [cursor=pointer]:
+      - /url: /pricing
+      - generic [ref=e22]: Pricing
+    - link "About" [ref=e23] [cursor=pointer]:
+      - /url: /about
+      - generic [ref=e24]: About
+    - link "Blog" [ref=e25] [cursor=pointer]:
+      - /url: /blog
+      - generic [ref=e26]: Blog
+    - link "Book a Call" [ref=e28] [cursor=pointer]:
+      - /url: /contact
+      - generic [ref=e29]: Book a Call
+    - link "Admin Login" [ref=e31] [cursor=pointer]:
+      - /url: /admin/login
+  - main [ref=e32]:
+    - generic [ref=e39]:
+      - generic [ref=e40]:
+        - generic [ref=e42]:
+          - generic [ref=e43]: hub
+          - generic [ref=e44]: All-in-One Business Platform
+        - heading "Everything Your Business Needs. One Platform." [level=1] [ref=e46]
+        - paragraph [ref=e48]: Websites, online stores, email, CRM, booking, surveys, projects, an AI Company Brain, and more — eighteen connected tools in one place. Built and backed by a full-service agency.
+        - generic [ref=e50]:
+          - link "Start Free Consultation arrow_forward" [ref=e51] [cursor=pointer]:
+            - /url: /contact
+            - generic [ref=e52]:
+              - text: Start Free Consultation
+              - generic [ref=e53]: arrow_forward
+          - link "See All Features" [ref=e54] [cursor=pointer]:
+            - /url: /solutions
+            - generic [ref=e55]: See All Features
+      - generic [ref=e59]:
+        - generic [ref=e60]:
+          - generic [ref=e62]: vpn_key
+          - heading "Have an access code?" [level=2] [ref=e63]
+          - paragraph [ref=e64]: Enter the code your team shared to preview a private site.
+        - generic [ref=e65]:
+          - textbox "ACME-2026" [ref=e66]
+          - button "View Preview arrow_forward" [disabled] [ref=e67]:
+            - text: View Preview
+            - generic [ref=e68]: arrow_forward
+    - generic [ref=e71]:
+      - generic [ref=e72]:
+        - paragraph [ref=e73]: // THE PLATFORM
+        - heading "Eighteen tools. One platform." [level=2] [ref=e74]
+        - paragraph [ref=e75]: Stop paying for a dozen subscriptions that don't talk to each other. Everything you need is here.
+      - generic [ref=e76]:
+        - link "cable AI Connect Connect Claude, ChatGPT, and AI tools to your portal via MCP" [ref=e78] [cursor=pointer]:
+          - /url: /solutions/ai-connect
+          - generic [ref=e81]:
+            - generic [ref=e83]: cable
+            - generic [ref=e84]:
+              - heading "AI Connect" [level=3] [ref=e85]
+              - paragraph [ref=e86]: Connect Claude, ChatGPT, and AI tools to your portal via MCP
+        - link "language Website Builder Drag-and-drop editor with unlimited pages, blog, SEO, and ecommerce" [ref=e88] [cursor=pointer]:
+          - /url: /solutions/websites
+          - generic [ref=e91]:
+            - generic [ref=e93]: language
+            - generic [ref=e94]:
+              - heading "Website Builder" [level=3] [ref=e95]
+              - paragraph [ref=e96]: Drag-and-drop editor with unlimited pages, blog, SEO, and ecommerce
+        - link "storefront Online Store Sell products with variants, discounts, shipping, and print-on-demand designs" [ref=e98] [cursor=pointer]:
+          - /url: /solutions/ecommerce
+          - generic [ref=e101]:
+            - generic [ref=e103]: storefront
+            - generic [ref=e104]:
+              - heading "Online Store" [level=3] [ref=e105]
+              - paragraph [ref=e106]: Sell products with variants, discounts, shipping, and print-on-demand designs
+        - link "rocket_launch Content Calendar Editorial kanban and calendar to plan, schedule, and ship content across channels" [ref=e108] [cursor=pointer]:
+          - /url: /solutions/publishing
+          - generic [ref=e111]:
+            - generic [ref=e113]: rocket_launch
+            - generic [ref=e114]:
+              - heading "Content Calendar" [level=3] [ref=e115]
+              - paragraph [ref=e116]: Editorial kanban and calendar to plan, schedule, and ship content across channels
+        - link "email Email Marketing Campaigns, subscriber lists, automations, and engagement tracking" [ref=e118] [cursor=pointer]:
+          - /url: /solutions/email-marketing
+          - generic [ref=e121]:
+            - generic [ref=e123]: email
+            - generic [ref=e124]:
+              - heading "Email Marketing" [level=3] [ref=e125]
+              - paragraph [ref=e126]: Campaigns, subscriber lists, automations, and engagement tracking
+        - link "groups CRM Contacts, deals, proposals, and your full sales pipeline" [ref=e128] [cursor=pointer]:
+          - /url: /solutions/crm
+          - generic [ref=e131]:
+            - generic [ref=e133]: groups
+            - generic [ref=e134]:
+              - heading "CRM" [level=3] [ref=e135]
+              - paragraph [ref=e136]: Contacts, deals, proposals, and your full sales pipeline
+        - link "draw Contracts & E-Sign Branded proposals and legally binding contracts with built-in e-signature" [ref=e138] [cursor=pointer]:
+          - /url: /solutions/contracts
+          - generic [ref=e141]:
+            - generic [ref=e143]: draw
+            - generic [ref=e144]:
+              - heading "Contracts & E-Sign" [level=3] [ref=e145]
+              - paragraph [ref=e146]: Branded proposals and legally binding contracts with built-in e-signature
+        - link "calendar_month Online Booking Scheduling pages with calendar sync and automatic reminders" [ref=e148] [cursor=pointer]:
+          - /url: /solutions/booking
+          - generic [ref=e151]:
+            - generic [ref=e153]: calendar_month
+            - generic [ref=e154]:
+              - heading "Online Booking" [level=3] [ref=e155]
+              - paragraph [ref=e156]: Scheduling pages with calendar sync and automatic reminders
+        - link "ballot Surveys & Forms Smart forms with branching logic, scoring, and auto-routing to your CRM" [ref=e158] [cursor=pointer]:
+          - /url: /solutions/surveys
+          - generic [ref=e161]:
+            - generic [ref=e163]: ballot
+            - generic [ref=e164]:
+              - heading "Surveys & Forms" [level=3] [ref=e165]
+              - paragraph [ref=e166]: Smart forms with branching logic, scoring, and auto-routing to your CRM
+        - link "science A/B Experiments Split-test pages and pitch deck slides with built-in significance testing" [ref=e168] [cursor=pointer]:
+          - /url: /solutions/experiments
+          - generic [ref=e171]:
+            - generic [ref=e173]: science
+            - generic [ref=e174]:
+              - heading "A/B Experiments" [level=3] [ref=e175]
+              - paragraph [ref=e176]: Split-test pages and pitch deck slides with built-in significance testing
+        - link "view_kanban Project Management Kanban boards, sprint planning, and team collaboration" [ref=e178] [cursor=pointer]:
+          - /url: /solutions/project-management
+          - generic [ref=e181]:
+            - generic [ref=e183]: view_kanban
+            - generic [ref=e184]:
+              - heading "Project Management" [level=3] [ref=e185]
+              - paragraph [ref=e186]: Kanban boards, sprint planning, and team collaboration
+        - link "support_agent Help Desk Embeddable live chat plus a shared inbox and SLA-tracked support tickets" [ref=e188] [cursor=pointer]:
+          - /url: /solutions/help-desk
+          - generic [ref=e191]:
+            - generic [ref=e193]: support_agent
+            - generic [ref=e194]:
+              - heading "Help Desk" [level=3] [ref=e195]
+              - paragraph [ref=e196]: Embeddable live chat plus a shared inbox and SLA-tracked support tickets
+        - link "psychology Company Brain AI knowledge base that answers questions about your business with citations" [ref=e198] [cursor=pointer]:
+          - /url: /solutions/company-brain
+          - generic [ref=e201]:
+            - generic [ref=e203]: psychology
+            - generic [ref=e204]:
+              - heading "Company Brain" [level=3] [ref=e205]
+              - paragraph [ref=e206]: AI knowledge base that answers questions about your business with citations
+        - link "smart_toy AI Chatbot Trained on your content for 24/7 support and lead capture" [ref=e208] [cursor=pointer]:
+          - /url: /solutions/ai-chatbot
+          - generic [ref=e211]:
+            - generic [ref=e213]: smart_toy
+            - generic [ref=e214]:
+              - heading "AI Chatbot" [level=3] [ref=e215]
+              - paragraph [ref=e216]: Trained on your content for 24/7 support and lead capture
+        - link "account_tree Automations Visual no-code workflows that connect every tool automatically" [ref=e218] [cursor=pointer]:
+          - /url: /solutions/automations
+          - generic [ref=e221]:
+            - generic [ref=e223]: account_tree
+            - generic [ref=e224]:
+              - heading "Automations" [level=3] [ref=e225]
+              - paragraph [ref=e226]: Visual no-code workflows that connect every tool automatically
+        - link "slideshow Pitch Decks AI-generated, branded pitch decks with shareable links and PDF export" [ref=e228] [cursor=pointer]:
+          - /url: /solutions/pitch-decks
+          - generic [ref=e231]:
+            - generic [ref=e233]: slideshow
+            - generic [ref=e234]:
+              - heading "Pitch Decks" [level=3] [ref=e235]
+              - paragraph [ref=e236]: AI-generated, branded pitch decks with shareable links and PDF export
+        - link "storefront Agency & White-Label Run the platform under your own brand with a custom domain and logo" [ref=e238] [cursor=pointer]:
+          - /url: /solutions/agency
+          - generic [ref=e241]:
+            - generic [ref=e243]: storefront
+            - generic [ref=e244]:
+              - heading "Agency & White-Label" [level=3] [ref=e245]
+              - paragraph [ref=e246]: Run the platform under your own brand with a custom domain and logo
+        - link "cloud Managed Hosting SSL, CDN, daily backups, and 99.9% uptime included" [ref=e248] [cursor=pointer]:
+          - /url: /solutions/hosting
+          - generic [ref=e251]:
+            - generic [ref=e253]: cloud
+            - generic [ref=e254]:
+              - heading "Managed Hosting" [level=3] [ref=e255]
+              - paragraph [ref=e256]: SSL, CDN, daily backups, and 99.9% uptime included
+    - generic [ref=e260]:
+      - generic [ref=e262]:
+        - paragraph [ref=e263]: // WHY ONE PLATFORM
+        - heading "Stop duct-taping your tech stack." [level=2] [ref=e264]
+      - generic [ref=e266]:
+        - generic [ref=e269]:
+          - generic [ref=e271]: dashboard
+          - generic [ref=e272]:
+            - heading "One Dashboard" [level=3] [ref=e273]
+            - paragraph [ref=e274]: Website, email, CRM, booking, projects — everything in one login. No more juggling a dozen SaaS subscriptions.
+        - generic [ref=e277]:
+          - generic [ref=e279]: sync_alt
+          - generic [ref=e280]:
+            - heading "Built to Work Together" [level=3] [ref=e281]
+            - paragraph [ref=e282]: Every tool shares data. A new website lead flows into your CRM, triggers an email sequence, and books a call — automatically.
+        - generic [ref=e285]:
+          - generic [ref=e287]: support_agent
+          - generic [ref=e288]:
+            - heading "Agency-Backed Platform" [level=3] [ref=e289]
+            - paragraph [ref=e290]: Not just software. We design, build, and optimize alongside you. Get expert help whenever you need it.
+        - generic [ref=e292]:
+          - paragraph [ref=e293]: Simpler Development is the platform and the team behind it. We don't just hand you software — we design your site, set up your workflows, and grow with you as a strategic partner.
+          - link "Learn About Our Approach arrow_forward" [ref=e295] [cursor=pointer]:
+            - /url: /about
+            - generic [ref=e296]:
+              - text: Learn About Our Approach
+              - generic [ref=e297]: arrow_forward
+    - generic [ref=e301]:
+      - generic [ref=e303]:
+        - paragraph [ref=e304]: // HOW IT WORKS
+        - heading "From sign-up to launch in days, not months" [level=2] [ref=e305]
+        - paragraph [ref=e306]: We handle the heavy lifting so you can focus on your business
+      - generic [ref=e307]:
+        - generic [ref=e309]:
+          - generic [ref=e310]: forum
+          - generic [ref=e311]: "01"
+          - heading "Consult" [level=3] [ref=e312]
+          - paragraph [ref=e313]: Tell us about your business and what you need. We listen, ask questions, and map out the right tools.
+        - generic [ref=e315]:
+          - generic [ref=e316]: tune
+          - generic [ref=e317]: "02"
+          - heading "Configure" [level=3] [ref=e318]
+          - paragraph [ref=e319]: We set up your portal — website, email, CRM, booking — customized to your brand and workflow.
+        - generic [ref=e321]:
+          - generic [ref=e322]: rocket_launch
+          - generic [ref=e323]: "03"
+          - heading "Launch" [level=3] [ref=e324]
+          - paragraph [ref=e325]: Go live with a fully integrated platform. Your tools are connected, your data flows, and everything works.
+        - generic [ref=e327]:
+          - generic [ref=e328]: trending_up
+          - generic [ref=e329]: "04"
+          - heading "Grow" [level=3] [ref=e330]
+          - paragraph [ref=e331]: Add features, run campaigns, track results. We are here as your ongoing partner to help you scale.
+    - generic [ref=e334]:
+      - generic [ref=e336]:
+        - generic [ref=e337]:
+          - paragraph [ref=e338]: // INSIGHTS
+          - heading "From the Blog" [level=2] [ref=e339]
+        - link "View All arrow_forward" [ref=e340] [cursor=pointer]:
+          - /url: /blog
+          - generic [ref=e341]:
+            - text: View All
+            - generic [ref=e342]: arrow_forward
+      - generic [ref=e343]:
+        - link [ref=e345] [cursor=pointer]:
+          - /url: /blog/ai-automation-small-business-2026-roi-guide
+          - article [ref=e346]:
+            - generic [ref=e349]: article
+            - generic [ref=e350]:
+              - 'heading "AI Automation for Small Business in 2026: The Complete ROI Guide" [level=3] [ref=e351]'
+              - paragraph [ref=e352]: Small businesses are seeing 25–40% cost savings in their first year of AI automation. Here's what's working, what's not, and how to start.
+              - time [ref=e354]: Mar 15
+        - link [ref=e356] [cursor=pointer]:
+          - /url: /blog/claude-4-series-explained-sonnet-opus-2026
+          - article [ref=e357]:
+            - generic [ref=e360]: article
+            - generic [ref=e361]:
+              - 'heading "Claude 4 Series Explained: Sonnet 4.5, Opus 4.5, and What Changed" [level=3] [ref=e362]'
+              - paragraph [ref=e363]: Anthropic released Claude Sonnet 4.5 in September 2025 and Opus 4.5 in November. Here's what the benchmarks actually mean for developers.
+              - time [ref=e365]: Mar 14
+        - link [ref=e367] [cursor=pointer]:
+          - /url: /blog/web-design-trends-2026-eight-shifts-that-matter
+          - article [ref=e368]:
+            - generic [ref=e371]: article
+            - generic [ref=e372]:
+              - 'heading "Web Design Trends 2026: The 8 Shifts That Matter" [level=3] [ref=e373]'
+              - paragraph [ref=e374]: Neo-brutalism, bento grids, AI-generated UI, and kinetic typography. The 2026 web design landscape is moving fast. Here's what's worth paying attention to.
+              - time [ref=e376]: Mar 13
+    - generic [ref=e383]:
+      - paragraph [ref=e384]: // GET STARTED
+      - heading "Ready to simplify your business?" [level=2] [ref=e385]:
+        - text: Ready to simplify
+        - text: your business?
+      - paragraph [ref=e386]: Book a free consultation and we'll show you how the platform works for your specific business. No commitment, no pressure.
+      - generic [ref=e387]:
+        - link "Book a Free Consultation arrow_forward" [ref=e388] [cursor=pointer]:
+          - /url: /contact
+          - text: Book a Free Consultation
+          - generic [ref=e389]: arrow_forward
+        - link "Explore Features" [ref=e390] [cursor=pointer]:
+          - /url: /solutions
+  - contentinfo [ref=e391]:
+    - generic [ref=e392]:
+      - generic [ref=e393]:
+        - generic [ref=e394]:
+          - heading "SimplerDevelopment" [level=3] [ref=e395]
+          - paragraph [ref=e396]: We build custom software that helps businesses grow. From web apps to mobile, design to automation.
+          - generic [ref=e397]:
+            - link "LinkedIn" [ref=e398] [cursor=pointer]:
+              - /url: https://linkedin.com/company/simplerdevelopment
+              - img [ref=e399]
+            - link "GitHub" [ref=e401] [cursor=pointer]:
+              - /url: https://github.com/simplerdevelopment
+              - img [ref=e402]
+            - link "Twitter" [ref=e404] [cursor=pointer]:
+              - /url: https://twitter.com/simplerdevelopment
+              - img [ref=e405]
+        - generic [ref=e407]:
+          - heading "Platform" [level=4] [ref=e408]
+          - list [ref=e409]:
+            - listitem [ref=e410]:
+              - link "Website Builder" [ref=e411] [cursor=pointer]:
+                - /url: /solutions/websites
+            - listitem [ref=e412]:
+              - link "Email Marketing" [ref=e413] [cursor=pointer]:
+                - /url: /solutions/email-marketing
+            - listitem [ref=e414]:
+              - link "CRM" [ref=e415] [cursor=pointer]:
+                - /url: /solutions/crm
+            - listitem [ref=e416]:
+              - link "Online Booking" [ref=e417] [cursor=pointer]:
+                - /url: /solutions/booking
+            - listitem [ref=e418]:
+              - link "Online Store" [ref=e419] [cursor=pointer]:
+                - /url: /solutions/ecommerce
+            - listitem [ref=e420]:
+              - link "Company Brain" [ref=e421] [cursor=pointer]:
+                - /url: /solutions/company-brain
+            - listitem [ref=e422]:
+              - link "Automations" [ref=e423] [cursor=pointer]:
+                - /url: /solutions/automations
+            - listitem [ref=e424]:
+              - link "All Features" [ref=e425] [cursor=pointer]:
+                - /url: /solutions
+        - generic [ref=e426]:
+          - heading "Company" [level=4] [ref=e427]
+          - list [ref=e428]:
+            - listitem [ref=e429]:
+              - link "Pricing" [ref=e430] [cursor=pointer]:
+                - /url: /pricing
+            - listitem [ref=e431]:
+              - link "About Us" [ref=e432] [cursor=pointer]:
+                - /url: /about
+            - listitem [ref=e433]:
+              - link "Apps & Products" [ref=e434] [cursor=pointer]:
+                - /url: /apps-and-products
+            - listitem [ref=e435]:
+              - link "Blog" [ref=e436] [cursor=pointer]:
+                - /url: /blog
+            - listitem [ref=e437]:
+              - link "Contact" [ref=e438] [cursor=pointer]:
+                - /url: /contact
+        - generic [ref=e439]:
+          - heading "Get in Touch" [level=4] [ref=e440]
+          - paragraph [ref=e441]: Ready to start your project?
+          - link "Book a free consultation" [ref=e442] [cursor=pointer]:
+            - /url: /contact
+            - text: Book a free consultation
+            - img [ref=e443]
+          - paragraph [ref=e445]: info@simplerdevelopment.com
+      - paragraph [ref=e447]: © 2026 SimplerDevelopment. All rights reserved.
+  - alert [ref=e448]

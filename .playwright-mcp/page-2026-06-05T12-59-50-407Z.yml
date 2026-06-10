@@ -1,0 +1,325 @@
+- generic [active] [ref=e1]:
+  - navigation [ref=e2]:
+    - generic [ref=e4]:
+      - link "Simpler Development" [ref=e6] [cursor=pointer]:
+        - /url: /
+        - generic [ref=e7]: Simpler Development
+      - generic [ref=e8]:
+        - button "Toggle theme" [ref=e9]:
+          - img [ref=e10]
+        - button "Toggle mobile menu" [ref=e12]:
+          - img [ref=e13]
+  - generic [ref=e17]:
+    - generic [ref=e18]: Navigation
+    - link "Solutions" [ref=e19] [cursor=pointer]:
+      - /url: /solutions
+      - generic [ref=e20]: Solutions
+    - link "Pricing" [ref=e21] [cursor=pointer]:
+      - /url: /pricing
+      - generic [ref=e22]: Pricing
+    - link "About" [ref=e23] [cursor=pointer]:
+      - /url: /about
+      - generic [ref=e24]: About
+    - link "Blog" [ref=e25] [cursor=pointer]:
+      - /url: /blog
+      - generic [ref=e26]: Blog
+    - link "Book a Call" [ref=e28] [cursor=pointer]:
+      - /url: /contact
+      - generic [ref=e29]: Book a Call
+    - link "Admin Login" [ref=e31] [cursor=pointer]:
+      - /url: /admin/login
+  - main [ref=e32]:
+    - generic [ref=e34]:
+      - generic [ref=e38]:
+        - paragraph [ref=e40]: // APPS & PRODUCTS
+        - heading "Software We've Built & Ship" [level=1] [ref=e42]
+        - paragraph [ref=e44]: Real products solving real problems. Each one is available as a white-label solution or starting point for your custom project.
+      - generic [ref=e48]:
+        - generic [ref=e51]:
+          - generic [ref=e53]:
+            - generic: "01"
+            - generic [ref=e54]: edit_note
+            - generic [ref=e55]:
+              - generic [ref=e56]:
+                - generic [ref=e57]: check
+                - generic [ref=e58]: Block Editor
+              - generic [ref=e59]:
+                - generic [ref=e60]: check
+                - generic [ref=e61]: Custom Post Types
+              - generic [ref=e62]:
+                - generic [ref=e63]: check
+                - generic [ref=e64]: Media Library
+              - generic [ref=e65]:
+                - generic [ref=e66]: check
+                - generic [ref=e67]: Role Management
+              - generic [ref=e68]:
+                - generic [ref=e69]: check
+                - generic [ref=e70]: SEO Tools
+              - generic [ref=e71]:
+                - generic [ref=e72]: check
+                - generic [ref=e73]: API Access
+          - generic [ref=e74]:
+            - paragraph [ref=e75]: // 01
+            - generic [ref=e76]:
+              - heading "Simpler CMS" [level=2] [ref=e77]
+              - generic [ref=e78]: Available
+            - paragraph [ref=e79]: A modern content management system built with Next.js. Custom post types, visual block editor, media library, and a clean admin interface.
+            - generic [ref=e80]:
+              - link "Request a Demo arrow_forward" [ref=e81] [cursor=pointer]:
+                - /url: /contact
+                - generic [ref=e82]:
+                  - text: Request a Demo
+                  - generic [ref=e83]: arrow_forward
+              - link "Get Pricing" [ref=e84] [cursor=pointer]:
+                - /url: /contact
+                - generic [ref=e85]: Get Pricing
+        - generic [ref=e88]:
+          - generic [ref=e90]:
+            - generic: "02"
+            - generic [ref=e91]: local_printshop
+            - generic [ref=e92]:
+              - generic [ref=e93]:
+                - generic [ref=e94]: check
+                - generic [ref=e95]: Product Catalog
+              - generic [ref=e96]:
+                - generic [ref=e97]: check
+                - generic [ref=e98]: Order Management
+              - generic [ref=e99]:
+                - generic [ref=e100]: check
+                - generic [ref=e101]: Fulfillment API
+              - generic [ref=e102]:
+                - generic [ref=e103]: check
+                - generic [ref=e104]: Customer Portal
+              - generic [ref=e105]:
+                - generic [ref=e106]: check
+                - generic [ref=e107]: Analytics
+              - generic [ref=e108]:
+                - generic [ref=e109]: check
+                - generic [ref=e110]: Multi-vendor
+          - generic [ref=e111]:
+            - paragraph [ref=e112]: // 02
+            - generic [ref=e113]:
+              - heading "Simpler Prints" [level=2] [ref=e114]
+              - generic [ref=e115]: Available
+            - paragraph [ref=e116]: E-commerce platform for print-on-demand businesses. Product catalog, order management, and fulfillment integrations.
+            - generic [ref=e117]:
+              - link "Request a Demo arrow_forward" [ref=e118] [cursor=pointer]:
+                - /url: /contact
+                - generic [ref=e119]:
+                  - text: Request a Demo
+                  - generic [ref=e120]: arrow_forward
+              - link "Get Pricing" [ref=e121] [cursor=pointer]:
+                - /url: /contact
+                - generic [ref=e122]: Get Pricing
+        - generic [ref=e125]:
+          - generic [ref=e127]:
+            - generic: "03"
+            - generic [ref=e128]: work
+            - generic [ref=e129]:
+              - generic [ref=e130]:
+                - generic [ref=e131]: check
+                - generic [ref=e132]: Job Listings
+              - generic [ref=e133]:
+                - generic [ref=e134]: check
+                - generic [ref=e135]: Applicant Tracking
+              - generic [ref=e136]:
+                - generic [ref=e137]: check
+                - generic [ref=e138]: Real-time Chat
+              - generic [ref=e139]:
+                - generic [ref=e140]: check
+                - generic [ref=e141]: Employer Dashboard
+              - generic [ref=e142]:
+                - generic [ref=e143]: check
+                - generic [ref=e144]: Mobile App
+              - generic [ref=e145]:
+                - generic [ref=e146]: check
+                - generic [ref=e147]: Multi-tenant
+          - generic [ref=e148]:
+            - paragraph [ref=e149]: // 03
+            - generic [ref=e150]:
+              - heading "NXT Jobs" [level=2] [ref=e151]
+              - generic [ref=e152]: Available
+            - paragraph [ref=e153]: Full-featured job board platform with real-time messaging, application tracking, employer dashboards, and mobile app.
+            - generic [ref=e154]:
+              - link "Request a Demo arrow_forward" [ref=e155] [cursor=pointer]:
+                - /url: /contact
+                - generic [ref=e156]:
+                  - text: Request a Demo
+                  - generic [ref=e157]: arrow_forward
+              - link "Get Pricing" [ref=e158] [cursor=pointer]:
+                - /url: /contact
+                - generic [ref=e159]: Get Pricing
+        - generic [ref=e162]:
+          - generic [ref=e164]:
+            - generic: "04"
+            - generic [ref=e165]: pets
+            - generic [ref=e166]:
+              - generic [ref=e167]:
+                - generic [ref=e168]: check
+                - generic [ref=e169]: GPS Tracking
+              - generic [ref=e170]:
+                - generic [ref=e171]: check
+                - generic [ref=e172]: Scheduling
+              - generic [ref=e173]:
+                - generic [ref=e174]: check
+                - generic [ref=e175]: Payments
+              - generic [ref=e176]:
+                - generic [ref=e177]: check
+                - generic [ref=e178]: Walker Profiles
+              - generic [ref=e179]:
+                - generic [ref=e180]: check
+                - generic [ref=e181]: Photo Updates
+              - generic [ref=e182]:
+                - generic [ref=e183]: check
+                - generic [ref=e184]: Rating System
+          - generic [ref=e185]:
+            - paragraph [ref=e186]: // 04
+            - generic [ref=e187]:
+              - heading "Philly Dog Walk" [level=2] [ref=e188]
+              - generic [ref=e189]: Available
+            - paragraph [ref=e190]: On-demand dog walking platform with real-time GPS tracking, scheduling, payments, and walker management.
+            - generic [ref=e191]:
+              - link "Request a Demo arrow_forward" [ref=e192] [cursor=pointer]:
+                - /url: /contact
+                - generic [ref=e193]:
+                  - text: Request a Demo
+                  - generic [ref=e194]: arrow_forward
+              - link "Get Pricing" [ref=e195] [cursor=pointer]:
+                - /url: /contact
+                - generic [ref=e196]: Get Pricing
+      - generic [ref=e199]:
+        - generic [ref=e201]:
+          - paragraph [ref=e202]: // WHY US
+          - heading "Not just code. Products." [level=2] [ref=e203]
+          - paragraph [ref=e204]: Everything we build is designed to run in production, not collect dust in a repo.
+        - generic [ref=e205]:
+          - generic [ref=e207]:
+            - generic [ref=e209]: verified
+            - heading "Production Ready" [level=3] [ref=e210]
+            - paragraph [ref=e211]: Tested, documented, and deployed to real users with proven reliability.
+          - generic [ref=e213]:
+            - generic [ref=e215]: hub
+            - heading "Open Architecture" [level=3] [ref=e216]
+            - paragraph [ref=e217]: Clean APIs and modular design so you can extend or integrate with your stack.
+          - generic [ref=e219]:
+            - generic [ref=e221]: support_agent
+            - heading "Ongoing Support" [level=3] [ref=e222]
+            - paragraph [ref=e223]: Continuous updates, bug fixes, and feature development as your needs evolve.
+          - generic [ref=e225]:
+            - generic [ref=e227]: tune
+            - heading "Custom Builds" [level=3] [ref=e228]
+            - paragraph [ref=e229]: Every product can be forked and customized to fit your exact business requirements.
+      - generic [ref=e232]:
+        - generic [ref=e234]:
+          - paragraph [ref=e235]: // TECH STACK
+          - heading "Built With Modern Technology" [level=2] [ref=e236]
+          - paragraph [ref=e237]: Every product shares a proven, modern stack for reliability and performance.
+        - generic [ref=e238]:
+          - generic [ref=e240]:
+            - generic [ref=e241]: web
+            - text: Next.js
+          - generic [ref=e243]:
+            - generic [ref=e244]: phone_iphone
+            - text: React Native
+          - generic [ref=e246]:
+            - generic [ref=e247]: code
+            - text: TypeScript
+          - generic [ref=e249]:
+            - generic [ref=e250]: storage
+            - text: PostgreSQL
+          - generic [ref=e252]:
+            - generic [ref=e253]: database
+            - text: Prisma
+          - generic [ref=e255]:
+            - generic [ref=e256]: palette
+            - text: Tailwind CSS
+          - generic [ref=e258]:
+            - generic [ref=e259]: payments
+            - text: Stripe
+          - generic [ref=e261]:
+            - generic [ref=e262]: cloud
+            - text: Railway
+      - generic [ref=e266]:
+        - paragraph [ref=e267]: // NEXT STEP
+        - heading "Want something similar?" [level=2] [ref=e268]
+        - paragraph [ref=e269]: We can white-label any of these products for your brand, or build something completely custom from scratch.
+        - generic [ref=e270]:
+          - link "Book a Free Consultation arrow_forward" [ref=e271] [cursor=pointer]:
+            - /url: /contact
+            - generic [ref=e272]:
+              - text: Book a Free Consultation
+              - generic [ref=e273]: arrow_forward
+          - link "View Our Solutions" [ref=e274] [cursor=pointer]:
+            - /url: /solutions
+            - generic [ref=e275]: View Our Solutions
+  - contentinfo [ref=e276]:
+    - generic [ref=e277]:
+      - generic [ref=e278]:
+        - generic [ref=e279]:
+          - heading "SimplerDevelopment" [level=3] [ref=e280]
+          - paragraph [ref=e281]: We build custom software that helps businesses grow. From web apps to mobile, design to automation.
+          - generic [ref=e282]:
+            - link "LinkedIn" [ref=e283] [cursor=pointer]:
+              - /url: https://linkedin.com/company/simplerdevelopment
+              - img [ref=e284]
+            - link "GitHub" [ref=e286] [cursor=pointer]:
+              - /url: https://github.com/simplerdevelopment
+              - img [ref=e287]
+            - link "Twitter" [ref=e289] [cursor=pointer]:
+              - /url: https://twitter.com/simplerdevelopment
+              - img [ref=e290]
+        - generic [ref=e292]:
+          - heading "Platform" [level=4] [ref=e293]
+          - list [ref=e294]:
+            - listitem [ref=e295]:
+              - link "Website Builder" [ref=e296] [cursor=pointer]:
+                - /url: /solutions/websites
+            - listitem [ref=e297]:
+              - link "Email Marketing" [ref=e298] [cursor=pointer]:
+                - /url: /solutions/email-marketing
+            - listitem [ref=e299]:
+              - link "CRM" [ref=e300] [cursor=pointer]:
+                - /url: /solutions/crm
+            - listitem [ref=e301]:
+              - link "Online Booking" [ref=e302] [cursor=pointer]:
+                - /url: /solutions/booking
+            - listitem [ref=e303]:
+              - link "Online Store" [ref=e304] [cursor=pointer]:
+                - /url: /solutions/ecommerce
+            - listitem [ref=e305]:
+              - link "Company Brain" [ref=e306] [cursor=pointer]:
+                - /url: /solutions/company-brain
+            - listitem [ref=e307]:
+              - link "Automations" [ref=e308] [cursor=pointer]:
+                - /url: /solutions/automations
+            - listitem [ref=e309]:
+              - link "All Features" [ref=e310] [cursor=pointer]:
+                - /url: /solutions
+        - generic [ref=e311]:
+          - heading "Company" [level=4] [ref=e312]
+          - list [ref=e313]:
+            - listitem [ref=e314]:
+              - link "Pricing" [ref=e315] [cursor=pointer]:
+                - /url: /pricing
+            - listitem [ref=e316]:
+              - link "About Us" [ref=e317] [cursor=pointer]:
+                - /url: /about
+            - listitem [ref=e318]:
+              - link "Apps & Products" [ref=e319] [cursor=pointer]:
+                - /url: /apps-and-products
+            - listitem [ref=e320]:
+              - link "Blog" [ref=e321] [cursor=pointer]:
+                - /url: /blog
+            - listitem [ref=e322]:
+              - link "Contact" [ref=e323] [cursor=pointer]:
+                - /url: /contact
+        - generic [ref=e324]:
+          - heading "Get in Touch" [level=4] [ref=e325]
+          - paragraph [ref=e326]: Ready to start your project?
+          - link "Book a free consultation" [ref=e327] [cursor=pointer]:
+            - /url: /contact
+            - text: Book a free consultation
+            - img [ref=e328]
+          - paragraph [ref=e330]: info@simplerdevelopment.com
+      - paragraph [ref=e332]: © 2026 SimplerDevelopment. All rights reserved.
+  - alert [ref=e333]

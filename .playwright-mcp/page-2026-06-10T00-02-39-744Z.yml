@@ -1,0 +1,305 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - button "menu" [ref=e3]:
+      - generic [ref=e4]: menu
+    - link "Simpler Development" [ref=e5] [cursor=pointer]:
+      - /url: /portal
+      - generic [ref=e6]: Simpler Development
+    - complementary [ref=e7]:
+      - generic [ref=e8]:
+        - button "close" [ref=e16]:
+          - generic [ref=e17]: close
+        - navigation [ref=e18]:
+          - list [ref=e19]:
+            - listitem [ref=e20]:
+              - link "dashboard Dashboard" [ref=e21] [cursor=pointer]:
+                - /url: /portal/dashboard
+                - generic [ref=e22]: dashboard
+                - generic [ref=e23]: Dashboard
+            - listitem [ref=e24]:
+              - generic [ref=e25] [cursor=pointer]:
+                - generic [ref=e26]: psychology
+                - generic [ref=e27]: Company Brain
+                - generic [ref=e28]: expand_more
+            - listitem [ref=e29]:
+              - generic [ref=e30] [cursor=pointer]:
+                - generic [ref=e31]: view_kanban
+                - generic [ref=e32]: Projects
+                - generic [ref=e33]: expand_more
+            - listitem [ref=e34]:
+              - generic [ref=e35] [cursor=pointer]:
+                - generic [ref=e36]: rocket_launch
+                - generic [ref=e37]: Publishing
+                - generic [ref=e38]: expand_more
+            - listitem [ref=e39]:
+              - generic [ref=e40] [cursor=pointer]:
+                - generic [ref=e41]: contacts
+                - generic [ref=e42]: CRM
+                - generic [ref=e43]: expand_more
+            - listitem [ref=e44]:
+              - generic [ref=e45] [cursor=pointer]:
+                - generic [ref=e46]: email
+                - generic [ref=e47]: Email
+                - generic [ref=e48]: expand_more
+            - listitem [ref=e49]:
+              - generic [ref=e50] [cursor=pointer]:
+                - generic [ref=e51]: poll
+                - generic [ref=e52]: Surveys
+                - generic [ref=e53]: expand_more
+            - listitem [ref=e54]:
+              - generic [ref=e55] [cursor=pointer]:
+                - generic [ref=e56]: slideshow
+                - generic [ref=e57]: Pitches & Proposals
+                - generic [ref=e58]: expand_more
+            - listitem [ref=e59]:
+              - link "language Websites" [ref=e60] [cursor=pointer]:
+                - /url: /portal/websites
+                - generic [ref=e61]: language
+                - generic [ref=e62]: Websites
+            - listitem [ref=e63]:
+              - link "perm_media Media" [ref=e64] [cursor=pointer]:
+                - /url: /portal/media
+                - generic [ref=e65]: perm_media
+                - generic [ref=e66]: Media
+            - listitem [ref=e67]:
+              - link "science A/B Experiments" [ref=e68] [cursor=pointer]:
+                - /url: /portal/experiments
+                - generic [ref=e69]: science
+                - generic [ref=e70]: A/B Experiments
+            - listitem [ref=e71]:
+              - generic [ref=e72] [cursor=pointer]:
+                - generic [ref=e73]: storefront
+                - generic [ref=e74]: Agency
+                - generic [ref=e75]: expand_more
+            - listitem [ref=e76]:
+              - link "settings Settings" [ref=e77] [cursor=pointer]:
+                - /url: /portal/settings
+                - generic [ref=e78]: settings
+                - generic [ref=e79]: Settings
+        - generic [ref=e80]:
+          - button "brightness_auto System Mode swap_horiz" [ref=e81]:
+            - generic [ref=e82]: brightness_auto
+            - generic [ref=e83]: System Mode
+            - generic [ref=e84]: swap_horiz
+          - button "logout Sign Out" [ref=e85]:
+            - generic [ref=e86]: logout
+            - generic [ref=e87]: Sign Out
+    - generic [ref=e88]:
+      - generic [ref=e89]:
+        - link "Notifications" [ref=e90] [cursor=pointer]:
+          - /url: /portal/notifications
+          - generic [ref=e91]: notifications
+        - button "Notifications" [ref=e93]:
+          - generic [ref=e94]: notifications
+      - main [ref=e95]:
+        - generic [ref=e96]:
+          - generic [ref=e98]:
+            - heading "Welcome back, Center for Audit Quality!" [level=1] [ref=e99]
+            - paragraph [ref=e100]: Here's what's happening across your business.
+          - generic [ref=e102]:
+            - generic [ref=e103]:
+              - generic [ref=e104]: psychology
+              - generic [ref=e105]:
+                - heading "Turn this dashboard into a command center" [level=3] [ref=e106]
+                - paragraph [ref=e107]:
+                  - text: Enable Company Brain to surface pending reviews, overdue tasks, stale prospects, and recent automation runs right here. AI proposes — you approve.
+                  - link "Learn more" [ref=e108] [cursor=pointer]:
+                    - /url: /portal/brain
+                  - text: .
+            - button "power_settings_new Enable Company Brain" [ref=e109]:
+              - generic [ref=e110]: power_settings_new
+              - text: Enable Company Brain
+          - generic [ref=e111]:
+            - generic [ref=e112]:
+              - heading "Dashboard Widgets" [level=2] [ref=e113]
+              - button "tune Screen Options" [ref=e115]:
+                - generic [ref=e116]: tune
+                - text: Screen Options
+            - generic [ref=e117]:
+              - generic [ref=e119]:
+                - generic [ref=e120]:
+                  - button "Drag to reorder" [ref=e121]:
+                    - generic [ref=e122]: drag_indicator
+                  - generic [ref=e123]: view_kanban
+                  - link "Active Projects" [ref=e124] [cursor=pointer]:
+                    - /url: /portal/projects
+                  - button "Collapse widget" [ref=e125]:
+                    - generic [ref=e126]: expand_less
+                - generic [ref=e128]:
+                  - generic [ref=e129]: view_kanban
+                  - paragraph [ref=e130]: "0"
+                  - paragraph [ref=e131]: Active Projects
+              - generic [ref=e133]:
+                - generic [ref=e134]:
+                  - button "Drag to reorder" [ref=e135]:
+                    - generic [ref=e136]: drag_indicator
+                  - generic [ref=e137]: support_agent
+                  - link "Open Tickets" [ref=e138] [cursor=pointer]:
+                    - /url: /portal/tickets
+                  - button "Collapse widget" [ref=e139]:
+                    - generic [ref=e140]: expand_less
+                - generic [ref=e142]:
+                  - generic [ref=e143]: support_agent
+                  - paragraph [ref=e144]: "0"
+                  - paragraph [ref=e145]: Open Tickets
+              - generic [ref=e147]:
+                - generic [ref=e148]:
+                  - button "Drag to reorder" [ref=e149]:
+                    - generic [ref=e150]: drag_indicator
+                  - generic [ref=e151]: receipt_long
+                  - link "Unpaid Invoices" [ref=e152] [cursor=pointer]:
+                    - /url: /portal/invoices
+                  - button "Collapse widget" [ref=e153]:
+                    - generic [ref=e154]: expand_less
+                - generic [ref=e156]:
+                  - generic [ref=e157]: receipt_long
+                  - paragraph [ref=e158]: "0"
+                  - paragraph [ref=e159]: Unpaid Invoices
+              - generic [ref=e162]:
+                - button "Drag to reorder" [ref=e163]:
+                  - generic [ref=e164]: drag_indicator
+                - generic [ref=e165]: attach_money
+                - link "Amount Due" [ref=e166] [cursor=pointer]:
+                  - /url: /portal/invoices
+                - button "Collapse widget" [ref=e167]:
+                  - generic [ref=e168]: expand_less
+              - generic [ref=e179]:
+                - generic [ref=e180]:
+                  - button "Drag to reorder" [ref=e181]:
+                    - generic [ref=e182]: drag_indicator
+                  - generic [ref=e183]: groups
+                  - link "CRM Snapshot" [ref=e184] [cursor=pointer]:
+                    - /url: /portal/crm
+                  - button "Collapse widget" [ref=e185]:
+                    - generic [ref=e186]: expand_less
+                - generic [ref=e188]:
+                  - generic [ref=e189]:
+                    - link "0 Contacts" [ref=e190] [cursor=pointer]:
+                      - /url: /portal/crm
+                      - generic [ref=e191]: "0"
+                      - generic [ref=e192]: Contacts
+                    - link "0 Companies" [ref=e193] [cursor=pointer]:
+                      - /url: /portal/crm/companies
+                      - generic [ref=e194]: "0"
+                      - generic [ref=e195]: Companies
+                    - link "0 Deals" [ref=e196] [cursor=pointer]:
+                      - /url: /portal/crm/deals
+                      - generic [ref=e197]: "0"
+                      - generic [ref=e198]: Deals
+                  - generic [ref=e199]:
+                    - paragraph [ref=e200]: No CRM data yet.
+                    - link "Go to CRM" [ref=e201] [cursor=pointer]:
+                      - /url: /portal/crm
+              - generic [ref=e204]:
+                - button "Drag to reorder" [ref=e205]:
+                  - generic [ref=e206]: drag_indicator
+                - generic [ref=e207]: view_kanban
+                - link "Projects Overview" [ref=e208] [cursor=pointer]:
+                  - /url: /portal/projects
+                - button "Collapse widget" [ref=e209]:
+                  - generic [ref=e210]: expand_less
+              - generic [ref=e222]:
+                - button "Drag to reorder" [ref=e223]:
+                  - generic [ref=e224]: drag_indicator
+                - generic [ref=e225]: support_agent
+                - link "Support Tickets" [ref=e226] [cursor=pointer]:
+                  - /url: /portal/tickets
+                - button "Collapse widget" [ref=e227]:
+                  - generic [ref=e228]: expand_less
+              - generic [ref=e240]:
+                - button "Drag to reorder" [ref=e241]:
+                  - generic [ref=e242]: drag_indicator
+                - generic [ref=e243]: receipt_long
+                - link "Invoices" [ref=e244] [cursor=pointer]:
+                  - /url: /portal/invoices
+                - button "Collapse widget" [ref=e245]:
+                  - generic [ref=e246]: expand_less
+          - generic [ref=e256]:
+            - generic [ref=e257]:
+              - heading "Grow Your Business" [level=2] [ref=e258]
+              - link "View all services" [ref=e259] [cursor=pointer]:
+                - /url: /portal/services
+            - generic [ref=e260]:
+              - generic [ref=e261]:
+                - generic [ref=e262]:
+                  - generic [ref=e264]: calendar_month
+                  - generic [ref=e265]:
+                    - paragraph [ref=e266]: Booking System
+                    - paragraph [ref=e267]: $29/mo
+                - paragraph [ref=e268]: Online scheduling with calendar sync, reminders, and embeddable widgets.
+                - link "add Set up booking" [ref=e269] [cursor=pointer]:
+                  - /url: /portal/services/19/request
+                  - generic [ref=e270]: add
+                  - text: Set up booking
+              - generic [ref=e271]:
+                - generic [ref=e272]:
+                  - generic [ref=e274]: smart_toy
+                  - generic [ref=e275]:
+                    - paragraph [ref=e276]: Chat Bot
+                    - paragraph [ref=e277]: $49/mo
+                - paragraph [ref=e278]: AI chatbot trained on your content for support and lead capture.
+                - link "add Add AI chat" [ref=e279] [cursor=pointer]:
+                  - /url: /portal/services/21/request
+                  - generic [ref=e280]: add
+                  - text: Add AI chat
+              - generic [ref=e281]:
+                - generic [ref=e282]:
+                  - generic [ref=e284]: email
+                  - generic [ref=e285]:
+                    - paragraph [ref=e286]: Email Marketing
+                    - paragraph [ref=e287]: $19/mo
+                - paragraph [ref=e288]: Send beautiful campaigns, manage subscribers, and track engagement.
+                - link "add Start email marketing" [ref=e289] [cursor=pointer]:
+                  - /url: /portal/services/18/request
+                  - generic [ref=e290]: add
+                  - text: Start email marketing
+              - generic [ref=e291]:
+                - generic [ref=e292]:
+                  - generic [ref=e294]: cloud
+                  - generic [ref=e295]:
+                    - paragraph [ref=e296]: Hosting & DNS
+                    - paragraph [ref=e297]: $19/mo
+                - paragraph [ref=e298]: Managed hosting with SSL, CDN, daily backups, and 99.9% uptime.
+                - link "add Get hosting" [ref=e299] [cursor=pointer]:
+                  - /url: /portal/services/23/request
+                  - generic [ref=e300]: add
+                  - text: Get hosting
+              - generic [ref=e301]:
+                - generic [ref=e302]:
+                  - generic [ref=e304]: cloud
+                  - generic [ref=e305]:
+                    - paragraph [ref=e306]: Monthly Maintenance
+                    - paragraph [ref=e307]: $299/mo
+                - paragraph [ref=e308]: Managed hosting with SSL, CDN, daily backups, and 99.9% uptime.
+                - link "add Get hosting" [ref=e309] [cursor=pointer]:
+                  - /url: /portal/services/25/request
+                  - generic [ref=e310]: add
+                  - text: Get hosting
+              - generic [ref=e311]:
+                - generic [ref=e312]:
+                  - generic [ref=e314]: slideshow
+                  - generic [ref=e315]:
+                    - paragraph [ref=e316]: Pitch Decks
+                    - paragraph [ref=e317]: $15/mo
+                - paragraph [ref=e318]: AI-powered pitch decks with auto-branding and PDF export.
+                - link "add Create a deck" [ref=e319] [cursor=pointer]:
+                  - /url: /portal/services/22/request
+                  - generic [ref=e320]: add
+                  - text: Create a deck
+          - generic [ref=e321]:
+            - heading "Quick Actions" [level=2] [ref=e322]
+            - generic [ref=e323]:
+              - link "add Open Support Ticket" [ref=e324] [cursor=pointer]:
+                - /url: /portal/tickets/new
+                - generic [ref=e325]: add
+                - text: Open Support Ticket
+              - link "view_kanban View Projects" [ref=e326] [cursor=pointer]:
+                - /url: /portal/projects
+                - generic [ref=e327]: view_kanban
+                - text: View Projects
+              - link "storefront Browse Services" [ref=e328] [cursor=pointer]:
+                - /url: /portal/services
+                - generic [ref=e329]: storefront
+                - text: Browse Services
+  - button "Open Next.js Dev Tools" [ref=e335] [cursor=pointer]:
+    - img [ref=e336]

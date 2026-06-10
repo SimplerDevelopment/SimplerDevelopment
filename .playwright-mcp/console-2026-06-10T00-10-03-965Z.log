@@ -1,0 +1,122 @@
+[     150ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    1061ms] [LOG] [Fast Refresh] done in 1011ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    3108ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    3290ms] [LOG] [HMR] connected @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    4397ms] [LOG] [HMR] connected @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    4444ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    4446ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    4458ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    4458ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    4963ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    4963ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    4965ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    4967ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    5100ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    5100ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    5263ms] [ERROR] An empty string ("") was passed to the %s attribute. This may cause the browser to download the whole page again over the network. To fix this, either do not render the element at all or pass null to %s instead of an empty string. src src @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1883
+[    5269ms] [ERROR] An empty string ("") was passed to the %s attribute. This may cause the browser to download the whole page again over the network. To fix this, either do not render the element at all or pass null to %s instead of an empty string. src src @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1883
+[    5272ms] [ERROR] An empty string ("") was passed to the %s attribute. This may cause the browser to download the whole page again over the network. To fix this, either do not render the element at all or pass null to %s instead of an empty string. src src @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1883
+[    5301ms] [ERROR] An empty string ("") was passed to the %s attribute. This may cause the browser to download the whole page again over the network. To fix this, either do not render the element at all or pass null to %s instead of an empty string. src src @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1883
+[    5330ms] [ERROR] An empty string ("") was passed to the %s attribute. This may cause the browser to download the whole page again over the network. To fix this, either do not render the element at all or pass null to %s instead of an empty string. src src @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1883
+[    5371ms] [ERROR] An empty string ("") was passed to the %s attribute. This may cause the browser to download the whole page again over the network. To fix this, either do not render the element at all or pass null to %s instead of an empty string. src src @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1883
+[    5518ms] [ERROR] An empty string ("") was passed to the %s attribute. This may cause the browser to download the whole page again over the network. To fix this, either do not render the element at all or pass null to %s instead of an empty string. src src @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1883
+[    5598ms] [LOG] [Fast Refresh] done in 780ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    5599ms] [LOG] [Fast Refresh] done in 781ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    5849ms] [ERROR] Failed to load resource: the server responded with a status of 503 (Service Unavailable) @ http://localhost:3000/api/realtime/token:0
+[    5888ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    5889ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    5892ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    5893ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    5997ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/portal/cms/websites/241/content-types:0
+[    5997ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:3000/api/portal/cms/websites/241/categories:0
+[    5997ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:3000/api/portal/cms/websites/241/tags:0
+[    6267ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    6269ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    6270ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    6271ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    6372ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    6372ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    6373ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    6373ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    6597ms] [ERROR] Failed to load resource: the server responded with a status of 503 (Service Unavailable) @ http://localhost:3000/api/realtime/token:0
+[    6601ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    6601ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    6602ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    6603ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    7602ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    7602ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    7602ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    7602ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    7641ms] [ERROR] Failed to load resource: the server responded with a status of 503 (Service Unavailable) @ http://localhost:3000/api/realtime/token:0
+[    7645ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    7645ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    7645ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    7645ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    9645ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    9646ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    9646ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    9646ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    9699ms] [ERROR] Failed to load resource: the server responded with a status of 503 (Service Unavailable) @ http://localhost:3000/api/realtime/token:0
+[    9702ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    9702ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    9702ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    9702ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   13703ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   13703ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   13703ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   13703ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   13741ms] [ERROR] Failed to load resource: the server responded with a status of 503 (Service Unavailable) @ http://localhost:3000/api/realtime/token:0
+[   13745ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   13745ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   13746ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   13746ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   14761ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   14761ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   15122ms] [LOG] [Fast Refresh] done in 463ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   15123ms] [LOG] [Fast Refresh] done in 463ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   19521ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   19521ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   19940ms] [LOG] [Fast Refresh] done in 530ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   19940ms] [LOG] [Fast Refresh] done in 530ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   21747ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   21747ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   21748ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   21748ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   21783ms] [ERROR] Failed to load resource: the server responded with a status of 503 (Service Unavailable) @ http://localhost:3000/api/realtime/token:0
+[   21787ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   21787ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   21787ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   21787ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   37788ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   37788ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   37789ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   37789ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   37836ms] [ERROR] Failed to load resource: the server responded with a status of 503 (Service Unavailable) @ http://localhost:3000/api/realtime/token:0
+[   37839ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   37840ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   37840ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   37840ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   39463ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   39463ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   39922ms] [LOG] [Fast Refresh] done in 523ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   39922ms] [LOG] [Fast Refresh] done in 530ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   40064ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   40064ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   40110ms] [LOG] [Fast Refresh] done in 148ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   40110ms] [LOG] [Fast Refresh] done in 147ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   40265ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   40265ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   40334ms] [LOG] [Fast Refresh] done in 171ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   40335ms] [LOG] [Fast Refresh] done in 171ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   40979ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   40979ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   40979ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   40979ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   43808ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   43808ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   43830ms] [LOG] [Fast Refresh] done in 124ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   43831ms] [LOG] [Fast Refresh] done in 124ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   46049ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   46050ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   46811ms] [LOG] [Fast Refresh] done in 863ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   46811ms] [LOG] [Fast Refresh] done in 863ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053

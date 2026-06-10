@@ -1,0 +1,572 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - button "menu" [ref=e3]:
+      - generic [ref=e4]: menu
+    - link "Simpler Development" [ref=e5] [cursor=pointer]:
+      - /url: /portal
+      - generic [ref=e6]: Simpler Development
+    - complementary [ref=e7]:
+      - generic [ref=e8]:
+        - generic [ref=e9]:
+          - button "C Center for Audit Quality expand_more admin" [ref=e11]:
+            - generic [ref=e12]: C
+            - generic [ref=e13]:
+              - generic [ref=e14]:
+                - paragraph [ref=e15]: Center for Audit Quality
+                - generic [ref=e16]: expand_more
+              - paragraph [ref=e17]: admin
+          - button "close" [ref=e19]:
+            - generic [ref=e20]: close
+        - navigation [ref=e21]:
+          - list [ref=e22]:
+            - listitem [ref=e23]:
+              - link "dashboard Dashboard" [ref=e24] [cursor=pointer]:
+                - /url: /portal/dashboard
+                - generic [ref=e25]: dashboard
+                - generic [ref=e26]: Dashboard
+            - listitem [ref=e27]:
+              - generic [ref=e28] [cursor=pointer]:
+                - generic [ref=e29]: psychology
+                - generic [ref=e30]: Company Brain
+                - generic [ref=e31]: expand_more
+            - listitem [ref=e32]:
+              - generic [ref=e33] [cursor=pointer]:
+                - generic [ref=e34]: view_kanban
+                - generic [ref=e35]: Projects
+                - generic [ref=e36]: expand_more
+            - listitem [ref=e37]:
+              - generic [ref=e38] [cursor=pointer]:
+                - generic [ref=e39]: rocket_launch
+                - generic [ref=e40]: Publishing
+                - generic [ref=e41]: expand_more
+            - listitem [ref=e42]:
+              - generic [ref=e43] [cursor=pointer]:
+                - generic [ref=e44]: contacts
+                - generic [ref=e45]: CRM
+                - generic [ref=e46]: expand_more
+            - listitem [ref=e47]:
+              - generic [ref=e48] [cursor=pointer]:
+                - generic [ref=e49]: email
+                - generic [ref=e50]: Email
+                - generic [ref=e51]: expand_more
+            - listitem [ref=e52]:
+              - generic [ref=e53] [cursor=pointer]:
+                - generic [ref=e54]: poll
+                - generic [ref=e55]: Surveys
+                - generic [ref=e56]: expand_more
+            - listitem [ref=e57]:
+              - generic [ref=e58] [cursor=pointer]:
+                - generic [ref=e59]: slideshow
+                - generic [ref=e60]: Pitches & Proposals
+                - generic [ref=e61]: expand_more
+            - listitem [ref=e62]:
+              - link "language Websites" [ref=e63] [cursor=pointer]:
+                - /url: /portal/websites
+                - generic [ref=e64]: language
+                - generic [ref=e65]: Websites
+            - listitem [ref=e66]:
+              - generic [ref=e67] [cursor=pointer]:
+                - generic [ref=e68]: web
+                - generic [ref=e69]: Website
+                - generic [ref=e70]: expand_less
+              - list [ref=e71]:
+                - listitem [ref=e72]:
+                  - generic [ref=e73] [cursor=pointer]:
+                    - generic [ref=e74]: article
+                    - generic [ref=e75]: Content
+                    - generic [ref=e76]: expand_less
+                  - list [ref=e77]:
+                    - listitem [ref=e78]:
+                      - link "edit_note Entries" [ref=e79] [cursor=pointer]:
+                        - /url: /portal/websites/241/entries
+                        - generic [ref=e80]: edit_note
+                        - generic [ref=e81]: Entries
+                    - listitem [ref=e82]:
+                      - link "account_tree Taxonomies" [ref=e83] [cursor=pointer]:
+                        - /url: /portal/websites/241/taxonomy
+                        - generic [ref=e84]: account_tree
+                        - generic [ref=e85]: Taxonomies
+                    - listitem [ref=e86]:
+                      - link "description Content Types" [ref=e87] [cursor=pointer]:
+                        - /url: /portal/websites/241/content-types
+                        - generic [ref=e88]: description
+                        - generic [ref=e89]: Content Types
+                - listitem [ref=e90]:
+                  - generic [ref=e91] [cursor=pointer]:
+                    - generic [ref=e92]: shopping_cart
+                    - generic [ref=e93]: Store
+                    - generic [ref=e94]: expand_more
+                - listitem [ref=e95]:
+                  - link "email Website Emails" [ref=e96] [cursor=pointer]:
+                    - /url: /portal/websites/241/email
+                    - generic [ref=e97]: email
+                    - generic [ref=e98]: Website Emails
+                - listitem [ref=e99]:
+                  - link "menu Navigation" [ref=e100] [cursor=pointer]:
+                    - /url: /portal/websites/241/navigation
+                    - generic [ref=e101]: menu
+                    - generic [ref=e102]: Navigation
+                - listitem [ref=e103]:
+                  - link "settings Website Settings" [ref=e104] [cursor=pointer]:
+                    - /url: /portal/websites/241/settings
+                    - generic [ref=e105]: settings
+                    - generic [ref=e106]: Website Settings
+            - listitem [ref=e107]:
+              - link "perm_media Media" [ref=e108] [cursor=pointer]:
+                - /url: /portal/media
+                - generic [ref=e109]: perm_media
+                - generic [ref=e110]: Media
+            - listitem [ref=e111]:
+              - link "science A/B Experiments" [ref=e112] [cursor=pointer]:
+                - /url: /portal/experiments
+                - generic [ref=e113]: science
+                - generic [ref=e114]: A/B Experiments
+            - listitem [ref=e115]:
+              - generic [ref=e116] [cursor=pointer]:
+                - generic [ref=e117]: storefront
+                - generic [ref=e118]: Agency
+                - generic [ref=e119]: expand_more
+            - listitem [ref=e120]:
+              - link "calendar_month Booking System" [ref=e121] [cursor=pointer]:
+                - /url: /portal/tools/booking
+                - generic [ref=e122]: calendar_month
+                - generic [ref=e123]: Booking System
+            - listitem [ref=e124]:
+              - link "settings Settings" [ref=e125] [cursor=pointer]:
+                - /url: /portal/settings
+                - generic [ref=e126]: settings
+                - generic [ref=e127]: Settings
+        - generic [ref=e128]:
+          - button "brightness_auto System Mode swap_horiz" [ref=e129]:
+            - generic [ref=e130]: brightness_auto
+            - generic [ref=e131]: System Mode
+            - generic [ref=e132]: swap_horiz
+          - button "logout Sign Out" [ref=e133]:
+            - generic [ref=e134]: logout
+            - generic [ref=e135]: Sign Out
+    - generic [ref=e136]:
+      - generic [ref=e137]:
+        - link "Notifications (2 unread)" [ref=e138] [cursor=pointer]:
+          - /url: /portal/notifications
+          - generic [ref=e139]: notifications
+          - generic [ref=e140]: "2"
+        - button "Notifications" [ref=e142]:
+          - generic [ref=e143]: notifications
+      - main [ref=e144]:
+        - generic [ref=e145]:
+          - navigation [ref=e146]:
+            - generic [ref=e148]:
+              - link "chevron_left" [ref=e149] [cursor=pointer]:
+                - /url: /portal/websites/241
+                - generic [ref=e150]: chevron_left
+              - heading "Layout Controls — All Blocks Test" [level=1] [ref=e151]
+              - button "edit_note" [ref=e152]:
+                - generic [ref=e153]: edit_note
+              - generic [ref=e155]:
+                - button "undo" [disabled] [ref=e156]:
+                  - generic [ref=e157]: undo
+                - button "redo" [disabled] [ref=e158]:
+                  - generic [ref=e159]: redo
+              - generic [ref=e161]:
+                - generic [ref=e162]:
+                  - button "computer" [ref=e163]:
+                    - generic [ref=e164]: computer
+                  - button "tablet" [ref=e165]:
+                    - generic [ref=e166]: tablet
+                  - button "phone_iphone" [ref=e167]:
+                    - generic [ref=e168]: phone_iphone
+                - button "cloud Prod" [ref=e171]:
+                  - generic [ref=e172]: cloud
+                  - text: Prod
+              - combobox [ref=e173]:
+                - option "Draft"
+                - option "Published" [selected]
+              - button "visibility Preview" [ref=e174]:
+                - generic [ref=e175]: visibility
+                - text: Preview
+              - button "history History" [ref=e176]:
+                - generic [ref=e177]: history
+                - text: History
+              - button "code Code" [ref=e178]:
+                - generic [ref=e179]: code
+                - text: Code
+              - link "open_in_new View Live" [ref=e180] [cursor=pointer]:
+                - /url: http://localhost:3000/sites/simplerdevelopment.simplerdevelopment.com/layout-controls-allblocks-test
+                - generic [ref=e181]: open_in_new
+                - text: View Live
+              - button "check Update" [ref=e182]:
+                - generic [ref=e183]: check
+                - text: Update
+          - main [ref=e184]:
+            - generic [ref=e186]:
+              - generic [ref=e187]:
+                - button "chevron_left" [ref=e188]:
+                  - generic [ref=e189]: chevron_left
+                - generic [ref=e190]:
+                  - generic [ref=e191]:
+                    - button "layers Layers" [ref=e192]:
+                      - generic [ref=e193]: layers
+                      - text: Layers
+                    - button "add_circle_outline Add Block" [ref=e194]:
+                      - generic [ref=e195]: add_circle_outline
+                      - text: Add Block
+                  - generic [ref=e196]:
+                    - generic [ref=e197]:
+                      - generic [ref=e199] [cursor=pointer]:
+                        - button "drag_indicator" [ref=e200]
+                        - generic [ref=e201]: title
+                        - generic "Double-click to rename" [ref=e202]: Write your heading..
+                        - button "close" [ref=e203]:
+                          - generic [ref=e204]: close
+                      - generic [ref=e206] [cursor=pointer]:
+                        - button "drag_indicator" [ref=e207]
+                        - generic [ref=e208]: notes
+                        - generic "Double-click to rename" [ref=e209]: Start writing or typ
+                        - button "close" [ref=e210]:
+                          - generic [ref=e211]: close
+                      - generic [ref=e213] [cursor=pointer]:
+                        - button "drag_indicator" [ref=e214]
+                        - generic [ref=e215]: smart_button
+                        - generic "Double-click to rename" [ref=e216]: button
+                        - button "close" [ref=e217]:
+                          - generic [ref=e218]: close
+                      - generic [ref=e220] [cursor=pointer]:
+                        - button "drag_indicator" [ref=e221]
+                        - generic [ref=e222]: format_quote
+                        - generic "Double-click to rename" [ref=e223]: Add a memorable quot
+                        - button "close" [ref=e224]:
+                          - generic [ref=e225]: close
+                      - generic [ref=e227] [cursor=pointer]:
+                        - button "drag_indicator" [ref=e228]
+                        - generic [ref=e229]: image
+                        - generic "Double-click to rename" [ref=e230]: image
+                        - button "close" [ref=e231]:
+                          - generic [ref=e232]: close
+                      - generic [ref=e234] [cursor=pointer]:
+                        - button "drag_indicator" [ref=e235]
+                        - generic [ref=e236]: play_circle
+                        - generic "Double-click to rename" [ref=e237]: youtube
+                        - button "close" [ref=e238]:
+                          - generic [ref=e239]: close
+                      - generic [ref=e241] [cursor=pointer]:
+                        - button "drag_indicator" [ref=e242]
+                        - generic [ref=e243]: videocam
+                        - generic "Double-click to rename" [ref=e244]: video
+                        - button "close" [ref=e245]:
+                          - generic [ref=e246]: close
+                      - generic [ref=e248] [cursor=pointer]:
+                        - button "drag_indicator" [ref=e249]
+                        - generic [ref=e250]: photo_library
+                        - generic "Double-click to rename" [ref=e251]: gallery
+                        - button "close" [ref=e252]:
+                          - generic [ref=e253]: close
+                      - generic [ref=e255] [cursor=pointer]:
+                        - button "drag_indicator" [ref=e256]
+                        - generic [ref=e257]: code
+                        - generic "Double-click to rename" [ref=e258]: code
+                        - button "close" [ref=e259]:
+                          - generic [ref=e260]: close
+                      - generic [ref=e262] [cursor=pointer]:
+                        - button "drag_indicator" [ref=e263]
+                        - generic [ref=e264]: data_object
+                        - generic "Double-click to rename" [ref=e265]: html-render
+                        - button "close" [ref=e266]:
+                          - generic [ref=e267]: close
+                      - generic [ref=e269] [cursor=pointer]:
+                        - button "drag_indicator" [ref=e270]
+                        - generic [ref=e271]: integration_instructions
+                        - generic "Double-click to rename" [ref=e272]: html-embed
+                        - button "close" [ref=e273]:
+                          - generic [ref=e274]: close
+                      - generic [ref=e276] [cursor=pointer]:
+                        - button "drag_indicator" [ref=e277]
+                        - generic [ref=e278]: height
+                        - generic "Double-click to rename" [ref=e279]: spacer
+                        - button "close" [ref=e280]:
+                          - generic [ref=e281]: close
+                      - generic [ref=e283] [cursor=pointer]:
+                        - button "drag_indicator" [ref=e284]
+                        - generic [ref=e285]: horizontal_rule
+                        - generic "Double-click to rename" [ref=e286]: divider
+                        - button "close" [ref=e287]:
+                          - generic [ref=e288]: close
+                      - generic [ref=e289]:
+                        - generic [ref=e290] [cursor=pointer]:
+                          - button "drag_indicator" [ref=e291]
+                          - button "expand_more" [ref=e292]
+                          - generic [ref=e293]: view_column
+                          - generic "Double-click to rename" [ref=e294]: columns
+                          - button "close" [ref=e295]:
+                            - generic [ref=e296]: close
+                        - generic [ref=e297]:
+                          - generic [ref=e298]: Col 1
+                          - generic [ref=e299]: + Add to slot
+                        - generic [ref=e300]:
+                          - generic [ref=e301]: Col 2
+                          - generic [ref=e302]: + Add to slot
+                      - generic [ref=e303]:
+                        - generic [ref=e304] [cursor=pointer]:
+                          - button "drag_indicator" [ref=e305]
+                          - button "expand_more" [ref=e306]
+                          - generic [ref=e307]: crop_free
+                          - generic "Double-click to rename" [ref=e308]: section
+                          - button "close" [ref=e309]:
+                            - generic [ref=e310]: close
+                        - generic [ref=e311]:
+                          - generic [ref=e312]: Content
+                          - generic [ref=e313]: + Add to slot
+                      - generic [ref=e314]:
+                        - generic [ref=e315] [cursor=pointer]:
+                          - button "drag_indicator" [ref=e316]
+                          - button "expand_more" [ref=e317]
+                          - generic [ref=e318]: tab
+                          - generic "Double-click to rename" [ref=e319]: tabs
+                          - button "close" [ref=e320]:
+                            - generic [ref=e321]: close
+                        - generic [ref=e322]:
+                          - generic [ref=e323]: Tab 1
+                          - generic [ref=e324]: + Add to slot
+                        - generic [ref=e325]:
+                          - generic [ref=e326]: Tab 2
+                          - generic [ref=e327]: + Add to slot
+                      - generic [ref=e328]:
+                        - generic [ref=e329] [cursor=pointer]:
+                          - button "drag_indicator" [ref=e330]
+                          - button "expand_more" [ref=e331]
+                          - generic [ref=e332]: expand_more
+                          - generic "Double-click to rename" [ref=e333]: Frequently Asked Que
+                          - button "close" [ref=e334]:
+                            - generic [ref=e335]: close
+                        - generic [ref=e336]:
+                          - generic [ref=e337]: First question?
+                          - generic [ref=e338]: + Add to slot
+                        - generic [ref=e339]:
+                          - generic [ref=e340]: Second question?
+                          - generic [ref=e341]: + Add to slot
+                      - generic [ref=e343] [cursor=pointer]:
+                        - button "drag_indicator" [ref=e344]
+                        - generic [ref=e345]: view_carousel
+                        - generic "Double-click to rename" [ref=e346]: sticky-scroll-tabs
+                        - button "close" [ref=e347]:
+                          - generic [ref=e348]: close
+                      - generic [ref=e350] [cursor=pointer]:
+                        - button "drag_indicator" [ref=e351]
+                        - generic [ref=e352]: view_carousel
+                        - generic "Double-click to rename" [ref=e353]: Your Headline Here
+                        - button "close" [ref=e354]:
+                          - generic [ref=e355]: close
+                      - generic [ref=e357] [cursor=pointer]:
+                        - button "drag_indicator" [ref=e358]
+                        - generic [ref=e359]: slideshow
+                        - generic "Double-click to rename" [ref=e360]: hero-slideshow
+                        - button "close" [ref=e361]:
+                          - generic [ref=e362]: close
+                      - generic [ref=e364] [cursor=pointer]:
+                        - button "drag_indicator" [ref=e365]
+                        - generic [ref=e366]: text_rotation_none
+                        - generic "Double-click to rename" [ref=e367]: marquee
+                        - button "close" [ref=e368]:
+                          - generic [ref=e369]: close
+                      - generic [ref=e371] [cursor=pointer]:
+                        - button "drag_indicator" [ref=e372]
+                        - generic [ref=e373]: campaign
+                        - generic "Double-click to rename" [ref=e374]: Ready to get started
+                        - button "close" [ref=e375]:
+                          - generic [ref=e376]: close
+                      - generic [ref=e378] [cursor=pointer]:
+                        - button "drag_indicator" [ref=e379]
+                        - generic [ref=e380]: grid_view
+                        - generic "Double-click to rename" [ref=e381]: Features
+                        - button "close" [ref=e382]:
+                          - generic [ref=e383]: close
+                      - generic [ref=e385] [cursor=pointer]:
+                        - button "drag_indicator" [ref=e386]
+                        - generic [ref=e387]: flip
+                        - generic "Double-click to rename" [ref=e388]: flip-card-grid
+                        - button "close" [ref=e389]:
+                          - generic [ref=e390]: close
+                      - generic [ref=e392] [cursor=pointer]:
+                        - button "drag_indicator" [ref=e393]
+                        - generic [ref=e394]: insights
+                        - generic "Double-click to rename" [ref=e395]: metric-cards
+                        - button "close" [ref=e396]:
+                          - generic [ref=e397]: close
+                      - generic [ref=e399] [cursor=pointer]:
+                        - button "drag_indicator" [ref=e400]
+                        - generic [ref=e401]: view_column
+                        - generic "Double-click to rename" [ref=e402]: logo-strip
+                        - button "close" [ref=e403]:
+                          - generic [ref=e404]: close
+                      - generic [ref=e406] [cursor=pointer]:
+                        - button "drag_indicator" [ref=e407]
+                        - generic [ref=e408]: bar_chart
+                        - generic "Double-click to rename" [ref=e409]: By the numbers
+                        - button "close" [ref=e410]:
+                          - generic [ref=e411]: close
+                      - generic [ref=e413] [cursor=pointer]:
+                        - button "drag_indicator" [ref=e414]
+                        - generic [ref=e415]: rate_review
+                        - generic "Double-click to rename" [ref=e416]: testimonial
+                        - button "close" [ref=e417]:
+                          - generic [ref=e418]: close
+                      - generic [ref=e420] [cursor=pointer]:
+                        - button "drag_indicator" [ref=e421]
+                        - generic [ref=e422]: star
+                        - generic "Double-click to rename" [ref=e423]: Featured Content
+                        - button "close" [ref=e424]:
+                          - generic [ref=e425]: close
+                      - generic [ref=e427] [cursor=pointer]:
+                        - button "drag_indicator" [ref=e428]
+                        - generic [ref=e429]: apps
+                        - generic "Double-click to rename" [ref=e430]: Our Services
+                        - button "close" [ref=e431]:
+                          - generic [ref=e432]: close
+                      - generic [ref=e434] [cursor=pointer]:
+                        - button "drag_indicator" [ref=e435]
+                        - generic [ref=e436]: article
+                        - generic "Double-click to rename" [ref=e437]: Latest Posts
+                        - button "close" [ref=e438]:
+                          - generic [ref=e439]: close
+                      - generic [ref=e441] [cursor=pointer]:
+                        - button "drag_indicator" [ref=e442]
+                        - generic [ref=e443]: timeline
+                        - generic "Double-click to rename" [ref=e444]: timeline
+                        - button "close" [ref=e445]:
+                          - generic [ref=e446]: close
+                      - generic [ref=e448] [cursor=pointer]:
+                        - button "drag_indicator" [ref=e449]
+                        - generic [ref=e450]: groups
+                        - generic "Double-click to rename" [ref=e451]: team-showcase
+                        - button "close" [ref=e452]:
+                          - generic [ref=e453]: close
+                      - generic [ref=e455] [cursor=pointer]:
+                        - button "drag_indicator" [ref=e456]
+                        - generic [ref=e457]: flip
+                        - generic "Double-click to rename" [ref=e458]: team-flip-grid
+                        - button "close" [ref=e459]:
+                          - generic [ref=e460]: close
+                      - generic [ref=e462] [cursor=pointer]:
+                        - button "drag_indicator" [ref=e463]
+                        - generic [ref=e464]: view_quilt
+                        - generic "Double-click to rename" [ref=e465]: bento-grid
+                        - button "close" [ref=e466]:
+                          - generic [ref=e467]: close
+                      - generic [ref=e469] [cursor=pointer]:
+                        - button "drag_indicator" [ref=e470]
+                        - generic [ref=e471]: border_bottom
+                        - generic "Double-click to rename" [ref=e472]: site-footer
+                        - button "close" [ref=e473]:
+                          - generic [ref=e474]: close
+                      - generic [ref=e476] [cursor=pointer]:
+                        - button "drag_indicator" [ref=e477]
+                        - generic [ref=e478]: share
+                        - generic "Double-click to rename" [ref=e479]: social-links
+                        - button "close" [ref=e480]:
+                          - generic [ref=e481]: close
+                      - generic [ref=e483] [cursor=pointer]:
+                        - button "drag_indicator" [ref=e484]
+                        - generic [ref=e485]: storefront
+                        - generic "Double-click to rename" [ref=e486]: product-grid
+                        - button "close" [ref=e487]:
+                          - generic [ref=e488]: close
+                      - generic [ref=e490] [cursor=pointer]:
+                        - button "drag_indicator" [ref=e491]
+                        - generic [ref=e492]: loyalty
+                        - generic "Double-click to rename" [ref=e493]: featured-products
+                        - button "close" [ref=e494]:
+                          - generic [ref=e495]: close
+                      - generic [ref=e497] [cursor=pointer]:
+                        - button "drag_indicator" [ref=e498]
+                        - generic [ref=e499]: category
+                        - generic "Double-click to rename" [ref=e500]: product-categories
+                        - button "close" [ref=e501]:
+                          - generic [ref=e502]: close
+                      - generic [ref=e504] [cursor=pointer]:
+                        - button "drag_indicator" [ref=e505]
+                        - generic [ref=e506]: shopping_cart
+                        - generic "Double-click to rename" [ref=e507]: shopping-cart
+                        - button "close" [ref=e508]:
+                          - generic [ref=e509]: close
+                      - generic [ref=e511] [cursor=pointer]:
+                        - button "drag_indicator" [ref=e512]
+                        - generic [ref=e513]: sell
+                        - generic "Double-click to rename" [ref=e514]: Special Offer
+                        - button "close" [ref=e515]:
+                          - generic [ref=e516]: close
+                      - generic [ref=e518] [cursor=pointer]:
+                        - button "drag_indicator" [ref=e519]
+                        - generic [ref=e520]: inventory_2
+                        - generic "Double-click to rename" [ref=e521]: product-detail
+                        - button "close" [ref=e522]:
+                          - generic [ref=e523]: close
+                      - generic [ref=e525] [cursor=pointer]:
+                        - button "drag_indicator" [ref=e526]
+                        - generic [ref=e527]: calendar_month
+                        - generic "Double-click to rename" [ref=e528]: Schedule a Meeting
+                        - button "close" [ref=e529]:
+                          - generic [ref=e530]: close
+                      - generic [ref=e532] [cursor=pointer]:
+                        - button "drag_indicator" [ref=e533]
+                        - generic [ref=e534]: event_available
+                        - generic "Double-click to rename" [ref=e535]: Book a Service
+                        - button "close" [ref=e536]:
+                          - generic [ref=e537]: close
+                      - generic [ref=e539] [cursor=pointer]:
+                        - button "drag_indicator" [ref=e540]
+                        - generic [ref=e541]: assignment
+                        - generic "Double-click to rename" [ref=e542]: Take Our Survey
+                        - button "close" [ref=e543]:
+                          - generic [ref=e544]: close
+                      - generic [ref=e546] [cursor=pointer]:
+                        - button "drag_indicator" [ref=e547]
+                        - generic [ref=e548]: analytics
+                        - generic "Double-click to rename" [ref=e549]: Survey Results
+                        - button "close" [ref=e550]:
+                          - generic [ref=e551]: close
+                      - generic [ref=e553] [cursor=pointer]:
+                        - button "drag_indicator" [ref=e554]
+                        - generic [ref=e555]: notifications_active
+                        - generic "Double-click to rename" [ref=e556]: popup
+                        - button "close" [ref=e557]:
+                          - generic [ref=e558]: close
+                    - status [ref=e559]
+              - generic [ref=e560]:
+                - iframe [ref=e564]:
+                  - generic [active] [ref=f8e1]:
+                    - generic [ref=f8e2]:
+                      - navigation [ref=f8e3]:
+                        - link "SimplerDevelopment" [ref=f8e5] [cursor=pointer]:
+                          - /url: /sites/simplerdevelopment.simplerdevelopment.com
+                          - generic [ref=f8e6]: SimplerDevelopment
+                      - main [ref=f8e7]
+                      - contentinfo [ref=f8e8]:
+                        - generic [ref=f8e9]:
+                          - link "SimplerDevelopment" [ref=f8e12] [cursor=pointer]:
+                            - /url: /sites/simplerdevelopment.simplerdevelopment.com
+                          - generic [ref=f8e14]: © 2026 SimplerDevelopment. All rights reserved.
+                    - button "Open Next.js Dev Tools" [ref=f8e20] [cursor=pointer]:
+                      - img [ref=f8e21]
+                - generic [ref=e565]:
+                  - button "remove" [ref=e566]:
+                    - generic [ref=e567]: remove
+                  - button "55%" [ref=e568]
+                  - button "add" [ref=e569]:
+                    - generic [ref=e570]: add
+              - generic [ref=e571]:
+                - button "chevron_right" [ref=e572]:
+                  - generic [ref=e573]: chevron_right
+                - generic [ref=e575]:
+                  - generic [ref=e576]: touch_app
+                  - paragraph [ref=e577]: Click a block to edit
+  - generic [ref=e582] [cursor=pointer]:
+    - button "Open Next.js Dev Tools" [ref=e583]:
+      - img [ref=e584]
+    - generic [ref=e587]:
+      - button "Open issues overlay" [ref=e588]:
+        - generic [ref=e589]:
+          - generic [ref=e590]: "0"
+          - generic [ref=e591]: "1"
+        - generic [ref=e592]: Issue
+      - button "Collapse issues badge" [ref=e593]:
+        - img [ref=e594]
+  - alert [ref=e596]

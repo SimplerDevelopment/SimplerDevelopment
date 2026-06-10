@@ -1,0 +1,1214 @@
+[     216ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[     229ms] [LOG] [Fast Refresh] done in 115ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[     472ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    1912ms] [LOG] [Client Instrumentation Hook] Slow execution detected: 17ms (Note: Code download overhead is not included in this measurement) @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:687
+[    1919ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    2050ms] [LOG] [HMR] connected @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    3809ms] [LOG] [HMR] connected @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    3988ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    3997ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    4005ms] [LOG] [Fast Refresh] done in 153ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    4023ms] [LOG] [Fast Refresh] done in 151ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    5135ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    5139ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    5141ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    5141ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    5832ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    5834ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    6071ms] [ERROR] An empty string ("") was passed to the %s attribute. This may cause the browser to download the whole page again over the network. To fix this, either do not render the element at all or pass null to %s instead of an empty string. src src @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1883
+[    6085ms] [ERROR] A tree hydrated but some attributes of the server rendered HTML didn't match the client properties. This won't be patched up. This can happen if a SSR-ed Client Component used:
+
+- A server/client branch `if (typeof window !== 'undefined')`.
+- Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.
+- Date formatting in a user's locale which doesn't match the server.
+- External changing data without sending a snapshot of it along with the HTML.
+- Invalid HTML tag nesting.
+
+It can also happen if the client has a browser extension installed which messes with the HTML before React loaded.
+
+%s%s https://react.dev/link/hydration-mismatch 
+
+  ...
+    <div className="flex-shrin...">
+      <button>
+      <div className="h-full bor...">
+        <div>
+        <div className="flex-1 ove...">
+          <DndContext sensors={[...]} collisionDetection={function pointerWithin} ...>
+            <SortableContext items={[...]} strategy={function noMovementStrategy}>
+              <div className="px-1 py-2">
+                <LayerItemComponent block={{id:"lt-hea...", ...}} depth={0} selectedBlockId={null} ...>
+                  <div ref={function useCombinedRefs.useMemo} style={{opacity:1, ...}}>
+                    <div className="group/laye..." style={{...}} onClick={function onClick} ...>
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        aria-disabled={false}
+                        aria-pressed={undefined}
+                        aria-roledescription="sortable"
++                       aria-describedby="DndDescribedBy-0"
+-                       aria-describedby="DndDescribedBy-1"
+                        onMouseDown={function useSyntheticListeners.useMemo}
+                        onTouchStart={function useSyntheticListeners.useMemo}
+                        onKeyDown={function useSyntheticListeners.useMemo}
+                        className="material-icons text-xs shrink-0 text-muted-foreground/50 cursor-grab"
+                      >
++                       drag_indicator
+                      ...
+                    ...
+                <LayerItemComponent block={{id:"lt-text", ...}} depth={0} selectedBlockId={null} selectedBlockIds={[...]} ...>
+                  <div ref={function useCombinedRefs.useMemo} style={{opacity:1, ...}}>
+                    <div className="group/laye..." style={{...}} onClick={function onClick} ...>
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        aria-disabled={false}
+                        aria-pressed={undefined}
+                        aria-roledescription="sortable"
++                       aria-describedby="DndDescribedBy-0"
+-                       aria-describedby="DndDescribedBy-1"
+                        onMouseDown={function useSyntheticListeners.useMemo}
+                        onTouchStart={function useSyntheticListeners.useMemo}
+                        onKeyDown={function useSyntheticListeners.useMemo}
+                        className="material-icons text-xs shrink-0 text-muted-foreground/50 cursor-grab"
+                      >
++                       drag_indicator
+                      ...
+                    ...
+                <LayerItemComponent block={{id:"lt-button", ...}} depth={0} selectedBlockId={null} ...>
+                  <div ref={function useCombinedRefs.useMemo} style={{opacity:1, ...}}>
+                    <div className="group/laye..." style={{...}} onClick={function onClick} ...>
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        aria-disabled={false}
+                        aria-pressed={undefined}
+                        aria-roledescription="sortable"
++                       aria-describedby="DndDescribedBy-0"
+-                       aria-describedby="DndDescribedBy-1"
+                        onMouseDown={function useSyntheticListeners.useMemo}
+                        onTouchStart={function useSyntheticListeners.useMemo}
+                        onKeyDown={function useSyntheticListeners.useMemo}
+                        className="material-icons text-xs shrink-0 text-muted-foreground/50 cursor-grab"
+                      >
++                       drag_indicator
+                      ...
+                    ...
+                <LayerItemComponent block={{id:"lt-quote", ...}} depth={0} selectedBlockId={null} ...>
+                  <div ref={function useCombinedRefs.useMemo} style={{opacity:1, ...}}>
+                    <div className="group/laye..." style={{...}} onClick={function onClick} ...>
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        aria-disabled={false}
+                        aria-pressed={undefined}
+                        aria-roledescription="sortable"
++                       aria-describedby="DndDescribedBy-0"
+-                       aria-describedby="DndDescribedBy-1"
+                        onMouseDown={function useSyntheticListeners.useMemo}
+                        onTouchStart={function useSyntheticListeners.useMemo}
+                        onKeyDown={function useSyntheticListeners.useMemo}
+                        className="material-icons text-xs shrink-0 text-muted-foreground/50 cursor-grab"
+                      >
++                       drag_indicator
+                      ...
+                    ...
+                <LayerItemComponent block={{id:"lt-image", ...}} depth={0} selectedBlockId={null} ...>
+                  <div ref={function useCombinedRefs.useMemo} style={{opacity:1, ...}}>
+                    <div className="group/laye..." style={{...}} onClick={function onClick} ...>
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        aria-disabled={false}
+                        aria-pressed={undefined}
+                        aria-roledescription="sortable"
++                       aria-describedby="DndDescribedBy-0"
+-                       aria-describedby="DndDescribedBy-1"
+                        onMouseDown={function useSyntheticListeners.useMemo}
+                        onTouchStart={function useSyntheticListeners.useMemo}
+                        onKeyDown={function useSyntheticListeners.useMemo}
+                        className="material-icons text-xs shrink-0 text-muted-foreground/50 cursor-grab"
+                      >
++                       drag_indicator
+                      ...
+                    ...
+                <LayerItemComponent block={{id:"lt-you...", ...}} depth={0} selectedBlockId={null} ...>
+                  <div ref={function useCombinedRefs.useMemo} style={{opacity:1, ...}}>
+                    <div className="group/laye..." style={{...}} onClick={function onClick} ...>
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        aria-disabled={false}
+                        aria-pressed={undefined}
+                        aria-roledescription="sortable"
++                       aria-describedby="DndDescribedBy-0"
+-                       aria-describedby="DndDescribedBy-1"
+                        onMouseDown={function useSyntheticListeners.useMemo}
+                        onTouchStart={function useSyntheticListeners.useMemo}
+                        onKeyDown={function useSyntheticListeners.useMemo}
+                        className="material-icons text-xs shrink-0 text-muted-foreground/50 cursor-grab"
+                      >
++                       drag_indicator
+                      ...
+                    ...
+                <LayerItemComponent block={{id:"lt-video", ...}} depth={0} selectedBlockId={null} ...>
+                  <div ref={function useCombinedRefs.useMemo} style={{opacity:1, ...}}>
+                    <div className="group/laye..." style={{...}} onClick={function onClick} ...>
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        aria-disabled={false}
+                        aria-pressed={undefined}
+                        aria-roledescription="sortable"
++                       aria-describedby="DndDescribedBy-0"
+-                       aria-describedby="DndDescribedBy-1"
+                        onMouseDown={function useSyntheticListeners.useMemo}
+                        onTouchStart={function useSyntheticListeners.useMemo}
+                        onKeyDown={function useSyntheticListeners.useMemo}
+                        className="material-icons text-xs shrink-0 text-muted-foreground/50 cursor-grab"
+                      >
++                       drag_indicator
+                      ...
+                    ...
+                <LayerItemComponent block={{id:"lt-gal...", ...}} depth={0} selectedBlockId={null} ...>
+                  <div ref={function useCombinedRefs.useMemo} style={{opacity:1, ...}}>
+                    <div className="group/laye..." style={{...}} onClick={function onClick} ...>
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        aria-disabled={false}
+                        aria-pressed={undefined}
+                        aria-roledescription="sortable"
++                       aria-describedby="DndDescribedBy-0"
+-                       aria-describedby="DndDescribedBy-1"
+                        onMouseDown={function useSyntheticListeners.useMemo}
+                        onTouchStart={function useSyntheticListeners.useMemo}
+                        onKeyDown={function useSyntheticListeners.useMemo}
+                        className="material-icons text-xs shrink-0 text-muted-foreground/50 cursor-grab"
+                      >
++                       drag_indicator
+                      ...
+                    ...
+                <LayerItemComponent block={{id:"lt-code", ...}} depth={0} selectedBlockId={null} selectedBlockIds={[...]} ...>
+                  <div ref={function useCombinedRefs.useMemo} style={{opacity:1, ...}}>
+                    <div className="group/laye..." style={{...}} onClick={function onClick} ...>
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        aria-disabled={false}
+                        aria-pressed={undefined}
+                        aria-roledescription="sortable"
++                       aria-describedby="DndDescribedBy-0"
+-                       aria-describedby="DndDescribedBy-1"
+                        onMouseDown={function useSyntheticListeners.useMemo}
+                        onTouchStart={function useSyntheticListeners.useMemo}
+                        onKeyDown={function useSyntheticListeners.useMemo}
+                        className="material-icons text-xs shrink-0 text-muted-foreground/50 cursor-grab"
+                      >
++                       drag_indicator
+                      ...
+                    ...
+                <LayerItemComponent block={{id:"lt-htm...", ...}} depth={0} selectedBlockId={null} ...>
+                  <div ref={function useCombinedRefs.useMemo} style={{opacity:1, ...}}>
+                    <div className="group/laye..." style={{...}} onClick={function onClick} ...>
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        aria-disabled={false}
+                        aria-pressed={undefined}
+                        aria-roledescription="sortable"
++                       aria-describedby="DndDescribedBy-0"
+-                       aria-describedby="DndDescribedBy-1"
+                        onMouseDown={function useSyntheticListeners.useMemo}
+                        onTouchStart={function useSyntheticListeners.useMemo}
+                        onKeyDown={function useSyntheticListeners.useMemo}
+                        className="material-icons text-xs shrink-0 text-muted-foreground/50 cursor-grab"
+                      >
++                       drag_indicator
+                      ...
+                    ...
+                <LayerItemComponent block={{id:"lt-htm...", ...}} depth={0} selectedBlockId={null} ...>
+                  <div ref={function useCombinedRefs.useMemo} style={{opacity:1, ...}}>
+                    <div className="group/laye..." style={{...}} onClick={function onClick} ...>
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        aria-disabled={false}
+                        aria-pressed={undefined}
+                        aria-roledescription="sortable"
++                       aria-describedby="DndDescribedBy-0"
+-                       aria-describedby="DndDescribedBy-1"
+                        onMouseDown={function useSyntheticListeners.useMemo}
+                        onTouchStart={function useSyntheticListeners.useMemo}
+                        onKeyDown={function useSyntheticListeners.useMemo}
+                        className="material-icons text-xs shrink-0 text-muted-foreground/50 cursor-grab"
+                      >
++                       drag_indicator
+                      ...
+                    ...
+                <LayerItemComponent block={{id:"lt-spacer", ...}} depth={0} selectedBlockId={null} ...>
+                  <div ref={function useCombinedRefs.useMemo} style={{opacity:1, ...}}>
+                    <div className="group/laye..." style={{...}} onClick={function onClick} ...>
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        aria-disabled={false}
+                        aria-pressed={undefined}
+                        aria-roledescription="sortable"
++                       aria-describedby="DndDescribedBy-0"
+-                       aria-describedby="DndDescribedBy-1"
+                        onMouseDown={function useSyntheticListeners.useMemo}
+                        onTouchStart={function useSyntheticListeners.useMemo}
+                        onKeyDown={function useSyntheticListeners.useMemo}
+                        className="material-icons text-xs shrink-0 text-muted-foreground/50 cursor-grab"
+                      >
++                       drag_indicator
+                      ...
+                    ...
+                <LayerItemComponent block={{id:"lt-div...", ...}} depth={0} selectedBlockId={null} ...>
+                  <div ref={function useCombinedRefs.useMemo} style={{opacity:1, ...}}>
+                    <div className="group/laye..." style={{...}} onClick={function onClick} ...>
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        aria-disabled={false}
+                        aria-pressed={undefined}
+                        aria-roledescription="sortable"
++                       aria-describedby="DndDescribedBy-0"
+-                       aria-describedby="DndDescribedBy-1"
+                        onMouseDown={function useSyntheticListeners.useMemo}
+                        onTouchStart={function useSyntheticListeners.useMemo}
+                        onKeyDown={function useSyntheticListeners.useMemo}
+                        className="material-icons text-xs shrink-0 text-muted-foreground/50 cursor-grab"
+                      >
++                       drag_indicator
+                      ...
+                    ...
+                <LayerItemComponent block={{id:"lt-col...", ...}} depth={0} selectedBlockId={null} ...>
+                  <div ref={function useCombinedRefs.useMemo} style={{opacity:1, ...}}>
+                    <div className="group/laye..." style={{...}} onClick={function onClick} ...>
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        aria-disabled={false}
+                        aria-pressed={undefined}
+                        aria-roledescription="sortable"
++                       aria-describedby="DndDescribedBy-0"
+-                       aria-describedby="DndDescribedBy-1"
+                        onMouseDown={function useSyntheticListeners.useMemo}
+                        onTouchStart={function useSyntheticListeners.useMemo}
+                        onKeyDown={function useSyntheticListeners.useMemo}
+                        className="material-icons text-xs shrink-0 text-muted-foreground/50 cursor-grab"
+                      >
++                       drag_indicator
+                      ...
+                    ...
+                <LayerItemComponent block={{id:"lt-sec...", ...}} depth={0} selectedBlockId={null} ...>
+                  <div ref={function useCombinedRefs.useMemo} style={{opacity:1, ...}}>
+                    <div className="group/laye..." style={{...}} onClick={function onClick} ...>
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        aria-disabled={false}
+                        aria-pressed={undefined}
+                        aria-roledescription="sortable"
++                       aria-describedby="DndDescribedBy-0"
+-                       aria-describedby="DndDescribedBy-1"
+                        onMouseDown={function useSyntheticListeners.useMemo}
+                        onTouchStart={function useSyntheticListeners.useMemo}
+                        onKeyDown={function useSyntheticListeners.useMemo}
+                        className="material-icons text-xs shrink-0 text-muted-foreground/50 cursor-grab"
+                      >
++                       drag_indicator
+                      ...
+                    ...
+                <LayerItemComponent block={{id:"lt-tabs", ...}} depth={0} selectedBlockId={null} selectedBlockIds={[...]} ...>
+                  <div ref={function useCombinedRefs.useMemo} style={{opacity:1, ...}}>
+                    <div className="group/laye..." style={{...}} onClick={function onClick} ...>
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        aria-disabled={false}
+                        aria-pressed={undefined}
+                        aria-roledescription="sortable"
++                       aria-describedby="DndDescribedBy-0"
+-                       aria-describedby="DndDescribedBy-1"
+                        onMouseDown={function useSyntheticListeners.useMemo}
+                        onTouchStart={function useSyntheticListeners.useMemo}
+                        onKeyDown={function useSyntheticListeners.useMemo}
+                        className="material-icons text-xs shrink-0 text-muted-foreground/50 cursor-grab"
+                      >
++                       drag_indicator
+                      ...
+                    ...
+                <LayerItemComponent block={{id:"lt-acc...", ...}} depth={0} selectedBlockId={null} ...>
+                  <div ref={function useCombinedRefs.useMemo} style={{opacity:1, ...}}>
+                    <div className="group/laye..." style={{...}} onClick={function onClick} ...>
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        aria-disabled={false}
+                        aria-pressed={undefined}
+                        aria-roledescription="sortable"
++                       aria-describedby="DndDescribedBy-0"
+-                       aria-describedby="DndDescribedBy-1"
+                        onMouseDown={function useSyntheticListeners.useMemo}
+                        onTouchStart={function useSyntheticListeners.useMemo}
+                        onKeyDown={function useSyntheticListeners.useMemo}
+                        className="material-icons text-xs shrink-0 text-muted-foreground/50 cursor-grab"
+                      >
++                       drag_indicator
+                      ...
+                    ...
+                <LayerItemComponent block={{id:"lt-sti...", ...}} depth={0} selectedBlockId={null} ...>
+                  <div ref={function useCombinedRefs.useMemo} style={{opacity:1, ...}}>
+                    <div className="group/laye..." style={{...}} onClick={function onClick} ...>
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        aria-disabled={false}
+                        aria-pressed={undefined}
+                        aria-roledescription="sortable"
++                       aria-describedby="DndDescribedBy-0"
+-                       aria-describedby="DndDescribedBy-1"
+                        onMouseDown={function useSyntheticListeners.useMemo}
+                        onTouchStart={function useSyntheticListeners.useMemo}
+                        onKeyDown={function useSyntheticListeners.useMemo}
+                        className="material-icons text-xs shrink-0 text-muted-foreground/50 cursor-grab"
+                      >
++                       drag_indicator
+                      ...
+                    ...
+                <LayerItemComponent block={{id:"lt-hero", ...}} depth={0} selectedBlockId={null} selectedBlockIds={[...]} ...>
+                  <div ref={function useCombinedRefs.useMemo} style={{opacity:1, ...}}>
+                    <div className="group/laye..." style={{...}} onClick={function onClick} ...>
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        aria-disabled={false}
+                        aria-pressed={undefined}
+                        aria-roledescription="sortable"
++                       aria-describedby="DndDescribedBy-0"
+-                       aria-describedby="DndDescribedBy-1"
+                        onMouseDown={function useSyntheticListeners.useMemo}
+                        onTouchStart={function useSyntheticListeners.useMemo}
+                        onKeyDown={function useSyntheticListeners.useMemo}
+                        className="material-icons text-xs shrink-0 text-muted-foreground/50 cursor-grab"
+                      >
++                       drag_indicator
+                      ...
+                    ...
+                <LayerItemComponent block={{id:"lt-her...", ...}} depth={0} selectedBlockId={null} ...>
+                  <div ref={function useCombinedRefs.useMemo} style={{opacity:1, ...}}>
+                    <div className="group/laye..." style={{...}} onClick={function onClick} ...>
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        aria-disabled={false}
+                        aria-pressed={undefined}
+                        aria-roledescription="sortable"
++                       aria-describedby="DndDescribedBy-0"
+-                       aria-describedby="DndDescribedBy-1"
+                        onMouseDown={function useSyntheticListeners.useMemo}
+                        onTouchStart={function useSyntheticListeners.useMemo}
+                        onKeyDown={function useSyntheticListeners.useMemo}
+                        className="material-icons text-xs shrink-0 text-muted-foreground/50 cursor-grab"
+                      >
++                       drag_indicator
+                      ...
+                    ...
+                <LayerItemComponent block={{id:"lt-mar...", ...}} depth={0} selectedBlockId={null} ...>
+                  <div ref={function useCombinedRefs.useMemo} style={{opacity:1, ...}}>
+                    <div className="group/laye..." style={{...}} onClick={function onClick} ...>
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        aria-disabled={false}
+                        aria-pressed={undefined}
+                        aria-roledescription="sortable"
++                       aria-describedby="DndDescribedBy-0"
+-                       aria-describedby="DndDescribedBy-1"
+                        onMouseDown={function useSyntheticListeners.useMemo}
+                        onTouchStart={function useSyntheticListeners.useMemo}
+                        onKeyDown={function useSyntheticListeners.useMemo}
+                        className="material-icons text-xs shrink-0 text-muted-foreground/50 cursor-grab"
+                      >
++                       drag_indicator
+                      ...
+                    ...
+                <LayerItemComponent block={{id:"lt-cta", ...}} depth={0} selectedBlockId={null} selectedBlockIds={[...]} ...>
+                  <div ref={function useCombinedRefs.useMemo} style={{opacity:1, ...}}>
+                    <div className="group/laye..." style={{...}} onClick={function onClick} ...>
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        aria-disabled={false}
+                        aria-pressed={undefined}
+                        aria-roledescription="sortable"
++                       aria-describedby="DndDescribedBy-0"
+-                       aria-describedby="DndDescribedBy-1"
+                        onMouseDown={function useSyntheticListeners.useMemo}
+                        onTouchStart={function useSyntheticListeners.useMemo}
+                        onKeyDown={function useSyntheticListeners.useMemo}
+                        className="material-icons text-xs shrink-0 text-muted-foreground/50 cursor-grab"
+                      >
++                       drag_indicator
+                      ...
+                    ...
+                <LayerItemComponent block={{id:"lt-car...", ...}} depth={0} selectedBlockId={null} ...>
+                  <div ref={function useCombinedRefs.useMemo} style={{opacity:1, ...}}>
+                    <div className="group/laye..." style={{...}} onClick={function onClick} ...>
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        aria-disabled={false}
+                        aria-pressed={undefined}
+                        aria-roledescription="sortable"
++                       aria-describedby="DndDescribedBy-0"
+-                       aria-describedby="DndDescribedBy-1"
+                        onMouseDown={function useSyntheticListeners.useMemo}
+                        onTouchStart={function useSyntheticListeners.useMemo}
+                        onKeyDown={function useSyntheticListeners.useMemo}
+                        className="material-icons text-xs shrink-0 text-muted-foreground/50 cursor-grab"
+                      >
++                       drag_indicator
+                      ...
+                    ...
+                <LayerItemComponent block={{id:"lt-fli...", ...}} depth={0} selectedBlockId={null} ...>
+                  <div ref={function useCombinedRefs.useMemo} style={{opacity:1, ...}}>
+                    <div className="group/laye..." style={{...}} onClick={function onClick} ...>
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        aria-disabled={false}
+                        aria-pressed={undefined}
+                        aria-roledescription="sortable"
++                       aria-describedby="DndDescribedBy-0"
+-                       aria-describedby="DndDescribedBy-1"
+                        onMouseDown={function useSyntheticListeners.useMemo}
+                        onTouchStart={function useSyntheticListeners.useMemo}
+                        onKeyDown={function useSyntheticListeners.useMemo}
+                        className="material-icons text-xs shrink-0 text-muted-foreground/50 cursor-grab"
+                      >
++                       drag_indicator
+                      ...
+                    ...
+                <LayerItemComponent block={{id:"lt-met...", ...}} depth={0} selectedBlockId={null} ...>
+                  <div ref={function useCombinedRefs.useMemo} style={{opacity:1, ...}}>
+                    <div className="group/laye..." style={{...}} onClick={function onClick} ...>
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        aria-disabled={false}
+                        aria-pressed={undefined}
+                        aria-roledescription="sortable"
++                       aria-describedby="DndDescribedBy-0"
+-                       aria-describedby="DndDescribedBy-1"
+                        onMouseDown={function useSyntheticListeners.useMemo}
+                        onTouchStart={function useSyntheticListeners.useMemo}
+                        onKeyDown={function useSyntheticListeners.useMemo}
+                        className="material-icons text-xs shrink-0 text-muted-foreground/50 cursor-grab"
+                      >
++                       drag_indicator
+                      ...
+                    ...
+                <LayerItemComponent block={{id:"lt-log...", ...}} depth={0} selectedBlockId={null} ...>
+                  <div ref={function useCombinedRefs.useMemo} style={{opacity:1, ...}}>
+                    <div className="group/laye..." style={{...}} onClick={function onClick} ...>
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        aria-disabled={false}
+                        aria-pressed={undefined}
+                        aria-roledescription="sortable"
++                       aria-describedby="DndDescribedBy-0"
+-                       aria-describedby="DndDescribedBy-1"
+                        onMouseDown={function useSyntheticListeners.useMemo}
+                        onTouchStart={function useSyntheticListeners.useMemo}
+                        onKeyDown={function useSyntheticListeners.useMemo}
+                        className="material-icons text-xs shrink-0 text-muted-foreground/50 cursor-grab"
+                      >
++                       drag_indicator
+                      ...
+                    ...
+                <LayerItemComponent block={{id:"lt-stats", ...}} depth={0} selectedBlockId={null} ...>
+                  <div ref={function useCombinedRefs.useMemo} style={{opacity:1, ...}}>
+                    <div className="group/laye..." style={{...}} onClick={function onClick} ...>
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        aria-disabled={false}
+                        aria-pressed={undefined}
+                        aria-roledescription="sortable"
++                       aria-describedby="DndDescribedBy-0"
+-                       aria-describedby="DndDescribedBy-1"
+                        onMouseDown={function useSyntheticListeners.useMemo}
+                        onTouchStart={function useSyntheticListeners.useMemo}
+                        onKeyDown={function useSyntheticListeners.useMemo}
+                        className="material-icons text-xs shrink-0 text-muted-foreground/50 cursor-grab"
+                      >
++                       drag_indicator
+                      ...
+                    ...
+                <LayerItemComponent block={{id:"lt-tes...", ...}} depth={0} selectedBlockId={null} ...>
+                  <div ref={function useCombinedRefs.useMemo} style={{opacity:1, ...}}>
+                    <div className="group/laye..." style={{...}} onClick={function onClick} ...>
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        aria-disabled={false}
+                        aria-pressed={undefined}
+                        aria-roledescription="sortable"
++                       aria-describedby="DndDescribedBy-0"
+-                       aria-describedby="DndDescribedBy-1"
+                        onMouseDown={function useSyntheticListeners.useMemo}
+                        onTouchStart={function useSyntheticListeners.useMemo}
+                        onKeyDown={function useSyntheticListeners.useMemo}
+                        className="material-icons text-xs shrink-0 text-muted-foreground/50 cursor-grab"
+                      >
++                       drag_indicator
+                      ...
+                    ...
+                <LayerItemComponent block={{id:"lt-fea...", ...}} depth={0} selectedBlockId={null} ...>
+                  <div ref={function useCombinedRefs.useMemo} style={{opacity:1, ...}}>
+                    <div className="group/laye..." style={{...}} onClick={function onClick} ...>
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        aria-disabled={false}
+                        aria-pressed={undefined}
+                        aria-roledescription="sortable"
++                       aria-describedby="DndDescribedBy-0"
+-                       aria-describedby="DndDescribedBy-1"
+                        onMouseDown={function useSyntheticListeners.useMemo}
+                        onTouchStart={function useSyntheticListeners.useMemo}
+                        onKeyDown={function useSyntheticListeners.useMemo}
+                        className="material-icons text-xs shrink-0 text-muted-foreground/50 cursor-grab"
+                      >
++                       drag_indicator
+                      ...
+                    ...
+                <LayerItemComponent block={{id:"lt-ser...", ...}} depth={0} selectedBlockId={null} ...>
+                  <div ref={function useCombinedRefs.useMemo} style={{opacity:1, ...}}>
+                    <div className="group/laye..." style={{...}} onClick={function onClick} ...>
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        aria-disabled={false}
+                        aria-pressed={undefined}
+                        aria-roledescription="sortable"
++                       aria-describedby="DndDescribedBy-0"
+-                       aria-describedby="DndDescribedBy-1"
+                        onMouseDown={function useSyntheticListeners.useMemo}
+                        onTouchStart={function useSyntheticListeners.useMemo}
+                        onKeyDown={function useSyntheticListeners.useMemo}
+                        className="material-icons text-xs shrink-0 text-muted-foreground/50 cursor-grab"
+                      >
++                       drag_indicator
+                      ...
+                    ...
+                <LayerItemComponent block={{id:"lt-blo...", ...}} depth={0} selectedBlockId={null} ...>
+                  <div ref={function useCombinedRefs.useMemo} style={{opacity:1, ...}}>
+                    <div className="group/laye..." style={{...}} onClick={function onClick} ...>
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        aria-disabled={false}
+                        aria-pressed={undefined}
+                        aria-roledescription="sortable"
++                       aria-describedby="DndDescribedBy-0"
+-                       aria-describedby="DndDescribedBy-1"
+                        onMouseDown={function useSyntheticListeners.useMemo}
+                        onTouchStart={function useSyntheticListeners.useMemo}
+                        onKeyDown={function useSyntheticListeners.useMemo}
+                        className="material-icons text-xs shrink-0 text-muted-foreground/50 cursor-grab"
+                      >
++                       drag_indicator
+                      ...
+                    ...
+                <LayerItemComponent block={{id:"lt-tim...", ...}} depth={0} selectedBlockId={null} ...>
+                  <div ref={function useCombinedRefs.useMemo} style={{opacity:1, ...}}>
+                    <div className="group/laye..." style={{...}} onClick={function onClick} ...>
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        aria-disabled={false}
+                        aria-pressed={undefined}
+                        aria-roledescription="sortable"
++                       aria-describedby="DndDescribedBy-0"
+-                       aria-describedby="DndDescribedBy-1"
+                        onMouseDown={function useSyntheticListeners.useMemo}
+                        onTouchStart={function useSyntheticListeners.useMemo}
+                        onKeyDown={function useSyntheticListeners.useMemo}
+                        className="material-icons text-xs shrink-0 text-muted-foreground/50 cursor-grab"
+                      >
++                       drag_indicator
+                      ...
+                    ...
+                <LayerItemComponent block={{id:"lt-tea...", ...}} depth={0} selectedBlockId={null} ...>
+                  <div ref={function useCombinedRefs.useMemo} style={{opacity:1, ...}}>
+                    <div className="group/laye..." style={{...}} onClick={function onClick} ...>
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        aria-disabled={false}
+                        aria-pressed={undefined}
+                        aria-roledescription="sortable"
++                       aria-describedby="DndDescribedBy-0"
+-                       aria-describedby="DndDescribedBy-1"
+                        onMouseDown={function useSyntheticListeners.useMemo}
+                        onTouchStart={function useSyntheticListeners.useMemo}
+                        onKeyDown={function useSyntheticListeners.useMemo}
+                        className="material-icons text-xs shrink-0 text-muted-foreground/50 cursor-grab"
+                      >
++                       drag_indicator
+                      ...
+                    ...
+                <LayerItemComponent block={{id:"lt-tea...", ...}} depth={0} selectedBlockId={null} ...>
+                  <div ref={function useCombinedRefs.useMemo} style={{opacity:1, ...}}>
+                    <div className="group/laye..." style={{...}} onClick={function onClick} ...>
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        aria-disabled={false}
+                        aria-pressed={undefined}
+                        aria-roledescription="sortable"
++                       aria-describedby="DndDescribedBy-0"
+-                       aria-describedby="DndDescribedBy-1"
+                        onMouseDown={function useSyntheticListeners.useMemo}
+                        onTouchStart={function useSyntheticListeners.useMemo}
+                        onKeyDown={function useSyntheticListeners.useMemo}
+                        className="material-icons text-xs shrink-0 text-muted-foreground/50 cursor-grab"
+                      >
++                       drag_indicator
+                      ...
+                    ...
+                <LayerItemComponent block={{id:"lt-ben...", ...}} depth={0} selectedBlockId={null} ...>
+                  <div ref={function useCombinedRefs.useMemo} style={{opacity:1, ...}}>
+                    <div className="group/laye..." style={{...}} onClick={function onClick} ...>
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        aria-disabled={false}
+                        aria-pressed={undefined}
+                        aria-roledescription="sortable"
++                       aria-describedby="DndDescribedBy-0"
+-                       aria-describedby="DndDescribedBy-1"
+                        onMouseDown={function useSyntheticListeners.useMemo}
+                        onTouchStart={function useSyntheticListeners.useMemo}
+                        onKeyDown={function useSyntheticListeners.useMemo}
+                        className="material-icons text-xs shrink-0 text-muted-foreground/50 cursor-grab"
+                      >
++                       drag_indicator
+                      ...
+                    ...
+                <LayerItemComponent block={{id:"lt-sit...", ...}} depth={0} selectedBlockId={null} ...>
+                  <div ref={function useCombinedRefs.useMemo} style={{opacity:1, ...}}>
+                    <div className="group/laye..." style={{...}} onClick={function onClick} ...>
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        aria-disabled={false}
+                        aria-pressed={undefined}
+                        aria-roledescription="sortable"
++                       aria-describedby="DndDescribedBy-0"
+-                       aria-describedby="DndDescribedBy-1"
+                        onMouseDown={function useSyntheticListeners.useMemo}
+                        onTouchStart={function useSyntheticListeners.useMemo}
+                        onKeyDown={function useSyntheticListeners.useMemo}
+                        className="material-icons text-xs shrink-0 text-muted-foreground/50 cursor-grab"
+                      >
++                       drag_indicator
+                      ...
+                    ...
+                <LayerItemComponent block={{id:"lt-soc...", ...}} depth={0} selectedBlockId={null} ...>
+                  <div ref={function useCombinedRefs.useMemo} style={{opacity:1, ...}}>
+                    <div className="group/laye..." style={{...}} onClick={function onClick} ...>
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        aria-disabled={false}
+                        aria-pressed={undefined}
+                        aria-roledescription="sortable"
++                       aria-describedby="DndDescribedBy-0"
+-                       aria-describedby="DndDescribedBy-1"
+                        onMouseDown={function useSyntheticListeners.useMemo}
+                        onTouchStart={function useSyntheticListeners.useMemo}
+                        onKeyDown={function useSyntheticListeners.useMemo}
+                        className="material-icons text-xs shrink-0 text-muted-foreground/50 cursor-grab"
+                      >
++                       drag_indicator
+                      ...
+                    ...
+                <LayerItemComponent block={{id:"lt-pro...", ...}} depth={0} selectedBlockId={null} ...>
+                  <div ref={function useCombinedRefs.useMemo} style={{opacity:1, ...}}>
+                    <div className="group/laye..." style={{...}} onClick={function onClick} ...>
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        aria-disabled={false}
+                        aria-pressed={undefined}
+                        aria-roledescription="sortable"
++                       aria-describedby="DndDescribedBy-0"
+-                       aria-describedby="DndDescribedBy-1"
+                        onMouseDown={function useSyntheticListeners.useMemo}
+                        onTouchStart={function useSyntheticListeners.useMemo}
+                        onKeyDown={function useSyntheticListeners.useMemo}
+                        className="material-icons text-xs shrink-0 text-muted-foreground/50 cursor-grab"
+                      >
++                       drag_indicator
+                      ...
+                    ...
+                <LayerItemComponent block={{id:"lt-fea...", ...}} depth={0} selectedBlockId={null} ...>
+                  <div ref={function useCombinedRefs.useMemo} style={{opacity:1, ...}}>
+                    <div className="group/laye..." style={{...}} onClick={function onClick} ...>
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        aria-disabled={false}
+                        aria-pressed={undefined}
+                        aria-roledescription="sortable"
++                       aria-describedby="DndDescribedBy-0"
+-                       aria-describedby="DndDescribedBy-1"
+                        onMouseDown={function useSyntheticListeners.useMemo}
+                        onTouchStart={function useSyntheticListeners.useMemo}
+                        onKeyDown={function useSyntheticListeners.useMemo}
+                        className="material-icons text-xs shrink-0 text-muted-foreground/50 cursor-grab"
+                      >
++                       drag_indicator
+                      ...
+                    ...
+                <LayerItemComponent block={{id:"lt-pro...", ...}} depth={0} selectedBlockId={null} ...>
+                  <div ref={function useCombinedRefs.useMemo} style={{opacity:1, ...}}>
+                    <div className="group/laye..." style={{...}} onClick={function onClick} ...>
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        aria-disabled={false}
+                        aria-pressed={undefined}
+                        aria-roledescription="sortable"
++                       aria-describedby="DndDescribedBy-0"
+-                       aria-describedby="DndDescribedBy-1"
+                        onMouseDown={function useSyntheticListeners.useMemo}
+                        onTouchStart={function useSyntheticListeners.useMemo}
+                        onKeyDown={function useSyntheticListeners.useMemo}
+                        className="material-icons text-xs shrink-0 text-muted-foreground/50 cursor-grab"
+                      >
++                       drag_indicator
+                      ...
+                    ...
+                <LayerItemComponent block={{id:"lt-sho...", ...}} depth={0} selectedBlockId={null} ...>
+                  <div ref={function useCombinedRefs.useMemo} style={{opacity:1, ...}}>
+                    <div className="group/laye..." style={{...}} onClick={function onClick} ...>
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        aria-disabled={false}
+                        aria-pressed={undefined}
+                        aria-roledescription="sortable"
++                       aria-describedby="DndDescribedBy-0"
+-                       aria-describedby="DndDescribedBy-1"
+                        onMouseDown={function useSyntheticListeners.useMemo}
+                        onTouchStart={function useSyntheticListeners.useMemo}
+                        onKeyDown={function useSyntheticListeners.useMemo}
+                        className="material-icons text-xs shrink-0 text-muted-foreground/50 cursor-grab"
+                      >
++                       drag_indicator
+                      ...
+                    ...
+                <LayerItemComponent block={{id:"lt-sto...", ...}} depth={0} selectedBlockId={null} ...>
+                  <div ref={function useCombinedRefs.useMemo} style={{opacity:1, ...}}>
+                    <div className="group/laye..." style={{...}} onClick={function onClick} ...>
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        aria-disabled={false}
+                        aria-pressed={undefined}
+                        aria-roledescription="sortable"
++                       aria-describedby="DndDescribedBy-0"
+-                       aria-describedby="DndDescribedBy-1"
+                        onMouseDown={function useSyntheticListeners.useMemo}
+                        onTouchStart={function useSyntheticListeners.useMemo}
+                        onKeyDown={function useSyntheticListeners.useMemo}
+                        className="material-icons text-xs shrink-0 text-muted-foreground/50 cursor-grab"
+                      >
++                       drag_indicator
+                      ...
+                    ...
+                <LayerItemComponent block={{id:"lt-pro...", ...}} depth={0} selectedBlockId={null} ...>
+                  <div ref={function useCombinedRefs.useMemo} style={{opacity:1, ...}}>
+                    <div className="group/laye..." style={{...}} onClick={function onClick} ...>
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        aria-disabled={false}
+                        aria-pressed={undefined}
+                        aria-roledescription="sortable"
++                       aria-describedby="DndDescribedBy-0"
+-                       aria-describedby="DndDescribedBy-1"
+                        onMouseDown={function useSyntheticListeners.useMemo}
+                        onTouchStart={function useSyntheticListeners.useMemo}
+                        onKeyDown={function useSyntheticListeners.useMemo}
+                        className="material-icons text-xs shrink-0 text-muted-foreground/50 cursor-grab"
+                      >
++                       drag_indicator
+                      ...
+                    ...
+                <LayerItemComponent block={{id:"lt-boo...", ...}} depth={0} selectedBlockId={null} ...>
+                  <div ref={function useCombinedRefs.useMemo} style={{opacity:1, ...}}>
+                    <div className="group/laye..." style={{...}} onClick={function onClick} ...>
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        aria-disabled={false}
+                        aria-pressed={undefined}
+                        aria-roledescription="sortable"
++                       aria-describedby="DndDescribedBy-0"
+-                       aria-describedby="DndDescribedBy-1"
+                        onMouseDown={function useSyntheticListeners.useMemo}
+                        onTouchStart={function useSyntheticListeners.useMemo}
+                        onKeyDown={function useSyntheticListeners.useMemo}
+                        className="material-icons text-xs shrink-0 text-muted-foreground/50 cursor-grab"
+                      >
++                       drag_indicator
+                      ...
+                    ...
+                <LayerItemComponent block={{id:"lt-boo...", ...}} depth={0} selectedBlockId={null} ...>
+                  <div ref={function useCombinedRefs.useMemo} style={{opacity:1, ...}}>
+                    <div className="group/laye..." style={{...}} onClick={function onClick} ...>
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        aria-disabled={false}
+                        aria-pressed={undefined}
+                        aria-roledescription="sortable"
++                       aria-describedby="DndDescribedBy-0"
+-                       aria-describedby="DndDescribedBy-1"
+                        onMouseDown={function useSyntheticListeners.useMemo}
+                        onTouchStart={function useSyntheticListeners.useMemo}
+                        onKeyDown={function useSyntheticListeners.useMemo}
+                        className="material-icons text-xs shrink-0 text-muted-foreground/50 cursor-grab"
+                      >
++                       drag_indicator
+                      ...
+                    ...
+                <LayerItemComponent block={{id:"lt-survey", ...}} depth={0} selectedBlockId={null} ...>
+                  <div ref={function useCombinedRefs.useMemo} style={{opacity:1, ...}}>
+                    <div className="group/laye..." style={{...}} onClick={function onClick} ...>
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        aria-disabled={false}
+                        aria-pressed={undefined}
+                        aria-roledescription="sortable"
++                       aria-describedby="DndDescribedBy-0"
+-                       aria-describedby="DndDescribedBy-1"
+                        onMouseDown={function useSyntheticListeners.useMemo}
+                        onTouchStart={function useSyntheticListeners.useMemo}
+                        onKeyDown={function useSyntheticListeners.useMemo}
+                        className="material-icons text-xs shrink-0 text-muted-foreground/50 cursor-grab"
+                      >
++                       drag_indicator
+                      ...
+                    ...
+                <LayerItemComponent block={{id:"lt-sur...", ...}} depth={0} selectedBlockId={null} ...>
+                  <div ref={function useCombinedRefs.useMemo} style={{opacity:1, ...}}>
+                    <div className="group/laye..." style={{...}} onClick={function onClick} ...>
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        aria-disabled={false}
+                        aria-pressed={undefined}
+                        aria-roledescription="sortable"
++                       aria-describedby="DndDescribedBy-0"
+-                       aria-describedby="DndDescribedBy-1"
+                        onMouseDown={function useSyntheticListeners.useMemo}
+                        onTouchStart={function useSyntheticListeners.useMemo}
+                        onKeyDown={function useSyntheticListeners.useMemo}
+                        className="material-icons text-xs shrink-0 text-muted-foreground/50 cursor-grab"
+                      >
++                       drag_indicator
+                      ...
+                    ...
+                <LayerItemComponent block={{id:"lt-popup", ...}} depth={0} selectedBlockId={null} ...>
+                  <div ref={function useCombinedRefs.useMemo} style={{opacity:1, ...}}>
+                    <div className="group/laye..." style={{...}} onClick={function onClick} ...>
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        aria-disabled={false}
+                        aria-pressed={undefined}
+                        aria-roledescription="sortable"
++                       aria-describedby="DndDescribedBy-0"
+-                       aria-describedby="DndDescribedBy-1"
+                        onMouseDown={function useSyntheticListeners.useMemo}
+                        onTouchStart={function useSyntheticListeners.useMemo}
+                        onKeyDown={function useSyntheticListeners.useMemo}
+                        className="material-icons text-xs shrink-0 text-muted-foreground/50 cursor-grab"
+                      >
++                       drag_indicator
+                      ...
+                    ...
+            ...
+            ...
+ @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1883
+[    6119ms] [ERROR] An empty string ("") was passed to the %s attribute. This may cause the browser to download the whole page again over the network. To fix this, either do not render the element at all or pass null to %s instead of an empty string. src src @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1883
+[    6121ms] [ERROR] An empty string ("") was passed to the %s attribute. This may cause the browser to download the whole page again over the network. To fix this, either do not render the element at all or pass null to %s instead of an empty string. src src @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1883
+[    6123ms] [ERROR] An empty string ("") was passed to the %s attribute. This may cause the browser to download the whole page again over the network. To fix this, either do not render the element at all or pass null to %s instead of an empty string. src src @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1883
+[    6270ms] [ERROR] An empty string ("") was passed to the %s attribute. This may cause the browser to download the whole page again over the network. To fix this, either do not render the element at all or pass null to %s instead of an empty string. src src @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1883
+[    6271ms] [ERROR] An empty string ("") was passed to the %s attribute. This may cause the browser to download the whole page again over the network. To fix this, either do not render the element at all or pass null to %s instead of an empty string. src src @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1883
+[    6356ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    6356ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    6356ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    6356ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    6705ms] [LOG] [Fast Refresh] done in 1025ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    6706ms] [LOG] [Fast Refresh] done in 1024ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    6777ms] [ERROR] An empty string ("") was passed to the %s attribute. This may cause the browser to download the whole page again over the network. To fix this, either do not render the element at all or pass null to %s instead of an empty string. src src @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1883
+[    7426ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/portal/cms/websites/241/content-types:0
+[    7488ms] [ERROR] Failed to load resource: the server responded with a status of 503 (Service Unavailable) @ http://localhost:3000/api/realtime/token:0
+[    7492ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    7492ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    7492ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    7492ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    7628ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:3000/api/portal/cms/websites/241/categories:0
+[    7634ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    7634ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    7635ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    7636ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    7879ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:3000/api/portal/cms/websites/241/tags:0
+[    7889ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    7890ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    7891ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    7893ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    8034ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    8034ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    8035ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    8036ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    8602ms] [ERROR] Failed to load resource: the server responded with a status of 503 (Service Unavailable) @ http://localhost:3000/api/realtime/token:0
+[    8625ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    8625ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    8626ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    8629ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    9247ms] [ERROR] An empty string ("") was passed to the %s attribute. This may cause the browser to download the whole page again over the network. To fix this, either do not render the element at all or pass null to %s instead of an empty string. src src @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1883
+[    9248ms] [ERROR] An empty string ("") was passed to the %s attribute. This may cause the browser to download the whole page again over the network. To fix this, either do not render the element at all or pass null to %s instead of an empty string. src src @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1883
+[    9250ms] [ERROR] An empty string ("") was passed to the %s attribute. This may cause the browser to download the whole page again over the network. To fix this, either do not render the element at all or pass null to %s instead of an empty string. src src @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1883
+[    9251ms] [ERROR] An empty string ("") was passed to the %s attribute. This may cause the browser to download the whole page again over the network. To fix this, either do not render the element at all or pass null to %s instead of an empty string. src src @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1883
+[    9258ms] [ERROR] An empty string ("") was passed to the %s attribute. This may cause the browser to download the whole page again over the network. To fix this, either do not render the element at all or pass null to %s instead of an empty string. src src @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1883
+[    9259ms] [ERROR] An empty string ("") was passed to the %s attribute. This may cause the browser to download the whole page again over the network. To fix this, either do not render the element at all or pass null to %s instead of an empty string. src src @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1883
+[    9496ms] [ERROR] An empty string ("") was passed to the %s attribute. This may cause the browser to download the whole page again over the network. To fix this, either do not render the element at all or pass null to %s instead of an empty string. src src @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1883
+[    9638ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    9639ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    9639ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    9640ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    9826ms] [ERROR] Failed to load resource: the server responded with a status of 503 (Service Unavailable) @ http://localhost:3000/api/realtime/token:0
+[    9854ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    9855ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    9856ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    9859ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   11836ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   11836ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   11836ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   11837ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   11888ms] [ERROR] Failed to load resource: the server responded with a status of 503 (Service Unavailable) @ http://localhost:3000/api/realtime/token:0
+[   11892ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   11893ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   11893ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   11893ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   15893ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   15893ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   15893ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   15894ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   16005ms] [ERROR] Failed to load resource: the server responded with a status of 503 (Service Unavailable) @ http://localhost:3000/api/realtime/token:0
+[   16010ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   16010ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   16010ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   16010ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   16724ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   16724ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   17615ms] [LOG] [Fast Refresh] done in 1038ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   17615ms] [LOG] [Fast Refresh] done in 1036ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   24012ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   24012ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   24012ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   24013ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   24073ms] [ERROR] Failed to load resource: the server responded with a status of 503 (Service Unavailable) @ http://localhost:3000/api/realtime/token:0
+[   24081ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   24081ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   24081ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   24082ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   25445ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   25445ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   26279ms] [LOG] [Fast Refresh] done in 984ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   26280ms] [LOG] [Fast Refresh] done in 984ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   33808ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   33808ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   33821ms] [LOG] [Fast Refresh] done in 115ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   33822ms] [LOG] [Fast Refresh] done in 115ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   40079ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   40079ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   40079ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   40079ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   40176ms] [ERROR] Failed to load resource: the server responded with a status of 503 (Service Unavailable) @ http://localhost:3000/api/realtime/token:0
+[   40180ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   40181ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   40181ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   40181ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   66695ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   66695ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   67075ms] [LOG] [Fast Refresh] done in 481ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   67075ms] [LOG] [Fast Refresh] done in 481ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   70182ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   70182ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   70183ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   70183ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   70244ms] [ERROR] Failed to load resource: the server responded with a status of 503 (Service Unavailable) @ http://localhost:3000/api/realtime/token:0
+[   70249ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   70249ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   70250ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   70250ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   75990ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   75990ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   76754ms] [LOG] [Fast Refresh] done in 866ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   76755ms] [LOG] [Fast Refresh] done in 865ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   94308ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   94312ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   95408ms] [LOG] [Fast Refresh] done in 1207ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   95408ms] [LOG] [Fast Refresh] done in 1207ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  100250ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  100251ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  100251ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  100251ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  100353ms] [ERROR] Failed to load resource: the server responded with a status of 503 (Service Unavailable) @ http://localhost:3000/api/realtime/token:0
+[  100388ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  100390ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  100391ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  100391ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  117103ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  117104ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  117169ms] [LOG] [Fast Refresh] done in 167ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  117170ms] [LOG] [Fast Refresh] done in 166ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  121873ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  121873ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  123563ms] [LOG] [Fast Refresh] done in 1790ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  123563ms] [LOG] [Fast Refresh] done in 1791ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  125526ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  125527ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  125581ms] [LOG] [Fast Refresh] done in 156ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  125582ms] [LOG] [Fast Refresh] done in 155ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  128047ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  128048ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  128709ms] [LOG] [Fast Refresh] done in 763ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  128710ms] [LOG] [Fast Refresh] done in 763ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  130359ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  130359ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  130360ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  130360ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  130435ms] [ERROR] Failed to load resource: the server responded with a status of 503 (Service Unavailable) @ http://localhost:3000/api/realtime/token:0
+[  130440ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  130440ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  130440ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  130441ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  131431ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  131431ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  132849ms] [LOG] [Fast Refresh] done in 1519ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  132852ms] [LOG] [Fast Refresh] done in 1522ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  134081ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  134082ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  134805ms] [LOG] [Fast Refresh] done in 840ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  134806ms] [LOG] [Fast Refresh] done in 840ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  152501ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  152501ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  153848ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  153848ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  153848ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  153849ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  154789ms] [LOG] [Fast Refresh] done in 2388ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  154789ms] [LOG] [Fast Refresh] done in 2389ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  160442ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  160443ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  160443ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  160443ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  160599ms] [ERROR] Failed to load resource: the server responded with a status of 503 (Service Unavailable) @ http://localhost:3000/api/realtime/token:0
+[  160638ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  160639ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  160644ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  160646ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  166031ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  166031ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  167101ms] [LOG] [Fast Refresh] done in 1173ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  167102ms] [LOG] [Fast Refresh] done in 1174ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  167808ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  167809ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  167810ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  167810ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  179650ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  179650ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  180703ms] [LOG] [Fast Refresh] done in 1153ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  180703ms] [LOG] [Fast Refresh] done in 1154ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  190604ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  190605ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  190605ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  190605ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  190734ms] [ERROR] Failed to load resource: the server responded with a status of 503 (Service Unavailable) @ http://localhost:3000/api/realtime/token:0
+[  190744ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  190744ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  190744ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  190745ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  211063ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  211064ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  211064ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  211064ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  211541ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  211541ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  212560ms] [LOG] [Fast Refresh] done in 1120ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  212561ms] [LOG] [Fast Refresh] done in 1120ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  220362ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  220364ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  220742ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  220742ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  220743ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  220743ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  221078ms] [ERROR] Failed to load resource: the server responded with a status of 503 (Service Unavailable) @ http://localhost:3000/api/realtime/token:0
+[  221087ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  221088ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  221089ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  221091ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  221633ms] [LOG] [Fast Refresh] done in 1372ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  221634ms] [LOG] [Fast Refresh] done in 1372ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  225116ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  225116ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  225145ms] [LOG] [Fast Refresh] done in 130ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  225145ms] [LOG] [Fast Refresh] done in 131ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  229544ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  229544ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  229570ms] [LOG] [Fast Refresh] done in 127ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  229570ms] [LOG] [Fast Refresh] done in 127ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  233348ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  233348ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  233356ms] [LOG] [Fast Refresh] done in 109ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  233356ms] [LOG] [Fast Refresh] done in 108ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  241701ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  241701ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  241743ms] [LOG] [Fast Refresh] done in 144ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  241744ms] [LOG] [Fast Refresh] done in 144ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  248576ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  248576ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  249383ms] [LOG] [Fast Refresh] done in 908ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  249384ms] [LOG] [Fast Refresh] done in 907ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  251085ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  251085ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  251085ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  251085ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  251246ms] [ERROR] Failed to load resource: the server responded with a status of 503 (Service Unavailable) @ http://localhost:3000/api/realtime/token:0
+[  251253ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  251254ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  251254ms] [LOG] [BlockEditorProvider] Rendered with initialBlocks: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  251255ms] [LOG] [BlockEditorProvider] Current blocks from useBlockHistory: 48 @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  255026ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  255026ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  256560ms] [LOG] [Fast Refresh] done in 1636ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  256562ms] [LOG] [Fast Refresh] done in 1636ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  260331ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  260332ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  260342ms] [LOG] [Fast Refresh] done in 112ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[  260343ms] [LOG] [Fast Refresh] done in 112ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053

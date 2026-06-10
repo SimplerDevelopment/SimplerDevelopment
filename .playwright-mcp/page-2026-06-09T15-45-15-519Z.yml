@@ -1,0 +1,383 @@
+- generic [active] [ref=e1]:
+  - navigation [ref=e2]:
+    - generic [ref=e4]:
+      - link "Simpler Development" [ref=e6] [cursor=pointer]:
+        - /url: /
+        - generic [ref=e7]: Simpler Development
+      - generic [ref=e8]:
+        - generic [ref=e9]:
+          - link "Solutions" [ref=e10] [cursor=pointer]:
+            - /url: /solutions
+            - text: Solutions
+            - generic [ref=e11]: expand_more
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - generic:
+                    - paragraph: // PLATFORM
+                    - heading "Every tool your business needs" [level=2]
+                  - link "View all 18 solutions arrow_forward":
+                    - /url: /solutions
+                    - text: View all 18 solutions
+                    - generic: arrow_forward
+                - generic:
+                  - generic:
+                    - link "01 cable AI Connect check Model Context Protocol (MCP) server built in check Connect Claude Desktop, Claude Code & Claude.ai check Connect ChatGPT and other AI clients":
+                      - /url: /solutions/ai-connect
+                      - generic: "01"
+                      - generic: cable
+                      - heading "AI Connect" [level=3]
+                      - list:
+                        - listitem:
+                          - generic: check
+                          - generic: Model Context Protocol (MCP) server built in
+                        - listitem:
+                          - generic: check
+                          - generic: Connect Claude Desktop, Claude Code & Claude.ai
+                        - listitem:
+                          - generic: check
+                          - generic: Connect ChatGPT and other AI clients
+                    - link "02 language Website Builder check Visual drag-and-drop page editor check Built-in blog with categories & tags check SEO tools & meta management":
+                      - /url: /solutions/websites
+                      - generic: "02"
+                      - generic: language
+                      - heading "Website Builder" [level=3]
+                      - list:
+                        - listitem:
+                          - generic: check
+                          - generic: Visual drag-and-drop page editor
+                        - listitem:
+                          - generic: check
+                          - generic: Built-in blog with categories & tags
+                        - listitem:
+                          - generic: check
+                          - generic: SEO tools & meta management
+                    - link "03 storefront Online Store check Product catalog with variants & SKUs check Discount codes & bulk pricing rules check Shipping zones & rate configuration":
+                      - /url: /solutions/ecommerce
+                      - generic: "03"
+                      - generic: storefront
+                      - heading "Online Store" [level=3]
+                      - list:
+                        - listitem:
+                          - generic: check
+                          - generic: Product catalog with variants & SKUs
+                        - listitem:
+                          - generic: check
+                          - generic: Discount codes & bulk pricing rules
+                        - listitem:
+                          - generic: check
+                          - generic: Shipping zones & rate configuration
+                    - 'link "04 rocket_launch Content Calendar check Editorial kanban: Idea → Draft → Review → Scheduled → Published check Month & week content calendar views check Campaigns that group content by date range"':
+                      - /url: /solutions/publishing
+                      - generic: "04"
+                      - generic: rocket_launch
+                      - heading "Content Calendar" [level=3]
+                      - list:
+                        - listitem:
+                          - generic: check
+                          - generic: "Editorial kanban: Idea → Draft → Review → Scheduled → Published"
+                        - listitem:
+                          - generic: check
+                          - generic: Month & week content calendar views
+                        - listitem:
+                          - generic: check
+                          - generic: Campaigns that group content by date range
+                    - link "05 email Email Marketing check Visual email campaign builder check Subscriber lists & segmentation check Automated email sequences":
+                      - /url: /solutions/email-marketing
+                      - generic: "05"
+                      - generic: email
+                      - heading "Email Marketing" [level=3]
+                      - list:
+                        - listitem:
+                          - generic: check
+                          - generic: Visual email campaign builder
+                        - listitem:
+                          - generic: check
+                          - generic: Subscriber lists & segmentation
+                        - listitem:
+                          - generic: check
+                          - generic: Automated email sequences
+                    - link "06 groups CRM check Contact & company management check Deal pipeline with custom stages check Proposal builder & tracking":
+                      - /url: /solutions/crm
+                      - generic: "06"
+                      - generic: groups
+                      - heading "CRM" [level=3]
+                      - list:
+                        - listitem:
+                          - generic: check
+                          - generic: Contact & company management
+                        - listitem:
+                          - generic: check
+                          - generic: Deal pipeline with custom stages
+                        - listitem:
+                          - generic: check
+                          - generic: Proposal builder & tracking
+                    - link "07 draw Contracts & E-Sign check Branded proposal & contract builder check Legally binding e-signatures check Line items, fees & pricing tables":
+                      - /url: /solutions/contracts
+                      - generic: "07"
+                      - generic: draw
+                      - heading "Contracts & E-Sign" [level=3]
+                      - list:
+                        - listitem:
+                          - generic: check
+                          - generic: Branded proposal & contract builder
+                        - listitem:
+                          - generic: check
+                          - generic: Legally binding e-signatures
+                        - listitem:
+                          - generic: check
+                          - generic: Line items, fees & pricing tables
+                    - link "08 calendar_month Scheduling check Embeddable booking pages check Calendar sync (Google, Outlook) check Automated email reminders":
+                      - /url: /solutions/booking
+                      - generic: "08"
+                      - generic: calendar_month
+                      - heading "Scheduling" [level=3]
+                      - list:
+                        - listitem:
+                          - generic: check
+                          - generic: Embeddable booking pages
+                        - listitem:
+                          - generic: check
+                          - generic: Calendar sync (Google, Outlook)
+                        - listitem:
+                          - generic: check
+                          - generic: Automated email reminders
+                    - link "09 ballot Surveys & Forms check Drag-and-build form & survey editor check Conditional branching & page-jump logic check Per-answer scoring & NPS":
+                      - /url: /solutions/surveys
+                      - generic: "09"
+                      - generic: ballot
+                      - heading "Surveys & Forms" [level=3]
+                      - list:
+                        - listitem:
+                          - generic: check
+                          - generic: Drag-and-build form & survey editor
+                        - listitem:
+                          - generic: check
+                          - generic: Conditional branching & page-jump logic
+                        - listitem:
+                          - generic: check
+                          - generic: Per-answer scoring & NPS
+                    - link "10 science A/B Testing check Split-test website pages and pitch deck slides check Automatic, stable visitor bucketing check Custom traffic-split weights per variant":
+                      - /url: /solutions/experiments
+                      - generic: "10"
+                      - generic: science
+                      - heading "A/B Testing" [level=3]
+                      - list:
+                        - listitem:
+                          - generic: check
+                          - generic: Split-test website pages and pitch deck slides
+                        - listitem:
+                          - generic: check
+                          - generic: Automatic, stable visitor bucketing
+                        - listitem:
+                          - generic: check
+                          - generic: Custom traffic-split weights per variant
+                    - link "11 view_kanban Projects check Kanban boards with drag-and-drop check Sprint planning & burndown tracking check Roadmaps, backlog & velocity reports":
+                      - /url: /solutions/project-management
+                      - generic: "11"
+                      - generic: view_kanban
+                      - heading "Projects" [level=3]
+                      - list:
+                        - listitem:
+                          - generic: check
+                          - generic: Kanban boards with drag-and-drop
+                        - listitem:
+                          - generic: check
+                          - generic: Sprint planning & burndown tracking
+                        - listitem:
+                          - generic: check
+                          - generic: Roadmaps, backlog & velocity reports
+                    - 'link "12 support_agent Help Desk check Embeddable live-chat widget for any site check Real-time team inbox with instant updates check Conversation status: open, assigned & closed"':
+                      - /url: /solutions/help-desk
+                      - generic: "12"
+                      - generic: support_agent
+                      - heading "Help Desk" [level=3]
+                      - list:
+                        - listitem:
+                          - generic: check
+                          - generic: Embeddable live-chat widget for any site
+                        - listitem:
+                          - generic: check
+                          - generic: Real-time team inbox with instant updates
+                        - listitem:
+                          - generic: check
+                          - generic: "Conversation status: open, assigned & closed"
+                    - link "13 psychology Company Brain check Ask-anything AI with cited answers check Knowledge base with notes, wikilinks & graph check Gmail, Calendar & meeting capture (Google Workspace + Teams)":
+                      - /url: /solutions/company-brain
+                      - generic: "13"
+                      - generic: psychology
+                      - heading "Company Brain" [level=3]
+                      - list:
+                        - listitem:
+                          - generic: check
+                          - generic: Ask-anything AI with cited answers
+                        - listitem:
+                          - generic: check
+                          - generic: Knowledge base with notes, wikilinks & graph
+                        - listitem:
+                          - generic: check
+                          - generic: Gmail, Calendar & meeting capture (Google Workspace + Teams)
+                    - link "14 smart_toy AI Chatbot check Trained on your website & docs check Lead capture & qualification check Instant customer support":
+                      - /url: /solutions/ai-chatbot
+                      - generic: "14"
+                      - generic: smart_toy
+                      - heading "AI Chatbot" [level=3]
+                      - list:
+                        - listitem:
+                          - generic: check
+                          - generic: Trained on your website & docs
+                        - listitem:
+                          - generic: check
+                          - generic: Lead capture & qualification
+                        - listitem:
+                          - generic: check
+                          - generic: Instant customer support
+                    - 'link "15 account_tree Automations check Visual trigger → condition → action builder check Triggers: form submitted, deal moved, booking made & more check Actions: send email, create task, add to list, webhook"':
+                      - /url: /solutions/automations
+                      - generic: "15"
+                      - generic: account_tree
+                      - heading "Automations" [level=3]
+                      - list:
+                        - listitem:
+                          - generic: check
+                          - generic: Visual trigger → condition → action builder
+                        - listitem:
+                          - generic: check
+                          - generic: "Triggers: form submitted, deal moved, booking made & more"
+                        - listitem:
+                          - generic: check
+                          - generic: "Actions: send email, create task, add to list, webhook"
+                    - link "16 slideshow Pitch Decks check AI-generated slide content check Auto-branding from your website check One-click PDF export":
+                      - /url: /solutions/pitch-decks
+                      - generic: "16"
+                      - generic: slideshow
+                      - heading "Pitch Decks" [level=3]
+                      - list:
+                        - listitem:
+                          - generic: check
+                          - generic: AI-generated slide content
+                        - listitem:
+                          - generic: check
+                          - generic: Auto-branding from your website
+                        - listitem:
+                          - generic: check
+                          - generic: One-click PDF export
+                    - link "17 storefront White-Label check Custom domain with DNS ownership verification check Your agency name across the whole portal check Your logo in place of the platform icon":
+                      - /url: /solutions/agency
+                      - generic: "17"
+                      - generic: storefront
+                      - heading "White-Label" [level=3]
+                      - list:
+                        - listitem:
+                          - generic: check
+                          - generic: Custom domain with DNS ownership verification
+                        - listitem:
+                          - generic: check
+                          - generic: Your agency name across the whole portal
+                        - listitem:
+                          - generic: check
+                          - generic: Your logo in place of the platform icon
+                    - link "18 cloud Hosting check SSL certificates included check Global CDN for fast load times check Automatic daily backups":
+                      - /url: /solutions/hosting
+                      - generic: "18"
+                      - generic: cloud
+                      - heading "Hosting" [level=3]
+                      - list:
+                        - listitem:
+                          - generic: check
+                          - generic: SSL certificates included
+                        - listitem:
+                          - generic: check
+                          - generic: Global CDN for fast load times
+                        - listitem:
+                          - generic: check
+                          - generic: Automatic daily backups
+        - link "Pricing" [ref=e12] [cursor=pointer]:
+          - /url: /pricing
+        - link "About" [ref=e13] [cursor=pointer]:
+          - /url: /about
+        - link "Blog" [ref=e14] [cursor=pointer]:
+          - /url: /blog
+        - button "Toggle theme" [ref=e15]:
+          - img [ref=e16]
+        - link "Book a Call" [ref=e18] [cursor=pointer]:
+          - /url: /contact
+          - generic [ref=e19]: Book a Call
+  - main [ref=e20]:
+    - generic [ref=e21]:
+      - heading "404" [level=1] [ref=e22]
+      - heading "Page Not Found" [level=2] [ref=e23]
+      - paragraph [ref=e24]: Sorry, we couldn't find the page you're looking for.
+      - link "Go Home" [ref=e25] [cursor=pointer]:
+        - /url: /
+  - contentinfo [ref=e26]:
+    - generic [ref=e27]:
+      - generic [ref=e28]:
+        - generic [ref=e29]:
+          - heading "SimplerDevelopment" [level=3] [ref=e30]
+          - paragraph [ref=e31]: We build custom software that helps businesses grow. From web apps to mobile, design to automation.
+          - generic [ref=e32]:
+            - link "LinkedIn" [ref=e33] [cursor=pointer]:
+              - /url: https://linkedin.com/company/simplerdevelopment
+              - img [ref=e34]
+            - link "GitHub" [ref=e36] [cursor=pointer]:
+              - /url: https://github.com/simplerdevelopment
+              - img [ref=e37]
+            - link "Twitter" [ref=e39] [cursor=pointer]:
+              - /url: https://twitter.com/simplerdevelopment
+              - img [ref=e40]
+        - generic [ref=e42]:
+          - heading "Platform" [level=4] [ref=e43]
+          - list [ref=e44]:
+            - listitem [ref=e45]:
+              - link "Website Builder" [ref=e46] [cursor=pointer]:
+                - /url: /solutions/websites
+            - listitem [ref=e47]:
+              - link "Email Marketing" [ref=e48] [cursor=pointer]:
+                - /url: /solutions/email-marketing
+            - listitem [ref=e49]:
+              - link "CRM" [ref=e50] [cursor=pointer]:
+                - /url: /solutions/crm
+            - listitem [ref=e51]:
+              - link "Online Booking" [ref=e52] [cursor=pointer]:
+                - /url: /solutions/booking
+            - listitem [ref=e53]:
+              - link "Online Store" [ref=e54] [cursor=pointer]:
+                - /url: /solutions/ecommerce
+            - listitem [ref=e55]:
+              - link "Company Brain" [ref=e56] [cursor=pointer]:
+                - /url: /solutions/company-brain
+            - listitem [ref=e57]:
+              - link "Automations" [ref=e58] [cursor=pointer]:
+                - /url: /solutions/automations
+            - listitem [ref=e59]:
+              - link "All Features" [ref=e60] [cursor=pointer]:
+                - /url: /solutions
+        - generic [ref=e61]:
+          - heading "Company" [level=4] [ref=e62]
+          - list [ref=e63]:
+            - listitem [ref=e64]:
+              - link "Pricing" [ref=e65] [cursor=pointer]:
+                - /url: /pricing
+            - listitem [ref=e66]:
+              - link "About Us" [ref=e67] [cursor=pointer]:
+                - /url: /about
+            - listitem [ref=e68]:
+              - link "Apps & Products" [ref=e69] [cursor=pointer]:
+                - /url: /apps-and-products
+            - listitem [ref=e70]:
+              - link "Blog" [ref=e71] [cursor=pointer]:
+                - /url: /blog
+            - listitem [ref=e72]:
+              - link "Contact" [ref=e73] [cursor=pointer]:
+                - /url: /contact
+        - generic [ref=e74]:
+          - heading "Get in Touch" [level=4] [ref=e75]
+          - paragraph [ref=e76]: Ready to start your project?
+          - link "Book a free consultation" [ref=e77] [cursor=pointer]:
+            - /url: /contact
+            - text: Book a free consultation
+            - img [ref=e78]
+          - paragraph [ref=e80]: info@simplerdevelopment.com
+      - paragraph [ref=e82]: © 2026 SimplerDevelopment. All rights reserved.

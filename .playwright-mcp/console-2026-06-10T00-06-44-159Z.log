@@ -1,0 +1,64 @@
+[     497ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[     681ms] [LOG] [HMR] connected @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    1516ms] [ERROR] An empty string ("") was passed to the %s attribute. This may cause the browser to download the whole page again over the network. To fix this, either do not render the element at all or pass null to %s instead of an empty string. src src @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1883
+[    1517ms] [ERROR] An empty string ("") was passed to the %s attribute. This may cause the browser to download the whole page again over the network. To fix this, either do not render the element at all or pass null to %s instead of an empty string. src src @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1883
+[    1518ms] [ERROR] An empty string ("") was passed to the %s attribute. This may cause the browser to download the whole page again over the network. To fix this, either do not render the element at all or pass null to %s instead of an empty string. src src @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1883
+[    1518ms] [ERROR] An empty string ("") was passed to the %s attribute. This may cause the browser to download the whole page again over the network. To fix this, either do not render the element at all or pass null to %s instead of an empty string. src src @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1883
+[    1519ms] [ERROR] An empty string ("") was passed to the %s attribute. This may cause the browser to download the whole page again over the network. To fix this, either do not render the element at all or pass null to %s instead of an empty string. src src @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1883
+[    1526ms] [ERROR] An empty string ("") was passed to the %s attribute. This may cause the browser to download the whole page again over the network. To fix this, either do not render the element at all or pass null to %s instead of an empty string. src src @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1883
+[    1597ms] [ERROR] An empty string ("") was passed to the %s attribute. This may cause the browser to download the whole page again over the network. To fix this, either do not render the element at all or pass null to %s instead of an empty string. src src @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1883
+[    2088ms] [ERROR] %o
+
+%s TypeError: post.publishedAt.toISOString is not a function
+    at http://localhost:3000/_next/static/chunks/simplerdevelopment_simplerdevelopment2026_components_blocks_render_751f3b97._.js:2724:76
+    at Array.map (<anonymous>)
+    at BlogPostsBlockRender (http://localhost:3000/_next/static/chunks/simplerdevelopment_simplerdevelopment2026_components_blocks_render_751f3b97._.js:2668:33)
+    at Object.react_stack_bottom_frame (http://localhost:3000/_next/static/chunks/4f107_next_dist_compiled_react-dom_ce703cb8._.js:14826:24)
+    at renderWithHooks (http://localhost:3000/_next/static/chunks/4f107_next_dist_compiled_react-dom_ce703cb8._.js:4651:24)
+    at updateFunctionComponent (http://localhost:3000/_next/static/chunks/4f107_next_dist_compiled_react-dom_ce703cb8._.js:6112:21)
+    at beginWork (http://localhost:3000/_next/static/chunks/4f107_next_dist_compiled_react-dom_ce703cb8._.js:6708:24)
+    at runWithFiberInDEV (http://localhost:3000/_next/static/chunks/4f107_next_dist_compiled_react-dom_ce703cb8._.js:965:74)
+    at performUnitOfWork (http://localhost:3000/_next/static/chunks/4f107_next_dist_compiled_react-dom_ce703cb8._.js:9562:97)
+    at workLoopSync (http://localhost:3000/_next/static/chunks/4f107_next_dist_compiled_react-dom_ce703cb8._.js:9456:40)
+    at renderRootSync (http://localhost:3000/_next/static/chunks/4f107_next_dist_compiled_react-dom_ce703cb8._.js:9440:13)
+    at performWorkOnRoot (http://localhost:3000/_next/static/chunks/4f107_next_dist_compiled_react-dom_ce703cb8._.js:9068:186)
+    at performWorkOnRootViaSchedulerTask (http://localhost:3000/_next/static/chunks/4f107_next_dist_compiled_react-dom_ce703cb8._.js:10230:9)
+    at MessagePort.performWorkUntilDeadline (http://localhost:3000/_next/static/chunks/4f107_next_dist_compiled_13a33443._.js:3168:64) The above error occurred in the <BlogPostsBlockRender> component. It was handled by the <ErrorBoundaryHandler> error boundary. @ http://localhost:3000/_next/static/chunks/4f107_next_dist_client_0180d078._.js:2642
+[    2136ms] [ERROR] TypeError: post.publishedAt.toISOString is not a function
+    at http://localhost:3000/_next/static/chunks/simplerdevelopment_simplerdevelopment2026_components_blocks_render_751f3b97._.js:2724:76
+    at Array.map (<anonymous>)
+    at BlogPostsBlockRender (http://localhost:3000/_next/static/chunks/simplerdevelopment_simplerdevelopment2026_components_blocks_render_751f3b97._.js:2668:33)
+    at Object.react_stack_bottom_frame (http://localhost:3000/_next/static/chunks/4f107_next_dist_compiled_react-dom_ce703cb8._.js:14826:24)
+    at renderWithHooks (http://localhost:3000/_next/static/chunks/4f107_next_dist_compiled_react-dom_ce703cb8._.js:4651:24)
+    at updateFunctionComponent (http://localhost:3000/_next/static/chunks/4f107_next_dist_compiled_react-dom_ce703cb8._.js:6112:21)
+    at beginWork (http://localhost:3000/_next/static/chunks/4f107_next_dist_compiled_react-dom_ce703cb8._.js:6708:24)
+    at runWithFiberInDEV (http://localhost:3000/_next/static/chunks/4f107_next_dist_compiled_react-dom_ce703cb8._.js:965:74)
+    at performUnitOfWork (http://localhost:3000/_next/static/chunks/4f107_next_dist_compiled_react-dom_ce703cb8._.js:9562:97)
+    at workLoopSync (http://localhost:3000/_next/static/chunks/4f107_next_dist_compiled_react-dom_ce703cb8._.js:9456:40)
+    at renderRootSync (http://localhost:3000/_next/static/chunks/4f107_next_dist_compiled_react-dom_ce703cb8._.js:9440:13)
+    at performWorkOnRoot (http://localhost:3000/_next/static/chunks/4f107_next_dist_compiled_react-dom_ce703cb8._.js:9068:186)
+    at performWorkOnRootViaSchedulerTask (http://localhost:3000/_next/static/chunks/4f107_next_dist_compiled_react-dom_ce703cb8._.js:10230:9)
+    at MessagePort.performWorkUntilDeadline (http://localhost:3000/_next/static/chunks/4f107_next_dist_compiled_13a33443._.js:3168:64) @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1883
+[    2142ms] [ERROR] TypeError: post.publishedAt.toISOString is not a function
+    at http://localhost:3000/_next/static/chunks/simplerdevelopment_simplerdevelopment2026_components_blocks_render_751f3b97._.js:2724:76
+    at Array.map (<anonymous>)
+    at BlogPostsBlockRender (http://localhost:3000/_next/static/chunks/simplerdevelopment_simplerdevelopment2026_components_blocks_render_751f3b97._.js:2668:33)
+    at Object.react_stack_bottom_frame (http://localhost:3000/_next/static/chunks/4f107_next_dist_compiled_react-dom_ce703cb8._.js:14826:24)
+    at renderWithHooks (http://localhost:3000/_next/static/chunks/4f107_next_dist_compiled_react-dom_ce703cb8._.js:4651:24)
+    at updateFunctionComponent (http://localhost:3000/_next/static/chunks/4f107_next_dist_compiled_react-dom_ce703cb8._.js:6112:21)
+    at beginWork (http://localhost:3000/_next/static/chunks/4f107_next_dist_compiled_react-dom_ce703cb8._.js:6708:24)
+    at runWithFiberInDEV (http://localhost:3000/_next/static/chunks/4f107_next_dist_compiled_react-dom_ce703cb8._.js:965:74)
+    at performUnitOfWork (http://localhost:3000/_next/static/chunks/4f107_next_dist_compiled_react-dom_ce703cb8._.js:9562:97)
+    at workLoopSync (http://localhost:3000/_next/static/chunks/4f107_next_dist_compiled_react-dom_ce703cb8._.js:9456:40)
+    at renderRootSync (http://localhost:3000/_next/static/chunks/4f107_next_dist_compiled_react-dom_ce703cb8._.js:9440:13)
+    at performWorkOnRoot (http://localhost:3000/_next/static/chunks/4f107_next_dist_compiled_react-dom_ce703cb8._.js:9068:186)
+    at performWorkOnRootViaSchedulerTask (http://localhost:3000/_next/static/chunks/4f107_next_dist_compiled_react-dom_ce703cb8._.js:10230:9)
+    at MessagePort.performWorkUntilDeadline (http://localhost:3000/_next/static/chunks/4f107_next_dist_compiled_13a33443._.js:3168:64) @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1883
+[    8325ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[    8671ms] [LOG] [Fast Refresh] done in 446ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   13614ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   14151ms] [LOG] [Fast Refresh] done in 638ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   66055ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   66515ms] [LOG] [Fast Refresh] done in 535ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   73143ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
+[   73756ms] [LOG] [Fast Refresh] done in 715ms @ http://localhost:3000/_next/static/chunks/4f107_next_dist_ef166fba._.js:1053
