@@ -13,7 +13,7 @@ sources:
   - lib/brain/mcp-sdk-adapter.ts
   - lib/ai/brain-tools/index.ts
   - lib/ai/brain-tools/classifier.ts
-  - lib/ai/brain-tools/tracer.ts
+  - lib/ai/tracer.ts
   - lib/ai/portal-tools/index.ts
   - lib/ai/portal-tools/classifier.ts
   - lib/ai/CLAUDE.md
@@ -92,7 +92,7 @@ Follow-up checklist (tech-debt and immediate wins unlocked by this decision):
 
 - [ ] **Tool-surface consolidation** — three tool surfaces (MCP 431 / Brain 12 / portal ~15) drift independently. A single tool-definition source of truth is higher-value than adding agents. See [[Unify AI Tool Surfaces]] for the full spec.
 - [x] **Classifier for the portal chatbot** — SHIPPED 2026-06-10. `lib/ai/portal-tools/classifier.ts` (83 lines) runs pre-loop in `app/api/portal/ai/chat/route.ts` (309 lines); `loopModel` is chosen from complexity result; classifier tokens folded into credit accounting; chosen model returned in response `data.model`. Tests: `tests/unit/portal-classifier.test.ts` (202 lines, 8 cases). Model-assignments table updated in `lib/ai/CLAUDE.md`.
-- [ ] **Real observability before sub-agents** — FINDING 2026-06-10: `lib/ai/brain-tools/tracer.ts` is already a clean single-swap-point shim (`withSpan` → one `console.warn`); no code change is warranted until a backend exists. Real OTEL export is BLOCKED on the in-progress Sentry setup. Sub-follow-up: when Sentry lands, also wrap the portal chatbot's tool executions and classifier in `withSpan` (zero tracing today), and promote `lib/ai/brain-tools/tracer.ts` to a shared `lib/ai/tracer.ts` at that point.
+- [x] **Real observability before sub-agents** — SHIPPED 2026-06-10: Sentry is live, so the stdout shim was promoted to shared `lib/ai/tracer.ts`, now emitting real Sentry performance spans in prod (`tracesSampleRate` 0.1) with a `console.warn` JSON dev fallback. The Brain agent's 5 `withSpan` call sites were repointed unchanged; the portal chatbot — which had zero tracing — now wraps its classifier (`portal.classify`) and tool executions (`portal.tool`). This clears the observability prerequisite for adding the first domain specialist (see `[[Visual-Editor Agent]]`).
 - [ ] **Intent router for the chatbot** — add a router / intent-classifier as the first step in the chatbot loop. Measure tool-selection accuracy and latency before considering any sub-agent delegation.
 - [ ] **Streaming variant — DECISION 2026-06-10: KEEP as convergence target.** `app/api/portal/ai/chat/stream/route.ts` is the mobile-first SSE path (bearer-token auth via `resolvePortalFromRequest`, Opus 4.7 + prompt-caching, disconnect-safe persistence). Converging, not retiring: Phase 4 wires `PORTAL_TOOLS` + `executePortalTool` AND the Haiku classifier routing into the stream route, then `AIChatWidget` switches to it. Not done this session — text-only pending Phase 4.
 
