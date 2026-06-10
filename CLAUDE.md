@@ -48,7 +48,7 @@ This is a ~357k-line monorepo (app 157k / lib 81k / components 119k LOC). Contex
 | New client site from a URL | `site-migration` |
 | Block-editor audit | `block-orchestrator` to drive, `block-implementer` for one-off fixes |
 | Slim down an MCP tool response | `simplerdev-mcp-token-budget` |
-| Autonomous dev loop (hands-off) | `dev-block` skill (see `.claude/HANDS_OFF_DEV_PLAN.md`) |
+| Autonomous dev loop (hands-off) | `dev-block` skill |
 | E2E test authoring | `/e2e-writer`. Running existing E2E: `/e2e-runner`. Visual QA: `/qa` |
 | Visual diff (port verification) | `/visual-compare` |
 
@@ -79,7 +79,6 @@ These are reference docs. Don't read them speculatively; only when the task touc
 - `tests/CI-GATES.md` — coverage floors (60% project-wide / 70% on lib/billing,ai,agency,esign,chat / 90% on lib/crypto), tenancy + critical-e2e gates, local override flags, required-status-check setup
 - `docs/skills/` — SD-* skills reference (overview, authoring, developer, edit-skills proposal)
 - `.claude/learnings.md` — running retro of mistakes/patterns from autonomous (dev-block) runs; read at session start when running unattended
-- `.claude/HANDS_OFF_DEV_PLAN.md` — plan + state for the hands-off / "code while I sleep" workflow
 
 ### Nested CLAUDE.md files
 

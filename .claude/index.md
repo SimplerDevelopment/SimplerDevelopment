@@ -38,7 +38,6 @@ Pointers from "I need to work on X" → the right CLAUDE.md / guide / skill. Loa
 ## Session state / memory
 
 - `@.claude/learnings.md` — running retro of mistakes/patterns from autonomous runs (read at session start when unattended)
-- `@.claude/HANDS_OFF_DEV_PLAN.md` — plan + state for the "code while I sleep" workflow
 - `~/.claude/projects/-Users-dancoyle-simplerdevelopment/memory/MEMORY.md` — cross-conversation memory (auto-loaded)
 
 ## Don't-touch zones (recap)
