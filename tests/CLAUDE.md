@@ -47,5 +47,5 @@ Note: there is currently no CI coverage gate enforced; unit-only coverage is ~4%
 ## Pointers
 
 - `@tests/TESTING_PLAN.md` — full responsibility model + targets
-- `@tests/CI-GATES.md` — gate definitions + status-check setup
+- `@tests/CI-GATES.md` — gate definitions, pre-push auto-gates, trailing promote gate (`scripts/promote-to-prod.sh`), diff coverage (`scripts/diff-coverage.sh`, vitest 4.0.18 blocker), and @flaky quarantine convention
 - `@tests/SKILLS_E2E_GUIDE.md` — testing the SD-* skills end-to-end
