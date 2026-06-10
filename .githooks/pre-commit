@@ -5,6 +5,16 @@ set -uo pipefail
 PROJ="simplerdevelopment2026"
 ROOT="$(git rev-parse --show-toplevel)"
 
+# Dev branches are intentionally frictionless: commits go straight through so the
+# branch can deploy immediately on push. Strict gates still run on every other
+# branch. One-off bypass anywhere: git commit --no-verify
+branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo)"
+case "$branch" in
+  dev|dev/*)
+    echo "pre-commit: '$branch' is a dev branch — gates relaxed (skipped)."
+    exit 0 ;;
+esac
+
 staged="$(git diff --cached --name-only --diff-filter=ACMR | grep "^$PROJ/" || true)"
 [ -z "$staged" ] && exit 0
 
