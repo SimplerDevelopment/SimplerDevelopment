@@ -21,13 +21,6 @@ const { classifyPortalComplexity } = await import(
 // Helpers
 // ---------------------------------------------------------------------------
 
-/** Build a minimal fake Anthropic client whose messages.create is a spy. */
-function makeAnthropicStub(createImpl: () => unknown) {
-  return {
-    messages: { create: vi.fn(createImpl) },
-  } as unknown as Anthropic;
-}
-
 /** Minimal response shape for a successful tool_use block. */
 function toolUseResponse(
   complexity: 'simple' | 'complex',
