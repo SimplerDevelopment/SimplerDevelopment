@@ -69,6 +69,14 @@ function findFiles(cmd: string): string[] {
 const nestedClaudeMds = () =>
   findFiles(`find app lib components tests .claude -name CLAUDE.md -not -path '*/node_modules/*' 2>/dev/null`);
 
+// Vault knowledge notes — Architecture notes and Domain Maps cite live repo paths that agents
+// route off; scan them so the vault can't rot into dead pointers. Section indexes ("00 - *")
+// and other vault sections (specs, ADRs, logs) are exempt: they reference history, not live nav.
+const vaultNotes = () =>
+  findFiles(
+    `find 'vault/02 - Architecture' 'vault/03 - Domains' -name '*.md' -not -name '00 - *' 2>/dev/null`
+  );
+
 // Skills + skill docs — scanned for moved-path references only (they legitimately mention
 // files-to-create, so the existence pass would false-positive on them).
 const skillDocs = () =>
@@ -87,7 +95,7 @@ function lineCount(path: string): number {
   return n;
 }
 
-const docs = [...new Set([...FIXED_DOCS, ...nestedClaudeMds()])].filter(existsSync);
+const docs = [...new Set([...FIXED_DOCS, ...nestedClaudeMds(), ...vaultNotes()])].filter(existsSync);
 
 const missing: { doc: string; ref: string }[] = [];
 const moved: { doc: string; from: string; hint: string }[] = [];
@@ -103,6 +111,7 @@ for (const doc of docs) {
     ref = ref.replace(/[:#].*$/, '').replace(/\s.*$/, ''); // drop :line, #anchor, trailing words
     if (!SOURCE_ROOT.test(ref)) continue;
     if (ref.includes('*') || ref.includes('[')) continue; // globs / dynamic route segments
+    if (ref.includes('<') || ref.includes('|')) continue; // placeholders (`lib/x/<domain>.ts`) / alternation shorthand
     if (!/\.\w+$/.test(ref)) continue; // file-like only
     const key = `${doc}::${ref}`;
     if (seen.has(key)) continue;

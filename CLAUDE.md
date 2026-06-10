@@ -22,12 +22,16 @@ These three systems are **complementary, not redundant** — each owns a differe
 |---|---|---|---|
 | **claude-mem** | Time / episodic | Auto, on commit/session-end (hooks) | "What did we *do / decide / discover* in past sessions?" |
 | **graphify** (`graphify-out/`) | Structure / semantic | On-demand rebuild of code+docs *as they are now* | "How does *X work* end-to-end in the codebase?" |
-| **Obsidian vault** (`vault/`) | Curation / durable | Manual + the `note` skill, authored on purpose | "What's the *canonical ADR / spec / research* worth keeping?" |
+| **Obsidian vault** (`vault/`) | Curation / durable | Manual + the `vault` skill / `vault-librarian` agent, authored on purpose | "What's the *canonical domain map / ADR / spec / playbook* worth keeping?" |
 
 Routing rule:
 - **Auto-history → claude-mem.** Don't curate it; query it (the `S###`/numeric IDs in the SessionStart hook, or the `mem-search` skill). It's a log, not a source of truth.
 - **"How does the code work?" → graphify.** Prefer `graphify-out/` over grep for broad cross-cutting questions when it exists and is recent; keep its commit-hook rebuild healthy. It reflects the *present* code, not history.
-- **"This deserves to be written down for the future" → Obsidian vault.** ADRs / specs / research only. **Do not hand-write per-session logs in the vault** — claude-mem already owns ephemeral session history; the vault is for distilled, durable artifacts that outlive any one session.
+- **"This deserves to be written down for the future" → Obsidian vault.** Domain maps / ADRs / specs / playbooks only. **Do not hand-write per-session logs in the vault** — claude-mem already owns ephemeral session history; the vault is for distilled, durable artifacts that outlive any one session.
+
+**Vault first for feature work.** Before planning/implementing in a domain, read its map in `vault/03 - Domains/` (key files, schema, routes, MCP tools, tests, gotchas — cheaper than re-deriving from code). "Which gates do I run?" → `vault/06 - Validation/Gate Picking.md`. After shipping: **completion ritual** — update the touched Domain Map and ADR any non-obvious decision (delegate to the `vault-librarian` agent; conventions in `.claude/skills/vault/SKILL.md`). New planning artifacts go in `vault/05 - Feature Specs/`, never in `.planning/` (frozen archive). Architecture + Domain notes are drift-checked by `scripts/check-doc-drift.ts` — keep cited paths real.
+
+**Project status lives on the Kanban board — always.** Plan projects and track status on the Obsidian Kanban board at `vault/05 - Feature Specs/Project Board.md` (lanes: Backlog → Planned → In Progress → Validating → Shipped). Starting a project/feature → add or move its card (linked to its spec note) into the right lane; finishing one → move it to Shipped. Keep card position and the spec's `status` frontmatter in sync. The board file is plain markdown (obsidian-kanban format: `## Lane` headings + `- [ ]` cards) — agents edit it directly.
 
 ## Run / build / test (non-guessable commands only)
 
@@ -57,6 +61,7 @@ Routing rule:
 
 | Task | Use |
 |---|---|
+| Plan a feature / consult or update project knowledge | `vault` skill (read `vault/03 - Domains/` map first), `vault-librarian` agent for upkeep |
 | New CRUD resource | `simplerdev-feature-scaffold` (schema + route + e2e), then `simplerdev-ui-scaffold` for pages |
 | New block type | `simplerdev-block-type`. For visual exploration first, `huashu-design` (see below) |
 | New MCP tool | `simplerdev-mcp-tool` (handler + schema + scope guard registered in lockstep) |
