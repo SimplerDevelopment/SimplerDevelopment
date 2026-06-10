@@ -2,11 +2,21 @@
 type: domain-map
 domain: billing
 status: active
-date: 2026-06-09
+date: 2026-06-10
 sources:
   - lib/billing/
   - lib/stripe/
   - lib/db/schema/billing.ts
+  - app/api/portal/credits/route.ts
+  - app/api/portal/credits/purchase/route.ts
+  - app/api/portal/credits/pay-as-you-go/route.ts
+  - app/api/portal/integrations/api-keys/route.ts
+  - app/api/portal/invoices/[id]/checkout/route.ts
+  - app/api/admin/portal/invoices/route.ts
+  - app/api/admin/portal/subscriptions/route.ts
+  - app/api/admin/portal/ai-credits/route.ts
+  - app/api/admin/portal/mcp-usage/route.ts
+  - app/portal/invoices/[id]/page.tsx
 ---
 
 # Domain: Billing & Stripe
@@ -46,7 +56,7 @@ All tables are in `lib/db/schema/billing.ts` (import barrel: `@/lib/db/schema`).
 | `usage_billing_periods` | `clientId`, `period`, `resource` (unique together), `billableQuantity`, `stripeUsageRecordId` | Audit row per rollup run; `stripeUsageRecordId=null` flags retry-needed |
 | `invoices` | `clientId`, `status`, `stripePaymentIntentId`, `stripeCheckoutSessionId`, `total` | Agency invoices; index on `(clientId, status, createdAt)` |
 | `invoice_items` | `invoiceId`, `unitPrice`, `total`, `serviceId` | Line items for each invoice |
-| `client_api_keys` | `clientId`, `provider` (anthropic/openai), `encryptedKey` (AES-256-GCM) | BYOK AI keys; raw key NEVER stored |
+| `client_api_keys` | `clientId`, `provider` (anthropic/openai), `encryptedKey` (AES-256-GCM) | BYOK AI keys; raw key NEVER stored. Managed via `app/api/portal/integrations/api-keys/` routes. |
 
 `clients.stripeCustomerId` (in `lib/db/schema/sites.ts`) persists the Stripe customer id. `clients.plan` (`starter` / `pro` / `enterprise`) governs plan-gating entitlements.
 
@@ -58,6 +68,12 @@ All tables are in `lib/db/schema/billing.ts` (import barrel: `@/lib/db/schema`).
 |---|---|---|
 | `app/api/portal/settings/billing/route.ts` | GET | Return billing settings for the active client |
 | `app/api/portal/billing/payment-methods/route.ts` | GET / DELETE | List / remove saved payment methods |
+| `app/api/portal/credits/route.ts` | GET | List purchasable credit packages and current balance |
+| `app/api/portal/credits/purchase/route.ts` | POST | Initiate Stripe Checkout session for a credit bundle |
+| `app/api/portal/credits/pay-as-you-go/route.ts` | POST | Toggle the pay-as-you-go flag on the client's balance |
+| `app/api/portal/integrations/api-keys/route.ts` | GET / POST | List / create BYOK provider keys (anthropic \| openai) — schema: `client_api_keys` in `lib/db/schema/billing.ts` |
+| `app/api/portal/integrations/api-keys/[id]/route.ts` | PATCH / DELETE | Update / remove a BYOK key |
+| `app/api/portal/invoices/[id]/checkout/route.ts` | POST | Create Stripe Checkout session for client to pay an invoice |
 
 ### Admin (internal)
 
@@ -66,6 +82,15 @@ All tables are in `lib/db/schema/billing.ts` (import barrel: `@/lib/db/schema`).
 | `app/api/admin/portal/clients/[id]/billing/usage/route.ts` | GET | Per-client metered usage view |
 | `app/api/admin/portal/clients/[id]/billing/metered-items/route.ts` | GET / POST | List / create metered subscription items |
 | `app/api/admin/portal/clients/[id]/billing/metered-items/[itemId]/route.ts` | PATCH / DELETE | Update / remove a metered item |
+| `app/api/admin/portal/invoices/route.ts` | GET / POST | List / create agency invoices |
+| `app/api/admin/portal/invoices/[id]/route.ts` | GET / PATCH | Fetch / update a single invoice |
+| `app/api/admin/portal/subscriptions/route.ts` | GET / POST | List / create client subscriptions |
+| `app/api/admin/portal/subscriptions/[id]/cancel/route.ts` | POST | Cancel a subscription |
+| `app/api/admin/portal/subscriptions/[id]/change-plan/route.ts` | POST | Change a subscription's plan |
+| `app/api/admin/portal/subscriptions/[id]/invoices/route.ts` | GET | List invoices for a subscription |
+| `app/api/admin/portal/subscriptions/[id]/refund/route.ts` | POST | Refund a subscription charge |
+| `app/api/admin/portal/ai-credits/route.ts` | GET | Manage AI credit packages |
+| `app/api/admin/portal/mcp-usage/route.ts` | GET | MCP tool call usage analytics / cost overview |
 
 ### Stripe webhooks
 
@@ -81,6 +106,7 @@ All tables are in `lib/db/schema/billing.ts` (import barrel: `@/lib/db/schema`).
 
 | Path | Schedule | Purpose |
 |---|---|---|
+| `app/api/cron/mcp-rollup/route.ts` | `0 4 * * *` | Roll up `mcp_tool_calls` into `mcp_tool_call_daily_rollups` (schema in `lib/db/schema/tools.ts`); runs first, before the usage crons |
 | `app/api/cron/resend-usage-sync/route.ts` | `15 4 * * *` | Pull Resend email-send counts into `usage_meter_events` |
 | `app/api/cron/usage-rollup/route.ts` | `45 4 * * *` | Roll up all active clients' usage to Stripe |
 
@@ -102,6 +128,7 @@ Registered in `lib/mcp/tools/billing.ts` via `registerBillingTools(server, ctx)`
 | Path | Audience | Description |
 |---|---|---|
 | `app/portal/settings/billing/page.tsx` | Client | Billing settings, plan info, payment methods |
+| `app/portal/invoices/[id]/page.tsx` | Client | Invoice detail and payment page |
 | `app/admin/portal-invoices/` | Admin | Invoice list and create |
 | `app/admin/portal-invoices/new/page.tsx` | Admin | New invoice form |
 | `app/admin/ai-credits/page.tsx` | Admin | AI credit package management |

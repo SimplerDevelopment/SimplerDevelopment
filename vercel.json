@@ -78,6 +78,10 @@
       "schedule": "30 7 * * *"
     },
     {
+      "path": "/api/cron/mcp-rollup",
+      "schedule": "0 4 * * *"
+    },
+    {
       "path": "/api/cron/resend-usage-sync",
       "schedule": "15 4 * * *"
     },
