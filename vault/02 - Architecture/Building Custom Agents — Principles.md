@@ -8,7 +8,7 @@ sources:
   - lib/brain/agent-preferences.ts
   - lib/ai/brain-tools/index.ts
   - lib/ai/brain-tools/sanitizer.ts
-  - lib/ai/brain-tools/tracer.ts
+  - lib/ai/tracer.ts
   - lib/ai/brain-tools/classifier.ts
   - lib/mcp/server.ts
   - lib/mcp-auth.ts
@@ -37,7 +37,7 @@ Off-the-shelf client agents (Claude Code, Cursor) know the internet but are blin
 | Personal knowledge | Per-tenant `brainProfiles` preferences + per-user conversation history |
 | Company knowledge / runbooks / policies | Company Brain knowledge base (notes, documents, decisions, glossary) |
 | System access — read context + perform ops | 431 MCP tools exposed over `lib/mcp/server.ts`; ~20 portal chatbot tools in `lib/ai/portal-tools/` |
-| Observability | `lib/ai/brain-tools/tracer.ts` (stdout shim today — see gap in §7) |
+| Observability | `lib/ai/tracer.ts` (real Sentry spans in prod; dev console fallback) |
 
 The key framing: "hallucination" is usually just the agent not knowing what you know. The fix is context, not model size.
 
@@ -126,7 +126,7 @@ LLM decisions are bounded by available tools. Guardrails intercept LLM-to-agent 
 
 Both input and output are unpredictable — a new problem for software that previously had deterministic I/O. The only handle is tracing (OpenTelemetry recommended).
 
-**Our implementation — gap:** `lib/ai/brain-tools/tracer.ts` is a `withSpan()` stdout shim that emits structured JSON; it is not real OTEL spans. Traces cannot be queried or mined by a secondary LLM. This must be resolved before any multi-agent topology is added — you cannot debug what you cannot observe.
+**Our implementation:** `lib/ai/tracer.ts` (shared by the Brain agent + portal chatbot) emits real Sentry performance spans in prod (`tracesSampleRate` 0.1) and falls back to structured JSON via `console.warn` in dev. Shipped 2026-06-10, retiring the earlier stdout-only shim — the observability prerequisite for adding a multi-agent topology is now met. The chatbot's `portal.classify` / `portal.tool` spans give it tracing it previously lacked.
 
 ### Cost
 

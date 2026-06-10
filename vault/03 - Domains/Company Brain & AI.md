@@ -154,7 +154,7 @@ Run: `scripts/test.sh --layer=unit --no-coverage` / `bun test:critical` (critica
 - **Every DB call inside Brain tools must be scoped to `clientId`** — structural, not optional. The Brain agent receives `clientId` as its first resolved argument.
 - **`lib/brain/mcp-sdk-adapter.ts` is the largest file in the repo at 5630 lines** — never read inline; spawn a subagent.
 - **Groundedness check runs after every tool loop** — `lib/ai/brain-tools/grounder.ts`; `uncertain === true` forces an "I don't know" response rather than a confident unsupported claim.
-- **Tracing is console-based shim** — `lib/ai/brain-tools/tracer.ts` uses `console.warn`; swap to real OTEL without changing call sites when ready.
+- **Tracing emits real Sentry spans** — `lib/ai/tracer.ts` (shared by the Brain agent + portal chatbot) wraps operations in `withSpan`, sending Sentry performance spans in prod (`tracesSampleRate` 0.1) with a `console.warn` JSON fallback in dev. Shipped 2026-06-10, replacing the old stdout shim.
 - **Industry templates** (`lib/brain/industry-templates/`) bootstrap a new tenant's Brain taxonomy. Adding a template requires updating `lib/brain/industry-templates/index.ts`.
 
 ## Planning notes

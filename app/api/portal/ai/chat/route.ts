@@ -8,6 +8,7 @@ import { eq, asc, sql } from 'drizzle-orm';
 import Anthropic from '@anthropic-ai/sdk';
 import { PORTAL_TOOLS, executePortalTool } from '@/lib/ai/portal-tools';
 import { classifyPortalComplexity } from '@/lib/ai/portal-tools/classifier';
+import { withSpan } from '@/lib/ai/tracer';
 import { hasCredits, deductCredits, getBalance } from '@/lib/ai-credits';
 import { resolveClientApiKey } from '@/lib/ai/resolve-client-key';
 import { recordAiUsage } from '@/lib/ai/audit';
@@ -160,7 +161,11 @@ export async function POST(req: Request) {
 
     // Cheap Haiku classifier routes the request to the right model (cost
     // control — the video's cost principle). simple → Haiku, complex → Sonnet.
-    const classification = await classifyPortalComplexity(message.trim(), anthropic);
+    const classification = await withSpan(
+      'portal.classify',
+      { clientId: client.id },
+      () => classifyPortalComplexity(message.trim(), anthropic),
+    );
     const loopModel = classification.complexity === 'simple' ? HAIKU : SONNET;
 
     // Agentic tool loop. Seed token totals with the classifier spend so
@@ -207,11 +212,16 @@ export async function POST(req: Request) {
 
         const toolResults: Anthropic.ToolResultBlockParam[] = [];
         for (const block of toolUseBlocks) {
-          const result = await executePortalTool(
-            block.name,
-            block.input as Record<string, unknown>,
-            client.id,
-            userId,
+          const result = await withSpan(
+            'portal.tool',
+            { tool: block.name, clientId: client.id },
+            () =>
+              executePortalTool(
+                block.name,
+                block.input as Record<string, unknown>,
+                client.id,
+                userId,
+              ),
           );
           allToolCalls.push({ name: block.name, input: block.input as Record<string, unknown>, result });
           toolResults.push({

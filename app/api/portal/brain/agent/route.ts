@@ -36,7 +36,7 @@ import { generatePlan } from '@/lib/ai/brain-tools/planner';
 import { checkGroundedness } from '@/lib/ai/brain-tools/grounder';
 import { getAgentPreferences, trackIntentUsage } from '@/lib/brain/agent-preferences';
 import { formatPreferencesForPrompt } from '@/lib/brain/agent-preferences-api';
-import { withSpan } from '@/lib/ai/brain-tools/tracer';
+import { withSpan } from '@/lib/ai/tracer';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';

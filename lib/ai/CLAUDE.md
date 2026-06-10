@@ -60,7 +60,7 @@ AI orchestration layer: key resolution, plan-gating, tool execution for the Comp
 - **Prompt injection risk:** User-controlled strings (note bodies, meeting transcripts, CRM content) flow into model prompts. `sanitizeToolResult` handles the LLM-output direction; for LLM-input, truncate at `MAX_*_CHARS` and use structured tool-use (not freeform text) to extract outputs.
 - **BYOK key isolation:** `resolveClientApiKey` is keyed by `(clientId, provider)` with a 60s in-process cache. Keys are encrypted at rest (`lib/crypto/api-key.ts`). A decrypt failure falls through to the platform key — it never exposes another tenant's key.
 - **Groundedness:** The Brain agent runs `checkGroundedness` after every tool loop to detect hallucination. If `uncertain === true`, the agent should surface an explicit "I don't know" rather than a confident but unsupported claim.
-- **Tracing:** `brain-tools/tracer.ts` is a console-based OTEL shim. When real OTEL is wired, swap `console.warn` → real spans without changing call sites.
+- **Tracing:** `lib/ai/tracer.ts` (shared by the Brain agent + portal chatbot) emits real Sentry performance spans in prod (`sentry.server.config.ts`, `tracesSampleRate` 0.1) and falls back to structured `console.warn` JSON in dev. Wrap any new agent operation in `withSpan(name, attrs, fn)`; attrs are normalized to Sentry-safe primitives. Use `portal.*` / brain span names so traces group by agent.
 
 ## Pointers
 
