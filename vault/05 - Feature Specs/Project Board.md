@@ -6,6 +6,7 @@ date: 2026-06-10
 
 ## Backlog
 
+- [ ] Unify AI tool surfaces (MCP 431 / Brain 12 / portal ~15 → one source of truth) — see [[Unify AI Tool Surfaces]]
 - [ ] Wire `enqueueWorkflowRunsForTrigger` to live CRM events — see [[Automations & Workflows]]
 - [ ] Implement `send_email` / `add_to_list` action kinds in the visual workflow runtime — see [[Automations & Workflows]]
 - [ ] Scheduled-campaign dispatcher (campaigns can be scheduled but nothing sends them) — see [[Email & Campaigns]]
@@ -18,6 +19,7 @@ date: 2026-06-10
 
 ## Planned
 
+- [ ] Visual-Editor / Block-Authoring Agent (first hub-and-spoke specialist; blocked on intent router + real tracing) — see [[Visual-Editor Agent]]
 
 ## In Progress
 

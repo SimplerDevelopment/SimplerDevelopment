@@ -13,6 +13,7 @@ Static list (agents: maintain this when adding ADRs — Dataview below only rend
 - [[ADR bun-as-sole-package-manager]] · [[ADR local-ci-over-github-actions]] · [[ADR typecheck-committed-head]]
 - [[ADR lint-staged-only]] · [[ADR file-size-budget-ratchet]] · [[ADR coverage-floors-tiered-by-domain]]
 - [[ADR nested-claude-md-context-discipline]] · [[ADR mcp-registry-baseline-unit-gate]] · [[ADR dev-block-routes-off-github-issues]]
+- [[ADR agent-topology-router-not-domain-mesh]]
 
 ```dataview
 TABLE domain, status, date

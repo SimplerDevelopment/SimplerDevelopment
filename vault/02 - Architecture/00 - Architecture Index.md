@@ -16,6 +16,7 @@ Core set:
 - [[MCP Server]] — registrar pattern, scope guards, token budgets
 - [[Deployment Topology]] — Vercel, crons, workers, realtime server
 - [[Agent Harness]] — CLAUDE.md system, gates, hooks, orchestration
+- [[Building Custom Agents — Principles]] — seven production-agent principles mapped to this repo's implementation
 
 ```dataview
 TABLE status, date
