@@ -2,7 +2,7 @@
 type: runbook
 domain: operations
 status: active
-date: 2026-06-09
+date: 2026-06-10
 sources:
   - .env.example
   - lib/ (grep process.env)
@@ -51,7 +51,9 @@ Never commit `.env` or `.env.local`.
 | Variable | Consumed by | How to generate |
 |---|---|---|
 | `ANTHROPIC_API_KEY` | `lib/ai/` — Company Brain, plugin runners | Anthropic console |
-| `OPENAI_API_KEY` | `lib/ai/` — embeddings, fallback LLM | OpenAI platform |
+| `OPENAI_API_KEY` | `lib/ai/` — embeddings, fallback LLM; also used by the portal voice assistant | OpenAI platform — note: the portal voice assistant additionally requires this key (or a per-tenant BYOK OpenAI key) to have **Realtime API access** enabled, which is a distinct account entitlement from embeddings/chat |
+| `OPENAI_REALTIME_MODEL` | `app/api/portal/voice/session/route.ts` | OpenAI Realtime model for the portal voice assistant (default `gpt-realtime`) |
+| `OPENAI_REALTIME_VOICE` | `app/api/portal/voice/session/route.ts` | OpenAI Realtime TTS voice (default `marin`) |
 | `REPLICATE_API_TOKEN` | `lib/ai/` — image generation | replicate.com |
 | `CLAUDE_INPUT_COST_PER_MTOK_USD` | cost tracking | Optional float override, e.g. `3.0` |
 

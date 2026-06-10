@@ -2,7 +2,7 @@
 type: domain-map
 domain: cms-blocks
 status: active
-date: 2026-06-09
+date: 2026-06-10
 sources:
   - lib/blocks/
   - lib/blocks/CLAUDE.md
@@ -15,6 +15,12 @@ sources:
   - components/blocks/render/
   - tests/integration/api/cms-posts.test.ts
   - tests/unit/mcp-tools-cms.test.ts
+  - app/api/portal/cms/websites/[siteId]/email-templates/
+  - app/api/portal/cms/websites/[siteId]/tracking/route.ts
+  - app/api/portal/cms/websites/[siteId]/content-types/[typeId]/code/route.ts
+  - tests/integration/api/cms-posts/upload-html.test.ts
+  - app/api/block-templates/[id]/publish/route.ts
+  - app/api/block-templates/[id]/cancel-delete/route.ts
 ---
 
 # Domain: CMS, Posts & Blocks
@@ -28,7 +34,7 @@ Manages all content (posts, pages, custom post types) and the block-based page e
 | Path | Role |
 |---|---|
 | `lib/db/schema/cms.ts` | Drizzle schema — posts, revisions, categories, tags, taxonomies, custom fields, block templates, media, branding profiles |
-| `lib/blocks/registry.ts` | `BUILT_IN_BLOCK_TYPES` — canonical 47-entry block roster, categories, Material Icon names |
+| `lib/blocks/registry.ts` | `BUILT_IN_BLOCK_TYPES` — canonical 48-entry block roster, categories, Material Icon names |
 | `lib/blocks/defaults.ts` | Default field values when a block is inserted |
 | `lib/blocks/template-wrap.ts` | Wraps post blocks with a post-type template at render time |
 | `lib/blocks/html-render-loops.ts` | Loop/pagination expansion for `html-render` blocks |
@@ -86,10 +92,15 @@ Portal REST (tenant-scoped, all under `app/api/portal/cms/websites/[siteId]/`):
 | `content-types/[typeId]/template/` | GET/PUT | Post-type block template |
 | `media/`, `media/[id]/`, `media/upload/` | GET/POST/DELETE | Media library |
 | `taxonomies/[taxonomyId]/terms/` | GET/POST/PATCH/DELETE | Custom taxonomy terms |
+| `email-templates/` | GET/POST | Per-site email template library list/create |
+| `email-templates/[templateId]/` | GET/PATCH/DELETE | Single email template CRUD |
+| `email-templates/seed-defaults/` | POST | Seed default email templates for a site |
+| `tracking/` | GET/PUT | Per-site tracking-script configuration (provider keys, analytics IDs) |
+| `content-types/[typeId]/code/` | GET/PUT | Per-post-type custom CSS/JS |
 
 Public-facing block metadata: `app/api/blocks/route.ts`
 Posts public API: `app/api/posts/route.ts`, `app/api/posts/[id]/route.ts`, `app/api/posts/[id]/schedule/`, `app/api/posts/[id]/custom-fields/`, `app/api/posts/calendar/`
-Block templates: `app/api/block-templates/route.ts`, `app/api/block-templates/[id]/route.ts`
+Block templates: `app/api/block-templates/route.ts`, `app/api/block-templates/[id]/route.ts`, `app/api/block-templates/[id]/publish/route.ts`, `app/api/block-templates/[id]/cancel-delete/route.ts`
 
 ## MCP tools
 
@@ -129,6 +140,7 @@ MCP write tools that target `block_templates` land in the `draft` column by defa
 | `tests/integration/api/cms-posts/revisions.test.ts` | integration | Revision creation and dedup |
 | `tests/integration/api/cms-posts/scheduled.test.ts` | integration | Scheduled publish |
 | `tests/integration/api/cms-posts/permalinks.test.ts` | integration | Slug/permalink resolution |
+| `tests/integration/api/cms-posts/upload-html.test.ts` | integration | HTML import endpoint coverage |
 | `tests/unit/mcp-tools-cms.test.ts` | unit | MCP tool handler coverage |
 | `tests/unit/mcp-tool-registry-baseline.test.ts` | unit | Exact registered tool-name set; fails on any add/remove/rename without updating `EXPECTED_TOOLS` |
 | `tests/unit/blocks-html-render-loops.test.ts` | unit | Loop expansion logic |

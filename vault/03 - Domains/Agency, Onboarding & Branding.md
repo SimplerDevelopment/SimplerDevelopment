@@ -2,11 +2,14 @@
 type: domain-map
 domain: agency
 status: active
-date: 2026-06-09
+date: 2026-06-10
 sources:
   - lib/agency/
   - lib/branding/
   - lib/onboarding/
+  - lib/branding/sentinel.ts
+  - app/api/portal/cms/websites/[siteId]/branding/generate/route.ts
+  - app/api/admin/portal/clients/[id]/members/[memberId]/route.ts
 ---
 
 # Domain: Agency, Onboarding & Branding
@@ -34,6 +37,7 @@ Everything in this domain is keyed by `clientId`. See [[Tenancy & Site Resolutio
 | DNS TXT ownership verification | `lib/agency/dns-verify.ts` |
 | Branding utility library (palette, contrast, CSS vars, etc.) | `lib/branding/` |
 | Branding MCP SDK adapter | `lib/branding/mcp-sdk-adapter.ts` |
+| Brand sentinel / design-token aliases | `lib/branding/sentinel.ts` |
 | Active client cookie resolver | `lib/active-client.ts` |
 | Clients + white-label schema | `lib/db/schema/sites.ts` |
 | Branding profiles + messaging schema | `lib/db/schema/cms.ts` (lines 292–400+) |
@@ -108,6 +112,7 @@ Append-only audit trail for domain mutations (`added`, `verified`, `removed`). I
 | `GET/PATCH /api/portal/agency/chrome` | Portal chrome overrides |
 | `GET/PATCH /api/portal/websites/[siteId]/branding` | Per-site branding profile assignment |
 | `GET/PATCH /api/portal/websites/[siteId]/branding-profile` | Per-site profile link |
+| `POST /api/portal/cms/websites/[siteId]/branding/generate` | AI branding generation for a specific site (within the cms/websites namespace) |
 
 ### Admin
 
@@ -117,6 +122,7 @@ Append-only audit trail for domain mutations (`added`, `verified`, `removed`). I
 | `GET/PATCH/DELETE /api/admin/portal/clients/[id]` | Client detail |
 | `GET/PATCH /api/admin/portal/clients/[id]/plan` | Plan assignment |
 | `GET/POST /api/admin/portal/clients/[id]/members` | Team membership |
+| `DELETE /api/admin/portal/clients/[id]/members/[memberId]` | Remove a specific client member |
 | `POST /api/admin/portal/clients/[id]/impersonate` | Admin impersonation |
 
 ### Public / v1
@@ -130,7 +136,7 @@ Append-only audit trail for domain mutations (`added`, `verified`, `removed`). I
 
 ## MCP tools
 
-All branding tools require `branding:read` scope. Profile and team tools carry their own scopes.
+Read tools require `branding:read`; mutating profile/messaging tools require `branding:write`. Profile and team tools carry their own scopes.
 
 | Tool | Scope | File |
 |---|---|---|
@@ -139,6 +145,10 @@ All branding tools require `branding:read` scope. Profile and team tools carry t
 | `branding_get_messaging` | `branding:read` | `lib/branding/mcp-sdk-adapter.ts` |
 | `branding_audit` | `branding:read` | `lib/branding/mcp-sdk-adapter.ts` |
 | `branding_check_contrast` | `branding:read` | `lib/branding/mcp-sdk-adapter.ts` |
+| `branding_create_profile` | `branding:write` | `lib/branding/mcp-sdk-adapter.ts` |
+| `branding_update_profile` | `branding:write` | `lib/branding/mcp-sdk-adapter.ts` |
+| `branding_delete_profile` | `branding:write` | `lib/branding/mcp-sdk-adapter.ts` |
+| `branding_update_messaging` | `branding:write` | `lib/branding/mcp-sdk-adapter.ts` |
 | `profile_get` | `profile:read` | `lib/mcp/tools/profile.ts` |
 | `profile_update` | `profile:write` | `lib/mcp/tools/profile.ts` |
 | `team_list_members` | `team:read` | `lib/mcp/tools/team.ts` |
@@ -192,6 +202,9 @@ MCP entry points re-export from domain adapters: `lib/mcp/tools/branding.ts` →
 | `tests/unit/components-branding-ai-tools-panel.test.tsx` | AI tools panel component |
 | `tests/unit/components-branding-buttons-tab.test.tsx` | Buttons tab component |
 | `tests/unit/app-portal-website-branding-page.test.tsx` | Per-site branding page |
+| `tests/unit/api-agency-branding-and-cron-stale-crm-routes.test.ts` | Agency branding API route |
+| `tests/unit/app-branding-page-coverage.test.tsx` | Branding portal page coverage |
+| `tests/unit/email-apply-branding-to-blocks.test.ts` | Applying branding tokens to email blocks |
 
 ---
 
@@ -214,6 +227,7 @@ MCP entry points re-export from domain adapters: `lib/mcp/tools/branding.ts` →
 - Onboarding `completedAt = NULL` is the dashboard redirect gate. Setting it is irreversible from the wizard; staff can reopen it via `reopenOnboarding()`.
 - `mirrorBrandAnswers` in `lib/onboarding/service.ts` writes to `branding_profiles` / `branding_messaging` as a fire-and-forget side effect — wizard saves are never blocked on it.
 - `branding_profiles` and `branding_messaging` live in `lib/db/schema/cms.ts`, not a dedicated branding schema module — search there, not in a hypothetical `branding.ts` schema file.
+- Block style values may be brand sentinel strings (e.g. `__brand_primary__`); `resolveBrandSentinel()` in `lib/branding/sentinel.ts` maps them to real CSS values at render time. `isBrandSentinel()` is the guard used before resolution.
 - Multiple branding profiles per client are supported; only one has `isDefault = true`. The default is what the sd-create-* skills and MCP tools use when no `profileId` is supplied.
 
 ---

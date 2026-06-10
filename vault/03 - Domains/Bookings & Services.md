@@ -2,11 +2,13 @@
 type: domain-map
 domain: bookings
 status: active
-date: 2026-06-09
+date: 2026-06-10
 sources:
   - lib/booking/
   - lib/db/schema/tools.ts
   - lib/db/schema/sites.ts
+  - lib/mcp/tools/bookings.ts
+  - app/api/admin/portal/booking/route.ts
 ---
 
 # Domain: Bookings & Services
@@ -29,6 +31,9 @@ Two related but distinct concepts live here:
 | Portal calendar view | `app/portal/tools/booking/calendar/page.tsx` |
 | Portal check-in | `app/portal/tools/booking/checkin/page.tsx` |
 | Portal quotes | `app/portal/tools/booking/quotes/page.tsx` |
+| Portal new quote | `app/portal/tools/booking/quotes/new/page.tsx` |
+| Portal analytics | `app/portal/tools/booking/analytics/page.tsx` |
+| Portal new booking page | `app/portal/tools/booking/new/page.tsx` |
 | Admin booking overview | `app/admin/booking/` |
 | Core lib helpers | `lib/booking/` |
 
@@ -74,7 +79,7 @@ All booking tables live in `lib/db/schema/tools.ts`. Service / service-request t
 - `app/api/portal/tools/booking/[id]/add-ons/route.ts` + `[addOnId]/route.ts` — manage add-ons
 - `app/api/portal/tools/booking/[id]/add-ons/from-products/route.ts` — import store products as add-ons
 - `app/api/portal/tools/booking/[id]/date-overrides/route.ts` + `[overrideId]/route.ts`
-- `app/api/portal/tools/booking/[id]/waivers/route.ts` + bulk-download + PDF export
+- `app/api/portal/tools/booking/[id]/waivers/route.ts` — list/submit waivers; `app/api/portal/tools/booking/[id]/waivers/[waiverId]/pdf/route.ts` — export single waiver PDF; `app/api/portal/tools/booking/[id]/waivers/bulk-download/route.ts` — ZIP of all waivers for a booking page
 - `app/api/portal/tools/booking/[id]/members/route.ts` — staff member management
 - `app/api/portal/tools/booking/[id]/embed/route.ts` — embed snippet generation
 - `app/api/portal/tools/booking/analytics/route.ts` — booking analytics aggregates
@@ -100,6 +105,10 @@ All booking tables live in `lib/db/schema/tools.ts`. Service / service-request t
 
 - `app/api/stripe/webhook/booking/route.ts` — handles `payment_intent.succeeded` / `payment_intent.payment_failed` for bookings
 
+**Admin**
+
+- `app/api/admin/portal/booking/route.ts` — admin-facing booking management endpoint (backs `app/admin/booking/`)
+
 **Approval gate**
 
 - `app/api/approve/[token]/route.ts` — approving a `booking_page` entity flips `active = true`, making the page live at `/book/<slug>`
@@ -118,6 +127,8 @@ Registered in `lib/mcp/tools/bookings.ts` (scope `bookings:read` / `bookings:wri
 | `bookings_get` | `bookings:read` |
 | `bookings_cancel` | `bookings:write` |
 | `bookings_update` | `bookings:write` |
+| `gift_certificates_list` | `bookings:read` |
+| `gift_certificates_issue` | `bookings:write` |
 
 Registered in `lib/mcp/tools/services.ts` (scope `services:read` / `services:write`):
 
@@ -129,7 +140,7 @@ Registered in `lib/mcp/tools/services.ts` (scope `services:read` / `services:wri
 | `suggested_projects_list` | `services:read` |
 | `suggested_project_requests_create` | `services:write` |
 
-Write tools that mutate booking data check `requireService(clientId, 'booking')` — if the client does not have an active booking service subscription the call is denied.
+`bookings_cancel`, `bookings_update`, and `gift_certificates_issue` also call `requireService(clientId, 'booking')` — if the client does not have an active booking service subscription the call is denied. `booking_pages_create` and `booking_pages_update` rely on scope guards only. See the Invariants section for the full guard contract.
 
 ## UI surfaces
 
@@ -185,6 +196,10 @@ These are rendered inside `app/sites/**` for tenant public websites.
 | `tests/e2e/group-booking.spec.ts` | e2e | Group/class booking flow |
 | `tests/e2e/admin-booking.spec.ts` | e2e | Admin booking management |
 | `tests/e2e/portal-service-requests.spec.ts` | e2e | Service request portal flow |
+| `tests/unit/components-booking-form-inline.test.tsx` | unit | Inline booking form component |
+| `tests/unit/app-admin-portal-services-page.test.tsx` | unit | Admin services page |
+| `tests/unit/components-portal-service-request-form.test.tsx` | unit | Service request form component |
+| `tests/e2e/portal-automations-services-hosting-mutations.spec.ts` | e2e | Service and hosting mutation flows |
 
 ## Cross-domain dependencies
 
@@ -197,7 +212,7 @@ These are rendered inside `app/sites/**` for tenant public websites.
 ## Invariants & gotchas
 
 - **`active = true` approval gate.** A newly created booking page is inactive by default. The admin must approve it via the approval-link flow (`app/api/approve/[token]/route.ts`), which flips `active = true`. Until approved, `/book/<slug>` is unreachable by guests. Do not bypass `active` checks in public slot queries.
-- **`requireService` guard.** Write-path MCP tools (`bookings_cancel`, `bookings_update`, plus any future write tool) call `requireService(clientId, 'booking')` before mutating. If the client's `client_services` row for the `booking` service is absent or inactive, the tool returns denied. This is separate from MCP scope guards — both must pass.
+- **`requireService` guard.** The three write tools that mutate live booking or payment data — `bookings_cancel`, `bookings_update`, and `gift_certificates_issue` — call `requireService(clientId, 'booking')` before mutating. If the client's `client_services` row for the `booking` service is absent or inactive, the tool returns denied. This is separate from MCP scope guards — both must pass. Booking page CRUD tools (`booking_pages_create`, `booking_pages_update`) rely on scope guards only and do not call `requireService`.
 - **Reminder idempotency.** The hourly cron (`app/api/cron/booking-reminders`, schedule `0 * * * *`) only emails guests whose `reminderSentAt` is `NULL`. It sets the column on dispatch — never re-send.
 - **Stuck-hold cleanup.** Every 30 minutes (`*/30 * * * *`) `app/api/cron/stuck-booking-holds` releases payment intents that never completed, preventing slot lockout.
 - **Group vs individual bookings.** When `bookingType = 'group'`, one `bookings` row is the slot/class and `booking_attendees` holds each registrant. For `individual` the `bookings` row IS the single attendee — `booking_attendees` is never populated.

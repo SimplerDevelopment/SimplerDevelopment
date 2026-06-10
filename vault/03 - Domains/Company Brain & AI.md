@@ -2,11 +2,20 @@
 type: domain-map
 domain: brain-ai
 status: active
-date: 2026-06-09
+date: 2026-06-10
 sources:
   - lib/brain/
   - lib/ai/
   - lib/db/schema/brain.ts
+  - lib/brain/meeting-sources/
+  - app/api/portal/brain/drive-sync/route.ts
+  - app/api/portal/brain/adapters/route.ts
+  - app/api/portal/brain/who-knows/route.ts
+  - app/api/portal/brain/expertise-tags/route.ts
+  - app/api/portal/brain/dataview/route.ts
+  - app/portal/brain/automations/
+  - app/portal/brain/templates/
+  - app/portal/brain/connect/
 ---
 
 # Domain: Company Brain & AI
@@ -33,6 +42,7 @@ Company Brain is the per-tenant AI knowledge base. Each tenant gets an isolated 
 | `lib/ai/audit.ts` | `recordAiUsage` / `recordAiImageUsage` — fire-and-forget usage metering |
 | `lib/brain/embeddings.ts` | `embedText`, `embedEntity`, `searchSemantic` — OpenAI `text-embedding-3-*` |
 | `lib/brain/embedding-queue.ts` | `enqueueEmbedding`, `drainQueue` — async embedding pipeline |
+| `lib/brain/meeting-sources/` | Meeting ingestion adapter registry (Google Meet, Teams, upload, paste, live-voice) — feeds `app/api/portal/brain/adapters/` |
 | `lib/brain/mcp-sdk-adapter.ts` | Brain MCP adapter (5630 lines — god-file; never read inline) |
 | `lib/mcp/tools/brain.ts` | MCP domain registrar — thin re-export of `registerBrainToolsOnSdk` |
 | `lib/mcp/tools/ai.ts` | MCP registrar for cross-domain portal-AI tools |
@@ -71,6 +81,14 @@ All tables live in `lib/db/schema/brain.ts` (1537 lines). Key tables:
 | `brain_audit_logs` | Append-only audit trail |
 | `brain_entity_topics` | Junction: entity ↔ topic tags |
 | `brain_kb_links` | Cross-entity knowledge graph links |
+| `brain_custom_fields` | Per-note custom field definitions (name, type, scope) |
+| `brain_custom_field_values` | Per-entity values for custom field definitions |
+| `brain_playbook_steps` | Step definitions for playbook templates |
+| `brain_playbook_links` | Polymorphic entity links attached to playbook runs |
+| `brain_initiative_links` | Polymorphic entity links to strategic initiatives |
+| `brain_person_expertise` | Junction: person ↔ expertise tag |
+| `brain_document_versions` | Immutable per-version document body (pinned via `brain_documents.pinned_version_id`) |
+| `brain_document_links` | Cross-entity document links |
 
 ## API surface
 
@@ -90,6 +108,11 @@ All routes under `app/api/portal/brain/` (Next.js App Router, `{ success, data |
 | `app/api/portal/brain/crm-suggestions/` | Brain → CRM auto-link suggestions |
 | `app/api/portal/brain/settings/` | Per-tenant Brain settings |
 | `app/api/portal/brain/dashboard/` | Dashboard summary data |
+| `app/api/portal/brain/drive-sync/route.ts` | Google Drive change-sync & Meet recording folder operations |
+| `app/api/portal/brain/adapters/route.ts` | Lists enabled meeting-source adapters for the tenant |
+| `app/api/portal/brain/who-knows/route.ts` | Returns people with expertise matching a query |
+| `app/api/portal/brain/expertise-tags/` | Expertise tag CRUD + merge (`[id]/merge/route.ts`) |
+| `app/api/portal/brain/dataview/route.ts` | Structured dataview queries across brain entities |
 | `app/api/portal/ai/chat/route.ts` | Portal AI assistant (streaming tool-use chat) |
 | `app/api/portal/ai/chat/stream/` | SSE stream variant |
 | `app/api/admin/ai/conversations/` | Admin view of AI conversations |
@@ -115,6 +138,10 @@ Portal-AI tools (`lib/mcp/tools/ai.ts`) cover dashboard, projects, billing, supp
 | `app/portal/brain/initiatives/`, `goals/`, `glossary/`, `topics/`, `relationships/`, `org-chart/` | Strategy & taxonomy UIs |
 | `app/portal/brain/communications/`, `review/` | Inbound-email review queue |
 | `app/portal/brain/calendar/` | Calendar integration |
+| `app/portal/brain/automations/` | Brain-scoped automation rules |
+| `app/portal/brain/templates/` | Note template management |
+| `app/portal/brain/connect/` | Google Workspace / calendar connection setup |
+| `app/portal/brain/prospects/` | Redirect alias → `relationships?view=stale` |
 | `app/portal/brain/settings/` | Per-tenant Brain settings |
 | `app/portal/settings/ai/` | Portal AI / BYOK key settings |
 | `app/admin/portal-ai/page.tsx` | Admin view: portal AI conversations |
@@ -122,7 +149,7 @@ Portal-AI tools (`lib/mcp/tools/ai.ts`) cover dashboard, projects, billing, supp
 
 ## Tests & gates
 
-Coverage floor: **70%** on `lib/ai/**/*.ts` (see `tests/CI-GATES.md`, line 57). No explicit floor listed for `lib/brain/` in CI gates, but the domain has extensive unit coverage.
+Intended coverage floor: **70%** on `lib/ai/**/*.ts` (`tests/CI-GATES.md`, line 57) — documented as a target but not currently enforced as a blocking gate; see `tests/CI-GATES.md` for context. No explicit floor listed for `lib/brain/` in CI gates, but the domain has extensive unit coverage.
 
 | Layer | Location | Examples |
 |---|---|---|

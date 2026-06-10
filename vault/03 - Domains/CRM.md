@@ -2,10 +2,11 @@
 type: domain-map
 domain: crm
 status: active
-date: 2026-06-09
+date: 2026-06-10
 sources:
   - lib/crm/
   - lib/db/schema/crm.ts
+  - lib/crm-custom-field-filter.ts
 ---
 
 # Domain: CRM
@@ -27,6 +28,7 @@ Full-featured customer relationship management layer for each tenant (client). M
 | Library helpers | `lib/crm/notifications.ts` | `createCrmNotification`, `notifyAllClientUsers`, `notifyApprovers` |
 | Library helpers | `lib/crm/extract-mentions.ts` | `extractMentions` — parses `@[name](userId)` in deal comments |
 | Library helpers | `lib/crm/parse.ts` | `parseDisplayName`, `normalizeDomain`, `domainFromEmail` |
+| Library helpers | `lib/crm-custom-field-filter.ts` | `buildCustomFieldFilters` — parses `cf=<fieldId>:<value>` query params into Drizzle EXISTS conditions for filtered list queries |
 | MCP tools | `lib/mcp/tools/crm.ts` | ~1670 lines; god file — do not read into main thread |
 | Portal UI | `app/portal/crm/` | Dashboard, contacts, deals, companies, proposals, contracts, settings |
 | Portal API | `app/api/portal/crm/` | ~50 route files; all return `{ success, data | error }` |
@@ -81,6 +83,8 @@ All routes under `app/api/portal/crm/` return `{ success, data | error }` and re
 | Contacts | `app/api/portal/crm/contacts/route.ts` | GET, POST |
 | Contact detail | `app/api/portal/crm/contacts/[id]/route.ts` | GET, PATCH, DELETE |
 | Contact send-email | `app/api/portal/crm/contacts/[id]/send-email/route.ts` | POST |
+| Contact email history | `app/api/portal/crm/contacts/[id]/emails/route.ts` | GET |
+| Contact titles | `app/api/portal/crm/contacts/titles/route.ts` | GET |
 | Contact score | `app/api/portal/crm/contacts/[id]/score/route.ts` | POST |
 | Contact dedup | `app/api/portal/crm/contacts/duplicates/route.ts` | GET |
 | Contact merge | `app/api/portal/crm/contacts/merge/route.ts` | POST |
@@ -94,11 +98,19 @@ All routes under `app/api/portal/crm/` return `{ success, data | error }` and re
 | Deal artifacts | `app/api/portal/crm/deals/[id]/artifacts/route.ts` | GET, POST, DELETE |
 | Proposals | `app/api/portal/crm/proposals/route.ts` | GET, POST |
 | Proposal send | `app/api/portal/crm/proposals/[id]/send/route.ts` | POST |
+| Proposal templates | `app/api/portal/crm/proposal-templates/route.ts` | GET, POST |
+| Proposal template detail | `app/api/portal/crm/proposal-templates/[id]/route.ts` | PUT, DELETE |
 | Contracts | `app/api/portal/crm/contracts/route.ts` | GET, POST |
 | Contract sign-url | `app/api/portal/crm/contracts/[id]/sign-url/route.ts` | GET |
 | Contract e-sign | `app/api/portal/crm/contracts/[id]/send-for-signature/route.ts` | POST |
+| Contract email-send | `app/api/portal/crm/contracts/[id]/send/route.ts` | POST |
+| Contract cancel-signature | `app/api/portal/crm/contracts/[id]/cancel-signature/route.ts` | POST |
+| Contract signing-events | `app/api/portal/crm/contracts/[id]/signing-events/route.ts` | GET |
 | Custom fields | `app/api/portal/crm/custom-fields/route.ts` | GET, POST |
 | Custom field values | `app/api/portal/crm/custom-fields/values/route.ts` | PUT (upsert) |
+| Tags | `app/api/portal/crm/tags/route.ts` | GET, POST |
+| Tag detail | `app/api/portal/crm/tags/[id]/route.ts` | DELETE |
+| Mentions | `app/api/portal/crm/mentions/route.ts` | GET |
 | Notifications | `app/api/portal/crm/notifications/route.ts` | GET |
 | Analytics | `app/api/portal/crm/analytics/route.ts` | GET |
 | Import | `app/api/portal/crm/import/route.ts` | POST |
@@ -107,7 +119,22 @@ All routes under `app/api/portal/crm/` return `{ success, data | error }` and re
 | Scoring rules | `app/api/portal/crm/scoring-rules/route.ts` | GET, POST |
 | Dashboard | `app/api/portal/crm/dashboard/route.ts` | GET |
 
+Detail/sub-routes also exist for: `notifications/[id]` (PATCH — mark read), `notifications/mark-all-read` (POST), `deals/[id]/artifacts/available` (GET — linkable artifact candidates), `import/preview` (POST — CSV preview before commit), `saved-views/[id]` (PUT, DELETE), `scoring-rules/[id]` (PUT, DELETE), `custom-fields/[id]` (PUT, DELETE), and `pipelines/[id]/stages/[stageId]` (DELETE).
+
 Public (unauthenticated) proposal/contract signing: `app/api/proposals/[token]/route.ts`.
+
+### Admin mirror (`app/api/admin/portal/crm/`)
+
+Six read-only routes scoped to platform-admin auth (not portal-client auth), used by the internal admin panel to inspect tenant CRM data:
+
+| Resource | Route | Methods |
+|---|---|---|
+| Contacts | `app/api/admin/portal/crm/contacts/route.ts` | GET |
+| Companies | `app/api/admin/portal/crm/companies/route.ts` | GET |
+| Deals | `app/api/admin/portal/crm/deals/route.ts` | GET |
+| Proposals | `app/api/admin/portal/crm/proposals/route.ts` | GET |
+| Contracts | `app/api/admin/portal/crm/contracts/route.ts` | GET |
+| Dashboard | `app/api/admin/portal/crm/dashboard/route.ts` | GET |
 
 ---
 
@@ -179,7 +206,7 @@ Run after any data-access change: `bun test:tenancy`. Golden-path gate: `bun tes
 
 **Surveys auto-route**: public survey submission (`app/api/surveys/[slug]/route.ts`) evaluates `survey.scoringConfig.autoRouteToCrm`. When a respondent's score meets the threshold, the handler directly inserts a `crmDeals` row into the configured pipeline stage (best-effort, non-fatal).
 
-**Email & Campaigns** (`lib/mcp/tools/email.ts`, `app/api/portal/crm/contacts/[id]/send-email/route.ts`): CRM contacts can be emailed directly; activity auto-log planned in Phase 3 of `.planning/crm-improvements/PLAN.md`.
+**Email & Campaigns** (`lib/mcp/tools/email.ts`, `app/api/portal/crm/contacts/[id]/send-email/route.ts`): CRM contacts can be emailed directly; send-email handler inserts a `crmActivities` row (`type: 'email'`) on every successful send and updates `lastContactedAt` — both read and write sides of email activity logging are shipped. The `.planning/crm-improvements/PLAN.md` Phase 3 reference to this as planned is stale.
 
 **Bookings**: booking submission can trigger CRM contact creation / lead scoring (via `crmScoringRules`, event type `booking_made`).
 

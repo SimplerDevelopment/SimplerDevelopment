@@ -2,11 +2,14 @@
 type: domain-map
 domain: chat-realtime
 status: active
-date: 2026-06-09
+date: 2026-06-10
 sources:
   - lib/chat/
   - lib/realtime/
   - packages/realtime-server/
+  - components/portal/voice/
+  - lib/voice/
+  - lib/brain/meeting-sources/live-voice.ts
 ---
 
 # Domain: Chat, Realtime & Voice
@@ -33,6 +36,9 @@ Three related but distinct real-time capabilities: (1) a visitor-facing embeddab
 | `lib/realtime/use-comments.ts` | React hook: fetch/thread/optimistic-CRUD for `document_comments` |
 | `lib/voice/tools.ts` | Curated tool set for the voice assistant (search_brain, CRM, tasks) |
 | `lib/voice/confirm-token.ts` | HMAC-signed two-phase confirm token for voice mutations (5m TTL) |
+| `components/portal/voice/useRealtimeVoice.ts` | Browser WebRTC lifecycle hook — RTCPeerConnection, mic capture, SDP exchange with OpenAI Realtime, `oai-events` data channel, streaming transcripts, function-call relay, meeting-mode tab-audio mixing |
+| `components/portal/voice/VoiceAssistant.tsx` | Floating push-to-talk voice widget (transcript panel, confirm card, save-to-Brain) — built but NOT yet mounted anywhere |
+| `lib/brain/meeting-sources/live-voice.ts` | Meeting-mode adapter: live voice transcript → Company Brain meeting → decisions/tasks extraction pipeline |
 | `packages/realtime-server/src/server.ts` | Standalone Yjs WebSocket server; deployed on Railway |
 | `packages/realtime-server/src/auth.ts` | JWT handshake verification (docKey-bound, 5m TTL) |
 | `packages/realtime-server/src/persistence.ts` | Debounced Postgres snapshot flushing (2s) |
@@ -110,9 +116,13 @@ No dedicated MCP tools for chat or voice. The realtime collab domain has an **in
 | Portal inbox list | `app/portal/inbox/page.tsx` | SSE-driven via `/api/portal/chat/inbox-stream` |
 | Portal inbox conversation | `app/portal/inbox/[id]/page.tsx` | Agent reply UI |
 | Portal chat widget settings | `app/portal/inbox/widgets/[id]/page.tsx` | Widget config editor |
-| Voice assistant | portal-wide | Browser WebRTC to OpenAI; tools relayed through `/api/portal/voice/tool` |
+| Voice assistant | dormant — not yet mounted | `components/portal/voice/VoiceAssistant.tsx` is built but is not imported or rendered by any parent. Intended to sit beside `AIChatWidget` in `app/portal/PortalLayoutClient.tsx` (which is itself currently commented out). Browser WebRTC to OpenAI; tools relayed through `/api/portal/voice/tool` |
 
 Document comments UI lives inside the visual editor (`components/portal/visual-editor/`) rather than a standalone page.
+
+### Meeting mode
+
+`VoiceAssistant` supports an optional meeting-recording mode. When enabled, it calls `getDisplayMedia` to capture shared-tab audio, mixes it with the mic stream through an `AudioContext`, and sends the combined audio to the OpenAI Realtime session. After the session ends, `lib/brain/meeting-sources/live-voice.ts` saves the combined transcript into the Company Brain as a meeting record and runs the existing extraction pipeline — producing decisions and tasks that land in the review queue. This path is wired in the adapter but remains dormant until `VoiceAssistant` is mounted in the portal layout.
 
 ## Tests & gates
 
@@ -149,9 +159,16 @@ Document comments UI lives inside the visual editor (`components/portal/visual-e
 - **Voice tool execution requires both phases for mutations**: `requiresConfirm:true` tools return `needs_confirmation` on first POST; the widget must send back `confirmToken` for the second POST. The token is HMAC-bound to the exact `(tool, args, userId, clientId)` tuple; tampered args will fail verification.
 - **Y.Doc entity types**: only `post`, `deck`, and `email` are valid; the JWT's `docKey` claim is validated against this set in `packages/realtime-server/src/auth.ts`.
 - **All chat tables are tenancy-scoped by `clientId`**. Run `bun test:tenancy` after any chat data-access change.
+- **Voice env vars**: `OPENAI_REALTIME_MODEL` (default `gpt-realtime`) and `OPENAI_REALTIME_VOICE` (default `marin`) are read in `app/api/portal/voice/session/route.ts`. Neither is currently documented in `.env.example` or README.
+- **Voice requires Realtime API access**: the portal voice assistant uses `OPENAI_API_KEY` (or a per-tenant BYOK OpenAI key), but the account must have OpenAI Realtime API access enabled — this is a distinct capability from the embeddings/chat key usage and must be provisioned separately on the OpenAI platform.
+- **Mic capture requires a secure context and Permissions-Policy**: `getUserMedia` is blocked outside HTTPS or localhost. `next.config.ts` sets the `Permissions-Policy: microphone=(self)` header; removing or narrowing this header will silently break the voice session flow.
 
 ## Planning notes
 
+- **Voice assistant is built but not yet shipped — three blockers**:
+  1. `VoiceAssistant` (`components/portal/voice/VoiceAssistant.tsx`) is never imported or mounted. It is intended to sit beside `AIChatWidget` in `app/portal/PortalLayoutClient.tsx`, which is itself currently commented out.
+  2. Voice env vars (`OPENAI_REALTIME_MODEL`, `OPENAI_REALTIME_VOICE`) are not documented in `.env.example` or README; operators deploying the portal will not know to set them.
+  3. No end-to-end validation exists for the BYOK / plan-gate / credits path through to a real OpenAI WebRTC connection — all current voice tests mock the network layer.
 - `brainEnabled` on `chat_widgets` is schema-only — AI first-line replies (Company Brain answering before a human) are not yet wired.
 - `attachments` on `chat_messages` is a JSON column reserved for future file support; always returns `[]`.
 - Voice metering is gate-only (v1): precise per-session audio-token accounting from `response.done` is documented as a follow-on.

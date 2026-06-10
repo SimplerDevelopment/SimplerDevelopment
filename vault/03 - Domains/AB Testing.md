@@ -2,7 +2,7 @@
 type: domain-map
 domain: ab-testing
 status: active
-date: 2026-06-09
+date: 2026-06-10
 sources:
   - lib/ab/assign.ts
   - lib/ab/resolve.ts
@@ -33,6 +33,8 @@ sources:
   - tests/integration/api/portal/ab/experiments-crud.test.ts
   - tests/integration/api/public/ab/event.test.ts
   - tests/integration/api/public/ab/render-variant.test.ts
+  - components/blocks/AbGoalTracker.tsx
+  - components/portal/ExperimentDetailClient.tsx
 ---
 
 # Domain: AB Testing
@@ -59,6 +61,8 @@ See `docs/guides/AB_TESTING_GUIDE.md` for the full reference (render patterns, a
 | `app/portal/experiments/page.tsx` | Tenant experiment list (SSR + `ExperimentsTable` client component with status/type filters) |
 | `app/portal/experiments/[id]/page.tsx` | Per-experiment detail: variant editor, traffic split, live results |
 | `app/sites/[domain]/[[...slug]]/page.tsx` | Integration point — calls `applyAbToPostContent` for every post/page render |
+| `components/blocks/AbGoalTracker.tsx` | Inline client component; fires `POST /api/public/ab/event` on click/submit matching `goal_selector`; reads AB resolution from page props |
+| `components/portal/ExperimentDetailClient.tsx` | Client component: variant label/JSON editor, traffic split with rebalance, `MIN_SAMPLE_PER_ARM` significance display |
 | `docs/guides/AB_TESTING_GUIDE.md` | Primary reference doc — cite this, do not duplicate here |
 
 ## Data model
@@ -123,7 +127,7 @@ None registered. Experiment management is portal-UI-only; no MCP surface exists 
 ## UI surfaces
 
 - `app/portal/experiments/page.tsx` — experiment list filtered by status and target type; "New Experiment" modal (`NewExperimentLauncher`); links to detail.
-- `app/portal/experiments/[id]/page.tsx` — detail: variant card list with editable labels, per-variant weight inputs, traffic rebalance link, variant JSON editor (block tree), live results table with view/goal counts and significance column.
+- `app/portal/experiments/[id]/page.tsx` — detail: variant card list with editable labels, per-variant weight inputs, traffic rebalance link, variant JSON editor (block tree), live results table with view/goal counts and significance column (green-check when `p < 0.05` and both arms have >= 100 visitors; hourglass when statistically significant but under-sampled).
 - `app/sites/[domain]/[[...slug]]/page.tsx` — public render integration; `applyAbToPostContent` is called on every post/page render; the returned `ab` resolution is injected into the page for the client-side `AbGoalTracker` component to read.
 
 In edit/preview mode, the `skip: true` flag on `applyAbToPostContent` / `applyAbToDeckSlides` bypasses the entire AB pipeline so editors always see canonical content.
@@ -174,10 +178,11 @@ The `@ab @critical` tags on E2E specs include them in the `bun test:critical` ga
 - **W3.D** — Survey variants E2E spec (`tests/e2e/survey-variants-lifecycle.spec.ts`) — authored but left on a local-only branch; depends on `feat/ab-survey-variants` (ba435ceb3) being merged first.
 
 From `docs/guides/AB_TESTING_GUIDE.md` section 10 (known gaps / roadmap):
-- Statistical significance flag in the results table — stub exists, p-value threshold not yet wired to UI state.
+- Statistical significance flag — SHIPPED. `MIN_SAMPLE_PER_ARM = 100` guard is live in `components/portal/ExperimentDetailClient.tsx`; UI shows hourglass below threshold, green-check above.
+- `+ New Experiment` launcher on `/portal/experiments` — SHIPPED. `components/portal/NewExperimentModal.tsx` renders an inline picker modal supporting both `page` and `pitch_deck` target types.
 - Email subject A/B promotion (planned) — separate surface, see guide section 6.
 - Survey variant assignment + response recording (planned) — see guide section 7.
-- Deck render integration at `app/(pages)/d/[slug]/page.tsx` — `applyAbToDeckSlides` is implemented but not yet called on the public deck render path as of the last audit.
+- Deck render integration — `applyAbToDeckSlides` is implemented in `lib/ab/render.ts` but not yet called on the public deck render paths (`app/sites/[domain]/slides/[slug]/page.tsx` and `app/pitch-deck/[slug]/page.tsx`) as of the last audit.
 
 ## Related
 

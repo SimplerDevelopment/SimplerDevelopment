@@ -2,11 +2,18 @@
 type: domain-map
 domain: email
 status: active
-date: 2026-06-09
+date: 2026-06-10
 sources:
   - lib/email/
   - lib/db/schema/email.ts
   - workers/email-inbound/
+  - lib/email/website-email-events.ts
+  - lib/publishing/channels/email.ts
+  - lib/ai/portal-tools/email.ts
+  - app/api/admin/email/
+  - app/api/portal/cms/websites/[siteId]/email-templates/
+  - app/api/cron/resend-usage-sync/route.ts
+  - app/api/portal/publishing/channels/email/route.ts
 ---
 
 # Domain: Email & Campaigns
@@ -43,6 +50,9 @@ Outbound delivery is exclusively via Resend. Inbound email is handled by a Cloud
 | `app/api/email/webhooks/route.ts` | Resend webhook: updates `email_campaign_sends` opened/clicked/bounced; hard-bounce flips subscriber status |
 | `app/api/email/unsubscribe/route.ts` | Public unsubscribe link handler (token-based) |
 | `lib/mcp/tools/email.ts` | All MCP email tools registration |
+| `app/api/cron/resend-usage-sync/route.ts` | Cron: rolls up per-client email send counts into `usage_meter_events` for billing (stub mode; TODO: wire real Resend usage API) |
+| `lib/ai/portal-tools/email.ts` | Claude AI tool definitions for the inbound email agentic loop (`get_my_email_campaigns`, `get_my_email_lists`, `create_email_campaign`, `update_email_campaign`, `add_email_subscriber`, etc.) — distinct from MCP tools |
+| `lib/publishing/channels/email.ts` | Publishing adapter — link campaigns to Publishing Command Center kanban cards (`linkEmailCampaignToCard`, `unlinkEmailCampaignFromCard`, `syncCardStageToCampaign`) |
 
 ## Data model
 
@@ -100,6 +110,34 @@ Per-website overrides for transactional events (e.g. `order.confirmed`, `booking
 | `app/api/portal/email/render-preview/route.ts` | POST | Block-based render preview with cache |
 | `app/api/portal/email/analytics/route.ts` | GET | Aggregate open/click/bounce stats |
 
+### Website email template overrides (Portal, site-scoped)
+
+| Route | Methods | Notes |
+|---|---|---|
+| `app/api/portal/cms/websites/[siteId]/email-templates/route.ts` | GET, POST | List / create per-site transactional template overrides |
+| `app/api/portal/cms/websites/[siteId]/email-templates/[templateId]/route.ts` | GET, PATCH, DELETE | Template detail / update / delete |
+| `app/api/portal/cms/websites/[siteId]/email-templates/seed-defaults/route.ts` | POST | Seed the default set of transactional templates for a site |
+
+### Admin REST (global, super-admin scoped)
+
+| Route | Methods | Notes |
+|---|---|---|
+| `app/api/admin/email/campaigns/route.ts` | GET, POST | List / create campaigns across all tenants |
+| `app/api/admin/email/campaigns/[id]/route.ts` | GET, PATCH, DELETE | Campaign detail / edit / delete |
+| `app/api/admin/email/campaigns/[id]/send/route.ts` | POST | Trigger send (admin-initiated) |
+| `app/api/admin/email/domains/route.ts` | GET, POST | List / add sending domains |
+| `app/api/admin/email/domains/[id]/route.ts` | GET, PATCH, DELETE | Domain detail / edit / delete |
+| `app/api/admin/email/domains/[id]/verify/route.ts` | POST | Trigger DNS verification for a sending domain |
+| `app/api/admin/email/lists/route.ts` | GET, POST | List / create subscriber lists |
+| `app/api/admin/email/lists/[id]/route.ts` | GET, PATCH, DELETE | List detail / edit / delete |
+| `app/api/admin/email/subscribers/route.ts` | POST, PUT, DELETE | Bulk subscriber create / update / remove |
+
+### Publishing channel
+
+| Route | Methods | Notes |
+|---|---|---|
+| `app/api/portal/publishing/channels/email/route.ts` | GET, POST, DELETE | Link / unlink campaigns to Publishing Command Center kanban cards |
+
 ### Public / webhook
 
 | Route | Method | Notes |
@@ -152,7 +190,10 @@ Write/send tools route through `stageOrApply` — campaigns needing approval pro
 | `app/portal/email/settings/page.tsx` | Domain/from-address settings |
 | `app/portal/email/editor-preview/page.tsx` | Block-editor email preview pane |
 | `app/admin/email/page.tsx` | Admin email overview |
-| `app/admin/email/campaigns/page.tsx` | Admin campaign view |
+| `app/admin/email/campaigns/page.tsx` | Admin campaign list |
+| `app/admin/email/campaigns/new/page.tsx` | Admin campaign creation |
+| `app/admin/email/campaigns/[id]/page.tsx` | Admin campaign detail / edit |
+| `app/admin/email/lists/page.tsx` | Admin subscriber list management |
 | `app/admin/email/domains/page.tsx` | Admin sending-domain management |
 
 ## Tests and gates
@@ -177,7 +218,8 @@ Run the critical E2E gate before declaring email work done: `bun test:critical`.
 | **Company Brain** | Inbound path `brain+<token>@simplerdevelopment.com` ingests email into `brain_meetings` via `handleBrainIngest`; `lib/brain/process-meeting.ts` can auto-process on arrival |
 | **Auth / Teams** | `lib/email/invite-email.ts` called by `app/api/portal/team/route.ts` |
 | **MCP approvals** | `lib/mcp/approvals.ts` uses `renderBlocksToEmailHtml`; `lib/email/mcp-approval-email.ts` sends approval notification emails |
-| **Billing** | `requireService(clientId, 'email')` gates all campaign write/send MCP tools — client must have the email service provisioned |
+| **Billing** | `requireService(clientId, 'email')` gates all campaign write/send MCP tools — client must have the email service provisioned. `app/api/cron/resend-usage-sync/route.ts` rolls up per-client send counts from `email_campaign_sends` into `usage_meter_events` (currently in stub/local-count mode; TODO: wire real Resend billing API) |
+| **Publishing / Kanban** | `lib/publishing/channels/email.ts` and `app/api/portal/publishing/channels/email/route.ts` implement the Publishing Command Center email-channel adapter, linking campaigns to kanban cards |
 
 ## Invariants and gotchas
 

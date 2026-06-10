@@ -2,11 +2,18 @@
 type: domain-map
 domain: sites-hosting
 status: active
-date: 2026-06-09
+date: 2026-06-10
 sources:
   - lib/sites/
   - lib/publishing/
   - lib/db/schema/sites.ts
+  - lib/mcp/tools/cms.ts
+  - lib/mcp/tools/hosting.ts
+  - app/api/portal/websites/[siteId]/google/
+  - app/api/portal/hosting/[id]/route.ts
+  - app/api/portal/websites/[siteId]/branding-profile/route.ts
+  - app/api/portal/publishing/permissions/route.ts
+  - lib/publishing/active-client.ts
 ---
 
 # Domain: Sites, Hosting & Publishing
@@ -37,6 +44,8 @@ Manages per-tenant client websites from infrastructure provisioning through publ
 | Publishing constants/stages | `lib/publishing/constants.ts` |
 | Website provisioner | `lib/website-provisioner.ts` |
 | Request-scoped cache | `lib/site-data-cache.ts` |
+| Portal session tenant identity | `lib/active-client.ts` |
+| Publishing tenant resolution | `lib/publishing/active-client.ts` |
 
 ## Data model
 
@@ -74,41 +83,80 @@ All tables defined in `lib/db/schema/sites.ts` unless noted.
 | `app/api/portal/websites/[siteId]/navigation/publish-all/route.ts` | POST | Publish all staged nav drafts |
 | `app/api/portal/websites/[siteId]/navigation/[itemId]/publish/route.ts` | POST | Publish a single nav item draft |
 | `app/api/portal/websites/[siteId]/branding/route.ts` | GET, PATCH | Site branding tokens |
+| `app/api/portal/websites/[siteId]/branding-profile/route.ts` | GET, PATCH | Branding profile (agency overrides) |
+| `app/api/portal/websites/[siteId]/google/auth/route.ts` | GET, POST | Google OAuth initiation for property linking |
+| `app/api/portal/websites/[siteId]/google/status/route.ts` | GET | Google connection status |
+| `app/api/portal/websites/[siteId]/google/disconnect/route.ts` | POST | Disconnect Google property |
+| `app/api/portal/websites/[siteId]/google/analytics/route.ts` | GET | Google Analytics property info |
+| `app/api/portal/websites/[siteId]/google/analytics/report/route.ts` | GET | Google Analytics report data |
+| `app/api/portal/websites/[siteId]/google/search-console/route.ts` | GET | Google Search Console data |
 | `app/api/portal/websites/[siteId]/status/route.ts` | GET | Deployment status |
 | `app/api/portal/websites/[siteId]/provision/route.ts` | POST | Trigger Vercel provisioning |
 | `app/api/portal/websites/[siteId]/deployments/route.ts` | GET | Deployment history |
 | `app/api/portal/websites/[siteId]/logs/route.ts` | GET | HTTP request logs |
-| `app/api/portal/websites/[siteId]/environments/route.ts` | GET, POST | Environments + env vars |
+| `app/api/portal/websites/[siteId]/environments/route.ts` | GET, POST | Environments list/create; per-env CRUD lives at `environments/[envId]/vars/`, `environments/[envId]/backup/`, `environments/[envId]/restore/`, `environments/[envId]/sync/`, `environments/[envId]/copy/` |
 | `app/api/portal/websites/[siteId]/api-keys/route.ts` | GET, POST | Log-ingestion API keys |
+| `app/api/portal/websites/[siteId]/api-keys/[keyId]/route.ts` | DELETE | Remove a single log-ingestion API key |
 | `app/api/portal/hosting/route.ts` | GET, POST | Railway hosted sites |
+| `app/api/portal/hosting/[id]/route.ts` | GET, PATCH, DELETE | Single hosted-site detail |
 | `app/api/portal/publishing/campaigns/route.ts` | GET, POST | Campaigns |
 | `app/api/portal/publishing/campaigns/[id]/route.ts` | PATCH, DELETE | Campaign mutations |
+| `app/api/portal/publishing/permissions/route.ts` | GET | List publishing permissions |
 | `app/api/portal/publishing/permissions/grant/route.ts` | POST | Grant a publishing permission |
 | `app/api/portal/publishing/permissions/revoke/route.ts` | POST | Revoke a publishing permission |
 | `app/api/portal/publishing/calendar/route.ts` | GET | Calendar view data |
 | `app/api/portal/publishing/channels/email/route.ts` | POST | Email channel dispatch |
-| `app/api/sites/[siteId]/route.ts` | GET | Public site metadata |
+| `app/api/sites/[siteId]/navigation/route.ts` | GET | Public site navigation for client-side rendering |
 | `app/api/sites/unlock/route.ts` | POST | Redeem preview access code |
 | `app/api/public/websites/[siteId]/posts/route.ts` | GET | Public website listing |
 
 ## MCP tools
 
-Defined in `lib/mcp/tools/hosting.ts`. Both require scope `hosting:read`; provisioning is not exposed to MCP credentials.
+Hosting tools: `lib/mcp/tools/hosting.ts`. Site/Nav/Domain/EnvVar tools: `lib/mcp/tools/cms.ts`.
+
+**Hosting tools** (scope `hosting:read`; provisioning is not exposed to MCP credentials):
 
 | Tool name | Description |
 |---|---|
 | `hosting_list` | List Railway-hosted app sites filtered by optional status |
 | `hosting_get` | Full detail for a single hosted site including DNS instructions |
 
+**Site, navigation, domain, and env-var tools** (from `lib/mcp/tools/cms.ts`):
+
+| Tool name | Description |
+|---|---|
+| `sites_list` | List client websites |
+| `sites_update` | Update site settings (does not expose `previewCode`) |
+| `sites_get_custom_code` | Retrieve draft custom CSS/JS for a site |
+| `sites_update_custom_code` | Write draft custom CSS/JS (staged; not live until published) |
+| `sites_publish_custom_code` | Publish staged custom CSS/JS to live columns |
+| `nav_list` | List navigation items for a site |
+| `nav_create` | Create a navigation item |
+| `nav_update` | Update a navigation item |
+| `nav_delete` | Delete a navigation item |
+| `nav_publish` | Publish a single nav item draft to live |
+| `nav_publish_all` | Publish all staged nav drafts for a site |
+| `website_domains_list` | List custom domains for a site |
+| `website_domains_add` | Add a custom domain |
+| `website_domains_remove` | Remove a custom domain |
+| `website_env_vars_list` | List environment variables for a site environment |
+| `website_env_vars_set` | Set an environment variable |
+| `website_env_vars_delete` | Delete an environment variable |
+
 ## UI surfaces
 
 | Surface | Path |
 |---|---|
 | Website list | `app/portal/websites/` |
+| New site creation | `app/portal/websites/new` |
 | Website settings | `app/portal/websites/[siteId]/settings/` |
 | Branding editor | `app/portal/websites/[siteId]/branding/` |
 | Navigation editor | `app/portal/websites/[siteId]/navigation/` |
 | Custom code editor | `app/portal/websites/[siteId]/code/` |
+| Per-site content calendar | `app/portal/websites/[siteId]/calendar/` |
+| Content types | `app/portal/websites/[siteId]/content-types/` |
+| Taxonomy management | `app/portal/websites/[siteId]/taxonomy/` |
+| Post detail | `app/portal/websites/[siteId]/posts/[postId]/` |
 | Visual post editor | `app/portal/websites/[siteId]/posts/[postId]/edit/` |
 | Hosting list | `app/portal/hosting/` |
 | Hosting detail | `app/portal/hosting/[id]/` |
@@ -159,6 +207,8 @@ Defined in `lib/mcp/tools/hosting.ts`. Both require scope `hosting:read`; provis
 - Visual Editor (`components/portal/visual-editor/`) lives in the components tree and writes back into the sites render path via the post editor at `app/portal/websites/[siteId]/posts/[postId]/edit/`.
 
 ## Invariants & gotchas
+
+**Two active-client files — distinct scopes:** `lib/active-client.ts` (repo root) resolves portal session tenant identity from the `sd-active-client` cookie (used throughout `app/portal/`). `lib/publishing/active-client.ts` is a separate file scoped to the publishing sub-domain; it handles tenant resolution in the publishing pipeline, not the general portal session. Do not conflate them.
 
 **Domain resolution (three-step):** `getClientWebsiteByDomain()` in `lib/actions/client-sites.ts` tries (1) exact match on `client_websites.domain`, (2) join through `website_domains`, (3) subdomain match against `client_websites.subdomain` for `*.simplerdevelopment.com`. Middleware rewrites the raw Host header to `/sites/{domain}/...` before Next.js routing runs; `lib/site-data-cache.ts` memoizes the DB call per React render via `cache()`.
 

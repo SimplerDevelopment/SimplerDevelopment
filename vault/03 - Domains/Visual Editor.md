@@ -2,10 +2,13 @@
 type: domain-map
 domain: visual-editor
 status: active
-date: 2026-06-09
+date: 2026-06-10
 sources:
   - components/portal/visual-editor/
   - components/portal/visual-editor/CLAUDE.md
+  - components/portal/visual-editor/panel-fields.tsx
+  - components/portal/visual-editor/_lib/block-elements.ts
+  - components/portal/visual-editor/_lib/block-icon-map.ts
   - components/blocks/visual/
   - components/blocks/visual/CLAUDE.md
   - lib/visual-editor/protocol.ts
@@ -13,7 +16,10 @@ sources:
   - lib/visual-editor/useVisualEditorParent.ts
   - lib/visual-editor/useEditorMode.ts
   - types/visual-editor.ts
+  - types/blocks/
   - app/portal/websites/[siteId]/posts/[postId]/edit/page.tsx
+  - app/api/portal/cms/websites/[siteId]/posts/[postId]/route.ts
+  - app/api/portal/cms/websites/[siteId]/posts/[postId]/revisions/route.ts
   - lib/db/schema/collab.ts
   - lib/mcp/tools/cms.ts
 ---
@@ -36,6 +42,7 @@ Block-based WYSIWYG page builder embedded in the portal. An authenticated tenant
 | `components/portal/visual-editor/LayersPanel.tsx` (223) | Block tree / selection hierarchy |
 | `components/portal/visual-editor/RightPanel.tsx` (371) | Settings sidebar; imports from `components/blocks/visual/` |
 | `components/portal/visual-editor/ElementStyleEditor.tsx` (95) | Typography/spacing/background style sidebar |
+| `components/portal/visual-editor/panel-fields.tsx` (144) | Shared field-primitive components used inside editor panels |
 | `lib/visual-editor/useVisualEditorParent.ts` (381) | Hook that wires postMessage listeners and emitters for the parent side |
 | `lib/visual-editor/protocol.ts` (71) | `sendToIframe`, `sendToParent`, `isVisualEditorMessage`, `isValidOrigin` — origin-allowlist enforced here |
 | `lib/visual-editor/registry.ts` (158) | Maps block type slugs to React render components used inside the iframe |
@@ -47,13 +54,15 @@ Block-based WYSIWYG page builder embedded in the portal. An authenticated tenant
 
 ## Data model
 
-Block content is stored as JSON in `posts.content` (`{ blocks: Block[], version: "1.0" }`). The `Block` type lives in `types/blocks.ts`. The visual editor reads and writes this field through the portal posts API.
+Block content is stored as JSON in `posts.content` (`{ blocks: Block[], version: "1.0" }`). The `Block` type is defined in `types/blocks/` (directory), resolving via `types/blocks/index.ts`; sub-modules include `base.ts`, `commerce.ts`, `content.ts`, `layout.ts`, `media.ts`, `form.ts`, `editor.ts`, `dynamic.ts`, and `components.ts`. The visual editor reads and writes this field through the portal posts API.
 
 **Collaboration:** `lib/db/schema/collab.ts` — `documentComments` table (60 lines). Threaded comments anchored to a `blockId`, slide index, or coordinate. Scoped by `clientId`. Real-time presence (live cursors) is handled in `components/portal/visual-editor/CollaborationProvider.tsx` (159), `PresenceLayer.tsx` (183), `PresenceCursor.tsx`, and `PresenceAvatars.tsx`. Y.Doc snapshots are written back to `posts.content` directly by the realtime server, not via a separate table.
 
 ## API surface
 
-The editor shell saves block changes by calling the portal posts API (`app/api/portal/posts/[id]/`). The iframe preview loads the public site renderer at the internal `/sites/` route to avoid `X-Frame-Options` SAMEORIGIN blocks.
+The editor shell saves block changes by calling the portal posts API (`app/api/portal/cms/websites/[siteId]/posts/[postId]/route.ts` — 234 lines). The iframe preview loads the public site renderer at the internal `/sites/` route to avoid `X-Frame-Options` SAMEORIGIN blocks.
+
+Revision history is stored via `app/api/portal/cms/websites/[siteId]/posts/[postId]/revisions/route.ts`; the portal posts API also has a picker endpoint at `app/api/portal/cms/websites/[siteId]/posts/picker/route.ts`.
 
 **postMessage channels** (see `types/visual-editor.ts`):
 
@@ -79,6 +88,8 @@ No dedicated visual-editor MCP tools exist. Block content is read/written throug
 
 Extracted hooks under `components/portal/visual-editor/_hooks/`: `useBlockClipboard.ts` (119), `useBulkActions.ts` (98), `useLayersDragDrop.ts` (169), `usePanZoom.ts` (106). All new behaviour must go here, not into the shell.
 
+Utilities under `components/portal/visual-editor/_lib/`: `block-elements.ts` (block DOM helpers), `block-icon-map.ts` (slug-to-icon mapping). New behaviour targeting these concerns belongs here, not in the shell.
+
 ## Tests & gates
 
 | File | Layer | Notes |
@@ -89,12 +100,18 @@ Extracted hooks under `components/portal/visual-editor/_hooks/`: `useBlockClipbo
 | `tests/e2e/visual-editor-shell-baseline.spec.ts` (135) | e2e | Shell load + iframe handshake |
 | `tests/e2e/visual-editor-blocks.spec.ts` (1871) | e2e | Block CRUD, drag-and-drop, style updates |
 | `tests/e2e/visual-editor-cystrategies.spec.ts` | e2e | Client-specific editor flow |
+| `tests/unit/components-visual-editor-shell.test.tsx` | unit | Shell rendering |
+| `tests/unit/components-visual-editor-columns-overlay.test.tsx` | unit | Columns overlay |
+| `tests/unit/block-content-editor-coverage.test.tsx` | unit | BlockContentEditor coverage |
+| `tests/unit/components-block-content-editor.test.tsx` | unit | BlockContentEditor component |
+| `tests/unit/visual-editor-use-parent.test.tsx` | unit | useVisualEditorParent hook |
+| `tests/unit/lib-use-editor-mode.test.tsx` | unit | useEditorMode hook |
 
 Critical-e2e gate: `bun test:critical` (`scripts/test.sh --layer=e2e --tag=@critical`). Run before declaring any editor change done.
 
 ## Cross-domain dependencies
 
-- [[CMS & Blocks]] — block types, `types/blocks.ts`, `lib/blocks/registry.ts`; production rendering lives in `app/sites/[domain]/[[...slug]]/` not here.
+- [[CMS & Blocks]] — block types, `types/blocks/` (directory index + sub-modules), `lib/blocks/registry.ts`; production rendering lives in `app/sites/[domain]/[[...slug]]/` not here.
 - [[Portal]] — tenant routing, session, `lib/active-client.ts`, site-resolver middleware.
 - [[MCP]] — `posts_create`/`posts_update` write block content; `blocks://schema` resource consumed by AI clients.
 - [[Collaboration]] — `lib/db/schema/collab.ts`; presence via `CollaborationProvider.tsx`.
@@ -109,7 +126,7 @@ Sourced from `components/portal/visual-editor/CLAUDE.md`:
 4. **Don't render blocks here.** Production block rendering lives in `app/sites/`. The visual editor produces editing chrome only.
 5. **`coalesce` flag on `BLOCKS_UPDATE`** — only the first coalesce-true update in a drag/slider session pushes an undo history entry. Session ends after 300 ms of quiet or a coalesce-false update. Preserve this when forwarding `onChange` calls through settings panels.
 6. **Panel interface contract** (`components/blocks/visual/CLAUDE.md`): every category settings panel accepts `(block: Block, onChange: (updates, options?) => void, currentViewport: Breakpoint)`. Changing this signature breaks the sidebar.
-7. **Block type registration is lockstep**: TS interface in `types/blocks.ts`, slug in `SLUG_TO_CATEGORY` in `BlockSettings.tsx`, render component in `lib/visual-editor/registry.ts`, production renderer in `app/sites/`. Use `simplerdev-block-type` skill.
+7. **Block type registration is lockstep**: TS interface in `types/blocks/` (add to the appropriate sub-module and re-export via `index.ts`), slug in `SLUG_TO_CATEGORY` in `BlockSettings.tsx`, render component in `lib/visual-editor/registry.ts`, production renderer in `app/sites/`. Use `simplerdev-block-type` skill.
 
 ## Planning notes
 

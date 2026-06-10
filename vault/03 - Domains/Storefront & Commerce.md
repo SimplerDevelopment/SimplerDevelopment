@@ -2,10 +2,11 @@
 type: domain-map
 domain: storefront
 status: active
-date: 2026-06-09
+date: 2026-06-10
 sources:
   - lib/storefront/
   - lib/db/schema/store.ts
+  - lib/db/schema/productDesigner.ts
 ---
 
 # Domain: Storefront & Commerce
@@ -46,11 +47,21 @@ All tables in `lib/db/schema/store.ts`. Tenancy key: `websiteId` on every table.
 - `products` — prices in cents, status `draft|active|archived`, `designable` flag, optional `printfulVariantId`.
 - `product_options` / `product_option_values` / `product_variants` — option matrix; each variant carries its own price, SKU, inventory, optional `printfulVariantId`.
 - `product_images`, `bulk_pricing_rules`.
+- `payment_methods` — client-scoped (`clientId`) Stripe card records (`brand`, `last4`, `expMonth`/`Year`, `isDefault`); used for platform billing, not storefront customer checkout.
 
-**Product designer (custom print)**
+**Product designer (custom print) — store.ts tables (older / Magamommy-era)**
 - `product_design_surfaces` — named print surfaces per product (front/back/sleeve), canvas dimensions, print-area bounds, DPI.
 - `designs` — UUID PK; `layersBySurface` (JSONB keyed by surface slug); owned by a `storeCustomer` or a guest `sessionId`. `isTemplate` flag for site-wide reusable templates.
 - `design_assets` — S3 URLs for user-uploaded art within a design (cleaned up on delete).
+
+**Product designer (custom print) — productDesigner.ts tables (current subsystem)**
+
+Defined in `lib/db/schema/productDesigner.ts`. These tables back the newer per-product style/color-picker designer (used by `app/sites/[domain]/design/[productSlug]/` and the portal style-management routes). They are schema-separate from the older `designs` table above.
+
+- `product_styles` — designable color/colorway variants of a product; each carries an optional price override, swatch hex, and thumbnail URL.
+- `product_sides` — per-style mockup images with printable-area bounds (x/y/width/height in image pixels); supports front/back/sleeve and custom sides.
+- `product_designs` — saved customer designs; `layers` (JSON array), `styleOverrides` (JSON), UUID share key, soft-delete via `deletedAt`. Owned by a `storeCustomer` or a guest `sessionId`.
+- `philaprints_design_assets` — per-website icon/art library; entries are either react-icons references (`type=icon`, `iconName`/`iconPack`) or hosted SVG/PNG assets (`type=art`, `imageUrl`).
 
 **Cart & orders**
 - `carts` / `cart_items` — `cartItems.designId` FK deferred at runtime (avoids circular ref).
@@ -88,6 +99,8 @@ All tables in `lib/db/schema/store.ts`. Tenancy key: `websiteId` on every table.
 | `discount/validate/` | Coupon check |
 | `auth/` | Customer register/login/logout |
 | `account/` | Profile, orders, wishlist, support |
+| `orders/[orderNumber]/` | Guest order status lookup — verified by `email` query param; includes EasyPost tracking data |
+| `products/[slug]/styles/` | Lists `product_styles` with nested `product_sides` for the designer canvas color/style picker |
 | `designs/` + `designs/[designId]/` | Save/load/finalize designs; AI text/image generation; thumbnail generation |
 
 **Portal management (tenant staff)**
@@ -95,6 +108,10 @@ All tables in `lib/db/schema/store.ts`. Tenancy key: `websiteId` on every table.
 `/api/portal/websites/[siteId]/store/` — NextAuth session required; `[siteId]` cross-checked against resolver.
 
 Products, variants, options, bulk pricing, design surfaces, styles, categories, orders (status + notes + EasyPost label purchase + Printful submit), shipping zones/rates, discounts, analytics, settings, Stripe Connect onboarding + BYOK config, design-asset management.
+
+Diagnostic / integration-test routes (operators use these to validate API keys after configuration):
+- `store/stripe/test` — Stripe key connectivity test
+- `store/easypost/test` — EasyPost key connectivity test
 
 ## MCP tools
 
@@ -118,7 +135,7 @@ Pages: `page.tsx` (overview), `products/`, `products/[productId]/`, `products/[p
 
 **Public storefront**
 
-`app/sites/[domain]/` — domain-resolved public pages. Storefront-relevant sub-routes: `[[...slug]]` (block-rendered product/shop pages), `designer/[productSlug]/` (custom product designer), `account/` tree (login, register, profile, orders, wishlist, support, designs).
+`app/sites/[domain]/` — domain-resolved public pages. Storefront-relevant sub-routes: `[[...slug]]` (block-rendered product/shop pages), `designer/[productSlug]/` (older designer using `DesignerClient` + `productDesignSurfaces`/`designs` tables), `design/[productSlug]/` (current designer using `ProductDesigner` + `productDesigner.ts` tables — `product_styles`/`product_sides`/`product_designs`), `account/` tree (login, register, profile, orders, wishlist, support, designs). Both designer routes are live; `design/` uses the newer `productDesigner.ts` schema.
 
 ## Tests & gates
 
@@ -128,11 +145,22 @@ Unit tests in `tests/unit/`:
 - `tests/unit/api-storefront-cart-route.test.ts` — cart API.
 - `tests/unit/api-storefront-auth-route.test.ts` — customer auth routes.
 - `tests/unit/api-storefront-ai-text-route.test.ts` — AI text tool on designs.
+- `tests/unit/api-storefront-ai-image-route.test.ts` — AI image generation tool on designs.
+- `tests/unit/api-storefront-designs-id-route.test.ts` — designs-by-ID route.
 - `tests/unit/api-trigger-links-and-storefront-products-routes.test.ts` — products route.
 - `tests/unit/lib-portal-and-storefront-auth.test.ts` — customer-auth helpers.
-- `tests/unit/designer-canvas-store-coverage.test.ts` — designer canvas state.
+- `tests/unit/designer-canvas-store-coverage.test.ts` — designer canvas state (coverage variant).
+- `tests/unit/lib-designer-canvas-store.test.ts` — designer canvas store helpers.
+- `tests/unit/designer-canvas-store.test.ts` — designer canvas store core.
 
-No dedicated E2E spec for the checkout golden path yet — noted as a coverage gap in `lib/magamommy/README.md`. Run `bun test:tenancy` after any data-access change (all tables are `websiteId`-scoped and must not leak across tenants).
+E2E specs in `tests/e2e/`:
+- `tests/e2e/portal-ecommerce.spec.ts` (745 lines, `@ecommerce @critical`) — portal store CRUD: products, orders, categories, discounts, shipping, settings.
+- `tests/e2e/portal-websites-store-mutations.spec.ts` — portal store mutation flows.
+- `tests/e2e/product-designer-api.spec.ts` — product designer API integration.
+- `tests/e2e/product-designer-ui.spec.ts` — product designer UI flows.
+- `tests/e2e/qa-portal-c-store.spec.ts` — QA portal commerce scenarios.
+
+Note: `portal-ecommerce.spec.ts` covers portal management, not the customer-facing add-to-cart → Stripe confirm flow. No dedicated E2E spec for the checkout golden path yet — noted as a coverage gap in `lib/magamommy/README.md`. Run `bun test:tenancy` after any data-access change (all tables are `websiteId`-scoped and must not leak across tenants).
 
 ## Cross-domain dependencies
 

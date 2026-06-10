@@ -2,7 +2,7 @@
 type: domain-map
 domain: agentic-os
 status: active
-date: 2026-06-09
+date: 2026-06-10
 sources:
   - lib/agentic-os/types.ts
   - lib/agentic-os/registry.ts
@@ -20,6 +20,7 @@ sources:
   - .planning/agentic-os.md
   - tests/unit/lib-agentic-os-executor.test.ts
   - tests/unit/app-admin-agentic-os-page.test.tsx
+  - tests/unit/app-admin-agentic-os-page-coverage.test.tsx
   - tests/unit/api-admin-agentic-os-run-route.test.ts
   - tests/e2e/admin-agentic-os.spec.ts
 ---
@@ -31,7 +32,7 @@ sources:
 An admin-only developer dashboard that catalogs every Claude Code skill, cron job, and subagent pattern used in the repository, and lets admins fire on-demand skills as headless `claude -p` subprocesses from the browser. Inspired by Chase AI's Domains-Tasks-Skills-Automations taxonomy.
 
 The system has two distinct responsibilities:
-1. **Catalog** — a typed, searchable registry of all 34+ skills/automations grouped by domain, with estimated runtimes, applied rules, and prompt templates with variable interpolation.
+1. **Catalog** — a typed, searchable registry of all 45 skills/automations grouped by domain, with estimated runtimes, applied rules, and prompt templates with variable interpolation.
 2. **Executor** — an in-process subprocess runner that spawns `claude -p --output-format stream-json --verbose <prompt>`, streams stdout as Server-Sent Events to the browser, and persists run history to the DB.
 
 This is strictly a local-development feature. The `isLocalDev()` guard (`lib/agentic-os/local-only.ts`) returns `NODE_ENV === 'development'` only — every UI page and every API route short-circuits to 404 on any build output (staging, preview, production). It is never reachable by tenants.
@@ -41,7 +42,7 @@ This is strictly a local-development feature. The `isLocalDev()` guard (`lib/age
 | Path | Role |
 |---|---|
 | `lib/agentic-os/types.ts` | Core type definitions: `AgenticOsDomain`, `AgenticOsSkill` union, `AgenticOsSource` discriminated union, `renderPromptTemplate` helper |
-| `lib/agentic-os/registry.ts` | `SKILLS` array (34 entries), `SKILLS_BY_ID` map, `skillsByDomain()` grouper |
+| `lib/agentic-os/registry.ts` | `SKILLS` array (45 entries), `SKILLS_BY_ID` map, `skillsByDomain()` grouper |
 | `lib/agentic-os/rules.ts` | `RULES` array (12 invariant entries cross-referenced by skills via `appliesRules`) |
 | `lib/agentic-os/executor.ts` | In-process `Map<runId, ChildEntry>`, `spawn`/`appendOutput`/`makeStreamJsonParser`, `resolveClaudeBin`, `executorEnabled` |
 | `lib/agentic-os/local-only.ts` | `isLocalDev()` gate — single source of truth for the env check |

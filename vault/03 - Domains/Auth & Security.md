@@ -2,7 +2,7 @@
 type: domain-map
 domain: auth-security
 status: active
-date: 2026-06-09
+date: 2026-06-10
 sources:
   - lib/auth.ts
   - lib/mcp-auth.ts
@@ -14,6 +14,10 @@ sources:
   - lib/crypto/api-key.ts
   - lib/crypto/secrets.ts
   - lib/db/schema/auth.ts
+  - lib/db/schema/audit.ts
+  - lib/oauth/server.ts
+  - lib/oauth/scopes.ts
+  - lib/oauth/cimd.ts
   - types/next-auth.d.ts
   - middleware.ts
   - docs/guides/USER_MANAGEMENT.md
@@ -40,6 +44,15 @@ Handles all authentication, session management, role-based access control, API k
 | `lib/crypto/api-key.ts` | `encryptApiKey` / `decryptApiKey` / `maskApiKey` — AES-256-GCM BYOK key encryption (env var `ENCRYPTION_KEY`) |
 | `lib/crypto/secrets.ts` | `encryptSecret` / `decryptSecret` — AES-256-GCM workspace credential encryption (env var `WORKSPACE_TENANT_SECRETS_KEY`) |
 | `app/api/auth/[...nextauth]/` | NextAuth catch-all handler |
+| `app/oauth/token/route.ts` | OAuth 2.1 token endpoint (RFC 6749) — exchanges auth codes for `sd_oauth_*` access tokens |
+| `app/oauth/register/route.ts` | Dynamic Client Registration (RFC 7591) — issues `oauth_clients` records |
+| `app/oauth/authorize/page.tsx` + `app/oauth/authorize/decision/route.ts` | User consent screen + decision POST |
+| `app/.well-known/oauth-authorization-server/route.ts` | RFC 8414 authorization server metadata discovery |
+| `app/.well-known/oauth-protected-resource/route.ts` | Protected resource metadata |
+| `app/.well-known/openid-configuration/route.ts` | OpenID Connect discovery document |
+| `lib/oauth/server.ts` | OAuth 2.1 server core logic (code generation, token exchange, PKCE validation) |
+| `lib/oauth/scopes.ts` | Scope definitions and helpers |
+| `lib/oauth/cimd.ts` | Client identity and metadata helpers |
 | `app/api/portal/invite/` | Invite-token acceptance endpoint |
 | `app/api/portal/forgot-password/` | Forgot-password flow (emails a reset link) |
 | `app/api/portal/reset-password/` | Reset-password token consumption |
@@ -61,6 +74,14 @@ Tables in `lib/db/schema/auth.ts`:
 
 `clientMembers` (in `lib/db/schema/sites.ts`): `clientId`, `userId`, `role` (`owner`/`admin`/`member`/`viewer`). Links portal users to tenant accounts; unique on `(clientId, userId)`.
 
+### OAuth 2.1 server tables (`lib/db/schema/audit.ts`)
+
+| Table | Key columns | Notes |
+|---|---|---|
+| `oauthClients` | `clientId` (public `oc_…` identifier), `redirectUris`, `tokenEndpointAuthMethod`, `clientSecretHash`, `ownerClientId` | `tokenEndpointAuthMethod='none'` for PKCE-only public clients (default MCP web case); `ownerClientId` scopes self-service portal clients to a single tenant; NULL = global/admin-minted client |
+| `oauthAuthorizationCodes` | `codeHash` (SHA-256, single-use), `oauthClientId`, `userId`, `clientId`, `scopes`, `codeChallenge`, `codeChallengeMethod`, `resource` | RFC 7636 PKCE required for public clients; S256 only; `resource` is the RFC 8707 resource indicator (MCP server URL) |
+| `oauthAccessTokens` | `tokenHash` (SHA-256 of `sd_oauth_…` raw token), `tokenPreview`, `oauthClientId`, `userId`, `clientId`, `scopes`, `revokedAt` | Only the hash is stored; raw token surfaces once at issuance |
+
 ## API surface
 
 | Route | Method | Auth | Notes |
@@ -72,6 +93,13 @@ Tables in `lib/db/schema/auth.ts`:
 | `app/api/portal/reset-password/` | POST | — | Consume `passwordResetToken` |
 | `app/api/portal/change-password/` | POST | session | In-session change |
 | `app/api/portal/api-keys/` | GET / POST / DELETE | session | Portal MCP key management |
+| `app/api/portal/oauth-clients/route.ts` | GET / POST | session | Portal self-service OAuth client list/create |
+| `app/api/portal/oauth-clients/[id]/route.ts` | GET / PATCH / DELETE | session | Portal self-service OAuth client read/update/delete |
+| `app/api/portal/oauth-tokens/route.ts` | GET / DELETE | session | List and revoke issued OAuth access tokens |
+| `app/api/portal/impersonate/status/route.ts` | GET | session (admin) | Check active admin impersonation session |
+| `app/api/portal/impersonate/stop/route.ts` | POST | session (admin) | End admin impersonation session |
+| `app/api/admin/oauth-clients/route.ts` | GET / POST | session (admin) | Admin OAuth client list/create |
+| `app/api/admin/oauth-clients/[id]/route.ts` | GET / PATCH / DELETE | session (admin) | Admin OAuth client read/update/delete |
 | `app/api/mcp/route.ts` | POST | Bearer token | MCP tool dispatch |
 | `app/api/users/route.ts` | GET / POST / PATCH / DELETE | session (admin) | Global user CRUD |
 
@@ -93,12 +121,14 @@ Both resolve to a `PortalMcpContext { userId, client, scopes, keyId }` and are t
 |---|---|---|
 | Portal login | `app/portal/login/page.tsx` | Default `signIn` page; shared session domain `.simplerdevelopment.com` |
 | Portal forgot-password | `app/portal/forgot-password/page.tsx` | Public; no session required |
-| Portal reset-password | `app/portal/reset-password/[token]/` | Token in URL, consumed once |
-| Portal invite acceptance | `app/portal/invite/` | Public; activates invited user |
+| Portal reset-password | `app/portal/reset-password/page.tsx` | Token arrives as query param (`?token=`), consumed once |
+| Portal invite acceptance | `app/portal/invite/[token]/` | Public; activates invited user; token in URL segment |
 | Admin login | `app/admin/login/` | Separate page; `signOut({ callbackUrl: '/admin/login' })` from admin flows |
 | Portal API keys | `app/portal/settings/api-keys/` | Issue / revoke `sd_mcp_*` keys, configure scopes |
 | Admin user management | `app/admin/users/` | Global user CRUD, role assignment |
 | Portal team settings | `app/portal/settings/team/` | `clientMembers` management (invite / remove) |
+| OAuth consent screen | `app/oauth/authorize/page.tsx` | Public load; session required for the decision POST; shown when a third-party client (e.g. Claude.ai) requests portal access |
+| Admin OAuth clients | `app/admin/oauth-clients/page.tsx` | Admin-only; lists and manages registered OAuth client registrations |
 
 ## Tests & gates
 
@@ -118,7 +148,7 @@ Coverage floor: **90% lines / 80% functions** on `lib/crypto/**` (enforced in `t
 
 - **Tenancy / site resolution** — `lib/active-client.ts` + `middleware.ts` feed `clientId` into every authenticated request; see [[Tenancy & Site Resolution]]
 - **MCP server** — `lib/mcp/server.ts` consumes `PortalMcpContext` from `lib/mcp-auth.ts`; see [[MCP Server]]
-- **Google Workspace / OAuth** — `oauthAccessTokens` table; `sd_oauth_` tokens from the OAuth server (`lib/oauth-server`) share the same `resolveOAuthToken` path
+- **Google Workspace / OAuth** — `oauthAccessTokens` table; `sd_oauth_` tokens from the OAuth server (`lib/oauth/server.ts`) share the same `resolveOAuthToken` path
 - **Billing** — `portalApiKeys.requireCmsApproval` interacts with the approvals workflow; see [[Billing & Stripe]]
 - **Plugins** — `lib/plugins/jwt.ts` mints short-lived tenancy JWTs for the plugin iframe handoff; separate from the session JWT
 
@@ -135,7 +165,7 @@ Coverage floor: **90% lines / 80% functions** on `lib/crypto/**` (enforced in `t
 ## Planning notes
 
 - Wave 3: move middleware to Node runtime to enable DB lookup of the Host header against `clientSites` / `clientWebsites` (currently not Edge-safe; tracked in `middleware.ts` comment on `isPlausibleTenantHost`).
-- OAuth server (`lib/oauth-server`) and `oauthAccessTokens` scope is partially documented; deeper coverage warranted if OAuth client management is extended.
+- OAuth 2.1 server (`lib/oauth/server.ts`) is fully shipped: token, register, authorize/consent, and `.well-known` discovery endpoints are all live. See Key entry points section for the full route list.
 
 ## Related
 

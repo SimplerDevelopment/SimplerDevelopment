@@ -2,7 +2,7 @@
 type: domain-map
 domain: plugins-extension
 status: active
-date: 2026-06-09
+date: 2026-06-10
 sources:
   - lib/db/schema/plugins.ts
   - lib/plugins/jwt.ts
@@ -18,6 +18,15 @@ sources:
   - lib/plugins/handlers/postcaptain-tools/briefs.ts
   - lib/plugins/handlers/postcaptain-tools/dispatch.ts
   - lib/plugins/handlers/postcaptain-tools/jobs.ts
+  - lib/plugins/handlers/postcaptain-tools/runner.ts
+  - lib/plugins/handlers/postcaptain-tools/complete.ts
+  - lib/plugins/handlers/postcaptain-tools/competitor-brain.ts
+  - lib/plugins/handlers/postcaptain-tools/scripts.ts
+  - lib/plugins/handlers/postcaptain-tools/drafts.ts
+  - lib/plugins/handlers/postcaptain-tools/schedule.ts
+  - lib/plugins/handlers/postcaptain-tools/fire-due-jobs.ts
+  - lib/plugins/handlers/postcaptain-tools/cron-auth.ts
+  - lib/plugins/handlers/registry.ts
   - lib/extension/extract.ts
   - lib/extension/with-auth.ts
   - extension/src/popup/App.tsx
@@ -36,6 +45,7 @@ sources:
   - app/api/extension/v1/auth/
   - app/api/extension/v1/crm/
   - app/api/extension/v1/notes/route.ts
+  - app/api/extension/v1/notes/related/route.ts
   - app/api/extension/v1/search/route.ts
   - app/api/extension/v1/tags/route.ts
   - app/api/extension/v1/tasks/route.ts
@@ -58,7 +68,7 @@ sources:
 
 Two distinct but related extension mechanisms for the SimplerDevelopment platform:
 
-**Plugins (Registered Apps)** — a federation layer that lets independently-deployed Next.js applications ("plugins") embed inside the portal under `/portal/apps/<slug>/*`. The portal proxies requests to the remote plugin origin, injecting a short-lived HMAC-SHA256 JWT (`x-sd-tenant`) that carries tenant identity and scopes. Plugins call back to `/api/plugin-callback/<appId>/<route>` using the same JWT. The portal remains the source of truth for auth, billing/entitlement, nav, and audit. The first and current canonical plugin is **Postcaptain Tools** (content research briefs + AI blog drafts).
+**Plugins (Registered Apps)** — a federation layer that lets independently-deployed Next.js applications ("plugins") embed inside the portal under `/portal/apps/<slug>/*`. The portal proxies requests to the remote plugin origin, injecting a short-lived HMAC-SHA256 JWT (delivered as the `sd-plugin-tenant` cookie for the iframe flow; as an `x-sd-tenant` header for cron dispatch calls) that carries tenant identity and scopes. Plugins call back to `/api/plugin-callback/<appId>/<route>` using the same JWT. The portal remains the source of truth for auth, billing/entitlement, nav, and audit. The first and current canonical plugin is **Postcaptain Tools** (content research briefs + AI blog drafts).
 
 **Browser Extension** — a standalone Vite + React browser extension (MV3) in the `extension/` directory. It is self-contained and intentionally excluded from the main Next.js `tsconfig.json`. The extension lets users capture web page context, create CRM contacts/companies, log activity, and write Brain notes from any browser tab, authenticated via a separate `/api/extension/v1/` REST surface. AI extraction is handled server-side by `lib/extension/extract.ts` using Claude Haiku.
 
@@ -77,9 +87,18 @@ Two distinct but related extension mechanisms for the SimplerDevelopment platfor
 | `lib/plugins/load-user-apps.ts` | Per-request loader: which installed apps should appear in portal nav |
 | `lib/plugins/rate-limit.ts` | Per-plugin rate limiting primitives for callback routes |
 | `lib/plugins/handlers/postcaptain-tools/dispatch.ts` | Run dispatcher for Postcaptain Tools jobs |
-| `lib/plugins/handlers/postcaptain-tools/brain.ts` | Brain research handler (uses Company Brain / RAG) |
+| `lib/plugins/handlers/postcaptain-tools/runner.ts` | Execution lifecycle: `enqueueRun` / `executeRun` / `drainQueuedRuns` — CAS-based queue management for plugin runs |
+| `lib/plugins/handlers/postcaptain-tools/complete.ts` | Worker completion callback; requires `postcaptain:internal:complete` scope; persists results and triggers downstream ingestion |
+| `lib/plugins/handlers/postcaptain-tools/competitor-brain.ts` | Brain ingestion for completed competitor-research runs: writes `brain_notes` + drops `kanban_card_comments` on vulnerability score changes |
+| `lib/plugins/handlers/postcaptain-tools/brain.ts` | Callback handler for GET `/brain/scraped-urls` — returns already-ingested source URLs for a competitor domain so the plugin can skip re-scraping (scope: `postcaptain:internal:brain:read`) |
 | `lib/plugins/handlers/postcaptain-tools/briefs.ts` | Brief generation and storage handler |
 | `lib/plugins/handlers/postcaptain-tools/jobs.ts` | Scheduled job management for Postcaptain |
+| `lib/plugins/handlers/postcaptain-tools/scripts.ts` | Handlers for `/scripts/run` POST and `/scripts/runs` GET |
+| `lib/plugins/handlers/postcaptain-tools/drafts.ts` | `/drafts` endpoint handlers |
+| `lib/plugins/handlers/postcaptain-tools/schedule.ts` | `nextRunAt` computation for scheduled jobs |
+| `lib/plugins/handlers/postcaptain-tools/fire-due-jobs.ts` | CAS job firing for the tick cron |
+| `lib/plugins/handlers/postcaptain-tools/cron-auth.ts` | Shared Vercel `CRON_SECRET` auth check used by cron routes |
+| `lib/plugins/handlers/registry.ts` | Handler registry and route dispatcher |
 | `lib/extension/extract.ts` | AI page extraction (Claude Haiku) + CRM entity resolution, tenant-scoped |
 | `lib/extension/with-auth.ts` | Auth middleware for extension API routes |
 | `extension/vite.config.ts` | Standalone Vite build config for the browser extension |
@@ -105,7 +124,7 @@ All tables in `lib/db/schema/plugins.ts`:
 | Endpoint | Purpose |
 |---|---|
 | `app/portal/apps/[appId]/[[...slug]]/page.tsx` | Portal page that hosts the plugin iframe proxy |
-| `app/api/portal/plugins/scripts/route.ts` | Serves plugin nav/script data to the portal shell |
+| `app/api/portal/plugins/scripts/route.ts` | Returns the flat (plugin, script) pair list for the active client — powers the automation builder "Run a plugin script" picker |
 | `app/api/plugin-callback/[appId]/[...path]/route.ts` | Inbound plugin callbacks — JWT-verified, JTI-deduped, tenant-re-checked |
 
 **Cron workers:**
@@ -123,6 +142,7 @@ All tables in `lib/db/schema/plugins.ts`:
 | `app/api/extension/v1/extract/route.ts` | AI page extraction via `lib/extension/extract.ts` |
 | `app/api/extension/v1/crm/` (`companies/`, `contacts/`, `deals/`) | CRM contact/company creation from page context |
 | `app/api/extension/v1/notes/route.ts` | Create Brain notes from captured page content |
+| `app/api/extension/v1/notes/related/route.ts` | Duplicate-save detection: returns exact + same-origin Brain note matches for a URL; powers the extension popup badge |
 | `app/api/extension/v1/search/route.ts` | Cross-domain search (CRM + Brain) |
 | `app/api/extension/v1/tags/route.ts` | Tag management |
 | `app/api/extension/v1/tasks/route.ts` | Task creation from page context |
@@ -144,8 +164,10 @@ No dedicated MCP tool registrar for the plugins domain itself. Plugin execution 
 - `extension/src/popup/App.tsx` — popup UI (quick capture, auth status)
 - `extension/src/sidepanel/App.tsx` — side panel UI (full CRM/Brain interaction)
 - `extension/src/background/service-worker.ts` — MV3 service worker
-- `extension/src/content/` — content scripts for page extraction
+- `extension/src/content/content-script.ts` — single content script for page extraction (injected into tabs)
 - `extension/src/options/` — options/settings page
+- `extension/src/manifest.ts` — MV3 manifest builder consumed by `extension/vite.config.ts`
+- `extension/src/lib/` — shared extension utilities: `api.ts` (typed fetch wrapper), `messages.ts` (cross-context message types), `page-extract.ts` (client-side extraction helpers), `storage.ts`, `types.ts`
 
 ## Tests & gates
 
@@ -168,7 +190,7 @@ Run `bun test:tenancy` after any change to `lib/db/schema/plugins.ts` or the cal
 ## Cross-domain dependencies
 
 - **[[Auth & Security]]** — Plugin JWT signing/verification builds on NextAuth session resolution (`lib/extension/with-auth.ts`). `PORTAL_KMS_KEY` is a required production secret alongside `NEXTAUTH_SECRET`. The extension API routes use the same session model as the portal.
-- **[[Company Brain & AI]]** — `lib/extension/extract.ts` calls `searchBrain` and `resolveClientApiKey` (BYOK support). Postcaptain's `brain.ts` handler integrates directly with the Company Brain RAG pipeline.
+- **[[Company Brain & AI]]** — `lib/extension/extract.ts` calls `searchBrain` and `resolveClientApiKey` (BYOK support). Postcaptain's `competitor-brain.ts` writes ingested competitor-research results into `brain_notes`; `brain.ts` is the read-only dedup helper for that pipeline.
 - **[[CRM]]** — Extension API creates CRM contacts/companies/activity directly. Postcaptain competitor research writes to `postcaptain_briefs` which references `clients`.
 - **[[Billing & Stripe]]** — Plugin entitlement with `visibility: 'entitled'` checks `client_services` → `services`; `billingServiceId` on the plugin row links to the Stripe product gate.
 - **[[Automations & Workflows]]** — `registeredAppJobs` uses `cron-parser` (same library as `lib/automation/schedule.ts`) for cron expression evaluation.
@@ -176,7 +198,7 @@ Run `bun test:tenancy` after any change to `lib/db/schema/plugins.ts` or the cal
 ## Invariants & gotchas
 
 - **`PORTAL_KMS_KEY` is required in production.** `lib/plugins/kms.ts` hard-fails on startup if the env var is absent and `NODE_ENV === 'production'`. The dev fallback (32 zero bytes) must never reach a deployed environment.
-- **JWT TTL is 60 seconds.** The portal mints and the plugin echoes back the SAME token. After 60s the callback will fail verification. Do not increase TTL without reviewing the threat model in `.planning/plugin-registry-spec.md`.
+- **JWT TTL is 60 seconds (callback/cron path); iframe cookie is session-bounded.** The portal mints the JWT as a 60-second token for cron dispatch callbacks (carried in the `x-sd-tenant` header by `dispatch.ts`). For the iframe proxy flow, `middleware.ts` sets the JWT as the `sd-plugin-tenant` cookie scoped to the apex domain — its effective lifetime is bounded by the next page load, not the 60-second callback TTL. The plugin echoes back the SAME token for callback verification. Do not increase the callback TTL without reviewing the threat model in `.planning/plugin-registry-spec.md`.
 - **JTI uniqueness is the replay dedup gate.** The `registered_app_callbacks_audit.jti` column has a `UNIQUE` constraint. A plugin that retries a callback with the same JWT will receive a 409. Plugins must re-request a fresh JWT for each retry.
 - **Manifest scope check is a subset gate.** `manifest.requiredScopes` must be covered by `registered_apps.defaultScopes`. A plugin cannot escalate by listing additional scopes in its manifest — the portal rejects the manifest entirely with `scope-superset`. The `isScopeCovered` function in `lib/plugins/manifest.ts` handles wildcard scopes (e.g. `foo:bar:*`).
 - **The extension is excluded from the main tsconfig.** `extension/tsconfig.json` is a completely separate TypeScript project. Do not import from `extension/` in the main Next.js app or vice versa.

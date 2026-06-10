@@ -2,7 +2,7 @@
 type: domain-map
 domain: decks-designer
 status: active
-date: 2026-06-09
+date: 2026-06-10
 sources:
   - lib/db/schema/tools.ts
   - lib/db/schema/productDesigner.ts
@@ -51,6 +51,18 @@ sources:
   - tests/integration/pitch-decks/BatchEditBar.test.tsx
   - tests/integration/pitch-decks/HistoryPanel.test.tsx
   - tests/integration/pitch-decks/RegenerateModal.test.tsx
+  - lib/pitch-deck-migration.ts
+  - lib/pitch-deck-versions.ts
+  - app/api/portal/tools/pitch-decks/[id]/slides/[slideIndex]/generate/route.ts
+  - app/api/storefront/[siteId]/designs/route.ts
+  - app/api/storefront/[siteId]/designs/[designId]/route.ts
+  - app/api/storefront/[siteId]/designs/[designId]/finalize/route.ts
+  - app/api/storefront/[siteId]/designs/[designId]/share/route.ts
+  - app/api/storefront/[siteId]/designs/[designId]/ai-image/route.ts
+  - app/api/storefront/[siteId]/designs/[designId]/ai-text/route.ts
+  - app/api/storefront/[siteId]/designs/upload-image/route.ts
+  - app/api/storefront/[siteId]/designs/generate-thumbnail/route.ts
+  - app/api/portal/websites/[siteId]/store/design-assets/route.ts
 ---
 
 # Domain: Pitch Decks & Product Designer
@@ -78,6 +90,8 @@ Two distinct tenant-facing creative tools sharing some infrastructure:
 | `lib/designer/layerFactory.ts` | Fabric.js object constructors: `createFabricText`, `createFabricIcon`, `fabricObjectToLayer` |
 | `lib/designer/fillResolver.ts` | Tint/fill resolution: `resolveLayerFill`, `tintKey` |
 | `lib/designer/historyManager.ts` | Generic `HistoryManager<T>` class (undo/redo snapshots) |
+| `lib/pitch-deck-migration.ts` | V1→V2 slide migration helpers (`migratePitchDeck`, etc.) |
+| `lib/pitch-deck-versions.ts` | `saveVersionSnapshot` — persists `pitch_deck_versions` rows before AI edits |
 | `app/portal/tools/pitch-decks/[id]/page.tsx` | Main deck editor page (board + slide list + panels) |
 | `app/portal/tools/pitch-decks/new/page.tsx` | New deck creation wizard |
 | `app/slides/[slug]/page.tsx` | Public deck viewer (global slug — no domain prefix) |
@@ -117,9 +131,27 @@ Two distinct tenant-facing creative tools sharing some infrastructure:
 | `app/api/portal/tools/pitch-decks/[id]/publish-all/route.ts` | POST | Publish all slide drafts |
 | `app/api/portal/tools/pitch-decks/[id]/versions/route.ts` | GET | List version history |
 | `app/api/portal/tools/pitch-decks/[id]/versions/[versionId]/restore/route.ts` | POST | Restore a version |
-| `app/api/portal/tools/pitch-decks/upload-html/route.ts` | POST | Upload HTML as single-slide deck |
+| `app/api/portal/tools/pitch-decks/[id]/slides/[slideIndex]/generate/route.ts` | POST | AI regenerate a single slide (uses slide-edit-optimizer patch path) |
+| `app/api/portal/tools/pitch-decks/upload-html/route.ts` | POST | Upload HTML file or ZIP (≤1 MB HTML / ≤50 MB ZIP) as single-slide deck |
 
 All portal routes return `{ success, data | error }` envelope per platform convention.
+
+**REST (product designer):**
+
+| Endpoint | Method | Purpose |
+|---|---|---|
+| `app/api/storefront/[siteId]/designs/route.ts` | GET / POST | List / create designs for a storefront |
+| `app/api/storefront/[siteId]/designs/[designId]/route.ts` | GET / PATCH / DELETE | Single design CRUD |
+| `app/api/storefront/[siteId]/designs/[designId]/finalize/route.ts` | POST | Finalize a design (lock for order) |
+| `app/api/storefront/[siteId]/designs/[designId]/share/route.ts` | POST | Generate public share link |
+| `app/api/storefront/[siteId]/designs/[designId]/ai-image/route.ts` | POST | AI-generate an image layer |
+| `app/api/storefront/[siteId]/designs/[designId]/ai-text/route.ts` | POST | AI-generate a text layer |
+| `app/api/storefront/[siteId]/designs/[designId]/clone/route.ts` | POST | Clone a design |
+| `app/api/storefront/[siteId]/designs/[designId]/save-as-template/route.ts` | POST | Save design as reusable template |
+| `app/api/storefront/[siteId]/designs/upload-image/route.ts` | POST | Upload an image asset for use in a design |
+| `app/api/storefront/[siteId]/designs/generate-thumbnail/route.ts` | POST | Generate a canvas thumbnail |
+| `app/api/storefront/[siteId]/designs/claim/route.ts` | POST | Claim an anonymous design to a customer account |
+| `app/api/portal/websites/[siteId]/store/design-assets/route.ts` | GET / POST / DELETE | Manage per-website icon / clip-art asset library |
 
 ## MCP tools
 
@@ -195,7 +227,7 @@ Write tools pass through `stageOrApply` (approval-workflow primitive) and call `
 ## Invariants & gotchas
 
 - **Draft/live separation is one-way.** Once a write lands in `slide.draft.*`, the public renderer is unaffected until a publish call. Never write directly to live `blocks`/`customCss` fields from the MCP layer — always go through `draft.*`.
-- **`formatVersion: 2` is the only supported write path.** Legacy V1 slides (typed `PitchDeckSlide`) are read-only; the MCP tools always emit V2. Migration logic lives in `tests/unit/lib-pitch-deck-migration.test.ts`.
+- **`formatVersion: 2` is the only supported write path.** Legacy V1 slides (typed `PitchDeckSlide`) are read-only; the MCP tools always emit V2. Migration logic lives in `lib/pitch-deck-migration.ts`; covered by `tests/unit/lib-pitch-deck-migration.test.ts`.
 - **Branding profile auto-resolution.** If `brandingProfileId` is omitted on create, the tool looks for `is_default = true` for the client. Passing an explicit profile ID that doesn't belong to the client is a hard error — never trust the caller's ID alone.
 - **`showSlideNumber` auto-override.** Any slide whose entire content is a single `html-embed` block has the slide-counter overlay suppressed, regardless of `theme.showSlideNumber`.
 - **Product Designer is per-website, not per-tenant.** `philaprintsDesignAssets` is keyed by `websiteId`; `productDesigns` by `websiteId` + `customerId` or `sessionId`. Anonymous designs survive session changes via `sessionId`.

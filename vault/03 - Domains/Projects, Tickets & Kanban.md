@@ -2,10 +2,15 @@
 type: domain-map
 domain: projects-pm
 status: active
-date: 2026-06-09
+date: 2026-06-10
 sources:
   - lib/tickets/
   - lib/db/schema/pm.ts
+  - lib/mcp/tools/services.ts
+  - app/api/portal/projects/[id]/velocity/
+  - app/portal/my-tasks/
+  - app/portal/projects/automations/
+  - components/portal/SuggestedProjectRequestForm.tsx
 ---
 
 # Domain: Projects, Tickets & Kanban
@@ -31,6 +36,8 @@ row is readable across tenants.
 | Portal projects list & detail | `app/portal/projects/` |
 | Portal ticket list / new / detail | `app/portal/tickets/` |
 | Portal suggested-projects | `app/portal/suggested-projects/` |
+| Portal my-tasks page | `app/portal/my-tasks/` |
+| Portal project automations | `app/portal/projects/automations/` |
 | Projects REST API | `app/api/portal/projects/[id]/` |
 | Cards REST API | `app/api/portal/cards/[id]/` |
 | Sprints REST API | `app/api/portal/sprints/[id]/` |
@@ -98,6 +105,18 @@ map. Thread messages in `ticket_messages`; staff-only notes via `isInternal`.
 SLA policies (calendar hours, not business hours): urgent 2h/8h, high 4h/24h,
 medium 12h/72h, low 24h/168h.
 
+### Webhooks
+
+Table `project_webhooks`: endpoint `url`, HMAC `secret`, `events` (jsonb array
+of event name strings), `active` flag, `lastFiredAt`, `lastStatus` (HTTP
+response code of the most recent delivery), `failureCount`. Project-scoped via
+`projectId`.
+
+Table `project_webhook_deliveries`: delivery log per fired event. Fields:
+`webhookId`, `event` (event name), `status` (HTTP response code), `error`
+(nullable text), `payload` (jsonb), `createdAt`. Used for the delivery history
+panel in `components/portal/ProjectWebhooksPanel.tsx`.
+
 ### Team
 
 Table `project_members` (per-project roles). Portal user membership in
@@ -118,7 +137,7 @@ All routes under `app/api/portal/` return `{ success, data | error }`.
 | Cards (create/list) | `app/api/portal/projects/[id]/cards/` |
 | Card mutations | `app/api/portal/cards/[id]/` and sub-routes: `move`, `labels`, `assignees`, `checklist`, `comments`, `time-logs`, `files`, `dependencies`, `artifacts`, `custom-fields`, `watch`, `unsubscribe` |
 | Columns | `app/api/portal/projects/[id]/columns/`, `columns/[columnId]/`, `columns/reorder/` |
-| Sprints | `app/api/portal/projects/[id]/sprints/`, `app/api/portal/sprints/[id]/`, sub-routes: `burndown`, `velocity`, `capacity`, `card-order`, `retro` |
+| Sprints | `app/api/portal/projects/[id]/sprints/`, `app/api/portal/sprints/[id]/`, sub-routes: `burndown`, `capacity`, `card-order`, `retro` |
 | Labels | `app/api/portal/projects/[id]/labels/` |
 | Goals | `app/api/portal/projects/[id]/goals/` |
 | Custom fields | `app/api/portal/projects/[id]/custom-fields/` |
@@ -130,6 +149,7 @@ All routes under `app/api/portal/` return `{ success, data | error }`.
 | Artifacts | `app/api/portal/projects/[id]/artifacts/`, `artifacts/available/` |
 | Reports: CFD | `app/api/portal/projects/[id]/cfd/` |
 | Reports: cycle time | `app/api/portal/projects/[id]/cycle-time/` |
+| Reports: velocity | `app/api/portal/projects/[id]/velocity/` |
 | Tickets | `app/api/portal/tickets/`, `tickets/[id]/`, `tickets/[id]/messages/`, `tickets/[id]/assignees/` |
 | Suggested projects | `app/api/portal/suggested-projects/`, `suggested-project-requests/` |
 | Brain task promote | `app/api/portal/brain/tasks/[id]/promote-to-kanban/` |
@@ -183,6 +203,12 @@ write tools require `projects:write` or `tickets:write`.
 `team_list_members`, `team_invite`, `team_update_role`, `team_remove_member`,
 `client_get`, `client_update`
 
+### `lib/mcp/tools/services.ts` (PM-relevant)
+
+`suggested_projects_list` (`services:read`), `suggested_project_requests_create`
+(`services:write`). These tools surface the suggested-projects catalogue and
+intake pathway; they use `services:*` scopes, not `projects:*`.
+
 ---
 
 ## UI surfaces
@@ -208,6 +234,7 @@ write tools require `projects:write` or `tickets:write`.
 | Ticket SLA badge | `components/portal/TicketSlaBadge.tsx` |
 | Ticket status control | `components/portal/TicketStatusControl.tsx` |
 | Suggested projects modal | `components/portal/SuggestedProjectsModal.tsx` |
+| Suggested project request form | `components/portal/SuggestedProjectRequestForm.tsx` |
 | My tasks dashboard widget | `components/portal/dashboard/widgets/MyTasksWidget.tsx` |
 | Active projects metric widget | `components/portal/dashboard/widgets/MetricActiveProjectsWidget.tsx` |
 

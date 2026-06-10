@@ -2,11 +2,13 @@
 type: domain-map
 domain: automations
 status: active
-date: 2026-06-09
+date: 2026-06-10
 sources:
   - lib/automation/
   - lib/workflows/
   - lib/db/schema/workflows.ts
+  - tests/integration/api/portal/trigger-links/
+  - lib/mcp/tools/automations.ts
 ---
 
 # Domain: Automations & Workflows
@@ -101,7 +103,7 @@ Registered in `lib/mcp/tools/automations.ts` via `registerAutomationsTools()`. A
 | `automations_list` | `automations:read` | List rules (filter by `enabled`, `productScope`) |
 | `automations_toggle` | `automations:write` | Flip `enabled` flag only |
 | `automations_create` | `automations:write` | Create a rule (trigger / conditions / actions JSON) |
-| `automations_update` | `automations:write` | Update name, trigger, conditions, or actions |
+| `automations_update` | `automations:write` | Update name, description, trigger, conditions, actions, or productScope (use automations_toggle for the enabled flag only) |
 | `automations_delete` | `automations:write` | Delete a rule (logs retained) |
 
 No MCP tools exist for the visual workflow builder yet.
@@ -145,10 +147,15 @@ No MCP tools exist for the visual workflow builder yet.
 | `tests/integration/api/portal/workflows/runs.test.ts` | integration | Run history |
 | `tests/integration/api/portal/workflows/templates.test.ts` | integration | Template list |
 | `tests/integration/api/portal/workflows/test-run.test.ts` | integration | Synchronous test-run endpoint |
+| `tests/integration/api/portal/trigger-links/crud.test.ts` | integration | CRUD + tenancy for trigger-link routes |
+| `tests/integration/api/portal/trigger-links/go-redirect.test.ts` | integration | /go/[slug] redirect + click recording |
+| `tests/integration/api/portal/trigger-links/auto-slug-generation.test.ts` | integration | Unique slug generation |
 | `tests/e2e/portal-automations.spec.ts` | e2e | Portal automations UI smoke |
 | `tests/e2e/portal-automations-services-hosting-mutations.spec.ts` | e2e | Mutation flows |
 | `tests/e2e/trigger-links.spec.ts` | e2e | Trigger link create / click flow |
 | `tests/e2e/admin-automations.spec.ts` | e2e | Admin panel smoke |
+
+Additional unit-layer coverage (UI pages, cron routes, trigger-link routes) lives in `tests/unit/app-portal-automations-workflow-page.test.tsx`, `tests/unit/app-portal-brain-automations-page.test.tsx`, `tests/unit/app-brain-automations-page-coverage.test.tsx`, `tests/unit/api-trigger-links-and-storefront-products-routes.test.ts`, `tests/unit/api-wishlist-trigger-links-id-and-html-uploads-routes.test.ts`, `tests/unit/components-portal-product-automation-settings.test.tsx`, and `tests/unit/api-cron-failing-automations-route.test.ts`.
 
 Run gate: `scripts/test.sh --layer=integration --no-coverage` covers tenancy + API contracts. After any `automation_rules` or `workflows` data-access change, also run `bun test:tenancy`.
 
