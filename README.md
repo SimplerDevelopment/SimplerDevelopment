@@ -221,6 +221,51 @@ simplerdevelopment2026/
 
 ---
 
+## Agentic development
+
+This repo is built to be worked on by AI agents (primarily Claude Code) alongside humans. The agent tooling is first-class infrastructure, not an add-on.
+
+### Agent navigation
+
+- [`CLAUDE.md`](CLAUDE.md) — the root agent operating guide: architecture invariants, commands, conventions, don't-touch zones.
+- Nested `CLAUDE.md` files carry per-area invariants and god-file warnings, loaded automatically when an agent works in that subtree: `app/portal/`, `app/admin/`, `lib/blocks/`, `lib/mcp/`, `lib/db/`, `lib/ai/`, `components/portal/visual-editor/`, `tests/`.
+- `.claude/index.md` — the navigation map: "I need to work on X" → the right nested guide, skill, or doc.
+- `graphify-out/` — a generated knowledge graph of the codebase, rebuilt on commit via git hooks, used for broad cross-cutting questions.
+
+### Skills (scaffolding workflows)
+
+Repeatable engineering tasks are encoded as Claude Code skills so the lockstep pieces never drift apart:
+
+| Skill | Produces |
+|---|---|
+| `simplerdev-feature-scaffold` | CRUD resource: schema + API route (envelope pattern) + e2e test |
+| `simplerdev-block-type` | CMS block: TS interface, render component, registry entry, production renderer case, `/api/blocks` metadata |
+| `simplerdev-mcp-tool` | MCP tool: handler + input schema + scope guard, registered in lockstep |
+| `site-migration` | Imports an existing external website into the platform |
+| `sd-create-page` / `-deck` / `-email` / `-survey` | Portal content authored via the in-repo MCP server, returned as draft + approval URL |
+
+See `docs/skills/` for the full reference.
+
+### Subagents and orchestration
+
+Larger work runs through an orchestration hierarchy: a planning model decomposes work and dispatches well-scoped units to worker agents in parallel (e.g. `block-orchestrator` driving `block-implementer` workers for the CMS-blocks audit). Workers operate under an escalation contract — anything beyond a mechanical change is promoted back to the planner rather than guessed at (see `CLAUDE.md` § Agent operating rules).
+
+### Autonomous dev loop
+
+The `dev-block` skill runs hands-off development sessions driven by an n8n workflow: pick a GitHub issue labeled `claude`, implement, run gates, commit, return structured JSON for the loop to route on. State and retro notes live in `.claude/HANDS_OFF_DEV_PLAN.md` and `.claude/learnings.md`.
+
+### Guardrails (architecture fitness functions)
+
+Agent- and human-authored changes are held to the same automated invariants, wired into the `.githooks/` pre-commit and pre-push hooks:
+
+- `scripts/check-doc-drift.ts` — agent-facing docs may not reference moved or deleted files
+- `scripts/check-file-budget.ts` — file-size budget with a god-file ratchet (new-file cap 800 lines)
+- `.dependency-cruiser.cjs` — architectural boundary rules (route trees, layering)
+- `knip.json` — dead-code detection
+- `scripts/ci-local.sh` — the local CI gate (lint, typecheck, unit tests) run at pre-push
+
+---
+
 ## Documentation index
 
 | Document | Contents |
