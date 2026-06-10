@@ -1,0 +1,5 @@
+{
+  "templates_folder": "08 - Templates",
+  "trigger_on_file_creation": false,
+  "auto_jump_to_cursor": true
+}
