@@ -72,6 +72,31 @@ Routing rule:
 | E2E test authoring | `/e2e-writer`. Running existing E2E: `/e2e-runner`. Visual QA: `/qa` |
 | Visual diff (port verification) | `/visual-compare` |
 
+## Dynamic workflows — when to reach for the `Workflow` tool (multi-agent orchestration)
+
+> **Terminology:** the table above lists **skills** (single-agent helpers). This section is about **dynamic workflows** — the `Workflow` tool that scripts *many* subagents (fan-out, pipelines, tournaments, loops) deterministically in one run. Different mechanism, different cost profile.
+
+**Opt-in is mandatory — never autonomous.** The `Workflow` tool is gated: only fire it when the user explicitly opts in — types `ultracode`, says "use a workflow" / "fan out agents" / "orchestrate this with subagents", invokes a skill that instructs it, or asks for a named/saved workflow. For everything else — *even a task that would clearly benefit* — describe the workflow and its rough token cost and **ask first**. A workflow can spawn dozens of agents; that scale must be the user's choice, not your inference.
+
+**Workflow vs. the cheaper tools you already have** (don't burn a swarm on small work — the video's own rule: *don't spin up an agent team to change a button color*):
+- One well-scoped unit, spec already clear → `/delegate` to a Sonnet worker (or the `Agent` tool). Not a workflow.
+- "Where is X / how does Y work" → `graphify-out/` or a single `Explore` subagent. Not a workflow.
+- Trivial mechanical edit (rename, recolor, single-file fix) → just do it inline.
+- **Many items needing the same treatment, or a decision that needs independent verification → *that's* when a workflow earns its token cost.**
+
+**The six patterns → where they fit in this repo** (compose freely; stack them for big jobs — e.g. fan-out → adversarial-verify → loop-until-dry):
+
+| Pattern | Reach for it when… | Concrete here |
+|---|---|---|
+| **Classify & Act** | inbound needs routing before any handler acts | Triage open portal `tickets` / CRM leads / `brain_list_review_items` → bug / billing / feature / spam handlers; route a feature request to the right `vault/03 - Domains/` map |
+| **Fan Out & Synthesize** | a task splits cleanly across the monorepo's per-domain / per-file structure, then merges | Block-controls-coverage audit (one agent per block type → merged report — cf. `.planning/audits/`); per-site migration audit (one agent per site); a cross-domain sweep when `graphify-out/` is stale |
+| **Adversarial Verification** | a risky change must survive skeptics, not self-praise | **Tenant-leak review** of a data-access change (≥3 agents each hunting a `clientId`/`siteId` scoping gap — pairs with `bun test:tenancy`); auth / billing / migration review; verifying Brain/RAG output. (This is what user-triggered `/code-review ultra` does.) |
+| **Generate & Filter** | taste-required — over-generate, then judge down with a *separate* judge agent + rubric | Block-type design directions (pairs with `huashu-design`: 40 mockups → judge to 3); brand messaging / `email_campaigns` subject lines; CRM outreach openers |
+| **Tournament** | rank / decide pairwise when one context can't hold all options fairly | Prioritize Kanban backlog cards; pick between architecture approaches (pairs with the `Plan` agent); rank N audit findings or candidate block designs head-to-head |
+| **Loop Until Done** | unknown-size hunt, no fixed pass count | Chase a flaky unit/e2e test in its own worktree until it repros, then trace it; "audit every block until a clean pass finds no new coverage gaps" (the `dev-block` skill is a hand-rolled version of this) |
+
+**Keep the project's guardrails inside a workflow too:** workflow agents inherit the session model by default — keep Opus on the boss / judge / synthesis steps and let Sonnet workers fan out (matches the global delegation policy). A workflow that *ships* code still owes the **completion ritual** (update the touched Domain Map, ADR non-obvious calls, move the Kanban card to Shipped) and the relevant gate (`bun test:tenancy` after any data-access change, `bun test:critical` before declaring done). For large/layered jobs, hand it a token **budget** ("+500k") — workflows are expensive; reserve them for genuinely big or multi-layered work. _Pattern catalog: Anthropic's dynamic-workflows guide — `code.claude.com/docs/en/workflows`._
+
 ## Don't-touch zones
 
 - `drizzle/*.sql` — generated only; edit `lib/db/schema/` (per-domain modules), then `bun run db:generate`
