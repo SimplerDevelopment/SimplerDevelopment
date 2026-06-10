@@ -4,6 +4,10 @@
  */
 
 export type DashboardWidgetId =
+  | 'metric-active-projects'
+  | 'metric-open-tickets'
+  | 'metric-unpaid-invoices'
+  | 'metric-amount-due'
   | 'websites-glance'
   | 'editorial-pipeline'
   | 'store-overview'
@@ -39,6 +43,42 @@ export interface DashboardWidgetDef {
 }
 
 export const DASHBOARD_WIDGETS: DashboardWidgetDef[] = [
+  {
+    id: 'metric-active-projects',
+    title: 'Active Projects',
+    icon: 'view_kanban',
+    solution: 'project-management',
+    description: 'Count of projects that are not archived.',
+    href: '/portal/projects',
+    defaultEnabled: true,
+  },
+  {
+    id: 'metric-open-tickets',
+    title: 'Open Tickets',
+    icon: 'support_agent',
+    solution: 'help-desk',
+    description: 'Count of support tickets that are not closed.',
+    href: '/portal/tickets',
+    defaultEnabled: true,
+  },
+  {
+    id: 'metric-unpaid-invoices',
+    title: 'Unpaid Invoices',
+    icon: 'receipt_long',
+    solution: 'invoicing',
+    description: 'Count of invoices with status "sent" and awaiting payment.',
+    href: '/portal/invoices',
+    defaultEnabled: true,
+  },
+  {
+    id: 'metric-amount-due',
+    title: 'Amount Due',
+    icon: 'attach_money',
+    solution: 'invoicing',
+    description: 'Total value of all outstanding sent invoices.',
+    href: '/portal/invoices',
+    defaultEnabled: true,
+  },
   {
     id: 'websites-glance',
     title: 'Websites at a Glance',

@@ -4,13 +4,11 @@ import {
   services, clientServices, clientWebsites, posts,
   emailLists, emailSubscribers, emailCampaigns,
   bookingPages, bookings, pitchDecks,
-  projects, supportTickets, invoices,
   userOnboarding, userDashboardPreferences,
 } from '@/lib/db/schema';
-import { eq, and, ne, count, sum, sql } from 'drizzle-orm';
+import { eq, and, count, sql } from 'drizzle-orm';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { formatCents } from '@/lib/portal';
 import { getPortalClient } from '@/lib/portal-client';
 import { getBrainProfile } from '@/lib/brain/profiles';
 import CreditBalance from '@/components/portal/CreditBalance';
@@ -69,19 +67,12 @@ export default async function PortalDashboardPage() {
   // Fetch everything in parallel
   const [
     allServices, mySubscriptions,
-    activeProjects, openTickets, pendingInvoices,
     websiteSites, emailListRows, bookingPageRows, deckCount,
     dashboardPrefsRow,
   ] = await Promise.all([
     db.select().from(services).where(eq(services.active, true)).orderBy(services.name),
     db.select({ serviceId: clientServices.serviceId, status: clientServices.status })
       .from(clientServices).where(eq(clientServices.clientId, client.id)),
-    db.select({ count: count() }).from(projects)
-      .where(and(eq(projects.clientId, client.id), ne(projects.status, 'archived'))),
-    db.select({ count: count() }).from(supportTickets)
-      .where(and(eq(supportTickets.clientId, client.id), ne(supportTickets.status, 'closed'))),
-    db.select({ count: count(), total: sum(invoices.total) }).from(invoices)
-      .where(and(eq(invoices.clientId, client.id), eq(invoices.status, 'sent'))),
     // Service-specific counts
     db.select({ count: count() }).from(clientWebsites)
       .where(and(eq(clientWebsites.clientId, client.id), eq(clientWebsites.active, true))),
@@ -178,13 +169,6 @@ export default async function PortalDashboardPage() {
     }
   }
 
-  const coreStats = [
-    { label: 'Active Projects', value: activeProjects[0]?.count ?? 0, icon: 'view_kanban', href: '/portal/projects', color: 'text-blue-600' },
-    { label: 'Open Tickets', value: openTickets[0]?.count ?? 0, icon: 'support_agent', href: '/portal/tickets', color: 'text-orange-600' },
-    { label: 'Unpaid Invoices', value: pendingInvoices[0]?.count ?? 0, icon: 'receipt_long', href: '/portal/invoices', color: 'text-red-600' },
-    { label: 'Amount Due', value: formatCents(Number(pendingInvoices[0]?.total ?? 0)), icon: 'attach_money', href: '/portal/invoices', color: 'text-green-600' },
-  ];
-
   return (
     <div className="max-w-6xl mx-auto space-y-8">
       {/* Header */}
@@ -215,17 +199,6 @@ export default async function PortalDashboardPage() {
       ) : (
         <EnableBrainBanner />
       )}
-
-      {/* Core Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {coreStats.map((s) => (
-          <Link key={s.label} href={s.href} className="bg-card border border-border rounded-xl p-5 hover:border-primary/50 transition-colors">
-            <span className={`material-icons text-2xl ${s.color}`}>{s.icon}</span>
-            <p className="mt-3 text-2xl font-bold text-foreground">{s.value}</p>
-            <p className="text-sm text-muted-foreground">{s.label}</p>
-          </Link>
-        ))}
-      </div>
 
       {/* Active Services */}
       {activeServices.length > 0 && (

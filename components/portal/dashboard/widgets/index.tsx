@@ -1,6 +1,10 @@
 import type { ComponentType } from 'react';
 import type { DashboardWidgetId } from '@/lib/dashboard/widgets';
 
+import MetricActiveProjectsWidget from './MetricActiveProjectsWidget';
+import MetricOpenTicketsWidget from './MetricOpenTicketsWidget';
+import MetricUnpaidInvoicesWidget from './MetricUnpaidInvoicesWidget';
+import MetricAmountDueWidget from './MetricAmountDueWidget';
 import WebsitesGlanceWidget from './WebsitesGlanceWidget';
 import EditorialPipelineWidget from './EditorialPipelineWidget';
 import StoreOverviewWidget from './StoreOverviewWidget';
@@ -28,6 +32,10 @@ export const WIDGET_COMPONENTS: Record<
   DashboardWidgetId,
   ComponentType<{ clientId: number; userId: number }>
 > = {
+  'metric-active-projects': MetricActiveProjectsWidget,
+  'metric-open-tickets': MetricOpenTicketsWidget,
+  'metric-unpaid-invoices': MetricUnpaidInvoicesWidget,
+  'metric-amount-due': MetricAmountDueWidget,
   'websites-glance': WebsitesGlanceWidget,
   'editorial-pipeline': EditorialPipelineWidget,
   'store-overview': StoreOverviewWidget,
