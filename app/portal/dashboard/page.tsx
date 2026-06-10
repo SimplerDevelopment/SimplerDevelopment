@@ -252,6 +252,7 @@ export default async function PortalDashboardPage() {
           href: w.href,
           description: w.description,
           visible: !dashboardPrefs.hidden?.includes(w.id),
+          solution: w.solution,
         }))}
         initialPrefs={dashboardPrefs}
         slots={Object.fromEntries(

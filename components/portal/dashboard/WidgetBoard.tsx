@@ -20,6 +20,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { DashboardWidgetPrefs } from '@/lib/dashboard/widgets';
+import { SOLUTION_LABELS } from '@/lib/dashboard/widgets';
 import WidgetShell from './WidgetShell';
 
 interface WidgetMeta {
@@ -32,6 +33,7 @@ interface WidgetMeta {
 interface AvailableWidgetMeta extends WidgetMeta {
   description: string;
   visible: boolean;
+  solution: string;
 }
 
 interface WidgetBoardProps {
@@ -184,38 +186,60 @@ export default function WidgetBoard({
       </div>
 
       {/* Screen Options panel */}
-      {screenOptionsOpen && (
-        <div className="bg-card border border-border rounded-xl p-5">
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-            Show / hide widgets
-          </p>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {allAvailable.map((w) => {
-              const isVisible = !hidden.has(w.id);
-              return (
-                <label
-                  key={w.id}
-                  className="flex items-start gap-3 cursor-pointer group"
-                >
-                  <input
-                    type="checkbox"
-                    className="mt-0.5 h-4 w-4 rounded border-border accent-primary"
-                    checked={isVisible}
-                    onChange={(e) => handleToggleVisibility(w.id, e.target.checked)}
-                  />
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-foreground flex items-center gap-1.5">
-                      <span className="material-icons text-sm text-muted-foreground">{w.icon}</span>
-                      {w.title}
-                    </p>
-                    <p className="text-xs text-muted-foreground">{w.description}</p>
+      {screenOptionsOpen && (() => {
+        // Build ordered list of solution slugs (first-appearance order from registry)
+        const solutionOrder: string[] = [];
+        const solutionMap: Record<string, AvailableWidgetMeta[]> = {};
+        for (const w of allAvailable) {
+          if (!solutionMap[w.solution]) {
+            solutionOrder.push(w.solution);
+            solutionMap[w.solution] = [];
+          }
+          solutionMap[w.solution].push(w);
+        }
+
+        return (
+          <div className="bg-card border border-border rounded-xl p-5">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-4">
+              Show / hide widgets
+            </p>
+            <div className="space-y-5">
+              {solutionOrder.map((slug) => (
+                <div key={slug}>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+                    {SOLUTION_LABELS[slug] ?? slug}
+                  </p>
+                  <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {solutionMap[slug].map((w) => {
+                      const isVisible = !hidden.has(w.id);
+                      return (
+                        <label
+                          key={w.id}
+                          className="flex items-start gap-3 cursor-pointer group"
+                        >
+                          <input
+                            type="checkbox"
+                            className="mt-0.5 h-4 w-4 rounded border-border accent-primary"
+                            checked={isVisible}
+                            onChange={(e) => handleToggleVisibility(w.id, e.target.checked)}
+                          />
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-foreground flex items-center gap-1.5">
+                              <span className="material-icons text-sm text-muted-foreground">{w.icon}</span>
+                              {w.title}
+                            </p>
+                            <p className="text-xs text-muted-foreground">{w.description}</p>
+                          </div>
+                        </label>
+                      );
+                    })}
                   </div>
-                </label>
-              );
-            })}
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Widget grid */}
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>

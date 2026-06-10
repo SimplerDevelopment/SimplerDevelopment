@@ -42,6 +42,32 @@ export interface DashboardWidgetDef {
   defaultEnabled: boolean;
 }
 
+/**
+ * Human-readable display names for each solution slug.
+ * Mirrors the badge strings from lib/data/solutions.ts without importing that file.
+ */
+export const SOLUTION_LABELS: Record<string, string> = {
+  'ai-connect': 'AI Connect',
+  'websites': 'Website Builder',
+  'ecommerce': 'Online Store',
+  'publishing': 'Content Calendar',
+  'email-marketing': 'Email Marketing',
+  'crm': 'CRM',
+  'contracts': 'Contracts & E-Sign',
+  'invoicing': 'Invoicing',
+  'booking': 'Scheduling',
+  'surveys': 'Surveys & Forms',
+  'experiments': 'A/B Testing',
+  'project-management': 'Projects',
+  'help-desk': 'Help Desk',
+  'company-brain': 'Company Brain',
+  'ai-chatbot': 'Live Chat',
+  'automations': 'Automations',
+  'pitch-decks': 'Pitch Decks',
+  'agency': 'White-Label',
+  'hosting': 'Hosting',
+};
+
 export const DASHBOARD_WIDGETS: DashboardWidgetDef[] = [
   {
     id: 'metric-active-projects',
