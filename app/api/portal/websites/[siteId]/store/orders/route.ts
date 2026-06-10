@@ -69,10 +69,21 @@ export async function GET(
     }
   }
 
-  const data = orderRows.map((o) => ({
-    ...o,
-    items: itemsMap[o.id] || [],
-  }));
+  const data = orderRows.map((o) => {
+    const items = itemsMap[o.id] || [];
+    return {
+      ...o,
+      items,
+      // Cents-suffixed aliases + itemCount — the dashboard / orders-list UI
+      // read `*Cents` and `itemCount` (raw columns are already in cents).
+      subtotalCents: o.subtotal,
+      shippingCents: o.shippingTotal,
+      taxCents: o.taxTotal,
+      discountCents: o.discountTotal,
+      totalCents: o.total,
+      itemCount: items.reduce((n, it) => n + (it.quantity ?? 0), 0),
+    };
+  });
 
   return NextResponse.json({
     success: true,
