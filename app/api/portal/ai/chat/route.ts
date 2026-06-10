@@ -7,10 +7,15 @@ import { authorizePortal, isAuthError } from '@/lib/portal-auth';
 import { eq, asc, sql } from 'drizzle-orm';
 import Anthropic from '@anthropic-ai/sdk';
 import { PORTAL_TOOLS, executePortalTool } from '@/lib/ai/portal-tools';
+import { classifyPortalComplexity } from '@/lib/ai/portal-tools/classifier';
 import { hasCredits, deductCredits, getBalance } from '@/lib/ai-credits';
 import { resolveClientApiKey } from '@/lib/ai/resolve-client-key';
 import { recordAiUsage } from '@/lib/ai/audit';
 import { checkAiPlanGate } from '@/lib/ai/plan-gate';
+
+// Model routing: a cheap Haiku classifier decides which model runs the loop.
+const HAIKU = 'claude-haiku-4-5-20251001';
+const SONNET = 'claude-sonnet-4-6';
 
 const SYSTEM_PROMPT = `You are a helpful AI assistant embedded in the Simpler Development client portal. You can help clients with EVERYTHING in their portal — projects, invoices, tickets, websites, email campaigns, booking pages, pitch decks, team management, services, hosting, CRM, and more.
 
@@ -153,11 +158,17 @@ export async function POST(req: Request) {
     // Append new user message
     anthropicMessages.push({ role: 'user', content: message.trim() });
 
-    // Agentic tool loop
+    // Cheap Haiku classifier routes the request to the right model (cost
+    // control — the video's cost principle). simple → Haiku, complex → Sonnet.
+    const classification = await classifyPortalComplexity(message.trim(), anthropic);
+    const loopModel = classification.complexity === 'simple' ? HAIKU : SONNET;
+
+    // Agentic tool loop. Seed token totals with the classifier spend so
+    // platform-keyed credit deduction stays accurate.
     let finalText = '';
     const allToolCalls: { name: string; input: Record<string, unknown>; result: unknown }[] = [];
-    let totalInputTokens = 0;
-    let totalOutputTokens = 0;
+    let totalInputTokens = classification.inputTokens;
+    let totalOutputTokens = classification.outputTokens;
 
     let currentMessages = [...anthropicMessages];
 
@@ -171,7 +182,7 @@ export async function POST(req: Request) {
     while (loopCount < MAX_LOOPS) {
       loopCount++;
       const response = await anthropic.messages.create({
-        model: 'claude-sonnet-4-6',
+        model: loopModel,
         max_tokens: 2048,
         system: SYSTEM_PROMPT,
         tools: PORTAL_TOOLS,
@@ -287,6 +298,7 @@ export async function POST(req: Request) {
         toolCalls: allToolCalls.map(tc => ({ name: tc.name, input: tc.input })),
         tokensUsed: totalTokens,
         keySource: resolved.source,
+        model: loopModel,
         creditsRemaining,
       },
     });

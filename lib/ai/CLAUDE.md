@@ -17,6 +17,9 @@ AI orchestration layer: key resolution, plan-gating, tool execution for the Comp
 | Surface | Model | File |
 |---|---|---|
 | Brain classifier / planner / grounder | `claude-haiku-4-5-20251001` | `brain-tools/classifier.ts`, `planner.ts`, `grounder.ts` |
+| Portal chatbot classifier | `claude-haiku-4-5-20251001` | `portal-tools/classifier.ts` |
+| Portal chatbot loop (routed) | `claude-haiku-4-5-20251001` (simple) / `claude-sonnet-4-6` (complex) | `app/api/portal/ai/chat/route.ts` |
+| Portal chatbot stream (mobile, text-only) | `claude-opus-4-7` | `app/api/portal/ai/chat/stream/route.ts` |
 | Meeting transcript processor | `claude-sonnet-4-5` | `meeting-processor.ts` |
 | Brain eval runner | `claude-sonnet-4-6` | `brain-tools/eval/runner.ts` |
 | Embeddings | `text-embedding-3-*` (OpenAI) | `resolve-client-key.ts` (provider `'embedding'` maps to OpenAI) |
