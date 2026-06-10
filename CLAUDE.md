@@ -14,6 +14,21 @@ This is a ~357k-line monorepo (app 157k / lib 81k / components 119k LOC). Contex
 - **Don't read documentation speculatively.** Pointers at the bottom of this file are read-on-demand; only follow when the task touches that area.
 - **Escalation contract (worker → boss):** If a task turns out to need a design/architecture decision, hits an unknown root cause, requires touching files outside your assigned scope, would break a test you can't cleanly fix, or is otherwise beyond a straightforward mechanical change — **stop**. Return a message starting with `ESCALATE:` covering: (1) what you completed, (2) exactly where you got stuck, (3) why it exceeds a worker task, (4) what the boss needs (file/line, error, decision required), (5) recommended next step. Revert any half-done risky edits before returning.
 
+## Where knowledge lives (route notes here — three tools, three axes)
+
+These three systems are **complementary, not redundant** — each owns a different axis. Route knowledge by *kind*, don't duplicate across them:
+
+| Tool | Axis | Captured how | Use it to answer |
+|---|---|---|---|
+| **claude-mem** | Time / episodic | Auto, on commit/session-end (hooks) | "What did we *do / decide / discover* in past sessions?" |
+| **graphify** (`graphify-out/`) | Structure / semantic | On-demand rebuild of code+docs *as they are now* | "How does *X work* end-to-end in the codebase?" |
+| **Obsidian vault** (`vault/`) | Curation / durable | Manual + the `note` skill, authored on purpose | "What's the *canonical ADR / spec / research* worth keeping?" |
+
+Routing rule:
+- **Auto-history → claude-mem.** Don't curate it; query it (the `S###`/numeric IDs in the SessionStart hook, or the `mem-search` skill). It's a log, not a source of truth.
+- **"How does the code work?" → graphify.** Prefer `graphify-out/` over grep for broad cross-cutting questions when it exists and is recent; keep its commit-hook rebuild healthy. It reflects the *present* code, not history.
+- **"This deserves to be written down for the future" → Obsidian vault.** ADRs / specs / research only. **Do not hand-write per-session logs in the vault** — claude-mem already owns ephemeral session history; the vault is for distilled, durable artifacts that outlive any one session.
+
 ## Run / build / test (non-guessable commands only)
 
 - `bun dev` — dev server
