@@ -239,7 +239,7 @@ export async function buildTemplateDatabase(opts?: { quiet?: boolean }): Promise
   try {
     const dir = path.resolve(__dirname, '../../drizzle');
     const files = fs.readdirSync(dir)
-      .filter(f => /^\d{4}_.+\.sql$/.test(f))
+      .filter(f => /^\d{4,}_.+\.sql$/.test(f))
       .sort();
 
     for (const file of files) {
