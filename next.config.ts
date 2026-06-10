@@ -33,8 +33,20 @@ const SECURITY_HEADERS = [
   { key: 'Content-Security-Policy-Report-Only', value: CSP_REPORT_ONLY },
 ];
 
+// The `dev` branch is a throwaway, deploy-on-every-push environment: its Vercel
+// build is intentionally relaxed so a type or lint error never blocks a dev
+// deploy. Gated on Vercel's branch ref, so `main` (production) and `staging`
+// keep strict builds. Mirrors the relaxed git hooks for the same branch.
+const isDevDeploy = process.env.VERCEL_GIT_COMMIT_REF === 'dev';
+
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  ...(isDevDeploy
+    ? {
+        eslint: { ignoreDuringBuilds: true },
+        typescript: { ignoreBuildErrors: true },
+      }
+    : {}),
   // Limit static generation workers to avoid exhausting Postgres connections
   experimental: {
     workerThreads: false,

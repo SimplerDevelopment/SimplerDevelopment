@@ -26,6 +26,12 @@ This is a ~357k-line monorepo (app 157k / lib 81k / components 119k LOC). Contex
 - `bun run db:generate` — generate Drizzle migration; **never hand-edit `drizzle/*.sql`**
 - `bun run db:migrate` — apply migrations (auto-runs `db:verify-target` to refuse prod URLs)
 
+## Deployment (host topology)
+
+- **Hosting: Vercel.** The app deploys from the Vercel project **`simplerdevelopment-workfriends-ai`** (account `info@danielpcoyle.com`, team "Dan's projects"), connected to the GitHub repo `DanielPCoyle/simplerdevelopment2026`. The name is historical — it *is* this app. Production branch = **`main`**; every other pushed branch deploys as a **Preview** automatically.
+- **Databases: Railway** (project "Simpler Development"). `production` and `staging` environments each host the Postgres. DB URLs are wired into Vercel as per-branch env vars (`DATABASE_URL` scoped to `staging`, `dev`, etc.). `lib/db/schema/` needs the `vector` (pgvector) extension on every DB.
+- **`dev` branch = throwaway fast-iteration line.** Git hooks (`.githooks/pre-commit`, `pre-push`) self-skip on `dev`/`dev/*`, and `next.config.ts` relaxes the Vercel build (`ignoreBuildErrors`/`ignoreDuringBuilds` when `VERCEL_GIT_COMMIT_REF === 'dev'`) so a push deploys immediately regardless of type/lint errors. It has its **own** isolated Railway env (`dev`) + Postgres (`Postgres-ZyfY`), schema applied via `drizzle-kit push` (the migration *replay* is broken on a fresh DB — a migration `ALTER`s `brain_notes` before it exists). `main`/`staging` keep strict hooks + strict builds.
+
 ## Architecture invariants (load-bearing — break at your peril)
 
 - **Three audiences, three route trees:**
