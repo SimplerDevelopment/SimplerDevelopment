@@ -221,6 +221,26 @@ Run the critical E2E gate before declaring email work done: `bun test:critical`.
 | **Billing** | `requireService(clientId, 'email')` gates all campaign write/send MCP tools — client must have the email service provisioned. `app/api/cron/resend-usage-sync/route.ts` rolls up per-client send counts from `email_campaign_sends` into `usage_meter_events` (currently in stub/local-count mode; TODO: wire real Resend billing API) |
 | **Publishing / Kanban** | `lib/publishing/channels/email.ts` and `app/api/portal/publishing/channels/email/route.ts` implement the Publishing Command Center email-channel adapter, linking campaigns to kanban cards |
 
+## BYOK Resend key resolution
+
+Campaign sends now resolve a per-client Resend key before dispatch via
+`lib/email/resolve-resend.ts`. Resolution order:
+
+1. If `clients.billing_mode = 'byok'` and a `'resend'` key exists in `client_api_keys`
+   — use that key (client's own Resend account; sends are not counted against platform
+   quota and metered COGS are waived).
+2. If `clients.billing_mode = 'byok'` and **no** `'resend'` key is stored — throw; the
+   client must configure a key before campaigns can send.
+3. All other billing modes — use the platform Resend key from `RESEND_API_KEY`.
+4. Transactional email (booking confirmations, order receipts, invite links, MCP
+   approvals) always uses the platform key regardless of billing mode — those are
+   platform-originated sends, not client-COGS sends.
+5. Campaigns with `clientId = null` (global/agency-level) fall back to the platform key.
+
+Provider vocabulary in `app/api/portal/integrations/api-keys/route.ts` now includes
+`'resend'` and `'dropbox_sign'` alongside the pre-existing `'anthropic'` and `'openai'`
+entries. All four are encrypted at rest via `lib/crypto/api-key.ts` (AES-256-GCM).
+
 ## Invariants and gotchas
 
 - **Send is never re-entrant.** `executeCampaignSend` fetches already-sent subscriber IDs first and skips them. Idempotent across partial failures and retries.

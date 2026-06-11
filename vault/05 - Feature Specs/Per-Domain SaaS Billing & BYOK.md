@@ -1,7 +1,7 @@
 ---
 type: spec
 domain: billing
-status: in-progress
+status: validating
 date: 2026-06-10
 sources:
   - lib/billing/domain-catalog.ts
@@ -150,3 +150,5 @@ Per [[Gate Picking]]:
 3. **Voice minutes and Replicate upscales are not metered.** These COGS vectors are real but not yet tracked in `usage_thresholds`.
 4. **Monthly credit re-grant cron is missing.** Credits are granted on activation/renewal webhook only; a recurring monthly re-grant job still needs to be scheduled.
 5. **Bundle purchase does not auto-cancel individual module Stripe subscriptions.** Clients must cancel redundant subscriptions manually; UI provides guidance only.
+6. **Hand-apply SQL + seed on staging.** Run `scripts/billing/001_domain_saas_billing.sql` on staging (already applied to prod), then run `scripts/seed-domain-modules.ts` to populate the 12 module + bundle `services` rows before testing checkout.
+7. **Pre-existing tenancy test noise.** 9 failures in the tenancy suite (`bun test:tenancy`) are env/pre-existing: `oauth_clients` table exposes a camelCase/snake_case mismatch unrelated to this feature. Do not conflate with billing-domain tenancy regressions; track separately.
