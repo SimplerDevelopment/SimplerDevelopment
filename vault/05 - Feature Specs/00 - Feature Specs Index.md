@@ -12,6 +12,7 @@ The planning home — new feature planning starts here (`.planning/` is frozen; 
 ## Static index
 
 - [[Per-Domain SaaS Billing & BYOK]] — domain: billing, status: in-progress, 2026-06-10
+- [[Self-Serve Signup Funnel & Module Onboarding]] — domain: billing, status: planned, 2026-06-11
 
 ## Active
 ```dataview

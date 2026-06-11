@@ -26,77 +26,82 @@ export async function POST(req: Request) {
 
     if (event.type === 'customer.subscription.deleted') {
       const subscription = event.data.object as { id: string };
-      // Find the clientServices row that was backed by this Stripe subscription
-      // and mark it cancelled. No-op if it's already been cleaned up or was
-      // never written (e.g. checkout started but never completed).
-      const [csRow] = await db
-        .select({ id: clientServices.id })
-        .from(clientServices)
-        .where(eq(clientServices.stripeSubscriptionId, subscription.id))
-        .limit(1);
-
-      if (csRow) {
-        await db
-          .update(clientServices)
-          .set({ status: 'cancelled', updatedAt: new Date() })
-          .where(eq(clientServices.id, csRow.id));
-      }
+      // Mark every clientServices row backed by this Stripe subscription as
+      // cancelled — a multi-module checkout writes N rows sharing one
+      // subscription ID. No-op if already cleaned up or never written
+      // (e.g. checkout started but never completed).
+      await db
+        .update(clientServices)
+        .set({ status: 'cancelled', updatedAt: new Date() })
+        .where(eq(clientServices.stripeSubscriptionId, subscription.id));
 
       return NextResponse.json({ received: true });
     }
 
     if (event.type === 'checkout.session.completed') {
       const session = event.data.object as {
-        metadata?: { invoiceId?: string; serviceId?: string; clientId?: string; type?: string; tokens?: string; packageName?: string; packageId?: string };
+        metadata?: { invoiceId?: string; serviceId?: string; serviceIds?: string; clientId?: string; type?: string; tokens?: string; packageName?: string; packageId?: string; trial?: string };
         id: string;
         customer?: string | null;
         subscription?: string | null;
       };
 
-      // --- Module subscription purchase ---
+      // --- Module subscription purchase (one subscription, 1..N line items) ---
       if (session.metadata?.type === 'module_subscription') {
         const modClientId = parseInt(session.metadata.clientId || '0', 10);
-        const modServiceId = parseInt(session.metadata.serviceId || '0', 10);
+        // serviceIds (plural, comma-separated) is the current shape; serviceId
+        // (singular) kept for sessions minted before multi-item checkout.
+        const modServiceIds = (session.metadata.serviceIds ?? session.metadata.serviceId ?? '')
+          .split(',')
+          .map((s) => parseInt(s, 10))
+          .filter((n) => Number.isFinite(n) && n > 0);
 
-        if (modClientId && modServiceId) {
-          // Persist Stripe customer ID on the client record
+        if (modClientId && modServiceIds.length > 0) {
+          // Persist Stripe customer ID; stamp trialUsedAt when this checkout
+          // granted the one-per-client trial.
+          const clientUpdate: Record<string, unknown> = { updatedAt: new Date() };
           if (session.customer && typeof session.customer === 'string') {
-            await db
-              .update(clients)
-              .set({ stripeCustomerId: session.customer, updatedAt: new Date() })
-              .where(eq(clients.id, modClientId));
+            clientUpdate.stripeCustomerId = session.customer;
+          }
+          if (session.metadata.trial === '1') {
+            clientUpdate.trialUsedAt = new Date();
+          }
+          if (Object.keys(clientUpdate).length > 1) {
+            await db.update(clients).set(clientUpdate).where(eq(clients.id, modClientId));
           }
 
-          // Upsert clientServices row — set stripeSubscriptionId from session
           const stripeSubId = (session.subscription ?? null) as string | null;
-          const [existingMod] = await db
-            .select()
-            .from(clientServices)
-            .where(
-              and(
-                eq(clientServices.clientId, modClientId),
-                eq(clientServices.serviceId, modServiceId),
-              ),
-            )
-            .limit(1);
+          for (const modServiceId of modServiceIds) {
+            // Upsert clientServices row — set stripeSubscriptionId from session
+            const [existingMod] = await db
+              .select()
+              .from(clientServices)
+              .where(
+                and(
+                  eq(clientServices.clientId, modClientId),
+                  eq(clientServices.serviceId, modServiceId),
+                ),
+              )
+              .limit(1);
 
-          if (existingMod) {
-            await db
-              .update(clientServices)
-              .set({
+            if (existingMod) {
+              await db
+                .update(clientServices)
+                .set({
+                  status: 'active',
+                  stripeSubscriptionId: stripeSubId,
+                  updatedAt: new Date(),
+                })
+                .where(eq(clientServices.id, existingMod.id));
+            } else {
+              await db.insert(clientServices).values({
+                clientId: modClientId,
+                serviceId: modServiceId,
                 status: 'active',
                 stripeSubscriptionId: stripeSubId,
-                updatedAt: new Date(),
-              })
-              .where(eq(clientServices.id, existingMod.id));
-          } else {
-            await db.insert(clientServices).values({
-              clientId: modClientId,
-              serviceId: modServiceId,
-              status: 'active',
-              stripeSubscriptionId: stripeSubId,
-              startDate: new Date(),
-            });
+                startDate: new Date(),
+              });
+            }
           }
 
           await grantMonthlyCredits(modClientId);

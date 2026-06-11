@@ -38,6 +38,10 @@ export const clients = pgTable('clients', {
   //   byok   — module subscriptions with own 3rd-party API keys; metered
   //            COGS that land on their keys are waived.
   billingMode: varchar('billing_mode', { length: 20 }).default('agency').notNull(),
+  // One 14-day module trial per client (self-serve signup). Null = trial not
+  // yet consumed; set by the Stripe webhook when a trialing subscription
+  // activates. Checkout only grants trial_period_days while this is null.
+  trialUsedAt: timestamp('trial_used_at'),
   // Publishing Command Center — the system-managed kanban project that holds
   // every Publishing card for this client. Set on first visit to
   // /portal/publishing by the bootstrap action. Null = not yet bootstrapped.

@@ -1,17 +1,20 @@
 // POST /api/portal/billing/modules/checkout
 //
-// Creates a Stripe Checkout Session for a module or bundle subscription.
-// Body: { slug: string }
+// Creates a Stripe Checkout Session for one or more module/bundle
+// subscriptions — a single Stripe subscription with one line item per module
+// (one invoice / renewal / trial clock; cancelling one module later means
+// removing its line item).
+//
+// Body: { slug: string } | { slugs: string[] }, optional returnTo: 'onboarding'
+// First-time self-serve clients (clients.trialUsedAt null) get a 14-day
+// card-required trial; the webhook stamps trialUsedAt on activation.
 
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { clients, services, clientServices } from '@/lib/db/schema';
-import { and, eq } from 'drizzle-orm';
+import { clients, services, clientServices, users } from '@/lib/db/schema';
+import { and, eq, inArray } from 'drizzle-orm';
 import { authorizePortal, isAuthError } from '@/lib/portal-auth';
-import {
-  FEATURE_DOMAINS,
-  BUNDLE_SLUG,
-} from '@/lib/billing/domain-catalog';
+import { FEATURE_DOMAINS, BUNDLE_SLUG } from '@/lib/billing/domain-catalog';
 import Stripe from 'stripe';
 
 const VALID_SLUGS = new Set([
@@ -19,11 +22,13 @@ const VALID_SLUGS = new Set([
   BUNDLE_SLUG,
 ]);
 
+const TRIAL_DAYS = 14;
+
 export async function POST(req: Request) {
   const auth = await authorizePortal({ action: 'admin' });
   if (isAuthError(auth)) return auth.response;
 
-  const { client } = auth;
+  const { client, userId } = auth;
 
   // ── 1. billingMode guard ──────────────────────────────────────────────────
   if (client.billingMode === 'agency') {
@@ -37,59 +42,78 @@ export async function POST(req: Request) {
     );
   }
 
+  // Self-serve signups must verify their email before paying — a pending
+  // verification token marks an unverified self-serve account (invited and
+  // legacy users never carry one).
+  const [me] = await db
+    .select({ pendingToken: users.emailVerificationToken })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+  if (me?.pendingToken) {
+    return NextResponse.json(
+      { success: false, message: 'Verify your email first — check your inbox for the link.', requiresVerification: true },
+      { status: 403 },
+    );
+  }
+
   // ── 2. Parse + validate body ──────────────────────────────────────────────
-  let slug: string;
+  let body: { slug?: string; slugs?: string[]; returnTo?: string };
   try {
-    const body = await req.json();
-    slug = body?.slug;
+    body = await req.json();
   } catch {
     return NextResponse.json({ success: false, message: 'Invalid JSON body' }, { status: 400 });
   }
 
-  if (!slug || !VALID_SLUGS.has(slug)) {
+  const slugs = [...new Set(body.slugs ?? (body.slug ? [body.slug] : []))];
+  if (slugs.length === 0 || slugs.length > VALID_SLUGS.size || !slugs.every((s) => VALID_SLUGS.has(s))) {
     return NextResponse.json(
       { success: false, message: 'Unknown module slug.' },
       { status: 400 },
     );
   }
 
-  // ── 3. Look up service row ────────────────────────────────────────────────
-  const [service] = await db
+  // ── 3. Look up service rows ───────────────────────────────────────────────
+  const rows = await db
     .select()
     .from(services)
-    .where(and(eq(services.slug, slug), eq(services.active, true)))
-    .limit(1);
+    .where(and(inArray(services.slug, slugs), eq(services.active, true)));
 
-  if (!service) {
+  if (rows.length !== slugs.length) {
     return NextResponse.json(
       { success: false, message: 'Module not found.' },
       { status: 400 },
     );
   }
 
-  if (!service.stripePriceId) {
+  const missingPrice = rows.filter((r) => !r.stripePriceId);
+  if (missingPrice.length > 0) {
     return NextResponse.json(
-      { success: false, message: "This module isn't available for self-serve checkout yet." },
+      {
+        success: false,
+        message: `Not available for self-serve checkout yet: ${missingPrice.map((r) => r.name).join(', ')}.`,
+      },
       { status: 400 },
     );
   }
 
   // ── 4. Already subscribed? ────────────────────────────────────────────────
-  const [existing] = await db
-    .select({ id: clientServices.id })
+  const existing = await db
+    .select({ serviceId: clientServices.serviceId })
     .from(clientServices)
     .where(
       and(
         eq(clientServices.clientId, client.id),
-        eq(clientServices.serviceId, service.id),
+        inArray(clientServices.serviceId, rows.map((r) => r.id)),
         eq(clientServices.status, 'active'),
       ),
-    )
-    .limit(1);
+    );
 
-  if (existing) {
+  if (existing.length > 0) {
+    const owned = new Set(existing.map((e) => e.serviceId));
+    const names = rows.filter((r) => owned.has(r.id)).map((r) => r.name).join(', ');
     return NextResponse.json(
-      { success: false, message: 'You already have an active subscription to this module.' },
+      { success: false, message: `Already subscribed: ${names}.` },
       { status: 409 },
     );
   }
@@ -104,8 +128,7 @@ export async function POST(req: Request) {
   }
   const stripe = new Stripe(stripeKey);
 
-  // Create or reuse Stripe customer — mirror the credits/purchase pattern:
-  // use session email + company name when available, fall back gracefully.
+  // Create or reuse Stripe customer — mirror the credits/purchase pattern.
   let customerId = client.stripeCustomerId;
   if (!customerId) {
     const params: Record<string, string> = {};
@@ -118,27 +141,32 @@ export async function POST(req: Request) {
       .where(eq(clients.id, client.id));
   }
 
-  // ── 6. Derive origin for success/cancel URLs ──────────────────────────────
+  // ── 6. Trial: first self-serve subscription per client only ──────────────
+  const trialEligible = client.trialUsedAt == null;
+
   const origin = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://simplerdevelopment.com';
+  const returnPath = body.returnTo === 'onboarding'
+    ? '/portal/onboarding?checkout='
+    : '/portal/settings/billing/plans?status=';
+
+  const metadata: Record<string, string> = {
+    type: 'module_subscription',
+    clientId: String(client.id),
+    serviceIds: rows.map((r) => r.id).join(','),
+    ...(trialEligible ? { trial: '1' } : {}),
+  };
 
   const checkoutSession = await stripe.checkout.sessions.create({
     customer: customerId,
     mode: 'subscription',
-    line_items: [{ price: service.stripePriceId, quantity: 1 }],
-    metadata: {
-      type: 'module_subscription',
-      clientId: String(client.id),
-      serviceId: String(service.id),
-    },
+    line_items: rows.map((r) => ({ price: r.stripePriceId as string, quantity: 1 })),
+    metadata,
     subscription_data: {
-      metadata: {
-        type: 'module_subscription',
-        clientId: String(client.id),
-        serviceId: String(service.id),
-      },
+      metadata,
+      ...(trialEligible ? { trial_period_days: TRIAL_DAYS } : {}),
     },
-    success_url: `${origin}/portal/settings/billing/plans?status=success`,
-    cancel_url: `${origin}/portal/settings/billing/plans?status=cancelled`,
+    success_url: `${origin}${returnPath}success`,
+    cancel_url: `${origin}${returnPath}cancelled`,
   });
 
   return NextResponse.json({ success: true, data: { url: checkoutSession.url } });

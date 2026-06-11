@@ -22,6 +22,7 @@ function safeCallbackUrl(raw: string | null | undefined): string {
 function LoginForm() {
   const searchParams = useSearchParams();
   const callbackUrl = safeCallbackUrl(searchParams.get('callbackUrl'));
+  const verified = searchParams.get('verified') === '1';
   const { brandName } = useAgencyChrome();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -94,8 +95,10 @@ function LoginForm() {
 
       const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
       if (portal.subdomain && !isLocal) {
+        // eslint-disable-next-line react-hooks/immutability -- pre-existing pattern, predates this change
         window.location.href = `https://${portal.subdomain}.simplerdevelopment.com${callbackUrl}`;
       } else {
+        // eslint-disable-next-line react-hooks/immutability -- pre-existing pattern, predates this change
         window.location.href = callbackUrl;
       }
     } catch {
@@ -164,6 +167,48 @@ function LoginForm() {
         <div className="bg-card border border-border rounded-xl p-8 shadow-sm">
           <h2 className="text-xl font-semibold text-foreground mb-6">Sign in to your portal</h2>
 
+          {/* Email-verified success banner */}
+          {verified && (
+            <div className="mb-4 p-3 bg-green-500/10 border border-green-500/20 rounded-lg flex items-center gap-2 text-sm text-green-700 dark:text-green-400">
+              <span className="material-icons text-base">check_circle</span>
+              Email verified — sign in to continue.
+            </div>
+          )}
+
+          {/* Google OAuth */}
+          <button
+            type="button"
+            onClick={() => signIn('google', { callbackUrl })}
+            className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg border border-border bg-background text-foreground text-sm font-medium hover:bg-accent transition-colors mb-4"
+          >
+            <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
+              <path
+                d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.875 2.684-6.615z"
+                fill="#4285F4"
+              />
+              <path
+                d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.258c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"
+                fill="#34A853"
+              />
+              <path
+                d="M3.964 10.707A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.707V4.961H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.039l3.007-2.332z"
+                fill="#FBBC05"
+              />
+              <path
+                d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.961L3.964 6.293C4.672 4.166 6.656 3.58 9 3.58z"
+                fill="#EA4335"
+              />
+            </svg>
+            Continue with Google
+          </button>
+
+          {/* Divider */}
+          <div className="relative flex items-center gap-3 mb-4">
+            <div className="flex-1 h-px bg-border" />
+            <span className="text-xs text-muted-foreground">or</span>
+            <div className="flex-1 h-px bg-border" />
+          </div>
+
           {error && (
             <div className="mb-4 p-3 bg-destructive/10 border border-destructive/20 rounded-lg flex items-center gap-2 text-sm text-destructive">
               <span className="material-icons text-base">error_outline</span>
@@ -222,9 +267,13 @@ function LoginForm() {
             </button>
           </form>
 
-          <div className="mt-4 text-center">
+          <div className="mt-4 flex flex-col items-center gap-2">
             <a href="/portal/forgot-password" className="text-sm text-primary hover:underline">
               Forgot your password?
+            </a>
+            <a href="/portal/signup" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+              New here?{' '}
+              <span className="text-primary hover:underline">Create an account</span>
             </a>
           </div>
         </div>

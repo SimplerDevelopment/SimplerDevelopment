@@ -19,6 +19,7 @@ import { resolveVisibleWidgets, type DashboardWidgetPrefs } from '@/lib/dashboar
 import { WIDGET_COMPONENTS } from '@/components/portal/dashboard/widgets';
 import WidgetBoard from '@/components/portal/dashboard/WidgetBoard';
 import { WidgetSkeleton } from '@/components/portal/dashboard/skeletons';
+import GetStartedChecklist from '@/components/portal/onboarding/GetStartedChecklist';
 
 const SERVICE_META: Record<string, { icon: string; color: string; bgColor: string; href: string; description: string; cta: string }> = {
   cms: { icon: 'language', color: 'text-blue-600', bgColor: 'bg-blue-50 dark:bg-blue-950/40', href: '/portal/websites', description: 'Drag-and-drop website builder with unlimited pages, blog, and SEO tools.', cta: 'Build your website' },
@@ -190,6 +191,9 @@ export default async function PortalDashboardPage() {
           </Link>
         )}
       </div>
+
+      {/* Post-onboarding get-started checklist — client component, self-hiding */}
+      <GetStartedChecklist />
 
       {/* Brain — operational layer (top of dashboard when enabled).
           Streams in via Suspense so the rest of the dashboard doesn't block
