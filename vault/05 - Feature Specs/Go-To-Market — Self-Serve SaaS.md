@@ -191,7 +191,7 @@ After this plan was written, a **self-serve signup funnel** — built in a *sepa
 ## Open decisions / follow-ups
 
 1. Lock real tier prices + the credit→dollar rate and per-tier allowances (Phase 0).
-2. **Trial model — now a LIVE reconciliation (funnel shipped card-required; reassessment B):** keep card-trial, switch to cardless credit-grant, or run **both** (card = conversion, cardless = viral door). Recommend both/and.
+2. **Trial model — DECIDED 2026-06-11: both/and.** Keep the built 14-day card-required trial (paid-conversion path) AND add a cardless free-credit grant (viral/referral $0 door). The cardless grant is new Phase-0 work.
 3. **Pricing presentation — LIVE reconciliation (funnel shipped à-la-carte; reassessment A):** present 3 tiers as curated bundles over the module machinery.
 4. Niche-first sub-play? (wealth-advisory template exists) vs horizontal pro-services.
 5. Streaming/mobile chat tool loop (`/stream`) — Phase 1 or Phase 2?

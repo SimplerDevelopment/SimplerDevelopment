@@ -10,7 +10,7 @@ date: 2026-06-11
 ## Reconcile — shipped funnel vs GTM strategy (decide first)
 
 - [ ] **Pricing model** — funnel ships an à-la-carte module cart + bundle; GTM plan locked **3 per-seat tiers**. Reconcilable: present Starter/Growth/Scale as curated tier-bundles *over* the existing module machinery (plan already keeps modules underneath). — see [[Self-Serve Signup Funnel & Module Onboarding]]
-- [ ] **Trial mechanic — DAN'S CALL (two grill-me answers conflict)** — funnel ships a 14-day **card-required** trial; GTM plan chose a **cardless free-credit grant**. Options: keep card-trial (built, margin-safe, fits the metered-AI posture) / switch to cardless / **both** (card-trial = paid-conversion path, cardless credit-grant = the viral/referral $0 door). Rec: both/and.
+- [ ] **Trial mechanic — DECIDED 2026-06-11: both/and** — keep the built 14-day card-required trial as the paid-conversion path; ADD a cardless free-credit grant as the viral/referral $0 door. (Card-trial is built; the cardless credit-grant is new Phase-0 work.)
 - [ ] **Activation** — funnel ships per-module onboarding segments; GTM plan wants demo-workspace → agent-led setup. Complementary: keep the built segments, layer demo-seed + agent-led on top.
 - [ ] **Metered-AI + BYOK layer** — funnel is module-subscription only; the metered-credit model + BYOK-Scale-unlock (`lib/ai-credits.ts`) still needs wiring onto it.
 
