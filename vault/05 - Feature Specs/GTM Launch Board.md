@@ -5,38 +5,40 @@ domain: go-to-market
 date: 2026-06-11
 ---
 
-> Launch board for [[Go-To-Market — Self-Serve SaaS]]. Lanes are phases (sequencing decision #7). Cards are concrete work items derived from the 2026-06-11 codebase review. Check off `- [x]` or drag to **Done** as they ship.
+> Launch board for [[Go-To-Market — Self-Serve SaaS]]. Lanes are phases. **Reassessed 2026-06-11 after merging the self-serve signup funnel into dev** (and applying its migration to the dev DB): much of Phase 1 is now built — but on an à-la-carte + card-trial model that diverges from the GTM plan. **Work the Reconcile lane first.**
+
+## Reconcile — shipped funnel vs GTM strategy (decide first)
+
+- [ ] **Pricing model** — funnel ships an à-la-carte module cart + bundle; GTM plan locked **3 per-seat tiers**. Reconcilable: present Starter/Growth/Scale as curated tier-bundles *over* the existing module machinery (plan already keeps modules underneath). — see [[Self-Serve Signup Funnel & Module Onboarding]]
+- [ ] **Trial mechanic — DAN'S CALL (two grill-me answers conflict)** — funnel ships a 14-day **card-required** trial; GTM plan chose a **cardless free-credit grant**. Options: keep card-trial (built, margin-safe, fits the metered-AI posture) / switch to cardless / **both** (card-trial = paid-conversion path, cardless credit-grant = the viral/referral $0 door). Rec: both/and.
+- [ ] **Activation** — funnel ships per-module onboarding segments; GTM plan wants demo-workspace → agent-led setup. Complementary: keep the built segments, layer demo-seed + agent-led on top.
+- [ ] **Metered-AI + BYOK layer** — funnel is module-subscription only; the metered-credit model + BYOK-Scale-unlock (`lib/ai-credits.ts`) still needs wiring onto it.
 
 ## Phase 0 — Beachhead (existing clients)
 
 - [ ] Lock the 3 tiers (Starter/Growth/Scale): features, per-seat price, included AI credit allowance — see [[Go-To-Market — Self-Serve SaaS]]
-- [ ] Create Stripe Products/Prices for the 3 tiers (+ credit→$ rate)
-- [ ] Apply BYOK inversion: gate metering-waiver to the Scale tier (catalog waives at any tier today) + marked-up overage on Starter/Growth — profit-center model (locked 2026-06-11)
-- [ ] Build demo-workspace seeder — sample contacts/deals/draft site/projects for new tenants
-- [ ] Implement one-time free-credit grant on account creation (no card)
-- [ ] FIX revenue-integrity: grant monthly AI credits on **renewal** (`invoice.paid`), not only initial checkout — `app/api/stripe/webhook/route.ts`
-- [ ] FIX revenue-integrity: handle `invoice.payment_failed` — dunning / grace period / notify
+- [ ] Create Stripe Products/Prices for the tiers — funnel shipped `scripts/billing/sync-stripe-products.ts` to provision; tiers still need defining
+- [ ] Apply BYOK inversion: gate metering-waiver to the Scale tier + marked-up overage on Starter/Growth (profit-center model)
+- [ ] Build demo-workspace seeder — sample contacts/deals/draft site/projects (reuse sd-agent-super's brain demo-seed factory)
+- [ ] FIX revenue-integrity: handle `invoice.payment_failed` — grace + notify (do NOT flip status; `entitlements.ts` gates on `status='active'`, so a flip cuts access)
 - [ ] FIX revenue-integrity: auto-provision `metered_subscription_items` at checkout so overage actually bills
-- [ ] FIX revenue-integrity: collect pay-as-you-go overage debt (tracked in `lib/ai-credits.ts`, never invoiced)
-- [ ] Per-action credit-cost transparency in the AI chat UI ("this run ≈ N credits")
+- [ ] FIX revenue-integrity: collect pay-as-you-go overage debt (`lib/ai-credits.ts`)
+- [ ] Per-action credit-cost transparency in the AI chat UI
 - [ ] User-set spend caps + budget alerts (anti-bill-shock guardrail)
-- [ ] Convert existing agency clients to `saas` mode; onboard onto tier + credit model
+- [ ] Convert existing agency clients to `saas` mode
 - [ ] Fix 9 pre-existing `oauth_clients` tenancy failures; get `bun test:tenancy` green
-- [ ] Instrument activation analytics: time-to-aha, credit-burn/trial, first-workflow-completion
-- [ ] Capture first case studies / testimonials from converted clients
+- [ ] Instrument activation analytics (Sentry spans now exist via sd-agent — extend with funnel + `portal.route` events)
 
-## Phase 1 — Private Beta (invite-only cold funnel)
+## Phase 1 — Private Beta (cold funnel)
 
-- [ ] Build public signup route `/signup` — create user+client+owner, email verification
-- [ ] Auto-set `billingMode='saas'` on self-signup (not the `agency` default)
-- [ ] Stripe-triggered provisioning: checkout → account + subscription end-to-end, **zero human touch**
-- [ ] Public 3-tier pricing page `/pricing` — "HubSpot power without the cliff" messaging
+- [ ] Public 3-tier pricing page `/pricing` — reconcile with the built module wizard (see Reconcile lane)
 - [ ] Stripe Customer Portal (payment methods, invoices, manage sub); fix payment-method detach stub
 - [ ] Waitlist + invite-gating system
-- [ ] Post-signup activation flow: demo workspace → agent-led "set up YOUR business"
-- [ ] Onboarding wizard creates a starter site (or fold into agent-led setup)
-- [ ] Abuse protection: signup rate-limit, bot protection, free-credit-grant abuse caps
-- [ ] Beta funnel instrumentation (signup→activation→trial→paid) + in-app feedback
+- [ ] Demo-workspace → agent-led "set up YOUR business" (layer onto the built per-module onboarding segments)
+- [ ] Verify onboarding's `websites` segment actually provisions a starter site
+- [ ] Abuse protection: signup rate-limit + bot protection (purge-unverified cron already shipped)
+- [ ] Google OAuth go-live: add callback URL + set `AUTH_GOOGLE_ID`/`AUTH_GOOGLE_SECRET` per environment (provider built; env vars missing)
+- [ ] Beta funnel instrumentation: signup → activation → trial → paid
 
 ## Phase 2 — Public Launch (PLG + viral)
 
@@ -52,6 +54,7 @@ date: 2026-06-11
 
 ## Later / Post-Launch
 
+- [ ] Flip the Haiku intent-router from shadow → active once `portal.route` accuracy data is in
 - [ ] Encrypt user-level Google/MS refresh tokens at rest (unblocks import) — see [[Integrations - Google, Microsoft & OAuth]]
 - [ ] Google/email/CSV import as a Brain-feeding "deepen" activation step
 - [ ] Deeper API-level module gating in `saas` mode (currently nav/layout only)
@@ -62,6 +65,11 @@ date: 2026-06-11
 
 ## Done
 
+- [x] **Self-serve signup funnel** — public `/signup` (email+password + Google OAuth), email verification, `billingMode='saas'` provisioning, deep-link module cart, multi-item **card-required trial** checkout, per-module onboarding segments, one-click upsell, purge-unverified cron (merged to dev 2026-06-11; à-la-carte model — see Reconcile)
+- [x] Dev DB: applied `002_signup_funnel.sql` (users email-verify + `google_id`, `clients.trial_used_at`) (2026-06-11)
+- [x] FIX revenue-integrity: monthly AI credits re-granted on **renewal** (`invoice.paid`) — merged (2026-06-11)
+- [x] AI cost optimization: Haiku intent-router for the chat wedge (shadow) + real Sentry agent spans — merged via sd-agent (2026-06-11)
+- [x] Consolidated all recent work into dev (funnel + sd-agent + fallow tooling) + cut `feat/gtm-launch` (2026-06-11)
 - [x] GTM strategy locked via `/grill-me` (9 forks) + plan authored + board scaffolded (2026-06-11)
 
 

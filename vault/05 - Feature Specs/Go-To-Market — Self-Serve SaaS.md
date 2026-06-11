@@ -47,13 +47,13 @@ Working board: [[GTM Launch Board]]. Built from a `/grill-me` strategy interview
 - **In-app agentic chat** — `lib/ai/portal-tools/index.ts` exposes 81 tools across 14 domains; `app/api/portal/ai/chat/route.ts` runs a real tool loop. Works with **zero setup** on Growth/Scale (platform Anthropic key). *This is the wedge, and it already exists.*
 - CMS + Visual Editor, CRM, Store w/ designer, Projects/Kanban — all deep.
 
-**The self-serve gap — today a stranger literally cannot pay us:**
-- No public signup route (`app/portal/login/page.tsx` → "Contact us"); accounts are 100% admin-provisioned.
-- `billingMode` defaults to `agency` → the self-serve checkout API 403s until an admin flips a client to `saas`.
-- No Stripe-triggered provisioning; onboarding wizard never creates a site; site provisioning is infra-coupled (`lib/website-provisioner.ts`).
+**The self-serve gap — MOSTLY CLOSED by the signup funnel merged 2026-06-11** (see Post-merge reassessment below):
+- ~~No public signup route~~ → **shipped**: public `/signup` (email+password + Google OAuth) creates user + client with `billingMode='saas'`.
+- ~~No Stripe-triggered provisioning~~ → **shipped**: signup → multi-item trial checkout → webhook activates `clientServices`.
+- Still open: site auto-provisioning from onboarding; Stripe Customer Portal; and the tier/metering reconciliation (the funnel shipped an à-la-carte + card-trial model — see below).
 
 **Revenue-integrity bugs that bite *after* you have paying self-serve customers** (must fix in Phase 0):
-- Monthly AI credit grants fire only on *initial* checkout, not renewal (`app/api/stripe/webhook/route.ts`).
+- ~~Monthly AI credit grants fire only on initial checkout, not renewal~~ → **FIXED & merged** (`invoice.paid` renewal handler, 2026-06-11).
 - `invoice.payment_failed` unhandled → no dunning.
 - Metered overage accumulates but `metered_subscription_items` require manual admin setup → overage never bills.
 - Pay-as-you-go debt tracked in `lib/ai-credits.ts` but never invoiced.
@@ -171,12 +171,29 @@ Open public signup. Ignite viral loops: referral credits + shareable agent artif
 - **New-category education cost** → demo-first proof; concrete "vs HubSpot" framing.
 - **Exposing public signup** → rate-limiting, abuse protection on the free-credit grant, email verification; token-encryption only when import ships.
 
+## Post-merge reassessment (2026-06-11)
+
+After this plan was written, a **self-serve signup funnel** — built in a *separate* grill-me with Dan earlier the same day — was merged into `dev` and its migration (`002_signup_funnel.sql`) applied to the dev DB. It's a major Phase-1 head start, but it embodies an **earlier, partly-conflicting strategy**. Source: [[Self-Serve Signup Funnel & Module Onboarding]].
+
+**Shipped & working (browser-verified to Stripe sandbox):** public `/signup` (email+password + Google OAuth + email verification), `billingMode='saas'` provisioning, deep-linkable module cart, single-subscription multi-line-item **14-day card-required trial**, per-module onboarding segments (websites / crm / email / brain / projects + generic fallback), one-click upsell, abandoner nurture + 7-day purge-unverified cron. Plus, via sd-agent: a Haiku intent-router for the chat wedge (shadow mode) and real Sentry agent spans.
+
+**Divergences from this plan's locked decisions — reconcile before launch:**
+
+| | Shipped funnel | This plan | Reconciliation |
+|---|---|---|---|
+| **A. Pricing** | À-la-carte module cart + bundle | 3 per-seat tiers (decision #4) | **Reconcilable.** Present Starter/Growth/Scale as curated tier-bundles *over* the existing module machinery — the plan already keeps modules underneath. Low rework. |
+| **B. Trial** | 14-day **card-required** | Cardless **free-credit grant** (#5, #9) | **Genuine conflict — Dan's call.** Both/and is viable: card-trial = paid-conversion path; cardless credit-grant = the viral/referral $0 door. Card-trial is the more margin-consistent default. |
+| **C. Activation** | Per-module onboarding segments | Demo-workspace → agent-led (#6) | **Complementary.** Keep the built segments; layer demo-seed + agent-led on top. |
+| **D. AI economics** | Module subscriptions only | Metered credits + BYOK-Scale-unlock (#4–5) | **Additive.** The credit/metering layer (`lib/ai-credits.ts`) + BYOK gating still needs wiring onto the funnel. |
+
+**Net:** Phase 1's revenue path is ~70% built. The work shifts from *"build the funnel"* to *"(1) reconcile pricing to 3 tiers, (2) decide the trial model, (3) layer demo-first activation + the metered-AI/BYOK economics onto the shipped funnel."* Tracked on the [[GTM Launch Board]] **Reconcile** lane.
+
 ## Open decisions / follow-ups
 
 1. Lock real tier prices + the credit→dollar rate and per-tier allowances (Phase 0).
-2. Decide whether Phase 1 trial requires a card at signup (default: no card, rely on credit cap; flip if abuse bites).
-3. Niche-first sub-play? (wealth-advisory template exists) vs horizontal pro-services.
-4. How tier plans reconcile with the existing à-la-carte `services` catalog + Starter/Growth/Scale `plan-gate` (one pricing page, modules underneath).
+2. **Trial model — now a LIVE reconciliation (funnel shipped card-required; reassessment B):** keep card-trial, switch to cardless credit-grant, or run **both** (card = conversion, cardless = viral door). Recommend both/and.
+3. **Pricing presentation — LIVE reconciliation (funnel shipped à-la-carte; reassessment A):** present 3 tiers as curated bundles over the module machinery.
+4. Niche-first sub-play? (wealth-advisory template exists) vs horizontal pro-services.
 5. Streaming/mobile chat tool loop (`/stream`) — Phase 1 or Phase 2?
 
 ## Related
