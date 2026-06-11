@@ -18,6 +18,7 @@ date: 2026-06-10
 
 ## Planned
 
+- [ ] Self-Serve SaaS GTM Launch (Phase 0 → public) — see [[Go-To-Market — Self-Serve SaaS]] · board [[GTM Launch Board]]
 
 ## In Progress
 
