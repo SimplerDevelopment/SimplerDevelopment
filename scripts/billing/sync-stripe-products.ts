@@ -21,7 +21,7 @@ async function main() {
   const { db } = await import('../../lib/db');
   const { services } = await import('../../lib/db/schema');
   const { eq } = await import('drizzle-orm');
-  const { FEATURE_DOMAINS, BUNDLE } = await import('../../lib/billing/domain-catalog');
+  const { FEATURE_DOMAINS, BUNDLE, TIERS } = await import('../../lib/billing/domain-catalog');
 
   const key = process.env.STRIPE_SECRET_KEY;
   if (!key) throw new Error('STRIPE_SECRET_KEY is not set');
@@ -82,6 +82,61 @@ async function main() {
       .where(eq(services.slug, entry.slug))
       .returning({ id: services.id });
     console.log(`  ✓ ${entry.slug.padEnd(26)} ${price.id}${updated.length ? '' : '  (no services row — run seed-domain-modules first)'}`);
+  }
+
+  // ── Plan tiers (Starter/Growth/Scale) ─────────────────────────────────────
+  // New SKUs that post-date seed-domain-modules, so UPSERT the services row
+  // here. category = tier.slug so entitlements.getTierByCategory matches.
+  console.log('\nPlan tiers:');
+  for (const tier of TIERS) {
+    const foundTier = await stripe.products.search({
+      query: `metadata['moduleSlug']:'${tier.slug}' AND active:'true'`,
+    });
+    let product = foundTier.data[0];
+    if (!product) {
+      product = await stripe.products.create({
+        name: `${tier.name} plan`,
+        description: tier.tagline,
+        metadata: { moduleSlug: tier.slug },
+      });
+      console.log(`  + product ${tier.slug} → ${product.id}`);
+    }
+
+    const tierPrices = await stripe.prices.list({ product: product.id, active: true, limit: 20 });
+    let price = tierPrices.data.find(
+      (p) => p.recurring?.interval === 'month' && p.unit_amount === tier.monthlyPriceCents && p.currency === 'usd',
+    );
+    if (!price) {
+      price = await stripe.prices.create({
+        product: product.id,
+        currency: 'usd',
+        unit_amount: tier.monthlyPriceCents,
+        recurring: { interval: 'month' },
+      });
+      console.log(`  + price   ${tier.slug} → ${price.id} ($${(tier.monthlyPriceCents / 100).toFixed(2)}/mo)`);
+    }
+
+    const [existingTier] = await db.select({ id: services.id }).from(services).where(eq(services.slug, tier.slug)).limit(1);
+    if (existingTier) {
+      await db.update(services)
+        .set({ stripeProductId: product.id, stripePriceId: price.id, updatedAt: new Date() })
+        .where(eq(services.id, existingTier.id));
+    } else {
+      await db.insert(services).values({
+        slug: tier.slug,
+        name: tier.name,
+        description: tier.tagline,
+        category: tier.slug, // entitlements.getTierByCategory keys on category
+        price: tier.monthlyPriceCents,
+        billingCycle: 'monthly',
+        features: tier.features,
+        includedAiCredits: tier.includedAiCredits,
+        stripeProductId: product.id,
+        stripePriceId: price.id,
+        active: true,
+      });
+    }
+    console.log(`  ✓ ${tier.slug.padEnd(26)} ${price.id}`);
   }
 
   console.log('\nDone.');
