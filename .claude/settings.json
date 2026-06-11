@@ -44,11 +44,6 @@
             "type": "command",
             "command": "bash .claude/hooks/guard-bash.sh",
             "timeout": 3
-          },
-          {
-            "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/fallow-gate.sh",
-            "timeout": 180
           }
         ]
       },

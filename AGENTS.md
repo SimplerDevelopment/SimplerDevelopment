@@ -4,9 +4,21 @@ The full agent operating guide is **`CLAUDE.md`** (root + nested per-directory f
 
 Run via `bunx fallow` (this repo is Bun-only; `npx` mis-resolves the platform binary).
 
-## When to run — advisory / report-only (non-blocking today)
+## Where the gate actually fires — pre-push to deploy branches only
 
-Before committing AI-generated changes, self-check **the changed code only**:
+There is **no GitHub Actions check** (deliberately — avoids CI cost) and **no per-commit gate**. The single enforced gate is a **git pre-push hook** that runs **only when you push to `staging` or `main`**:
+
+- Hook: `.githooks/pre-push` (active via `core.hooksPath=.githooks`) → calls `scripts/fallow-gate.sh`.
+- It audits the commits being pushed **against what's already on the remote** (`--base <remote-sha>`) and blocks the push on **NET-NEW** issues only. Pre-existing debt is grandfathered by `fallow-baselines/`.
+- Cost: ~100s on top of the existing `ci-local.sh` (tsc + tests) that the same hook runs. Deploy pushes are infrequent, so this is acceptable.
+- One-off bypass (whole push): `git push --no-verify`.
+- Fails **open** on any tooling problem (missing binary / jq / runtime error) so it never wedges a push silently — skips print to stderr.
+
+`scripts/fallow-gate.sh [BASE]` is the **single source of truth** for the audit (runner detection, baselines, version floor, verdict). Exit `0` = pass/fail-open, `1` = blocked. Run it manually any time: `scripts/fallow-gate.sh HEAD`.
+
+## Self-check before you push (advisory)
+
+Pushes to non-deploy branches are **not** gated, so self-check the changed code before you open a PR toward `staging`/`main`:
 
 ```
 bunx fallow audit --base <upstream-branch> --format json --quiet
@@ -33,6 +45,4 @@ Scoped product-code grade: **61 / C**. Concentrated existing debt — only avoid
 - `components/portal/VisualEditorShell.tsx` (god file / top churn-hotspot)
 - 27 circular deps, mostly `components/blocks/render/*` + `lib/db/schema/auth.ts`
 
-## Not yet enabled (deferred to the ratchet phase)
-- Blocking commit gate: `fallow hooks install --target agent`
-- CI PR comments: `fallow ci` → `--format pr-comment-github`
+The grandfather snapshots live in `fallow-baselines/{dead-code,health,dupes}.json`. Regenerate them only on purpose (e.g. after a sanctioned cleanup) with `fallow <analysis> --save-baseline <path>`.
