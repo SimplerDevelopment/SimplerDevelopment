@@ -9,7 +9,7 @@ date: 2026-06-11
 
 ## Reconcile — shipped funnel vs GTM strategy (decide first)
 
-- [x] **Pricing model — tier model + UI SHIPPED (2026-06-11)** — 3 tiers (`plan-*` slugs) in the catalog over the module machinery; `TierPlans` cards are now the primary pricing on the plans page + signup wizard, à-la-carte behind a "Customize" toggle. ⚠ Tier *checkout* disabled until Stripe SKUs are seeded (`sync-stripe-products.ts`). — see [[Self-Serve Signup Funnel & Module Onboarding]]
+- [x] **Pricing model — FULLY SHIPPED on dev (2026-06-11)** — 3 tiers (`plan-*`) over the module machinery; `TierPlans` cards primary on the plans page + signup wizard (à-la-carte behind a "Customize" toggle); tier SKUs seeded in dev's TEST Stripe; checkout wired (select tier → Stripe subscription + 14-day card trial). Remaining: run `sync-stripe-products.ts` in LIVE mode for staging/prod + backfill catalog IDs. — see [[Self-Serve Signup Funnel & Module Onboarding]]
 - [x] **Trial mechanic — both/and SHIPPED (2026-06-11)** — 14-day card-required trial (built) = paid-conversion path; cardless free-credit grant at signup (`grantSignupCredits`, verify-gated) = viral $0 door. Both live.
 - [ ] **Activation** — funnel ships per-module onboarding segments; GTM plan wants demo-workspace → agent-led setup. Complementary: keep the built segments, layer demo-seed + agent-led on top. (demo-seeder = next Phase-0 build)
 - [x] **BYOK-Scale gating SHIPPED (2026-06-11)** — `byokEligible` on entitlements (only Scale/bundle/bypass); byok-mode entry gated in the admin route, so the metering waiver is now Scale-only. STILL OPEN: the marked-up metered-AI overage wiring + per-action credit cost (Phase 0).
@@ -17,7 +17,7 @@ date: 2026-06-11
 ## Phase 0 — Beachhead (existing clients)
 
 - [ ] Lock the 3 tiers (Starter/Growth/Scale): features, per-seat price, included AI credit allowance — see [[Go-To-Market — Self-Serve SaaS]]
-- [ ] Create Stripe Products/Prices for the tiers — funnel shipped `scripts/billing/sync-stripe-products.ts` to provision; tiers still need defining
+- [x] Create Stripe Products/Prices for the tiers — DONE on dev (test mode) via the extended `sync-stripe-products.ts`; staging/prod still need a LIVE-mode run
 - [ ] Apply BYOK inversion: gate metering-waiver to the Scale tier + marked-up overage on Starter/Growth (profit-center model)
 - [ ] Build demo-workspace seeder — sample contacts/deals/draft site/projects (reuse sd-agent-super's brain demo-seed factory)
 - [ ] FIX revenue-integrity: handle `invoice.payment_failed` — grace + notify (do NOT flip status; `entitlements.ts` gates on `status='active'`, so a flip cuts access)
