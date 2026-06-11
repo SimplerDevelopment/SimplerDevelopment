@@ -21,6 +21,7 @@ const APP_HOSTNAMES = new Set([
   'simplerdevelopment.com',
   'www.simplerdevelopment.com',
   'staging.simplerdevelopment.com',
+  'dev.simplerdevelopment.com',
 ]);
 
 function getAppHostname(): string | null {
