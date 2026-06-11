@@ -17,11 +17,28 @@ async function seedDomainModules() {
 
   let inserted = 0;
   let skipped = 0;
+  let backfilled = 0;
+
+  // Existing rows keep their (possibly admin-edited) price/features, but a
+  // null stripePriceId is backfilled from the catalog so checkout works on
+  // DBs seeded before the Stripe products existed.
+  async function backfillStripeIds(rowId: number, slug: string, productId?: string, priceId?: string) {
+    if (!priceId) return false;
+    const [row] = await db.select({ stripePriceId: services.stripePriceId }).from(services).where(eq(services.id, rowId)).limit(1);
+    if (row?.stripePriceId) return false;
+    await db.update(services)
+      .set({ stripePriceId: priceId, stripeProductId: productId ?? null, updatedAt: new Date() })
+      .where(eq(services.id, rowId));
+    console.log(`  ~     ${slug} backfilled stripePriceId=${priceId}`);
+    return true;
+  }
 
   for (const domain of FEATURE_DOMAINS) {
     const [existing] = await db.select({ id: services.id }).from(services).where(eq(services.slug, domain.slug)).limit(1);
     if (existing) {
-      console.log(`  skip  ${domain.slug} (already present, id=${existing.id})`);
+      const updated = await backfillStripeIds(existing.id, domain.slug, domain.stripeProductId, domain.stripePriceId);
+      if (updated) backfilled += 1;
+      else console.log(`  skip  ${domain.slug} (already present, id=${existing.id})`);
       skipped += 1;
       continue;
     }
@@ -35,6 +52,8 @@ async function seedDomainModules() {
       features: domain.features,
       includedAiCredits: domain.includedAiCredits,
       usageLimits: Object.fromEntries(domain.meters.map((m) => [m.resource, m.includedPerMonth])),
+      stripeProductId: domain.stripeProductId ?? null,
+      stripePriceId: domain.stripePriceId ?? null,
       active: true,
     });
     inserted += 1;
@@ -43,7 +62,9 @@ async function seedDomainModules() {
 
   const [existingBundle] = await db.select({ id: services.id }).from(services).where(eq(services.slug, BUNDLE.slug)).limit(1);
   if (existingBundle) {
-    console.log(`  skip  ${BUNDLE.slug} (already present, id=${existingBundle.id})`);
+    const updated = await backfillStripeIds(existingBundle.id, BUNDLE.slug, BUNDLE.stripeProductId, BUNDLE.stripePriceId);
+    if (updated) backfilled += 1;
+    else console.log(`  skip  ${BUNDLE.slug} (already present, id=${existingBundle.id})`);
     skipped += 1;
   } else {
     await db.insert(services).values({
@@ -64,13 +85,15 @@ async function seedDomainModules() {
         FEATURE_DOMAINS.flatMap((d) => d.meters.filter((m) => m.bundleIncludedPerMonth > 0))
           .map((m) => [m.resource, m.bundleIncludedPerMonth]),
       ),
+      stripeProductId: BUNDLE.stripeProductId ?? null,
+      stripePriceId: BUNDLE.stripePriceId ?? null,
       active: true,
     });
     inserted += 1;
     console.log(`  +     ${BUNDLE.slug} ($${(BUNDLE.monthlyPriceCents / 100).toFixed(2)}/mo)`);
   }
 
-  console.log(`\nDone. Inserted ${inserted}, skipped ${skipped}.`);
+  console.log(`\nDone. Inserted ${inserted}, skipped ${skipped}, backfilled ${backfilled} Stripe IDs.`);
   process.exit(0);
 }
 

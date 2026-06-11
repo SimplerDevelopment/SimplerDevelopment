@@ -62,6 +62,11 @@ export interface FeatureDomain {
   icon: string;
   /** seed default + display fallback; live price = services.price */
   monthlyPriceCents: number;
+  /** Live Stripe IDs (created 2026-06-11 in acct SimplerDevelopment.com via
+   * Stripe MCP) — copied onto the services row by scripts/seed-domain-modules.ts.
+   * Repricing: create a new Stripe Price, update services.stripePriceId. */
+  stripeProductId?: string;
+  stripePriceId?: string;
   /** marketing bullets for the pricing card */
   features: string[];
   meters: DomainMeter[];
@@ -88,6 +93,8 @@ export const FEATURE_DOMAINS: FeatureDomain[] = [
   {
     key: 'websites',
     slug: 'module-websites',
+    stripeProductId: 'prod_UgUqarrMNckesj',
+    stripePriceId: 'price_1Th7smCVr9RJZQZPIMZLs3ae',
     name: 'Websites & CMS',
     tagline: 'Build, edit, and A/B test client websites with the visual editor.',
     icon: 'language',
@@ -129,6 +136,8 @@ export const FEATURE_DOMAINS: FeatureDomain[] = [
   {
     key: 'crm',
     slug: 'module-crm',
+    stripeProductId: 'prod_UgUqG2GHti3xYa',
+    stripePriceId: 'price_1Th7ssCVr9RJZQZPB9zMaKJE',
     name: 'CRM & Sales',
     tagline: 'Contacts, companies, deals, and pipelines — your whole sales motion.',
     icon: 'contacts',
@@ -148,6 +157,8 @@ export const FEATURE_DOMAINS: FeatureDomain[] = [
   {
     key: 'brain',
     slug: 'module-brain',
+    stripeProductId: 'prod_UgUqs3KNQfEH6N',
+    stripePriceId: 'price_1Th7szCVr9RJZQZPVQjvdKTH',
     name: 'Company Brain',
     tagline: 'Your company knowledge, searchable and AI-powered.',
     icon: 'psychology',
@@ -170,6 +181,8 @@ export const FEATURE_DOMAINS: FeatureDomain[] = [
   {
     key: 'email',
     slug: 'module-email',
+    stripeProductId: 'prod_UgUrAZ5RszK5x3',
+    stripePriceId: 'price_1Th7t5CVr9RJZQZPwEXxBPz4',
     name: 'Email Marketing',
     tagline: 'Campaigns, lists, segments, and analytics that close the loop.',
     icon: 'email',
@@ -200,6 +213,8 @@ export const FEATURE_DOMAINS: FeatureDomain[] = [
   {
     key: 'projects',
     slug: 'module-projects',
+    stripeProductId: 'prod_UgUrn3zfznBau4',
+    stripePriceId: 'price_1Th7tACVr9RJZQZPhlUUXRqi',
     name: 'Projects & Tickets',
     tagline: 'Kanban boards, tasks, and support tickets in one place.',
     icon: 'view_kanban',
@@ -219,6 +234,8 @@ export const FEATURE_DOMAINS: FeatureDomain[] = [
   {
     key: 'surveys',
     slug: 'module-surveys',
+    stripeProductId: 'prod_UgUrx6tpbS3czo',
+    stripePriceId: 'price_1Th7tGCVr9RJZQZPd5NsGxsW',
     name: 'Surveys & Forms',
     tagline: 'Branded surveys with conditional logic and recommendations.',
     icon: 'poll',
@@ -238,6 +255,8 @@ export const FEATURE_DOMAINS: FeatureDomain[] = [
   {
     key: 'bookings',
     slug: 'module-bookings',
+    stripeProductId: 'prod_UgUrhitHG1fgcH',
+    stripePriceId: 'price_1Th7tMCVr9RJZQZPg4KtLZM4',
     name: 'Bookings & Scheduling',
     tagline: 'Booking pages your clients can self-schedule against.',
     icon: 'event_available',
@@ -256,6 +275,8 @@ export const FEATURE_DOMAINS: FeatureDomain[] = [
   {
     key: 'store',
     slug: 'module-store',
+    stripeProductId: 'prod_UgUrV2etRzxQgH',
+    stripePriceId: 'price_1Th7tSCVr9RJZQZPbHouVDCO',
     name: 'Storefront & Commerce',
     tagline: 'Sell products on your site — orders, discounts, fulfillment.',
     icon: 'shopping_cart',
@@ -275,6 +296,8 @@ export const FEATURE_DOMAINS: FeatureDomain[] = [
   {
     key: 'esign',
     slug: 'module-esign',
+    stripeProductId: 'prod_UgUrJfd9PT982L',
+    stripePriceId: 'price_1Th7tXCVr9RJZQZPAjHE1EPH',
     name: 'E-Sign & Contracts',
     tagline: 'Send contracts for legally binding signature without leaving the portal.',
     icon: 'draw',
@@ -304,6 +327,8 @@ export const FEATURE_DOMAINS: FeatureDomain[] = [
   {
     key: 'pitch-decks',
     slug: 'module-pitch-decks',
+    stripeProductId: 'prod_UgUrRnSBfrd82m',
+    stripePriceId: 'price_1Th7tdCVr9RJZQZP6uUcusl1',
     name: 'Pitches & Proposals',
     tagline: 'AI-generated pitch decks and proposals that win work.',
     icon: 'slideshow',
@@ -324,6 +349,8 @@ export const FEATURE_DOMAINS: FeatureDomain[] = [
   {
     key: 'automations',
     slug: 'module-automations',
+    stripeProductId: 'prod_UgUrXz3woZSM0N',
+    stripePriceId: 'price_1Th7tiCVr9RJZQZPSrJJ0oZg',
     name: 'Automations',
     tagline: 'Triggers, schedules, and workflows that run your busywork.',
     icon: 'bolt',
@@ -353,6 +380,8 @@ export const FEATURE_DOMAINS: FeatureDomain[] = [
   {
     key: 'publishing',
     slug: 'module-publishing',
+    stripeProductId: 'prod_UgUsQZqCuMM1d1',
+    stripePriceId: 'price_1Th7toCVr9RJZQZPofgLDdmH',
     name: 'Publishing Command Center',
     tagline: 'Plan, schedule, and publish content across every channel.',
     icon: 'rocket_launch',
@@ -381,6 +410,8 @@ export interface BundleDef {
   icon: string;
   monthlyPriceCents: number;
   includedAiCredits: number;
+  stripeProductId?: string;
+  stripePriceId?: string;
 }
 
 /** Sum of every individual module's monthly price, in cents. */
@@ -395,6 +426,8 @@ export const BUNDLE: BundleDef = {
   icon: 'all_inclusive',
   monthlyPriceCents: 15_900, // vs $2.61 sum of parts
   includedAiCredits: 2_000_000,
+  stripeProductId: 'prod_UgUsJfBtYuBJyu',
+  stripePriceId: 'price_1Th7ttCVr9RJZQZP5SLpYwVJ',
 };
 
 // ── Lookups ───────────────────────────────────────────────────────────────────
