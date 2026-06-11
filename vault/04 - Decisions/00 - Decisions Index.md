@@ -15,6 +15,7 @@ Static list (agents: maintain this when adding ADRs — Dataview below only rend
 - [[ADR nested-claude-md-context-discipline]] · [[ADR mcp-registry-baseline-unit-gate]] · [[ADR dev-block-routes-off-github-issues]]
 - [[ADR per-domain-billing-rides-services-catalog]]
 - [[ADR schema-constraints-hand-sql-only]]
+- [[ADR agent-topology-router-not-domain-mesh]]
 
 ```dataview
 TABLE domain, status, date
