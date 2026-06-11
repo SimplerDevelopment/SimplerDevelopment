@@ -392,7 +392,8 @@ function BillingPlansInner() {
         <p className="text-sm text-muted-foreground mb-6">Start with a tier, or customize below.</p>
         <TierPlans
           selectedSlug={selectedTierSlug}
-          onSelect={(slug) => setSelectedTierSlug(slug)}
+          busySlug={subscribing ?? undefined}
+          onSelect={(slug) => { setSelectedTierSlug(slug); handleSubscribe(slug); }}
         />
       </div>
 

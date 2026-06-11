@@ -14,11 +14,12 @@ import { db } from '@/lib/db';
 import { clients, services, clientServices, users } from '@/lib/db/schema';
 import { and, eq, inArray } from 'drizzle-orm';
 import { authorizePortal, isAuthError } from '@/lib/portal-auth';
-import { FEATURE_DOMAINS, BUNDLE_SLUG } from '@/lib/billing/domain-catalog';
+import { FEATURE_DOMAINS, BUNDLE_SLUG, TIERS } from '@/lib/billing/domain-catalog';
 import Stripe from 'stripe';
 
 const VALID_SLUGS = new Set([
   ...FEATURE_DOMAINS.map((d) => d.slug),
+  ...TIERS.map((t) => t.slug),
   BUNDLE_SLUG,
 ]);
 

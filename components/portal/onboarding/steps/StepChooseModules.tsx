@@ -144,6 +144,26 @@ export function StepChooseModules({ state, setAnswers, persist, next }: StepProp
     setSaving(false);
   }
 
+  // Tier checkout: a single-line-item subscription for the chosen plan. First
+  // self-serve subscription per client gets the 14-day card-required trial
+  // (stamped by the Stripe webhook on activation).
+  async function handleTierCheckout(slug: string) {
+    setSelectedTierSlug(slug);
+    setSaving(true);
+    try {
+      const res = await fetch('/api/portal/billing/modules/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slug, returnTo: 'onboarding' }),
+      });
+      const json = await res.json();
+      if (json?.success && json.data?.url) { window.location.href = json.data.url; return; }
+      setSaving(false);
+    } catch {
+      setSaving(false);
+    }
+  }
+
   const formatPrice = (cents: number) =>
     `$${(cents / 100).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}/mo`;
 
@@ -155,7 +175,8 @@ export function StepChooseModules({ state, setAnswers, persist, next }: StepProp
         <p className="text-xs text-muted-foreground mb-4">Or customize below.</p>
         <TierPlans
           selectedSlug={selectedTierSlug}
-          onSelect={(slug) => setSelectedTierSlug(slug)}
+          busySlug={saving ? selectedTierSlug : undefined}
+          onSelect={handleTierCheckout}
         />
       </div>
 

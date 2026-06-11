@@ -15,11 +15,13 @@ function humanizeCredits(n: number): string {
 interface TierPlansProps {
   onSelect: (slug: string) => void;
   selectedSlug?: string;
+  /** slug currently initiating checkout — shows a "Redirecting…" state */
+  busySlug?: string;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function TierPlans({ onSelect, selectedSlug }: TierPlansProps) {
+export function TierPlans({ onSelect, selectedSlug, busySlug }: TierPlansProps) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
       {TIERS.map((tier) => {
@@ -91,15 +93,17 @@ export function TierPlans({ onSelect, selectedSlug }: TierPlansProps) {
               )}
             </ul>
 
-            {/* CTA — disabled until tier SKUs are seeded */}
-            {/* TODO: enable once tier SKUs are seeded (sync-stripe-products.ts) */}
+            {/* CTA */}
             <button
               type="button"
-              disabled
+              disabled={busySlug === tier.slug}
               onClick={() => onSelect(tier.slug)}
-              className="w-full mt-auto px-5 py-2.5 rounded-md text-sm font-semibold bg-primary text-primary-foreground opacity-50 cursor-not-allowed"
+              className={[
+                'w-full mt-auto px-5 py-2.5 rounded-md text-sm font-semibold bg-primary text-primary-foreground transition-opacity',
+                busySlug === tier.slug ? 'opacity-60 cursor-wait' : 'hover:opacity-90',
+              ].join(' ')}
             >
-              Available soon
+              {busySlug === tier.slug ? 'Redirecting…' : `Choose ${tier.name}`}
             </button>
           </div>
         );
