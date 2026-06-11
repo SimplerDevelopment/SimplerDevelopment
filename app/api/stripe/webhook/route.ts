@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { invoices, clients, clientServices } from '@/lib/db/schema';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, desc } from 'drizzle-orm';
 import { addPurchasedCredits, grantMonthlyCredits } from '@/lib/ai-credits';
 import { revalidateAdminDashboard } from '@/lib/admin/dashboard-cache';
 
@@ -40,6 +40,53 @@ export async function POST(req: Request) {
           .update(clientServices)
           .set({ status: 'cancelled', updatedAt: new Date() })
           .where(eq(clientServices.id, csRow.id));
+      }
+
+      return NextResponse.json({ received: true });
+    }
+
+    if (event.type === 'invoice.paid') {
+      // Recurring subscription renewal. Re-grant the monthly AI credit
+      // allowance each cycle. The FIRST invoice (billing_reason
+      // 'subscription_create') is intentionally skipped here — the initial
+      // grant is handled by checkout.session.completed below, so granting here
+      // too would double-grant month one.
+      const invoice = event.data.object as {
+        customer?: string | null;
+        billing_reason?: string | null;
+      };
+
+      if (invoice.billing_reason === 'subscription_cycle' && typeof invoice.customer === 'string') {
+        const [client] = await db
+          .select({ id: clients.id })
+          .from(clients)
+          .where(eq(clients.stripeCustomerId, invoice.customer))
+          .limit(1);
+
+        if (client) {
+          // Idempotency guard: Stripe can redeliver a webhook event. A renewal
+          // cycle is ~30 days, so if we already granted within the last 20 days
+          // this is a duplicate delivery rather than a new cycle — skip it.
+          const [recent] = await db
+            .select({ grantedAt: clientServices.creditsGrantedAt })
+            .from(clientServices)
+            .where(
+              and(
+                eq(clientServices.clientId, client.id),
+                eq(clientServices.status, 'active'),
+              ),
+            )
+            .orderBy(desc(clientServices.creditsGrantedAt))
+            .limit(1);
+
+          const twentyDaysAgo = new Date(Date.now() - 20 * 24 * 60 * 60 * 1000);
+          const alreadyGrantedThisCycle =
+            recent?.grantedAt != null && recent.grantedAt.getTime() > twentyDaysAgo.getTime();
+
+          if (!alreadyGrantedThisCycle) {
+            await grantMonthlyCredits(client.id);
+          }
+        }
       }
 
       return NextResponse.json({ received: true });
