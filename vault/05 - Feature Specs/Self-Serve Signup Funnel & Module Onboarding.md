@@ -1,7 +1,7 @@
 ---
 type: spec
 domain: billing
-status: planned
+status: validating
 date: 2026-06-11
 sources:
   - lib/onboarding/types.ts
@@ -80,3 +80,14 @@ the per-domain SKU catalog into a PLG motion.
 - Existing invited/agency clients keep the current wizard untouched; module
   segments splice only when purchases exist.
 - Webhook must treat Stripe `trialing` as entitled.
+
+## Shipped (2026-06-11)
+
+Commits e2faf943 + 8566e8ed on `worktree/domain-walk`. Full browser-verified walkthrough through the sign-up flow to Stripe sandbox checkout confirmed working.
+
+**Remaining validation before Shipped:**
+
+1. Deploy to staging and verify the full funnel end-to-end against the staging Stripe environment.
+2. Run `scripts/billing/sync-stripe-products.ts` per environment to provision Stripe Products/Prices; paste the resulting IDs into the `services.stripePriceId` rows for that environment.
+3. Complete a test-card checkout (e.g. `4242 4242 4242 4242`) through to subscription activation to exercise the `checkout.session.completed` webhook and confirm module entitlements are written to `clientServices`.
+4. **Google OAuth:** add the NextAuth callback URL (`/api/auth/callback/google`) to the allowed redirect URIs in the Google OAuth client for each environment. Ensure `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` (or `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` if reusing the existing workspace credential) are set in the environment — the provider is configured but the env vars must be present before the Google sign-in button is live.
