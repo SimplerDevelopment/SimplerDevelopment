@@ -11,6 +11,7 @@ date: 2026-06-11
 
 - [ ] Lock the 3 tiers (Starter/Growth/Scale): features, per-seat price, included AI credit allowance — see [[Go-To-Market — Self-Serve SaaS]]
 - [ ] Create Stripe Products/Prices for the 3 tiers (+ credit→$ rate)
+- [ ] Apply BYOK inversion: gate metering-waiver to the Scale tier (catalog waives at any tier today) + marked-up overage on Starter/Growth — profit-center model (locked 2026-06-11)
 - [ ] Build demo-workspace seeder — sample contacts/deals/draft site/projects for new tenants
 - [ ] Implement one-time free-credit grant on account creation (no card)
 - [ ] FIX revenue-integrity: grant monthly AI credits on **renewal** (`invoice.paid`), not only initial checkout — `app/api/stripe/webhook/route.ts`

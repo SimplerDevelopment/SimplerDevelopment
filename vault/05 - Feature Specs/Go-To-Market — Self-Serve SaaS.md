@@ -83,11 +83,13 @@ Pro-services teams of 5–50: marketing/creative agencies, consultancies, adviso
 
 > **Numbers below are illustrative hypotheses — validate in Phase 0.** Anchored to landing between HubSpot Starter (~$20/seat) and the brutal Pro cliff (~$260/seat-equivalent + $3–7k onboarding).
 
-| Tier | Illustrative $/seat/mo | AI | What it's for |
+| Tier | Illustrative $/seat/mo | AI economics | For |
 |---|---|---|---|
-| **Starter** | ~$19 | BYOK or minimal platform credits | Software access; price-sensitive / technical teams |
-| **Growth** ⭐ | ~$59 | **AI wedge included** (generous monthly credit allowance) | The hero tier — "chat to run your business" |
-| **Scale** | ~$119 | Larger credit allowance + white-label + priority | Bigger teams; expansion |
+| **Starter** | ~$19 | Modest included allowance, **marked-up** metered overage, **no BYOK** → token markup is a profit center | price-sensitive / solo |
+| **Growth** ⭐ | ~$59 | Generous-ish allowance, **marked-up** overage, **no BYOK** → profit center + upgrade pressure | the hero — "chat to run your business" |
+| **Scale** | ~$119+ | **Unlocks BYOK → spend at cost**; large allowance for non-BYOK; white-label, governance, compliance | bigger teams; compliance-sensitive |
+
+**The BYOK inversion (locked 2026-06-11):** BYOK is **not** a universal escape valve — it is a **Scale-tier unlock**. Marked-up metered AI on Starter/Growth is a deliberate **profit center** *and* the upgrade engine — rising overage at volume is what makes the at-cost BYOK unlock worth buying. Bonus: BYOK is also data-control, so compliance-sensitive clients (advisory / accounting / wealth) self-select into the top tier. Risk to manage — bill-shock now concentrates on price-sensitive low tiers, so guardrails 2–4 are load-bearing there, and the included allowance must be generous enough to activate the wedge but not so generous there's no overage left to profit from.
 
 The legacy $159 flat "SimplerDev Complete" bundle becomes an agency/custom SKU, not a public tier.
 
@@ -97,7 +99,7 @@ The legacy $159 flat "SimplerDev Complete" bundle becomes an agency/custom SKU, 
 2. **Per-tier included credit allowance** — light users feel "included"; only heavy users hit the meter.
 3. **Transparent per-action cost in-product** — "this run ≈ 12 credits (~$0.12)" shown before/after.
 4. **User-set spend caps + budget alerts** — no invoice ever exceeds a ceiling the user didn't opt into (the fix Salesforce shipped after metered-AI pushback).
-5. **Free-credit-grant trial (no card) + BYOK option** — since AI isn't bundled, the trial *is* a block of free credits; BYOK is the zero-meter escape valve.
+5. **Free-credit-grant trial (no card)** — since AI isn't bundled, the trial *is* a block of free credits. **BYOK is a Scale-tier unlock, not a universal option** (see the inversion above): marked-up metered AI on lower tiers is the profit center, and BYOK waives the markup only at the top tier.
 
 ### Competitive context (mid-2026, see interview research)
 
