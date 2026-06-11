@@ -9,10 +9,10 @@ date: 2026-06-11
 
 ## Reconcile — shipped funnel vs GTM strategy (decide first)
 
-- [ ] **Pricing model** — funnel ships an à-la-carte module cart + bundle; GTM plan locked **3 per-seat tiers**. Reconcilable: present Starter/Growth/Scale as curated tier-bundles *over* the existing module machinery (plan already keeps modules underneath). — see [[Self-Serve Signup Funnel & Module Onboarding]]
-- [ ] **Trial mechanic — DECIDED 2026-06-11: both/and** — keep the built 14-day card-required trial as the paid-conversion path; ADD a cardless free-credit grant as the viral/referral $0 door. (Card-trial is built; the cardless credit-grant is new Phase-0 work.)
-- [ ] **Activation** — funnel ships per-module onboarding segments; GTM plan wants demo-workspace → agent-led setup. Complementary: keep the built segments, layer demo-seed + agent-led on top.
-- [ ] **Metered-AI + BYOK layer** — funnel is module-subscription only; the metered-credit model + BYOK-Scale-unlock (`lib/ai-credits.ts`) still needs wiring onto it.
+- [x] **Pricing model — tier model + UI SHIPPED (2026-06-11)** — 3 tiers (`plan-*` slugs) in the catalog over the module machinery; `TierPlans` cards are now the primary pricing on the plans page + signup wizard, à-la-carte behind a "Customize" toggle. ⚠ Tier *checkout* disabled until Stripe SKUs are seeded (`sync-stripe-products.ts`). — see [[Self-Serve Signup Funnel & Module Onboarding]]
+- [x] **Trial mechanic — both/and SHIPPED (2026-06-11)** — 14-day card-required trial (built) = paid-conversion path; cardless free-credit grant at signup (`grantSignupCredits`, verify-gated) = viral $0 door. Both live.
+- [ ] **Activation** — funnel ships per-module onboarding segments; GTM plan wants demo-workspace → agent-led setup. Complementary: keep the built segments, layer demo-seed + agent-led on top. (demo-seeder = next Phase-0 build)
+- [x] **BYOK-Scale gating SHIPPED (2026-06-11)** — `byokEligible` on entitlements (only Scale/bundle/bypass); byok-mode entry gated in the admin route, so the metering waiver is now Scale-only. STILL OPEN: the marked-up metered-AI overage wiring + per-action credit cost (Phase 0).
 
 ## Phase 0 — Beachhead (existing clients)
 
