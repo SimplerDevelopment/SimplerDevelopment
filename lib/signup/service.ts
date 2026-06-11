@@ -9,6 +9,7 @@ import { hash } from 'bcryptjs';
 import { db } from '@/lib/db';
 import { users, clients } from '@/lib/db/schema';
 import { and, eq, gt, isNull, lt } from 'drizzle-orm';
+import { grantSignupCredits } from '@/lib/ai-credits';
 
 const VERIFICATION_TTL_MS = 1000 * 60 * 60 * 24; // 24h to click the link
 /** Never-verified self-serve accounts are purged after this many days. */
@@ -87,8 +88,19 @@ export async function verifyEmailToken(token: string): Promise<{ email: string }
       eq(users.emailVerificationToken, token),
       gt(users.emailVerificationExpires, new Date()),
     ))
-    .returning({ email: users.email });
-  return row ?? null;
+    .returning({ id: users.id, email: users.email });
+  if (!row) return null;
+
+  // Cardless free-credit grant: a verified human gets a starter AI allowance
+  // so they can use the agent before subscribing (the viral / $0 door).
+  const [client] = await db
+    .select({ id: clients.id })
+    .from(clients)
+    .where(eq(clients.userId, row.id))
+    .limit(1);
+  if (client) await grantSignupCredits(client.id);
+
+  return { email: row.email };
 }
 
 /**
@@ -147,10 +159,13 @@ export async function findOrCreateGoogleUser(input: {
     emailVerifiedAt: new Date(),
   }).returning({ id: users.id, role: users.role });
 
-  await db.insert(clients).values({
+  const [client] = await db.insert(clients).values({
     userId: user.id,
     billingMode: 'saas',
-  });
+  }).returning({ id: clients.id });
+
+  // Cardless free-credit grant — Google accounts arrive pre-verified.
+  await grantSignupCredits(client.id);
 
   return { id: user.id, role: user.role };
 }

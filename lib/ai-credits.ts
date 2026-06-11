@@ -174,6 +174,56 @@ export async function addPurchasedCredits(
 }
 
 /**
+ * One-time free AI credit grant for a brand-new self-serve account — the
+ * cardless trial / viral "$0 door": the account can use the agent before
+ * subscribing. Idempotent per client (guards on the ledger), so a repeat call
+ * is a no-op. Granted only after email verification (or at Google signup,
+ * which is pre-verified) so accounts that never verify never receive credits.
+ *
+ * PROVISIONAL amount — tune once the credit->$ rate + per-tier allowances are
+ * locked (GTM open decision #1).
+ */
+export const SIGNUP_FREE_CREDITS = 250_000; // tokens — a few agent runs
+
+export async function grantSignupCredits(clientId: number): Promise<{ granted: number }> {
+  const [already] = await db
+    .select({ id: aiCreditLedger.id })
+    .from(aiCreditLedger)
+    .where(and(
+      eq(aiCreditLedger.clientId, clientId),
+      eq(aiCreditLedger.type, 'grant'),
+      eq(aiCreditLedger.serviceCategory, 'signup'),
+    ))
+    .limit(1);
+  if (already) return { granted: 0 };
+
+  const { balance } = await getBalance(clientId);
+  const newBalance = balance + SIGNUP_FREE_CREDITS;
+
+  await db.insert(aiCreditBalances).values({
+    clientId, balance: SIGNUP_FREE_CREDITS, monthlyGrant: 0, payAsYouGo: false,
+  }).onConflictDoUpdate({
+    target: aiCreditBalances.clientId,
+    set: {
+      balance: sql`${aiCreditBalances.balance} + ${SIGNUP_FREE_CREDITS}`,
+      updatedAt: new Date(),
+    },
+  });
+
+  await db.insert(aiCreditLedger).values({
+    clientId,
+    type: 'grant',
+    amount: SIGNUP_FREE_CREDITS,
+    balanceAfter: newBalance,
+    description: 'Signup free credits (cardless trial)',
+    serviceCategory: 'signup',
+  });
+
+  invalidateCreditsCache(clientId);
+  return { granted: SIGNUP_FREE_CREDITS };
+}
+
+/**
  * Toggle pay-as-you-go mode.
  */
 export async function setPayAsYouGo(clientId: number, enabled: boolean): Promise<void> {
