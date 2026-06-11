@@ -42,7 +42,7 @@
   "app/portal/websites/[siteId]/branding/page.tsx": 1126,
   "app/portal/websites/[siteId]/media/page.tsx": 632,
   "app/portal/websites/[siteId]/store/orders/[orderId]/page.tsx": 951,
-  "app/portal/websites/[siteId]/store/products/[productId]/page.tsx": 1467,
+  "app/portal/websites/[siteId]/store/products/[productId]/page.tsx": 1486,
   "app/portal/websites/[siteId]/store/settings/page.tsx": 1552,
   "app/portal/websites/[siteId]/store/shipping/page.tsx": 721,
   "app/portal/websites/[siteId]/taxonomy/page.tsx": 503,

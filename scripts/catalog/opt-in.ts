@@ -19,6 +19,11 @@ function arg(name: string): string | undefined {
 }
 
 async function main() {
+  // Allow targeting a non-default DB (e.g. staging) without disturbing the
+  // local .env precedence: CATALOG_DEST_URL wins over the dotenv DATABASE_URL.
+  // Set before the dynamic import of @/lib/db (which reads DATABASE_URL once).
+  if (process.env.CATALOG_DEST_URL) process.env.DATABASE_URL = process.env.CATALOG_DEST_URL;
+
   const websiteId = Number(arg('website'));
   const product = arg('product');
   const markup = arg('markup') ? Number(arg('markup')) : undefined;
