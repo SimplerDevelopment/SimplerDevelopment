@@ -7,10 +7,14 @@ ROOT="$(git rev-parse --show-toplevel)"
 cd "$ROOT"
 
 ZERO="0000000000000000000000000000000000000000"
+# Deploy branches that get the Fallow code-quality gate (net-new issues only,
+# grandfathered by fallow-baselines/). Pushes to any other branch skip it.
+FALLOW_GATED_RE='^(staging|main)$'
 
 pushing=0
 dev_only=1
 changed=""
+fallow_targets=()   # "base_sha branch" for each ref pushed to a deploy branch
 
 while read -r local_ref local_sha remote_ref remote_sha; do
   [ -z "${local_sha:-}" ] && continue
@@ -24,11 +28,18 @@ while read -r local_ref local_sha remote_ref remote_sha; do
   if [ "$remote_sha" = "$ZERO" ] || ! git rev-parse --quiet --verify "$remote_sha^{commit}" >/dev/null 2>&1; then
     # New branch or remote_sha not present locally — diff against the single commit
     ref_changed="$(git show --name-only --format= "$local_sha" 2>/dev/null)"
+    fallow_base="${local_sha}^"
   else
     ref_changed="$(git diff --name-only "$remote_sha..$local_sha" 2>/dev/null)"
+    fallow_base="$remote_sha"
   fi
 
   changed="${changed}${ref_changed}"$'\n'
+
+  branch="${remote_ref#refs/heads/}"
+  if [[ "$branch" =~ $FALLOW_GATED_RE ]]; then
+    fallow_targets+=("$fallow_base $branch")
+  fi
 done
 
 # Dev branches deploy immediately — local CI is intentionally skipped for a
@@ -42,6 +53,25 @@ fi
 if [ "$pushing" = 0 ]; then
   # Only deletions in this push — nothing to gate
   exit 0
+fi
+
+# Fallow code-quality gate — deploy branches (staging, main) only.
+# Audits the commits being pushed against what's already on the remote, and
+# blocks on NET-NEW issues; existing debt is grandfathered by fallow-baselines/.
+# One-off bypass for the whole push: git push --no-verify.
+if [ "${#fallow_targets[@]}" -gt 0 ]; then
+  for entry in "${fallow_targets[@]}"; do
+    fbase="${entry%% *}"
+    fbranch="${entry##* }"
+    echo "pre-push: deploy branch '$fbranch' — fallow code-quality gate (base ${fbase})…"
+    if ! "$ROOT/scripts/fallow-gate.sh" "$fbase"; then
+      echo "pre-push: fallow gate BLOCKED the push to '$fbranch'." >&2
+      echo "          Fix the net-new issues above, or bypass once: git push --no-verify" >&2
+      exit 1
+    fi
+  done
+else
+  echo "pre-push: non-deploy branch — fallow gate skipped."
 fi
 
 # P2: conditional tenancy gate — trigger when data-access paths changed
