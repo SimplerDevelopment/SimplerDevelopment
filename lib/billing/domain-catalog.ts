@@ -430,6 +430,101 @@ export const BUNDLE: BundleDef = {
   stripePriceId: 'price_1Th7ttCVr9RJZQZP5SLpYwVJ',
 };
 
+// ── Plan tiers (the public 3-tier pricing — curated bundles over the modules) ──
+//
+// The self-serve pricing page sells THREE per-seat tiers; the 12 modules above
+// remain the underlying machinery (and stay available for agency/custom deals).
+// A tier is one `services` row (slug + category = tier.slug, e.g. 'plan-growth')
+// that grants tier.domains. BYOK metering-waiver is honored ONLY on a
+// byokEligible tier (Scale) — the "BYOK inversion": marked-up metered AI on the
+// lower tiers is the profit center; BYOK (spend-at-cost) is a Scale unlock.
+//
+// Prices are illustrative seed/display defaults — live price = services.price.
+// Stripe IDs are created per-environment by scripts/billing/sync-stripe-products.ts.
+
+export type TierKey = 'starter' | 'growth' | 'scale';
+
+export interface TierDef {
+  key: TierKey;
+  /** services.slug AND services.category for this tier's SKU */
+  slug: string;
+  name: string;
+  tagline: string;
+  /** per-seat monthly price (seed/display default; live = services.price) */
+  monthlyPriceCents: number;
+  /** domain keys granted; 'all' = every module */
+  domains: string[] | 'all';
+  /** AI tokens granted per cycle (services.includedAiCredits) */
+  includedAiCredits: number;
+  /** BYOK metering-waiver is honored only on a byokEligible tier */
+  byokEligible: boolean;
+  features: string[];
+  stripeProductId?: string;
+  stripePriceId?: string;
+}
+
+export const TIERS: TierDef[] = [
+  {
+    key: 'starter',
+    slug: 'plan-starter',
+    name: 'Starter',
+    tagline: 'The essentials to run the basics.',
+    monthlyPriceCents: 1_900,
+    domains: ['websites', 'crm', 'projects'],
+    includedAiCredits: 100_000,
+    byokEligible: false,
+    features: [
+      'Websites & CMS, CRM, and Projects',
+      '100k AI tokens/mo',
+      'Bring your own AI key to use the agent (you pay your own tokens)',
+    ],
+  },
+  {
+    key: 'growth',
+    slug: 'plan-growth',
+    name: 'Growth',
+    tagline: 'The AI agent that runs your business — just chat to get work done.',
+    monthlyPriceCents: 5_900,
+    domains: ['websites', 'crm', 'projects', 'brain', 'email', 'automations', 'surveys', 'bookings'],
+    includedAiCredits: 1_000_000,
+    byokEligible: false,
+    features: [
+      'Everything in Starter',
+      'Company Brain + the in-app AI agent, included',
+      'Email, Automations, Surveys, and Bookings',
+      '1M AI tokens/mo included',
+    ],
+  },
+  {
+    key: 'scale',
+    slug: 'plan-scale',
+    name: 'Scale',
+    tagline: 'Everything, plus bring-your-own-key and white-label.',
+    monthlyPriceCents: 11_900,
+    domains: 'all',
+    includedAiCredits: 3_000_000,
+    byokEligible: true,
+    features: [
+      'Every module',
+      '3M AI tokens/mo included',
+      'BYOK — spend tokens at cost (no markup)',
+      'White-label, governance, and priority support',
+    ],
+  },
+];
+
+const TIER_BY_CATEGORY = new Map(TIERS.map((t) => [t.slug, t]));
+
+/** The tier whose SKU category matches, if the category is a tier. */
+export function getTierByCategory(category: string): TierDef | undefined {
+  return TIER_BY_CATEGORY.get(category);
+}
+
+/** Resolve a tier's granted domain keys ('all' → every module). */
+export function tierDomainKeys(tier: TierDef): string[] {
+  return tier.domains === 'all' ? FEATURE_DOMAINS.map((d) => d.key) : tier.domains;
+}
+
 // ── Lookups ───────────────────────────────────────────────────────────────────
 
 const BY_KEY = new Map(FEATURE_DOMAINS.map((d) => [d.key, d]));

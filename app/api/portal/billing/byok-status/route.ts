@@ -39,6 +39,9 @@ export async function GET() {
     success: true,
     data: {
       billingMode: client.billingMode,
+      // BYOK is a Scale-tier unlock (the inversion) — surface eligibility so the
+      // UI can show "BYOK requires Scale" rather than a dead connect button.
+      byokEligible: entitlements.byokEligible,
       required,
       connected,
       missing,

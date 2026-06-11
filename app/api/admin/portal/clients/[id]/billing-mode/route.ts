@@ -98,6 +98,20 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     }, { status: 400 });
   }
 
+  // BYOK inversion: a client can only enter byok mode (which waives the
+  // metered-AI markup) when on a BYOK-eligible tier — Scale, the all-modules
+  // bundle, or agency bypass. This is the single gate: the waiver logic keys
+  // off billingMode === 'byok', so restricting entry restricts the waiver.
+  if (billingMode === 'byok') {
+    const ent = await getClientEntitlements(clientId);
+    if (!ent.byokEligible) {
+      return NextResponse.json({
+        success: false,
+        message: 'BYOK is a Scale-tier feature. Move this client to the Scale tier (or the all-modules bundle) before enabling BYOK.',
+      }, { status: 409 });
+    }
+  }
+
   await db
     .update(clients)
     .set({ billingMode: billingMode as string, updatedAt: new Date() })
