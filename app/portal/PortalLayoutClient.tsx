@@ -39,7 +39,12 @@ interface PortalLayoutClientProps {
 
 export default function PortalLayoutClient({ children, apps, entitlements }: PortalLayoutClientProps) {
   const pathname = usePathname();
-  const isLoginPage = pathname === '/portal/login';
+  // Pre-auth pages render without portal chrome (no sidebar/topbar).
+  const isLoginPage =
+    pathname === '/portal/login' ||
+    pathname === '/portal/signup' ||
+    pathname === '/portal/forgot-password' ||
+    pathname === '/portal/reset-password';
   const isEditorRoute = /\/portal\/websites\/\d+\/(posts\/|navigation)|\/portal\/tools\/pitch-decks\/\d+/.test(pathname);
   const [previewMode, setPreviewMode] = useState(false);
 

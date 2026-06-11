@@ -15,6 +15,24 @@ export const users = pgTable('users', {
   passwordResetToken: varchar('password_reset_token', { length: 255 }),
   passwordResetExpires: timestamp('password_reset_expires'),
   defaultClientId: integer('default_client_id'), // preferred portal for multi-client users
+  // ── Self-serve signup (public /portal/signup funnel) ───────────────────────
+  // Null = legacy/invited user (implicitly trusted) OR self-serve signup that
+  // hasn't clicked the verification link yet. The signup API blocks login-time
+  // checkout until verified; a cron purges never-verified accounts after 7 days.
+  emailVerifiedAt: timestamp('email_verified_at'),
+  emailVerificationToken: varchar('email_verification_token', { length: 64 }),
+  emailVerificationExpires: timestamp('email_verification_expires'),
+  // Google OAuth subject (sub claim) — set on first "Continue with Google";
+  // links the Google identity to this row so email+password and Google both
+  // resolve to the same user.
+  // NOTE: uniqueness is enforced by a hand-applied index
+  // (scripts/billing/002_signup_funnel.sql), intentionally NOT declared here:
+  // drizzle-kit push hits an interactive "truncate users?" prompt when adding
+  // a unique constraint to a populated table, which crashes the no-TTY
+  // integration-test template heal (same class of issue as the HNSW index on
+  // brain_embeddings). App code never inserts duplicates — the index is a
+  // race guard on real DBs only.
+  googleId: varchar('google_id', { length: 64 }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });

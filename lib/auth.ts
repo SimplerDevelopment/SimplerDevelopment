@@ -1,9 +1,17 @@
 import NextAuth from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
+import Google from 'next-auth/providers/google';
 import { compare } from 'bcryptjs';
 import { db } from '@/lib/db';
 import { users } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
+import { findOrCreateGoogleUser } from '@/lib/signup/service';
+
+// Login-capable Google OAuth app. Reuses the platform Google client unless a
+// dedicated one is configured. The provider only registers when configured so
+// environments without the env vars keep credentials-only login.
+const googleClientId = process.env.AUTH_GOOGLE_ID ?? process.env.GOOGLE_CLIENT_ID;
+const googleClientSecret = process.env.AUTH_GOOGLE_SECRET ?? process.env.GOOGLE_CLIENT_SECRET;
 
 function safeCallbackUrl(raw: string | null | undefined): string {
   if (!raw) return '/portal/dashboard';
@@ -64,6 +72,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         };
       },
     }),
+    ...(googleClientId && googleClientSecret
+      ? [Google({ clientId: googleClientId, clientSecret: googleClientSecret })]
+      : []),
   ],
   pages: {
     // Portal (client tenants) is the dominant audience and the codebase already
@@ -86,7 +97,25 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     },
   },
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, account, profile }) {
+      // Google sign-in: NextAuth runs without a DB adapter (JWT strategy), so
+      // `user.id` here is Google's id, not ours. Resolve (or create) the
+      // platform user explicitly and stamp OUR id into token.sub. Returning
+      // null rejects the sign-in (inactive user / unverified Google email).
+      if (account?.provider === 'google') {
+        const p = profile as { email?: string; name?: string; email_verified?: boolean } | null;
+        if (!p?.email || p.email_verified === false) return null;
+        const resolved = await findOrCreateGoogleUser({
+          googleSub: account.providerAccountId,
+          email: p.email,
+          name: p.name,
+        });
+        if (!resolved) return null;
+        token.sub = String(resolved.id);
+        token.role = resolved.role;
+        token.checkedAt = Date.now();
+        return token;
+      }
       if (user) {
         // Fresh sign-in — authorize() already verified the user exists and is
         // active. Stamp the validation time so the re-check below is throttled.
@@ -144,6 +173,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       const isOnPortalPublic =
         nextUrl.pathname === '/portal/forgot-password' ||
         nextUrl.pathname === '/portal/reset-password' ||
+        nextUrl.pathname === '/portal/signup' ||
+        nextUrl.pathname === '/portal/verify-email' ||
         nextUrl.pathname.startsWith('/portal/invite/');
 
       // Admin panel: require auth, block clients

@@ -293,7 +293,9 @@ export async function buildTemplateDatabase(opts?: { quiet?: boolean }): Promise
     const repoRoot = path.resolve(__dirname, '../..');
     execSync('npx drizzle-kit push --force', {
       cwd: repoRoot,
-      env: { ...process.env, DATABASE_URL: tplUrl.toString() },
+      // DRIZZLE_DATABASE_URL survives drizzle.config.ts's `.env.local`
+      // override (plain DATABASE_URL does not — see config comment).
+      env: { ...process.env, DATABASE_URL: tplUrl.toString(), DRIZZLE_DATABASE_URL: tplUrl.toString() },
       stdio: quiet ? 'ignore' : ['ignore', 'pipe', 'pipe'],
       timeout: 600_000,
     });

@@ -26,6 +26,7 @@ date: 2026-06-10
 ## Validating
 
 - [ ] Per-Domain SaaS Billing & BYOK — see [[Per-Domain SaaS Billing & BYOK]]
+- [ ] Self-Serve Signup Funnel & Module Onboarding — see [[Self-Serve Signup Funnel & Module Onboarding]]
 
 
 ## Shipped

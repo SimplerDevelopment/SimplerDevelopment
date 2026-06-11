@@ -2,12 +2,16 @@
 type: domain-map
 domain: billing
 status: active
-date: 2026-06-10
+date: 2026-06-11
 sources:
   - lib/billing/
   - lib/stripe/
+  - lib/signup/service.ts
+  - lib/onboarding/module-segments.ts
   - lib/db/schema/billing.ts
   - lib/db/schema/sites.ts
+  - app/api/auth/signup/route.ts
+  - app/api/auth/verify-email/route.ts
   - app/api/portal/credits/route.ts
   - app/api/portal/credits/purchase/route.ts
   - app/api/portal/credits/pay-as-you-go/route.ts
@@ -15,6 +19,7 @@ sources:
   - app/api/portal/invoices/[id]/checkout/route.ts
   - app/api/portal/billing/modules/route.ts
   - app/api/portal/billing/modules/checkout/route.ts
+  - app/api/portal/billing/modules/add-item/route.ts
   - app/api/portal/billing/modules/[id]/cancel/route.ts
   - app/api/portal/billing/usage/route.ts
   - app/api/portal/billing/byok-status/route.ts
@@ -28,7 +33,14 @@ sources:
   - app/portal/settings/billing/plans/page.tsx
   - app/admin/clients/[id]/plan/page.tsx
   - components/portal/billing/UsageMeters.tsx
+  - components/portal/onboarding/steps/StepChooseModules.tsx
+  - components/portal/onboarding/steps/StepPayment.tsx
+  - components/portal/onboarding/steps/StepModuleSetup.tsx
+  - components/portal/onboarding/steps/StepUpsell.tsx
+  - components/portal/onboarding/GetStartedChecklist.tsx
   - scripts/billing/001_domain_saas_billing.sql
+  - scripts/billing/002_signup_funnel.sql
+  - scripts/billing/sync-stripe-products.ts
 ---
 
 # Domain: Billing & Stripe
@@ -41,6 +53,8 @@ Manages all money movement for the platform: AI credit grants and purchases, met
 
 | File | Role |
 |---|---|
+| `lib/signup/service.ts` (177) | Self-serve account creation: `createAccount` (email+password), `verifyEmail` (token), `linkGoogleAccount` (OAuth same-email merge), `purgeUnverified` (7-day cleanup). Creates user + client with `billingMode='saas'` + `user_onboarding` row atomically. |
+| `lib/onboarding/module-segments.ts` (185) | Segment registry keyed by domain key. v1 rich segments for websites, crm, email, brain, projects; generic "first 3 wins" fallback for the remaining 7 modules. Consumed by the wizard steps and the dashboard checklist. |
 | `lib/billing/domain-catalog.ts` (435) | Single source of truth for 12 module SKUs + bundle: prices (seed defaults), per-meter included allowances + overage rates, `byokProviders`, `promotesTo` cross-promo links, `navHrefs`. Live price = `services.price` / Stripe Price object. |
 | `lib/billing/entitlements.ts` (83) | `getClientEntitlements(clientId)`: resolves effective module set — `'agency'` billingMode bypasses gating; `'bundle'` category grants all; legacy `subscription` tier rows bypass; `brainTrialUntil` honored. Single resolution function; callers do not inspect `billingMode` directly. |
 | `lib/billing/usage-alerts.ts` (488) | Threshold evaluation: compares `usage_meter_events` aggregates against `usage_thresholds`; deduplicates via `usage_alert_events` unique index; dispatches portal notifications and emails at warn / exceeded / hard-limit levels. |
@@ -87,6 +101,13 @@ New columns and tables added in `scripts/billing/001_domain_saas_billing.sql` (h
 
 ## API surface
 
+### Public auth (signup funnel)
+
+| Route | Method | Purpose |
+|---|---|---|
+| `app/api/auth/signup/route.ts` | POST | Create account (email+password or Google OAuth path). Delegates to `lib/signup/service.ts`; sends Resend verification email. Returns session token on success. |
+| `app/api/auth/verify-email/route.ts` | GET | Consume a magic-link token and mark the user verified; redirects into the onboarding wizard. |
+
 ### Portal (client-facing)
 
 | Route | Method | Purpose |
@@ -94,7 +115,8 @@ New columns and tables added in `scripts/billing/001_domain_saas_billing.sql` (h
 | `app/api/portal/settings/billing/route.ts` | GET | Return billing settings for the active client |
 | `app/api/portal/billing/payment-methods/route.ts` | GET / DELETE | List / remove saved payment methods |
 | `app/api/portal/billing/modules/route.ts` | GET | List all 12 module SKUs + bundle with subscription status for the active client |
-| `app/api/portal/billing/modules/checkout/route.ts` | POST | Create Stripe Checkout session (subscription mode) for a module; `metadata.type='module_subscription'` |
+| `app/api/portal/billing/modules/checkout/route.ts` | POST | Create Stripe Checkout session (`mode=subscription`). Accepts `slugs[]` — one line item per module slug, `trial_period_days: 14` (card required, $0 today). Trial granted only once per client via `clients.trial_used_at`. `metadata.type='module_subscription'`; webhook upserts one `clientServices` row per line item sharing the same `stripeSubscriptionId`. |
+| `app/api/portal/billing/modules/add-item/route.ts` | POST | One-click prorated add of a module to an existing subscription, or bundle swap. Appends a line item to the live Stripe subscription at prorated price; joins any active trial. Used by the upsell wizard step and the plans page. |
 | `app/api/portal/billing/modules/[id]/cancel/route.ts` | POST | Cancel a module subscription via Stripe |
 | `app/api/portal/billing/usage/route.ts` | GET | Per-resource usage vs thresholds for the active client |
 | `app/api/portal/billing/byok-status/route.ts` | GET | Which BYOK providers are configured; used by admin BYOK checklist |
@@ -142,8 +164,16 @@ New columns and tables added in `scripts/billing/001_domain_saas_billing.sql` (h
 | `app/api/cron/resend-usage-sync/route.ts` | `15 4 * * *` | Pull Resend email-send counts into `usage_meter_events` |
 | `app/api/cron/usage-alerts/route.ts` | `15 5 * * *` | Evaluate `usage_thresholds` for all active clients; deduplicate via `usage_alert_events`; dispatch portal notifications and email alerts at warn / exceeded / hard-limit levels |
 | `app/api/cron/usage-rollup/route.ts` | `45 4 * * *` | Roll up all active clients' usage to Stripe |
+| `app/api/cron/purge-unverified/route.ts` | `30 5 * * *` (05:30 UTC) | Delete user + client rows created by the signup funnel that remain unverified after 7 days. Calls `lib/signup/service.ts` `purgeUnverified`. |
 
 Auth: `x-vercel-cron: 1` header OR `Authorization: Bearer $CRON_SECRET`.
+
+### Scripts (per-environment provisioning)
+
+| Script | Purpose |
+|---|---|
+| `scripts/billing/sync-stripe-products.ts` (94) | Creates or updates Stripe Products and Prices for every module SKU. Looks up existing objects by `metadata.moduleSlug` — idempotent and safe to re-run. Canonical source for catalog IDs; the values seeded in `services.stripePriceId` rows are live-mode defaults only. **Must be run per environment** (local / staging / production) after initial deploy or after adding a new module. |
+| `scripts/billing/002_signup_funnel.sql` | Hand-apply migration for signup funnel schema additions (see Data model section). `users.google_id` unique constraint is in this file only — not in Drizzle schema; see [[ADR schema-constraints-hand-sql-only]]. |
 
 ## MCP tools
 
@@ -170,6 +200,11 @@ Registered in `lib/mcp/tools/billing.ts` via `registerBillingTools(server, ctx)`
 | `app/admin/ai-credits/page.tsx` | Admin | AI credit package management |
 | `app/admin/subscriptions/page.tsx` | Admin | Subscription overview |
 | `app/admin/clients/[id]/page.tsx` | Admin | Client detail including billing tab |
+| `components/portal/onboarding/steps/StepChooseModules.tsx` | Client (wizard) | Cart-style module picker; bundle auto-suggest when cart total >= bundle price |
+| `components/portal/onboarding/steps/StepPayment.tsx` | Client (wizard) | Stripe Checkout session launch for multi-line-item subscription |
+| `components/portal/onboarding/steps/StepModuleSetup.tsx` | Client (wizard) | Product-specific onboarding steps from `lib/onboarding/module-segments.ts` |
+| `components/portal/onboarding/steps/StepUpsell.tsx` | Client (wizard) | Up to 3 `promotesTo` upsells; one-click add via `add-item` route; bundle-gap nudge |
+| `components/portal/onboarding/GetStartedChecklist.tsx` (202) | Client (dashboard) | Persistent checklist surfacing module segments; updates as modules are purchased post-signup |
 
 ## Tests & gates
 
@@ -224,7 +259,8 @@ Run: `scripts/test.sh --layer=unit --no-coverage` (fast) or with coverage to ver
 - The older `usage_meters` table (running totals, coarse category vocabulary) coexists with the newer `usage_meter_events` (append-only, fine-grained resources). Long-term the older table should be deprecated in favour of the events approach.
 - BYOK AI key management (`client_api_keys`) was added as a pricing-pivot foundation — call-site telemetry for BYOK proxying is noted as future work in the schema comment.
 - `lib/billing/` has a 70% coverage floor but the gate is advisory until coverage is healthy enough to enforce (see `tests/CI-GATES.md`).
-- **Follow-ups from Per-Domain SaaS Billing & BYOK (commit 3357d619):** (1) Stripe Products/Prices must be created and their IDs pasted into `services.stripePriceId` rows before self-serve checkout is live; (2) `scripts/seed-domain-modules.ts` must be run on staging after hand-applying `scripts/billing/001_domain_saas_billing.sql`; (3) deep API-level enforcement in `saas` mode is not yet wired (nav/layout gating only); (4) voice minutes and Replicate upscales are not yet metered; (5) monthly credit re-grant cron is missing (grants happen on activation/renewal webhook only). See [[Per-Domain SaaS Billing & BYOK]] spec for full follow-up list.
+- **Follow-ups from Per-Domain SaaS Billing & BYOK (commit 3357d619):** (1) `scripts/billing/sync-stripe-products.ts` replaces the earlier manual step — run it per environment; (2) `scripts/seed-domain-modules.ts` must be run on staging after hand-applying `scripts/billing/001_domain_saas_billing.sql`; (3) deep API-level enforcement in `saas` mode is not yet wired (nav/layout gating only); (4) voice minutes and Replicate upscales are not yet metered; (5) monthly credit re-grant cron is missing (grants happen on activation/renewal webhook only). See [[Per-Domain SaaS Billing & BYOK]] spec for full follow-up list.
+- **Self-Serve Signup Funnel & Module Onboarding (commits e2faf943 + 8566e8ed):** shipped; status: validating. Remaining: staging deploy, `sync-stripe-products.ts` per environment, test-card checkout, Google OAuth callback URL + env vars. `scripts/billing/002_signup_funnel.sql` must be hand-applied. `users.google_id` unique constraint lives only in that SQL file — see [[ADR schema-constraints-hand-sql-only]]. See [[Self-Serve Signup Funnel & Module Onboarding]] for full validation checklist.
 
 ## Related
 

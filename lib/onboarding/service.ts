@@ -2,7 +2,7 @@
 // they just authenticate, parse, and delegate here.
 
 import { db } from '@/lib/db';
-import { users, clients, userOnboarding, brandingProfiles, brandingMessaging } from '@/lib/db/schema';
+import { users, clients, userOnboarding, brandingProfiles, brandingMessaging, clientServices } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
 import type { OnboardingAnswers, OnboardingStep, OnboardingState } from './types';
 import { ONBOARDING_STEPS } from './types';
@@ -42,14 +42,25 @@ export async function loadOnboarding(userId: number, clientId: number | null): P
 
   let company = '';
   let website = '';
+  let showBillingSteps = false;
   if (clientId) {
     const [c] = await db
-      .select({ company: clients.company, website: clients.website })
+      .select({ company: clients.company, website: clients.website, billingMode: clients.billingMode })
       .from(clients)
       .where(eq(clients.id, clientId))
       .limit(1);
     company = c?.company ?? '';
     website = c?.website ?? '';
+
+    if (c?.billingMode === 'saas') {
+      // Show billing steps only while the client has no active module subscription.
+      const [activeService] = await db
+        .select({ id: clientServices.id })
+        .from(clientServices)
+        .where(and(eq(clientServices.clientId, clientId), eq(clientServices.status, 'active')))
+        .limit(1);
+      showBillingSteps = !activeService;
+    }
   }
 
   return {
@@ -62,6 +73,7 @@ export async function loadOnboarding(userId: number, clientId: number | null): P
       company,
       website,
     },
+    showBillingSteps,
   };
 }
 

@@ -6,9 +6,13 @@ export type OnboardingStep =
   | 'welcome'
   | 'about-you'
   | 'about-company'
+  | 'choose-modules'
+  | 'payment'
+  | 'module-setup'
   | 'brand-vibe'
   | 'mission'
   | 'features'
+  | 'upsell'
   | 'power-up'
   | 'done';
 
@@ -16,9 +20,13 @@ export const ONBOARDING_STEPS: OnboardingStep[] = [
   'welcome',
   'about-you',
   'about-company',
+  'choose-modules',
+  'payment',
+  'module-setup',
   'brand-vibe',
   'mission',
   'features',
+  'upsell',
   'power-up',
   'done',
 ];
@@ -35,6 +43,14 @@ export interface OnboardingAnswers {
   featuresInterested?: string[];
   skillsDownloaded?: boolean;
   mcpKeyCreatedId?: number;
+  /** Domain keys the client selected in the choose-modules step (or ['bundle']). */
+  selectedModules?: string[];
+  /** ISO timestamp stamped when Stripe checkout completes successfully. */
+  checkoutCompletedAt?: string;
+  /** Per-domain action completion tracking. domainKey → completed action keys. */
+  moduleSetup?: Record<string, string[]>;
+  /** ISO timestamp when the post-onboarding checklist was dismissed. */
+  checklistDismissedAt?: string;
 }
 
 export interface OnboardingState {
@@ -49,6 +65,12 @@ export interface OnboardingState {
     company: string;
     website: string;
   };
+  /**
+   * True only for self-serve (billingMode='saas') clients that have not yet
+   * activated any module. Computed server-side in loadOnboarding(). When false
+   * the wizard skips 'choose-modules' and 'payment' entirely.
+   */
+  showBillingSteps: boolean;
 }
 
 export const FEATURE_CATALOG: Array<{ id: string; label: string; icon: string; description: string }> = [
