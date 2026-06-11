@@ -27,6 +27,7 @@ function toolUseResponse(
   reasoning: string,
   inputTokens = 50,
   outputTokens = 20,
+  domains: unknown = [],
 ) {
   return {
     content: [
@@ -34,7 +35,7 @@ function toolUseResponse(
         type: 'tool_use',
         id: 'tu_001',
         name: 'classify',
-        input: { complexity, reasoning },
+        input: { complexity, reasoning, domains },
       },
     ],
     usage: { input_tokens: inputTokens, output_tokens: outputTokens },
@@ -69,6 +70,7 @@ describe('classifyPortalComplexity', () => {
     expect(result.reasoning).toBe('Single lookup');
     expect(result.inputTokens).toBe(40);
     expect(result.outputTokens).toBe(10);
+    expect(result.domains).toEqual([]);
   });
 
   // -------------------------------------------------------------------------
@@ -89,6 +91,7 @@ describe('classifyPortalComplexity', () => {
     expect(result.reasoning).toBe('Multi-step: create + send');
     expect(result.inputTokens).toBe(80);
     expect(result.outputTokens).toBe(30);
+    expect(result.domains).toEqual([]);
   });
 
   // -------------------------------------------------------------------------
@@ -191,5 +194,118 @@ describe('classifyPortalComplexity', () => {
     expect(callArg.model).toMatch(/haiku/);
     expect(callArg.tool_choice).toEqual({ type: 'tool', name: 'classify' });
     expect(callArg.messages).toEqual([{ role: 'user', content: 'hello' }]);
+  });
+
+  // -------------------------------------------------------------------------
+  // (e) domains field: valid domains are parsed through
+  // -------------------------------------------------------------------------
+
+  it('parses valid domains array through to classification.domains', async () => {
+    messagesCreate.mockResolvedValueOnce(
+      toolUseResponse('simple', 'Billing + support', 30, 10, ['billing', 'support']),
+    );
+
+    const result = await classifyPortalComplexity('Why is my invoice overdue?', anthropic);
+
+    expect(result.domains).toEqual(['billing', 'support']);
+  });
+
+  // -------------------------------------------------------------------------
+  // (f) domains field: invalid domain strings are filtered out
+  // -------------------------------------------------------------------------
+
+  it('filters invalid domain strings and keeps only known domains', async () => {
+    messagesCreate.mockResolvedValueOnce(
+      toolUseResponse('simple', 'Billing + crm', 30, 10, ['billing', 'nonsense', 'crm']),
+    );
+
+    const result = await classifyPortalComplexity('Show my contacts and invoices', anthropic);
+
+    expect(result.domains).toEqual(['billing', 'crm']);
+  });
+
+  // -------------------------------------------------------------------------
+  // (g) domains field: duplicates are deduped
+  // -------------------------------------------------------------------------
+
+  it('deduplicates repeated domain entries', async () => {
+    messagesCreate.mockResolvedValueOnce(
+      toolUseResponse('complex', 'CRM only', 30, 10, ['crm', 'crm']),
+    );
+
+    const result = await classifyPortalComplexity('Update CRM contacts', anthropic);
+
+    expect(result.domains).toEqual(['crm']);
+  });
+
+  // -------------------------------------------------------------------------
+  // (h) domains field: non-array values (missing or string) → []
+  // -------------------------------------------------------------------------
+
+  it('returns domains=[] when domains is missing from input', async () => {
+    messagesCreate.mockResolvedValueOnce({
+      content: [
+        {
+          type: 'tool_use',
+          id: 'tu_003',
+          name: 'classify',
+          input: { complexity: 'simple', reasoning: 'no domains key' },
+        },
+      ],
+      usage: { input_tokens: 20, output_tokens: 8 },
+    });
+
+    const result = await classifyPortalComplexity('something', anthropic);
+
+    expect(result.domains).toEqual([]);
+  });
+
+  it('returns domains=[] when domains is a string (non-array)', async () => {
+    messagesCreate.mockResolvedValueOnce({
+      content: [
+        {
+          type: 'tool_use',
+          id: 'tu_004',
+          name: 'classify',
+          input: { complexity: 'simple', reasoning: 'bad domains', domains: 'billing' },
+        },
+      ],
+      usage: { input_tokens: 20, output_tokens: 8 },
+    });
+
+    const result = await classifyPortalComplexity('something else', anthropic);
+
+    expect(result.domains).toEqual([]);
+  });
+
+  // -------------------------------------------------------------------------
+  // (i) no-tool-block fallback → domains: [] and complexity: 'complex'
+  // -------------------------------------------------------------------------
+
+  it('no-tool-block fallback returns domains=[] and complexity=complex', async () => {
+    messagesCreate.mockResolvedValueOnce({
+      content: [{ type: 'text', text: 'I cannot classify this.' }],
+      usage: { input_tokens: 10, output_tokens: 4 },
+    });
+
+    const result = await classifyPortalComplexity('Unclassifiable request', anthropic);
+
+    expect(result.complexity).toBe('complex');
+    expect(result.domains).toEqual([]);
+  });
+
+  // -------------------------------------------------------------------------
+  // (j) thrown-error fallback → domains: [], inputTokens: 0, outputTokens: 0
+  // -------------------------------------------------------------------------
+
+  it('thrown-error fallback returns domains=[], inputTokens=0, outputTokens=0', async () => {
+    messagesCreate.mockRejectedValueOnce(new Error('network timeout'));
+
+    const result = await classifyPortalComplexity('Will this break?', anthropic);
+
+    expect(result.complexity).toBe('complex');
+    expect(result.domains).toEqual([]);
+    expect(result.inputTokens).toBe(0);
+    expect(result.outputTokens).toBe(0);
   });
 });

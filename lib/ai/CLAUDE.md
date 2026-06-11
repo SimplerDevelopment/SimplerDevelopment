@@ -17,7 +17,7 @@ AI orchestration layer: key resolution, plan-gating, tool execution for the Comp
 | Surface | Model | File |
 |---|---|---|
 | Brain classifier / planner / grounder | `claude-haiku-4-5-20251001` | `brain-tools/classifier.ts`, `planner.ts`, `grounder.ts` |
-| Portal chatbot classifier | `claude-haiku-4-5-20251001` | `portal-tools/classifier.ts` |
+| Portal chatbot classifier + intent router | `claude-haiku-4-5-20251001` | `portal-tools/classifier.ts` (one call returns both `complexity` for model routing and `domains[]` for tool-surface narrowing; domain map in `portal-tools/domains.ts`) |
 | Portal chatbot loop (routed) | `claude-haiku-4-5-20251001` (simple) / `claude-sonnet-4-6` (complex) | `app/api/portal/ai/chat/route.ts` |
 | Portal chatbot stream (mobile, text-only) | `claude-opus-4-7` | `app/api/portal/ai/chat/stream/route.ts` |
 | Meeting transcript processor | `claude-sonnet-4-5` | `meeting-processor.ts` |
@@ -49,6 +49,7 @@ AI orchestration layer: key resolution, plan-gating, tool execution for the Comp
 1. Create (or extend) a domain module under `portal-tools/` exporting `*Tools: Anthropic.Tool[]` and `*Handlers: Record<string, Handler>`.
 2. Import and spread both into `portal-tools/index.ts` (`PORTAL_TOOLS` + `HANDLERS`).
 3. Tool ordering in `PORTAL_TOOLS` is intentional (read block at top of `portal-tools/index.ts`); preserve the read/write grouping.
+4. **Add the tool name to `TOOL_DOMAIN` in `portal-tools/domains.ts`** (the intent-router map). `tests/unit/portal-tool-domains.test.ts` asserts exact set-equality with `PORTAL_TOOLS`, so a tool with no domain fails CI. If it's cross-cutting like `navigate_to`, add it to `BASELINE_TOOL_NAMES` instead.
 
 **New standalone AI pipeline (e.g., another processor like `meeting-processor.ts`):**
 1. Call `resolveClientApiKey` → `checkAiPlanGate` → make the AI call → `recordAiUsage` — in that order, every time.

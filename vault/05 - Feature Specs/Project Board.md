@@ -19,12 +19,16 @@ date: 2026-06-10
 
 ## Planned
 
-- [ ] Visual-Editor / Block-Authoring Agent (first hub-and-spoke specialist; blocked on intent router + real tracing) — see [[Visual-Editor Agent]]
+- [ ] Visual-Editor / Block-Authoring Agent (first hub-and-spoke specialist; prerequisites now met — intent router shadow v1 + real tracing both shipped) — see [[Visual-Editor Agent]]
 
 ## In Progress
 
+- [ ] Portal Intent Router — shadow v1 shipped (Haiku classifier now routes domains + model in one call); collecting `portal.route` accuracy data, then flip `ROUTER_MODE` to `'active'` — see [[Portal Intent Router]]
 
 ## Validating
+
+
+## Shipped
 
 
 ## Shipped
