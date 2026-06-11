@@ -15,6 +15,7 @@
 import { type ReactNode, Suspense, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { TierPlans } from '@/components/portal/billing/TierPlans';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -258,6 +259,8 @@ function BillingPlansInner() {
   const [subscribing, setSubscribing] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState<number | null>(null);
   const [actionError, setActionError] = useState('');
+  const [showModules, setShowModules] = useState(false);
+  const [selectedTierSlug, setSelectedTierSlug] = useState('');
 
   useEffect(() => {
     let cancelled = false;
@@ -383,6 +386,31 @@ function BillingPlansInner() {
         </div>
       )}
 
+      {/* Tier plans — primary pricing */}
+      <div>
+        <h2 className="text-xl font-semibold text-foreground mb-2">Choose your plan</h2>
+        <p className="text-sm text-muted-foreground mb-6">Start with a tier, or customize below.</p>
+        <TierPlans
+          selectedSlug={selectedTierSlug}
+          onSelect={(slug) => setSelectedTierSlug(slug)}
+        />
+      </div>
+
+      {/* Divider + toggle to show/hide module grid */}
+      <div className="flex items-center gap-3">
+        <div className="flex-1 h-px bg-border" />
+        <button
+          type="button"
+          onClick={() => setShowModules((v) => !v)}
+          className="text-sm text-primary underline font-medium"
+        >
+          {showModules ? 'Hide individual modules ▴' : 'Customize / build your own plan ▾'}
+        </button>
+        <div className="flex-1 h-px bg-border" />
+      </div>
+
+      {showModules && (
+        <>
       {/* Hero bundle card */}
       <div className={`bg-card border rounded-xl p-6 ${bundleActive ? 'border-primary ring-2 ring-primary/20' : 'border-border'}`}>
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
@@ -477,6 +505,8 @@ function BillingPlansInner() {
       <p className="text-xs text-muted-foreground pb-4">
         Subscriptions are billed monthly via Stripe. You can cancel at any time; access continues until the end of the billing period.
       </p>
+        </>
+      )}
     </div>
   );
 }

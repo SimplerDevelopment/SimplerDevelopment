@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import type { StepProps } from './types';
 import { BUNDLE, FEATURE_DOMAINS, sumOfModulePricesCents } from '@/lib/billing/domain-catalog';
+import { TierPlans } from '@/components/portal/billing/TierPlans';
 
 interface ModuleItem {
   key: string;
@@ -38,6 +39,8 @@ export function StepChooseModules({ state, setAnswers, persist, next }: StepProp
     return new Set<string>();
   });
   const [saving, setSaving] = useState(false);
+  const [selectedTierSlug, setSelectedTierSlug] = useState<string>('');
+  const [showCustomize, setShowCustomize] = useState(false);
 
   // Load live module catalog from the billing API
   useEffect(() => {
@@ -146,6 +149,27 @@ export function StepChooseModules({ state, setAnswers, persist, next }: StepProp
 
   return (
     <div className="space-y-6">
+      {/* Tier plans — shown above the module selector */}
+      <div className="mb-6">
+        <h3 className="text-base font-semibold text-foreground mb-1">Choose your plan</h3>
+        <p className="text-xs text-muted-foreground mb-4">Or customize below.</p>
+        <TierPlans
+          selectedSlug={selectedTierSlug}
+          onSelect={(slug) => setSelectedTierSlug(slug)}
+        />
+      </div>
+
+      {/* Customize toggle + collapsible module selector */}
+      <div>
+        <button
+          type="button"
+          onClick={() => setShowCustomize((v) => !v)}
+          className="text-sm text-primary underline font-medium mb-4"
+        >
+          {showCustomize ? 'Hide custom modules ▴' : 'Customize / build your own plan ▾'}
+        </button>
+        {showCustomize && (
+          <>
       {loading ? (
         <div className="flex items-center justify-center py-12 text-muted-foreground text-sm">
           <span className="material-icons animate-spin mr-2 text-base">refresh</span>
@@ -243,6 +267,9 @@ export function StepChooseModules({ state, setAnswers, persist, next }: StepProp
           )}
         </>
       )}
+          </>
+        )}
+      </div>
 
       {/* Sticky footer */}
       <div className="sticky bottom-0 -mx-6 -mb-8 px-6 pb-6 pt-4 bg-card/95 backdrop-blur border-t border-border mt-6">
