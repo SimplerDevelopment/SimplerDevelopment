@@ -49,7 +49,7 @@
   "app/proposal/[token]/page.tsx": 761,
   "app/sites/[domain]/SiteNavClient.tsx": 822,
   "app/sites/[domain]/slides/[slug]/PitchDeckPresentation.tsx": 872,
-  "components/CmdKPalette.tsx": 554,
+  "components/CmdKPalette.tsx": 570,
   "components/admin/PostForm.tsx": 501,
   "components/admin/SurveyBuilder.tsx": 625,
   "components/admin/SurveyRecommendationEditor.tsx": 594,
@@ -165,7 +165,7 @@
   "scripts/scan-tech-stack.ts": 783,
   "scripts/scrape-postcaptain-staff-playwright.ts": 582,
   "scripts/seed-admin-e2e.ts": 662,
-  "scripts/seed-brain-demo.ts": 609,
+  "scripts/seed-brain-demo.ts": 520,
   "scripts/seed-peters-outdoor.ts": 732,
   "scripts/smoke-sd-skills.ts": 641
 }

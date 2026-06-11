@@ -9,6 +9,10 @@ The planning home — new feature planning starts here (`.planning/` is frozen; 
 
 **Status is managed on [[Project Board]]** (Obsidian Kanban: Backlog → Planned → In Progress → Validating → Shipped). Every spec gets a card; keep card lane and spec `status` frontmatter in sync.
 
+## Static index
+
+- [[Per-Domain SaaS Billing & BYOK]] — domain: billing, status: in-progress, 2026-06-10
+
 ## Active
 ```dataview
 TABLE domain, status, date

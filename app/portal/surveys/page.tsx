@@ -5,6 +5,7 @@ import { surveys } from '@/lib/db/schema';
 import { eq, desc } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
 import Link from 'next/link';
+import { RelatedModulesStrip } from '@/components/portal/billing/RelatedModulesStrip';
 
 const statusColors: Record<string, string> = {
   draft: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
@@ -150,6 +151,7 @@ export default async function SurveysListPage() {
           </p>
         </div>
       </div>
+      <RelatedModulesStrip currentDomain="surveys" />
     </div>
   );
 }

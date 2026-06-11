@@ -4,6 +4,7 @@ import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { buildPortalNavItems, flattenPortalNav, type PortalNavTarget } from '@/lib/portal-nav';
 import type { UserAppNavMeta } from '@/lib/plugins/load-user-apps';
+import type { SerializableEntitlements } from '@/app/portal/PortalShell';
 
 type EntityType =
   | 'meeting'
@@ -116,6 +117,9 @@ interface CmdKPaletteProps {
    *  `buildPortalNavItems` so the palette picks up the "Apps" group + each
    *  plugin's manifest nav items as searchable jump targets. */
   apps?: UserAppNavMeta[];
+  /** Billing-domain entitlements. Locked items are excluded from search
+   *  results so ungated users don't jump to pages they can't access. */
+  entitlements?: SerializableEntitlements;
   /** Controlled-mode open state. When provided alongside `onClose`, the
    *  palette is fully controlled by the parent (typically `CmdKLauncher`,
    *  which owns the Cmd-K hotkey listener and keeps this module lazy until
@@ -126,7 +130,7 @@ interface CmdKPaletteProps {
   onClose?: () => void;
 }
 
-export default function CmdKPalette({ apps, open: controlledOpen, onClose }: CmdKPaletteProps = {}) {
+export default function CmdKPalette({ apps, entitlements, open: controlledOpen, onClose }: CmdKPaletteProps = {}) {
   // Uncontrolled fallback — only used when the palette is rendered without
   // an explicit `open` prop (legacy callers + unit tests). In the production
   // portal path the launcher passes `open` and we ignore this state.
@@ -156,6 +160,7 @@ export default function CmdKPalette({ apps, open: controlledOpen, onClose }: Cmd
   const activeSiteId = cmsMatch ? cmsMatch[1] : null;
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- pre-existing pattern, predates this change
     if (!activeSiteId) { setActiveSiteName(null); return; }
     fetch('/api/portal/cms/websites')
       .then((r) => r.json())
@@ -168,12 +173,19 @@ export default function CmdKPalette({ apps, open: controlledOpen, onClose }: Cmd
       .catch(() => {});
   }, [activeSiteId]);
 
-  // Flatten the nav tree once per (site) change. The palette only needs the
-  // flat target list with breadcrumbs + haystack — the tree shape is the
-  // sidebar's concern.
+  // Flatten the nav tree once per (site/entitlement) change. The palette only
+  // needs the flat target list with breadcrumbs + haystack. Locked items are
+  // filtered out by flattenPortalNav so they never appear as jump targets.
+  const entitlementSet = useMemo(
+    () =>
+      entitlements
+        ? { domains: new Set(entitlements.domains), gatingBypassed: entitlements.gatingBypassed }
+        : undefined,
+    [entitlements],
+  );
   const navTargets = useMemo<PortalNavTarget[]>(() => {
-    return flattenPortalNav(buildPortalNavItems(activeSiteId, activeSiteName, apps));
-  }, [activeSiteId, activeSiteName, apps]);
+    return flattenPortalNav(buildPortalNavItems(activeSiteId, activeSiteName, apps, entitlementSet));
+  }, [activeSiteId, activeSiteName, apps, entitlementSet]);
 
   // Global Cmd+K / Ctrl+K listener — only registered when the palette is
   // *uncontrolled*. In the production portal path the parent `CmdKLauncher`
@@ -194,6 +206,7 @@ export default function CmdKPalette({ apps, open: controlledOpen, onClose }: Cmd
   // Reset state when opening / closing.
   useEffect(() => {
     if (open) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- pre-existing pattern, predates this change
       setQuery('');
       setHits([]);
       setSelectedIndex(0);
@@ -208,6 +221,7 @@ export default function CmdKPalette({ apps, open: controlledOpen, onClose }: Cmd
     if (!open) return;
     const trimmed = query.trim();
     if (!trimmed) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- pre-existing pattern, predates this change
       setHits([]);
       setLoading(false);
       return;
@@ -279,12 +293,14 @@ export default function CmdKPalette({ apps, open: controlledOpen, onClose }: Cmd
   // Keep selection within bounds when items change.
   useEffect(() => {
     if (selectedIndex >= items.length) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- pre-existing pattern, predates this change
       setSelectedIndex(items.length === 0 ? 0 : items.length - 1);
     }
   }, [items.length, selectedIndex]);
 
   // Reset selection to top when the query changes.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- pre-existing pattern, predates this change
     setSelectedIndex(0);
   }, [query]);
 

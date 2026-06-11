@@ -21,6 +21,7 @@ date: 2026-06-10
 
 ## In Progress
 
+- [ ] Per-Domain SaaS Billing & BYOK — see [[Per-Domain SaaS Billing & BYOK]]
 
 ## Validating
 

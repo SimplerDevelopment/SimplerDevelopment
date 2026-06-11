@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import UsageMeters from '@/components/portal/billing/UsageMeters';
 
 interface Invoice {
   id: number;
@@ -81,6 +82,24 @@ export default function SettingsBillingPage() {
 
   return (
     <div className="space-y-6">
+      {/* Usage meters */}
+      <UsageMeters />
+
+      {/* Plans & modules CTA */}
+      <div className="flex items-center justify-between bg-card border border-border rounded-xl px-6 py-4">
+        <div>
+          <p className="text-sm font-semibold text-foreground">Plans &amp; modules</p>
+          <p className="text-xs text-muted-foreground mt-0.5">Add or remove feature modules from your subscription.</p>
+        </div>
+        <Link
+          href="/portal/settings/billing/plans"
+          className="inline-flex items-center gap-1.5 text-sm px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors flex-shrink-0"
+        >
+          <span className="material-icons text-base">explore</span>
+          Plans &amp; modules
+        </Link>
+      </div>
+
       {/* Outstanding balance */}
       {totalDue > 0 && (
         <div className="bg-orange-50 border border-orange-200 rounded-xl p-4 flex items-center gap-3 dark:bg-orange-900/20 dark:border-orange-800">

@@ -21,8 +21,8 @@ import { desc, eq } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
 import { encryptApiKey, maskApiKey } from '@/lib/crypto/api-key';
 
-type Provider = 'anthropic' | 'openai';
-const ALLOWED_PROVIDERS: Provider[] = ['anthropic', 'openai'];
+type Provider = 'anthropic' | 'openai' | 'resend' | 'dropbox_sign';
+const ALLOWED_PROVIDERS: Provider[] = ['anthropic', 'openai', 'resend', 'dropbox_sign'];
 
 export async function GET() {
   const session = await auth();

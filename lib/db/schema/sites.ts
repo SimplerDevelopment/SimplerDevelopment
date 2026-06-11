@@ -31,6 +31,13 @@ export const clients = pgTable('clients', {
   // helper grants brain access without requiring an explicit clientServices
   // row. Expired trials simply fall through to the paid-subscription check.
   brainTrialUntil: timestamp('brain_trial_until'),
+  // How this client relates to the feature-domain SKU catalog
+  // (lib/billing/domain-catalog.ts):
+  //   agency — legacy managed client; module gating bypassed entirely.
+  //   saas   — self-serve module subscriptions, prepaid allowances + overage.
+  //   byok   — module subscriptions with own 3rd-party API keys; metered
+  //            COGS that land on their keys are waived.
+  billingMode: varchar('billing_mode', { length: 20 }).default('agency').notNull(),
   // Publishing Command Center — the system-managed kanban project that holds
   // every Publishing card for this client. Set on first visit to
   // /portal/publishing by the bootstrap action. Null = not yet bootstrapped.
@@ -99,6 +106,10 @@ export const clientServices = pgTable('client_services', {
   startDate: timestamp('start_date').defaultNow(),
   renewalDate: timestamp('renewal_date'),
   creditsGrantedAt: timestamp('credits_granted_at'), // when last monthly AI credit grant was applied
+  // Stripe Subscription backing this grant when it was purchased self-serve
+  // (module checkout). Null for admin-assigned / legacy rows. Used to cancel
+  // or change the Stripe side when the portal subscription changes.
+  stripeSubscriptionId: varchar('stripe_subscription_id', { length: 255 }),
   notes: text('notes'),
   metadata: json('metadata'), // domain name, server details, etc.
   createdAt: timestamp('created_at').defaultNow().notNull(),

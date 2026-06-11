@@ -285,16 +285,17 @@ export async function buildTemplateDatabase(opts?: { quiet?: boolean }): Promise
   // SOFT-FAILS by design: if drizzle-kit is unavailable or push errors, we
   // warn but don't break the test run. NOTE the failure mode this enables —
   // if push times out before adding a schema-only column (e.g. `preview_code`
-  // on client_websites), tests that SELECT that column will explode with
-  // `column "X" does not exist`. The 180s budget below covers a ~226-table
-  // schema pull + diff on a warm Postgres; the original 60s tripped routinely.
+  // on client_websites, or `billing_mode` on clients), tests that SELECT that
+  // column will explode with `column "X" does not exist`. The budget below
+  // covers a ~226-table schema pull + diff: the original 60s tripped
+  // routinely, and 180s still tripped (ETIMEDOUT) even on an idle machine.
   try {
     const repoRoot = path.resolve(__dirname, '../..');
     execSync('npx drizzle-kit push --force', {
       cwd: repoRoot,
       env: { ...process.env, DATABASE_URL: tplUrl.toString() },
       stdio: quiet ? 'ignore' : ['ignore', 'pipe', 'pipe'],
-      timeout: 180_000,
+      timeout: 600_000,
     });
     if (!quiet) {
       // eslint-disable-next-line no-console
