@@ -19,7 +19,15 @@ export async function loadOnboarding(userId: number, clientId: number | null): P
     .where(eq(userOnboarding.userId, userId))
     .limit(1);
 
-  if (!existing) {
+  // Fetch user first — validates existence before any insert to prevent FK violations
+  // from stale JWT sessions referencing deleted/deactivated users (user_onboarding_user_id_users_id_fk).
+  const [user] = await db
+    .select({ name: users.name, email: users.email })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+
+  if (!existing && user) {
     await db.insert(userOnboarding).values({
       userId,
       clientId: clientId ?? null,
@@ -32,12 +40,6 @@ export async function loadOnboarding(userId: number, clientId: number | null): P
     .select()
     .from(userOnboarding)
     .where(eq(userOnboarding.userId, userId))
-    .limit(1);
-
-  const [user] = await db
-    .select({ name: users.name, email: users.email })
-    .from(users)
-    .where(eq(users.id, userId))
     .limit(1);
 
   let company = '';
@@ -86,13 +88,16 @@ export async function saveOnboardingStep(args: {
 }): Promise<OnboardingState> {
   const { userId, clientId, step, patch } = args;
 
-  // Ensure row exists.
-  await db.insert(userOnboarding).values({
-    userId,
-    clientId: clientId ?? null,
-    step: 'welcome',
-    answers: {},
-  }).onConflictDoNothing();
+  // Ensure row exists — guard against stale sessions for deleted users.
+  const [userExists] = await db.select({ id: users.id }).from(users).where(eq(users.id, userId)).limit(1);
+  if (userExists) {
+    await db.insert(userOnboarding).values({
+      userId,
+      clientId: clientId ?? null,
+      step: 'welcome',
+      answers: {},
+    }).onConflictDoNothing();
+  }
 
   const [current] = await db
     .select()
