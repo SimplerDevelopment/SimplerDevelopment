@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { render, renderHook } from '@testing-library/react';
@@ -83,42 +84,46 @@ import {
 } from '@/components/visual-editor/EditorModeProvider';
 
 // ---------------------------------------------------------------------------
-// FadeIn
+// FadeIn — pure CSS component, no framer-motion.
+// Default: <div className="sd-reveal {className}" style={...}>
+// immediate=true: <div className={className}>
 // ---------------------------------------------------------------------------
 
 describe('FadeIn', () => {
-  it('renders children inside a motion.div wrapper', () => {
+  it('renders children inside a plain div wrapper', () => {
     const { container, getByText } = render(
       <FadeIn>
         <span>Hello world</span>
       </FadeIn>,
     );
     expect(getByText('Hello world')).toBeTruthy();
-    // motion.div is mocked to a real <div data-motion="div">
-    const wrapper = container.querySelector('[data-motion="div"]');
+    // Real output is a plain <div>, not a motion.div
+    const wrapper = container.firstChild as HTMLElement;
     expect(wrapper).toBeTruthy();
-    expect(wrapper?.textContent).toBe('Hello world');
+    expect(wrapper.tagName).toBe('DIV');
+    expect(wrapper.textContent).toBe('Hello world');
   });
 
-  it('applies the supplied className to the wrapper', () => {
+  it('applies the supplied className alongside sd-reveal', () => {
     const { container } = render(
       <FadeIn className="my-fade">
         <span>X</span>
       </FadeIn>,
     );
-    const wrapper = container.querySelector('[data-motion="div"]') as HTMLElement;
+    const wrapper = container.firstChild as HTMLElement;
     expect(wrapper.className).toContain('my-fade');
+    expect(wrapper.className).toContain('sd-reveal');
   });
 
-  it('defaults className to empty string when not provided', () => {
+  it('includes sd-reveal class when no className is provided', () => {
     const { container } = render(
       <FadeIn>
         <span>Y</span>
       </FadeIn>,
     );
-    const wrapper = container.querySelector('[data-motion="div"]') as HTMLElement;
-    // No className attribute (or empty)
-    expect(wrapper.getAttribute('class') ?? '').toBe('');
+    const wrapper = container.firstChild as HTMLElement;
+    // sd-reveal is always present in non-immediate mode
+    expect(wrapper.className).toContain('sd-reveal');
   });
 
   it('accepts delay and duration props without crashing', () => {
@@ -127,34 +132,42 @@ describe('FadeIn', () => {
         <span>Z</span>
       </FadeIn>,
     );
-    expect(container.querySelector('[data-motion="div"]')).toBeTruthy();
+    const wrapper = container.firstChild as HTMLElement;
+    expect(wrapper).toBeTruthy();
+    expect(wrapper.style.animationDelay).toBe('1.5s');
+    expect(wrapper.style.animationDuration).toBe('0.2s');
   });
 });
 
 // ---------------------------------------------------------------------------
-// SlideIn
+// SlideIn — pure CSS component, no framer-motion.
+// Renders: <div className="sd-slide sd-slide--{x|y} {className}" style={...}>
+// left|right → sd-slide--x ; up|down → sd-slide--y
+// --sd-slide-translate CSS custom property carries the travel distance.
 // ---------------------------------------------------------------------------
 
 describe('SlideIn', () => {
-  it('renders children inside a motion.div wrapper', () => {
+  it('renders children inside a plain div wrapper', () => {
     const { container, getByText } = render(
       <SlideIn>
         <p>SlideIn body</p>
       </SlideIn>,
     );
     expect(getByText('SlideIn body')).toBeTruthy();
-    const wrapper = container.querySelector('[data-motion="div"]');
+    const wrapper = container.firstChild as HTMLElement;
     expect(wrapper).toBeTruthy();
+    expect(wrapper.tagName).toBe('DIV');
   });
 
-  it('applies the supplied className', () => {
+  it('applies the supplied className alongside sd-slide classes', () => {
     const { container } = render(
       <SlideIn className="slide-x">
         <span>S</span>
       </SlideIn>,
     );
-    const wrapper = container.querySelector('[data-motion="div"]') as HTMLElement;
+    const wrapper = container.firstChild as HTMLElement;
     expect(wrapper.className).toContain('slide-x');
+    expect(wrapper.className).toContain('sd-slide');
   });
 
   it.each([
@@ -168,7 +181,7 @@ describe('SlideIn', () => {
         <span>{direction}</span>
       </SlideIn>,
     );
-    expect(container.querySelector('[data-motion="div"]')?.textContent).toBe(direction);
+    expect((container.firstChild as HTMLElement)?.textContent).toBe(direction);
   });
 
   it('accepts delay + duration props and still renders children', () => {
@@ -180,9 +193,7 @@ describe('SlideIn', () => {
     expect(getByText('Delayed')).toBeTruthy();
   });
 
-  it('exercises every Direction branch (covers getInitialPosition switch)', () => {
-    // Render all four directions in a single tree; each one exercises a
-    // different branch of the getInitialPosition switch statement.
+  it('exercises every Direction branch (left|right → sd-slide--x, up|down → sd-slide--y)', () => {
     const { container } = render(
       <>
         <SlideIn direction="left"><span>L</span></SlideIn>
@@ -191,9 +202,15 @@ describe('SlideIn', () => {
         <SlideIn direction="down"><span>D</span></SlideIn>
       </>,
     );
-    const wrappers = container.querySelectorAll('[data-motion="div"]');
+    // Four sibling divs — each is a direct child of the container div
+    const wrappers = container.querySelectorAll('div > div');
     expect(wrappers.length).toBe(4);
     expect(container.textContent).toBe('LRUD');
+    // Axis class checks
+    expect(wrappers[0].className).toContain('sd-slide--x'); // left
+    expect(wrappers[1].className).toContain('sd-slide--x'); // right
+    expect(wrappers[2].className).toContain('sd-slide--y'); // up
+    expect(wrappers[3].className).toContain('sd-slide--y'); // down
   });
 });
 

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/ban-ts-comment, react-hooks/rules-of-hooks, @typescript-eslint/no-require-imports */
 // @vitest-environment jsdom
 /**
  * Unit tests for app/sites/[domain]/slides/[slug]/PitchDeckPresentation.tsx
@@ -381,11 +382,16 @@ describe('PitchDeckPresentation', () => {
     const { container } = render(
       <PitchDeckPresentation slides={slides} theme={baseTheme} title="d" />,
     );
-    const arrowsTxt = Array.from(container.querySelectorAll('button')).map(
-      (b) => b.textContent || '',
-    );
-    expect(arrowsTxt.some((t) => t.includes('chevron_right'))).toBe(true);
-    expect(arrowsTxt.some((t) => t.includes('chevron_left'))).toBe(false);
+    // Desktop arrows are conditionally rendered (absent); mobile footer arrows
+    // are always rendered but disabled at the boundary. Assert via aria-labels.
+    const prevBtn = container.querySelector('[aria-label="Previous slide"]') as HTMLButtonElement | null;
+    const nextBtn = container.querySelector('[aria-label="Next slide"]') as HTMLButtonElement | null;
+    // The mobile-footer prev button exists but should be disabled on slide 0.
+    expect(prevBtn).not.toBeNull();
+    expect(prevBtn?.disabled).toBe(true);
+    // Next button should exist and be enabled.
+    expect(nextBtn).not.toBeNull();
+    expect(nextBtn?.disabled).toBe(false);
   });
 
   it('renders both arrows on a middle slide', () => {
@@ -407,10 +413,14 @@ describe('PitchDeckPresentation', () => {
     const { container } = render(
       <PitchDeckPresentation slides={slides} theme={baseTheme} title="d" />,
     );
-    const arrowsTxt = Array.from(container.querySelectorAll('button')).map(
-      (b) => b.textContent || '',
-    );
-    expect(arrowsTxt.some((t) => t.includes('chevron_right'))).toBe(false);
+    // Desktop next arrow is conditionally absent on the last slide; the mobile
+    // footer next button is always rendered but disabled at the boundary.
+    const nextBtns = Array.from(
+      container.querySelectorAll('[aria-label="Next slide"]'),
+    ) as HTMLButtonElement[];
+    // All next buttons present should be disabled.
+    expect(nextBtns.length).toBeGreaterThan(0);
+    expect(nextBtns.every((b) => b.disabled)).toBe(true);
   });
 
   // --- Touch swipe ----------------------------------------------------------

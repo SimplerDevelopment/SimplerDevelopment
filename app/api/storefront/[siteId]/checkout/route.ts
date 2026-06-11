@@ -9,6 +9,7 @@ import {
 } from '@/lib/db/schema';
 import { eq, and, asc, desc, sql } from 'drizzle-orm';
 import { resolveSiteStripe, SiteStripeError, type SiteStripeContext } from '@/lib/stripe/site-stripe';
+import { revalidateAdminDashboard } from '@/lib/admin/dashboard-cache';
 
 function generateOrderNumber(prefix: string, lastNumber: string | null): string {
   if (!lastNumber) {
@@ -92,6 +93,7 @@ export async function POST(
       id: cartItems.id,
       productId: cartItems.productId,
       variantId: cartItems.variantId,
+      designId: cartItems.designId,
       quantity: cartItems.quantity,
       unitPrice: cartItems.unitPrice,
     })
@@ -123,6 +125,7 @@ export async function POST(
     const orderItemsData: {
       productId: number;
       variantId: number | null;
+      designId: string | null;
       productName: string;
       variantName: string | null;
       sku: string | null;
@@ -186,6 +189,7 @@ export async function POST(
       orderItemsData.push({
         productId: item.productId,
         variantId: item.variantId,
+        designId: item.designId,
         productName: product.name,
         variantName: variant?.name || null,
         sku: variant?.sku || product.sku || null,
@@ -374,12 +378,20 @@ export async function POST(
       discountCode: appliedDiscountCode,
     }).returning();
 
+    // E2 — new order shows up in the dashboard recent-orders panel.
+    revalidateAdminDashboard();
+
     // 10. Create order items
     await db.insert(orderItems).values(
       orderItemsData.map(item => ({
         orderId: order.id,
         productId: item.productId,
         variantId: item.variantId,
+        // Carry the saved-design FK forward so the order detail (admin
+        // + storefront) can render the design thumbnail and the
+        // fulfillment team has a permanent link back to the customer's
+        // canvas.
+        designId: item.designId,
         productName: item.productName,
         variantName: item.variantName,
         sku: item.sku,

@@ -63,8 +63,25 @@ export function useVisualEditorParent({
 }: UseVisualEditorParentOptions) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [iframeReady, setIframeReady] = useState(false);
+  // Mirrors iframeReady for use inside the load fallback — avoids reading
+  // state inside a setter callback and decouples it from re-renders.
+  const iframeReadyRef = useRef(false);
+  // Pending id of the handleIframeLoad fallback timer. Tracked so each new
+  // load (notably dev-mode HMR reloads, which re-fire iframe onLoad) cancels
+  // the previous load's fallback. Without this, a stale timer from an earlier
+  // load fires sendInit()/setIframeReady(true) against an iframe that is still
+  // reloading — then the next onLoad flips ready back to false, leaving the
+  // handshake flapping and panel edits silently dropped until HMR settles.
+  const loadFallbackTimerRef = useRef<number | null>(null);
   const [customComponents, setCustomComponents] = useState<ComponentManifestEntry[]>([]);
   const [undoRedoState, setUndoRedoState] = useState({ canUndo: false, canRedo: false });
+  // Mirror props into refs synchronously during render so the long-lived
+  // postMessage handler always reads the latest values without re-subscribing.
+  // The react-hooks/refs rule flags render-time ref writes; this pattern is
+  // intentional and safe here (refs are read only in async event handlers, never
+  // for rendering), so disable it for these mirror blocks.
+  // eslint-disable-next-line react-hooks/refs
+  iframeReadyRef.current = iframeReady;
 
   // Store latest values in refs so the message handler always has current data
   const blocksRef = useRef(blocks);
@@ -84,6 +101,8 @@ export function useVisualEditorParent({
   const onCopyBlocksRef = useRef(onCopyBlocks);
   const onPasteBlocksRef = useRef(onPasteBlocks);
   const onRequestImagePickerRef = useRef(onRequestImagePicker);
+  // Same intentional render-time ref mirroring as above — disabled for the block.
+  /* eslint-disable react-hooks/refs */
   blocksRef.current = blocks;
   selectedRef.current = selectedBlockId;
   settingsRef.current = pageSettings;
@@ -101,6 +120,7 @@ export function useVisualEditorParent({
   onCopyBlocksRef.current = onCopyBlocks;
   onPasteBlocksRef.current = onPasteBlocks;
   onRequestImagePickerRef.current = onRequestImagePicker;
+  /* eslint-enable react-hooks/refs */
 
   // Send EDITOR_INIT to the iframe
   const sendInit = useCallback(() => {
@@ -121,6 +141,7 @@ export function useVisualEditorParent({
 
       switch (event.data.type) {
         case IFRAME_MESSAGES.IFRAME_READY: {
+          iframeReadyRef.current = true;
           setIframeReady(true);
           const payload = event.data.payload as IframeReadyPayload;
           if (payload.registeredComponents?.length) {
@@ -214,15 +235,56 @@ export function useVisualEditorParent({
     return () => window.removeEventListener('message', handleMessage);
   }, [sendInit]);
 
-  // When the iframe loads (or reloads), send EDITOR_INIT proactively
-  // This handles the race where IFRAME_READY fires before our listener is attached
+  // When the iframe loads (or reloads), trust IFRAME_READY to drive the
+  // handshake. The iframe's React calls postMessage({type: IFRAME_READY}) as
+  // soon as its useEffect attaches, which the message listener above handles
+  // by calling sendInit() and setIframeReady(true).
+  //
+  // Previously this used setTimeout(500ms) as the source of truth, which
+  // capped per-slide TTI at half a second even when the iframe was ready
+  // in ~50ms. Now we just keep a short fallback for the rare race where
+  // the iframe loads but never fires IFRAME_READY (e.g. iframe HTML
+  // shipped without the editor harness because of a stale build). 800ms
+  // matches the longest hydration we've ever seen in dev profiling, and
+  // the work it does (a single postMessage + boolean set) is idempotent
+  // if IFRAME_READY also lands.
   const handleIframeLoad = useCallback(() => {
-    // Give the iframe's React a moment to hydrate and attach its listener
-    setTimeout(() => {
+    if (typeof window === 'undefined') return;
+    // A reload means the in-iframe React just remounted — wait for its
+    // fresh IFRAME_READY. If that never arrives (older bundle, hard
+    // error), the fallback below kicks in.
+    iframeReadyRef.current = false;
+    setIframeReady(false);
+    // Cancel the previous load's fallback so only the most recent load can
+    // resolve readiness. Critical under dev HMR, where onLoad fires several
+    // times in quick succession — a leftover timer would otherwise flip
+    // ready=true against a mid-reload iframe.
+    if (loadFallbackTimerRef.current !== null) {
+      window.clearTimeout(loadFallbackTimerRef.current);
+    }
+    loadFallbackTimerRef.current = window.setTimeout(() => {
+      loadFallbackTimerRef.current = null;
+      // If IFRAME_READY already fired we've nothing to do — the listener
+      // above already initialized us. Otherwise this is the safety net
+      // for the very rare case where the iframe loaded but never posted
+      // IFRAME_READY (e.g. an older bundle).
+      if (iframeReadyRef.current) return;
+      iframeReadyRef.current = true;
       sendInit();
       setIframeReady(true);
-    }, 500);
+    }, 800);
   }, [sendInit]);
+
+  // Clear any pending load fallback on unmount so it can't fire against a
+  // torn-down iframe (e.g. navigating away mid-reload).
+  useEffect(() => {
+    return () => {
+      if (loadFallbackTimerRef.current !== null) {
+        window.clearTimeout(loadFallbackTimerRef.current);
+        loadFallbackTimerRef.current = null;
+      }
+    };
+  }, []);
 
   // Send block updates when blocks change. Pass `coalesce: true` for updates
   // generated mid-drag (slider thumb moving, color picker tracking) so the

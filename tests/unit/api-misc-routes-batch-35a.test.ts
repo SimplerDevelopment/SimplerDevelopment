@@ -31,6 +31,8 @@ vi.mock('drizzle-orm', () => ({
     strings: Array.from(strings),
     values,
   }),
+  isNull: (a: unknown) => ({ op: 'isNull', a }),
+  inArray: (a: unknown, list: unknown[]) => ({ op: 'inArray', a, list }),
 }));
 
 // schema — proxy tables, every property access returns a { __col, __table }.
@@ -47,7 +49,7 @@ vi.mock('@/lib/db/schema', () => {
         },
       },
     );
-  return {
+  return new Proxy({
     chatWidgets: wrap('chatWidgets'),
     chatConversations: wrap('chatConversations'),
     giftCertificates: wrap('giftCertificates'),
@@ -55,7 +57,7 @@ vi.mock('@/lib/db/schema', () => {
     siteNavigation: wrap('siteNavigation'),
     siteBranding: wrap('siteBranding'),
     storeCustomers: wrap('storeCustomers'),
-  };
+  }, { has: (t, p) => (p in t) || !(p === "then" || p === "__esModule" || p === "default" || typeof p !== "string"), get: (t, p) => (p in t) ? t[p] : ((p === "then" || p === "__esModule" || p === "default" || typeof p !== "string") ? undefined : wrap(p)) });
 });
 
 // Chat token issuance

@@ -35,6 +35,9 @@ vi.mock('drizzle-orm', () => ({
   ne: (a: unknown, b: unknown) => ({ op: 'ne', a, b }),
   gte: (a: unknown, b: unknown) => ({ op: 'gte', a, b }),
   desc: (a: unknown) => ({ op: 'desc', a }),
+  isNull: (a: unknown) => ({ op: 'isNull', a }),
+  or: (...args: unknown[]) => ({ op: 'or', args: args.filter(Boolean) }),
+  inArray: (a: unknown, list: unknown[]) => ({ op: 'inArray', a, list }),
 }));
 
 vi.mock('@/lib/db', () => {

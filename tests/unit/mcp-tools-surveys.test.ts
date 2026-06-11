@@ -30,6 +30,7 @@ const dbState: {
   updateReturning: Row[];
   capturedInsertValues: Row | null;
   capturedUpdatePatch: Row | null;
+  insertCalls: Row[];
 } = {
   insertReturning: [],
   selectQueue: [],
@@ -37,6 +38,7 @@ const dbState: {
   updateReturning: [],
   capturedInsertValues: null,
   capturedUpdatePatch: null,
+  insertCalls: [],
 };
 
 function makeChain(rows: Row[]) {
@@ -56,8 +58,10 @@ vi.mock('@/lib/db', () => ({
     insert: vi.fn(() => ({
       values: vi.fn((vals: Row) => {
         dbState.capturedInsertValues = vals;
+        dbState.insertCalls.push(vals);
         return {
           returning: vi.fn(async () => dbState.insertReturning),
+          onConflictDoNothing: vi.fn(async () => undefined),
         };
       }),
     })),
@@ -83,7 +87,7 @@ vi.mock('@/lib/db/schema', () => {
   const col = (name: string) => ({ name });
   const make = (...cols: string[]) =>
     Object.fromEntries(cols.map((c) => [c, col(c)])) as Record<string, unknown>;
-  return {
+  return new Proxy({
     projects: make('id', 'clientId'),
     kanbanCards: make('id'),
     kanbanColumns: make('id'),
@@ -162,7 +166,8 @@ vi.mock('@/lib/db/schema', () => {
     aiCreditLedger: make('id'),
     hostedSites: make('id'),
     googleWorkspaceUserConnections: make('id'),
-  };
+    mcpApprovalLinks: make('id', 'token', 'entityType', 'entityId', 'summary', 'status', 'clientId', 'createdBy', 'expiresAt'),
+  }, { has: (t, p) => (p in t) || !(p === "then" || p === "__esModule" || p === "default" || typeof p !== "string"), get: (t, p) => (p in t) ? t[p] : ((p === "then" || p === "__esModule" || p === "default" || typeof p !== "string") ? undefined : new Proxy({ __table: String(p) }, { get: (_x, c) => c === "__table" ? String(p) : (typeof c === "string" ? { __col: c, __table: String(p) } : undefined) })) });
 });
 
 vi.mock('drizzle-orm', () => ({
@@ -195,6 +200,7 @@ vi.mock('@/lib/portal-auth', () => ({
 // Stubs for revalidatePath (called inside revalidateForWrite).
 vi.mock('next/cache', () => ({
   revalidatePath: vi.fn(),
+  unstable_cache: (fn: (...a: unknown[]) => unknown) => fn,
 }));
 
 // Transitive imports pulled in by surveys.ts — keep mocks minimal.
@@ -269,12 +275,16 @@ function registerAll(scopes: string[] = ['*']) {
 // ── tests ───────────────────────────────────────────────────────────────────
 
 beforeEach(() => {
-  dbState.insertReturning = [];
+  // Default to [{ id: 1 }] so createApprovalLink (called by surveys_create and
+  // surveys_update via db.insert(mcpApprovalLinks).returning()) can read row.id.
+  // Tests that check a specific returning row override this themselves.
+  dbState.insertReturning = [{ id: 1 }];
   dbState.selectQueue = [];
   dbState.selectDefault = [];
   dbState.updateReturning = [];
   dbState.capturedInsertValues = null;
   dbState.capturedUpdatePatch = null;
+  dbState.insertCalls = [];
   hasServiceAccessMock.mockReset();
   hasServiceAccessMock.mockResolvedValue(true);
 });
@@ -466,7 +476,9 @@ describe('surveys_create', () => {
     });
     const out = parseJson(res) as Row;
     expect(out.id).toBe(100);
-    const vals = dbState.capturedInsertValues!;
+    // insertCalls[0] = survey row; insertCalls[1] = mcpApprovalLinks row.
+    // Use [0] so the approval-link insert does not overwrite our assertion target.
+    const vals = dbState.insertCalls[0]!;
     expect(vals.clientId).toBe(1);
     expect(vals.title).toBe('Lead Intake Form!');
     // baseSlug normalizes punctuation+spaces; suffix is base36 of Date.now()
@@ -484,7 +496,8 @@ describe('surveys_create', () => {
     dbState.insertReturning = [{ id: 101 }];
     const tools = registerAll();
     await tools.get('surveys_create')!.handler({ title: 'Quick Poll' });
-    const vals = dbState.capturedInsertValues!;
+    // insertCalls[0] = survey row; [1] = mcpApprovalLinks. Use [0].
+    const vals = dbState.insertCalls[0]!;
     expect(vals.description).toBeNull();
     expect(vals.fields).toEqual([]);
     expect(vals.requireEmail).toBe(false);

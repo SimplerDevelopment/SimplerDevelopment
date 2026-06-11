@@ -9,11 +9,10 @@ export function BookingBlockSettings({ block, onChange }: { block: BookingBlock;
   const [pages, setPages] = useState<Array<{ id: number; slug: string; title: string; duration: number; active: boolean }>>([]);
   const [search, setSearch] = useState('');
   const [open, setOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true); // starts true — the mount fetch below resolves it
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    setLoading(true);
     fetch('/api/portal/tools/booking')
       .then(r => r.json())
       .then(json => { if (json.success) setPages(json.data || []); })
@@ -173,6 +172,21 @@ export function BookingBlockSettings({ block, onChange }: { block: BookingBlock;
                   value={so.buttonText || ''}
                   onChange={(v) => update({ buttonText: v || undefined })}
                 />
+                <div className="grid grid-cols-2 gap-2">
+                  <TokenColorPicker
+                    label="Calendar Date Text"
+                    value={so.calendarDateColor || ''}
+                    onChange={(v) => update({ calendarDateColor: v || undefined })}
+                  />
+                  <TokenColorPicker
+                    label="Calendar Date Background"
+                    value={so.calendarDateBg || ''}
+                    onChange={(v) => update({ calendarDateBg: v || undefined })}
+                  />
+                </div>
+                <p className="text-[11px] text-muted-foreground -mt-1">
+                  Controls the day numbers + cells in the date picker. Date Text also recolors the month and weekday labels. Leave blank to use the accent / text colors.
+                </p>
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <label className="block text-xs text-muted-foreground mb-1">Heading Font</label>

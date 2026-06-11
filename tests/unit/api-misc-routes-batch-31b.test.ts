@@ -67,6 +67,7 @@ vi.mock('drizzle-orm', () => ({
       raw: (s: string) => ({ op: 'sql.raw', s }),
     },
   ),
+  inArray: (a: unknown, list: unknown[]) => ({ op: 'inArray', a, list }),
 }));
 
 // schema — proxy tables
@@ -83,11 +84,11 @@ vi.mock('@/lib/db/schema', () => {
         },
       },
     );
-  return {
+  return new Proxy({
     emailSegments: wrap('emailSegments'),
     emailLists: wrap('emailLists'),
     emailSubscribers: wrap('emailSubscribers'),
-  };
+  }, { has: (t, p) => (p in t) || !(p === "then" || p === "__esModule" || p === "default" || typeof p !== "string"), get: (t, p) => (p in t) ? t[p] : ((p === "then" || p === "__esModule" || p === "default" || typeof p !== "string") ? undefined : wrap(p)) });
 });
 
 // ---------------------------------------------------------------------------
@@ -169,7 +170,9 @@ vi.mock('@/lib/db', () => {
         deleteCalls.push({ table: table.__table, filter });
         return {
           returning() {
-            return Promise.resolve([]);
+            // Return a sentinel row so the route's `deleted.length === 0` guard
+            // sees a successful delete (non-empty = row was found and deleted).
+            return Promise.resolve([{ id: 1 }]);
           },
           then(onF: (v: unknown) => unknown, onR?: (e: unknown) => unknown) {
             return Promise.resolve(undefined).then(onF, onR);

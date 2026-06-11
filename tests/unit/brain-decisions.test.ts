@@ -132,6 +132,8 @@ vi.mock('drizzle-orm', () => ({
   gte: (col: { __col: string }, val: unknown) => ({ kind: 'gte', col: col.__col, val }),
   lte: (col: { __col: string }, val: unknown) => ({ kind: 'lte', col: col.__col, val }),
   inArray: (col: { __col: string }, val: unknown) => ({ kind: 'inArray', col: col.__col, val }),
+  isNull: (a: unknown) => ({ op: 'isNull', a }),
+  or: (...args: unknown[]) => ({ op: 'or', args: args.filter(Boolean) }),
 }));
 
 // Import the SUT only after all mocks are in place.

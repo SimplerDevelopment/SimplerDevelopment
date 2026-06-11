@@ -34,12 +34,25 @@ vi.mock('@/lib/security/assert-owned', () => ({
   filterUserIdsVisibleToClient: (...args: unknown[]) => filterUserIdsVisibleToClientMock(...args),
 }));
 
+const canUserEditProjectMock = vi.fn();
+vi.mock('@/lib/portal/project-access', () => ({
+  canUserEditProject: (...args: unknown[]) => canUserEditProjectMock(...args),
+}));
+
+vi.mock('@/lib/portal/sprint-snapshots', () => ({
+  recordCardAddedToSprint: vi.fn().mockResolvedValue(undefined),
+  recordCardRemovedFromSprint: vi.fn().mockResolvedValue(undefined),
+}));
+
 // drizzle-orm — stub operators to plain objects (we don't introspect them)
 vi.mock('drizzle-orm', () => ({
   eq: (a: unknown, b: unknown) => ({ op: 'eq', a, b }),
   and: (...args: unknown[]) => ({ op: 'and', args }),
   asc: (a: unknown) => ({ op: 'asc', a }),
   desc: (a: unknown) => ({ op: 'desc', a }),
+  isNull: (a: unknown) => ({ op: 'isNull', a }),
+  or: (...args: unknown[]) => ({ op: 'or', args: args.filter(Boolean) }),
+  inArray: (a: unknown, list: unknown[]) => ({ op: 'inArray', a, list }),
 }));
 
 // schema — proxy tables so `table.col` and `eq(table.col, x)` are inert
@@ -55,7 +68,7 @@ vi.mock('@/lib/db/schema', () => {
         },
       },
     );
-  return {
+  return new Proxy({
     kanbanCards: wrap('kanbanCards'),
     kanbanCardComments: wrap('kanbanCardComments'),
     kanbanCardTimeLogs: wrap('kanbanCardTimeLogs'),
@@ -70,7 +83,7 @@ vi.mock('@/lib/db/schema', () => {
     kanbanColumns: wrap('kanbanColumns'),
     users: wrap('users'),
     projects: wrap('projects'),
-  };
+  }, { has: (t, p) => (p in t) || !(p === "then" || p === "__esModule" || p === "default" || typeof p !== "string"), get: (t, p) => (p in t) ? t[p] : ((p === "then" || p === "__esModule" || p === "default" || typeof p !== "string") ? undefined : wrap(p)) });
 });
 
 // ---- db mock with select-queue + capture for writes ----
@@ -229,6 +242,7 @@ beforeEach(() => {
   getPortalClientMock.mockReset();
   logCardActivityMock.mockReset().mockResolvedValue(undefined);
   filterUserIdsVisibleToClientMock.mockReset().mockResolvedValue([]);
+  canUserEditProjectMock.mockReset().mockResolvedValue(false);
 });
 
 // ---------------------------------------------------------------------------
@@ -263,19 +277,26 @@ describe('GET /api/portal/cards/[id]', () => {
   it('returns 200 with full payload for staff (admin) including timeLogs', async () => {
     authMock.mockResolvedValue(STAFF_SESSION);
     const card = { id: 1, projectId: 5, number: 42, title: 'Hello', dueDate: null };
-    // Queue mirrors handler order
-    selectQueue.push([card]); // authorizeCard: card
-    selectQueue.push([{ id: 100, body: 'first comment', userId: 7, userName: 'Alice' }]); // comments
-    selectQueue.push([{ id: 200, minutes: 30, userId: 7, userName: 'Alice' }]); // timeLogs (staff)
-    selectQueue.push([{ id: 300, originalName: 'f.png', userId: 7 }]); // files
-    selectQueue.push([{ id: 400, name: 'bug', color: '#f00' }]); // labels
-    selectQueue.push([{ id: 500, type: 'card.commented' }]); // activities
-    selectQueue.push([{ projectKey: 'PROJ' }]); // project key lookup
-    selectQueue.push([{ id: 600, text: 'todo', order: 1 }]); // checklist
-    selectQueue.push([{ id: 7, name: 'Alice', email: 'a@x.com' }]); // assignees
-    selectQueue.push([{ userId: 7 }]); // watcherRows
-    selectQueue.push([{ id: 11, title: 'Blocker', number: 9, columnIsDone: false }]); // blockers
-    selectQueue.push([]); // blocking
+    // Queue order: initial card select, then Promise.all eager consumers in
+    // construction order:
+    //   1. activities.limit(200)  — array index 4, eager pop during construction
+    //   2. projectRow.limit(1)    — array index 5, eager pop during construction
+    //   3. mentionableUsers IIFE  — array index 13; async fn returns a chain whose
+    //      .then() is called synchronously by the async runtime during construction
+    // Then .then()-based items consumed in Promise.all index order (0,1,2,3,6-12,14-16).
+    selectQueue.push([card]); // initial card select (limit(1))
+    selectQueue.push([{ id: 500, type: 'card.commented' }]); // activities — eager limit(200)
+    selectQueue.push([{ projectKey: 'PROJ' }]); // projectRow — eager limit(1)
+    selectQueue.push([]); // mentionableUsers IIFE users query — eager async return
+    selectQueue.push([{ id: 100, body: 'first comment', userId: 7, userName: 'Alice' }]); // comments (then, index 0)
+    selectQueue.push([{ id: 200, minutes: 30, userId: 7, userName: 'Alice' }]); // timeLogs (then, index 1, staff)
+    selectQueue.push([{ id: 300, originalName: 'f.png', userId: 7 }]); // files (then, index 2)
+    selectQueue.push([{ id: 400, name: 'bug', color: '#f00' }]); // labels (then, index 3)
+    selectQueue.push([{ id: 600, text: 'todo', order: 1 }]); // checklist (then, index 6)
+    selectQueue.push([{ id: 7, name: 'Alice', email: 'a@x.com' }]); // assignees (then, index 7)
+    selectQueue.push([{ userId: 7 }]); // watcherRows (then, index 8)
+    selectQueue.push([{ id: 11, title: 'Blocker', number: 9, columnIsDone: false }]); // blockers (then, index 9)
+    selectQueue.push([]); // blocking (then, index 10)
     const res = await GET(new Request('http://x'), makeParams('1'));
     expect(res.status).toBe(200);
     const body = await res.json();
@@ -299,21 +320,35 @@ describe('GET /api/portal/cards/[id]', () => {
     authMock.mockResolvedValue(CLIENT_SESSION);
     getPortalClientMock.mockResolvedValue({ id: 33 });
     const card = { id: 1, projectId: 5, number: null, dueDate: null };
-    // authorizeCard: card → project → returns { canEdit: project.isPrivate }
-    selectQueue.push([card]);
-    selectQueue.push([{ id: 5, clientId: 33, isPrivate: true }]); // project ownership
-    // Continue with GET reads:
-    selectQueue.push([{ id: 100, body: 'c1', userId: 12 }]); // comments
-    // timeLogs is SKIPPED for non-staff (no DB call) → DO NOT push
-    selectQueue.push([{ id: 300, originalName: 'f.png' }]); // files
-    selectQueue.push([{ id: 400, name: 'bug' }]); // labels
-    selectQueue.push([{ id: 500, type: 'x' }]); // activities
-    selectQueue.push([{ projectKey: 'P' }]); // project key
-    selectQueue.push([]); // checklist
-    selectQueue.push([]); // assignees
-    selectQueue.push([{ userId: 999 }]); // watcherRows (different user)
-    selectQueue.push([]); // blockers
-    selectQueue.push([]); // blocking
+    // Consumption order:
+    //   1. initial card (sync limit(1))
+    //   2. project ownership (sync limit(1), before Promise.all)
+    //   3. activities eager limit(200) (sync, array construction)
+    //   4. projectRow eager limit(1) (sync, array construction)
+    //   5. IIFE clientMembers (first microtask — IIFE starts at idx 13, hits await,
+    //      schedules clientMembers.then before Promise.all processes idx 0)
+    //   6. comments (then, index 0)
+    //   timeLogs: Promise.resolve([]) — no slot
+    //   7. files (then, index 2)
+    //   8. labels (then, index 3)
+    //   9-12. checklist, assignees, watcherRows, blockers (then, indices 6-9)
+    //   13. blocking (then, index 10)
+    //   14+. projectLabels, projectCardRows (indices 11-12, get [])
+    //   late: users inside IIFE (after clientMembers resolves — tail of queue)
+    selectQueue.push([card]); // (1) initial card
+    selectQueue.push([{ id: 5, clientId: 33, isPrivate: true }]); // (2) project ownership
+    selectQueue.push([{ id: 500, type: 'x' }]); // (3) activities eager
+    selectQueue.push([{ projectKey: 'P' }]); // (4) projectRow eager
+    selectQueue.push([]); // (5) IIFE clientMembers (microtask, before comments)
+    selectQueue.push([{ id: 100, body: 'c1', userId: 12 }]); // (6) comments
+    // timeLogs is SKIPPED for non-staff (Promise.resolve([])) → no queue slot
+    selectQueue.push([{ id: 300, originalName: 'f.png' }]); // (7) files
+    selectQueue.push([{ id: 400, name: 'bug' }]); // (8) labels
+    selectQueue.push([]); // (9) checklist
+    selectQueue.push([]); // (10) assignees
+    selectQueue.push([{ userId: 999 }]); // (11) watcherRows
+    selectQueue.push([]); // (12) blockers
+    selectQueue.push([]); // (13) blocking
     const res = await GET(new Request('http://x'), makeParams('1'));
     expect(res.status).toBe(200);
     const body = await res.json();
@@ -511,6 +546,7 @@ describe('PATCH /api/portal/cards/[id]', () => {
     getPortalClientMock.mockResolvedValueOnce({ id: 33 }); // authorize call
     selectQueue.push([{ id: 1, projectId: 5, title: 'T' }]); // card
     selectQueue.push([{ id: 5, clientId: 33, isPrivate: true }]); // project
+    canUserEditProjectMock.mockResolvedValueOnce(true); // private project → canEdit
     updateReturnQueue.push([{ id: 1, title: 'T' }]); // card update
     getPortalClientMock.mockResolvedValueOnce({ id: 33 }); // assignment path
     filterUserIdsVisibleToClientMock.mockResolvedValueOnce([]); // user 999 NOT in client
@@ -528,6 +564,7 @@ describe('PATCH /api/portal/cards/[id]', () => {
     getPortalClientMock.mockResolvedValueOnce({ id: 33 }); // authorize ok
     selectQueue.push([{ id: 1, projectId: 5, title: 'T' }]); // card
     selectQueue.push([{ id: 5, clientId: 33, isPrivate: true }]); // project private
+    canUserEditProjectMock.mockResolvedValueOnce(true); // private project → canEdit
     updateReturnQueue.push([{ id: 1, title: 'T' }]); // card update happens before assignedTo branch
     getPortalClientMock.mockResolvedValueOnce(null); // assignment path: no client
     const res = await PATCH(makeJsonRequest({ assignedTo: 50 }), makeParams('1'));
@@ -577,6 +614,7 @@ describe('DELETE /api/portal/cards/[id]', () => {
     getPortalClientMock.mockResolvedValue({ id: 33 });
     selectQueue.push([{ id: 1, projectId: 5 }]); // card
     selectQueue.push([{ id: 5, clientId: 33, isPrivate: true }]); // private project
+    canUserEditProjectMock.mockResolvedValueOnce(true); // private project → canEdit
     const res = await DELETE(new Request('http://x'), makeParams('1'));
     expect(res.status).toBe(200);
   });

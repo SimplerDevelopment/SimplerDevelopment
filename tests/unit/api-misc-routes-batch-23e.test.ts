@@ -40,6 +40,8 @@ vi.mock('drizzle-orm', () => ({
   or: (...args: unknown[]) => ({ op: 'or', args }),
   desc: (a: unknown) => ({ op: 'desc', a }),
   asc: (a: unknown) => ({ op: 'asc', a }),
+  isNull: (a: unknown) => ({ op: 'isNull', a }),
+  inArray: (a: unknown, list: unknown[]) => ({ op: 'inArray', a, list }),
 }));
 
 vi.mock('@/lib/db/schema', () => {
@@ -54,13 +56,13 @@ vi.mock('@/lib/db/schema', () => {
         },
       },
     );
-  return {
+  return new Proxy({
     emailTemplates: wrap('emailTemplates'),
     pitchDecks: wrap('pitchDecks'),
     clientWebsites: wrap('clientWebsites'),
     clients: wrap('clients'),
     users: wrap('users'),
-  };
+  }, { has: (t, p) => (p in t) || !(p === "then" || p === "__esModule" || p === "default" || typeof p !== "string"), get: (t, p) => (p in t) ? t[p] : ((p === "then" || p === "__esModule" || p === "default" || typeof p !== "string") ? undefined : wrap(p)) });
 });
 
 // brain/tasks helpers
@@ -71,6 +73,7 @@ vi.mock('@/lib/brain/tasks', () => ({
   getTask: (...args: unknown[]) => getTaskMock(...args),
   updateTask: (...args: unknown[]) => updateTaskMock(...args),
   deleteTask: (...args: unknown[]) => deleteTaskMock(...args),
+  countTasks: (..._args: unknown[]) => Promise.resolve(0),
 }));
 
 const requireBrainEntitlementMock = vi.fn();
@@ -109,22 +112,21 @@ vi.mock('@/lib/db', () => {
     for (const m of ['from', 'leftJoin', 'innerJoin', 'where', 'groupBy']) {
       chain[m] = passthrough;
     }
-    chain.orderBy = () => {
+    const makeTerminal = () => {
       materialize();
-      return {
+      const term: Record<string, unknown> = {
         then(onF: (v: unknown) => unknown, onR?: (e: unknown) => unknown) {
           return materializedPromise!.then(onF, onR);
         },
       };
+      // Allow further chaining after orderBy/limit (e.g. .orderBy().limit())
+      term.limit = () => makeTerminal();
+      term.offset = () => makeTerminal();
+      term.orderBy = () => makeTerminal();
+      return term;
     };
-    chain.limit = () => {
-      materialize();
-      return {
-        then(onF: (v: unknown) => unknown, onR?: (e: unknown) => unknown) {
-          return materializedPromise!.then(onF, onR);
-        },
-      };
-    };
+    chain.orderBy = makeTerminal;
+    chain.limit = makeTerminal;
     chain.then = (onF: (v: unknown) => unknown, onR?: (e: unknown) => unknown) =>
       materialize().then(onF, onR);
     return chain;
@@ -432,22 +434,24 @@ describe('POST /api/portal/tools/pitch-decks', () => {
 // ===========================================================================
 
 describe('GET /api/admin/portal/websites', () => {
+  const adminWebsitesReq = () => new Request('http://localhost/api/admin/portal/websites');
+
   it('returns 401 without a session', async () => {
     authMock.mockResolvedValue(null);
-    const res = await adminWebsitesRoute.GET();
+    const res = await adminWebsitesRoute.GET(adminWebsitesReq());
     expect(res.status).toBe(401);
   });
 
   it('returns 401 when user is not admin or employee', async () => {
     authMock.mockResolvedValue({ user: { id: '7', role: 'client' } });
-    const res = await adminWebsitesRoute.GET();
+    const res = await adminWebsitesRoute.GET(adminWebsitesReq());
     expect(res.status).toBe(401);
   });
 
   it('returns the joined website list for admin users', async () => {
     authMock.mockResolvedValue({ user: { id: '7', role: 'admin' } });
     selectQueue.push([{ id: 1, name: 'Acme Site', clientCompany: 'Acme' }]);
-    const res = await adminWebsitesRoute.GET();
+    const res = await adminWebsitesRoute.GET(adminWebsitesReq());
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.success).toBe(true);
@@ -457,7 +461,7 @@ describe('GET /api/admin/portal/websites', () => {
   it('allows employee role too', async () => {
     authMock.mockResolvedValue({ user: { id: '7', role: 'employee' } });
     selectQueue.push([]);
-    const res = await adminWebsitesRoute.GET();
+    const res = await adminWebsitesRoute.GET(adminWebsitesReq());
     expect(res.status).toBe(200);
   });
 });

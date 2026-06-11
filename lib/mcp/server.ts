@@ -14,7 +14,7 @@
  *     are first-class citizens of the same registry
  *
  * The list of expected tool names is locked in by
- * `tests/integration/api/mcp-tool-registry-baseline.test.ts` — that test
+ * `tests/unit/mcp-tool-registry-baseline.test.ts` — that test
  * fails if any registration drifts.
  */
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';

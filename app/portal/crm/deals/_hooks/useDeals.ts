@@ -43,13 +43,16 @@ export function useDeals(): UseDealsState {
   const [statusFilter, setStatusFilter] = useState('open');
   const [customFilters, setCustomFilters] = useState<Record<number, string>>({});
 
-  // Initial load
+  // Initial load. We no longer bulk-fetch companies — the company pickers
+  // inside NewDealModal/DealDetailDrawer use the typeahead endpoint
+  // (?q=<query>) instead. `companies` here is just a local cache that grows
+  // when the user inline-creates a company so the drawer/modal can render
+  // the freshly-created option without an extra round-trip.
   useEffect(() => {
-    Promise.all([api.fetchPipelines(), api.fetchContacts(), api.fetchCompanies()]).then(
-      ([p, c, co]) => {
+    Promise.all([api.fetchPipelines(), api.fetchContacts()]).then(
+      ([p, c]) => {
         setPipelines(p);
         setContacts(c);
-        setCompanies(co);
         if (p.length > 0) {
           setSelectedPipelineId(p[0].id);
         }

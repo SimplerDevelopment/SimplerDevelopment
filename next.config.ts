@@ -21,10 +21,22 @@ const CSP_REPORT_ONLY = [
   "form-action 'self'",
 ].join('; ');
 
-const SECURITY_HEADERS = [
-  { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' },
+// Base security headers applied to all routes. X-Frame-Options is intentionally
+// absent here — it is applied only to portal/admin/API routes below so that
+// /sites/** pages remain embeddable cross-origin in the visual editor iframe.
+const SECURITY_HEADERS_BASE = [
+  // Per-host HSTS only — intentionally NO `includeSubDomains` / `preload`.
+  // Tenant sites live on *.simplerdevelopment.com with per-subdomain TLS certs that
+  // Vercel provisions lazily (when a subdomain is created). We deliberately keep HSTS
+  // scoped to each host: a single bare `max-age` per host hard-enforces HTTPS on that
+  // host only. We avoid `includeSubDomains` + `preload` because, if the apex ever began
+  // emitting them and was submitted to the preload list, browsers would pre-enforce
+  // valid-cert HTTPS on EVERY *.simplerdevelopment.com — including a brand-new tenant
+  // whose cert hasn't finished provisioning — making it unreachable with no bypass.
+  // `preload` is also a one-way door (removal takes months to roll through browsers).
+  // The apex 307 already only emits bare `max-age`; this keeps the app header consistent.
+  { key: 'Strict-Transport-Security', value: 'max-age=63072000' },
   { key: 'X-Content-Type-Options', value: 'nosniff' },
-  { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
   { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
   // microphone=(self) enables the portal's WebRTC voice assistant (getUserMedia)
   // on same-origin pages. Camera stays disabled. If we later want mic limited to
@@ -33,20 +45,30 @@ const SECURITY_HEADERS = [
   { key: 'Content-Security-Policy-Report-Only', value: CSP_REPORT_ONLY },
 ];
 
+// X-Frame-Options applied only to routes that must never be framed externally.
+// /sites/:path* is intentionally excluded — the visual editor embeds it in an
+// iframe from a different origin (tenant subdomain → site domain).
+const FRAME_DENY_HEADERS = [{ key: 'X-Frame-Options', value: 'SAMEORIGIN' }];
+
 // The `dev` branch is a throwaway, deploy-on-every-push environment: its Vercel
-// build is intentionally relaxed so a type or lint error never blocks a dev
-// deploy. Gated on Vercel's branch ref, so `main` (production) and `staging`
-// keep strict builds. Mirrors the relaxed git hooks for the same branch.
+// build is intentionally relaxed so a lint error never blocks a dev deploy.
+// Gated on Vercel's branch ref, so `main` (production) and `staging` keep
+// strict lint builds. Mirrors the relaxed git hooks for the same branch.
+// (TypeScript is already skipped in-build for ALL branches below.)
 const isDevDeploy = process.env.VERCEL_GIT_COMMIT_REF === 'dev';
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
-  ...(isDevDeploy
-    ? {
-        eslint: { ignoreDuringBuilds: true },
-        typescript: { ignoreBuildErrors: true },
-      }
-    : {}),
+  ...(isDevDeploy ? { eslint: { ignoreDuringBuilds: true } } : {}),
+  // The in-build `next build` TypeScript recheck re-type-checks the whole
+  // ~357k-line app in a single worker and exhausts the heap (OOM/SIGABRT) on
+  // both local and the Vercel build container (made worse by the Sentry plugin).
+  // Types are still gated outside the build — `tsc --noEmit` runs in the
+  // pre-push hook and CI — so skipping the redundant in-build pass keeps the
+  // type guarantee while letting the production build complete reliably.
+  typescript: {
+    ignoreBuildErrors: true,
+  },
   // Limit static generation workers to avoid exhausting Postgres connections
   experimental: {
     workerThreads: false,
@@ -104,7 +126,11 @@ const nextConfig: NextConfig = {
 
   async headers() {
     return [
-      { source: '/:path*', headers: SECURITY_HEADERS },
+      { source: '/:path*', headers: SECURITY_HEADERS_BASE },
+      { source: '/portal/:path*', headers: FRAME_DENY_HEADERS },
+      { source: '/admin/:path*', headers: FRAME_DENY_HEADERS },
+      { source: '/api/:path*', headers: FRAME_DENY_HEADERS },
+      // /sites/:path* intentionally has no X-Frame-Options — visual editor must embed it
     ];
   },
 };

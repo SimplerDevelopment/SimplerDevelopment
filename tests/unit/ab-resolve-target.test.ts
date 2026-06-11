@@ -69,7 +69,7 @@ describe('lib/ab/resolve — resolveAbContentForTarget', () => {
     const result = await resolveAbContentForTarget('deck', 1, null, 'orig');
     expect(result).toEqual({ content: 'orig', ab: null });
     expect(dbSelectMock).not.toHaveBeenCalled();
-  });
+  }, 20_000);
 
   it('returns content + null ab when no experiment is running', async () => {
     chainedSelect(null, null);

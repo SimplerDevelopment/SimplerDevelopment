@@ -14,7 +14,6 @@ export default async function AccountLayout({ children, params }: LayoutProps) {
 
   return (
     <CustomerAuthProvider siteId={site.id}>
-      <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
       {children}
     </CustomerAuthProvider>
   );

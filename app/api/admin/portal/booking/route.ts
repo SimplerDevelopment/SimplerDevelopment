@@ -12,6 +12,12 @@ async function requireStaff() {
   return session;
 }
 
+// E2 perf — the prior aggregator grouped ALL bookings by bookingPageId with
+// no time bound. On a tenant with months of historical bookings that scan
+// dominates the request. Now we time-bound the booking count + upcoming
+// list to the same 30-day window the UI renders. Both queries land on the
+// new (start_time, status) and (booking_page_id) indexes from
+// 0132_perf_admin_approvals_indexes.sql.
 export async function GET() {
   if (!await requireStaff()) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
 
@@ -39,7 +45,8 @@ export async function GET() {
     .innerJoin(users, eq(clients.userId, users.id))
     .orderBy(desc(bookingPages.createdAt));
 
-  // Get booking counts per page
+  // E2 — restrict booking counts to the same 30-day window the UI renders,
+  // and use the (start_time, status) index for the upcoming partition.
   const bookingCounts = await db
     .select({
       bookingPageId: bookings.bookingPageId,
@@ -47,6 +54,10 @@ export async function GET() {
       upcoming: sql<number>`sum(case when ${bookings.startTime} >= now() then 1 else 0 end)`,
     })
     .from(bookings)
+    .where(and(
+      gte(bookings.startTime, now),
+      lte(bookings.startTime, thirtyDaysFromNow),
+    ))
     .groupBy(bookings.bookingPageId);
 
   const countMap = new Map(bookingCounts.map(c => [c.bookingPageId, { total: c.total, upcoming: Number(c.upcoming) }]));

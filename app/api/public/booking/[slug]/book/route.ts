@@ -11,10 +11,11 @@ import crypto from 'crypto';
 import { sendGuestConfirmation, sendHostNotification, loadBookingBrand } from '@/lib/email/booking-emails';
 import { createCalendarEvent } from '@/lib/google-calendar';
 import { createZoomMeeting } from '@/lib/zoom';
-import { clients, users } from '@/lib/db/schema';
 import { emitEvent } from '@/lib/automation';
 import { pickAssignee } from '@/lib/booking/assign';
 import { checkSlotCapacity } from '@/lib/booking/capacity';
+import { isSlotWithinAvailability } from '@/lib/booking/availability';
+import { resolveHostNotificationEmail } from '@/lib/booking/host-notification';
 
 interface AttendeeInput {
   name?: string;
@@ -84,6 +85,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
   maxDate.setDate(maxDate.getDate() + page.maxAdvanceDays);
   if (slotStart > maxDate) {
     return NextResponse.json({ success: false, message: 'This date is too far in advance' }, { status: 400 });
+  }
+
+  // Enforce configured availability server-side (mirrors slots/route.ts).
+  const reqStaffId = staffId ? parseInt(String(staffId)) || null : null;
+  if (!(await isSlotWithinAvailability(page, slotStart, reqStaffId))) {
+    return NextResponse.json({ success: false, message: 'This time slot is no longer available' }, { status: 409 });
   }
 
   // Check capacity or conflicts
@@ -527,15 +534,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
   sendGuestConfirmation(emailData).catch(() => {});
 
   (async () => {
-    const [client] = await db.select({ userId: clients.userId }).from(clients)
-      .where(eq(clients.id, page.clientId)).limit(1);
-    if (client) {
-      const [host] = await db.select({ email: users.email }).from(users)
-        .where(eq(users.id, client.userId)).limit(1);
-      if (host) {
-        sendHostNotification(host.email, emailData).catch(() => {});
-      }
-    }
+    const hostEmail = await resolveHostNotificationEmail(page.clientId, assignedTo);
+    if (hostEmail) sendHostNotification(hostEmail, emailData).catch(() => {});
   })();
 
   return NextResponse.json({

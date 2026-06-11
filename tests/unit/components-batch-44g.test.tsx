@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/ban-ts-comment, react-hooks/rules-of-hooks, @typescript-eslint/no-require-imports */
 // @vitest-environment jsdom
 /**
  * Batch 44g — medium-size render-block components.
@@ -19,6 +20,21 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, fireEvent, waitFor, act } from '@testing-library/react';
+
+// next/link — render a plain <a> so next's use-intersection.js (which calls
+// `new IntersectionObserver(...)`) is never loaded.
+vi.mock('next/link', () => ({
+  __esModule: true,
+  default: ({ href, children, ...rest }: any) =>
+    React.createElement('a', { href, ...rest }, children),
+}));
+
+// next/image — render a plain <img>.
+vi.mock('next/image', () => ({
+  __esModule: true,
+  default: ({ src, alt, ...rest }: any) =>
+    React.createElement('img', { src, alt, ...rest }),
+}));
 
 // ---------------------------------------------------------------------------
 // Mock blog server actions used by BlogPostsBlockRender.

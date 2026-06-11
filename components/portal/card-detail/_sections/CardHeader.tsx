@@ -3,6 +3,7 @@
  */
 'use client';
 
+import { useState } from 'react';
 import type { CardDetail, DependencyRef } from '../_lib/types';
 import { CARD_TYPE_META } from '../_lib/agile';
 
@@ -20,6 +21,8 @@ interface Props {
   onPickParent?: () => void;
   watching?: boolean;
   toggleWatch?: () => void;
+  /** Relative deep-link to this card (e.g. /portal/projects/145/678). */
+  cardUrl?: string | null;
 }
 
 export function CardHeader({
@@ -36,9 +39,23 @@ export function CardHeader({
   onPickParent,
   watching,
   toggleWatch,
+  cardUrl,
 }: Props) {
   const cardType = card.cardType ?? 'task';
   const typeMeta = CARD_TYPE_META[cardType];
+  const [copied, setCopied] = useState(false);
+
+  async function copyLink() {
+    if (!cardUrl) return;
+    const absolute = typeof window !== 'undefined' ? new URL(cardUrl, window.location.origin).href : cardUrl;
+    try {
+      await navigator.clipboard.writeText(absolute);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // Clipboard blocked (insecure context / permissions) — no-op.
+    }
+  }
   return (
     <div className="flex items-start gap-3 p-5 border-b border-border shrink-0 bg-card">
       <div className="flex-1 min-w-0">
@@ -96,6 +113,21 @@ export function CardHeader({
           </h2>
         )}
       </div>
+      {cardUrl && (
+        <button
+          onClick={copyLink}
+          className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-colors shrink-0 ${
+            copied
+              ? 'bg-primary/10 border-primary text-primary'
+              : 'border-border text-muted-foreground hover:bg-accent hover:text-foreground'
+          }`}
+          title="Copy a shareable link to this card"
+          aria-label="Copy link to this card"
+        >
+          <span className="material-icons text-base">{copied ? 'check' : 'link'}</span>
+          {copied ? 'Copied' : 'Copy link'}
+        </button>
+      )}
       {toggleWatch && (
         <button
           onClick={toggleWatch}

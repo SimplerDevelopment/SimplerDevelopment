@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/ban-ts-comment, react-hooks/rules-of-hooks, @typescript-eslint/no-require-imports */
 // @vitest-environment jsdom
 /**
  * Batch 44h — visual-editor preview and runtime renderer components.
@@ -377,9 +378,9 @@ describe('HtmlEmbedBlockRender', () => {
     const { container } = render(<HtmlEmbedBlockRender block={block} />);
     const iframe = container.querySelector('iframe') as HTMLIFrameElement;
     expect(iframe).toBeTruthy();
-    expect(iframe.getAttribute('src')).toBe('https://cdn.example/embed.html');
-    // Default sandbox preset is 'scripts' → 'allow-scripts'.
-    expect(iframe.getAttribute('sandbox')).toBe('allow-scripts');
+    expect(iframe.getAttribute('src')).toBe('https://cdn.example/embed.html?embed=1');
+    // Default sandbox preset is 'scripts' → 'allow-scripts allow-popups allow-popups-to-escape-sandbox'.
+    expect(iframe.getAttribute('sandbox')).toBe('allow-scripts allow-popups allow-popups-to-escape-sandbox');
     expect(iframe.getAttribute('referrerpolicy')).toBe('no-referrer');
     expect(iframe.getAttribute('loading')).toBe('lazy');
     // Default height '600px'.
@@ -404,7 +405,7 @@ describe('HtmlEmbedBlockRender', () => {
     };
     const { container } = render(<HtmlEmbedBlockRender block={block} />);
     const iframe = container.querySelector('iframe') as HTMLIFrameElement;
-    expect(iframe.getAttribute('sandbox')).toBe('allow-scripts allow-forms allow-popups');
+    expect(iframe.getAttribute('sandbox')).toBe('allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox');
     expect(iframe.getAttribute('title')).toBe('Signup form');
     expect(iframe.style.height).toBe('100vh');
     expect(container.textContent).toContain('Sign up for our newsletter');

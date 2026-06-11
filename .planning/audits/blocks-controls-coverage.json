@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-05-15T23:35:12.679Z",
+  "generatedAt": "2026-06-10T04:47:12.055Z",
   "totalBlocks": 48,
-  "blocksWithMissingFields": 0,
+  "blocksWithMissingFields": 1,
   "blocksWithDeadElementKeys": 0,
   "blocksWithoutE2E": 0,
   "totals": {
-    "missingFieldsFromBoth": 0,
+    "missingFieldsFromBoth": 1,
     "missingFieldsFromPanelsOnly": 0,
     "missingFieldsFromContentEditorOnly": 0,
     "deadElementKeys": 0
@@ -16,7 +16,8 @@
       "interfaceFields": [
         "content",
         "level",
-        "alignment"
+        "alignment",
+        "as"
       ],
       "fieldsInPanels": [
         "level",
@@ -26,9 +27,15 @@
         "level",
         "alignment"
       ],
-      "fieldsMissingFromPanels": [],
-      "fieldsMissingFromContentEditor": [],
-      "fieldsMissingFromBoth": [],
+      "fieldsMissingFromPanels": [
+        "as"
+      ],
+      "fieldsMissingFromContentEditor": [
+        "as"
+      ],
+      "fieldsMissingFromBoth": [
+        "as"
+      ],
       "elementDefinitionKeys": [],
       "elementKeysWithRendererCallSite": [],
       "deadElementKeys": [],

@@ -1,13 +1,30 @@
 'use client';
 
 // ContentPanel: dispatcher for related block types' settings panels.
+import dynamic from 'next/dynamic';
 import type { Block, TextBlock, HeadingBlock, QuoteBlock, CodeBlock, HtmlRenderBlock } from '@/types/blocks';
 import type { Breakpoint } from '@/types/responsive';
 // Reuse the iframe-mode rich editor so admin/email/popup paths get the same
 // schema-aware experience (tabbed values form, loop config, schema clipboard,
 // validation, conditional logic, full block JSON export/import). Post picker +
 // URL autocomplete degrade gracefully when siteId is unavailable in this path.
-import { HtmlRenderEditor } from '@/components/portal/visual-editor/HtmlRenderEditor';
+//
+// HtmlRenderEditor is ~1700 LoC + pulls @codemirror/lang-html, so lazy-load it
+// — the html-render branch of this dispatcher is the only consumer and most
+// blocks (text/heading/quote/code) never need this chunk.
+const HtmlRenderEditor = dynamic(
+  () => import('@/components/portal/visual-editor/HtmlRenderEditor').then((m) => ({ default: m.HtmlRenderEditor })),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="space-y-2 animate-pulse">
+        <div className="h-3 w-24 bg-muted rounded" />
+        <div className="h-8 bg-muted rounded" />
+        <div className="h-32 bg-muted rounded" />
+      </div>
+    ),
+  },
+);
 
 interface PanelProps {
   block: Block;

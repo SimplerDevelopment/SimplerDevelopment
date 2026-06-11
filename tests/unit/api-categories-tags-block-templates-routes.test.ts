@@ -14,6 +14,11 @@ import { NextRequest } from 'next/server';
 
 // ---- mocks (declared before importing the routes) ----
 
+const authMock = vi.fn();
+vi.mock('@/lib/auth', () => ({
+  auth: () => authMock(),
+}));
+
 vi.mock('drizzle-orm', () => ({
   eq: (a: unknown, b: unknown) => ({ op: 'eq', a, b }),
   desc: (col: unknown) => ({ op: 'desc', col }),
@@ -27,6 +32,8 @@ vi.mock('drizzle-orm', () => ({
     }),
     {},
   ),
+  isNull: (a: unknown) => ({ op: 'isNull', a }),
+  inArray: (a: unknown, list: unknown[]) => ({ op: 'inArray', a, list }),
 }));
 
 vi.mock('@/lib/db/schema', () => {
@@ -41,11 +48,11 @@ vi.mock('@/lib/db/schema', () => {
         },
       },
     );
-  return {
+  return new Proxy({
     categories: wrap('categories'),
     tags: wrap('tags'),
     blockTemplates: wrap('blockTemplates'),
-  };
+  }, { has: (t, p) => (p in t) || !(p === "then" || p === "__esModule" || p === "default" || typeof p !== "string"), get: (t, p) => (p in t) ? t[p] : ((p === "then" || p === "__esModule" || p === "default" || typeof p !== "string") ? undefined : wrap(p)) });
 });
 
 interface UpdateCall {
@@ -250,6 +257,7 @@ beforeEach(() => {
   nextDeleteThrows = null;
   nextInsertThrows = null;
   vi.clearAllMocks();
+  authMock.mockResolvedValue({ user: { id: '1', role: 'admin', email: 'a@b.com' } });
 });
 
 // ---------------------------------------------------------------------------

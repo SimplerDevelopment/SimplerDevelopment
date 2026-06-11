@@ -29,9 +29,13 @@ import { CardSidebar } from './_sections/CardSidebar';
 import { CardTimeLogs } from './_sections/CardTimeLogs';
 
 export default function CardDetailModal({
-  cardId, isStaff, canEdit, currentUserId, onClose, onDeleted, onUpdated,
+  cardId, projectId, isStaff, canEdit, currentUserId, onClose, onDeleted, onUpdated,
 }: CardDetailModalProps) {
   const s = useCardDetail({ cardId, onClose, onDeleted, onUpdated });
+  // Deep-link to this card. Prefer the project from props; fall back to the
+  // card bundle once loaded. Mirrors the addressable route /portal/projects/<id>/<cardId>.
+  const linkProjectId = projectId ?? s.card?.projectId ?? null;
+  const cardUrl = linkProjectId != null ? `/portal/projects/${linkProjectId}/${cardId}` : null;
   const totalMinutes = s.timeLogs.reduce((sum, t) => sum + t.minutes, 0);
   const canDeleteFile = (f: FileAttachment) => canEdit || f.userId === currentUserId;
 
@@ -64,6 +68,7 @@ export default function CardDetailModal({
               onPickParent={() => setShowParentPicker(true)}
               watching={s.watching}
               toggleWatch={s.toggleWatch}
+              cardUrl={cardUrl}
             />
 
             {showParentPicker && (
@@ -116,7 +121,7 @@ export default function CardDetailModal({
 
                 <CardChildren children={children} />
 
-                <CardCustomFields cardId={cardId} canEdit={canEdit} />
+                <CardCustomFields cardId={cardId} canEdit={canEdit} initialFields={s.customFields} />
 
                 <CardChecklist
                   checklist={s.checklist} canEdit={canEdit}

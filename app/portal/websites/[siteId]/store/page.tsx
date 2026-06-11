@@ -138,15 +138,6 @@ export default function StoreDashboardPage() {
     );
   }
 
-  const quickLinks = [
-    { label: 'Products', icon: 'inventory_2', href: `/portal/websites/${siteId}/store/products` },
-    { label: 'Orders', icon: 'receipt_long', href: `/portal/websites/${siteId}/store/orders` },
-    { label: 'Shipping', icon: 'local_shipping', href: `/portal/websites/${siteId}/store/shipping` },
-    { label: 'Discounts', icon: 'sell', href: `/portal/websites/${siteId}/store/discounts` },
-    { label: 'Categories', icon: 'category', href: `/portal/websites/${siteId}/store/categories` },
-    { label: 'Settings', icon: 'settings', href: `/portal/websites/${siteId}/store/settings` },
-  ];
-
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       {/* Header */}
@@ -198,22 +189,6 @@ export default function StoreDashboardPage() {
           </div>
           <p className="text-2xl font-bold text-foreground">{analytics?.lowStockItems ?? 0}</p>
         </div>
-      </div>
-
-      {/* Quick Links */}
-      <div className="grid grid-cols-3 lg:grid-cols-6 gap-3">
-        {quickLinks.map((link) => (
-          <Link
-            key={link.href}
-            href={link.href}
-            className="bg-card border border-border rounded-xl p-4 flex flex-col items-center gap-2 hover:bg-accent/50 transition-colors group"
-          >
-            <span className="material-icons text-2xl text-muted-foreground group-hover:text-primary transition-colors">
-              {link.icon}
-            </span>
-            <span className="text-xs font-medium text-foreground">{link.label}</span>
-          </Link>
-        ))}
       </div>
 
       {/* Recent Orders */}

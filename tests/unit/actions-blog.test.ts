@@ -46,13 +46,13 @@ vi.mock('@/lib/db/schema', () => {
         },
       },
     );
-  return {
+  return new Proxy({
     posts: wrap('posts'),
     categories: wrap('categories'),
     tags: wrap('tags'),
     postCategories: wrap('postCategories'),
     postTags: wrap('postTags'),
-  };
+  }, { has: (t, p) => (p in t) || !(p === "then" || p === "__esModule" || p === "default" || typeof p !== "string"), get: (t, p) => (p in t) ? t[p] : ((p === "then" || p === "__esModule" || p === "default" || typeof p !== "string") ? undefined : wrap(p)) });
 });
 
 vi.mock('drizzle-orm', () => ({
@@ -60,6 +60,16 @@ vi.mock('drizzle-orm', () => ({
   and: (...args: unknown[]) => ({ op: 'and', args: args.filter(Boolean) }),
   desc: (a: unknown) => ({ op: 'desc', a }),
   isNull: (a: unknown) => ({ op: 'isNull', a }),
+  or: (...args: unknown[]) => ({ op: 'or', args: args.filter(Boolean) }),
+  inArray: (a: unknown, list: unknown[]) => ({ op: 'inArray', a, list }),
+}));
+
+// blog.ts now wraps its list queries in unstable_cache. The unit env has no
+// Next incremental-cache context, so pass the wrapped fn through unchanged and
+// no-op revalidateTag — these tests exercise the query logic, not the cache.
+vi.mock('next/cache', () => ({
+  unstable_cache: <T,>(fn: T) => fn,
+  revalidateTag: vi.fn(),
 }));
 
 function getCol(ref: unknown): { col: string; table: string } | null {
@@ -79,7 +89,7 @@ function readField(row: Record<string, unknown>, ref: unknown): unknown {
 function evalPredicate(filter: unknown, row: Record<string, unknown>): boolean {
   if (!filter) return true;
   if (typeof filter !== 'object') return true;
-  const f = filter as { op?: string; a?: unknown; b?: unknown; args?: unknown[] };
+  const f = filter as { op?: string; a?: unknown; b?: unknown; args?: unknown[]; list?: unknown[] };
   switch (f.op) {
     case 'eq': {
       const left = readField(row, f.a);
@@ -90,6 +100,10 @@ function evalPredicate(filter: unknown, row: Record<string, unknown>): boolean {
     case 'isNull': {
       const left = readField(row, f.a);
       return left === null || left === undefined;
+    }
+    case 'inArray': {
+      const left = readField(row, f.a);
+      return (f.list ?? []).includes(left);
     }
     default:
       return true;
@@ -215,6 +229,13 @@ vi.mock('@/lib/db', () => {
   return {
     db: {
       select(projection?: Record<string, unknown>) {
+        return {
+          from(table: { __table: string }) {
+            return buildSelect(projection ?? null).from(table);
+          },
+        };
+      },
+      selectDistinct(projection?: Record<string, unknown>) {
         return {
           from(table: { __table: string }) {
             return buildSelect(projection ?? null).from(table);
@@ -473,6 +494,11 @@ describe('getAllCategories', () => {
   it('projects all category columns', async () => {
     seedCategory({ id: 1, name: 'A', slug: 'a', description: 'desc a', color: '#aaa' });
     seedCategory({ id: 2, name: 'B', slug: 'b', description: null, color: null });
+    // The query is a 3-way join (categories → postCategories → posts) filtered to
+    // published global blog posts. Seed one post per category so the join matches.
+    seedPost({ id: 10, slug: 'post-a', published: true, postType: 'blog', websiteId: null });
+    seedPost({ id: 20, slug: 'post-b', published: true, postType: 'blog', websiteId: null });
+    state.postCategories.push({ postId: 10, categoryId: 1 }, { postId: 20, categoryId: 2 });
     const { getAllCategories } = await importModule();
     const rows = await getAllCategories();
     expect(rows).toHaveLength(2);

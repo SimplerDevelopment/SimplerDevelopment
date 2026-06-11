@@ -1,6 +1,6 @@
 // Posts, post-types, taxonomies, media, branding profiles, and reusable block templates.
 
-import { pgTable, serial, varchar, text, timestamp, boolean, integer, json, uniqueIndex } from 'drizzle-orm/pg-core';
+import { pgTable, serial, varchar, text, timestamp, boolean, integer, json, uniqueIndex, index } from 'drizzle-orm/pg-core';
 import { users } from './auth';
 import { clientWebsites, clients } from './sites';
 
@@ -31,7 +31,10 @@ export const posts = pgTable('posts', {
   parentPostId: integer('parent_post_id'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
-});
+}, (t) => [
+  index('posts_website_published_idx').on(t.websiteId, t.published, t.publishedAt),
+  index('posts_website_slug_idx').on(t.websiteId, t.slug),
+]);
 
 export const postRevisions = pgTable('post_revisions', {
   id: serial('id').primaryKey(),
@@ -40,6 +43,10 @@ export const postRevisions = pgTable('post_revisions', {
   title: varchar('title', { length: 255 }).notNull(),
   trigger: varchar('trigger', { length: 20 }).notNull(), // 'autosave' | 'manual' | 'publish'
   createdBy: integer('created_by'),
+  // First 16 hex chars of sha256(content) — used to skip duplicate autosave
+  // revisions when the block tree is unchanged. Nullable for historical rows
+  // (a null hash never matches incoming, so old rows just never deduplicate).
+  contentHash: varchar('content_hash', { length: 16 }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
@@ -238,7 +245,10 @@ export const media = pgTable('media', {
   brandingProfileId: integer('branding_profile_id').references(() => brandingProfiles.id, { onDelete: 'set null' }), // shared across services using same branding
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
-});
+}, (t) => [
+  // E2 perf — portal/media list filters by clientId ordered by createdAt desc.
+  index('media_client_created_idx').on(t.clientId, t.createdAt),
+]);
 
 // Snapshots of prior media states — written on /replace + /restore so that
 // any version can be restored without losing the bytes. Restore copies the

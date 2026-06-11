@@ -30,7 +30,7 @@ describe('PalizziMembershipBlockRender', () => {
     closingNote: 'A closing note appears below the highlight.',
     signature: 'The Founders',
     footnote: 'Subject to availability.',
-  } as any;
+  } as unknown;
 
   it('renders overline, title + accent, signature and footnote', () => {
     const { container } = render(<PalizziMembershipBlockRender block={baseBlock} />);
@@ -85,7 +85,7 @@ describe('PalizziRulesBlockRender', () => {
     badges: ['Reservations', 'Members'],
     rules: ['No phones at the bar.', 'Dress to dine.', 'Honor your reservation.'],
     disclaimer: 'Management reserves the right to refuse service.',
-  } as any;
+  } as unknown;
 
   it('renders overline, title with accent, hours, disclaimer', () => {
     const { container } = render(<PalizziRulesBlockRender block={baseBlock} />);
@@ -145,7 +145,7 @@ describe('VideoBlockPreview', () => {
   it('shows the empty-state when no URL is provided', () => {
     const { container } = render(
       <VideoBlockPreview
-        block={{ id: 'v1', type: 'video', url: '' } as any}
+        block={{ id: 'v1', type: 'video', url: '' } as unknown}
         isSelected={false}
         onChange={vi.fn()}
       />
@@ -164,7 +164,7 @@ describe('VideoBlockPreview', () => {
             id: 'v2',
             type: 'video',
             url: 'https://cdn.example.com/clip.mp4',
-          } as any
+          } as unknown
         }
         isSelected={false}
         onChange={vi.fn()}
@@ -183,7 +183,7 @@ describe('VideoBlockPreview', () => {
     const { container } = render(
       <VideoBlockPreview
         block={
-          { id: 'v3', type: 'video', url: 'x.mp4', controls: false } as any
+          { id: 'v3', type: 'video', url: 'x.mp4', controls: false } as unknown
         }
         isSelected={false}
         onChange={vi.fn()}
@@ -202,7 +202,7 @@ describe('VideoBlockPreview', () => {
             type: 'video',
             url: 'x.mp4',
             caption: 'A lovely caption',
-          } as any
+          } as unknown
         }
         isSelected={false}
         onChange={vi.fn()}
@@ -214,7 +214,7 @@ describe('VideoBlockPreview', () => {
   it('omits the caption element when no caption is provided', () => {
     const { container } = render(
       <VideoBlockPreview
-        block={{ id: 'v5', type: 'video', url: 'x.mp4' } as any}
+        block={{ id: 'v5', type: 'video', url: 'x.mp4' } as unknown}
         isSelected={false}
         onChange={vi.fn()}
       />

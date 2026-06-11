@@ -30,6 +30,9 @@ vi.mock('drizzle-orm', () => ({
     strings: Array.from(strings),
     values,
   }),
+  isNull: (a: unknown) => ({ op: 'isNull', a }),
+  or: (...args: unknown[]) => ({ op: 'or', args: args.filter(Boolean) }),
+  inArray: (a: unknown, list: unknown[]) => ({ op: 'inArray', a, list }),
 }));
 
 vi.mock('@/lib/db/schema', () => {
@@ -44,14 +47,14 @@ vi.mock('@/lib/db/schema', () => {
         },
       },
     );
-  return {
+  return new Proxy({
     emailCampaigns: wrap('emailCampaigns'),
     emailCampaignSends: wrap('emailCampaignSends'),
     crmSavedViews: wrap('crmSavedViews'),
     crmScoringRules: wrap('crmScoringRules'),
     sprints: wrap('sprints'),
     projects: wrap('projects'),
-  };
+  }, { has: (t, p) => (p in t) || !(p === "then" || p === "__esModule" || p === "default" || typeof p !== "string"), get: (t, p) => (p in t) ? t[p] : ((p === "then" || p === "__esModule" || p === "default" || typeof p !== "string") ? undefined : wrap(p)) });
 });
 
 // ---------------------------------------------------------------------------
@@ -157,6 +160,14 @@ vi.mock('@/lib/db', () => {
     };
   }
 
+  function buildInsert(_table: { __table?: string }) {
+    return {
+      values(_vals: unknown) {
+        return Promise.resolve(undefined);
+      },
+    };
+  }
+
   return {
     db: {
       select() {
@@ -167,6 +178,9 @@ vi.mock('@/lib/db', () => {
       },
       delete(table: { __table: string }) {
         return buildDelete(table);
+      },
+      insert(table: { __table?: string }) {
+        return buildInsert(table);
       },
       execute(stmt: unknown) {
         executeCalls.push({ sql: stmt });

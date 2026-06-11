@@ -156,7 +156,31 @@ export function registerKanbanTools(server: McpServer, ctx: PortalMcpContext): v
       const cols = await db.select().from(kanbanColumns)
         .where(eq(kanbanColumns.projectId, projectId))
         .orderBy(kanbanColumns.order);
-      const cards = await db.select().from(kanbanCards)
+      // Slim projection: list/board views never render the long-text
+      // description; clients fetch it on demand when opening the card detail
+      // drawer. Saves a meaningful payload on boards with many cards.
+      const cards = await db.select({
+        id: kanbanCards.id,
+        columnId: kanbanCards.columnId,
+        projectId: kanbanCards.projectId,
+        number: kanbanCards.number,
+        title: kanbanCards.title,
+        dueDate: kanbanCards.dueDate,
+        priority: kanbanCards.priority,
+        order: kanbanCards.order,
+        sprintId: kanbanCards.sprintId,
+        sprintOrder: kanbanCards.sprintOrder,
+        storyPoints: kanbanCards.storyPoints,
+        cardType: kanbanCards.cardType,
+        parentCardId: kanbanCards.parentCardId,
+        workflowState: kanbanCards.workflowState,
+        campaignId: kanbanCards.campaignId,
+        scheduledFor: kanbanCards.scheduledFor,
+        createdBy: kanbanCards.createdBy,
+        createdAt: kanbanCards.createdAt,
+        updatedAt: kanbanCards.updatedAt,
+      })
+        .from(kanbanCards)
         .where(eq(kanbanCards.projectId, projectId))
         .orderBy(kanbanCards.order);
       return json({ columns: cols, cards });
@@ -1024,8 +1048,8 @@ export function registerKanbanTools(server: McpServer, ctx: PortalMcpContext): v
     }
   );
 
-
   // ── KANBAN CARD ARTIFACTS ──────────────────────────────────────────────
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const CARD_ARTIFACT_TABLES: Record<string, { table: any; titleField: string }> = {
     website: { table: clientWebsites, titleField: 'name' },
     email_campaign: { table: emailCampaigns, titleField: 'name' },
@@ -1216,6 +1240,7 @@ export function registerKanbanTools(server: McpServer, ctx: PortalMcpContext): v
     'kanban_card_templates_delete',
     {
       title: 'Delete a card template',
+      description: 'Permanently delete a kanban card template by id. This action is irreversible.',
       inputSchema: { id: z.coerce.number() },
     },
     async ({ id }) => {
@@ -1322,7 +1347,7 @@ export function registerKanbanTools(server: McpServer, ctx: PortalMcpContext): v
       // 3. Unresolved blockers per backlog card. A blocker is "unresolved" if
       // its column has is_done=false (or null).
       const cardIds = backlogCards.map(c => c.id);
-      let blockerMap = new Map<number, number[]>();
+      const blockerMap = new Map<number, number[]>();
       if (cardIds.length > 0) {
         const blockerRows = await db
           .select({
@@ -1442,6 +1467,7 @@ export function registerKanbanTools(server: McpServer, ctx: PortalMcpContext): v
     'kanban_recurrences_delete',
     {
       title: 'Delete a recurring task',
+      description: 'Permanently delete a recurring card-creation rule by id. This action is irreversible and stops future card generation.',
       inputSchema: { id: z.coerce.number() },
     },
     async ({ id }) => {

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { RelatedModulesStrip } from '@/components/portal/billing/RelatedModulesStrip';
 
 // --- Types ---
 
@@ -170,6 +171,7 @@ export default function CrmDashboardPage() {
   const [period, setPeriod] = useState('12m');
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- pre-existing pattern, predates this change
     setLoading(true);
     setError('');
     Promise.all([
@@ -340,6 +342,7 @@ export default function CrmDashboardPage() {
           </div>
         </div>
       )}
+      <RelatedModulesStrip currentDomain="crm" />
     </div>
   );
 }

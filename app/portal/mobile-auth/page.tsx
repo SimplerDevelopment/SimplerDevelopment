@@ -172,11 +172,6 @@ export default async function MobileAuthPage() {
           You can revoke this access any time at <strong>/portal/settings/api-keys</strong>.
         </p>
       </div>
-      {/* Load the Material Icons font so the placeholder above renders. */}
-      <link
-        href="https://fonts.googleapis.com/icon?family=Material+Icons"
-        rel="stylesheet"
-      />
     </div>
   );
 }

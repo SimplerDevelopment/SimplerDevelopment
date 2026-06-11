@@ -5,10 +5,14 @@
 // + currently-active tier in a single round-trip from
 // /api/admin/portal/clients/[id]/plan, then POSTs to switch tiers.
 //
+// Also manages billingMode (agency / saas / byok) via
+// /api/admin/portal/clients/[id]/billing-mode.
+//
 // Material Icons only — no emoji per repo convention.
 
 import { use, useEffect, useState } from 'react';
 import Link from 'next/link';
+import { BYOK_PROVIDER_LABELS } from '@/lib/billing/domain-catalog';
 
 interface Tier {
   id: number;
@@ -36,6 +40,20 @@ interface PlanResponse {
   message?: string;
 }
 
+type BillingModeValue = 'agency' | 'saas' | 'byok';
+
+interface ByokStatus {
+  requiredProviders: string[];
+  connectedProviders: string[];
+  missingProviders: string[];
+}
+
+interface BillingModeResponse {
+  success: boolean;
+  data?: { billingMode: BillingModeValue; byok: ByokStatus };
+  message?: string;
+}
+
 function formatLimit(value: number | string | undefined): string {
   if (value === undefined || value === null) return '—';
   if (typeof value === 'string') return value;
@@ -54,21 +72,32 @@ export default function ClientPlanPage({ params }: { params: Promise<{ id: strin
   const [error, setError] = useState('');
   const [savedAt, setSavedAt] = useState<number | null>(null);
 
+  // Billing mode state
+  const [billingMode, setBillingMode] = useState<BillingModeValue | null>(null);
+  const [savingMode, setSavingMode] = useState(false);
+  const [byokStatus, setByokStatus] = useState<ByokStatus | null>(null);
+
   useEffect(() => {
     let cancelled = false;
-    fetch(`/api/admin/portal/clients/${clientId}/plan`)
-      .then(r => r.json() as Promise<PlanResponse>)
-      .then(d => {
+    Promise.all([
+      fetch(`/api/admin/portal/clients/${clientId}/plan`).then(r => r.json() as Promise<PlanResponse>),
+      fetch(`/api/admin/portal/clients/${clientId}/billing-mode`).then(r => r.json() as Promise<BillingModeResponse>),
+    ])
+      .then(([planData, modeData]) => {
         if (cancelled) return;
-        if (!d.success) {
-          setError(d.message ?? 'Failed to load plan');
+        if (!planData.success) {
+          setError(planData.message ?? 'Failed to load plan');
           setLoading(false);
           return;
         }
-        setActive(d.data?.active ?? null);
+        setActive(planData.data?.active ?? null);
         // Sort by price ascending so Starter -> Growth -> Scale renders left-to-right.
-        const sorted = [...(d.data?.catalog ?? [])].sort((a, b) => a.price - b.price);
+        const sorted = [...(planData.data?.catalog ?? [])].sort((a, b) => a.price - b.price);
         setCatalog(sorted);
+        if (modeData.success && modeData.data) {
+          setBillingMode(modeData.data.billingMode);
+          setByokStatus(modeData.data.byok);
+        }
         setLoading(false);
       })
       .catch(err => {
@@ -79,6 +108,34 @@ export default function ClientPlanPage({ params }: { params: Promise<{ id: strin
       });
     return () => { cancelled = true; };
   }, [clientId]);
+
+  async function switchBillingMode(mode: BillingModeValue) {
+    setSavingMode(true);
+    setError('');
+    try {
+      const res = await fetch(`/api/admin/portal/clients/${clientId}/billing-mode`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ billingMode: mode }),
+      });
+      const data = await res.json() as BillingModeResponse;
+      if (!data.success) {
+        setError(data.message ?? 'Failed to update billing mode');
+        return;
+      }
+      if (data.data) {
+        setBillingMode(data.data.billingMode);
+        setByokStatus(data.data.byok);
+      }
+      // Pure updater — react-hooks/purity rejects Date.now() here; the banner
+      // only needs truthiness, so a counter works.
+      setSavedAt((n) => (n ?? 0) + 1);
+    } catch (err) {
+      setError(String(err));
+    } finally {
+      setSavingMode(false);
+    }
+  }
 
   async function assign(serviceId: number | null) {
     setSaving(serviceId === null ? 'cancel' : serviceId);
@@ -99,7 +156,7 @@ export default function ClientPlanPage({ params }: { params: Promise<{ id: strin
       if (refreshed.success && refreshed.data) {
         setActive(refreshed.data.active);
       }
-      setSavedAt(Date.now());
+      setSavedAt((n) => (n ?? 0) + 1);
     } catch (err) {
       setError(String(err));
     } finally {
@@ -135,6 +192,80 @@ export default function ClientPlanPage({ params }: { params: Promise<{ id: strin
         <div className="flex items-center gap-2 text-sm text-green-700 bg-green-50 border border-green-200 rounded-md px-4 py-3">
           <span className="material-icons text-base">check_circle</span>
           Plan updated.
+        </div>
+      )}
+
+      {/* Billing mode card */}
+      {billingMode !== null && (
+        <div className="bg-card border border-border rounded-lg p-5 space-y-4">
+          <div className="flex items-center gap-2">
+            <span className="material-icons text-xl text-primary">account_balance_wallet</span>
+            <h2 className="text-base font-semibold text-foreground">Billing mode</h2>
+          </div>
+
+          {/* Segmented control */}
+          <div className="inline-flex rounded-md border border-border overflow-hidden text-sm">
+            {(
+              [
+                { value: 'agency' as const, label: 'Agency-managed', description: 'Legacy managed; module gating is bypassed.' },
+                { value: 'saas' as const, label: 'SaaS', description: 'Client pays per-module subscriptions with usage overage.' },
+                { value: 'byok' as const, label: 'BYOK', description: 'Client brings their own API keys; metered costs are waived.' },
+              ] as const
+            ).map((opt, idx, arr) => {
+              const isActive = billingMode === opt.value;
+              return (
+                <button
+                  key={opt.value}
+                  onClick={() => switchBillingMode(opt.value)}
+                  disabled={savingMode || isActive}
+                  title={opt.description}
+                  className={[
+                    'px-4 py-2 font-medium transition-colors disabled:cursor-not-allowed',
+                    idx < arr.length - 1 ? 'border-r border-border' : '',
+                    isActive
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-background text-foreground hover:bg-muted disabled:opacity-50',
+                  ].join(' ')}
+                >
+                  {opt.label}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Description of current selection */}
+          <p className="text-xs text-muted-foreground">
+            {billingMode === 'agency' && 'Legacy managed; module gating is bypassed.'}
+            {billingMode === 'saas' && 'Client pays per-module subscriptions with usage overage.'}
+            {billingMode === 'byok' && 'Client brings their own API keys; metered costs are waived.'}
+          </p>
+
+          {/* BYOK provider checklist — only shown in byok mode */}
+          {billingMode === 'byok' && byokStatus && (
+            <div className="border-t border-border pt-4 space-y-2">
+              <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                <span className="material-icons text-base">vpn_key</span>
+                Required API keys
+              </div>
+              <ul className="space-y-1.5">
+                {byokStatus.requiredProviders.map((provider) => {
+                  const connected = byokStatus.connectedProviders.includes(provider);
+                  return (
+                    <li key={provider} className="flex items-center gap-2 text-sm">
+                      {connected ? (
+                        <span className="material-icons text-base text-green-600">check_circle</span>
+                      ) : (
+                        <span className="material-icons text-base text-amber-500">warning</span>
+                      )}
+                      <span className={connected ? 'text-foreground' : 'text-amber-700 dark:text-amber-400'}>
+                        {BYOK_PROVIDER_LABELS[provider] ?? provider}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
         </div>
       )}
 

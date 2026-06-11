@@ -14,8 +14,12 @@ export default defineConfig({
     setupFiles: ['./tests/setup.ts'],
     coverage: {
       provider: 'v8',
-      reporter: ['html', 'lcov', 'text-summary', 'json'],
+      reporter: ['html', 'lcov', 'text-summary', 'json', 'json-summary'],
       reportsDirectory: 'coverage/vitest',
+      // Emit coverage even when some tests fail. Without this (vitest default
+      // is false), a single failing/flaky spec suppresses the ENTIRE coverage
+      // report — which repeatedly zeroed our measurement runs.
+      reportOnFailure: true,
       include: [
         'app/**/*.{ts,tsx}',
         'lib/**/*.{ts,tsx}',
@@ -47,6 +51,13 @@ export default defineConfig({
           name: 'unit',
           environment: 'jsdom',
           include: ['tests/unit/**/*.test.{ts,tsx}'],
+          // Cold-starting heavy transitive deps (next-auth, drizzle schema) can
+          // take 5-8 s on the first dynamic import in a file. Match integration.
+          // Under v8 coverage instrumentation everything runs ~2x slower, so a
+          // handful of heavy jsdom component specs intermittently blew past a
+          // 15s budget (non-deterministic — different specs each run). 30s gives
+          // margin so coverage runs don't flake; real hangs still fail, just later.
+          testTimeout: 30_000,
         },
       },
       {

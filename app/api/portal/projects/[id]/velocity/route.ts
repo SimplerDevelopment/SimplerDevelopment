@@ -16,18 +16,32 @@ import {
 } from '@/lib/portal/sprint-charts';
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const session = await auth();
-  if (!session?.user?.id) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
-
   const { id } = await params;
   const projectId = parseInt(id, 10);
+  if (isNaN(projectId)) return NextResponse.json({ success: false, message: 'Invalid ID' }, { status: 400 });
+
   const url = new URL(req.url);
   const limit = Math.min(20, Math.max(1, parseInt(url.searchParams.get('limit') ?? '8', 10)));
 
-  const [project] = await db.select().from(projects).where(eq(projects.id, projectId)).limit(1);
+  // Parallelize independent gate queries with the most-recent-sprints fetch.
+  // The sprints query is safe to run before the gate completes because we
+  // discard its result if auth fails — the data isn't sensitive in itself
+  // (just sprint metadata) and the parallel saves us a round-trip.
+  const [session, staff, projectRows, recentSprints] = await Promise.all([
+    auth(),
+    isPortalStaff(),
+    db.select().from(projects).where(eq(projects.id, projectId)).limit(1),
+    db
+      .select({ id: sprints.id, name: sprints.name, endDate: sprints.endDate })
+      .from(sprints)
+      .where(and(eq(sprints.projectId, projectId), eq(sprints.status, 'completed')))
+      .orderBy(desc(sprints.endDate), desc(sprints.id))
+      .limit(limit),
+  ]);
+  if (!session?.user?.id) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
+  const project = projectRows[0];
   if (!project) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
 
-  const staff = await isPortalStaff();
   if (!staff) {
     const userId = parseInt(session.user.id, 10);
     const client = await getPortalClient(userId);
@@ -35,15 +49,6 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
     }
   }
-
-  // Pull the most recent completed sprints first, then re-sort chronologically
-  // when returning so the chart reads left-to-right oldest-to-newest.
-  const recentSprints = await db
-    .select({ id: sprints.id, name: sprints.name, endDate: sprints.endDate })
-    .from(sprints)
-    .where(and(eq(sprints.projectId, projectId), eq(sprints.status, 'completed')))
-    .orderBy(desc(sprints.endDate), desc(sprints.id))
-    .limit(limit);
 
   if (recentSprints.length === 0) {
     return NextResponse.json({

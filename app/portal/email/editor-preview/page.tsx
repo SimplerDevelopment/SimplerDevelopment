@@ -47,7 +47,6 @@ function EmailPreviewInner() {
 
   return (
     <>
-      <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
       <div
         style={{
           backgroundColor: '#ffffff',

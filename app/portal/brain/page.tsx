@@ -1,81 +1,34 @@
-'use client';
-
+/**
+ * Brain dashboard page — server component. Renders the dashboard widgets as
+ * cached, Suspense-streamed RSCs (see components/portal/brain-dashboard).
+ * The enable-flow (for clients who haven't turned brain on yet) is a small
+ * client island; everything else is server-rendered.
+ *
+ * Previously this page was `'use client'` and fetched settings + dashboard
+ * data from API routes after hydration. That created a triple round-trip
+ * waterfall (settings → dashboard → automations) before the user saw
+ * anything useful. The cached `getDashboardSummary` + streaming Suspense
+ * pattern means the shell + skeletons render immediately, and each tile
+ * pops in independently as its data resolves.
+ */
+import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { useEffect, useState, useCallback } from 'react';
-import type { BrainProfile } from '@/lib/brain/profiles';
-import type { IndustryTemplate } from '@/lib/brain/industry-templates';
-import { BrainDashboardWidgets } from '@/components/portal/BrainDashboardWidgets';
+import { auth } from '@/lib/auth';
+import { getPortalClient } from '@/lib/portal-client';
+import { getBrainProfile } from '@/lib/brain/profiles';
+import { getIndustryTemplate } from '@/lib/brain/industry-templates';
+import { isBrainEntitled } from '@/lib/brain/entitlement';
+import { BrainDashboardWidgetsServer } from '@/components/portal/brain-dashboard';
+import { EnableBrainButton } from './EnableBrainButton';
+import { RelatedModulesStrip } from '@/components/portal/billing/RelatedModulesStrip';
 
-interface SettingsResponse {
-  success: boolean;
-  data?: {
-    profile: BrainProfile;
-    template: IndustryTemplate;
-  };
-  message?: string;
-}
+export default async function BrainDashboardPage() {
+  const session = await auth();
+  if (!session?.user?.id) redirect('/portal/login');
 
-export default function BrainDashboardPage() {
-  const [profile, setProfile] = useState<BrainProfile | null>(null);
-  const [template, setTemplate] = useState<IndustryTemplate | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [enabling, setEnabling] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const r = await fetch('/api/portal/brain/settings');
-      const json: SettingsResponse = await r.json();
-      if (!r.ok || !json.success || !json.data) {
-        setError(json.message || 'Failed to load Company Brain.');
-      } else {
-        setProfile(json.data.profile);
-        setTemplate(json.data.template);
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Network error');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { load(); }, [load]);
-
-  const enableBrain = async () => {
-    setEnabling(true);
-    setError(null);
-    try {
-      const r = await fetch('/api/portal/brain/settings', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ enabled: true }),
-      });
-      const json: SettingsResponse = await r.json();
-      if (!r.ok || !json.success || !json.data) {
-        setError(json.message || 'Failed to enable Company Brain.');
-      } else {
-        setProfile(json.data.profile);
-        setTemplate(json.data.template);
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Network error');
-    } finally {
-      setEnabling(false);
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="max-w-4xl mx-auto flex items-center justify-center py-16 text-muted-foreground">
-        <span className="material-icons animate-spin mr-2">progress_activity</span>
-        Loading...
-      </div>
-    );
-  }
-
-  if (error) {
+  const userId = parseInt(session.user.id, 10);
+  const client = await getPortalClient(userId);
+  if (!client) {
     return (
       <div className="max-w-4xl mx-auto py-12">
         <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-4 text-sm text-destructive">
@@ -83,11 +36,39 @@ export default function BrainDashboardPage() {
             <span className="material-icons text-base">error_outline</span>
             Couldn&apos;t load Company Brain
           </div>
-          <p>{error}</p>
+          <p>No client profile found for this user.</p>
         </div>
       </div>
     );
   }
+
+  // Service-level entitlement check. requireBrainEntitlement runs again in
+  // every API route; this is just an early UX gate so the shell doesn't
+  // render the dashboard chrome behind a 402.
+  const entitled = await isBrainEntitled(client.id);
+  if (!entitled) {
+    return (
+      <div className="max-w-3xl mx-auto py-12">
+        <div className="bg-card border border-border rounded-lg p-8 text-center">
+          <span className="material-icons text-5xl text-primary mb-3 block">psychology</span>
+          <h1 className="text-2xl font-bold text-foreground mb-2">Company Brain</h1>
+          <p className="text-sm text-muted-foreground max-w-xl mx-auto mb-6">
+            Company Brain isn&apos;t included on your current plan. Upgrade or start a trial to
+            enable it.
+          </p>
+          <Link
+            href="/portal/services"
+            className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90"
+          >
+            <span className="material-icons text-base">storefront</span>
+            View services
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  const profile = await getBrainProfile(client.id);
 
   if (!profile?.enabled) {
     return (
@@ -110,16 +91,7 @@ export default function BrainDashboardPage() {
               Search across communications, decisions, and follow-ups with citations back to source records.
             </FeatureBullet>
           </div>
-          <button
-            onClick={enableBrain}
-            disabled={enabling}
-            className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-          >
-            {enabling
-              ? <><span className="material-icons animate-spin text-base">progress_activity</span>Enabling…</>
-              : <><span className="material-icons text-base">power_settings_new</span>Enable Company Brain</>
-            }
-          </button>
+          <EnableBrainButton />
           <p className="text-xs text-muted-foreground mt-3">
             You can configure industry template, modules, and confidentiality after enabling.
           </p>
@@ -127,6 +99,8 @@ export default function BrainDashboardPage() {
       </div>
     );
   }
+
+  const template = getIndustryTemplate(profile.industryTemplate ?? 'generic');
 
   return (
     <div className="max-w-5xl mx-auto py-8 space-y-6">
@@ -137,7 +111,8 @@ export default function BrainDashboardPage() {
             {profile.name}
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            {template?.label ?? 'Generic'} template · Confidentiality default: {profile.defaultConfidentiality}
+            {template?.label ?? 'Generic'} template · Confidentiality default:{' '}
+            {profile.defaultConfidentiality}
           </p>
         </div>
         <Link
@@ -149,12 +124,21 @@ export default function BrainDashboardPage() {
         </Link>
       </div>
 
-      <BrainDashboardWidgets />
+      <BrainDashboardWidgetsServer clientId={client.id} />
+      <RelatedModulesStrip currentDomain="brain" />
     </div>
   );
 }
 
-function FeatureBullet({ icon, title, children }: { icon: string; title: string; children: React.ReactNode }) {
+function FeatureBullet({
+  icon,
+  title,
+  children,
+}: {
+  icon: string;
+  title: string;
+  children: React.ReactNode;
+}) {
   return (
     <div className="text-left bg-muted/30 border border-border rounded-md p-3">
       <div className="flex items-center gap-1.5 text-sm font-medium text-foreground mb-1">

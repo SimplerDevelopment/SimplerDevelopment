@@ -1,6 +1,6 @@
 // Approval queue for portal MCP-issued changes (pending → approved/rejected/applied).
 
-import { pgTable, serial, varchar, text, timestamp, integer, json } from 'drizzle-orm/pg-core';
+import { pgTable, serial, varchar, text, timestamp, integer, json, index } from 'drizzle-orm/pg-core';
 import { portalApiKeys, users } from './auth';
 import { clients } from './sites';
 
@@ -22,7 +22,12 @@ export const mcpPendingChanges = pgTable('mcp_pending_changes', {
   appliedAt: timestamp('applied_at'),
   errorMessage: text('error_message'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
-});
+}, (t) => [
+  // Approvals dashboard filters by (client, status) sorted by createdAt desc;
+  // the admin pending-changes queue scans by status only.
+  index('mcp_pending_changes_client_status_created_idx').on(t.clientId, t.status, t.createdAt),
+  index('mcp_pending_changes_status_idx').on(t.status),
+]);
 
 // Public-shareable approval links. Every MCP create/update of reviewable
 // content (posts, pitch decks, email campaigns, block templates) mints a row

@@ -7,9 +7,9 @@
  * registrar with a full-access context, and asserts the registrar's tool
  * count plus a handful of representative names.
  *
- * Goal: catch accidental loss of tools when a domain file is reorganised,
- * without paying the integration-DB cost. The end-to-end contract still
- * lives in tests/integration/api/mcp-tool-registry-baseline.test.ts.
+ * Goal: catch accidental loss of tools when a domain file is reorganised.
+ * The exhaustive registered-set contract lives in
+ * tests/unit/mcp-tool-registry-baseline.test.ts (also unit-layer, DB-mocked).
  */
 import { describe, it, expect, vi } from 'vitest';
 import type { PortalMcpContext } from '@/lib/mcp-auth';

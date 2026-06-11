@@ -47,6 +47,8 @@ vi.mock('drizzle-orm', () => ({
   and: (...args: unknown[]) => ({ op: 'and', args }),
   desc: (a: unknown) => ({ op: 'desc', a }),
   inArray: (a: unknown, b: unknown) => ({ op: 'inArray', a, b }),
+  isNull: (a: unknown) => ({ op: 'isNull', a }),
+  or: (...args: unknown[]) => ({ op: 'or', args: args.filter(Boolean) }),
 }));
 
 // schema — proxy tables so `table.col` works and tables have a stable name

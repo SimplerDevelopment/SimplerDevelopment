@@ -53,13 +53,13 @@ vi.mock('@/lib/db/schema', () => {
         },
       },
     );
-  return {
+  return new Proxy({
     clientWebsites: wrap('clientWebsites'),
     postTypes: wrap('postTypes'),
     crmCompanies: wrap('crmCompanies'),
     crmContacts: wrap('crmContacts'),
     crmDeals: wrap('crmDeals'),
-  };
+  }, { has: (t, p) => (p in t) || !(p === "then" || p === "__esModule" || p === "default" || typeof p !== "string"), get: (t, p) => (p in t) ? t[p] : ((p === "then" || p === "__esModule" || p === "default" || typeof p !== "string") ? undefined : new Proxy({ __table: String(p) }, { get: (_x, c) => c === "__table" ? String(p) : (typeof c === "string" ? { __col: c, __table: String(p) } : undefined) })) });
 });
 
 vi.mock('drizzle-orm', () => ({
@@ -80,6 +80,9 @@ vi.mock('drizzle-orm', () => ({
     },
     {},
   ),
+  isNull: (a: unknown) => ({ op: 'isNull', a }),
+  or: (...args: unknown[]) => ({ op: 'or', args: args.filter(Boolean) }),
+  inArray: (a: unknown, list: unknown[]) => ({ op: 'inArray', a, list }),
 }));
 
 // ---- per-test db state ----
@@ -516,7 +519,7 @@ describe('GET /api/portal/crm/companies', () => {
     const body = await res.json();
     expect(body.success).toBe(true);
     expect(body.data.page).toBe(1);
-    expect(body.data.limit).toBe(25);
+    expect(body.data.limit).toBe(50);
     expect(body.data.total).toBe(0);
     expect(body.data.companies).toEqual([]);
   });
@@ -543,7 +546,7 @@ describe('GET /api/portal/crm/companies', () => {
     selectQueue.push([]);
     const res = await companiesGET(makeNextRequest('limit=99999&page=0') as never);
     const body = await res.json();
-    expect(body.data.limit).toBe(5000);
+    expect(body.data.limit).toBe(200);
     expect(body.data.page).toBe(1);
   });
 

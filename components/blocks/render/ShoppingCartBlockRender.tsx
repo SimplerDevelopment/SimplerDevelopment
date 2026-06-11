@@ -3,17 +3,29 @@
 import { ShoppingCartBlock } from '@/types/blocks';
 import { useEffect, useState } from 'react';
 import { useBranding } from '@/contexts/BrandingContext';
+import { CartLineDesignBadge } from '@/components/storefront/CartLineDesignBadge';
 
 interface CartItem {
   id: number;
   productId: number;
   quantity: number;
   unitPrice: number;
+  productName?: string;
+  productSlug?: string;
+  image?: string | null;
   product?: {
     name: string;
     image: string | null;
     slug: string;
   };
+  // Set when the customer added a saved design to the cart (see
+  // /api/storefront/[siteId]/cart GET enrichment).
+  design?: {
+    id: number;
+    uuid: string | null;
+    name: string | null;
+    thumbnailUrl: string | null;
+  } | null;
 }
 
 interface ShoppingCartBlockRenderProps {
@@ -142,8 +154,14 @@ export function ShoppingCartBlockRender({ block, siteId }: ShoppingCartBlockRend
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-medium truncate">{item.product?.name || `Product #${item.productId}`}</h3>
+                      <h3 className="font-medium truncate">{item.product?.name || item.productName || `Product #${item.productId}`}</h3>
                       <p className="text-sm text-muted-foreground">Qty: {item.quantity}</p>
+                      {item.design && (
+                        <CartLineDesignBadge
+                          design={item.design}
+                          productSlug={item.product?.slug || item.productSlug}
+                        />
+                      )}
                     </div>
                     <div className="font-semibold">{formatPrice(item.unitPrice * item.quantity)}</div>
                   </div>

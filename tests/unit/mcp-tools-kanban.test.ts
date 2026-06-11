@@ -260,7 +260,8 @@ vi.mock('@/lib/security/assert-owned', () => {
 });
 
 // next/cache (used by revalidateForWrite via lib/mcp/types)
-vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }));
+vi.mock('next/cache', () => ({ revalidatePath: vi.fn(), unstable_cache: (fn: (...a: unknown[]) => unknown) => fn,
+}));
 
 // portal-auth (used transitively by lib/mcp/types for requireService)
 vi.mock('@/lib/portal-auth', () => ({ hasServiceAccess: vi.fn(async () => true) }));

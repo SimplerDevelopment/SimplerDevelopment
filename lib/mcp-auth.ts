@@ -111,8 +111,34 @@ export async function resolveOAuthToken(rawToken: string): Promise<PortalMcpCont
  */
 export async function resolvePortalFromRequest(req: Request): Promise<PortalMcpContext | null> {
   const auth = req.headers.get('authorization') ?? req.headers.get('Authorization');
-  if (!auth) return null;
-  const match = auth.match(/^Bearer\s+(.+)$/i);
+  return resolvePortalFromAuthHeader(auth);
+}
+
+/**
+ * Same as `resolvePortalFromRequest` but pulls the Authorization header from
+ * Next.js's `next/headers` runtime context. Lets centralised helpers (e.g.
+ * `authorizePortal`) accept bearer tokens without each route having to thread
+ * a `Request` through. Safe to call from any Server Component / route handler
+ * / Server Action — bails (returns null) outside a request context.
+ */
+export async function resolvePortalFromCurrentRequest(): Promise<PortalMcpContext | null> {
+  try {
+    // Dynamic import keeps this file usable from non-Next contexts (e.g.
+    // standalone scripts) — `next/headers` throws at import time outside Next.
+    const { headers } = await import('next/headers');
+    const h = await headers();
+    const auth = h.get('authorization') ?? h.get('Authorization');
+    return resolvePortalFromAuthHeader(auth);
+  } catch {
+    return null;
+  }
+}
+
+async function resolvePortalFromAuthHeader(
+  authHeader: string | null,
+): Promise<PortalMcpContext | null> {
+  if (!authHeader) return null;
+  const match = authHeader.match(/^Bearer\s+(.+)$/i);
   if (!match) return null;
   const token = match[1].trim();
   if (token.startsWith(OAUTH_TOKEN_PREFIX)) return resolveOAuthToken(token);

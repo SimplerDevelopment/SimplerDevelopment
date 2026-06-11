@@ -31,6 +31,9 @@ vi.mock('drizzle-orm', () => ({
   and: (...args: unknown[]) => ({ op: 'and', args }),
   desc: (a: unknown) => ({ op: 'desc', a }),
   asc: (a: unknown) => ({ op: 'asc', a }),
+  isNull: (a: unknown) => ({ op: 'isNull', a }),
+  or: (...args: unknown[]) => ({ op: 'or', args: args.filter(Boolean) }),
+  inArray: (a: unknown, list: unknown[]) => ({ op: 'inArray', a, list }),
 }));
 
 vi.mock('@/lib/db/schema', () => {
@@ -45,7 +48,7 @@ vi.mock('@/lib/db/schema', () => {
         },
       },
     );
-  return {
+  return new Proxy({
     clientWebsites: wrap('clientWebsites'),
     clients: wrap('clients'),
     posts: wrap('posts'),
@@ -54,7 +57,7 @@ vi.mock('@/lib/db/schema', () => {
     crmProposals: wrap('crmProposals'),
     kanbanLabels: wrap('kanbanLabels'),
     projects: wrap('projects'),
-  };
+  }, { has: (t, p) => (p in t) || !(p === "then" || p === "__esModule" || p === "default" || typeof p !== "string"), get: (t, p) => (p in t) ? t[p] : ((p === "then" || p === "__esModule" || p === "default" || typeof p !== "string") ? undefined : wrap(p)) });
 });
 
 vi.mock('@/lib/active-client', () => ({
@@ -414,6 +417,7 @@ describe('PATCH /api/portal/labels/[id]', () => {
     authMock.mockResolvedValue({ user: { id: '7', role: 'client' } });
     selectQueue.push([{ id: 5, projectId: 100 }]); // label
     selectQueue.push([{ id: 100, clientId: 33, isPrivate: true }]); // project
+    selectQueue.push([{ role: 'editor' }]); // projectMembers (canUserEditProject)
     getPortalClientMock.mockResolvedValue({ id: 33 });
     updateReturnQueue.push([{ id: 5, name: 'X', projectId: 100 }]);
     const res = await labelsRoute.PATCH(

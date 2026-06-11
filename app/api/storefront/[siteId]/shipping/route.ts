@@ -1,13 +1,16 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { storeSettings, shippingZones, shippingRates } from '@/lib/db/schema';
-import { eq, and } from 'drizzle-orm';
+import { storeSettings, shippingZones, shippingRates, products, productVariants } from '@/lib/db/schema';
+import { eq, and, sql } from 'drizzle-orm';
 import {
   resolveProvider,
   CarrierProviderError,
   type Address,
   type Parcel,
 } from '@/lib/shipping/providers';
+import { decryptApiKey } from '@/lib/crypto/api-key';
+import { getPODShippingRates } from '@/lib/fulfillment/pod';
+import type { PrintfulRecipient } from '@/lib/fulfillment/providers/printful';
 
 type RateRow = {
   id: number | string;
@@ -86,6 +89,15 @@ export async function GET(
     const state = url.searchParams.get('state');
     const postalCode = url.searchParams.get('postalCode');
     const parcelParam = url.searchParams.get('parcel');
+    // Printful POD: caller may supply a comma-separated list of variantIds (integers)
+    // that are in the cart, so we can filter to only the POD-capable items.
+    const variantIdsParam = url.searchParams.get('variantIds');
+    // Caller may also supply productIds for items without a variant selection.
+    const productIdsParam = url.searchParams.get('productIds');
+    // Caller supplies the customer name for the Printful recipient (optional).
+    const recipientName = url.searchParams.get('recipientName') || 'Customer';
+    const city = url.searchParams.get('city') || '';
+    const email = url.searchParams.get('email') || undefined;
 
     if (!country) {
       return NextResponse.json({ success: false, message: 'country parameter is required' }, { status: 400 });
@@ -227,7 +239,106 @@ export async function GET(
       }
     }
 
-    return NextResponse.json({ success: true, data: [...manualRates, ...liveRates] });
+    // Printful POD live rates — only when:
+    //   • fulfillmentProvider === 'printful'
+    //   • Printful is configured (apiKey + storeId)
+    //   • at least one cart item has a printfulVariantId
+    //   • a destination address (country + postalCode) is present
+    let printfulRates: RateRow[] = [];
+
+    const wantsPrintful =
+      store.fulfillmentProvider === 'printful' &&
+      !!store.printfulApiKeyEncrypted &&
+      !!store.printfulStoreId &&
+      !!country &&
+      !!postalCode;
+
+    if (wantsPrintful) {
+      try {
+        // Collect Printful variant IDs from the cart items supplied by the caller.
+        const podItems: Array<{ variantId: number; quantity: number }> = [];
+
+        // Check variants (productVariants.printfulVariantId).
+        const variantIds = variantIdsParam
+          ? variantIdsParam.split(',').map(s => parseInt(s.trim(), 10)).filter(n => Number.isFinite(n) && n > 0)
+          : [];
+
+        if (variantIds.length > 0) {
+          const variantRows = await db.select({
+            id: productVariants.id,
+            printfulVariantId: productVariants.printfulVariantId,
+          })
+            .from(productVariants)
+            .where(sql`${productVariants.id} IN ${variantIds}`);
+
+          for (const row of variantRows) {
+            if (row.printfulVariantId != null) {
+              podItems.push({ variantId: row.printfulVariantId, quantity: 1 });
+            }
+          }
+        }
+
+        // Check products without variants (products.printfulVariantId).
+        const productIds = productIdsParam
+          ? productIdsParam.split(',').map(s => parseInt(s.trim(), 10)).filter(n => Number.isFinite(n) && n > 0)
+          : [];
+
+        if (productIds.length > 0) {
+          const productRows = await db.select({
+            id: products.id,
+            printfulVariantId: products.printfulVariantId,
+          })
+            .from(products)
+            .where(sql`${products.id} IN ${productIds}`);
+
+          for (const row of productRows) {
+            if (row.printfulVariantId != null) {
+              podItems.push({ variantId: row.printfulVariantId, quantity: 1 });
+            }
+          }
+        }
+
+        if (podItems.length > 0) {
+          const apiKey = decryptApiKey(store.printfulApiKeyEncrypted!);
+
+          const recipient: PrintfulRecipient = {
+            name: recipientName,
+            address1: '',
+            city,
+            state_code: state ?? '',
+            country_code: country!,
+            zip: postalCode!,
+            email,
+          };
+
+          const pfRates = await getPODShippingRates({
+            recipient,
+            items: podItems,
+            apiKey,
+            storeId: store.printfulStoreId!,
+          });
+
+          printfulRates = pfRates.map((r) => ({
+            id: `printful:${r.id}`,
+            name: r.name,
+            rateType: 'live',
+            price: Math.round(parseFloat(r.rate) * 100),
+            freeAbove: null,
+            minDeliveryDays: r.minDeliveryDays ?? null,
+            maxDeliveryDays: r.maxDeliveryDays ?? null,
+            zoneName: 'Printful shipping',
+            provider: 'printful',
+            carrier: 'Printful',
+            service: r.id,
+          }));
+        }
+      } catch (err) {
+        // Log and fall through — don't break checkout for non-POD items.
+        console.warn('[storefront shipping] Printful live rates failed:', err instanceof Error ? err.message : err);
+      }
+    }
+
+    return NextResponse.json({ success: true, data: [...manualRates, ...liveRates, ...printfulRates] });
   } catch (err) {
     console.error('Storefront shipping error:', err);
     return NextResponse.json({ success: false, message: 'Internal server error' }, { status: 500 });

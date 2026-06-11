@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "builtAt": "2026-05-22T17:33:19.495Z",
+  "builtFrom": "simplerdevelopment2026",
+  "skills": [
+    "sd-init",
+    "sd-create-page",
+    "sd-create-deck",
+    "sd-create-email",
+    "sd-create-survey",
+    "sd-create-booking-page",
+    "sd-create-website",
+    "sd-build-html-embed",
+    "sd-learn",
+    "html-render-block"
+  ],
+  "companions": [
+    "SD_DESIGN_PRINCIPLES.md",
+    "CLIENT_QUICKSTART.md"
+  ],
+  "install": {
+    "mac": "Download install-sd-skills.command from /api/skills/install/mac",
+    "windows": "Download install-sd-skills.bat from /api/skills/install/windows",
+    "manual": "Extract this tarball into ~/.claude/skills/ (macOS/Linux) or %USERPROFILE%\\.claude\\skills\\ (Windows)"
+  }
+}

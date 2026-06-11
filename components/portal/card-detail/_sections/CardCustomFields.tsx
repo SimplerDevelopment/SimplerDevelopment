@@ -5,6 +5,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import type { CustomFieldValue } from '../_lib/types';
 
 type Kind = 'text' | 'number' | 'date' | 'select' | 'multi_select' | 'url' | 'checkbox';
 
@@ -18,9 +19,12 @@ interface CustomField {
   value: unknown;
 }
 
-export function CardCustomFields({ cardId, canEdit }: { cardId: number; canEdit: boolean }) {
-  const [fields, setFields] = useState<CustomField[]>([]);
-  const [loading, setLoading] = useState(true);
+export function CardCustomFields({ cardId, canEdit, initialFields }: { cardId: number; canEdit: boolean; initialFields?: CustomFieldValue[] | null }) {
+  // The card bundle now ships custom fields with the rest of the card, so the
+  // modal passes them in and this component skips its own request. The standalone
+  // fetch path is kept for any caller that doesn't provide them.
+  const [fields, setFields] = useState<CustomField[]>(initialFields ?? []);
+  const [loading, setLoading] = useState(initialFields == null);
   const [saving, setSaving] = useState(false);
   const dirtyRef = useRef<Map<number, unknown>>(new Map());
 
@@ -33,7 +37,11 @@ export function CardCustomFields({ cardId, canEdit }: { cardId: number; canEdit:
     } finally { setLoading(false); }
   };
 
-  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [cardId]);
+  useEffect(() => {
+    if (initialFields != null) { setFields(initialFields); setLoading(false); return; }
+    load();
+    /* eslint-disable-next-line react-hooks/exhaustive-deps */
+  }, [cardId, initialFields]);
 
   const flush = async () => {
     if (dirtyRef.current.size === 0) return;

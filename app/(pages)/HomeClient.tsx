@@ -1,33 +1,39 @@
-'use client';
+// Server Component. The homepage is almost entirely static presentation, so it
+// renders on the server with ZERO hydration — the only interactive pieces are
+// three tiny client islands for the decorative WebGL (HeroBackground,
+// HeroVisualGate, FeaturesBackgroundGate) plus the AccessCodeForm/Button
+// components. This is what keeps mobile TBT low and the hero LCP from waiting
+// behind a full-page hydration. (Previously this whole file was 'use client',
+// which hydrated ~760 DOM nodes and pushed mobile LCP render-delay to ~5s.)
 
-import dynamic from 'next/dynamic';
 import { FadeIn } from '@/components/animations/FadeIn';
 import { SlideIn } from '@/components/animations/SlideIn';
 import { Button } from '@/components/ui/Button';
-import { use3DScene } from '@/hooks/use3DScene';
-import { HeroVisual } from '@/components/sections/HeroVisual';
+import { HeroBackground } from '@/components/sections/HeroBackground';
+import { HeroVisualGate } from '@/components/sections/HeroVisualGate';
+import { FeaturesBackgroundGate } from '@/components/sections/FeaturesBackgroundGate';
 import { AccessCodeForm } from '@/components/marketing/AccessCodeForm';
 import type { BlogPostWithRelations } from '@/lib/actions/blog';
 import Link from 'next/link';
 
-const HeroParticleNetwork = dynamic(() => import('@/components/three/HeroParticleNetwork').then(mod => ({ default: mod.HeroParticleNetwork })), {
-  ssr: false,
-  loading: () => <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-primary/5 animate-pulse" />
-});
-
-const FeaturesBackground = dynamic(() => import('@/components/three/FeaturesBackground').then(mod => ({ default: mod.FeaturesBackground })), {
-  ssr: false,
-  loading: () => null
-});
-
 const portalFeatures = [
+  { title: 'AI Connect', description: 'Connect Claude, ChatGPT, and AI tools to your portal via MCP', icon: 'cable', href: '/solutions/ai-connect', color: '#0891b2' },
   { title: 'Website Builder', description: 'Drag-and-drop editor with unlimited pages, blog, SEO, and ecommerce', icon: 'language', href: '/solutions/websites', color: '#3b82f6' },
+  { title: 'Online Store', description: 'Sell products with variants, discounts, shipping, and print-on-demand designs', icon: 'storefront', href: '/solutions/ecommerce', color: '#16a34a' },
+  { title: 'Content Calendar', description: 'Editorial kanban and calendar to plan, schedule, and ship content across channels', icon: 'rocket_launch', href: '/solutions/publishing', color: '#0d9488' },
   { title: 'Email Marketing', description: 'Campaigns, subscriber lists, automations, and engagement tracking', icon: 'email', href: '/solutions/email-marketing', color: '#8b5cf6' },
-  { title: 'Online Booking', description: 'Scheduling pages with calendar sync and automatic reminders', icon: 'calendar_month', href: '/solutions/booking', color: '#10b981' },
-  { title: 'Pitch Decks', description: 'AI-generated, branded pitch decks with shareable links and PDF export', icon: 'slideshow', href: '/solutions/pitch-decks', color: '#f59e0b' },
-  { title: 'Project Management', description: 'Kanban boards, sprint planning, and team collaboration', icon: 'view_kanban', href: '/solutions/project-management', color: '#4f46e5' },
   { title: 'CRM', description: 'Contacts, deals, proposals, and your full sales pipeline', icon: 'groups', href: '/solutions/crm', color: '#0ea5e9' },
+  { title: 'Contracts & E-Sign', description: 'Branded proposals and legally binding contracts with built-in e-signature', icon: 'draw', href: '/solutions/contracts', color: '#b45309' },
+  { title: 'Online Booking', description: 'Scheduling pages with calendar sync and automatic reminders', icon: 'calendar_month', href: '/solutions/booking', color: '#10b981' },
+  { title: 'Surveys & Forms', description: 'Smart forms with branching logic, scoring, and auto-routing to your CRM', icon: 'ballot', href: '/solutions/surveys', color: '#e11d48' },
+  { title: 'A/B Experiments', description: 'Split-test pages and pitch deck slides with built-in significance testing', icon: 'science', href: '/solutions/experiments', color: '#65a30d' },
+  { title: 'Project Management', description: 'Kanban boards, sprint planning, and team collaboration', icon: 'view_kanban', href: '/solutions/project-management', color: '#4f46e5' },
+  { title: 'Help Desk', description: 'Embeddable live chat plus a shared inbox and SLA-tracked support tickets', icon: 'support_agent', href: '/solutions/help-desk', color: '#ea580c' },
+  { title: 'Company Brain', description: 'AI knowledge base that answers questions about your business with citations', icon: 'psychology', href: '/solutions/company-brain', color: '#7c3aed' },
   { title: 'AI Chatbot', description: 'Trained on your content for 24/7 support and lead capture', icon: 'smart_toy', href: '/solutions/ai-chatbot', color: '#a855f7' },
+  { title: 'Automations', description: 'Visual no-code workflows that connect every tool automatically', icon: 'account_tree', href: '/solutions/automations', color: '#db2777' },
+  { title: 'Pitch Decks', description: 'AI-generated, branded pitch decks with shareable links and PDF export', icon: 'slideshow', href: '/solutions/pitch-decks', color: '#f59e0b' },
+  { title: 'Agency & White-Label', description: 'Run the platform under your own brand with a custom domain and logo', icon: 'storefront', href: '/solutions/agency', color: '#c026d3' },
   { title: 'Managed Hosting', description: 'SSL, CDN, daily backups, and 99.9% uptime included', icon: 'cloud', href: '/solutions/hosting', color: '#64748b' },
 ];
 
@@ -38,18 +44,12 @@ const valuePillars = [
 ];
 
 export function HomeClient({ recentPosts = [] }: { recentPosts?: BlogPostWithRelations[] }) {
-  const { supportsWebGL } = use3DScene();
-
   return (
     <>
       {/* ─── HERO ─── */}
       <section className="relative min-h-[75vh] md:min-h-[85vh] w-full overflow-hidden flex items-center py-6 md:py-20">
         <div className="absolute inset-0 z-0">
-          {supportsWebGL ? (
-            <HeroParticleNetwork className="w-full h-full" />
-          ) : (
-            <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-primary/5" />
-          )}
+          <HeroBackground />
         </div>
         <div className="absolute inset-0 z-10 bg-gradient-to-r from-background/90 via-background/60 to-transparent pointer-events-none" />
         <div className="absolute inset-0 z-10 bg-gradient-to-b from-background/40 via-transparent to-background/60 pointer-events-none" />
@@ -74,7 +74,7 @@ export function HomeClient({ recentPosts = [] }: { recentPosts?: BlogPostWithRel
                   </FadeIn>
                   <FadeIn delay={0.3} immediate>
                     <p className="text-lg md:text-xl text-muted-foreground mb-10 max-w-xl leading-relaxed">
-                      Website, email marketing, CRM, booking, project management, AI chatbot, and more — all connected, all in one place. Built and backed by a full-service agency.
+                      Websites, online stores, email, CRM, booking, surveys, projects, an AI Company Brain, and more — eighteen connected tools in one place. Built and backed by a full-service agency.
                     </p>
                   </FadeIn>
                   <FadeIn delay={0.4} immediate>
@@ -93,7 +93,7 @@ export function HomeClient({ recentPosts = [] }: { recentPosts?: BlogPostWithRel
                 {/* Right — access-code centerpiece, layered over HeroVisual + particle network */}
                 <div className="relative mt-10 lg:mt-0">
                   <div className="hidden lg:block absolute inset-0 opacity-60 pointer-events-none">
-                    <HeroVisual />
+                    <HeroVisualGate />
                   </div>
                   <div className="hidden lg:block absolute inset-0 bg-gradient-to-br from-background/40 via-transparent to-background/30 pointer-events-none" />
                   <div className="relative z-10 flex items-center justify-center lg:min-h-[520px]">
@@ -110,13 +110,13 @@ export function HomeClient({ recentPosts = [] }: { recentPosts?: BlogPostWithRel
 
       {/* ─── PORTAL FEATURES GRID ─── */}
       <section className="relative py-20 bg-dot-grid overflow-hidden">
-        <FeaturesBackground />
+        <FeaturesBackgroundGate />
         <div className="container mx-auto px-4 relative z-10">
           <div className="max-w-6xl mx-auto">
             <FadeIn>
               <p className="text-primary font-mono text-sm font-semibold mb-3 tracking-wider text-center">{'// THE PLATFORM'}</p>
               <h2 className="font-display text-3xl md:text-4xl font-bold mb-4 text-center">
-                Eight powerful tools. One login.
+                Eighteen tools. One platform.
               </h2>
               <p className="text-lg text-muted-foreground text-center max-w-2xl mx-auto mb-12">
                 Stop paying for a dozen subscriptions that don&apos;t talk to each other. Everything you need is here.
@@ -272,27 +272,15 @@ export function HomeClient({ recentPosts = [] }: { recentPosts?: BlogPostWithRel
                     <SlideIn key={post.id} direction="up" delay={index * 0.1}>
                       <Link href={`/blog/${post.slug}`} className="group block h-full">
                         <article className="h-full rounded-xl border border-border bg-background overflow-hidden transition-all hover:shadow-lg hover:border-primary/30">
-                          <div className="relative aspect-[16/10] overflow-hidden bg-muted">
-                            {post.coverImage ? (
-                              <img src={post.coverImage} alt={post.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
-                            ) : (
-                              <div className="w-full h-full bg-gradient-to-br from-primary/15 to-primary/5 flex items-center justify-center">
-                                <span className="material-icons text-6xl text-primary/20">article</span>
-                              </div>
-                            )}
-                            {category && (
-                              <div className="absolute top-3 left-3">
-                                <span
-                                  className="px-3 py-1 rounded-full text-xs font-bold text-white"
-                                  style={{ backgroundColor: category.color || undefined }}
-                                >
-                                  {category.name}
-                                </span>
-                              </div>
-                            )}
-                          </div>
-
                           <div className="p-5">
+                            {category && (
+                              <span
+                                className="inline-block mb-3 px-3 py-1 rounded-full text-xs font-bold text-white"
+                                style={{ backgroundColor: category.color || undefined }}
+                              >
+                                {category.name}
+                              </span>
+                            )}
                             <h3 className="font-bold text-lg mb-2 group-hover:text-primary transition-colors line-clamp-2 leading-snug">
                               {post.title}
                             </h3>
@@ -375,9 +363,9 @@ export function HomeClient({ recentPosts = [] }: { recentPosts?: BlogPostWithRel
                   <div className="rounded-xl border border-white/10 bg-white/5 dark:border-black/15 dark:bg-black/5 p-5">
                     <div className="flex items-center gap-3 mb-3">
                       <span className="material-icons text-2xl" style={{ color: '#34d399' }}>savings</span>
-                      <span className="font-heading font-bold">Replace 5+ Tools</span>
+                      <span className="font-heading font-bold">Replace 12+ Tools</span>
                     </div>
-                    <p className="text-sm opacity-50 dark:opacity-75">One platform, one bill. No more Mailchimp + Calendly + Squarespace + HubSpot.</p>
+                    <p className="text-sm opacity-50 dark:opacity-75">One platform, one bill. No more Mailchimp, Calendly, Squarespace, HubSpot, Typeform, DocuSign, Shopify, and Zapier.</p>
                   </div>
                   <div className="rounded-xl border border-white/10 bg-white/5 dark:border-black/15 dark:bg-black/5 p-5">
                     <div className="flex items-center gap-3 mb-3">

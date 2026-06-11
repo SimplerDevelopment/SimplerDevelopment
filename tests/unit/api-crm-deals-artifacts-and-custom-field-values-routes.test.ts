@@ -38,7 +38,7 @@ vi.mock('@/lib/db/schema', () => {
         },
       },
     );
-  return {
+  return new Proxy({
     crmDeals: wrap('crmDeals'),
     crmDealArtifacts: wrap('crmDealArtifacts'),
     clientWebsites: wrap('clientWebsites'),
@@ -52,7 +52,7 @@ vi.mock('@/lib/db/schema', () => {
     crmCustomFieldValues: wrap('crmCustomFieldValues'),
     crmContacts: wrap('crmContacts'),
     crmCompanies: wrap('crmCompanies'),
-  };
+  }, { has: (t, p) => (p in t) || !(p === "then" || p === "__esModule" || p === "default" || typeof p !== "string"), get: (t, p) => (p in t) ? t[p] : ((p === "then" || p === "__esModule" || p === "default" || typeof p !== "string") ? undefined : wrap(p)) });
 });
 
 vi.mock('drizzle-orm', () => ({
@@ -61,6 +61,8 @@ vi.mock('drizzle-orm', () => ({
   desc: (a: unknown) => ({ op: 'desc', a }),
   inArray: (a: unknown, b: unknown) => ({ op: 'inArray', a, b }),
   sql: Object.assign((..._a: unknown[]) => ({ op: 'sql' }), { raw: () => ({ op: 'raw' }) }),
+  isNull: (a: unknown) => ({ op: 'isNull', a }),
+  or: (...args: unknown[]) => ({ op: 'or', args: args.filter(Boolean) }),
 }));
 
 // ---- DB mock — programmable per-test --------------------------------------

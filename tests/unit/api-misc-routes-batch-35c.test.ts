@@ -56,6 +56,8 @@ vi.mock('drizzle-orm', () => ({
     },
     {},
   ),
+  isNull: (a: unknown) => ({ op: 'isNull', a }),
+  inArray: (a: unknown, list: unknown[]) => ({ op: 'inArray', a, list }),
 }));
 
 vi.mock('@/lib/db/schema', () => {
@@ -73,10 +75,12 @@ vi.mock('@/lib/db/schema', () => {
   }
   const tables = [
     'storeSettings', 'discountCodes',
-    'orders', 'orderItems',
+    'orders', 'orderItems', 'orderStatusHistory',
+    'easypostEvents',
     'products', 'productImages', 'productOptions', 'productOptionValues',
     'productVariants', 'bulkPricingRules', 'productCategories',
     'invoices', 'clients', 'clientServices',
+    'designs',
   ];
   const out: Record<string, unknown> = {};
   for (const t of tables) out[t] = tableProxy(t);
@@ -475,6 +479,7 @@ describe('GET /api/storefront/[siteId]/orders/[orderNumber]', () => {
     dbState.selectQueue.push([STORE]);
     dbState.selectQueue.push([order]);
     dbState.selectQueue.push(items);
+    dbState.selectQueue.push([]); // trackingEvents (easypostEvents) — empty
 
     const { GET } = await import(
       '@/app/api/storefront/[siteId]/orders/[orderNumber]/route'

@@ -26,6 +26,7 @@ import {
 } from '@/lib/db/schema';
 import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
 import { logAudit } from './audit';
+import { revalidateBrainStaticCounts } from './dashboard';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -348,6 +349,8 @@ export async function createGlossaryTerm(
     metadata: { slug: created.slug },
   });
 
+  // glossaryTermsActive feeds the dashboard static-counts tile (10m TTL).
+  if (created.status === 'active') revalidateBrainStaticCounts(clientId);
   return created;
 }
 
@@ -398,6 +401,10 @@ export async function updateGlossaryTerm(
       entityId: id,
       metadata: { changedFields: Object.keys(patch) },
     });
+    // Status flips between active / archived shift the static-counts tile.
+    if (patch.status !== undefined && before[0].status !== updated.status) {
+      revalidateBrainStaticCounts(clientId);
+    }
   }
 
   return updated ?? null;
@@ -461,6 +468,7 @@ export async function deleteGlossaryTerm(
   await db.delete(brainGlossaryTerms)
     .where(and(eq(brainGlossaryTerms.id, id), eq(brainGlossaryTerms.clientId, clientId)));
 
+  if (before.status === 'active') revalidateBrainStaticCounts(clientId);
   return { deleted: true, prunedRelatedTermFromCount: toPrune.length };
 }
 

@@ -59,6 +59,8 @@ vi.mock('drizzle-orm', () => ({
       raw: (s: string) => ({ op: 'sql.raw', s }),
     },
   ),
+  isNull: (a: unknown) => ({ op: 'isNull', a }),
+  inArray: (a: unknown, list: unknown[]) => ({ op: 'inArray', a, list }),
 }));
 
 vi.mock('@/lib/db/schema', () => {
@@ -74,12 +76,12 @@ vi.mock('@/lib/db/schema', () => {
         },
       },
     );
-  return {
+  return new Proxy({
     projects: wrap('projects'),
     kanbanColumns: wrap('kanbanColumns'),
     kanbanCards: wrap('kanbanCards'),
     projectWebhooks: wrap('projectWebhooks'),
-  };
+  }, { has: (t, p) => (p in t) || !(p === "then" || p === "__esModule" || p === "default" || typeof p !== "string"), get: (t, p) => (p in t) ? t[p] : ((p === "then" || p === "__esModule" || p === "default" || typeof p !== "string") ? undefined : wrap(p)) });
 });
 
 // ---------------------------------------------------------------------------
@@ -127,14 +129,18 @@ vi.mock('@/lib/db', () => {
       values(v: Record<string, unknown> | Record<string, unknown>[]) {
         writeCalls.push({ op: 'insert', table: table.__table, values: v });
         const rows = shiftWriteRows();
-        return {
+        const result = {
           returning() {
             return Promise.resolve(rows.map((r) => ({ ...r })));
+          },
+          onConflictDoNothing() {
+            return result;
           },
           then(onF: (val: unknown) => unknown, onR?: (e: unknown) => unknown) {
             return Promise.resolve(rows.map((r) => ({ ...r }))).then(onF, onR);
           },
         };
+        return result;
       },
     };
   }
@@ -434,6 +440,7 @@ describe('PATCH /api/portal/projects/[id]/columns/[columnId]', () => {
     getPortalClientMock.mockResolvedValue({ id: 5 });
     selectQueue.push([{ id: 9, clientId: 5, isPrivate: true }]);
     selectQueue.push([{ id: 3, projectId: 9 }]);
+    selectQueue.push([{ role: 'owner' }]); // projectMembers row → canUserEditProject → true
     writeReturnQueue.push([{ id: 3, name: 'OK' }]);
     const res = await columnIdRoute.PATCH(
       makeJsonReq('http://x/y', 'PATCH', { name: 'OK' }),
@@ -660,6 +667,7 @@ describe('PATCH /api/portal/projects/[id]', () => {
     selectQueue.push([{ id: 9, clientId: 5, isPrivate: true }]); // initial fetch
     getPortalClientMock.mockResolvedValue({ id: 5 });
     selectQueue.push([{ id: 9, clientId: 5, isPrivate: true }]); // owned re-check
+    selectQueue.push([{ role: 'owner' }]); // projectMembers row → canUserEditProject → true
     writeReturnQueue.push([{ id: 9, name: 'OK' }]);
     const res = await projectIdRoute.PATCH(
       makeJsonReq('http://x/y', 'PATCH', { name: 'OK' }),
@@ -874,21 +882,33 @@ describe('GET /api/portal/projects', () => {
     expect((await res.json()).message).toBe('Client not found');
   });
 
-  it('partitions agency vs private projects', async () => {
+  it('returns projects the user is a member of (with myRole)', async () => {
     authMock.mockResolvedValue(SESSION);
     getPortalClientMock.mockResolvedValue({ id: 5 });
+    // count query
+    selectQueue.push([{ total: 2 }]);
+    // paginated list
     selectQueue.push([
-      { id: 1, clientId: 5, isPrivate: false, name: 'Pub' },
-      { id: 2, clientId: 5, isPrivate: true, name: 'Priv1' },
-      { id: 3, clientId: 5, isPrivate: true, name: 'Priv2' },
+      { id: 1, clientId: 5, name: 'Pub' },
+      { id: 2, clientId: 5, name: 'Priv1' },
     ]);
-    const res = await projectsRoute.GET();
+    // projectMembers filter for non-staff
+    selectQueue.push([
+      { projectId: 1, role: 'owner' },
+      { projectId: 2, role: 'editor' },
+    ]);
+    const nextReq = Object.assign(
+      new Request('http://localhost/api/portal/projects'),
+      { nextUrl: new URL('http://localhost/api/portal/projects') },
+    ) as unknown as import('next/server').NextRequest;
+    const res = await projectsRoute.GET(nextReq);
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.success).toBe(true);
-    expect(body.data.agency).toHaveLength(1);
-    expect(body.data.private).toHaveLength(2);
-    expect(body.data.agency[0].name).toBe('Pub');
+    expect(body.data).toHaveLength(2);
+    expect(body.data[0].name).toBe('Pub');
+    expect(body.data[0].myRole).toBe('owner');
+    expect(body.data[1].myRole).toBe('editor');
   });
 });
 
@@ -924,11 +944,11 @@ describe('POST /api/portal/projects', () => {
     expect((await res.json()).message).toBe('Name is required');
   });
 
-  it('creates a private project with derived projectKey and emits event', async () => {
+  it('creates a project with derived projectKey and emits event', async () => {
     authMock.mockResolvedValue(SESSION);
     getPortalClientMock.mockResolvedValue({ id: 5 });
     writeReturnQueue.push([
-      { id: 42, name: 'My Cool Project', status: 'active', clientId: 5, isPrivate: true },
+      { id: 42, name: 'My Cool Project', status: 'active', clientId: 5 },
     ]);
     writeReturnQueue.push([]); // projectKey update returning ignored
     const res = await projectsRoute.POST(
@@ -947,7 +967,6 @@ describe('POST /api/portal/projects', () => {
     expect(vals.description).toBe('d');
     expect(vals.clientId).toBe(5);
     expect(vals.status).toBe('active');
-    expect(vals.isPrivate).toBe(true);
     expect(vals.createdBy).toBe(7);
 
     // projectKey update happened

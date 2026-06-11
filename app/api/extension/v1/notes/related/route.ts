@@ -50,9 +50,13 @@ const handler = withExtensionAuth(async (req, ctx) => {
   // Same-origin matches, excluding the exact URL above.
   const origin = `${parsed.protocol}//${parsed.host}`;
   // Pull a generous window so we can drop the exact match before slicing to limit.
+  // `includeBody: true` because the extension's "you've already saved this"
+  // popup renders a 160-char snippet of each match. The default slim list
+  // projection drops body markdown to keep the portal sidebar cheap.
   const domainNotes = await listNotes(ctx.client.id, {
     sourceUrlStartsWith: origin,
     limit: limit + 1,
+    includeBody: true,
   });
   const domain = domainNotes
     .filter((n) => !exactMatch || n.id !== exactMatch.id)

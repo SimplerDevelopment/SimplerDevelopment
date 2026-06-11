@@ -1,8 +1,13 @@
-import Script from 'next/script';
 import { generateSEO } from '@/lib/utils/seo';
 import { ContactForm } from '@/components/forms/ContactForm';
+import { BookingFormInline } from '@/components/blocks/render/BookingFormInline';
 import { FadeIn } from '@/components/animations/FadeIn';
 import { SlideIn } from '@/components/animations/SlideIn';
+
+// "30 Minute Consultation" booking page (#9) on the SimplerDevelopment client
+// (client id 104) in the portal — bookings flow through our own platform.
+// Served publicly at /book/<slug>.
+const BOOKING_SLUG = '30-minute-consultation-mq0h6cgc';
 
 export const metadata = generateSEO({
   title: 'Contact Us',
@@ -36,10 +41,9 @@ export default function ContactPage() {
                 <p className="text-sm text-muted-foreground mb-6">
                   Book a 30-minute call to discuss your project
                 </p>
-                {/* Calendly inline widget begin */}
-                <div className="calendly-inline-widget" data-url="https://calendly.com/danielpcoyle-info/30min" style={{ minWidth: '320px', height: '600px' }}></div>
-                <Script src="https://assets.calendly.com/assets/external/widget.js" strategy="lazyOnload" />
-                {/* Calendly inline widget end */}
+                {/* Internal booking embed — SimplerDevelopment's "30 Minute
+                    Consultation" booking page (#9) from the client portal. */}
+                <BookingFormInline slug={BOOKING_SLUG} showPageTitle={false} />
               </div>
             </SlideIn>
           </div>

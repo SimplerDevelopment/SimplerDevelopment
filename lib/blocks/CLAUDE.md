@@ -2,7 +2,7 @@
 
 The block registry + supporting schemas for the visual editor. Blocks are the JSON cells that fill `posts.content`.
 
-> Token budget: keep this file <80 lines. Body lives in `@BLOCK_EDITOR_GUIDE.md`.
+> Token budget: keep this file <80 lines. Body lives in `@docs/guides/BLOCK_EDITOR_GUIDE.md`.
 
 ## What lives here
 
@@ -40,7 +40,7 @@ The `simplerdev-block-type` skill produces all five together. **Use it. Do not h
 
 ## Pointers
 
-- `@BLOCK_EDITOR_GUIDE.md` — block JSON schema, examples, troubleshooting
+- `@docs/guides/BLOCK_EDITOR_GUIDE.md` — block JSON schema, examples, troubleshooting
 - `@types/blocks.ts` — block type definitions (TypeScript)
 - `app/api/blocks/` — `/api/blocks` metadata endpoint
 - `components/blocks/` — render components

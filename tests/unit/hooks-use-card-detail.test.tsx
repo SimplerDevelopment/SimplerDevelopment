@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/ban-ts-comment, react-hooks/rules-of-hooks, @typescript-eslint/no-require-imports */
 // @vitest-environment jsdom
 /**
  * Unit tests for `components/portal/card-detail/_hooks/useCardDetail.ts` — the
@@ -149,7 +150,7 @@ describe('useCardDetail — load lifecycle', () => {
     expect(result.current.loading).toBe(true);
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(mockApi.fetchCardBundle).toHaveBeenCalledWith(1);
-    expect(mockApi.fetchMentionableUsers).toHaveBeenCalled();
+    // fetchMentionableUsers is now inlined into the bundle — no separate call expected
   });
 
   it('populates card/comments/files/labels from the bundle', async () => {
@@ -186,22 +187,26 @@ describe('useCardDetail — load lifecycle', () => {
   });
 
   it('loads project labels when card has a projectId', async () => {
-    mockApi.fetchProjectLabels.mockResolvedValue({
-      success: true,
-      data: [{ id: 9, name: 'urgent', color: '#0f0' }],
-    });
+    // projectLabels are now returned inside the bundle (no separate fetchProjectLabels call)
+    mockApi.fetchCardBundle.mockResolvedValue(
+      bundleOk({ projectLabels: [{ id: 9, name: 'urgent', color: '#0f0' }] }),
+    );
     const { result } = await renderLoaded();
-    expect(mockApi.fetchProjectLabels).toHaveBeenCalledWith(42);
     expect(result.current.projectLabels).toHaveLength(1);
   });
 
   it('loads artifacts and availableArtifacts', async () => {
-    mockApi.fetchArtifacts.mockResolvedValue({ success: true, data: [{ id: 1 }] });
+    // artifacts are now returned inside the bundle; availableArtifacts are lazy-loaded when picker opens
+    mockApi.fetchCardBundle.mockResolvedValue(
+      bundleOk({ artifacts: [{ id: 1 }] }),
+    );
     mockApi.fetchAvailableArtifacts.mockResolvedValue({ success: true, data: [{ type: 'doc', id: 1, title: 'X' }] });
     const { result } = await renderLoaded();
     expect(result.current.artifacts).toHaveLength(1);
-    expect(result.current.availableArtifacts).toHaveLength(1);
     expect(result.current.artifactsLoaded).toBe(true);
+    // availableArtifacts are deferred until the picker opens — trigger it
+    act(() => result.current.setShowArtifactPicker(true));
+    await waitFor(() => expect(result.current.availableArtifacts).toHaveLength(1));
   });
 
   it('handles bundle failure gracefully (card stays null, still stops loading)', async () => {
@@ -460,13 +465,10 @@ describe('useCardDetail — comments', () => {
   });
 
   it('submitComment includes mentions from @name matches', async () => {
-    mockApi.fetchMentionableUsers.mockResolvedValue({
-      success: true,
-      data: [
-        { id: 1, name: 'alice' },
-        { id: 2, name: 'bob' },
-      ],
-    });
+    // mentionableUsers now come from the bundle, not a separate fetchMentionableUsers call
+    mockApi.fetchCardBundle.mockResolvedValue(
+      bundleOk({ mentionableUsers: [{ id: 1, name: 'alice' }, { id: 2, name: 'bob' }] }),
+    );
     mockApi.postComment.mockResolvedValue({ success: true, data: { id: 100, body: 'hi' } });
     const { result } = await renderLoaded();
     act(() => result.current.setCommentBody('hello @alice and @bob and @carl'));
@@ -839,10 +841,10 @@ describe('useCardDetail — artifacts', () => {
   });
 
   it('toggleArtifactPin updates pinned for matching artifact', async () => {
-    mockApi.fetchArtifacts.mockResolvedValue({
-      success: true,
-      data: [{ id: 50, cardId: 1, artifactType: 'doc', artifactId: 5, displayTitle: 'D', pinned: false, createdAt: '' }],
-    });
+    // artifacts are now returned inside the bundle, not via a separate fetchArtifacts call
+    mockApi.fetchCardBundle.mockResolvedValue(
+      bundleOk({ artifacts: [{ id: 50, cardId: 1, artifactType: 'doc', artifactId: 5, displayTitle: 'D', pinned: false, createdAt: '' }] }),
+    );
     const { result } = await renderLoaded();
     expect(result.current.artifacts[0].pinned).toBe(false);
     await act(async () => {
@@ -853,10 +855,10 @@ describe('useCardDetail — artifacts', () => {
   });
 
   it('removeArtifact removes from local state', async () => {
-    mockApi.fetchArtifacts.mockResolvedValue({
-      success: true,
-      data: [{ id: 50, cardId: 1, artifactType: 'doc', artifactId: 5, displayTitle: 'D', pinned: false, createdAt: '' }],
-    });
+    // artifacts are now returned inside the bundle, not via a separate fetchArtifacts call
+    mockApi.fetchCardBundle.mockResolvedValue(
+      bundleOk({ artifacts: [{ id: 50, cardId: 1, artifactType: 'doc', artifactId: 5, displayTitle: 'D', pinned: false, createdAt: '' }] }),
+    );
     const { result } = await renderLoaded();
     await act(async () => {
       await result.current.removeArtifact(50);

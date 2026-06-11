@@ -9,7 +9,7 @@
  * px/% values (e.g. `lg:mt-87px` is not a real class) and only worked for
  * the SpacingSize tokens. This module accepts BOTH and produces real CSS.
  */
-import type { Block } from '@/types/blocks';
+import type { Block, BlockStyle } from '@/types/blocks';
 import type { Breakpoint, ResponsiveSpacing, ResponsiveTypography, ResponsiveVisibility, SpacingValue } from '@/types/responsive';
 
 // SpacingSize → CSS length. Custom values (px/%/rem/etc.) pass through.
@@ -156,41 +156,105 @@ function sanitizeId(id: string | undefined): string {
 }
 
 /**
+ * Convert a Partial<BlockStyle> to an array of CSS declaration strings.
+ * Only layout properties are included — aesthetic properties (color, border,
+ * shadow, etc.) are intentionally omitted because they are not breakpoint-scoped.
+ */
+function layoutStyleDecls(s: Partial<BlockStyle> | undefined): string[] {
+  if (!s) return [];
+  const d: string[] = [];
+  if (s.width         != null) d.push(`width: ${s.width}`);
+  if (s.height        != null) d.push(`height: ${s.height}`);
+  if (s.minWidth      != null) d.push(`min-width: ${s.minWidth}`);
+  if (s.minHeight     != null) d.push(`min-height: ${s.minHeight}`);
+  if (s.maxWidth      != null) d.push(`max-width: ${s.maxWidth}`);
+  if (s.maxHeight     != null) d.push(`max-height: ${s.maxHeight}`);
+  if (s.display       != null) d.push(`display: ${s.display}`);
+  if (s.flexDirection != null) d.push(`flex-direction: ${s.flexDirection}`);
+  if (s.justifyContent!= null) d.push(`justify-content: ${s.justifyContent}`);
+  if (s.alignItems    != null) d.push(`align-items: ${s.alignItems}`);
+  if (s.alignSelf     != null) d.push(`align-self: ${s.alignSelf}`);
+  if (s.flexWrap      != null) d.push(`flex-wrap: ${s.flexWrap}`);
+  if (s.gap           != null) d.push(`gap: ${s.gap}`);
+  if (s.overflow      != null) d.push(`overflow: ${s.overflow}`);
+  if (s.position      != null) d.push(`position: ${s.position}`);
+  if (s.top           != null) d.push(`top: ${s.top}`);
+  if (s.right         != null) d.push(`right: ${s.right}`);
+  if (s.bottom        != null) d.push(`bottom: ${s.bottom}`);
+  if (s.left          != null) d.push(`left: ${s.left}`);
+  if (s.zIndex        != null) d.push(`z-index: ${s.zIndex}`);
+  if (s.gridTemplateColumns != null) d.push(`grid-template-columns: ${s.gridTemplateColumns}`);
+  if (s.gridTemplateRows    != null) d.push(`grid-template-rows: ${s.gridTemplateRows}`);
+  if (s.gridGap       != null) d.push(`gap: ${s.gridGap}`);
+  return d;
+}
+
+/**
  * Build the CSS string + class name for a block's responsive settings.
  * Returns null when the block has no responsive values worth emitting.
+ *
+ * Handles two sources:
+ *  1. `block.responsive` — margin/padding/visibility/fontSize (mobile-first, min-width queries)
+ *  2. `block.responsiveStyle` — layout properties (desktop-first, max-width queries)
+ *     Desktop values become the base rule; tablet/mobile narrow with max-width overrides.
  */
 export function generateResponsiveStyles(block: Block): ResponsiveCssResult | null {
   const r = block.responsive;
-  if (!r) return null;
+  const rs = block.responsiveStyle;
 
-  const hasAnyValue =
-    !!r.marginTop || !!r.marginBottom || !!r.marginLeft || !!r.marginRight ||
-    !!r.paddingTop || !!r.paddingBottom || !!r.paddingLeft || !!r.paddingRight ||
-    !!r.fontSize || !!r.visibility;
-  if (!hasAnyValue) return null;
+  const hasSpacingValue =
+    !!r?.marginTop || !!r?.marginBottom || !!r?.marginLeft || !!r?.marginRight ||
+    !!r?.paddingTop || !!r?.paddingBottom || !!r?.paddingLeft || !!r?.paddingRight ||
+    !!r?.fontSize || !!r?.visibility;
+
+  const hasResponsiveStyle = !!(rs?.mobile || rs?.tablet || rs?.desktop);
+
+  if (!hasSpacingValue && !hasResponsiveStyle) return null;
 
   const className = `bsr-${sanitizeId(block.id)}`;
 
   const parts: string[] = [];
 
-  // mobile = base, no media query (mobile-first)
-  const mobile = breakpointDecls('mobile', r);
-  if (mobile.decls.length > 0) {
-    parts.push(`.${className}{${mobile.decls.join(';')}}`);
+  // ── block.responsive: margin/padding/visibility/fontSize (mobile-first) ──
+  if (r && hasSpacingValue) {
+    // mobile = base, no media query (mobile-first)
+    const mobile = breakpointDecls('mobile', r);
+    if (mobile.decls.length > 0) {
+      parts.push(`.${className}{${mobile.decls.join(';')}}`);
+    }
+
+    const tablet = breakpointDecls('tablet', r);
+    if (tablet.decls.length > 0) {
+      parts.push(
+        `@media (min-width: ${BREAKPOINT_MIN_WIDTH.tablet}px){.${className}{${tablet.decls.join(';')}}}`,
+      );
+    }
+
+    const desktop = breakpointDecls('desktop', r);
+    if (desktop.decls.length > 0) {
+      parts.push(
+        `@media (min-width: ${BREAKPOINT_MIN_WIDTH.desktop}px){.${className}{${desktop.decls.join(';')}}}`,
+      );
+    }
   }
 
-  const tablet = breakpointDecls('tablet', r);
-  if (tablet.decls.length > 0) {
-    parts.push(
-      `@media (min-width: ${BREAKPOINT_MIN_WIDTH.tablet}px){.${className}{${tablet.decls.join(';')}}}`,
-    );
-  }
+  // ── block.responsiveStyle: layout properties (desktop-first) ──
+  // Desktop = base rule (no media query); tablet/mobile narrow with max-width.
+  if (rs) {
+    const desktopDecls = layoutStyleDecls(rs.desktop);
+    if (desktopDecls.length > 0) {
+      parts.push(`.${className}{${desktopDecls.join(';')}}`);
+    }
 
-  const desktop = breakpointDecls('desktop', r);
-  if (desktop.decls.length > 0) {
-    parts.push(
-      `@media (min-width: ${BREAKPOINT_MIN_WIDTH.desktop}px){.${className}{${desktop.decls.join(';')}}}`,
-    );
+    const tabletDecls = layoutStyleDecls(rs.tablet);
+    if (tabletDecls.length > 0) {
+      parts.push(`@media (max-width: 1023px){.${className}{${tabletDecls.join(';')}}}`);
+    }
+
+    const mobileDecls = layoutStyleDecls(rs.mobile);
+    if (mobileDecls.length > 0) {
+      parts.push(`@media (max-width: 767px){.${className}{${mobileDecls.join(';')}}}`);
+    }
   }
 
   if (parts.length === 0) return null;

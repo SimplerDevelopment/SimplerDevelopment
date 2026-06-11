@@ -88,7 +88,41 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
+        // Fresh sign-in — authorize() already verified the user exists and is
+        // active. Stamp the validation time so the re-check below is throttled.
         token.role = user.role;
+        token.checkedAt = Date.now();
+        return token;
+      }
+      // Subsequent requests carry only the JWT (no DB hit at sign-in). Because
+      // the token is stateless, a user that was DELETED or DEACTIVATED after
+      // sign-in keeps a "valid" session until the token expires — which caused
+      // production 500s (e.g. /portal/onboarding inserting user_onboarding for a
+      // user_id no longer present in `users`, an FK violation). Re-validate the
+      // user against the DB, throttled to once per REVALIDATE_MS so the global
+      // (middleware) hot path isn't hit on every request — only authenticated
+      // requests carry a token, and an active user pays at most one indexed PK
+      // lookup per minute. Returning null invalidates the session, forcing a
+      // clean re-login. Pre-existing tokens minted before this code have no
+      // `checkedAt`, so they are re-validated on their very next request.
+      const REVALIDATE_MS = 60 * 1000;
+      const last = typeof token.checkedAt === 'number' ? token.checkedAt : 0;
+      if (token.sub && Date.now() - last > REVALIDATE_MS) {
+        const id = parseInt(token.sub, 10);
+        if (!Number.isFinite(id)) return null;
+        try {
+          const [u] = await db
+            .select({ role: users.role, active: users.active })
+            .from(users)
+            .where(eq(users.id, id))
+            .limit(1);
+          if (!u || !u.active) return null; // deleted or deactivated → log out
+          token.role = u.role; // keep role fresh if it changed
+          token.checkedAt = Date.now();
+        } catch {
+          // Transient DB error: keep the existing token rather than mass-logging
+          // every user out during a database blip (fail open for availability).
+        }
       }
       return token;
     },

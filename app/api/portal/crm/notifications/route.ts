@@ -1,9 +1,78 @@
 import { NextResponse } from 'next/server';
+import { unstable_cache, revalidateTag } from 'next/cache';
 import { auth } from '@/lib/auth';
 import { getPortalClient } from '@/lib/portal-client';
 import { db } from '@/lib/db';
 import { crmNotifications } from '@/lib/db/schema';
 import { and, eq, desc, inArray, sql } from 'drizzle-orm';
+
+// Per-user notification snapshot cache (recent rows + unread count) used by
+// the layout-shell bell on every page nav. 15s TTL — short because users
+// expect new notifications to surface promptly, long enough to absorb the
+// per-nav fan-out. Mark-read mutations below + any code path that inserts a
+// row into `crmNotifications` should call
+// `revalidateTag('notifications:'+userId)` to flush immediately.
+//
+// We key on (clientId, userId, limit, unreadOnly) so the bell-bar's canonical
+// `?limit=20` query doesn't collide with a dropdown asking for `?limit=50`.
+async function _getNotificationsSnapshotUncached(
+  clientId: number,
+  userId: number,
+  limit: number,
+  unreadOnly: boolean,
+) {
+  const baseScope = unreadOnly
+    ? and(
+        eq(crmNotifications.clientId, clientId),
+        eq(crmNotifications.userId, userId),
+        eq(crmNotifications.read, false),
+      )
+    : and(eq(crmNotifications.clientId, clientId), eq(crmNotifications.userId, userId));
+
+  const [notifications, countRows] = await Promise.all([
+    db.select()
+      .from(crmNotifications)
+      .where(baseScope)
+      .orderBy(desc(crmNotifications.createdAt))
+      .limit(limit),
+    db.select({ count: sql<number>`count(*)::int` })
+      .from(crmNotifications)
+      .where(and(
+        eq(crmNotifications.clientId, clientId),
+        eq(crmNotifications.userId, userId),
+        eq(crmNotifications.read, false),
+      )),
+  ]);
+
+  return {
+    notifications,
+    unreadCount: countRows[0]?.count ?? 0,
+  };
+}
+
+async function getNotificationsSnapshotCached(
+  clientId: number,
+  userId: number,
+  limit: number,
+  unreadOnly: boolean,
+) {
+  try {
+    return await unstable_cache(
+      () => _getNotificationsSnapshotUncached(clientId, userId, limit, unreadOnly),
+      [
+        'portal-notifications-snapshot',
+        String(clientId),
+        String(userId),
+        String(limit),
+        unreadOnly ? '1' : '0',
+      ],
+      { revalidate: 15, tags: ['notifications', `notifications:${userId}`] },
+    )();
+  } catch {
+    // Outside a request context (tests/cron/MCP) — incrementalCache unavailable.
+    return _getNotificationsSnapshotUncached(clientId, userId, limit, unreadOnly);
+  }
+}
 
 async function getAuthedClient() {
   const session = await auth();
@@ -30,36 +99,17 @@ export async function GET(req: Request) {
     }
   }
 
-  const baseScope = unreadOnly
-    ? and(
-        eq(crmNotifications.clientId, client.id),
-        eq(crmNotifications.userId, userId),
-        eq(crmNotifications.read, false)
-      )
-    : and(eq(crmNotifications.clientId, client.id), eq(crmNotifications.userId, userId));
-
-  const notifications = await db
-    .select()
-    .from(crmNotifications)
-    .where(baseScope)
-    .orderBy(desc(crmNotifications.createdAt))
-    .limit(limit);
-
-  const [countRow] = await db
-    .select({ count: sql<number>`count(*)::int` })
-    .from(crmNotifications)
-    .where(
-      and(
-        eq(crmNotifications.clientId, client.id),
-        eq(crmNotifications.userId, userId),
-        eq(crmNotifications.read, false)
-      )
-    );
+  const { notifications, unreadCount } = await getNotificationsSnapshotCached(
+    client.id,
+    userId,
+    limit,
+    unreadOnly,
+  );
 
   return NextResponse.json({
     success: true,
     data: notifications,
-    unreadCount: countRow?.count ?? 0,
+    unreadCount,
   });
 }
 
@@ -84,6 +134,7 @@ export async function PUT(req: Request) {
           eq(crmNotifications.read, false)
         )
       );
+    try { revalidateTag(`notifications:${userId}`, 'max'); } catch { /* ignore */ }
     return NextResponse.json({ success: true });
   }
 
@@ -98,6 +149,7 @@ export async function PUT(req: Request) {
           inArray(crmNotifications.id, body.ids)
         )
       );
+    try { revalidateTag(`notifications:${userId}`, 'max'); } catch { /* ignore */ }
     return NextResponse.json({ success: true });
   }
 

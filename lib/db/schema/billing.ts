@@ -66,7 +66,11 @@ export const invoices = pgTable('invoices', {
   createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
-});
+}, (t) => [
+  // E2 perf — admin clients list aggregates paid totals per client; the
+  // dashboard groups by status; the recent-invoices panel orders by createdAt.
+  index('invoices_client_status_created_idx').on(t.clientId, t.status, t.createdAt),
+]);
 
 export const invoiceItems = pgTable('invoice_items', {
   id: serial('id').primaryKey(),
@@ -205,6 +209,50 @@ export const usageBillingPeriods = pgTable('usage_billing_periods', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 }, (table) => [
   uniqueIndex('usage_billing_periods_client_period_resource_unique').on(table.clientId, table.period, table.resource),
+]);
+
+// ── Usage Thresholds & Alerts ─────────────────────────────────────────────────
+//
+// Per-client, per-resource alerting config for the SaaS billing mode. The
+// included allowance itself comes from the module subscription (domain
+// catalog / metered_subscription_items.includedQuantity) — these rows only
+// configure *when to warn* and whether to hard-stop. Admin-managed via
+// /api/admin/portal/clients/[id]/billing/thresholds; absent row = defaults
+// (warn at 80%, no hard limit).
+
+export const usageThresholds = pgTable('usage_thresholds', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  resource: varchar('resource', { length: 50 }).notNull(), // 'ai_tokens' | 'email_send' | 'esign_envelopes' | ...
+  warnAtPct: integer('warn_at_pct').default(80).notNull(), // % of included allowance that fires the warning alert
+  // Absolute usage cap for the period. Null = soft overage allowed (billed).
+  // When set, feature call sites should refuse usage past this quantity.
+  hardLimitQuantity: numeric('hard_limit_quantity', { precision: 18, scale: 4 }),
+  notifyEmail: boolean('notify_email').default(true).notNull(),
+  notifyPortal: boolean('notify_portal').default(true).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => [
+  uniqueIndex('usage_thresholds_client_resource_unique').on(table.clientId, table.resource),
+]);
+
+// One row per alert actually fired — the unique index is the dedupe guard so
+// the daily cron fires each level at most once per (client, resource, period).
+// Levels: 'warning' (warnAtPct crossed), 'exceeded' (100% of included),
+// 'hard_limit' (hardLimitQuantity reached).
+
+export const usageAlertEvents = pgTable('usage_alert_events', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  resource: varchar('resource', { length: 50 }).notNull(),
+  period: varchar('period', { length: 7 }).notNull(), // YYYY-MM
+  level: varchar('level', { length: 20 }).notNull(), // 'warning' | 'exceeded' | 'hard_limit'
+  usageAtAlert: numeric('usage_at_alert', { precision: 18, scale: 4 }).notNull(),
+  includedQuantity: numeric('included_quantity', { precision: 18, scale: 4 }).notNull(),
+  notifiedAt: timestamp('notified_at').defaultNow().notNull(),
+}, (table) => [
+  uniqueIndex('usage_alert_events_client_resource_period_level_unique')
+    .on(table.clientId, table.resource, table.period, table.level),
 ]);
 
 // ─── EMAIL MARKETING ──────────────────────────────────────────────────────────

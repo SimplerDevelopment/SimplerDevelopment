@@ -33,6 +33,11 @@ vi.mock('@/lib/security/assert-owned', () => ({
     filterUserIdsVisibleToClientMock(...args),
 }));
 
+const canUserEditProjectMock = vi.fn();
+vi.mock('@/lib/portal/project-access', () => ({
+  canUserEditProject: (...args: unknown[]) => canUserEditProjectMock(...args),
+}));
+
 vi.mock('drizzle-orm', () => ({
   eq: (a: unknown, b: unknown) => ({ op: 'eq', a, b }),
   and: (...args: unknown[]) => ({ op: 'and', args }),
@@ -48,6 +53,7 @@ vi.mock('drizzle-orm', () => ({
     }),
     { raw: (s: string) => ({ op: 'raw', s }) },
   ),
+  isNull: (a: unknown) => ({ op: 'isNull', a }),
 }));
 
 vi.mock('@/lib/db/schema', () => {
@@ -62,7 +68,7 @@ vi.mock('@/lib/db/schema', () => {
         },
       },
     );
-  return {
+  return new Proxy({
     kanbanCards: wrap('kanbanCards'),
     kanbanCardAssignees: wrap('kanbanCardAssignees'),
     kanbanCardWatchers: wrap('kanbanCardWatchers'),
@@ -71,7 +77,7 @@ vi.mock('@/lib/db/schema', () => {
     kanbanCardFiles: wrap('kanbanCardFiles'),
     projects: wrap('projects'),
     users: wrap('users'),
-  };
+  }, { has: (t, p) => (p in t) || !(p === "then" || p === "__esModule" || p === "default" || typeof p !== "string"), get: (t, p) => (p in t) ? t[p] : ((p === "then" || p === "__esModule" || p === "default" || typeof p !== "string") ? undefined : wrap(p)) });
 });
 
 // ---------------------------------------------------------------------------
@@ -249,6 +255,8 @@ beforeEach(() => {
   getPortalClientMock.mockReset();
   logCardActivityMock.mockReset();
   filterUserIdsVisibleToClientMock.mockReset();
+  canUserEditProjectMock.mockReset();
+  canUserEditProjectMock.mockResolvedValue(false); // default: client read-only
 });
 
 // ===========================================================================

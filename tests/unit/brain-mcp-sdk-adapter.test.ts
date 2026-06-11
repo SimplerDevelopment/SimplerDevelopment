@@ -51,6 +51,7 @@ vi.mock('@/lib/brain/tasks', () => ({
   getTask: vi.fn(async (_c: number, id: number) => (id === 999 ? null : { id, title: 'T' })),
   listTasks: vi.fn(async () => [{ id: 1 }]),
   updateTask: vi.fn(async (_c: number, id: number) => (id === 999 ? null : { id, title: 'U' })),
+  countTasks: (..._args: unknown[]) => Promise.resolve(0),
 }));
 
 vi.mock('@/lib/brain/relationships', () => ({
@@ -58,6 +59,7 @@ vi.mock('@/lib/brain/relationships', () => ({
   getRelationship: vi.fn(async (_c: number, id: number) => (id === 999 ? null : { id, type: 'r' })),
   listRelationships: vi.fn(async () => [{ id: 1 }]),
   updateOverlay: vi.fn(async (_c: number, id: number) => (id === 999 ? null : { id, summary: 'x' })),
+  countRelationships: (..._args: unknown[]) => Promise.resolve(0),
 }));
 
 vi.mock('@/lib/brain/review', () => ({
@@ -236,6 +238,13 @@ vi.mock('@/lib/db/schema', () => {
     clientWebsites: { id: col('id'), clientId: col('clientId') },
     brainDecisions: { id: col('id'), clientId: col('clientId'), status: col('status') },
     brainTopics: { id: col('id'), clientId: col('clientId') },
+    brainEntityTopics: { topicId: col('topicId'), entityType: col('entityType'), entityId: col('entityId') },
+    brainGlossaryTerms: { id: col('id'), clientId: col('clientId'), term: col('term'), definition: col('definition') },
+    brainOrgUnits: { id: col('id'), clientId: col('clientId'), path: col('path'), parentId: col('parentId'), name: col('name') },
+    brainPeople: { id: col('id'), clientId: col('clientId'), name: col('name'), email: col('email') },
+    brainPersonOrgUnits: { personId: col('personId'), orgUnitId: col('orgUnitId'), primary: col('primary') },
+    brainPlaybooks: { id: col('id'), clientId: col('clientId'), title: col('title'), status: col('status') },
+    brainDocumentVersions: { id: col('id'), documentId: col('documentId'), body: col('body'), version: col('version') },
   };
 });
 
@@ -248,6 +257,7 @@ vi.mock('drizzle-orm', () => ({
   inArray: vi.fn(() => ({})),
   ilike: vi.fn(() => ({})),
   sql: Object.assign(vi.fn(() => ({})), { raw: vi.fn(() => ({})) }),
+  isNull: (a: unknown) => ({ op: 'isNull', a }),
 }));
 
 // ── helpers ─────────────────────────────────────────────────────────────────
@@ -1364,5 +1374,2055 @@ describe('tool metadata', () => {
     for (const t of tools.values()) {
       expect(t.config.inputSchema, `${t.name}.inputSchema`).toBeDefined();
     }
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// EXTENDED COVERAGE: decisions, topics, initiatives, goals, people, org-units,
+// expertise tags, glossary, playbooks, playbook runs, documents, review routing,
+// taxonomy classification
+// ═══════════════════════════════════════════════════════════════════════════════
+
+vi.mock('@/lib/brain/decisions', () => ({
+  createDecision: vi.fn(async () => ({ id: 1, status: 'accepted', decidedAt: '2026-01-01' })),
+  getDecisionById: vi.fn(async (_c: number, id: number) => {
+    if (id === 999) return null;
+    return {
+      decision: {
+        id, title: 'Decide X', status: 'accepted', reversibility: 'two_way',
+        decidedAt: '2026-01-01', supersededByDecisionId: null,
+        meetingId: null, noteId: null, companyId: null, dealId: null,
+        decisionMakerId: null, context: 'ctx', rationale: 'r', decision: 'd',
+        alternativesConsidered: null, confidentialityLevel: 'standard',
+      },
+      ancestors: [],
+      descendants: [],
+    };
+  }),
+  listDecisions: vi.fn(async () => [
+    {
+      id: 1, title: 'D1', status: 'accepted', reversibility: 'two_way',
+      decidedAt: '2026-01-01', supersededByDecisionId: null,
+      meetingId: null, noteId: null, companyId: null, dealId: null,
+      decisionMakerId: null, context: null, rationale: null,
+      decision: null, alternativesConsidered: null,
+    },
+  ]),
+  softRejectDecision: vi.fn(async (_c: number, _a: number, id: number) => (id === 999 ? null : { id, status: 'rejected' })),
+  supersedeDecision: vi.fn(async () => ({ id: 2, status: 'accepted', decidedAt: '2026-06-01' })),
+  updateDecision: vi.fn(async (_c: number, _a: number, id: number) => {
+    if (id === 999) return null;
+    return { id, title: 'Updated', context: null, decisionMakerId: null, confidentialityLevel: 'standard', alternativesConsidered: null, meetingId: null, noteId: null, companyId: null, dealId: null };
+  }),
+}));
+
+vi.mock('@/lib/brain/topics', () => ({
+  attachTopics: vi.fn(async () => ({ attached: 2, alreadyAttached: 0 })),
+  createTopic: vi.fn(async (_c: number, _a: number, input: Record<string, unknown>) => ({ id: 1, slug: 'my-topic', path: '/my-topic', parentId: input.parentId ?? null })),
+  deleteTopic: vi.fn(async (_c: number, _a: number, id: number, opts: { force?: boolean }) => {
+    if (id === 999) return { deleted: false, reason: 'not_found' };
+    if (id === 888 && !opts.force) return { deleted: false, reason: 'has_entities' };
+    if (id === 777) return { deleted: false, reason: 'has_children' };
+    return { deleted: true };
+  }),
+  detachTopics: vi.fn(async () => ({ detached: 1 })),
+  getTopicById: vi.fn(async (_c: number, id: number) => {
+    if (id === 999) return null;
+    return { id, name: 'Topic', slug: 'topic', path: '/topic', parentId: null, sortOrder: 0, color: null, icon: null, description: null, breadcrumb: [] };
+  }),
+  getTopicTree: vi.fn(async () => [
+    { id: 1, name: 'Root', slug: 'root', path: '/root', parentId: null, sortOrder: 0, color: null, icon: null, description: 'desc', childCount: 1, entityCount: 2, children: [] },
+  ]),
+  importTopicsFromTags: vi.fn(async () => ({ topicsCreated: 3, notesAttached: 7, perTopic: [{ topicId: 1, path: '/tag', noteCount: 7 }], dryRun: false })),
+  listEntitiesForTopic: vi.fn(async () => ({
+    items: [{ entityType: 'note', entityId: 1, title: 'N' }],
+    byType: { note: [1], meeting: [], task: [], decision: [], relationship_overlay: [] },
+  })),
+  listTopics: vi.fn(async () => [
+    { id: 1, name: 'T', slug: 't', path: '/t', parentId: null, sortOrder: 0, color: null, icon: null },
+  ]),
+  mergeTopic: vi.fn(async (_c: number, _a: number, srcId: number) => {
+    if (srcId === 999) return null;
+    return { targetId: 2, reattached: 3, reparented: 1 };
+  }),
+  moveTopic: vi.fn(async (_c: number, _a: number, id: number) => {
+    if (id === 999) return null;
+    return { id, path: '/new-path' };
+  }),
+  updateTopic: vi.fn(async (_c: number, _a: number, id: number) => {
+    if (id === 999) return null;
+    return { id, name: 'Updated', description: null, color: null, icon: null, sortOrder: 1 };
+  }),
+}));
+
+vi.mock('@/lib/brain/initiatives', () => ({
+  closeInitiative: vi.fn(async (_c: number, _a: number, id: number) => {
+    if (id === 999) return null;
+    return { initiative: { id, status: 'completed', closedAt: new Date('2026-01-01') }, lessonsLearnedNoteId: null };
+  }),
+  createInitiative: vi.fn(async () => ({ id: 10, slug: 'my-initiative', status: 'planned' })),
+  getInitiativeById: vi.fn(async (_c: number, id: number) => {
+    if (id === 999) return null;
+    return {
+      initiative: {
+        id, name: 'Init', slug: 'init', status: 'active', priority: 'high',
+        ownerId: null, sponsorId: null, startDate: null, targetDate: null,
+        closedAt: null, closeReason: null, confidentialityLevel: 'standard',
+        createdBy: 11, description: 'desc', lessonsLearned: null,
+        createdAt: new Date('2026-01-01'), updatedAt: new Date('2026-01-01'),
+      },
+      goals: [{ id: 1, title: 'G', status: 'open', ownerId: null, targetDate: null, sortOrder: 0, currentMetric: null, targetMetric: null, unit: null }],
+      links: { byType: { task: 1 }, items: [{ entityType: 'task', entityId: 1, title: 'T', pinned: false, note: null }] },
+    };
+  }),
+  linkEntity: vi.fn(async () => ({ linkId: 5, alreadyLinked: false })),
+  listInitiatives: vi.fn(async () => [
+    { id: 1, name: 'I', slug: 'i', status: 'active', priority: 'medium', ownerId: null, targetDate: null, goalCount: 0, description: null, lessonsLearned: null },
+  ]),
+  listInitiativeLinks: vi.fn(async () => [
+    { entityType: 'task', entityId: 1, title: 'T', pinned: false, note: null },
+  ]),
+  reopenInitiative: vi.fn(async (_c: number, _a: number, id: number) => {
+    if (id === 999) return null;
+    if (id === 888) throw new Error('cannot reopen from non-terminal status');
+    return { id, status: 'active' };
+  }),
+  unlinkEntity: vi.fn(async () => true),
+  updateInitiative: vi.fn(async (_c: number, _a: number, id: number) => {
+    if (id === 999) return null;
+    if (id === 888) throw new Error('use closeInitiative or reopenInitiative');
+    return { id, status: 'active', updatedFields: [] };
+  }),
+}));
+
+vi.mock('@/lib/brain/goals', () => ({
+  checkinGoal: vi.fn(async (_c: number, _a: number, id: number) => {
+    if (id === 999) return null;
+    return { id, status: 'on_track', currentMetric: 5, lastCheckedInAt: new Date('2026-01-01') };
+  }),
+  createGoal: vi.fn(async () => ({ id: 20, status: 'open', initiativeId: 10 })),
+  deleteGoal: vi.fn(async (_c: number, _a: number, id: number) => id !== 999),
+  getGoalById: vi.fn(async (_c: number, id: number) => {
+    if (id === 999) return null;
+    return {
+      goal: {
+        id, initiativeId: 10, title: 'G', status: 'open', ownerId: null,
+        unit: null, targetMetric: null, currentMetric: null,
+        targetDate: null, sortOrder: 0, lastCheckedInAt: null,
+        description: null, lastProgressNote: null,
+        createdBy: 11, createdAt: new Date('2026-01-01'), updatedAt: new Date('2026-01-01'),
+      },
+      initiative: { initiativeId: 10, name: 'Init', slug: 'init', status: 'active' },
+    };
+  }),
+  listGoals: vi.fn(async () => [
+    { id: 1, initiativeId: 10, title: 'G', status: 'open', ownerId: null, targetDate: null, sortOrder: 0, currentMetric: null, targetMetric: null, unit: null, description: null, lastProgressNote: null },
+  ]),
+  updateGoal: vi.fn(async (_c: number, _a: number, id: number) => {
+    if (id === 999) return null;
+    return { id, status: 'on_track', initiativeId: 10 };
+  }),
+}));
+
+vi.mock('@/lib/brain/people', () => ({
+  attachExpertise: vi.fn(async () => ({ alreadyAttached: false })),
+  createExpertiseTag: vi.fn(async (_c: number, _a: number, input: Record<string, unknown>) => ({ id: 30, slug: String(input.name).toLowerCase().replace(/ /g, '-') })),
+  createPerson: vi.fn(async () => ({ id: 40, status: 'active' })),
+  deleteExpertiseTag: vi.fn(async (_c: number, _a: number, id: number, opts: { force?: boolean }) => {
+    if (id === 999) return { deleted: false, reason: 'not_found' };
+    if (id === 888 && !opts.force) return { deleted: false, reason: 'in_use' };
+    return { deleted: true };
+  }),
+  deletePerson: vi.fn(async (_c: number, _a: number, id: number) => id !== 999),
+  detachExpertise: vi.fn(async () => true),
+  getPersonById: vi.fn(async (_c: number, id: number) => {
+    if (id === 999) return null;
+    return {
+      person: {
+        id, clientId: 1, userId: null, fullName: 'Alice', email: null,
+        managerId: null, title: null, startDate: null, endDate: null,
+        status: 'active', source: 'manual', createdBy: 11, notes: null, profileUrls: [],
+        createdAt: new Date('2026-01-01'), updatedAt: new Date('2026-01-01'),
+      },
+      manager: null,
+      directReports: [],
+      orgUnits: [],
+      expertise: [],
+    };
+  }),
+  listExpertiseTags: vi.fn(async () => [
+    { id: 1, name: 'TypeScript', slug: 'typescript', source: 'manual', createdAt: 'now', peopleCount: 2, description: 'TS expert' },
+  ]),
+  listPeople: vi.fn(async () => [
+    { id: 1, clientId: 1, userId: null, fullName: 'Alice', email: null, managerId: null, title: null, startDate: null, endDate: null, status: 'active', source: 'manual', createdBy: 11, createdAt: 'now', updatedAt: 'now' },
+  ]),
+  mergeExpertiseTags: vi.fn(async () => ({ reattached: 2 })),
+  updateExpertiseTag: vi.fn(async (_c: number, _a: number, id: number) => (id === 999 ? null : { id, updatedFields: [] })),
+  updatePerson: vi.fn(async (_c: number, _a: number, id: number) => {
+    if (id === 999) return null;
+    if (id === 888) throw new Error('would create cycle in manager hierarchy');
+    return { id, fullName: 'Updated' };
+  }),
+  whoKnows: vi.fn(async () => ({ matches: [{ personId: 1, fullName: 'Alice', matchedTags: [] }] })),
+}));
+
+vi.mock('@/lib/brain/org-units', () => ({
+  addMember: vi.fn(async () => ({ id: 1, primary: false })),
+  createOrgUnit: vi.fn(async () => ({ id: 50, slug: 'eng', path: '/eng' })),
+  deleteOrgUnit: vi.fn(async (_c: number, _a: number, id: number, opts: { force?: boolean }) => {
+    if (id === 999) return false;
+    if (id === 888 && !opts.force) throw new Error('Org unit has 2 member(s) and 1 child unit(s). Pass force=true to cascade.');
+    return true;
+  }),
+  getOrgUnitById: vi.fn(async (_c: number, id: number) => {
+    if (id === 999) return null;
+    return { unit: { id, name: 'Eng', slug: 'eng', path: '/eng', parentId: null, leadPersonId: null, sortOrder: 0, color: null, icon: null, description: null }, ancestors: [], members: [] };
+  }),
+  getOrgUnitTree: vi.fn(async () => [
+    { id: 1, name: 'Root', slug: 'root', path: '/root', parentId: null, leadPersonId: null, sortOrder: 0, color: null, icon: null, description: 'desc', memberCount: 2, children: [] },
+  ]),
+  listOrgUnits: vi.fn(async () => [
+    { id: 1, name: 'Eng', slug: 'eng', path: '/eng', parentId: null, leadPersonId: null, sortOrder: 0, color: null, icon: null, description: 'desc' },
+  ]),
+  mergeOrgUnits: vi.fn(async (_c: number, _a: number, src: number) => (src === 999 ? null : { id: 2 })),
+  moveOrgUnit: vi.fn(async (_c: number, _a: number, id: number) => (id === 999 ? null : { id, path: '/new' })),
+  removeMember: vi.fn(async () => true),
+  setPrimaryUnit: vi.fn(async (_c: number, _a: number, _p: number, unitId: number) => unitId !== 999),
+  updateOrgUnit: vi.fn(async (_c: number, _a: number, id: number) => (id === 999 ? null : { id, name: 'Updated' })),
+}));
+
+vi.mock('@/lib/brain/glossary', () => ({
+  bulkImportGlossary: vi.fn(async () => ({ created: 2, updated: 1, errors: [] })),
+  createGlossaryTerm: vi.fn(async () => ({ id: 60, slug: 'term' })),
+  deleteGlossaryTerm: vi.fn(async (_c: number, _a: number, id: number) => (id === 999 ? { deleted: false } : { deleted: true, prunedRelatedTermFromCount: 0 })),
+  getGlossaryTermById: vi.fn(async (_c: number, id: number) => {
+    if (id === 999) return null;
+    return { term: { id, term: 'T', slug: 't', shortDefinition: 's', status: 'active', category: null, ownerId: null, source: 'manual', aliases: [], relatedTermIds: [], definition: 'def', createdAt: 'now', updatedAt: 'now' }, relatedTerms: [] };
+  }),
+  listGlossaryTerms: vi.fn(async () => ({ items: [{ id: 1, term: 'T', slug: 't', shortDefinition: 's', status: 'active', category: null, ownerId: null, aliasCount: 0 }], total: 1 })),
+  lookupGlossary: vi.fn(async () => [{ id: 1, term: 'T', score: 10 }]),
+  updateGlossaryTerm: vi.fn(async (_c: number, _a: number, id: number) => (id === 999 ? null : { id, updatedFields: [] })),
+}));
+
+vi.mock('@/lib/brain/playbooks', () => ({
+  activatePlaybook: vi.fn(async (_c: number, _a: number, id: number) => {
+    if (id === 999) return null;
+    if (id === 888) throw new Error('playbook DAG invalid: no entry point; cycle detected');
+    if (id === 777) throw new Error('has zero steps');
+    return { id, status: 'active' };
+  }),
+  addStep: vi.fn(async () => ({ id: 1, key: 'step-1' })),
+  archivePlaybook: vi.fn(async (_c: number, _a: number, id: number, opts: { force?: boolean }) => {
+    if (id === 999) return null;
+    if (id === 888 && !opts.force) throw new Error('cannot archive playbook with active runs');
+    return { id, status: 'archived' };
+  }),
+  createPlaybook: vi.fn(async () => ({ id: 70, slug: 'pb', status: 'draft' })),
+  deletePlaybook: vi.fn(async (_c: number, _a: number, id: number, opts: { force?: boolean }) => {
+    if (id === 999) return false;
+    if (id === 888 && !opts.force) throw new Error('cannot delete playbook with active runs');
+    return true;
+  }),
+  getPlaybookById: vi.fn(async (_c: number, id: number) => {
+    if (id === 999) return null;
+    return { playbook: { id, name: 'PB', slug: 'pb', status: 'active', category: null, triggerKind: 'manual', triggerConfig: null, ownerId: null, defaultTopicIds: [], source: 'manual', createdBy: 11, description: 'desc', createdAt: new Date('2026-01-01'), updatedAt: new Date('2026-01-01') }, steps: [] };
+  }),
+  listPlaybooks: vi.fn(async () => [
+    { id: 1, name: 'PB', slug: 'pb', status: 'active', category: null, triggerKind: 'manual', ownerId: null, stepCount: 1, activeRunCount: 0 },
+  ]),
+  removeStep: vi.fn(async (_c: number, _a: number, id: number) => {
+    if (id === 999) return false;
+    if (id === 888) throw new Error('run-step row(s) reference this step');
+    return true;
+  }),
+  reorderSteps: vi.fn(async () => [{ id: 1 }, { id: 2 }]),
+  updatePlaybook: vi.fn(async (_c: number, _a: number, id: number) => {
+    if (id === 999) return null;
+    if (id === 888) throw new Error('use activatePlaybook or archivePlaybook');
+    return { id, status: 'active', name: 'Updated' };
+  }),
+  updateStep: vi.fn(async (_c: number, _a: number, id: number) => (id === 999 ? null : { id, updatedFields: [] })),
+}));
+
+vi.mock('@/lib/brain/playbook-runs', () => ({
+  abortRun: vi.fn(async (_c: number, _a: number, id: number) => (id === 999 ? null : { id, status: 'aborted' })),
+  advanceRun: vi.fn(async (_c: number, _a: number, id: number) => (id === 999 ? null : { runId: id, newActiveStepKeys: [], newStatus: 'active' })),
+  completeStep: vi.fn(async (_c: number, _a: number, _r: number, stepId: number) => (stepId === 999 ? null : { stepId, status: 'completed' })),
+  getRunById: vi.fn(async (_c: number, id: number) => {
+    if (id === 999) return null;
+    return {
+      run: { id, playbookId: 70, label: 'Run 1', status: 'active', startedBy: 11, startedAt: new Date('2026-01-01'), completedAt: null, abortedAt: null, abortReason: null, context: { foo: 1 }, triggerPayload: null, createdAt: new Date('2026-01-01'), updatedAt: new Date('2026-01-01') },
+      playbook: { id: 70, name: 'PB', slug: 'pb', status: 'active' },
+      steps: [],
+      links: [],
+    };
+  }),
+  listActiveRunsForEntity: vi.fn(async () => [
+    { id: 1, playbookId: 70, playbookName: 'PB', label: 'R', status: 'active', startedAt: new Date('2026-01-01'), completedAt: null, stepProgress: { completed: 0, total: 1 } },
+  ]),
+  listRuns: vi.fn(async () => [
+    { id: 1, playbookId: 70, playbookName: 'PB', label: 'R', status: 'active', startedAt: new Date('2026-01-01'), completedAt: null, stepProgress: { completed: 0, total: 1 } },
+  ]),
+  skipStep: vi.fn(async (_c: number, _a: number, _r: number, stepId: number) => (stepId === 999 ? null : { stepId, status: 'skipped' })),
+  startRun: vi.fn(async () => ({ runId: 100, runStatus: 'active', firstStepKeys: ['step-1'] })),
+}));
+
+vi.mock('@/lib/brain/documents', () => ({
+  archiveDocument: vi.fn(async (_c: number, _a: number, id: number) => (id === 999 ? null : { id, status: 'archived', archivedAt: new Date('2026-01-01') })),
+  createDocument: vi.fn(async () => ({ document: { id: 80, slug: 'doc', status: 'draft' }, version: { id: 81 } })),
+  deleteDocument: vi.fn(async (_c: number, _a: number, id: number, opts: { force?: boolean }) => {
+    if (id === 999) return { deleted: false, refused: false };
+    if (id === 888 && !opts.force) return { deleted: false, refused: true, ackCount: 5 };
+    return { deleted: true };
+  }),
+  editDraftVersion: vi.fn(async (_c: number, _a: number, id: number) => (id === 999 ? null : { version: { id: 82, versionNumber: 2 } })),
+  getDocumentById: vi.fn(async (_c: number, id: number) => {
+    if (id === 999) return null;
+    return { document: { id, slug: 'd', status: 'published', currentPublishedVersionId: 82 }, currentPublishedVersion: null, currentDraftVersion: null, versions: [], links: [] };
+  }),
+  linkEntity: vi.fn(async () => ({ linkId: 1, alreadyLinked: false })),
+  listDocumentLinks: vi.fn(async () => []),
+  listDocuments: vi.fn(async () => [{ id: 1, title: 'Doc', slug: 'd', category: 'sop', status: 'published', ownerId: null, currentPublishedVersionId: 82, publishedAt: null, versionCount: 1, requiredReadCount: 0, ackCount: 0 }]),
+  promoteFromNote: vi.fn(async (_c: number, _a: number, noteId: number) => (noteId === 999 ? null : { document: { id: 80, slug: 'doc' }, version: { id: 81 } })),
+  publishDocument: vi.fn(async (_c: number, _a: number, id: number) => {
+    if (id === 999) return null;
+    if (id === 888) throw new Error('empty body');
+    return { document: { id, status: 'published', publishedAt: new Date('2026-01-01') }, version: { id: 82, versionNumber: 2 } };
+  }),
+  unarchiveDocument: vi.fn(async (_c: number, _a: number, id: number) => (id === 999 ? null : { id, status: 'published' })),
+  unlinkEntity: vi.fn(async () => true),
+  updateDocument: vi.fn(async (_c: number, _a: number, id: number) => {
+    if (id === 999) return null;
+    if (id === 888) throw new Error('use publishDocument or archiveDocument');
+    return { id, updatedFields: [] };
+  }),
+}));
+
+vi.mock('@/lib/brain/document-acks', () => ({
+  acknowledge: vi.fn(async () => ({ id: 1, documentId: 80, versionId: 82, personId: 40, acknowledgedAt: new Date('2026-01-01') })),
+  assignRequiredRead: vi.fn(async () => ({ assigned: 1, alreadyAssigned: 0 })),
+  complianceReport: vi.fn(async (_c: number, id: number) => (id === 999 ? null : { documentId: id, acknowledged: [], pending: [], overdue: [] })),
+  listAcknowledgmentsForDocument: vi.fn(async () => [{ ackId: 1, versionId: 82, versionNumber: 2, personId: 40, personName: 'Alice', acknowledgedAt: 'now', acknowledgmentNote: null }]),
+  listAcknowledgmentsForPerson: vi.fn(async () => [{ ackId: 1, documentId: 80, documentTitle: 'Doc', versionNumber: 2, acknowledgedAt: 'now' }]),
+  listRequiredReadsForDocument: vi.fn(async () => [{ id: 1, targetType: 'person', targetId: 40, targetName: 'Alice', pinnedVersionId: null, dueAt: null, assignedAt: 'now' }]),
+  listRequiredReadsForPerson: vi.fn(async () => [{ id: 1, documentId: 80, documentTitle: 'Doc', versionId: 82, ackId: null, acknowledgedAt: null }]),
+  removeRequiredRead: vi.fn(async (_c: number, _a: number, id: number, opts: { force?: boolean }) => {
+    if (id === 999) return { removed: false, reason: 'not_found' };
+    if (id === 888 && !opts.force) return { removed: false, reason: 'has_acks' };
+    return { removed: true };
+  }),
+}));
+
+vi.mock('@/lib/brain/classify-notes', () => ({
+  classifyNotes: vi.fn(async () => ({
+    classifications: [
+      { noteId: 1, source: 'slate-kb', slateAreas: ['queries'], audiences: ['slate-admin'], contentType: 'how-to', recency: 'evergreen', competitor: null, status: 'canonical', confidence: 0.9, reasoning: 'r' },
+    ],
+    skipped: [],
+    tokensUsed: 100,
+    costUsd: 0.01,
+  })),
+}));
+
+vi.mock('@/lib/brain/apply-classifications', () => ({
+  applyClassifications: vi.fn(async () => ({
+    notesUpdated: 1,
+    topicsAttached: 2,
+    attachmentsExisted: 0,
+    routedToReview: 0,
+    skipped: [],
+  })),
+}));
+
+vi.mock('@/lib/brain/review-routing', () => ({
+  applySuggestionToReviewItem: vi.fn(async () => {}),
+  suggestReviewerForItem: vi.fn(async (_c: number, item: { id: number }) => {
+    if (item.id === 999) return null;
+    return { personId: 40, score: 4, reason: 'expertise match' };
+  }),
+}));
+
+// ── review routing tools ─────────────────────────────────────────────────────
+
+describe('brain_review_items_suggest_reviewer', () => {
+  it('returns not-found when review item is missing', async () => {
+    const review = await import('@/lib/brain/review');
+    (review.getReviewItem as ReturnType<typeof vi.fn>).mockResolvedValueOnce(null);
+    const tools = registerAll();
+    const res = await tools.get('brain_review_items_suggest_reviewer')!.handler({ reviewItemId: 999 });
+    expect(res.isError).toBe(true);
+  });
+
+  it('returns suggestion when reviewer found', async () => {
+    const review = await import('@/lib/brain/review');
+    (review.getReviewItem as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ id: 10, proposedType: 'task', proposedPayload: {} });
+    const tools = registerAll();
+    const res = await tools.get('brain_review_items_suggest_reviewer')!.handler({ reviewItemId: 10 });
+    const out = parseJson(res) as { suggestedPersonId: number; score: number };
+    expect(out.suggestedPersonId).toBe(40);
+    expect(out.score).toBe(4);
+  });
+
+  it('returns { suggestion: null } when no match', async () => {
+    const review = await import('@/lib/brain/review');
+    (review.getReviewItem as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ id: 999, proposedType: 'task', proposedPayload: {} });
+    const routing = await import('@/lib/brain/review-routing');
+    (routing.suggestReviewerForItem as ReturnType<typeof vi.fn>).mockResolvedValueOnce(null);
+    const tools = registerAll();
+    const res = await tools.get('brain_review_items_suggest_reviewer')!.handler({ reviewItemId: 999 });
+    const out = parseJson(res) as { suggestion: null };
+    expect(out.suggestion).toBeNull();
+  });
+
+  it('returns err on thrown error', async () => {
+    const review = await import('@/lib/brain/review');
+    (review.getReviewItem as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ id: 1, proposedType: 'task', proposedPayload: {} });
+    const routing = await import('@/lib/brain/review-routing');
+    (routing.suggestReviewerForItem as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('boom'));
+    const tools = registerAll();
+    const res = await tools.get('brain_review_items_suggest_reviewer')!.handler({ reviewItemId: 1 });
+    expect(res.isError).toBe(true);
+  });
+});
+
+describe('brain_review_items_list_for_reviewer', () => {
+  it('returns slim items for a person', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_review_items_list_for_reviewer')!.handler({ personId: 40 });
+    const out = parseJson(res) as { items: unknown[] };
+    expect(Array.isArray(out.items)).toBe(true);
+  });
+});
+
+// ── decisions ────────────────────────────────────────────────────────────────
+
+describe('brain_decisions_list', () => {
+  beforeEach(() => { dbState.selectQueue = []; });
+
+  it('returns paginated items with total', async () => {
+    dbState.selectQueue = [[{ count: 5 }]]; // count query
+    const tools = registerAll();
+    const res = await tools.get('brain_decisions_list')!.handler({ limit: 10, offset: 0 });
+    const out = parseJson(res) as { items: unknown[]; total: number; limit: number; offset: number };
+    expect(out.items).toHaveLength(1);
+    expect(out.limit).toBe(10);
+  });
+
+  it('applies filters', async () => {
+    dbState.selectQueue = [[{ count: 0 }]];
+    const decisions = await import('@/lib/brain/decisions');
+    (decisions.listDecisions as ReturnType<typeof vi.fn>).mockClear();
+    const tools = registerAll();
+    await tools.get('brain_decisions_list')!.handler({ status: 'accepted', reversibility: 'one_way', decisionMakerId: 5, supersededOnly: true, dateFrom: '2026-01-01', dateTo: '2026-12-31' });
+    const opts = (decisions.listDecisions as ReturnType<typeof vi.fn>).mock.calls[0][1] as Record<string, unknown>;
+    expect(opts.status).toBe('accepted');
+    expect(opts.dateFrom).toBeInstanceOf(Date);
+    expect(opts.dateTo).toBeInstanceOf(Date);
+  });
+});
+
+describe('brain_decisions_get', () => {
+  it('returns not-found for missing decision', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_decisions_get')!.handler({ id: 999 });
+    expect(res.isError).toBe(true);
+  });
+
+  it('returns slim decision with chain on hit', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_decisions_get')!.handler({ id: 1 });
+    const out = parseJson(res) as { decision: { id: number }; ancestors: unknown[]; descendants: unknown[] };
+    expect(out.decision.id).toBe(1);
+    expect(Array.isArray(out.ancestors)).toBe(true);
+  });
+
+  it('opts in context/rationale with include', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_decisions_get')!.handler({ id: 1, include: ['context', 'rationale'] });
+    const out = parseJson(res) as { decision: Record<string, unknown> };
+    expect(out.decision.context).toBe('ctx');
+    expect(out.decision.rationale).toBe('r');
+  });
+});
+
+describe('brain_decisions_create', () => {
+  it('creates a decision and returns slim echo', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_decisions_create')!.handler({ title: 'D', decision: 'text', rationale: 'reason' });
+    const out = parseJson(res) as { id: number; status: string };
+    expect(out.id).toBe(1);
+    expect(out.status).toBe('accepted');
+  });
+
+  it('returns err on thrown error', async () => {
+    const decisions = await import('@/lib/brain/decisions');
+    (decisions.createDecision as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('db error'));
+    const tools = registerAll();
+    const res = await tools.get('brain_decisions_create')!.handler({ title: 'D', decision: 'd', rationale: 'r' });
+    expect(res.isError).toBe(true);
+  });
+});
+
+describe('brain_decisions_update', () => {
+  it('returns not-found when decision missing', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_decisions_update')!.handler({ id: 999, patch: {} });
+    expect(res.isError).toBe(true);
+  });
+
+  it('returns use_supersede structured error when trying to mutate immutable fields', async () => {
+    const decisions = await import('@/lib/brain/decisions');
+    (decisions.updateDecision as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('use supersedeDecision'));
+    const tools = registerAll();
+    const res = await tools.get('brain_decisions_update')!.handler({ id: 1, patch: { title: 'X' } });
+    expect((parseJson(res) as { error: string }).error).toBe('use_supersede');
+  });
+
+  it('updates and returns echo on hit', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_decisions_update')!.handler({ id: 1, patch: { title: 'New' } });
+    const out = parseJson(res) as { id: number };
+    expect(out.id).toBe(1);
+  });
+});
+
+describe('brain_decisions_supersede', () => {
+  it('creates successor and returns previous + current', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_decisions_supersede')!.handler({ oldId: 1, title: 'New', decision: 'new text', rationale: 'new reason' });
+    const out = parseJson(res) as { previous: { id: number; status: string }; current: { id: number } };
+    expect(out.previous.status).toBe('superseded');
+    expect(out.current.id).toBe(2);
+  });
+
+  it('returns err on thrown error', async () => {
+    const decisions = await import('@/lib/brain/decisions');
+    (decisions.supersedeDecision as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('not found'));
+    const tools = registerAll();
+    const res = await tools.get('brain_decisions_supersede')!.handler({ oldId: 999, title: 'X', decision: 'd', rationale: 'r' });
+    expect(res.isError).toBe(true);
+  });
+});
+
+describe('brain_decisions_reject', () => {
+  it('returns not-found when decision missing', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_decisions_reject')!.handler({ id: 999 });
+    expect(res.isError).toBe(true);
+  });
+
+  it('rejects and returns { status: "rejected" }', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_decisions_reject')!.handler({ id: 1, reason: 'not relevant' });
+    expect((parseJson(res) as { status: string }).status).toBe('rejected');
+  });
+});
+
+// ── topics ───────────────────────────────────────────────────────────────────
+
+describe('brain_topics_list', () => {
+  it('returns flat list of topics', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_topics_list')!.handler({});
+    expect(Array.isArray(parseJson(res))).toBe(true);
+  });
+
+  it('filters by tagPrefix', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_topics_list')!.handler({ tagPrefix: 'other' });
+    expect(parseJson(res)).toEqual([]); // /t doesn't start with /other
+  });
+
+  it('includes entity counts when includeEntityCounts=true', async () => {
+    dbState.selectQueue = [[{ topicId: 1, count: 3 }]];
+    const tools = registerAll();
+    const res = await tools.get('brain_topics_list')!.handler({ includeEntityCounts: true });
+    const out = parseJson(res) as { entityCount: number }[];
+    expect(out[0].entityCount).toBe(3);
+  });
+});
+
+describe('brain_topics_tree', () => {
+  it('returns nested tree', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_topics_tree')!.handler({});
+    const out = parseJson(res) as { id: number; children: unknown[] }[];
+    expect(out[0].id).toBe(1);
+    expect(Array.isArray(out[0].children)).toBe(true);
+  });
+
+  it('includes descriptions when requested', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_topics_tree')!.handler({ includeDescriptions: true });
+    const out = parseJson(res) as { description?: string }[];
+    expect('description' in out[0]).toBe(true);
+  });
+});
+
+describe('brain_topics_get', () => {
+  it('returns not-found when topic missing', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_topics_get')!.handler({ id: 999 });
+    expect(res.isError).toBe(true);
+  });
+
+  it('returns topic and breadcrumb on hit', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_topics_get')!.handler({ id: 1 });
+    const out = parseJson(res) as { topic: { id: number }; breadcrumb: unknown[] };
+    expect(out.topic.id).toBe(1);
+  });
+});
+
+describe('brain_topics_entities', () => {
+  it('returns paginated entities for a topic', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_topics_entities')!.handler({ id: 1 });
+    const out = parseJson(res) as { items: unknown[]; total: number };
+    expect(out.total).toBe(1);
+  });
+
+  it('filters by entityType', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_topics_entities')!.handler({ id: 1, entityType: 'meeting' });
+    const out = parseJson(res) as { items: unknown[] };
+    expect(out.items).toHaveLength(0); // mock returns only 'note' item
+  });
+});
+
+describe('brain_topics_create', () => {
+  it('creates a topic and returns id/slug/path', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_topics_create')!.handler({ name: 'My Topic' });
+    const out = parseJson(res) as { id: number; slug: string };
+    expect(out.id).toBe(1);
+    expect(out.slug).toBe('my-topic');
+  });
+
+  it('returns err on thrown error', async () => {
+    const topics = await import('@/lib/brain/topics');
+    (topics.createTopic as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('dup slug'));
+    const tools = registerAll();
+    const res = await tools.get('brain_topics_create')!.handler({ name: 'T' });
+    expect(res.isError).toBe(true);
+  });
+});
+
+describe('brain_topics_update', () => {
+  it('returns not-found before lookup when topic is missing', async () => {
+    const topics = await import('@/lib/brain/topics');
+    (topics.getTopicById as ReturnType<typeof vi.fn>).mockResolvedValueOnce(null);
+    const tools = registerAll();
+    const res = await tools.get('brain_topics_update')!.handler({ id: 999, patch: { name: 'X' } });
+    expect(res.isError).toBe(true);
+  });
+
+  it('updates and returns echo with changed fields', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_topics_update')!.handler({ id: 1, patch: { name: 'NewName' } });
+    const out = parseJson(res) as { id: number; updatedFields: string[] };
+    expect(out.id).toBe(1);
+    expect(out.updatedFields).toContain('name');
+  });
+});
+
+describe('brain_topics_move', () => {
+  it('returns not-found when topic missing', async () => {
+    const topics = await import('@/lib/brain/topics');
+    (topics.getTopicById as ReturnType<typeof vi.fn>).mockResolvedValueOnce(null);
+    const tools = registerAll();
+    const res = await tools.get('brain_topics_move')!.handler({ id: 999, newParentId: null });
+    expect(res.isError).toBe(true);
+  });
+
+  it('moves topic and returns new path + descendant count', async () => {
+    dbState.selectQueue = [[{ count: 2 }]]; // descendant count
+    const tools = registerAll();
+    const res = await tools.get('brain_topics_move')!.handler({ id: 1, newParentId: null });
+    const out = parseJson(res) as { id: number; path: string; descendantsRepathed: number };
+    expect(out.descendantsRepathed).toBe(2);
+  });
+});
+
+describe('brain_topics_merge', () => {
+  it('returns not-found when source missing', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_topics_merge')!.handler({ sourceId: 999, targetId: 2 });
+    expect(res.isError).toBe(true);
+  });
+
+  it('merges and returns reattach/reparent counts', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_topics_merge')!.handler({ sourceId: 1, targetId: 2 });
+    const out = parseJson(res) as { entitiesReattached: number; childrenReparented: number };
+    expect(out.entitiesReattached).toBe(3);
+    expect(out.childrenReparented).toBe(1);
+  });
+});
+
+describe('brain_topics_delete', () => {
+  it('returns not-found for missing topic', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_topics_delete')!.handler({ id: 999 });
+    expect(res.isError).toBe(true);
+  });
+
+  it('returns structured error when topic has children', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_topics_delete')!.handler({ id: 777 });
+    expect((parseJson(res) as { error: string }).error).toBe('has_children');
+  });
+
+  it('returns structured error when topic has entities and force not set', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_topics_delete')!.handler({ id: 888 });
+    const out = parseJson(res) as { error: string };
+    expect(out.error).toBe('has_entities');
+  });
+
+  it('deletes and returns success echo', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_topics_delete')!.handler({ id: 1 });
+    expect((parseJson(res) as { deleted: boolean }).deleted).toBe(true);
+  });
+});
+
+describe('brain_topics_attach / brain_topics_detach', () => {
+  it('attaches topics and returns counts', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_topics_attach')!.handler({
+      targetEntityType: 'note', targetEntityId: 1, topicIds: [1, 2],
+    });
+    const out = parseJson(res) as { attached: number; alreadyAttached: number };
+    expect(out.attached).toBe(2);
+  });
+
+  it('detaches topics and returns count', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_topics_detach')!.handler({
+      targetEntityType: 'note', targetEntityId: 1, topicIds: [1],
+    });
+    expect((parseJson(res) as { detached: number }).detached).toBe(1);
+  });
+});
+
+describe('brain_topics_import_from_tags', () => {
+  it('returns import report', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_topics_import_from_tags')!.handler({ dryRun: false });
+    const out = parseJson(res) as { topicsCreated: number; notesAttached: number };
+    expect(out.topicsCreated).toBe(3);
+    expect(out.notesAttached).toBe(7);
+  });
+});
+
+// ── initiatives ───────────────────────────────────────────────────────────────
+
+describe('brain_initiatives_list', () => {
+  it('returns items with pagination', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_initiatives_list')!.handler({});
+    const out = parseJson(res) as { items: unknown[]; limit: number };
+    expect(out.items).toHaveLength(1);
+  });
+
+  it('includes description when requested', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_initiatives_list')!.handler({ include: ['description'] });
+    const out = parseJson(res) as { items: Record<string, unknown>[] };
+    expect('description' in out.items[0]).toBe(true);
+  });
+});
+
+describe('brain_initiatives_get', () => {
+  it('returns not-found when missing', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_initiatives_get')!.handler({ id: 999 });
+    expect(res.isError).toBe(true);
+  });
+
+  it('returns initiative with goals and links on hit', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_initiatives_get')!.handler({ id: 1, includeGoals: true, includeLinks: true });
+    const out = parseJson(res) as { initiative: { id: number }; goals: unknown[]; links: unknown };
+    expect(out.initiative.id).toBe(1);
+    expect(Array.isArray(out.goals)).toBe(true);
+  });
+});
+
+describe('brain_initiatives_create', () => {
+  it('creates an initiative and returns slim echo', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_initiatives_create')!.handler({ name: 'Init Q1' });
+    const out = parseJson(res) as { id: number; slug: string };
+    expect(out.id).toBe(10);
+    expect(out.slug).toBe('my-initiative');
+  });
+
+  it('returns err on thrown error', async () => {
+    const initiatives = await import('@/lib/brain/initiatives');
+    (initiatives.createInitiative as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('fail'));
+    const tools = registerAll();
+    const res = await tools.get('brain_initiatives_create')!.handler({ name: 'X' });
+    expect(res.isError).toBe(true);
+  });
+});
+
+describe('brain_initiatives_update', () => {
+  it('returns not-found when missing', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_initiatives_update')!.handler({ id: 999, patch: {} });
+    expect(res.isError).toBe(true);
+  });
+
+  it('returns use_close_or_reopen when status change attempted', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_initiatives_update')!.handler({ id: 888, patch: { name: 'X' } });
+    expect((parseJson(res) as { error: string }).error).toBe('use_close_or_reopen');
+  });
+
+  it('updates and returns echo', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_initiatives_update')!.handler({ id: 1, patch: { name: 'New Name' } });
+    const out = parseJson(res) as { id: number };
+    expect(out.id).toBe(1);
+  });
+});
+
+describe('brain_initiatives_close', () => {
+  it('returns not-found when missing', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_initiatives_close')!.handler({ id: 999, outcome: 'completed' });
+    expect(res.isError).toBe(true);
+  });
+
+  it('closes initiative and returns echo', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_initiatives_close')!.handler({ id: 1, outcome: 'cancelled', reason: 'budget' });
+    const out = parseJson(res) as { id: number; status: string };
+    expect(out.status).toBe('completed');
+  });
+});
+
+describe('brain_initiatives_reopen', () => {
+  it('returns not-found when missing', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_initiatives_reopen')!.handler({ id: 999 });
+    expect(res.isError).toBe(true);
+  });
+
+  it('returns non_terminal_status error when state not closable', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_initiatives_reopen')!.handler({ id: 888 });
+    expect((parseJson(res) as { error: string }).error).toBe('non_terminal_status');
+  });
+
+  it('reopens and returns { status: "active" }', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_initiatives_reopen')!.handler({ id: 1 });
+    expect((parseJson(res) as { status: string }).status).toBe('active');
+  });
+});
+
+describe('brain_initiatives_link / brain_initiatives_unlink', () => {
+  it('links entity and returns linkId', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_initiatives_link')!.handler({ initiativeId: 1, entityType: 'task', entityId: 1 });
+    const out = parseJson(res) as { linkId: number; alreadyLinked: boolean };
+    expect(out.linkId).toBe(5);
+    expect(out.alreadyLinked).toBe(false);
+  });
+
+  it('unlinks entity', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_initiatives_unlink')!.handler({ initiativeId: 1, entityType: 'task', entityId: 1 });
+    expect((parseJson(res) as { removed: boolean }).removed).toBe(true);
+  });
+});
+
+describe('brain_initiatives_links', () => {
+  it('returns links with byType tally', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_initiatives_links')!.handler({ id: 1 });
+    const out = parseJson(res) as { items: unknown[]; total: number; byType: Record<string, number> };
+    expect(out.total).toBe(1);
+    expect(out.byType.task).toBe(1);
+  });
+});
+
+// ── goals ────────────────────────────────────────────────────────────────────
+
+describe('brain_goals_list', () => {
+  it('returns paginated goals', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_goals_list')!.handler({});
+    const out = parseJson(res) as { items: unknown[] };
+    expect(out.items).toHaveLength(1);
+  });
+
+  it('opts in description when requested', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_goals_list')!.handler({ include: ['description'] });
+    const out = parseJson(res) as { items: Record<string, unknown>[] };
+    expect('description' in out.items[0]).toBe(true);
+  });
+});
+
+describe('brain_goals_get', () => {
+  it('returns not-found when missing', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_goals_get')!.handler({ id: 999 });
+    expect(res.isError).toBe(true);
+  });
+
+  it('returns goal with initiative reference on hit', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_goals_get')!.handler({ id: 1 });
+    const out = parseJson(res) as { goal: { id: number }; initiative: { id: number } };
+    expect(out.goal.id).toBe(1);
+    expect(out.initiative.id).toBe(10);
+  });
+});
+
+describe('brain_goals_create', () => {
+  it('creates a goal and returns slim echo', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_goals_create')!.handler({ initiativeId: 10, title: 'G' });
+    const out = parseJson(res) as { id: number; status: string };
+    expect(out.id).toBe(20);
+    expect(out.status).toBe('open');
+  });
+});
+
+describe('brain_goals_update', () => {
+  it('returns not-found when missing', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_goals_update')!.handler({ id: 999, patch: {} });
+    expect(res.isError).toBe(true);
+  });
+
+  it('updates and returns echo', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_goals_update')!.handler({ id: 1, patch: { status: 'on_track' } });
+    const out = parseJson(res) as { id: number };
+    expect(out.id).toBe(1);
+  });
+});
+
+describe('brain_goals_checkin', () => {
+  it('returns not-found when goal missing', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_goals_checkin')!.handler({ id: 999 });
+    expect(res.isError).toBe(true);
+  });
+
+  it('records check-in and returns slim echo', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_goals_checkin')!.handler({ id: 1, currentMetric: 5, note: 'progress!' });
+    const out = parseJson(res) as { id: number; status: string; currentMetric: number };
+    expect(out.status).toBe('on_track');
+    expect(out.currentMetric).toBe(5);
+  });
+});
+
+describe('brain_goals_delete', () => {
+  it('returns not-found when missing', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_goals_delete')!.handler({ id: 999 });
+    expect(res.isError).toBe(true);
+  });
+
+  it('deletes and returns success echo', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_goals_delete')!.handler({ id: 1 });
+    expect((parseJson(res) as { deleted: boolean }).deleted).toBe(true);
+  });
+});
+
+// ── people ───────────────────────────────────────────────────────────────────
+
+describe('brain_people_list', () => {
+  it('returns slim items', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_people_list')!.handler({});
+    const out = parseJson(res) as { items: unknown[] };
+    expect(out.items).toHaveLength(1);
+  });
+
+  it('hydrates heavy fields when include=["notes","profileUrls"]', async () => {
+    dbState.selectQueue = [[{ id: 1, notes: 'notes text', profileUrls: [] }]];
+    const tools = registerAll();
+    const res = await tools.get('brain_people_list')!.handler({ include: ['notes', 'profileUrls'] });
+    const out = parseJson(res) as { items: Record<string, unknown>[] };
+    expect(out.items[0].notes).toBe('notes text');
+  });
+});
+
+describe('brain_people_get', () => {
+  it('returns not-found when missing', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_people_get')!.handler({ id: 999 });
+    expect(res.isError).toBe(true);
+  });
+
+  it('returns person with org units and expertise', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_people_get')!.handler({ id: 1 });
+    const out = parseJson(res) as { person: { id: number }; orgUnits: unknown[]; expertise: unknown[] };
+    expect(out.person.id).toBe(1);
+  });
+});
+
+describe('brain_people_create', () => {
+  it('creates a person and returns slim echo', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_people_create')!.handler({ fullName: 'Alice' });
+    const out = parseJson(res) as { id: number; status: string };
+    expect(out.id).toBe(40);
+    expect(out.status).toBe('active');
+  });
+
+  it('returns err on thrown error', async () => {
+    const people = await import('@/lib/brain/people');
+    (people.createPerson as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('dup email'));
+    const tools = registerAll();
+    const res = await tools.get('brain_people_create')!.handler({ fullName: 'X' });
+    expect(res.isError).toBe(true);
+  });
+});
+
+describe('brain_people_update', () => {
+  it('returns not-found when missing', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_people_update')!.handler({ id: 999, patch: {} });
+    expect(res.isError).toBe(true);
+  });
+
+  it('returns manager_cycle error', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_people_update')!.handler({ id: 888, patch: { managerId: 888 } });
+    expect((parseJson(res) as { error: string }).error).toBe('manager_cycle');
+  });
+
+  it('updates and returns echo', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_people_update')!.handler({ id: 1, patch: { fullName: 'Bob' } });
+    const out = parseJson(res) as { id: number };
+    expect(out.id).toBe(1);
+  });
+});
+
+describe('brain_people_delete', () => {
+  it('returns not-found when missing', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_people_delete')!.handler({ id: 999 });
+    expect(res.isError).toBe(true);
+  });
+
+  it('deletes and returns success echo', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_people_delete')!.handler({ id: 1 });
+    expect((parseJson(res) as { deleted: boolean }).deleted).toBe(true);
+  });
+});
+
+describe('brain_people_attach_expertise / brain_people_detach_expertise', () => {
+  it('attaches expertise tag', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_people_attach_expertise')!.handler({ personId: 1, expertiseTagId: 10 });
+    const out = parseJson(res) as { alreadyAttached: boolean };
+    expect(out.alreadyAttached).toBe(false);
+  });
+
+  it('detaches expertise tag', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_people_detach_expertise')!.handler({ personId: 1, expertiseTagId: 10 });
+    expect((parseJson(res) as { detached: boolean }).detached).toBe(true);
+  });
+});
+
+describe('brain_who_knows', () => {
+  it('returns ranked matches', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_who_knows')!.handler({ query: 'TypeScript', limit: 5 });
+    const out = parseJson(res) as { matches: unknown[] };
+    expect(out.matches).toHaveLength(1);
+  });
+});
+
+// ── expertise tags ────────────────────────────────────────────────────────────
+
+describe('brain_expertise_tags_list', () => {
+  it('returns slim items by default', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_expertise_tags_list')!.handler({});
+    const out = parseJson(res) as { items: { id: number }[] };
+    expect(out.items[0].id).toBe(1);
+  });
+});
+
+describe('brain_expertise_tags_create', () => {
+  it('creates and returns slug echo', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_expertise_tags_create')!.handler({ name: 'React' });
+    const out = parseJson(res) as { id: number; slug: string };
+    expect(out.slug).toBe('react');
+  });
+});
+
+describe('brain_expertise_tags_update', () => {
+  it('returns not-found when tag missing', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_expertise_tags_update')!.handler({ id: 999, patch: {} });
+    expect(res.isError).toBe(true);
+  });
+
+  it('updates and returns echo', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_expertise_tags_update')!.handler({ id: 1, patch: { name: 'TS' } });
+    const out = parseJson(res) as { id: number };
+    expect(out.id).toBe(1);
+  });
+});
+
+describe('brain_expertise_tags_delete', () => {
+  it('returns not-found when tag missing', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_expertise_tags_delete')!.handler({ id: 999 });
+    expect(res.isError).toBe(true);
+  });
+
+  it('returns in_use structured error when force not set', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_expertise_tags_delete')!.handler({ id: 888 });
+    expect((parseJson(res) as { error: string }).error).toBe('in_use');
+  });
+
+  it('deletes on hit', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_expertise_tags_delete')!.handler({ id: 1 });
+    expect((parseJson(res) as { deleted: boolean }).deleted).toBe(true);
+  });
+});
+
+describe('brain_expertise_tags_merge', () => {
+  it('merges tags and returns reattach count', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_expertise_tags_merge')!.handler({ sourceTagId: 1, targetTagId: 2 });
+    const out = parseJson(res) as { peopleReattached: number; sourceDeleted: boolean };
+    expect(out.peopleReattached).toBe(2);
+    expect(out.sourceDeleted).toBe(true);
+  });
+});
+
+// ── org units ─────────────────────────────────────────────────────────────────
+
+describe('brain_org_units_list', () => {
+  it('returns flat list with memberCount', async () => {
+    dbState.selectQueue = [[{ orgUnitId: 1, count: 3 }]]; // member count query
+    const tools = registerAll();
+    const res = await tools.get('brain_org_units_list')!.handler({});
+    const out = parseJson(res) as { items: { memberCount: number }[] };
+    expect(out.items[0].memberCount).toBe(3);
+  });
+});
+
+describe('brain_org_units_tree', () => {
+  it('returns nested tree', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_org_units_tree')!.handler({});
+    const out = parseJson(res) as { items: { id: number }[] };
+    expect(out.items[0].id).toBe(1);
+  });
+});
+
+describe('brain_org_units_get', () => {
+  it('returns not-found when missing', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_org_units_get')!.handler({ id: 999 });
+    expect(res.isError).toBe(true);
+  });
+
+  it('returns unit with members on hit', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_org_units_get')!.handler({ id: 1 });
+    const out = parseJson(res) as { unit: { id: number }; members: unknown[] };
+    expect(out.unit.id).toBe(1);
+  });
+});
+
+describe('brain_org_units_create', () => {
+  it('creates and returns slug + path', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_org_units_create')!.handler({ name: 'Engineering' });
+    const out = parseJson(res) as { id: number; slug: string; path: string };
+    expect(out.slug).toBe('eng');
+  });
+});
+
+describe('brain_org_units_update', () => {
+  it('returns not-found when missing', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_org_units_update')!.handler({ id: 999, patch: {} });
+    expect(res.isError).toBe(true);
+  });
+
+  it('updates and returns echo', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_org_units_update')!.handler({ id: 1, patch: { name: 'Eng2' } });
+    const out = parseJson(res) as { id: number };
+    expect(out.id).toBe(1);
+  });
+});
+
+describe('brain_org_units_move', () => {
+  it('returns not-found when unit missing', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_org_units_move')!.handler({ id: 999, newParentId: null });
+    expect(res.isError).toBe(true);
+  });
+
+  it('moves and returns new path', async () => {
+    dbState.selectQueue = [[{ id: 5 }, { id: 6 }]]; // descendant rows
+    const tools = registerAll();
+    const res = await tools.get('brain_org_units_move')!.handler({ id: 1, newParentId: 2 });
+    const out = parseJson(res) as { id: number; path: string; descendantsRepathed: number };
+    expect(out.descendantsRepathed).toBe(2);
+  });
+});
+
+describe('brain_org_units_merge', () => {
+  it('returns not-found when source missing', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_org_units_merge')!.handler({ sourceId: 999, targetId: 2 });
+    expect(res.isError).toBe(true);
+  });
+
+  it('merges and returns counts', async () => {
+    dbState.selectQueue = [[]]; // children query → empty
+    const tools = registerAll();
+    const res = await tools.get('brain_org_units_merge')!.handler({ sourceId: 1, targetId: 2 });
+    const out = parseJson(res) as { membersReattached: number; childrenReparented: number };
+    expect(typeof out.membersReattached).toBe('number');
+  });
+});
+
+describe('brain_org_units_delete', () => {
+  it('returns not-found when unit missing', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_org_units_delete')!.handler({ id: 999 });
+    expect(res.isError).toBe(true);
+  });
+
+  it('returns in_use structured error when conflicts exist', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_org_units_delete')!.handler({ id: 888 });
+    const out = parseJson(res) as { error: string; memberCount: number; childCount: number };
+    expect(out.error).toBe('in_use');
+    expect(out.memberCount).toBe(2);
+    expect(out.childCount).toBe(1);
+  });
+
+  it('deletes on hit', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_org_units_delete')!.handler({ id: 1 });
+    expect((parseJson(res) as { deleted: boolean }).deleted).toBe(true);
+  });
+});
+
+describe('brain_org_units_add_member / remove_member / set_primary', () => {
+  beforeEach(() => { dbState.selectQueue = []; dbState.selectRows = []; });
+
+  it('adds member and returns alreadyMember flag', async () => {
+    dbState.selectRows = []; // no existing membership
+    const tools = registerAll();
+    const res = await tools.get('brain_org_units_add_member')!.handler({ orgUnitId: 1, personId: 40 });
+    const out = parseJson(res) as { alreadyMember: boolean; primary: boolean };
+    expect(out.alreadyMember).toBe(false);
+  });
+
+  it('detects existing membership', async () => {
+    dbState.selectRows = [{ id: 5 }]; // existing membership row
+    const tools = registerAll();
+    const res = await tools.get('brain_org_units_add_member')!.handler({ orgUnitId: 1, personId: 40 });
+    expect((parseJson(res) as { alreadyMember: boolean }).alreadyMember).toBe(true);
+  });
+
+  it('removes member', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_org_units_remove_member')!.handler({ orgUnitId: 1, personId: 40 });
+    expect((parseJson(res) as { removed: boolean }).removed).toBe(true);
+  });
+
+  it('sets primary unit', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_org_units_set_primary')!.handler({ personId: 1, orgUnitId: 1 });
+    expect((parseJson(res) as { primary: boolean }).primary).toBe(true);
+  });
+
+  it('returns error when set_primary membership not found', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_org_units_set_primary')!.handler({ personId: 1, orgUnitId: 999 });
+    expect(res.isError).toBe(true);
+  });
+});
+
+// ── glossary ─────────────────────────────────────────────────────────────────
+
+describe('brain_glossary_list', () => {
+  it('returns slim items by default', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_glossary_list')!.handler({});
+    const out = parseJson(res) as { items: unknown[] };
+    expect(out.items).toHaveLength(1);
+  });
+
+  it('hydrates definition + aliases when include requested', async () => {
+    dbState.selectQueue = [[{ id: 1, definition: 'full def', aliases: ['alias1'] }]];
+    const tools = registerAll();
+    const res = await tools.get('brain_glossary_list')!.handler({ include: ['definition', 'aliases'] });
+    const out = parseJson(res) as { items: Record<string, unknown>[] };
+    expect(out.items[0].definition).toBe('full def');
+    expect((out.items[0].aliases as string[])[0]).toBe('alias1');
+  });
+});
+
+describe('brain_glossary_get', () => {
+  it('returns not-found when missing', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_glossary_get')!.handler({ id: 999 });
+    expect(res.isError).toBe(true);
+  });
+
+  it('returns term with opt-in fields on hit', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_glossary_get')!.handler({ id: 1, include: ['definition'] });
+    const out = parseJson(res) as { term: Record<string, unknown>; relatedTerms: unknown[] };
+    expect(out.term.definition).toBe('def');
+  });
+});
+
+describe('brain_glossary_lookup', () => {
+  it('returns scored results', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_glossary_lookup')!.handler({ query: 'T' });
+    const out = parseJson(res) as { id: number; score: number }[];
+    expect(out[0].score).toBe(10);
+  });
+});
+
+describe('brain_glossary_create', () => {
+  it('creates a term and returns id + slug', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_glossary_create')!.handler({ term: 'SaaS', definition: 'Software as a Service' });
+    const out = parseJson(res) as { id: number; slug: string };
+    expect(out.id).toBe(60);
+  });
+});
+
+describe('brain_glossary_update', () => {
+  it('returns not-found when missing', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_glossary_update')!.handler({ id: 999, patch: {} });
+    expect(res.isError).toBe(true);
+  });
+
+  it('updates and returns echo', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_glossary_update')!.handler({ id: 1, patch: { term: 'NewTerm' } });
+    const out = parseJson(res) as { id: number };
+    expect(out.id).toBe(1);
+  });
+});
+
+describe('brain_glossary_delete', () => {
+  it('returns not-found when missing', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_glossary_delete')!.handler({ id: 999 });
+    expect(res.isError).toBe(true);
+  });
+
+  it('deletes and returns echo with prune count', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_glossary_delete')!.handler({ id: 1 });
+    const out = parseJson(res) as { deleted: boolean; prunedRelatedTermFromCount: number };
+    expect(out.deleted).toBe(true);
+    expect(out.prunedRelatedTermFromCount).toBe(0);
+  });
+});
+
+describe('brain_glossary_bulk_import', () => {
+  it('returns created/updated/errors counts', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_glossary_bulk_import')!.handler({ terms: [{ term: 'T1', definition: 'D1' }, { term: 'T2', definition: 'D2' }] });
+    const out = parseJson(res) as { created: number; updated: number; errors: unknown[] };
+    expect(out.created).toBe(2);
+    expect(out.updated).toBe(1);
+  });
+});
+
+// ── playbooks ────────────────────────────────────────────────────────────────
+
+describe('brain_playbooks_list', () => {
+  it('returns slim list of playbooks', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_playbooks_list')!.handler({});
+    const out = parseJson(res) as { items: unknown[] };
+    expect(out.items).toHaveLength(1);
+  });
+
+  it('hydrates heavy fields when include requested', async () => {
+    dbState.selectQueue = [[{ id: 1, description: 'Desc', triggerConfig: {}, defaultTopicIds: [1] }]];
+    const tools = registerAll();
+    const res = await tools.get('brain_playbooks_list')!.handler({ include: ['description', 'triggerConfig', 'defaultTopicIds'] });
+    const out = parseJson(res) as { items: Record<string, unknown>[] };
+    expect(out.items[0].description).toBe('Desc');
+  });
+});
+
+describe('brain_playbooks_get', () => {
+  it('returns not-found when missing', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_playbooks_get')!.handler({ id: 999 });
+    expect(res.isError).toBe(true);
+  });
+
+  it('returns playbook with steps on hit', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_playbooks_get')!.handler({ id: 1 });
+    const out = parseJson(res) as { playbook: { id: number }; steps: unknown[] };
+    expect(out.playbook.id).toBe(1);
+    expect(Array.isArray(out.steps)).toBe(true);
+  });
+});
+
+describe('brain_playbooks_create', () => {
+  it('creates and returns slug + status', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_playbooks_create')!.handler({ name: 'Onboarding' });
+    const out = parseJson(res) as { id: number; status: string };
+    expect(out.status).toBe('draft');
+  });
+});
+
+describe('brain_playbooks_update', () => {
+  it('returns not-found when missing', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_playbooks_update')!.handler({ id: 999, patch: {} });
+    expect(res.isError).toBe(true);
+  });
+
+  it('returns use_activate_or_archive when status change attempted', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_playbooks_update')!.handler({ id: 888, patch: { name: 'X' } });
+    expect((parseJson(res) as { error: string }).error).toBe('use_activate_or_archive');
+  });
+
+  it('updates and returns echo', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_playbooks_update')!.handler({ id: 1, patch: { name: 'NewName' } });
+    const out = parseJson(res) as { id: number };
+    expect(out.id).toBe(1);
+  });
+});
+
+describe('brain_playbooks_activate', () => {
+  it('returns not-found when missing', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_playbooks_activate')!.handler({ id: 999 });
+    expect(res.isError).toBe(true);
+  });
+
+  it('returns dag_invalid error on DAG failure', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_playbooks_activate')!.handler({ id: 888 });
+    const out = parseJson(res) as { error: string; errors: string[] };
+    expect(out.error).toBe('dag_invalid');
+    expect(out.errors.length).toBeGreaterThan(0);
+  });
+
+  it('returns dag_invalid for zero steps', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_playbooks_activate')!.handler({ id: 777 });
+    expect((parseJson(res) as { error: string }).error).toBe('dag_invalid');
+  });
+
+  it('activates on success', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_playbooks_activate')!.handler({ id: 1 });
+    expect((parseJson(res) as { status: string }).status).toBe('active');
+  });
+});
+
+describe('brain_playbooks_archive', () => {
+  it('returns not-found when missing', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_playbooks_archive')!.handler({ id: 999 });
+    expect(res.isError).toBe(true);
+  });
+
+  it('returns active_runs_exist when blocking runs exist', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_playbooks_archive')!.handler({ id: 888 });
+    expect((parseJson(res) as { error: string }).error).toBe('active_runs_exist');
+  });
+
+  it('archives on success', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_playbooks_archive')!.handler({ id: 1 });
+    expect((parseJson(res) as { status: string }).status).toBe('archived');
+  });
+});
+
+describe('brain_playbooks_delete', () => {
+  it('returns not-found when missing', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_playbooks_delete')!.handler({ id: 999 });
+    expect(res.isError).toBe(true);
+  });
+
+  it('returns runs_exist error when runs block delete', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_playbooks_delete')!.handler({ id: 888 });
+    expect((parseJson(res) as { error: string }).error).toBe('runs_exist');
+  });
+
+  it('deletes on hit', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_playbooks_delete')!.handler({ id: 1 });
+    expect((parseJson(res) as { deleted: boolean }).deleted).toBe(true);
+  });
+});
+
+describe('brain_playbooks_add_step / update_step / remove_step / reorder_steps', () => {
+  it('adds a step and returns id + key', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_playbooks_add_step')!.handler({
+      playbookId: 1, step: { key: 'step-1', name: 'Step One', kind: 'task' },
+    });
+    const out = parseJson(res) as { id: number; key: string };
+    expect(out.key).toBe('step-1');
+  });
+
+  it('updates a step', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_playbooks_update_step')!.handler({ stepId: 1, patch: { name: 'Renamed' } });
+    const out = parseJson(res) as { id: number };
+    expect(out.id).toBe(1);
+  });
+
+  it('returns not-found on missing step update', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_playbooks_update_step')!.handler({ stepId: 999, patch: {} });
+    expect(res.isError).toBe(true);
+  });
+
+  it('removes a step', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_playbooks_remove_step')!.handler({ stepId: 1 });
+    expect((parseJson(res) as { deleted: boolean }).deleted).toBe(true);
+  });
+
+  it('returns run_steps_reference error when step in active run', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_playbooks_remove_step')!.handler({ stepId: 888 });
+    expect((parseJson(res) as { error: string }).error).toBe('run_steps_reference');
+  });
+
+  it('reorders steps and returns count', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_playbooks_reorder_steps')!.handler({ playbookId: 1, orderedStepIds: [2, 1] });
+    const out = parseJson(res) as { playbookId: number; count: number };
+    expect(out.count).toBe(2);
+  });
+});
+
+// ── playbook runs ─────────────────────────────────────────────────────────────
+
+describe('brain_playbook_runs_list', () => {
+  it('returns paginated run list', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_playbook_runs_list')!.handler({});
+    const out = parseJson(res) as { items: unknown[] };
+    expect(out.items).toHaveLength(1);
+  });
+});
+
+describe('brain_playbook_runs_get', () => {
+  it('returns not-found when missing', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_playbook_runs_get')!.handler({ id: 999 });
+    expect(res.isError).toBe(true);
+  });
+
+  it('returns run with playbook + steps + links on hit', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_playbook_runs_get')!.handler({ id: 1 });
+    const out = parseJson(res) as { run: { id: number }; playbook: { id: number }; steps: unknown[]; links: unknown[] };
+    expect(out.run.id).toBe(1);
+    expect(out.playbook.id).toBe(70);
+  });
+
+  it('opts in context when include=["context"]', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_playbook_runs_get')!.handler({ id: 1, include: ['context'] });
+    const out = parseJson(res) as { run: Record<string, unknown> };
+    expect(out.run.context).toEqual({ foo: 1 });
+  });
+});
+
+describe('brain_playbook_runs_active_for_entity', () => {
+  it('returns active runs for entity', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_playbook_runs_active_for_entity')!.handler({ entityType: 'person', entityId: 40 });
+    const out = parseJson(res) as { items: unknown[]; total: number };
+    expect(out.items).toHaveLength(1);
+    expect(out.total).toBe(1);
+  });
+});
+
+describe('brain_playbook_runs_start', () => {
+  it('starts a run and returns runId + firstStepKeys', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_playbook_runs_start')!.handler({ playbookId: 70, label: 'Run 1' });
+    const out = parseJson(res) as { runId: number; status: string; firstStepKeys: string[] };
+    expect(out.runId).toBe(100);
+    expect(out.firstStepKeys).toContain('step-1');
+  });
+
+  it('returns err on thrown error', async () => {
+    const runs = await import('@/lib/brain/playbook-runs');
+    (runs.startRun as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('playbook not active'));
+    const tools = registerAll();
+    const res = await tools.get('brain_playbook_runs_start')!.handler({ playbookId: 999, label: 'X' });
+    expect(res.isError).toBe(true);
+  });
+});
+
+describe('brain_playbook_runs_advance', () => {
+  it('returns not-found when run missing', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_playbook_runs_advance')!.handler({ runId: 999 });
+    expect(res.isError).toBe(true);
+  });
+
+  it('returns new active step keys on hit', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_playbook_runs_advance')!.handler({ runId: 1 });
+    const out = parseJson(res) as { runId: number; newActiveStepKeys: string[] };
+    expect(out.runId).toBe(1);
+  });
+});
+
+describe('brain_playbook_run_steps_complete / skip', () => {
+  it('completes a run step', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_playbook_run_steps_complete')!.handler({ runId: 1, stepId: 1 });
+    const out = parseJson(res) as { stepId: number; status: string };
+    expect(out.status).toBe('completed');
+  });
+
+  it('returns not-found for missing step on complete', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_playbook_run_steps_complete')!.handler({ runId: 1, stepId: 999 });
+    expect(res.isError).toBe(true);
+  });
+
+  it('skips a run step', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_playbook_run_steps_skip')!.handler({ runId: 1, stepId: 1, reason: 'not applicable' });
+    expect((parseJson(res) as { status: string }).status).toBe('skipped');
+  });
+
+  it('returns not-found for missing step on skip', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_playbook_run_steps_skip')!.handler({ runId: 1, stepId: 999 });
+    expect(res.isError).toBe(true);
+  });
+});
+
+describe('brain_playbook_runs_abort', () => {
+  it('returns not-found when run missing', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_playbook_runs_abort')!.handler({ runId: 999 });
+    expect(res.isError).toBe(true);
+  });
+
+  it('aborts and returns { status: "aborted" }', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_playbook_runs_abort')!.handler({ runId: 1, reason: 'cancelled by user' });
+    expect((parseJson(res) as { status: string }).status).toBe('aborted');
+  });
+});
+
+// ── documents ────────────────────────────────────────────────────────────────
+
+describe('brain_documents_list', () => {
+  it('returns document list', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_documents_list')!.handler({});
+    const out = parseJson(res) as { items: unknown[] };
+    expect(out.items).toHaveLength(1);
+  });
+
+  it('hydrates body when include=["body"]', async () => {
+    dbState.selectQueue = [[{ id: 82, body: 'markdown body' }]]; // version bodies
+    const tools = registerAll();
+    const res = await tools.get('brain_documents_list')!.handler({ include: ['body'] });
+    const out = parseJson(res) as { items: Record<string, unknown>[] };
+    expect(out.items[0].body).toBe('markdown body');
+  });
+});
+
+describe('brain_documents_get', () => {
+  it('returns not-found when missing', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_documents_get')!.handler({ id: 999 });
+    expect(res.isError).toBe(true);
+  });
+
+  it('returns document with versions and links on hit', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_documents_get')!.handler({ id: 1 });
+    const out = parseJson(res) as { document: { id: number }; links: unknown[] };
+    expect(out.document.id).toBe(1);
+  });
+});
+
+describe('brain_document_versions_list', () => {
+  it('returns not-found when document missing', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_document_versions_list')!.handler({ documentId: 999 });
+    expect(res.isError).toBe(true);
+  });
+
+  it('returns slim version list on hit', async () => {
+    dbState.selectQueue = [[{ id: 82, versionNumber: 2, isDraft: false, publishedAt: null, title: 'V2', body: 'B', changeNotes: null, summary: null }]];
+    const tools = registerAll();
+    const res = await tools.get('brain_document_versions_list')!.handler({ documentId: 1 });
+    const out = parseJson(res) as { items: { id: number }[] };
+    expect(out.items[0].id).toBe(82);
+  });
+});
+
+describe('brain_document_versions_get', () => {
+  it('returns not-found when version missing', async () => {
+    dbState.selectRows = [];
+    const tools = registerAll();
+    const res = await tools.get('brain_document_versions_get')!.handler({ versionId: 999 });
+    expect(res.isError).toBe(true);
+  });
+
+  it('returns version on hit', async () => {
+    dbState.selectQueue = [[{ id: 82, documentId: 80, versionNumber: 2, isDraft: false, publishedAt: null, title: 'V2', body: 'body', createdBy: 11, createdAt: new Date(), updatedAt: new Date(), changeNotes: null, summary: null, publishedBy: null }]];
+    const tools = registerAll();
+    const res = await tools.get('brain_document_versions_get')!.handler({ versionId: 82 });
+    const out = parseJson(res) as { id: number; body: string };
+    expect(out.id).toBe(82);
+    expect(out.body).toBe('body');
+  });
+});
+
+describe('brain_documents_create', () => {
+  it('creates document and returns id + slug + version1Id', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_documents_create')!.handler({ title: 'Onboarding SOP' });
+    const out = parseJson(res) as { id: number; slug: string; version1Id: number };
+    expect(out.id).toBe(80);
+    expect(out.version1Id).toBe(81);
+  });
+});
+
+describe('brain_documents_update', () => {
+  it('returns not-found when missing', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_documents_update')!.handler({ id: 999, patch: {} });
+    expect(res.isError).toBe(true);
+  });
+
+  it('returns use_publish_or_archive when status change attempted', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_documents_update')!.handler({ id: 888, patch: { title: 'X' } });
+    expect((parseJson(res) as { error: string }).error).toBe('use_publish_or_archive');
+  });
+
+  it('updates and returns echo', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_documents_update')!.handler({ id: 1, patch: { title: 'New Title' } });
+    const out = parseJson(res) as { id: number };
+    expect(out.id).toBe(1);
+  });
+});
+
+describe('brain_document_versions_edit_draft', () => {
+  it('returns not-found when document missing', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_document_versions_edit_draft')!.handler({ documentId: 999, patch: { body: 'x' } });
+    expect(res.isError).toBe(true);
+  });
+
+  it('edits draft and returns echo', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_document_versions_edit_draft')!.handler({ documentId: 1, patch: { body: 'updated content' } });
+    const out = parseJson(res) as { documentId: number; versionId: number; isDraft: boolean };
+    expect(out.documentId).toBe(1);
+    expect(out.isDraft).toBe(true);
+  });
+});
+
+describe('brain_documents_publish', () => {
+  it('returns not-found when missing', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_documents_publish')!.handler({ id: 999 });
+    expect(res.isError).toBe(true);
+  });
+
+  it('returns empty_draft_body on empty draft', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_documents_publish')!.handler({ id: 888 });
+    expect((parseJson(res) as { error: string }).error).toBe('empty_draft_body');
+  });
+
+  it('publishes and returns echo with publishedAt', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_documents_publish')!.handler({ id: 1 });
+    const out = parseJson(res) as { id: number; status: string };
+    expect(out.status).toBe('published');
+  });
+});
+
+describe('brain_documents_archive / unarchive', () => {
+  it('returns not-found on archive when missing', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_documents_archive')!.handler({ id: 999 });
+    expect(res.isError).toBe(true);
+  });
+
+  it('archives and returns echo', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_documents_archive')!.handler({ id: 1, reason: 'obsolete' });
+    expect((parseJson(res) as { status: string }).status).toBe('archived');
+  });
+
+  it('returns not-found on unarchive when missing', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_documents_unarchive')!.handler({ id: 999 });
+    expect(res.isError).toBe(true);
+  });
+
+  it('unarchives and returns echo', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_documents_unarchive')!.handler({ id: 1 });
+    expect((parseJson(res) as { status: string }).status).toBe('published');
+  });
+});
+
+describe('brain_documents_delete', () => {
+  it('returns not-found when missing', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_documents_delete')!.handler({ id: 999 });
+    expect(res.isError).toBe(true);
+  });
+
+  it('returns document_has_acks structured error', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_documents_delete')!.handler({ id: 888 });
+    const out = parseJson(res) as { error: string; ackCount: number };
+    expect(out.error).toBe('document_has_acks');
+    expect(out.ackCount).toBe(5);
+  });
+
+  it('deletes on hit', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_documents_delete')!.handler({ id: 1 });
+    expect((parseJson(res) as { deleted: boolean }).deleted).toBe(true);
+  });
+});
+
+describe('brain_documents_promote_from_note', () => {
+  it('returns not-found when note missing', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_documents_promote_from_note')!.handler({ noteId: 999 });
+    expect(res.isError).toBe(true);
+  });
+
+  it('promotes and returns documentId + version1Id', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_documents_promote_from_note')!.handler({ noteId: 1 });
+    const out = parseJson(res) as { documentId: number; version1Id: number };
+    expect(out.documentId).toBe(80);
+    expect(out.version1Id).toBe(81);
+  });
+});
+
+describe('brain_documents_link / unlink', () => {
+  it('links entity and returns linkId', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_documents_link')!.handler({ documentId: 1, entityType: 'topic', entityId: 1 });
+    const out = parseJson(res) as { linkId: number; alreadyLinked: boolean };
+    expect(out.linkId).toBe(1);
+  });
+
+  it('unlinks entity', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_documents_unlink')!.handler({ documentId: 1, entityType: 'topic', entityId: 1 });
+    expect((parseJson(res) as { removed: boolean }).removed).toBe(true);
+  });
+});
+
+// ── document required-reads and acknowledgments ───────────────────────────────
+
+describe('brain_document_required_reads_list_for_document', () => {
+  it('returns required reads for a document', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_document_required_reads_list_for_document')!.handler({ documentId: 1 });
+    const out = parseJson(res) as { items: unknown[] };
+    expect(out.items).toHaveLength(1);
+  });
+});
+
+describe('brain_document_required_reads_list_for_person', () => {
+  it('returns required reads for a person', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_document_required_reads_list_for_person')!.handler({ personId: 40 });
+    const out = parseJson(res) as { items: unknown[] };
+    expect(out.items).toHaveLength(1);
+  });
+});
+
+describe('brain_document_acknowledgments_list_for_document', () => {
+  it('returns acknowledgments for a document', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_document_acknowledgments_list_for_document')!.handler({ documentId: 1 });
+    const out = parseJson(res) as { items: unknown[] };
+    expect(out.items).toHaveLength(1);
+  });
+});
+
+describe('brain_document_acknowledgments_list_for_person', () => {
+  it('returns acknowledgments for a person', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_document_acknowledgments_list_for_person')!.handler({ personId: 40 });
+    const out = parseJson(res) as { items: unknown[] };
+    expect(out.items).toHaveLength(1);
+  });
+});
+
+describe('brain_document_compliance_report', () => {
+  it('returns not-found when document missing', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_document_compliance_report')!.handler({ documentId: 999 });
+    expect(res.isError).toBe(true);
+  });
+
+  it('returns compliance report on hit', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_document_compliance_report')!.handler({ documentId: 1 });
+    const out = parseJson(res) as { documentId: number };
+    expect(out.documentId).toBe(1);
+  });
+});
+
+describe('brain_document_required_reads_assign', () => {
+  it('assigns required read and returns counts', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_document_required_reads_assign')!.handler({ documentId: 1, targetType: 'person', targetId: 40 });
+    const out = parseJson(res) as { assigned: number; alreadyAssigned: number };
+    expect(out.assigned).toBe(1);
+  });
+});
+
+describe('brain_document_required_reads_remove', () => {
+  it('returns not-found when missing', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_document_required_reads_remove')!.handler({ requiredReadId: 999 });
+    expect(res.isError).toBe(true);
+  });
+
+  it('returns has_acks structured error when acks block removal', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_document_required_reads_remove')!.handler({ requiredReadId: 888 });
+    expect((parseJson(res) as { error: string }).error).toBe('has_acks');
+  });
+
+  it('removes on hit', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_document_required_reads_remove')!.handler({ requiredReadId: 1 });
+    expect((parseJson(res) as { removed: boolean }).removed).toBe(true);
+  });
+});
+
+describe('brain_documents_acknowledge', () => {
+  it('records acknowledgment and returns echo', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_documents_acknowledge')!.handler({ documentId: 80, versionId: 82, personId: 40 });
+    const out = parseJson(res) as { ackId: number; documentId: number; personId: number };
+    expect(out.ackId).toBe(1);
+    expect(out.documentId).toBe(80);
+    expect(out.personId).toBe(40);
+  });
+});
+
+// ── taxonomy classification ───────────────────────────────────────────────────
+
+describe('brain_classify_notes', () => {
+  it('requires noteIds or all:true', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_classify_notes')!.handler({});
+    expect(res.isError).toBe(true);
+    expect(res.content[0].text).toMatch(/noteIds.*all/i);
+  });
+
+  it('rejects both noteIds and all:true together', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_classify_notes')!.handler({ noteIds: [1], all: true });
+    expect(res.isError).toBe(true);
+  });
+
+  it('returns dry-run summary by default', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_classify_notes')!.handler({ noteIds: [1] });
+    const out = parseJson(res) as { dryRun: boolean; classifiedCount: number; sampleClassifications: unknown[] };
+    expect(out.dryRun).toBe(true);
+    expect(out.classifiedCount).toBe(1);
+    expect(Array.isArray(out.sampleClassifications)).toBe(true);
+  });
+
+  it('returns full classifications when dryRun=false', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_classify_notes')!.handler({ all: true, dryRun: false });
+    const out = parseJson(res) as { dryRun: boolean; classifications: unknown[] };
+    expect(out.dryRun).toBe(false);
+    expect(out.classifications).toHaveLength(1);
+  });
+
+  it('calls classifyNotes with all:true when all=true', async () => {
+    const classify = await import('@/lib/brain/classify-notes');
+    (classify.classifyNotes as ReturnType<typeof vi.fn>).mockClear();
+    const tools = registerAll();
+    await tools.get('brain_classify_notes')!.handler({ all: true });
+    const callArgs = (classify.classifyNotes as ReturnType<typeof vi.fn>).mock.calls[0][0] as { all: boolean | undefined };
+    expect(callArgs.all).toBe(true);
+  });
+});
+
+describe('brain_apply_classifications', () => {
+  it('applies classifications and returns summary echo', async () => {
+    const tools = registerAll();
+    const res = await tools.get('brain_apply_classifications')!.handler({
+      classifications: [{
+        noteId: 1,
+        source: 'slate-kb',
+        slateAreas: ['queries'],
+        audiences: ['slate-admin'],
+        contentType: 'how-to',
+        recency: 'evergreen',
+        status: 'canonical',
+        confidence: 0.9,
+      }],
+    });
+    const out = parseJson(res) as { notesUpdated: number; topicsAttached: number };
+    expect(out.notesUpdated).toBe(1);
+    expect(out.topicsAttached).toBe(2);
   });
 });

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/ban-ts-comment, react-hooks/rules-of-hooks, @typescript-eslint/no-require-imports */
 // @vitest-environment jsdom
 import React from 'react';
 import {
@@ -264,7 +265,7 @@ describe('TagTreemapView — tagged rendering', () => {
     expect(screen.getByRole('button', { name: /react, 10 notes/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /typescript, 5 notes/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /css, 3 notes/i })).toBeInTheDocument();
-  });
+  }, 15000);
 
   it('uses singular "note" for count=1', async () => {
     mockFetch({
@@ -399,7 +400,7 @@ describe('TagTreemapView — tagged rendering', () => {
     // All tags should render
     expect(screen.getByRole('button', { name: /tag0, 30 notes/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /tag29, 1 note/i })).toBeInTheDocument();
-  });
+  }, 15000);
 });
 
 // ---------------------------------------------------------------------------

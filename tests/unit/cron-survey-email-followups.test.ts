@@ -84,7 +84,19 @@ vi.mock('@/lib/db', () => ({
   db: {
     select: (..._args: unknown[]) => makeSelectChain(),
     insert: (..._args: unknown[]) => makeInsertChain(),
+    update: (..._args: unknown[]) => ({
+      set: () => ({ where: () => Promise.resolve() }),
+    }),
   },
+}));
+
+// Bypass withCronHealth so its db.insert(cronHealth) calls don't inflate
+// the insertSpy count. The wrapper just calls through to the handler.
+vi.mock('@/lib/cron-health', () => ({
+  withCronHealth: (
+    _opts: unknown,
+    handler: (req: Request) => Promise<Response>,
+  ) => handler,
 }));
 
 const sendMock = vi.fn().mockResolvedValue({ data: { id: 'res_123' } });

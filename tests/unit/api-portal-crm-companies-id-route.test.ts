@@ -44,14 +44,14 @@ vi.mock('@/lib/db/schema', () => {
         },
       },
     );
-  return {
+  return new Proxy({
     crmCompanies: wrap('crmCompanies'),
     crmContacts: wrap('crmContacts'),
     crmDeals: wrap('crmDeals'),
     crmPipelineStages: wrap('crmPipelineStages'),
     crmCustomFields: wrap('crmCustomFields'),
     crmCustomFieldValues: wrap('crmCustomFieldValues'),
-  };
+  }, { has: (t, p) => (p in t) || !(p === "then" || p === "__esModule" || p === "default" || typeof p !== "string"), get: (t, p) => (p in t) ? t[p] : ((p === "then" || p === "__esModule" || p === "default" || typeof p !== "string") ? undefined : new Proxy({ __table: String(p) }, { get: (_x, c) => c === "__table" ? String(p) : (typeof c === "string" ? { __col: c, __table: String(p) } : undefined) })) });
 });
 
 vi.mock('drizzle-orm', () => ({
@@ -63,6 +63,9 @@ vi.mock('drizzle-orm', () => ({
     strings: Array.from(strings),
     values,
   }),
+  isNull: (a: unknown) => ({ op: 'isNull', a }),
+  or: (...args: unknown[]) => ({ op: 'or', args: args.filter(Boolean) }),
+  inArray: (a: unknown, list: unknown[]) => ({ op: 'inArray', a, list }),
 }));
 
 // ---- in-memory state ----
@@ -160,7 +163,7 @@ vi.mock('@/lib/db', () => {
 
     function runQuery(): Promise<Array<Record<string, unknown>>> {
       if (!activeTable) return Promise.resolve([]);
-      let rows = tableArray(activeTable).filter((r) => evalPredicate(filter, r));
+      const rows = tableArray(activeTable).filter((r) => evalPredicate(filter, r));
 
       // Apply joins — best-effort. For each row, find matching join rows.
       const out: Array<Record<string, unknown>> = [];

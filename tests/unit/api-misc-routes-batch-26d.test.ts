@@ -50,6 +50,7 @@ vi.mock('drizzle-orm', () => ({
       raw: (s: string) => ({ op: 'raw', s }),
     },
   ),
+  isNull: (a: unknown) => ({ op: 'isNull', a }),
 }));
 
 vi.mock('@/lib/db/schema', () => {
@@ -65,7 +66,7 @@ vi.mock('@/lib/db/schema', () => {
         },
       },
     );
-  return {
+  return new Proxy({
     clients: wrap('clients'),
     users: wrap('users'),
     clientMembers: wrap('clientMembers'),
@@ -75,7 +76,7 @@ vi.mock('@/lib/db/schema', () => {
     projects: wrap('projects'),
     supportTickets: wrap('supportTickets'),
     invoices: wrap('invoices'),
-  };
+  }, { has: (t, p) => (p in t) || !(p === "then" || p === "__esModule" || p === "default" || typeof p !== "string"), get: (t, p) => (p in t) ? t[p] : ((p === "then" || p === "__esModule" || p === "default" || typeof p !== "string") ? undefined : wrap(p)) });
 });
 
 // ---------------------------------------------------------------------------
@@ -255,7 +256,7 @@ describe('admin/portal/clients route', () => {
       { id: 10, userId: 100, company: 'Acme', userName: 'A', userEmail: 'a@b' },
       { id: 11, userId: 101, company: 'Beta', userName: 'B', userEmail: 'b@b' },
     ]);
-    const res = await clientsRoute.GET();
+    const res = await clientsRoute.GET(new Request('http://localhost/api/admin/portal/clients'));
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.success).toBe(true);
@@ -266,7 +267,7 @@ describe('admin/portal/clients route', () => {
   it('GET works for employee role as well', async () => {
     authMock.mockResolvedValue(EMPLOYEE);
     selectQueue.push([{ id: 99 }]);
-    const res = await clientsRoute.GET();
+    const res = await clientsRoute.GET(new Request('http://localhost/api/admin/portal/clients'));
     expect(res.status).toBe(200);
   });
 

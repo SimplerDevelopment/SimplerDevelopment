@@ -54,6 +54,12 @@ vi.mock('@/lib/email', () => ({
   renderBlocksToEmailHtml: (...args: unknown[]) => renderBlocksToEmailHtmlMock(...args),
 }));
 
+// sanitize-html passthrough — lets rendered HTML survive the sanitization step
+vi.mock('@/lib/security/sanitize-html', () => ({
+  sanitizeHtml: (html: string) => html,
+  sanitizeRichHtml: (html: string) => html,
+}));
+
 // drizzle-orm operators — inert objects
 vi.mock('drizzle-orm', () => ({
   eq: (a: unknown, b: unknown) => ({ op: 'eq', a, b }),
@@ -73,6 +79,7 @@ vi.mock('drizzle-orm', () => ({
       raw: (s: string) => ({ op: 'sql.raw', s }),
     },
   ),
+  inArray: (a: unknown, list: unknown[]) => ({ op: 'inArray', a, list }),
 }));
 
 // schema — proxy tables
@@ -89,12 +96,12 @@ vi.mock('@/lib/db/schema', () => {
         },
       },
     );
-  return {
+  return new Proxy({
     emailSubscriberTags: wrap('emailSubscriberTags'),
     emailTemplates: wrap('emailTemplates'),
     abExperiments: wrap('abExperiments'),
     abVariants: wrap('abVariants'),
-  };
+  }, { has: (t, p) => (p in t) || !(p === "then" || p === "__esModule" || p === "default" || typeof p !== "string"), get: (t, p) => (p in t) ? t[p] : ((p === "then" || p === "__esModule" || p === "default" || typeof p !== "string") ? undefined : wrap(p)) });
 });
 
 // ---------------------------------------------------------------------------

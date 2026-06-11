@@ -15,6 +15,7 @@ import { db } from '@/lib/db';
 import { siteBranding, clientWebsites, brandingProfiles, brandingMessaging, bookingPages, surveys } from '@/lib/db/schema';
 import type { PitchDeckTheme } from '@/lib/db/schema';
 import { eq, and, desc } from 'drizzle-orm';
+import { unstable_cache } from 'next/cache';
 import { brandingToCssVars as _brandingToCssVars } from './branding/css-vars';
 import { messagingRowToContext, type BrandDefaultsContext, type BrandMessagingContext } from './branding/block-defaults';
 
@@ -159,8 +160,13 @@ export async function getBrandingByWebsiteId(websiteId: number): Promise<Resolve
   return rowToBranding(row);
 }
 
-/** Load branding for a client — prefers default profile, falls back to first website. */
-export async function getBrandingByClientId(clientId: number): Promise<ResolvedBranding & { websiteId?: number }> {
+/**
+ * Inner DB resolution for client-level branding. Extracted so the public
+ * function can wrap it in `unstable_cache`.
+ */
+async function _getBrandingByClientIdUncached(
+  clientId: number,
+): Promise<ResolvedBranding & { websiteId?: number }> {
   // Check for a default branding profile
   const [defaultProfile] = await db
     .select()
@@ -183,6 +189,28 @@ export async function getBrandingByClientId(clientId: number): Promise<ResolvedB
 
   const branding = await getBrandingByWebsiteId(site.id);
   return { ...branding, websiteId: site.id };
+}
+
+/**
+ * Load branding for a client — prefers default profile, falls back to first
+ * website. Cross-request cached via `unstable_cache` (60s TTL, tagged
+ * `brand-profile:<clientId>`) so the same brand resolution doesn't fan out
+ * to ~6 DB hits on every authenticated page render. Brand mutations call
+ * `revalidateTag('brand-profile:'+clientId)` to flush immediately.
+ */
+export async function getBrandingByClientId(
+  clientId: number,
+): Promise<ResolvedBranding & { websiteId?: number }> {
+  try {
+    return await unstable_cache(
+      () => _getBrandingByClientIdUncached(clientId),
+      ['branding-by-client', String(clientId)],
+      { revalidate: 60, tags: ['brand-profile', `brand-profile:${clientId}`] },
+    )();
+  } catch {
+    // Outside a request context (tests/cron/MCP) — incrementalCache unavailable.
+    return _getBrandingByClientIdUncached(clientId);
+  }
 }
 
 /** Load branding for a booking page. Prefers assigned profile, falls back to client default. */

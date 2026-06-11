@@ -38,6 +38,17 @@ vi.mock('@/lib/mcp/expire-pending', () => ({
   expireStalePendings: (...args: unknown[]) => expireStalePendingsMock(...args),
 }));
 
+// The cron route is wrapped by withCronHealth, which writes a cron_health row
+// via @/lib/db on every invocation. That pulls in lib/db/index.ts, which throws
+// at import time when DATABASE_URL is unset (the unit env). Mock the wrapper to
+// pass the handler through untouched — health tracking is not under test here.
+vi.mock('@/lib/cron-health', () => ({
+  withCronHealth: (
+    _config: unknown,
+    handler: (req: Request) => Promise<Response>,
+  ) => handler,
+}));
+
 // ---- modules under test (imported AFTER mocks) ----
 const brandingDefaultsRoute = await import('@/app/api/portal/branding/defaults/route');
 const signOutRoute = await import('@/app/api/portal/sign-out/route');

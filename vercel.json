@@ -78,12 +78,20 @@
       "schedule": "30 7 * * *"
     },
     {
+      "path": "/api/cron/mcp-rollup",
+      "schedule": "0 4 * * *"
+    },
+    {
       "path": "/api/cron/resend-usage-sync",
       "schedule": "15 4 * * *"
     },
     {
       "path": "/api/cron/usage-rollup",
       "schedule": "45 4 * * *"
+    },
+    {
+      "path": "/api/cron/usage-alerts",
+      "schedule": "15 5 * * *"
     },
     {
       "path": "/api/cron/process-scheduled-automations",

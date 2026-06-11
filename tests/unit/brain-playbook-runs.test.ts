@@ -148,6 +148,11 @@ function queueRows(table: string, ...batches: unknown[][]) {
 import {
   startRun,
   advanceRun,
+  completeStep,
+  skipStep,
+  abortRun,
+  retryFailedRun,
+  drainExpiredWaitSteps,
 } from '@/lib/brain/playbook-runs';
 import { evaluateCondition } from '@/lib/brain/playbook-condition';
 
@@ -315,5 +320,561 @@ describe('advanceRun — terminal run is a no-op', () => {
     const res = await advanceRun(1, 99, 1);
     expect(res).toEqual({ runId: 1, newActiveStepKeys: [], newStatus: 'completed' });
     expect(state.updates.find((u) => u.table === 'brain_playbook_runs')).toBeUndefined();
+  });
+});
+
+// ─── startRun — additional branches ──────────────────────────────────────────
+
+describe('startRun — label validation', () => {
+  it('throws when label is empty', async () => {
+    await expect(startRun(1, 99, { playbookId: 1, label: '   ' })).rejects.toThrow(/label is required/);
+  });
+});
+
+describe('startRun — playbook not found', () => {
+  it('throws when playbook row is missing', async () => {
+    queueRows('brain_playbooks', []);
+    await expect(startRun(1, 99, { playbookId: 1, label: 'Run X' })).rejects.toThrow(/not found/);
+  });
+});
+
+describe('startRun — task step stays active with brain_tasks insert', () => {
+  it('inserts a brain_tasks row and keeps run_step active', async () => {
+    queueRows('brain_playbooks', [
+      { id: 1, clientId: 1, status: 'active', playbookId: 1, name: 'p' },
+    ]);
+    queueRows('brain_playbook_steps', [
+      {
+        id: 11, clientId: 1, playbookId: 1,
+        key: 'create_task',
+        name: 'Do the thing',
+        kind: 'task',
+        config: { title: 'Follow up', priority: 'high', dueOffsetDays: 3 },
+        condition: null,
+        nextStepKeys: [],
+        sortOrder: 0,
+      },
+    ]);
+    // Final step-state check — still active (task waits for explicit complete).
+    queueRows('brain_playbook_run_steps', [{ status: 'active' }]);
+
+    const res = await startRun(1, 99, { playbookId: 1, label: 'Task run' });
+    expect(res.runStatus).toBe('active');
+
+    const taskIns = state.inserts.find((i) => i.table === 'brain_tasks');
+    expect(taskIns).toBeDefined();
+    const vals = (Array.isArray(taskIns!.values) ? taskIns!.values[0] : taskIns!.values) as Record<string, unknown>;
+    expect(vals.title).toBe('Follow up');
+    expect(vals.priority).toBe('high');
+    expect(vals.status).toBe('open');
+    // dueDate should be a Date ~3 days in the future
+    expect(vals.dueDate).toBeInstanceOf(Date);
+    const due = (vals.dueDate as Date).getTime();
+    expect(due).toBeGreaterThan(Date.now());
+  });
+});
+
+describe('startRun — meeting step with startOffsetDays auto-completes', () => {
+  it('inserts a brain_calendar_events row and completes the run', async () => {
+    queueRows('brain_playbooks', [
+      { id: 1, clientId: 1, status: 'active', name: 'p' },
+    ]);
+    queueRows('brain_playbook_steps', [
+      {
+        id: 12, clientId: 1, playbookId: 1,
+        key: 'kickoff',
+        name: 'Kickoff call',
+        kind: 'meeting',
+        config: { title: 'Kickoff', startOffsetDays: 1, durationMin: 60 },
+        condition: null,
+        nextStepKeys: [],
+        sortOrder: 0,
+      },
+    ]);
+    queueRows('brain_playbook_run_steps', [{ status: 'completed' }]);
+
+    const res = await startRun(1, 99, { playbookId: 1, label: 'Meeting run' });
+    expect(res.runStatus).toBe('completed');
+
+    const evtIns = state.inserts.find((i) => i.table === 'brain_calendar_events');
+    expect(evtIns).toBeDefined();
+    const vals = (Array.isArray(evtIns!.values) ? evtIns!.values[0] : evtIns!.values) as Record<string, unknown>;
+    expect(vals.title).toBe('Kickoff');
+    expect(vals.startAt).toBeInstanceOf(Date);
+    expect(vals.endAt).toBeInstanceOf(Date);
+    // endAt should be 60 min after startAt
+    const diff = (vals.endAt as Date).getTime() - (vals.startAt as Date).getTime();
+    expect(diff).toBe(60 * 60_000);
+  });
+});
+
+describe('startRun — meeting step without startOffsetDays skips side-effect and completes', () => {
+  it('completes the step without inserting a calendar event', async () => {
+    queueRows('brain_playbooks', [
+      { id: 1, clientId: 1, status: 'active', name: 'p' },
+    ]);
+    queueRows('brain_playbook_steps', [
+      {
+        id: 13, clientId: 1, playbookId: 1,
+        key: 'no_schedule',
+        name: 'TBD meeting',
+        kind: 'meeting',
+        config: {},     // no startOffsetDays
+        condition: null,
+        nextStepKeys: [],
+        sortOrder: 0,
+      },
+    ]);
+    queueRows('brain_playbook_run_steps', [{ status: 'completed' }]);
+
+    const res = await startRun(1, 99, { playbookId: 1, label: 'No-schedule run' });
+    expect(res.runStatus).toBe('completed');
+    expect(state.inserts.find((i) => i.table === 'brain_calendar_events')).toBeUndefined();
+  });
+});
+
+describe('startRun — decision step creates review item and stays active', () => {
+  it('inserts a brain_ai_review_items row with proposedType=decision', async () => {
+    queueRows('brain_playbooks', [
+      { id: 1, clientId: 1, status: 'active', name: 'p' },
+    ]);
+    queueRows('brain_playbook_steps', [
+      {
+        id: 14, clientId: 1, playbookId: 1,
+        key: 'decide',
+        name: 'Choose stack',
+        kind: 'decision',
+        config: { title: 'Choose stack', decision: 'Go with Postgres', rationale: 'Reliability' },
+        condition: null,
+        nextStepKeys: [],
+        sortOrder: 0,
+      },
+    ]);
+    queueRows('brain_playbook_run_steps', [{ status: 'active' }]);
+
+    const res = await startRun(1, 99, { playbookId: 1, label: 'Decision run' });
+    expect(res.runStatus).toBe('active');
+
+    const riIns = state.inserts.find((i) => i.table === 'brain_ai_review_items');
+    expect(riIns).toBeDefined();
+    const vals = (Array.isArray(riIns!.values) ? riIns!.values[0] : riIns!.values) as Record<string, unknown>;
+    expect(vals.proposedType).toBe('decision');
+    expect(vals.status).toBe('pending');
+  });
+});
+
+describe('startRun — branch step auto-completes and chains to next', () => {
+  it('spawns the downstream step after the branch completes', async () => {
+    queueRows('brain_playbooks', [
+      { id: 1, clientId: 1, status: 'active', name: 'p' },
+    ]);
+    queueRows('brain_playbook_steps', [
+      {
+        id: 15, clientId: 1, playbookId: 1,
+        key: 'router',
+        name: 'Branch',
+        kind: 'branch',
+        config: {},
+        condition: null,
+        nextStepKeys: ['follow_up'],
+        sortOrder: 0,
+      },
+      {
+        id: 16, clientId: 1, playbookId: 1,
+        key: 'follow_up',
+        name: 'Follow-up note',
+        kind: 'note',
+        config: { title: 'FU', body: 'Done' },
+        condition: null,
+        nextStepKeys: [],
+        sortOrder: 1,
+      },
+    ]);
+    // Final step-state check after both steps complete — no active steps.
+    queueRows('brain_playbook_run_steps', [{ status: 'completed' }, { status: 'completed' }]);
+
+    const res = await startRun(1, 99, { playbookId: 1, label: 'Branch run' });
+    expect(res.firstStepKeys).toContain('router');
+    // The note downstream should have been inserted.
+    const noteIns = state.inserts.find((i) => i.table === 'brain_notes');
+    expect(noteIns).toBeDefined();
+  });
+});
+
+describe('startRun — links are inserted', () => {
+  it('writes a brain_playbook_links row for each supplied link', async () => {
+    queueRows('brain_playbooks', [
+      { id: 1, clientId: 1, status: 'active', name: 'p' },
+    ]);
+    queueRows('brain_playbook_steps', [
+      {
+        id: 17, clientId: 1, playbookId: 1,
+        key: 'step_a',
+        name: 'A',
+        kind: 'branch',
+        config: {},
+        condition: null,
+        nextStepKeys: [],
+        sortOrder: 0,
+      },
+    ]);
+    queueRows('brain_playbook_run_steps', [{ status: 'completed' }]);
+
+    await startRun(1, 99, {
+      playbookId: 1,
+      label: 'Linked run',
+      links: [
+        { entityType: 'contact', entityId: 42 },
+        { entityType: 'deal', entityId: 7 },
+      ],
+    });
+
+    const linkInserts = state.inserts.filter((i) => i.table === 'brain_playbook_links');
+    expect(linkInserts).toHaveLength(2);
+    const types = linkInserts.map((li) => {
+      const v = (Array.isArray(li.values) ? li.values[0] : li.values) as Record<string, unknown>;
+      return v.entityType;
+    });
+    expect(types).toContain('contact');
+    expect(types).toContain('deal');
+  });
+});
+
+// ─── advanceRun — active branch path ──────────────────────────────────────────
+
+describe('advanceRun — active branch step is resolved', () => {
+  it('marks the branch completed and updates updatedAt on the run', async () => {
+    // Reads: 1) run, 2) steps, 3) active run_steps, 4) final all-step count
+    queueRows('brain_playbook_runs', [
+      { id: 2, clientId: 1, playbookId: 5, status: 'active', context: {} },
+    ]);
+    queueRows('brain_playbook_steps', [
+      {
+        id: 50, clientId: 1, playbookId: 5,
+        key: 'b',
+        name: 'Branch',
+        kind: 'branch',
+        config: {},
+        condition: null,
+        nextStepKeys: [],
+        sortOrder: 0,
+      },
+    ]);
+    // Active run_steps query returns the branch step row.
+    queueRows('brain_playbook_run_steps', [
+      { id: 200, stepId: 50, status: 'active' },
+      // Final count query — after update no active steps remain.
+      { status: 'completed' },
+    ]);
+
+    const res = await advanceRun(1, 99, 2);
+    expect(res).not.toBeNull();
+    // Branch had no condition (null = pass), so it should be marked completed.
+    const branchUpdate = state.updates.find((u) =>
+      u.table === 'brain_playbook_run_steps' && u.set.status === 'completed',
+    );
+    expect(branchUpdate).toBeDefined();
+  });
+});
+
+describe('advanceRun — paused run is also advanceable', () => {
+  it('accepts paused status and processes active branches', async () => {
+    queueRows('brain_playbook_runs', [
+      { id: 3, clientId: 1, playbookId: 5, status: 'paused', context: {} },
+    ]);
+    queueRows('brain_playbook_steps', []);
+    queueRows('brain_playbook_run_steps', [
+      // No active run steps.
+      // Final count — zero rows means no change.
+    ]);
+
+    const res = await advanceRun(1, 99, 3);
+    expect(res).not.toBeNull();
+    // With zero rows the run status should remain paused (hasActive false + all.length===0).
+    expect(res!.newStatus).toBe('paused');
+  });
+});
+
+// ─── completeStep ─────────────────────────────────────────────────────────────
+
+describe('completeStep — happy path', () => {
+  it('updates the run_step to completed and returns { stepId, status }', async () => {
+    // completeStep opens a tx (reads run_step, updates it) then calls advanceRun
+    // (another tx). Queue the reads in order:
+    //   Tx1: SELECT brain_playbook_run_steps → the active row
+    //   advanceRun Tx2: SELECT brain_playbook_runs → the run
+    //   advanceRun Tx2: SELECT brain_playbook_steps → empty (no branches to resolve)
+    //   advanceRun Tx2: SELECT brain_playbook_run_steps → active run steps (empty — already done)
+    //   advanceRun Tx2: SELECT brain_playbook_run_steps (final count) → completed row
+    queueRows('brain_playbook_run_steps', [
+      { id: 300, stepId: 40, status: 'active', resultEntityType: null, resultEntityId: null },
+    ]);
+    queueRows('brain_playbook_runs', [
+      { id: 10, clientId: 1, playbookId: 5, status: 'active', context: {} },
+    ]);
+    queueRows('brain_playbook_steps', []);
+    queueRows('brain_playbook_run_steps', [
+      // advanceRun: active run_steps query — empty (nothing to branch)
+      [],
+      // advanceRun: final count
+      [{ status: 'completed' }],
+    ]);
+
+    const result = await completeStep(1, 99, 10, 40);
+    expect(result).toEqual({ stepId: 40, status: 'completed' });
+
+    const upd = state.updates.find((u) =>
+      u.table === 'brain_playbook_run_steps' && u.set.status === 'completed',
+    );
+    expect(upd).toBeDefined();
+  });
+});
+
+describe('completeStep — not found returns null', () => {
+  it('returns null when the run_step row does not exist', async () => {
+    queueRows('brain_playbook_run_steps', []);   // tx select finds nothing
+    const result = await completeStep(1, 99, 10, 99);
+    expect(result).toBeNull();
+  });
+});
+
+describe('completeStep — idempotent on already-completed step', () => {
+  it('returns completed without writing another update', async () => {
+    queueRows('brain_playbook_run_steps', [
+      { id: 301, stepId: 41, status: 'completed', resultEntityType: null, resultEntityId: null },
+    ]);
+    const result = await completeStep(1, 99, 10, 41);
+    expect(result).toEqual({ stepId: 41, status: 'completed' });
+    // No update should have been written because the early-return path fires.
+    expect(state.updates.find((u) => u.table === 'brain_playbook_run_steps')).toBeUndefined();
+  });
+});
+
+// ─── skipStep ─────────────────────────────────────────────────────────────────
+
+describe('skipStep — happy path', () => {
+  it('marks the run_step skipped with the supplied reason', async () => {
+    queueRows('brain_playbook_run_steps', [
+      { id: 400, stepId: 50, status: 'active', resultEntityType: null, resultEntityId: null },
+    ]);
+    // advanceRun calls after the tx
+    queueRows('brain_playbook_runs', [
+      { id: 20, clientId: 1, playbookId: 5, status: 'active', context: {} },
+    ]);
+    queueRows('brain_playbook_steps', []);
+    queueRows('brain_playbook_run_steps', [[], [{ status: 'skipped' }]]);
+
+    const result = await skipStep(1, 99, 20, 50, { reason: 'not needed' });
+    expect(result).toEqual({ stepId: 50, status: 'skipped' });
+
+    const upd = state.updates.find((u) =>
+      u.table === 'brain_playbook_run_steps' && u.set.status === 'skipped',
+    );
+    expect(upd).toBeDefined();
+    expect(upd!.set.failureReason).toBe('not needed');
+  });
+});
+
+describe('skipStep — not found returns null', () => {
+  it('returns null when the run_step row does not exist', async () => {
+    queueRows('brain_playbook_run_steps', []);
+    const result = await skipStep(1, 99, 20, 50);
+    expect(result).toBeNull();
+  });
+});
+
+describe('skipStep — idempotent on already-terminal step', () => {
+  it('returns skipped immediately without writing an update', async () => {
+    queueRows('brain_playbook_run_steps', [
+      { id: 401, stepId: 51, status: 'skipped' },
+    ]);
+    const result = await skipStep(1, 99, 20, 51);
+    expect(result).toEqual({ stepId: 51, status: 'skipped' });
+    expect(state.updates.find((u) => u.table === 'brain_playbook_run_steps')).toBeUndefined();
+  });
+});
+
+// ─── abortRun ─────────────────────────────────────────────────────────────────
+
+describe('abortRun — active run is aborted', () => {
+  it('updates run status to aborted and marks active steps skipped', async () => {
+    queueRows('brain_playbook_runs', [
+      { id: 30, clientId: 1, playbookId: 5, status: 'active' },
+    ]);
+
+    const result = await abortRun(1, 99, 30, { reason: 'cancelled by user' });
+    expect(result).not.toBeNull();
+
+    const runUpd = state.updates.find((u) =>
+      u.table === 'brain_playbook_runs' && u.set.status === 'aborted',
+    );
+    expect(runUpd).toBeDefined();
+    expect(runUpd!.set.abortReason).toBe('cancelled by user');
+
+    // Active run_steps should be bulk-skipped.
+    const stepsUpd = state.updates.find((u) =>
+      u.table === 'brain_playbook_run_steps' && u.set.status === 'skipped',
+    );
+    expect(stepsUpd).toBeDefined();
+    expect(stepsUpd!.set.failureReason).toBe('cancelled by user');
+
+    // Audit row for abort
+    const auditIns = state.inserts.find((i) => i.table === 'brain_audit_logs');
+    expect(auditIns).toBeDefined();
+    const auditVals = (Array.isArray(auditIns!.values) ? auditIns!.values[0] : auditIns!.values) as Record<string, unknown>;
+    expect(auditVals.action).toBe('playbook_run.aborted');
+  });
+});
+
+describe('abortRun — already-aborted run is returned as-is', () => {
+  it('returns the existing row without additional mutations', async () => {
+    queueRows('brain_playbook_runs', [
+      { id: 31, clientId: 1, playbookId: 5, status: 'aborted' },
+    ]);
+    const result = await abortRun(1, 99, 31);
+    expect(result).not.toBeNull();
+    // No update should have been written.
+    expect(state.updates.find((u) => u.table === 'brain_playbook_runs')).toBeUndefined();
+  });
+});
+
+describe('abortRun — run not found returns null', () => {
+  it('returns null when the run does not belong to the client', async () => {
+    queueRows('brain_playbook_runs', []);
+    const result = await abortRun(1, 99, 99999);
+    expect(result).toBeNull();
+  });
+});
+
+// ─── retryFailedRun ───────────────────────────────────────────────────────────
+
+describe('retryFailedRun — failed run is reset to active', () => {
+  it('resets failed steps to pending and sets run status active', async () => {
+    queueRows('brain_playbook_runs', [
+      { id: 40, clientId: 1, playbookId: 5, status: 'failed' },
+    ]);
+    // failedSteps select returns two failed step rows.
+    queueRows('brain_playbook_run_steps', [
+      { id: 500 },
+      { id: 501 },
+    ]);
+
+    const result = await retryFailedRun(1, 99, 40);
+    expect(result).not.toBeNull();
+
+    // Run should be flipped to 'active'.
+    const runUpd = state.updates.find((u) =>
+      u.table === 'brain_playbook_runs' && u.set.status === 'active',
+    );
+    expect(runUpd).toBeDefined();
+    expect(runUpd!.set.completedAt).toBeNull();
+
+    // Failed steps should be set to 'pending'.
+    const stepsUpd = state.updates.find((u) =>
+      u.table === 'brain_playbook_run_steps' && u.set.status === 'pending',
+    );
+    expect(stepsUpd).toBeDefined();
+    expect(stepsUpd!.set.failureReason).toBeNull();
+
+    // logAudit (uses module-level db.insert) emits a retried audit row.
+    const auditIns = state.inserts.find((i) => i.table === 'brain_audit_logs');
+    expect(auditIns).toBeDefined();
+    const vals = (Array.isArray(auditIns!.values) ? auditIns!.values[0] : auditIns!.values) as Record<string, unknown>;
+    expect(vals.action).toBe('playbook_run.retried');
+  });
+});
+
+describe('retryFailedRun — non-failed run is returned unchanged', () => {
+  it('returns the run without writing any updates', async () => {
+    queueRows('brain_playbook_runs', [
+      { id: 41, clientId: 1, playbookId: 5, status: 'active' },
+    ]);
+    const result = await retryFailedRun(1, 99, 41);
+    expect(result).not.toBeNull();
+    expect(state.updates.find((u) => u.table === 'brain_playbook_runs')).toBeUndefined();
+  });
+});
+
+describe('retryFailedRun — run not found returns null', () => {
+  it('returns null for an unknown run', async () => {
+    queueRows('brain_playbook_runs', []);
+    const result = await retryFailedRun(1, 99, 99999);
+    expect(result).toBeNull();
+  });
+});
+
+// ─── drainExpiredWaitSteps ────────────────────────────────────────────────────
+
+describe('drainExpiredWaitSteps — no due rows', () => {
+  it('returns zero counts without any mutations', async () => {
+    // The outer db.select (not inside a tx) — drain reads from brain_playbook_run_steps.
+    queueRows('brain_playbook_run_steps', []);
+
+    const result = await drainExpiredWaitSteps();
+    expect(result).toEqual({ examined: 0, drained: 0, failed: 0 });
+    expect(state.inserts).toHaveLength(0);
+    expect(state.updates).toHaveLength(0);
+  });
+});
+
+describe('drainExpiredWaitSteps — due rows trigger completeStep per row', () => {
+  it('drains two rows and returns examined=2, drained=2, failed=0', async () => {
+    // drainExpiredWaitSteps makes these reads in order (all share the same queue
+    // per table name — queueRows REPLACES, so we do one call per table with ALL
+    // batches listed in call order):
+    //
+    // brain_playbook_run_steps batches (in call order):
+    //   [0] outer due-rows query → 2 rows
+    //   [1] completeStep Tx1: SELECT the step row for row-600
+    //   [2] advanceRun Tx2 (after row-600): active run_steps query → empty
+    //   [3] advanceRun Tx2 (after row-600): final count query → completed
+    //   [4] completeStep Tx3: SELECT the step row for row-601
+    //   [5] advanceRun Tx4 (after row-601): active run_steps query → empty
+    //   [6] advanceRun Tx4 (after row-601): final count query → completed
+    //
+    // brain_playbook_runs batches (in call order):
+    //   [0] actorByRun lookup → run 50 with startedBy
+    //   [1] advanceRun Tx2: SELECT run row
+    //   [2] advanceRun Tx4: SELECT run row
+    //
+    // brain_playbook_steps batches (in call order):
+    //   [0] advanceRun Tx2: SELECT steps → empty (no branches to resolve)
+    //   [1] advanceRun Tx4: SELECT steps → empty
+
+    queueRows('brain_playbook_run_steps',
+      // [0] due rows
+      [{ id: 600, clientId: 1, runId: 50, stepId: 70 }, { id: 601, clientId: 1, runId: 50, stepId: 71 }],
+      // [1] completeStep Tx1 step lookup
+      [{ id: 600, stepId: 70, status: 'active', resultEntityType: null, resultEntityId: null }],
+      // [2] advanceRun active steps
+      [],
+      // [3] advanceRun final count
+      [{ status: 'completed' }],
+      // [4] completeStep Tx3 step lookup
+      [{ id: 601, stepId: 71, status: 'active', resultEntityType: null, resultEntityId: null }],
+      // [5] advanceRun active steps
+      [],
+      // [6] advanceRun final count
+      [{ status: 'completed' }],
+    );
+    queueRows('brain_playbook_runs',
+      // [0] actorByRun lookup
+      [{ id: 50, startedBy: 99 }],
+      // [1] advanceRun Tx2
+      [{ id: 50, clientId: 1, playbookId: 5, status: 'active', context: {} }],
+      // [2] advanceRun Tx4
+      [{ id: 50, clientId: 1, playbookId: 5, status: 'active', context: {} }],
+    );
+    queueRows('brain_playbook_steps',
+      // [0] advanceRun Tx2
+      [],
+      // [1] advanceRun Tx4
+      [],
+    );
+
+    const result = await drainExpiredWaitSteps();
+    expect(result.examined).toBe(2);
+    expect(result.drained).toBe(2);
+    expect(result.failed).toBe(0);
   });
 });

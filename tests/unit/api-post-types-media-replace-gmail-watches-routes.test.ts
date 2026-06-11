@@ -41,12 +41,12 @@ vi.mock('@/lib/db/schema', () => {
         },
       },
     );
-  return {
+  return new Proxy({
     postTypes: wrap('postTypes'),
     media: wrap('media'),
     mediaVersions: wrap('mediaVersions'),
     googleWorkspaceUserConnections: wrap('googleWorkspaceUserConnections'),
-  };
+  }, { has: (t, p) => (p in t) || !(p === "then" || p === "__esModule" || p === "default" || typeof p !== "string"), get: (t, p) => (p in t) ? t[p] : ((p === "then" || p === "__esModule" || p === "default" || typeof p !== "string") ? undefined : wrap(p)) });
 });
 
 vi.mock('drizzle-orm', () => ({
@@ -58,6 +58,7 @@ vi.mock('drizzle-orm', () => ({
     __sql: true,
     raw: strings.join('?'),
   }),
+  inArray: (a: unknown, list: unknown[]) => ({ op: 'inArray', a, list }),
 }));
 
 // ===========================================================================
@@ -210,6 +211,16 @@ const getTenantWorkspaceCredentialsByClientIdMock = vi.fn();
 vi.mock('@/lib/google/tenant-credentials', () => ({
   getTenantWorkspaceCredentialsByClientId: (...args: unknown[]) =>
     getTenantWorkspaceCredentialsByClientIdMock(...args),
+}));
+
+// Mock cron-health so withCronHealth is a transparent passthrough — prevents
+// the DB insert(..).values(..).onConflictDoUpdate TypeError and the extra
+// db.update() call from recordSuccess() polluting updateSpy assertions.
+vi.mock('@/lib/cron-health', () => ({
+  withCronHealth: (
+    _opts: unknown,
+    handler: (req: Request) => Promise<Response>,
+  ) => handler,
 }));
 
 // ===========================================================================

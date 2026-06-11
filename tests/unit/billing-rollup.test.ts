@@ -31,6 +31,11 @@ vi.mock('@/lib/stripe', () => ({
   reportUsage: (...args: unknown[]) => reportUsageMock(...args),
 }));
 
+// Import after mocks are registered. vi.resetModules() is NOT used because
+// usage-rollup.ts has no module-level mutable state; resetting state fields
+// in resetState() is sufficient and avoids expensive re-transforms per test.
+import { rollupClientPeriod, listClientsWithActiveMeteredItems, currentPeriodUtc } from '@/lib/billing/usage-rollup';
+
 vi.mock('@/lib/db', () => {
   // Each call to db.select() returns a chain that resolves to the next
   // queued row set. The rollup makes calls in a deterministic order:
@@ -85,12 +90,10 @@ function resetState() {
 
 describe('rollupClientPeriod', () => {
   beforeEach(() => {
-    vi.resetModules();
     resetState();
   });
 
   it('rejects malformed period strings', async () => {
-    const { rollupClientPeriod } = await import('@/lib/billing/usage-rollup');
     await expect(rollupClientPeriod(1, 'bogus')).rejects.toThrow(/YYYY-MM/);
   });
 
@@ -99,7 +102,6 @@ describe('rollupClientPeriod', () => {
       [{ resource: 'hosting_bandwidth_gb', total: '100' }], // sum
       [], // items
     ];
-    const { rollupClientPeriod } = await import('@/lib/billing/usage-rollup');
     const out = await rollupClientPeriod(42, '2026-05', { dryRun: true });
     expect(out).toEqual([]);
     expect(reportUsageMock).not.toHaveBeenCalled();
@@ -128,7 +130,6 @@ describe('rollupClientPeriod', () => {
     ];
     reportUsageMock.mockImplementation(async (itemId: string) => ({ id: `ur_${itemId}` }));
 
-    const { rollupClientPeriod } = await import('@/lib/billing/usage-rollup');
     const out = await rollupClientPeriod(7, '2026-05', { periodEndUnix: 1714521599 });
 
     expect(out).toHaveLength(2);
@@ -164,7 +165,6 @@ describe('rollupClientPeriod', () => {
       }],
     ];
 
-    const { rollupClientPeriod } = await import('@/lib/billing/usage-rollup');
     const out = await rollupClientPeriod(7, '2026-05', { dryRun: true });
 
     expect(out).toHaveLength(1);
@@ -185,7 +185,6 @@ describe('rollupClientPeriod', () => {
     ];
     reportUsageMock.mockRejectedValueOnce(new Error('Stripe is down'));
 
-    const { rollupClientPeriod } = await import('@/lib/billing/usage-rollup');
     const out = await rollupClientPeriod(7, '2026-05');
 
     expect(out).toHaveLength(1);
@@ -210,7 +209,6 @@ describe('rollupClientPeriod', () => {
     ];
     reportUsageMock.mockResolvedValue({ id: 'ur_1' });
 
-    const { rollupClientPeriod } = await import('@/lib/billing/usage-rollup');
     await rollupClientPeriod(7, '2026-05');
 
     expect(state.insertCalls).toHaveLength(1);
@@ -226,20 +224,17 @@ describe('rollupClientPeriod', () => {
 
 describe('listClientsWithActiveMeteredItems', () => {
   beforeEach(() => {
-    vi.resetModules();
     resetState();
   });
 
   it('returns distinct clientIds from selectDistinct', async () => {
     state.distinctRows = [{ clientId: 1 }, { clientId: 7 }, { clientId: 42 }];
-    const { listClientsWithActiveMeteredItems } = await import('@/lib/billing/usage-rollup');
     expect(await listClientsWithActiveMeteredItems()).toEqual([1, 7, 42]);
   });
 });
 
 describe('currentPeriodUtc', () => {
-  it('returns YYYY-MM matching current UTC month', async () => {
-    const { currentPeriodUtc } = await import('@/lib/billing/usage-rollup');
+  it('returns YYYY-MM matching current UTC month', () => {
     const period = currentPeriodUtc();
     expect(period).toMatch(/^\d{4}-\d{2}$/);
     const now = new Date();

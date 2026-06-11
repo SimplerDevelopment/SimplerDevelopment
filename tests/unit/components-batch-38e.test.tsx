@@ -1,27 +1,8 @@
 // @vitest-environment jsdom
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import React from 'react';
-
-// Mock framer-motion so we don't pull in IntersectionObserver / animation runtime.
-// Each motion.<tag> returns a plain element that forwards children + className.
-vi.mock('framer-motion', () => {
-  const passthrough = (tag: string) =>
-    function MotionMock({ children, className, style }: any) {
-      return React.createElement(tag, { className, style, 'data-motion': tag }, children);
-    };
-  const motion: any = new Proxy(
-    {},
-    {
-      get: (_target, prop: string) => passthrough(prop),
-    },
-  );
-  return {
-    motion,
-    useScroll: () => ({ scrollYProgress: { get: () => 0, on: () => () => {} } }),
-    useTransform: () => '0%',
-  };
-});
 
 // next/link is fine to use directly but mock it to avoid app-router context
 vi.mock('next/link', () => ({
@@ -62,7 +43,10 @@ describe('components-batch-38e', () => {
   });
 
   // -------------------------------------------------------------------------
-  // FadeIn — wraps children, forwards className
+  // FadeIn — wraps children in a plain div, forwards className
+  // Pure CSS component — no framer-motion.
+  // Default (non-immediate): <div className="sd-reveal {className}">
+  // immediate=true:           <div className={className}>
   // -------------------------------------------------------------------------
   describe('FadeIn', () => {
     it('renders children', () => {
@@ -74,32 +58,65 @@ describe('components-batch-38e', () => {
       expect(screen.getByText('fade-in-child')).toBeInTheDocument();
     });
 
-    it('forwards className to the motion wrapper', () => {
+    it('forwards className to the wrapper div', () => {
       const { container } = render(
         <FadeIn className="my-custom-fade">
           <span>x</span>
         </FadeIn>,
       );
-      // mocked motion.div has data-motion="div"
-      const wrapper = container.querySelector('[data-motion="div"]');
+      const wrapper = container.firstChild as HTMLElement;
       expect(wrapper).not.toBeNull();
-      expect(wrapper?.className).toContain('my-custom-fade');
+      expect(wrapper.tagName).toBe('DIV');
+      expect(wrapper.className).toContain('my-custom-fade');
     });
 
-    it('uses an empty className by default', () => {
+    it('adds sd-reveal class by default (non-immediate mode)', () => {
       const { container } = render(
         <FadeIn>
           <span>y</span>
         </FadeIn>,
       );
-      const wrapper = container.querySelector('[data-motion="div"]');
+      const wrapper = container.firstChild as HTMLElement;
       expect(wrapper).not.toBeNull();
-      expect(wrapper?.className).toBe('');
+      expect(wrapper.className).toContain('sd-reveal');
+    });
+
+    it('omits sd-reveal and uses only className when immediate=true', () => {
+      const { container } = render(
+        <FadeIn immediate className="above-fold">
+          <span>z</span>
+        </FadeIn>,
+      );
+      const wrapper = container.firstChild as HTMLElement;
+      expect(wrapper.className).toBe('above-fold');
+      expect(wrapper.className).not.toContain('sd-reveal');
+    });
+
+    it('sets animationDelay style when delay is provided', () => {
+      const { container } = render(
+        <FadeIn delay={0.5}>
+          <span>delayed</span>
+        </FadeIn>,
+      );
+      const wrapper = container.firstChild as HTMLElement;
+      expect(wrapper.style.animationDelay).toBe('0.5s');
+    });
+
+    it('sets animationDuration style when duration differs from default 0.6', () => {
+      const { container } = render(
+        <FadeIn duration={1.2}>
+          <span>long</span>
+        </FadeIn>,
+      );
+      const wrapper = container.firstChild as HTMLElement;
+      expect(wrapper.style.animationDuration).toBe('1.2s');
     });
   });
 
   // -------------------------------------------------------------------------
-  // SlideIn — direction-based initial position + className
+  // SlideIn — pure CSS, plain div with sd-slide / sd-slide--x|y classes
+  // left|right → sd-slide--x ; up|down → sd-slide--y
+  // CSS custom property --sd-slide-translate carries the travel distance.
   // -------------------------------------------------------------------------
   describe('SlideIn', () => {
     it('renders children with default props', () => {
@@ -111,20 +128,45 @@ describe('components-batch-38e', () => {
       expect(screen.getByText('slide-default')).toBeInTheDocument();
     });
 
+    it('applies sd-slide base class', () => {
+      const { container } = render(
+        <SlideIn>
+          <span>base</span>
+        </SlideIn>,
+      );
+      const wrapper = container.firstChild as HTMLElement;
+      expect(wrapper.className).toContain('sd-slide');
+    });
+
     it.each(['left', 'right', 'up', 'down'] as const)(
-      'renders without throwing for direction=%s',
+      'renders without throwing and forwards className for direction=%s',
       (direction) => {
         const { container } = render(
           <SlideIn direction={direction} className={`slide-${direction}`}>
             <span>{direction}</span>
           </SlideIn>,
         );
-        const wrapper = container.querySelector('[data-motion="div"]');
+        const wrapper = container.firstChild as HTMLElement;
         expect(wrapper).not.toBeNull();
-        expect(wrapper?.className).toContain(`slide-${direction}`);
+        expect(wrapper.tagName).toBe('DIV');
+        expect(wrapper.className).toContain(`slide-${direction}`);
         expect(screen.getByText(direction)).toBeInTheDocument();
       },
     );
+
+    it('applies sd-slide--x class for left and right directions', () => {
+      const { container: cl } = render(<SlideIn direction="left"><span>L</span></SlideIn>);
+      expect((cl.firstChild as HTMLElement).className).toContain('sd-slide--x');
+      const { container: cr } = render(<SlideIn direction="right"><span>R</span></SlideIn>);
+      expect((cr.firstChild as HTMLElement).className).toContain('sd-slide--x');
+    });
+
+    it('applies sd-slide--y class for up and down directions', () => {
+      const { container: cu } = render(<SlideIn direction="up"><span>U</span></SlideIn>);
+      expect((cu.firstChild as HTMLElement).className).toContain('sd-slide--y');
+      const { container: cd } = render(<SlideIn direction="down"><span>D</span></SlideIn>);
+      expect((cd.firstChild as HTMLElement).className).toContain('sd-slide--y');
+    });
 
     it('honors custom distance / delay / duration without errors', () => {
       const { container } = render(
@@ -132,7 +174,10 @@ describe('components-batch-38e', () => {
           <span>tuned</span>
         </SlideIn>,
       );
-      expect(container.querySelector('[data-motion="div"]')).not.toBeNull();
+      const wrapper = container.firstChild as HTMLElement;
+      expect(wrapper).not.toBeNull();
+      expect(wrapper.style.animationDelay).toBe('0.3s');
+      expect(wrapper.style.animationDuration).toBe('1.2s');
       expect(screen.getByText('tuned')).toBeInTheDocument();
     });
   });

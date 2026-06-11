@@ -16,9 +16,23 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 const executeMock = vi.fn().mockResolvedValue({ rows: [] });
 const notifyAllClientUsersMock = vi.fn().mockResolvedValue([{ id: 1 }]);
 
+vi.mock('@/lib/db/schema/cronHealth', () => ({
+  cronHealth: { name: 'cron_health.name' },
+}));
+
 vi.mock('@/lib/db', () => ({
   db: {
     execute: executeMock,
+    insert: vi.fn(() => ({
+      values: vi.fn(() => ({
+        onConflictDoUpdate: vi.fn(() => Promise.resolve()),
+      })),
+    })),
+    update: vi.fn(() => ({
+      set: vi.fn(() => ({
+        where: vi.fn(() => Promise.resolve()),
+      })),
+    })),
   },
 }));
 

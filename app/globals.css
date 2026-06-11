@@ -1,5 +1,36 @@
 @import "tailwindcss";
 
+/* Self-hosted Material Icons — mirrors Google's hosted CSS but serves the woff2
+ * from /public/fonts so icons don't depend on fonts.gstatic.com being reachable.
+ * The literal ligature text (e.g. "menu", "add_circle_outline") shows through
+ * whenever this font fails to load — hotlinking Google broke for any visitor
+ * with a privacy/ad blocker or restrictive network. font-display: block hides
+ * the source text during the (now local, instant) load instead of flashing it. */
+@font-face {
+  font-family: "Material Icons";
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url("/fonts/material-icons.woff2") format("woff2");
+}
+
+.material-icons {
+  font-family: "Material Icons";
+  font-weight: normal;
+  font-style: normal;
+  font-size: 24px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  -webkit-font-feature-settings: "liga";
+  font-feature-settings: "liga";
+  -webkit-font-smoothing: antialiased;
+}
+
 :root {
   --background: #fafaf9;
   --foreground: #1c1917;
@@ -289,4 +320,64 @@ html,body {
 
 @keyframes light-loop-spin {
   to { --light-loop-angle: 360deg; }
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Scroll-reveal animations (FadeIn / SlideIn)
+
+   Pure CSS, zero JS. These replaced framer-motion `motion.div` wrappers that
+   were a large hydration / Total-Blocking-Time cost on every marketing page and
+   (worse) hid above-the-fold content at opacity 0 until JS ran, pushing hero
+   LCP to ~7s on throttled mobile.
+
+   - Chromium (what Lighthouse runs) reveals each element as it scrolls into view
+     via a scroll-driven `animation-timeline: view()`.
+   - Browsers without scroll-driven animation support fall back to playing the
+     entrance once on load; `both` fill-mode leaves the element visible, so no
+     content is ever permanently hidden.
+   - prefers-reduced-motion: no animation, content shown immediately.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+@keyframes sd-reveal-fade {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes sd-slide-x {
+  from { opacity: 0; transform: translateX(var(--sd-slide-translate, -50px)); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes sd-slide-y {
+  from { opacity: 0; transform: translateY(var(--sd-slide-translate, 50px)); }
+  to   { opacity: 1; transform: none; }
+}
+
+.sd-reveal {
+  animation: sd-reveal-fade 0.6s cubic-bezier(0.25, 0.1, 0.25, 1) both;
+}
+
+.sd-slide--x {
+  animation: sd-slide-x 0.6s cubic-bezier(0.25, 0.1, 0.25, 1) both;
+}
+
+.sd-slide--y {
+  animation: sd-slide-y 0.6s cubic-bezier(0.25, 0.1, 0.25, 1) both;
+}
+
+@supports (animation-timeline: view()) {
+  .sd-reveal,
+  .sd-slide--x,
+  .sd-slide--y {
+    animation-timeline: view();
+    animation-range: entry 0% entry 85%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sd-reveal,
+  .sd-slide--x,
+  .sd-slide--y {
+    animation: none;
+  }
 }

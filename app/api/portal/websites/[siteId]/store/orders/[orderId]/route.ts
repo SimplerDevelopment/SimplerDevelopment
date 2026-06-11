@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { orders, orderItems, orderStatusHistory } from '@/lib/db/schema';
+import { orders, orderItems, orderStatusHistory, designs } from '@/lib/db/schema';
 import { and, eq, asc } from 'drizzle-orm';
 import { resolveClientSite } from '@/lib/portal-client';
 import {
@@ -32,14 +32,77 @@ export async function GET(_req: Request, { params }: Params) {
   const order = await resolveOrder(parseInt(session.user.id, 10), siteId, orderId);
   if (!order) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
 
-  const [items, history] = await Promise.all([
-    db.select().from(orderItems).where(eq(orderItems.orderId, order.id)),
+  // Left-join designs (uuid-PK Fabric.js designs table) so the admin can
+  // see the saved-design thumbnail/name inline with each order line.
+  // When the design row no longer exists the join misses and design is null,
+  // letting the UI render a "Design no longer available" placeholder.
+  const [itemsWithDesign, history] = await Promise.all([
+    db.select({
+      id: orderItems.id,
+      orderId: orderItems.orderId,
+      productId: orderItems.productId,
+      variantId: orderItems.variantId,
+      designId: orderItems.designId,
+      productName: orderItems.productName,
+      variantName: orderItems.variantName,
+      sku: orderItems.sku,
+      unitPrice: orderItems.unitPrice,
+      quantity: orderItems.quantity,
+      total: orderItems.total,
+      createdAt: orderItems.createdAt,
+      designRowId: designs.id,
+      designName: designs.name,
+      designThumbnailUrl: designs.thumbnailUrl,
+    })
+      .from(orderItems)
+      .leftJoin(designs, eq(designs.id, orderItems.designId))
+      .where(eq(orderItems.orderId, order.id)),
     db.select().from(orderStatusHistory).where(eq(orderStatusHistory.orderId, order.id)).orderBy(asc(orderStatusHistory.createdAt)),
   ]);
 
+  const items = itemsWithDesign.map(row => ({
+    id: row.id,
+    orderId: row.orderId,
+    productId: row.productId,
+    variantId: row.variantId,
+    designId: row.designId,
+    productName: row.productName,
+    variantName: row.variantName,
+    sku: row.sku,
+    unitPrice: row.unitPrice,
+    quantity: row.quantity,
+    total: row.total,
+    // Cents-suffixed aliases — the order-detail UI reads `*Cents` fields.
+    unitPriceCents: row.unitPrice,
+    totalCents: row.total,
+    createdAt: row.createdAt,
+    // `design` resolves to null both when the order line has no designId
+    // AND when the referenced design row no longer exists (left-join miss).
+    // The UI renders "Design no longer available" using the row.designId hint.
+    design: row.designRowId
+      ? {
+          id: row.designRowId,
+          name: row.designName,
+          thumbnailUrl: row.designThumbnailUrl,
+        }
+      : null,
+  }));
+
   return NextResponse.json({
     success: true,
-    data: { ...order, items, statusHistory: history },
+    data: {
+      ...order,
+      // Cents-suffixed aliases + plural note key — match the order-detail UI's
+      // field convention (the raw columns are already in cents).
+      subtotalCents: order.subtotal,
+      shippingCents: order.shippingTotal,
+      taxCents: order.taxTotal,
+      discountCents: order.discountTotal,
+      totalCents: order.total,
+      internalNotes: order.internalNote,
+      items,
+      statusHistory: history,
+    },
   });
 }
 

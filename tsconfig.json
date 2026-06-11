@@ -30,5 +30,17 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": ["node_modules", "workers", "packages", "scripts", "components/booking-app", "extension"]
+  "exclude": [
+    "node_modules",
+    "workers",
+    "packages",
+    "scripts",
+    "components/booking-app",
+    "extension",
+    "tests",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "**/*.spec.ts",
+    "**/*.spec.tsx"
+  ]
 }

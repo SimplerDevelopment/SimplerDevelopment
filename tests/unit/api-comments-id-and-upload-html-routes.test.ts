@@ -33,11 +33,11 @@ vi.mock('@/lib/db/schema', () => {
         },
       },
     );
-  return {
+  return new Proxy({
     documentComments: wrap('documentComments'),
     posts: wrap('posts'),
     media: wrap('media'),
-  };
+  }, { has: (t, p) => (p in t) || !(p === "then" || p === "__esModule" || p === "default" || typeof p !== "string"), get: (t, p) => (p in t) ? t[p] : ((p === "then" || p === "__esModule" || p === "default" || typeof p !== "string") ? undefined : wrap(p)) });
 });
 
 vi.mock('@/lib/db/schema/collab', () => ({}));
@@ -51,6 +51,8 @@ vi.mock('drizzle-orm', () => ({
     __sql: true,
     raw: strings.join('?'),
   }),
+  isNull: (a: unknown) => ({ op: 'isNull', a }),
+  or: (...args: unknown[]) => ({ op: 'or', args: args.filter(Boolean) }),
 }));
 
 // ===========================================================================

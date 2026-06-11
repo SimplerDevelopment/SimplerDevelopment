@@ -27,6 +27,7 @@ vi.mock('@/lib/brain/review', () => ({
 const promoteTaskToKanbanMock = vi.fn();
 vi.mock('@/lib/brain/tasks', () => ({
   promoteTaskToKanban: (...args: unknown[]) => promoteTaskToKanbanMock(...args),
+  countTasks: (..._args: unknown[]) => Promise.resolve(0),
 }));
 
 const getTemplateMock = vi.fn();

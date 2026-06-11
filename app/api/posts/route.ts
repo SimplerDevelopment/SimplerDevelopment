@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import { posts, postCategories, postTags, postCustomFieldValues, customFields, postTypes } from '@/lib/db/schema';
 import { eq, desc, asc, sql } from 'drizzle-orm';
 import { z } from 'zod';
+import { revalidateBlogPostsCache } from '@/lib/actions/blog';
 
 const createPostSchema = z.object({
   title: z.string().min(1, 'Title is required'),
@@ -154,6 +155,10 @@ export async function POST(request: NextRequest) {
         }
       }
     }
+
+    // Bust the cached blog list/featured/category queries so a newly created
+    // (or published) post appears on the marketing home + /blog immediately.
+    await revalidateBlogPostsCache();
 
     return NextResponse.json(
       { success: true, data: newPost },

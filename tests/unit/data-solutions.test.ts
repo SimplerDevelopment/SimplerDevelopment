@@ -13,8 +13,8 @@ describe('lib/data/solutions', () => {
       expect(solutions.length).toBeGreaterThan(0);
     });
 
-    it('contains exactly 8 solutions', () => {
-      expect(solutions.length).toBe(8);
+    it('contains exactly 19 solutions', () => {
+      expect(solutions.length).toBe(19);
     });
 
     it('has unique slugs', () => {
@@ -26,13 +26,24 @@ describe('lib/data/solutions', () => {
     it('includes the expected solution slugs', () => {
       const slugs = solutions.map((s) => s.slug).sort();
       expect(slugs).toEqual([
+        'agency',
         'ai-chatbot',
+        'ai-connect',
+        'automations',
         'booking',
+        'company-brain',
+        'contracts',
         'crm',
+        'ecommerce',
         'email-marketing',
+        'experiments',
+        'help-desk',
         'hosting',
+        'invoicing',
         'pitch-decks',
         'project-management',
+        'publishing',
+        'surveys',
         'websites',
       ]);
     });
@@ -96,9 +107,20 @@ describe('lib/data/solutions', () => {
       }
     });
 
-    it('first solution is the websites builder with expected shape', () => {
-      const websites = solutions[0];
-      expect(websites.slug).toBe('websites');
+    it('first solution is ai-connect with expected shape', () => {
+      const first = solutions[0];
+      expect(first.slug).toBe('ai-connect');
+      expect(first.title).toBe('AI Connect — Bring Your Own AI');
+      expect(first.color).toBe('#0891b2');
+      expect(first.icon).toBe('cable');
+      expect(first.features.length).toBe(6);
+      expect(first.benefits.length).toBe(4);
+      expect(first.process.length).toBe(4);
+    });
+
+    it('websites solution has expected shape', () => {
+      const websites = solutions.find((s) => s.slug === 'websites')!;
+      expect(websites).toBeDefined();
       expect(websites.title).toBe('Drag-and-Drop Website Builder');
       expect(websites.color).toBe('#3b82f6');
       expect(websites.icon).toBe('language');
@@ -134,11 +156,17 @@ describe('lib/data/solutions', () => {
       expect(getSolutionBySlug('CRM')).toBeUndefined();
     });
 
-    it('finds every solution slug', () => {
+    it('finds every non-hidden solution slug, and returns undefined for hidden ones', () => {
+      const visibleSlugs = getAllSolutions().map((s) => s.slug);
+      const hiddenSlugs = solutions.map((s) => s.slug).filter((slug) => !visibleSlugs.includes(slug));
       for (const sol of solutions) {
         const found = getSolutionBySlug(sol.slug);
-        expect(found).toBeDefined();
-        expect(found?.slug).toBe(sol.slug);
+        if (hiddenSlugs.includes(sol.slug)) {
+          expect(found, `expected hidden slug "${sol.slug}" to return undefined`).toBeUndefined();
+        } else {
+          expect(found, `expected visible slug "${sol.slug}" to be defined`).toBeDefined();
+          expect(found?.slug).toBe(sol.slug);
+        }
       }
     });
   });
@@ -149,12 +177,19 @@ describe('lib/data/solutions', () => {
       expect(Array.isArray(all)).toBe(true);
     });
 
-    it('returns the same length as the solutions export', () => {
-      expect(getAllSolutions().length).toBe(solutions.length);
+    it('returns only non-hidden solutions (length matches non-hidden count in source)', () => {
+      const all = getAllSolutions();
+      // Derive expected count from source data: any slug getAllSolutions omits is hidden.
+      // We can't import HIDDEN_SLUGS directly, so we cross-reference the two exports.
+      const allSlugs = new Set(all.map((s) => s.slug));
+      const expectedNonHidden = solutions.filter((s) => allSlugs.has(s.slug));
+      expect(all.length).toBe(expectedNonHidden.length);
+      expect(all.length).toBeLessThanOrEqual(solutions.length);
     });
 
-    it('returns a reference to the solutions array', () => {
-      expect(getAllSolutions()).toBe(solutions);
+    it('returns a filtered array (not the same reference as the raw solutions export)', () => {
+      // getAllSolutions() filters out hidden entries, so it must be a new array.
+      expect(getAllSolutions()).not.toBe(solutions);
     });
 
     it('every element conforms to SolutionData shape', () => {

@@ -56,6 +56,7 @@ import {
 } from '@/lib/db/schema';
 import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
 import { logAudit } from './audit';
+import { revalidateBrainDashboard } from './dashboard';
 
 // ─── Re-exported types ──────────────────────────────────────────────────────
 
@@ -426,6 +427,8 @@ export async function createDocument(
     metadata: { slug: document.slug, sourceNoteId: input.sourceNoteId ?? null },
   });
 
+  // documentsDraft tile bumps when a new draft is created.
+  revalidateBrainDashboard(clientId);
   return { document, version };
 }
 
@@ -629,7 +632,7 @@ export async function publishDocument(
   actorId: number | null,
   documentId: number,
 ): Promise<PublishDocumentResult | null> {
-  return db.transaction(async (tx) => {
+  const result = await db.transaction(async (tx) => {
     const [doc] = await tx
       .select()
       .from(brainDocuments)
@@ -707,6 +710,10 @@ export async function publishDocument(
 
     return { document: updatedDoc, version: publishedVersion };
   });
+  // documentsDraft → documentsPublished tile transition, and also affects
+  // documentsRequiredReadsPending (now the current_published_version_id is set).
+  if (result) revalidateBrainDashboard(clientId);
+  return result;
 }
 
 // ─── Archive / Unarchive ────────────────────────────────────────────────────
@@ -753,6 +760,7 @@ export async function archiveDocument(
     metadata: { from: before.status, hasReason: !!reason },
   });
 
+  if (updated) revalidateBrainDashboard(clientId);
   return updated ?? null;
 }
 
@@ -799,6 +807,7 @@ export async function unarchiveDocument(
     metadata: { restoredStatus: nextStatus },
   });
 
+  if (updated) revalidateBrainDashboard(clientId);
   return updated ?? null;
 }
 
@@ -862,6 +871,7 @@ export async function deleteDocument(
     .delete(brainDocuments)
     .where(and(eq(brainDocuments.id, id), eq(brainDocuments.clientId, clientId)));
 
+  revalidateBrainDashboard(clientId);
   return { deleted: true, refused: false, ackCount };
 }
 
@@ -956,6 +966,8 @@ export async function promoteFromNote(
     metadata: { sourceNoteId: noteId, slug: document.slug },
   });
 
+  // documentsDraft tile bumps.
+  revalidateBrainDashboard(clientId);
   return { document, version };
 }
 

@@ -1,11 +1,10 @@
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { headers } from 'next/headers';
 import { auth } from '@/lib/auth';
-import { db } from '@/lib/db';
-import { oauthClients } from '@/lib/db/schema';
-import { eq } from 'drizzle-orm';
 import { getPortalClient, getPortalClients } from '@/lib/portal-client';
 import { redirectUriMatches } from '@/lib/oauth/server';
+import { resolveOrRegisterOAuthClient } from '@/lib/oauth/cimd';
 import { DEFAULT_GRANTED_SCOPES, parseRequestedScopes, SUPPORTED_SCOPES } from '@/lib/oauth/scopes';
 
 export const runtime = 'nodejs';
@@ -43,7 +42,7 @@ export default async function AuthorizePage({ searchParams }: { searchParams: Pr
   if (!clientId) return <ErrorPage title="Missing client_id" detail="The OAuth request is missing the client_id parameter." />;
   if (!redirectUri) return <ErrorPage title="Missing redirect_uri" detail="The OAuth request is missing the redirect_uri parameter." />;
 
-  const [oauthClient] = await db.select().from(oauthClients).where(eq(oauthClients.clientId, clientId)).limit(1);
+  const oauthClient = await resolveOrRegisterOAuthClient(clientId);
   if (!oauthClient) return <ErrorPage title="Unknown client" detail="No OAuth client is registered with that client_id." />;
   if (!redirectUriMatches(oauthClient.redirectUris, redirectUri)) {
     return <ErrorPage title="Invalid redirect_uri" detail="The redirect_uri does not match any URI registered for this client." />;
@@ -230,7 +229,7 @@ export default async function AuthorizePage({ searchParams }: { searchParams: Pr
         <p className="mt-6 text-xs text-muted-foreground">
           Signed in as {session.user!.email}.{' '}
           {SUPPORTED_SCOPES.length} scopes total are available — see{' '}
-          <a href="/docs/mcp" className="underline">/docs/mcp</a>.
+          <Link href="/docs/mcp" className="underline">/docs/mcp</Link>.
         </p>
       </div>
     </div>

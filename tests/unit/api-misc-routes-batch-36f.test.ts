@@ -48,6 +48,8 @@ vi.mock('drizzle-orm', () => ({
     }),
     { raw: (s: string) => ({ __sql_raw: true, s }) },
   ),
+  isNull: (a: unknown) => ({ op: 'isNull', a }),
+  inArray: (a: unknown, list: unknown[]) => ({ op: 'inArray', a, list }),
 }));
 
 // ---------------------------------------------------------------------------
@@ -72,11 +74,13 @@ vi.mock('@/lib/db/schema', () => {
       },
     });
   };
-  return {
+  return new Proxy({
     productCategories: wrap('productCategories'),
     chatConversations: wrap('chatConversations'),
     clients: wrap('clients'),
-  };
+    clientWebsites: wrap('clientWebsites'),
+    clientMembers: wrap('clientMembers'),
+  }, { has: (t, p) => (p in t) || !(p === "then" || p === "__esModule" || p === "default" || typeof p !== "string"), get: (t, p) => (p in t) ? t[p] : ((p === "then" || p === "__esModule" || p === "default" || typeof p !== "string") ? undefined : new Proxy({ __table: String(p) }, { get: (_x, c) => c === "__table" ? String(p) : (typeof c === "string" ? { __col: c, __table: String(p) } : undefined) })) });
 });
 
 // ---------------------------------------------------------------------------
@@ -115,6 +119,8 @@ interface State {
   productCategories: Array<Record<string, unknown>>;
   chatConversations: Array<Record<string, unknown>>;
   clients: Array<Record<string, unknown>>;
+  clientWebsites: Array<Record<string, unknown>>;
+  clientMembers: Array<Record<string, unknown>>;
   nextCategoryId: number;
 }
 
@@ -122,6 +128,8 @@ const state: State = {
   productCategories: [],
   chatConversations: [],
   clients: [],
+  clientWebsites: [],
+  clientMembers: [],
   nextCategoryId: 1,
 };
 
@@ -133,6 +141,10 @@ function tableArray(name: string): Array<Record<string, unknown>> {
       return state.chatConversations;
     case 'clients':
       return state.clients;
+    case 'clientWebsites':
+      return state.clientWebsites;
+    case 'clientMembers':
+      return state.clientMembers;
     default:
       return [];
   }
@@ -183,17 +195,30 @@ vi.mock('@/lib/db', () => {
       // Apply projection if it was a `{ id: someTable.id }` shape.
       if (projection && typeof projection === 'object') {
         const keys = Object.keys(projection);
-        const looksLikeProjection = keys.every((k) => {
+        const looksLikeColumnProjection = keys.every((k) => {
           const v = (projection as Record<string, unknown>)[k];
           return v && typeof v === 'object' && '__col' in (v as object);
         });
-        if (looksLikeProjection) {
+        const looksLikeTableProjection = keys.every((k) => {
+          const v = (projection as Record<string, unknown>)[k];
+          return v && typeof v === 'object' && '__isTable' in (v as object);
+        });
+        if (looksLikeColumnProjection) {
           rows = rows.map((r) => {
             const out: Record<string, unknown> = {};
             for (const k of keys) {
               const col = (projection as Record<string, { __col: string }>)[k]
                 .__col;
               out[k] = r[col];
+            }
+            return out;
+          });
+        } else if (looksLikeTableProjection) {
+          // e.g. { site: clientWebsites } — wrap each row under the key
+          rows = rows.map((r) => {
+            const out: Record<string, unknown> = {};
+            for (const k of keys) {
+              out[k] = { ...r };
             }
             return out;
           });
@@ -216,6 +241,12 @@ vi.mock('@/lib/db', () => {
       },
       limit(n: number) {
         limitVal = n;
+        return chain;
+      },
+      innerJoin() {
+        return chain;
+      },
+      leftJoin() {
         return chain;
       },
       then(
@@ -247,11 +278,21 @@ vi.mock('@/lib/db', () => {
           arr.push(row);
           inserted.push(row);
         }
-        return {
+        const result = {
           returning() {
             return Promise.resolve(inserted.map((r) => ({ ...r })));
           },
+          onConflictDoUpdate(_opts?: unknown) {
+            return result;
+          },
+          onConflictDoNothing() {
+            return result;
+          },
+          then(onFulfilled: (v: unknown) => unknown, onRejected?: (e: unknown) => unknown) {
+            return Promise.resolve(inserted.map((r) => ({ ...r }))).then(onFulfilled, onRejected);
+          },
         };
+        return result;
       },
     };
   }
@@ -348,11 +389,11 @@ function makeReq(method: string, url: string, body?: unknown): Request {
   return new Request(url, init);
 }
 
-function siteCtx(siteId = '1') {
+function siteCtx(siteId = '10') {
   return { params: Promise.resolve({ siteId }) };
 }
 
-function catCtx(siteId = '1', categoryId = '1') {
+function catCtx(siteId = '10', categoryId = '1') {
   return { params: Promise.resolve({ siteId, categoryId }) };
 }
 
@@ -360,7 +401,15 @@ beforeEach(() => {
   state.productCategories.length = 0;
   state.chatConversations.length = 0;
   state.clients.length = 0;
+  state.clientWebsites.length = 0;
+  state.clientMembers.length = 0;
   state.nextCategoryId = 1;
+
+  // Default accessible website for resolveAccessibleSite (userId=7, siteId=10 → id=10).
+  // Include userId on the clientWebsites row so the or(clients.userId=7, ...) predicate
+  // passes in the in-memory mock (joins are no-ops, so cross-table columns are simulated here).
+  // Note: do NOT push to state.clients here to avoid polluting cron tests that count clients.
+  state.clientWebsites.push({ id: 10, clientId: 5, userId: 7 });
 
   authMock.mockReset();
   resolveClientSiteMock.mockReset();
@@ -400,7 +449,7 @@ describe('GET /api/portal/websites/[siteId]/store/categories', () => {
   });
 
   it('returns 404 when client site cannot be resolved', async () => {
-    resolveClientSiteMock.mockResolvedValueOnce(null);
+    state.clientWebsites.length = 0; // no accessible site
     const res = await categoriesListMod.GET(
       makeReq('GET', 'http://x/cats'),
       siteCtx(),
@@ -478,7 +527,7 @@ describe('POST /api/portal/websites/[siteId]/store/categories', () => {
   });
 
   it('returns 404 when client site cannot be resolved', async () => {
-    resolveClientSiteMock.mockResolvedValueOnce(null);
+    state.clientWebsites.length = 0; // no accessible site
     const res = await categoriesListMod.POST(
       makeReq('POST', 'http://x/cats', { name: 'A', slug: 'a' }),
       siteCtx(),
@@ -922,7 +971,6 @@ describe('GET /api/cron/brain-empty-old-trash', () => {
 
   // Restore env after each test in this block.
   // (top-level beforeEach already resets purgeOldTrashMock.)
-  // eslint-disable-next-line vitest/expect-expect
   it('restores env', () => {
     process.env.CRON_SECRET = ORIGINAL_SECRET ?? 'shh';
     expect(true).toBe(true);

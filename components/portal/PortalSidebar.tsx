@@ -7,6 +7,7 @@ import { signOut } from 'next-auth/react';
 import CompanySwitcher from './CompanySwitcher';
 import { buildPortalNavItems, type PortalNavChild, type PortalNavItem } from '@/lib/portal-nav';
 import type { UserAppNavMeta } from '@/lib/plugins/load-user-apps';
+import type { SerializableEntitlements } from '@/app/portal/PortalShell';
 import { useAgencyChrome } from './AgencyChromeProvider';
 
 type Theme = 'light' | 'dark' | 'system';
@@ -86,9 +87,12 @@ interface PortalSidebarProps {
    *  the server-component `PortalShell` wrapper so the sidebar can render
    *  the "Apps" group without an extra round-trip. */
   apps?: UserAppNavMeta[];
+  /** Billing-domain entitlements used to gate nav items. Threaded down from
+   *  `PortalShell`. When absent, all items are shown unlocked. */
+  entitlements?: SerializableEntitlements;
 }
 
-export default function PortalSidebar({ apps }: PortalSidebarProps = {}) {
+export default function PortalSidebar({ apps, entitlements }: PortalSidebarProps = {}) {
   const pathname = usePathname();
   const { brandName, brandLogoUrl } = useAgencyChrome();
   const [isOpen, setIsOpen] = useState(false);
@@ -104,6 +108,7 @@ export default function PortalSidebar({ apps }: PortalSidebarProps = {}) {
 
   // Fetch active site name
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- pre-existing pattern, predates this change
     if (!activeSiteId) { setActiveSiteName(null); return; }
     fetch('/api/portal/cms/websites')
       .then(r => r.json())
@@ -118,6 +123,7 @@ export default function PortalSidebar({ apps }: PortalSidebarProps = {}) {
 
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme') as Theme | null;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- pre-existing pattern, predates this change
     if (savedTheme && themeOrder.includes(savedTheme)) setTheme(savedTheme);
   }, []);
 
@@ -143,19 +149,28 @@ export default function PortalSidebar({ apps }: PortalSidebarProps = {}) {
     return () => { cancelled = true; clearInterval(t); };
   }, [pathname]);
 
+  // Reconstruct Set<string> from the serializable prop so buildPortalNavItems
+  // can do a fast O(1) domain lookup. Recomputed only when the prop changes.
+  const entitlementSet = entitlements
+    ? { domains: new Set(entitlements.domains), gatingBypassed: entitlements.gatingBypassed }
+    : undefined;
+
   // Accordion auto-expand: on route change, expand only the active chain
   // and collapse every other branch. Manual toggles below stay accordion-y.
   useEffect(() => {
-    const items = buildPortalNavItems(activeSiteId, activeSiteName, apps);
+    const items = buildPortalNavItems(activeSiteId, activeSiteName, apps, entitlementSet);
     const chain = activeExpandChain(items, pathname);
     const next: Record<string, boolean> = {};
     for (const h of chain) next[h] = true;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- pre-existing pattern, predates this change
     setExpandedSections(next);
-  }, [pathname, activeSiteId, activeSiteName, apps]);
+  // entitlementSet is a new object on every render; use the stable source prop
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname, activeSiteId, activeSiteName, apps, entitlements]);
 
   // Build final nav items with injected services
   const navItems: NavItem[] = (() => {
-    const items = buildPortalNavItems(activeSiteId, activeSiteName, apps);
+    const items = buildPortalNavItems(activeSiteId, activeSiteName, apps, entitlementSet);
     const serviceItems: NavItem[] = navServices
       .filter(svc => !EXCLUDED_SERVICES.has(svc.name) && !svc.name.startsWith('__'))
       .map(svc => ({ href: svc.href, label: svc.name, icon: svc.icon }));
@@ -209,12 +224,13 @@ export default function PortalSidebar({ apps }: PortalSidebarProps = {}) {
 
   // Renders a nav item link (or parent toggle)
   const renderNavLink = (
-    item: { href: string; label: string; icon: string; exact?: boolean; alsoActiveOn?: string; children?: NavChild[] },
+    item: { href: string; label: string; icon: string; exact?: boolean; alsoActiveOn?: string; children?: NavChild[]; locked?: boolean; requiredDomain?: string },
     depth: number,
   ) => {
     const hasChildren = item.children && item.children.length > 0;
-    const active = isItemActive(item, pathname);
-    const childActive = isChildActive(item.children, pathname);
+    const isLocked = !!item.locked;
+    const active = !isLocked && isItemActive(item, pathname);
+    const childActive = !isLocked && isChildActive(item.children, pathname);
     const isExpanded = expandedSections[item.href];
     const depthPadding: Record<number, string> = {
       0: 'px-4',
@@ -224,7 +240,8 @@ export default function PortalSidebar({ apps }: PortalSidebarProps = {}) {
     };
     const pl = depthPadding[depth] ?? 'pl-16 pr-4';
 
-    const linkClass = `flex items-center gap-3 ${pl} py-2.5 rounded-md text-sm font-medium transition-colors relative group w-full ${
+    const lockClass = isLocked ? ' opacity-60' : '';
+    const linkClass = `flex items-center gap-3 ${pl} py-2.5 rounded-md text-sm font-medium transition-colors relative group w-full${lockClass} ${
       active && !childActive
         ? 'bg-primary text-primary-foreground'
         : childActive
@@ -232,11 +249,28 @@ export default function PortalSidebar({ apps }: PortalSidebarProps = {}) {
         : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
     }`;
 
-    const chevron = hasChildren && (
+    const chevron = !isLocked && hasChildren && (
       <span className="material-icons text-base opacity-50 shrink-0">
         {isExpanded ? 'expand_less' : 'expand_more'}
       </span>
     );
+
+    // Locked items: render as a Link to the billing/plans page with lock icon.
+    // Parents with children behave the same (no expand, just navigate to plans).
+    if (isLocked) {
+      const billingHref = `/portal/settings/billing/plans${item.requiredDomain ? `?highlight=${item.requiredDomain}` : ''}`;
+      return (
+        <Link
+          href={billingHref}
+          onClick={toggleOpen}
+          className={linkClass + ' cursor-pointer'}
+        >
+          <span className="material-icons text-xl shrink-0">{item.icon}</span>
+          <span className="flex-1 truncate">{item.label}</span>
+          <span className="material-icons text-base shrink-0">lock</span>
+        </Link>
+      );
+    }
 
     if (hasChildren) {
       return (
@@ -274,11 +308,13 @@ export default function PortalSidebar({ apps }: PortalSidebarProps = {}) {
   const renderNavItem = (item: NavItem | NavChild, depth: number) => {
     const hasChildren = item.children && item.children.length > 0;
     const isExpanded = expandedSections[item.href];
+    // Locked parents never expand — children are gated behind the billing page.
+    const showChildren = hasChildren && isExpanded && !item.locked;
 
     return (
       <li key={`${depth}-${item.href}`}>
         {renderNavLink(item, depth)}
-        {hasChildren && isExpanded && (
+        {showChildren && (
           <ul className="mt-0.5 space-y-0.5">
             {item.children!.map(child => renderNavItem(child, depth + 1))}
           </ul>

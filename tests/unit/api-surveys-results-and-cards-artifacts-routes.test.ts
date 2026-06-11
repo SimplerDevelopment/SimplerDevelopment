@@ -35,6 +35,9 @@ vi.mock('drizzle-orm', () => ({
   eq: (a: unknown, b: unknown) => ({ op: 'eq', a, b }),
   and: (...args: unknown[]) => ({ op: 'and', args }),
   desc: (a: unknown) => ({ op: 'desc', a }),
+  isNull: (a: unknown) => ({ op: 'isNull', a }),
+  or: (...args: unknown[]) => ({ op: 'or', args: args.filter(Boolean) }),
+  inArray: (a: unknown, list: unknown[]) => ({ op: 'inArray', a, list }),
 }));
 
 // schema — proxy tables so `table.col` works and tables have a stable name
@@ -60,6 +63,7 @@ vi.mock('@/lib/db/schema', () => {
     pitchDecks: wrap('pitchDecks'),
     crmProposals: wrap('crmProposals'),
     bookingPages: wrap('bookingPages'),
+    brainNotes: wrap('brainNotes'),
   };
 });
 
@@ -235,6 +239,7 @@ describe('GET /api/surveys/[slug]/results', () => {
       title: 'Test Survey',
       description: 'desc',
       slug: 's1',
+      publishResults: true,
       fields: [
         { id: 'q1', label: 'Pick one', type: 'select', options: ['A', 'B', 'C'] },
         { id: 'q2', label: 'Pick many', type: 'checkbox', options: ['X', 'Y'] },
@@ -274,6 +279,7 @@ describe('GET /api/surveys/[slug]/results', () => {
       title: 'Numbers',
       description: null,
       slug: 's2',
+      publishResults: true,
       fields: [
         { id: 'r', label: 'Rate', type: 'rating', options: [] },
         { id: 'n', label: 'Empty', type: 'number', options: [] },
@@ -304,6 +310,7 @@ describe('GET /api/surveys/[slug]/results', () => {
       title: 'AllMissing',
       description: null,
       slug: 's3',
+      publishResults: true,
       fields: [{ id: 'r', label: 'Rate', type: 'rating', options: [] }],
     };
     selectQueue.push([survey]);
@@ -320,6 +327,7 @@ describe('GET /api/surveys/[slug]/results', () => {
       title: 'Text',
       description: null,
       slug: 's4',
+      publishResults: true,
       fields: [{ id: 't', label: 'Tell us', type: 'textarea', options: [] }],
     };
     // 25 valid + a couple of skipped/empty entries
@@ -346,6 +354,7 @@ describe('GET /api/surveys/[slug]/results', () => {
       title: 'Toggle',
       description: null,
       slug: 's5',
+      publishResults: true,
       fields: [{ id: 'g', label: 'OK?', type: 'toggle', options: [] }],
     };
     const responses = [
@@ -368,6 +377,7 @@ describe('GET /api/surveys/[slug]/results', () => {
       title: 'Dates',
       description: null,
       slug: 's6',
+      publishResults: true,
       fields: [{ id: 'd', label: 'When', type: 'date', options: [] }],
     };
     const responses = [
@@ -385,7 +395,7 @@ describe('GET /api/surveys/[slug]/results', () => {
   });
 
   it('handles a survey with no fields and no responses', async () => {
-    const survey = { id: 7, title: 'Empty', description: null, slug: 's7', fields: null };
+    const survey = { id: 7, title: 'Empty', description: null, slug: 's7', publishResults: true, fields: null };
     selectQueue.push([survey]);
     selectQueue.push([]);
     const res = await GET(new Request('http://x'), makeParams({ slug: 's7' }));

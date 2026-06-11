@@ -165,7 +165,7 @@ Every scaffold preserves these (per `CLAUDE.md`):
 Per `CLAUDE.md` and repo memory (`feedback_no_emojis.md`). Every developer skill that authors UI uses Material Icons.
 
 ### Drizzle migrations are generated, not hand-edited
-- Edit `lib/db/schema.ts` then `bun run db:generate`
+- Add tables to the matching domain module under `lib/db/schema/` (e.g. `lib/db/schema/crm.ts`); if creating a new module, re-export it from `lib/db/schema/index.ts`. Then run `bun run db:generate`.
 - Never edit `drizzle/*.sql` directly
 - Note: per memory (`project_sd2026_drizzle_tracker_drift.md`), the tracker is out of sync in prod; some schema changes are hand-applied SQL. Confirm with the user before adding new migrations.
 

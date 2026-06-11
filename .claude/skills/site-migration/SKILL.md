@@ -51,7 +51,8 @@ This is a phased migration workflow:
 6. **Phase 2: Marketing Pages** — Top-level pages (about, services, contact, etc.)
 7. **Phase 3: Content Items** — Blog posts, products, portfolio items, etc.
 8. **Branding** — Extract or generate a branding profile from the source site
-9. **Visual QA (MANDATORY)** — Screenshot comparison of original vs migrated
+9. **Automated QA: Lighthouse + Visual Review (MANDATORY)** — Score and screenshot every migrated page vs the source; emit reports the operator reviews before sign-off
+10. **Visual QA (MANDATORY)** — Deep screenshot comparison of original vs migrated (interactive pass)
 
 ## Related skills
 
@@ -496,7 +497,7 @@ Key rules:
 5. **For CTA sections**: match the original CTA style — do NOT default to purple/primary gradient unless the original actually uses one
 6. Build as a post with `postType: 'page'`, `slug: 'home'`
 7. The `content` field stores `{ blocks, version: '1.0' }` (BlockEditorData format)
-8. **Run Visual QA** (Step 9) — screenshot original vs migrated, fix discrepancies before marketing pages
+8. **Run Visual QA** (Step 10) — screenshot original vs migrated, fix discrepancies before marketing pages
 
 ### Creating the Page
 
@@ -543,7 +544,7 @@ Process each marketing page (about, services, contact, pricing, team, etc.):
 
 ### Navigation Setup
 
-After creating marketing pages, set up the site navigation. Read `lib/db/schema.ts` for the `siteNavigation` table:
+After creating marketing pages, set up the site navigation. The `siteNavigation` table lives in the appropriate domain module under `lib/db/schema/` — grep for it there:
 
 ```typescript
 import { siteNavigation } from './lib/db/schema';
@@ -744,7 +745,7 @@ Before implementing, read these files for the exact patterns and types:
 
 | What | Path |
 |------|------|
-| DB schema (all tables) | `lib/db/schema.ts` |
+| DB schema (all tables) | `lib/db/schema/` (per-domain modules; barrel: `lib/db/schema/index.ts`) |
 | Block type definitions | `types/blocks.ts` |
 | Website creation API | `app/api/portal/cms/websites/route.ts` |
 | Post creation API | `app/api/portal/cms/websites/[siteId]/posts/route.ts` |
@@ -855,7 +856,143 @@ for (const page of pages) {
 }
 ```
 
-## Step 9: Visual QA Comparison (MANDATORY)
+## Step 9: Automated QA — Lighthouse + Visual Review (MANDATORY)
+
+Run this step after ALL pages are created and published (with `publicAccess: true`) but before final sign-off. It produces two operator-reviewed reports: a Lighthouse score comparison and a full-page screenshot comparison.
+
+### Why this step exists
+
+Migrated pages can silently regress on performance (unoptimized images from the source CDN, extra render-blocking scripts) or accessibility (missing alt text, low contrast). Catching this before the client sees the site avoids rework. The visual comparison catches layout and color divergence that code review misses.
+
+### 9A: Lighthouse Score Tests
+
+**Script:** `scripts/migrations/site-migration/scripts/lighthouse-compare.ts`  
+**Dependency:** `lighthouse` — invoked on-demand via `bunx`; no `bun add` required.
+
+#### Pre-flight
+
+Make sure the migrated pages are reachable:
+
+```typescript
+// Enable public access + publish all pages for QA
+await db.update(clientWebsites).set({ publicAccess: true }).where(eq(clientWebsites.id, WEBSITE_ID));
+await db.update(posts).set({ published: true }).where(eq(posts.websiteId, WEBSITE_ID));
+```
+
+If testing against `localhost`, use `http://localhost:3000/sites/<subdomain>.simplerdevelopment.com` as the migrated base URL.
+
+#### Command
+
+```bash
+bunx tsx .claude/skills/site-migration/scripts/lighthouse-compare.ts \
+  --source   https://original-site.com \
+  --migrated https://<subdomain>.simplerdevelopment.com \
+  --paths    /,/about,/services,/contact \
+  --out      scripts/migrations/<site-slug>/reports/lighthouse
+```
+
+For a large site, run only the top-level pages (home + all marketing pages). Skip deep blog/product URLs unless the client has flagged them specifically.
+
+#### Pass/fail thresholds
+
+| Category | Floor (migrated must reach) | Max regression vs source |
+|---|---|---|
+| Performance | 50 | 15 points |
+| Accessibility | 80 | 15 points |
+| Best Practices | 80 | 15 points |
+| SEO | 80 | 15 points |
+
+Override any threshold via env var before the command:
+
+```bash
+FLOOR_PERFORMANCE=60 MAX_REGRESSION=10 bunx tsx .claude/skills/site-migration/scripts/lighthouse-compare.ts ...
+```
+
+#### Where reports land
+
+```
+scripts/migrations/<site-slug>/reports/lighthouse/
+  lighthouse-report-<timestamp>.json   ← raw scores, deltas, pass/fail per page
+  lighthouse-report-<timestamp>.md     ← human-readable markdown table
+```
+
+The script exits non-zero if any page fails. Review the `.md` file — fix the failures before proceeding to sign-off. Common quick wins:
+
+| Failure | Fix |
+|---------|-----|
+| Performance < 50 | Add `loading="lazy"` to below-fold image blocks; compress hero image |
+| SEO < 80 | Verify every page has `seoTitle` + `seoDescription` + `ogImage` set |
+| Accessibility < 80 | Add missing `alt` text on `image` blocks; fix contrast via `elementStyles.color` |
+| Best Practices < 80 | Usually caused by mixed-content (HTTP assets on HTTPS page) or outdated JS from source CDN |
+
+### 9B: Automated Visual Review
+
+**Script:** `scripts/migrations/site-migration/scripts/visual-compare-pages.ts`  
+**Dependency:** `playwright` + Chromium — already in the project's `devDependencies`. If the Chromium binary is missing locally, run `bunx playwright install chromium` once.
+
+#### Command
+
+```bash
+bunx tsx .claude/skills/site-migration/scripts/visual-compare-pages.ts \
+  --source   https://original-site.com \
+  --migrated https://<subdomain>.simplerdevelopment.com \
+  --paths    /,/about,/services,/contact \
+  --out      scripts/migrations/<site-slug>/reports/visual \
+  --viewport 1440x900
+```
+
+#### What it produces
+
+```
+scripts/migrations/<site-slug>/reports/visual/
+  screenshots/
+    home-source.png
+    home-migrated.png
+    about-source.png
+    about-migrated.png
+    ...
+  visual-report-<timestamp>.html   ← open this in a browser for side-by-side review
+  visual-report-<timestamp>.json   ← manifest with file paths + any capture errors
+```
+
+Open `visual-report-<timestamp>.html` in a browser. Each page appears as a scrollable two-column layout: source on the left, migrated on the right. Scroll through and flag pages that differ meaningfully.
+
+#### Pass/fail criteria for the visual review
+
+The script captures and reports; it does not auto-score pixel diff (that requires `pixelmatch`, which is not installed). The human operator reviews the HTML report and uses this rubric:
+
+| Dimension | Pass | Fail — fix before sign-off |
+|---|---|---|
+| Overall light/dark balance | Matches source | More than 1 section has wrong background tone |
+| Section background colors | Each section's bg matches the source within one shade | Any section obviously wrong color |
+| CTA section style | Solid/gradient matches original | CTA is wrong color or is generic purple gradient |
+| Typography hierarchy | Heading sizes roughly match | Headings missing or wrong size tier |
+| Image layout | Key images present and roughly correct size | Hero image missing, card images are tall strips |
+| Navigation | Nav links + logo visible | Nav broken or missing items |
+| Footer | Footer present with correct content | Footer missing |
+
+For any flagged page, use the **`visual-compare` skill** (`~/.claude/skills/visual-compare/SKILL.md`) for an interactive section-by-section deep-dive with a per-section diff table.
+
+### 9C: After QA — restore access
+
+```typescript
+// Revert to draft / private after QA
+await db.update(clientWebsites).set({ publicAccess: false }).where(eq(clientWebsites.id, WEBSITE_ID));
+await db.update(posts).set({ published: false }).where(eq(posts.websiteId, WEBSITE_ID));
+```
+
+### QA Gate checklist
+
+Before moving to sign-off, all of the following must be true:
+
+- [ ] `lighthouse-compare` exits 0 (all pages pass floors + no regression > 15 pts)
+- [ ] Visual report reviewed — no pages flagged as failing the visual rubric above
+- [ ] Any Lighthouse failures fixed and script re-run to confirm
+- [ ] Any visual failures fixed and `visual-compare-pages` re-run on the affected pages
+
+---
+
+## Step 10: Visual QA Comparison (MANDATORY)
 
 After importing the home page, you MUST do a visual comparison before continuing to marketing pages. This catches color/layout issues early.
 

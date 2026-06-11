@@ -1,0 +1,165 @@
+---
+name: sd-create-page
+description: Draft a CMS page (blog post, landing page, marketing page) in the SimplerDevelopment portal via the postcaptain MCP. Produces a structured `blocks` array applying the default brand profile, reuses existing block_templates where possible, and returns a shareable approval URL so the author can hand it to a stakeholder for review before publish. Sourcing material is OPTIONAL and user-driven — the skill asks where to pull from if unclear (postcaptain-kb, an external URL, a pasted brief, or just the user's prompt). Use when the user says 'draft a page about X', 'create a CMS page for Y', 'make a landing page for Z', 'new blog post on W', 'write a marketing page'. Default mode publishes a DRAFT (`published: false`); a sd-init `.sd/config.json` is required.
+user-invocable: true
+allowed-tools: Read, Write, Bash, WebFetch, Glob, Grep
+---
+
+# sd-create-page
+
+Draft a CMS page (blog post, landing page, marketing entry) in the portal. The page is created as a draft, an approval link is minted, and the URL is handed back so the author can share it with a reviewer.
+
+## Pre-flight
+
+1. **Read `.sd/config.json`.** If missing or stale (>14 days), tell the user to run `sd-init` first. Don't proceed — every step depends on the client/brand/site already being resolved.
+2. **Read brand messaging** from `.sd/config.json:brand.messaging`. If `brand` is null, warn the user that output will use SD house defaults and proceed only if confirmed.
+3. **Read `SD_DESIGN_PRINCIPLES.md`** (sibling skill doc). This is non-negotiable — it encodes the anti-AI-slop discipline, WCAG-AA contrast floors, 8pt grid, branded-logo policy, and the 5-dimension self-review the skill MUST run before returning the approval URL.
+4. **Read `.sd/learnings.md`** if it exists — apply its `## Active rules` to authoring decisions. If a rule prohibits something the skill was about to do, surface explicitly ("learnings.md says X — adjusting Y accordingly").
+
+## Sourcing — ASK if unclear
+
+The user's prompt may already make the source obvious. Skip the question when it is. Otherwise ask which source the page should draw from:
+
+- **`prompt-only`** — write from the user's prompt + brand voice. No external research.
+- **`postcaptain-kb`** — mine the postcaptain-kb Obsidian vault (uses the same conventions as the `draft-blog-post` skill: `discoveries/`, `sources/`, vault search).
+- **`url`** — fetch one or more URLs the user provides (WebFetch). Use for "turn this article into a landing page" or "competitor X published this — write our take".
+- **`brief`** — read a local file path (markdown, txt) the user points to. Use for "use the brief at `./briefs/foo.md`".
+- **`mixed`** — any combination of the above.
+
+**Do not silently default to postcaptain-kb.** That source is sd-internal — for client work, it'll inject the wrong voice.
+
+If the source is `postcaptain-kb` but `.sd/config.json:client.id` is NOT the SD agency client, flag this loudly: "you've selected an internal-knowledge source for a client project — confirm this is intentional."
+
+## Authoring
+
+1. **Reuse before invent.** Check `.sd/config.json:inventory.blockTemplates`. For each common section the page needs (hero, feature grid, CTA, testimonial, footer), prefer composing from an existing template (`scope: 'block' | 'section'`) rather than authoring raw blocks. If a section type has no template available, author the blocks directly.
+
+2. **Block shape.** Follow the visual-editor schema. READ the `blocks://schema` MCP resource before authoring — it documents block `type`, `style`, `elementStyles`, and per-page settings. Common rules from the SD MCP-tool guidance:
+   - Use `heading` blocks with explicit `level` for titles, never a big styled `text` block.
+   - Pair every section heading with a small uppercase eyebrow `text` block above it.
+   - Populate hero blocks fully: `title` + `subtitle` + `description` + `ctaText` + `ctaLink`. Title-only heroes look broken.
+   - Apply `style` (color, fontSize, fontWeight, letterSpacing) for hierarchy — do not lean on defaults.
+
+3. **Brand voice.** Map the brand messaging onto the copy:
+   - `toneOfVoice` and `brandPersonality` set the writing register.
+   - `valueProposition` should appear (paraphrased) in the hero.
+   - `keyDifferentiators` should anchor the feature/services section.
+   - `targetAudience` informs who the copy speaks to.
+   - `boilerplate` can seed the about/footer section if relevant.
+
+4. **SEO.** Always set `seoTitle`, `seoDescription`. Default `noIndex: false` for production pages; `true` for drafts the user only wants to share.
+
+5. **Brand logo by default.** If `.sd/config.json:brand.logos.logoUrl` is set, place an `image` block at the very top of the page above the hero. Use the wide logo (`logoUrl`) — never the icon (`logoIconUrl`) at this scale. `alt` text from `logos.logoAlt` or fall back to `<companyName> logo`. Cap displayed height at 40–64px. If only `logoText` exists, render as a small uppercase text block in the brand accent color, letterSpacing 0.2em.
+
+6. **Accessibility — run the contrast checks.** Before returning, validate every text/bg pair on the page against the WCAG-AA floors documented in `SD_DESIGN_PRINCIPLES.md` (4.5:1 body, 3:1 large/UI). Use the MCP tool `branding_check_contrast` for any pair you're unsure about. If a CTA fails (a very common case: white text on a low-saturation accent color), swap the foreground to `textColor` from the brand profile. Surface every fix you made in the response so the user can audit it.
+
+7. **Link related artifacts when they help the page do its job.** A landing page is rarely a leaf — it often pairs with a survey (qualifying intake) or a booking page (call-to-book). When the user's intent matches, embed natively:
+
+   - **Embed an existing survey** — append a `survey` block: `{ id, type: 'survey', slug: '<survey-slug>', showLogo: true }`. The slug comes from `surveys_list`. If the user wants a NEW survey, hand off to the `sd-create-survey` skill and embed after it returns the slug.
+   - **Embed a booking widget** — append a `booking` block: `{ id, type: 'booking', slug: '<booking-page-slug>', showLogo: true, height: 720 }`. Slug comes from `booking_pages_list`. For an all-services menu, use `{ type: 'booking-menu', columns: 3 }`.
+   - **Link to an existing pitch deck or another page** — use a `button` block whose `url` points at `/portal/preview/decks/<id>` or `/<post-slug>`.
+
+   Don't embed an artifact just because it exists — embed only when the user's stated goal benefits. (A "pricing page" probably doesn't need a survey embedded; a "find-out-if-we're-a-fit" page does.)
+
+8. **Run the 5-dimension self-review** from `SD_DESIGN_PRINCIPLES.md` before returning. Score 1–10 on Philosophy / Hierarchy / Craft / Functionality / Originality. Surface scores + quick-wins in the response.
+
+## Sourcing images (and other media)
+
+You have three patterns for getting media into the client's library. Pick by where the file is:
+
+1. **Local file path** (user dropped a path, or you have a workspace file via Read/Bash). Use the **presign + curl + register** flow — bytes never enter the conversation, ~150 tokens per upload regardless of size:
+   ```
+   const presign = await mcp.media_upload_presign({ filename, mimeType, fileSize });
+   // Bash: curl -X PUT -H "Content-Type: <mt>" -H "Content-Length: <sz>" --data-binary @<path> "<presign.uploadUrl>"
+   const media = await mcp.media_register({ mediaKey: presign.mediaKey, originalFilename: filename, mimeType, alt, websiteId });
+   // Use media.url in subsequent block payloads.
+   ```
+   Allowed types: png/jpeg/gif/webp/avif/svg+xml, pdf, mp4/webm/quicktime, mpeg/ogg/wav. 25 MB cap, 5-min TTL on the URL.
+
+2. **Public http(s) URL** (image already on the web — Imgur, the user's existing CDN, a Wikimedia/Unsplash link). Use `media_upload_from_url` with that URL. Server-side SSRF guard rejects internal/private IPs; redirects are refused.
+
+3. **Already in the library**. Call `media_list` once at the start of a complex authoring session and reference URLs from there — zero per-image cost after the initial list.
+
+**Do not** base64-encode files into tool inputs. There is no `media_upload_base64` tool, and synthesizing one via large string parameters would burn ~4 chars/token across the conversation history — a 500 KB screenshot = ~180K tokens.
+
+## MCP call
+
+Call `mcp__simplerdevelopment-postcaptain__posts_create` with:
+
+```json
+{
+  "websiteId": <defaultSiteId from config>,
+  "title": "<page title>",
+  "slug": "<url-slug>",
+  "postType": "<blog|page|landing|...>",
+  "blocks": [...],
+  "excerpt": "<150-200 char summary>",
+  "seoTitle": "...",
+  "seoDescription": "...",
+  "published": false
+}
+```
+
+`postType` defaults to `blog`. For landing/marketing pages, pass `page` (or whatever post type the tenant has defined — check `post_types_list` if unsure).
+
+## MCP response handling — read errors first
+
+SimplerDevelopment's MCP wraps every response — successes AND errors — in a JSON-RPC success envelope shaped like:
+
+```
+{"result":{"content":[{"type":"text","text":"{...JSON...}"}]}}
+```
+
+Before reporting success to the user, parse `result.content[0].text` as JSON. If the parsed object contains an `error` key (e.g. `{"error":"Site not found"}` or `{"error":"Unauthorized"}`), the call FAILED — even though the JSON-RPC envelope said `result`. STOP immediately. Surface the error verbatim to the user. Do NOT invent a successful response with a made-up post id, approval URL, slug, or site name. Hallucinated success is worse than a visible failure — the user will publish content that doesn't exist or copy approval URLs to stakeholders that 404.
+
+Only treat the call as successful when the parsed text contains the expected entity shape (e.g. `{"id":..., "approval":{...}}` for `posts_create`).
+
+## Output
+
+The MCP response includes an `approval` envelope:
+
+```json
+{
+  "id": 123,
+  "title": "...",
+  "slug": "...",
+  ...,
+  "approval": {
+    "url": "https://simplerdevelopment.com/approve/<token>",
+    "previewUrl": "<same>",
+    "token": "<64-hex>",
+    "status": "pending",
+    "expiresAt": null
+  }
+}
+```
+
+Return to the user:
+- The post id
+- The portal edit URL: `/portal/websites/<siteId>/posts/<id>/edit`
+- The **approval URL** (this is the value to share for review)
+- A one-line summary of what's on the page
+
+## Iteration
+
+If the user wants edits, call `mcp__simplerdevelopment-postcaptain__posts_update` with the same post id. **Each update mints a fresh approval URL** (the reviewer should see the content as-of-mint-time, not as-of-an-older-approval). The old URL stays valid in its existing state (`pending`, `approved`, or `rejected`); the new one supersedes it for review purposes. Return the new URL each time.
+
+For a major rework or a parallel variant — call `posts_fork` to spin a clean variant under a new id with its own approval URL.
+
+## Failure modes
+
+- **No `.sd/config.json`** → tell user to run `sd-init`. Don't proceed.
+- **Brand profile is empty** → output will be flat; warn and proceed.
+- **`websiteId` missing** → fall back to `sites_list` and ask if more than one.
+- **Block schema violation in the response** → `posts_create` will reject; show the error and surface what specifically was wrong (most often: missing `id` on a block, missing `level` on a heading, or an unknown block `type`).
+- **`posts_create` returns `pending: true`** → API key requires CMS approval. The `approval.url` in the response is the link reviewers use. Tell the user the page won't be visible in the portal until approved.
+
+## Install
+
+This skill ships as part of the SimplerDevelopment client skills bundle. Install all 10 sibling skills in one step from the portal:
+
+**https://simplerdevelopment.com/install**
+
+macOS, Windows, and Linux installers download the bundle to `~/.claude/skills/`. Both Claude Desktop and Claude Code auto-discover skills from that path on next restart.
+
+See `CLIENT_QUICKSTART.md` (installed alongside this file) for the full setup walkthrough, including the MCP-server config Claude Desktop needs and the one-time `sd-init` bootstrap.

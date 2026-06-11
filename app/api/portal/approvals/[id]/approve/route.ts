@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { mcpPendingChanges } from '@/lib/db/schema';
@@ -53,6 +53,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       .where(eq(mcpPendingChanges.id, changeId))
       .returning();
     try { revalidatePath('/portal', 'layout'); } catch { /* ignore */ }
+    // Invalidate the per-client approvals-count cache used by the layout bell.
+    try { revalidateTag(`approvals:${client.id}`, 'max'); } catch { /* ignore */ }
     return NextResponse.json({ success: true, data: { change: updated, result } });
   } catch (err) {
     const message = (err as Error).message;
@@ -66,6 +68,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         errorMessage: message,
       })
       .where(eq(mcpPendingChanges.id, changeId));
+    // Status transitioned out of 'pending' even on failure, so flush.
+    try { revalidateTag(`approvals:${client.id}`, 'max'); } catch { /* ignore */ }
     return NextResponse.json({ success: false, message: `Apply failed: ${message}` }, { status: 500 });
   }
 }

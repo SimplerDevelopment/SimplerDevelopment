@@ -15,6 +15,10 @@ export interface PortalNavChild {
   // sub-feature names) without polluting the visible label.
   keywords?: string[];
   children?: PortalNavChild[];
+  /** Billing domain key that gates this item (matches FEATURE_DOMAINS[n].key). */
+  requiredDomain?: string;
+  /** Set by buildPortalNavItems when the client is not entitled to this domain. */
+  locked?: boolean;
 }
 
 export interface PortalNavItem extends PortalNavChild {
@@ -31,11 +35,17 @@ export interface PortalNavItem extends PortalNavChild {
  * directly before the trailing "Settings" entry. Server callers that know
  * the active client's entitled apps pass them in; client callers that don't
  * have that context omit the param and get the unmodified base tree.
+ *
+ * The optional `entitlements` param gates top-level items by billing domain.
+ * When provided and `gatingBypassed` is false, any item whose `requiredDomain`
+ * is not in `domains` gets `locked: true` (children inherit the lock). When
+ * omitted or bypassed, all items are rendered as today.
  */
 export function buildPortalNavItems(
   activeSiteId: string | null,
   activeSiteName: string | null,
   apps?: UserAppNavMeta[],
+  entitlements?: { domains: Set<string>; gatingBypassed: boolean },
 ): PortalNavItem[] {
   const items: PortalNavItem[] = [
     { href: '/portal/dashboard', label: 'Dashboard', icon: 'dashboard', keywords: ['home', 'overview'] },
@@ -44,6 +54,7 @@ export function buildPortalNavItems(
       label: 'Company Brain',
       icon: 'psychology',
       exact: true,
+      requiredDomain: 'brain',
       keywords: ['ai', 'knowledge'],
       children: [
         // Calendar is intentionally hidden from sidebar + cmd-k. The page at
@@ -75,6 +86,7 @@ export function buildPortalNavItems(
       label: 'Projects',
       icon: 'view_kanban',
       exact: true,
+      requiredDomain: 'projects',
       alsoActiveOn: '/portal/my-tasks',
       children: [
         { href: '/portal/projects', label: 'All Projects', icon: 'view_kanban', exact: true },
@@ -85,6 +97,7 @@ export function buildPortalNavItems(
       href: '/portal/publishing',
       label: 'Publishing',
       icon: 'rocket_launch',
+      requiredDomain: 'publishing',
       keywords: ['content calendar', 'publishing command center', 'schedule', 'blog', 'social', 'email blast'],
       children: [
         { href: '/portal/publishing/board', label: 'Board', icon: 'view_kanban' },
@@ -99,6 +112,7 @@ export function buildPortalNavItems(
       label: 'CRM',
       icon: 'contacts',
       exact: true,
+      requiredDomain: 'crm',
       keywords: ['customer relationship management', 'pipeline'],
       children: [
         { href: '/portal/crm', label: 'Dashboard', icon: 'dashboard', exact: true, keywords: ['crm home'] },
@@ -113,6 +127,7 @@ export function buildPortalNavItems(
       label: 'Email',
       icon: 'email',
       exact: true,
+      requiredDomain: 'email',
       keywords: ['marketing', 'newsletters'],
       children: [
         { href: '/portal/email', label: 'Dashboard', icon: 'dashboard', exact: true },
@@ -129,6 +144,7 @@ export function buildPortalNavItems(
       label: 'Surveys',
       icon: 'poll',
       exact: true,
+      requiredDomain: 'surveys',
       keywords: ['forms', 'questionnaires'],
       children: [
         { href: '/portal/surveys', label: 'All Surveys', icon: 'poll', exact: true },
@@ -140,19 +156,21 @@ export function buildPortalNavItems(
       label: 'Pitches & Proposals',
       icon: 'slideshow',
       exact: true,
+      requiredDomain: 'pitch-decks',
       keywords: ['slides', 'presentations', 'proposals', 'quotes'],
       children: [
         { href: '/portal/tools/pitch-decks', label: 'Pitch Decks', icon: 'slideshow', exact: true, keywords: ['slides', 'presentations'] },
         { href: '/portal/crm/proposals', label: 'Proposals', icon: 'request_quote', keywords: ['quotes'] },
       ],
     },
-    { href: '/portal/websites', label: 'Websites', icon: 'language', exact: true, keywords: ['sites', 'cms'] },
+    { href: '/portal/websites', label: 'Websites', icon: 'language', exact: true, requiredDomain: 'websites', keywords: ['sites', 'cms'] },
     ...(activeSiteId
       ? [{
           href: `/portal/websites/${activeSiteId}`,
           label: activeSiteName || 'Website',
           icon: 'web',
           exact: true,
+          requiredDomain: 'websites',
           children: [
             {
               href: `/portal/websites/${activeSiteId}/entries`,
@@ -188,8 +206,8 @@ export function buildPortalNavItems(
         }]
       : []
     ),
-    { href: '/portal/media', label: 'Media', icon: 'perm_media', keywords: ['images', 'files', 'uploads'] },
-    { href: '/portal/experiments', label: 'A/B Experiments', icon: 'science', keywords: ['ab', 'a/b', 'split test', 'variant', 'experiment'] },
+    { href: '/portal/media', label: 'Media', icon: 'perm_media', requiredDomain: 'websites', keywords: ['images', 'files', 'uploads'] },
+    { href: '/portal/experiments', label: 'A/B Experiments', icon: 'science', requiredDomain: 'websites', keywords: ['ab', 'a/b', 'split test', 'variant', 'experiment'] },
     // MCP Approvals is intentionally hidden from sidebar + cmd-k. The page
     // at /portal/approvals still renders for direct URL access.
     {
@@ -243,6 +261,27 @@ export function buildPortalNavItems(
     }
   }
 
+  // Apply entitlement gating: when entitlements are provided and gating is
+  // active, mark items and their children as locked when the required domain
+  // is not in the entitled set.
+  if (entitlements && !entitlements.gatingBypassed) {
+    const lockChildren = (children: PortalNavChild[]): PortalNavChild[] =>
+      children.map((c) => ({
+        ...c,
+        locked: true,
+        children: c.children ? lockChildren(c.children) : c.children,
+      }));
+
+    for (const item of items) {
+      if (item.requiredDomain && !entitlements.domains.has(item.requiredDomain)) {
+        item.locked = true;
+        if (item.children) {
+          item.children = lockChildren(item.children);
+        }
+      }
+    }
+  }
+
   return items;
 }
 
@@ -268,6 +307,9 @@ export function flattenPortalNav(items: PortalNavItem[]): PortalNavTarget[] {
 
   const walk = (nodes: PortalNavChild[], trail: string[]) => {
     for (const node of nodes) {
+      // Locked nodes are not surfaced in the Cmd+K palette — their href is not
+      // a reachable destination for ungated users.
+      if (node.locked) continue;
       if (!seen.has(node.href)) {
         seen.add(node.href);
         const haystackParts = [

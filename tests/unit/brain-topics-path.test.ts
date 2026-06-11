@@ -30,6 +30,8 @@ vi.mock('drizzle-orm', () => ({
   eq: vi.fn(),
   inArray: vi.fn(),
   sql: vi.fn(),
+  isNull: (a: unknown) => ({ op: 'isNull', a }),
+  or: (...args: unknown[]) => ({ op: 'or', args: args.filter(Boolean) }),
 }));
 
 const { deriveSlug } = await import('@/lib/brain/topics');

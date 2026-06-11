@@ -22,6 +22,10 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
+vi.mock('@/lib/actions/blog', () => ({
+  revalidateBlogPostsCache: vi.fn().mockResolvedValue(undefined),
+}));
+
 // ===========================================================================
 // Shared schema mock
 // ===========================================================================
@@ -38,7 +42,7 @@ vi.mock('@/lib/db/schema', () => {
         },
       },
     );
-  return {
+  return new Proxy({
     // posts route
     posts: wrap('posts'),
     postCategories: wrap('postCategories'),
@@ -66,7 +70,7 @@ vi.mock('@/lib/db/schema', () => {
     bookings: wrap('bookings'),
     automationRules: wrap('automationRules'),
     hostedSites: wrap('hostedSites'),
-  };
+  }, { has: (t, p) => (p in t) || !(p === "then" || p === "__esModule" || p === "default" || typeof p !== "string"), get: (t, p) => (p in t) ? t[p] : ((p === "then" || p === "__esModule" || p === "default" || typeof p !== "string") ? undefined : wrap(p)) });
 });
 
 vi.mock('drizzle-orm', () => ({
@@ -92,6 +96,7 @@ vi.mock('drizzle-orm', () => ({
       }),
     },
   ),
+  inArray: (a: unknown, list: unknown[]) => ({ op: 'inArray', a, list }),
 }));
 
 // ===========================================================================

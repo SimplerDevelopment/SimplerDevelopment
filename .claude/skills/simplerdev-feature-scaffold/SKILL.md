@@ -11,7 +11,7 @@ Scaffolds a complete CRUD feature in the simplerdevelopment2026 repo following t
 
 ## Repo conventions (these are the constraints — do not deviate)
 
-- **ORM**: Drizzle. Schema is a single file: `lib/db/schema.ts` (~2300 lines). APPEND to it. Never rewrite.
+- **ORM**: Drizzle. The schema is split into per-domain modules under `lib/db/schema/` (e.g. `lib/db/schema/crm.ts`). Add new tables to the matching domain module, or create a new module and re-export it from `lib/db/schema/index.ts`. Consumers import from the barrel `@/lib/db/schema` — never reach into domain modules directly. Never rewrite existing modules wholesale.
 - **DB client**: `import { db } from '@/lib/db'`. Postgres via `postgres-js`.
 - **Auth**: `import { auth } from '@/lib/auth'` (NextAuth v5). Session shape: `session.user.id` is a string; cast with `parseInt(session.user.id, 10)`.
 - **Site scoping**: Portal resources use `import { resolveClientSite } from '@/lib/portal-client'` — returns `null` if the user can't access that site → respond 404.
@@ -39,7 +39,9 @@ If the user provides a terse request (e.g. "scaffold ticket with title/priority/
 
 For `portal-site` scope with resource `serviceArea` (example), generate exactly these files:
 
-### 1. Schema addition — APPEND to `lib/db/schema.ts`
+### 1. Schema addition — add to the matching domain module under `lib/db/schema/`
+
+Identify the most appropriate domain module (e.g. `lib/db/schema/cms.ts` for CMS resources). If none fits, create a new module and add a re-export line to `lib/db/schema/index.ts`.
 
 ```ts
 export const serviceAreas = pgTable('service_areas', {
@@ -53,7 +55,11 @@ export const serviceAreas = pgTable('service_areas', {
 ]);
 ```
 
-Use `Edit` with a unique anchor — append at end of file, after the last `export const`. Do not overwrite.
+Use `Edit` to append the new table export at the end of the chosen domain module. If you created a new module, also `Edit` `lib/db/schema/index.ts` to add:
+```ts
+export * from './your-new-module';
+```
+Do not overwrite existing content.
 
 ### 2. List + create route
 
@@ -146,7 +152,7 @@ Use `test.describe.configure({ mode: 'serial' })` and the `cleanups: Array<() =>
 
 1. Parse the user's request; fill in the four inputs above. Show the plan (resource name, scope, fields, file list) and get one confirmation.
 2. Read the two anchor files (always): `app/api/portal/cms/websites/[siteId]/categories/route.ts` and `tests/e2e/portal-cms-categories.spec.ts`. If `[id]/route.ts` exists for categories, read it too. These are your templates.
-3. `Edit` `lib/db/schema.ts` — append the new table. Use a unique anchor (the last `export const` at the very bottom of the file) so the Edit is unambiguous.
+3. `Edit` the matching domain module under `lib/db/schema/` — append the new table export at the bottom of that file. If creating a new module, also add an `export * from './new-module';` line to `lib/db/schema/index.ts`.
 4. `Write` the route file(s).
 5. `Edit` `tests/e2e/setup/helpers.ts` — append the helper.
 6. `Write` the spec file.
@@ -169,7 +175,7 @@ Use `test.describe.configure({ mode: 'serial' })` and the `cleanups: Array<() =>
 
 ## Failure modes to watch for
 
-- `schema.ts` append clobbering an existing export with the same name → grep first.
+- New table name colliding with an existing export — grep `lib/db/schema/` for the name first.
 - Pluralization edge cases (`category` → `categories`, `tax` → `taxes`) — ask the user for the plural if non-obvious.
 - Foreign keys to tables that don't exist yet — halt and ask.
-- Drizzle import list missing a type (e.g. `numeric` not in the existing import at the top of schema.ts) → update the import.
+- Drizzle import list missing a type (e.g. `numeric` not imported at the top of the domain module) → update the import in that module file.

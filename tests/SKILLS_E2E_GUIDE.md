@@ -144,13 +144,13 @@ Run with `bun run test:unit`. Cost zero, time milliseconds.
 Existing coverage:
 
 - `tests/integration/api/approve/approval-links.test.ts` — all 5 entity approve side-effects + reject + 4 error paths. **Run this after any change to `lib/mcp/approval-links.ts` or `app/api/approve/[token]/route.ts`.**
-- `tests/integration/api/mcp-tool-registry-baseline.test.ts` — every MCP tool is registered + has a schema.
+- `tests/unit/mcp-tool-registry-baseline.test.ts` — every MCP tool is registered + has a schema. **Unit-layer (DB-mocked), so it runs in the default `bun test` gate** — tool drift fails on every commit.
 
-To run just the MCP-related integration tests:
+To run the MCP tests:
 
 ```bash
-bun test:integration:local -- tests/integration/api/approve/
-bun test:integration:local -- tests/integration/api/mcp-tool-registry-baseline
+bun test:unit -- tests/unit/mcp-tool-registry-baseline   # registry baseline (default gate)
+bun test:integration:local -- tests/integration/api/approve/   # approve side-effects (needs DB)
 ```
 
 What integration tests **don't** cover: agent behavior. They prove the MCP responds correctly when called with the right shape; they say nothing about whether the agent will form the right call.

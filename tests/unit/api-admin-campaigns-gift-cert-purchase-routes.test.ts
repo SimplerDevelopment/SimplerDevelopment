@@ -38,7 +38,7 @@ vi.mock('@/lib/db/schema', () => {
         },
       },
     );
-  return {
+  return new Proxy({
     emailCampaigns: wrap('emailCampaigns'),
     emailCampaignSends: wrap('emailCampaignSends'),
     emailSubscribers: wrap('emailSubscribers'),
@@ -46,7 +46,7 @@ vi.mock('@/lib/db/schema', () => {
     giftCertificates: wrap('giftCertificates'),
     clientWebsites: wrap('clientWebsites'),
     storeSettings: wrap('storeSettings'),
-  };
+  }, { has: (t, p) => (p in t) || !(p === "then" || p === "__esModule" || p === "default" || typeof p !== "string"), get: (t, p) => (p in t) ? t[p] : ((p === "then" || p === "__esModule" || p === "default" || typeof p !== "string") ? undefined : wrap(p)) });
 });
 
 vi.mock('drizzle-orm', () => ({
@@ -58,6 +58,9 @@ vi.mock('drizzle-orm', () => ({
     __sql: true,
     raw: strings.join('?'),
   }),
+  isNull: (a: unknown) => ({ op: 'isNull', a }),
+  or: (...args: unknown[]) => ({ op: 'or', args: args.filter(Boolean) }),
+  inArray: (a: unknown, list: unknown[]) => ({ op: 'inArray', a, list }),
 }));
 
 // ===========================================================================

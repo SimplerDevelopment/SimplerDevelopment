@@ -35,6 +35,8 @@ vi.mock('drizzle-orm', () => ({
   or: (...args: unknown[]) => ({ op: 'or', args }),
   desc: (a: unknown) => ({ op: 'desc', a }),
   asc: (a: unknown) => ({ op: 'asc', a }),
+  isNull: (a: unknown) => ({ op: 'isNull', a }),
+  inArray: (a: unknown, list: unknown[]) => ({ op: 'inArray', a, list }),
 }));
 
 vi.mock('@/lib/db/schema', () => {
@@ -49,11 +51,11 @@ vi.mock('@/lib/db/schema', () => {
         },
       },
     );
-  return {
+  return new Proxy({
     emailTemplates: wrap('emailTemplates'),
     automationRules: wrap('automationRules'),
     surveys: wrap('surveys'),
-  };
+  }, { has: (t, p) => (p in t) || !(p === "then" || p === "__esModule" || p === "default" || typeof p !== "string"), get: (t, p) => (p in t) ? t[p] : ((p === "then" || p === "__esModule" || p === "default" || typeof p !== "string") ? undefined : wrap(p)) });
 });
 
 // brain entitlement + brain/tasks lib
@@ -69,6 +71,7 @@ vi.mock('@/lib/brain/tasks', () => ({
   getTask: (...args: unknown[]) => getTaskMock(...args),
   updateTask: (...args: unknown[]) => updateTaskMock(...args),
   deleteTask: (...args: unknown[]) => deleteTaskLibMock(...args),
+  countTasks: (..._args: unknown[]) => Promise.resolve(0),
 }));
 
 // email render

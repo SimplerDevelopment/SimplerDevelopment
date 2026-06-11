@@ -107,6 +107,10 @@ export default async function PortalCmsPage({
                 <Link
                   key={site.id}
                   href={`/portal/websites/${site.id}`}
+                  // Disable viewport prefetch on the websites list — each site
+                  // detail route is a heavy RSC payload and prefetching every
+                  // tile saturates the server.
+                  prefetch={false}
                   className="group min-w-0 bg-card border border-border rounded-xl p-5 hover:border-primary/50 hover:shadow-sm transition-all"
                 >
                   <div className="flex items-start justify-between gap-3 mb-4">

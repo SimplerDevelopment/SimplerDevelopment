@@ -64,6 +64,26 @@ export async function saveDeck(id: string, slides: PitchDeckSlideV2[], theme: Pi
   return patchDeck(id, { slides, theme });
 }
 
+/**
+ * Per-slide PATCH — pushes only one slide's mutable fields instead of the full
+ * slides blob. Used by save paths that are scoped to the active slide (single-
+ * slide publish flush, future debounced autosave). Multi-slide ops (reorder,
+ * batch edit, slide add/remove) still go through {@link saveDeck} because they
+ * mutate the slide array layout. The slideId is the slide's stable string id.
+ */
+export async function saveSlide(
+  id: string,
+  slideId: string,
+  patch: Partial<Pick<PitchDeckSlideV2, 'blocks' | 'notes' | 'label' | 'pageSettings' | 'draft' | 'surveyFieldBlocks'>>,
+): Promise<ApiEnvelope<{ slide: PitchDeckSlideV2 }>> {
+  const res = await fetch(`/api/portal/tools/pitch-decks/${id}/slides/${encodeURIComponent(slideId)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(patch),
+  });
+  return (await res.json()) as ApiEnvelope<{ slide: PitchDeckSlideV2 }>;
+}
+
 /** DELETE the deck. */
 export async function deleteDeck(id: string) {
   return fetch(`/api/portal/tools/pitch-decks/${id}`, { method: 'DELETE' });
@@ -191,8 +211,10 @@ export function buildSlidePreviewSrc(args: {
   slidePageSettings: Record<string, unknown> | undefined;
   theme: PitchDeckTheme;
   brandingProfileId: number | null;
+  /** Per-slide custom CSS — injected into the preview so it matches the live deck. */
+  slideCustomCss?: string;
 }) {
-  const { id, editorMode, slidePageSettings, theme, brandingProfileId } = args;
+  const { id, editorMode, slidePageSettings, theme, brandingProfileId, slideCustomCss } = args;
   const ps = slidePageSettings || {};
   const params = new URLSearchParams();
   if (editorMode === 'edit') params.set('_edit', 'true');
@@ -203,6 +225,10 @@ export function buildSlidePreviewSrc(args: {
   params.set('hf', theme.headingFont);
   params.set('bf', theme.bodyFont);
   params.set('ps', JSON.stringify(ps));
+  // Deck-global + per-slide custom CSS — the live presentation injects both, so
+  // the preview must too or themed/custom rules silently differ from the live deck.
+  if (theme.customCss) params.set('tcss', theme.customCss);
+  if (slideCustomCss) params.set('scss', slideCustomCss);
   if (brandingProfileId) params.set('profileId', String(brandingProfileId));
   return `/portal/tools/pitch-decks/${id}/slide-preview?${params.toString()}`;
 }

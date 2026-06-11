@@ -1,6 +1,6 @@
 // Per-tenant clients, services, hosted websites, and infrastructure metadata.
 
-import { pgTable, serial, varchar, text, timestamp, boolean, integer, json } from 'drizzle-orm/pg-core';
+import { pgTable, serial, varchar, text, timestamp, boolean, integer, json, uniqueIndex, index } from 'drizzle-orm/pg-core';
 import { users } from './auth';
 import { SurveyField } from './cms';
 
@@ -31,6 +31,13 @@ export const clients = pgTable('clients', {
   // helper grants brain access without requiring an explicit clientServices
   // row. Expired trials simply fall through to the paid-subscription check.
   brainTrialUntil: timestamp('brain_trial_until'),
+  // How this client relates to the feature-domain SKU catalog
+  // (lib/billing/domain-catalog.ts):
+  //   agency — legacy managed client; module gating bypassed entirely.
+  //   saas   — self-serve module subscriptions, prepaid allowances + overage.
+  //   byok   — module subscriptions with own 3rd-party API keys; metered
+  //            COGS that land on their keys are waived.
+  billingMode: varchar('billing_mode', { length: 20 }).default('agency').notNull(),
   // Publishing Command Center — the system-managed kanban project that holds
   // every Publishing card for this client. Set on first visit to
   // /portal/publishing by the bootstrap action. Null = not yet bootstrapped.
@@ -65,7 +72,10 @@ export const clientMembers = pgTable('client_members', {
   role: varchar('role', { length: 20 }).default('member').notNull(), // owner, admin, member, viewer
   invitedBy: integer('invited_by').references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
-});
+}, (t) => [
+  index('client_members_user_idx').on(t.userId),
+  uniqueIndex('client_members_client_user_idx').on(t.clientId, t.userId),
+]);
 
 // GitHub OAuth connections for portal users (repo collaborator access)
 
@@ -96,11 +106,21 @@ export const clientServices = pgTable('client_services', {
   startDate: timestamp('start_date').defaultNow(),
   renewalDate: timestamp('renewal_date'),
   creditsGrantedAt: timestamp('credits_granted_at'), // when last monthly AI credit grant was applied
+  // Stripe Subscription backing this grant when it was purchased self-serve
+  // (module checkout). Null for admin-assigned / legacy rows. Used to cancel
+  // or change the Stripe side when the portal subscription changes.
+  stripeSubscriptionId: varchar('stripe_subscription_id', { length: 255 }),
   notes: text('notes'),
   metadata: json('metadata'), // domain name, server details, etc.
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
-});
+}, (t) => [
+  // E2 perf — admin clients list aggregates per-client active services and
+  // joins to services for MRR; the dashboard subscription stats query also
+  // groups by status.
+  index('client_services_client_status_created_idx').on(t.clientId, t.status, t.createdAt),
+  index('client_services_client_status_idx').on(t.clientId, t.status),
+]);
 
 // ── AI Credit System ──────────────────────────────────────────────────────────
 
@@ -114,7 +134,12 @@ export const serviceRequests = pgTable('service_requests', {
   adminNotes: text('admin_notes'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
-});
+}, (t) => [
+  // E2 perf — admin queue lists pending service requests per client sorted
+  // by createdAt; the dashboard scans by status only.
+  index('service_requests_client_status_created_idx').on(t.clientId, t.status, t.createdAt),
+  index('service_requests_client_status_idx').on(t.clientId, t.status),
+]);
 
 export interface DnsInstruction {
   type: 'A' | 'CNAME' | 'TXT' | 'MX';
@@ -169,7 +194,12 @@ export const clientWebsites = pgTable('client_websites', {
   draftUpdatedBy: integer('draft_updated_by').references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
-});
+}, (t) => [
+  index('client_websites_client_idx').on(t.clientId),
+  index('client_websites_subdomain_idx').on(t.subdomain),
+  // E2 perf — admin/websites list orders by createdAt globally.
+  index('client_websites_created_idx').on(t.createdAt),
+]);
 
 // Multiple custom domains per website
 

@@ -1,6 +1,6 @@
 // Surveys / intake forms with recommendation engine, AI summaries, and partial-response capture.
 
-import { pgTable, serial, varchar, text, timestamp, boolean, integer, json, uniqueIndex } from 'drizzle-orm/pg-core';
+import { pgTable, serial, varchar, text, timestamp, boolean, integer, json, uniqueIndex, index } from 'drizzle-orm/pg-core';
 import { users } from './auth';
 import { clients } from './sites';
 import { brandingProfiles } from './cms';
@@ -47,6 +47,14 @@ export interface SurveyRecommendationConfig {
     forceOfferingKey: string;
   }[];
   hybrid?: SurveyRecommendationHybridRule;
+  /**
+   * Mutually-exclusive outcomes — show ONLY the single winning offering, never
+   * a "secondary" / "also came up" card. Use for binary verdicts (e.g.
+   * pre-qualified vs. declined) where the runner-up is the opposite answer and
+   * showing both contradicts the result. Defaults to on when there are ≤2
+   * offerings (a two-offering survey has no meaningful "also consider").
+   */
+  exclusiveOutcomes?: boolean;
   /** Always-shown bottom card (e.g. "advisory" as a backstop suggestion) */
   alwaysAlsoOfferingKey?: string;
   /** Book-call URL for the primary CTA */
@@ -228,7 +236,10 @@ export const surveys = pgTable('surveys', {
   parentSurveyId: integer('parent_survey_id'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
-});
+}, (t) => [
+  // E2 perf — portal/surveys list filters by clientId ordered by updatedAt desc.
+  index('surveys_client_updated_idx').on(t.clientId, t.updatedAt),
+]);
 
 export const surveyResponses = pgTable('survey_responses', {
   id: serial('id').primaryKey(),

@@ -1,4 +1,4 @@
-import { ResponsiveSettings } from '../responsive';
+import { Breakpoint, ResponsiveSettings } from '../responsive';
 
 export interface BlockStyle {
   backgroundColor?: string;
@@ -105,6 +105,11 @@ export interface BaseBlock {
   style?: BlockStyle;
   /** Per-element styles for blocks with multiple visual elements */
   elementStyles?: Record<string, Partial<BlockStyle>>;
+  /** Per-breakpoint layout style overrides (desktop-first). Layout properties
+   *  (width, height, display, flex, grid, position, etc.) set here override the
+   *  flat `style` object for the given breakpoint. Aesthetic properties (color,
+   *  border, shadow) stay in `style` and are not breakpoint-aware. */
+  responsiveStyle?: Partial<Record<Breakpoint, Partial<BlockStyle>>>;
   /** When true, block cannot be deleted in the editor */
   required?: boolean;
 }

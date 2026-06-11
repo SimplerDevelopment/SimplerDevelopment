@@ -66,6 +66,7 @@ vi.mock('drizzle-orm', () => ({
       raw: (s: string) => ({ op: 'sql.raw', s }),
     },
   ),
+  inArray: (a: unknown, list: unknown[]) => ({ op: 'inArray', a, list }),
 }));
 
 // schema — proxy tables
@@ -82,12 +83,12 @@ vi.mock('@/lib/db/schema', () => {
         },
       },
     );
-  return {
+  return new Proxy({
     abExperiments: wrap('abExperiments'),
     abVariants: wrap('abVariants'),
     abEvents: wrap('abEvents'),
     githubConnections: wrap('githubConnections'),
-  };
+  }, { has: (t, p) => (p in t) || !(p === "then" || p === "__esModule" || p === "default" || typeof p !== "string"), get: (t, p) => (p in t) ? t[p] : ((p === "then" || p === "__esModule" || p === "default" || typeof p !== "string") ? undefined : wrap(p)) });
 });
 
 // ---------------------------------------------------------------------------
@@ -511,7 +512,7 @@ describe('POST /api/portal/experiments/:id/variants', () => {
     expect((await res.json()).error).toBe('invalid_key');
   });
 
-  it('returns 400 when key is empty', async () => {
+  it('auto-generates key "a" when no key is provided', async () => {
     authMock.mockResolvedValue(SESSION);
     authorizeExperimentForUserMock.mockResolvedValue({
       experimentId: 9,
@@ -519,14 +520,18 @@ describe('POST /api/portal/experiments/:id/variants', () => {
       siteId: 2,
       clientId: 3,
     });
+    selectQueue.push([]); // no existing variants → auto-picks 'a'
+    insertReturnQueue.push([{ id: 99, experimentId: 9, key: 'a', label: 'B' }]);
     const res = await variantsRoute.POST(
       makeJsonReq('http://x/api/portal/experiments/9/variants', 'POST', {
         label: 'B',
       }),
       { params: Promise.resolve({ id: '9' }) },
     );
-    expect(res.status).toBe(400);
-    expect((await res.json()).error).toBe('invalid_key');
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.success).toBe(true);
+    expect(insertCalls[0].values).toMatchObject({ key: 'a', label: 'B' });
   });
 
   it('returns 400 when key is too long', async () => {
@@ -548,7 +553,7 @@ describe('POST /api/portal/experiments/:id/variants', () => {
     expect((await res.json()).error).toBe('invalid_key');
   });
 
-  it('returns 400 when label is empty/whitespace', async () => {
+  it('auto-generates label when label is empty/whitespace', async () => {
     authMock.mockResolvedValue(SESSION);
     authorizeExperimentForUserMock.mockResolvedValue({
       experimentId: 9,
@@ -556,6 +561,8 @@ describe('POST /api/portal/experiments/:id/variants', () => {
       siteId: 2,
       clientId: 3,
     });
+    selectQueue.push([]); // no existing variants
+    insertReturnQueue.push([{ id: 77, experimentId: 9, key: 'b', label: 'Variant B' }]);
     const res = await variantsRoute.POST(
       makeJsonReq('http://x/api/portal/experiments/9/variants', 'POST', {
         key: 'b',
@@ -563,8 +570,11 @@ describe('POST /api/portal/experiments/:id/variants', () => {
       }),
       { params: Promise.resolve({ id: '9' }) },
     );
-    expect(res.status).toBe(400);
-    expect((await res.json()).error).toBe('label_required');
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.success).toBe(true);
+    // whitespace label is auto-replaced with generated label "Variant B"
+    expect(insertCalls[0].values).toMatchObject({ key: 'b', label: 'Variant B' });
   });
 
   it('returns 409 when the variant key already exists', async () => {
@@ -575,7 +585,7 @@ describe('POST /api/portal/experiments/:id/variants', () => {
       siteId: 2,
       clientId: 3,
     });
-    selectQueue.push([{ id: 42 }]); // duplicate found
+    selectQueue.push([{ key: 'b' }]); // duplicate found — existing variant with same key
     const res = await variantsRoute.POST(
       makeJsonReq('http://x/api/portal/experiments/9/variants', 'POST', {
         key: 'b',

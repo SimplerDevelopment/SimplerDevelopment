@@ -152,6 +152,8 @@ vi.mock('drizzle-orm', () => ({
       raw: (s: string) => ({ _kind: 'sql-raw', s }),
     },
   ),
+  isNull: (a: unknown) => ({ op: 'isNull', a }),
+  or: (...args: unknown[]) => ({ op: 'or', args: args.filter(Boolean) }),
 }));
 
 // ---------------------------------------------------------------------------
@@ -939,5 +941,509 @@ describe('expandLoopsInContent', () => {
     const andCall = lastSelectCall.whereArg as { args: Array<{ _kind: string; vals?: number[] }> };
     const notIn = andCall.args.find(c => c._kind === 'notInArray');
     expect(notIn?.vals).toContain(42);
+  });
+
+  it('passes pagination context through and expands data-pagination region', async () => {
+    // Queue: data rows, count rows (parallel), then postTypes (empty → no custom fields)
+    queueRows([
+      {
+        id: 1, title: 'P1', slug: 'p1', excerpt: '', coverImage: '',
+        publishedAt: null, postType: 'blog',
+      },
+      {
+        id: 2, title: 'P2', slug: 'p2', excerpt: '', coverImage: '',
+        publishedAt: null, postType: 'blog',
+      },
+    ]);
+    queueRows([{ c: 6 } as unknown as Row]); // count → totalPages=ceil(6/2)=3 → pagination renders
+    // postTypes lookup (returns empty → fetchPostCustomFields short-circuits)
+    queueRows([]);
+    const json = JSON.stringify({
+      blocks: [
+        {
+          id: 'h', type: 'html-render',
+          html: '<li data-loop="posts">{{post.title}}</li>'
+            + '<nav data-pagination><a href="{{pagination.prevUrl}}">prev</a>'
+            + '<span>{{pagination.currentPage}}/{{pagination.totalPages}}</span>'
+            + '<a href="{{pagination.nextUrl}}">next</a></nav>',
+          loop: { source: 'posts', postType: 'blog', limit: 2 },
+        },
+      ],
+    });
+    const out = await expandLoopsInContent(1, json, undefined, { pathname: '/news', page: 2 });
+    const parsed = JSON.parse(out);
+    const html = parsed.blocks[0].html as string;
+    // Loop items substituted
+    expect(html).toContain('P1');
+    expect(html).toContain('P2');
+    // Pagination wrapper expanded — data-pagination attribute stripped
+    expect(html).not.toContain('data-pagination=');
+    // currentPage placeholder filled (page 2 / totalPages 3)
+    expect(html).toContain('2/3');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// fetchPostCustomFields — exercised indirectly via post.fields.X substitution
+// ---------------------------------------------------------------------------
+describe('post.fields.X substitution via fetchPostCustomFields', () => {
+  it('substitutes post.fields.X with typed custom-field values', async () => {
+    // Queue order for fetchLoopItems + fetchPostCustomFields:
+    //   1. data rows   — fetchLoopItems data query (Promise.all[0])
+    //   2. count rows  — fetchLoopItems count query (Promise.all[1], parallel)
+    //   3. postTypes   — fetchPostCustomFields step 1
+    //   4. customFields schema — fetchPostCustomFields step 2
+    //   5. values      — fetchPostCustomFields step 3
+    queueRows([
+      {
+        id: 10, title: 'Product A', slug: 'product-a', excerpt: '', coverImage: '',
+        publishedAt: null, postType: 'product',
+      },
+    ]);
+    queueRows([]); // count query (parallel with data query)
+    // postTypes lookup → returns a row with id
+    queueRows([{ id: 77 } as unknown as Row]);
+    // customFields for postTypeId=77 → two fields
+    queueRows([
+      { id: 101, slug: 'price' } as unknown as Row,
+      { id: 102, slug: 'sku' } as unknown as Row,
+    ]);
+    // postCustomFieldValues for postId=10
+    queueRows([
+      { postId: 10, customFieldId: 101, value: '$99' } as unknown as Row,
+      { postId: 10, customFieldId: 102, value: 'SKU-007' } as unknown as Row,
+    ]);
+    const block: HtmlRenderBlock = {
+      id: 'cf1', type: 'html-render',
+      html: '<li data-loop="posts">[{{post.fields.price}}|{{post.fields.sku}}]</li>',
+      loop: { source: 'posts', postType: 'product' },
+    };
+    const out = await expandHtmlRenderLoops(5, block);
+    expect(out.html).toContain('[$99|SKU-007]');
+  });
+
+  it('resolves post.fields.X to empty string when postType has no schema', async () => {
+    queueRows([
+      {
+        id: 20, title: 'Bare', slug: 'bare', excerpt: '', coverImage: '',
+        publishedAt: null, postType: 'misc',
+      },
+    ]);
+    queueRows([]); // count query (parallel Promise.all)
+    // postTypes lookup returns nothing → fetchPostCustomFields returns empty map
+    queueRows([]);
+    const block: HtmlRenderBlock = {
+      id: 'cf2', type: 'html-render',
+      html: '<li data-loop="posts">[{{post.fields.anything}}]</li>',
+      loop: { source: 'posts', postType: 'misc' },
+    };
+    const out = await expandHtmlRenderLoops(5, block);
+    expect(out.html).toContain('[]');
+  });
+
+  it('resolves post.fields.X to empty string when postType has fields but post has no stored values', async () => {
+    queueRows([
+      {
+        id: 30, title: 'NoVals', slug: 'no-vals', excerpt: '', coverImage: '',
+        publishedAt: null, postType: 'service',
+      },
+    ]);
+    queueRows([]); // count query
+    // postTypes lookup → found
+    queueRows([{ id: 88 } as unknown as Row]);
+    // customFields → one field
+    queueRows([{ id: 201, slug: 'tagline' } as unknown as Row]);
+    // postCustomFieldValues → no rows for this post
+    queueRows([]);
+    const block: HtmlRenderBlock = {
+      id: 'cf3', type: 'html-render',
+      html: '<li data-loop="posts">[{{post.fields.tagline}}]</li>',
+      loop: { source: 'posts', postType: 'service' },
+    };
+    const out = await expandHtmlRenderLoops(5, block);
+    expect(out.html).toContain('[]');
+  });
+
+  it('html-escapes post.fields.X values (e.g. URL in src attribute)', async () => {
+    queueRows([
+      {
+        id: 40, title: 'Img', slug: 'img', excerpt: '', coverImage: '',
+        publishedAt: null, postType: 'gallery',
+      },
+    ]);
+    queueRows([]); // count query
+    queueRows([{ id: 99 } as unknown as Row]);
+    queueRows([{ id: 301, slug: 'img_url' } as unknown as Row]);
+    queueRows([
+      { postId: 40, customFieldId: 301, value: 'https://cdn/x.png?a=1&b=<2>' } as unknown as Row,
+    ]);
+    const block: HtmlRenderBlock = {
+      id: 'cf4', type: 'html-render',
+      html: '<li data-loop="posts"><img src="{{post.fields.img_url}}" /></li>',
+      loop: { source: 'posts', postType: 'gallery' },
+    };
+    const out = await expandHtmlRenderLoops(5, block);
+    expect(out.html).toContain('&amp;');
+    expect(out.html).toContain('&lt;');
+    expect(out.html).not.toContain('&<2>');
+  });
+
+  it('returns empty string for post.fields.X when field slug is not in schema', async () => {
+    queueRows([
+      {
+        id: 50, title: 'Missing', slug: 'missing', excerpt: '', coverImage: '',
+        publishedAt: null, postType: 'thing',
+      },
+    ]);
+    queueRows([]); // count query
+    queueRows([{ id: 55 } as unknown as Row]);
+    queueRows([{ id: 401, slug: 'known_field' } as unknown as Row]);
+    queueRows([]);
+    const block: HtmlRenderBlock = {
+      id: 'cf5', type: 'html-render',
+      html: '<li data-loop="posts">[{{post.fields.unknown_field}}]</li>',
+      loop: { source: 'posts', postType: 'thing' },
+    };
+    const out = await expandHtmlRenderLoops(5, block);
+    expect(out.html).toContain('[]');
+  });
+
+  it('skips fetchPostCustomFields when postIds is empty (no fetched rows)', async () => {
+    // Fetched rows = empty → fetchPostCustomFields exits early (postIds.length === 0).
+    // count query also returns empty (parallel with data query).
+    queueRows([]); // data query
+    queueRows([]); // count query
+    const block: HtmlRenderBlock = {
+      id: 'cf6', type: 'html-render',
+      html: '<li data-loop="posts">[{{post.fields.x}}]</li>',
+      loop: { source: 'posts', postType: 'blog' },
+    };
+    const out = await expandHtmlRenderLoops(5, block);
+    // No rows → loop element dropped
+    expect(out.html).not.toContain('data-loop');
+    expect(out.html).toBe('');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Pagination expansion — buildPageUrl, substitutePaginationVars,
+// substitutePageItem, expandPaginationRegions, and integration via
+// expandHtmlRenderLoops with data-pagination regions
+// ---------------------------------------------------------------------------
+describe('pagination expansion', () => {
+  it('builds a bare pathname for page 1 (no ?page= suffix)', async () => {
+    // Exercise buildPageUrl(pathname, 1) → returns pathname only.
+    // Queue order for fetchLoopItems: data rows first, count rows second
+    // (Promise.all evaluates both queries synchronously so data pops first).
+    queueRows([
+      { id: 1, title: 'A', slug: 'a', excerpt: '', coverImage: '', publishedAt: null, postType: 'blog' },
+      { id: 2, title: 'B', slug: 'b', excerpt: '', coverImage: '', publishedAt: null, postType: 'blog' },
+    ]);
+    // count row: total=5, limit=1 → totalPages=5 → pagination shows
+    queueRows([{ c: 5 } as unknown as Row]);
+    queueRows([]);  // postTypes lookup — empty → no custom fields
+    const block: HtmlRenderBlock = {
+      id: 'pg1', type: 'html-render',
+      html: '<li data-loop="posts">{{post.title}}</li>'
+        + '<nav data-pagination><a href="{{pagination.prevUrl}}">prev</a>'
+        + '<a href="{{pagination.nextUrl}}">next</a>'
+        + '<span>{{pagination.currentPage}}</span>'
+        + '<span>{{pagination.totalPages}}</span></nav>',
+      loop: { source: 'posts', postType: 'blog', limit: 1 },
+    };
+    // page=1 → prevUrl='#', nextUrl=buildPageUrl('/p',2)='/p?page=2'
+    const out = await expandHtmlRenderLoops(1, block, undefined, { pathname: '/p', page: 1 });
+    const html = out.html;
+    expect(html).toContain('href="#"'); // no prev on page 1
+    expect(html).toContain('href="/p?page=2"'); // next URL
+    expect(html).toContain('>1<'); // currentPage
+    // data-pagination attribute stripped
+    expect(html).not.toContain('data-pagination=');
+  });
+
+  it('builds prevUrl for page > 1 (page 1 → bare pathname, page 2 → ?page=2)', async () => {
+    // Queue: data rows, count rows (parallel Promise.all), then postTypes
+    queueRows([
+      { id: 3, title: 'C', slug: 'c', excerpt: '', coverImage: '', publishedAt: null, postType: 'blog' },
+    ]);
+    queueRows([{ c: 5 } as unknown as Row]); // count → totalPages=ceil(5/1)=5
+    queueRows([]); // postTypes lookup
+    const block: HtmlRenderBlock = {
+      id: 'pg2', type: 'html-render',
+      html: '<li data-loop="posts">{{post.title}}</li>'
+        + '<nav data-pagination>'
+        + '<a href="{{pagination.prevUrl}}">prev</a>'
+        + '<a href="{{pagination.nextUrl}}">next</a>'
+        + '</nav>',
+      loop: { source: 'posts', postType: 'blog', limit: 1 },
+    };
+    // page=2, totalPages=5 → hasPrev=true → prevUrl = page 1 → bare pathname
+    const out = await expandHtmlRenderLoops(1, block, undefined, { pathname: '/blog', page: 2 });
+    const html = out.html;
+    expect(html).toContain('href="/blog"'); // prevUrl = page 1 → bare pathname
+    expect(html).toContain('href="/blog?page=3"'); // nextUrl
+  });
+
+  it('preserves extra query params in pagination links', async () => {
+    queueRows([
+      { id: 1, title: 'X', slug: 'x', excerpt: '', coverImage: '', publishedAt: null, postType: 'blog' },
+    ]);
+    queueRows([{ c: 10 } as unknown as Row]);
+    queueRows([]); // postTypes
+    const block: HtmlRenderBlock = {
+      id: 'pg3', type: 'html-render',
+      html: '<li data-loop="posts">{{post.title}}</li>'
+        + '<nav data-pagination><a href="{{pagination.prevUrl}}">p</a>'
+        + '<a href="{{pagination.nextUrl}}">n</a></nav>',
+      loop: { source: 'posts', postType: 'blog', limit: 1 },
+    };
+    const out = await expandHtmlRenderLoops(1, block, undefined, {
+      pathname: '/search',
+      page: 3,
+      extraParams: { q: 'hello world', page: 'ignored' }, // `page` key filtered out
+    });
+    const html = out.html;
+    // prevUrl should contain q=hello+world and page=2
+    expect(html).toContain('q=hello%20world');
+    // next URL should have page=4
+    expect(html).toContain('page=4');
+  });
+
+  it('removes pagination element when totalPages <= 1', async () => {
+    queueRows([
+      { id: 1, title: 'Only', slug: 'only', excerpt: '', coverImage: '', publishedAt: null, postType: 'blog' },
+    ]);
+    // count returns 0 → totalPages=1 → pagination removed
+    queueRows([]);  // postTypes
+    const block: HtmlRenderBlock = {
+      id: 'pg4', type: 'html-render',
+      html: '<li data-loop="posts">{{post.title}}</li>'
+        + '<nav data-pagination><span>{{pagination.currentPage}}</span></nav>',
+      loop: { source: 'posts', postType: 'blog', limit: 5 },
+    };
+    const out = await expandHtmlRenderLoops(1, block, undefined, { pathname: '/p', page: 1 });
+    expect(out.html).not.toContain('<nav');
+    expect(out.html).not.toContain('data-pagination');
+    expect(out.html).toContain('Only');
+  });
+
+  it('substitutes hasPrev and hasNext as "true" or empty string', async () => {
+    queueRows([
+      { id: 1, title: 'A', slug: 'a', excerpt: '', coverImage: '', publishedAt: null, postType: 'blog' },
+    ]);
+    queueRows([{ c: 10 } as unknown as Row]);
+    queueRows([]); // postTypes
+    const block: HtmlRenderBlock = {
+      id: 'pg5', type: 'html-render',
+      html: '<li data-loop="posts">x</li>'
+        + '<nav data-pagination>'
+        + '<span data-has-prev="{{pagination.hasPrev}}">p</span>'
+        + '<span data-has-next="{{pagination.hasNext}}">n</span>'
+        + '<span>{{pagination.currentUrl}}</span>'
+        + '</nav>',
+      loop: { source: 'posts', postType: 'blog', limit: 1 },
+    };
+    const out = await expandHtmlRenderLoops(1, block, undefined, { pathname: '/items', page: 3 });
+    const html = out.html;
+    expect(html).toContain('data-has-prev="true"');
+    expect(html).toContain('data-has-next="true"');
+    // currentUrl for page=3 on /items
+    expect(html).toContain('/items?page=3');
+  });
+
+  it('hasPrev is empty string on page 1', async () => {
+    queueRows([
+      { id: 1, title: 'A', slug: 'a', excerpt: '', coverImage: '', publishedAt: null, postType: 'blog' },
+    ]);
+    queueRows([{ c: 10 } as unknown as Row]);
+    queueRows([]); // postTypes
+    const block: HtmlRenderBlock = {
+      id: 'pg6', type: 'html-render',
+      html: '<li data-loop="posts">x</li>'
+        + '<nav data-pagination>'
+        + '<span data-has-prev="{{pagination.hasPrev}}">p</span>'
+        + '<span data-has-next="{{pagination.hasNext}}">n</span>'
+        + '</nav>',
+      loop: { source: 'posts', postType: 'blog', limit: 1 },
+    };
+    const out = await expandHtmlRenderLoops(1, block, undefined, { pathname: '/items', page: 1 });
+    const html = out.html;
+    expect(html).toContain('data-has-prev=""');
+    expect(html).toContain('data-has-next="true"');
+  });
+
+  it('substitutes unknown pagination.X placeholders with empty string', async () => {
+    queueRows([
+      { id: 1, title: 'A', slug: 'a', excerpt: '', coverImage: '', publishedAt: null, postType: 'blog' },
+    ]);
+    queueRows([{ c: 5 } as unknown as Row]);
+    queueRows([]); // postTypes
+    const block: HtmlRenderBlock = {
+      id: 'pg7', type: 'html-render',
+      html: '<li data-loop="posts">x</li>'
+        + '<nav data-pagination><span>{{pagination.bogusKey}}</span></nav>',
+      loop: { source: 'posts', postType: 'blog', limit: 1 },
+    };
+    const out = await expandHtmlRenderLoops(1, block, undefined, { pathname: '/x', page: 2 });
+    expect(out.html).toContain('<span></span>');
+  });
+
+  it('expands data-pagination-pages template with per-page links', async () => {
+    queueRows([
+      { id: 1, title: 'A', slug: 'a', excerpt: '', coverImage: '', publishedAt: null, postType: 'blog' },
+    ]);
+    queueRows([{ c: 3 } as unknown as Row]); // 3 total, limit=1 → 3 pages
+    queueRows([]); // postTypes
+    const block: HtmlRenderBlock = {
+      id: 'pg8', type: 'html-render',
+      html: '<li data-loop="posts">{{post.title}}</li>'
+        + '<nav data-pagination>'
+        + '<ol data-pagination-pages>'
+        + '<li><a href="{{page.url}}">{{page.number}}</a></li>'
+        + '</ol>'
+        + '</nav>',
+      loop: { source: 'posts', postType: 'blog', limit: 1 },
+    };
+    const out = await expandHtmlRenderLoops(1, block, undefined, { pathname: '/pg', page: 2 });
+    const html = out.html;
+    // 3 pages → 3 page-link hrefs generated (page 1 bare, 2 and 3 with ?page=)
+    // Note: the current page (2) gets is-current class injected, so we match
+    // on href content rather than bare <li> tags.
+    expect(html).toContain('href="/pg"');       // page 1 → bare path
+    expect(html).toContain('href="/pg?page=2"'); // page 2 (current)
+    expect(html).toContain('href="/pg?page=3"'); // page 3
+    // data-pagination-pages attr stripped
+    expect(html).not.toContain('data-pagination-pages');
+  });
+
+  it('adds is-current class to the current page item when it has no class attr', async () => {
+    queueRows([
+      { id: 1, title: 'A', slug: 'a', excerpt: '', coverImage: '', publishedAt: null, postType: 'blog' },
+    ]);
+    queueRows([{ c: 2 } as unknown as Row]); // 2 total, limit=1 → 2 pages
+    queueRows([]);
+    const block: HtmlRenderBlock = {
+      id: 'pg9', type: 'html-render',
+      html: '<li data-loop="posts">x</li>'
+        + '<nav data-pagination>'
+        + '<ol data-pagination-pages>'
+        + '<li><a href="{{page.url}}">{{page.number}}</a></li>'
+        + '</ol>'
+        + '</nav>',
+      loop: { source: 'posts', postType: 'blog', limit: 1 },
+    };
+    const out = await expandHtmlRenderLoops(1, block, undefined, { pathname: '/x', page: 1 });
+    // Page 1 is current — first <li> inside ol should get is-current class
+    expect(out.html).toContain('class="is-current"');
+    // page.isCurrent for page 1 = 'true', page 2 = ''
+    expect(out.html).toContain('>1<');
+    expect(out.html).toContain('>2<');
+  });
+
+  it('merges is-current into an existing class attribute on the current page item', async () => {
+    queueRows([
+      { id: 1, title: 'A', slug: 'a', excerpt: '', coverImage: '', publishedAt: null, postType: 'blog' },
+    ]);
+    queueRows([{ c: 2 } as unknown as Row]);
+    queueRows([]);
+    const block: HtmlRenderBlock = {
+      id: 'pg10', type: 'html-render',
+      html: '<li data-loop="posts">x</li>'
+        + '<nav data-pagination>'
+        + '<ol data-pagination-pages>'
+        + '<li class="page-btn"><a href="{{page.url}}">{{page.number}}</a></li>'
+        + '</ol>'
+        + '</nav>',
+      loop: { source: 'posts', postType: 'blog', limit: 1 },
+    };
+    const out = await expandHtmlRenderLoops(1, block, undefined, { pathname: '/x', page: 1 });
+    expect(out.html).toContain('class="page-btn is-current"');
+  });
+
+  it('uses pathname "/" as fallback when no pagination context provided but data-pagination present', async () => {
+    queueRows([
+      { id: 1, title: 'A', slug: 'a', excerpt: '', coverImage: '', publishedAt: null, postType: 'blog' },
+    ]);
+    queueRows([{ c: 5 } as unknown as Row]);
+    queueRows([]);
+    const block: HtmlRenderBlock = {
+      id: 'pg11', type: 'html-render',
+      html: '<li data-loop="posts">{{post.title}}</li>'
+        + '<nav data-pagination><a href="{{pagination.nextUrl}}">next</a></nav>',
+      loop: { source: 'posts', postType: 'blog', limit: 1 },
+    };
+    // No pagination context passed → defaults to page=1, pathname='/'
+    const out = await expandHtmlRenderLoops(1, block);
+    const html = out.html;
+    // nextUrl for page 1 on '/' → '/?page=2'
+    expect(html).toContain('href="/?page=2"');
+  });
+
+  it('page.isCurrent placeholder resolves to empty string for non-current pages', async () => {
+    queueRows([
+      { id: 1, title: 'A', slug: 'a', excerpt: '', coverImage: '', publishedAt: null, postType: 'blog' },
+    ]);
+    queueRows([{ c: 3 } as unknown as Row]);
+    queueRows([]);
+    const block: HtmlRenderBlock = {
+      id: 'pg12', type: 'html-render',
+      html: '<li data-loop="posts">x</li>'
+        + '<nav data-pagination>'
+        + '<ol data-pagination-pages>'
+        + '<li data-current="{{page.isCurrent}}">{{page.number}}</li>'
+        + '</ol>'
+        + '</nav>',
+      loop: { source: 'posts', postType: 'blog', limit: 1 },
+    };
+    const out = await expandHtmlRenderLoops(1, block, undefined, { pathname: '/x', page: 2 });
+    const html = out.html;
+    // Page 2 is current
+    expect(html).toContain('data-current="true"');
+    // Pages 1 and 3 have empty isCurrent
+    const dataCurrentMatches = html.match(/data-current="([^"]*)"/g) || [];
+    const emptyCount = dataCurrentMatches.filter(m => m === 'data-current=""').length;
+    expect(emptyCount).toBe(2);
+  });
+
+  it('page.bogusKey resolves to empty string via default switch arm', async () => {
+    queueRows([
+      { id: 1, title: 'A', slug: 'a', excerpt: '', coverImage: '', publishedAt: null, postType: 'blog' },
+    ]);
+    queueRows([{ c: 2 } as unknown as Row]);
+    queueRows([]);
+    const block: HtmlRenderBlock = {
+      id: 'pg13', type: 'html-render',
+      html: '<li data-loop="posts">x</li>'
+        + '<nav data-pagination>'
+        + '<ol data-pagination-pages>'
+        + '<li>{{page.bogusKey}}</li>'
+        + '</ol>'
+        + '</nav>',
+      loop: { source: 'posts', postType: 'blog', limit: 1 },
+    };
+    const out = await expandHtmlRenderLoops(1, block, undefined, { pathname: '/x', page: 1 });
+    // bogusKey → '' for all page items. Page 1 (current) gets is-current class,
+    // page 2 stays as bare <li></li>. Both have empty content from bogusKey.
+    // Assert the output contains no rendered placeholder text.
+    expect(out.html).not.toContain('bogusKey');
+    // 2 pages generated (1 with is-current, 1 without)
+    const pageItems = out.html.match(/<li[^>]*><\/li>/g) || [];
+    expect(pageItems.length).toBe(2);
+  });
+
+  it('pagination-only block (no data-loop region) still expands data-pagination', async () => {
+    // Block has a data-pagination region but no data-loop — regions.length=0 but
+    // paginationRegions.length>0, so it should still fetch and expand.
+    queueRows([]); // data rows (no loop region → fetchLoopItems still runs for total)
+    queueRows([{ c: 8 } as unknown as Row]);
+    queueRows([]); // postTypes
+    const block: HtmlRenderBlock = {
+      id: 'pg14', type: 'html-render',
+      html: '<nav data-pagination><span>{{pagination.totalPages}}</span></nav>',
+      loop: { source: 'posts', postType: 'blog', limit: 2 },
+    };
+    const out = await expandHtmlRenderLoops(1, block, undefined, { pathname: '/x', page: 1 });
+    // totalPages = ceil(8/2) = 4
+    expect(out.html).toContain('>4<');
   });
 });

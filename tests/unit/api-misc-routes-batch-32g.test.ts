@@ -65,6 +65,8 @@ vi.mock('drizzle-orm', () => ({
       raw: (s: string) => ({ op: 'sql.raw', s }),
     },
   ),
+  isNull: (a: unknown) => ({ op: 'isNull', a }),
+  inArray: (a: unknown, list: unknown[]) => ({ op: 'inArray', a, list }),
 }));
 
 // schema — proxy tables.
@@ -81,7 +83,7 @@ vi.mock('@/lib/db/schema', () => {
         },
       },
     );
-  return {
+  return new Proxy({
     supportTickets: wrap('supportTickets'),
     ticketMessages: wrap('ticketMessages'),
     clientMembers: wrap('clientMembers'),
@@ -89,7 +91,7 @@ vi.mock('@/lib/db/schema', () => {
     users: wrap('users'),
     bookingPages: wrap('bookingPages'),
     bookingAddOns: wrap('bookingAddOns'),
-  };
+  }, { has: (t, p) => (p in t) || !(p === "then" || p === "__esModule" || p === "default" || typeof p !== "string"), get: (t, p) => (p in t) ? t[p] : ((p === "then" || p === "__esModule" || p === "default" || typeof p !== "string") ? undefined : wrap(p)) });
 });
 
 // ---------------------------------------------------------------------------
@@ -472,7 +474,8 @@ describe('POST /api/portal/tickets/[id]/messages', () => {
   it('does not advance ticket status when not in matching state', async () => {
     authMock.mockResolvedValue(STAFF_SESSION);
     insertReturnQueue.push([{ id: 300, ticketId: 5 }]);
-    selectQueue.push([{ id: 5, status: 'closed' }]); // post-insert: status closed
+    // firstResponseAt already set → SLA timer won't fire; status closed → no status advance
+    selectQueue.push([{ id: 5, status: 'closed', firstResponseAt: new Date() }]);
 
     const res = await ticketMessagesRoute.POST(
       makeJsonReq('http://x/a', 'POST', { body: 'note' }),

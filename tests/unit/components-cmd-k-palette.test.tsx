@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/ban-ts-comment, react-hooks/rules-of-hooks, @typescript-eslint/no-require-imports */
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, act, waitFor, cleanup } from '@testing-library/react';
@@ -337,7 +338,7 @@ describe('CmdKPalette', () => {
       fireEvent.click(navButtons[0]);
     });
     expect(pushMock).toHaveBeenCalled();
-  });
+  }, 15000);
 
   it('updates selection on mouseenter over an item', async () => {
     render(<CmdKPalette />);

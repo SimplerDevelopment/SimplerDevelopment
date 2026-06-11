@@ -51,6 +51,8 @@ vi.mock('drizzle-orm', () => ({
       raw: (s: string) => ({ op: 'sql.raw', s }),
     },
   ),
+  isNull: (a: unknown) => ({ op: 'isNull', a }),
+  inArray: (a: unknown, list: unknown[]) => ({ op: 'inArray', a, list }),
 }));
 
 // schema — proxy tables.
@@ -67,12 +69,12 @@ vi.mock('@/lib/db/schema', () => {
         },
       },
     );
-  return {
+  return new Proxy({
     siteSnapshots: wrap('siteSnapshots'),
     sprints: wrap('sprints'),
     projects: wrap('projects'),
     kanbanCards: wrap('kanbanCards'),
-  };
+  }, { has: (t, p) => (p in t) || !(p === "then" || p === "__esModule" || p === "default" || typeof p !== "string"), get: (t, p) => (p in t) ? t[p] : ((p === "then" || p === "__esModule" || p === "default" || typeof p !== "string") ? undefined : wrap(p)) });
 });
 
 // ---------------------------------------------------------------------------
@@ -710,6 +712,7 @@ describe('POST /api/portal/sprints/[id]/card-order', () => {
     selectQueue.push([{ id: 9, projectId: 1 }]); // sprint
     getPortalClientMock.mockResolvedValue({ id: 5 });
     selectQueue.push([{ id: 1, clientId: 5, isPrivate: true }]); // project private + owned
+    selectQueue.push([{ role: 'owner' }]); // projectMembers → canUserEditProject → true
     const res = await cardOrderRoute.POST(
       makeJsonReq('http://x/api/portal/sprints/9/card-order', 'POST', {
         cardIds: [10, 11],

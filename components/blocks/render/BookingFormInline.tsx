@@ -106,6 +106,8 @@ export interface BookingFormInlineProps {
     buttonText?: string;
     buttonBorderRadius?: string;
     borderRadius?: string;
+    calendarDateColor?: string;
+    calendarDateBg?: string;
   };
 }
 
@@ -253,6 +255,7 @@ export function BookingFormInline({
   // Refetch slots when staff changes
   useEffect(() => {
     if (selectedDate) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: clear the chosen slot when the staff filter changes
       setSelectedSlot(null);
       fetchSlots(selectedDate);
     }
@@ -411,7 +414,7 @@ export function BookingFormInline({
     if (!slot || !slot.enabled) return false;
     const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
     if (date < todayStart) return false;
-    const nowMs = Date.now();
+    const nowMs = today.getTime(); // reuse render-stable `today` instead of impure Date.now()
     const dateMs = date.getTime();
     if (dateMs - nowMs < pageInfo.minNoticeMins * 60 * 1000 - 24 * 60 * 60 * 1000) return false;
     const maxDate = new Date(todayStart);
@@ -460,6 +463,12 @@ export function BookingFormInline({
   const secondaryColor = b?.secondaryColor;
   const formBg = so?.formBg;
   const inputBg = so?.inputBg;
+  // Calendar day-grid colors. Date text falls back to the general text color so
+  // a dark card stays legible even without a calendar-specific override; the
+  // cell background falls back to a translucent accent tint.
+  const calDateColor = so?.calendarDateColor || textColor;
+  const calDateBg = so?.calendarDateBg || (accent + '10');
+  const calDateHoverBg = so?.calendarDateBg ? `${so.calendarDateBg}cc` : (accent + '25');
 
   const headingStyle: React.CSSProperties | undefined = headingFont
     ? { fontFamily: `"${headingFont}", sans-serif` }
@@ -629,7 +638,7 @@ export function BookingFormInline({
                 className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-300 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
                 <span className="material-icons">chevron_left</span>
               </button>
-              <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+              <span className="text-sm font-semibold text-gray-900 dark:text-gray-100" style={calDateColor ? { color: calDateColor } : undefined}>
                 {MONTH_NAMES[calMonth]} {calYear}
               </span>
               <button onClick={nextMonth}
@@ -639,7 +648,7 @@ export function BookingFormInline({
             </div>
             <div className="grid grid-cols-7 mb-1">
               {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((d) => (
-                <div key={d} className="text-center text-xs font-medium text-gray-400 dark:text-gray-500 py-1">{d}</div>
+                <div key={d} className="text-center text-xs font-medium text-gray-400 dark:text-gray-500 py-1" style={calDateColor ? { color: calDateColor, opacity: 0.65 } : undefined}>{d}</div>
               ))}
             </div>
             <div className="grid grid-cols-7 gap-1">
@@ -652,9 +661,9 @@ export function BookingFormInline({
                 return (
                   <button key={day} onClick={() => available && handleDateSelect(dateStr)} disabled={!available}
                     className={`h-10 rounded-lg text-sm font-medium transition-all ${available ? 'hover:shadow-sm cursor-pointer text-gray-900 dark:text-gray-100' : 'text-gray-300 dark:text-gray-700 cursor-not-allowed'} ${isToday ? 'ring-1 ring-gray-300 dark:ring-gray-600' : ''}`}
-                    style={available ? { backgroundColor: accent + '10' } : undefined}
-                    onMouseEnter={(e) => { if (available) e.currentTarget.style.backgroundColor = accent + '25'; }}
-                    onMouseLeave={(e) => { if (available) e.currentTarget.style.backgroundColor = accent + '10'; }}
+                    style={available ? { backgroundColor: calDateBg, ...(calDateColor ? { color: calDateColor } : {}) } : undefined}
+                    onMouseEnter={(e) => { if (available) e.currentTarget.style.backgroundColor = calDateHoverBg; }}
+                    onMouseLeave={(e) => { if (available) e.currentTarget.style.backgroundColor = calDateBg; }}
                   >{day}</button>
                 );
               })}
