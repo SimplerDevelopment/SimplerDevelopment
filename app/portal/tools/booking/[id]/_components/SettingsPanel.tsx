@@ -34,6 +34,23 @@ interface SettingsPanelProps {
   setConferenceType: (v: string) => void;
   thumbnail: string;
   setThumbnail: (v: string) => void;
+  // Monetization
+  price: number | null;
+  setPrice: (v: number | null) => void;
+  priceLabel: string;
+  setPriceLabel: (v: string) => void;
+  enableAddOns: boolean;
+  setEnableAddOns: (v: boolean) => void;
+  enableGiftCertificates: boolean;
+  setEnableGiftCertificates: (v: boolean) => void;
+  enableDiscountCodes: boolean;
+  setEnableDiscountCodes: (v: boolean) => void;
+  enableWaivers: boolean;
+  setEnableWaivers: (v: boolean) => void;
+  waiverContent: string;
+  setWaiverContent: (v: string) => void;
+  requireWaiverBeforeBooking: boolean;
+  setRequireWaiverBeforeBooking: (v: boolean) => void;
   deleteConfirm: boolean;
   setDeleteConfirm: (v: boolean) => void;
   onDelete: () => void;
@@ -69,6 +86,22 @@ export function SettingsPanel(props: SettingsPanelProps) {
     setConferenceType,
     thumbnail,
     setThumbnail,
+    price,
+    setPrice,
+    priceLabel,
+    setPriceLabel,
+    enableAddOns,
+    setEnableAddOns,
+    enableGiftCertificates,
+    setEnableGiftCertificates,
+    enableDiscountCodes,
+    setEnableDiscountCodes,
+    enableWaivers,
+    setEnableWaivers,
+    waiverContent,
+    setWaiverContent,
+    requireWaiverBeforeBooking,
+    setRequireWaiverBeforeBooking,
     deleteConfirm,
     setDeleteConfirm,
     onDelete,
@@ -235,6 +268,162 @@ export function SettingsPanel(props: SettingsPanelProps) {
           label="Select Thumbnail"
           apiEndpoint="/api/portal/media"
         />
+      </div>
+
+      {/* Payments & Waivers */}
+      <div className="border-t border-border pt-5">
+        <h3 className="text-sm font-medium text-foreground mb-3 flex items-center gap-2">
+          <span className="material-icons text-lg">payments</span>
+          Payments &amp; Waivers
+        </h3>
+        <p className="text-xs text-muted-foreground mb-4">
+          Charge for bookings, require a deposit, collect e-signatures, and accept gift certificates or discount codes.
+        </p>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          {/* Price */}
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1.5">Price</label>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">$</span>
+              <input
+                type="number"
+                min={0}
+                step={0.01}
+                value={price ?? ''}
+                onChange={(e) => setPrice(e.target.value === '' ? null : parseFloat(e.target.value))}
+                placeholder="0.00"
+                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
+              />
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">Leave blank for free bookings</p>
+          </div>
+
+          {/* Price label */}
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1.5">Price Label</label>
+            <input
+              type="text"
+              value={priceLabel}
+              onChange={(e) => setPriceLabel(e.target.value)}
+              placeholder="e.g. Per session"
+              className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
+            />
+            <p className="text-xs text-muted-foreground mt-1">Short label shown next to the price</p>
+          </div>
+        </div>
+
+        {/* Payment feature toggles */}
+        <div className="mt-4 space-y-3">
+          {(
+            [
+              {
+                label: 'Accept gift certificates',
+                desc: 'Allow customers to redeem gift certificates at checkout',
+                value: enableGiftCertificates,
+                set: setEnableGiftCertificates,
+                icon: 'card_giftcard',
+              },
+              {
+                label: 'Accept discount codes',
+                desc: 'Allow customers to enter promo/discount codes',
+                value: enableDiscountCodes,
+                set: setEnableDiscountCodes,
+                icon: 'local_offer',
+              },
+              {
+                label: 'Enable add-ons',
+                desc: 'Let customers purchase optional add-ons with their booking',
+                value: enableAddOns,
+                set: setEnableAddOns,
+                icon: 'add_shopping_cart',
+              },
+            ] as const
+          ).map((item) => (
+            <div key={item.label} className="flex items-start justify-between gap-4 p-3 bg-muted/30 rounded-lg">
+              <div className="flex items-start gap-2">
+                <span className="material-icons text-lg text-muted-foreground mt-0.5">{item.icon}</span>
+                <div>
+                  <p className="text-sm font-medium text-foreground">{item.label}</p>
+                  <p className="text-xs text-muted-foreground">{item.desc}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => item.set(!item.value)}
+                className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors ${
+                  item.value ? 'bg-primary' : 'bg-gray-300 dark:bg-gray-600'
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    item.value ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+            </div>
+          ))}
+        </div>
+
+        {/* Waivers */}
+        <div className="mt-4 p-3 bg-muted/30 rounded-lg space-y-3">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-start gap-2">
+              <span className="material-icons text-lg text-muted-foreground mt-0.5">draw</span>
+              <div>
+                <p className="text-sm font-medium text-foreground">Require waiver / e-signature</p>
+                <p className="text-xs text-muted-foreground">Customers must sign before their booking is confirmed</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setEnableWaivers(!enableWaivers)}
+              className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors ${
+                enableWaivers ? 'bg-primary' : 'bg-gray-300 dark:bg-gray-600'
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  enableWaivers ? 'translate-x-6' : 'translate-x-1'
+                }`}
+              />
+            </button>
+          </div>
+
+          {enableWaivers && (
+            <div className="space-y-3 pt-2 border-t border-border">
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1.5">Waiver Text</label>
+                <textarea
+                  value={waiverContent}
+                  onChange={(e) => setWaiverContent(e.target.value)}
+                  rows={5}
+                  placeholder="Enter the waiver / liability text that customers must agree to..."
+                  className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary resize-none text-sm"
+                />
+              </div>
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm font-medium text-foreground">Block booking until signed</p>
+                  <p className="text-xs text-muted-foreground">Prevent confirmation until the waiver is e-signed</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setRequireWaiverBeforeBooking(!requireWaiverBeforeBooking)}
+                  className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors ${
+                    requireWaiverBeforeBooking ? 'bg-primary' : 'bg-gray-300 dark:bg-gray-600'
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      requireWaiverBeforeBooking ? 'translate-x-6' : 'translate-x-1'
+                    }`}
+                  />
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Danger zone */}
