@@ -56,6 +56,7 @@ vi.mock('@/lib/db/schema', () => {
     suggestedProjects: wrap('suggestedProjects'),
     clientWebsites: wrap('clientWebsites'),
     categories: wrap('categories'),
+    storeSettings: wrap('storeSettings'),
   }, { has: (t, p) => (p in t) || !(p === "then" || p === "__esModule" || p === "default" || typeof p !== "string"), get: (t, p) => (p in t) ? t[p] : ((p === "then" || p === "__esModule" || p === "default" || typeof p !== "string") ? undefined : wrap(p)) });
 });
 

@@ -66,6 +66,9 @@ vi.mock('@/lib/db/schema', () => {
     products: wrap('products'),
     productOptions: wrap('productOptions'),
     productOptionValues: wrap('productOptionValues'),
+    oauthAccessTokens: wrap('oauthAccessTokens'),
+    oauthClients: wrap('oauthClients'),
+    portalApiKeys: wrap('portalApiKeys'),
   }, { has: (t, p) => (p in t) || !(p === "then" || p === "__esModule" || p === "default" || typeof p !== "string"), get: (t, p) => (p in t) ? t[p] : ((p === "then" || p === "__esModule" || p === "default" || typeof p !== "string") ? undefined : new Proxy({ __table: String(p) }, { get: (_x, c) => c === "__table" ? String(p) : (typeof c === "string" ? { __col: c, __table: String(p) } : undefined) })) });
 });
 

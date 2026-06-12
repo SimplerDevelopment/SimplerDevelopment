@@ -98,6 +98,8 @@ vi.mock('@/lib/db/schema', () => {
     projects: wrap('projects'),
     projectWebhooks: wrap('projectWebhooks'),
     bookings: wrap('bookings'),
+    brainNotes: wrap('brainNotes'),
+    posts: wrap('posts'),
   }, { has: (t, p) => (p in t) || !(p === "then" || p === "__esModule" || p === "default" || typeof p !== "string"), get: (t, p) => (p in t) ? t[p] : ((p === "then" || p === "__esModule" || p === "default" || typeof p !== "string") ? undefined : wrap(p)) });
 });
 

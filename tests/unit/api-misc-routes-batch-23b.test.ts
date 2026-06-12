@@ -50,6 +50,7 @@ vi.mock('@/lib/db/schema', () => {
   return new Proxy({
     emailCampaigns: wrap('emailCampaigns'),
     emailCampaignSends: wrap('emailCampaignSends'),
+    emailSubscribers: wrap('emailSubscribers'),
     crmSavedViews: wrap('crmSavedViews'),
     crmScoringRules: wrap('crmScoringRules'),
     sprints: wrap('sprints'),

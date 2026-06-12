@@ -52,6 +52,9 @@ vi.mock('@/lib/db/schema', () => {
     productOptionValues: wrap('productOptionValues'),
     productVariants: wrap('productVariants'),
     storeSettings: wrap('storeSettings'),
+    oauthAccessTokens: wrap('oauthAccessTokens'),
+    oauthClients: wrap('oauthClients'),
+    portalApiKeys: wrap('portalApiKeys'),
   }, { has: (t, p) => (p in t) || !(p === "then" || p === "__esModule" || p === "default" || typeof p !== "string"), get: (t, p) => (p in t) ? t[p] : ((p === "then" || p === "__esModule" || p === "default" || typeof p !== "string") ? undefined : wrap(p)) });
 });
 

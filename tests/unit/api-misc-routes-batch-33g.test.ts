@@ -26,8 +26,10 @@ vi.mock('@/lib/auth', () => ({
 }));
 
 const getPortalClientMock = vi.fn();
+const resolvePortalSiteMock = vi.fn();
 vi.mock('@/lib/portal-client', () => ({
   getPortalClient: (...args: unknown[]) => getPortalClientMock(...args),
+  resolvePortalSite: (...args: unknown[]) => resolvePortalSiteMock(...args),
 }));
 
 const removeDomainMock = vi.fn();

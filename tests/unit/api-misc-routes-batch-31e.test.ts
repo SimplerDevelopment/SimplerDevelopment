@@ -101,6 +101,9 @@ vi.mock('@/lib/db/schema', () => {
     clientWebsites: wrap('clientWebsites'),
     hostedSites: wrap('hostedSites'),
     clientApiKeys: wrap('clientApiKeys'),
+    oauthAccessTokens: wrap('oauthAccessTokens'),
+    oauthClients: wrap('oauthClients'),
+    portalApiKeys: wrap('portalApiKeys'),
   }, { has: (t, p) => (p in t) || !(p === "then" || p === "__esModule" || p === "default" || typeof p !== "string"), get: (t, p) => (p in t) ? t[p] : ((p === "then" || p === "__esModule" || p === "default" || typeof p !== "string") ? undefined : wrap(p)) });
 });
 

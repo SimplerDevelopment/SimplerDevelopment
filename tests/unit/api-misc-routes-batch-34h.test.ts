@@ -55,6 +55,10 @@ vi.mock('@/lib/db/schema', () => {
     storeSettings: wrap('storeSettings'),
     chatConversations: wrap('chatConversations'),
     chatMessages: wrap('chatMessages'),
+    projects: wrap('projects'),
+    oauthAccessTokens: wrap('oauthAccessTokens'),
+    oauthClients: wrap('oauthClients'),
+    portalApiKeys: wrap('portalApiKeys'),
   }, { has: (t, p) => (p in t) || !(p === "then" || p === "__esModule" || p === "default" || typeof p !== "string"), get: (t, p) => (p in t) ? t[p] : ((p === "then" || p === "__esModule" || p === "default" || typeof p !== "string") ? undefined : wrap(p)) });
 });
 
