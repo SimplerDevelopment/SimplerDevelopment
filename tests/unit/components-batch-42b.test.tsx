@@ -10,8 +10,8 @@ import { render, screen, fireEvent, act, waitFor } from '@testing-library/react'
 // framer-motion -> passthrough so FadeIn/SlideIn inside ContactForm don't
 // try to animate / measure DOM in jsdom.
 vi.mock('framer-motion', () => {
-  const passthrough = (tag: string) =>
-    function MotionMock({ children, className, style, ...rest }: any) {
+  const passthrough = (tag: string): React.FC<{ children?: React.ReactNode; className?: string; style?: React.CSSProperties; [key: string]: unknown }> =>
+    function MotionMock({ children, className, style, ...rest }: { children?: React.ReactNode; className?: string; style?: React.CSSProperties; [key: string]: unknown }) {
       const {
         whileHover: _wh,
         whileTap: _wt,
@@ -31,38 +31,38 @@ vi.mock('framer-motion', () => {
         children,
       );
     };
-  const motion: any = new Proxy(
+  const motion: Record<string, unknown> = new Proxy(
     {},
-    { get: (_t, prop: string) => passthrough(prop) },
+    { get: (_t: object, prop: string) => passthrough(prop) },
   );
-  return { motion, AnimatePresence: ({ children }: any) => children };
+  return { motion, AnimatePresence: ({ children }: { children?: React.ReactNode }) => children };
 });
 
 // Animations pass through so we can find children without an IntersectionObserver
 vi.mock('@/components/animations/FadeIn', () => ({
-  FadeIn: ({ children }: any) => React.createElement('div', { 'data-anim': 'fade' }, children),
+  FadeIn: ({ children }: { children?: React.ReactNode }) => React.createElement('div', { 'data-anim': 'fade' }, children),
 }));
 vi.mock('@/components/animations/SlideIn', () => ({
-  SlideIn: ({ children }: any) => React.createElement('div', { 'data-anim': 'slide' }, children),
+  SlideIn: ({ children }: { children?: React.ReactNode }) => React.createElement('div', { 'data-anim': 'slide' }, children),
 }));
 
 // Button mock — render a real <button> with passed props
 vi.mock('@/components/ui/Button', () => ({
-  Button: ({ children, ...rest }: any) =>
+  Button: ({ children, ...rest }: { children?: React.ReactNode; [key: string]: unknown }) =>
     React.createElement('button', rest, children),
 }));
 
 // BlockRenderer mock — just print a sentinel so SlideBlockWrapper test can
 // verify the props it receives without pulling in the full block registry.
 vi.mock('@/components/blocks/render/BlockRenderer', () => ({
-  BlockRenderer: ({ content }: any) =>
+  BlockRenderer: ({ content }: { content?: string }) =>
     React.createElement('div', { 'data-testid': 'block-renderer', 'data-content': content }),
 }));
 
 // next/link -> plain anchor
 vi.mock('next/link', () => ({
   __esModule: true,
-  default: ({ children, href, ...rest }: any) =>
+  default: ({ children, href, ...rest }: { children?: React.ReactNode; href?: string; [key: string]: unknown }) =>
     React.createElement('a', { href, ...rest }, children),
 }));
 
@@ -80,7 +80,7 @@ import GraphHoverBacklinks from '@/components/brain/GraphHoverBacklinks';
 describe('ContactForm', () => {
   beforeEach(() => {
     // Provide a default fetch mock; individual tests override.
-    (global as any).fetch = vi.fn().mockResolvedValue({
+    (global as Record<string, unknown>).fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({}),
     });
@@ -108,9 +108,9 @@ describe('ContactForm', () => {
     expect(screen.getByText(/message must be at least 10 characters/i)).toBeTruthy();
   });
 
-  it('submits to the n8n webhook and shows success message on 2xx', async () => {
+  it('submits to /api/contact and shows success message on 2xx', async () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
-    (global as any).fetch = fetchMock;
+    (global as Record<string, unknown>).fetch = fetchMock;
 
     render(<ContactForm />);
     const nameInput = screen.getByLabelText(/name \*/i) as HTMLInputElement;
@@ -135,7 +135,8 @@ describe('ContactForm', () => {
       expect(fetchMock).toHaveBeenCalledTimes(1);
     }, { timeout: 3000 });
     const [url, init] = fetchMock.mock.calls[0];
-    expect(url).toContain('n8n.simplerdevelopment.com');
+    // Submission now goes through our own API route, not the n8n webhook directly.
+    expect(url).toBe('/api/contact');
     expect(init.method).toBe('POST');
     const body = JSON.parse(init.body);
     expect(body.name).toBe('Jane Doe');
@@ -147,7 +148,7 @@ describe('ContactForm', () => {
   });
 
   it('shows error message when fetch responds non-ok', async () => {
-    (global as any).fetch = vi.fn().mockResolvedValue({ ok: false, json: async () => ({}) });
+    (global as Record<string, unknown>).fetch = vi.fn().mockResolvedValue({ ok: false, json: async () => ({}) });
     const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
     render(<ContactForm />);
@@ -187,13 +188,13 @@ describe('SlideBlockWrapper', () => {
     accentColor: '#00ccff',
     headingFont: 'Inter',
     bodyFont: 'Roboto',
-  } as any;
+  } as unknown as Parameters<typeof SlideBlockWrapper>[0]['theme'];
 
   it('renders BlockRenderer with serialized slide content', () => {
     const slide = {
       blocks: [{ id: 'b1', type: 'text', content: { text: 'hello' } }],
       pageSettings: {},
-    } as any;
+    } as unknown as Parameters<typeof SlideBlockWrapper>[0]['slide'];
 
     render(<SlideBlockWrapper slide={slide} theme={theme} />);
     const renderer = screen.getByTestId('block-renderer');
@@ -204,7 +205,7 @@ describe('SlideBlockWrapper', () => {
   });
 
   it('sets CSS custom properties from theme imperatively after mount', () => {
-    const slide = { blocks: [], pageSettings: {} } as any;
+    const slide = { blocks: [], pageSettings: {} } as unknown as Parameters<typeof SlideBlockWrapper>[0]['slide'];
     const { container } = render(<SlideBlockWrapper slide={slide} theme={theme} />);
     const root = container.querySelector('.slide-themed') as HTMLElement;
     expect(root).toBeTruthy();
@@ -218,7 +219,7 @@ describe('SlideBlockWrapper', () => {
     const slide = {
       blocks: [],
       pageSettings: { backgroundImage: 'https://example.com/bg.jpg', backgroundOpacity: 0.5 },
-    } as any;
+    } as unknown as Parameters<typeof SlideBlockWrapper>[0]['slide'];
     const { container } = render(<SlideBlockWrapper slide={slide} theme={theme} />);
     const overlay = container.querySelector('div[style*="background-image"]') as HTMLElement;
     expect(overlay).toBeTruthy();
@@ -229,7 +230,7 @@ describe('SlideBlockWrapper', () => {
     const slide = {
       blocks: [],
       pageSettings: { backgroundVideo: 'https://example.com/bg.mp4' },
-    } as any;
+    } as unknown as Parameters<typeof SlideBlockWrapper>[0]['slide'];
     const { container } = render(<SlideBlockWrapper slide={slide} theme={theme} />);
     const video = container.querySelector('video');
     expect(video).toBeTruthy();
@@ -237,7 +238,7 @@ describe('SlideBlockWrapper', () => {
   });
 
   it('applies fullBleed styling when fullBleed=true (no max-width container)', () => {
-    const slide = { blocks: [], pageSettings: {} } as any;
+    const slide = { blocks: [], pageSettings: {} } as unknown as Parameters<typeof SlideBlockWrapper>[0]['slide'];
     const { container } = render(
       <SlideBlockWrapper slide={slide} theme={theme} fullBleed />,
     );
@@ -249,7 +250,7 @@ describe('SlideBlockWrapper', () => {
   });
 
   it('uses 100vh min-height in presentation mode', () => {
-    const slide = { blocks: [], pageSettings: {} } as any;
+    const slide = { blocks: [], pageSettings: {} } as unknown as Parameters<typeof SlideBlockWrapper>[0]['slide'];
     const { container } = render(
       <SlideBlockWrapper slide={slide} theme={theme} presentation />,
     );
@@ -276,9 +277,9 @@ describe('MediaDetailModal', () => {
   };
 
   beforeEach(() => {
-    (global as any).fetch = vi.fn().mockResolvedValue({ ok: true });
-    (global as any).alert = vi.fn();
-    (global as any).confirm = vi.fn().mockReturnValue(true);
+    (global as Record<string, unknown>).fetch = vi.fn().mockResolvedValue({ ok: true });
+    (global as Record<string, unknown>).alert = vi.fn();
+    (global as Record<string, unknown>).confirm = vi.fn().mockReturnValue(true);
     Object.assign(navigator, {
       clipboard: { writeText: vi.fn().mockResolvedValue(undefined) },
     });
@@ -329,14 +330,14 @@ describe('MediaDetailModal', () => {
       <MediaDetailModal media={baseMedia} onClose={() => {}} onUpdate={() => {}} />,
     );
     fireEvent.click(screen.getByRole('button', { name: /copy url/i }));
-    expect((navigator.clipboard as any).writeText).toHaveBeenCalledWith(baseMedia.url);
-    expect((global as any).alert).toHaveBeenCalledWith('URL copied to clipboard');
+    expect((navigator.clipboard as { writeText: (text: string) => Promise<void> }).writeText).toHaveBeenCalledWith(baseMedia.url);
+    expect((global as Record<string, unknown>).alert).toHaveBeenCalledWith('URL copied to clipboard');
   });
 
   it('toggles edit mode and saves metadata via PUT /api/media/:id', async () => {
     const onUpdate = vi.fn();
     const fetchMock = vi.fn().mockResolvedValue({ ok: true });
-    (global as any).fetch = fetchMock;
+    (global as Record<string, unknown>).fetch = fetchMock;
 
     render(
       <MediaDetailModal media={baseMedia} onClose={() => {}} onUpdate={onUpdate} />,
@@ -365,7 +366,7 @@ describe('MediaDetailModal', () => {
     const onUpdate = vi.fn();
     const onClose = vi.fn();
     const fetchMock = vi.fn().mockResolvedValue({ ok: true });
-    (global as any).fetch = fetchMock;
+    (global as Record<string, unknown>).fetch = fetchMock;
 
     render(
       <MediaDetailModal media={baseMedia} onClose={onClose} onUpdate={onUpdate} />,
@@ -383,9 +384,9 @@ describe('MediaDetailModal', () => {
   });
 
   it('does not delete when confirm returns false', () => {
-    (global as any).confirm = vi.fn().mockReturnValue(false);
+    (global as Record<string, unknown>).confirm = vi.fn().mockReturnValue(false);
     const fetchMock = vi.fn();
-    (global as any).fetch = fetchMock;
+    (global as Record<string, unknown>).fetch = fetchMock;
     render(
       <MediaDetailModal media={baseMedia} onClose={() => {}} onUpdate={() => {}} />,
     );
@@ -425,7 +426,7 @@ describe('GraphHoverBacklinks', () => {
   });
 
   it('renders shell with loading state while debounce is pending', () => {
-    (global as any).fetch = vi.fn().mockImplementation(
+    (global as Record<string, unknown>).fetch = vi.fn().mockImplementation(
       () => new Promise(() => {}),
     );
     render(<GraphHoverBacklinks noteId={7} />);
@@ -456,7 +457,7 @@ describe('GraphHoverBacklinks', () => {
           },
         }),
       });
-    (global as any).fetch = fetchMock;
+    (global as Record<string, unknown>).fetch = fetchMock;
 
     render(<GraphHoverBacklinks noteId={7} />);
 
@@ -488,7 +489,7 @@ describe('GraphHoverBacklinks', () => {
         ok: true,
         json: async () => ({ success: true, data: { items: [] } }),
       });
-    (global as any).fetch = fetchMock;
+    (global as Record<string, unknown>).fetch = fetchMock;
     render(<GraphHoverBacklinks noteId={9} />);
     // Wait for the 250ms debounce + fetch resolution (real timers)
     await new Promise((r) => setTimeout(r, 300));
@@ -508,7 +509,7 @@ describe('GraphHoverBacklinks', () => {
         status: 500,
         json: async () => ({ success: false, message: 'boom' }),
       });
-    (global as any).fetch = fetchMock;
+    (global as Record<string, unknown>).fetch = fetchMock;
     render(<GraphHoverBacklinks noteId={9} />);
     // Wait for the 250ms debounce + fetch resolution (real timers)
     await new Promise((r) => setTimeout(r, 300));
@@ -518,7 +519,7 @@ describe('GraphHoverBacklinks', () => {
   });
 
   it('invokes onClose when the close button is clicked', async () => {
-    (global as any).fetch = vi.fn()
+    (global as Record<string, unknown>).fetch = vi.fn()
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({ success: true, data: { id: 1, title: 'N', tags: [] } }),
@@ -538,7 +539,7 @@ describe('GraphHoverBacklinks', () => {
 
   it('calls onSelectNote when a backlink row is clicked', async () => {
     const onSelectNote = vi.fn();
-    (global as any).fetch = vi.fn()
+    (global as Record<string, unknown>).fetch = vi.fn()
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({ success: true, data: { id: 1, title: 'N', tags: [] } }),

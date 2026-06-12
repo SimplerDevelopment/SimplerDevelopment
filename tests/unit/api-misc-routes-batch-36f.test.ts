@@ -29,6 +29,14 @@ vi.mock('@/lib/portal-client', () => ({
   resolveClientSite: (...args: unknown[]) => resolveClientSiteMock(...args),
 }));
 
+// authorizePortal — default: pass (routes now gate on requireService)
+const authorizePortalMock = vi.fn();
+vi.mock('@/lib/portal-auth', () => ({
+  authorizePortal: (...args: unknown[]) => authorizePortalMock(...args),
+  isAuthError: (r: unknown) =>
+    Boolean(r && typeof r === 'object' && 'response' in (r as Record<string, unknown>)),
+}));
+
 // ---------------------------------------------------------------------------
 // drizzle-orm operators — inert markers we can inspect in evalPredicate
 // ---------------------------------------------------------------------------
@@ -416,6 +424,7 @@ beforeEach(() => {
 
   authMock.mockReset();
   resolveClientSiteMock.mockReset();
+  authorizePortalMock.mockReset().mockResolvedValue({ client: { id: 5 }, userId: 7, role: 'admin' });
   verifyVisitorTokenMock.mockReset();
   subscribeChannelMock.mockReset();
   conversationChannelMock.mockClear();

@@ -29,6 +29,13 @@ vi.mock('@/lib/portal-client', () => ({
   getPortalClient: (...args: unknown[]) => getPortalClientMock(...args),
 }));
 
+const authorizePortalMock = vi.fn();
+vi.mock('@/lib/portal-auth', () => ({
+  authorizePortal: (...args: unknown[]) => authorizePortalMock(...args),
+  isAuthError: (r: unknown) =>
+    Boolean(r && typeof r === 'object' && 'response' in (r as Record<string, unknown>)),
+}));
+
 const headersMock = vi.fn();
 vi.mock('next/headers', () => ({
   headers: () => headersMock(),
@@ -290,6 +297,8 @@ beforeEach(() => {
   deleteCalls.length = 0;
   authMock.mockReset();
   getPortalClientMock.mockReset();
+  // Default: authorizePortal passes (returns a non-auth-error result)
+  authorizePortalMock.mockReset().mockResolvedValue({ client: { id: 10 }, userId: 7, role: 'admin' });
   headersMock.mockReset();
   getTokenMock.mockReset();
   createOAuth2ClientMock.mockClear();

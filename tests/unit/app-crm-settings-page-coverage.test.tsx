@@ -705,10 +705,11 @@ describe('CrmSettingsPage — stage management', () => {
   });
 
   it('clicking up-arrow on second stage reorders stages', async () => {
+    // Stage reorder now PUTs the full order to .../stages (no /reorder suffix).
     fetchMock.mockImplementation(async (url: string, init?: RequestInit) => {
       if (url === '/api/portal/crm/pipelines') return makeRes({ success: true, data: [DEFAULT_PIPELINE] });
       if (url === '/api/portal/crm/tags') return makeRes({ success: true, data: [] });
-      if (url.includes('/reorder') && init?.method === 'PUT') {
+      if (url.endsWith('/stages') && init?.method === 'PUT') {
         return makeRes({ success: true });
       }
       return makeRes({ success: true, data: {} });
@@ -723,17 +724,24 @@ describe('CrmSettingsPage — stage management', () => {
     fireEvent.click(upBtns[1]);
     await waitFor(() => {
       const reorderCalls = fetchMock.mock.calls.filter(
-        (c) => String(c[0]).includes('/reorder') && c[1]?.method === 'PUT',
+        (c) => String(c[0]).endsWith('/stages') && c[1]?.method === 'PUT',
       );
       expect(reorderCalls.length).toBeGreaterThan(0);
+      // Moving the second stage up swaps the two stages' order values.
+      const body = JSON.parse(String(reorderCalls[0][1]?.body));
+      expect(body.stages).toEqual([
+        { id: 11, order: 1 },
+        { id: 10, order: 2 },
+      ]);
     });
   });
 
   it('clicking down-arrow on first stage reorders stages', async () => {
+    // Stage reorder now PUTs the full order to .../stages (no /reorder suffix).
     fetchMock.mockImplementation(async (url: string, init?: RequestInit) => {
       if (url === '/api/portal/crm/pipelines') return makeRes({ success: true, data: [DEFAULT_PIPELINE] });
       if (url === '/api/portal/crm/tags') return makeRes({ success: true, data: [] });
-      if (url.includes('/reorder') && init?.method === 'PUT') {
+      if (url.endsWith('/stages') && init?.method === 'PUT') {
         return makeRes({ success: true });
       }
       return makeRes({ success: true, data: {} });
@@ -748,7 +756,7 @@ describe('CrmSettingsPage — stage management', () => {
     fireEvent.click(downBtns[0]);
     await waitFor(() => {
       const reorderCalls = fetchMock.mock.calls.filter(
-        (c) => String(c[0]).includes('/reorder') && c[1]?.method === 'PUT',
+        (c) => String(c[0]).endsWith('/stages') && c[1]?.method === 'PUT',
       );
       expect(reorderCalls.length).toBeGreaterThan(0);
     });

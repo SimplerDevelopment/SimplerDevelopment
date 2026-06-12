@@ -16,7 +16,11 @@
 process.env.DATABASE_URL ??= 'postgresql://placeholder@localhost:5432/placeholder';
 process.env.NEXTAUTH_URL ??= 'http://localhost:3000';
 
+// The adapter registers 40+ tools with Zod schemas on every registerAll() call.
+// With 321 registerAll() calls across the suite, sequential execution takes ~5 min total.
+// Per-test 30s budget is insufficient for tests that run late in the file — bump to 90s.
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+vi.setConfig({ testTimeout: 90_000 });
 import type { PortalMcpContext } from '@/lib/mcp-auth';
 
 // ── mocks ──────────────────────────────────────────────────────────────────
@@ -302,6 +306,21 @@ function registerAll() {
   return tools;
 }
 
+// ── shared tools instance ────────────────────────────────────────────────────
+//
+// registerBrainToolsOnSdk creates ~40 Zod-schema closures per call.  Calling it
+// inside every it() block (321 times) exhausts the Node.js heap.  Instead we
+// register once per suite in a beforeAll and share the resulting `tools` Map.
+// The handlers close over the vi.fn() module mocks, so mockResolvedValueOnce /
+// mockReturnValueOnce continue to work per-test exactly as before — the mock
+// queue is on the module-level spy, not on the tools map.
+
+let sharedTools: ReturnType<typeof registerAll>;
+
+beforeAll(() => {
+  sharedTools = registerAll();
+});
+
 // ── tests ───────────────────────────────────────────────────────────────────
 
 describe('registerBrainToolsOnSdk — tool registration', () => {
@@ -313,12 +332,12 @@ describe('registerBrainToolsOnSdk — tool registration', () => {
   });
 
   it('registers a large set of tools when scopes=*', () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     expect(tools.size).toBeGreaterThanOrEqual(30);
   });
 
   it('registers the canonical read-only tools', () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     for (const name of [
       'brain_search',
       'brain_dashboard_summary',
@@ -351,7 +370,7 @@ describe('registerBrainToolsOnSdk — tool registration', () => {
   });
 
   it('registers the canonical write tools', () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     for (const name of [
       'brain_create_meeting',
       'brain_link_meeting',
@@ -378,7 +397,7 @@ describe('registerBrainToolsOnSdk — tool registration', () => {
   });
 
   it('registers the brain:approve tools', () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     expect(tools.has('brain_approve_review_item')).toBe(true);
     expect(tools.has('brain_reject_review_item')).toBe(true);
     expect(tools.has('brain_update_relationship')).toBe(true);
@@ -416,7 +435,7 @@ describe('brain_search', () => {
   beforeEach(() => { dbState.selectQueue = []; });
 
   it('absolutizes relative URLs in hits', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_search')!.handler({ query: 'hello' });
     const out = parseJson(res) as { hits: { url: string }[]; total: number };
     expect(out.total).toBe(2);
@@ -428,7 +447,7 @@ describe('brain_search', () => {
 
 describe('brain_dashboard_summary', () => {
   it('returns the dashboard summary (with brain-restructure decision + topic counts merged in)', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_dashboard_summary')!.handler({});
     // The handler now spreads the underlying getDashboardSummary() result and
     // appends decisionsCount + topicsCount derived from inline COUNT(*) queries.
@@ -442,20 +461,20 @@ describe('brain_dashboard_summary', () => {
 
 describe('brain_list_relationships / brain_get_relationship', () => {
   it('lists relationships', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_list_relationships')!.handler({});
     expect(parseJson(res)).toEqual([{ id: 1 }]);
   });
 
   it('returns 404-equiv error when relationship missing', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_get_relationship')!.handler({ overlayId: 999 });
     expect(res.isError).toBe(true);
     expect(res.content[0].text).toMatch(/not found/i);
   });
 
   it('returns the overlay on hit', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_get_relationship')!.handler({ overlayId: 4 });
     expect((parseJson(res) as { id: number }).id).toBe(4);
   });
@@ -465,19 +484,19 @@ describe('brain_list_relationships / brain_get_relationship', () => {
 
 describe('brain_list_meetings / brain_get_meeting', () => {
   it('lists meetings with optional filters', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_list_meetings')!.handler({ status: 'draft', limit: 5 });
     expect(parseJson(res)).toEqual([{ id: 1 }]);
   });
 
   it('returns not-found when meeting missing', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_get_meeting')!.handler({ meetingId: 999 });
     expect(res.isError).toBe(true);
   });
 
   it('returns the meeting on hit', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_get_meeting')!.handler({ meetingId: 2 });
     expect((parseJson(res) as { id: number }).id).toBe(2);
   });
@@ -485,7 +504,7 @@ describe('brain_list_meetings / brain_get_meeting', () => {
 
 describe('brain_create_meeting', () => {
   it('rejects when both companyId and dealId are set', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_create_meeting')!.handler({
       transcript: 'x', companyId: 1, dealId: 2,
     });
@@ -494,13 +513,16 @@ describe('brain_create_meeting', () => {
   });
 
   it('creates a meeting via the paste adapter', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_create_meeting')!.handler({ transcript: 'hello world' });
     const out = parseJson(res) as { id: number };
     expect(out.id).toBe(100);
   });
 
   it('returns err when profile.enabled is false', async () => {
+    // profilePromise is created at registerBrainToolsOnSdk() call time and cached.
+    // To test the disabled-profile branch we need a fresh registration so that
+    // the mockResolvedValueOnce is consumed by the new profilePromise.
     const profiles = await import('@/lib/brain/profiles');
     (profiles.getOrCreateBrainProfile as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ id: 7, clientId: 1, enabled: false });
     const tools = registerAll();
@@ -512,7 +534,7 @@ describe('brain_create_meeting', () => {
   it('converts thrown errors to err()', async () => {
     const meetings = await import('@/lib/brain/meetings');
     (meetings.createMeetingFromAdapter as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('boom'));
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_create_meeting')!.handler({ transcript: 'x' });
     expect(res.isError).toBe(true);
     expect(res.content[0].text).toContain('boom');
@@ -521,7 +543,7 @@ describe('brain_create_meeting', () => {
   it('handles non-Error throws with a generic message', async () => {
     const meetings = await import('@/lib/brain/meetings');
     (meetings.createMeetingFromAdapter as ReturnType<typeof vi.fn>).mockRejectedValueOnce('weird-string');
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_create_meeting')!.handler({ transcript: 'x' });
     expect(res.isError).toBe(true);
     expect(res.content[0].text).toMatch(/Failed to create meeting/);
@@ -530,19 +552,19 @@ describe('brain_create_meeting', () => {
 
 describe('brain_link_meeting', () => {
   it('rejects company+deal together', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_link_meeting')!.handler({ meetingId: 1, companyId: 2, dealId: 3 });
     expect(res.isError).toBe(true);
   });
 
   it('returns not-found when meeting missing', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_link_meeting')!.handler({ meetingId: 999, companyId: 5 });
     expect(res.isError).toBe(true);
   });
 
   it('updates link on hit', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_link_meeting')!.handler({ meetingId: 2, companyId: 5 });
     expect((parseJson(res) as { companyId: number }).companyId).toBe(5);
   });
@@ -552,19 +574,19 @@ describe('brain_link_meeting', () => {
 
 describe('brain_list_tasks / brain_get_task', () => {
   it('lists tasks', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_list_tasks')!.handler({});
     expect(parseJson(res)).toEqual([{ id: 1 }]);
   });
 
   it('returns not-found for missing task', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_get_task')!.handler({ taskId: 999 });
     expect(res.isError).toBe(true);
   });
 
   it('returns the task on hit', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_get_task')!.handler({ taskId: 5 });
     expect((parseJson(res) as { id: number }).id).toBe(5);
   });
@@ -572,13 +594,13 @@ describe('brain_list_tasks / brain_get_task', () => {
 
 describe('brain_create_task', () => {
   it('creates a task', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_create_task')!.handler({ title: 'Do thing' });
     expect((parseJson(res) as { id: number }).id).toBe(200);
   });
 
   it('returns OwnershipError as JSON error payload', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_create_task')!.handler({ title: 'X', ownerId: 9999 });
     const out = parseJson(res) as { error: string };
     expect(out.error).toMatch(/Forbidden/);
@@ -587,14 +609,14 @@ describe('brain_create_task', () => {
   it('propagates non-Ownership errors', async () => {
     const security = await import('@/lib/security/assert-owned');
     (security.assertUserVisibleToClient as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('db down'));
-    const tools = registerAll();
+    const tools = sharedTools;
     await expect(tools.get('brain_create_task')!.handler({ title: 'X', ownerId: 5 })).rejects.toThrow('db down');
   });
 
   it('parses ISO due date', async () => {
     const tasks = await import('@/lib/brain/tasks');
     (tasks.createTask as ReturnType<typeof vi.fn>).mockClear();
-    const tools = registerAll();
+    const tools = sharedTools;
     await tools.get('brain_create_task')!.handler({ title: 'X', dueDate: '2026-12-25T00:00:00Z' });
     const callArgs = (tasks.createTask as ReturnType<typeof vi.fn>).mock.calls[0][0] as { dueDate: Date | null };
     expect(callArgs.dueDate).toBeInstanceOf(Date);
@@ -604,7 +626,7 @@ describe('brain_create_task', () => {
 describe('brain_propose_task', () => {
   it('inserts a review item with manual source when no meeting', async () => {
     dbState.insertReturning = [{ id: 700, sourceType: 'manual', sourceId: 0, proposedType: 'task', status: 'pending' }];
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_propose_task')!.handler({ title: 'Suggest me' });
     const out = parseJson(res) as { id: number; sourceType: string };
     expect(out.id).toBe(700);
@@ -613,7 +635,7 @@ describe('brain_propose_task', () => {
 
   it('attaches the source meeting when provided', async () => {
     dbState.insertReturning = [{ id: 701, sourceType: 'meeting', sourceId: 88 }];
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_propose_task')!.handler({ title: 'X', sourceMeetingId: 88 });
     const out = parseJson(res) as { sourceType: string; sourceId: number };
     expect(out.sourceType).toBe('meeting');
@@ -623,7 +645,7 @@ describe('brain_propose_task', () => {
 
 describe('brain_update_task', () => {
   it('returns not-found for missing task', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_update_task')!.handler({ taskId: 999 });
     expect(res.isError).toBe(true);
   });
@@ -631,7 +653,7 @@ describe('brain_update_task', () => {
   it('parses ISO dueDate string', async () => {
     const tasks = await import('@/lib/brain/tasks');
     (tasks.updateTask as ReturnType<typeof vi.fn>).mockClear();
-    const tools = registerAll();
+    const tools = sharedTools;
     await tools.get('brain_update_task')!.handler({ taskId: 3, dueDate: '2026-08-08' });
     const patch = (tasks.updateTask as ReturnType<typeof vi.fn>).mock.calls[0][2] as { dueDate: Date | null | undefined };
     expect(patch.dueDate).toBeInstanceOf(Date);
@@ -640,14 +662,14 @@ describe('brain_update_task', () => {
   it('passes null when dueDate=null to clear', async () => {
     const tasks = await import('@/lib/brain/tasks');
     (tasks.updateTask as ReturnType<typeof vi.fn>).mockClear();
-    const tools = registerAll();
+    const tools = sharedTools;
     await tools.get('brain_update_task')!.handler({ taskId: 3, dueDate: null });
     const patch = (tasks.updateTask as ReturnType<typeof vi.fn>).mock.calls[0][2] as { dueDate: Date | null | undefined };
     expect(patch.dueDate).toBeNull();
   });
 
   it('returns updated task on hit', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_update_task')!.handler({ taskId: 5, title: 'New' });
     expect((parseJson(res) as { id: number }).id).toBe(5);
   });
@@ -657,20 +679,20 @@ describe('brain_update_task', () => {
 
 describe('brain_create_relationship', () => {
   it('requires exactly one of companyId or dealId — rejects neither', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_create_relationship')!.handler({});
     expect(res.isError).toBe(true);
     expect(res.content[0].text).toMatch(/exactly one/i);
   });
 
   it('rejects both companyId and dealId', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_create_relationship')!.handler({ companyId: 1, dealId: 2 });
     expect(res.isError).toBe(true);
   });
 
   it('creates with companyId', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_create_relationship')!.handler({ companyId: 1, nextReviewAt: '2026-12-01' });
     expect((parseJson(res) as { id: number }).id).toBe(300);
   });
@@ -678,7 +700,7 @@ describe('brain_create_relationship', () => {
   it('converts thrown errors to err()', async () => {
     const rel = await import('@/lib/brain/relationships');
     (rel.createOverlay as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('overlay-conflict'));
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_create_relationship')!.handler({ companyId: 1 });
     expect(res.isError).toBe(true);
     expect(res.content[0].text).toContain('overlay-conflict');
@@ -689,7 +711,7 @@ describe('brain_create_relationship', () => {
 
 describe('brain_approve_review_item / brain_reject_review_item', () => {
   it('approves a pending item', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_approve_review_item')!.handler({ itemId: 7 });
     expect((parseJson(res) as { status: string }).status).toBe('approved');
   });
@@ -697,20 +719,20 @@ describe('brain_approve_review_item / brain_reject_review_item', () => {
   it('returns err on approve failure', async () => {
     const review = await import('@/lib/brain/review');
     (review.approveReviewItem as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('bad'));
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_approve_review_item')!.handler({ itemId: 7 });
     expect(res.isError).toBe(true);
     expect(res.content[0].text).toContain('bad');
   });
 
   it('rejects a pending item', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_reject_review_item')!.handler({ itemId: 7, reason: 'not relevant' });
     expect((parseJson(res) as { status: string }).status).toBe('rejected');
   });
 
   it('returns not-found when reject target missing', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_reject_review_item')!.handler({ itemId: 999 });
     expect(res.isError).toBe(true);
   });
@@ -720,7 +742,7 @@ describe('brain_update_relationship', () => {
   it('handles ISO nextReviewAt', async () => {
     const rel = await import('@/lib/brain/relationships');
     (rel.updateOverlay as ReturnType<typeof vi.fn>).mockClear();
-    const tools = registerAll();
+    const tools = sharedTools;
     await tools.get('brain_update_relationship')!.handler({ overlayId: 5, nextReviewAt: '2026-09-09' });
     const patch = (rel.updateOverlay as ReturnType<typeof vi.fn>).mock.calls[0][3] as { nextReviewAt: Date | null | undefined };
     expect(patch.nextReviewAt).toBeInstanceOf(Date);
@@ -729,7 +751,7 @@ describe('brain_update_relationship', () => {
   it('passes null when nextReviewAt=null', async () => {
     const rel = await import('@/lib/brain/relationships');
     (rel.updateOverlay as ReturnType<typeof vi.fn>).mockClear();
-    const tools = registerAll();
+    const tools = sharedTools;
     await tools.get('brain_update_relationship')!.handler({ overlayId: 5, nextReviewAt: null });
     const patch = (rel.updateOverlay as ReturnType<typeof vi.fn>).mock.calls[0][3] as { nextReviewAt: Date | null | undefined };
     expect(patch.nextReviewAt).toBeNull();
@@ -738,7 +760,7 @@ describe('brain_update_relationship', () => {
   it('returns err on throw', async () => {
     const rel = await import('@/lib/brain/relationships');
     (rel.updateOverlay as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('boom'));
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_update_relationship')!.handler({ overlayId: 5 });
     expect(res.isError).toBe(true);
   });
@@ -748,7 +770,7 @@ describe('brain_update_relationship', () => {
 
 describe('brain_list_notes', () => {
   it('trims body and returns pagination envelope', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_list_notes')!.handler({ limit: 10, offset: 0 });
     const out = parseJson(res) as { items: { bodyPreview: string; bodyLength: number }[]; total: number; limit: number; offset: number };
     expect(out.total).toBe(42);
@@ -759,7 +781,7 @@ describe('brain_list_notes', () => {
   });
 
   it('applies sensible defaults for limit/offset', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_list_notes')!.handler({});
     const out = parseJson(res) as { limit: number; offset: number };
     expect(out.limit).toBe(50);
@@ -769,13 +791,13 @@ describe('brain_list_notes', () => {
 
 describe('brain_get_note', () => {
   it('returns the note when found', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_get_note')!.handler({ noteId: 1 });
     expect((parseJson(res) as { id: number }).id).toBe(1);
   });
 
   it('returns not-found error when missing', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_get_note')!.handler({ noteId: 999 });
     expect(res.isError).toBe(true);
   });
@@ -785,7 +807,7 @@ describe('brain_create_note', () => {
   it('defaults source to manual when no sourceUrl', async () => {
     const notes = await import('@/lib/brain/notes');
     (notes.createNote as ReturnType<typeof vi.fn>).mockClear();
-    const tools = registerAll();
+    const tools = sharedTools;
     await tools.get('brain_create_note')!.handler({ title: 'T' });
     const arg = (notes.createNote as ReturnType<typeof vi.fn>).mock.calls[0][0] as { source: string };
     expect(arg.source).toBe('manual');
@@ -794,7 +816,7 @@ describe('brain_create_note', () => {
   it('defaults source to crawl when sourceUrl provided', async () => {
     const notes = await import('@/lib/brain/notes');
     (notes.createNote as ReturnType<typeof vi.fn>).mockClear();
-    const tools = registerAll();
+    const tools = sharedTools;
     await tools.get('brain_create_note')!.handler({ title: 'T', sourceUrl: 'https://example.com/x' });
     const arg = (notes.createNote as ReturnType<typeof vi.fn>).mock.calls[0][0] as { source: string };
     expect(arg.source).toBe('crawl');
@@ -803,7 +825,7 @@ describe('brain_create_note', () => {
   it('respects explicit source override', async () => {
     const notes = await import('@/lib/brain/notes');
     (notes.createNote as ReturnType<typeof vi.fn>).mockClear();
-    const tools = registerAll();
+    const tools = sharedTools;
     await tools.get('brain_create_note')!.handler({ title: 'T', source: 'document_import' });
     const arg = (notes.createNote as ReturnType<typeof vi.fn>).mock.calls[0][0] as { source: string };
     expect(arg.source).toBe('document_import');
@@ -812,7 +834,7 @@ describe('brain_create_note', () => {
 
 describe('brain_upsert_note_by_url', () => {
   it('updates existing note when URL matches', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_upsert_note_by_url')!.handler({
       sourceUrl: 'https://exists.example.com/', title: 'X', body: 'B',
     });
@@ -821,7 +843,7 @@ describe('brain_upsert_note_by_url', () => {
   });
 
   it('creates new note when URL is novel', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_upsert_note_by_url')!.handler({
       sourceUrl: 'https://new.example.com/', title: 'X', body: 'B',
     });
@@ -832,13 +854,13 @@ describe('brain_upsert_note_by_url', () => {
 
 describe('brain_update_note', () => {
   it('returns not-found when note missing', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_update_note')!.handler({ noteId: 999, title: 'T' });
     expect(res.isError).toBe(true);
   });
 
   it('updates the note on hit', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_update_note')!.handler({ noteId: 4, title: 'New' });
     const out = parseJson(res) as { id: number };
     expect(out.id).toBe(4);
@@ -847,13 +869,13 @@ describe('brain_update_note', () => {
 
 describe('brain_delete_note', () => {
   it('returns not-found if the note does not exist', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_delete_note')!.handler({ noteId: 999 });
     expect(res.isError).toBe(true);
   });
 
   it('soft-deletes a fresh note by default', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_delete_note')!.handler({ noteId: 1 });
     const out = parseJson(res) as { id: number; deleted: 'soft' | 'hard' };
     expect(out.deleted).toBe('soft');
@@ -861,14 +883,14 @@ describe('brain_delete_note', () => {
 
   it('hard-deletes an already-trashed note', async () => {
     // getNote(555) returns deletedAt != null
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_delete_note')!.handler({ noteId: 555 });
     const out = parseJson(res) as { deleted: string };
     expect(out.deleted).toBe('hard');
   });
 
   it('hard-deletes immediately with force=true', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_delete_note')!.handler({ noteId: 1, force: true });
     const out = parseJson(res) as { deleted: string };
     expect(out.deleted).toBe('hard');
@@ -877,13 +899,13 @@ describe('brain_delete_note', () => {
 
 describe('brain_restore_note', () => {
   it('returns not-found when missing', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_restore_note')!.handler({ noteId: 999 });
     expect(res.isError).toBe(true);
   });
 
   it('restores and returns a slim echo', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_restore_note')!.handler({ noteId: 4 });
     const out = parseJson(res) as { id: number; bodyLength: number };
     expect(out.id).toBe(4);
@@ -893,7 +915,7 @@ describe('brain_restore_note', () => {
 
 describe('brain_bulk_update_notes', () => {
   it('returns updated/skipped counts', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_bulk_update_notes')!.handler({
       ids: [1, 2, 3, 4],
       op: { kind: 'soft_delete' },
@@ -914,7 +936,7 @@ describe('brain_list_note_history', () => {
         { id: 11, action: 'updated', actorId: 11, createdAt: 'now', metadata: { huge: true } },
       ],
     ];
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_list_note_history')!.handler({ noteId: 1 });
     const out = parseJson(res) as { items: { action: string; metadata?: unknown }[]; limit: number };
     expect(out.limit).toBe(50);
@@ -926,7 +948,7 @@ describe('brain_list_note_history', () => {
     dbState.selectQueue = [
       [{ id: 10, action: 'updated', actorId: 11, createdAt: 'now', metadata: { diff: 'big' } }],
     ];
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_list_note_history')!.handler({ noteId: 1, includeDiff: true });
     const out = parseJson(res) as { items: { metadata: unknown }[] };
     expect(out.items[0].metadata).toEqual({ diff: 'big' });
@@ -934,7 +956,7 @@ describe('brain_list_note_history', () => {
 
   it('returns not-found if note missing', async () => {
     // getNote(999) returns null per the notes mock
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_list_note_history')!.handler({ noteId: 999 });
     expect(res.isError).toBe(true);
   });
@@ -944,21 +966,21 @@ describe('brain_list_note_history', () => {
 
 describe('brain_list_saved_searches', () => {
   it('returns shared-only when scope=shared', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_list_saved_searches')!.handler({ scope: 'shared' });
     const out = parseJson(res) as { items: { scope: string }[] };
     expect(out.items.every((r) => r.scope === 'shared')).toBe(true);
   });
 
   it('filters to mine when scope=mine', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_list_saved_searches')!.handler({ scope: 'mine' });
     const out = parseJson(res) as { items: { userId: number | null }[] };
     expect(out.items.every((r) => r.userId === 11)).toBe(true);
   });
 
   it('omits filters by default and includes them when includeFilters=true', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const without = parseJson(await tools.get('brain_list_saved_searches')!.handler({})) as { items: Record<string, unknown>[] };
     expect('filters' in without.items[0]).toBe(false);
     const withFilters = parseJson(await tools.get('brain_list_saved_searches')!.handler({ includeFilters: true })) as { items: Record<string, unknown>[] };
@@ -968,13 +990,13 @@ describe('brain_list_saved_searches', () => {
 
 describe('brain_get_saved_search', () => {
   it('returns the saved search', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_get_saved_search')!.handler({ id: 1 });
     expect((parseJson(res) as { id: number }).id).toBe(1);
   });
 
   it('errors when missing', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_get_saved_search')!.handler({ id: 999 });
     expect(res.isError).toBe(true);
   });
@@ -984,7 +1006,7 @@ describe('brain_create_saved_search', () => {
   it('creates a personal saved search by default', async () => {
     const ss = await import('@/lib/brain/saved-searches');
     (ss.createSavedSearch as ReturnType<typeof vi.fn>).mockClear();
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_create_saved_search')!.handler({ name: 's', filters: {} });
     const arg = (ss.createSavedSearch as ReturnType<typeof vi.fn>).mock.calls[0][0] as { userId: number | null };
     expect(arg.userId).toBe(11);
@@ -997,7 +1019,7 @@ describe('brain_create_saved_search', () => {
     (ss.createSavedSearch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
       id: 501, name: 's', icon: null, userId: null, sortOrder: 0, createdAt: 'now',
     });
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_create_saved_search')!.handler({ name: 's', filters: {}, scope: 'shared' });
     const arg = (ss.createSavedSearch as ReturnType<typeof vi.fn>).mock.calls[0][0] as { userId: number | null };
     expect(arg.userId).toBeNull();
@@ -1007,7 +1029,7 @@ describe('brain_create_saved_search', () => {
 
 describe('brain_update_saved_search', () => {
   it('returns not-found when missing', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_update_saved_search')!.handler({ id: 999, name: 'new' });
     expect(res.isError).toBe(true);
   });
@@ -1018,7 +1040,7 @@ describe('brain_update_saved_search', () => {
     (ss.updateSavedSearch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
       id: 2, name: 'new', icon: null, userId: null, sortOrder: 0, updatedAt: 'now',
     });
-    const tools = registerAll();
+    const tools = sharedTools;
     await tools.get('brain_update_saved_search')!.handler({ id: 2, name: 'new', scope: 'shared', icon: 'i', sortOrder: 4 });
     const patch = (ss.updateSavedSearch as ReturnType<typeof vi.fn>).mock.calls[0][2] as { userId: number | null; name: string };
     expect(patch.userId).toBeNull();
@@ -1028,13 +1050,13 @@ describe('brain_update_saved_search', () => {
 
 describe('brain_delete_saved_search', () => {
   it('returns not-found on missing', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_delete_saved_search')!.handler({ id: 999 });
     expect(res.isError).toBe(true);
   });
 
   it('returns deleted echo on hit', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_delete_saved_search')!.handler({ id: 2 });
     const out = parseJson(res) as { id: number; deleted: boolean };
     expect(out).toEqual({ id: 2, deleted: true });
@@ -1045,7 +1067,7 @@ describe('brain_delete_saved_search', () => {
 
 describe('brain_list_note_templates / brain_get_note_template', () => {
   it('lists templates with bodyLength but no body by default', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_list_note_templates')!.handler({});
     const out = parseJson(res) as { items: { bodyLength: number; body?: string }[] };
     expect(out.items[0].bodyLength).toBe('BODY'.length);
@@ -1053,20 +1075,20 @@ describe('brain_list_note_templates / brain_get_note_template', () => {
   });
 
   it('includes body when includeBody=true', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_list_note_templates')!.handler({ includeBody: true });
     const out = parseJson(res) as { items: { body: string }[] };
     expect(out.items[0].body).toBe('BODY');
   });
 
   it('returns not-found on missing template', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_get_note_template')!.handler({ id: 999 });
     expect(res.isError).toBe(true);
   });
 
   it('returns the template on hit', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_get_note_template')!.handler({ id: 1 });
     expect((parseJson(res) as { id: number }).id).toBe(1);
   });
@@ -1074,7 +1096,7 @@ describe('brain_list_note_templates / brain_get_note_template', () => {
 
 describe('brain_create_note_template', () => {
   it('creates a template and returns a slim echo', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_create_note_template')!.handler({ name: 'T', body: 'B' });
     const out = parseJson(res) as { id: number; bodyLength: number };
     expect(out.id).toBe(600);
@@ -1082,14 +1104,14 @@ describe('brain_create_note_template', () => {
   });
 
   it('emits a friendly duplicate-name error', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_create_note_template')!.handler({ name: 'dupe', body: 'B' });
     expect(res.isError).toBe(true);
     expect(res.content[0].text).toMatch(/already exists/);
   });
 
   it('emits a generic error for other failures', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_create_note_template')!.handler({ name: 'boom', body: 'B' });
     expect(res.isError).toBe(true);
     expect(res.content[0].text).toContain('boom');
@@ -1098,27 +1120,27 @@ describe('brain_create_note_template', () => {
 
 describe('brain_update_note_template', () => {
   it('returns not-found when missing', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_update_note_template')!.handler({ id: 999, name: 'X' });
     expect(res.isError).toBe(true);
   });
 
   it('handles duplicate-name error from updateTemplate', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_update_note_template')!.handler({ id: 1, name: 'dupe' });
     expect(res.isError).toBe(true);
     expect(res.content[0].text).toMatch(/already exists/);
   });
 
   it('handles other thrown errors with generic message', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_update_note_template')!.handler({ id: 1, name: 'boom' });
     expect(res.isError).toBe(true);
     expect(res.content[0].text).toContain('boom');
   });
 
   it('returns slim echo on hit', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_update_note_template')!.handler({ id: 1, body: 'longer' });
     const out = parseJson(res) as { id: number; bodyLength: number };
     expect(out.id).toBe(1);
@@ -1128,13 +1150,13 @@ describe('brain_update_note_template', () => {
 
 describe('brain_delete_note_template', () => {
   it('returns not-found on missing', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_delete_note_template')!.handler({ id: 999 });
     expect(res.isError).toBe(true);
   });
 
   it('returns deleted echo on hit', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_delete_note_template')!.handler({ id: 1 });
     const out = parseJson(res) as { deleted: boolean };
     expect(out.deleted).toBe(true);
@@ -1143,7 +1165,7 @@ describe('brain_delete_note_template', () => {
 
 describe('brain_create_note_from_template', () => {
   it('returns not-found when template missing', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_create_note_from_template')!.handler({ templateId: 999 });
     expect(res.isError).toBe(true);
   });
@@ -1152,7 +1174,7 @@ describe('brain_create_note_from_template', () => {
     dbState.selectQueue = [
       [{ name: 'Alice', email: 'a@example.com' }], // users lookup
     ];
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_create_note_from_template')!.handler({ templateId: 1, titleOverride: 'Custom Title' });
     const out = parseJson(res) as { title: string; bodyLength: number; tags: string[] };
     expect(out.title).toBe('Custom Title');
@@ -1164,7 +1186,7 @@ describe('brain_create_note_from_template', () => {
     dbState.selectQueue = [[{ name: '   ', email: 'fallback@example.com' }]];
     const template = await import('@/lib/brain/template');
     (template.applyTemplate as ReturnType<typeof vi.fn>).mockClear();
-    const tools = registerAll();
+    const tools = sharedTools;
     await tools.get('brain_create_note_from_template')!.handler({ templateId: 1 });
     const args = (template.applyTemplate as ReturnType<typeof vi.fn>).mock.calls[0][1] as { userName: string | null };
     expect(args.userName).toBe('fallback@example.com');
@@ -1174,7 +1196,7 @@ describe('brain_create_note_from_template', () => {
     dbState.selectQueue = [[]];
     const template = await import('@/lib/brain/template');
     (template.applyTemplate as ReturnType<typeof vi.fn>).mockClear();
-    const tools = registerAll();
+    const tools = sharedTools;
     await tools.get('brain_create_note_from_template')!.handler({ templateId: 1 });
     const args = (template.applyTemplate as ReturnType<typeof vi.fn>).mock.calls[0][1] as { userName: string | null };
     expect(args.userName).toBeNull();
@@ -1186,21 +1208,21 @@ describe('brain_create_note_from_template', () => {
 describe('brain_list_companies / brain_get_company', () => {
   it('returns the company list', async () => {
     dbState.selectQueue = [[{ id: 1, name: 'Acme' }]];
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_list_companies')!.handler({ search: '  Ac  ', industry: 'tech', limit: 5 });
     expect(parseJson(res)).toEqual([{ id: 1, name: 'Acme' }]);
   });
 
   it('respects default and bound limits', async () => {
     dbState.selectQueue = [[]];
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_list_companies')!.handler({});
     expect(parseJson(res)).toEqual([]);
   });
 
   it('returns not-found if company missing', async () => {
     dbState.selectQueue = [[]]; // company lookup empty
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_get_company')!.handler({ companyId: 999 });
     expect(res.isError).toBe(true);
   });
@@ -1211,7 +1233,7 @@ describe('brain_list_companies / brain_get_company', () => {
       [{ id: 11, firstName: 'A' }],            // contacts
       [{ id: 22, value: 100 }],                // deals
     ];
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_get_company')!.handler({ companyId: 5 });
     const out = parseJson(res) as { contacts: { id: number }[]; deals: { id: number }[] };
     expect(out.contacts[0].id).toBe(11);
@@ -1222,14 +1244,14 @@ describe('brain_list_companies / brain_get_company', () => {
 describe('brain_list_contacts / brain_get_contact', () => {
   it('lists contacts', async () => {
     dbState.selectQueue = [[{ id: 1, firstName: 'A' }]];
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_list_contacts')!.handler({ search: 'a', companyId: 1, status: 'active' });
     expect(parseJson(res)).toEqual([{ id: 1, firstName: 'A' }]);
   });
 
   it('returns not-found if contact missing', async () => {
     dbState.selectQueue = [[]];
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_get_contact')!.handler({ contactId: 999 });
     expect(res.isError).toBe(true);
   });
@@ -1240,7 +1262,7 @@ describe('brain_list_contacts / brain_get_contact', () => {
       [{ id: 7, name: 'CompanyCo' }],            // company
       [{ id: 9, value: 50 }],                    // deals
     ];
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_get_contact')!.handler({ contactId: 3 });
     const out = parseJson(res) as { company: { id: number } | null; deals: { id: number }[] };
     expect(out.company?.id).toBe(7);
@@ -1252,7 +1274,7 @@ describe('brain_list_contacts / brain_get_contact', () => {
       [{ id: 3, firstName: 'X', companyId: null }],
       [{ id: 9, value: 50 }],
     ];
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_get_contact')!.handler({ contactId: 3 });
     const out = parseJson(res) as { company: unknown };
     expect(out.company).toBeNull();
@@ -1262,14 +1284,14 @@ describe('brain_list_contacts / brain_get_contact', () => {
 describe('brain_list_deals / brain_get_deal', () => {
   it('lists deals with filters', async () => {
     dbState.selectQueue = [[{ id: 1, value: 100 }]];
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_list_deals')!.handler({ status: 'open', priority: 'high', stageId: 2, companyId: 5, limit: 7 });
     expect(parseJson(res)).toEqual([{ id: 1, value: 100 }]);
   });
 
   it('returns not-found if deal missing', async () => {
     dbState.selectQueue = [[]];
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_get_deal')!.handler({ dealId: 999 });
     expect(res.isError).toBe(true);
   });
@@ -1281,7 +1303,7 @@ describe('brain_list_deals / brain_get_deal', () => {
       [{ id: 12, firstName: 'C' }],
       [{ id: 13, name: 'Stage' }],
     ];
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_get_deal')!.handler({ dealId: 1 });
     const out = parseJson(res) as { company: { id: number }; contact: { id: number }; stage: { id: number } };
     expect(out.company.id).toBe(11);
@@ -1294,7 +1316,7 @@ describe('brain_list_deals / brain_get_deal', () => {
       [{ id: 2, companyId: null, contactId: null, stageId: 13, clientId: 1 }],
       [{ id: 13, name: 'Stage' }],
     ];
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_get_deal')!.handler({ dealId: 2 });
     const out = parseJson(res) as { company: unknown; contact: unknown; stage: { id: number } };
     expect(out.company).toBeNull();
@@ -1308,7 +1330,7 @@ describe('brain_list_deals / brain_get_deal', () => {
 describe('brain_list_posts / brain_get_post', () => {
   it('returns empty list when tenant has no websites', async () => {
     dbState.selectQueue = [[]];
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_list_posts')!.handler({});
     expect(parseJson(res)).toEqual([]);
   });
@@ -1318,21 +1340,21 @@ describe('brain_list_posts / brain_get_post', () => {
       [{ id: 1 }, { id: 2 }],         // websites for tenant
       [{ id: 50, title: 'Post 1' }],  // posts query
     ];
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_list_posts')!.handler({ websiteId: 1, published: true, postType: 'page', limit: 10 });
     expect(parseJson(res)).toEqual([{ id: 50, title: 'Post 1' }]);
   });
 
   it('returns not-found when post does not exist', async () => {
     dbState.selectQueue = [[]];
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_get_post')!.handler({ postId: 999 });
     expect(res.isError).toBe(true);
   });
 
   it('returns not-found when post has no website (orphan)', async () => {
     dbState.selectQueue = [[{ id: 1, websiteId: null }]];
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_get_post')!.handler({ postId: 1 });
     expect(res.isError).toBe(true);
   });
@@ -1342,7 +1364,7 @@ describe('brain_list_posts / brain_get_post', () => {
       [{ id: 1, websiteId: 22 }],         // post
       [{ clientId: 999 }],                // wrong tenant
     ];
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_get_post')!.handler({ postId: 1 });
     expect(res.isError).toBe(true);
   });
@@ -1352,7 +1374,7 @@ describe('brain_list_posts / brain_get_post', () => {
       [{ id: 1, websiteId: 22, title: 'Post' }],
       [{ clientId: 1 }],
     ];
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_get_post')!.handler({ postId: 1 });
     expect((parseJson(res) as { id: number }).id).toBe(1);
   });
@@ -1362,7 +1384,7 @@ describe('brain_list_posts / brain_get_post', () => {
 
 describe('tool metadata', () => {
   it('every tool has a non-empty title + description', () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     for (const t of tools.values()) {
       expect(t.config.title, `${t.name} should have a title`).toBeTruthy();
       expect((t.config.description ?? '').length, `${t.name} should have a non-trivial description`).toBeGreaterThan(5);
@@ -1370,7 +1392,7 @@ describe('tool metadata', () => {
   });
 
   it('every tool registers an inputSchema (even if empty)', () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     for (const t of tools.values()) {
       expect(t.config.inputSchema, `${t.name}.inputSchema`).toBeDefined();
     }
@@ -1748,7 +1770,7 @@ describe('brain_review_items_suggest_reviewer', () => {
   it('returns not-found when review item is missing', async () => {
     const review = await import('@/lib/brain/review');
     (review.getReviewItem as ReturnType<typeof vi.fn>).mockResolvedValueOnce(null);
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_review_items_suggest_reviewer')!.handler({ reviewItemId: 999 });
     expect(res.isError).toBe(true);
   });
@@ -1756,7 +1778,7 @@ describe('brain_review_items_suggest_reviewer', () => {
   it('returns suggestion when reviewer found', async () => {
     const review = await import('@/lib/brain/review');
     (review.getReviewItem as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ id: 10, proposedType: 'task', proposedPayload: {} });
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_review_items_suggest_reviewer')!.handler({ reviewItemId: 10 });
     const out = parseJson(res) as { suggestedPersonId: number; score: number };
     expect(out.suggestedPersonId).toBe(40);
@@ -1768,7 +1790,7 @@ describe('brain_review_items_suggest_reviewer', () => {
     (review.getReviewItem as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ id: 999, proposedType: 'task', proposedPayload: {} });
     const routing = await import('@/lib/brain/review-routing');
     (routing.suggestReviewerForItem as ReturnType<typeof vi.fn>).mockResolvedValueOnce(null);
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_review_items_suggest_reviewer')!.handler({ reviewItemId: 999 });
     const out = parseJson(res) as { suggestion: null };
     expect(out.suggestion).toBeNull();
@@ -1779,7 +1801,7 @@ describe('brain_review_items_suggest_reviewer', () => {
     (review.getReviewItem as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ id: 1, proposedType: 'task', proposedPayload: {} });
     const routing = await import('@/lib/brain/review-routing');
     (routing.suggestReviewerForItem as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('boom'));
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_review_items_suggest_reviewer')!.handler({ reviewItemId: 1 });
     expect(res.isError).toBe(true);
   });
@@ -1787,7 +1809,7 @@ describe('brain_review_items_suggest_reviewer', () => {
 
 describe('brain_review_items_list_for_reviewer', () => {
   it('returns slim items for a person', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_review_items_list_for_reviewer')!.handler({ personId: 40 });
     const out = parseJson(res) as { items: unknown[] };
     expect(Array.isArray(out.items)).toBe(true);
@@ -1801,7 +1823,7 @@ describe('brain_decisions_list', () => {
 
   it('returns paginated items with total', async () => {
     dbState.selectQueue = [[{ count: 5 }]]; // count query
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_decisions_list')!.handler({ limit: 10, offset: 0 });
     const out = parseJson(res) as { items: unknown[]; total: number; limit: number; offset: number };
     expect(out.items).toHaveLength(1);
@@ -1812,7 +1834,7 @@ describe('brain_decisions_list', () => {
     dbState.selectQueue = [[{ count: 0 }]];
     const decisions = await import('@/lib/brain/decisions');
     (decisions.listDecisions as ReturnType<typeof vi.fn>).mockClear();
-    const tools = registerAll();
+    const tools = sharedTools;
     await tools.get('brain_decisions_list')!.handler({ status: 'accepted', reversibility: 'one_way', decisionMakerId: 5, supersededOnly: true, dateFrom: '2026-01-01', dateTo: '2026-12-31' });
     const opts = (decisions.listDecisions as ReturnType<typeof vi.fn>).mock.calls[0][1] as Record<string, unknown>;
     expect(opts.status).toBe('accepted');
@@ -1823,13 +1845,13 @@ describe('brain_decisions_list', () => {
 
 describe('brain_decisions_get', () => {
   it('returns not-found for missing decision', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_decisions_get')!.handler({ id: 999 });
     expect(res.isError).toBe(true);
   });
 
   it('returns slim decision with chain on hit', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_decisions_get')!.handler({ id: 1 });
     const out = parseJson(res) as { decision: { id: number }; ancestors: unknown[]; descendants: unknown[] };
     expect(out.decision.id).toBe(1);
@@ -1837,7 +1859,7 @@ describe('brain_decisions_get', () => {
   });
 
   it('opts in context/rationale with include', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_decisions_get')!.handler({ id: 1, include: ['context', 'rationale'] });
     const out = parseJson(res) as { decision: Record<string, unknown> };
     expect(out.decision.context).toBe('ctx');
@@ -1847,7 +1869,7 @@ describe('brain_decisions_get', () => {
 
 describe('brain_decisions_create', () => {
   it('creates a decision and returns slim echo', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_decisions_create')!.handler({ title: 'D', decision: 'text', rationale: 'reason' });
     const out = parseJson(res) as { id: number; status: string };
     expect(out.id).toBe(1);
@@ -1857,7 +1879,7 @@ describe('brain_decisions_create', () => {
   it('returns err on thrown error', async () => {
     const decisions = await import('@/lib/brain/decisions');
     (decisions.createDecision as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('db error'));
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_decisions_create')!.handler({ title: 'D', decision: 'd', rationale: 'r' });
     expect(res.isError).toBe(true);
   });
@@ -1865,7 +1887,7 @@ describe('brain_decisions_create', () => {
 
 describe('brain_decisions_update', () => {
   it('returns not-found when decision missing', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_decisions_update')!.handler({ id: 999, patch: {} });
     expect(res.isError).toBe(true);
   });
@@ -1873,13 +1895,13 @@ describe('brain_decisions_update', () => {
   it('returns use_supersede structured error when trying to mutate immutable fields', async () => {
     const decisions = await import('@/lib/brain/decisions');
     (decisions.updateDecision as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('use supersedeDecision'));
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_decisions_update')!.handler({ id: 1, patch: { title: 'X' } });
     expect((parseJson(res) as { error: string }).error).toBe('use_supersede');
   });
 
   it('updates and returns echo on hit', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_decisions_update')!.handler({ id: 1, patch: { title: 'New' } });
     const out = parseJson(res) as { id: number };
     expect(out.id).toBe(1);
@@ -1888,7 +1910,7 @@ describe('brain_decisions_update', () => {
 
 describe('brain_decisions_supersede', () => {
   it('creates successor and returns previous + current', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_decisions_supersede')!.handler({ oldId: 1, title: 'New', decision: 'new text', rationale: 'new reason' });
     const out = parseJson(res) as { previous: { id: number; status: string }; current: { id: number } };
     expect(out.previous.status).toBe('superseded');
@@ -1898,7 +1920,7 @@ describe('brain_decisions_supersede', () => {
   it('returns err on thrown error', async () => {
     const decisions = await import('@/lib/brain/decisions');
     (decisions.supersedeDecision as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('not found'));
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_decisions_supersede')!.handler({ oldId: 999, title: 'X', decision: 'd', rationale: 'r' });
     expect(res.isError).toBe(true);
   });
@@ -1906,13 +1928,13 @@ describe('brain_decisions_supersede', () => {
 
 describe('brain_decisions_reject', () => {
   it('returns not-found when decision missing', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_decisions_reject')!.handler({ id: 999 });
     expect(res.isError).toBe(true);
   });
 
   it('rejects and returns { status: "rejected" }', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_decisions_reject')!.handler({ id: 1, reason: 'not relevant' });
     expect((parseJson(res) as { status: string }).status).toBe('rejected');
   });
@@ -1922,20 +1944,20 @@ describe('brain_decisions_reject', () => {
 
 describe('brain_topics_list', () => {
   it('returns flat list of topics', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_topics_list')!.handler({});
     expect(Array.isArray(parseJson(res))).toBe(true);
   });
 
   it('filters by tagPrefix', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_topics_list')!.handler({ tagPrefix: 'other' });
     expect(parseJson(res)).toEqual([]); // /t doesn't start with /other
   });
 
   it('includes entity counts when includeEntityCounts=true', async () => {
     dbState.selectQueue = [[{ topicId: 1, count: 3 }]];
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_topics_list')!.handler({ includeEntityCounts: true });
     const out = parseJson(res) as { entityCount: number }[];
     expect(out[0].entityCount).toBe(3);
@@ -1944,7 +1966,7 @@ describe('brain_topics_list', () => {
 
 describe('brain_topics_tree', () => {
   it('returns nested tree', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_topics_tree')!.handler({});
     const out = parseJson(res) as { id: number; children: unknown[] }[];
     expect(out[0].id).toBe(1);
@@ -1952,7 +1974,7 @@ describe('brain_topics_tree', () => {
   });
 
   it('includes descriptions when requested', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_topics_tree')!.handler({ includeDescriptions: true });
     const out = parseJson(res) as { description?: string }[];
     expect('description' in out[0]).toBe(true);
@@ -1961,13 +1983,13 @@ describe('brain_topics_tree', () => {
 
 describe('brain_topics_get', () => {
   it('returns not-found when topic missing', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_topics_get')!.handler({ id: 999 });
     expect(res.isError).toBe(true);
   });
 
   it('returns topic and breadcrumb on hit', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_topics_get')!.handler({ id: 1 });
     const out = parseJson(res) as { topic: { id: number }; breadcrumb: unknown[] };
     expect(out.topic.id).toBe(1);
@@ -1976,14 +1998,14 @@ describe('brain_topics_get', () => {
 
 describe('brain_topics_entities', () => {
   it('returns paginated entities for a topic', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_topics_entities')!.handler({ id: 1 });
     const out = parseJson(res) as { items: unknown[]; total: number };
     expect(out.total).toBe(1);
   });
 
   it('filters by entityType', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_topics_entities')!.handler({ id: 1, entityType: 'meeting' });
     const out = parseJson(res) as { items: unknown[] };
     expect(out.items).toHaveLength(0); // mock returns only 'note' item
@@ -1992,7 +2014,7 @@ describe('brain_topics_entities', () => {
 
 describe('brain_topics_create', () => {
   it('creates a topic and returns id/slug/path', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_topics_create')!.handler({ name: 'My Topic' });
     const out = parseJson(res) as { id: number; slug: string };
     expect(out.id).toBe(1);
@@ -2002,7 +2024,7 @@ describe('brain_topics_create', () => {
   it('returns err on thrown error', async () => {
     const topics = await import('@/lib/brain/topics');
     (topics.createTopic as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('dup slug'));
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_topics_create')!.handler({ name: 'T' });
     expect(res.isError).toBe(true);
   });
@@ -2012,13 +2034,13 @@ describe('brain_topics_update', () => {
   it('returns not-found before lookup when topic is missing', async () => {
     const topics = await import('@/lib/brain/topics');
     (topics.getTopicById as ReturnType<typeof vi.fn>).mockResolvedValueOnce(null);
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_topics_update')!.handler({ id: 999, patch: { name: 'X' } });
     expect(res.isError).toBe(true);
   });
 
   it('updates and returns echo with changed fields', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_topics_update')!.handler({ id: 1, patch: { name: 'NewName' } });
     const out = parseJson(res) as { id: number; updatedFields: string[] };
     expect(out.id).toBe(1);
@@ -2030,14 +2052,14 @@ describe('brain_topics_move', () => {
   it('returns not-found when topic missing', async () => {
     const topics = await import('@/lib/brain/topics');
     (topics.getTopicById as ReturnType<typeof vi.fn>).mockResolvedValueOnce(null);
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_topics_move')!.handler({ id: 999, newParentId: null });
     expect(res.isError).toBe(true);
   });
 
   it('moves topic and returns new path + descendant count', async () => {
     dbState.selectQueue = [[{ count: 2 }]]; // descendant count
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_topics_move')!.handler({ id: 1, newParentId: null });
     const out = parseJson(res) as { id: number; path: string; descendantsRepathed: number };
     expect(out.descendantsRepathed).toBe(2);
@@ -2046,13 +2068,13 @@ describe('brain_topics_move', () => {
 
 describe('brain_topics_merge', () => {
   it('returns not-found when source missing', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_topics_merge')!.handler({ sourceId: 999, targetId: 2 });
     expect(res.isError).toBe(true);
   });
 
   it('merges and returns reattach/reparent counts', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_topics_merge')!.handler({ sourceId: 1, targetId: 2 });
     const out = parseJson(res) as { entitiesReattached: number; childrenReparented: number };
     expect(out.entitiesReattached).toBe(3);
@@ -2062,26 +2084,26 @@ describe('brain_topics_merge', () => {
 
 describe('brain_topics_delete', () => {
   it('returns not-found for missing topic', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_topics_delete')!.handler({ id: 999 });
     expect(res.isError).toBe(true);
   });
 
   it('returns structured error when topic has children', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_topics_delete')!.handler({ id: 777 });
     expect((parseJson(res) as { error: string }).error).toBe('has_children');
   });
 
   it('returns structured error when topic has entities and force not set', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_topics_delete')!.handler({ id: 888 });
     const out = parseJson(res) as { error: string };
     expect(out.error).toBe('has_entities');
   });
 
   it('deletes and returns success echo', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_topics_delete')!.handler({ id: 1 });
     expect((parseJson(res) as { deleted: boolean }).deleted).toBe(true);
   });
@@ -2089,7 +2111,7 @@ describe('brain_topics_delete', () => {
 
 describe('brain_topics_attach / brain_topics_detach', () => {
   it('attaches topics and returns counts', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_topics_attach')!.handler({
       targetEntityType: 'note', targetEntityId: 1, topicIds: [1, 2],
     });
@@ -2098,7 +2120,7 @@ describe('brain_topics_attach / brain_topics_detach', () => {
   });
 
   it('detaches topics and returns count', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_topics_detach')!.handler({
       targetEntityType: 'note', targetEntityId: 1, topicIds: [1],
     });
@@ -2108,7 +2130,7 @@ describe('brain_topics_attach / brain_topics_detach', () => {
 
 describe('brain_topics_import_from_tags', () => {
   it('returns import report', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_topics_import_from_tags')!.handler({ dryRun: false });
     const out = parseJson(res) as { topicsCreated: number; notesAttached: number };
     expect(out.topicsCreated).toBe(3);
@@ -2120,14 +2142,14 @@ describe('brain_topics_import_from_tags', () => {
 
 describe('brain_initiatives_list', () => {
   it('returns items with pagination', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_initiatives_list')!.handler({});
     const out = parseJson(res) as { items: unknown[]; limit: number };
     expect(out.items).toHaveLength(1);
   });
 
   it('includes description when requested', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_initiatives_list')!.handler({ include: ['description'] });
     const out = parseJson(res) as { items: Record<string, unknown>[] };
     expect('description' in out.items[0]).toBe(true);
@@ -2136,13 +2158,13 @@ describe('brain_initiatives_list', () => {
 
 describe('brain_initiatives_get', () => {
   it('returns not-found when missing', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_initiatives_get')!.handler({ id: 999 });
     expect(res.isError).toBe(true);
   });
 
   it('returns initiative with goals and links on hit', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_initiatives_get')!.handler({ id: 1, includeGoals: true, includeLinks: true });
     const out = parseJson(res) as { initiative: { id: number }; goals: unknown[]; links: unknown };
     expect(out.initiative.id).toBe(1);
@@ -2152,7 +2174,7 @@ describe('brain_initiatives_get', () => {
 
 describe('brain_initiatives_create', () => {
   it('creates an initiative and returns slim echo', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_initiatives_create')!.handler({ name: 'Init Q1' });
     const out = parseJson(res) as { id: number; slug: string };
     expect(out.id).toBe(10);
@@ -2162,7 +2184,7 @@ describe('brain_initiatives_create', () => {
   it('returns err on thrown error', async () => {
     const initiatives = await import('@/lib/brain/initiatives');
     (initiatives.createInitiative as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('fail'));
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_initiatives_create')!.handler({ name: 'X' });
     expect(res.isError).toBe(true);
   });
@@ -2170,19 +2192,19 @@ describe('brain_initiatives_create', () => {
 
 describe('brain_initiatives_update', () => {
   it('returns not-found when missing', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_initiatives_update')!.handler({ id: 999, patch: {} });
     expect(res.isError).toBe(true);
   });
 
   it('returns use_close_or_reopen when status change attempted', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_initiatives_update')!.handler({ id: 888, patch: { name: 'X' } });
     expect((parseJson(res) as { error: string }).error).toBe('use_close_or_reopen');
   });
 
   it('updates and returns echo', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_initiatives_update')!.handler({ id: 1, patch: { name: 'New Name' } });
     const out = parseJson(res) as { id: number };
     expect(out.id).toBe(1);
@@ -2191,13 +2213,13 @@ describe('brain_initiatives_update', () => {
 
 describe('brain_initiatives_close', () => {
   it('returns not-found when missing', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_initiatives_close')!.handler({ id: 999, outcome: 'completed' });
     expect(res.isError).toBe(true);
   });
 
   it('closes initiative and returns echo', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_initiatives_close')!.handler({ id: 1, outcome: 'cancelled', reason: 'budget' });
     const out = parseJson(res) as { id: number; status: string };
     expect(out.status).toBe('completed');
@@ -2206,19 +2228,19 @@ describe('brain_initiatives_close', () => {
 
 describe('brain_initiatives_reopen', () => {
   it('returns not-found when missing', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_initiatives_reopen')!.handler({ id: 999 });
     expect(res.isError).toBe(true);
   });
 
   it('returns non_terminal_status error when state not closable', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_initiatives_reopen')!.handler({ id: 888 });
     expect((parseJson(res) as { error: string }).error).toBe('non_terminal_status');
   });
 
   it('reopens and returns { status: "active" }', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_initiatives_reopen')!.handler({ id: 1 });
     expect((parseJson(res) as { status: string }).status).toBe('active');
   });
@@ -2226,7 +2248,7 @@ describe('brain_initiatives_reopen', () => {
 
 describe('brain_initiatives_link / brain_initiatives_unlink', () => {
   it('links entity and returns linkId', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_initiatives_link')!.handler({ initiativeId: 1, entityType: 'task', entityId: 1 });
     const out = parseJson(res) as { linkId: number; alreadyLinked: boolean };
     expect(out.linkId).toBe(5);
@@ -2234,7 +2256,7 @@ describe('brain_initiatives_link / brain_initiatives_unlink', () => {
   });
 
   it('unlinks entity', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_initiatives_unlink')!.handler({ initiativeId: 1, entityType: 'task', entityId: 1 });
     expect((parseJson(res) as { removed: boolean }).removed).toBe(true);
   });
@@ -2242,7 +2264,7 @@ describe('brain_initiatives_link / brain_initiatives_unlink', () => {
 
 describe('brain_initiatives_links', () => {
   it('returns links with byType tally', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_initiatives_links')!.handler({ id: 1 });
     const out = parseJson(res) as { items: unknown[]; total: number; byType: Record<string, number> };
     expect(out.total).toBe(1);
@@ -2254,14 +2276,14 @@ describe('brain_initiatives_links', () => {
 
 describe('brain_goals_list', () => {
   it('returns paginated goals', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_goals_list')!.handler({});
     const out = parseJson(res) as { items: unknown[] };
     expect(out.items).toHaveLength(1);
   });
 
   it('opts in description when requested', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_goals_list')!.handler({ include: ['description'] });
     const out = parseJson(res) as { items: Record<string, unknown>[] };
     expect('description' in out.items[0]).toBe(true);
@@ -2270,13 +2292,13 @@ describe('brain_goals_list', () => {
 
 describe('brain_goals_get', () => {
   it('returns not-found when missing', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_goals_get')!.handler({ id: 999 });
     expect(res.isError).toBe(true);
   });
 
   it('returns goal with initiative reference on hit', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_goals_get')!.handler({ id: 1 });
     const out = parseJson(res) as { goal: { id: number }; initiative: { id: number } };
     expect(out.goal.id).toBe(1);
@@ -2286,7 +2308,7 @@ describe('brain_goals_get', () => {
 
 describe('brain_goals_create', () => {
   it('creates a goal and returns slim echo', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_goals_create')!.handler({ initiativeId: 10, title: 'G' });
     const out = parseJson(res) as { id: number; status: string };
     expect(out.id).toBe(20);
@@ -2296,13 +2318,13 @@ describe('brain_goals_create', () => {
 
 describe('brain_goals_update', () => {
   it('returns not-found when missing', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_goals_update')!.handler({ id: 999, patch: {} });
     expect(res.isError).toBe(true);
   });
 
   it('updates and returns echo', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_goals_update')!.handler({ id: 1, patch: { status: 'on_track' } });
     const out = parseJson(res) as { id: number };
     expect(out.id).toBe(1);
@@ -2311,13 +2333,13 @@ describe('brain_goals_update', () => {
 
 describe('brain_goals_checkin', () => {
   it('returns not-found when goal missing', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_goals_checkin')!.handler({ id: 999 });
     expect(res.isError).toBe(true);
   });
 
   it('records check-in and returns slim echo', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_goals_checkin')!.handler({ id: 1, currentMetric: 5, note: 'progress!' });
     const out = parseJson(res) as { id: number; status: string; currentMetric: number };
     expect(out.status).toBe('on_track');
@@ -2327,13 +2349,13 @@ describe('brain_goals_checkin', () => {
 
 describe('brain_goals_delete', () => {
   it('returns not-found when missing', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_goals_delete')!.handler({ id: 999 });
     expect(res.isError).toBe(true);
   });
 
   it('deletes and returns success echo', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_goals_delete')!.handler({ id: 1 });
     expect((parseJson(res) as { deleted: boolean }).deleted).toBe(true);
   });
@@ -2343,7 +2365,7 @@ describe('brain_goals_delete', () => {
 
 describe('brain_people_list', () => {
   it('returns slim items', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_people_list')!.handler({});
     const out = parseJson(res) as { items: unknown[] };
     expect(out.items).toHaveLength(1);
@@ -2351,7 +2373,7 @@ describe('brain_people_list', () => {
 
   it('hydrates heavy fields when include=["notes","profileUrls"]', async () => {
     dbState.selectQueue = [[{ id: 1, notes: 'notes text', profileUrls: [] }]];
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_people_list')!.handler({ include: ['notes', 'profileUrls'] });
     const out = parseJson(res) as { items: Record<string, unknown>[] };
     expect(out.items[0].notes).toBe('notes text');
@@ -2360,13 +2382,13 @@ describe('brain_people_list', () => {
 
 describe('brain_people_get', () => {
   it('returns not-found when missing', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_people_get')!.handler({ id: 999 });
     expect(res.isError).toBe(true);
   });
 
   it('returns person with org units and expertise', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_people_get')!.handler({ id: 1 });
     const out = parseJson(res) as { person: { id: number }; orgUnits: unknown[]; expertise: unknown[] };
     expect(out.person.id).toBe(1);
@@ -2375,7 +2397,7 @@ describe('brain_people_get', () => {
 
 describe('brain_people_create', () => {
   it('creates a person and returns slim echo', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_people_create')!.handler({ fullName: 'Alice' });
     const out = parseJson(res) as { id: number; status: string };
     expect(out.id).toBe(40);
@@ -2385,7 +2407,7 @@ describe('brain_people_create', () => {
   it('returns err on thrown error', async () => {
     const people = await import('@/lib/brain/people');
     (people.createPerson as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('dup email'));
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_people_create')!.handler({ fullName: 'X' });
     expect(res.isError).toBe(true);
   });
@@ -2393,19 +2415,19 @@ describe('brain_people_create', () => {
 
 describe('brain_people_update', () => {
   it('returns not-found when missing', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_people_update')!.handler({ id: 999, patch: {} });
     expect(res.isError).toBe(true);
   });
 
   it('returns manager_cycle error', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_people_update')!.handler({ id: 888, patch: { managerId: 888 } });
     expect((parseJson(res) as { error: string }).error).toBe('manager_cycle');
   });
 
   it('updates and returns echo', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_people_update')!.handler({ id: 1, patch: { fullName: 'Bob' } });
     const out = parseJson(res) as { id: number };
     expect(out.id).toBe(1);
@@ -2414,13 +2436,13 @@ describe('brain_people_update', () => {
 
 describe('brain_people_delete', () => {
   it('returns not-found when missing', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_people_delete')!.handler({ id: 999 });
     expect(res.isError).toBe(true);
   });
 
   it('deletes and returns success echo', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_people_delete')!.handler({ id: 1 });
     expect((parseJson(res) as { deleted: boolean }).deleted).toBe(true);
   });
@@ -2428,14 +2450,14 @@ describe('brain_people_delete', () => {
 
 describe('brain_people_attach_expertise / brain_people_detach_expertise', () => {
   it('attaches expertise tag', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_people_attach_expertise')!.handler({ personId: 1, expertiseTagId: 10 });
     const out = parseJson(res) as { alreadyAttached: boolean };
     expect(out.alreadyAttached).toBe(false);
   });
 
   it('detaches expertise tag', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_people_detach_expertise')!.handler({ personId: 1, expertiseTagId: 10 });
     expect((parseJson(res) as { detached: boolean }).detached).toBe(true);
   });
@@ -2443,7 +2465,7 @@ describe('brain_people_attach_expertise / brain_people_detach_expertise', () => 
 
 describe('brain_who_knows', () => {
   it('returns ranked matches', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_who_knows')!.handler({ query: 'TypeScript', limit: 5 });
     const out = parseJson(res) as { matches: unknown[] };
     expect(out.matches).toHaveLength(1);
@@ -2454,7 +2476,7 @@ describe('brain_who_knows', () => {
 
 describe('brain_expertise_tags_list', () => {
   it('returns slim items by default', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_expertise_tags_list')!.handler({});
     const out = parseJson(res) as { items: { id: number }[] };
     expect(out.items[0].id).toBe(1);
@@ -2463,7 +2485,7 @@ describe('brain_expertise_tags_list', () => {
 
 describe('brain_expertise_tags_create', () => {
   it('creates and returns slug echo', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_expertise_tags_create')!.handler({ name: 'React' });
     const out = parseJson(res) as { id: number; slug: string };
     expect(out.slug).toBe('react');
@@ -2472,13 +2494,13 @@ describe('brain_expertise_tags_create', () => {
 
 describe('brain_expertise_tags_update', () => {
   it('returns not-found when tag missing', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_expertise_tags_update')!.handler({ id: 999, patch: {} });
     expect(res.isError).toBe(true);
   });
 
   it('updates and returns echo', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_expertise_tags_update')!.handler({ id: 1, patch: { name: 'TS' } });
     const out = parseJson(res) as { id: number };
     expect(out.id).toBe(1);
@@ -2487,19 +2509,19 @@ describe('brain_expertise_tags_update', () => {
 
 describe('brain_expertise_tags_delete', () => {
   it('returns not-found when tag missing', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_expertise_tags_delete')!.handler({ id: 999 });
     expect(res.isError).toBe(true);
   });
 
   it('returns in_use structured error when force not set', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_expertise_tags_delete')!.handler({ id: 888 });
     expect((parseJson(res) as { error: string }).error).toBe('in_use');
   });
 
   it('deletes on hit', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_expertise_tags_delete')!.handler({ id: 1 });
     expect((parseJson(res) as { deleted: boolean }).deleted).toBe(true);
   });
@@ -2507,7 +2529,7 @@ describe('brain_expertise_tags_delete', () => {
 
 describe('brain_expertise_tags_merge', () => {
   it('merges tags and returns reattach count', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_expertise_tags_merge')!.handler({ sourceTagId: 1, targetTagId: 2 });
     const out = parseJson(res) as { peopleReattached: number; sourceDeleted: boolean };
     expect(out.peopleReattached).toBe(2);
@@ -2520,7 +2542,7 @@ describe('brain_expertise_tags_merge', () => {
 describe('brain_org_units_list', () => {
   it('returns flat list with memberCount', async () => {
     dbState.selectQueue = [[{ orgUnitId: 1, count: 3 }]]; // member count query
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_org_units_list')!.handler({});
     const out = parseJson(res) as { items: { memberCount: number }[] };
     expect(out.items[0].memberCount).toBe(3);
@@ -2529,7 +2551,7 @@ describe('brain_org_units_list', () => {
 
 describe('brain_org_units_tree', () => {
   it('returns nested tree', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_org_units_tree')!.handler({});
     const out = parseJson(res) as { items: { id: number }[] };
     expect(out.items[0].id).toBe(1);
@@ -2538,13 +2560,13 @@ describe('brain_org_units_tree', () => {
 
 describe('brain_org_units_get', () => {
   it('returns not-found when missing', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_org_units_get')!.handler({ id: 999 });
     expect(res.isError).toBe(true);
   });
 
   it('returns unit with members on hit', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_org_units_get')!.handler({ id: 1 });
     const out = parseJson(res) as { unit: { id: number }; members: unknown[] };
     expect(out.unit.id).toBe(1);
@@ -2553,7 +2575,7 @@ describe('brain_org_units_get', () => {
 
 describe('brain_org_units_create', () => {
   it('creates and returns slug + path', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_org_units_create')!.handler({ name: 'Engineering' });
     const out = parseJson(res) as { id: number; slug: string; path: string };
     expect(out.slug).toBe('eng');
@@ -2562,13 +2584,13 @@ describe('brain_org_units_create', () => {
 
 describe('brain_org_units_update', () => {
   it('returns not-found when missing', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_org_units_update')!.handler({ id: 999, patch: {} });
     expect(res.isError).toBe(true);
   });
 
   it('updates and returns echo', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_org_units_update')!.handler({ id: 1, patch: { name: 'Eng2' } });
     const out = parseJson(res) as { id: number };
     expect(out.id).toBe(1);
@@ -2577,14 +2599,14 @@ describe('brain_org_units_update', () => {
 
 describe('brain_org_units_move', () => {
   it('returns not-found when unit missing', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_org_units_move')!.handler({ id: 999, newParentId: null });
     expect(res.isError).toBe(true);
   });
 
   it('moves and returns new path', async () => {
     dbState.selectQueue = [[{ id: 5 }, { id: 6 }]]; // descendant rows
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_org_units_move')!.handler({ id: 1, newParentId: 2 });
     const out = parseJson(res) as { id: number; path: string; descendantsRepathed: number };
     expect(out.descendantsRepathed).toBe(2);
@@ -2593,14 +2615,14 @@ describe('brain_org_units_move', () => {
 
 describe('brain_org_units_merge', () => {
   it('returns not-found when source missing', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_org_units_merge')!.handler({ sourceId: 999, targetId: 2 });
     expect(res.isError).toBe(true);
   });
 
   it('merges and returns counts', async () => {
     dbState.selectQueue = [[]]; // children query → empty
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_org_units_merge')!.handler({ sourceId: 1, targetId: 2 });
     const out = parseJson(res) as { membersReattached: number; childrenReparented: number };
     expect(typeof out.membersReattached).toBe('number');
@@ -2609,13 +2631,13 @@ describe('brain_org_units_merge', () => {
 
 describe('brain_org_units_delete', () => {
   it('returns not-found when unit missing', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_org_units_delete')!.handler({ id: 999 });
     expect(res.isError).toBe(true);
   });
 
   it('returns in_use structured error when conflicts exist', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_org_units_delete')!.handler({ id: 888 });
     const out = parseJson(res) as { error: string; memberCount: number; childCount: number };
     expect(out.error).toBe('in_use');
@@ -2624,7 +2646,7 @@ describe('brain_org_units_delete', () => {
   });
 
   it('deletes on hit', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_org_units_delete')!.handler({ id: 1 });
     expect((parseJson(res) as { deleted: boolean }).deleted).toBe(true);
   });
@@ -2635,7 +2657,7 @@ describe('brain_org_units_add_member / remove_member / set_primary', () => {
 
   it('adds member and returns alreadyMember flag', async () => {
     dbState.selectRows = []; // no existing membership
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_org_units_add_member')!.handler({ orgUnitId: 1, personId: 40 });
     const out = parseJson(res) as { alreadyMember: boolean; primary: boolean };
     expect(out.alreadyMember).toBe(false);
@@ -2643,25 +2665,25 @@ describe('brain_org_units_add_member / remove_member / set_primary', () => {
 
   it('detects existing membership', async () => {
     dbState.selectRows = [{ id: 5 }]; // existing membership row
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_org_units_add_member')!.handler({ orgUnitId: 1, personId: 40 });
     expect((parseJson(res) as { alreadyMember: boolean }).alreadyMember).toBe(true);
   });
 
   it('removes member', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_org_units_remove_member')!.handler({ orgUnitId: 1, personId: 40 });
     expect((parseJson(res) as { removed: boolean }).removed).toBe(true);
   });
 
   it('sets primary unit', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_org_units_set_primary')!.handler({ personId: 1, orgUnitId: 1 });
     expect((parseJson(res) as { primary: boolean }).primary).toBe(true);
   });
 
   it('returns error when set_primary membership not found', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_org_units_set_primary')!.handler({ personId: 1, orgUnitId: 999 });
     expect(res.isError).toBe(true);
   });
@@ -2671,7 +2693,7 @@ describe('brain_org_units_add_member / remove_member / set_primary', () => {
 
 describe('brain_glossary_list', () => {
   it('returns slim items by default', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_glossary_list')!.handler({});
     const out = parseJson(res) as { items: unknown[] };
     expect(out.items).toHaveLength(1);
@@ -2679,7 +2701,7 @@ describe('brain_glossary_list', () => {
 
   it('hydrates definition + aliases when include requested', async () => {
     dbState.selectQueue = [[{ id: 1, definition: 'full def', aliases: ['alias1'] }]];
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_glossary_list')!.handler({ include: ['definition', 'aliases'] });
     const out = parseJson(res) as { items: Record<string, unknown>[] };
     expect(out.items[0].definition).toBe('full def');
@@ -2689,13 +2711,13 @@ describe('brain_glossary_list', () => {
 
 describe('brain_glossary_get', () => {
   it('returns not-found when missing', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_glossary_get')!.handler({ id: 999 });
     expect(res.isError).toBe(true);
   });
 
   it('returns term with opt-in fields on hit', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_glossary_get')!.handler({ id: 1, include: ['definition'] });
     const out = parseJson(res) as { term: Record<string, unknown>; relatedTerms: unknown[] };
     expect(out.term.definition).toBe('def');
@@ -2704,7 +2726,7 @@ describe('brain_glossary_get', () => {
 
 describe('brain_glossary_lookup', () => {
   it('returns scored results', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_glossary_lookup')!.handler({ query: 'T' });
     const out = parseJson(res) as { id: number; score: number }[];
     expect(out[0].score).toBe(10);
@@ -2713,7 +2735,7 @@ describe('brain_glossary_lookup', () => {
 
 describe('brain_glossary_create', () => {
   it('creates a term and returns id + slug', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_glossary_create')!.handler({ term: 'SaaS', definition: 'Software as a Service' });
     const out = parseJson(res) as { id: number; slug: string };
     expect(out.id).toBe(60);
@@ -2722,13 +2744,13 @@ describe('brain_glossary_create', () => {
 
 describe('brain_glossary_update', () => {
   it('returns not-found when missing', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_glossary_update')!.handler({ id: 999, patch: {} });
     expect(res.isError).toBe(true);
   });
 
   it('updates and returns echo', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_glossary_update')!.handler({ id: 1, patch: { term: 'NewTerm' } });
     const out = parseJson(res) as { id: number };
     expect(out.id).toBe(1);
@@ -2737,13 +2759,13 @@ describe('brain_glossary_update', () => {
 
 describe('brain_glossary_delete', () => {
   it('returns not-found when missing', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_glossary_delete')!.handler({ id: 999 });
     expect(res.isError).toBe(true);
   });
 
   it('deletes and returns echo with prune count', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_glossary_delete')!.handler({ id: 1 });
     const out = parseJson(res) as { deleted: boolean; prunedRelatedTermFromCount: number };
     expect(out.deleted).toBe(true);
@@ -2753,7 +2775,7 @@ describe('brain_glossary_delete', () => {
 
 describe('brain_glossary_bulk_import', () => {
   it('returns created/updated/errors counts', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_glossary_bulk_import')!.handler({ terms: [{ term: 'T1', definition: 'D1' }, { term: 'T2', definition: 'D2' }] });
     const out = parseJson(res) as { created: number; updated: number; errors: unknown[] };
     expect(out.created).toBe(2);
@@ -2765,7 +2787,7 @@ describe('brain_glossary_bulk_import', () => {
 
 describe('brain_playbooks_list', () => {
   it('returns slim list of playbooks', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_playbooks_list')!.handler({});
     const out = parseJson(res) as { items: unknown[] };
     expect(out.items).toHaveLength(1);
@@ -2773,7 +2795,7 @@ describe('brain_playbooks_list', () => {
 
   it('hydrates heavy fields when include requested', async () => {
     dbState.selectQueue = [[{ id: 1, description: 'Desc', triggerConfig: {}, defaultTopicIds: [1] }]];
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_playbooks_list')!.handler({ include: ['description', 'triggerConfig', 'defaultTopicIds'] });
     const out = parseJson(res) as { items: Record<string, unknown>[] };
     expect(out.items[0].description).toBe('Desc');
@@ -2782,13 +2804,13 @@ describe('brain_playbooks_list', () => {
 
 describe('brain_playbooks_get', () => {
   it('returns not-found when missing', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_playbooks_get')!.handler({ id: 999 });
     expect(res.isError).toBe(true);
   });
 
   it('returns playbook with steps on hit', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_playbooks_get')!.handler({ id: 1 });
     const out = parseJson(res) as { playbook: { id: number }; steps: unknown[] };
     expect(out.playbook.id).toBe(1);
@@ -2798,7 +2820,7 @@ describe('brain_playbooks_get', () => {
 
 describe('brain_playbooks_create', () => {
   it('creates and returns slug + status', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_playbooks_create')!.handler({ name: 'Onboarding' });
     const out = parseJson(res) as { id: number; status: string };
     expect(out.status).toBe('draft');
@@ -2807,19 +2829,19 @@ describe('brain_playbooks_create', () => {
 
 describe('brain_playbooks_update', () => {
   it('returns not-found when missing', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_playbooks_update')!.handler({ id: 999, patch: {} });
     expect(res.isError).toBe(true);
   });
 
   it('returns use_activate_or_archive when status change attempted', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_playbooks_update')!.handler({ id: 888, patch: { name: 'X' } });
     expect((parseJson(res) as { error: string }).error).toBe('use_activate_or_archive');
   });
 
   it('updates and returns echo', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_playbooks_update')!.handler({ id: 1, patch: { name: 'NewName' } });
     const out = parseJson(res) as { id: number };
     expect(out.id).toBe(1);
@@ -2828,13 +2850,13 @@ describe('brain_playbooks_update', () => {
 
 describe('brain_playbooks_activate', () => {
   it('returns not-found when missing', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_playbooks_activate')!.handler({ id: 999 });
     expect(res.isError).toBe(true);
   });
 
   it('returns dag_invalid error on DAG failure', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_playbooks_activate')!.handler({ id: 888 });
     const out = parseJson(res) as { error: string; errors: string[] };
     expect(out.error).toBe('dag_invalid');
@@ -2842,13 +2864,13 @@ describe('brain_playbooks_activate', () => {
   });
 
   it('returns dag_invalid for zero steps', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_playbooks_activate')!.handler({ id: 777 });
     expect((parseJson(res) as { error: string }).error).toBe('dag_invalid');
   });
 
   it('activates on success', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_playbooks_activate')!.handler({ id: 1 });
     expect((parseJson(res) as { status: string }).status).toBe('active');
   });
@@ -2856,19 +2878,19 @@ describe('brain_playbooks_activate', () => {
 
 describe('brain_playbooks_archive', () => {
   it('returns not-found when missing', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_playbooks_archive')!.handler({ id: 999 });
     expect(res.isError).toBe(true);
   });
 
   it('returns active_runs_exist when blocking runs exist', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_playbooks_archive')!.handler({ id: 888 });
     expect((parseJson(res) as { error: string }).error).toBe('active_runs_exist');
   });
 
   it('archives on success', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_playbooks_archive')!.handler({ id: 1 });
     expect((parseJson(res) as { status: string }).status).toBe('archived');
   });
@@ -2876,19 +2898,19 @@ describe('brain_playbooks_archive', () => {
 
 describe('brain_playbooks_delete', () => {
   it('returns not-found when missing', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_playbooks_delete')!.handler({ id: 999 });
     expect(res.isError).toBe(true);
   });
 
   it('returns runs_exist error when runs block delete', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_playbooks_delete')!.handler({ id: 888 });
     expect((parseJson(res) as { error: string }).error).toBe('runs_exist');
   });
 
   it('deletes on hit', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_playbooks_delete')!.handler({ id: 1 });
     expect((parseJson(res) as { deleted: boolean }).deleted).toBe(true);
   });
@@ -2896,7 +2918,7 @@ describe('brain_playbooks_delete', () => {
 
 describe('brain_playbooks_add_step / update_step / remove_step / reorder_steps', () => {
   it('adds a step and returns id + key', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_playbooks_add_step')!.handler({
       playbookId: 1, step: { key: 'step-1', name: 'Step One', kind: 'task' },
     });
@@ -2905,32 +2927,32 @@ describe('brain_playbooks_add_step / update_step / remove_step / reorder_steps',
   });
 
   it('updates a step', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_playbooks_update_step')!.handler({ stepId: 1, patch: { name: 'Renamed' } });
     const out = parseJson(res) as { id: number };
     expect(out.id).toBe(1);
   });
 
   it('returns not-found on missing step update', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_playbooks_update_step')!.handler({ stepId: 999, patch: {} });
     expect(res.isError).toBe(true);
   });
 
   it('removes a step', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_playbooks_remove_step')!.handler({ stepId: 1 });
     expect((parseJson(res) as { deleted: boolean }).deleted).toBe(true);
   });
 
   it('returns run_steps_reference error when step in active run', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_playbooks_remove_step')!.handler({ stepId: 888 });
     expect((parseJson(res) as { error: string }).error).toBe('run_steps_reference');
   });
 
   it('reorders steps and returns count', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_playbooks_reorder_steps')!.handler({ playbookId: 1, orderedStepIds: [2, 1] });
     const out = parseJson(res) as { playbookId: number; count: number };
     expect(out.count).toBe(2);
@@ -2941,7 +2963,7 @@ describe('brain_playbooks_add_step / update_step / remove_step / reorder_steps',
 
 describe('brain_playbook_runs_list', () => {
   it('returns paginated run list', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_playbook_runs_list')!.handler({});
     const out = parseJson(res) as { items: unknown[] };
     expect(out.items).toHaveLength(1);
@@ -2950,13 +2972,13 @@ describe('brain_playbook_runs_list', () => {
 
 describe('brain_playbook_runs_get', () => {
   it('returns not-found when missing', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_playbook_runs_get')!.handler({ id: 999 });
     expect(res.isError).toBe(true);
   });
 
   it('returns run with playbook + steps + links on hit', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_playbook_runs_get')!.handler({ id: 1 });
     const out = parseJson(res) as { run: { id: number }; playbook: { id: number }; steps: unknown[]; links: unknown[] };
     expect(out.run.id).toBe(1);
@@ -2964,7 +2986,7 @@ describe('brain_playbook_runs_get', () => {
   });
 
   it('opts in context when include=["context"]', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_playbook_runs_get')!.handler({ id: 1, include: ['context'] });
     const out = parseJson(res) as { run: Record<string, unknown> };
     expect(out.run.context).toEqual({ foo: 1 });
@@ -2973,7 +2995,7 @@ describe('brain_playbook_runs_get', () => {
 
 describe('brain_playbook_runs_active_for_entity', () => {
   it('returns active runs for entity', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_playbook_runs_active_for_entity')!.handler({ entityType: 'person', entityId: 40 });
     const out = parseJson(res) as { items: unknown[]; total: number };
     expect(out.items).toHaveLength(1);
@@ -2983,7 +3005,7 @@ describe('brain_playbook_runs_active_for_entity', () => {
 
 describe('brain_playbook_runs_start', () => {
   it('starts a run and returns runId + firstStepKeys', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_playbook_runs_start')!.handler({ playbookId: 70, label: 'Run 1' });
     const out = parseJson(res) as { runId: number; status: string; firstStepKeys: string[] };
     expect(out.runId).toBe(100);
@@ -2993,7 +3015,7 @@ describe('brain_playbook_runs_start', () => {
   it('returns err on thrown error', async () => {
     const runs = await import('@/lib/brain/playbook-runs');
     (runs.startRun as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('playbook not active'));
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_playbook_runs_start')!.handler({ playbookId: 999, label: 'X' });
     expect(res.isError).toBe(true);
   });
@@ -3001,13 +3023,13 @@ describe('brain_playbook_runs_start', () => {
 
 describe('brain_playbook_runs_advance', () => {
   it('returns not-found when run missing', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_playbook_runs_advance')!.handler({ runId: 999 });
     expect(res.isError).toBe(true);
   });
 
   it('returns new active step keys on hit', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_playbook_runs_advance')!.handler({ runId: 1 });
     const out = parseJson(res) as { runId: number; newActiveStepKeys: string[] };
     expect(out.runId).toBe(1);
@@ -3016,26 +3038,26 @@ describe('brain_playbook_runs_advance', () => {
 
 describe('brain_playbook_run_steps_complete / skip', () => {
   it('completes a run step', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_playbook_run_steps_complete')!.handler({ runId: 1, stepId: 1 });
     const out = parseJson(res) as { stepId: number; status: string };
     expect(out.status).toBe('completed');
   });
 
   it('returns not-found for missing step on complete', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_playbook_run_steps_complete')!.handler({ runId: 1, stepId: 999 });
     expect(res.isError).toBe(true);
   });
 
   it('skips a run step', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_playbook_run_steps_skip')!.handler({ runId: 1, stepId: 1, reason: 'not applicable' });
     expect((parseJson(res) as { status: string }).status).toBe('skipped');
   });
 
   it('returns not-found for missing step on skip', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_playbook_run_steps_skip')!.handler({ runId: 1, stepId: 999 });
     expect(res.isError).toBe(true);
   });
@@ -3043,13 +3065,13 @@ describe('brain_playbook_run_steps_complete / skip', () => {
 
 describe('brain_playbook_runs_abort', () => {
   it('returns not-found when run missing', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_playbook_runs_abort')!.handler({ runId: 999 });
     expect(res.isError).toBe(true);
   });
 
   it('aborts and returns { status: "aborted" }', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_playbook_runs_abort')!.handler({ runId: 1, reason: 'cancelled by user' });
     expect((parseJson(res) as { status: string }).status).toBe('aborted');
   });
@@ -3059,7 +3081,7 @@ describe('brain_playbook_runs_abort', () => {
 
 describe('brain_documents_list', () => {
   it('returns document list', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_documents_list')!.handler({});
     const out = parseJson(res) as { items: unknown[] };
     expect(out.items).toHaveLength(1);
@@ -3067,7 +3089,7 @@ describe('brain_documents_list', () => {
 
   it('hydrates body when include=["body"]', async () => {
     dbState.selectQueue = [[{ id: 82, body: 'markdown body' }]]; // version bodies
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_documents_list')!.handler({ include: ['body'] });
     const out = parseJson(res) as { items: Record<string, unknown>[] };
     expect(out.items[0].body).toBe('markdown body');
@@ -3076,13 +3098,13 @@ describe('brain_documents_list', () => {
 
 describe('brain_documents_get', () => {
   it('returns not-found when missing', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_documents_get')!.handler({ id: 999 });
     expect(res.isError).toBe(true);
   });
 
   it('returns document with versions and links on hit', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_documents_get')!.handler({ id: 1 });
     const out = parseJson(res) as { document: { id: number }; links: unknown[] };
     expect(out.document.id).toBe(1);
@@ -3091,14 +3113,14 @@ describe('brain_documents_get', () => {
 
 describe('brain_document_versions_list', () => {
   it('returns not-found when document missing', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_document_versions_list')!.handler({ documentId: 999 });
     expect(res.isError).toBe(true);
   });
 
   it('returns slim version list on hit', async () => {
     dbState.selectQueue = [[{ id: 82, versionNumber: 2, isDraft: false, publishedAt: null, title: 'V2', body: 'B', changeNotes: null, summary: null }]];
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_document_versions_list')!.handler({ documentId: 1 });
     const out = parseJson(res) as { items: { id: number }[] };
     expect(out.items[0].id).toBe(82);
@@ -3108,14 +3130,14 @@ describe('brain_document_versions_list', () => {
 describe('brain_document_versions_get', () => {
   it('returns not-found when version missing', async () => {
     dbState.selectRows = [];
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_document_versions_get')!.handler({ versionId: 999 });
     expect(res.isError).toBe(true);
   });
 
   it('returns version on hit', async () => {
     dbState.selectQueue = [[{ id: 82, documentId: 80, versionNumber: 2, isDraft: false, publishedAt: null, title: 'V2', body: 'body', createdBy: 11, createdAt: new Date(), updatedAt: new Date(), changeNotes: null, summary: null, publishedBy: null }]];
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_document_versions_get')!.handler({ versionId: 82 });
     const out = parseJson(res) as { id: number; body: string };
     expect(out.id).toBe(82);
@@ -3125,7 +3147,7 @@ describe('brain_document_versions_get', () => {
 
 describe('brain_documents_create', () => {
   it('creates document and returns id + slug + version1Id', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_documents_create')!.handler({ title: 'Onboarding SOP' });
     const out = parseJson(res) as { id: number; slug: string; version1Id: number };
     expect(out.id).toBe(80);
@@ -3135,19 +3157,19 @@ describe('brain_documents_create', () => {
 
 describe('brain_documents_update', () => {
   it('returns not-found when missing', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_documents_update')!.handler({ id: 999, patch: {} });
     expect(res.isError).toBe(true);
   });
 
   it('returns use_publish_or_archive when status change attempted', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_documents_update')!.handler({ id: 888, patch: { title: 'X' } });
     expect((parseJson(res) as { error: string }).error).toBe('use_publish_or_archive');
   });
 
   it('updates and returns echo', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_documents_update')!.handler({ id: 1, patch: { title: 'New Title' } });
     const out = parseJson(res) as { id: number };
     expect(out.id).toBe(1);
@@ -3156,13 +3178,13 @@ describe('brain_documents_update', () => {
 
 describe('brain_document_versions_edit_draft', () => {
   it('returns not-found when document missing', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_document_versions_edit_draft')!.handler({ documentId: 999, patch: { body: 'x' } });
     expect(res.isError).toBe(true);
   });
 
   it('edits draft and returns echo', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_document_versions_edit_draft')!.handler({ documentId: 1, patch: { body: 'updated content' } });
     const out = parseJson(res) as { documentId: number; versionId: number; isDraft: boolean };
     expect(out.documentId).toBe(1);
@@ -3172,19 +3194,19 @@ describe('brain_document_versions_edit_draft', () => {
 
 describe('brain_documents_publish', () => {
   it('returns not-found when missing', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_documents_publish')!.handler({ id: 999 });
     expect(res.isError).toBe(true);
   });
 
   it('returns empty_draft_body on empty draft', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_documents_publish')!.handler({ id: 888 });
     expect((parseJson(res) as { error: string }).error).toBe('empty_draft_body');
   });
 
   it('publishes and returns echo with publishedAt', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_documents_publish')!.handler({ id: 1 });
     const out = parseJson(res) as { id: number; status: string };
     expect(out.status).toBe('published');
@@ -3193,25 +3215,25 @@ describe('brain_documents_publish', () => {
 
 describe('brain_documents_archive / unarchive', () => {
   it('returns not-found on archive when missing', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_documents_archive')!.handler({ id: 999 });
     expect(res.isError).toBe(true);
   });
 
   it('archives and returns echo', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_documents_archive')!.handler({ id: 1, reason: 'obsolete' });
     expect((parseJson(res) as { status: string }).status).toBe('archived');
   });
 
   it('returns not-found on unarchive when missing', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_documents_unarchive')!.handler({ id: 999 });
     expect(res.isError).toBe(true);
   });
 
   it('unarchives and returns echo', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_documents_unarchive')!.handler({ id: 1 });
     expect((parseJson(res) as { status: string }).status).toBe('published');
   });
@@ -3219,13 +3241,13 @@ describe('brain_documents_archive / unarchive', () => {
 
 describe('brain_documents_delete', () => {
   it('returns not-found when missing', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_documents_delete')!.handler({ id: 999 });
     expect(res.isError).toBe(true);
   });
 
   it('returns document_has_acks structured error', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_documents_delete')!.handler({ id: 888 });
     const out = parseJson(res) as { error: string; ackCount: number };
     expect(out.error).toBe('document_has_acks');
@@ -3233,7 +3255,7 @@ describe('brain_documents_delete', () => {
   });
 
   it('deletes on hit', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_documents_delete')!.handler({ id: 1 });
     expect((parseJson(res) as { deleted: boolean }).deleted).toBe(true);
   });
@@ -3241,13 +3263,13 @@ describe('brain_documents_delete', () => {
 
 describe('brain_documents_promote_from_note', () => {
   it('returns not-found when note missing', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_documents_promote_from_note')!.handler({ noteId: 999 });
     expect(res.isError).toBe(true);
   });
 
   it('promotes and returns documentId + version1Id', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_documents_promote_from_note')!.handler({ noteId: 1 });
     const out = parseJson(res) as { documentId: number; version1Id: number };
     expect(out.documentId).toBe(80);
@@ -3257,14 +3279,14 @@ describe('brain_documents_promote_from_note', () => {
 
 describe('brain_documents_link / unlink', () => {
   it('links entity and returns linkId', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_documents_link')!.handler({ documentId: 1, entityType: 'topic', entityId: 1 });
     const out = parseJson(res) as { linkId: number; alreadyLinked: boolean };
     expect(out.linkId).toBe(1);
   });
 
   it('unlinks entity', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_documents_unlink')!.handler({ documentId: 1, entityType: 'topic', entityId: 1 });
     expect((parseJson(res) as { removed: boolean }).removed).toBe(true);
   });
@@ -3274,7 +3296,7 @@ describe('brain_documents_link / unlink', () => {
 
 describe('brain_document_required_reads_list_for_document', () => {
   it('returns required reads for a document', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_document_required_reads_list_for_document')!.handler({ documentId: 1 });
     const out = parseJson(res) as { items: unknown[] };
     expect(out.items).toHaveLength(1);
@@ -3283,7 +3305,7 @@ describe('brain_document_required_reads_list_for_document', () => {
 
 describe('brain_document_required_reads_list_for_person', () => {
   it('returns required reads for a person', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_document_required_reads_list_for_person')!.handler({ personId: 40 });
     const out = parseJson(res) as { items: unknown[] };
     expect(out.items).toHaveLength(1);
@@ -3292,7 +3314,7 @@ describe('brain_document_required_reads_list_for_person', () => {
 
 describe('brain_document_acknowledgments_list_for_document', () => {
   it('returns acknowledgments for a document', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_document_acknowledgments_list_for_document')!.handler({ documentId: 1 });
     const out = parseJson(res) as { items: unknown[] };
     expect(out.items).toHaveLength(1);
@@ -3301,7 +3323,7 @@ describe('brain_document_acknowledgments_list_for_document', () => {
 
 describe('brain_document_acknowledgments_list_for_person', () => {
   it('returns acknowledgments for a person', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_document_acknowledgments_list_for_person')!.handler({ personId: 40 });
     const out = parseJson(res) as { items: unknown[] };
     expect(out.items).toHaveLength(1);
@@ -3310,13 +3332,13 @@ describe('brain_document_acknowledgments_list_for_person', () => {
 
 describe('brain_document_compliance_report', () => {
   it('returns not-found when document missing', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_document_compliance_report')!.handler({ documentId: 999 });
     expect(res.isError).toBe(true);
   });
 
   it('returns compliance report on hit', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_document_compliance_report')!.handler({ documentId: 1 });
     const out = parseJson(res) as { documentId: number };
     expect(out.documentId).toBe(1);
@@ -3325,7 +3347,7 @@ describe('brain_document_compliance_report', () => {
 
 describe('brain_document_required_reads_assign', () => {
   it('assigns required read and returns counts', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_document_required_reads_assign')!.handler({ documentId: 1, targetType: 'person', targetId: 40 });
     const out = parseJson(res) as { assigned: number; alreadyAssigned: number };
     expect(out.assigned).toBe(1);
@@ -3334,19 +3356,19 @@ describe('brain_document_required_reads_assign', () => {
 
 describe('brain_document_required_reads_remove', () => {
   it('returns not-found when missing', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_document_required_reads_remove')!.handler({ requiredReadId: 999 });
     expect(res.isError).toBe(true);
   });
 
   it('returns has_acks structured error when acks block removal', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_document_required_reads_remove')!.handler({ requiredReadId: 888 });
     expect((parseJson(res) as { error: string }).error).toBe('has_acks');
   });
 
   it('removes on hit', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_document_required_reads_remove')!.handler({ requiredReadId: 1 });
     expect((parseJson(res) as { removed: boolean }).removed).toBe(true);
   });
@@ -3354,7 +3376,7 @@ describe('brain_document_required_reads_remove', () => {
 
 describe('brain_documents_acknowledge', () => {
   it('records acknowledgment and returns echo', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_documents_acknowledge')!.handler({ documentId: 80, versionId: 82, personId: 40 });
     const out = parseJson(res) as { ackId: number; documentId: number; personId: number };
     expect(out.ackId).toBe(1);
@@ -3367,20 +3389,20 @@ describe('brain_documents_acknowledge', () => {
 
 describe('brain_classify_notes', () => {
   it('requires noteIds or all:true', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_classify_notes')!.handler({});
     expect(res.isError).toBe(true);
     expect(res.content[0].text).toMatch(/noteIds.*all/i);
   });
 
   it('rejects both noteIds and all:true together', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_classify_notes')!.handler({ noteIds: [1], all: true });
     expect(res.isError).toBe(true);
   });
 
   it('returns dry-run summary by default', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_classify_notes')!.handler({ noteIds: [1] });
     const out = parseJson(res) as { dryRun: boolean; classifiedCount: number; sampleClassifications: unknown[] };
     expect(out.dryRun).toBe(true);
@@ -3389,7 +3411,7 @@ describe('brain_classify_notes', () => {
   });
 
   it('returns full classifications when dryRun=false', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_classify_notes')!.handler({ all: true, dryRun: false });
     const out = parseJson(res) as { dryRun: boolean; classifications: unknown[] };
     expect(out.dryRun).toBe(false);
@@ -3399,7 +3421,7 @@ describe('brain_classify_notes', () => {
   it('calls classifyNotes with all:true when all=true', async () => {
     const classify = await import('@/lib/brain/classify-notes');
     (classify.classifyNotes as ReturnType<typeof vi.fn>).mockClear();
-    const tools = registerAll();
+    const tools = sharedTools;
     await tools.get('brain_classify_notes')!.handler({ all: true });
     const callArgs = (classify.classifyNotes as ReturnType<typeof vi.fn>).mock.calls[0][0] as { all: boolean | undefined };
     expect(callArgs.all).toBe(true);
@@ -3408,7 +3430,7 @@ describe('brain_classify_notes', () => {
 
 describe('brain_apply_classifications', () => {
   it('applies classifications and returns summary echo', async () => {
-    const tools = registerAll();
+    const tools = sharedTools;
     const res = await tools.get('brain_apply_classifications')!.handler({
       classifications: [{
         noteId: 1,

@@ -125,6 +125,20 @@ vi.mock('@/lib/email', () => ({
   },
 }));
 
+// resolveResendKey — per-client Resend key resolution (new: replaces global resend client)
+const resolveResendKeyMock = vi.fn();
+vi.mock('@/lib/email/resolve-resend', () => ({
+  resolveResendKey: (...args: unknown[]) => resolveResendKeyMock(...args),
+}));
+
+// Mock the Resend class so new Resend(key).emails.send() hits resendSendMock
+vi.mock('resend', () => ({
+  Resend: class {
+    emails = { send: (args: unknown) => resendSendMock(args) };
+    constructor(_key: string) {}
+  },
+}));
+
 const getOrRenderCampaignHtmlMock = vi.fn();
 const htmlToTextMock = vi.fn((h: string) => `text:${h}`);
 vi.mock('@/lib/email/render-cache', () => ({
@@ -309,6 +323,7 @@ beforeEach(() => {
     .mockReset()
     .mockImplementation((tok: string) => `https://example.test/u/${tok}`);
   resendSendMock.mockReset().mockResolvedValue({ data: { id: 'resend-id' } });
+  resolveResendKeyMock.mockReset().mockResolvedValue({ key: 're_test_FAKEKEY' });
   getOrRenderCampaignHtmlMock.mockReset();
   htmlToTextMock.mockReset().mockImplementation((h: string) => `text:${h}`);
   emitEventMock.mockReset();

@@ -89,6 +89,15 @@ vi.mock('@/lib/portal-client', () => ({
   getPortalClient: (...args: unknown[]) => getPortalClientMock(...args),
 }));
 
+// authorizePortal — default: pass (no service gate failure); tests that need
+// a 403 response should override authorizePortalMock to return an auth error.
+const authorizePortalMock = vi.fn();
+vi.mock('@/lib/portal-auth', () => ({
+  authorizePortal: (...args: unknown[]) => authorizePortalMock(...args),
+  isAuthError: (r: unknown) =>
+    Boolean(r && typeof r === 'object' && 'response' in (r as Record<string, unknown>)),
+}));
+
 // ===========================================================================
 // Subdomain helpers
 // ===========================================================================
@@ -351,6 +360,8 @@ beforeEach(() => {
 
   authMock.mockReset();
   getPortalClientMock.mockReset();
+  // Default: authorizePortal passes (returns a non-auth-error result)
+  authorizePortalMock.mockReset().mockResolvedValue({ client: { id: 10 }, userId: 7, role: 'admin' });
 
   generateUniqueSubdomainMock.mockReset();
   validateSubdomainMock.mockReset();
@@ -602,7 +613,8 @@ describe('POST /api/portal/cms/websites', () => {
     expect(json.data.subdomain).toBe('mysite');
     expect(json.data.vercelDomain).toBe('mysite.simplerdevelopment.com');
     expect(json.data.domain).toBe('example.com');
-    expect(json.data.deploymentStatus).toBe('active');
+    // Route now sets deploymentStatus='pending' on creation (deploy triggered async)
+    expect(json.data.deploymentStatus).toBe('pending');
     expect(json.data.active).toBe(true);
     expect(json.data.clientId).toBe(10);
   });

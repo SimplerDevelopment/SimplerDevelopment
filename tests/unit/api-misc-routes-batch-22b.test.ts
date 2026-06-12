@@ -503,7 +503,8 @@ describe('POST /api/portal/api-keys', () => {
     const inserted = insertCalls[0].values as Record<string, unknown>;
     expect(inserted.scopes).toEqual(['*']);
     expect(inserted.expiresAt).toBeNull();
-    expect(inserted.requireCmsApproval).toBe(false);
+    // Product default: requireCmsApproval=true (secure-by-default; caller must pass false to opt out)
+    expect(inserted.requireCmsApproval).toBe(true);
   });
 });
 

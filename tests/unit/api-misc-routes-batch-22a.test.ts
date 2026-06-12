@@ -325,7 +325,8 @@ describe('POST /api/portal/api-keys', () => {
     expect(insertCalls[0].table).toBe('portalApiKeys');
     const values = insertCalls[0].values as Record<string, unknown>;
     expect(values.scopes).toEqual(['*']);
-    expect(values.requireCmsApproval).toBe(false);
+    // Product default: requireCmsApproval=true (secure-by-default; caller must pass false to opt out)
+    expect(values.requireCmsApproval).toBe(true);
     expect(values.expiresAt).toBe(null);
   });
 

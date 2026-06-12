@@ -190,12 +190,19 @@ describe('StyleSettings — rendering', () => {
 // ---------------------------------------------------------------------------
 
 describe('StyleSettings — Layout', () => {
+  // Layout controls now write breakpoint-scoped values into
+  // block.responsiveStyle[currentViewport] (desktop by default in renderPanel)
+  // instead of the flat block.style.
   it('changing Display calls onChange with new value', () => {
     const { onChange } = renderPanel();
     const display = screen.getByDisplayValue('Flex') as HTMLSelectElement;
     fireEvent.change(display, { target: { value: 'grid' } });
     expect(onChange).toHaveBeenCalledWith(
-      expect.objectContaining({ style: expect.objectContaining({ display: 'grid' }) }),
+      expect.objectContaining({
+        responsiveStyle: expect.objectContaining({
+          desktop: expect.objectContaining({ display: 'grid' }),
+        }),
+      }),
     );
   });
 
@@ -225,7 +232,11 @@ describe('StyleSettings — Layout', () => {
     const colBtn = screen.getByTitle('Col');
     fireEvent.click(colBtn);
     expect(onChange).toHaveBeenCalledWith(
-      expect.objectContaining({ style: expect.objectContaining({ flexDirection: 'column' }) }),
+      expect.objectContaining({
+        responsiveStyle: expect.objectContaining({
+          desktop: expect.objectContaining({ flexDirection: 'column' }),
+        }),
+      }),
     );
   });
 
@@ -237,7 +248,11 @@ describe('StyleSettings — Layout', () => {
     if (!centerBtn) throw new Error('center button not found');
     fireEvent.click(centerBtn);
     expect(onChange).toHaveBeenCalledWith(
-      expect.objectContaining({ style: expect.objectContaining({ justifyContent: 'center' }) }),
+      expect.objectContaining({
+        responsiveStyle: expect.objectContaining({
+          desktop: expect.objectContaining({ justifyContent: 'center' }),
+        }),
+      }),
     );
   });
 
@@ -247,7 +262,11 @@ describe('StyleSettings — Layout', () => {
     const inputs = screen.getAllByPlaceholderText('auto');
     fireEvent.change(inputs[0], { target: { value: '50%' } });
     expect(onChange).toHaveBeenCalledWith(
-      expect.objectContaining({ style: expect.objectContaining({ width: '50%' }) }),
+      expect.objectContaining({
+        responsiveStyle: expect.objectContaining({
+          desktop: expect.objectContaining({ width: '50%' }),
+        }),
+      }),
     );
   });
 
@@ -268,7 +287,11 @@ describe('StyleSettings — Layout', () => {
     ) as HTMLSelectElement;
     fireEvent.change(overflow, { target: { value: 'hidden' } });
     expect(onChange).toHaveBeenCalledWith(
-      expect.objectContaining({ style: expect.objectContaining({ overflow: 'hidden' }) }),
+      expect.objectContaining({
+        responsiveStyle: expect.objectContaining({
+          desktop: expect.objectContaining({ overflow: 'hidden' }),
+        }),
+      }),
     );
   });
 
@@ -280,7 +303,11 @@ describe('StyleSettings — Layout', () => {
     ) as HTMLSelectElement;
     fireEvent.change(gap, { target: { value: '1rem' } });
     expect(onChange).toHaveBeenCalledWith(
-      expect.objectContaining({ style: expect.objectContaining({ gap: '1rem' }) }),
+      expect.objectContaining({
+        responsiveStyle: expect.objectContaining({
+          desktop: expect.objectContaining({ gap: '1rem' }),
+        }),
+      }),
     );
   });
 
@@ -290,7 +317,9 @@ describe('StyleSettings — Layout', () => {
     fireEvent.change(cols, { target: { value: '1fr 2fr' } });
     expect(onChange).toHaveBeenCalledWith(
       expect.objectContaining({
-        style: expect.objectContaining({ gridTemplateColumns: '1fr 2fr' }),
+        responsiveStyle: expect.objectContaining({
+          desktop: expect.objectContaining({ gridTemplateColumns: '1fr 2fr' }),
+        }),
       }),
     );
   });
@@ -304,7 +333,9 @@ describe('StyleSettings — Margin & Padding', () => {
   it('displays current viewport label', () => {
     renderPanel({}, 'tablet');
     openSection('Margin & Padding');
-    expect(screen.getByText(/Editing for Tablet/)).toBeTruthy();
+    // The label now also appears in the Layout section (open by default), so
+    // assert at least one match instead of a unique one.
+    expect(screen.getAllByText(/Editing for Tablet/).length).toBeGreaterThan(0);
   });
 
   it('shows margin/padding controls when opened', () => {

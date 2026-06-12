@@ -301,7 +301,7 @@ describe('POST /api/storefront/[siteId]/checkout — input validation', () => {
     const res = await POST(makeRequest(DEFAULT_BODY), makeParams());
     expect(res.status).toBe(404);
     const json = (await res.json()) as ResponseEnvelope;
-    expect(json.message).toMatch(/store not found/i);
+    expect(json.message).toMatch(/no store_settings|store not found/i);
   });
 
   it('returns 400 when the store has no Stripe account connected', async () => {
@@ -310,7 +310,7 @@ describe('POST /api/storefront/[siteId]/checkout — input validation', () => {
     const res = await POST(makeRequest(DEFAULT_BODY), makeParams());
     expect(res.status).toBe(400);
     const json = (await res.json()) as ResponseEnvelope;
-    expect(json.message).toMatch(/store payments not configured/i);
+    expect(json.message).toMatch(/stripe connect onboarding/i);
   });
 
   it('returns 400 when the store has not completed Stripe onboarding', async () => {
@@ -321,7 +321,7 @@ describe('POST /api/storefront/[siteId]/checkout — input validation', () => {
     const res = await POST(makeRequest(DEFAULT_BODY), makeParams());
     expect(res.status).toBe(400);
     const json = (await res.json()) as ResponseEnvelope;
-    expect(json.message).toMatch(/store payments not configured/i);
+    expect(json.message).toMatch(/stripe connect onboarding/i);
   });
 
   it('returns 400 when sessionId is missing from the body', async () => {

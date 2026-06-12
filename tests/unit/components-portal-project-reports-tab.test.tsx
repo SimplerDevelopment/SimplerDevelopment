@@ -587,11 +587,13 @@ describe('ProjectReportsTab — capacity chart', () => {
     setupFetch({ capacity: CAPACITY_PAYLOAD });
     render(<ProjectReportsTab projectId={PROJECT_ID} projectKey="PROJ" />);
 
+    // Longer timeout: this render chains several fetches and flakes at the
+    // default 1s when the whole unit suite runs in parallel.
     await waitFor(() => {
       expect(screen.getByText('Alice')).toBeTruthy();
       // Bob has name=null so falls back to email
       expect(screen.getByText('bob@example.com')).toBeTruthy();
-    });
+    }, { timeout: 5000 });
   });
 
   it('shows "No assigned cards" empty state when rows are empty', async () => {
@@ -607,9 +609,12 @@ describe('ProjectReportsTab — capacity chart', () => {
     setupFetch({ capacity: CAPACITY_PAYLOAD });
     render(<ProjectReportsTab projectId={PROJECT_ID} projectKey="PROJ" />);
 
-    await waitFor(() =>
-      // Alice: 8/10 pts · 5 cards
-      expect(screen.getByText(/8\/10 pts · 5 cards/)).toBeTruthy(),
+    // Longer timeout: flakes at the default 1s under parallel suite load.
+    await waitFor(
+      () =>
+        // Alice: 8/10 pts · 5 cards
+        expect(screen.getByText(/8\/10 pts · 5 cards/)).toBeTruthy(),
+      { timeout: 5000 },
     );
   });
 

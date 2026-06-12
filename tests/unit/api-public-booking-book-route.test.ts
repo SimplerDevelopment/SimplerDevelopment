@@ -78,6 +78,8 @@ vi.mock('@/lib/db/schema', () => {
     bookingAddOns: tbl('bookingAddOns', ['id', 'bookingPageId', 'active']),
     bookingSelectedAddOns: tbl('bookingSelectedAddOns', []),
     bookingAttendees: tbl('bookingAttendees', []),
+    bookingDateOverrides: tbl('bookingDateOverrides', ['id', 'bookingPageId', 'date', 'type', 'startTime', 'endTime']),
+    bookingPageMembers: tbl('bookingPageMembers', ['id', 'bookingPageId', 'userId', 'active', 'availability']),
     discountCodes: tbl('discountCodes', [
       'websiteId', 'code', 'active', 'applicableTo', 'usedCount',
     ]),
@@ -141,6 +143,11 @@ vi.mock('@/lib/booking/assign', () => ({
 const checkSlotCapacity = vi.fn().mockResolvedValue({ available: true, remaining: 10 });
 vi.mock('@/lib/booking/capacity', () => ({
   checkSlotCapacity: (...args: unknown[]) => checkSlotCapacity(...args),
+}));
+
+const isSlotWithinAvailability = vi.fn().mockResolvedValue(true);
+vi.mock('@/lib/booking/availability', () => ({
+  isSlotWithinAvailability: (...args: unknown[]) => isSlotWithinAvailability(...args),
 }));
 
 // Stripe — route does `(await import('stripe')).default`
@@ -216,6 +223,7 @@ beforeEach(() => {
   emitEvent.mockClear();
   pickAssignee.mockReset().mockResolvedValue(null);
   checkSlotCapacity.mockReset().mockResolvedValue({ available: true, remaining: 10 });
+  isSlotWithinAvailability.mockReset().mockResolvedValue(true);
   paymentIntentsCreate.mockReset().mockResolvedValue({
     id: 'pi_test_123',
     client_secret: 'pi_test_123_secret_abc',
