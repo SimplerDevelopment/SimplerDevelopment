@@ -5,6 +5,7 @@ import { eq } from 'drizzle-orm';
 import { sendCancellationEmail, loadBookingBrand } from '@/lib/email/booking-emails';
 import { deleteCalendarEvent } from '@/lib/google-calendar';
 import { deleteZoomMeeting } from '@/lib/zoom';
+import { emitEvent } from '@/lib/automation';
 
 export async function POST(req: Request) {
   const { token } = await req.json();
@@ -81,6 +82,17 @@ export async function POST(req: Request) {
       }
     }
   }
+
+  emitEvent('booking.cancelled', booking.clientId, 0, {
+    bookingId: booking.id,
+    bookingPageId: booking.bookingPageId,
+    pageTitle: page?.title ?? null,
+    pageSlug: page?.slug ?? null,
+    guestName: booking.guestName,
+    guestEmail: booking.guestEmail,
+    startTime: booking.startTime,
+    timezone: booking.timezone,
+  });
 
   return NextResponse.json({
     success: true,

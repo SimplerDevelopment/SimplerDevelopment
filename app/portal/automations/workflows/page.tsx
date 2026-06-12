@@ -81,6 +81,16 @@ export default function WorkflowsListPage() {
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
+      {/* Beta notice — workflow execution is not yet implemented */}
+      <div className="flex items-start gap-3 px-4 py-3 rounded-lg border border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-200">
+        <span className="material-icons text-xl mt-0.5 shrink-0">science</span>
+        <div className="text-sm">
+          <span className="font-semibold">Beta — workflows do not execute yet.</span>{' '}
+          You can build and save workflow graphs, but activating a workflow has no runtime effect.
+          Use <strong>Automations</strong> (Rules) for live trigger-to-action rules today.
+        </div>
+      </div>
+
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Workflows</h1>
