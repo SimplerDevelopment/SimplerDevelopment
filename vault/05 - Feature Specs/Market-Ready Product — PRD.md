@@ -88,7 +88,8 @@ Inherited from [[Go-To-Market — Self-Serve SaaS]]: activation ≥40%, time-to-
 1. **Metered-overage billing**: auto-provisioning `metered_subscription_items` needs per-meter Stripe price IDs that exist nowhere — add a `stripeOveragePriceIds` JSON column on `services` or a hardcoded catalog map, then a LIVE-mode sync run. Until decided, overage accrues but never bills.
 2. **Email sender defaults**: persisting From/Reply-To needs a storage decision (no suitable metadata column found); the settings form is still local-state-only.
 3. **Ops (zero code, blocks go-live)**: run `sync-stripe-products.ts` LIVE on staging/prod; set `AUTH_GOOGLE_ID/SECRET` + callback in Vercel; set `DROPBOX_SIGN_CLIENT_ID`.
-4. **Still red**: 9 pre-existing `oauth_clients` tenancy test failures (untouched tonight — needs its own focused session); signup rate-limiting/bot protection beyond the resend endpoint.
+4. **Still red**: 6 pre-existing `oauth_clients`/google-integration tenancy test failures (untouched tonight — needs its own focused session); signup rate-limiting/bot protection beyond the resend endpoint.
+5. **SCHEMA DRIFT (P0, found 2026-06-12 evening)**: `clients.billing_mode` is defined in `lib/db/schema/sites.ts:40` but **no migration in `drizzle/` ever carried it** — it reached dev/staging via `drizzle-kit push` only. Fresh-DB migration replay is broken (also the known `brain_notes` ordering bug), which blocks CI integration testing and any new environment. Needs a deliberate catch-up-migration strategy (`db:generate` + guarded `IF NOT EXISTS` reconciliation against envs where the column already exists) — not auto-run tonight because it changes prod migration behavior.
 
 ## 8. Release plan
 

@@ -37,6 +37,19 @@ import { callHandler } from '../../../helpers/call-handler';
 import { sessionForNewClientUser, type TenantCtx } from '../../../helpers/session';
 import { getTestSql, TEST_SCHEMA } from '../../../helpers/test-db';
 
+async function enablePitchDeckService(ctx: TenantCtx): Promise<void> {
+  const sql = getTestSql();
+  const slug = `pitch-decks-${Date.now()}-${Math.floor(Math.random() * 1e9)}`;
+  const [svc] = await sql<{ id: number }[]>`
+    INSERT INTO ${sql(TEST_SCHEMA)}.services (name, slug, category, price, billing_cycle)
+    VALUES ('Pitch Decks', ${slug}, 'pitch-decks', 0, 'monthly') RETURNING id
+  `;
+  await sql`
+    INSERT INTO ${sql(TEST_SCHEMA)}.client_services (client_id, service_id, status)
+    VALUES (${ctx.client.id}, ${svc.id}, 'active')
+  `;
+}
+
 const slideA = { id: 'slide-A', label: 'A', blocks: [{ id: 'b-a', type: 'heading', order: 1, content: 'A heading', level: 1 }], notes: '' };
 const slideB = { id: 'slide-B', label: 'B', blocks: [{ id: 'b-b', type: 'heading', order: 1, content: 'B heading', level: 1 }], notes: '' };
 const slideC = { id: 'slide-C', label: 'C', blocks: [{ id: 'b-c', type: 'heading', order: 1, content: 'C heading', level: 1 }], notes: '' };
@@ -180,6 +193,9 @@ describe('Pitch deck — slides[] mutations via PATCH /[id] @pitch @slides @tena
   it('PATCH slides[] cross-tenant returns 404 and does NOT mutate the target', async () => {
     const A = await sessionForNewClientUser('pitch-slide-patch-a');
     const B = await sessionForNewClientUser('pitch-slide-patch-b');
+    // Both tenants need the service so the guard passes and tenant-scoping
+    // logic (not the service gate) is what produces the 404.
+    await Promise.all([enablePitchDeckService(A), enablePitchDeckService(B)]);
     const deck = await seedDeck(B, [slideA, slideB]);
     mockedAuth.mockResolvedValue(A.session);
 
@@ -205,6 +221,7 @@ describe('Pitch deck — slides[] mutations via PATCH /[id] @pitch @slides @tena
 
   it('PATCH replaces the slides array (insert + delete + reorder all in one call)', async () => {
     const A = await sessionForNewClientUser('pitch-slide-patch-own');
+    await enablePitchDeckService(A);
     const deck = await seedDeck(A, [slideA, slideB, slideC]);
     mockedAuth.mockResolvedValue(A.session);
 
