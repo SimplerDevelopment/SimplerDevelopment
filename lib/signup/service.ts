@@ -10,6 +10,7 @@ import { db } from '@/lib/db';
 import { users, clients } from '@/lib/db/schema';
 import { and, eq, gt, isNull, lt } from 'drizzle-orm';
 import { grantSignupCredits } from '@/lib/ai-credits';
+import { seedDemoWorkspace } from '@/lib/onboarding/demo-seed';
 
 const VERIFICATION_TTL_MS = 1000 * 60 * 60 * 24; // 24h to click the link
 /** Never-verified self-serve accounts are purged after this many days. */
@@ -66,6 +67,14 @@ export async function createSelfServeAccount(input: {
     company: input.company?.trim() || null,
     billingMode: 'saas',
   }).returning({ id: clients.id });
+
+  // Seed demo workspace so the portal isn't empty on first login.
+  // Intentionally non-blocking — a seed failure must never break signup.
+  try {
+    await seedDemoWorkspace(client.id);
+  } catch (err) {
+    console.error('[demo-seed] Failed to seed demo workspace for client', client.id, err);
+  }
 
   return { userId: user.id, clientId: client.id, verificationToken };
 }
@@ -166,6 +175,14 @@ export async function findOrCreateGoogleUser(input: {
 
   // Cardless free-credit grant — Google accounts arrive pre-verified.
   await grantSignupCredits(client.id);
+
+  // Seed demo workspace so the portal isn't empty on first login.
+  // Intentionally non-blocking — a seed failure must never break signup.
+  try {
+    await seedDemoWorkspace(client.id);
+  } catch (err) {
+    console.error('[demo-seed] Failed to seed demo workspace for client', client.id, err);
+  }
 
   return { id: user.id, role: user.role };
 }
