@@ -118,6 +118,18 @@
     {
       "path": "/api/cron/process-playbook-waits",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/email-scheduled-send",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/email-ab-promote",
+      "schedule": "*/30 * * * *"
+    },
+    {
+      "path": "/api/cron/invoices-overdue",
+      "schedule": "7 * * * *"
     }
   ]
 }
