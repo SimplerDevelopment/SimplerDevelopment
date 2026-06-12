@@ -93,12 +93,13 @@ export async function POST(req: Request) {
     if (!clientSecretParam) {
       return invalidClient(usedBasic, 'client_secret is required for this client');
     }
-    if (authMethod === 'client_secret_basic' && !usedBasic) {
-      return invalidClient(usedBasic, 'This client must authenticate via HTTP Basic');
-    }
-    if (authMethod === 'client_secret_post' && usedBasic) {
-      return invalidClient(usedBasic, 'This client must authenticate via request body');
-    }
+    // Accept the secret via EITHER HTTP Basic or the request body, regardless of
+    // which method the client recorded at registration. RFC 6749 §2.3 lets a
+    // client present credentials by either mechanism; tying acceptance to the
+    // single registered method breaks real-world MCP connectors (e.g. Claude
+    // Desktop) that default to Basic even when the client was minted as
+    // `client_secret_post`. The double-send guard above still forbids using both
+    // at once, and the secret is verified below, so honoring either stays safe.
     if (!verifyClientSecret(clientSecretParam, oauthClient.clientSecretHash)) {
       return invalidClient(usedBasic, 'client_secret is incorrect');
     }
