@@ -83,7 +83,7 @@ export const FEATURE_CATALOG: Array<{ id: string; label: string; icon: string; d
   { id: 'brain', label: 'Company Brain (AI)', icon: 'smart_toy', description: 'Search your docs & meetings with AI.' },
   { id: 'projects', label: 'Project mgmt', icon: 'view_kanban', description: 'Kanban, sprints, team collaboration.' },
   { id: 'store', label: 'Online store', icon: 'storefront', description: 'Products, orders, inventory.' },
-  { id: 'ai-chat', label: 'AI chat for visitors', icon: 'chat', description: 'Site chatbot trained on your content.' },
+  { id: 'ai-chat', label: 'Live chat for visitors', icon: 'chat', description: 'Branded live-chat widget with a shared team inbox.' },
 ];
 
 export const BRAND_TONES: Array<{ id: string; label: string; icon: string }> = [
