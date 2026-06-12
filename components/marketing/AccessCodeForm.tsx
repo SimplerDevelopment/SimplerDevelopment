@@ -26,7 +26,12 @@ export function AccessCodeForm({ variant = 'inline' }: { variant?: Variant }) {
       const res = await fetch('/api/preview-unlock', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: code.trim() }),
+        // Send the page the visitor is on so the unlock flow can return them
+        // here instead of dumping them on the site root.
+        body: JSON.stringify({
+          code: code.trim(),
+          path: window.location.pathname + window.location.search,
+        }),
       });
       const json = await res.json();
       if (json.success && json.data?.url) {
