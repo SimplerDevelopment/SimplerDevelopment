@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=640, height=800" />
+  <title>mini-overflow — sd-create-short overflow-check fixture</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { margin: 0; overflow: hidden; background: #0f0f0f; }
+    #stage {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 640px;
+      height: 800px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 16px;
+    }
+    #heading {
+      font-family: system-ui, sans-serif;
+      font-size: 48px;
+      font-weight: 800;
+      color: #ffffff;
+      text-align: center;
+      padding: 0 32px;
+      opacity: 0;
+    }
+    #sub {
+      font-family: system-ui, sans-serif;
+      font-size: 24px;
+      color: #aaaaaa;
+      text-align: center;
+      padding: 0 48px;
+      opacity: 0;
+    }
+
+    /*
+     * Deliberately overflowing element — 50px past the right edge, no data-overflow-ok.
+     * This is the failing fixture for the overflow checker smoke test.
+     */
+    #overflow-box {
+      position: absolute;
+      top: 100px;
+      /* left: stage-width - box-width + 50px = 640 - 80 + 50 = 610px
+         so right edge is at 610+80 = 690, which is 50px beyond the 640px stage */
+      left: 610px;
+      width: 80px;
+      height: 80px;
+      background: #ff4444;
+      opacity: 1;
+    }
+  </style>
+</head>
+<body>
+
+<!-- Composition data blob -->
+<script id="sd-short-data" type="application/json">
+{
+  "meta": { "width": 640, "height": 800, "fps": 30, "duration": 2 },
+  "brand": {
+    "colors": { "primary": "#ffffff", "bg": "#0f0f0f" },
+    "fonts": { "heading": "system-ui" }
+  },
+  "scenes": [
+    {
+      "kind": "hook",
+      "start": 0,
+      "end": 2,
+      "heading": "Overflow Fixture",
+      "sub": "The red box should trigger a violation"
+    }
+  ]
+}
+</script>
+
+<!-- GSAP (copied next to this file at render time) -->
+<script src="./gsap.min.js"></script>
+
+<div id="stage">
+  <div id="heading"></div>
+  <div id="sub"></div>
+  <!-- This element intentionally overflows — no data-overflow-ok -->
+  <div id="overflow-box"></div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var dataEl = document.getElementById('sd-short-data');
+  var data = JSON.parse(dataEl.textContent);
+  var meta = data.meta;
+  var scenes = data.scenes;
+
+  var scene = scenes[0];
+  document.getElementById('heading').textContent = scene.heading;
+  document.getElementById('sub').textContent = scene.sub;
+
+  // Build master GSAP timeline — PAUSED
+  var master = gsap.timeline({ paused: true });
+
+  master
+    .to('#heading', { opacity: 1, duration: 0.4, ease: 'power2.out' }, 0.1)
+    .to('#sub',     { opacity: 1, duration: 0.4, ease: 'power2.out' }, 0.4)
+    .to('#heading', { opacity: 0, duration: 0.4, ease: 'power2.in'  }, 1.4)
+    .to('#sub',     { opacity: 0, duration: 0.4, ease: 'power2.in'  }, 1.5);
+
+  // Expose window.__short contract
+  var readyResolve;
+  var readyPromise = new Promise(function (resolve) { readyResolve = resolve; });
+
+  window.__short = {
+    width:    meta.width,
+    height:   meta.height,
+    fps:      meta.fps,
+    duration: meta.duration,
+
+    seek: function (t) {
+      master.pause(t);
+    },
+
+    ready: readyPromise,
+  };
+
+  readyResolve();
+})();
+</script>
+
+</body>
+</html>

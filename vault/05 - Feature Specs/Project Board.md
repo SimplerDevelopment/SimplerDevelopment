@@ -24,6 +24,8 @@ date: 2026-06-10
 
 ## Validating
 
+- [ ] `sd-create-short` skill — branded feature shorts (MP4) for LinkedIn + blog — built + pipeline validated locally; first real production run (incl. portal upload) pending — see [[sd-create-short]]
+
 
 ## Shipped
 
