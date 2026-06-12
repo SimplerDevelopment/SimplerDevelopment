@@ -38,7 +38,7 @@ const values = [
 ];
 
 const stats = [
-  { label: 'Integrated Tools', value: '8+' },
+  { label: 'Integrated Tools', value: '19' },
   { label: 'Clients Served', value: '40+' },
   { label: 'Years Building Software', value: '16+' },
   { label: 'Uptime Guarantee', value: '99.9%' },
@@ -185,8 +185,8 @@ export default function AboutPage() {
               Ready to See It in Action?
             </h2>
             <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
-              Book a free consultation and we'll walk you through the platform,
-              answer your questions, and show you what's possible for your business.
+              Book a free consultation and we&apos;ll walk you through the platform,
+              answer your questions, and show you what&apos;s possible for your business.
             </p>
             <a
               href="/contact"
