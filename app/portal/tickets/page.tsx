@@ -49,7 +49,9 @@ export default async function TicketsIndexPage({
 
   const conditions: SQL[] = [];
   if (clientId !== null) conditions.push(eq(supportTickets.clientId, clientId));
-  if (filterStatus && filterStatus !== 'all') conditions.push(eq(supportTickets.status, filterStatus));
+  // The UI filter uses the short label 'waiting'; the schema column stores 'waiting_on_customer'.
+  const resolvedStatus = filterStatus === 'waiting' ? 'waiting_on_customer' : filterStatus;
+  if (resolvedStatus && resolvedStatus !== 'all') conditions.push(eq(supportTickets.status, resolvedStatus));
   if (filterPriority && filterPriority !== 'all') conditions.push(eq(supportTickets.priority, filterPriority));
   if (filterAssignee === 'me') conditions.push(eq(supportTickets.assignedTo, userId));
   else if (filterAssignee === 'unassigned') conditions.push(isNull(supportTickets.assignedTo));
