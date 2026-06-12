@@ -118,9 +118,17 @@ export function Navigation() {
               {session ? (
                 <UserDropdown user={session.user} />
               ) : !pathname.startsWith('/admin') ? (
-                <Button href="/contact" size="sm">
-                  Book a Call
-                </Button>
+                <>
+                  <Link
+                    href="/contact"
+                    className="text-sm font-heading font-semibold hover:text-primary transition-colors"
+                  >
+                    Contact
+                  </Link>
+                  <Button href="/portal/signup" size="sm">
+                    Get Started
+                  </Button>
+                </>
               ) : (
                 <Link
                   href="/admin/login"
@@ -200,10 +208,17 @@ export function Navigation() {
                 ))}
 
                 {/* Mobile CTA */}
-                <div className="pt-2 px-4">
-                  <Button href="/contact" size="md" className="w-full justify-center" onClick={closeMobileMenu}>
-                    Book a Call
+                <div className="pt-2 px-4 flex flex-col gap-2">
+                  <Button href="/portal/signup" size="md" className="w-full justify-center" onClick={closeMobileMenu}>
+                    Get Started
                   </Button>
+                  <Link
+                    href="/contact"
+                    onClick={closeMobileMenu}
+                    className="flex items-center justify-center px-4 py-3 rounded-lg text-base font-heading font-semibold text-muted-foreground hover:text-primary transition-all duration-200"
+                  >
+                    Contact
+                  </Link>
                 </div>
               </>
             )}
