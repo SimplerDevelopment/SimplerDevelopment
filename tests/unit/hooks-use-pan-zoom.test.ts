@@ -16,7 +16,7 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, render, act } from '@testing-library/react';
-import { usePanZoom } from '/Users/dancoyle/simplerdevelopment/simplerdevelopment2026/components/portal/visual-editor/_hooks/usePanZoom';
+import { usePanZoom } from '/Users/dancoyle/.herdr/worktrees/simplerdevelopment2026/worktree-dev-env/components/portal/visual-editor/_hooks/usePanZoom';
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 

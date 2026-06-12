@@ -42,7 +42,7 @@ vi.mock('@dnd-kit/sortable', () => ({
 
 // ── mock blockHelpers ─────────────────────────────────────────────────────────
 vi.mock(
-  '/Users/dancoyle/simplerdevelopment/simplerdevelopment2026/lib/utils/blockHelpers',
+  '/Users/dancoyle/.herdr/worktrees/simplerdevelopment2026/worktree-dev-env/lib/utils/blockHelpers',
   () => ({
     findBlockById: vi.fn(),
     findBlockPath: vi.fn(),
@@ -52,9 +52,9 @@ vi.mock(
   }),
 );
 
-import * as blockHelpers from '/Users/dancoyle/simplerdevelopment/simplerdevelopment2026/lib/utils/blockHelpers';
-import { useLayersDragDrop } from '/Users/dancoyle/simplerdevelopment/simplerdevelopment2026/components/portal/visual-editor/_hooks/useLayersDragDrop';
-import type { Block } from '/Users/dancoyle/simplerdevelopment/simplerdevelopment2026/types/blocks/index';
+import * as blockHelpers from '/Users/dancoyle/.herdr/worktrees/simplerdevelopment2026/worktree-dev-env/lib/utils/blockHelpers';
+import { useLayersDragDrop } from '/Users/dancoyle/.herdr/worktrees/simplerdevelopment2026/worktree-dev-env/components/portal/visual-editor/_hooks/useLayersDragDrop';
+import type { Block } from '/Users/dancoyle/.herdr/worktrees/simplerdevelopment2026/worktree-dev-env/types/blocks/index';
 
 // ── fixtures ──────────────────────────────────────────────────────────────────
 
