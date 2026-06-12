@@ -14,14 +14,29 @@ date: 2026-06-11
 - [x] **Activation — demo-seeder SHIPPED (2026-06-11)** — `seedDemoWorkspace` at signup (sample company/contacts/deals + project, tenant-scoped, idempotent, non-blocking, both signup paths). Funnel's per-module onboarding kept. Remaining: agent-led "set up YOUR business" layered on the seeded demo.
 - [x] **BYOK-Scale gating SHIPPED (2026-06-11)** — `byokEligible` on entitlements (only Scale/bundle/bypass); byok-mode entry gated in the admin route, so the metering waiver is now Scale-only. STILL OPEN: the marked-up metered-AI overage wiring + per-action credit cost (Phase 0).
 
+## Market-Ready Makeover — SHIPPED 2026-06-12 (`feat/market-ready-makeover`)
+
+> 25-agent readiness audit ([[Market-Ready Audit — Synthesis 2026-06-12]]) + 2 execution waves (22 workers). PRD/ARD: [[Market-Ready Product — PRD]] / [[Market-Ready Product — ARD]]. 20 commits.
+
+- [x] **Buy path repaired**: real-tier pricing page, all CTAs → signup, resend-verification escape hatch, Google button gated on config, og.jpg + AI-native SEO config
+- [x] **Portal coherence**: 6 hidden products added to nav (Tickets/Invoices/Live Chat/Hosting/Services/Contracts), fixed hamburger, live-chat widget creation, contracts list+create UI
+- [x] **Entitlements fail closed + enforced at API/MCP layer** (store/cms/hosting/booking/pitch-decks + 57 MCP write handlers); OAuth brain/approvals scopes; key approval default on
+- [x] **Stripe lifecycle complete** (payment-failed dunning, suspension mapping, trial reminder, Customer Portal, real detach, real store refunds)
+- [x] **Email automation real**: scheduled-send + A/B auto-promote + overdue-invoice crons, Svix verify, BYOK promote fix
+- [x] **Storefront cart + checkout pages** (the purchase path 404ed); store module entitlement-gated
+- [x] **Honest copy**: ~30 false /solutions claims corrected (AI Chatbot → Live Chat etc.)
+- [x] **Tenancy fixes**: booking-calendar cross-tenant leak, time-log delete scoping, brain search types, deck A/B wiring
+- [x] **Pipeline**: typecheck OOM fixed (green), unit failures 389 → (round-2 in progress), booking/automations/demo-seed last-mile
+- [ ] **Escalated to Dan**: metered-overage price IDs (schema decision); email sender-defaults persistence (worker found no metadata column — needs schema or column decision)
+
 ## Phase 0 — Beachhead (existing clients)
 
 - [ ] Lock the 3 tiers (Starter/Growth/Scale): features, per-seat price, included AI credit allowance — see [[Go-To-Market — Self-Serve SaaS]]
 - [x] Create Stripe Products/Prices for the tiers — DONE on dev (test mode) via the extended `sync-stripe-products.ts`; staging/prod still need a LIVE-mode run
 - [ ] Apply BYOK inversion: gate metering-waiver to the Scale tier + marked-up overage on Starter/Growth (profit-center model)
 - [x] Build demo-workspace seeder — DONE (`lib/onboarding/demo-seed.ts`, hooked into signup both paths; sample CRM + project, tenant-scoped)
-- [ ] FIX revenue-integrity: handle `invoice.payment_failed` — grace + notify (do NOT flip status; `entitlements.ts` gates on `status='active'`, so a flip cuts access)
-- [ ] FIX revenue-integrity: auto-provision `metered_subscription_items` at checkout so overage actually bills
+- [x] FIX revenue-integrity: handle `invoice.payment_failed` — **SHIPPED 2026-06-12** (`feat/market-ready-makeover`): dunning email + no status flip; `subscription.updated` suspends on canceled/unpaid; `trial_will_end` reminder — see [[Market-Ready Product — ARD]]
+- [ ] FIX revenue-integrity: auto-provision `metered_subscription_items` at checkout — **BLOCKED on a product decision (2026-06-12):** per-meter Stripe price IDs exist nowhere (schema/catalog); needs a `stripeOveragePriceIds` column or catalog map — Dan to decide
 - [ ] FIX revenue-integrity: collect pay-as-you-go overage debt (`lib/ai-credits.ts`)
 - [ ] Per-action credit-cost transparency in the AI chat UI
 - [ ] User-set spend caps + budget alerts (anti-bill-shock guardrail)
@@ -31,8 +46,8 @@ date: 2026-06-11
 
 ## Phase 1 — Private Beta (cold funnel)
 
-- [ ] Public 3-tier pricing page `/pricing` — reconcile with the built module wizard (see Reconcile lane)
-- [ ] Stripe Customer Portal (payment methods, invoices, manage sub); fix payment-method detach stub
+- [x] Public 3-tier pricing page `/pricing` — **SHIPPED 2026-06-12**: rebuilt from `TIERS` (real $19/$59/$119), CTAs → `/portal/signup?plan=`; all marketing CTAs (nav/home/solutions) now lead with self-serve signup
+- [x] Stripe Customer Portal + payment-method detach — **SHIPPED 2026-06-12**: portal-session route + Manage-billing button; DELETE now detaches in Stripe
 - [ ] Waitlist + invite-gating system
 - [ ] Demo-workspace → agent-led "set up YOUR business" (layer onto the built per-module onboarding segments)
 - [ ] Verify onboarding's `websites` segment actually provisions a starter site

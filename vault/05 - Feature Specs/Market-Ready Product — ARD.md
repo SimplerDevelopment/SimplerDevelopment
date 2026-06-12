@@ -1,7 +1,7 @@
 ---
 type: spec
 domain: go-to-market
-status: in-progress
+status: in-review
 date: 2026-06-12
 sources:
   - CLAUDE.md

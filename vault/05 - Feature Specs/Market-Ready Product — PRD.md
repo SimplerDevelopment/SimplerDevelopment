@@ -1,7 +1,7 @@
 ---
 type: spec
 domain: go-to-market
-status: in-progress
+status: in-review
 date: 2026-06-12
 sources:
   - lib/data/solutions.ts
@@ -82,6 +82,13 @@ Per-domain requirement (uniform): every blocker closed, every false claim made t
 ## 7. Success metrics
 
 Inherited from [[Go-To-Market — Self-Serve SaaS]]: activation ≥40%, time-to-aha <10min, 0 manual interventions per signup, 0 bill-shock complaints, tenancy suite green.
+
+## 7b. Open decisions for Dan (escalated 2026-06-12)
+
+1. **Metered-overage billing**: auto-provisioning `metered_subscription_items` needs per-meter Stripe price IDs that exist nowhere — add a `stripeOveragePriceIds` JSON column on `services` or a hardcoded catalog map, then a LIVE-mode sync run. Until decided, overage accrues but never bills.
+2. **Email sender defaults**: persisting From/Reply-To needs a storage decision (no suitable metadata column found); the settings form is still local-state-only.
+3. **Ops (zero code, blocks go-live)**: run `sync-stripe-products.ts` LIVE on staging/prod; set `AUTH_GOOGLE_ID/SECRET` + callback in Vercel; set `DROPBOX_SIGN_CLIENT_ID`.
+4. **Still red**: 9 pre-existing `oauth_clients` tenancy test failures (untouched tonight — needs its own focused session); signup rate-limiting/bot protection beyond the resend endpoint.
 
 ## 8. Release plan
 
