@@ -230,7 +230,7 @@ export default function CrmSettingsPage() {
     );
 
     // Persist
-    await fetch(`/api/portal/crm/pipelines/${pipelineId}/stages/reorder`, {
+    await fetch(`/api/portal/crm/pipelines/${pipelineId}/stages`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

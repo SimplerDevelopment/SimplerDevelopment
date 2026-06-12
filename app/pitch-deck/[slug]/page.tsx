@@ -7,6 +7,7 @@ import { eq, and, inArray } from 'drizzle-orm';
 import { auth } from '@/lib/auth';
 import { getPortalClient } from '@/lib/portal-client';
 import { convertAllSlidesToV2, isV2Slides } from '@/lib/pitch-deck-migration';
+import { applyAbToDeckSlides } from '@/lib/ab/render';
 import { getBrandingByProfileId, getBrandingByClientId } from '@/lib/branding';
 import type { Metadata } from 'next';
 import PitchDeckPresentation from '@/app/sites/[domain]/slides/[slug]/PitchDeckPresentation';
@@ -181,7 +182,10 @@ export default async function PublicPitchDeckPage({ params, searchParams }: Page
   const isLocal = reqHost.startsWith('localhost') || reqHost.startsWith('127.0.0.1');
   if (isLocal) {
     const theme = (deck.theme || {}) as PitchDeckTheme;
-    const slides = resolveSlides(deck.slides, theme);
+    const rawSlides = resolveSlides(deck.slides, theme);
+    const ab = await applyAbToDeckSlides({ deckId: deck.id, slides: rawSlides });
+    // Variant payloads may be stored in V1 shape — normalize again (no-op for V2).
+    const slides = resolveSlides(ab.slides, theme);
     const surveyData = await fetchSurveyData(slides);
     const branding = deck.brandingProfileId
       ? await getBrandingByProfileId(deck.brandingProfileId)
