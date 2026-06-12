@@ -198,6 +198,7 @@ export function registerCrmTools(server: McpServer, ctx: PortalMcpContext): void
     },
     async (args) => {
       if (!requireScope(ctx, 'crm:write')) return denied('crm:write');
+      if (!(await requireService(clientId, 'crm'))) return serviceDenied('crm');
       const [row] = await db.insert(crmContacts).values({
         clientId,
         firstName: args.firstName,
@@ -239,6 +240,7 @@ export function registerCrmTools(server: McpServer, ctx: PortalMcpContext): void
     },
     async ({ id, ...rest }) => {
       if (!requireScope(ctx, 'crm:write')) return denied('crm:write');
+      if (!(await requireService(clientId, 'crm'))) return serviceDenied('crm');
       const [existing] = await db.select({ id: crmContacts.id }).from(crmContacts)
         .where(and(eq(crmContacts.id, id), eq(crmContacts.clientId, clientId))).limit(1);
       if (!existing) return json({ error: 'Contact not found' });
@@ -299,6 +301,7 @@ export function registerCrmTools(server: McpServer, ctx: PortalMcpContext): void
     },
     async (args) => {
       if (!requireScope(ctx, 'crm:write')) return denied('crm:write');
+      if (!(await requireService(clientId, 'crm'))) return serviceDenied('crm');
       const [row] = await db.insert(crmCompanies).values({
         clientId,
         name: args.name,
@@ -332,6 +335,7 @@ export function registerCrmTools(server: McpServer, ctx: PortalMcpContext): void
     },
     async ({ id, ...rest }) => {
       if (!requireScope(ctx, 'crm:write')) return denied('crm:write');
+      if (!(await requireService(clientId, 'crm'))) return serviceDenied('crm');
       const [existing] = await db.select({ id: crmCompanies.id }).from(crmCompanies)
         .where(and(eq(crmCompanies.id, id), eq(crmCompanies.clientId, clientId))).limit(1);
       if (!existing) return json({ error: 'Company not found' });
@@ -383,6 +387,7 @@ export function registerCrmTools(server: McpServer, ctx: PortalMcpContext): void
     },
     async (args) => {
       if (!requireScope(ctx, 'crm:write')) return denied('crm:write');
+      if (!(await requireService(clientId, 'crm'))) return serviceDenied('crm');
       try {
         await assertPipelineInClient(args.pipelineId, clientId);
         await assertStageInClient(args.stageId, clientId);
@@ -422,6 +427,7 @@ export function registerCrmTools(server: McpServer, ctx: PortalMcpContext): void
     },
     async ({ id, stageId, status }) => {
       if (!requireScope(ctx, 'crm:write')) return denied('crm:write');
+      if (!(await requireService(clientId, 'crm'))) return serviceDenied('crm');
       try {
         if (stageId != null) await assertStageInClient(stageId, clientId);
       } catch (e) {
@@ -464,6 +470,7 @@ export function registerCrmTools(server: McpServer, ctx: PortalMcpContext): void
     },
     async ({ id, expectedCloseDate, ...rest }) => {
       if (!requireScope(ctx, 'crm:write')) return denied('crm:write');
+      if (!(await requireService(clientId, 'crm'))) return serviceDenied('crm');
       const [existing] = await db.select({ id: crmDeals.id }).from(crmDeals)
         .where(and(eq(crmDeals.id, id), eq(crmDeals.clientId, clientId))).limit(1);
       if (!existing) return json({ error: 'Deal not found' });
@@ -576,6 +583,7 @@ export function registerCrmTools(server: McpServer, ctx: PortalMcpContext): void
     },
     async ({ dealId }) => {
       if (!requireScope(ctx, 'crm:write')) return denied('crm:write');
+      if (!(await requireService(clientId, 'crm'))) return serviceDenied('crm');
       const [deleted] = await db.delete(crmDeals)
         .where(and(eq(crmDeals.id, dealId), eq(crmDeals.clientId, clientId)))
         .returning({ id: crmDeals.id });
@@ -634,6 +642,7 @@ export function registerCrmTools(server: McpServer, ctx: PortalMcpContext): void
     },
     async ({ dealId, body, mentionedUserIds }) => {
       if (!requireScope(ctx, 'crm:write')) return denied('crm:write');
+      if (!(await requireService(clientId, 'crm'))) return serviceDenied('crm');
       const [deal] = await db.select({ id: crmDeals.id, title: crmDeals.title }).from(crmDeals)
         .where(and(eq(crmDeals.id, dealId), eq(crmDeals.clientId, clientId))).limit(1);
       if (!deal) return json({ error: 'Deal not found' });
@@ -707,6 +716,7 @@ export function registerCrmTools(server: McpServer, ctx: PortalMcpContext): void
     },
     async ({ dealId, commentId }) => {
       if (!requireScope(ctx, 'crm:write')) return denied('crm:write');
+      if (!(await requireService(clientId, 'crm'))) return serviceDenied('crm');
       const [deal] = await db.select({ id: crmDeals.id }).from(crmDeals)
         .where(and(eq(crmDeals.id, dealId), eq(crmDeals.clientId, clientId))).limit(1);
       if (!deal) return json({ error: 'Deal not found' });
@@ -725,6 +735,7 @@ export function registerCrmTools(server: McpServer, ctx: PortalMcpContext): void
 
 
   // ── CRM DEAL ARTIFACTS ─────────────────────────────────────────────────
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- heterogeneous drizzle tables accessed dynamically by titleField
   const DEAL_ARTIFACT_TABLES: Record<string, { table: any; titleField: string }> = {
     website: { table: clientWebsites, titleField: 'name' },
     email_campaign: { table: emailCampaigns, titleField: 'name' },
@@ -770,6 +781,7 @@ export function registerCrmTools(server: McpServer, ctx: PortalMcpContext): void
     },
     async ({ dealId, artifactType, artifactId, pinned }) => {
       if (!requireScope(ctx, 'crm:write')) return denied('crm:write');
+      if (!(await requireService(clientId, 'crm'))) return serviceDenied('crm');
       const [deal] = await db.select({ id: crmDeals.id }).from(crmDeals)
         .where(and(eq(crmDeals.id, dealId), eq(crmDeals.clientId, clientId))).limit(1);
       if (!deal) return json({ error: 'Deal not found' });
@@ -802,6 +814,7 @@ export function registerCrmTools(server: McpServer, ctx: PortalMcpContext): void
     },
     async ({ dealId, artifactDbId, pinned }) => {
       if (!requireScope(ctx, 'crm:write')) return denied('crm:write');
+      if (!(await requireService(clientId, 'crm'))) return serviceDenied('crm');
       const [deal] = await db.select({ id: crmDeals.id }).from(crmDeals)
         .where(and(eq(crmDeals.id, dealId), eq(crmDeals.clientId, clientId))).limit(1);
       if (!deal) return json({ error: 'Deal not found' });
@@ -823,6 +836,7 @@ export function registerCrmTools(server: McpServer, ctx: PortalMcpContext): void
     },
     async ({ dealId, artifactDbId }) => {
       if (!requireScope(ctx, 'crm:write')) return denied('crm:write');
+      if (!(await requireService(clientId, 'crm'))) return serviceDenied('crm');
       const [deal] = await db.select({ id: crmDeals.id }).from(crmDeals)
         .where(and(eq(crmDeals.id, dealId), eq(crmDeals.clientId, clientId))).limit(1);
       if (!deal) return json({ error: 'Deal not found' });
@@ -872,6 +886,7 @@ export function registerCrmTools(server: McpServer, ctx: PortalMcpContext): void
     },
     async ({ name, isDefault, stages }) => {
       if (!requireScope(ctx, 'crm:write')) return denied('crm:write');
+      if (!(await requireService(clientId, 'crm'))) return serviceDenied('crm');
       if (isDefault) {
         await db.update(crmPipelines)
           .set({ isDefault: false, updatedAt: new Date() })
@@ -909,6 +924,7 @@ export function registerCrmTools(server: McpServer, ctx: PortalMcpContext): void
     },
     async ({ id, name, isDefault }) => {
       if (!requireScope(ctx, 'crm:write')) return denied('crm:write');
+      if (!(await requireService(clientId, 'crm'))) return serviceDenied('crm');
       const [existing] = await db.select({ id: crmPipelines.id }).from(crmPipelines)
         .where(and(eq(crmPipelines.id, id), eq(crmPipelines.clientId, clientId))).limit(1);
       if (!existing) return json({ error: 'Pipeline not found' });
@@ -942,6 +958,7 @@ export function registerCrmTools(server: McpServer, ctx: PortalMcpContext): void
     },
     async ({ pipelineId, name, color, probability, sortOrder }) => {
       if (!requireScope(ctx, 'crm:write')) return denied('crm:write');
+      if (!(await requireService(clientId, 'crm'))) return serviceDenied('crm');
       const [pipeline] = await db.select({ id: crmPipelines.id }).from(crmPipelines)
         .where(and(eq(crmPipelines.id, pipelineId), eq(crmPipelines.clientId, clientId))).limit(1);
       if (!pipeline) return json({ error: 'Pipeline not found' });
@@ -974,6 +991,7 @@ export function registerCrmTools(server: McpServer, ctx: PortalMcpContext): void
     },
     async ({ id, ...rest }) => {
       if (!requireScope(ctx, 'crm:write')) return denied('crm:write');
+      if (!(await requireService(clientId, 'crm'))) return serviceDenied('crm');
       const [stage] = await db
         .select({ id: crmPipelineStages.id, pipelineId: crmPipelineStages.pipelineId })
         .from(crmPipelineStages)
@@ -1038,6 +1056,7 @@ export function registerCrmTools(server: McpServer, ctx: PortalMcpContext): void
     },
     async ({ type, title, description, contactId, dealId, companyId, dueDate, completedAt }) => {
       if (!requireScope(ctx, 'crm:write')) return denied('crm:write');
+      if (!(await requireService(clientId, 'crm'))) return serviceDenied('crm');
       if (!contactId && !dealId && !companyId) {
         return json({ error: 'Provide at least one of contactId, dealId, or companyId' });
       }
@@ -1138,6 +1157,7 @@ export function registerCrmTools(server: McpServer, ctx: PortalMcpContext): void
     },
     async (args) => {
       if (!requireScope(ctx, 'crm:write')) return denied('crm:write');
+      if (!(await requireService(clientId, 'crm'))) return serviceDenied('crm');
       const result = await stageOrApply({
         ctx,
         entityType: 'proposal',
@@ -1201,6 +1221,7 @@ export function registerCrmTools(server: McpServer, ctx: PortalMcpContext): void
     },
     async ({ id, validUntil, sections, lineItems, fees, status, ...rest }) => {
       if (!requireScope(ctx, 'crm:write')) return denied('crm:write');
+      if (!(await requireService(clientId, 'crm'))) return serviceDenied('crm');
       const [existing] = await db.select().from(crmProposals)
         .where(and(eq(crmProposals.id, id), eq(crmProposals.clientId, clientId))).limit(1);
       if (!existing) return json({ error: 'Proposal not found' });
@@ -1245,6 +1266,7 @@ export function registerCrmTools(server: McpServer, ctx: PortalMcpContext): void
     },
     async ({ id }) => {
       if (!requireScope(ctx, 'crm:write')) return denied('crm:write');
+      if (!(await requireService(clientId, 'crm'))) return serviceDenied('crm');
       const [existing] = await db.select({ id: crmProposals.id, title: crmProposals.title, status: crmProposals.status })
         .from(crmProposals)
         .where(and(eq(crmProposals.id, id), eq(crmProposals.clientId, clientId))).limit(1);
@@ -1358,6 +1380,7 @@ export function registerCrmTools(server: McpServer, ctx: PortalMcpContext): void
     },
     async (args) => {
       if (!requireScope(ctx, 'crm:write')) return denied('crm:write');
+      if (!(await requireService(clientId, 'crm'))) return serviceDenied('crm');
       const [contract] = await db.insert(crmContracts).values({
         clientId,
         proposalId: args.proposalId ?? null,
@@ -1404,6 +1427,7 @@ export function registerCrmTools(server: McpServer, ctx: PortalMcpContext): void
     },
     async ({ id, reason }) => {
       if (!requireScope(ctx, 'crm:write')) return denied('crm:write');
+      if (!(await requireService(clientId, 'crm'))) return serviceDenied('crm');
       const [existing] = await db.select({ id: crmContracts.id, status: crmContracts.status })
         .from(crmContracts)
         .where(and(eq(crmContracts.id, id), eq(crmContracts.clientId, clientId))).limit(1);
@@ -1457,6 +1481,7 @@ export function registerCrmTools(server: McpServer, ctx: PortalMcpContext): void
     },
     async ({ entityType, fieldName, fieldType, options, required, filterable, sortOrder }) => {
       if (!requireScope(ctx, 'crm:write')) return denied('crm:write');
+      if (!(await requireService(clientId, 'crm'))) return serviceDenied('crm');
       const [row] = await db.insert(crmCustomFields).values({
         clientId,
         entityType,
@@ -1488,6 +1513,7 @@ export function registerCrmTools(server: McpServer, ctx: PortalMcpContext): void
     },
     async ({ id, fieldName, options, required, filterable, sortOrder }) => {
       if (!requireScope(ctx, 'crm:write')) return denied('crm:write');
+      if (!(await requireService(clientId, 'crm'))) return serviceDenied('crm');
       const [existing] = await db.select({ id: crmCustomFields.id }).from(crmCustomFields)
         .where(and(eq(crmCustomFields.id, id), eq(crmCustomFields.clientId, clientId))).limit(1);
       if (!existing) return json({ error: 'Custom field not found' });
@@ -1516,6 +1542,7 @@ export function registerCrmTools(server: McpServer, ctx: PortalMcpContext): void
     },
     async ({ id }) => {
       if (!requireScope(ctx, 'crm:write')) return denied('crm:write');
+      if (!(await requireService(clientId, 'crm'))) return serviceDenied('crm');
       const [row] = await db.delete(crmCustomFields)
         .where(and(eq(crmCustomFields.id, id), eq(crmCustomFields.clientId, clientId)))
         .returning();
@@ -1587,6 +1614,7 @@ export function registerCrmTools(server: McpServer, ctx: PortalMcpContext): void
     },
     async ({ entityType, entityId, values }) => {
       if (!requireScope(ctx, 'crm:write')) return denied('crm:write');
+      if (!(await requireService(clientId, 'crm'))) return serviceDenied('crm');
       let entityOk = false;
       if (entityType === 'contact') {
         const [row] = await db.select({ id: crmContacts.id }).from(crmContacts)

@@ -64,9 +64,11 @@ export default async function PortalShell({ children }: { children: React.ReactN
     }
   } catch {
     // Entitlement / plugin registry failure must never knock out the portal.
-    // Fall through with bypass=true so all nav items are visible.
+    // Fail CLOSED (bypass=false): a DB/plugin error must not silently grant
+    // access to every feature — it is safer to hide nav items than to expose
+    // ungated UI to a client who may not be entitled.
     apps = [];
-    entitlements = { domains: [], gatingBypassed: true };
+    entitlements = { domains: [], gatingBypassed: false };
   }
 
   return <PortalLayoutClient apps={apps} entitlements={entitlements}>{children}</PortalLayoutClient>;

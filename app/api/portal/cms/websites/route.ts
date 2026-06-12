@@ -4,11 +4,16 @@ import { db } from '@/lib/db';
 import { clientWebsites } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
+import { authorizePortal, isAuthError } from '@/lib/portal-auth';
 import { generateUniqueSubdomain, validateSubdomain, isSubdomainAvailable } from '@/lib/subdomain';
 
 export async function GET() {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
+
+  // Service access check
+  const authResult = await authorizePortal({ action: 'read', requireService: 'websites' });
+  if (isAuthError(authResult)) return authResult.response;
 
   const userId = parseInt(session.user.id, 10);
   const client = await getPortalClient(userId);
@@ -26,6 +31,10 @@ export async function GET() {
 export async function POST(req: Request) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
+
+  // Service access check
+  const authResult2 = await authorizePortal({ action: 'write', requireService: 'websites' });
+  if (isAuthError(authResult2)) return authResult2.response;
 
   const userId = parseInt(session.user.id, 10);
   const client = await getPortalClient(userId);
