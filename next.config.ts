@@ -59,6 +59,16 @@ const isDevDeploy = process.env.VERCEL_GIT_COMMIT_REF === 'dev';
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // Expose Google-auth availability to the client bundle so the login/signup
+  // pages can conditionally render the "Continue with Google" button.
+  // Computed at build time — matches the runtime provider-registration check in
+  // lib/auth.ts so they can never diverge.
+  env: {
+    NEXT_PUBLIC_GOOGLE_AUTH_ENABLED: String(
+      !!(process.env.AUTH_GOOGLE_ID ?? process.env.GOOGLE_CLIENT_ID) &&
+      !!(process.env.AUTH_GOOGLE_SECRET ?? process.env.GOOGLE_CLIENT_SECRET),
+    ),
+  },
   ...(isDevDeploy ? { eslint: { ignoreDuringBuilds: true } } : {}),
   // The in-build `next build` TypeScript recheck re-type-checks the whole
   // ~357k-line app in a single worker and exhausts the heap (OOM/SIGABRT) on
