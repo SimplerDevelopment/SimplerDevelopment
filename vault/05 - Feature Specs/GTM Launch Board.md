@@ -11,7 +11,7 @@ date: 2026-06-11
 
 - [x] **Pricing model — FULLY SHIPPED on dev (2026-06-11)** — 3 tiers (`plan-*`) over the module machinery; `TierPlans` cards primary on the plans page + signup wizard (à-la-carte behind a "Customize" toggle); tier SKUs seeded in dev's TEST Stripe; checkout wired (select tier → Stripe subscription + 14-day card trial). Remaining: run `sync-stripe-products.ts` in LIVE mode for staging/prod + backfill catalog IDs. — see [[Self-Serve Signup Funnel & Module Onboarding]]
 - [x] **Trial mechanic — both/and SHIPPED (2026-06-11)** — 14-day card-required trial (built) = paid-conversion path; cardless free-credit grant at signup (`grantSignupCredits`, verify-gated) = viral $0 door. Both live.
-- [ ] **Activation** — funnel ships per-module onboarding segments; GTM plan wants demo-workspace → agent-led setup. Complementary: keep the built segments, layer demo-seed + agent-led on top. (demo-seeder = next Phase-0 build)
+- [x] **Activation — demo-seeder SHIPPED (2026-06-11)** — `seedDemoWorkspace` at signup (sample company/contacts/deals + project, tenant-scoped, idempotent, non-blocking, both signup paths). Funnel's per-module onboarding kept. Remaining: agent-led "set up YOUR business" layered on the seeded demo.
 - [x] **BYOK-Scale gating SHIPPED (2026-06-11)** — `byokEligible` on entitlements (only Scale/bundle/bypass); byok-mode entry gated in the admin route, so the metering waiver is now Scale-only. STILL OPEN: the marked-up metered-AI overage wiring + per-action credit cost (Phase 0).
 
 ## Phase 0 — Beachhead (existing clients)
@@ -19,7 +19,7 @@ date: 2026-06-11
 - [ ] Lock the 3 tiers (Starter/Growth/Scale): features, per-seat price, included AI credit allowance — see [[Go-To-Market — Self-Serve SaaS]]
 - [x] Create Stripe Products/Prices for the tiers — DONE on dev (test mode) via the extended `sync-stripe-products.ts`; staging/prod still need a LIVE-mode run
 - [ ] Apply BYOK inversion: gate metering-waiver to the Scale tier + marked-up overage on Starter/Growth (profit-center model)
-- [ ] Build demo-workspace seeder — sample contacts/deals/draft site/projects (reuse sd-agent-super's brain demo-seed factory)
+- [x] Build demo-workspace seeder — DONE (`lib/onboarding/demo-seed.ts`, hooked into signup both paths; sample CRM + project, tenant-scoped)
 - [ ] FIX revenue-integrity: handle `invoice.payment_failed` — grace + notify (do NOT flip status; `entitlements.ts` gates on `status='active'`, so a flip cuts access)
 - [ ] FIX revenue-integrity: auto-provision `metered_subscription_items` at checkout so overage actually bills
 - [ ] FIX revenue-integrity: collect pay-as-you-go overage debt (`lib/ai-credits.ts`)
