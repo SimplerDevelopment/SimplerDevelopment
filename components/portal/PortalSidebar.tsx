@@ -331,11 +331,11 @@ export default function PortalSidebar({ apps, entitlements }: PortalSidebarProps
         <>
           <button
             onClick={toggleOpen}
-            className="absolute md:fixed top-4 left-4 z-50 p-2 rounded-md bg-card border border-border hover:bg-accent transition-colors"
+            className="fixed top-4 left-4 z-50 p-2 rounded-md bg-card border border-border hover:bg-accent transition-colors"
           >
             <span className="material-icons text-xl">menu</span>
           </button>
-          <Link href="/portal" className="absolute top-4 left-16 z-50 flex items-center">
+          <Link href="/portal" className="fixed top-4 left-16 z-50 flex items-center">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={brandLogoUrl} alt="" className="nav-logo-icon" style={{ height: '2rem', width: '2rem', marginRight: '-0.25rem' }} />
             <span className="text-sm text-foreground font-heading">{brandName === 'Simpler Development' ? (<><b>Simpler</b> Development</>) : brandName}</span>
