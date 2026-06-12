@@ -14,6 +14,7 @@ import {
   crmCompanies,
   crmContacts,
   crmDeals,
+  crmActivities,
   crmPipelineStages,
   projects,
   kanbanColumns,
@@ -59,6 +60,83 @@ const SAMPLE_CONTACTS = [
     title: 'Operations Manager',
     status: 'customer' as const,
     notes: 'Sample contact — demo data.',
+  },
+];
+
+// ---------------------------------------------------------------------------
+// Activity helpers
+// ---------------------------------------------------------------------------
+
+/** Return a Date that is `daysAgo` days before now, at the given hour (UTC). */
+function daysBack(daysAgo: number, hour = 10): Date {
+  const d = new Date();
+  d.setUTCDate(d.getUTCDate() - daysAgo);
+  d.setUTCHours(hour, 0, 0, 0);
+  return d;
+}
+
+/**
+ * Activity rows keyed by the contact index they belong to (0, 1, 2).
+ * `completedAt` is set to `createdAt` so they appear in the timeline as done.
+ * `contactIndex` is resolved to a real id at seed time.
+ */
+type ActivitySeed = {
+  contactIndex: number;
+  type: string;
+  title: string;
+  description: string;
+  daysAgo: number;
+  hour?: number;
+};
+
+const SAMPLE_ACTIVITIES: ActivitySeed[] = [
+  // Alice — discovery call + email thread
+  {
+    contactIndex: 0,
+    type: 'call',
+    title: 'Discovery call with Alice (sample)',
+    description:
+      'Covered procurement timeline and budget constraints. Alice confirmed Q3 deadline is firm. Agreed to send a proposal by end of week.',
+    daysAgo: 9,
+    hour: 14,
+  },
+  {
+    contactIndex: 0,
+    type: 'email',
+    title: 'Sent proposal follow-up to Alice (sample)',
+    description:
+      'Emailed revised pricing deck and answered questions from the discovery call. Alice acknowledged receipt.',
+    daysAgo: 6,
+    hour: 9,
+  },
+  // Marcus — intro meeting + note
+  {
+    contactIndex: 1,
+    type: 'meeting',
+    title: 'Intro meeting with Marcus (sample)',
+    description:
+      "One-hour kick-off at their office. Discussed strategic goals for the website redesign and Marcus's vision for brand positioning.",
+    daysAgo: 12,
+    hour: 11,
+  },
+  {
+    contactIndex: 1,
+    type: 'note',
+    title: 'Internal note on Marcus deal (sample)',
+    description:
+      'Decision maker is Marcus; procurement sign-off still needed from Alice. High likelihood to close if we can meet the timeline.',
+    daysAgo: 11,
+    hour: 16,
+  },
+  // Priya — check-in call
+  {
+    contactIndex: 2,
+    type: 'call',
+    title: 'Onboarding check-in with Priya (sample)',
+    description:
+      'Confirmed operations integration is running smoothly. Priya requested a walkthrough of the reporting dashboard next week.',
+    daysAgo: 3,
+    hour: 15,
   },
 ];
 
@@ -191,7 +269,27 @@ export async function seedDemoWorkspace(clientId: number): Promise<void> {
     })
   );
 
-  // ── 5. Sample project + columns + cards ──────────────────────────────────
+  // ── 5. Sample CRM activities ─────────────────────────────────────────────
+  // Map contact-index → inserted id so activity rows reference real PKs.
+  await db.insert(crmActivities).values(
+    SAMPLE_ACTIVITIES.map((act) => {
+      const contact = insertedContacts[act.contactIndex] ?? insertedContacts[0];
+      const activityAt = daysBack(act.daysAgo, act.hour);
+      return {
+        clientId,
+        contactId: contact.id,
+        companyId: company.id,
+        type: act.type,
+        title: act.title,
+        description: act.description,
+        completedAt: activityAt,
+        createdAt: activityAt,
+        // createdBy / viaUserId intentionally null — no system user during seeding
+      };
+    })
+  );
+
+  // ── 6. Sample project + columns + cards ──────────────────────────────────
   const [project] = await db
     .insert(projects)
     .values({
