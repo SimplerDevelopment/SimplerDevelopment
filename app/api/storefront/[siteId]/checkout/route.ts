@@ -442,10 +442,23 @@ export async function POST(
       },
     });
 
+    // Provide the publishable key so the client can initialise Stripe.js
+    // without hard-coding a key in the browser bundle.
+    // Connect mode → platform NEXT_PUBLIC key (callers confirm against the
+    //   platform account which then splits to the connected account).
+    // BYOK mode → the tenant's own pk_… stored plaintext in store_settings;
+    //   null falls back to the platform key (e.g. before the merchant saves
+    //   their publishable key during BYOK setup).
+    const publishableKey =
+      ctx.mode === 'byok'
+        ? (store.stripePublishableKey || process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || null)
+        : (process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || null);
+
     return NextResponse.json({
       success: true,
       data: {
         clientSecret: paymentIntent.client_secret,
+        publishableKey,
         orderId: order.id,
         orderNumber,
         total,
