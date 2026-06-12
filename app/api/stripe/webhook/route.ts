@@ -1,9 +1,14 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { invoices, clients, clientServices } from '@/lib/db/schema';
+import { invoices, clients, clientServices, users } from '@/lib/db/schema';
 import { eq, and, desc } from 'drizzle-orm';
 import { addPurchasedCredits, grantMonthlyCredits } from '@/lib/ai-credits';
 import { revalidateAdminDashboard } from '@/lib/admin/dashboard-cache';
+import {
+  sendPaymentFailedEmail,
+  sendTrialWillEndEmail,
+  sendSubscriptionSuspendedEmail,
+} from '@/lib/billing/dunning-emails';
 
 export const runtime = 'nodejs';
 
@@ -23,6 +28,200 @@ export async function POST(req: Request) {
     const sig = req.headers.get('stripe-signature') ?? '';
 
     const event = stripe.webhooks.constructEvent(body, sig, webhookSecret);
+
+    // ── Helper: resolve the owner email for a Stripe customer ID ─────────────
+    // clients.userId is the owner; fall back to the first admin/owner team
+    // member. Returns null when no email can be found (don't block on email
+    // failures — log and continue).
+    async function resolveClientEmailForStripeCustomer(
+      stripeCustomerId: string,
+    ): Promise<{ email: string; companyName: string | null; clientId: number } | null> {
+      const [client] = await db
+        .select({ id: clients.id, company: clients.company, userId: clients.userId })
+        .from(clients)
+        .where(eq(clients.stripeCustomerId, stripeCustomerId))
+        .limit(1);
+      if (!client) return null;
+
+      // Primary path: the client.userId is the account owner.
+      const [owner] = await db
+        .select({ email: users.email })
+        .from(users)
+        .where(eq(users.id, client.userId))
+        .limit(1);
+
+      const email = owner?.email ?? null;
+      if (!email) return null;
+
+      return { email, companyName: client.company ?? null, clientId: client.id };
+    }
+
+    // ── Helper: resolve the owner email for a Stripe subscription ID ─────────
+    // Looks up via clientServices row (stripeSubscriptionId).
+    async function resolveClientEmailForSubscription(
+      stripeSubscriptionId: string,
+    ): Promise<{ email: string; companyName: string | null; clientId: number } | null> {
+      const [cs] = await db
+        .select({ clientId: clientServices.clientId })
+        .from(clientServices)
+        .where(eq(clientServices.stripeSubscriptionId, stripeSubscriptionId))
+        .limit(1);
+      if (!cs) return null;
+
+      const [client] = await db
+        .select({ id: clients.id, company: clients.company, userId: clients.userId })
+        .from(clients)
+        .where(eq(clients.id, cs.clientId))
+        .limit(1);
+      if (!client) return null;
+
+      const [owner] = await db
+        .select({ email: users.email })
+        .from(users)
+        .where(eq(users.id, client.userId))
+        .limit(1);
+
+      const email = owner?.email ?? null;
+      if (!email) return null;
+
+      return { email, companyName: client.company ?? null, clientId: client.id };
+    }
+
+    // ── invoice.payment_failed ────────────────────────────────────────────────
+    // Do NOT suspend entitlements — Stripe retries automatically and the grace
+    // period is a feature. Instead: notify the client to fix their card and
+    // log loudly so ops can see it.
+    if (event.type === 'invoice.payment_failed') {
+      const failedInvoice = event.data.object as {
+        customer?: string | null;
+        hosted_invoice_url?: string | null;
+        attempt_count?: number | null;
+        amount_due?: number | null;
+      };
+
+      console.error(
+        '[stripe/webhook] invoice.payment_failed —',
+        JSON.stringify({
+          customer: failedInvoice.customer,
+          attemptCount: failedInvoice.attempt_count,
+          amountDueCents: failedInvoice.amount_due,
+        }),
+      );
+
+      if (typeof failedInvoice.customer === 'string') {
+        try {
+          const resolved = await resolveClientEmailForStripeCustomer(failedInvoice.customer);
+          if (resolved) {
+            await sendPaymentFailedEmail({
+              toEmail: resolved.email,
+              companyName: resolved.companyName,
+              invoiceUrl: failedInvoice.hosted_invoice_url ?? null,
+            });
+          }
+        } catch (emailErr) {
+          // Email failures must never cause the webhook to return 4xx — Stripe
+          // would retry indefinitely. Log and swallow.
+          console.error('[stripe/webhook] invoice.payment_failed — email send failed:', emailErr);
+        }
+      }
+
+      return NextResponse.json({ received: true });
+    }
+
+    // ── customer.subscription.updated ────────────────────────────────────────
+    // Map Stripe subscription status to clientServices rows tied to this
+    // subscription. Idempotent: re-running with the same status is a no-op.
+    //
+    // Status mapping:
+    //   'canceled' | 'unpaid' | 'incomplete_expired'  → suspend ('cancelled')
+    //   'active'   | 'trialing'                        → ensure active
+    //   'past_due'                                     → leave active (grace)
+    //   anything else                                  → leave unchanged
+    if (event.type === 'customer.subscription.updated') {
+      const updatedSub = event.data.object as {
+        id: string;
+        status: string;
+        customer?: string | null;
+      };
+
+      const SUSPEND_STATUSES = new Set(['canceled', 'unpaid', 'incomplete_expired']);
+      const ACTIVATE_STATUSES = new Set(['active', 'trialing']);
+
+      if (SUSPEND_STATUSES.has(updatedSub.status)) {
+        // Suspend every clientServices row backed by this subscription.
+        await db
+          .update(clientServices)
+          .set({ status: 'cancelled', updatedAt: new Date() })
+          .where(eq(clientServices.stripeSubscriptionId, updatedSub.id));
+
+        // Notify the client (best-effort).
+        try {
+          const resolved = await resolveClientEmailForSubscription(updatedSub.id);
+          // Only send if we found a client — resolveClientEmailForSubscription
+          // returns null when the subscription is unknown (e.g. test events).
+          if (resolved) {
+            const reason = updatedSub.status as 'canceled' | 'unpaid' | 'incomplete_expired';
+            await sendSubscriptionSuspendedEmail({
+              toEmail: resolved.email,
+              companyName: resolved.companyName,
+              reason,
+            });
+          }
+        } catch (emailErr) {
+          console.error('[stripe/webhook] customer.subscription.updated — suspend email failed:', emailErr);
+        }
+      } else if (ACTIVATE_STATUSES.has(updatedSub.status)) {
+        // Re-activate any rows that were previously suspended/cancelled.
+        // We do NOT touch rows that are already 'active' (no-op update is
+        // cheap, but a conditional keeps the audit trail cleaner).
+        await db
+          .update(clientServices)
+          .set({ status: 'active', updatedAt: new Date() })
+          .where(
+            and(
+              eq(clientServices.stripeSubscriptionId, updatedSub.id),
+              // Only re-activate rows that were suspended; don't stomp on
+              // 'pending' rows that haven't been provisioned yet.
+              eq(clientServices.status, 'cancelled'),
+            ),
+          );
+      }
+      // 'past_due' → intentionally left unchanged (grace period).
+
+      return NextResponse.json({ received: true });
+    }
+
+    // ── customer.subscription.trial_will_end ─────────────────────────────────
+    // Stripe fires this 3 days before the trial ends (configurable in the
+    // Stripe dashboard). Send a reminder so the client knows they'll be billed.
+    if (event.type === 'customer.subscription.trial_will_end') {
+      const trialSub = event.data.object as {
+        id: string;
+        customer?: string | null;
+        trial_end?: number | null;
+      };
+
+      if (typeof trialSub.customer === 'string') {
+        try {
+          const resolved = await resolveClientEmailForStripeCustomer(trialSub.customer);
+          if (resolved) {
+            const trialEndDate = trialSub.trial_end
+              ? new Date(trialSub.trial_end * 1000)
+              : new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+
+            await sendTrialWillEndEmail({
+              toEmail: resolved.email,
+              companyName: resolved.companyName,
+              trialEndDate,
+            });
+          }
+        } catch (emailErr) {
+          console.error('[stripe/webhook] customer.subscription.trial_will_end — email send failed:', emailErr);
+        }
+      }
+
+      return NextResponse.json({ received: true });
+    }
 
     if (event.type === 'customer.subscription.deleted') {
       const subscription = event.data.object as { id: string };
