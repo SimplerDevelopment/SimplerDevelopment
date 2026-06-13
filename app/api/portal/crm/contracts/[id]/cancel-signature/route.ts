@@ -11,6 +11,7 @@ import { db } from '@/lib/db';
 import { crmContracts, crmContractSigningEvents } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
+import { authorizePortal, isAuthError } from '@/lib/portal-auth';
 import { cancelSignatureRequest } from '@/lib/esign/dropbox-sign';
 
 type Params = { params: Promise<{ id: string }> };
@@ -20,6 +21,10 @@ export async function POST(_req: Request, { params }: Params) {
   if (!session?.user?.id) {
     return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
   }
+
+  const authResult = await authorizePortal({ action: 'write', requireService: 'esign' });
+  if (isAuthError(authResult)) return authResult.response;
+
   const client = await getPortalClient(parseInt(session.user.id, 10));
   if (!client) {
     return NextResponse.json({ success: false, error: 'Client not found' }, { status: 404 });

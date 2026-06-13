@@ -4,11 +4,16 @@ import { db } from '@/lib/db';
 import { crmContracts, crmContractSigners } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
+import { authorizePortal, isAuthError } from '@/lib/portal-auth';
 import crypto from 'crypto';
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ success: false }, { status: 401 });
+
+  const authResult = await authorizePortal({ action: 'read', requireService: 'esign' });
+  if (isAuthError(authResult)) return authResult.response;
+
   const client = await getPortalClient(parseInt(session.user.id, 10));
   if (!client) return NextResponse.json({ success: false }, { status: 404 });
 
@@ -27,6 +32,10 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ success: false }, { status: 401 });
+
+  const authResult = await authorizePortal({ action: 'write', requireService: 'esign' });
+  if (isAuthError(authResult)) return authResult.response;
+
   const client = await getPortalClient(parseInt(session.user.id, 10));
   if (!client) return NextResponse.json({ success: false }, { status: 404 });
 
@@ -94,6 +103,10 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   const session = await auth();
   if (!session?.user?.id)
     return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
+
+  const authResult = await authorizePortal({ action: 'write', requireService: 'esign' });
+  if (isAuthError(authResult)) return authResult.response;
+
   const client = await getPortalClient(parseInt(session.user.id, 10));
   if (!client)
     return NextResponse.json({ success: false, message: 'Client not found' }, { status: 404 });
