@@ -178,9 +178,18 @@ export default function PortalSidebar({ apps, entitlements }: PortalSidebarProps
   // Build final nav items with injected services
   const navItems: NavItem[] = (() => {
     const items = buildPortalNavItems(activeSiteId, activeSiteName, apps, entitlementSet);
-    const serviceItems: NavItem[] = navServices
-      .filter(svc => !EXCLUDED_SERVICES.has(svc.name) && !svc.name.startsWith('__'))
-      .map(svc => ({ href: svc.href, label: svc.name, icon: svc.icon }));
+    // Dedupe injected services against the base nav (and each other) by href —
+    // some catalog services map to a route the base nav already owns (e.g.
+    // Pitches & Proposals → /portal/tools/pitch-decks), which otherwise renders
+    // the item twice and collides React keys.
+    const seenHrefs = new Set(items.map(i => i.href));
+    const serviceItems: NavItem[] = [];
+    for (const svc of navServices) {
+      if (EXCLUDED_SERVICES.has(svc.name) || svc.name.startsWith('__')) continue;
+      if (seenHrefs.has(svc.href)) continue;
+      seenHrefs.add(svc.href);
+      serviceItems.push({ href: svc.href, label: svc.name, icon: svc.icon });
+    }
     const settingsIdx = items.findIndex(i => i.href === '/portal/settings');
     if (settingsIdx >= 0) {
       items.splice(settingsIdx, 0, ...serviceItems);
