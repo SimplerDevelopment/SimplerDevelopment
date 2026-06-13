@@ -94,7 +94,14 @@ interface PortalSidebarProps {
 
 export default function PortalSidebar({ apps, entitlements }: PortalSidebarProps = {}) {
   const pathname = usePathname();
-  const { brandName, brandLogoUrl } = useAgencyChrome();
+  const { brandName, brandLogoUrl, agencyPrimaryColor, whiteLabelEnabled } = useAgencyChrome();
+
+  // When an agency primary color is configured, override the active-nav
+  // background with it so the sidebar accent matches the agency's brand.
+  // Undefined/null means no override — Tailwind's bg-primary applies as usual.
+  const agencyActiveStyle = whiteLabelEnabled && agencyPrimaryColor
+    ? { backgroundColor: agencyPrimaryColor, color: '#fff' }
+    : undefined;
   const [isOpen, setIsOpen] = useState(false);
   const [theme, setTheme] = useState<Theme>('system');
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
@@ -292,6 +299,7 @@ export default function PortalSidebar({ apps, entitlements }: PortalSidebarProps
         href={item.href}
         onClick={toggleOpen}
         className={linkClass}
+        style={active && !childActive ? agencyActiveStyle : undefined}
       >
         <span className="material-icons text-xl shrink-0">{item.icon}</span>
         <span className="flex-1 truncate">{item.label}</span>

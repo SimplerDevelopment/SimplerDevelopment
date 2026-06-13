@@ -12,8 +12,15 @@
 // payload arrives. White-labelled agencies on a custom domain will
 // usually have a fast lookup (middleware sets `x-agency-client-id`,
 // API hits the same DB connection pool).
+//
+// CSS custom property injection: when white-label is active and
+// agencyPrimaryColor is set, we inject --agency-primary onto a wrapper
+// div. The sidebar and other chrome pieces reference this via Tailwind's
+// arbitrary-value syntax or inline style — no per-component edits needed.
+// Falls back cleanly: the var is never set when white-label is off, so
+// Tailwind's default bg-primary / text-primary-foreground apply as usual.
 
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState, type CSSProperties } from 'react';
 
 interface AgencyChrome {
   whiteLabelEnabled: boolean;
@@ -66,7 +73,26 @@ export function AgencyChromeProvider({ children }: { children: React.ReactNode }
 
   const value = useMemo(() => chrome, [chrome]);
 
-  return <AgencyChromeContext.Provider value={value}>{children}</AgencyChromeContext.Provider>;
+  // Inject --agency-primary as a CSS custom property onto the wrapper when
+  // white-label is active and a color has been configured. Components
+  // that want to honour the agency accent can reference this var via
+  // `style={{ color: 'var(--agency-primary)' }}` or a Tailwind arbitrary
+  // value. When the var is absent (default) those references are simply
+  // undefined, so Tailwind's normal palette tokens take over.
+  const wrapperStyle: CSSProperties = useMemo(() => {
+    if (chrome.whiteLabelEnabled && chrome.agencyPrimaryColor) {
+      return { '--agency-primary': chrome.agencyPrimaryColor } as CSSProperties;
+    }
+    return {};
+  }, [chrome.whiteLabelEnabled, chrome.agencyPrimaryColor]);
+
+  return (
+    <AgencyChromeContext.Provider value={value}>
+      <div style={wrapperStyle} className="contents">
+        {children}
+      </div>
+    </AgencyChromeContext.Provider>
+  );
 }
 
 export function useAgencyChrome(): AgencyChrome {
