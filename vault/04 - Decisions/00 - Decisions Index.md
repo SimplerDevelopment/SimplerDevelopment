@@ -17,6 +17,7 @@ Static list (agents: maintain this when adding ADRs — Dataview below only rend
 - [[ADR schema-constraints-hand-sql-only]]
 - [[ADR agent-topology-router-not-domain-mesh]]
 - [[ADR byok-inversion-scale-only]]
+- [[ADR tiers-are-first-class-stripe-products]]
 
 ```dataview
 TABLE domain, status, date
