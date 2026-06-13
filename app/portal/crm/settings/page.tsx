@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import ProductAutomationSettings from '@/components/portal/ProductAutomationSettings';
 import type { AutomationPreset } from '@/components/portal/ProductAutomationSettings';
 import CrmCustomFieldsAdmin from '@/components/portal/CrmCustomFieldsAdmin';
+import LeadScoringTab from './_components/LeadScoringTab';
+import NotificationsTab from './_components/NotificationsTab';
 
 const CRM_AUTOMATION_PRESETS: AutomationPreset[] = [
   {
@@ -88,13 +90,15 @@ const defaultColors = [
   '#ef4444', '#ec4899', '#6366f1', '#14b8a6', '#f97316',
 ];
 
-type SettingsTab = 'pipelines' | 'tags' | 'custom-fields' | 'automations';
+type SettingsTab = 'pipelines' | 'tags' | 'custom-fields' | 'automations' | 'lead-scoring' | 'notifications';
 
 const SETTINGS_TABS: { value: SettingsTab; label: string; icon: string }[] = [
   { value: 'pipelines', label: 'Pipelines', icon: 'view_column' },
   { value: 'tags', label: 'Tags', icon: 'sell' },
   { value: 'custom-fields', label: 'Custom Fields', icon: 'tune' },
   { value: 'automations', label: 'Automations', icon: 'bolt' },
+  { value: 'lead-scoring', label: 'Lead Scoring', icon: 'leaderboard' },
+  { value: 'notifications', label: 'Notifications', icon: 'notifications' },
 ];
 
 export default function CrmSettingsPage() {
@@ -572,6 +576,12 @@ export default function CrmSettingsPage() {
         />
       </div>
       )}
+
+      {/* ─── Lead Scoring ──────────────────────────────────────────────── */}
+      {activeTab === 'lead-scoring' && <LeadScoringTab />}
+
+      {/* ─── Notification Preferences ──────────────────────────────────── */}
+      {activeTab === 'notifications' && <NotificationsTab />}
     </div>
   );
 }
