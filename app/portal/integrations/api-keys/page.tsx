@@ -7,6 +7,11 @@
  * Raw keys never live in component state — the form posts directly to the
  * server, which encrypts and stores. The list view only ever sees the
  * redacted preview ("sk-ant-…AbC1").
+ *
+ * Eligibility: BYOK is a Scale-tier feature. On mount we fetch
+ * /api/portal/billing/byok-status and gate the add/edit UI on
+ * data.byokEligible. Non-eligible clients see an upgrade prompt instead.
+ * Fail-closed: while loading (byokEligible === null) we treat as ineligible.
  */
 
 import { useEffect, useState } from 'react';
@@ -56,6 +61,8 @@ export default function ByokKeysPage() {
   const [label, setLabel] = useState('');
   const [adding, setAdding] = useState(false);
   const [success, setSuccess] = useState<string | null>(null);
+  // null = still loading (fail-closed); true/false = resolved
+  const [byokEligible, setByokEligible] = useState<boolean | null>(null);
 
   async function refresh() {
     setLoading(true);
@@ -72,8 +79,27 @@ export default function ByokKeysPage() {
     }
   }
 
+  async function fetchByokStatus() {
+    try {
+      const res = await fetch('/api/portal/billing/byok-status', { cache: 'no-store' });
+      const json = await res.json();
+      if (res.ok && json.success && typeof json.data?.byokEligible === 'boolean') {
+        setByokEligible(json.data.byokEligible);
+      } else {
+        // Non-200 or unexpected shape → fail-closed
+        setByokEligible(false);
+      }
+    } catch {
+      setByokEligible(false);
+    }
+  }
+
   useEffect(() => {
-    void refresh();
+    // Defer the initial loads to a microtask so the synchronous setState()
+    // prefixes inside refresh()/fetchByokStatus() don't execute in the effect
+    // body (satisfies react-hooks/set-state-in-effect — state is updated from
+    // the async fetch results, not synchronously on mount).
+    void Promise.resolve().then(() => Promise.all([refresh(), fetchByokStatus()]));
   }, []);
 
   async function handleCreate(formData: FormData) {
@@ -104,7 +130,7 @@ export default function ByokKeysPage() {
   }
 
   async function handleDelete(id: number) {
-    if (!window.confirm('Remove this key? AI calls will fall back to platform credits (or be blocked on Starter).')) return;
+    if (!window.confirm('Remove this key? AI calls will fall back to platform credits.')) return;
     setError(null);
     setSuccess(null);
     try {
@@ -139,6 +165,9 @@ export default function ByokKeysPage() {
 
   const selectedProvider = PROVIDERS.find((p) => p.value === provider);
 
+  // Treat null (still loading) the same as false — fail-closed.
+  const canManageKeys = byokEligible === true;
+
   return (
     <div className="space-y-6">
       <header>
@@ -166,10 +195,31 @@ export default function ByokKeysPage() {
         </div>
       )}
 
+      {/* Upgrade notice — shown when not eligible (including while loading) */}
+      {!canManageKeys && (
+        <div className="bg-card border border-border rounded-xl p-8 flex flex-col items-center text-center">
+          <span className="material-icons text-5xl text-muted-foreground mb-3">workspace_premium</span>
+          <h3 className="font-semibold text-foreground mb-1">Bring your own AI key is a Scale feature</h3>
+          <p className="text-sm text-muted-foreground max-w-md">
+            On the Scale plan you connect your own Anthropic and OpenAI keys and pay providers directly
+            at cost — token usage appears on your provider invoice, not against platform AI credits.
+            Upgrade to Scale to unlock BYOK.
+          </p>
+          <a
+            href="/portal/settings/billing/plans"
+            className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
+          >
+            <span className="material-icons text-base">workspace_premium</span>
+            View plans
+          </a>
+        </div>
+      )}
+
       <section className="rounded-md border border-border">
         <div className="p-4 border-b border-border flex items-center justify-between">
           <h2 className="font-medium">Configured keys</h2>
-          {!creating && (
+          {/* Add key button only available on Scale */}
+          {canManageKeys && !creating && (
             <button
               type="button"
               onClick={() => { setCreating(true); setSuccess(null); setError(null); }}
@@ -181,7 +231,7 @@ export default function ByokKeysPage() {
           )}
         </div>
 
-        {creating && (
+        {canManageKeys && creating && (
           <form
             action={handleCreate}
             className="p-4 border-b border-border space-y-3 bg-muted/30"
@@ -276,14 +326,18 @@ export default function ByokKeysPage() {
                   <td className="px-4 py-2 text-muted-foreground">{formatDate(k.lastUsedAt)}</td>
                   <td className="px-4 py-2">
                     <div className="flex items-center justify-end gap-1">
-                      <button
-                        type="button"
-                        onClick={() => handleRename(k.id, k.label)}
-                        title="Rename"
-                        className="p-1 rounded hover:bg-muted"
-                      >
-                        <span className="material-icons text-base">edit</span>
-                      </button>
+                      {/* Rename only available on Scale — hide for downgraded clients */}
+                      {canManageKeys && (
+                        <button
+                          type="button"
+                          onClick={() => handleRename(k.id, k.label)}
+                          title="Rename"
+                          className="p-1 rounded hover:bg-muted"
+                        >
+                          <span className="material-icons text-base">edit</span>
+                        </button>
+                      )}
+                      {/* Delete always available so downgraded clients can clean up */}
                       <button
                         type="button"
                         onClick={() => handleDelete(k.id)}

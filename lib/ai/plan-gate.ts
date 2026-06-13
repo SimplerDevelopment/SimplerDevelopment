@@ -6,12 +6,16 @@
  * `slug='tier-{starter,growth,scale}'`. Each tier's `usageLimits.tier` JSON
  * field carries the canonical lowercase label.
  *
- * Tier rules (BYOK plumbing brief, deliverable 5):
- *   - Starter: NO platform AI. AI calls require a BYOK key. Block with a
- *     clear error if the client has neither a BYOK row nor an upgrade.
- *   - Growth, Scale: AI works with BYOK or platform credits (legacy).
- *   - No tier row found (legacy clients, internal accounts): treat as
- *     unrestricted — fall through to platform key.
+ * Tier rules (the "BYOK inversion" — see lib/billing/domain-catalog.ts):
+ *   - All paid tiers (Starter / Growth / Scale) get PLATFORM AI. The lower
+ *     tiers run on marked-up metered/credit-billed platform AI (the profit
+ *     centre); that is the product, not a paywall.
+ *   - BYOK (bring your own provider key, spend-at-cost) is a SCALE-ONLY
+ *     unlock. It is NOT required on any tier and NOT available below Scale.
+ *     Eligibility + key entry are gated on `entitlements.byokEligible` at the
+ *     key-storage route and re-checked at inference in resolveClientApiKey —
+ *     NOT here. This gate no longer blocks any tier from making AI calls.
+ *   - No tier row found (legacy clients, internal accounts): unrestricted.
  *
  * Returns a structured verdict so call sites can render error envelopes
  * directly without rebuilding messaging.
@@ -90,20 +94,6 @@ async function clientHasAnyByok(clientId: number): Promise<boolean> {
   return !!row;
 }
 
-async function clientHasByokForProvider(
-  clientId: number,
-  provider: AiProvider,
-): Promise<boolean> {
-  // Embeddings share the OpenAI bucket.
-  const stored = provider === 'embedding' ? 'openai' : provider;
-  const [row] = await db
-    .select({ id: clientApiKeys.id })
-    .from(clientApiKeys)
-    .where(and(eq(clientApiKeys.clientId, clientId), eq(clientApiKeys.provider, stored)))
-    .limit(1);
-  return !!row;
-}
-
 export interface CheckPlanGateOptions {
   clientId: number;
   provider: AiProvider;
@@ -113,40 +103,22 @@ export interface CheckPlanGateOptions {
  * Returns a verdict for whether `clientId` is allowed to make an AI call for
  * `provider` under their current subscription tier.
  *
- * v1 semantics:
- *   - Starter without BYOK for the requested provider → blocked.
- *   - Otherwise → allowed.
+ * Semantics (post BYOK-inversion):
+ *   - Every paid tier gets platform AI, so this gate ALLOWS all tiers. It no
+ *     longer blocks Starter — Starter runs on metered platform AI like the
+ *     others. BYOK is a Scale-only *option*, gated at the key-storage route
+ *     and re-checked at inference, not here.
+ *   - `tier` and `hasAnyByok` are still returned for telemetry / metering
+ *     decisions at the call site.
  *
- * Call sites should treat `verdict.allowed === false` as a 402/403 surface.
+ * Note: `provider` is retained in the options for back-compat and so future
+ * per-provider gating can hook in without touching ~10 call sites.
  */
 export async function checkAiPlanGate(
   opts: CheckPlanGateOptions,
 ): Promise<PlanGateVerdict> {
   const tier = await getClientTier(opts.clientId);
   const hasAnyByok = await clientHasAnyByok(opts.clientId);
-
-  if (tier === 'starter') {
-    const hasProviderByok = await clientHasByokForProvider(
-      opts.clientId,
-      opts.provider,
-    );
-    if (!hasProviderByok) {
-      const providerLabel = opts.provider === 'anthropic'
-        ? 'Anthropic'
-        : opts.provider === 'embedding'
-          ? 'OpenAI (for embeddings)'
-          : 'OpenAI';
-      return {
-        allowed: false,
-        tier,
-        reason: 'starter_requires_byok',
-        message:
-          `AI is unavailable on Starter tier without your own provider key. ` +
-          `Add an ${providerLabel} key in Portal → Settings → API Keys, or upgrade to Growth.`,
-        hasAnyByok,
-      };
-    }
-  }
 
   return {
     allowed: true,
