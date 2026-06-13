@@ -24,7 +24,7 @@ export const solutions: SolutionData[] = [
     features: [
       'Model Context Protocol (MCP) server built in',
       'Connect Claude Desktop, Claude Code & Claude.ai',
-      'Connect ChatGPT and other AI clients',
+      'Connect Claude Desktop, Claude Code & Claude.ai today — plus ChatGPT where MCP connectors are available',
       'Scoped, permissioned API keys per client',
       'Bring-your-own AI provider keys (Anthropic & OpenAI)',
       'Approval workflow — AI proposes, you confirm',
