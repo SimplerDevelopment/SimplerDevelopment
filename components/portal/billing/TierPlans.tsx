@@ -23,7 +23,9 @@ interface TierPlansProps {
 
 export function TierPlans({ onSelect, selectedSlug, busySlug }: TierPlansProps) {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+    // pt-3 reserves room for the "Most popular" badge that overhangs the Growth
+    // card's top edge (-top-3) so it never clips against content above.
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-3">
       {TIERS.map((tier) => {
         const isGrowth = tier.key === 'growth';
         const isSelected = selectedSlug === tier.slug;

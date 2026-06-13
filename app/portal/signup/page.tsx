@@ -140,7 +140,7 @@ function SignupForm() {
             <>
               <h2 className="text-xl font-semibold text-foreground mb-1">Create your account</h2>
               <p className="text-sm text-muted-foreground mb-6">
-                Get started — it only takes a minute.
+                Websites, CRM, and AI in one place — free to start, no card required.
               </p>
 
               {/* Verification-expired banner */}
@@ -291,7 +291,14 @@ function SignupForm() {
                       </span>
                     </button>
                   </div>
-                  <p className="mt-1 text-xs text-muted-foreground">Minimum 8 characters</p>
+                  {password.length > 0 && password.length < 8 ? (
+                    <p className="mt-1 text-xs text-destructive flex items-center gap-1">
+                      <span className="material-icons text-sm">error_outline</span>
+                      Password must be at least 8 characters ({password.length}/8).
+                    </p>
+                  ) : (
+                    <p className="mt-1 text-xs text-muted-foreground">Minimum 8 characters</p>
+                  )}
                 </div>
 
                 <button

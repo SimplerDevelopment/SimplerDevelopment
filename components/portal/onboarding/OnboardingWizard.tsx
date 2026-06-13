@@ -31,7 +31,7 @@ const STEP_META: Record<OnboardingStep, { title: string; subtitle: string }> = {
   'module-setup': { title: 'Get started', subtitle: 'A few quick first steps for each module you unlocked.' },
   'brand-vibe': { title: 'Your brand vibe', subtitle: 'We use this to draft content that sounds like you.' },
   mission: { title: 'What do you do?', subtitle: 'One sentence — your AI assistant will lean on this.' },
-  features: { title: 'What brings you here?', subtitle: 'Pick the tools you want to try. (You unlock them all anyway.)' },
+  features: { title: 'What brings you here?', subtitle: "Pick what you want to explore first — we'll tailor your setup around it." },
   upsell: { title: 'Supercharge your plan', subtitle: 'Modules other teams like yours add first.' },
   'power-up': { title: 'Power up with Claude', subtitle: 'Optional, but the magic happens when you wire this up.' },
   done: { title: "You're all set!", subtitle: 'Welcome to SimplerDevelopment.' },
@@ -182,7 +182,7 @@ export default function OnboardingWizard({ initialState }: Props) {
   }, [currentStep, state, setAnswers, persist, next, back, goTo, finish]);
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6 sm:py-12">
+    <div className="mx-auto max-w-3xl lg:max-w-5xl px-4 py-8 sm:px-6 sm:py-12">
       {/* Top bar: progress + skip */}
       <div className="mb-8 flex items-center gap-4" data-testid="onboarding-topbar">
         <div className="flex-1">
