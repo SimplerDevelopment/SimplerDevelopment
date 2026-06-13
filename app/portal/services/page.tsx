@@ -5,6 +5,7 @@ import { auth } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { formatCents } from '@/lib/portal';
 import Link from 'next/link';
+import BuyServiceButton from './_components/BuyServiceButton';
 
 const categoryIcon: Record<string, string> = {
   cms: 'web',
@@ -131,14 +132,16 @@ export default async function PortalServicesPage({
                             <span className="material-icons text-xs">verified</span>
                             Subscribed
                           </span>
-                        ) : (
+                        ) : hasSurvey ? (
                           <Link
                             href={`/portal/services/${svc.id}/request`}
                             className="flex items-center gap-1 text-sm px-4 py-1.5 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors font-medium"
                           >
-                            {hasSurvey ? 'Get Started' : 'Request'}
+                            Get Started
                             <span className="material-icons text-base">arrow_forward</span>
                           </Link>
+                        ) : (
+                          <BuyServiceButton serviceId={svc.id} label="Buy" />
                         )}
                       </div>
                     </div>
@@ -168,14 +171,16 @@ export default async function PortalServicesPage({
                           <span className="material-icons text-xs">verified</span>
                           Subscribed
                         </span>
-                      ) : (
+                      ) : hasSurvey ? (
                         <Link
                           href={`/portal/services/${svc.id}/request`}
                           className="flex items-center gap-1 text-sm px-3 py-1.5 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors font-medium"
                         >
-                          {hasSurvey ? 'Get Started' : 'Request'}
+                          Get Started
                           <span className="material-icons text-base">arrow_forward</span>
                         </Link>
+                      ) : (
+                        <BuyServiceButton serviceId={svc.id} label="Buy" />
                       )}
                     </div>
                   </div>
