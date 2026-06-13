@@ -16,7 +16,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, fireEvent, waitFor } from '@testing-library/react';
+import { render, fireEvent, waitFor, cleanup } from '@testing-library/react';
 
 // ─── Mocks (must precede component import) ───────────────────────────────────
 
@@ -158,6 +158,10 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  // Unmount any still-mounted component before the next test so its in-flight
+  // fetch promises can't resolve against the next test's mock (cross-test async
+  // bleed was surfacing as an unhandled NPE under full-suite parallel load).
+  cleanup();
   vi.restoreAllMocks();
 });
 
