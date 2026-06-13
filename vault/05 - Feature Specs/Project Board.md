@@ -32,6 +32,7 @@ date: 2026-06-10
 **Complete**
 - [x] Repo cleanup + docs consolidation + README rewrite (2026-06-09)
 - [x] In-repo Obsidian vault: scaffold + 50-note knowledge sweep (2026-06-10)
+- [x] Scribble (goscribble.ai) site migration — LIVE at https://scribble.simplerdevelopment.com, all 12 pages 200 (2026-06-12) — see [[Scribble Site Migration]]
 
 
 %% kanban:settings

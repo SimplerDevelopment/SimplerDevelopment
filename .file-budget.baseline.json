@@ -5,7 +5,7 @@
   "app/admin/post-types/[id]/fields/page.tsx": 558,
   "app/admin/subscriptions/page.tsx": 555,
   "app/admin/templates/page.tsx": 511,
-  "app/api/blocks/route.ts": 732,
+  "app/api/blocks/route.ts": 756,
   "app/api/portal/brain/agent/route.ts": 549,
   "app/api/public/booking/[slug]/book/route.ts": 557,
   "app/approve/[token]/ApprovalReviewer.tsx": 669,

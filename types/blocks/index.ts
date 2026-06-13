@@ -81,6 +81,7 @@ import type {
   CtaBlock,
   TestimonialBlock,
   StatsBlock,
+  RoiCalculatorBlock,
   FeaturedContentBlock,
   CardGridBlock,
   ServicesGridBlock,
@@ -130,6 +131,7 @@ export type Block =
   | CtaBlock
   | TestimonialBlock
   | StatsBlock
+  | RoiCalculatorBlock
   | BlogPostsBlock
   | FeaturedContentBlock
   | AccordionBlock

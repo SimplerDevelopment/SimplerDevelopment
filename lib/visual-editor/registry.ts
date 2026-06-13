@@ -22,6 +22,7 @@ import { ServicesGridBlockRender } from '@/components/blocks/render/ServicesGrid
 import { CtaBlockRender } from '@/components/blocks/render/CtaBlockRender';
 import { TestimonialBlockRender } from '@/components/blocks/render/TestimonialBlockRender';
 import { StatsBlockRender } from '@/components/blocks/render/StatsBlockRender';
+import { RoiCalculatorBlockRender } from '@/components/blocks/render/RoiCalculatorBlockRender';
 import { BlogPostsBlockRender } from '@/components/blocks/render/BlogPostsBlockRender';
 import { FeaturedContentBlockRender } from '@/components/blocks/render/FeaturedContentBlockRender';
 import { CardGridBlockRender } from '@/components/blocks/render/CardGridBlockRender';
@@ -93,6 +94,7 @@ const BUILT_IN: Record<string, BlockComponent> = {
   cta: CtaBlockRender,
   testimonial: TestimonialBlockRender,
   stats: StatsBlockRender,
+  'roi-calculator': RoiCalculatorBlockRender,
   'blog-posts': BlogPostsBlockRender,
   'featured-content': FeaturedContentBlockRender,
   'card-grid': CardGridBlockRender,

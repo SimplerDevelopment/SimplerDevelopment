@@ -122,6 +122,42 @@ export interface StatsBlock extends BaseBlock {
   columns?: 2 | 3 | 4;
 }
 
+/**
+ * Interactive ROI calculator. Two user sliders (units + minutes-saved-per-visit)
+ * drive four live outputs (added revenue, added admissions, hours added to
+ * capacity, revenue per unit) from tunable, transparent assumptions. Universal:
+ * every label/assumption is configurable, so it works for any service business,
+ * not just one client.
+ */
+export interface RoiCalculatorBlock extends BaseBlock {
+  type: 'roi-calculator';
+  title?: string;
+  description?: string;
+  accentColor?: string; // hex or brand sentinel (e.g. 'brand.accent'); defaults to brand accent
+  // Primary unit slider (e.g. clinicians, reps, technicians)
+  unitLabel?: string; // default 'FTE clinicians completing SOC'
+  unitDefault?: number; // default 100
+  unitMin?: number; // default 10
+  unitMax?: number; // default 1000
+  unitStep?: number; // default 10
+  // Secondary slider — minutes saved per visit
+  minutesLabel?: string; // default 'Minutes saved per visit'
+  minutesDefault?: number; // default 45
+  minutesMin?: number; // default 15
+  minutesMax?: number; // default 90
+  minutesStep?: number; // default 5
+  // Tunable assumptions
+  visitsPerUnitPerWeek?: number; // default 25
+  weeksPerYear?: number; // default 46
+  captureRate?: number; // default 0.06 — fraction of saved hours reinvested as new-admission capacity
+  hoursPerAdmission?: number; // default 5
+  revenuePerAdmission?: number; // default 2500
+  // Optional CTA under the results
+  ctaText?: string;
+  ctaLink?: string;
+  ctaNewTab?: boolean;
+}
+
 export interface FeaturedContentBlock extends BaseBlock {
   type: 'featured-content';
   title: string;
