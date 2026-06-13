@@ -476,7 +476,6 @@ export const TIERS: TierDef[] = [
     features: [
       'Websites & CMS, CRM, and Projects',
       '100k AI tokens/mo',
-      'Bring your own AI key to use the agent (you pay your own tokens)',
     ],
   },
   {
