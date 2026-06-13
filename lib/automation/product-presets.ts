@@ -98,6 +98,113 @@ export interface ProductPresetGroup {
   presets: AutomationPreset[];
 }
 
+export const BOOKING_AUTOMATION_PRESETS: AutomationPreset[] = [
+  {
+    key: 'booking_to_crm_contact',
+    name: 'New Booking → CRM Contact',
+    description:
+      'Automatically creates a CRM contact when a guest books a slot, so every new lead lands in your pipeline.',
+    icon: 'person_add',
+    trigger: { event: 'booking.guest_booked' },
+    actions: [{
+      tool: 'create_crm_contact',
+      params: {
+        first_name: '{{event.guestName}}',
+        email: '{{event.guestEmail}}',
+        phone: '{{event.guestPhone}}',
+        source: 'web',
+        status: 'lead',
+        notes: 'Auto-created from booking: {{event.pageTitle}}',
+      },
+    }],
+  },
+  {
+    key: 'booking_confirmed_to_deal',
+    name: 'Confirmed Booking → CRM Deal',
+    description:
+      'Opens a CRM deal when a paid booking is confirmed, so revenue opportunities flow directly into your sales pipeline.',
+    icon: 'handshake',
+    trigger: { event: 'booking.confirmed' },
+    actions: [{
+      tool: 'create_crm_deal',
+      params: {
+        title: 'Booking: {{event.pageTitle}} — {{event.guestName}}',
+        value: '{{event.total}}',
+        notes: 'Auto-created from confirmed booking on {{event.startTime}}. Guest: {{event.guestEmail}}',
+        priority: 'medium',
+      },
+    }],
+  },
+  {
+    key: 'booking_team_ticket',
+    name: 'New Booking → Team Ticket',
+    description:
+      'Opens a support ticket for your team when a new booking arrives so nothing falls through the cracks.',
+    icon: 'confirmation_number',
+    trigger: { event: 'booking.guest_booked' },
+    actions: [{
+      tool: 'create_support_ticket',
+      params: {
+        subject: 'New booking: {{event.pageTitle}} — {{event.guestName}}',
+        body: '{{event.guestName}} ({{event.guestEmail}}) booked a slot on {{event.pageTitle}} starting {{event.startTime}}.',
+      },
+    }],
+  },
+];
+
+export const SURVEY_AUTOMATION_PRESETS: AutomationPreset[] = [
+  {
+    key: 'survey_response_to_crm_contact',
+    name: 'Survey Response → CRM Contact',
+    description:
+      'Creates a CRM contact when a respondent submits their email address in a survey, capturing every inbound lead automatically.',
+    icon: 'person_add',
+    trigger: { event: 'survey.response_submitted' },
+    conditions: [{ field: 'respondentEmail', operator: 'exists' }],
+    actions: [{
+      tool: 'create_crm_contact',
+      params: {
+        first_name: '{{event.respondentName}}',
+        email: '{{event.respondentEmail}}',
+        source: 'web',
+        status: 'lead',
+        notes: 'Auto-created from survey response: {{event.surveyTitle}}',
+      },
+    }],
+  },
+  {
+    key: 'survey_response_to_deal',
+    name: 'Survey Response → CRM Deal',
+    description:
+      'Opens a deal in your pipeline when someone submits a survey that signals purchase intent — ideal for quote-request or needs-assessment forms.',
+    icon: 'attach_money',
+    trigger: { event: 'survey.response_submitted' },
+    actions: [{
+      tool: 'create_crm_deal',
+      params: {
+        title: 'Survey inquiry: {{event.surveyTitle}} — {{event.respondentName}}',
+        notes: 'Auto-created from survey "{{event.surveyTitle}}" submitted by {{event.respondentEmail}}',
+        priority: 'medium',
+      },
+    }],
+  },
+  {
+    key: 'survey_response_ticket',
+    name: 'Survey Response → Team Ticket',
+    description:
+      'Opens a support ticket for your team when a new survey response arrives so someone follows up promptly.',
+    icon: 'assignment',
+    trigger: { event: 'survey.response_submitted' },
+    actions: [{
+      tool: 'create_support_ticket',
+      params: {
+        subject: 'New survey response: {{event.surveyTitle}}',
+        body: '{{event.respondentName}} ({{event.respondentEmail}}) submitted a response to "{{event.surveyTitle}}". Review it in the portal.',
+      },
+    }],
+  },
+];
+
 export const PRODUCT_PRESET_GROUPS: ProductPresetGroup[] = [
   {
     productScope: 'email',
@@ -105,5 +212,19 @@ export const PRODUCT_PRESET_GROUPS: ProductPresetGroup[] = [
     icon: 'email',
     description: 'Automate subscriber engagement and campaign follow-ups',
     presets: EMAIL_AUTOMATION_PRESETS,
+  },
+  {
+    productScope: 'booking',
+    label: 'Bookings',
+    icon: 'calendar_month',
+    description: 'Capture leads and open deals automatically when guests book',
+    presets: BOOKING_AUTOMATION_PRESETS,
+  },
+  {
+    productScope: 'survey',
+    label: 'Surveys',
+    icon: 'poll',
+    description: 'Turn survey responses into CRM contacts and deals automatically',
+    presets: SURVEY_AUTOMATION_PRESETS,
   },
 ];

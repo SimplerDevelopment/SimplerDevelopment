@@ -110,6 +110,42 @@ async function executeAction(
     await new Promise((resolve) => setTimeout(resolve, action.delay! * 1000));
   }
 
+  // ─── fire_webhook ────────────────────────────────────────────────────────
+  // POST the event payload to a caller-configured URL. Params:
+  //   { url: string, headers?: Record<string, string> }
+  // Failures are swallowed (logged to console only) — a failing webhook must
+  // never break the automation run. The raw URL is not logged to prevent
+  // secrets embedded in query-string tokens from leaking to automation_logs.
+  if (action.tool === 'fire_webhook') {
+    const url = typeof resolvedParams.url === 'string' ? resolvedParams.url.trim() : '';
+    if (!url) {
+      return { tool: action.tool, params: { url: '[missing]' }, result: null, error: 'fire_webhook: params.url is required' };
+    }
+    const extraHeaders: Record<string, string> =
+      resolvedParams.headers && typeof resolvedParams.headers === 'object' && !Array.isArray(resolvedParams.headers)
+        ? Object.fromEntries(
+            Object.entries(resolvedParams.headers as Record<string, unknown>)
+              .filter(([, v]) => typeof v === 'string')
+              .map(([k, v]) => [k, v as string]),
+          )
+        : {};
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 10_000);
+      const resp = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...extraHeaders },
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      }).finally(() => clearTimeout(timer));
+      return { tool: action.tool, params: { url: '[redacted]' }, result: { status: resp.status, ok: resp.ok } };
+    } catch (err) {
+      const error = err instanceof Error ? err.message : String(err);
+      console.error('[automation] fire_webhook error (swallowed)', { error });
+      return { tool: action.tool, params: { url: '[redacted]' }, result: null, error };
+    }
+  }
+
   // ─── start_playbook bridge ───────────────────────────────────────────────
   // Special action that crosses into the Brain playbook engine. Lets a
   // one-shot automation kick off a multi-step playbook run, sharing the
