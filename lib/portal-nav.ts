@@ -124,34 +124,27 @@ export function buildPortalNavItems(
       ],
     },
     {
+      // Support surfaces grouped so they don't each take a top-level slot.
       href: '/portal/tickets',
-      label: 'Tickets',
+      label: 'Support',
       icon: 'support_agent',
-      keywords: ['help desk', 'support', 'requests'],
+      keywords: ['help desk', 'support', 'requests', 'tickets', 'chat', 'inbox', 'live chat'],
+      children: [
+        { href: '/portal/tickets', label: 'Tickets', icon: 'support_agent', exact: true, keywords: ['help desk', 'support', 'requests'] },
+        { href: '/portal/inbox', label: 'Live Chat', icon: 'forum', keywords: ['chat', 'conversations', 'messages', 'live chat', 'inbox'] },
+      ],
     },
     {
+      // Billing & account surfaces (invoices, purchasable services, hosting).
       href: '/portal/invoices',
-      label: 'Invoices',
+      label: 'Billing',
       icon: 'receipt_long',
-      keywords: ['billing', 'payments', 'charges'],
-    },
-    {
-      href: '/portal/inbox',
-      label: 'Live Chat',
-      icon: 'forum',
-      keywords: ['chat', 'conversations', 'messages', 'live chat', 'inbox'],
-    },
-    {
-      href: '/portal/hosting',
-      label: 'Hosting',
-      icon: 'dns',
-      keywords: ['dns', 'domains', 'servers'],
-    },
-    {
-      href: '/portal/services',
-      label: 'Services',
-      icon: 'miscellaneous_services',
-      keywords: ['subscriptions', 'add-ons'],
+      keywords: ['billing', 'payments', 'charges', 'invoices', 'services', 'subscriptions', 'add-ons', 'hosting', 'dns', 'domains'],
+      children: [
+        { href: '/portal/invoices', label: 'Invoices', icon: 'receipt_long', exact: true, keywords: ['billing', 'payments', 'charges'] },
+        { href: '/portal/services', label: 'Services', icon: 'miscellaneous_services', keywords: ['subscriptions', 'add-ons'] },
+        { href: '/portal/hosting', label: 'Hosting', icon: 'dns', keywords: ['dns', 'domains', 'servers'] },
+      ],
     },
     {
       href: '/portal/email',
