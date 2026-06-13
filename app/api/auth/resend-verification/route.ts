@@ -100,9 +100,18 @@ export async function POST(req: Request) {
     .where(eq(users.id, user.id));
 
   // Send the verification email (non-fatal — same pattern as signup route).
+  const origin = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://simplerdevelopment.com';
+  const verifyUrl = `${origin}/api/auth/verify-email?token=${verificationToken}`;
+
+  // Dev convenience: surface the link in the server console so a developer can
+  // click through without a configured email provider. Never in production —
+  // the token is a credential, and the response is intentionally a no-oracle
+  // constant so the client never learns whether the account exists.
+  if (process.env.NODE_ENV !== 'production') {
+    console.log(`[resend-verification] dev verify link for ${user.email}: ${verifyUrl}`);
+  }
+
   try {
-    const origin = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://simplerdevelopment.com';
-    const verifyUrl = `${origin}/api/auth/verify-email?token=${verificationToken}`;
     const resend = getResend();
     await resend.emails.send({
       from: process.env.RESEND_FROM_EMAIL ?? 'SimplerDevelopment <noreply@simplerdevelopment.com>',
@@ -115,7 +124,17 @@ export async function POST(req: Request) {
       ].join('\n'),
     });
   } catch (err) {
-    console.error('[resend-verification] email send failed:', err);
+    // Structured for log-based alerting (mirrors the signup route). The
+    // client still gets the constant OK — we don't break the no-oracle
+    // contract just because delivery failed.
+    console.error(
+      JSON.stringify({
+        level: 'error',
+        event: 'resend_verification.email_failed',
+        email: user.email,
+        reason: err instanceof Error ? err.message : String(err),
+      }),
+    );
   }
 
   return OK;

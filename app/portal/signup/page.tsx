@@ -20,6 +20,7 @@ function SignupForm() {
   const [error, setError] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const [submittedEmail, setSubmittedEmail] = useState('');
+  const [verificationSent, setVerificationSent] = useState(true);
 
   const verificationExpired = searchParams.get('error') === 'verification-expired';
 
@@ -60,6 +61,10 @@ function SignupForm() {
 
       if (data.success) {
         setSubmittedEmail(email);
+        // The route reports whether the verification email actually went out.
+        // When delivery failed (e.g. provider misconfigured), don't claim we
+        // sent it — show the resend path instead.
+        setVerificationSent(data.data?.verificationSent !== false);
         setSubmitted(true);
       } else {
         setError(data.message || 'Something went wrong. Please try again.');
@@ -83,27 +88,53 @@ function SignupForm() {
         <div className="bg-card border border-border rounded-xl p-8 shadow-sm">
           {submitted ? (
             /* ── Success state ── */
-            <div className="text-center space-y-4">
-              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
-                <span className="material-icons text-2xl text-primary">mark_email_read</span>
+            verificationSent ? (
+              <div className="text-center space-y-4">
+                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
+                  <span className="material-icons text-2xl text-primary">mark_email_read</span>
+                </div>
+                <h2 className="text-xl font-semibold text-foreground">Check your email</h2>
+                <p className="text-sm text-muted-foreground">
+                  We sent a verification link to{' '}
+                  <strong className="text-foreground">{submittedEmail}</strong>.
+                  The link expires in 24&nbsp;hours.
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Can&apos;t find it? Check your spam folder.
+                </p>
+                <a
+                  href="/portal/login"
+                  className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline mt-2"
+                >
+                  <span className="material-icons text-sm">arrow_back</span>
+                  Back to sign in
+                </a>
               </div>
-              <h2 className="text-xl font-semibold text-foreground">Check your email</h2>
-              <p className="text-sm text-muted-foreground">
-                We sent a verification link to{' '}
-                <strong className="text-foreground">{submittedEmail}</strong>.
-                The link expires in 24&nbsp;hours.
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Can&apos;t find it? Check your spam folder.
-              </p>
-              <a
-                href="/portal/login"
-                className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline mt-2"
-              >
-                <span className="material-icons text-sm">arrow_back</span>
-                Back to sign in
-              </a>
-            </div>
+            ) : (
+              /* Account created, but the verification email could not be sent
+                 (e.g. provider misconfigured). Be honest and offer a resend. */
+              <div className="text-center space-y-4">
+                <div className="w-12 h-12 rounded-full bg-amber-500/10 flex items-center justify-center mx-auto">
+                  <span className="material-icons text-2xl text-amber-600 dark:text-amber-400">mark_email_unread</span>
+                </div>
+                <h2 className="text-xl font-semibold text-foreground">Account created</h2>
+                <p className="text-sm text-muted-foreground">
+                  We couldn&apos;t send the verification email to{' '}
+                  <strong className="text-foreground">{submittedEmail}</strong> just now.
+                  Resend it below to finish activating your account.
+                </p>
+                <div className="flex justify-center">
+                  <ResendVerificationButton prefillEmail={submittedEmail} />
+                </div>
+                <a
+                  href="/portal/login"
+                  className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline mt-2"
+                >
+                  <span className="material-icons text-sm">arrow_back</span>
+                  Back to sign in
+                </a>
+              </div>
+            )
           ) : (
             /* ── Signup form ── */
             <>

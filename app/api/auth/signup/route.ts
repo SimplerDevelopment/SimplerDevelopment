@@ -53,6 +53,21 @@ export async function POST(req: Request) {
 
     const origin = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://simplerdevelopment.com';
     const verifyUrl = `${origin}/api/auth/verify-email?token=${verificationToken}`;
+
+    // In local dev there's usually no RESEND_API_KEY, so the email silently
+    // can't go out. Log the verify link to the server console so a developer
+    // can click through without wiring up a provider. Never log it in
+    // production (the token is a credential).
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(`[signup] dev verify link for ${body.email}: ${verifyUrl}`);
+    }
+
+    // Email delivery is best-effort: the account already exists, and the login
+    // page offers a "resend verification" path. But we must NOT pretend the
+    // email went out when it didn't — a swallowed failure leaves the user
+    // stranded with no link and no signal. Report the real outcome so the UI
+    // can surface a resend prompt, and log with enough structure to alert on.
+    let verificationSent = false;
     try {
       const resend = getResend();
       await resend.emails.send({
@@ -65,12 +80,22 @@ export async function POST(req: Request) {
           `<p style="color:#6b7280;font-size:12px;">This link expires in 24 hours. If you didn't sign up, ignore this email.</p>`,
         ].join('\n'),
       });
+      verificationSent = true;
     } catch (err) {
-      // Account exists; the login page offers a resend. Don't fail the signup.
-      console.error('[signup] verification email failed:', err);
+      // Structured so log-based alerting can fire on signup email failures
+      // (e.g. a missing/rotated RESEND_API_KEY in prod) instead of a bare
+      // console string. Do not log the token-bearing verifyUrl in production.
+      console.error(
+        JSON.stringify({
+          level: 'error',
+          event: 'signup.verification_email_failed',
+          email: body.email.trim().toLowerCase(),
+          reason: err instanceof Error ? err.message : String(err),
+        }),
+      );
     }
 
-    return NextResponse.json({ success: true, data: { verificationSent: true } });
+    return NextResponse.json({ success: true, data: { verificationSent } });
   } catch (err) {
     if (err instanceof SignupError) {
       return NextResponse.json({ success: false, message: err.message }, { status: err.status });
