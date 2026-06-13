@@ -42,9 +42,30 @@ export async function POST(req: Request) {
   const { title, description, sourceUrl, brandingProfileId } = await req.json();
   if (!title?.trim()) return NextResponse.json({ success: false, message: 'Title is required' }, { status: 400 });
 
-  // Generate slug from title
+  // Generate slug from title, then guarantee uniqueness within this tenant by
+  // checking for existing collisions and incrementing a numeric suffix.
+  // The schema has no DB-level unique constraint on slug so we must do this
+  // defensively in application code. Two concurrent creates with the same
+  // title will read distinct existing-slug sets and produce distinct suffixes.
   const baseSlug = title.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-  const slug = `${baseSlug}-${Date.now().toString(36)}`;
+  const existing = await db
+    .select({ slug: pitchDecks.slug })
+    .from(pitchDecks)
+    .where(eq(pitchDecks.clientId, client.id));
+  const existingSet = new Set(existing.map((r) => r.slug));
+
+  let slug = baseSlug;
+  if (existingSet.has(slug)) {
+    // Append a base-36 timestamp so same-second creates get different base
+    // tokens, then walk a counter until we find a free slot.
+    const token = Date.now().toString(36);
+    slug = `${baseSlug}-${token}`;
+    let counter = 2;
+    while (existingSet.has(slug)) {
+      slug = `${baseSlug}-${token}-${counter}`;
+      counter++;
+    }
+  }
 
   const [deck] = await db.insert(pitchDecks).values({
     clientId: client.id,

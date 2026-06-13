@@ -5,11 +5,20 @@ import { eq } from 'drizzle-orm';
 import { randomBytes } from 'crypto';
 import { resend } from '@/lib/email';
 import { hashToken } from '@/lib/security/token-hash';
+import { checkRateLimit, getClientIp } from '@/lib/security/rate-limit';
 
 const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'noreply@simplerdevelopment.com';
 const BASE_URL = process.env.NEXTAUTH_URL || 'https://simplerdevelopment.com';
 
 export async function POST(req: Request) {
+  // 5 requests per 15 minutes per IP — prevents automated reset-token harvesting
+  if (!checkRateLimit(`${getClientIp(req)}:forgot-password`, 5, 15 * 60 * 1000)) {
+    return NextResponse.json(
+      { success: false, error: 'Too many requests. Please try again later.' },
+      { status: 429 },
+    );
+  }
+
   const { email } = await req.json();
   if (!email || typeof email !== 'string') {
     return NextResponse.json({ error: 'Email is required' }, { status: 400 });
