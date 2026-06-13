@@ -89,7 +89,12 @@ Inherited from [[Go-To-Market — Self-Serve SaaS]]: activation ≥40%, time-to-
 2. **Email sender defaults**: persisting From/Reply-To needs a storage decision (no suitable metadata column found); the settings form is still local-state-only.
 3. **Ops (zero code, blocks go-live)**: run `sync-stripe-products.ts` LIVE on staging/prod; set `AUTH_GOOGLE_ID/SECRET` + callback in Vercel; set `DROPBOX_SIGN_CLIENT_ID`.
 4. **Still red**: 6 pre-existing `oauth_clients`/google-integration tenancy test failures (untouched tonight — needs its own focused session); signup rate-limiting/bot protection beyond the resend endpoint.
-5. **SCHEMA DRIFT (P0, found 2026-06-12 evening)**: `clients.billing_mode` is defined in `lib/db/schema/sites.ts:40` but **no migration in `drizzle/` ever carried it** — it reached dev/staging via `drizzle-kit push` only. Fresh-DB migration replay is broken (also the known `brain_notes` ordering bug), which blocks CI integration testing and any new environment. Needs a deliberate catch-up-migration strategy (`db:generate` + guarded `IF NOT EXISTS` reconciliation against envs where the column already exists) — not auto-run tonight because it changes prod migration behavior.
+5. **SCHEMA DRIFT (P0, found 2026-06-12 evening)**: `clients.billing_mode` is defined in `lib/db/schema/sites.ts:40` but **no migration in `drizzle/` ever carried it** — it reached dev/staging via `drizzle-kit push` only. Fresh-DB migration replay is broken (also the known `brain_notes` ordering bug), which blocks CI integration testing and any new environment. Needs a deliberate catch-up-migration strategy (`db:generate` + guarded `IF NOT EXISTS` reconciliation against envs where the column already exists) — not auto-run because it changes prod migration behavior. **Blocks the 6 still-red google/oauth integration tenancy tests.**
+
+### Wave-3 escalations (2026-06-13 — all need a schema/decision)
+6. **GitHub access-token encryption at rest**: `githubConnections.accessToken` is plaintext. Needs an `ENCRYPTION_KEY` env (AES-256-GCM), a `lib/security/encrypt.ts`, a widened column, a migration, and a backfill/decrypt-or-refetch fallback. CSRF + rate-limit hardening shipped; encryption deferred.
+7. **Automation durable delayed-action store**: in-process `setTimeout` delays are silently killed on Vercel serverless. Fix needs a `automation_delayed_actions` queue table (id, clientId, ruleId, action json, runAfter, status) + a drain cron (`/api/cron/automation-delays`, ~5min). `fire_webhook` + cross-tool presets shipped; durable delays deferred.
+8. **Contract templates**: a `crmContractTemplates` table + CRUD routes + `templateId` FK on `crmContracts` + instantiation logic. esign gating + branded PDF shipped; templates deferred.
 
 ## 8. Release plan
 

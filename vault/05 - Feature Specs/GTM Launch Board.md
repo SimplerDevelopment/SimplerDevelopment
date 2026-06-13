@@ -16,8 +16,9 @@ date: 2026-06-11
 
 ## Market-Ready Makeover — SHIPPED 2026-06-12 (`feat/market-ready-makeover`)
 
-> 25-agent readiness audit ([[Market-Ready Audit — Synthesis 2026-06-12]]) + 2 execution waves (22 workers). PRD/ARD: [[Market-Ready Product — PRD]] / [[Market-Ready Product — ARD]]. 20 commits.
+> 25-agent readiness audit ([[Market-Ready Audit — Synthesis 2026-06-12]]) + 3 execution waves (35 workers). PRD/ARD: [[Market-Ready Product — PRD]] / [[Market-Ready Product — ARD]]. ~40 commits.
 
+**Waves 1–2 (buy path, portal, billing, last-mile):**
 - [x] **Buy path repaired**: real-tier pricing page, all CTAs → signup, resend-verification escape hatch, Google button gated on config, og.jpg + AI-native SEO config
 - [x] **Portal coherence**: 6 hidden products added to nav (Tickets/Invoices/Live Chat/Hosting/Services/Contracts), fixed hamburger, live-chat widget creation, contracts list+create UI
 - [x] **Entitlements fail closed + enforced at API/MCP layer** (store/cms/hosting/booking/pitch-decks + 57 MCP write handlers); OAuth brain/approvals scopes; key approval default on
@@ -26,8 +27,30 @@ date: 2026-06-11
 - [x] **Storefront cart + checkout pages** (the purchase path 404ed); store module entitlement-gated
 - [x] **Honest copy**: ~30 false /solutions claims corrected (AI Chatbot → Live Chat etc.)
 - [x] **Tenancy fixes**: booking-calendar cross-tenant leak, time-log delete scoping, brain search types, deck A/B wiring
-- [x] **Pipeline**: typecheck OOM fixed (green), unit failures 389 → (round-2 in progress), booking/automations/demo-seed last-mile
-- [ ] **Escalated to Dan**: metered-overage price IDs (schema decision); email sender-defaults persistence (worker found no metadata column — needs schema or column decision)
+- [x] **Pipeline**: typecheck OOM fixed; unit suite green (28,489 pass); build fix (svix dep)
+
+**Wave 3 (domain-level majors — SHIPPED 2026-06-13):**
+- [x] **Security hardening**: GitHub OAuth CSRF state nonce; rate-limit util on forgot/reset/change-password + invite-accept
+- [x] **Correctness**: ticket-number race + cross-tenant leak; deck-slug + invoice-number races
+- [x] **CRM**: lead-scoring + notification-preferences settings tabs (APIs existed, no UI)
+- [x] **Surveys**: file field type, list-page service guard, CRM auto-route contact upsert (no more orphaned deals)
+- [x] **Agency**: agencyPrimaryColor applied to chrome + Scale-tier white-label gate
+- [x] **Experiments**: visual variant editor (replaced raw-JSON textarea)
+- [x] **Publishing**: stage→artifact sync wired, cms_post→post naming, move-permission enforcement
+- [x] **Invoicing**: deal→invoice prefill, services Buy button, tax-in-dollars
+- [x] **Automations**: fire_webhook action + booking/survey cross-tool presets
+- [x] **Contracts**: esign entitlement gating + branded PDF (cents fix)
+- [x] **Help-desk**: response-time + volume reporting dashboard
+- [x] **ai-connect**: ChatGPT connector claim honestly qualified
+
+**Escalated to Dan (all need a schema/decision — not auto-run overnight):**
+- [ ] Metered-overage Stripe price IDs (no per-meter price storage exists)
+- [ ] `clients.billing_mode` migration drift (P0 — in schema, in no migration; breaks fresh-DB/CI)
+- [ ] Email sender-defaults persistence (no metadata column)
+- [ ] GitHub access-token encryption at rest (needs key + schema)
+- [ ] Automation durable delayed-action store (setTimeout dies on Vercel; needs queue table + cron)
+- [ ] Contract templates table + CRUD
+- [ ] 6 google/oauth integration tenancy tests still red (blocked by the billing_mode drift above)
 
 ## Phase 0 — Beachhead (existing clients)
 
