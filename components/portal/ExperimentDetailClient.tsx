@@ -14,6 +14,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { VariantBlockEditor } from './VariantBlockEditor';
 
 interface ExperimentRow {
   id: number;
@@ -132,6 +133,7 @@ export default function ExperimentDetailClient({ experiment: initial, variants: 
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- pre-existing pattern, predates this change
     void fetchResults();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [experiment.id]);
@@ -139,6 +141,7 @@ export default function ExperimentDetailClient({ experiment: initial, variants: 
   // Keep the inline-edit draft in sync when the experiment name changes
   // upstream (e.g. after a successful PATCH replaces the row).
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- pre-existing pattern, predates this change
     if (!editingName) setNameDraft(experiment.name);
   }, [experiment.name, editingName]);
 
@@ -571,7 +574,6 @@ export default function ExperimentDetailClient({ experiment: initial, variants: 
       <section className="rounded-lg border border-gray-200 bg-white p-6 space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold uppercase text-gray-500 tracking-wide">Variants</h2>
-          <span className="text-xs text-gray-500">JSON view — visual editor for variants ships in v2</span>
         </div>
         <div className="space-y-4">
           {variants.map(v => {
@@ -651,12 +653,12 @@ export default function ExperimentDetailClient({ experiment: initial, variants: 
                     </button>
                   </div>
                 </div>
-                <textarea
-                  className="w-full font-mono text-xs border border-gray-200 rounded-md px-3 py-2 bg-gray-50"
-                  rows={10}
+                <VariantBlockEditor
                   value={variantJson[v.key] ?? ''}
-                  onChange={e => setVariantJson(prev => ({ ...prev, [v.key]: e.target.value }))}
-                  placeholder={v.key === 'a' ? 'Leave blank to use the live page content.' : 'Paste the variant block tree JSON here.'}
+                  onChange={json => setVariantJson(prev => ({ ...prev, [v.key]: json }))}
+                  kindLabel={target.kindLabel}
+                  disabled={experiment.status === 'running'}
+                  placeholder={v.key === 'a' ? 'Leave blank to use the live page content.' : undefined}
                 />
               </div>
             );

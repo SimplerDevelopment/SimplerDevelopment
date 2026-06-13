@@ -80,7 +80,7 @@
   "components/content-calendar/ContentCalendar.tsx": 804,
   "components/pitch-deck/DecisionSlideRenderer.tsx": 582,
   "components/portal/BrandGuide.tsx": 561,
-  "components/portal/ExperimentDetailClient.tsx": 831,
+  "components/portal/ExperimentDetailClient.tsx": 833,
   "components/portal/KanbanBoard.tsx": 1097,
   "components/portal/ProjectReportsTab.tsx": 563,
   "components/portal/SprintPlanning.tsx": 663,

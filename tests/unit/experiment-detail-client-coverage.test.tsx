@@ -211,11 +211,21 @@ describe('ExperimentDetailClient — initial render', () => {
     expect(container.textContent).toContain('Challenger');
   });
 
-  it('prefills variant b JSON from blockTreeOverride', () => {
+  it('prefills variant b JSON from blockTreeOverride', async () => {
     const { container } = renderComponent();
+    // The raw textarea lives inside the collapsed "Advanced — raw JSON" panel.
+    // Expand it for variant b by clicking its toggle button (the second one — one per variant).
+    const advancedToggles = Array.from(container.querySelectorAll('button')).filter(
+      b => b.textContent?.includes('Advanced') && b.textContent?.includes('raw JSON'),
+    );
+    // Variant b has blockTreeOverride so its Advanced panel exists; variant a is empty so it won't.
+    expect(advancedToggles.length).toBeGreaterThanOrEqual(1);
+    await act(async () => {
+      fireEvent.click(advancedToggles[0]);
+    });
+    // Now the raw textarea is in the DOM and should contain the pre-filled JSON.
     const textareas = container.querySelectorAll('textarea');
-    // Second textarea is the variants section (first is hypothesis)
-    const variantTextareas = Array.from(textareas).slice(1);
+    const variantTextareas = Array.from(textareas).slice(1); // skip hypothesis textarea
     const bTextarea = variantTextareas.find(t => t.value.includes('"blocks"'));
     expect(bTextarea).toBeTruthy();
   });
@@ -624,14 +634,26 @@ describe('ExperimentDetailClient — variant JSON save', () => {
 
   it('shows error for invalid JSON in variant textarea', async () => {
     const { container } = renderComponent();
+    // Variant b (index 1) has blockTreeOverride so its "Advanced — raw JSON" toggle exists.
+    // Expand it to reveal the raw textarea.
+    const advancedToggles = Array.from(container.querySelectorAll('button')).filter(
+      b => b.textContent?.includes('Advanced') && b.textContent?.includes('raw JSON'),
+    );
+    expect(advancedToggles.length).toBeGreaterThanOrEqual(1);
+    await act(async () => {
+      fireEvent.click(advancedToggles[0]);
+    });
+    // The raw textarea is now the second textarea (first = hypothesis).
     const variantTextareas = Array.from(container.querySelectorAll('textarea')).slice(1);
-    // Edit the first variant textarea to have bad JSON
+    expect(variantTextareas.length).toBeGreaterThanOrEqual(1);
     fireEvent.change(variantTextareas[0], { target: { value: '{ invalid json' } });
+    // Save buttons: index 0 = variant a, index 1 = variant b (the one we edited).
     const saveBtns = Array.from(container.querySelectorAll('button')).filter(
       b => b.textContent?.trim() === 'Save',
     );
+    expect(saveBtns.length).toBeGreaterThanOrEqual(2);
     await act(async () => {
-      fireEvent.click(saveBtns[0]);
+      fireEvent.click(saveBtns[1]); // variant b's Save
     });
     await waitFor(() => {
       expect(container.textContent).toContain('Invalid JSON');
@@ -658,15 +680,52 @@ describe('ExperimentDetailClient — variant JSON save', () => {
     });
   });
 
-  it('Seed from page button populates textarea with target content', () => {
+  it('Seed from page button populates textarea with target content', async () => {
     const { container } = renderComponent();
     const seedBtns = Array.from(container.querySelectorAll('button')).filter(
       b => b.textContent?.includes('Seed from'),
     );
     expect(seedBtns.length).toBeGreaterThanOrEqual(1);
-    fireEvent.click(seedBtns[0]);
-    const variantTextareas = Array.from(container.querySelectorAll('textarea')).slice(1);
-    expect(variantTextareas[0].value).toContain('"blocks"');
+    // Before seeding, variant a shows the empty placeholder (no Advanced toggle for it).
+    const togglesBefore = Array.from(container.querySelectorAll('button')).filter(
+      b => b.textContent?.includes('Advanced') && b.textContent?.includes('raw JSON'),
+    );
+    const toggleCountBefore = togglesBefore.length; // only variant b's
+
+    // Click the first Seed button (variant a / Control). This copies the target
+    // page content into variant a's JSON state.
+    await act(async () => {
+      fireEvent.click(seedBtns[0]);
+    });
+
+    // After seeding, variant a's VariantBlockEditor now has a non-empty value so
+    // the "Advanced — raw JSON" toggle appears. Wait for it.
+    await waitFor(() => {
+      const togglesAfter = Array.from(container.querySelectorAll('button')).filter(
+        b => b.textContent?.includes('Advanced') && b.textContent?.includes('raw JSON'),
+      );
+      expect(togglesAfter.length).toBeGreaterThan(toggleCountBefore);
+    });
+
+    // The structured editor for variant a should now render a block card for the
+    // seeded block (type "text" from the target fixture → block card header visible).
+    // This confirms the seed populated the variant state with the target content.
+    expect(container.textContent).toContain('Text'); // block label for type="text"
+
+    // Also verify via the raw textarea: expand variant a's Advanced panel.
+    const advancedToggles = Array.from(container.querySelectorAll('button')).filter(
+      b => b.textContent?.includes('Advanced') && b.textContent?.includes('raw JSON'),
+    );
+    // Variant a's toggle is the newly added one (last in the list if toggleCountBefore > 0,
+    // or first if b had none — but b always has one, so a's is index toggleCountBefore).
+    await act(async () => {
+      fireEvent.click(advancedToggles[toggleCountBefore]);
+    });
+    await waitFor(() => {
+      const variantTextareas = Array.from(container.querySelectorAll('textarea')).slice(1);
+      const seededTextarea = variantTextareas.find(t => t.value.includes('"blocks"'));
+      expect(seededTextarea).toBeTruthy();
+    });
   });
 });
 
