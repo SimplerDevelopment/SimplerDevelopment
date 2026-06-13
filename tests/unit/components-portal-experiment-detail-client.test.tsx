@@ -813,7 +813,7 @@ describe('ExperimentDetailClient — variant management', () => {
     expect(seedBtns).toHaveLength(2);
   });
 
-  it('seeds variant JSON from target content when Seed is clicked', () => {
+  it('seeds variant JSON from target content when Seed is clicked', async () => {
     const content = JSON.stringify({ blocks: [{ type: 'hero' }], version: '1.0' });
     render(
       <ExperimentDetailClient
@@ -824,12 +824,39 @@ describe('ExperimentDetailClient — variant management', () => {
       />,
     );
 
-    const seedBtns = screen.getAllByRole('button', { name: /Seed from page/ });
-    fireEvent.click(seedBtns[0]);
+    // Count Advanced toggles before seeding (all variants have null blockTreeOverride)
+    const togglesBefore = Array.from(document.querySelectorAll('button')).filter(
+      b => b.textContent?.includes('Advanced') && b.textContent?.includes('raw JSON'),
+    );
+    const toggleCountBefore = togglesBefore.length;
 
-    // The first textarea should now have the seeded content
-    const textareas = document.querySelectorAll('textarea.font-mono');
-    expect((textareas[0] as HTMLTextAreaElement).value).toContain('"hero"');
+    const seedBtns = screen.getAllByRole('button', { name: /Seed from page/ });
+    await act(async () => {
+      fireEvent.click(seedBtns[0]);
+    });
+
+    // After seeding variant a, a new Advanced toggle should appear for it
+    await waitFor(() => {
+      const togglesAfter = Array.from(document.querySelectorAll('button')).filter(
+        b => b.textContent?.includes('Advanced') && b.textContent?.includes('raw JSON'),
+      );
+      expect(togglesAfter.length).toBeGreaterThan(toggleCountBefore);
+    });
+
+    // Expand the newly-appeared toggle
+    const togglesAfter = Array.from(document.querySelectorAll('button')).filter(
+      b => b.textContent?.includes('Advanced') && b.textContent?.includes('raw JSON'),
+    );
+    await act(async () => {
+      fireEvent.click(togglesAfter[toggleCountBefore]);
+    });
+
+    // The textarea should now exist and contain the seeded content
+    await waitFor(() => {
+      const textareas = Array.from(document.querySelectorAll('textarea')).slice(1); // skip hypothesis
+      const seededTextarea = textareas.find(t => t.value.includes('"hero"'));
+      expect(seededTextarea).toBeTruthy();
+    });
   });
 
   it('renders "Save" button for each variant', () => {
@@ -869,9 +896,6 @@ describe('ExperimentDetailClient — variant management', () => {
       />,
     );
 
-    const textareas = document.querySelectorAll('textarea.font-mono');
-    fireEvent.change(textareas[0], { target: { value: '{"blocks":[]}' } });
-
     const saveBtns = screen.getAllByRole('button', { name: 'Save' });
     await act(async () => {
       fireEvent.click(saveBtns[0]);
@@ -892,16 +916,33 @@ describe('ExperimentDetailClient — variant management', () => {
       },
     ]);
 
+    // Use a variant with non-null blockTreeOverride so the Advanced toggle is visible
+    const variantsWithOverride = [
+      { id: 1, experimentId: 7, key: 'a', label: 'Control', blockTreeOverride: { blocks: [], version: '1.0' }, createdAt: '2024-01-01T00:00:00Z' },
+      { id: 2, experimentId: 7, key: 'b', label: 'Variant B', blockTreeOverride: null, createdAt: '2024-01-01T00:00:00Z' },
+    ];
+
     render(
       <ExperimentDetailClient
         experiment={makeExperiment()}
-        variants={makeVariants()}
+        variants={variantsWithOverride}
         target={defaultTarget}
         siteName={null}
       />,
     );
 
-    const textareas = document.querySelectorAll('textarea.font-mono');
+    // Expand the Advanced panel for variant a (which has a non-null override)
+    const advancedToggles = Array.from(document.querySelectorAll('button')).filter(
+      b => b.textContent?.includes('Advanced') && b.textContent?.includes('raw JSON'),
+    );
+    expect(advancedToggles.length).toBeGreaterThanOrEqual(1);
+    await act(async () => {
+      fireEvent.click(advancedToggles[0]);
+    });
+
+    // Change the textarea to invalid JSON
+    const textareas = Array.from(document.querySelectorAll('textarea')).slice(1);
+    expect(textareas.length).toBeGreaterThanOrEqual(1);
     fireEvent.change(textareas[0], { target: { value: '{not valid json}' } });
 
     const saveBtns = screen.getAllByRole('button', { name: 'Save' });

@@ -43,6 +43,14 @@ vi.mock('@/lib/email', () => ({
   },
 }));
 
+// portal-auth — mock authorizePortal to pass through (esign entitlement granted)
+const authorizePortalMock = vi.fn();
+const isAuthErrorMock = vi.fn();
+vi.mock('@/lib/portal-auth', () => ({
+  authorizePortal: (...args: unknown[]) => authorizePortalMock(...args),
+  isAuthError: (...args: unknown[]) => isAuthErrorMock(...args),
+}));
+
 // drizzle-orm operators — inert objects
 vi.mock('drizzle-orm', () => ({
   eq: (a: unknown, b: unknown) => ({ op: 'eq', a, b }),
@@ -256,6 +264,9 @@ beforeEach(() => {
   getPortalClientMock.mockReset();
   cancelSignatureRequestMock.mockReset();
   resendSendMock.mockReset().mockResolvedValue({ id: 'em_1' });
+  // Default: esign service is granted — authorizePortal passes through
+  authorizePortalMock.mockReset().mockResolvedValue({ ok: true });
+  isAuthErrorMock.mockReset().mockReturnValue(false);
 });
 
 // ===========================================================================

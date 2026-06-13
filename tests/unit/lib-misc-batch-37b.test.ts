@@ -770,14 +770,21 @@ describe('lib/automation/product-presets.ts', () => {
     ]);
   });
 
-  it('PRODUCT_PRESET_GROUPS contains an email group pointing at EMAIL_AUTOMATION_PRESETS', async () => {
+  it('PRODUCT_PRESET_GROUPS contains email, booking, and survey groups', async () => {
     vi.resetModules();
     const mod = await import('@/lib/automation/product-presets');
-    expect(mod.PRODUCT_PRESET_GROUPS).toHaveLength(1);
-    const grp = mod.PRODUCT_PRESET_GROUPS[0];
-    expect(grp.productScope).toBe('email');
-    expect(grp.label).toBe('Email Marketing');
-    expect(grp.presets).toBe(mod.EMAIL_AUTOMATION_PRESETS);
+    // Tonight's change added BOOKING and SURVEY preset groups alongside EMAIL.
+    expect(mod.PRODUCT_PRESET_GROUPS).toHaveLength(3);
+    const [email, booking, survey] = mod.PRODUCT_PRESET_GROUPS;
+    expect(email.productScope).toBe('email');
+    expect(email.label).toBe('Email Marketing');
+    expect(email.presets).toBe(mod.EMAIL_AUTOMATION_PRESETS);
+    expect(booking.productScope).toBe('booking');
+    expect(booking.label).toBe('Bookings');
+    expect(booking.presets).toBe(mod.BOOKING_AUTOMATION_PRESETS);
+    expect(survey.productScope).toBe('survey');
+    expect(survey.label).toBe('Surveys');
+    expect(survey.presets).toBe(mod.SURVEY_AUTOMATION_PRESETS);
   });
 
   it('all preset action params include at least one template variable', async () => {

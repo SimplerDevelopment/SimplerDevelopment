@@ -406,6 +406,9 @@ describe('POST /api/portal/tools/pitch-decks', () => {
     authMock.mockResolvedValue(SESSION);
     authorizePortalMock.mockResolvedValue({ client: { id: 33 }, userId: 7, role: 'owner' });
     getPortalClientMock.mockResolvedValue({ id: 33 });
+    // The route SELECTs existing slugs before inserting. Prime an existing
+    // collision so the route appends a base-36 timestamp suffix.
+    selectQueue.push([{ slug: 'my-deck' }]);
     insertReturnQueue.push([{ id: 11, title: 'My Deck!' }]);
     const res = await portalPitchDecksRoute.POST(
       makePost({
@@ -426,6 +429,7 @@ describe('POST /api/portal/tools/pitch-decks', () => {
     expect(inserted.brandingProfileId).toBe(5);
     expect(inserted.createdBy).toBe(7);
     expect(typeof inserted.slug).toBe('string');
+    // When base slug collides, route appends a base-36 timestamp token.
     expect((inserted.slug as string).startsWith('my-deck-')).toBe(true);
   });
 });
