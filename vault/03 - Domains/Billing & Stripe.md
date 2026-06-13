@@ -2,9 +2,11 @@
 type: domain-map
 domain: billing
 status: active
-date: 2026-06-11
+date: 2026-06-13
 sources:
   - lib/billing/
+  - lib/ai/plan-gate.ts
+  - lib/ai/resolve-client-key.ts
   - lib/stripe/
   - lib/signup/service.ts
   - lib/onboarding/module-segments.ts
@@ -56,7 +58,9 @@ Manages all money movement for the platform: AI credit grants and purchases, met
 | `lib/signup/service.ts` (177) | Self-serve account creation: `createAccount` (email+password), `verifyEmail` (token), `linkGoogleAccount` (OAuth same-email merge), `purgeUnverified` (7-day cleanup). Creates user + client with `billingMode='saas'` + `user_onboarding` row atomically. |
 | `lib/onboarding/module-segments.ts` (185) | Segment registry keyed by domain key. v1 rich segments for websites, crm, email, brain, projects; generic "first 3 wins" fallback for the remaining 7 modules. Consumed by the wizard steps and the dashboard checklist. |
 | `lib/billing/domain-catalog.ts` (563) | Single source of truth for 12 module SKUs + bundle + 3 plan tiers (Starter/Growth/Scale, `plan-*` slugs): prices (seed defaults), per-meter included allowances + overage rates, `byokProviders`, per-tier `byokEligible`, `promotesTo` cross-promo links, `navHrefs`. Live price = `services.price` / Stripe Price object. |
-| `lib/billing/entitlements.ts` (101) | `getClientEntitlements(clientId)`: resolves effective module set — `'agency'` billingMode bypasses gating; `'bundle'` grants all; legacy `subscription` rows bypass; a `plan-*` tier grants its curated domain set; `brainTrialUntil` honored. Also exposes `byokEligible` (Scale/bundle/bypass) — the gate for byok mode. Single resolution function; callers do not inspect `billingMode` directly. |
+| `lib/billing/entitlements.ts` (101) | `getClientEntitlements(clientId)`: resolves effective module set — `'agency'` billingMode bypasses gating; `'bundle'` grants all; legacy `subscription` rows bypass; a `plan-*` tier grants its curated domain set; `brainTrialUntil` honored. Also exposes `byokEligible` (true for Scale tier, agency bypass, bundle, and legacy subscription) — **the single source of truth for the BYOK gate**; see [[ADR byok-inversion-scale-only]]. Single resolution function; callers do not inspect `billingMode` directly. |
+| `lib/ai/plan-gate.ts` (128) | `checkAiPlanGate`: AI plan-level gate. Currently always returns `{ allowed: true }` — every paid tier (Starter / Growth / Scale) has platform AI access. Retained as an extension point. Previously blocked Starter with `starter_requires_byok`; that logic was removed in the BYOK inversion (commit `8669039b`). |
+| `lib/ai/resolve-client-key.ts` (199) | `resolveClientKey`: determines which AI key to use for a given client. Uses a stored BYOK key only when `byokEligible` is true. Falls back to the platform key otherwise (and on entitlement-check errors — fails closed). Enforces the inference layer of the three-layer BYOK gate. |
 | `lib/billing/usage-alerts.ts` (488) | Threshold evaluation: compares `usage_meter_events` aggregates against `usage_thresholds`; deduplicates via `usage_alert_events` unique index; dispatches portal notifications and emails at warn / exceeded / hard-limit levels. |
 | `lib/billing/usage-rollup.ts` | Core rollup logic: aggregate `usage_meter_events`, subtract included quota, push to Stripe via `action=set`, upsert audit row |
 | `lib/billing/metered-items.ts` | CRUD helpers for `metered_subscription_items` (no Stripe calls — kept separate for DI mocking) |
@@ -123,7 +127,7 @@ New columns and tables added in `scripts/billing/001_domain_saas_billing.sql` (h
 | `app/api/portal/credits/route.ts` | GET | List purchasable credit packages and current balance |
 | `app/api/portal/credits/purchase/route.ts` | POST | Initiate Stripe Checkout session for a credit bundle |
 | `app/api/portal/credits/pay-as-you-go/route.ts` | POST | Toggle the pay-as-you-go flag on the client's balance |
-| `app/api/portal/integrations/api-keys/route.ts` | GET / POST | List / create BYOK provider keys (anthropic \| openai \| resend \| dropbox_sign) — schema: `client_api_keys` in `lib/db/schema/billing.ts` |
+| `app/api/portal/integrations/api-keys/route.ts` (155) | GET / POST | List / create BYOK provider keys (anthropic \| openai \| resend \| dropbox_sign) — schema: `client_api_keys` in `lib/db/schema/billing.ts`. POST returns 403 for non-`byokEligible` clients attempting to store an `anthropic` or `openai` key (storage layer of the three-layer BYOK gate). `resend` and `dropbox_sign` keys are NOT gated by `byokEligible`. |
 | `app/api/portal/integrations/api-keys/[id]/route.ts` | PATCH / DELETE | Update / remove a BYOK key |
 | `app/api/portal/invoices/[id]/checkout/route.ts` | POST | Create Stripe Checkout session for client to pay an invoice |
 
@@ -221,6 +225,8 @@ Coverage floor: **70% lines / functions / branches / statements** on `lib/billin
 | `tests/unit/api-stripe-webhook-ecommerce-route.test.ts` | Ecommerce webhook |
 | `tests/unit/api-stripe-webhook-booking-route.test.ts` | Booking webhook |
 | `tests/unit/stripe/site-stripe.test.ts` | Site Stripe resolver (Connect vs BYOK) |
+| `tests/unit/ai-resolve-client-key.test.ts` | `lib/ai/resolve-client-key.ts`: inference-layer BYOK gate — `byokEligible` flag controls key selection; fails closed on entitlement error |
+| `tests/unit/ai-plan-gate.test.ts` | `lib/ai/plan-gate.ts`: always-allowed pass-through post BYOK inversion; the old `starter_requires_byok` path is gone |
 
 Run: `scripts/test.sh --layer=unit --no-coverage` (fast) or with coverage to verify the 70% floor.
 
@@ -246,7 +252,14 @@ Run: `scripts/test.sh --layer=unit --no-coverage` (fast) or with coverage to ver
 
 5. **Plan gating:** `clients.plan` (`starter` / `pro` / `enterprise`) in `lib/db/schema/sites.ts` controls feature entitlements. `clients.brainTrialUntil` grants temporary Brain access outside the paid tier. `clients.billing_mode` is independent of `plan` — both axes coexist.
 
-6. **BYOK AI keys:** `client_api_keys.encryptedKey` is AES-256-GCM ciphertext from `lib/crypto/api-key.ts`. The raw key is never persisted. The `lib/stripe/site-stripe.ts` resolver applies the same BYOK pattern for per-site Stripe keys. BYOK providers now include `anthropic`, `openai`, `resend`, and `dropbox_sign`.
+6. **BYOK AI keys — Scale-only unlock (the BYOK inversion):** Every paid tier (Starter / Growth / Scale) has platform AI access. BYOK (client supplies their own Anthropic/OpenAI key, pays the provider directly) is a Scale-tier-only privilege gated by `entitlements.byokEligible`. Lower tiers pay marked-up metered platform AI (the profit centre); BYOK is the premium-tier reward where spend goes at-cost to the provider. See [[ADR byok-inversion-scale-only]] for the full decision record.
+
+   Enforcement is three-layer (defense in depth):
+   - **Storage** (`app/api/portal/integrations/api-keys/route.ts` (155) POST): returns 403 for non-`byokEligible` clients on `anthropic`/`openai` providers. `resend`/`dropbox_sign` are not gated.
+   - **Inference** (`lib/ai/resolve-client-key.ts` (199)): only uses a stored BYOK key while the client is `byokEligible`. Falls back to the platform key on downgrade or entitlement-check error (fails closed).
+   - **UI** (`app/portal/integrations/api-keys/page.tsx` (372)): hides the add/edit form for non-`byokEligible` clients; shows an upgrade-to-Scale card instead.
+
+   `client_api_keys.encryptedKey` is AES-256-GCM ciphertext from `lib/crypto/api-key.ts`. The raw key is never persisted. The `lib/stripe/site-stripe.ts` resolver applies the same BYOK pattern for per-site Stripe keys. BYOK providers include `anthropic`, `openai`, `resend`, and `dropbox_sign`.
 
 7. **BYOK meter waiver scope:** Only meters whose COGS lands on the client's own keys are waived — AI tokens, email sends, e-sign envelopes. Platform infra (hosting bandwidth/storage, automation compute) is never waived. See `lib/billing/domain-catalog.ts` `byokProviders` field.
 
@@ -261,6 +274,7 @@ Run: `scripts/test.sh --layer=unit --no-coverage` (fast) or with coverage to ver
 - `lib/billing/` has a 70% coverage floor but the gate is advisory until coverage is healthy enough to enforce (see `tests/CI-GATES.md`).
 - **Follow-ups from Per-Domain SaaS Billing & BYOK (commit 3357d619):** (1) `scripts/billing/sync-stripe-products.ts` replaces the earlier manual step — run it per environment; (2) `scripts/seed-domain-modules.ts` must be run on staging after hand-applying `scripts/billing/001_domain_saas_billing.sql`; (3) deep API-level enforcement in `saas` mode is not yet wired (nav/layout gating only); (4) voice minutes and Replicate upscales are not yet metered; (5) monthly credit re-grant cron is missing (grants happen on activation/renewal webhook only). See [[Per-Domain SaaS Billing & BYOK]] spec for full follow-up list.
 - **Self-Serve Signup Funnel & Module Onboarding (commits e2faf943 + 8566e8ed):** shipped; status: validating. Remaining: staging deploy, `sync-stripe-products.ts` per environment, test-card checkout, Google OAuth callback URL + env vars. `scripts/billing/002_signup_funnel.sql` must be hand-applied. `users.google_id` unique constraint lives only in that SQL file — see [[ADR schema-constraints-hand-sql-only]]. See [[Self-Serve Signup Funnel & Module Onboarding]] for full validation checklist.
+- **BYOK inversion (commit 8669039b):** shipped; status: active. Test gap: no integration test yet asserts the 403 storage gate at `app/api/portal/integrations/api-keys/route.ts` for a non-eligible, non-agency `saas`-mode client. Existing CRUD integration tests use agency-mode clients (which are `byokEligible` via bypass). Unit coverage exists for the inference layer (`tests/unit/ai-resolve-client-key.test.ts`) and plan gate (`tests/unit/ai-plan-gate.test.ts`). See [[ADR byok-inversion-scale-only]].
 
 ## Related
 
