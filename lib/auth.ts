@@ -91,8 +91,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         sameSite: 'lax',
         path: '/',
         secure: process.env.NODE_ENV === 'production',
-        // Share session across all *.simplerdevelopment.com subdomains
-        domain: process.env.NODE_ENV === 'production' ? '.simplerdevelopment.com' : undefined,
+        // Share session across all *.simplerdevelopment.com subdomains — but ONLY
+        // on the real production deployment. Pinning the cookie `domain` to
+        // `.simplerdevelopment.com` on any other host (e.g. a `*.vercel.app`
+        // preview) makes the browser reject the cookie outright, so the session
+        // never sets and the user is bounced back to /portal/login after a
+        // "successful" sign-in. VERCEL_ENV is 'production' only for the main →
+        // simplerdevelopment.com deploy; previews get 'preview', local is unset.
+        domain: process.env.VERCEL_ENV === 'production' ? '.simplerdevelopment.com' : undefined,
       },
     },
   },

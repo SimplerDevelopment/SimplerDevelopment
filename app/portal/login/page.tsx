@@ -63,12 +63,15 @@ function LoginForm() {
           return;
         }
 
-        // Skip the subdomain hop in local dev — `*.simplerdevelopment.com` doesn't
-        // resolve from localhost, so the redirect would dead-end on chrome-error.
-        // Auth cookies are scoped to the current host (localhost), so staying put
-        // keeps the just-issued session usable.
-        const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-        if (!isLocal && subData.subdomain && window.location.hostname !== `${subData.subdomain}.simplerdevelopment.com`) {
+        // Only hop to the client's `*.simplerdevelopment.com` subdomain when we
+        // are ALREADY on a simplerdevelopment.com host (prod/staging), where the
+        // subdomain resolves and the session cookie is shared across subdomains.
+        // From localhost the subdomain doesn't resolve; from a `*.vercel.app`
+        // preview the hop would bounce the user OFF the preview to production and
+        // the host-only preview cookie wouldn't follow. In both cases, stay put —
+        // the just-issued session is scoped to the current host.
+        const onSimplerDevHost = window.location.hostname.endsWith('.simplerdevelopment.com');
+        if (onSimplerDevHost && subData.subdomain && window.location.hostname !== `${subData.subdomain}.simplerdevelopment.com`) {
           window.location.href = `https://${subData.subdomain}.simplerdevelopment.com${callbackUrl}`;
           return;
         }
@@ -94,8 +97,10 @@ function LoginForm() {
         body: JSON.stringify({ clientId: portal.clientId }),
       });
 
-      const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-      if (portal.subdomain && !isLocal) {
+      // Only hop to the subdomain when already on a simplerdevelopment.com host
+      // (see handleSubmit) — never from localhost or a *.vercel.app preview.
+      const onSimplerDevHost = window.location.hostname.endsWith('.simplerdevelopment.com');
+      if (portal.subdomain && onSimplerDevHost) {
         // eslint-disable-next-line react-hooks/immutability -- pre-existing pattern, predates this change
         window.location.href = `https://${portal.subdomain}.simplerdevelopment.com${callbackUrl}`;
       } else {
