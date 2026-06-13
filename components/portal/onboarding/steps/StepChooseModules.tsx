@@ -41,6 +41,7 @@ export function StepChooseModules({ state, setAnswers, persist, next }: StepProp
   const [saving, setSaving] = useState(false);
   const [selectedTierSlug, setSelectedTierSlug] = useState<string>('');
   const [showCustomize, setShowCustomize] = useState(false);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
 
   // Load live module catalog from the billing API
   useEffect(() => {
@@ -150,6 +151,7 @@ export function StepChooseModules({ state, setAnswers, persist, next }: StepProp
   async function handleTierCheckout(slug: string) {
     setSelectedTierSlug(slug);
     setSaving(true);
+    setCheckoutError(null);
     try {
       const res = await fetch('/api/portal/billing/modules/checkout', {
         method: 'POST',
@@ -158,8 +160,19 @@ export function StepChooseModules({ state, setAnswers, persist, next }: StepProp
       });
       const json = await res.json();
       if (json?.success && json.data?.url) { window.location.href = json.data.url; return; }
+      // Never fail silently — the primary CTA must always give feedback.
+      // 403 carries an intentional user-facing policy message (e.g. an
+      // agency-managed plan); everything else is an internal failure the user
+      // can't act on, so show a friendly, recoverable message instead of a raw
+      // string like "Module not found."
+      setCheckoutError(
+        res.status === 403 && json?.message
+          ? json.message
+          : "We couldn't start your checkout. Please try again — if it keeps happening, contact support and we'll sort it out.",
+      );
       setSaving(false);
     } catch {
+      setCheckoutError('Network error — please check your connection and try again.');
       setSaving(false);
     }
   }
@@ -178,6 +191,15 @@ export function StepChooseModules({ state, setAnswers, persist, next }: StepProp
           busySlug={saving ? selectedTierSlug : undefined}
           onSelect={handleTierCheckout}
         />
+        {checkoutError && (
+          <div
+            className="mt-4 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 flex items-start gap-2 text-sm text-destructive"
+            role="alert"
+          >
+            <span className="material-icons text-base mt-0.5 shrink-0">error_outline</span>
+            {checkoutError}
+          </div>
+        )}
       </div>
 
       {/* Customize toggle + collapsible module selector */}

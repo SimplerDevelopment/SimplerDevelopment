@@ -8,11 +8,12 @@ export function StepFeatures({ state, setAnswers, next }: StepProps) {
   const [picked, setPicked] = useState<string[]>(state.answers.featuresInterested ?? []);
 
   const toggle = (id: string) => {
-    setPicked((curr) => {
-      const updated = curr.includes(id) ? curr.filter((x) => x !== id) : [...curr, id];
-      setAnswers({ featuresInterested: updated });
-      return updated;
-    });
+    // Compute next value and update both local + parent state from the event
+    // handler. Calling setAnswers() *inside* the setPicked updater ran it
+    // during render → "Cannot update a component while rendering another".
+    const updated = picked.includes(id) ? picked.filter((x) => x !== id) : [...picked, id];
+    setPicked(updated);
+    setAnswers({ featuresInterested: updated });
   };
 
   return (

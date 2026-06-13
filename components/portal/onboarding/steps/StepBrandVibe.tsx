@@ -12,12 +12,13 @@ export function StepBrandVibe({ state, setAnswers, next }: StepProps) {
   const [custom, setCustom] = useState<string>('');
 
   const toggleTone = (id: string) => {
-    setTones((curr) => {
-      const has = curr.includes(id);
-      const updated = has ? curr.filter((t) => t !== id) : [...curr, id].slice(0, MAX_TONES);
-      setAnswers({ brandTones: updated });
-      return updated;
-    });
+    // Update both local + parent state from the event handler. Calling
+    // setAnswers() inside the setTones updater ran it during render →
+    // "Cannot update a component while rendering another".
+    const has = tones.includes(id);
+    const updated = has ? tones.filter((t) => t !== id) : [...tones, id].slice(0, MAX_TONES);
+    setTones(updated);
+    setAnswers({ brandTones: updated });
   };
 
   const chooseColor = (c: string) => {

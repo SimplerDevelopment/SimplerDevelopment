@@ -87,7 +87,17 @@ export function StepPayment({ state, setAnswers, persist, next }: StepProps) {
           next({ checkoutCompletedAt: now });
           return;
         }
-        throw new Error(json.message ?? json.error ?? 'Checkout failed. Please try again.');
+        // A 403 is an intentional, user-facing policy message (e.g. an
+        // agency-managed plan: "contact us to make changes") — surface it.
+        // Everything else (400 catalog mismatch, 500 Stripe/DB) is an internal
+        // failure the customer can't act on, so never leak raw strings like
+        // "Module not found." — show a friendly, recoverable message instead.
+        if (res.status === 403 && json.message) {
+          throw new Error(json.message);
+        }
+        throw new Error(
+          "We couldn't start your checkout. Please try again — if it keeps happening, contact support and we'll sort it out.",
+        );
       }
 
       window.location.href = json.data.url;
