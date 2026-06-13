@@ -13,7 +13,7 @@ import { renderHook, act, waitFor } from '@testing-library/react';
 
 // ── mock the api module ──────────────────────────────────────────────────────
 vi.mock(
-  '/Users/dancoyle/.herdr/worktrees/simplerdevelopment2026/worktree-dev-env/app/portal/tools/booking/[id]/_lib/api',
+  '@/app/portal/tools/booking/[id]/_lib/api',
   () => ({
     getBookingPage: vi.fn(),
     listBookings: vi.fn(),
@@ -25,9 +25,9 @@ vi.mock(
   }),
 );
 
-import * as api from '/Users/dancoyle/.herdr/worktrees/simplerdevelopment2026/worktree-dev-env/app/portal/tools/booking/[id]/_lib/api';
-import { useBookingPage } from '/Users/dancoyle/.herdr/worktrees/simplerdevelopment2026/worktree-dev-env/app/portal/tools/booking/[id]/_hooks/useBookingPage';
-import type { BookingPageData, Booking, PageMember, TeamMember, BrandingProfileSummary } from '/Users/dancoyle/.herdr/worktrees/simplerdevelopment2026/worktree-dev-env/app/portal/tools/booking/[id]/_lib/types';
+import * as api from '@/app/portal/tools/booking/[id]/_lib/api';
+import { useBookingPage } from '@/app/portal/tools/booking/[id]/_hooks/useBookingPage';
+import type { BookingPageData, Booking, PageMember, TeamMember, BrandingProfileSummary } from '@/app/portal/tools/booking/[id]/_lib/types';
 
 // ── fixtures ─────────────────────────────────────────────────────────────────
 

@@ -21,7 +21,7 @@ import { renderHook, act, waitFor } from '@testing-library/react';
 
 // ── mock api ──────────────────────────────────────────────────────────────────
 vi.mock(
-  '/Users/dancoyle/.herdr/worktrees/simplerdevelopment2026/worktree-dev-env/app/portal/websites/[siteId]/navigation/_lib/api',
+  '@/app/portal/websites/[siteId]/navigation/_lib/api',
   () => ({
     fetchNavigation: vi.fn(),
     fetchBranding: vi.fn(),
@@ -39,14 +39,14 @@ vi.mock(
 // The hook's behaviour is still driven by real data transforms; we just verify
 // the bridge between hook and helper.
 vi.mock(
-  '/Users/dancoyle/.herdr/worktrees/simplerdevelopment2026/worktree-dev-env/app/portal/websites/[siteId]/navigation/_lib/tree',
+  '@/app/portal/websites/[siteId]/navigation/_lib/tree',
   async () => {
     // Import the real module and re-export, wrapping each export with vi.fn()
     // that delegates to the original so logic is preserved.
     const real = await vi.importActual<
-      typeof import('/Users/dancoyle/.herdr/worktrees/simplerdevelopment2026/worktree-dev-env/app/portal/websites/[siteId]/navigation/_lib/tree')
+      typeof import('@/app/portal/websites/[siteId]/navigation/_lib/tree')
     >(
-      '/Users/dancoyle/.herdr/worktrees/simplerdevelopment2026/worktree-dev-env/app/portal/websites/[siteId]/navigation/_lib/tree',
+      '@/app/portal/websites/[siteId]/navigation/_lib/tree',
     );
     return {
       appendItem: vi.fn(real.appendItem),
@@ -62,10 +62,10 @@ vi.mock(
   },
 );
 
-import * as api from '/Users/dancoyle/.herdr/worktrees/simplerdevelopment2026/worktree-dev-env/app/portal/websites/[siteId]/navigation/_lib/api';
-import { useNavigation } from '/Users/dancoyle/.herdr/worktrees/simplerdevelopment2026/worktree-dev-env/app/portal/websites/[siteId]/navigation/_hooks/useNavigation';
-import { DEFAULT_BRANDING } from '/Users/dancoyle/.herdr/worktrees/simplerdevelopment2026/worktree-dev-env/app/portal/websites/[siteId]/navigation/_lib/types';
-import type { NavItem, Branding } from '/Users/dancoyle/.herdr/worktrees/simplerdevelopment2026/worktree-dev-env/app/portal/websites/[siteId]/navigation/_lib/types';
+import * as api from '@/app/portal/websites/[siteId]/navigation/_lib/api';
+import { useNavigation } from '@/app/portal/websites/[siteId]/navigation/_hooks/useNavigation';
+import { DEFAULT_BRANDING } from '@/app/portal/websites/[siteId]/navigation/_lib/types';
+import type { NavItem, Branding } from '@/app/portal/websites/[siteId]/navigation/_lib/types';
 
 // ── fixtures ──────────────────────────────────────────────────────────────────
 

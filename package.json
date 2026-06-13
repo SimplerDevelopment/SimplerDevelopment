@@ -127,6 +127,7 @@
     "sanitize-html": "^2.17.4",
     "sharp": "^0.34.5",
     "stripe": "^20.4.1",
+    "svix": "^1.95.2",
     "tailwind-merge": "^3.4.0",
     "tar": "^7.5.15",
     "three": "^0.182.0",

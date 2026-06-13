@@ -21,7 +21,7 @@ import { renderHook, act } from '@testing-library/react';
 
 // ── mock protocol helpers ─────────────────────────────────────────────────────
 vi.mock(
-  '/Users/dancoyle/.herdr/worktrees/simplerdevelopment2026/worktree-dev-env/lib/visual-editor/protocol',
+  '@/lib/visual-editor/protocol',
   () => ({
     isValidOrigin: vi.fn(() => true),
     isVisualEditorMessage: vi.fn(() => true),
@@ -33,11 +33,11 @@ import {
   isValidOrigin,
   isVisualEditorMessage,
   sendToIframe,
-} from '/Users/dancoyle/.herdr/worktrees/simplerdevelopment2026/worktree-dev-env/lib/visual-editor/protocol';
+} from '@/lib/visual-editor/protocol';
 
-import { useVisualEditorParent } from '/Users/dancoyle/.herdr/worktrees/simplerdevelopment2026/worktree-dev-env/lib/visual-editor/useVisualEditorParent';
-import { IFRAME_MESSAGES, PARENT_MESSAGES } from '/Users/dancoyle/.herdr/worktrees/simplerdevelopment2026/worktree-dev-env/types/visual-editor';
-import type { Block } from '/Users/dancoyle/.herdr/worktrees/simplerdevelopment2026/worktree-dev-env/types/blocks';
+import { useVisualEditorParent } from '@/lib/visual-editor/useVisualEditorParent';
+import { IFRAME_MESSAGES, PARENT_MESSAGES } from '@/types/visual-editor';
+import type { Block } from '@/types/blocks';
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 

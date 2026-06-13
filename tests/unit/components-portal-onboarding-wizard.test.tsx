@@ -16,7 +16,7 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
-import type { OnboardingState, OnboardingAnswers, OnboardingStep } from '/Users/dancoyle/.herdr/worktrees/simplerdevelopment2026/worktree-dev-env/lib/onboarding/types';
+import type { OnboardingState, OnboardingAnswers, OnboardingStep } from '@/lib/onboarding/types';
 
 // ── framer-motion stub ────────────────────────────────────────────────────────
 vi.mock('framer-motion', () => {
@@ -77,59 +77,59 @@ function makeStepStub(name: string) {
 }
 
 vi.mock(
-  '/Users/dancoyle/.herdr/worktrees/simplerdevelopment2026/worktree-dev-env/components/portal/onboarding/steps/StepWelcome',
+  '@/components/portal/onboarding/steps/StepWelcome',
   () => ({ StepWelcome: makeStepStub('welcome') }),
 );
 vi.mock(
-  '/Users/dancoyle/.herdr/worktrees/simplerdevelopment2026/worktree-dev-env/components/portal/onboarding/steps/StepAboutYou',
+  '@/components/portal/onboarding/steps/StepAboutYou',
   () => ({ StepAboutYou: makeStepStub('about-you') }),
 );
 vi.mock(
-  '/Users/dancoyle/.herdr/worktrees/simplerdevelopment2026/worktree-dev-env/components/portal/onboarding/steps/StepAboutCompany',
+  '@/components/portal/onboarding/steps/StepAboutCompany',
   () => ({ StepAboutCompany: makeStepStub('about-company') }),
 );
 // New steps added in the 12-step onboarding expansion; mocked so imports resolve.
 vi.mock(
-  '/Users/dancoyle/.herdr/worktrees/simplerdevelopment2026/worktree-dev-env/components/portal/onboarding/steps/StepChooseModules',
+  '@/components/portal/onboarding/steps/StepChooseModules',
   () => ({ StepChooseModules: makeStepStub('choose-modules') }),
 );
 vi.mock(
-  '/Users/dancoyle/.herdr/worktrees/simplerdevelopment2026/worktree-dev-env/components/portal/onboarding/steps/StepPayment',
+  '@/components/portal/onboarding/steps/StepPayment',
   () => ({ StepPayment: makeStepStub('payment') }),
 );
 vi.mock(
-  '/Users/dancoyle/.herdr/worktrees/simplerdevelopment2026/worktree-dev-env/components/portal/onboarding/steps/StepModuleSetup',
+  '@/components/portal/onboarding/steps/StepModuleSetup',
   () => ({ StepModuleSetup: makeStepStub('module-setup') }),
 );
 vi.mock(
-  '/Users/dancoyle/.herdr/worktrees/simplerdevelopment2026/worktree-dev-env/components/portal/onboarding/steps/StepUpsell',
+  '@/components/portal/onboarding/steps/StepUpsell',
   () => ({ StepUpsell: makeStepStub('upsell') }),
 );
 
 vi.mock(
-  '/Users/dancoyle/.herdr/worktrees/simplerdevelopment2026/worktree-dev-env/components/portal/onboarding/steps/StepBrandVibe',
+  '@/components/portal/onboarding/steps/StepBrandVibe',
   () => ({ StepBrandVibe: makeStepStub('brand-vibe') }),
 );
 vi.mock(
-  '/Users/dancoyle/.herdr/worktrees/simplerdevelopment2026/worktree-dev-env/components/portal/onboarding/steps/StepMission',
+  '@/components/portal/onboarding/steps/StepMission',
   () => ({ StepMission: makeStepStub('mission') }),
 );
 vi.mock(
-  '/Users/dancoyle/.herdr/worktrees/simplerdevelopment2026/worktree-dev-env/components/portal/onboarding/steps/StepFeatures',
+  '@/components/portal/onboarding/steps/StepFeatures',
   () => ({ StepFeatures: makeStepStub('features') }),
 );
 vi.mock(
-  '/Users/dancoyle/.herdr/worktrees/simplerdevelopment2026/worktree-dev-env/components/portal/onboarding/steps/StepPowerUp',
+  '@/components/portal/onboarding/steps/StepPowerUp',
   () => ({ StepPowerUp: makeStepStub('power-up') }),
 );
 vi.mock(
-  '/Users/dancoyle/.herdr/worktrees/simplerdevelopment2026/worktree-dev-env/components/portal/onboarding/steps/StepDone',
+  '@/components/portal/onboarding/steps/StepDone',
   () => ({ StepDone: makeStepStub('done') }),
 );
 
 // ── import SUT (after all mocks) ──────────────────────────────────────────────
-import OnboardingWizard from '/Users/dancoyle/.herdr/worktrees/simplerdevelopment2026/worktree-dev-env/components/portal/onboarding/OnboardingWizard';
-import { ONBOARDING_STEPS } from '/Users/dancoyle/.herdr/worktrees/simplerdevelopment2026/worktree-dev-env/lib/onboarding/types';
+import OnboardingWizard from '@/components/portal/onboarding/OnboardingWizard';
+import { ONBOARDING_STEPS } from '@/lib/onboarding/types';
 
 // ── fixtures ──────────────────────────────────────────────────────────────────
 
