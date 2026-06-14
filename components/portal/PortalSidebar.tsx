@@ -195,6 +195,11 @@ export default function PortalSidebar({ apps, entitlements }: PortalSidebarProps
     const serviceItems: NavItem[] = [];
     for (const svc of navServices) {
       if (EXCLUDED_SERVICES.has(svc.name) || svc.name.startsWith('__')) continue;
+      // Don't surface "request a service" links in the main nav — services are
+      // bought self-serve from the plans page now, not requested from the
+      // sidebar. (Services in a known category still link to their feature page,
+      // e.g. Bookings → /portal/tools/booking; only the /request fallbacks drop.)
+      if (svc.href.endsWith('/request')) continue;
       if (seenHrefs.has(svc.href)) continue;
       seenHrefs.add(svc.href);
       serviceItems.push({ href: svc.href, label: svc.name, icon: svc.icon });
