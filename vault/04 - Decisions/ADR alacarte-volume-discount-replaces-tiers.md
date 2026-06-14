@@ -7,7 +7,6 @@ sources:
   - lib/billing/domain-catalog.ts
   - app/api/portal/billing/modules/checkout/route.ts
   - app/api/portal/billing/modules/add-item/route.ts
-  - scripts/billing/create-volume-coupons.ts
   - components/portal/onboarding/steps/StepChooseModules.tsx
   - components/portal/onboarding/steps/StepPayment.tsx
   - app/portal/settings/billing/plans/page.tsx
@@ -22,6 +21,8 @@ Accepted — shipped in commit `23a46fb2` on branch `feat/market-ready-makeover`
 
 Partially supersedes [[ADR byok-inversion-scale-only]] (see BYOK section below).
 Partially supersedes [[ADR tiers-are-first-class-stripe-products]] (tier UI surfaces removed; tier data model retained for existing subscribers — see Consequences).
+
+**Mechanism note (2026-06-14):** The volume-discount POLICY defined here (4→10% / 8→20% / 12→30%) is unchanged and remains in force. The Stripe MECHANISM has changed: the percent_off coupon approach (`volume-10` / `volume-20` / `volume-30`) was replaced by explicit computed `price_data` line items in the per-seat pricing commit. `scripts/billing/create-volume-coupons.ts` was deleted; existing coupons in Stripe environments are inert. The discount is now baked into each module's `price_data.unit_amount` at checkout and reconciliation time via `discountedModuleCents()` in `lib/billing/domain-catalog.ts` (697). See [[ADR per-seat-pricing-computed-line-items]].
 
 ## Context
 

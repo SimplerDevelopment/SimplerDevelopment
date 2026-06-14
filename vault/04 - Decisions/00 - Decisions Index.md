@@ -19,6 +19,7 @@ Static list (agents: maintain this when adding ADRs — Dataview below only rend
 - [[ADR byok-inversion-scale-only]]
 - [[ADR tiers-are-first-class-stripe-products]]
 - [[ADR alacarte-volume-discount-replaces-tiers]]
+- [[ADR per-seat-pricing-computed-line-items]]
 
 ```dataview
 TABLE domain, status, date
