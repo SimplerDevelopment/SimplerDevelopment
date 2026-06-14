@@ -168,7 +168,7 @@ function ModuleCard({
           disabled={cancelling === mod.clientServiceId}
           className="w-full mt-3 px-4 py-2 rounded-md text-sm font-medium border border-border text-muted-foreground hover:text-foreground hover:border-foreground/40 transition-colors disabled:opacity-50"
         >
-          {cancelling === mod.clientServiceId ? 'Cancelling…' : 'Cancel at period end'}
+          {cancelling === mod.clientServiceId ? 'Removing…' : 'Remove'}
         </button>
       );
     }
