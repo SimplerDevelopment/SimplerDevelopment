@@ -2,7 +2,7 @@
 type: domain-map
 domain: billing
 status: active
-date: 2026-06-13
+date: 2026-06-14
 sources:
   - lib/billing/
   - lib/ai/plan-gate.ts
@@ -43,6 +43,7 @@ sources:
   - scripts/billing/001_domain_saas_billing.sql
   - scripts/billing/002_signup_funnel.sql
   - scripts/billing/sync-stripe-products.ts
+  - scripts/billing/create-volume-coupons.ts
 ---
 
 # Domain: Billing & Stripe
@@ -57,8 +58,8 @@ Manages all money movement for the platform: AI credit grants and purchases, met
 |---|---|
 | `lib/signup/service.ts` (177) | Self-serve account creation: `createAccount` (email+password), `verifyEmail` (token), `linkGoogleAccount` (OAuth same-email merge), `purgeUnverified` (7-day cleanup). Creates user + client with `billingMode='saas'` + `user_onboarding` row atomically. |
 | `lib/onboarding/module-segments.ts` (185) | Segment registry keyed by domain key. v1 rich segments for websites, crm, email, brain, projects; generic "first 3 wins" fallback for the remaining 7 modules. Consumed by the wizard steps and the dashboard checklist. |
-| `lib/billing/domain-catalog.ts` (563) | Single source of truth for 12 module SKUs + bundle + 3 plan tiers (Starter/Growth/Scale, `plan-*` slugs): prices (seed defaults), per-meter included allowances + overage rates, `byokProviders`, per-tier `byokEligible`, `promotesTo` cross-promo links, `navHrefs`. Live price = `services.price` / Stripe Price object. |
-| `lib/billing/entitlements.ts` (101) | `getClientEntitlements(clientId)`: resolves effective module set — `'agency'` billingMode bypasses gating; `'bundle'` grants all; legacy `subscription` rows bypass; a `plan-*` tier grants its curated domain set; `brainTrialUntil` honored. Also exposes `byokEligible` (true for Scale tier, agency bypass, bundle, and legacy subscription) — **the single source of truth for the BYOK gate**; see [[ADR byok-inversion-scale-only]]. Single resolution function; callers do not inspect `billingMode` directly. |
+| `lib/billing/domain-catalog.ts` (617) | Single source of truth for 12 module SKUs + bundle + volume discount ladder. Exports `VOLUME_TIERS` (thresholds: 4→10%, 8→20%, 12→30%), `volumeTierFor(count)`, `nextVolumeTier(count)`, `applyVolumeDiscount(subtotal, count)`. Also retains `TIERS` (Starter/Growth/Scale, `plan-*` slugs) and `getTierByCategory()` for existing tier-subscriber entitlement resolution; per-meter included allowances + overage rates; `byokProviders`; `promotesTo` cross-promo links; `navHrefs`. Live price = `services.price` / Stripe Price object. |
+| `lib/billing/entitlements.ts` (101) | `getClientEntitlements(clientId)`: resolves effective module set — `'agency'` billingMode bypasses gating; `'bundle'` grants all; legacy `subscription` rows bypass; a `plan-*` tier grants its curated domain set; `brainTrialUntil` honored. Also exposes `byokEligible` (true for Scale tier, agency bypass, bundle, and legacy subscription) — **the single source of truth for the BYOK gate**; see [[ADR byok-inversion-scale-only]]. Single resolution function; callers do not inspect `billingMode` directly. Note: new self-serve clients subscribe à la carte and do not acquire a tier row; `byokEligible` is false for them until they acquire a bundle or legacy subscription. BYOK for new clients is contact-sales only. |
 | `lib/ai/plan-gate.ts` (128) | `checkAiPlanGate`: AI plan-level gate. Currently always returns `{ allowed: true }` — every paid tier (Starter / Growth / Scale) has platform AI access. Retained as an extension point. Previously blocked Starter with `starter_requires_byok`; that logic was removed in the BYOK inversion (commit `8669039b`). |
 | `lib/ai/resolve-client-key.ts` (199) | `resolveClientKey`: determines which AI key to use for a given client. Uses a stored BYOK key only when `byokEligible` is true. Falls back to the platform key otherwise (and on entitlement-check errors — fails closed). Enforces the inference layer of the three-layer BYOK gate. |
 | `lib/billing/usage-alerts.ts` (488) | Threshold evaluation: compares `usage_meter_events` aggregates against `usage_thresholds`; deduplicates via `usage_alert_events` unique index; dispatches portal notifications and emails at warn / exceeded / hard-limit levels. |
@@ -119,8 +120,8 @@ New columns and tables added in `scripts/billing/001_domain_saas_billing.sql` (h
 | `app/api/portal/settings/billing/route.ts` | GET | Return billing settings for the active client |
 | `app/api/portal/billing/payment-methods/route.ts` | GET / DELETE | List / remove saved payment methods |
 | `app/api/portal/billing/modules/route.ts` | GET | List all 12 module SKUs + bundle with subscription status for the active client |
-| `app/api/portal/billing/modules/checkout/route.ts` | POST | Create Stripe Checkout session (`mode=subscription`). Accepts `slugs[]` — one line item per module slug, `trial_period_days: 14` (card required, $0 today). Trial granted only once per client via `clients.trial_used_at`. `metadata.type='module_subscription'`; webhook upserts one `clientServices` row per line item sharing the same `stripeSubscriptionId`. |
-| `app/api/portal/billing/modules/add-item/route.ts` | POST | One-click prorated add of a module to an existing subscription, or bundle swap. Appends a line item to the live Stripe subscription at prorated price; joins any active trial. Used by the upsell wizard step and the plans page. |
+| `app/api/portal/billing/modules/checkout/route.ts` (211) | POST | Create Stripe Checkout session (`mode=subscription`). Accepts `slugs[]` — one line item per module slug, `trial_period_days: 14` (card required, $0 today). Trial granted only once per client via `clients.trial_used_at`. `metadata.type='module_subscription'`; webhook upserts one `clientServices` row per line item sharing the same `stripeSubscriptionId`. Attaches a volume-discount coupon (`volume-10`/`volume-20`/`volume-30`) by module count at session creation; falls back silently to full price if the coupon is not yet provisioned in Stripe. |
+| `app/api/portal/billing/modules/add-item/route.ts` (175) | POST | One-click prorated add of a module to an existing subscription, or bundle swap. Appends a line item to the live Stripe subscription at prorated price; joins any active trial. Re-syncs the subscription's volume-discount coupon as the module count crosses a threshold; clears the coupon on a bundle swap. Used by the upsell wizard step and the plans page. This is the canonical path for adding a module once a client has an existing subscription (Checkout is the fallback for a client's first purchase). |
 | `app/api/portal/billing/modules/[id]/cancel/route.ts` | POST | Cancel a module subscription via Stripe |
 | `app/api/portal/billing/usage/route.ts` | GET | Per-resource usage vs thresholds for the active client |
 | `app/api/portal/billing/byok-status/route.ts` | GET | Which BYOK providers are configured; used by admin BYOK checklist |
@@ -177,6 +178,7 @@ Auth: `x-vercel-cron: 1` header OR `Authorization: Bearer $CRON_SECRET`.
 | Script | Purpose |
 |---|---|
 | `scripts/billing/sync-stripe-products.ts` (94) | Creates or updates Stripe Products and Prices for every module SKU. Looks up existing objects by `metadata.moduleSlug` — idempotent and safe to re-run. Canonical source for catalog IDs; the values seeded in `services.stripePriceId` rows are live-mode defaults only. **Must be run per environment** (local / staging / production) after initial deploy or after adding a new module. |
+| `scripts/billing/create-volume-coupons.ts` (65) | Provisions the three volume-discount Stripe coupons (`volume-10` / `volume-20` / `volume-30`) with `percent_off` and `duration: forever`. **Go-live dependency** — until these coupons exist in a Stripe environment, the volume discount silently does not apply (checkout falls back to full price without error). Run once per Stripe environment: `bunx tsx scripts/billing/create-volume-coupons.ts` with `STRIPE_SECRET_KEY` set. |
 | `scripts/billing/002_signup_funnel.sql` | Hand-apply migration for signup funnel schema additions (see Data model section). `users.google_id` unique constraint is in this file only — not in Drizzle schema; see [[ADR schema-constraints-hand-sql-only]]. |
 
 ## MCP tools
@@ -195,7 +197,7 @@ Registered in `lib/mcp/tools/billing.ts` via `registerBillingTools(server, ctx)`
 | Path | Audience | Description |
 |---|---|---|
 | `app/portal/settings/billing/page.tsx` | Client | Billing settings, plan info, payment methods |
-| `app/portal/settings/billing/plans/page.tsx` | Client | Pricing page: 12 module cards + bundle upsell + Stripe Checkout button; usage meters section |
+| `app/portal/settings/billing/plans/page.tsx` (587) | Client | Pricing page: 12 module cards + bundle upsell + Stripe Checkout button; volume-discount progress strip; BYOK contact-sales card (mailto:info@danielpcoyle.com); usage meters section. Repeat-subscribes route through `add-item` (Checkout fallback for first purchase only) so all modules share one subscription and the coupon re-syncs. |
 | `components/portal/billing/UsageMeters.tsx` | Client | Per-resource usage bars pulling from `usage_thresholds` + `usage_alert_events` |
 | `app/portal/invoices/[id]/page.tsx` | Client | Invoice detail and payment page |
 | `app/admin/clients/[id]/plan/page.tsx` | Admin | Mode switcher (agency / saas / byok), BYOK key checklist, threshold configuration |
@@ -204,8 +206,8 @@ Registered in `lib/mcp/tools/billing.ts` via `registerBillingTools(server, ctx)`
 | `app/admin/ai-credits/page.tsx` | Admin | AI credit package management |
 | `app/admin/subscriptions/page.tsx` | Admin | Subscription overview |
 | `app/admin/clients/[id]/page.tsx` | Admin | Client detail including billing tab |
-| `components/portal/onboarding/steps/StepChooseModules.tsx` | Client (wizard) | Cart-style module picker; bundle auto-suggest when cart total >= bundle price |
-| `components/portal/onboarding/steps/StepPayment.tsx` | Client (wizard) | Stripe Checkout session launch for multi-line-item subscription |
+| `components/portal/onboarding/steps/StepChooseModules.tsx` (374) | Client (wizard) | Cart-style à-la-carte module picker; volume-discount progress strip; bundle auto-suggest when cart total >= bundle price; BYOK contact-sales card. Tier selection UI removed. |
+| `components/portal/onboarding/steps/StepPayment.tsx` (227) | Client (wizard) | Stripe Checkout session launch for multi-line-item subscription; displays volume discount applied at current module count. |
 | `components/portal/onboarding/steps/StepModuleSetup.tsx` | Client (wizard) | Product-specific onboarding steps from `lib/onboarding/module-segments.ts` |
 | `components/portal/onboarding/steps/StepUpsell.tsx` | Client (wizard) | Up to 3 `promotesTo` upsells; one-click add via `add-item` route; bundle-gap nudge |
 | `components/portal/onboarding/GetStartedChecklist.tsx` (202) | Client (dashboard) | Persistent checklist surfacing module segments; updates as modules are purchased post-signup |
@@ -252,12 +254,14 @@ Run: `scripts/test.sh --layer=unit --no-coverage` (fast) or with coverage to ver
 
 5. **Plan gating:** `clients.plan` (`starter` / `pro` / `enterprise`) in `lib/db/schema/sites.ts` controls feature entitlements. `clients.brainTrialUntil` grants temporary Brain access outside the paid tier. `clients.billing_mode` is independent of `plan` — both axes coexist.
 
-6. **BYOK AI keys — Scale-only unlock (the BYOK inversion):** Every paid tier (Starter / Growth / Scale) has platform AI access. BYOK (client supplies their own Anthropic/OpenAI key, pays the provider directly) is a Scale-tier-only privilege gated by `entitlements.byokEligible`. Lower tiers pay marked-up metered platform AI (the profit centre); BYOK is the premium-tier reward where spend goes at-cost to the provider. See [[ADR byok-inversion-scale-only]] for the full decision record.
+6. **BYOK AI keys — contact-sales (not self-serve):** With the tier UI removed, BYOK is no longer a self-serve price point. New clients see a "Contact sales" card (mailto:info@danielpcoyle.com) in place of any BYOK toggle or upgrade prompt — on both the onboarding wizard (`StepChooseModules.tsx`) and the plans page. This supersedes the earlier Scale-only self-serve model from [[ADR byok-inversion-scale-only]]; see [[ADR alacarte-volume-discount-replaces-tiers]] for the full decision.
 
-   Enforcement is three-layer (defense in depth):
+   The three-layer code enforcement is unchanged (only the self-serve UI path changed):
    - **Storage** (`app/api/portal/integrations/api-keys/route.ts` (155) POST): returns 403 for non-`byokEligible` clients on `anthropic`/`openai` providers. `resend`/`dropbox_sign` are not gated.
    - **Inference** (`lib/ai/resolve-client-key.ts` (199)): only uses a stored BYOK key while the client is `byokEligible`. Falls back to the platform key on downgrade or entitlement-check error (fails closed).
-   - **UI** (`app/portal/integrations/api-keys/page.tsx` (372)): hides the add/edit form for non-`byokEligible` clients; shows an upgrade-to-Scale card instead.
+   - **UI** (`app/portal/integrations/api-keys/page.tsx` (372)): hides the add/edit form for non-`byokEligible` clients.
+
+   `byokEligible` is still true for agency-mode, bundle, and legacy subscription clients. New à-la-carte module subscribers are not `byokEligible` unless they hold a bundle subscription or an agency override.
 
    `client_api_keys.encryptedKey` is AES-256-GCM ciphertext from `lib/crypto/api-key.ts`. The raw key is never persisted. The `lib/stripe/site-stripe.ts` resolver applies the same BYOK pattern for per-site Stripe keys. BYOK providers include `anthropic`, `openai`, `resend`, and `dropbox_sign`.
 
@@ -274,8 +278,11 @@ Run: `scripts/test.sh --layer=unit --no-coverage` (fast) or with coverage to ver
 - `lib/billing/` has a 70% coverage floor but the gate is advisory until coverage is healthy enough to enforce (see `tests/CI-GATES.md`).
 - **Follow-ups from Per-Domain SaaS Billing & BYOK (commit 3357d619):** (1) `scripts/billing/sync-stripe-products.ts` replaces the earlier manual step — run it per environment; (2) `scripts/seed-domain-modules.ts` must be run on staging after hand-applying `scripts/billing/001_domain_saas_billing.sql`; (3) deep API-level enforcement in `saas` mode is not yet wired (nav/layout gating only); (4) voice minutes and Replicate upscales are not yet metered; (5) monthly credit re-grant cron is missing (grants happen on activation/renewal webhook only). See [[Per-Domain SaaS Billing & BYOK]] spec for full follow-up list.
 - **Self-Serve Signup Funnel & Module Onboarding (commits e2faf943 + 8566e8ed):** shipped; status: validating. Remaining: staging deploy, `sync-stripe-products.ts` per environment, test-card checkout, Google OAuth callback URL + env vars. `scripts/billing/002_signup_funnel.sql` must be hand-applied. `users.google_id` unique constraint lives only in that SQL file — see [[ADR schema-constraints-hand-sql-only]]. See [[Self-Serve Signup Funnel & Module Onboarding]] for full validation checklist.
-- **BYOK inversion (commit 8669039b):** shipped; status: active. Test gap: no integration test yet asserts the 403 storage gate at `app/api/portal/integrations/api-keys/route.ts` for a non-eligible, non-agency `saas`-mode client. Existing CRUD integration tests use agency-mode clients (which are `byokEligible` via bypass). Unit coverage exists for the inference layer (`tests/unit/ai-resolve-client-key.test.ts`) and plan gate (`tests/unit/ai-plan-gate.test.ts`). See [[ADR byok-inversion-scale-only]].
+- **BYOK inversion (commit 8669039b):** shipped; subsequently partially superseded. See entry below. Unit coverage exists for the inference layer (`tests/unit/ai-resolve-client-key.test.ts`) and plan gate (`tests/unit/ai-plan-gate.test.ts`). See [[ADR byok-inversion-scale-only]].
+- **À-la-carte + volume discounts (commit 23a46fb2):** shipped; status: active. Tier selection UI replaced with à-la-carte module picking + volume-discount progress strip. BYOK moved to contact-sales. Go-live dependency: run `bunx tsx scripts/billing/create-volume-coupons.ts` (65) with `STRIPE_SECRET_KEY` in every Stripe environment before discounts apply. `components/portal/billing/TierPlans.tsx` (117) is now dead code — not removed, flagged for future cleanup. Test gaps: no automated test for coupon attachment in checkout/add-item routes, and no test for volume-strip rendering. See [[ADR alacarte-volume-discount-replaces-tiers]].
 
 ## Related
 
 [[Storefront & Commerce]], [[Agency, Onboarding & Branding]]
+
+ADRs: [[ADR alacarte-volume-discount-replaces-tiers]] · [[ADR byok-inversion-scale-only]] · [[ADR tiers-are-first-class-stripe-products]] · [[ADR per-domain-billing-rides-services-catalog]]
