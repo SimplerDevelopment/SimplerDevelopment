@@ -448,23 +448,28 @@ describe('lib/microsoft/oauth', () => {
 
 describe('lib/portal-nav', () => {
   describe('buildPortalNavItems', () => {
-    it('returns the global tree without per-site branch when site is null', () => {
+    it('returns the consolidated top-level groups without a per-site branch when site is null', () => {
       const items = portalNav.buildPortalNavItems(null, null);
       const labels = items.map((i) => i.label);
       expect(labels).toContain('Dashboard');
       expect(labels).toContain('Company Brain');
       expect(labels).toContain('Projects');
       expect(labels).toContain('CRM');
-      expect(labels).toContain('Email');
+      expect(labels).toContain('Marketing');
       expect(labels).toContain('Websites');
       expect(labels).toContain('Settings');
-      // No per-site branch
-      expect(items.some((i) => i.href.includes('/portal/websites/'))).toBe(false);
+      // Email now lives inside the Marketing group, not at the top level.
+      const marketing = items.find((i) => i.label === 'Marketing');
+      expect(marketing?.children?.some((c) => c.label === 'Email')).toBe(true);
+      // No per-site branch inside Websites when there's no active site.
+      const websites = items.find((i) => i.label === 'Websites');
+      expect(websites?.children?.some((c) => c.href.startsWith('/portal/websites/'))).toBe(false);
     });
 
-    it('inserts the per-site branch when activeSiteId is provided', () => {
+    it('inserts the per-site branch inside Websites when activeSiteId is provided', () => {
       const items = portalNav.buildPortalNavItems('site-7', 'Acme Co');
-      const siteNode = items.find((i) => i.href === '/portal/websites/site-7');
+      const websites = items.find((i) => i.label === 'Websites');
+      const siteNode = websites?.children?.find((c) => c.href === '/portal/websites/site-7');
       expect(siteNode).toBeDefined();
       expect(siteNode?.label).toBe('Acme Co');
       expect(siteNode?.children?.some((c) => c.label === 'Content')).toBe(true);
@@ -472,15 +477,17 @@ describe('lib/portal-nav', () => {
       expect(siteNode?.children?.some((c) => c.label === 'Website Settings')).toBe(true);
     });
 
-    it('falls back to "Website" label when activeSiteName is null', () => {
+    it('falls back to "Current Site" label when activeSiteName is null', () => {
       const items = portalNav.buildPortalNavItems('site-1', null);
-      const siteNode = items.find((i) => i.href === '/portal/websites/site-1');
-      expect(siteNode?.label).toBe('Website');
+      const websites = items.find((i) => i.label === 'Websites');
+      const siteNode = websites?.children?.find((c) => c.href === '/portal/websites/site-1');
+      expect(siteNode?.label).toBe('Current Site');
     });
 
     it('store children include products and orders', () => {
       const items = portalNav.buildPortalNavItems('s', 'S');
-      const siteNode = items.find((i) => i.href === '/portal/websites/s');
+      const websites = items.find((i) => i.label === 'Websites');
+      const siteNode = websites?.children?.find((c) => c.href === '/portal/websites/s');
       const store = siteNode?.children?.find((c) => c.label === 'Store');
       const storeChildrenLabels = store?.children?.map((c) => c.label) ?? [];
       expect(storeChildrenLabels).toEqual(

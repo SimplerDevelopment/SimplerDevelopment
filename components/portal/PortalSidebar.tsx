@@ -181,8 +181,17 @@ export default function PortalSidebar({ apps, entitlements }: PortalSidebarProps
     // Dedupe injected services against the base nav (and each other) by href —
     // some catalog services map to a route the base nav already owns (e.g.
     // Pitches & Proposals → /portal/tools/pitch-decks), which otherwise renders
-    // the item twice and collides React keys.
-    const seenHrefs = new Set(items.map(i => i.href));
+    // the item twice and collides React keys. Collect hrefs recursively so a
+    // service mapping to a now-NESTED route (e.g. /portal/email under Marketing)
+    // is still deduped, not surfaced as a stray top-level item.
+    const seenHrefs = new Set<string>();
+    const collectHrefs = (nodes: NavChild[]) => {
+      for (const n of nodes) {
+        seenHrefs.add(n.href);
+        if (n.children) collectHrefs(n.children);
+      }
+    };
+    collectHrefs(items);
     const serviceItems: NavItem[] = [];
     for (const svc of navServices) {
       if (EXCLUDED_SERVICES.has(svc.name) || svc.name.startsWith('__')) continue;
@@ -329,7 +338,10 @@ export default function PortalSidebar({ apps, entitlements }: PortalSidebarProps
     const showChildren = hasChildren && isExpanded && !item.locked;
 
     return (
-      <li key={`${depth}-${item.href}`}>
+      <li
+        key={`${depth}-${item.href}`}
+        className={item.dividerBefore && depth === 0 ? 'mt-3 pt-3 border-t border-border' : undefined}
+      >
         {renderNavLink(item, depth)}
         {showChildren && (
           <ul className="mt-0.5 space-y-0.5">
