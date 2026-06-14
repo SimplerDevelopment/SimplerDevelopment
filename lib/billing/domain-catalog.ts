@@ -424,11 +424,66 @@ export const BUNDLE: BundleDef = {
   name: 'SimplerDev Complete',
   tagline: 'Every module, one subscription — about 40% off buying them separately.',
   icon: 'all_inclusive',
-  monthlyPriceCents: 15_900, // vs $2.61 sum of parts
+  monthlyPriceCents: 15_900, // vs $261 sum of the 12 module prices
   includedAiCredits: 2_000_000,
   stripeProductId: 'prod_UgUsJfBtYuBJyu',
   stripePriceId: 'price_1Th7ttCVr9RJZQZP5SLpYwVJ',
 };
+
+// ── Volume discount (à-la-carte bulk pricing) ────────────────────────────────
+//
+// The à-la-carte model rewards breadth: the more individual modules a client
+// subscribes to, the larger the percentage off the WHOLE module subscription.
+// Implemented in Stripe as a `percent_off` coupon (duration: forever) attached
+// to the subscription, re-evaluated whenever the active module count crosses a
+// threshold (checkout route on first purchase, add-item route on later changes).
+//
+// The bundle ("SimplerDev Complete") is NOT volume-discounted — its flat price
+// already bakes in a ~39% discount. Tier SKUs (legacy) are likewise excluded.
+//
+// Coupon ids are deterministic (`volume-<percent>`) and provisioned by
+// scripts/billing/create-volume-coupons.ts; see volumeCouponId() in the
+// checkout route. Changing a percentage means minting a new coupon (Stripe
+// coupon percent_off is immutable) and updating both here and the script.
+
+export interface VolumeTier {
+  /** minimum number of individual modules to unlock this discount */
+  minModules: number;
+  /** percentage off the whole à-la-carte module subscription */
+  percentOff: number;
+}
+
+/** Discount thresholds, highest first so volumeTierFor() returns the best match. */
+export const VOLUME_TIERS: VolumeTier[] = [
+  { minModules: 12, percentOff: 30 },
+  { minModules: 8, percentOff: 20 },
+  { minModules: 4, percentOff: 10 },
+];
+
+/** Best volume discount unlocked at a given module count (null below the first threshold). */
+export function volumeTierFor(moduleCount: number): VolumeTier | null {
+  return VOLUME_TIERS.find((t) => moduleCount >= t.minModules) ?? null;
+}
+
+/** The next (higher) threshold above the current count, for "add N more to save" nudges. */
+export function nextVolumeTier(moduleCount: number): VolumeTier | null {
+  // Walk thresholds ascending and return the first one still above the count.
+  for (let i = VOLUME_TIERS.length - 1; i >= 0; i--) {
+    if (VOLUME_TIERS[i].minModules > moduleCount) return VOLUME_TIERS[i];
+  }
+  return null;
+}
+
+/** Apply the unlocked volume discount to a module subtotal (cents). */
+export function applyVolumeDiscount(
+  subtotalCents: number,
+  moduleCount: number,
+): { discountPercent: number; discountCents: number; totalCents: number } {
+  const tier = volumeTierFor(moduleCount);
+  const discountPercent = tier?.percentOff ?? 0;
+  const discountCents = Math.round((subtotalCents * discountPercent) / 100);
+  return { discountPercent, discountCents, totalCents: subtotalCents - discountCents };
+}
 
 // ── Plan tiers (the public 3-tier pricing — curated bundles over the modules) ──
 //

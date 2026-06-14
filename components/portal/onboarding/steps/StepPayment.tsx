@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import type { StepProps } from './types';
-import { BUNDLE, BUNDLE_SLUG, FEATURE_DOMAINS } from '@/lib/billing/domain-catalog';
+import { BUNDLE, BUNDLE_SLUG, FEATURE_DOMAINS, applyVolumeDiscount } from '@/lib/billing/domain-catalog';
 
 const BUNDLE_KEY = 'bundle';
 
@@ -37,7 +37,11 @@ export function StepPayment({ state, setAnswers, persist, next }: StepProps) {
         return [{ name: d.name, icon: d.icon, priceCents: d.monthlyPriceCents }];
       });
 
-  const totalCents = lineItems.reduce((s, li) => s + li.priceCents, 0);
+  // À-la-carte selections earn a volume discount (the bundle is its own price).
+  const subtotalCents = lineItems.reduce((s, li) => s + li.priceCents, 0);
+  const { discountPercent, discountCents, totalCents } = isBundle
+    ? { discountPercent: 0, discountCents: 0, totalCents: subtotalCents }
+    : applyVolumeDiscount(subtotalCents, lineItems.length);
 
   // On mount when returning from a successful Stripe checkout: persist the
   // completedAt timestamp and auto-advance. This is the only async/external
@@ -149,6 +153,18 @@ export function StepPayment({ state, setAnswers, persist, next }: StepProps) {
               <span className="text-sm text-muted-foreground">{formatPrice(li.priceCents)}</span>
             </div>
           ))
+        )}
+        {discountPercent > 0 && (
+          <>
+            <div className="flex items-center justify-between px-4 py-2 text-sm text-muted-foreground">
+              <span>Subtotal</span>
+              <span>{formatPrice(subtotalCents)}</span>
+            </div>
+            <div className="flex items-center justify-between px-4 py-2 text-sm text-primary">
+              <span>Volume discount ({discountPercent}% off)</span>
+              <span>−{formatPrice(discountCents)}</span>
+            </div>
+          </>
         )}
         <div className="flex items-center justify-between px-4 py-3 bg-muted/50">
           <span className="text-sm font-semibold">Total</span>

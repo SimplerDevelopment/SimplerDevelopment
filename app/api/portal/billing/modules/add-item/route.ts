@@ -15,11 +15,37 @@ import { db } from '@/lib/db';
 import { services, clientServices } from '@/lib/db/schema';
 import { and, eq, inArray, isNotNull } from 'drizzle-orm';
 import { authorizePortal, isAuthError } from '@/lib/portal-auth';
-import { FEATURE_DOMAINS, BUNDLE_SLUG } from '@/lib/billing/domain-catalog';
+import { FEATURE_DOMAINS, BUNDLE_SLUG, volumeTierFor } from '@/lib/billing/domain-catalog';
 import { grantMonthlyCredits } from '@/lib/ai-credits';
 import Stripe from 'stripe';
 
 const MODULE_SLUGS = new Set(FEATURE_DOMAINS.map((d) => d.slug));
+
+/** Deterministic Stripe coupon id for a volume-discount percentage. */
+const volumeCouponId = (percentOff: number) => `volume-${percentOff}`;
+
+/**
+ * Re-point a subscription's volume discount at the coupon matching `moduleCount`
+ * (or clear it below the first threshold). Best-effort: a coupon hiccup must
+ * never break the core add, so failures are logged and swallowed.
+ */
+async function syncVolumeDiscount(
+  stripe: Stripe,
+  subscriptionId: string,
+  moduleCount: number,
+): Promise<void> {
+  const tier = volumeTierFor(moduleCount);
+  try {
+    await stripe.subscriptions.update(subscriptionId, {
+      discounts: tier ? [{ coupon: volumeCouponId(tier.percentOff) }] : [],
+    });
+  } catch (err) {
+    console.error(
+      `[modules/add-item] could not sync volume discount on ${subscriptionId} (count=${moduleCount}):`,
+      err instanceof Error ? err.message : err,
+    );
+  }
+}
 
 export async function POST(req: Request) {
   const auth = await authorizePortal({ action: 'admin' });
@@ -93,6 +119,9 @@ export async function POST(req: Request) {
   }
   const stripe = new Stripe(stripeKey);
 
+  // Active module line items before this change (the bundle never volume-discounts).
+  const moduleCountBefore = activeRows.filter((r) => r.category !== 'bundle').length;
+
   if (isBundleSwap) {
     // Replace every existing line item with the single bundle item.
     const sub = await stripe.subscriptions.retrieve(subscriptionId);
@@ -114,6 +143,9 @@ export async function POST(req: Request) {
         .set({ status: 'cancelled', updatedAt: new Date() })
         .where(and(eq(clientServices.clientId, client.id), inArray(clientServices.id, moduleRowIds)));
     }
+
+    // The bundle is its own price — drop any à-la-carte volume coupon.
+    await syncVolumeDiscount(stripe, subscriptionId, 0);
   } else {
     await stripe.subscriptionItems.create({
       subscription: subscriptionId,
@@ -121,6 +153,9 @@ export async function POST(req: Request) {
       quantity: 1,
       proration_behavior: 'create_prorations',
     });
+
+    // One more module now — re-evaluate the volume discount threshold.
+    await syncVolumeDiscount(stripe, subscriptionId, moduleCountBefore + 1);
   }
 
   await db.insert(clientServices).values({

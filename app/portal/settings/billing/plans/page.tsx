@@ -15,7 +15,11 @@
 import { type ReactNode, Suspense, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { TierPlans } from '@/components/portal/billing/TierPlans';
+import { VOLUME_TIERS, volumeTierFor, nextVolumeTier } from '@/lib/billing/domain-catalog';
+
+// Where BYOK ("bring your own AI key") enquiries go — no self-serve price.
+const BYOK_MAILTO =
+  'mailto:info@danielpcoyle.com?subject=BYOK%20pricing%20—%20bring%20your%20own%20AI%20key';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -259,8 +263,6 @@ function BillingPlansInner() {
   const [subscribing, setSubscribing] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState<number | null>(null);
   const [actionError, setActionError] = useState('');
-  const [showModules, setShowModules] = useState(false);
-  const [selectedTierSlug, setSelectedTierSlug] = useState('');
 
   useEffect(() => {
     let cancelled = false;
@@ -280,14 +282,37 @@ function BillingPlansInner() {
     setSubscribing(slug);
     setActionError('');
     try {
-      const res = await fetch('/api/portal/billing/modules/checkout', {
+      // Prefer add-item: append to the client's existing subscription so every
+      // module shares ONE subscription and the volume discount re-syncs as the
+      // count crosses a threshold. Falls back to a fresh Checkout only when
+      // there's no subscription yet (the first purchase, which carries the trial).
+      const addRes = await fetch('/api/portal/billing/modules/add-item', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ slug }),
       });
-      const json = await res.json();
-      if (!json.success) { setActionError(json.message ?? 'Checkout failed.'); setSubscribing(null); return; }
-      window.location.href = json.data.url;
+      const addJson = await addRes.json();
+      if (addJson.success) {
+        // Added in place — refresh state without leaving the page.
+        const refreshed = await fetch('/api/portal/billing/modules').then((r) => r.json() as Promise<ModulesResponse>);
+        if (refreshed.success && refreshed.data) setData(refreshed.data);
+        setSubscribing(null);
+        return;
+      }
+      if (addRes.status === 409 && addJson.useCheckout) {
+        // No subscription yet → full Stripe Checkout (handles the 14-day trial).
+        const res = await fetch('/api/portal/billing/modules/checkout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ slug }),
+        });
+        const json = await res.json();
+        if (!json.success) { setActionError(json.message ?? 'Checkout failed.'); setSubscribing(null); return; }
+        window.location.href = json.data.url;
+        return;
+      }
+      setActionError(addJson.message ?? 'Subscribe failed.');
+      setSubscribing(null);
     } catch (err) {
       setActionError(String(err));
       setSubscribing(null);
@@ -340,6 +365,12 @@ function BillingPlansInner() {
 
   const bundleActive = bundle.status === 'active';
 
+  // Volume discount is a function of how many self-serve modules are active.
+  const activeModuleCount = modules.filter((m) => m.status === 'active' && m.selfServe).length;
+  const currentVolumeTier = volumeTierFor(activeModuleCount);
+  const upcomingVolumeTier = nextVolumeTier(activeModuleCount);
+  const showVolumeStrip = !isAgency && !gatingBypassed && !hasBundle && !bundleActive;
+
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-8">
       {/* Header */}
@@ -386,32 +417,49 @@ function BillingPlansInner() {
         </div>
       )}
 
-      {/* Tier plans — primary pricing */}
-      <div>
-        <h2 className="text-xl font-semibold text-foreground mb-2">Choose your plan</h2>
-        <p className="text-sm text-muted-foreground mb-6">Start with a tier, or customize below.</p>
-        <TierPlans
-          selectedSlug={selectedTierSlug}
-          busySlug={subscribing ?? undefined}
-          onSelect={(slug) => { setSelectedTierSlug(slug); handleSubscribe(slug); }}
-        />
-      </div>
+      {/* Volume-discount strip — the more modules you run, the bigger the % off */}
+      {showVolumeStrip && (
+        <div className="rounded-xl border border-border bg-muted/30 px-5 py-4">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="material-icons text-base text-primary">savings</span>
+            <h2 className="text-sm font-semibold text-foreground">Volume pricing — pay only for what you use</h2>
+          </div>
+          <div className="flex items-center gap-1.5 flex-wrap text-xs">
+            {VOLUME_TIERS.slice().reverse().map((t) => {
+              const unlocked = activeModuleCount >= t.minModules;
+              return (
+                <span
+                  key={t.minModules}
+                  className={[
+                    'inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-medium',
+                    unlocked ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground',
+                  ].join(' ')}
+                >
+                  <span className="material-icons text-sm">{unlocked ? 'check_circle' : 'lock'}</span>
+                  {t.minModules}+ modules → {t.percentOff}% off
+                </span>
+              );
+            })}
+          </div>
+          <p className="text-xs text-muted-foreground mt-2">
+            {currentVolumeTier ? (
+              <span className="text-primary font-medium">
+                You have {activeModuleCount} modules — {currentVolumeTier.percentOff}% volume discount unlocked.
+              </span>
+            ) : (
+              <span>You have {activeModuleCount} module{activeModuleCount === 1 ? '' : 's'}.</span>
+            )}
+            {upcomingVolumeTier && (
+              <>
+                {' '}Add{' '}
+                <strong className="text-foreground">{upcomingVolumeTier.minModules - activeModuleCount} more</strong>{' '}
+                to reach {upcomingVolumeTier.percentOff}% off.
+              </>
+            )}
+          </p>
+        </div>
+      )}
 
-      {/* Divider + toggle to show/hide module grid */}
-      <div className="flex items-center gap-3">
-        <div className="flex-1 h-px bg-border" />
-        <button
-          type="button"
-          onClick={() => setShowModules((v) => !v)}
-          className="text-sm text-primary underline font-medium"
-        >
-          {showModules ? 'Hide individual modules ▴' : 'Customize / build your own plan ▾'}
-        </button>
-        <div className="flex-1 h-px bg-border" />
-      </div>
-
-      {showModules && (
-        <>
       {/* Hero bundle card */}
       <div className={`bg-card border rounded-xl p-6 ${bundleActive ? 'border-primary ring-2 ring-primary/20' : 'border-border'}`}>
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
@@ -503,11 +551,28 @@ function BillingPlansInner() {
         </div>
       </div>
 
+      {/* BYOK — contact sales, not self-serve */}
+      {!isAgency && (
+        <a
+          href={BYOK_MAILTO}
+          className="flex items-start gap-3 rounded-xl border-2 border-dashed border-border p-5 hover:border-primary/50 transition-colors"
+        >
+          <span className="material-icons text-2xl text-primary">vpn_key</span>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h3 className="text-base font-semibold text-foreground">Bring your own AI key (BYOK)</h3>
+              <span className="text-xs font-medium text-primary">Contact sales →</span>
+            </div>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              Spend AI tokens at cost on your own provider key, plus white-label &amp; governance. Custom pricing — email us to set it up.
+            </p>
+          </div>
+        </a>
+      )}
+
       <p className="text-xs text-muted-foreground pb-4">
         Subscriptions are billed monthly via Stripe. You can cancel at any time; access continues until the end of the billing period.
       </p>
-        </>
-      )}
     </div>
   );
 }
