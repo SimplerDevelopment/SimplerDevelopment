@@ -14,7 +14,9 @@ import { db } from '@/lib/db';
 import { clients, services, clientServices, users } from '@/lib/db/schema';
 import { and, eq, inArray } from 'drizzle-orm';
 import { authorizePortal, isAuthError } from '@/lib/portal-auth';
-import { FEATURE_DOMAINS, BUNDLE_SLUG, TIERS, volumeTierFor } from '@/lib/billing/domain-catalog';
+import { FEATURE_DOMAINS, BUNDLE_SLUG, TIERS, SEAT_SKU } from '@/lib/billing/domain-catalog';
+import { buildDesiredItems, toCheckoutLineItem } from '@/lib/billing/subscription-items';
+import { countBillableSeats } from '@/lib/billing/seats';
 import Stripe from 'stripe';
 
 const VALID_SLUGS = new Set([
@@ -23,12 +25,9 @@ const VALID_SLUGS = new Set([
   BUNDLE_SLUG,
 ]);
 
-// Only individual modules count toward the à-la-carte volume discount — not the
-// bundle (already discounted) or legacy tier SKUs.
+// Individual modules are billed at their post-volume-discount amount via
+// price_data; the bundle / legacy tier SKUs use their fixed Stripe price.
 const MODULE_SLUGS = new Set(FEATURE_DOMAINS.map((d) => d.slug));
-
-/** Deterministic Stripe coupon id for a volume-discount percentage. */
-const volumeCouponId = (percentOff: number) => `volume-${percentOff}`;
 
 const TRIAL_DAYS = 14;
 
@@ -157,24 +156,52 @@ export async function POST(req: Request) {
     ? '/portal/onboarding?checkout='
     : '/portal/settings/billing/plans?status=';
 
-  // ── 7. Volume discount: a percent_off coupon scaled to the module count ────
-  // Counts individual modules only; the bundle and tier SKUs are excluded.
-  const moduleCount = slugs.filter((s) => MODULE_SLUGS.has(s)).length;
-  const volumeTier = volumeTierFor(moduleCount);
-  const couponId = volumeTier ? volumeCouponId(volumeTier.percentOff) : null;
+  // ── 7. Build the subscription line items ──────────────────────────────────
+  // À-la-carte modules are charged at their post-volume-discount amount (baked
+  // into the line via price_data, not a coupon) plus a seat line for any
+  // additional accepted seats. Bundle / legacy tier SKUs keep their fixed price.
+  const moduleRows = rows.filter((r) => MODULE_SLUGS.has(r.slug));
+  const isPureModules = moduleRows.length === rows.length;
+
+  let lineItems: Stripe.Checkout.SessionCreateParams.LineItem[];
+  if (isPureModules) {
+    const missingProduct = moduleRows.filter((r) => !r.stripeProductId);
+    if (missingProduct.length > 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: `Not available for self-serve checkout yet: ${missingProduct.map((r) => r.name).join(', ')}.`,
+        },
+        { status: 400 },
+      );
+    }
+    const seatCount = await countBillableSeats(client.id);
+    const { items } = buildDesiredItems({
+      modules: moduleRows.map((r) => ({
+        key: r.slug,
+        stripeProductId: r.stripeProductId as string,
+        fullPriceCents: r.price ?? 0,
+      })),
+      seatCount,
+      seatProductId: SEAT_SKU.stripeProductId,
+    });
+    lineItems = items.map(toCheckoutLineItem);
+  } else {
+    // Bundle or tier — their fixed Stripe price.
+    lineItems = rows.map((r) => ({ price: r.stripePriceId as string, quantity: 1 }));
+  }
 
   const metadata: Record<string, string> = {
     type: 'module_subscription',
     clientId: String(client.id),
     serviceIds: rows.map((r) => r.id).join(','),
     ...(trialEligible ? { trial: '1' } : {}),
-    ...(volumeTier ? { volumeDiscountPercent: String(volumeTier.percentOff) } : {}),
   };
 
-  const baseParams: Stripe.Checkout.SessionCreateParams = {
+  const checkoutSession = await stripe.checkout.sessions.create({
     customer: customerId,
     mode: 'subscription',
-    line_items: rows.map((r) => ({ price: r.stripePriceId as string, quantity: 1 })),
+    line_items: lineItems,
     metadata,
     subscription_data: {
       metadata,
@@ -182,30 +209,7 @@ export async function POST(req: Request) {
     },
     success_url: `${origin}${returnPath}success`,
     cancel_url: `${origin}${returnPath}cancelled`,
-  };
-
-  // A missing/invalid coupon must never block a purchase — if Stripe rejects the
-  // coupon (e.g. coupons not provisioned yet) we retry at full price.
-  let checkoutSession: Stripe.Checkout.Session;
-  try {
-    checkoutSession = await stripe.checkout.sessions.create(
-      couponId ? { ...baseParams, discounts: [{ coupon: couponId }] } : baseParams,
-    );
-  } catch (err) {
-    const couponRejected =
-      couponId &&
-      err instanceof Stripe.errors.StripeError &&
-      (err.code === 'resource_missing' || /coupon/i.test(err.message));
-    if (couponRejected) {
-      console.error(
-        `[modules/checkout] volume coupon ${couponId} unavailable — proceeding at full price:`,
-        err instanceof Error ? err.message : err,
-      );
-      checkoutSession = await stripe.checkout.sessions.create(baseParams);
-    } else {
-      throw err;
-    }
-  }
+  });
 
   return NextResponse.json({ success: true, data: { url: checkoutSession.url } });
 }

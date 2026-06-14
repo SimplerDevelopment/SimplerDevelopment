@@ -3,6 +3,7 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { clientMembers } from '@/lib/db/schema';
 import { getPortalClient } from '@/lib/portal-client';
+import { syncSeatBillingSafe } from '@/lib/billing/recompute-subscription';
 import { eq, and } from 'drizzle-orm';
 
 const VALID_ROLES = ['admin', 'member', 'viewer'] as const;
@@ -105,6 +106,9 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ memb
   }
 
   await db.delete(clientMembers).where(eq(clientMembers.id, memberIdInt));
+
+  // One fewer seat — re-sync the seat charge (best-effort).
+  await syncSeatBillingSafe(client.id);
 
   return NextResponse.json({ success: true, message: 'Member removed' });
 }

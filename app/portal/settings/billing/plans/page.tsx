@@ -15,7 +15,7 @@
 import { type ReactNode, Suspense, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { VOLUME_TIERS, volumeTierFor, nextVolumeTier } from '@/lib/billing/domain-catalog';
+import { VOLUME_TIERS, volumeTierFor, nextVolumeTier, SEAT_PRICE_CAP_CENTS, INCLUDED_SEATS } from '@/lib/billing/domain-catalog';
 
 // Where BYOK ("bring your own AI key") enquiries go — no self-serve price.
 const BYOK_MAILTO =
@@ -73,6 +73,16 @@ interface EntitlementsInfo {
   gatingBypassed: boolean;
 }
 
+interface SeatsInfo {
+  count: number;
+  included: number;
+  additional: number;
+  capCents: number;
+  perSeatCents: number;
+  seatTotalCents: number;
+  moduleSubtotalCents: number;
+}
+
 interface ModulesResponse {
   success: boolean;
   data?: {
@@ -80,6 +90,7 @@ interface ModulesResponse {
     entitlements: EntitlementsInfo;
     bundle: BundleInfo;
     modules: ModuleInfo[];
+    seats: SeatsInfo;
   };
   message?: string;
 }
@@ -355,7 +366,7 @@ function BillingPlansInner() {
 
   if (!data) return null;
 
-  const { billingMode, entitlements, bundle, modules } = data;
+  const { billingMode, entitlements, bundle, modules, seats } = data;
   const isAgency = billingMode === 'agency';
   const { hasBundle, gatingBypassed } = entitlements;
 
@@ -456,6 +467,43 @@ function BillingPlansInner() {
                 to reach {upcomingVolumeTier.percentOff}% off.
               </>
             )}
+          </p>
+        </div>
+      )}
+
+      {/* Team seats — only for self-serve accounts */}
+      {!isAgency && !gatingBypassed && seats && (
+        <div className="rounded-xl border border-border bg-muted/30 px-5 py-4">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="material-icons text-base text-primary">groups</span>
+            <h2 className="text-sm font-semibold text-foreground">Team seats</h2>
+          </div>
+          <p className="text-sm text-foreground mb-1">
+            {seats.count} seat{seats.count !== 1 ? 's' : ''} —{' '}
+            {INCLUDED_SEATS} included
+            {seats.additional > 0 && `, ${seats.additional} additional`}
+          </p>
+          <div className="flex items-baseline gap-4 text-xs text-muted-foreground flex-wrap">
+            <span>
+              Per additional seat:{' '}
+              <span className="font-medium text-foreground">{formatCents(seats.perSeatCents)}/mo</span>
+              {seats.perSeatCents < seats.moduleSubtotalCents && (
+                <span className="ml-1">(capped at ${SEAT_PRICE_CAP_CENTS / 100})</span>
+              )}
+            </span>
+            {seats.additional > 0 && (
+              <span>
+                Seat total:{' '}
+                <span className="font-semibold text-foreground">{formatCents(seats.seatTotalCents)}/mo</span>
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground mt-2">
+            Each additional{' '}
+            <Link href="/portal/settings/team" className="underline hover:text-foreground transition-colors">
+              team member
+            </Link>{' '}
+            is billed your module total, capped at ${SEAT_PRICE_CAP_CENTS / 100}/seat, starting when they accept their invite.
           </p>
         </div>
       )}

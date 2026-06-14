@@ -9,6 +9,7 @@ import {
   applyVolumeDiscount,
   nextVolumeTier,
   VOLUME_TIERS,
+  SEAT_PRICE_CAP_CENTS,
 } from '@/lib/billing/domain-catalog';
 
 interface ModuleItem {
@@ -356,6 +357,9 @@ export function StepChooseModules({ state, setAnswers, persist, next }: StepProp
                 after your 14-day free trial
               </span>
             )}
+            <span className="block text-xs mt-1 text-muted-foreground">
+              Pricing is for your seat. Add teammates any time — each extra seat is your module total, capped at ${SEAT_PRICE_CAP_CENTS / 100}/mo, billed when they accept.
+            </span>
           </div>
           <button
             type="button"
