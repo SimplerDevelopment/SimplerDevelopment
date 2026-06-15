@@ -28,6 +28,7 @@ const SITE_CONTACT_OVERRIDES: Record<string, {
   legalLinks?: Array<{ label: string; href: string }>;
   complianceNotes?: string[];
   trustBadges?: Array<{ src: string; alt: string; href?: string; width?: number; height?: number }>;
+  theme?: { background?: string; text?: string; heading?: string; border?: string };
 }> = {
   'noraanger': {
     contactEmail: 'nora.angerlpc@gmail.com',
@@ -44,6 +45,14 @@ const SITE_CONTACT_OVERRIDES: Record<string, {
     complianceNotes: [
       'Investment advisory services offered through Crossover Capital Brands LLC, a Registered Investment Advisor with the SEC. Testimonials from current, uncompensated clients.',
     ],
+    // Dark navy/gold footer matching the rest of the site (the default light
+    // footer clashed with the dark brand and hid the white logo).
+    theme: {
+      background: '#0f2140',
+      text: 'rgba(255,255,255,0.58)',
+      heading: 'rgba(255,255,255,0.92)',
+      border: 'rgba(255,255,255,0.12)',
+    },
   },
   'cardiff-main': {
     contactEmail: 'info@cardiff.co',
