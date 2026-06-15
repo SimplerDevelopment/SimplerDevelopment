@@ -34,6 +34,17 @@ const SITE_CONTACT_OVERRIDES: Record<string, {
     contactPhone: '610-364-5743',
     contactAddress: ['200 North Monroe Street', 'Media, PA 19063'],
   },
+  'crosscap-advisors': {
+    contactEmail: 'info@crosscapadvisors.com',
+    contactPhone: '215.396.5517',
+    contactAddress: ['113b Floral Vale Blvd', 'Yardley, PA 19067'],
+    // SEC RIA disclosure — previously lived in a redundant embedded site-footer
+    // block on the home page only. Surfacing it here renders it site-wide via
+    // the universal footer (and removed the duplicate footer on the home page).
+    complianceNotes: [
+      'Investment advisory services offered through Crossover Capital Brands LLC, a Registered Investment Advisor with the SEC. Testimonials from current, uncompensated clients.',
+    ],
+  },
   'cardiff-main': {
     contactEmail: 'info@cardiff.co',
     contactPhone: '888-234-0166',
