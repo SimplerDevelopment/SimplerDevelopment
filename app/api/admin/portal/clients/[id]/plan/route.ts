@@ -3,6 +3,7 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { clientServices, services } from '@/lib/db/schema';
 import { and, eq, inArray } from 'drizzle-orm';
+import { TIERS } from '@/lib/billing/domain-catalog';
 
 /**
  * Admin tier-assignment endpoint.
@@ -16,13 +17,15 @@ import { and, eq, inArray } from 'drizzle-orm';
  *         pointing at the requested tier. Sending `serviceId: null` cancels
  *         the current tier without replacing it.
  *
- * Tier services are identified by a `tier-` prefix on the slug, seeded by
- * scripts/seed-pricing-tiers.ts. We deliberately do NOT touch any
- * non-tier clientServices rows — switching tiers does NOT cancel domain /
- * hosting / per-service add-ons.
+ * Tier services are the catalog TIERS (slugs `plan-starter|growth|scale`),
+ * the single source of truth in lib/billing/domain-catalog. We deliberately do
+ * NOT touch any non-tier clientServices rows — switching tiers does NOT cancel
+ * domain / hosting / per-module add-ons.
  */
 
-const TIER_SLUGS = ['tier-starter', 'tier-growth', 'tier-scale'] as const;
+// Canonical plan slugs from the catalog (was wrongly hardcoded as `tier-*`,
+// which matched no rows — the DB seeds them as `plan-*`).
+const TIER_SLUGS: string[] = TIERS.map((t) => t.slug);
 
 async function requireStaff() {
   const session = await auth();
@@ -57,7 +60,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       active: services.active,
     })
     .from(services)
-    .where(inArray(services.slug, TIER_SLUGS as unknown as string[]));
+    .where(inArray(services.slug, TIER_SLUGS));
 
   // Currently active tier for this client (if any).
   const tierIds = tierCatalog.map(t => t.id);
@@ -117,7 +120,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     if (!row) {
       return NextResponse.json({ success: false, message: 'Service not found' }, { status: 404 });
     }
-    if (!(TIER_SLUGS as readonly string[]).includes(row.slug)) {
+    if (!TIER_SLUGS.includes(row.slug)) {
       return NextResponse.json({ success: false, message: 'Service is not a pricing tier' }, { status: 400 });
     }
     targetService = row;
@@ -128,7 +131,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const tierIds = await db
     .select({ id: services.id })
     .from(services)
-    .where(inArray(services.slug, TIER_SLUGS as unknown as string[]));
+    .where(inArray(services.slug, TIER_SLUGS));
   const tierIdList = tierIds.map(r => r.id);
 
   // Deactivate any currently-active tier rows for this client.

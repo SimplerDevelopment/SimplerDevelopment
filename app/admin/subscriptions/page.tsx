@@ -117,7 +117,12 @@ export default function AdminSubscriptionsPage() {
 
     if (kind === 'change-plan' && services.length === 0) {
       const r = await fetch('/api/admin/portal/services').then(r => r.json());
-      setServices((r.data ?? []).filter((s: ServiceCatalogItem) => s.active && s.stripePriceId));
+      // Only plan tiers + the bundle are valid change-plan targets — never an
+      // individual à-la-carte module (swapping one onto the plan line corrupts
+      // the subscription; the API rejects it too).
+      setServices((r.data ?? []).filter((s: ServiceCatalogItem) =>
+        s.active && s.stripePriceId && (s.category.startsWith('plan-') || s.category === 'bundle'),
+      ));
     }
 
     if (kind === 'refund') {

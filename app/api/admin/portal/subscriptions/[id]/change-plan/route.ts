@@ -11,11 +11,16 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { clientServices, meteredSubscriptionItems } from '@/lib/db/schema';
-import { eq, and } from 'drizzle-orm';
+import { clientServices, meteredSubscriptionItems, services } from '@/lib/db/schema';
+import { eq, and, inArray } from 'drizzle-orm';
 import { getStripeClient } from '@/lib/stripe';
+import { TIERS, BUNDLE_SLUG } from '@/lib/billing/domain-catalog';
 
 export const runtime = 'nodejs';
+
+// Only these SKUs may be assigned via change-plan. Individual à-la-carte modules
+// must never be swapped onto a subscription's plan line.
+const PLAN_SLUGS = [...TIERS.map((t) => t.slug), BUNDLE_SLUG];
 
 async function requireStaff() {
   const session = await auth();
@@ -83,6 +88,24 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   }
   const proration = body.proration === 'none' ? 'none' : 'create_prorations';
 
+  // ── Guard: target must be a plan/bundle price, not an individual module ───
+  // (The à-la-carte model builds multi-item module subscriptions; swapping a
+  // module price onto the plan line — or swapping the first item of an
+  // à-la-carte sub — corrupts it.)
+  const planRows = await db
+    .select({ stripePriceId: services.stripePriceId, stripeProductId: services.stripeProductId })
+    .from(services)
+    .where(inArray(services.slug, PLAN_SLUGS));
+  const planPriceIds = new Set(planRows.map((r) => r.stripePriceId).filter(Boolean) as string[]);
+  const planProductIds = new Set(planRows.map((r) => r.stripeProductId).filter(Boolean) as string[]);
+
+  if (!planPriceIds.has(newStripePriceId)) {
+    return NextResponse.json(
+      { success: false, message: 'Target price must be a plan or bundle — individual modules are managed from the client plan page.' },
+      { status: 400 },
+    );
+  }
+
   const resolved = await resolveStripeSubscriptionId(clientServiceId);
   if ('error' in resolved) {
     return NextResponse.json({ success: false, message: resolved.error }, { status: resolved.status });
@@ -92,14 +115,19 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   try {
     const stripe = getStripeClient();
 
-    // Fetch the existing subscription so we can swap the FIRST item's price.
-    // Multi-item subscriptions (e.g. base + metered) are common in this
-    // codebase; we keep all non-primary items untouched and only swap the
-    // first (typically the base recurring plan).
+    // Swap the existing PLAN line (a tier/bundle item), not blindly the first
+    // item — a multi-item à-la-carte subscription has no plan line, so we refuse
+    // rather than corrupt it.
     const existing = await stripe.subscriptions.retrieve(stripeSubscriptionId);
-    const firstItem = existing.items.data[0];
-    if (!firstItem) {
-      return NextResponse.json({ success: false, message: 'Stripe subscription has no items' }, { status: 409 });
+    const planItem = existing.items.data.find((it) => {
+      const product = typeof it.price.product === 'string' ? it.price.product : it.price.product?.id;
+      return planPriceIds.has(it.price.id) || (product ? planProductIds.has(product) : false);
+    });
+    if (!planItem) {
+      return NextResponse.json(
+        { success: false, message: 'This subscription has no plan line to change — it looks à-la-carte. Manage its modules from the client plan page.' },
+        { status: 409 },
+      );
     }
 
     const idempotencyKey = `changePlan_${stripeSubscriptionId}__${clientServiceId}_${Date.now()}`;
@@ -107,7 +135,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const updated = await stripe.subscriptions.update(
       stripeSubscriptionId,
       {
-        items: [{ id: firstItem.id, price: newStripePriceId }],
+        items: [{ id: planItem.id, price: newStripePriceId }],
         proration_behavior: proration,
       },
       { idempotencyKey },
