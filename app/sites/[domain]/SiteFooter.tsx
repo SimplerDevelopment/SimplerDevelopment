@@ -32,6 +32,18 @@ interface SiteFooterProps {
    * an accreditation can supply these.
    */
   trustBadges?: Array<{ src: string; alt: string; href?: string; width?: number; height?: number }>;
+  /**
+   * Optional color theme. Defaults reproduce the standard light footer, so
+   * existing tenants are unaffected. A dark-branded site (e.g. a navy/gold
+   * wealth firm) can supply these so the footer matches its palette instead of
+   * clashing as a light band — and a light logo stays visible on a dark ground.
+   */
+  theme?: {
+    background?: string;
+    text?: string;
+    heading?: string;
+    border?: string;
+  };
 }
 
 // Render a multi-column footer derived from the site's nav structure.
@@ -54,9 +66,17 @@ export function SiteFooter({
   legalLinks,
   complianceNotes,
   trustBadges,
+  theme,
 }: SiteFooterProps) {
   const headingFontStack = headingFont ? `"${headingFont}", sans-serif` : 'system-ui, sans-serif';
   const bodyFontStack = bodyFont ? `"${bodyFont}", sans-serif` : 'system-ui, sans-serif';
+
+  // Resolved footer palette — defaults reproduce the original light footer.
+  const fBg = theme?.background ?? '#f6f9fc';
+  const fText = theme?.text ?? '#525f7f';
+  const fMuted = theme?.text ?? '#4d5a73';
+  const fHeading = theme?.heading ?? secondaryColor;
+  const fBorder = theme?.border ?? '#e8edf6';
 
   // Only show top-level items that have children OR are NOT button-styled CTAs.
   // Button-style nav items ("Apply Now") don't belong in a footer column.
@@ -70,9 +90,9 @@ export function SiteFooter({
   return (
     <footer
       style={{
-        backgroundColor: '#f6f9fc',
-        color: '#525f7f',
-        borderTop: '1px solid #e8edf6',
+        backgroundColor: fBg,
+        color: fText,
+        borderTop: `1px solid ${fBorder}`,
         fontFamily: bodyFontStack,
       }}
     >
@@ -100,7 +120,7 @@ export function SiteFooter({
                   fontFamily: headingFontStack,
                   fontWeight: 800,
                   fontSize: '1.25rem',
-                  color: secondaryColor,
+                  color: fHeading,
                   textDecoration: 'none',
                   marginBottom: '16px',
                 }}
@@ -122,7 +142,7 @@ export function SiteFooter({
             )}
             {contactPhone && (
               <div style={{ fontSize: '0.875rem' }}>
-                <a href={`tel:${contactPhone.replace(/[^\d+]/g, '')}`} style={{ color: secondaryColor, textDecoration: 'none', fontWeight: 600 }}>{contactPhone}</a>
+                <a href={`tel:${contactPhone.replace(/[^\d+]/g, '')}`} style={{ color: fHeading, textDecoration: 'none', fontWeight: 600 }}>{contactPhone}</a>
               </div>
             )}
           </div>
@@ -136,7 +156,7 @@ export function SiteFooter({
                   fontWeight: 700,
                   letterSpacing: '0.16em',
                   textTransform: 'uppercase',
-                  color: secondaryColor,
+                  color: fHeading,
                   margin: '0 0 16px 0',
                 }}
               >
@@ -145,14 +165,14 @@ export function SiteFooter({
               <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
                 {col.href && col.href !== '#' && (col.children?.length ?? 0) === 0 && (
                   <li style={{ marginBottom: '8px' }}>
-                    <Link href={prefixHref(col.href)} style={{ color: '#525f7f', textDecoration: 'none', fontSize: '0.875rem' }}>
+                    <Link href={prefixHref(col.href)} style={{ color: fText, textDecoration: 'none', fontSize: '0.875rem' }}>
                       {col.label}
                     </Link>
                   </li>
                 )}
                 {(col.children || []).slice(0, 8).map(child => (
                   <li key={child.id} style={{ marginBottom: '8px' }}>
-                    <Link href={prefixHref(child.href)} style={{ color: '#525f7f', textDecoration: 'none', fontSize: '0.875rem' }}>
+                    <Link href={prefixHref(child.href)} style={{ color: fText, textDecoration: 'none', fontSize: '0.875rem' }}>
                       {child.label}
                     </Link>
                   </li>
@@ -170,7 +190,7 @@ export function SiteFooter({
         {((complianceNotes && complianceNotes.length > 0) || (trustBadges && trustBadges.length > 0)) && (
           <div
             style={{
-              borderTop: '1px solid #e8edf6',
+              borderTop: `1px solid ${fBorder}`,
               paddingTop: '20px',
               paddingBottom: '20px',
               display: 'grid',
@@ -179,7 +199,7 @@ export function SiteFooter({
               alignItems: 'center',
             }}
           >
-            <div style={{ fontSize: '0.75rem', color: '#4d5a73', lineHeight: '1.6' }}>
+            <div style={{ fontSize: '0.75rem', color: fMuted, lineHeight: '1.6' }}>
               {(complianceNotes || []).map((line, i) => (
                 <p key={i} style={{ margin: '0 0 6px 0' }}>{line}</p>
               ))}
@@ -214,7 +234,7 @@ export function SiteFooter({
         {/* Bottom bar */}
         <div
           style={{
-            borderTop: '1px solid #e8edf6',
+            borderTop: `1px solid ${fBorder}`,
             paddingTop: '20px',
             display: 'flex',
             flexWrap: 'wrap',
@@ -222,14 +242,14 @@ export function SiteFooter({
             alignItems: 'center',
             gap: '12px',
             fontSize: '0.75rem',
-            color: '#4d5a73',
+            color: fMuted,
           }}
         >
           <div>© {new Date().getFullYear()} {siteName}. All rights reserved.</div>
           {legalLinks && legalLinks.length > 0 && (
             <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
               {legalLinks.map(l => (
-                <Link key={l.href} href={prefixHref(l.href)} style={{ color: '#4d5a73', textDecoration: 'none' }}>
+                <Link key={l.href} href={prefixHref(l.href)} style={{ color: fMuted, textDecoration: 'none' }}>
                   {l.label}
                 </Link>
               ))}
