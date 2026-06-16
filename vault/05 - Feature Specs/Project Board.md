@@ -33,6 +33,7 @@ date: 2026-06-10
 - [x] Repo cleanup + docs consolidation + README rewrite (2026-06-09)
 - [x] In-repo Obsidian vault: scaffold + 50-note knowledge sweep (2026-06-10)
 - [x] Scribble (goscribble.ai) site migration — LIVE at https://scribble.simplerdevelopment.com, all 12 pages 200 (2026-06-12) — see [[Scribble Site Migration]]
+- [x] Approval page WYSIWYG preview + page-scoped token (2026-06-16) — live-site iframe in public approval flow; scoped HMAC prevents site-wide token leak — see [[ADR approval-preview-page-scoped-token]] · [[E-Sign & Approvals]]
 
 
 %% kanban:settings
