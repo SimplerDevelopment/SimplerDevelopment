@@ -424,11 +424,146 @@ export const BUNDLE: BundleDef = {
   name: 'SimplerDev Complete',
   tagline: 'Every module, one subscription — about 40% off buying them separately.',
   icon: 'all_inclusive',
-  monthlyPriceCents: 15_900, // vs $2.61 sum of parts
+  monthlyPriceCents: 15_900, // vs $261 sum of the 12 module prices
   includedAiCredits: 2_000_000,
   stripeProductId: 'prod_UgUsJfBtYuBJyu',
   stripePriceId: 'price_1Th7ttCVr9RJZQZP5SLpYwVJ',
 };
+
+// ── Volume discount (à-la-carte bulk pricing) ────────────────────────────────
+//
+// The à-la-carte model rewards breadth: the more individual modules a client
+// subscribes to, the larger the percentage off the WHOLE module subscription.
+//
+// The discount is NOT a Stripe coupon — it's baked into the per-module line
+// item amounts the subscription is built from (see lib/billing/subscription-items.ts
+// and computeAccountBilling below). Each module is charged at
+// round(price × (1 − discount/100)); the post-discount subtotal is "M", which
+// also drives the per-seat cap. This keeps invoices showing exact per-line
+// amounts and lets the seat charge stay undiscounted (see the seat model below).
+//
+// The bundle ("SimplerDev Complete") is NOT volume-discounted — its flat price
+// already bakes in a ~39% discount. Tier SKUs (legacy) are likewise excluded.
+
+export interface VolumeTier {
+  /** minimum number of individual modules to unlock this discount */
+  minModules: number;
+  /** percentage off the whole à-la-carte module subscription */
+  percentOff: number;
+}
+
+/** Discount thresholds, highest first so volumeTierFor() returns the best match. */
+export const VOLUME_TIERS: VolumeTier[] = [
+  { minModules: 12, percentOff: 30 },
+  { minModules: 8, percentOff: 20 },
+  { minModules: 4, percentOff: 10 },
+];
+
+/** Best volume discount unlocked at a given module count (null below the first threshold). */
+export function volumeTierFor(moduleCount: number): VolumeTier | null {
+  return VOLUME_TIERS.find((t) => moduleCount >= t.minModules) ?? null;
+}
+
+/** The next (higher) threshold above the current count, for "add N more to save" nudges. */
+export function nextVolumeTier(moduleCount: number): VolumeTier | null {
+  // Walk thresholds ascending and return the first one still above the count.
+  for (let i = VOLUME_TIERS.length - 1; i >= 0; i--) {
+    if (VOLUME_TIERS[i].minModules > moduleCount) return VOLUME_TIERS[i];
+  }
+  return null;
+}
+
+/** Apply the unlocked volume discount to a module subtotal (cents). */
+export function applyVolumeDiscount(
+  subtotalCents: number,
+  moduleCount: number,
+): { discountPercent: number; discountCents: number; totalCents: number } {
+  const tier = volumeTierFor(moduleCount);
+  const discountPercent = tier?.percentOff ?? 0;
+  const discountCents = Math.round((subtotalCents * discountPercent) / 100);
+  return { discountPercent, discountCents, totalCents: subtotalCents - discountCents };
+}
+
+/** A single module's charged amount after the volume discount (cents). */
+export function discountedModuleCents(fullCents: number, discountPercent: number): number {
+  return Math.round(fullCents * (1 - discountPercent / 100));
+}
+
+// ── Per-seat pricing ─────────────────────────────────────────────────────────
+//
+// On top of the à-la-carte modules, an account is billed per accepted seat.
+// The first seat (the owner) is included; each additional accepted team member
+// adds a seat charge equal to the module subtotal — capped at SEAT_PRICE_CAP.
+//
+//   monthly total = M + (seats − INCLUDED_SEATS) × min(M, SEAT_PRICE_CAP)
+//
+// where M = the post-volume-discount module subtotal. The seat charge is NOT
+// itself volume-discounted (M is already net). "Accepted" seats only: an
+// invited-but-not-yet-accepted user does not bill until they accept.
+// Implemented as an explicit "Additional seats" Stripe line item priced at
+// min(M, SEAT_PRICE_CAP) with quantity = additional seats.
+
+/** Per-additional-seat price cap, in cents ($30). */
+export const SEAT_PRICE_CAP_CENTS = 3_000;
+
+/** Seats included in the base (the owner). */
+export const INCLUDED_SEATS = 1;
+
+/**
+ * The "Additional seats" SKU — one persistent Stripe Product the seat line item
+ * is priced against (the amount is dynamic per account, so the Price is created
+ * inline via price_data; only the Product is stable). Provisioned once by
+ * scripts/billing/create-seat-product.ts; paste the live id here.
+ */
+export const SEAT_SKU = {
+  slug: 'platform-seat',
+  name: 'Additional seats',
+  /** Live Stripe Product id — set after running create-seat-product.ts. */
+  stripeProductId: undefined as string | undefined,
+};
+
+export interface AccountBilling {
+  /** volume discount % applied to the modules */
+  discountPercent: number;
+  /** each module's charged (post-discount) amount, in input order */
+  discountedModuleCents: number[];
+  /** M — post-discount module subtotal (sum of discountedModuleCents) */
+  moduleSubtotalCents: number;
+  /** charge per additional seat = min(M, SEAT_PRICE_CAP_CENTS) */
+  seatUnitCents: number;
+  /** billable seats beyond the included one */
+  additionalSeats: number;
+  /** seatUnitCents × additionalSeats */
+  seatTotalCents: number;
+  /** moduleSubtotalCents + seatTotalCents */
+  totalCents: number;
+}
+
+/**
+ * The full account bill from a set of à-la-carte module prices (full, pre-discount)
+ * and an accepted-seat count. Single source of truth for both display and the
+ * Stripe line items. The bundle path does not use this (flat bundle price).
+ */
+export function computeAccountBilling(
+  modulePricesCents: number[],
+  seatCount: number,
+): AccountBilling {
+  const discountPercent = volumeTierFor(modulePricesCents.length)?.percentOff ?? 0;
+  const discounted = modulePricesCents.map((c) => discountedModuleCents(c, discountPercent));
+  const moduleSubtotalCents = discounted.reduce((s, c) => s + c, 0);
+  const seatUnitCents = Math.min(moduleSubtotalCents, SEAT_PRICE_CAP_CENTS);
+  const additionalSeats = Math.max(0, seatCount - INCLUDED_SEATS);
+  const seatTotalCents = seatUnitCents * additionalSeats;
+  return {
+    discountPercent,
+    discountedModuleCents: discounted,
+    moduleSubtotalCents,
+    seatUnitCents,
+    additionalSeats,
+    seatTotalCents,
+    totalCents: moduleSubtotalCents + seatTotalCents,
+  };
+}
 
 // ── Plan tiers (the public 3-tier pricing — curated bundles over the modules) ──
 //

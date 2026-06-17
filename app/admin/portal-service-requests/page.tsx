@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { fetchJsonSafe } from '@/lib/admin/fetch-json-safe';
 
 interface ServiceRequest {
   id: number;
@@ -36,15 +37,36 @@ function formatDate(s: string) {
 export default function AdminServiceRequestsPage() {
   const [requests, setRequests] = useState<ServiceRequest[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [editingNotes, setEditingNotes] = useState<Record<number, string>>({});
   const [savingId, setSavingId] = useState<number | null>(null);
   const [filterStatus, setFilterStatus] = useState('all');
 
+  async function loadRequests() {
+    setLoading(true);
+    setFetchError(null);
+    const result = await fetchJsonSafe<{ data?: ServiceRequest[] }>('/api/admin/portal/service-requests');
+    if (result.ok) {
+      setRequests(result.data.data ?? []);
+    } else {
+      setFetchError(result.error);
+    }
+    setLoading(false);
+  }
+
   useEffect(() => {
-    fetch('/api/admin/portal/service-requests')
-      .then(r => r.json())
-      .then(d => { setRequests(d.data ?? []); setLoading(false); });
+    void (async () => {
+      setLoading(true);
+      setFetchError(null);
+      const result = await fetchJsonSafe<{ data?: ServiceRequest[] }>('/api/admin/portal/service-requests');
+      if (result.ok) {
+        setRequests(result.data.data ?? []);
+      } else {
+        setFetchError(result.error);
+      }
+      setLoading(false);
+    })();
   }, []);
 
   async function updateRequest(id: number, patch: { status?: string; adminNotes?: string }) {
@@ -120,6 +142,19 @@ export default function AdminServiceRequestsPage() {
       {/* List */}
       {loading ? (
         <div className="text-center py-12 text-muted-foreground">Loading...</div>
+      ) : fetchError ? (
+        <div className="bg-card border border-border rounded-lg p-8 text-center space-y-3">
+          <span className="material-icons text-destructive text-3xl">error_outline</span>
+          <p className="text-sm font-medium text-foreground">Failed to load service requests</p>
+          <p className="text-xs text-muted-foreground font-mono">{fetchError}</p>
+          <button
+            onClick={loadRequests}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
+          >
+            <span className="material-icons text-base">refresh</span>
+            Try again
+          </button>
+        </div>
       ) : filtered.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground">
           {filterStatus === 'all' ? 'No service requests yet.' : `No ${filterStatus} requests.`}

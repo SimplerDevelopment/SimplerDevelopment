@@ -45,12 +45,16 @@ function allEntitlements(mode: BillingMode, hasBundle: boolean, gatingBypassed: 
  */
 export async function getClientEntitlements(
   clientId: number,
-  preloadedClient?: { billingMode: string; brainTrialUntil: Date | null },
+  preloadedClient?: { billingMode: string; brainTrialUntil: Date | null; byokEligibleOverride?: boolean | null },
 ): Promise<ClientEntitlements> {
   let client = preloadedClient;
   if (!client) {
     const [row] = await db
-      .select({ billingMode: clients.billingMode, brainTrialUntil: clients.brainTrialUntil })
+      .select({
+        billingMode: clients.billingMode,
+        brainTrialUntil: clients.brainTrialUntil,
+        byokEligibleOverride: clients.byokEligibleOverride,
+      })
       .from(clients)
       .where(eq(clients.id, clientId))
       .limit(1);
@@ -84,6 +88,9 @@ export async function getClientEntitlements(
     for (const key of tierDomainKeys(tier)) domains.add(key);
     if (tier.byokEligible) byokEligible = true;
   }
+  // Admin/sales grant: BYOK is contact-sales now, so a staff-set override grants
+  // eligibility regardless of tier (à-la-carte clients have no byokEligible tier).
+  if (client?.byokEligibleOverride) byokEligible = true;
 
   if (client?.brainTrialUntil && client.brainTrialUntil > new Date()) domains.add('brain');
 

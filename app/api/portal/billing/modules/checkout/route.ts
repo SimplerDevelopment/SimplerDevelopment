@@ -14,7 +14,9 @@ import { db } from '@/lib/db';
 import { clients, services, clientServices, users } from '@/lib/db/schema';
 import { and, eq, inArray } from 'drizzle-orm';
 import { authorizePortal, isAuthError } from '@/lib/portal-auth';
-import { FEATURE_DOMAINS, BUNDLE_SLUG, TIERS } from '@/lib/billing/domain-catalog';
+import { FEATURE_DOMAINS, BUNDLE_SLUG, TIERS, SEAT_SKU } from '@/lib/billing/domain-catalog';
+import { buildDesiredItems, toCheckoutLineItem } from '@/lib/billing/subscription-items';
+import { countBillableSeats } from '@/lib/billing/seats';
 import Stripe from 'stripe';
 
 const VALID_SLUGS = new Set([
@@ -22,6 +24,10 @@ const VALID_SLUGS = new Set([
   ...TIERS.map((t) => t.slug),
   BUNDLE_SLUG,
 ]);
+
+// Individual modules are billed at their post-volume-discount amount via
+// price_data; the bundle / legacy tier SKUs use their fixed Stripe price.
+const MODULE_SLUGS = new Set(FEATURE_DOMAINS.map((d) => d.slug));
 
 const TRIAL_DAYS = 14;
 
@@ -150,6 +156,41 @@ export async function POST(req: Request) {
     ? '/portal/onboarding?checkout='
     : '/portal/settings/billing/plans?status=';
 
+  // ── 7. Build the subscription line items ──────────────────────────────────
+  // À-la-carte modules are charged at their post-volume-discount amount (baked
+  // into the line via price_data, not a coupon) plus a seat line for any
+  // additional accepted seats. Bundle / legacy tier SKUs keep their fixed price.
+  const moduleRows = rows.filter((r) => MODULE_SLUGS.has(r.slug));
+  const isPureModules = moduleRows.length === rows.length;
+
+  let lineItems: Stripe.Checkout.SessionCreateParams.LineItem[];
+  if (isPureModules) {
+    const missingProduct = moduleRows.filter((r) => !r.stripeProductId);
+    if (missingProduct.length > 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: `Not available for self-serve checkout yet: ${missingProduct.map((r) => r.name).join(', ')}.`,
+        },
+        { status: 400 },
+      );
+    }
+    const seatCount = await countBillableSeats(client.id);
+    const { items } = buildDesiredItems({
+      modules: moduleRows.map((r) => ({
+        key: r.slug,
+        stripeProductId: r.stripeProductId as string,
+        fullPriceCents: r.price ?? 0,
+      })),
+      seatCount,
+      seatProductId: SEAT_SKU.stripeProductId,
+    });
+    lineItems = items.map(toCheckoutLineItem);
+  } else {
+    // Bundle or tier — their fixed Stripe price.
+    lineItems = rows.map((r) => ({ price: r.stripePriceId as string, quantity: 1 }));
+  }
+
   const metadata: Record<string, string> = {
     type: 'module_subscription',
     clientId: String(client.id),
@@ -160,7 +201,7 @@ export async function POST(req: Request) {
   const checkoutSession = await stripe.checkout.sessions.create({
     customer: customerId,
     mode: 'subscription',
-    line_items: rows.map((r) => ({ price: r.stripePriceId as string, quantity: 1 })),
+    line_items: lineItems,
     metadata,
     subscription_data: {
       metadata,

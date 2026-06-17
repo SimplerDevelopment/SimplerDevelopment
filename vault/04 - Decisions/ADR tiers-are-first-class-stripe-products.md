@@ -17,7 +17,7 @@ sources:
 
 ## Status
 
-Accepted — 2026-06-13, branch `feat/market-ready-makeover`.
+Partially superseded — 2026-06-14 by [[ADR alacarte-volume-discount-replaces-tiers]]. The tier Stripe products/prices and their `services` rows remain valid for existing tier subscribers; entitlement resolution is unchanged. What was removed: the tier selection UI in onboarding and on the plans page. The tier data model (`TIERS`, `getTierByCategory()`) and the load-bearing entitlement contract below are still active for legacy clients.
 
 ## Context
 

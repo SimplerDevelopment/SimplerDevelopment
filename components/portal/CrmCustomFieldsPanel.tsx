@@ -97,25 +97,32 @@ export default function CrmCustomFieldsPanel({
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [defsRes, valsRes] = await Promise.all([
-      fetch(`/api/portal/crm/custom-fields?entityType=${entityType}`).then(r => r.json()),
-      fetch(`/api/portal/crm/custom-fields/values?entityType=${entityType}&entityId=${entityId}`).then(r =>
-        r.json(),
-      ),
-    ]);
-    const defsData: FieldDef[] = defsRes.data ?? [];
-    const valsData: FieldValue[] = valsRes.data ?? [];
-    setDefs(defsData);
-    const valMap: Record<number, string> = {};
-    for (const v of valsData) {
-      valMap[v.customFieldId] = v.value ?? '';
+    try {
+      // Guard each response — r.json() on an error/empty body throws.
+      const [defsRes, valsRes] = await Promise.all([
+        fetch(`/api/portal/crm/custom-fields?entityType=${entityType}`).then(r => (r.ok ? r.json() : null)),
+        fetch(`/api/portal/crm/custom-fields/values?entityType=${entityType}&entityId=${entityId}`).then(r =>
+          r.ok ? r.json() : null,
+        ),
+      ]);
+      const defsData: FieldDef[] = defsRes?.data ?? [];
+      const valsData: FieldValue[] = valsRes?.data ?? [];
+      setDefs(defsData);
+      const valMap: Record<number, string> = {};
+      for (const v of valsData) {
+        valMap[v.customFieldId] = v.value ?? '';
+      }
+      setValues(valMap);
+      setDirty(false);
+    } catch {
+      // Network/parse failure — keep whatever we had rather than crashing.
+    } finally {
+      setLoading(false);
     }
-    setValues(valMap);
-    setDirty(false);
-    setLoading(false);
   }, [entityType, entityId]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- pre-existing: load() toggles loading state on mount/refetch
     load();
   }, [load]);
 
@@ -136,6 +143,7 @@ export default function CrmCustomFieldsPanel({
   // Keep activeCategory valid as data loads / changes.
   useEffect(() => {
     if (categories.length === 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- pre-existing pattern: syncs the active tab to available categories
       setActiveCategory(null);
       return;
     }

@@ -15,7 +15,11 @@ import {
   FEATURE_DOMAINS,
   BUNDLE,
   BUNDLE_SLUG,
+  INCLUDED_SEATS,
+  SEAT_PRICE_CAP_CENTS,
+  computeAccountBilling,
 } from '@/lib/billing/domain-catalog';
+import { countBillableSeats } from '@/lib/billing/seats';
 
 export async function GET() {
   const auth = await authorizePortal({ action: 'read' });
@@ -60,6 +64,7 @@ export async function GET() {
   const ent = await getClientEntitlements(client.id, {
     billingMode: client.billingMode,
     brainTrialUntil: client.brainTrialUntil,
+    byokEligibleOverride: client.byokEligibleOverride,
   });
 
   // ── 4. Merge modules ──────────────────────────────────────────────────────
@@ -110,6 +115,20 @@ export async function GET() {
     selfServe: !!(bundleClientSub?.stripeSubscriptionId),
   };
 
+  // ── 6. Seat billing — current accepted seats + the per-seat charge ────────
+  // M = the module subtotal after volume discount (or the flat bundle price).
+  // Each additional accepted seat is billed min(M, $30).
+  const seatCount = await countBillableSeats(client.id);
+  const activeModulePrices = modules
+    .filter((m) => m.status === 'active')
+    .map((m) => m.monthlyPriceCents);
+  const bundleActive = bundle.status === 'active';
+  const moduleSubtotalCents = bundleActive
+    ? bundle.monthlyPriceCents
+    : computeAccountBilling(activeModulePrices, seatCount).moduleSubtotalCents;
+  const additionalSeats = Math.max(0, seatCount - INCLUDED_SEATS);
+  const perSeatCents = Math.min(moduleSubtotalCents, SEAT_PRICE_CAP_CENTS);
+
   return NextResponse.json({
     success: true,
     data: {
@@ -121,6 +140,15 @@ export async function GET() {
       },
       bundle,
       modules,
+      seats: {
+        count: seatCount,
+        included: INCLUDED_SEATS,
+        additional: additionalSeats,
+        capCents: SEAT_PRICE_CAP_CENTS,
+        perSeatCents,
+        seatTotalCents: perSeatCents * additionalSeats,
+        moduleSubtotalCents,
+      },
     },
   });
 }

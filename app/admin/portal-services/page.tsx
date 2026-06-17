@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { formatCents } from '@/lib/portal-utils';
 import SurveyBuilder, { SurveyField } from '@/components/admin/SurveyBuilder';
+import { FEATURE_DOMAINS } from '@/lib/billing/domain-catalog';
 
 interface Service {
   id: number;
@@ -20,6 +21,14 @@ interface Service {
 }
 
 const categoryIcon: Record<string, string> = {
+  // Module domains — sourced from FEATURE_DOMAINS
+  ...Object.fromEntries(FEATURE_DOMAINS.map((d) => [d.key, d.icon])),
+  // Bundle / plan tiers
+  bundle: 'all_inclusive',
+  'plan-starter': 'star_outline',
+  'plan-growth': 'trending_up',
+  'plan-scale': 'rocket_launch',
+  // Legacy service categories
   domain: 'language',
   hosting: 'cloud',
   development: 'code',
@@ -28,7 +37,7 @@ const categoryIcon: Record<string, string> = {
 };
 
 const emptyForm = {
-  name: '', description: '', category: 'development', price: '', billingCycle: 'once', active: true, stripePriceId: '',
+  name: '', description: '', category: '', price: '', billingCycle: 'once', active: true, stripePriceId: '',
 };
 
 export default function AdminPortalServicesPage() {

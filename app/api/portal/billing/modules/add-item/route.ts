@@ -1,14 +1,14 @@
 // POST /api/portal/billing/modules/add-item
 //
 // One-click module add for clients who ALREADY have an active self-serve
-// Stripe subscription (created by the multi-item checkout): appends the
-// module as a prorated line item on the existing subscription — no second
-// Checkout, no re-entering a card. During a trial the new item simply joins
-// the trial. Powers the onboarding upsell step; the plans page can reuse it.
+// Stripe subscription (created by the multi-item checkout). Updates the DB
+// (adds the module's clientServices row, or for a bundle swap cancels the
+// per-module rows and adds the bundle row) and then calls the recompute
+// reconciler, which makes the Stripe subscription match: every module priced
+// at its post-volume-discount amount, the bundle at its fixed price, plus the
+// per-seat line. No second Checkout, no re-entering a card.
 //
-// Body: { slug } — a module slug, or the bundle slug for a full swap:
-// swapping to the bundle replaces every module line item with the single
-// bundle item and marks the per-module clientServices rows cancelled.
+// Body: { slug } — a module slug, or the bundle slug for a full swap.
 
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
@@ -16,6 +16,7 @@ import { services, clientServices } from '@/lib/db/schema';
 import { and, eq, inArray, isNotNull } from 'drizzle-orm';
 import { authorizePortal, isAuthError } from '@/lib/portal-auth';
 import { FEATURE_DOMAINS, BUNDLE_SLUG } from '@/lib/billing/domain-catalog';
+import { recomputeClientSubscription } from '@/lib/billing/recompute-subscription';
 import { grantMonthlyCredits } from '@/lib/ai-credits';
 import Stripe from 'stripe';
 
@@ -93,18 +94,9 @@ export async function POST(req: Request) {
   }
   const stripe = new Stripe(stripeKey);
 
+  // ── 1. Reflect the change in the DB first ─────────────────────────────────
   if (isBundleSwap) {
-    // Replace every existing line item with the single bundle item.
-    const sub = await stripe.subscriptions.retrieve(subscriptionId);
-    await stripe.subscriptions.update(subscriptionId, {
-      items: [
-        ...sub.items.data.map((item) => ({ id: item.id, deleted: true as const })),
-        { price: service.stripePriceId },
-      ],
-      proration_behavior: 'create_prorations',
-    });
-
-    // Per-module rows are superseded by the bundle row.
+    // Per-module rows are superseded by the single bundle row.
     const moduleRowIds = activeRows
       .filter((r) => r.stripeSubscriptionId === subscriptionId)
       .map((r) => r.id);
@@ -114,13 +106,6 @@ export async function POST(req: Request) {
         .set({ status: 'cancelled', updatedAt: new Date() })
         .where(and(eq(clientServices.clientId, client.id), inArray(clientServices.id, moduleRowIds)));
     }
-  } else {
-    await stripe.subscriptionItems.create({
-      subscription: subscriptionId,
-      price: service.stripePriceId,
-      quantity: 1,
-      proration_behavior: 'create_prorations',
-    });
   }
 
   await db.insert(clientServices).values({
@@ -130,6 +115,9 @@ export async function POST(req: Request) {
     stripeSubscriptionId: subscriptionId,
     startDate: new Date(),
   });
+
+  // ── 2. Make Stripe match the new module set + seats ───────────────────────
+  await recomputeClientSubscription(stripe, client.id);
 
   await grantMonthlyCredits(client.id);
 

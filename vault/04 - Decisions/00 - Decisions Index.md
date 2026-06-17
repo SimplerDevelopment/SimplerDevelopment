@@ -18,6 +18,9 @@ Static list (agents: maintain this when adding ADRs — Dataview below only rend
 - [[ADR agent-topology-router-not-domain-mesh]]
 - [[ADR byok-inversion-scale-only]]
 - [[ADR tiers-are-first-class-stripe-products]]
+- [[ADR alacarte-volume-discount-replaces-tiers]]
+- [[ADR per-seat-pricing-computed-line-items]]
+- [[ADR admin-billing-overrides-comp-coupon]]
 
 ```dataview
 TABLE domain, status, date

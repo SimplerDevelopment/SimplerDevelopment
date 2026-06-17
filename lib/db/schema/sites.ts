@@ -42,6 +42,22 @@ export const clients = pgTable('clients', {
   // yet consumed; set by the Stripe webhook when a trialing subscription
   // activates. Checkout only grants trial_period_days while this is null.
   trialUsedAt: timestamp('trial_used_at'),
+  // ── Admin billing overrides (staff-set escape hatches; all null = default) ──
+  // Set from the admin "Billing & Plan" surface. They ripple into the portal's
+  // own billing too (seat display, byok gates), so changing them is a real
+  // billing action — see lib/billing/{seats,entitlements,recompute-subscription}.
+  //
+  //   billableSeatsOverride — when set, the billed seat count (wins over the
+  //     derived owner+accepted-members count in countBillableSeats). For comped
+  //     or contracted-seat deals.
+  billableSeatsOverride: integer('billable_seats_override'),
+  //   compDiscountPercent — 0–100; a per-account comp discount applied as a
+  //     Stripe percent_off coupon the reconciler preserves. SEPARATE from the
+  //     à-la-carte volume discount (which lives in the computed line items).
+  compDiscountPercent: integer('comp_discount_percent'),
+  //   byokEligibleOverride — true grants BYOK eligibility regardless of tier
+  //     (BYOK is contact-sales now); getClientEntitlements ORs it in.
+  byokEligibleOverride: boolean('byok_eligible_override'),
   // Publishing Command Center — the system-managed kanban project that holds
   // every Publishing card for this client. Set on first visit to
   // /portal/publishing by the bootstrap action. Null = not yet bootstrapped.

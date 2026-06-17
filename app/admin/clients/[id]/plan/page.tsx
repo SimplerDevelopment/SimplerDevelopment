@@ -12,7 +12,8 @@
 
 import { use, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { BYOK_PROVIDER_LABELS } from '@/lib/billing/domain-catalog';
+import { BYOK_PROVIDER_LABELS, FEATURE_DOMAINS } from '@/lib/billing/domain-catalog';
+import { formatCents } from '@/lib/portal-utils';
 
 interface Tier {
   id: number;
@@ -77,6 +78,33 @@ export default function ClientPlanPage({ params }: { params: Promise<{ id: strin
   const [savingMode, setSavingMode] = useState(false);
   const [byokStatus, setByokStatus] = useState<ByokStatus | null>(null);
 
+  // billing read-model
+  interface BillingData {
+    billingMode: string;
+    hasSubscription: boolean;
+    modules: Array<{ clientServiceId: number; key: string; slug: string; name: string; priceCents: number }>;
+    bundle: { clientServiceId: number; priceCents: number } | null;
+    seats: {
+      derived: number; override: number | null; effective: number;
+      included: number; additional: number; perSeatCents: number; seatTotalCents: number;
+    };
+    moduleSubtotalCents: number;
+    discountPercent: number;
+    compDiscountPercent: number | null;
+    compDiscountCents: number;
+    byokEligibleOverride: boolean | null;
+    byokEligible: boolean;
+    grossMrrCents: number;
+    netMrrCents: number;
+  }
+
+  const [billing, setBilling] = useState<BillingData | null>(null);
+  const [billingLoading, setBillingLoading] = useState(true);
+  const [billingInFlight, setBillingInFlight] = useState(false);
+  const [billingError, setBillingError] = useState('');
+  const [seatsInput, setSeatsInput] = useState('');
+  const [compInput, setCompInput] = useState('');
+
   useEffect(() => {
     let cancelled = false;
     Promise.all([
@@ -108,6 +136,51 @@ export default function ClientPlanPage({ params }: { params: Promise<{ id: strin
       });
     return () => { cancelled = true; };
   }, [clientId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/admin/portal/clients/${clientId}/billing`)
+      .then(r => r.json())
+      .then((data: { success: boolean; data?: BillingData; message?: string }) => {
+        if (cancelled) return;
+        if (data.success && data.data) {
+          setBilling(data.data);
+          setSeatsInput(data.data.seats.override != null ? String(data.data.seats.override) : '');
+          setCompInput(data.data.compDiscountPercent != null ? String(data.data.compDiscountPercent) : '');
+        }
+        setBillingLoading(false);
+      })
+      .catch(() => { if (!cancelled) setBillingLoading(false); });
+    return () => { cancelled = true; };
+  }, [clientId]);
+
+  async function billingAction(body: Record<string, unknown>) {
+    setBillingInFlight(true);
+    setBillingError('');
+    try {
+      const res = await fetch(`/api/admin/portal/clients/${clientId}/billing`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json() as { success: boolean; message?: string };
+      if (!data.success) {
+        setBillingError(data.message ?? 'Action failed');
+        return;
+      }
+      // Refetch read-model
+      const refreshed = await fetch(`/api/admin/portal/clients/${clientId}/billing`).then(r => r.json()) as { success: boolean; data?: BillingData };
+      if (refreshed.success && refreshed.data) {
+        setBilling(refreshed.data);
+        setSeatsInput(refreshed.data.seats.override != null ? String(refreshed.data.seats.override) : '');
+        setCompInput(refreshed.data.compDiscountPercent != null ? String(refreshed.data.compDiscountPercent) : '');
+      }
+    } catch (err) {
+      setBillingError(String(err));
+    } finally {
+      setBillingInFlight(false);
+    }
+  }
 
   async function switchBillingMode(mode: BillingModeValue) {
     setSavingMode(true);
@@ -374,6 +447,272 @@ export default function ClientPlanPage({ params }: { params: Promise<{ id: strin
           })}
         </div>
       )}
+
+      {/* ── Billing & Plan management ───────────────────────────── */}
+      {billingLoading ? (
+        <div className="p-4 text-sm text-muted-foreground">Loading billing data…</div>
+      ) : billing ? (
+        <div className="space-y-4">
+          <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
+            <span className="material-icons text-xl text-primary">receipt_long</span>
+            Billing &amp; Plan
+          </h2>
+
+          {billingError && (
+            <div className="flex items-center gap-2 text-sm text-red-700 bg-red-50 border border-red-200 rounded-md px-4 py-3">
+              <span className="material-icons text-base">error_outline</span>
+              {billingError}
+            </div>
+          )}
+
+          {/* 1. Plan summary */}
+          <div className="bg-card border border-border rounded-lg p-5 space-y-2">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="material-icons text-xl text-primary">summarize</span>
+              <h3 className="text-sm font-semibold text-foreground">Plan summary</h3>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
+              <div>
+                <p className="text-xs text-muted-foreground uppercase tracking-wide">Gross MRR</p>
+                <p className="font-semibold text-foreground">{formatCents(billing.grossMrrCents)}</p>
+              </div>
+              {billing.discountPercent > 0 && (
+                <div>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Volume discount</p>
+                  <p className="font-semibold text-foreground">{billing.discountPercent}%</p>
+                </div>
+              )}
+              {(billing.compDiscountPercent ?? 0) > 0 && (
+                <div>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Comp discount</p>
+                  <p className="font-semibold text-foreground">
+                    {billing.compDiscountPercent}% (−{formatCents(billing.compDiscountCents)})
+                  </p>
+                </div>
+              )}
+              <div>
+                <p className="text-xs text-muted-foreground uppercase tracking-wide">Net MRR</p>
+                <p className="font-semibold text-foreground">{formatCents(billing.netMrrCents)}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* 2. Modules */}
+          <div className="bg-card border border-border rounded-lg p-5 space-y-3">
+            <div className="flex items-center gap-2">
+              <span className="material-icons text-xl text-primary">extension</span>
+              <h3 className="text-sm font-semibold text-foreground">Modules</h3>
+            </div>
+
+            {billing.bundle ? (
+              <div className="flex items-center gap-2 text-sm">
+                <span className="material-icons text-base text-green-600">check_circle</span>
+                <span className="text-foreground font-medium">On the Everything bundle</span>
+                <span className="text-muted-foreground">— all modules included ({formatCents(billing.bundle.priceCents)}/mo)</span>
+              </div>
+            ) : billing.modules.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No active modules.</p>
+            ) : (
+              <ul className="space-y-1.5">
+                {billing.modules.map((mod) => (
+                  <li key={mod.clientServiceId} className="flex items-center justify-between text-sm">
+                    <span className="text-foreground">{mod.name} <span className="text-muted-foreground">({formatCents(mod.priceCents)}/mo)</span></span>
+                    <button
+                      onClick={() => billingAction({ action: 'remove-module', clientServiceId: mod.clientServiceId })}
+                      disabled={billingInFlight}
+                      className="flex items-center gap-1 text-red-600 hover:text-red-700 disabled:opacity-50 text-xs"
+                    >
+                      <span className="material-icons text-sm">remove_circle_outline</span>
+                      Remove
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            {/* Add module */}
+            {!billing.bundle && (() => {
+              const activeKeys = new Set(billing.modules.map(m => m.slug));
+              const available = FEATURE_DOMAINS.filter(d => !activeKeys.has(d.slug));
+              if (available.length === 0) return null;
+              return (
+                <div className="flex items-center gap-2 pt-2 border-t border-border">
+                  <span className="material-icons text-base text-muted-foreground">add_circle_outline</span>
+                  <select
+                    id="add-module-select"
+                    defaultValue=""
+                    className="flex-1 text-sm border border-border rounded-md px-2 py-1.5 bg-background text-foreground"
+                    onChange={(e) => {
+                      const slug = e.target.value;
+                      if (!slug) return;
+                      e.target.value = '';
+                      billingAction({ action: 'add-module', slug });
+                    }}
+                    disabled={billingInFlight}
+                  >
+                    <option value="">Add module…</option>
+                    {available.map((d) => (
+                      <option key={d.slug} value={d.slug}>
+                        {d.name} ({formatCents(d.monthlyPriceCents)}/mo)
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              );
+            })()}
+
+            {/* Switch to bundle */}
+            {!billing.bundle && (
+              <div className="pt-2 border-t border-border">
+                <button
+                  onClick={() => billingAction({ action: 'set-bundle' })}
+                  disabled={billingInFlight}
+                  className="flex items-center gap-1 text-sm text-primary hover:underline disabled:opacity-50"
+                >
+                  <span className="material-icons text-base">star</span>
+                  Switch to Everything bundle
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* 3. Seats */}
+          <div className="bg-card border border-border rounded-lg p-5 space-y-3">
+            <div className="flex items-center gap-2">
+              <span className="material-icons text-xl text-primary">group</span>
+              <h3 className="text-sm font-semibold text-foreground">Seats</h3>
+            </div>
+            <div className="grid grid-cols-3 gap-3 text-sm">
+              <div>
+                <p className="text-xs text-muted-foreground uppercase tracking-wide">Derived</p>
+                <p className="font-semibold text-foreground">{billing.seats.derived}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground uppercase tracking-wide">Override</p>
+                <p className="font-semibold text-foreground">{billing.seats.override != null ? billing.seats.override : '—'}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground uppercase tracking-wide">Effective</p>
+                <p className="font-semibold text-foreground">{billing.seats.effective}</p>
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {billing.seats.included} included · {billing.seats.additional} additional ·{' '}
+              {formatCents(billing.seats.perSeatCents)}/seat → {formatCents(billing.seats.seatTotalCents)} seat charge
+            </p>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                min="0"
+                value={seatsInput}
+                onChange={(e) => setSeatsInput(e.target.value)}
+                placeholder="Override seat count"
+                className="w-40 text-sm border border-border rounded-md px-2 py-1.5 bg-background text-foreground"
+              />
+              <button
+                onClick={() => {
+                  const val = seatsInput.trim() === '' ? null : parseInt(seatsInput, 10);
+                  billingAction({ action: 'set-seats', override: val });
+                }}
+                disabled={billingInFlight}
+                className="px-3 py-1.5 text-sm bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50"
+              >
+                Set
+              </button>
+              <button
+                onClick={() => { setSeatsInput(''); billingAction({ action: 'set-seats', override: null }); }}
+                disabled={billingInFlight}
+                className="px-3 py-1.5 text-sm border border-border rounded-md hover:bg-muted disabled:opacity-50"
+              >
+                Clear
+              </button>
+            </div>
+          </div>
+
+          {/* 4. Comp discount */}
+          <div className="bg-card border border-border rounded-lg p-5 space-y-3">
+            <div className="flex items-center gap-2">
+              <span className="material-icons text-xl text-primary">discount</span>
+              <h3 className="text-sm font-semibold text-foreground">Comp discount</h3>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Current: {billing.compDiscountPercent != null ? `${billing.compDiscountPercent}%` : 'None'}
+              {(billing.compDiscountPercent ?? 0) > 0 && ` (−${formatCents(billing.compDiscountCents)}/mo)`}
+            </p>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                min="0"
+                max="100"
+                value={compInput}
+                onChange={(e) => setCompInput(e.target.value)}
+                placeholder="0–100"
+                className="w-24 text-sm border border-border rounded-md px-2 py-1.5 bg-background text-foreground"
+              />
+              <span className="text-sm text-muted-foreground">%</span>
+              <button
+                onClick={() => {
+                  const val = compInput.trim() === '' ? null : parseInt(compInput, 10);
+                  billingAction({ action: 'set-comp', percent: val });
+                }}
+                disabled={billingInFlight}
+                className="px-3 py-1.5 text-sm bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50"
+              >
+                Set
+              </button>
+              <button
+                onClick={() => { setCompInput(''); billingAction({ action: 'set-comp', percent: null }); }}
+                disabled={billingInFlight}
+                className="px-3 py-1.5 text-sm border border-border rounded-md hover:bg-muted disabled:opacity-50"
+              >
+                Clear
+              </button>
+            </div>
+          </div>
+
+          {/* 5. BYOK eligibility */}
+          <div className="bg-card border border-border rounded-lg p-5 space-y-3">
+            <div className="flex items-center gap-2">
+              <span className="material-icons text-xl text-primary">vpn_key</span>
+              <h3 className="text-sm font-semibold text-foreground">BYOK eligibility</h3>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Effective: <span className="font-medium text-foreground">{billing.byokEligible ? 'Eligible' : 'Not eligible'}</span>
+              {billing.byokEligibleOverride !== null && (
+                <span className="ml-2 text-xs bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded">
+                  override: {billing.byokEligibleOverride ? 'Granted' : 'Revoked'}
+                </span>
+              )}
+            </p>
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                onClick={() => billingAction({ action: 'set-byok', override: true })}
+                disabled={billingInFlight || billing.byokEligibleOverride === true}
+                className="px-3 py-1.5 text-sm border border-border rounded-md hover:bg-muted disabled:opacity-50 flex items-center gap-1"
+              >
+                <span className="material-icons text-sm">check_circle</span>
+                Grant
+              </button>
+              <button
+                onClick={() => billingAction({ action: 'set-byok', override: false })}
+                disabled={billingInFlight || billing.byokEligibleOverride === false}
+                className="px-3 py-1.5 text-sm border border-border rounded-md hover:bg-muted disabled:opacity-50 flex items-center gap-1"
+              >
+                <span className="material-icons text-sm">block</span>
+                Revoke
+              </button>
+              <button
+                onClick={() => billingAction({ action: 'set-byok', override: null })}
+                disabled={billingInFlight || billing.byokEligibleOverride === null}
+                className="px-3 py-1.5 text-sm border border-border rounded-md hover:bg-muted disabled:opacity-50 flex items-center gap-1"
+              >
+                <span className="material-icons text-sm">settings_backup_restore</span>
+                Use default
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <p className="text-xs text-muted-foreground">
         Switching tiers cancels the prior tier&apos;s <code className="bg-muted px-1 rounded">client_services</code> row and creates a new active row.

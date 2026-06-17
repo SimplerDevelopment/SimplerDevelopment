@@ -1,7 +1,7 @@
 ---
 kanban-plugin: board
 type: index
-date: 2026-06-10
+date: 2026-06-16
 ---
 
 ## Backlog
@@ -30,6 +30,17 @@ date: 2026-06-10
 
 - [ ] Per-Domain SaaS Billing & BYOK — see [[Per-Domain SaaS Billing & BYOK]]
 - [ ] Self-Serve Signup Funnel & Module Onboarding — see [[Self-Serve Signup Funnel & Module Onboarding]]
+- [ ] Per-seat pricing + computed line items — staging Stripe test-mode verification required; run `create-seat-product.ts` and populate `SEAT_SKU.stripeProductId` — see [[ADR per-seat-pricing-computed-line-items]] · [[Billing & Stripe]]
+- [ ] **EPIC: Admin Billing Parity — Full Management** — code-complete (C1–C9); pending: `/admin/login` smoke-test, override/comp/module POST paths in Stripe TEST mode, `bun test:tenancy`, hand-apply `scripts/migrations/admin-billing-overrides.sql` to staging/prod — see [[Admin Billing Parity — Full Management]] · [[ADR admin-billing-overrides-comp-coupon]]
+- [ ] C1 — Schema: admin billing overrides migration (`billable_seats_override`, `comp_discount_percent`, `byok_eligible_override` on `clients`) — see [[Admin Billing Parity — Full Management]]
+- [ ] C2 — Wire overrides into billing logic (seats, entitlements, reconciler comp coupon) — see [[Admin Billing Parity — Full Management]]
+- [ ] C3 — Admin billing-management API (modules, bundle, seats, comp, byok-override, mode routes) — see [[Admin Billing Parity — Full Management]]
+- [ ] C4 — Plan page → "Billing & Plan" full management surface — see [[Admin Billing Parity — Full Management]]
+- [ ] C5 — Client-detail billing tab: read summary + fix stale category maps — see [[Admin Billing Parity — Full Management]]
+- [ ] C6 — Subscriptions page model-awareness (multi-item subs legible) — see [[Admin Billing Parity — Full Management]]
+- [ ] C7 — RSC admin auth shell (convert `app/admin/layout.tsx` to server component) — see [[Admin Billing Parity — Full Management]]
+- [ ] C8 — Targeted admin resilience (`app/admin/error.tsx` + `fetchJsonSafe`) — see [[Admin Billing Parity — Full Management]]
+- [ ] C9 — Cleanup: delete dead `AdminNav` + stale unit test refs — see [[Admin Billing Parity — Full Management]]
 
 
 ## Shipped

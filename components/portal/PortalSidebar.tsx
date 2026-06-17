@@ -2,13 +2,14 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, type MouseEvent } from 'react';
 import { signOut } from 'next-auth/react';
 import CompanySwitcher from './CompanySwitcher';
 import { buildPortalNavItems, type PortalNavChild, type PortalNavItem } from '@/lib/portal-nav';
 import type { UserAppNavMeta } from '@/lib/plugins/load-user-apps';
 import type { SerializableEntitlements } from '@/app/portal/PortalShell';
 import { useAgencyChrome } from './AgencyChromeProvider';
+import { getDomainByKey } from '@/lib/billing/domain-catalog';
 
 type Theme = 'light' | 'dark' | 'system';
 const themeOrder: Theme[] = ['system', 'light', 'dark'];
@@ -108,6 +109,32 @@ export default function PortalSidebar({ apps, entitlements }: PortalSidebarProps
   const [navServices, setNavServices] = useState<NavService[]>([]);
   const [activeSiteName, setActiveSiteName] = useState<string | null>(null);
   const [pendingCount, setPendingCount] = useState<number>(0);
+  // Hover popover for a locked nav item — teases the module's price + a CTA.
+  // Fixed-positioned (anchored to the hovered row) so the sidebar's
+  // overflow-y-auto doesn't clip it.
+  const [lockPopover, setLockPopover] = useState<{ top: number; left: number; key: string } | null>(null);
+  const [popVisible, setPopVisible] = useState(false);
+  const lockTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const openLockPopover = (e: MouseEvent<HTMLElement>, key: string) => {
+    if (lockTimer.current) clearTimeout(lockTimer.current);
+    const r = e.currentTarget.getBoundingClientRect();
+    setLockPopover({
+      top: Math.max(8, Math.min(r.top, window.innerHeight - 280)),
+      left: r.right + 8,
+      key,
+    });
+    // Mount hidden, then reveal next frame so the slide/fade transition fires.
+    setPopVisible(false);
+    requestAnimationFrame(() => setPopVisible(true));
+  };
+  const closeLockPopoverSoon = () => {
+    if (lockTimer.current) clearTimeout(lockTimer.current);
+    lockTimer.current = setTimeout(() => setLockPopover(null), 150);
+  };
+  const keepLockPopover = () => {
+    if (lockTimer.current) clearTimeout(lockTimer.current);
+  };
 
   // Detect CMS context
   const cmsMatch = pathname.match(/^\/portal\/websites\/(\d+)(\/|$)/);
@@ -181,11 +208,25 @@ export default function PortalSidebar({ apps, entitlements }: PortalSidebarProps
     // Dedupe injected services against the base nav (and each other) by href —
     // some catalog services map to a route the base nav already owns (e.g.
     // Pitches & Proposals → /portal/tools/pitch-decks), which otherwise renders
-    // the item twice and collides React keys.
-    const seenHrefs = new Set(items.map(i => i.href));
+    // the item twice and collides React keys. Collect hrefs recursively so a
+    // service mapping to a now-NESTED route (e.g. /portal/email under Marketing)
+    // is still deduped, not surfaced as a stray top-level item.
+    const seenHrefs = new Set<string>();
+    const collectHrefs = (nodes: NavChild[]) => {
+      for (const n of nodes) {
+        seenHrefs.add(n.href);
+        if (n.children) collectHrefs(n.children);
+      }
+    };
+    collectHrefs(items);
     const serviceItems: NavItem[] = [];
     for (const svc of navServices) {
       if (EXCLUDED_SERVICES.has(svc.name) || svc.name.startsWith('__')) continue;
+      // Don't surface "request a service" links in the main nav — services are
+      // bought self-serve from the plans page now, not requested from the
+      // sidebar. (Services in a known category still link to their feature page,
+      // e.g. Bookings → /portal/tools/booking; only the /request fallbacks drop.)
+      if (svc.href.endsWith('/request')) continue;
       if (seenHrefs.has(svc.href)) continue;
       seenHrefs.add(svc.href);
       serviceItems.push({ href: svc.href, label: svc.name, icon: svc.icon });
@@ -273,16 +314,27 @@ export default function PortalSidebar({ apps, entitlements }: PortalSidebarProps
 
     // Locked items: render as a Link to the billing/plans page with lock icon.
     // Parents with children behave the same (no expand, just navigate to plans).
+    // On hover the module price slides in and a teaser popover opens beside it.
     if (isLocked) {
       const billingHref = `/portal/settings/billing/plans${item.requiredDomain ? `?highlight=${item.requiredDomain}` : ''}`;
+      const lockDomain = item.requiredDomain ? getDomainByKey(item.requiredDomain) : undefined;
+      const priceLabel = lockDomain ? `$${Math.round(lockDomain.monthlyPriceCents / 100)}` : null;
       return (
         <Link
           href={billingHref}
           onClick={toggleOpen}
-          className={linkClass + ' cursor-pointer'}
+          className={linkClass + ' cursor-pointer group/lock'}
+          onMouseEnter={lockDomain ? (e) => openLockPopover(e, item.requiredDomain!) : undefined}
+          onMouseLeave={lockDomain ? closeLockPopoverSoon : undefined}
         >
           <span className="material-icons text-xl shrink-0">{item.icon}</span>
           <span className="flex-1 truncate">{item.label}</span>
+          {priceLabel && (
+            <span className="text-xs font-semibold text-primary opacity-0 translate-x-2 group-hover/lock:opacity-100 group-hover/lock:translate-x-0 transition-all duration-200 shrink-0">
+              {priceLabel}
+              <span className="font-normal text-[10px] text-muted-foreground">/mo</span>
+            </span>
+          )}
           <span className="material-icons text-base shrink-0">lock</span>
         </Link>
       );
@@ -329,7 +381,10 @@ export default function PortalSidebar({ apps, entitlements }: PortalSidebarProps
     const showChildren = hasChildren && isExpanded && !item.locked;
 
     return (
-      <li key={`${depth}-${item.href}`}>
+      <li
+        key={`${depth}-${item.href}`}
+        className={item.dividerBefore && depth === 0 ? 'mt-3 pt-3 border-t border-border' : undefined}
+      >
         {renderNavLink(item, depth)}
         {showChildren && (
           <ul className="mt-0.5 space-y-0.5">
@@ -420,6 +475,52 @@ export default function PortalSidebar({ apps, entitlements }: PortalSidebarProps
           onClick={toggleOpen}
         />
       )}
+
+      {/* Locked-item hover teaser: price + details + CTA, anchored beside the row */}
+      {lockPopover && (() => {
+        const d = getDomainByKey(lockPopover.key);
+        if (!d) return null;
+        return (
+          <div
+            className={`fixed z-50 w-64 rounded-xl border border-border bg-card shadow-xl p-4 transition-all duration-200 ${
+              popVisible ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-2'
+            }`}
+            style={{ top: lockPopover.top, left: lockPopover.left }}
+            onMouseEnter={keepLockPopover}
+            onMouseLeave={closeLockPopoverSoon}
+          >
+            <div className="flex items-center gap-2 mb-1">
+              <span className="material-icons text-xl text-primary">{d.icon}</span>
+              <span className="font-semibold text-sm flex-1 truncate">{d.name}</span>
+              <span className="material-icons text-sm text-muted-foreground shrink-0">lock</span>
+            </div>
+            <div className="mb-1.5">
+              <span className="text-xl font-bold text-foreground">${Math.round(d.monthlyPriceCents / 100)}</span>
+              <span className="text-xs font-normal text-muted-foreground">/mo</span>
+            </div>
+            <p className="text-xs text-muted-foreground mb-3 leading-relaxed">{d.tagline}</p>
+            {d.features.length > 0 && (
+              <ul className="space-y-1 mb-3">
+                {d.features.slice(0, 3).map((f, i) => (
+                  <li key={i} className="flex items-start gap-1.5 text-xs text-foreground">
+                    <span className="material-icons text-sm text-primary mt-px shrink-0">check_circle</span>
+                    <span className="leading-snug">{f}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <Link
+              href={`/portal/settings/billing/plans?highlight=${lockPopover.key}`}
+              onClick={() => { setLockPopover(null); toggleOpen(); }}
+              className="flex items-center justify-center gap-1 w-full rounded-md bg-primary text-primary-foreground text-sm font-medium py-2 hover:bg-primary/90 transition-colors"
+              style={agencyActiveStyle}
+            >
+              Add to plan
+              <span className="material-icons text-sm">arrow_forward</span>
+            </Link>
+          </div>
+        );
+      })()}
     </>
   );
 }
