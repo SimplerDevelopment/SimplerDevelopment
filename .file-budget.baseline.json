@@ -173,7 +173,7 @@
   "scripts/migrations/postcaptain/refine-home.ts": 717,
   "scripts/scan-tech-stack.ts": 783,
   "scripts/scrape-postcaptain-staff-playwright.ts": 582,
-  "scripts/seed-admin-e2e.ts": 662,
+  "scripts/seed-admin-e2e.ts": 690,
   "scripts/seed-brain-demo.ts": 520,
   "scripts/seed-peters-outdoor.ts": 732,
   "scripts/smoke-sd-skills.ts": 641
