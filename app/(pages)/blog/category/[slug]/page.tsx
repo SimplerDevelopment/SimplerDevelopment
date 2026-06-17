@@ -160,7 +160,7 @@ export default async function CategoryPage({ params }: PageProps) {
 
                       <div className="flex items-center justify-between text-sm text-muted-foreground">
                         {post.publishedAt && (
-                          <time dateTime={post.publishedAt.toISOString()}>
+                          <time dateTime={new Date(post.publishedAt).toISOString()}>
                             {new Date(post.publishedAt).toLocaleDateString('en-US', {
                               month: 'short',
                               day: 'numeric',
