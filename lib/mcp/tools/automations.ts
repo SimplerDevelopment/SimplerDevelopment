@@ -105,6 +105,7 @@ import { revoke as revokeGoogleToken } from '@/lib/google/oauth';
 import { getTenantWorkspaceCredentialsByClientId } from '@/lib/google/tenant-credentials';
 import { stageOrApply } from '../pending-changes';
 import { BLOCKS_SCHEMA_REFERENCE } from '../blocks-schema';
+import { deriveRuleScopes } from '@/lib/ai/portal-tools/derive-rule-scopes';
 import {
   json,
   serializePostContent,
@@ -193,13 +194,15 @@ export function registerAutomationsTools(server: McpServer, ctx: PortalMcpContex
     },
     async (args) => {
       if (!requireScope(ctx, 'automations:write')) return denied('automations:write');
+      const actions = args.actions as import('@/lib/db/schema').AutomationAction[];
       const [row] = await db.insert(automationRules).values({
         clientId,
         name: args.name.trim(),
         description: args.description ?? null,
         trigger: args.trigger as never,
         conditions: (args.conditions ?? []) as never,
-        actions: args.actions as never,
+        actions: actions as never,
+        scopes: deriveRuleScopes(actions),
         enabled: args.enabled ?? true,
         source: args.source ?? 'manual',
         productScope: args.productScope ?? null,
@@ -232,6 +235,10 @@ export function registerAutomationsTools(server: McpServer, ctx: PortalMcpContex
       if (!existing) return json({ error: 'Rule not found' });
       const patch: Record<string, unknown> = { updatedAt: new Date() };
       for (const [k, v] of Object.entries(rest)) if (v !== undefined) patch[k] = v;
+      // Recompute scopes whenever actions are part of the update.
+      if (rest.actions !== undefined) {
+        patch.scopes = deriveRuleScopes(rest.actions as import('@/lib/db/schema').AutomationAction[]);
+      }
       const [row] = await db.update(automationRules).set(patch)
         .where(eq(automationRules.id, id)).returning();
       revalidateForWrite('portal');

@@ -12,6 +12,9 @@ import { eq, and } from 'drizzle-orm';
 import { sql } from 'drizzle-orm';
 import { onEvent, type AutomationEvent } from './event-bus';
 import { executePortalTool } from '@/lib/ai/portal-tools';
+import { requiredScopeFor } from '@/lib/ai/portal-tools/scopes';
+import { hasScope } from '@/lib/mcp-auth';
+import { logAgentAction, hashParams } from '@/lib/audit/agent-action-log';
 import { startRun } from '@/lib/brain/playbook-runs';
 
 // AutomationRule type as returned by drizzle SELECT * (kept loose since
@@ -94,6 +97,34 @@ function matchesTrigger(
   return true;
 }
 
+// ─── SCOPE GATE ────────────────────────────────────────────────────────────
+
+/**
+ * Pure helper: decides whether a rule is allowed to invoke a given tool.
+ * Exported for unit-testing; not part of the public API.
+ *
+ * Returns `{ allowed: true }` when:
+ *   - the tool has no registered required scope (unknown tools pass through), OR
+ *   - the rule's granted scopes satisfy the required scope (exact, wildcard, or resource:*)
+ *
+ * Returns `{ allowed: false, requiredScope }` when the tool needs a scope the
+ * rule doesn't hold.
+ */
+export function isActionAllowed(
+  ruleScopes: string[],
+  toolName: string,
+): { allowed: true; requiredScope: string | null } | { allowed: false; requiredScope: string } {
+  const requiredScope = requiredScopeFor(toolName);
+  if (requiredScope === null) {
+    // Tool not in registry — pass through (don't block unknown tools).
+    return { allowed: true, requiredScope: null };
+  }
+  if (hasScope(ruleScopes, requiredScope)) {
+    return { allowed: true, requiredScope };
+  }
+  return { allowed: false, requiredScope };
+}
+
 // ─── ACTION EXECUTION ──────────────────────────────────────────────────────
 
 async function executeAction(
@@ -102,6 +133,8 @@ async function executeAction(
   userId: number,
   payload: Record<string, unknown>,
   ruleCreatedBy: number | null,
+  ruleId?: number,
+  ruleScopes?: string[],
 ): Promise<{ tool: string; params: Record<string, unknown>; result: unknown; error?: string }> {
   const resolvedParams = resolveTemplate(action.params, payload) as Record<string, unknown>;
 
@@ -197,8 +230,33 @@ async function executeAction(
     }
   }
 
+  // ── Scope gate ──────────────────────────────────────────────────────────
+  // Check the rule's granted scopes BEFORE calling the portal tool.
+  // Unknown tools (requiredScope=null) are passed through unchanged.
+  const scopeCheck = isActionAllowed(ruleScopes ?? [], action.tool);
+  if (!scopeCheck.allowed) {
+    const errorMsg = `scope_denied: ${scopeCheck.requiredScope}`;
+    // Best-effort audit — must not throw.
+    void logAgentAction({
+      clientId,
+      userId,
+      source: 'automation',
+      tool: action.tool,
+      scopeRequired: scopeCheck.requiredScope,
+      scopeAllowed: false,
+      paramsHash: hashParams(resolvedParams),
+      outcome: 'denied',
+      ruleId,
+      durationMs: 0,
+    });
+    return { tool: action.tool, params: resolvedParams, result: null, error: errorMsg };
+  }
+
   try {
-    const result = await executePortalTool(action.tool, resolvedParams, clientId, userId);
+    const result = await executePortalTool(action.tool, resolvedParams, clientId, userId, {
+      source: 'automation',
+      ruleId,
+    });
     return { tool: action.tool, params: resolvedParams, result };
   } catch (err) {
     const error = err instanceof Error ? err.message : String(err);
@@ -307,7 +365,7 @@ export async function runRule(
   let errorMessage: string | undefined;
 
   for (const action of actions) {
-    const result = await executeAction(action, rule.clientId, userId, payload, rule.createdBy ?? null);
+    const result = await executeAction(action, rule.clientId, userId, payload, rule.createdBy ?? null, rule.id, (rule.scopes ?? []) as string[]);
     results.push(result);
     if (result.error) {
       status = results.some((r) => !r.error) ? 'partial' : 'failed';
