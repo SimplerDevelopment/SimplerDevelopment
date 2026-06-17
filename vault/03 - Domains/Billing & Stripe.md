@@ -2,7 +2,7 @@
 type: domain-map
 domain: billing
 status: active
-date: 2026-06-14
+date: 2026-06-17
 sources:
   - lib/billing/
   - lib/ai/plan-gate.ts
@@ -12,6 +12,8 @@ sources:
   - lib/onboarding/module-segments.ts
   - lib/db/schema/billing.ts
   - lib/db/schema/sites.ts
+  - lib/admin/auth.ts
+  - lib/admin/fetch-json-safe.ts
   - app/api/auth/signup/route.ts
   - app/api/auth/verify-email/route.ts
   - app/api/portal/credits/route.ts
@@ -27,6 +29,7 @@ sources:
   - app/api/portal/billing/byok-status/route.ts
   - app/api/portal/invite/accept/route.ts
   - app/api/portal/team/[memberId]/route.ts
+  - app/api/admin/portal/clients/[id]/billing/route.ts
   - app/api/admin/portal/clients/[id]/billing/thresholds/route.ts
   - app/api/admin/portal/clients/[id]/billing-mode/route.ts
   - app/api/admin/portal/invoices/route.ts
@@ -36,6 +39,10 @@ sources:
   - app/portal/invoices/[id]/page.tsx
   - app/portal/settings/billing/plans/page.tsx
   - app/admin/clients/[id]/plan/page.tsx
+  - app/admin/layout.tsx
+  - app/admin/error.tsx
+  - components/admin/AdminShellClient.tsx
+  - components/admin/ClientBillingSummary.tsx
   - components/portal/billing/UsageMeters.tsx
   - components/portal/onboarding/steps/StepChooseModules.tsx
   - components/portal/onboarding/steps/StepPayment.tsx
@@ -46,6 +53,7 @@ sources:
   - scripts/billing/002_signup_funnel.sql
   - scripts/billing/sync-stripe-products.ts
   - scripts/billing/create-seat-product.ts
+  - scripts/migrations/admin-billing-overrides.sql
 ---
 
 # Domain: Billing & Stripe
@@ -61,10 +69,10 @@ Manages all money movement for the platform: AI credit grants and purchases, met
 | `lib/signup/service.ts` (177) | Self-serve account creation: `createAccount` (email+password), `verifyEmail` (token), `linkGoogleAccount` (OAuth same-email merge), `purgeUnverified` (7-day cleanup). Creates user + client with `billingMode='saas'` + `user_onboarding` row atomically. |
 | `lib/onboarding/module-segments.ts` (185) | Segment registry keyed by domain key. v1 rich segments for websites, crm, email, brain, projects; generic "first 3 wins" fallback for the remaining 7 modules. Consumed by the wizard steps and the dashboard checklist. |
 | `lib/billing/domain-catalog.ts` (697) | Single source of truth for 12 module SKUs + bundle + volume discount ladder. Exports `VOLUME_TIERS` (thresholds: 4→10%, 8→20%, 12→30%), `volumeTierFor(count)`, `nextVolumeTier(count)`, `applyVolumeDiscount(subtotal, count)`. Also exports `SEAT_PRICE_CAP_CENTS` (3000), `INCLUDED_SEATS` (1), `SEAT_SKU`, `computeAccountBilling()`, `discountedModuleCents()` — these drive per-seat billing; the volume discount is now baked into computed line items, not a Stripe coupon. Also retains `TIERS` (Starter/Growth/Scale, `plan-*` slugs) and `getTierByCategory()` for existing tier-subscriber entitlement resolution; per-meter included allowances + overage rates; `byokProviders`; `promotesTo` cross-promo links; `navHrefs`. Live price = `services.price` / Stripe Price object. |
-| `lib/billing/seats.ts` (39) | `countBillableSeats(clientId)`: returns owner + count of members whose invite token has been cleared (accepted state). Invited-but-not-accepted users are excluded. |
+| `lib/billing/seats.ts` (58) | `countBillableSeats(clientId)`: when `billable_seats_override` is non-null on the client row, returns that value directly; otherwise derives owner + count of members whose invite token has been cleared (accepted state). Invited-but-not-accepted users are excluded. Also exports `deriveBillableSeats(clientId)` for read-only display of the raw derived count. |
 | `lib/billing/subscription-items.ts` (97) | `buildDesiredItems()`: pure function mapping module subscriptions to Stripe `price_data` line items. Each module is priced at its post-volume-discount amount; an "Additional seats" line is appended at `min(M, $30) × (seats − 1)` when extra seats exist. Returns line items ready for reconciliation — no Stripe calls. |
-| `lib/billing/recompute-subscription.ts` (198) | `recomputeClientSubscription()`: the single writer that reconciles a client's live Stripe subscription items against the desired set from `buildDesiredItems()`, keyed by Stripe Product id. Adds missing items, updates changed amounts, removes obsolete items. `syncSeatBillingSafe()`: best-effort wrapper that calls the reconciler and swallows errors (used on member accept/remove paths where billing failure must not block the UX action). |
-| `lib/billing/entitlements.ts` (101) | `getClientEntitlements(clientId)`: resolves effective module set — `'agency'` billingMode bypasses gating; `'bundle'` grants all; legacy `subscription` rows bypass; a `plan-*` tier grants its curated domain set; `brainTrialUntil` honored. Also exposes `byokEligible` (true for Scale tier, agency bypass, bundle, and legacy subscription) — **the single source of truth for the BYOK gate**; see [[ADR byok-inversion-scale-only]]. Single resolution function; callers do not inspect `billingMode` directly. Note: new self-serve clients subscribe à la carte and do not acquire a tier row; `byokEligible` is false for them until they acquire a bundle or legacy subscription. BYOK for new clients is contact-sales only. |
+| `lib/billing/recompute-subscription.ts` (253) | `recomputeClientSubscription()`: the single writer that reconciles a client's live Stripe subscription items against the desired set from `buildDesiredItems()`, keyed by Stripe Product id. Adds missing items, updates changed amounts, removes obsolete items. When `comp_discount_percent` is non-null on the client row, applies or updates a `comp-<percent>` Stripe `percent_off` coupon on the customer before recomputing line items; when null, clears the coupon. This is the **one sanctioned coupon** — distinct from the volume-discount which lives in computed `price_data` line items. The two coexist without collision: the coupon is customer-level; the volume discount is line-item-level. `syncSeatBillingSafe()`: best-effort wrapper that calls the reconciler and swallows errors (used on member accept/remove paths where billing failure must not block the UX action). |
+| `lib/billing/entitlements.ts` (108) | `getClientEntitlements(clientId)`: resolves effective module set — `'agency'` billingMode bypasses gating; `'bundle'` grants all; legacy `subscription` rows bypass; a `plan-*` tier grants its curated domain set; `brainTrialUntil` honored. Also exposes `byokEligible` computed as `derivedByok || byokEligibleOverride ?? false` — the `byokEligibleOverride` column on `clients` is the admin/sales BYOK grant switch; **the single source of truth for the BYOK gate**; see [[ADR byok-inversion-scale-only]] and [[ADR admin-billing-overrides-comp-coupon]]. Single resolution function; callers do not inspect `billingMode` directly. Note: new self-serve clients subscribe à la carte and do not acquire a tier row; `byokEligible` is false for them until they acquire a bundle, legacy subscription, or an admin BYOK override. BYOK for new clients is contact-sales only. |
 | `lib/ai/plan-gate.ts` (128) | `checkAiPlanGate`: AI plan-level gate. Currently always returns `{ allowed: true }` — every paid tier (Starter / Growth / Scale) has platform AI access. Retained as an extension point. Previously blocked Starter with `starter_requires_byok`; that logic was removed in the BYOK inversion (commit `8669039b`). |
 | `lib/ai/resolve-client-key.ts` (199) | `resolveClientKey`: determines which AI key to use for a given client. Uses a stored BYOK key only when `byokEligible` is true. Falls back to the platform key otherwise (and on entitlement-check errors — fails closed). Enforces the inference layer of the three-layer BYOK gate. |
 | `lib/billing/usage-alerts.ts` (488) | Threshold evaluation: compares `usage_meter_events` aggregates against `usage_thresholds`; deduplicates via `usage_alert_events` unique index; dispatches portal notifications and emails at warn / exceeded / hard-limit levels. |
@@ -107,6 +115,14 @@ New columns and tables added in `scripts/billing/001_domain_saas_billing.sql` (h
 | `lib/db/schema/billing.ts` — `usage_thresholds` | New table: `(id, client_id, resource, warn_at_pct, hard_limit_quantity, notify_portal, notify_email, created_at, updated_at)` | Per-client per-resource alert thresholds |
 | `lib/db/schema/billing.ts` — `usage_alert_events` | New table: `(id, client_id, resource, period, level, fired_at)`; unique on `(client_id, resource, period, level)` | Deduplication log for alert dispatch |
 
+Admin billing override columns added in `scripts/migrations/admin-billing-overrides.sql` (13 lines — hand-applied; `bun run db:generate` was blocked by meta-snapshot drift at the time of implementation; see [[ADR admin-billing-overrides-comp-coupon]]):
+
+| Location | Change | Notes |
+|---|---|---|
+| `lib/db/schema/sites.ts` (461) — `clients` | `billable_seats_override` column: `integer`, nullable | When non-null, `countBillableSeats` returns this value directly instead of deriving from accepted-member count. Admin/sales seat grant. |
+| `lib/db/schema/sites.ts` (461) — `clients` | `comp_discount_percent` column: `integer`, nullable, 0–100 | When non-null, `recomputeClientSubscription` applies a `comp-<percent>` Stripe `percent_off` coupon on the customer. The one sanctioned coupon mechanism — distinct from volume-discount line items. |
+| `lib/db/schema/sites.ts` (461) — `clients` | `byok_eligible_override` column: `boolean`, nullable | OR'd with derived `byokEligible` in `getClientEntitlements`. Admin/sales switch for the BYOK contact-sales flow. |
+
 `clients.stripeCustomerId` (in `lib/db/schema/sites.ts`) persists the Stripe customer id. `clients.plan` (`starter` / `pro` / `enterprise`) governs plan-gating entitlements. `clients.billing_mode` is independent of `plan` — the two axes coexist.
 
 ## API surface
@@ -143,6 +159,7 @@ New columns and tables added in `scripts/billing/001_domain_saas_billing.sql` (h
 
 | Route | Method | Purpose |
 |---|---|---|
+| `app/api/admin/portal/clients/[id]/billing/route.ts` (288) | GET / POST | **Admin billing management.** GET returns a full read-model: active modules, seats (derived + override), volume-discount tier, comp %, BYOK override, MRR breakdown. POST accepts `action` discriminated union: `set-seats` / `set-comp` / `set-byok` / `add-module` / `remove-module` / `set-bundle` / (mode is handled by the separate billing-mode route). Every action mutates `clientServices` / `clients` then calls `recomputeClientSubscription` — no bespoke Stripe item juggling. All actions gated by `requireStaffSession()` from `lib/admin/auth.ts`. |
 | `app/api/admin/portal/clients/[id]/billing-mode/route.ts` | GET / PATCH | Read / switch a client's `billing_mode` (agency / saas / byok); surfaces BYOK key checklist |
 | `app/api/admin/portal/clients/[id]/billing/thresholds/route.ts` | GET / POST / PATCH / DELETE | CRUD for `usage_thresholds` per client |
 | `app/api/admin/portal/clients/[id]/billing/usage/route.ts` | GET | Per-client metered usage view |
@@ -207,7 +224,10 @@ Registered in `lib/mcp/tools/billing.ts` via `registerBillingTools(server, ctx)`
 | `app/portal/settings/billing/plans/page.tsx` (635) | Client | Pricing page: 12 module cards + bundle upsell + Stripe Checkout button; volume-discount progress strip; Team seats card (shows current seat count and per-seat cost); BYOK contact-sales card (mailto:info@danielpcoyle.com); usage meters section. Repeat-subscribes route through `add-item` (Checkout fallback for first purchase only) so all modules share one subscription and the reconciler re-syncs computed line items. |
 | `components/portal/billing/UsageMeters.tsx` | Client | Per-resource usage bars pulling from `usage_thresholds` + `usage_alert_events` |
 | `app/portal/invoices/[id]/page.tsx` | Client | Invoice detail and payment page |
-| `app/admin/clients/[id]/plan/page.tsx` | Admin | Mode switcher (agency / saas / byok), BYOK key checklist, threshold configuration |
+| `app/admin/clients/[id]/plan/page.tsx` (723) | Admin | **"Billing & Plan" full management surface.** Active modules list (name, slug, status, cost); seat panel (derived count vs. override, per-seat charge, override input); volume-discount tier + dollar amount; comp % (set/clear); bundle swap action; BYOK override toggle; MRR breakdown via `computeAccountBilling`. All management controls wire to `app/api/admin/portal/clients/[id]/billing/route.ts`. |
+| `components/admin/ClientBillingSummary.tsx` (153) | Admin | Read-only billing summary (active modules, seat count, volume-discount %, comp %, MRR) mounted in the client-detail billing tab (`app/admin/clients/[id]/page.tsx`). Deep-links to the plan page for management. |
+| `app/admin/layout.tsx` (49) | Admin | RSC server component auth shell. Gates on `requireStaffSession()` from `lib/admin/auth.ts`; redirects unauthenticated requests server-side. Renders `components/admin/AdminShellClient.tsx` (49) as client chrome. Mirrors the `PortalShell` pattern. |
+| `app/admin/error.tsx` (53) | Admin | Global Next.js error boundary for all admin routes. Friendly retry UI — no infinite spinner. |
 | `app/admin/portal-invoices/` | Admin | Invoice list and create |
 | `app/admin/portal-invoices/new/page.tsx` | Admin | New invoice form |
 | `app/admin/ai-credits/page.tsx` | Admin | AI credit package management |
@@ -288,9 +308,10 @@ Run: `scripts/test.sh --layer=unit --no-coverage` (fast) or with coverage to ver
 - **BYOK inversion (commit 8669039b):** shipped; subsequently partially superseded. See entry below. Unit coverage exists for the inference layer (`tests/unit/ai-resolve-client-key.test.ts`) and plan gate (`tests/unit/ai-plan-gate.test.ts`). See [[ADR byok-inversion-scale-only]].
 - **À-la-carte + volume discounts (commit 23a46fb2):** shipped; status: active. Tier selection UI replaced with à-la-carte module picking + volume-discount progress strip. BYOK moved to contact-sales. The volume-discount coupon mechanism from this commit was subsequently superseded by computed `price_data` line items in the per-seat commit (see below); the coupon provisioning script (create-volume-coupons.ts) was deleted. `components/portal/billing/TierPlans.tsx` (117) is now dead code — not removed, flagged for future cleanup. See [[ADR alacarte-volume-discount-replaces-tiers]].
 - **Per-seat pricing + computed line items:** shipped; status: validating. Monthly total = M + (seats − 1) × min(M, $30) where M = post-volume-discount module subtotal and seats = owner + accepted members. Volume discount thresholds/percentages unchanged (4→10%, 8→20%, 12→30%) but now applied via computed `price_data` line items, not a Stripe coupon. `recomputeClientSubscription()` is the single reconciliation writer. Go-live dependency: run `bunx tsx scripts/billing/create-seat-product.ts` and paste the product id into `SEAT_SKU.stripeProductId` in `lib/billing/domain-catalog.ts` (697). Until then the seat line is omitted; modules still bill. Staging (Stripe test-mode) verification required on all Stripe-write paths. Test gaps: no automated test for seat count, reconciler, or seat-line item generation. See [[ADR per-seat-pricing-computed-line-items]].
+- **Admin Billing Parity — Full Management (commits 5e16d37b, 3d56ba3f, 543d5f70, 97ab20f5, b5b8ba0b, dc7f3769, 5c678848):** code-complete; status: validating (staging validation + manual Stripe test-mode verification pending). 9 cards (C1–C9). Key additions: three nullable `clients` override columns (`billable_seats_override`, `comp_discount_percent`, `byok_eligible_override`) via `scripts/migrations/admin-billing-overrides.sql`; `app/api/admin/portal/clients/[id]/billing/route.ts` (288) as the unified admin billing API; `app/admin/clients/[id]/plan/page.tsx` (723) expanded to the full "Billing & Plan" management surface; `components/admin/ClientBillingSummary.tsx` (153) for the client-detail read tab; RSC auth shell on `app/admin/layout.tsx` (49) + `lib/admin/auth.ts` (14); `app/admin/error.tsx` (53) global error boundary; `lib/admin/fetch-json-safe.ts` (30) helper. The dead AdminNav component was deleted (C9). Pending: `/admin/login` smoke-test; override/comp/module POST paths in Stripe TEST mode; `bun test:tenancy`; hand-apply migration to staging and prod. See [[Admin Billing Parity — Full Management]] spec and [[ADR admin-billing-overrides-comp-coupon]].
 
 ## Related
 
 [[Storefront & Commerce]], [[Agency, Onboarding & Branding]]
 
-ADRs: [[ADR per-seat-pricing-computed-line-items]] · [[ADR alacarte-volume-discount-replaces-tiers]] · [[ADR byok-inversion-scale-only]] · [[ADR tiers-are-first-class-stripe-products]] · [[ADR per-domain-billing-rides-services-catalog]]
+ADRs: [[ADR admin-billing-overrides-comp-coupon]] · [[ADR per-seat-pricing-computed-line-items]] · [[ADR alacarte-volume-discount-replaces-tiers]] · [[ADR byok-inversion-scale-only]] · [[ADR tiers-are-first-class-stripe-products]] · [[ADR per-domain-billing-rides-services-catalog]]

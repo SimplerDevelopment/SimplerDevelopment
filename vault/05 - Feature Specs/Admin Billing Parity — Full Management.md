@@ -1,8 +1,8 @@
 ---
 type: spec
 domain: billing
-status: planned
-date: 2026-06-16
+status: validating
+date: 2026-06-17
 sources:
   - lib/billing/recompute-subscription.ts
   - lib/billing/seats.ts
