@@ -13,6 +13,7 @@ import { eq } from 'drizzle-orm';
 import type { PortalMcpContext } from '@/lib/mcp-auth';
 import { notifyApprovers } from '@/lib/crm/notifications';
 import { sendApprovalEmails } from '@/lib/email/mcp-approval-email';
+import { sendApprovalPush } from '@/lib/push/send';
 import { publishEntityFromDb } from '@/lib/realtime/internal-publisher';
 
 export type EntityType =
@@ -144,17 +145,21 @@ export async function stageOrApply<T>(opts: StageOrApplyOpts<T>): Promise<StageO
   })
     .then((notifications) => {
       const userIds = notifications.map((n) => n.userId);
-      return sendApprovalEmails({
-        clientId: ctx.client.id,
-        userIds,
-        pendingId: row.id,
-        summary,
-        entityType,
-        operation,
-      });
+      // Fan out email + mobile push in parallel; neither blocks the response.
+      return Promise.allSettled([
+        sendApprovalEmails({
+          clientId: ctx.client.id,
+          userIds,
+          pendingId: row.id,
+          summary,
+          entityType,
+          operation,
+        }),
+        sendApprovalPush({ clientId: ctx.client.id, userIds, pendingId: row.id, summary }),
+      ]);
     })
     .catch((err) => {
-      console.warn('[mcp] approval notification/email failed:', err);
+      console.warn('[mcp] approval notification/email/push failed:', err);
     });
 
   return {
