@@ -270,7 +270,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       : prompt.trim();
 
     // Use extended token limit for full deck generation (8-12 slides)
-    let response = await complete({
+    const response = await complete({
       task: 'deckGen',
       clientId: client.id,
       maxTokens: 16384,

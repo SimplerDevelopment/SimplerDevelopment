@@ -18,7 +18,6 @@ import {
   brainMeetings,
   brainMeetingParticipants,
   crmContacts,
-  crmCompanies,
   crmDeals,
   crmActivities,
   type BrainAiJobStatus,
