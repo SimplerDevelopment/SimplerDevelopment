@@ -529,6 +529,20 @@ const EXPECTED_RESOURCES: readonly string[] = [
   'portal://capabilities',
 ];
 
+/**
+ * Stable list of every prompt name buildMcpServer() registers under '*'.
+ * Prompts are user-triggered guided workflows (see lib/mcp/tools/prompts.ts),
+ * each gated on a representative scope. Lock the name set so drift fails red.
+ *   - draft-page     — gated on sites:write
+ *   - triage-tickets — gated on tickets:read
+ *   - weekly-digest  — gated on projects:read
+ */
+const EXPECTED_PROMPTS: readonly string[] = [
+  'draft-page',
+  'triage-tickets',
+  'weekly-digest',
+];
+
 /** Build a fake context with a chosen scope set. Doesn't hit the DB. */
 function makeCtx(scopes: string[]): PortalMcpContext {
   return {
@@ -587,6 +601,22 @@ function getRegisteredResources(server: unknown): Record<string, {
     metadata?: { title?: string; description?: string };
     readCallback: (...args: unknown[]) => unknown;
   }> })._registeredResources;
+}
+
+/**
+ * Reach into McpServer's private `_registeredPrompts` — a `Record<name,
+ * RegisteredPrompt>` carrying `title`, `description`, `argsSchema`, `callback`.
+ */
+function getRegisteredPrompts(server: unknown): Record<string, {
+  title?: string;
+  description?: string;
+  callback: (...args: unknown[]) => unknown;
+}> {
+  return (server as { _registeredPrompts: Record<string, {
+    title?: string;
+    description?: string;
+    callback: (...args: unknown[]) => unknown;
+  }> })._registeredPrompts;
 }
 
 describe('MCP tool registry — baseline @critical', () => {
@@ -712,5 +742,41 @@ describe('MCP resource registry — baseline @critical', () => {
     const servicesScope = new Set(Object.keys(getRegisteredResources(buildMcpServer(makeCtx(['services:read'])))));
     expect(servicesScope.has('catalog://services')).toBe(true);
     expect(servicesScope.has('brand://default')).toBe(false);
+  });
+});
+
+describe('MCP prompt registry — baseline @critical', () => {
+  it('registers exactly the expected prompt names for full-access keys', () => {
+    const actual = new Set(Object.keys(getRegisteredPrompts(buildMcpServer(makeCtx(['*'])))));
+    const expected = new Set(EXPECTED_PROMPTS);
+
+    const missing = [...expected].filter((n) => !actual.has(n));
+    const extra = [...actual].filter((n) => !expected.has(n));
+    expect(missing).toEqual([]);
+    expect(extra).toEqual([]);
+  });
+
+  it('every registered prompt has a callback and a title/description', () => {
+    const registry = getRegisteredPrompts(buildMcpServer(makeCtx(['*'])));
+    for (const [name, p] of Object.entries(registry)) {
+      expect(typeof p.callback, `prompt ${name} missing callback`).toBe('function');
+      const hasMeta = typeof p.title === 'string' || typeof p.description === 'string';
+      expect(hasMeta, `prompt ${name} missing title/description`).toBe(true);
+    }
+  });
+
+  it('an empty-scope key sees no prompts', () => {
+    expect(Object.keys(getRegisteredPrompts(buildMcpServer(makeCtx([]))))).toEqual([]);
+  });
+
+  it('each prompt appears only with its gating scope', () => {
+    const tickets = new Set(Object.keys(getRegisteredPrompts(buildMcpServer(makeCtx(['tickets:read'])))));
+    expect(tickets.has('triage-tickets')).toBe(true);
+    expect(tickets.has('draft-page')).toBe(false);
+    expect(tickets.has('weekly-digest')).toBe(false);
+
+    const sites = new Set(Object.keys(getRegisteredPrompts(buildMcpServer(makeCtx(['sites:write'])))));
+    expect(sites.has('draft-page')).toBe(true);
+    expect(sites.has('triage-tickets')).toBe(false);
   });
 });
