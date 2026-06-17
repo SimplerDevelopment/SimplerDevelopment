@@ -6,6 +6,7 @@ import { db } from '@/lib/db';
 import { users } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { findOrCreateGoogleUser } from '@/lib/signup/service';
+import { checkRateLimit, getClientIp } from '@/lib/security/rate-limit';
 
 // Login-capable Google OAuth app. Reuses the platform Google client unless a
 // dedicated one is configured. The provider only registers when configured so
@@ -33,9 +34,16 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         email: { label: 'Email', type: 'email' },
         password: { label: 'Password', type: 'password' },
       },
-      async authorize(credentials) {
+      async authorize(credentials, request) {
         if (!credentials?.email || !credentials?.password) {
           return null;
+        }
+
+        // Brute-force guard: throttle credential attempts per IP *before* any DB
+        // hit or bcrypt compare. `request` is a standard Request in the
+        // credentials flow; guard in case a future flow omits it.
+        if (request && !checkRateLimit(`${getClientIp(request as Request)}:login`, 10, 15 * 60 * 1000)) {
+          throw new Error('Too many sign-in attempts. Please wait a few minutes and try again.');
         }
 
         const email = credentials.email as string;
