@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { getPortalClient } from '@/lib/portal-client';
-import Anthropic from '@anthropic-ai/sdk';
+import { complete } from '@/lib/ai/llm';
 import { resolveClientApiKey } from '@/lib/ai/resolve-client-key';
 import { recordAiUsage } from '@/lib/ai/audit';
 import { checkAiPlanGate } from '@/lib/ai/plan-gate';
@@ -62,23 +62,21 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, message: gate.message, reason: gate.reason }, { status: 402 });
     }
     const resolved = await resolveClientApiKey({ clientId: client.id, provider: 'anthropic' });
-    const anthropic = new Anthropic({ apiKey: resolved.key });
 
-    const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 4096,
+    const result = await complete({
+      task: 'brandingMessaging',
+      clientId: client.id,
+      maxTokens: 4096,
       system: SYSTEM,
-      messages: [{ role: 'user', content: `Company/brand description: ${description.trim()}` }],
+      prompt: `Company/brand description: ${description.trim()}`,
     });
 
-    let text = response.content
-      .filter((b): b is Anthropic.TextBlock => b.type === 'text')
-      .map(b => b.text).join('');
+    let text = result.text;
     text = text.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim();
 
     const messaging = JSON.parse(text);
 
-    const totalTokens = (response.usage?.input_tokens ?? 0) + (response.usage?.output_tokens ?? 0);
+    const totalTokens = (result.usage?.inputTokens ?? 0) + (result.usage?.outputTokens ?? 0);
     void recordAiUsage({ clientId: client.id, source: resolved.source, tokens: totalTokens });
 
     return NextResponse.json({ success: true, data: messaging });

@@ -10,7 +10,7 @@ import { hasCredits, deductCredits, getBalance } from '@/lib/ai-credits';
 import { getBrandingByClientId, getBrandingByProfileId, brandingToPitchDeckTheme } from '@/lib/branding';
 import { assertSafeUrl } from '@/lib/ssrf-guard';
 import { brandingMessaging } from '@/lib/db/schema';
-import Anthropic from '@anthropic-ai/sdk';
+import { complete } from '@/lib/ai/llm';
 import { resolveClientApiKey } from '@/lib/ai/resolve-client-key';
 import { recordAiUsage } from '@/lib/ai/audit';
 import { checkAiPlanGate } from '@/lib/ai/plan-gate';
@@ -127,7 +127,6 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       return NextResponse.json({ success: false, message: gate.message, reason: gate.reason }, { status: 402 });
     }
     const resolved = await resolveClientApiKey({ clientId: client.id, provider: 'anthropic' });
-    const anthropic = new Anthropic({ apiKey: resolved.key });
 
     // Check AI credits (skip in development; skip when BYOK — client pays directly)
     if (process.env.NODE_ENV === 'production' && resolved.source === 'platform') {
@@ -192,19 +191,18 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         const html = await siteRes.text();
         const truncatedHtml = html.slice(0, 15000);
 
-        const brandResponse = await anthropic.messages.create({
-          model: 'claude-sonnet-4-6',
-          max_tokens: 1024,
+        const brandResponse = await complete({
+          task: 'deckGen',
+          clientId: client.id,
+          maxTokens: 1024,
           system: BRAND_SYSTEM,
-          messages: [{ role: 'user', content: `Extract brand identity from this website HTML:\n\n${truncatedHtml}` }],
+          prompt: `Extract brand identity from this website HTML:\n\n${truncatedHtml}`,
         });
 
-        totalInput += brandResponse.usage.input_tokens;
-        totalOutput += brandResponse.usage.output_tokens;
+        totalInput += brandResponse.usage.inputTokens ?? 0;
+        totalOutput += brandResponse.usage.outputTokens ?? 0;
 
-        let brandText = brandResponse.content
-          .filter((b): b is Anthropic.TextBlock => b.type === 'text')
-          .map(b => b.text).join('');
+        let brandText = brandResponse.text;
         brandText = brandText.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim();
 
         const brandData = JSON.parse(brandText);
@@ -272,36 +270,34 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       : prompt.trim();
 
     // Use extended token limit for full deck generation (8-12 slides)
-    let response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 16384,
+    let response = await complete({
+      task: 'deckGen',
+      clientId: client.id,
+      maxTokens: 16384,
       system: GENERATE_SYSTEM,
-      messages: [{ role: 'user', content: userPrompt }],
+      prompt: userPrompt,
     });
 
-    totalInput += response.usage.input_tokens;
-    totalOutput += response.usage.output_tokens;
+    totalInput += response.usage.inputTokens ?? 0;
+    totalOutput += response.usage.outputTokens ?? 0;
 
-    let text = response.content
-      .filter((b): b is Anthropic.TextBlock => b.type === 'text')
-      .map(b => b.text).join('');
+    let text = response.text;
 
     // If output was truncated, continue generation
-    if (response.stop_reason === 'max_tokens') {
-      const continuation = await anthropic.messages.create({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 8192,
+    if (response.finishReason === 'length') {
+      const continuation = await complete({
+        task: 'deckGen',
+        clientId: client.id,
+        maxTokens: 8192,
         system: GENERATE_SYSTEM,
         messages: [
           { role: 'user', content: userPrompt },
           { role: 'assistant', content: text },
         ],
       });
-      totalInput += continuation.usage.input_tokens;
-      totalOutput += continuation.usage.output_tokens;
-      text += continuation.content
-        .filter((b): b is Anthropic.TextBlock => b.type === 'text')
-        .map(b => b.text).join('');
+      totalInput += continuation.usage.inputTokens ?? 0;
+      totalOutput += continuation.usage.outputTokens ?? 0;
+      text += continuation.text;
     }
 
     // Strip markdown code fences if present

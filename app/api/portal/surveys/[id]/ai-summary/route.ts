@@ -22,6 +22,7 @@ import { resolveClientApiKey } from '@/lib/ai/resolve-client-key';
 import { recordAiUsage } from '@/lib/ai/audit';
 import { checkAiPlanGate } from '@/lib/ai/plan-gate';
 import { generateSurveySummary } from '@/lib/surveys/ai-summary';
+// resolveClientApiKey is kept here only to determine the billing source (byok vs platform).
 
 async function loadSurveyForClient(surveyId: number, clientId: number) {
   const [row] = await db
@@ -118,13 +119,14 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     return NextResponse.json({ success: false, message: 'No responses yet to summarize' }, { status: 400 });
   }
 
+  // Resolve source only for billing attribution; key is resolved inside generateSurveySummary.
   const resolved = await resolveClientApiKey({ clientId: client.id, provider: 'anthropic' });
   let result;
   try {
     result = await generateSurveySummary({
       fields: (survey.fields ?? []) as SurveyFieldDef[],
       responses,
-      apiKey: resolved.key,
+      clientId: client.id,
     });
   } catch (err) {
     console.error('[POST /api/portal/surveys/[id]/ai-summary]', err);

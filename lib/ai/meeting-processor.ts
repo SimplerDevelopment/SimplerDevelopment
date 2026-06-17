@@ -1,4 +1,3 @@
-import Anthropic from '@anthropic-ai/sdk';
 import { db } from '@/lib/db';
 import {
   brainAiJobs,
@@ -13,8 +12,8 @@ import { logAudit } from '@/lib/brain/audit';
 import { hasCredits, deductCredits } from '@/lib/ai-credits';
 import { resolveClientApiKey } from '@/lib/ai/resolve-client-key';
 import { recordAiUsage } from '@/lib/ai/audit';
+import { complete } from '@/lib/ai/llm';
 
-const MODEL = 'claude-sonnet-4-5';
 const MAX_TRANSCRIPT_CHARS = 60_000; // hard cap to keep costs bounded
 
 /**
@@ -106,9 +105,9 @@ export async function processMeetingTranscript(args: ProcessMeetingArgs): Promis
     startedAt: new Date(),
   }).returning();
 
-  // Resolve BYOK vs platform key for this client.
+  // Resolve BYOK vs platform key for this client (for credit gating only;
+  // the AI call goes through the provider-agnostic seam below).
   const resolved = await resolveClientApiKey({ clientId: args.clientId, provider: 'anthropic' });
-  const anthropic = new Anthropic({ apiKey: resolved.key });
 
   // Credit pre-flight. If insufficient, mark the freshly-created job as
   // failed and bubble up — same shape as any other AI failure. BYOK skips
@@ -146,22 +145,23 @@ export async function processMeetingTranscript(args: ProcessMeetingArgs): Promis
     });
 
     console.log(`[brain.process] meeting=${args.meetingId} AI request: transcript=${transcript.length}c title="${args.meetingTitle}" participants=${args.participants?.length ?? 0}`);
-    const response = await anthropic.messages.create({
-      model: MODEL,
-      max_tokens: 4096,
+    const response = await complete({
+      task: 'meetingProcess',
+      clientId: args.clientId,
+      maxTokens: 4096,
       system: SYSTEM_PROMPT,
-      messages: [{ role: 'user', content: userPrompt }],
+      prompt: userPrompt,
     });
 
-    inputTokens = response.usage?.input_tokens ?? 0;
-    outputTokens = response.usage?.output_tokens ?? 0;
+    inputTokens = response.usage?.inputTokens ?? 0;
+    outputTokens = response.usage?.outputTokens ?? 0;
 
-    const textBlock = response.content.find((b): b is Anthropic.TextBlock => b.type === 'text');
-    if (!textBlock) throw new Error('AI returned no text content.');
+    const text = response.text;
+    if (!text) throw new Error('AI returned no text content.');
 
-    console.log(`[brain.process] meeting=${args.meetingId} AI raw response (${textBlock.text.length}c): ${textBlock.text.slice(0, 800)}`);
+    console.log(`[brain.process] meeting=${args.meetingId} AI raw response (${text.length}c): ${text.slice(0, 800)}`);
 
-    extraction = parseExtraction(textBlock.text);
+    extraction = parseExtraction(text);
     console.log(`[brain.process] meeting=${args.meetingId} parsed: tasks=${extraction.tasks.length} decisions=${extraction.decisions.length} commitments=${extraction.commitments.length} compliance=${extraction.complianceWarnings.length}`);
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown AI processing error';

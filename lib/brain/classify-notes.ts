@@ -15,30 +15,28 @@
  *
  * Multi-tenant: every DB query filters on clientId. The LLM client uses the
  * tenant's BYOK key when configured; otherwise platform.
+ *
+ * Uses the provider-agnostic `completeObject` seam (task: 'classifyNotes'),
+ * so the classifier's model can be swapped via the registry / `AI_MODEL__classifyNotes`
+ * env without touching this file.
  */
 
-import Anthropic from '@anthropic-ai/sdk';
 import { z } from 'zod';
 import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { brainNotes } from '@/lib/db/schema';
-import { resolveClientApiKey } from '@/lib/ai/resolve-client-key';
+import { completeObject } from '@/lib/ai/llm';
 import { recordAiUsage } from '@/lib/ai/audit';
 import { logAudit } from '@/lib/brain/audit';
 
 // ─── Model + cost constants ─────────────────────────────────────────────────
-// Haiku 4.5 is the cheap classifier — matches lib/extension/extract.ts and
-// lib/brain/analyze-attachment.ts. Per Anthropic pricing as of 2026-05:
-//   input  $1.00 / 1M tokens
-//   output $5.00 / 1M tokens
-// (Cached input reads are billed separately when prompt caching hits — the
-// SDK returns those in `usage.cache_read_input_tokens` / `cache_creation_input_tokens`.)
-const MODEL = 'claude-haiku-4-5-20251001';
+// Model is resolved by the registry (task: 'classifyNotes'); defaults to
+// claude-sonnet-4-6. Per Anthropic pricing as of 2026-05:
+//   input  $3.00 / 1M tokens
+//   output $15.00 / 1M tokens
 const MAX_OUTPUT_TOKENS = 700;
-const INPUT_RATE_USD_PER_TOKEN = 1.0 / 1_000_000;
-const OUTPUT_RATE_USD_PER_TOKEN = 5.0 / 1_000_000;
-const CACHE_WRITE_RATE_USD_PER_TOKEN = 1.25 / 1_000_000;   // 1.25x base input
-const CACHE_READ_RATE_USD_PER_TOKEN = 0.1 / 1_000_000;     // 0.1x base input
+const INPUT_RATE_USD_PER_TOKEN = 3.0 / 1_000_000;
+const OUTPUT_RATE_USD_PER_TOKEN = 15.0 / 1_000_000;
 
 const BODY_EXCERPT_CHARS = 4000;
 
@@ -308,48 +306,6 @@ function buildUserPrompt(note: NoteRow, hints: PrefillHints): string {
   return lines.join('\n');
 }
 
-// ─── Output parsing ─────────────────────────────────────────────────────────
-
-function unfence(raw: string): string {
-  const trimmed = raw.trim();
-  const fenced = trimmed.match(/^```(?:json)?\s*\n?([\s\S]*?)\n?```$/i);
-  if (fenced) return fenced[1].trim();
-  return trimmed;
-}
-
-function parseClassification(raw: string, noteId: number): NoteClassification {
-  const cleaned = unfence(raw);
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(cleaned);
-  } catch {
-    const m = cleaned.match(/\{[\s\S]*\}/);
-    if (!m) throw new Error('Model did not return JSON');
-    parsed = JSON.parse(m[0]);
-  }
-  const validated = classificationSchema.parse(parsed);
-
-  // Enforce the "competitor only when source=competitor" invariant — the model
-  // sometimes returns a competitor slug + source='industry-news' etc. Clamp
-  // here rather than rejecting, since the rest of the classification is fine.
-  const competitor = validated.source === 'competitor'
-    ? (validated.competitor ?? null)
-    : null;
-
-  return {
-    noteId,
-    source: validated.source,
-    slateAreas: validated.slateAreas,
-    audiences: validated.audiences,
-    contentType: validated.contentType,
-    recency: validated.recency,
-    competitor,
-    status: validated.status,
-    confidence: validated.confidence,
-    reasoning: validated.reasoning,
-  };
-}
-
 // ─── Concurrency limiter (tiny inline semaphore — no new dependency) ────────
 
 function pLimit(max: number): <T>(fn: () => Promise<T>) => Promise<T> {
@@ -428,10 +384,6 @@ export async function classifyNotes(args: ClassifyNotesArgs): Promise<ClassifyNo
     return { classifications: [], skipped: [], tokensUsed: 0, costUsd: 0 };
   }
 
-  // ── Resolve LLM client (per-tenant BYOK aware) ────────────────────────────
-  const resolved = await resolveClientApiKey({ clientId: args.clientId, provider: 'anthropic' });
-  const anthropic = new Anthropic({ apiKey: resolved.key });
-
   const systemPrompt = buildSystemPrompt();
 
   // ── Classify in parallel ──────────────────────────────────────────────────
@@ -439,47 +391,41 @@ export async function classifyNotes(args: ClassifyNotesArgs): Promise<ClassifyNo
   const skipped: Array<{ noteId: number; reason: string }> = [];
   let inputTokens = 0;
   let outputTokens = 0;
-  let cacheReadTokens = 0;
-  let cacheCreationTokens = 0;
 
   const gate = pLimit(concurrency);
 
   await Promise.all(rows.map((row) => gate(async () => {
     const hints = buildPrefillHints(row);
     try {
-      const response = await anthropic.messages.create({
-        model: MODEL,
-        max_tokens: MAX_OUTPUT_TOKENS,
-        // Prompt caching: the system prompt is identical across the batch, so
-        // we mark it cacheable. The SDK accepts either a plain string or an
-        // array of content blocks for `system`; the block form is required to
-        // pass `cache_control`.
-        system: [{
-          type: 'text',
-          text: systemPrompt,
-          cache_control: { type: 'ephemeral' },
-        }],
-        messages: [{ role: 'user', content: buildUserPrompt(row, hints) }],
+      const { object, usage } = await completeObject({
+        task: 'classifyNotes',
+        clientId: args.clientId,
+        maxTokens: MAX_OUTPUT_TOKENS,
+        schema: classificationSchema,
+        system: systemPrompt,
+        prompt: buildUserPrompt(row, hints),
       });
 
-      const usage = response.usage as {
-        input_tokens?: number;
-        output_tokens?: number;
-        cache_read_input_tokens?: number;
-        cache_creation_input_tokens?: number;
-      } | undefined;
-      inputTokens += usage?.input_tokens ?? 0;
-      outputTokens += usage?.output_tokens ?? 0;
-      cacheReadTokens += usage?.cache_read_input_tokens ?? 0;
-      cacheCreationTokens += usage?.cache_creation_input_tokens ?? 0;
+      inputTokens += usage?.inputTokens ?? 0;
+      outputTokens += usage?.outputTokens ?? 0;
 
-      const textBlock = response.content.find((b): b is Anthropic.TextBlock => b.type === 'text');
-      if (!textBlock) {
-        skipped.push({ noteId: row.id, reason: 'model returned no text content' });
-        return;
-      }
-      const result = parseClassification(textBlock.text, row.id);
-      classifications.push(result);
+      // Enforce the "competitor only when source=competitor" invariant.
+      const competitor = object.source === 'competitor'
+        ? (object.competitor ?? null)
+        : null;
+
+      classifications.push({
+        noteId: row.id,
+        source: object.source,
+        slateAreas: object.slateAreas,
+        audiences: object.audiences,
+        contentType: object.contentType,
+        recency: object.recency,
+        competitor,
+        status: object.status,
+        confidence: object.confidence,
+        reasoning: object.reasoning,
+      });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'unknown classify error';
       skipped.push({ noteId: row.id, reason: message.slice(0, 300) });
@@ -487,21 +433,16 @@ export async function classifyNotes(args: ClassifyNotesArgs): Promise<ClassifyNo
   })));
 
   // ── Cost accounting ───────────────────────────────────────────────────────
-  // tokensUsed counts every input + output token the model billed us for
-  // (base input, cache writes, cache reads, output). costUsd applies the
-  // per-bucket rate so cache hits show up as the discount they actually are.
-  const tokensUsed = inputTokens + outputTokens + cacheReadTokens + cacheCreationTokens;
+  const tokensUsed = inputTokens + outputTokens;
   const costUsd =
     inputTokens * INPUT_RATE_USD_PER_TOKEN +
-    outputTokens * OUTPUT_RATE_USD_PER_TOKEN +
-    cacheCreationTokens * CACHE_WRITE_RATE_USD_PER_TOKEN +
-    cacheReadTokens * CACHE_READ_RATE_USD_PER_TOKEN;
+    outputTokens * OUTPUT_RATE_USD_PER_TOKEN;
 
-  // Fire-and-forget cost ledger entry, same as classify-crm.
+  // Fire-and-forget cost ledger entry.
   void recordAiUsage({
     clientId: args.clientId,
-    source: resolved.source,
-    tokens: inputTokens + outputTokens + cacheReadTokens + cacheCreationTokens,
+    source: 'platform',
+    tokens: tokensUsed,
   });
 
   // ── Audit (one row per batch) ─────────────────────────────────────────────
@@ -515,7 +456,7 @@ export async function classifyNotes(args: ClassifyNotesArgs): Promise<ClassifyNo
       skipped: skipped.length,
       tokensUsed,
       costUsd: Number(costUsd.toFixed(6)),
-      model: MODEL,
+      task: 'classifyNotes',
       mode: args.all ? 'all' : 'noteIds',
       requestedConcurrency: concurrency,
       requestedLimit: limit,

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import Anthropic from '@anthropic-ai/sdk';
+import { complete } from '@/lib/ai/llm';
 import { resolveClientApiKey } from '@/lib/ai/resolve-client-key';
 import { recordAiUsage } from '@/lib/ai/audit';
 import { checkAiPlanGate } from '@/lib/ai/plan-gate';
@@ -30,7 +30,6 @@ export async function POST(req: Request, { params }: { params: Promise<{ siteId:
     return NextResponse.json({ success: false, message: gate.message, reason: gate.reason }, { status: 402 });
   }
   const resolved = await resolveClientApiKey({ clientId: site.clientId, provider: 'anthropic' });
-  const client = new Anthropic({ apiKey: resolved.key });
 
   const systemPrompt = `You are a world-class brand designer. Given a brand description, generate a complete brand theme as JSON.
 
@@ -90,16 +89,15 @@ Guidelines:
 - Only include typography entries you want to customize (h1, h2, h3, h4, p, button, nav are most important)`;
 
   try {
-    const response = await client.messages.create({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 2000,
-      messages: [
-        { role: 'user', content: `Generate a complete brand theme for this brand:\n\n"${description.trim()}"` },
-      ],
+    const result = await complete({
+      task: 'siteBrandingGen',
+      clientId: site.clientId,
+      maxTokens: 2000,
       system: systemPrompt,
+      prompt: `Generate a complete brand theme for this brand:\n\n"${description.trim()}"`,
     });
 
-    const text = response.content[0].type === 'text' ? response.content[0].text : '';
+    const text = result.text;
 
     // Extract JSON from the response (handle possible markdown wrapping)
     const jsonMatch = text.match(/\{[\s\S]*\}/);
@@ -108,7 +106,7 @@ Guidelines:
     }
 
     const generated = JSON.parse(jsonMatch[0]);
-    const totalTokens = (response.usage?.input_tokens ?? 0) + (response.usage?.output_tokens ?? 0);
+    const totalTokens = (result.usage?.inputTokens ?? 0) + (result.usage?.outputTokens ?? 0);
     void recordAiUsage({ clientId: site.clientId, source: resolved.source, tokens: totalTokens });
     return NextResponse.json({ success: true, data: generated });
   } catch (error) {

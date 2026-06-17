@@ -27,7 +27,7 @@ import { and, eq } from 'drizzle-orm';
 import { decryptApiKey } from '@/lib/crypto/api-key';
 import { getClientEntitlements } from '@/lib/billing/entitlements';
 
-export type AiProvider = 'anthropic' | 'openai' | 'embedding';
+export type AiProvider = 'anthropic' | 'openai' | 'embedding' | 'huggingface';
 
 export interface ResolvedClientKey {
   /** Decrypted plaintext key suitable for passing to an SDK client. */
@@ -60,6 +60,8 @@ function getPlatformKey(provider: AiProvider): string | undefined {
     case 'embedding':
       // Embeddings live on OpenAI today (text-embedding-3-*). Same env var.
       return process.env.OPENAI_API_KEY;
+    case 'huggingface':
+      return process.env.HUGGINGFACE_API_KEY;
   }
 }
 
@@ -68,7 +70,7 @@ function getPlatformKey(provider: AiProvider): string | undefined {
  * Embeddings share the OpenAI bucket — clients add ONE OpenAI key and we use it
  * for both chat and embeddings.
  */
-function dbProvider(provider: AiProvider): 'anthropic' | 'openai' {
+function dbProvider(provider: AiProvider): 'anthropic' | 'openai' | 'huggingface' {
   return provider === 'embedding' ? 'openai' : provider;
 }
 
@@ -173,9 +175,13 @@ export async function resolveClientApiKey(opts: ResolveOptions): Promise<Resolve
   if (!resolved) {
     const platform = getPlatformKey(provider);
     if (!platform) {
+      const envVar =
+        provider === 'anthropic' ? 'ANTHROPIC_API_KEY'
+        : provider === 'huggingface' ? 'HUGGINGFACE_API_KEY'
+        : 'OPENAI_API_KEY';
       throw new Error(
         `[resolveClientApiKey] No BYOK row and no platform env var for provider=${provider} (clientId=${clientId}). ` +
-        `Set ${provider === 'anthropic' ? 'ANTHROPIC_API_KEY' : 'OPENAI_API_KEY'} or add a BYOK key.`,
+        `Set ${envVar} or add a BYOK key.`,
       );
     }
     resolved = {
