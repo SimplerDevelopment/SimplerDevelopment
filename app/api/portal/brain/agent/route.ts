@@ -276,7 +276,7 @@ export async function POST(req: Request): Promise<Response> {
         const classification = await withSpan(
           'brain_agent.classify',
           { clientId: client.id, convId },
-          () => classifyIntent(message, anthropic),
+          () => classifyIntent(message, client.id),
         );
         write({
           type: 'intent',

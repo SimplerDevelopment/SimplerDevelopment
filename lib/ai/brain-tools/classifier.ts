@@ -1,9 +1,14 @@
 /**
  * Brain intent classifier — runs before the main tool loop to route and
  * size the incoming user message so the agent can choose the right strategy.
+ *
+ * Uses the provider-agnostic `completeObject` seam (task: 'brainClassify'),
+ * so the classifier's model can be swapped to a cheaper provider via the
+ * registry / `AI_MODEL__brainClassify` env without touching this file.
  */
 
-import Anthropic from '@anthropic-ai/sdk';
+import { z } from 'zod';
+import { completeObject } from '@/lib/ai/llm';
 
 export type BrainIntent =
   | 'lookup'      // find/retrieve existing knowledge
@@ -19,60 +24,31 @@ export interface Classification {
   reasoning: string;                  // one sentence why
 }
 
-const CLASSIFY_TOOL: Anthropic.Tool = {
-  name: 'classify',
-  description: 'Classify the user intent and complexity of a Company Brain question.',
-  input_schema: {
-    type: 'object' as const,
-    properties: {
-      intent: {
-        type: 'string',
-        enum: ['lookup', 'capture', 'planning', 'people', 'procedural', 'summary'],
-        description: 'The primary intent of the user message.',
-      },
-      complexity: {
-        type: 'string',
-        enum: ['simple', 'complex'],
-        description:
-          'simple = a single tool call can answer it; complex = multiple tool calls or reasoning steps are needed.',
-      },
-      reasoning: {
-        type: 'string',
-        description: 'One sentence explaining why this intent and complexity was chosen.',
-      },
-    },
-    required: ['intent', 'complexity', 'reasoning'],
-  },
-};
+const classificationSchema = z.object({
+  intent: z.enum(['lookup', 'capture', 'planning', 'people', 'procedural', 'summary']),
+  complexity: z.enum(['simple', 'complex']),
+  reasoning: z.string(),
+});
 
 export async function classifyIntent(
   message: string,
-  anthropic: Anthropic,
+  clientId: number,
 ): Promise<Classification> {
   try {
-    const response = await anthropic.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 256,
+    const { object } = await completeObject({
+      task: 'brainClassify',
+      clientId,
+      maxTokens: 256,
+      schema: classificationSchema,
       system:
         'You classify user questions directed at a Company Brain knowledge assistant. Return the most accurate intent and whether the question requires multiple tool calls to answer fully.',
-      messages: [{ role: 'user', content: message }],
-      tools: [CLASSIFY_TOOL],
-      tool_choice: { type: 'tool', name: 'classify' },
+      prompt: message,
     });
-
-    for (const block of response.content) {
-      if (block.type === 'tool_use' && block.name === 'classify') {
-        const input = block.input as Record<string, unknown>;
-        return {
-          intent: input.intent as BrainIntent,
-          complexity: input.complexity as 'simple' | 'complex',
-          reasoning: String(input.reasoning ?? ''),
-        };
-      }
-    }
-
-    // Unexpected: tool_choice forced the model but no tool_use block found
-    return { intent: 'lookup', complexity: 'simple', reasoning: 'fallback' };
+    return {
+      intent: object.intent,
+      complexity: object.complexity,
+      reasoning: object.reasoning,
+    };
   } catch {
     return { intent: 'lookup', complexity: 'simple', reasoning: 'fallback' };
   }
