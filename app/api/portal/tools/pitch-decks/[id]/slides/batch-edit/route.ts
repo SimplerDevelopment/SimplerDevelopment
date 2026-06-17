@@ -9,7 +9,8 @@ import { saveVersionSnapshot } from '@/lib/pitch-deck-versions';
 import { buildSlideEditPrompt } from '@/lib/ai/slide-prompt-builder';
 import { validateSlideResponse } from '@/lib/ai/validate-slide-response';
 import { getBrandingByClientId } from '@/lib/branding';
-import Anthropic from '@anthropic-ai/sdk';
+import type { ModelMessage } from 'ai';
+import { complete } from '@/lib/ai/llm';
 import { resolveClientApiKey } from '@/lib/ai/resolve-client-key';
 import { recordAiUsage } from '@/lib/ai/audit';
 import { checkAiPlanGate } from '@/lib/ai/plan-gate';
@@ -51,7 +52,6 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       return NextResponse.json({ success: false, message: gate.message, reason: gate.reason }, { status: 402 });
     }
     const resolved = await resolveClientApiKey({ clientId: client.id, provider: 'anthropic' });
-    const anthropic = new Anthropic({ apiKey: resolved.key });
 
     const slides = (deck.slides || []) as PitchDeckSlideV2[];
     const validIndices = slideIndices.filter(i => i >= 0 && i < slides.length);
@@ -116,40 +116,38 @@ Response format:
   ]
 }`;
 
-    const messages: Anthropic.MessageParam[] = [{
+    const messages: ModelMessage[] = [{
       role: 'user',
       content: `Slides to edit:\n${JSON.stringify(targetedSlides.map(t => t.slide), null, 2)}\n\nInstruction to apply to ALL these slides: ${prompt.trim()}\n\nIMPORTANT: Apply the instruction consistently across every slide. Preserve all existing styling, structure, and content that is not targeted by the instruction. Ensure slides maintain their narrative flow within the deck.`,
     }];
 
-    const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 8192,
+    const response = await complete({
+      task: 'slideBatchEdit',
+      clientId: client.id,
+      maxTokens: 8192,
       system: systemPrompt + batchSystemAddendum,
       messages,
     });
 
-    let totalInput = response.usage?.input_tokens ?? 0;
-    let totalOutput = response.usage?.output_tokens ?? 0;
-    let text = response.content
-      .filter((b): b is Anthropic.TextBlock => b.type === 'text')
-      .map(b => b.text).join('');
+    let totalInput = response.usage.inputTokens ?? 0;
+    let totalOutput = response.usage.outputTokens ?? 0;
+    let text = response.text;
 
     // Handle truncation
-    if (response.stop_reason === 'max_tokens') {
-      const continuation = await anthropic.messages.create({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 8192,
+    if (response.finishReason === 'length') {
+      const continuation = await complete({
+        task: 'slideBatchEdit',
+        clientId: client.id,
+        maxTokens: 8192,
         system: systemPrompt + batchSystemAddendum,
         messages: [
           ...messages,
           { role: 'assistant', content: text },
         ],
       });
-      totalInput += continuation.usage?.input_tokens ?? 0;
-      totalOutput += continuation.usage?.output_tokens ?? 0;
-      text += continuation.content
-        .filter((b): b is Anthropic.TextBlock => b.type === 'text')
-        .map(b => b.text).join('');
+      totalInput += continuation.usage.inputTokens ?? 0;
+      totalOutput += continuation.usage.outputTokens ?? 0;
+      text += continuation.text;
     }
 
     void recordAiUsage({ clientId: client.id, source: resolved.source, tokens: totalInput + totalOutput });

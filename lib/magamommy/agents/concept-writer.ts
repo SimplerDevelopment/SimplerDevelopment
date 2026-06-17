@@ -9,12 +9,11 @@
 // Pure synthesis — no tools. Modeled on
 // `lib/plugins/handlers/postcaptain-tools/draft-blog-post.ts`.
 
-import Anthropic from '@anthropic-ai/sdk';
 import { eq } from 'drizzle-orm';
 
 import { db } from '@/lib/db';
 import { magamommyBriefs, magamommyConcepts } from '@/lib/db/schema/magamommy';
-import { resolveClientApiKey } from '@/lib/ai/resolve-client-key';
+import { complete } from '@/lib/ai/llm';
 
 import type { Concept, Topic } from '../types';
 
@@ -120,9 +119,6 @@ export async function runConceptWriter(
   const topTopic = topics[0];
 
   // 2. LLM call.
-  const resolved = await resolveClientApiKey({ clientId, provider: 'anthropic' });
-  const anthropic = new Anthropic({ apiKey: resolved.key });
-
   const userPrompt = [
     'Generate 3 shirt concepts for the following news topic, then pick the best one.',
     '',
@@ -135,18 +131,13 @@ export async function runConceptWriter(
     '- Output the JSON envelope described in the system prompt and NOTHING else.',
   ].join('\n');
 
-  const response = await anthropic.messages.create({
-    model: 'claude-opus-4-7',
-    max_tokens: 2048,
+  const { text } = await complete({
+    task: 'magamommyConcept',
+    clientId,
+    maxTokens: 2048,
     system: SYSTEM_PROMPT,
-    messages: [{ role: 'user', content: userPrompt }],
+    prompt: userPrompt,
   });
-
-  const text = response.content
-    .map((b) => (b.type === 'text' ? b.text : ''))
-    .filter((s) => s.length > 0)
-    .join('\n')
-    .trim();
 
   if (!text) {
     throw new Error('runConceptWriter: model returned no text content');

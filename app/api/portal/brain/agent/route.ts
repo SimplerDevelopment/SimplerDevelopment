@@ -297,7 +297,7 @@ export async function POST(req: Request): Promise<Response> {
           const plan = await withSpan(
             'brain_agent.plan',
             { clientId: client.id, convId, intent: classification.intent },
-            () => generatePlan(message, classification.intent, anthropic),
+            () => generatePlan(message, classification.intent, client.id),
           );
           if (plan.steps.length > 0) {
             write({ type: 'plan', steps: plan.steps });

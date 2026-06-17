@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import Anthropic from '@anthropic-ai/sdk';
 import { auth } from '@/lib/auth';
 import { resolveClientSite } from '@/lib/portal-client';
 import { getBrandingByWebsiteId, getBrandMessaging } from '@/lib/branding';
@@ -15,6 +14,7 @@ import {
   StyleVariantsValidationError,
 } from '@/lib/ai/style-variants/validate';
 import type { Block } from '@/types/blocks';
+import { complete } from '@/lib/ai/llm';
 import { resolveClientApiKey } from '@/lib/ai/resolve-client-key';
 import { recordAiUsage } from '@/lib/ai/audit';
 import { checkAiPlanGate } from '@/lib/ai/plan-gate';
@@ -70,7 +70,6 @@ export async function POST(req: Request, { params }: { params: Promise<{ siteId:
       return NextResponse.json({ success: false, message: gate.message, reason: gate.reason }, { status: 402 });
     }
     const resolved = await resolveClientApiKey({ clientId: site.clientId, provider: 'anthropic' });
-    const anthropic = new Anthropic({ apiKey: resolved.key });
 
     // Brand context — visual + messaging
     const branding = await getBrandingByWebsiteId(siteId);
@@ -97,20 +96,17 @@ export async function POST(req: Request, { params }: { params: Promise<{ siteId:
       exploreOutsideBrand,
     });
 
-    const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 2048,
+    const result = await complete({
+      task: 'blockRestyle',
+      clientId: site.clientId,
+      maxTokens: 2048,
       system,
-      messages: [{ role: 'user', content: userPrompt }],
+      prompt: userPrompt,
     });
 
-    const text = response.content
-      .filter((b): b is Anthropic.TextBlock => b.type === 'text')
-      .map((b) => b.text)
-      .join('')
-      .trim();
+    const text = result.text.trim();
 
-    const totalTokens = (response.usage?.input_tokens ?? 0) + (response.usage?.output_tokens ?? 0);
+    const totalTokens = (result.usage?.inputTokens ?? 0) + (result.usage?.outputTokens ?? 0);
     void recordAiUsage({ clientId: site.clientId, source: resolved.source, tokens: totalTokens });
 
     let parsed: unknown;

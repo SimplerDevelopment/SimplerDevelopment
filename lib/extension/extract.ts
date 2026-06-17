@@ -13,19 +13,15 @@
  * provider.
  */
 
-import Anthropic from '@anthropic-ai/sdk';
 import { z } from 'zod';
 import { and, eq, ilike, or, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { crmCompanies, crmContacts } from '@/lib/db/schema';
-import { resolveClientApiKey } from '@/lib/ai/resolve-client-key';
+import { completeObject } from '@/lib/ai/llm';
 import { searchBrain } from '@/lib/brain/search';
 
 /** Hard cap on inbound text — anything longer is truncated before the model sees it. */
 const MAX_TEXT_CHARS = 12_000;
-
-/** Cheap + fast model — the spec calls for `claude-haiku-4-5-20251001`. */
-const MODEL = 'claude-haiku-4-5-20251001';
 
 const personSchema = z.object({
   name: z.string().min(1),
@@ -121,44 +117,16 @@ PAGE TEXT (truncated to ${MAX_TEXT_CHARS} chars):
 ${text}`;
 }
 
-/**
- * Strip common JSON-in-markdown wrappers a model might emit despite our system
- * prompt. Returns the original string if no fence is detected.
- */
-function unfence(raw: string): string {
-  const trimmed = raw.trim();
-  // ```json\n...\n```
-  const fenced = trimmed.match(/^```(?:json)?\s*\n?([\s\S]*?)\n?```$/i);
-  if (fenced) return fenced[1].trim();
-  return trimmed;
-}
-
-function parseExtraction(raw: string): ExtractionResult {
-  const cleaned = unfence(raw);
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(cleaned);
-  } catch {
-    // Last-ditch: try to find the first {...} block.
-    const m = cleaned.match(/\{[\s\S]*\}/);
-    if (!m) throw new Error('Model did not return JSON');
-    parsed = JSON.parse(m[0]);
-  }
-  return extractionSchema.parse(parsed);
-}
-
 async function callModel(input: ExtractInput): Promise<ExtractionResult> {
-  const resolved = await resolveClientApiKey({ clientId: input.clientId, provider: 'anthropic' });
-  const anthropic = new Anthropic({ apiKey: resolved.key });
-  const response = await anthropic.messages.create({
-    model: MODEL,
-    max_tokens: 1500,
+  const { object } = await completeObject({
+    task: 'extensionExtract',
+    clientId: input.clientId,
+    maxTokens: 1500,
     system: SYSTEM_PROMPT,
-    messages: [{ role: 'user', content: buildUserPrompt(input) }],
+    schema: extractionSchema,
+    prompt: buildUserPrompt(input),
   });
-  const textBlock = response.content.find((b): b is Anthropic.TextBlock => b.type === 'text');
-  if (!textBlock) throw new Error('Model returned no text content');
-  return parseExtraction(textBlock.text);
+  return object;
 }
 
 /**
@@ -258,4 +226,4 @@ export async function extractFromPage(input: ExtractInput): Promise<ExtractRespo
 }
 
 /** Re-export for testing. */
-export const __test__ = { parseExtraction, extractionSchema };
+export const __test__ = { extractionSchema };

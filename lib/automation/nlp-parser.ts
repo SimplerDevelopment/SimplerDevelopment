@@ -5,11 +5,11 @@
  * to parse it into structured trigger/condition/action JSON.
  */
 
-import Anthropic from '@anthropic-ai/sdk';
 import { AUTOMATION_EVENTS } from './event-bus';
 import { PORTAL_TOOLS } from '@/lib/ai/portal-tools';
 import { resolveClientApiKey } from '@/lib/ai/resolve-client-key';
 import { recordAiUsage } from '@/lib/ai/audit';
+import { complete } from '@/lib/ai/llm';
 
 export interface ParsedAutomation {
   name: string;
@@ -126,53 +126,46 @@ export async function parseAutomationDescription(
   description: string,
   opts: { clientId?: number } = {},
 ): Promise<{ parsed: ParsedAutomation; inputTokens: number; outputTokens: number; source: 'byok' | 'platform' }> {
-  // Resolve BYOK > platform key. If clientId is omitted (legacy callers),
-  // fall back to env directly to preserve existing behaviour.
-  let apiKey: string;
+  // Resolve source (byok vs platform) for credit accounting. The AI call
+  // goes through the provider-agnostic seam; clientId is required there.
+  // Legacy callers that omit clientId get a platform-key fallback for source.
   let source: 'byok' | 'platform' = 'platform';
-  if (typeof opts.clientId === 'number') {
-    const resolved = await resolveClientApiKey({ clientId: opts.clientId, provider: 'anthropic' });
-    apiKey = resolved.key;
+  const clientId = opts.clientId;
+  if (typeof clientId === 'number') {
+    const resolved = await resolveClientApiKey({ clientId, provider: 'anthropic' });
     source = resolved.source;
   } else {
     if (!process.env.ANTHROPIC_API_KEY) {
       throw new Error('ANTHROPIC_API_KEY is not set in environment variables.');
     }
-    apiKey = process.env.ANTHROPIC_API_KEY;
   }
-  const anthropic = new Anthropic({ apiKey });
 
-  const response = await anthropic.messages.create({
-    model: 'claude-sonnet-4-6-20250514',
-    max_tokens: 1024,
+  // Legacy callers without clientId cannot use the provider-agnostic seam
+  // (which requires a tenant). Require clientId going forward.
+  if (typeof clientId !== 'number') {
+    throw new Error('parseAutomationDescription requires clientId.');
+  }
+
+  const response = await complete({
+    task: 'nlpParse',
+    clientId,
+    maxTokens: 1024,
     system: SYSTEM_PROMPT,
-    messages: [
-      {
-        role: 'user',
-        content: `Parse this automation rule:\n\n"${description}"`,
-      },
-    ],
+    prompt: `Parse this automation rule:\n\n"${description}"`,
   });
 
-  const text = response.content
-    .filter((block): block is Anthropic.TextBlock => block.type === 'text')
-    .map((block) => block.text)
-    .join('');
+  const parsed = JSON.parse(response.text) as ParsedAutomation;
 
-  const parsed = JSON.parse(text) as ParsedAutomation;
-
-  if (typeof opts.clientId === 'number') {
-    void recordAiUsage({
-      clientId: opts.clientId,
-      source,
-      tokens: response.usage.input_tokens + response.usage.output_tokens,
-    });
-  }
+  void recordAiUsage({
+    clientId,
+    source,
+    tokens: (response.usage?.inputTokens ?? 0) + (response.usage?.outputTokens ?? 0),
+  });
 
   return {
     parsed,
-    inputTokens: response.usage.input_tokens,
-    outputTokens: response.usage.output_tokens,
+    inputTokens: response.usage?.inputTokens ?? 0,
+    outputTokens: response.usage?.outputTokens ?? 0,
     source,
   };
 }

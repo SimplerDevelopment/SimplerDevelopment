@@ -10,7 +10,8 @@ import { buildSlideEditPrompt } from '@/lib/ai/slide-prompt-builder';
 import { validateSlideResponse } from '@/lib/ai/validate-slide-response';
 import { classifyEdit, minimizePayload, applyPatchResponse, isPatchResponse } from '@/lib/ai/slide-edit-optimizer';
 import { getBrandingByClientId } from '@/lib/branding';
-import Anthropic from '@anthropic-ai/sdk';
+import type { ModelMessage } from 'ai';
+import { complete } from '@/lib/ai/llm';
 import { resolveClientApiKey } from '@/lib/ai/resolve-client-key';
 import { recordAiUsage } from '@/lib/ai/audit';
 import { checkAiPlanGate } from '@/lib/ai/plan-gate';
@@ -60,7 +61,6 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       return NextResponse.json({ success: false, message: gate.message, reason: gate.reason }, { status: 402 });
     }
     const resolved = await resolveClientApiKey({ clientId: client.id, provider: 'anthropic' });
-    const anthropic = new Anthropic({ apiKey: resolved.key });
 
     // Auto-save current state before AI slide edit
     await saveVersionSnapshot(
@@ -116,7 +116,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     }
 
     // Build messages: include conversation history for multi-turn refinement
-    const messages: Anthropic.MessageParam[] = [];
+    const messages: ModelMessage[] = [];
 
     if (history?.length) {
       for (const msg of history.slice(-6)) { // Keep last 3 exchanges max
@@ -145,35 +145,33 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       content: `${optimized.userPrefix}\n${JSON.stringify(optimized.slide, null, 2)}\n\nInstruction: ${prompt.trim()}${adjacentSection}\n\nIMPORTANT: Only change what the instruction asks for. Preserve everything not explicitly referenced.`,
     });
 
-    let response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-6',
-      max_tokens: optimized.maxTokens,
+    let response = await complete({
+      task: 'slideGen',
+      clientId: client.id,
+      maxTokens: optimized.maxTokens,
       system: systemPrompt,
       messages,
     });
 
-    let totalInput = response.usage?.input_tokens ?? 0;
-    let totalOutput = response.usage?.output_tokens ?? 0;
-    let text = response.content
-      .filter((b): b is Anthropic.TextBlock => b.type === 'text')
-      .map(b => b.text).join('');
+    let totalInput = response.usage.inputTokens ?? 0;
+    let totalOutput = response.usage.outputTokens ?? 0;
+    let text = response.text;
 
     // If output was truncated, continue generation
-    if (response.stop_reason === 'max_tokens') {
-      const continuation = await anthropic.messages.create({
-        model: 'claude-sonnet-4-6',
-        max_tokens: optimized.maxTokens,
+    if (response.finishReason === 'length') {
+      const continuation = await complete({
+        task: 'slideGen',
+        clientId: client.id,
+        maxTokens: optimized.maxTokens,
         system: systemPrompt,
         messages: [
           ...messages,
           { role: 'assistant' as const, content: text },
         ],
       });
-      totalInput += continuation.usage?.input_tokens ?? 0;
-      totalOutput += continuation.usage?.output_tokens ?? 0;
-      text += continuation.content
-        .filter((b): b is Anthropic.TextBlock => b.type === 'text')
-        .map(b => b.text).join('');
+      totalInput += continuation.usage.inputTokens ?? 0;
+      totalOutput += continuation.usage.outputTokens ?? 0;
+      text += continuation.text;
     }
 
     void recordAiUsage({ clientId: client.id, source: resolved.source, tokens: totalInput + totalOutput });

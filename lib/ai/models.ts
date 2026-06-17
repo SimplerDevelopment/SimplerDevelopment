@@ -52,6 +52,19 @@ export interface ModelChoice {
 }
 
 /**
+ * CARVE-OUTS (still on raw @anthropic-ai/sdk — NOT yet routed through this seam):
+ * the agentic, multi-turn, streaming tool loops. They need a dedicated
+ * `completeAgentLoop` seam (streamText + tools + stopWhen + per-step usage
+ * aggregation), and two have extra constraints:
+ *   - app/api/portal/brain/agent/route.ts   — streaming SSE tool loop
+ *   - app/api/portal/ai/chat/route.ts        — streaming SSE tool loop
+ *   - app/api/portal/ai/chat/stream/route.ts — streaming (actively being changed on feat/ai-stream-tool-calling)
+ *   - app/api/email/inbound/route.ts         — agentic loop with per-turn credit accounting
+ *   - lib/magamommy/agents/researcher.ts     — uses Anthropic's NATIVE web_search tool (provider-specific; can't be made agnostic)
+ * Until those migrate, their models stay hardcoded in-file.
+ */
+
+/**
  * DEFAULTS — all Claude, matching the model each call site uses today so the
  * migration is behavior-preserving. Edit a line (or set AI_MODEL__<task>) to
  * move that one aspect to a cheaper model.
@@ -62,9 +75,9 @@ export const MODELS: Record<AiTask, ModelChoice> = {
   brainAgentComplex: { provider: 'anthropic', model: 'claude-sonnet-4-6' },
   brainClassify:     { provider: 'anthropic', model: 'claude-haiku-4-5-20251001' },
   brainPlan:         { provider: 'anthropic', model: 'claude-haiku-4-5-20251001' },
-  classifyCrm:       { provider: 'anthropic', model: 'claude-sonnet-4-6' },
-  classifyNotes:     { provider: 'anthropic', model: 'claude-sonnet-4-6' },
-  analyzeAttachment: { provider: 'anthropic', model: 'claude-sonnet-4-6' },
+  classifyCrm:       { provider: 'anthropic', model: 'claude-sonnet-4-5' },
+  classifyNotes:     { provider: 'anthropic', model: 'claude-haiku-4-5-20251001' },
+  analyzeAttachment: { provider: 'anthropic', model: 'claude-haiku-4-5-20251001' },
   meetingProcess:    { provider: 'anthropic', model: 'claude-sonnet-4-5' },
   nlpParse:          { provider: 'anthropic', model: 'claude-sonnet-4-6-20250514' },
   surveySummary:     { provider: 'anthropic', model: 'claude-sonnet-4-6' },
@@ -72,15 +85,15 @@ export const MODELS: Record<AiTask, ModelChoice> = {
   brandingMessaging: { provider: 'anthropic', model: 'claude-sonnet-4-6' },
   brandingRewrite:   { provider: 'anthropic', model: 'claude-sonnet-4-6' },
   brandingBlockCopy: { provider: 'anthropic', model: 'claude-sonnet-4-6' },
-  siteBrandingGen:   { provider: 'anthropic', model: 'claude-sonnet-4-6' },
+  siteBrandingGen:   { provider: 'anthropic', model: 'claude-sonnet-4-20250514' },
   blockRestyle:      { provider: 'anthropic', model: 'claude-sonnet-4-6' },
   deckGen:           { provider: 'anthropic', model: 'claude-sonnet-4-6' },
   slideGen:          { provider: 'anthropic', model: 'claude-sonnet-4-6' },
   slideBatchEdit:    { provider: 'anthropic', model: 'claude-sonnet-4-6' },
   inboundEmail:      { provider: 'anthropic', model: 'claude-sonnet-4-6' },
-  extensionExtract:  { provider: 'anthropic', model: 'claude-sonnet-4-6' },
+  extensionExtract:  { provider: 'anthropic', model: 'claude-haiku-4-5-20251001' },
   magamommyResearch: { provider: 'anthropic', model: 'claude-sonnet-4-6' },
-  magamommyConcept:  { provider: 'anthropic', model: 'claude-sonnet-4-6' },
+  magamommyConcept:  { provider: 'anthropic', model: 'claude-opus-4-7' },
 };
 
 const HF_BASE_URL = process.env.HUGGINGFACE_BASE_URL ?? 'https://router.huggingface.co/v1';
