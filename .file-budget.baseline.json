@@ -1,9 +1,10 @@
 {
   "app/admin/agentic-os/page.tsx": 889,
-  "app/admin/clients/[id]/page.tsx": 1323,
+  "app/admin/clients/[id]/page.tsx": 1327,
+  "app/admin/clients/[id]/plan/page.tsx": 724,
   "app/admin/portal-hosting/page.tsx": 706,
   "app/admin/post-types/[id]/fields/page.tsx": 558,
-  "app/admin/subscriptions/page.tsx": 560,
+  "app/admin/subscriptions/page.tsx": 600,
   "app/admin/templates/page.tsx": 511,
   "app/api/blocks/route.ts": 732,
   "app/api/portal/brain/agent/route.ts": 549,
