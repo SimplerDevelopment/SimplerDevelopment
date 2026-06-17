@@ -18,6 +18,24 @@ function isProductionAppHost(host: string): boolean {
   return PROD_APP_HOSTS.has(bareHost(host));
 }
 
+// Only accept a same-origin absolute path as a post-unlock destination. Reject
+// schemes, protocol-relative '//host', and backslashes so this can't be turned
+// into an open redirector. (/api/sites/unlock guards again on redemption.)
+function sanitizeReturnPath(p: unknown): string {
+  if (typeof p !== 'string' || !p.startsWith('/') || p.startsWith('//') || p.includes('\\')) {
+    return '/';
+  }
+  return p;
+}
+
+// The visitor's path is relative to whichever host they're on. When we hand off
+// to the tenant's own host, strip the internal `/sites/<domain>` rewrite prefix
+// so the path resolves at the tenant root ('/sites/foo.com/blog' -> '/blog').
+function stripSitesPrefix(p: string): string {
+  const m = /^\/sites\/[^/]+(\/.*)?$/.exec(p);
+  return m ? (m[1] || '/') : p;
+}
+
 // Best tenant subdomain/custom-domain (used when the visitor is on the prod
 // marketing site so we can hand them off to the pretty canonical URL).
 async function resolveTenantHost(site: {
@@ -36,7 +54,7 @@ async function resolveTenantHost(site: {
 }
 
 export async function POST(req: Request) {
-  let body: { code?: unknown };
+  let body: { code?: unknown; path?: unknown };
   try {
     body = await req.json();
   } catch {
@@ -45,6 +63,8 @@ export async function POST(req: Request) {
 
   const raw = typeof body.code === 'string' ? body.code : '';
   const code = normalizeCode(raw);
+  // Where to send the visitor after the unlock (the gated page they requested).
+  const returnPath = stripSitesPrefix(sanitizeReturnPath(body.path));
   if (!code) {
     return NextResponse.json({ success: false, message: 'Please enter an access code.' }, { status: 400 });
   }
@@ -88,15 +108,18 @@ export async function POST(req: Request) {
   let url: string;
   if (bareHost(requestHost) === bareHost(tenantHost)) {
     // Visitor is already on the tenant's own host (subdomain or custom domain).
-    // Unlock here and land on the site root — NOT the internal /sites/<domain>/
-    // path, which would double-prefix into <host>/sites/<host>/ and 404.
-    url = `${requestProto}://${requestHost}/api/sites/unlock?s=${site.id}&t=${token}`;
+    // Unlock here and return them to the requested page at the tenant root —
+    // NOT the internal /sites/<domain>/ path, which would double-prefix and 404.
+    const next = encodeURIComponent(returnPath);
+    url = `${requestProto}://${requestHost}/api/sites/unlock?s=${site.id}&t=${token}&next=${next}`;
   } else if (isProductionAppHost(requestHost)) {
-    url = `https://${tenantHost}/api/sites/unlock?s=${site.id}&t=${token}`;
+    const next = encodeURIComponent(returnPath);
+    url = `https://${tenantHost}/api/sites/unlock?s=${site.id}&t=${token}&next=${next}`;
   } else {
     // Some other host (localhost, *.vercel.app, white-label) that can only reach
     // the tenant via the internal /sites/<domain>/ rewrite — keep the prefix.
-    const next = encodeURIComponent(`/sites/${tenantHost}/`);
+    const prefixed = returnPath === '/' ? `/sites/${tenantHost}/` : `/sites/${tenantHost}${returnPath}`;
+    const next = encodeURIComponent(prefixed);
     url = `${requestProto}://${requestHost}/api/sites/unlock?s=${site.id}&t=${token}&next=${next}`;
   }
 
