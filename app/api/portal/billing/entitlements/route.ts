@@ -9,6 +9,7 @@ export async function GET() {
   const ent = await getClientEntitlements(auth.client.id, {
     billingMode: auth.client.billingMode,
     brainTrialUntil: auth.client.brainTrialUntil,
+    byokEligibleOverride: auth.client.byokEligibleOverride,
   });
 
   return NextResponse.json({

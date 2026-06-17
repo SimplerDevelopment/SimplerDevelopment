@@ -4,6 +4,10 @@
 // already, but does not bill until they accept — so we exclude rows whose user
 // still has an active invite token.
 //
+// Admin override: when `clients.billableSeatsOverride` is set, it IS the billed
+// seat count (for comped / contracted-seat deals) — the derived count is
+// ignored. Null = derive as below.
+//
 // Tenancy: every query is scoped to the passed clientId.
 
 import { db } from '@/lib/db';
@@ -18,11 +22,16 @@ import { eq } from 'drizzle-orm';
  */
 export async function countBillableSeats(clientId: number): Promise<number> {
   const [client] = await db
-    .select({ ownerId: clients.userId })
+    .select({ ownerId: clients.userId, seatsOverride: clients.billableSeatsOverride })
     .from(clients)
     .where(eq(clients.id, clientId))
     .limit(1);
   if (!client) return 0;
+
+  // Staff-set override wins (≥ 0, e.g. a contracted/comped seat count).
+  if (client.seatsOverride != null && client.seatsOverride >= 0) {
+    return client.seatsOverride;
+  }
 
   const members = await db
     .select({ userId: clientMembers.userId, inviteToken: users.inviteToken })

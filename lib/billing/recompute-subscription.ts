@@ -17,7 +17,7 @@
 
 import type Stripe from 'stripe';
 import { db } from '@/lib/db';
-import { clientServices, services } from '@/lib/db/schema';
+import { clientServices, services, clients } from '@/lib/db/schema';
 import { and, eq, isNotNull } from 'drizzle-orm';
 import {
   BUNDLE,
@@ -36,6 +36,31 @@ function monthlyPriceData(productId: string, unitAmountCents: number): Stripe.Su
     unit_amount: unitAmountCents,
     recurring: { interval: 'month' },
   };
+}
+
+/**
+ * Idempotently ensure a `comp-<percent>` forever percent_off coupon exists, and
+ * return its id. This is the ONE sanctioned coupon — an admin per-account comp,
+ * distinct from the à-la-carte volume discount (which lives in the line items).
+ */
+async function ensureCompCoupon(stripe: Stripe, percent: number): Promise<string> {
+  const id = `comp-${percent}`;
+  try {
+    await stripe.coupons.retrieve(id);
+  } catch (err) {
+    if ((err as { code?: string })?.code === 'resource_missing') {
+      await stripe.coupons.create({
+        id,
+        percent_off: percent,
+        duration: 'forever',
+        name: `Comp ${percent}% off`,
+        metadata: { kind: 'comp_discount' },
+      });
+    } else {
+      throw err;
+    }
+  }
+  return id;
 }
 
 export interface RecomputeResult {
@@ -76,6 +101,16 @@ export async function recomputeClientSubscription(
 
   const subscriptionId = rows[0]?.stripeSubscriptionId;
   if (!subscriptionId) return { updated: false, note: 'no active subscription' };
+
+  // Admin comp discount (separate from the line-item volume discount).
+  const [clientRow] = await db
+    .select({ compDiscountPercent: clients.compDiscountPercent })
+    .from(clients)
+    .where(eq(clients.id, clientId))
+    .limit(1);
+  const compPercent = clientRow?.compDiscountPercent ?? null;
+  const desiredCouponId =
+    compPercent != null && compPercent > 0 && compPercent <= 100 ? `comp-${compPercent}` : null;
 
   const seatCount = await countBillableSeats(clientId);
   const bundleRow = rows.find((r) => r.category === 'bundle');
@@ -124,7 +159,9 @@ export async function recomputeClientSubscription(
   }
 
   // Diff against the live subscription items (matched by price.product).
-  const sub = await stripe.subscriptions.retrieve(subscriptionId, { expand: ['items.data.price'] });
+  const sub = await stripe.subscriptions.retrieve(subscriptionId, {
+    expand: ['items.data.price', 'discounts'],
+  });
   const updates: ItemUpdate[] = [];
   const seenProducts = new Set<string>();
 
@@ -167,13 +204,31 @@ export async function recomputeClientSubscription(
     }
   }
 
-  const totalCents = moduleSubtotalCents + seatUnitCents * additionalSeats;
-  if (updates.length === 0) return { updated: false, note: seatNote, totalCents };
+  // Comp discount diff — the subscription should carry the `comp-<percent>`
+  // coupon iff the client has a comp set (and nothing otherwise).
+  const currentCouponId: string | null = (() => {
+    const d = sub.discounts?.[0];
+    if (!d || typeof d === 'string') return null;
+    // Stripe v20: the coupon lives under discount.source.coupon.
+    const c = (d as Stripe.Discount).source?.coupon;
+    return typeof c === 'string' ? c : c?.id ?? null;
+  })();
+  const compChanged = currentCouponId !== desiredCouponId;
 
-  await stripe.subscriptions.update(subscriptionId, {
-    items: updates,
-    proration_behavior: 'create_prorations',
-  });
+  const totalCents = moduleSubtotalCents + seatUnitCents * additionalSeats;
+  if (updates.length === 0 && !compChanged) return { updated: false, note: seatNote, totalCents };
+
+  const updateParams: Stripe.SubscriptionUpdateParams = { proration_behavior: 'create_prorations' };
+  if (updates.length > 0) updateParams.items = updates;
+  if (compChanged) {
+    if (desiredCouponId) {
+      await ensureCompCoupon(stripe, compPercent as number);
+      updateParams.discounts = [{ coupon: desiredCouponId }];
+    } else {
+      updateParams.discounts = []; // clear the comp discount
+    }
+  }
+  await stripe.subscriptions.update(subscriptionId, updateParams);
 
   return { updated: true, note: seatNote, totalCents };
 }

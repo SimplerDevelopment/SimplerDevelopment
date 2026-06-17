@@ -64,6 +64,7 @@ export async function GET() {
   const ent = await getClientEntitlements(client.id, {
     billingMode: client.billingMode,
     brainTrialUntil: client.brainTrialUntil,
+    byokEligibleOverride: client.byokEligibleOverride,
   });
 
   // ── 4. Merge modules ──────────────────────────────────────────────────────
