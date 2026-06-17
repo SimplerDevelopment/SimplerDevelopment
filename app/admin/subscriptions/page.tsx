@@ -52,12 +52,45 @@ function statusColor(status: string) {
 
 function categoryColor(category: string) {
   switch (category) {
+    // Legacy service categories
     case 'domain': return 'bg-blue-100 text-blue-700';
     case 'hosting': return 'bg-purple-100 text-purple-700';
     case 'development': return 'bg-indigo-100 text-indigo-700';
     case 'maintenance': return 'bg-teal-100 text-teal-700';
+    // Module domains
+    case 'websites':
+    case 'crm':
+    case 'brain':
+    case 'email':
+    case 'projects':
+    case 'surveys':
+    case 'bookings':
+    case 'store':
+    case 'esign':
+    case 'pitch-decks':
+    case 'automations':
+    case 'publishing':
+      return 'bg-blue-100 text-blue-700';
+    // Bundle / plan tiers
+    case 'bundle':
+    case 'plan-starter':
+    case 'plan-growth':
+    case 'plan-scale':
+      return 'bg-purple-100 text-purple-700';
     default: return 'bg-gray-100 text-gray-600';
   }
+}
+
+const MODULE_DOMAIN_KEYS = new Set([
+  'websites', 'crm', 'brain', 'email', 'projects', 'surveys',
+  'bookings', 'store', 'esign', 'pitch-decks', 'automations', 'publishing',
+]);
+const PLAN_BUNDLE_KEYS = new Set(['bundle', 'plan-starter', 'plan-growth', 'plan-scale']);
+
+function categoryBadgeLabel(category: string): string | null {
+  if (MODULE_DOMAIN_KEYS.has(category)) return 'module';
+  if (PLAN_BUNDLE_KEYS.has(category)) return 'plan';
+  return null;
 }
 
 export default function AdminSubscriptionsPage() {
@@ -310,9 +343,16 @@ export default function AdminSubscriptionsPage() {
                   <td className="px-4 py-3 font-medium text-foreground">{sub.company ?? sub.clientName}</td>
                   <td className="px-4 py-3 text-foreground">{sub.serviceName}</td>
                   <td className="px-4 py-3">
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${categoryColor(sub.serviceCategory)}`}>
-                      {sub.serviceCategory}
-                    </span>
+                    <div className="flex flex-wrap items-center gap-1">
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${categoryColor(sub.serviceCategory)}`}>
+                        {sub.serviceCategory}
+                      </span>
+                      {categoryBadgeLabel(sub.serviceCategory) && (
+                        <span className="text-xs px-1.5 py-0.5 rounded font-medium bg-muted text-muted-foreground">
+                          {categoryBadgeLabel(sub.serviceCategory)}
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-4 py-3 font-medium text-foreground">{formatCents(sub.price)}</td>
                   <td className="px-4 py-3 text-muted-foreground capitalize">{sub.billingCycle}</td>
