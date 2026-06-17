@@ -22,6 +22,7 @@ Static list (agents: maintain this when adding ADRs — Dataview below only rend
 - [[ADR per-seat-pricing-computed-line-items]]
 - [[ADR admin-billing-overrides-comp-coupon]]
 - [[ADR proposed-audit-agents-and-workflows]]
+- [[ADR mcp-resources-and-prompts]]
 
 ```dataview
 TABLE domain, status, date
