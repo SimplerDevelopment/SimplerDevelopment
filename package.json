@@ -7,6 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "typecheck:fast": "bunx @typescript/native-preview --noEmit",
     "test": "scripts/test.sh --layer=unit --no-coverage",
     "test:unit": "scripts/test.sh --layer=unit --no-coverage",
     "test:integration": "scripts/test.sh --layer=integration --no-coverage",
