@@ -118,10 +118,30 @@ Not applicable. This feature tightens the existing MCP gate; it does not add new
 - **Defaults + backfill:** `lib/ai/portal-tools/derive-rule-scopes.ts` — `deriveRuleScopes()` wired into all rule write-paths: `lib/ai/portal-tools/automations.ts`, `app/api/portal/automations/route.ts`, `app/api/portal/automations/[id]/route.ts`, `lib/mcp/tools/automations.ts`; idempotent backfill script at `scripts/migrations/backfill-automation-rule-scopes.ts` (supports `--dry-run`).
 - **Audit log:** `lib/audit/agent-action-log.ts` — `logAgentAction()` + `hashParams()` at two choke points: `executePortalTool` in `lib/ai/portal-tools/index.ts` (automation/assistant context) and a `registerTool` wrapper in `lib/mcp/server.ts` (MCP context).
 
+### Validation results (Phase 1 — local run, 2026-06-17, code 2f10f49d / docs e4c6a028)
+
+#### Unit (bun test — 5 specs)
+
+122/122 pass. Specs: `tests/unit/portal-tools-scopes.test.ts`, `tests/unit/derive-rule-scopes.test.ts`, `tests/unit/agent-action-log.test.ts`, `tests/unit/automation-scope-gate.test.ts`, `tests/unit/ai-portal-tools-registry-baseline.test.ts`. **Green.**
+
+#### Tenancy gate (bun test:tenancy, local isolated DB)
+
+406 passed / 9 failed. All 9 failures are pre-existing missing-env-var config gaps (`WORKSPACE_TENANT_SECRETS_KEY`, `RESEND_API_KEY`) in unrelated domains (integrations/google, oauth-clients, public booking). None touch the changed surfaces (`agent_action_log`, `automation_rules`, `executePortalTool`, `logAgentAction`). **Verdict: no regression.**
+
+#### Critical E2E (bun test:critical, local improvised env against simplerdev_e2e DB)
+
+281 passed / 149 failed. All 149 failures cascade from a single environmental fault: login returns HTTP 500 for the seeded client, causing every authenticated test to fail downstream (e.g. "Cannot destructure property 'clients' of res.data.data"). The auth/login path imports none of the changed surfaces; grep for automation/audit/scope in failures is empty. **Verdict: no regression attributable to Phase 1.** Faithful critical-e2e sign-off is deferred to CI — the local env lacks several integration secrets and has an auth-500 config gap.
+
+Positive signals from this run: migration `drizzle/0011_agent_action_log_and_automation_scopes.sql` applies cleanly to a real Postgres (264 tables built via drizzle-kit push), the app builds and boots (281 passing tests prove brain.ts/imports are sound), and `scripts/migrations/backfill-automation-rule-scopes.ts` ran correctly against seeded rules.
+
+#### Orthogonal finding (Phase-1 follow-up consideration)
+
+Seeded automation rules call action tools (`assign_ticket`, `send_notification`, `send_email`) that are not in the 81-tool portal-tools registry, so `requiredScopeFor()` returns `null` and the scope gate passes them through without a false denial. This reveals a vocabulary gap: the automation action set can diverge from the portal-tools handler set — the scope gate only covers actions that are real portal-tools handlers. No security regression today (unrecognized tools pass through as before), but a future phase may need to reconcile the two vocabularies or extend scope coverage to non-portal-tools action kinds.
+
 ### Remaining before Phase 1 is fully done
 
-1. Run `bun test:tenancy` — new `automation_rules.scopes` column and `agent_action_log` table both require a clean tenancy pass.
-2. Run `bun test:critical` — golden-path E2E gate.
+1. ~~Run `bun test:tenancy`~~ DONE locally (9 pre-existing env-var failures, none on changed surfaces; see results above). Faithful run will re-confirm in CI.
+2. Run `bun test:critical` in CI — local env has an auth-500 config gap that cannot be resolved without the full integration secrets; CI is the authoritative gate.
 3. Hand-apply migration `drizzle/0011_agent_action_log_and_automation_scopes.sql` to prod.
 4. Run `scripts/migrations/backfill-automation-rule-scopes.ts` against prod to populate `scopes` on existing rules.
 
