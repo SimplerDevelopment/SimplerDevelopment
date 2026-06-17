@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { pitchDecks, clientWebsites, siteBranding } from '@/lib/db/schema';
+import { pitchDecks } from '@/lib/db/schema';
 import type { PitchDeckSlideV2, PitchDeckTheme } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
@@ -145,7 +145,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       content: `${optimized.userPrefix}\n${JSON.stringify(optimized.slide, null, 2)}\n\nInstruction: ${prompt.trim()}${adjacentSection}\n\nIMPORTANT: Only change what the instruction asks for. Preserve everything not explicitly referenced.`,
     });
 
-    let response = await complete({
+    const response = await complete({
       task: 'slideGen',
       clientId: client.id,
       maxTokens: optimized.maxTokens,

@@ -1,7 +1,7 @@
 import { NextResponse, after } from 'next/server';
 import { db } from '@/lib/db';
 import { clients, clientMembers, users, aiConversations, aiMessages, brainProfiles, brainMeetings } from '@/lib/db/schema';
-import { eq, and, sql } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { completeAgentLoop, anthropicToolsToToolSet } from '@/lib/ai/agent-loop';
 import { PORTAL_TOOLS, executePortalTool } from '@/lib/ai/portal-tools';
 import { hasCredits, deductCredits } from '@/lib/ai-credits';
