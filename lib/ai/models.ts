@@ -52,16 +52,22 @@ export interface ModelChoice {
 }
 
 /**
- * CARVE-OUTS (still on raw @anthropic-ai/sdk — NOT yet routed through this seam):
- * the agentic, multi-turn, streaming tool loops. They need a dedicated
- * `completeAgentLoop` seam (streamText + tools + stopWhen + per-step usage
- * aggregation), and two have extra constraints:
- *   - app/api/portal/brain/agent/route.ts   — streaming SSE tool loop
- *   - app/api/portal/ai/chat/route.ts        — streaming SSE tool loop
- *   - app/api/portal/ai/chat/stream/route.ts — streaming (actively being changed on feat/ai-stream-tool-calling)
- *   - app/api/email/inbound/route.ts         — agentic loop with per-turn credit accounting
- *   - lib/magamommy/agents/researcher.ts     — uses Anthropic's NATIVE web_search tool (provider-specific; can't be made agnostic)
- * Until those migrate, their models stay hardcoded in-file.
+ * CARVE-OUTS (still on raw @anthropic-ai/sdk — NOT routed through this seam):
+ *
+ * STREAMING tool loops — need a `streamAgentLoop` (streamText + tools mapped to
+ * each route's bespoke SSE frame protocol). Deliberately deferred to be built
+ * ONCE, aligned with the `feat/ai-stream-tool-calling` branch, so the codebase
+ * gets a single streaming-tool-loop pattern rather than two divergent ones:
+ *   - app/api/portal/brain/agent/route.ts    — streaming SSE tool loop
+ *   - app/api/portal/ai/chat/route.ts         — streaming SSE tool loop
+ *   - app/api/portal/ai/chat/stream/route.ts  — streaming (the active branch's file)
+ *
+ * PERMANENT carve-out (provider-specific, can't be made agnostic):
+ *   - lib/magamommy/agents/researcher.ts      — uses Anthropic's NATIVE web_search tool
+ *
+ * DONE: the non-streaming agentic loop (app/api/email/inbound/route.ts) now uses
+ * `completeAgentLoop` (lib/ai/agent-loop.ts) — extend that with a streaming
+ * variant when the streaming routes migrate.
  */
 
 /**
