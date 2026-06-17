@@ -15,6 +15,10 @@ Playbooks for proving work correct. Core set:
 
 Ad-hoc validation results use [[Validation Report]].
 
+## Audit results (static)
+
+- [[Platform E2E Audit 2026-06-17]] — full platform E2E audit: 862 pass / 340 fail / coverage OOM, real bugs, Phase 2 MCP browser pass (2026-06-17)
+
 ```dataview
 TABLE status, date
 FROM "06 - Validation"

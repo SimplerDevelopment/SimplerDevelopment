@@ -16,6 +16,11 @@ date: 2026-06-16
 - [ ] Microsoft token revocation is a local-only no-op — revoke upstream — see [[Integrations - Google, Microsoft & OAuth]]
 - [ ] Wire `chat_widgets.brainEnabled` to actual Brain retrieval — see [[Chat, Realtime & Voice]]
 - [ ] Themed contract PDF renderer (TODO in `lib/esign/contract-pdf.ts`) — see [[E-Sign & Approvals]]
+- [ ] Auth MFA + audit log + rate limiting `[verified: real gap; rate-limit quick-win shipped]` — see [[Spec - Auth MFA + Audit Log + Rate Limiting]]
+- [ ] Durable automation runtime `[verified: partial — finish visual canvas + retries]` — see [[Spec - Durable Automation Runtime]]
+- [ ] White-label SaaS resell `[verified: partial — entitlement engine exists; rebilling/snapshot/enforcement remain]` — see [[Spec - White-Label SaaS Resell]]
+- [ ] Predictive scoring layer `[verified: absent — greenfield L]` — see [[Spec - Predictive Scoring Layer]]
+- [ ] Audit follow-ups: env-doctor + sharded-coverage + gap-to-backlog agents; fix `verify-db-target` switchyard guard; harden `/approve` (410 on stale pending-change) — see [[ADR proposed-audit-agents-and-workflows]] · [[00 - E2E Audit Index]]
 
 ## Planned
 
@@ -48,6 +53,9 @@ date: 2026-06-16
 **Complete**
 - [x] Repo cleanup + docs consolidation + README rewrite (2026-06-09)
 - [x] In-repo Obsidian vault: scaffold + 50-note knowledge sweep (2026-06-10)
+- [x] Platform E2E + Competitive Audit (2026-06-17) — 146-spec suite + MCP browser pass + 21-domain gap analysis — see [[Platform E2E + Competitive Audit]] · [[00 - E2E Audit Index]]
+- [x] Auth rate-limit quick-win (2026-06-17) — per-IP throttle on login + mobile sign-in + `/oauth/token` (verified 429 after 10) — see [[Spec - Auth MFA + Audit Log + Rate Limiting]]
+- [x] Billing customer-portal graceful error (2026-06-17) — 502 + actionable message when Stripe portal config absent (was raw 500)
 
 
 %% kanban:settings
