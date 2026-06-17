@@ -25,6 +25,7 @@ date: 2026-06-10
 ## Validating
 
 - [ ] `sd-create-short` skill — branded feature shorts (MP4) for LinkedIn + blog — built + pipeline validated locally; first real production run (incl. portal upload) pending — see [[sd-create-short]]
+- [ ] Multi-Agent Security Hardening (kagenti-inspired) — Phase 1 implemented (commit 2f10f49d), unit-green 122/122; awaiting bun test:tenancy + bun test:critical + prod migration — see [[Multi-Agent Security Hardening (kagenti-inspired)]]
 
 
 ## Shipped

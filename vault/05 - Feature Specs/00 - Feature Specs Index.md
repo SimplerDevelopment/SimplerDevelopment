@@ -20,6 +20,7 @@ SORT date DESC
 Static list (agent-accessible mirror of the Dataview above):
 - [[sd-create-short]] — branded feature shorts (MP4) for LinkedIn + blog — accepted, in progress (2026-06-10)
 - [[Scribble Site Migration]] — goscribble.ai client site migration (clientId 4, websiteId 3) — validating, awaiting go-live (2026-06-12)
+- [[Multi-Agent Security Hardening (kagenti-inspired)]] — automation scope gate + unified audit log (Phase 1); OBO seam (Phase 2) — planned, backlog (2026-06-17)
 
 ## Shipped
 ```dataview
