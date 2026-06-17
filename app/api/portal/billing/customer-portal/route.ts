@@ -37,10 +37,22 @@ export async function POST() {
 
   const origin = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://simplerdevelopment.com';
 
-  const session = await stripe.billingPortal.sessions.create({
-    customer: customerId,
-    return_url: `${origin}/portal/settings/billing`,
-  });
-
-  return NextResponse.json({ success: true, data: { url: session.url } });
+  try {
+    const session = await stripe.billingPortal.sessions.create({
+      customer: customerId,
+      return_url: `${origin}/portal/settings/billing`,
+    });
+    return NextResponse.json({ success: true, data: { url: session.url } });
+  } catch (err) {
+    // The most common cause is no Customer Portal configuration in the Stripe
+    // Dashboard (Settings → Billing → Customer portal) — an account-level,
+    // one-time setup that can't be created via this API call. Surface a clear
+    // 502 instead of a raw 500 so the UI can show an actionable message.
+    const detail = err instanceof Stripe.errors.StripeError ? err.message : 'Unknown error.';
+    console.error('[billing/customer-portal] billingPortal.sessions.create failed:', detail);
+    return NextResponse.json(
+      { success: false, message: `Billing portal is unavailable: ${detail}` },
+      { status: 502 },
+    );
+  }
 }
