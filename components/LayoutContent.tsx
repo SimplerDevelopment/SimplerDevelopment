@@ -19,10 +19,11 @@ export function LayoutContent({ children, isClientSite: isClientSiteProp = false
   const isPitchDeck = pathname.startsWith('/pitch-deck');
   const isBooking = pathname.startsWith('/book');
   const isSurvey = pathname.startsWith('/s/');
+  const isProposal = pathname.startsWith('/proposal'); // public signable proposal — standalone document, no marketing chrome
   const isSitesRoute = pathname.startsWith('/sites/');
   const isDocs = pathname.startsWith('/docs'); // developer docs ship their own chrome (DocsChrome)
 
-  if (isPetersOutdoor || isAdminOrPortal || isPitchDeck || isBooking || isSurvey || isClientSiteProp || isSitesRoute || isDocs) {
+  if (isPetersOutdoor || isAdminOrPortal || isPitchDeck || isBooking || isSurvey || isProposal || isClientSiteProp || isSitesRoute || isDocs) {
     return <>{children}</>;
   }
 
