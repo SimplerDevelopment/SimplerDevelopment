@@ -1,20 +1,14 @@
 import { NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { mcpPendingChanges, portalApiKeys, users } from '@/lib/db/schema';
 import { and, eq } from 'drizzle-orm';
-import { getPortalClient } from '@/lib/portal-client';
+import { authorizePortal, isAuthError } from '@/lib/portal-auth';
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
-  }
-  const userId = parseInt(session.user.id, 10);
-  const client = await getPortalClient(userId);
-  if (!client) {
-    return NextResponse.json({ success: false, message: 'Client not found' }, { status: 404 });
-  }
+  // Bearer-aware (mobile) + NextAuth (web). Read access = any member.
+  const authResult = await authorizePortal({ action: 'read' });
+  if (isAuthError(authResult)) return authResult.response;
+  const { client } = authResult;
 
   const { id } = await params;
   const changeId = parseInt(id, 10);

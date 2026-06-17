@@ -158,6 +158,19 @@ export async function applyPendingChange(change: typeof mcpPendingChanges.$infer
       return { success: true, id };
     }
 
+    // ── AI TOOL CALLS ────────────────────────────────────────────────────
+    // A deferred AI-chat write. The payload carries the tool name + its args;
+    // we replay by re-running the same tool WITHOUT a gate ctx so it executes
+    // for real this time. Dynamic import avoids a static cycle (portal-tools
+    // imports pending-changes; approvals imports portal-tools).
+    case 'ai_tool_call:execute': {
+      const tool = payload.tool as string | undefined;
+      if (!tool) throw new Error('ai_tool_call payload missing tool name');
+      const toolInput = (payload.input ?? {}) as Record<string, unknown>;
+      const { executePortalTool } = await import('@/lib/ai/portal-tools');
+      return executePortalTool(tool, toolInput, clientId, applierUserId);
+    }
+
     // ── PITCH DECKS ──────────────────────────────────────────────────────
     case 'pitch_deck:create': {
       const title = payload.title as string;
