@@ -26,7 +26,8 @@ export type EntityType =
   | 'site_nav' // site_navigation items + draft jsonb (create/update/delete/publish)
   | 'block_template' // block_templates draft jsonb (create/update/delete/publish)
   | 'taxonomy' // categories + tags (create)
-  | 'post_taxonomy'; // post → taxonomy link set
+  | 'post_taxonomy' // post → taxonomy link set
+  | 'ai_tool_call'; // a deferred AI-chat tool call — payload { tool, input }, replayed via executePortalTool
 
 export type Operation =
   | 'create'
@@ -37,7 +38,8 @@ export type Operation =
   | 'add_slide'
   | 'publish' // promote draft → live (sites, nav, templates, deck slides)
   | 'publish_all' // bulk publish across a parent (e.g. all slide drafts on a deck, all nav drafts on a site)
-  | 'upload_html'; // posts_upload_html / decks_upload_html
+  | 'upload_html' // posts_upload_html / decks_upload_html
+  | 'execute'; // replay a deferred ai_tool_call
 
 export type StageOrApplyResult<T> =
   | { pending: true; pendingId: number; summary: string; status: 'pending' }

@@ -78,6 +78,11 @@ const MAX_TOKENS = 2048;
 const MAX_LOOPS = 8;
 const MAX_TOOL_CALLS = 20;
 
+// P0.3: when enabled, AI-authored writes are routed through the human approval
+// queue (gated per the caller key's `require_cms_approval` flag — see
+// executePortalTool). Off → writes commit directly (prior behavior).
+const AI_TOOL_APPROVALS_ENABLED = process.env.AI_TOOL_APPROVALS_ENABLED === '1';
+
 interface IncomingMessage {
   role: 'user' | 'assistant';
   content: string;
@@ -391,7 +396,13 @@ export async function POST(req: Request) {
 
             let result: unknown;
             try {
-              result = await executePortalTool(block.name, input, client.id, userId);
+              result = await executePortalTool(
+                block.name,
+                input,
+                client.id,
+                userId,
+                AI_TOOL_APPROVALS_ENABLED ? ctx : undefined,
+              );
             } catch (toolErr) {
               // Serialize the failure into the tool_result so the model can
               // recover/retry rather than aborting the whole stream.

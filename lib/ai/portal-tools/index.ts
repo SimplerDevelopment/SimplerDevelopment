@@ -6,6 +6,9 @@
  */
 import type Anthropic from '@anthropic-ai/sdk';
 
+import { stageOrApply } from '@/lib/mcp/pending-changes';
+import type { PortalMcpContext } from '@/lib/mcp-auth';
+
 import { dashboardTools, dashboardHandlers } from './dashboard';
 import { projectTools, projectHandlers } from './projects';
 import { billingTools, billingHandlers } from './billing';
@@ -94,13 +97,77 @@ const HANDLERS: Record<string, Handler> = {
   ...automationHandlers,
 };
 
+/**
+ * Tools that create / modify portal data. Mirrors the confirmation-rules list
+ * in the shared chat system prompt. Read tools (get_, list_, search_ prefixes)
+ * are deliberately absent — they must never be deferred, or the assistant could
+ * no longer answer questions. Missing a write here fails OPEN (executes
+ * directly, same as today) — safe; mis-listing a read would defer it — unsafe.
+ */
+const WRITE_TOOLS: ReadonlySet<string> = new Set([
+  'create_support_ticket', 'reply_to_ticket',
+  'add_card_comment', 'create_project_card', 'update_project_card', 'move_project_card',
+  'create_website_page', 'publish_page', 'create_website_category', 'create_website_tag',
+  'update_page_blocks', 'update_block_by_id', 'update_page_metadata',
+  'request_service', 'request_suggested_project', 'update_profile', 'invite_team_member',
+  'create_crm_contact', 'update_crm_contact', 'create_crm_company',
+  'create_crm_deal', 'update_crm_deal', 'log_crm_activity',
+  'create_crm_proposal', 'send_crm_proposal',
+  'create_survey', 'update_survey',
+  'create_automation', 'toggle_automation',
+  'create_email_campaign', 'update_email_campaign', 'add_email_subscriber', 'create_email_segment',
+  'create_pitch_deck', 'update_pitch_deck_slide',
+  'create_booking_page', 'update_booking_page',
+]);
+
+/** Short human summary for the approval queue row. */
+function summarizeToolCall(name: string, input: Record<string, unknown>): string {
+  const label = input.title ?? input.name ?? input.subject ?? input.id;
+  return label != null ? `AI assistant: ${name} — ${String(label)}` : `AI assistant: ${name}`;
+}
+
+/**
+ * Execute an AI-chat tool.
+ *
+ * When `gateCtx` is supplied (the streaming chat path, bearer auth) AND the
+ * tool is a write AND the caller's API key requires approval, the write is
+ * staged into the approval queue instead of committing — `stageOrApply`
+ * makes that decision from the key's `require_cms_approval` flag. The deferred
+ * call is replayed verbatim on approval (see `ai_tool_call:execute` in
+ * `lib/mcp/approvals.ts`). Omit `gateCtx` (the non-streaming path, the replay
+ * path) to execute directly, exactly as before.
+ */
 export async function executePortalTool(
   name: string,
   input: Record<string, unknown>,
   clientId: number,
   userId: number,
+  gateCtx?: PortalMcpContext | null,
 ): Promise<unknown> {
   const handler = HANDLERS[name];
   if (!handler) return { error: `Unknown tool: ${name}` };
+
+  if (gateCtx && WRITE_TOOLS.has(name)) {
+    const result = await stageOrApply({
+      ctx: gateCtx,
+      entityType: 'ai_tool_call',
+      operation: 'execute',
+      entityId: null,
+      summary: summarizeToolCall(name, input),
+      payload: { tool: name, input },
+      apply: () => handler(input, clientId, userId),
+    });
+    if (result.pending) {
+      return {
+        pending: true,
+        pendingId: result.pendingId,
+        status: 'pending_approval',
+        summary: result.summary,
+        message: 'Queued for the workspace owner to approve before it runs.',
+      };
+    }
+    return result.data;
+  }
+
   return handler(input, clientId, userId);
 }
