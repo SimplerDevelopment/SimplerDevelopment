@@ -17,6 +17,7 @@
     "lint:all": "turbo run lint",
     "typecheck": "node --max-old-space-size=6144 node_modules/.bin/tsc --noEmit",
     "typecheck:all": "turbo run typecheck",
+    "typecheck:fast": "bunx @typescript/native-preview --noEmit",
     "test": "scripts/test.sh --layer=unit --no-coverage",
     "test:unit": "scripts/test.sh --layer=unit --no-coverage",
     "test:integration": "scripts/test.sh --layer=integration --no-coverage",
