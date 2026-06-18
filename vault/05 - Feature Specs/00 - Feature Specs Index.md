@@ -9,6 +9,10 @@ The planning home — new feature planning starts here (`.planning/` is frozen; 
 
 **Status is managed on [[Project Board]]** (Obsidian Kanban: Backlog → Planned → In Progress → Validating → Shipped). Every spec gets a card; keep card lane and spec `status` frontmatter in sync.
 
+## Static link list (agents read this; Dataview is Obsidian-only)
+
+- [[Prompt Eval Dashboard]] — domain: company-brain-ai, status: planned, date: 2026-06-17
+
 ## Active
 ```dataview
 TABLE domain, status, date
