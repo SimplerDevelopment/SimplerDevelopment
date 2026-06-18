@@ -199,6 +199,8 @@ export function createDefaultBlock(
       return { ...base, type: 'testimonial', quote: 'This is an amazing product!', author: 'John Doe', role: 'CEO', company: 'Company Inc' };
     case 'featured-content':
       return { ...base, type: 'featured-content', title: 'Featured Content', description: 'Description of the featured content', imagePosition: 'right', buttonText: 'Learn More', buttonUrl: '/learn-more' };
+    case 'roi-calculator':
+      return { ...base, type: 'roi-calculator', title: 'Calculate Your ROI', description: 'Adjust the sliders to estimate your annual return.' };
     case 'services-grid':
       return { ...base, type: 'services-grid', title: 'Our Services', services: [], columns: 3 };
     case 'blog-posts':

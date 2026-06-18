@@ -27,8 +27,6 @@ const SONNET = 'claude-sonnet-4-6';
 // Flip to 'active' once shadow data shows the router is reliable.
 const ROUTER_MODE: 'shadow' | 'active' = 'shadow';
 
-const SYSTEM_PROMPT = `You are a helpful AI assistant embedded in the Simpler Development client portal. You can help clients with EVERYTHING in their portal — projects, invoices, tickets, websites, email campaigns, booking pages, pitch decks, team management, services, hosting, CRM, and more.
-
 export async function POST(req: Request) {
   try {
     const session = await auth();
@@ -151,7 +149,7 @@ export async function POST(req: Request) {
       const response = await anthropic.messages.create({
         model: loopModel,
         max_tokens: 2048,
-        system: SYSTEM_PROMPT,
+        system: PORTAL_CHAT_SYSTEM_PROMPT,
         tools: loopTools,
         messages: currentMessages,
       });
@@ -179,6 +177,7 @@ export async function POST(req: Request) {
             block.input as Record<string, unknown>,
             client.id,
             userId,
+            undefined,
             { source: 'assistant' },
           );
           allToolCalls.push({ name: block.name, input: block.input as Record<string, unknown>, result });

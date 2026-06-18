@@ -10,6 +10,7 @@ import {
   Megaphone,
   LayoutGrid,
   BarChart3,
+  Calculator,
   MessageSquareQuote,
   Newspaper,
   Quote,
@@ -81,6 +82,7 @@ export const BLOCK_ICONS: Record<BlockType, LucideIcon> = {
   testimonial: MessageSquareQuote,
   'blog-posts': Newspaper,
   'featured-content': Layers,
+  'roi-calculator': Calculator,
   gallery: GalleryHorizontalEnd,
 
   // eCommerce blocks

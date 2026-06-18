@@ -31,6 +31,7 @@ const BLOCK_TYPE_LABELS: Record<BlockType, string> = {
   stats: 'Stats',
   'blog-posts': 'Blog Posts',
   'featured-content': 'Featured Content',
+  'roi-calculator': 'ROI Calculator',
   youtube: 'YouTube',
   'card-grid': 'Card Grid',
   'flip-card-grid': 'Flip Cards',

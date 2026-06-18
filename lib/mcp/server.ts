@@ -102,7 +102,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     };
 
     const wrappedArgs = [...args.slice(0, args.length - 1), wrappedCb];
-    return originalRegisterTool(...(wrappedArgs as Parameters<typeof originalRegisterTool>));
+    return (originalRegisterTool as (...a: unknown[]) => unknown)(...wrappedArgs);
   };
 
   // Walk the per-domain registrars in the order declared by the barrel.
