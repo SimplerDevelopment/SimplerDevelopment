@@ -30,6 +30,7 @@ import { registerHostingTools } from './hosting';
 import { registerMetaTools } from './meta';
 import { registerResourceDocs } from './resources';
 import { registerPromptTemplates } from './prompts';
+import { registerWorkflowTools } from './workflows';
 import { registerBrandingTools } from './branding';
 import { registerStorefrontTools } from './storefront';
 import { registerBrainTools } from './brain';
@@ -58,6 +59,7 @@ export {
   registerMetaTools,
   registerResourceDocs,
   registerPromptTemplates,
+  registerWorkflowTools,
   registerBrandingTools,
   registerStorefrontTools,
   registerBrainTools,
@@ -75,6 +77,7 @@ export const allToolRegistrars: readonly McpToolRegistrar[] = [
   registerMetaTools,
   registerResourceDocs,
   registerPromptTemplates,
+  registerWorkflowTools,
   registerProjectsTools,
   registerKanbanTools,
   registerTicketsTools,
