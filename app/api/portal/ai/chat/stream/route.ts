@@ -55,6 +55,8 @@ import { resolveClientApiKey } from '@/lib/ai/resolve-client-key';
 import { recordAiUsage } from '@/lib/ai/audit';
 import { checkAiPlanGate } from '@/lib/ai/plan-gate';
 import { PORTAL_TOOLS, executePortalTool } from '@/lib/ai/portal-tools';
+import { classifyPortalRequest } from '@/lib/ai/portal-tools/classifier';
+import { toolsForDomains } from '@/lib/ai/portal-tools/domains';
 import { PORTAL_CHAT_SYSTEM_PROMPT } from '@/lib/ai/portal-chat-prompt';
 
 export const runtime = 'nodejs';
@@ -77,6 +79,14 @@ const MAX_TOKENS = 2048;
 // reasoning / tool-call storms.
 const MAX_LOOPS = 8;
 const MAX_TOOL_CALLS = 20;
+
+// Domain-based tool routing, mirroring the non-streaming route. 'shadow' keeps
+// the full tool surface (no behavior change); 'active' classifies the request
+// and routes to the predicted domains' tools. Unlike the non-streaming route,
+// we DON'T run the classifier in 'shadow' mode here — a blocking Haiku call
+// before the stream would delay time-to-first-token for telemetry-only value,
+// so streaming opts into the cost only when routing actually applies ('active').
+const ROUTER_MODE: 'shadow' | 'active' = 'shadow';
 
 // P0.3: when enabled, AI-authored writes are routed through the human approval
 // queue (gated per the caller key's `require_cms_approval` flag — see
@@ -314,6 +324,23 @@ export async function POST(req: Request) {
         let loopCount = 0;
         let toolCallCount = 0;
 
+        // Resolve the tool surface for this exchange. In 'active' router mode we
+        // classify the request (cheap Haiku call) and route to just the
+        // predicted domains' tools; 'shadow' keeps the full set with no extra
+        // call (protecting time-to-first-token). Classifier failures fail open
+        // to the full surface. Used for every turn of the loop.
+        let loopTools = PORTAL_TOOLS;
+        if (STREAM_TOOLS_ENABLED && ROUTER_MODE === 'active') {
+          try {
+            const classification = await classifyPortalRequest(lastTurn.content.trim(), anthropic);
+            loopTools = toolsForDomains(classification.domains, PORTAL_TOOLS);
+            inputTokens += classification.inputTokens;
+            outputTokens += classification.outputTokens;
+          } catch {
+            loopTools = PORTAL_TOOLS;
+          }
+        }
+
         while (loopCount < MAX_LOOPS) {
           loopCount++;
 
@@ -322,7 +349,7 @@ export async function POST(req: Request) {
             max_tokens: MAX_TOKENS,
             system: sysParam,
             messages: currentMessages,
-            ...(STREAM_TOOLS_ENABLED ? { tools: PORTAL_TOOLS } : {}),
+            ...(STREAM_TOOLS_ENABLED ? { tools: loopTools } : {}),
           });
 
           // Relay this turn's text deltas live. Only the FINAL turn's text is
