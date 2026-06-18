@@ -21,6 +21,19 @@ async function asTenant(ctx: TenantCtx | null) {
   mockedAuth.mockResolvedValue(ctx?.session ?? null);
 }
 
+async function enableEsignService(ctx: TenantCtx): Promise<void> {
+  const sql = getTestSql();
+  const slug = `esign-${Date.now()}-${Math.floor(Math.random() * 1e9)}`;
+  const [svc] = await sql<{ id: number }[]>`
+    INSERT INTO ${sql(TEST_SCHEMA)}.services (name, slug, category, price, billing_cycle)
+    VALUES ('eSign', ${slug}, 'esign', 0, 'monthly') RETURNING id
+  `;
+  await sql`
+    INSERT INTO ${sql(TEST_SCHEMA)}.client_services (client_id, service_id, status)
+    VALUES (${ctx.client.id}, ${svc.id}, 'active')
+  `;
+}
+
 async function seedContract(clientId: number, title = 'C') {
   const sql = getTestSql();
   const token = crypto.randomBytes(32).toString('hex');
@@ -37,6 +50,7 @@ describe('POST /api/portal/crm/contracts @crm @tenancy', () => {
 
   beforeEach(async () => {
     A = await sessionForNewClientUser('contracts-post');
+    await enableEsignService(A);
   });
 
   it('happy path: creates contract under caller tenant (201)', async () => {
@@ -81,6 +95,7 @@ describe('PUT /api/portal/crm/contracts/[id] @crm @tenancy', () => {
       sessionForNewClientUser('contracts-put-a'),
       sessionForNewClientUser('contracts-put-b'),
     ]);
+    await Promise.all([enableEsignService(A), enableEsignService(B)]);
     contractB = await seedContract(B.client.id, 'B-Contract');
   });
 
@@ -142,6 +157,7 @@ describe('DELETE /api/portal/crm/contracts/[id] @crm @tenancy', () => {
       sessionForNewClientUser('contracts-del-a'),
       sessionForNewClientUser('contracts-del-b'),
     ]);
+    await Promise.all([enableEsignService(A), enableEsignService(B)]);
   });
 
   it('happy path: deletes own contract', async () => {

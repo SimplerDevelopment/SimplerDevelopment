@@ -49,9 +49,9 @@ async function seedTier(slug: string, name: string): Promise<TierRow> {
 
 async function seedTiers(): Promise<{ starter: TierRow; growth: TierRow; scale: TierRow }> {
   const [starter, growth, scale] = await Promise.all([
-    seedTier('tier-starter', 'Starter'),
-    seedTier('tier-growth', 'Growth'),
-    seedTier('tier-scale', 'Scale'),
+    seedTier('plan-starter', 'Starter'),
+    seedTier('plan-growth', 'Growth'),
+    seedTier('plan-scale', 'Scale'),
   ]);
   return { starter, growth, scale };
 }
@@ -151,11 +151,11 @@ describe('POST /api/admin/portal/clients/[id]/plan — cross-tenant isolation @a
 
     const aRes = await getPlan(A.client.id);
     expect(aRes.status).toBe(200);
-    expect(aRes.data?.data?.active?.slug).toBe('tier-starter');
+    expect(aRes.data?.data?.active?.slug).toBe('plan-starter');
 
     const bRes = await getPlan(B.client.id);
     expect(bRes.status).toBe(200);
-    expect(bRes.data?.data?.active?.slug).toBe('tier-scale');
+    expect(bRes.data?.data?.active?.slug).toBe('plan-scale');
   });
 
   it('non-tier client_services rows on the same client are NOT cancelled by a tier change', async () => {

@@ -19,6 +19,19 @@ import { callHandler } from '../../../../helpers/call-handler';
 import { sessionForNewClientUser, type TenantCtx } from '../../../../helpers/session';
 import { getTestSql, TEST_SCHEMA } from '../../../../helpers/test-db';
 
+async function enableEsignService(ctx: TenantCtx): Promise<void> {
+  const sql = getTestSql();
+  const slug = `esign-${Date.now()}-${Math.floor(Math.random() * 1e9)}`;
+  const [svc] = await sql<{ id: number }[]>`
+    INSERT INTO ${sql(TEST_SCHEMA)}.services (name, slug, category, price, billing_cycle)
+    VALUES ('eSign', ${slug}, 'esign', 0, 'monthly') RETURNING id
+  `;
+  await sql`
+    INSERT INTO ${sql(TEST_SCHEMA)}.client_services (client_id, service_id, status)
+    VALUES (${ctx.client.id}, ${svc.id}, 'active')
+  `;
+}
+
 async function asTenant(ctx: TenantCtx | null) {
   mockedAuth.mockResolvedValue(ctx?.session ?? null);
 }
@@ -55,6 +68,7 @@ describe('GET /api/portal/crm/contracts/[id]/signing-events @esign', () => {
 
   beforeEach(async () => {
     A = await sessionForNewClientUser('audit-events');
+    await enableEsignService(A);
   });
 
   it('returns audit events newest-first (route uses desc(occurredAt)), scoped to caller tenant', async () => {
@@ -113,6 +127,7 @@ describe('GET /api/portal/crm/contracts/[id]/signing-events @esign', () => {
 
   it('@tenancy: A cannot read events on B\'s contract — 404, no leak of B\'s rows', async () => {
     const B = await sessionForNewClientUser('audit-events-b');
+    await enableEsignService(B);
     const idB = await seedContract(B.client.id);
     await seedEvent({ contractId: idB, clientId: B.client.id, kind: 'sent', occurredAt: new Date() });
     await seedEvent({ contractId: idB, clientId: B.client.id, kind: 'signed', occurredAt: new Date() });
