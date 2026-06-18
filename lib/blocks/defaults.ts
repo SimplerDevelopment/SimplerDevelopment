@@ -330,6 +330,32 @@ export function createDefaultBlock(
         dismissable: true,
       };
 
+    // ── ROI Calculator ────────────────────────────────────────────────────────
+    case 'roi-calculator':
+      return {
+        ...base, type: 'roi-calculator',
+        title: 'Calculate Your ROI',
+        description: 'See how much time and revenue you can recover.',
+        unitLabel: 'FTE clinicians completing SOC',
+        unitDefault: 100,
+        unitMin: 10,
+        unitMax: 1000,
+        unitStep: 10,
+        minutesLabel: 'Minutes saved per visit',
+        minutesDefault: 45,
+        minutesMin: 15,
+        minutesMax: 90,
+        minutesStep: 5,
+        visitsPerUnitPerWeek: 25,
+        weeksPerYear: 46,
+        captureRate: 0.06,
+        hoursPerAdmission: 5,
+        revenuePerAdmission: 2500,
+        ctaText: 'Get Started',
+        ctaLink: '#',
+        ctaNewTab: false,
+      };
+
     default: {
       // TypeScript exhaustiveness guard — should never reach here for known types.
       const _exhaustive: never = type;

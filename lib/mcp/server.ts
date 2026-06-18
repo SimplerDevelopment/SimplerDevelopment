@@ -102,7 +102,12 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     };
 
     const wrappedArgs = [...args.slice(0, args.length - 1), wrappedCb];
-    return originalRegisterTool(...(wrappedArgs as Parameters<typeof originalRegisterTool>));
+    // Cast to a rest-param fn: `Parameters<typeof originalRegisterTool>` collapses
+    // to a non-tuple for the SDK's overloaded registerTool signature, which makes
+    // the spread itself a type error. A `(...a: unknown[])` shape accepts the
+    // spread cleanly while preserving the return type.
+    const register = originalRegisterTool as (...a: unknown[]) => ReturnType<typeof originalRegisterTool>;
+    return register(...wrappedArgs);
   };
 
   // Walk the per-domain registrars in the order declared by the barrel.

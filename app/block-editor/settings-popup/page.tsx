@@ -54,6 +54,7 @@ const BLOCK_TYPE_LABELS: Record<BlockType, string> = {
   'product-detail': 'Product Detail',
   booking: 'Booking',
   'booking-menu': 'Booking Menu',
+  'roi-calculator': 'ROI Calculator',
   survey: 'Survey',
   'survey-results': 'Survey Results',
   'social-links': 'Social Links',
