@@ -18,9 +18,10 @@ date: 2026-06-10
 
 ## Planned
 
-- [ ] Prompt Eval Dashboard — see [[Prompt Eval Dashboard]]
 
 ## In Progress
+
+- [ ] Prompt Eval Dashboard — see [[Prompt Eval Dashboard]]
 
 
 ## Validating

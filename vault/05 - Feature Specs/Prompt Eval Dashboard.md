@@ -1,7 +1,7 @@
 ---
 type: spec
 domain: company-brain-ai
-status: planned
+status: in-progress
 date: 2026-06-17
 sources:
   - lib/ai/evals/types.ts
@@ -15,7 +15,13 @@ sources:
   - lib/branding/generators.ts
   - lib/ai/pitch-deck-generate.ts
   - tests/unit/ai-evals-framework.test.ts
-  - lib/db/schema
+  - lib/db/schema/evals.ts
+  - lib/ai/prompt-registry.ts
+  - lib/ai/prompt-registry-manifest.ts
+  - lib/ai/evals/cases.ts
+  - lib/ai/evals/job.ts
+  - scripts/migrations/eval-dashboard.ts
+  - tests/unit/prompt-registry.test.ts
   - app/admin/CLAUDE.md
 ---
 
@@ -224,6 +230,49 @@ Per [[06 - Validation/Gate Picking|Gate Picking]]:
 - **Tenancy:** `eval_runs`, `eval_case_results`, `prompt_registry`, `prompt_versions`, `eval_datasets`, `eval_cases` must never be queryable from portal-tenant routes. Run: `bun test:tenancy` after any data-access change touching these tables.
 - **E2E:** not required for Phase 1-2 (no UI yet); add a `@critical` tagged Playwright test for the promote flow in Phase 4. Run: `bun test:critical` before declaring Phase 4 done.
 - **Manual QA:** confirm-before-expensive gate for deck and meeting suite runs; cost view accuracy vs. `eval_runs.costUsd`.
+
+## Build progress (as of 2026-06-17, branch worktree/mcp-review — NOT pushed)
+
+### Phase 1 — Prompt registry foundation — SHIPPED (commit 6fd84f9e)
+
+**Schema:** `lib/db/schema/evals.ts` — 6 tables: `prompt_registry`, `prompt_versions`, `eval_datasets`, `eval_cases`, `eval_runs`, `eval_case_results`. Global/admin-plane only; no `clientId`.
+
+**Migration:** `scripts/migrations/eval-dashboard.ts` (idempotent create + seed). Note: `bun run db:generate` is pre-existing-broken (meta-snapshot collision on 0004), so this is a hand-apply migration script rather than a Drizzle-generated file. Applied to local test DB; needs hand-apply to staging/prod per `lib/db/CLAUDE.md` before go-live.
+
+**Prompt resolver:** `lib/ai/prompt-registry.ts` — `resolvePrompt(key, fallback)` (60s cache, DB active-version lookup enforcing `status='active'`, fallback on disabled/miss/error), `getPromptVersionBody`, `clearPromptCache`. Gated by env var `PROMPT_REGISTRY_ENABLED` (default OFF — production uses code constants until explicit go-live flip).
+
+**Registry manifest:** `lib/ai/prompt-registry-manifest.ts` — the 4 registry-managed static prompts: `meeting-extractor`, `branding-messaging`, `branding-theme`, `deck-generator`.
+
+**Cores wired** with a `systemPromptOverride` hook: `lib/ai/meeting-processor.ts`, `lib/branding/generators.ts`, `lib/ai/pitch-deck-generate.ts`.
+
+**Verified:** unit 17/17 (incl. `tests/unit/prompt-registry.test.ts`), tsc clean, E2E (flag on → seeded DB body served; flag off → fallback to code constant).
+
+### Phase 2 — Eval-run executor + DB-backed cases — SHIPPED (commit 82f35866)
+
+**Cases loader:** `lib/ai/evals/cases.ts` — `loadCasesFromDb` + `seedCasesFromSuites` (idempotent; seeds 10 datasets / 26 cases from existing `.eval.ts` fixtures into `eval_datasets` / `eval_cases`).
+
+**Job executor:** `lib/ai/evals/job.ts` — `enqueueEvalRun` + `runEvalJob` (resolves version body, loads DB cases, scores, persists `eval_case_results` + `eval_runs` rollup including `costUsd`; status transitions: `pending` → `running` → `done` / `failed`). `env.promptOverride` + `runSuite(casesOverride)` plumbing added; 4 registry suites forward the override.
+
+**Verified E2E** against local DB: `runEvalJob('automation-parser', mock)` → done, 4 cases, 3 passed, results persisted. Unit 17/17, tsc clean.
+
+### How it was built
+
+Opus boss + Sonnet sub-agents (seed script, unit tests) + advisory review passes. Review passes caught and fixed: FK drift in the seed, partial-failure handling in the seed script, and a stale-active-pointer gap in `resolvePrompt`.
+
+### Deferred / follow-ups (do NOT lose)
+
+- **Dynamic/templated prompts** (`note-classifier` `buildSystemPrompt`, automation parser built from `PORTAL_TOOLS`) are NOT yet registry-managed — need a templating model before they can be. Only the 4 static prompts are wired.
+- **`resolvePrompt` thundering-herd:** no in-flight promise coalescing. Harmless while flag is off; address before go-live.
+- **Phase 2b:** worker/cron to drain queued `eval_runs`; stale-run detection (runs stuck in `running` after a crash); unique guard against duplicate concurrent runs; real per-model cost rates (currently a blended estimate).
+- **`runEvalJob` vitest integration test** was deferred — the integration harness has schema/search-path subtleties; engine is proven via a direct E2E script instead.
+
+### Not yet started (UI phases — need user present for taste decisions)
+
+Phase 3 (admin dashboard views: overview/leaderboard, per-prompt timeline, version-compare + drill-down, cost) and Phase 4 (prompt editor, dataset editor, soft-gated promote, rollback, opt-in schedule cron) are unstarted.
+
+### To go live
+
+Apply `scripts/migrations/eval-dashboard.ts` to staging and prod, run the seed, then flip `PROMPT_REGISTRY_ENABLED=1`.
 
 ## Top risks
 
