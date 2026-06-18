@@ -125,4 +125,7 @@ export const evalCaseResults = pgTable('eval_case_results', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 }, (t) => [
   index('eval_case_results_run_idx').on(t.runId),
+  // Guard against double-execution of a run (Phase 2b worker without a claim
+  // lock) silently duplicating per-case rows.
+  uniqueIndex('eval_case_results_run_case_idx').on(t.runId, t.caseKey),
 ]);

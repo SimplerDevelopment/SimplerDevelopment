@@ -129,6 +129,7 @@ async function createTables() {
   await db.execute(sql`CREATE INDEX IF NOT EXISTS "eval_runs_version_idx" ON "eval_runs" ("prompt_version_id")`);
   await db.execute(sql`CREATE INDEX IF NOT EXISTS "eval_runs_status_idx" ON "eval_runs" ("status")`);
   await db.execute(sql`CREATE INDEX IF NOT EXISTS "eval_case_results_run_idx" ON "eval_case_results" ("run_id")`);
+  await db.execute(sql`CREATE UNIQUE INDEX IF NOT EXISTS "eval_case_results_run_case_idx" ON "eval_case_results" ("run_id","case_key")`);
 
   // Foreign keys — each wrapped in idempotent DO block so re-runs are safe.
   await db.execute(sql`

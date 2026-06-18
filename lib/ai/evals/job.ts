@@ -53,7 +53,7 @@ export async function enqueueEvalRun(args: {
 async function markFailed(runId: number, message: string): Promise<void> {
   await db
     .update(evalRuns)
-    .set({ status: 'failed', finishedAt: new Date(), error: message.slice(0, 1000) })
+    .set({ status: 'failed', finishedAt: new Date(), error: message.slice(0, 4000) })
     .where(eq(evalRuns.id, runId));
 }
 
@@ -79,9 +79,16 @@ export async function runEvalJob(
 
   try {
     // Target a specific version's body (eval THAT version), if the run pins one.
-    const promptOverride = run.promptVersionId
-      ? (await getPromptVersionBody(run.promptVersionId)) ?? undefined
-      : undefined;
+    // If a version was pinned but can't be found, FAIL rather than silently
+    // scoring the default prompt (which would mislabel the results).
+    let promptOverride: string | undefined;
+    if (run.promptVersionId) {
+      promptOverride = (await getPromptVersionBody(run.promptVersionId)) ?? undefined;
+      if (promptOverride === undefined) {
+        await markFailed(runId, `prompt version ${run.promptVersionId} not found`);
+        return;
+      }
+    }
 
     // DB-backed cases for the dataset; fall back to the suite's code fixtures.
     const dbCases = await loadCasesFromDb(run.suiteId, run.datasetId ?? undefined);
@@ -96,6 +103,13 @@ export async function runEvalJob(
 
     const result = await runSuite(suite, env, dbCases.length ? dbCases : undefined);
     const cases = result.cases as CaseResult[];
+
+    // A run with nothing to score is a misconfiguration (no DB cases + no code
+    // fixtures), not a clean pass — surface it rather than writing a vacuous 0/0.
+    if (result.total === 0) {
+      await markFailed(runId, `no cases to score for suite "${run.suiteId}"`);
+      return;
+    }
 
     if (cases.length) {
       await db.insert(evalCaseResults).values(
