@@ -143,6 +143,32 @@ async function executeAction(
     await new Promise((resolve) => setTimeout(resolve, action.delay! * 1000));
   }
 
+  // ── Scope gate (applies to ALL actions, including the special-case bridges
+  //    below) ──────────────────────────────────────────────────────────────
+  // Check the rule's granted scopes BEFORE dispatching. start_playbook and
+  // run_plugin_script are mapped in AUTOMATION_ACTION_SCOPES so they're gated
+  // too (run_plugin_script keeps its own entitlement check as a second layer).
+  // Unknown tools (requiredScope=null) pass through unchanged (they no-op at
+  // executePortalTool).
+  const scopeCheck = isActionAllowed(ruleScopes ?? [], action.tool);
+  if (!scopeCheck.allowed) {
+    const errorMsg = `scope_denied: ${scopeCheck.requiredScope}`;
+    // Best-effort audit — must not throw.
+    void logAgentAction({
+      clientId,
+      userId,
+      source: 'automation',
+      tool: action.tool,
+      scopeRequired: scopeCheck.requiredScope,
+      scopeAllowed: false,
+      paramsHash: hashParams(resolvedParams),
+      outcome: 'denied',
+      ruleId,
+      durationMs: 0,
+    });
+    return { tool: action.tool, params: resolvedParams, result: null, error: errorMsg };
+  }
+
   // ─── start_playbook bridge ───────────────────────────────────────────────
   // Special action that crosses into the Brain playbook engine. Lets a
   // one-shot automation kick off a multi-step playbook run, sharing the
@@ -228,28 +254,6 @@ async function executeAction(
       const error = err instanceof Error ? err.message : String(err);
       return { tool: action.tool, params: resolvedParams, result: null, error };
     }
-  }
-
-  // ── Scope gate ──────────────────────────────────────────────────────────
-  // Check the rule's granted scopes BEFORE calling the portal tool.
-  // Unknown tools (requiredScope=null) are passed through unchanged.
-  const scopeCheck = isActionAllowed(ruleScopes ?? [], action.tool);
-  if (!scopeCheck.allowed) {
-    const errorMsg = `scope_denied: ${scopeCheck.requiredScope}`;
-    // Best-effort audit — must not throw.
-    void logAgentAction({
-      clientId,
-      userId,
-      source: 'automation',
-      tool: action.tool,
-      scopeRequired: scopeCheck.requiredScope,
-      scopeAllowed: false,
-      paramsHash: hashParams(resolvedParams),
-      outcome: 'denied',
-      ruleId,
-      durationMs: 0,
-    });
-    return { tool: action.tool, params: resolvedParams, result: null, error: errorMsg };
   }
 
   try {

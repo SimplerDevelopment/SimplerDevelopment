@@ -159,7 +159,27 @@ export const PORTAL_TOOL_SCOPES: Record<string, string> = {
   toggle_automation:  'automations:write',
 };
 
-/** Returns the required scope string for a given portal tool name, or null if unknown. */
+/**
+ * Automation-engine special-case actions. These are NOT portal-tool handlers
+ * (so they're kept out of PORTAL_TOOL_SCOPES — the registry must stay 1:1 with
+ * the HANDLERS map) but they DO exercise a real capability when an automation
+ * rule fires, so they must be scope-gated like any other action. Mapped to the
+ * closest canonical scope:
+ *   start_playbook    → brain:write       (starts a Brain playbook run)
+ *   run_plugin_script → automations:write (enqueues a plugin script run;
+ *                       defense-in-depth atop its own client-entitlement check)
+ */
+export const AUTOMATION_ACTION_SCOPES: Record<string, string> = {
+  start_playbook: 'brain:write',
+  run_plugin_script: 'automations:write',
+};
+
+/**
+ * Returns the required scope string for a given automation action tool, or null
+ * if unknown (unknown tools are passed through ungated — they no-op at
+ * executePortalTool). Covers both portal-tool handlers and the automation-engine
+ * special-case actions above.
+ */
 export function requiredScopeFor(toolName: string): string | null {
-  return PORTAL_TOOL_SCOPES[toolName] ?? null;
+  return PORTAL_TOOL_SCOPES[toolName] ?? AUTOMATION_ACTION_SCOPES[toolName] ?? null;
 }
