@@ -123,3 +123,5 @@ vault/.obsidian/plugins/*/manifest.json
 
 # local Sentry auth token (never commit)
 .sentry-token
+
+evals-out/
