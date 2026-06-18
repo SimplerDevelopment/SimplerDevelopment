@@ -75,7 +75,9 @@ export async function runEvalJob(
     return;
   }
 
-  await db.update(evalRuns).set({ status: 'running', startedAt: new Date() }).where(eq(evalRuns.id, runId));
+  // Preserve startedAt if a worker already claimed this run (atomic claim sets
+  // running + startedAt); manual/CLI calls set it here.
+  await db.update(evalRuns).set({ status: 'running', startedAt: run.startedAt ?? new Date() }).where(eq(evalRuns.id, runId));
 
   try {
     // Target a specific version's body (eval THAT version), if the run pins one.
