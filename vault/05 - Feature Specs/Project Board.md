@@ -1,7 +1,7 @@
 ---
 kanban-plugin: board
 type: index
-date: 2026-06-16
+date: 2026-06-17
 ---
 
 ## Backlog
@@ -60,6 +60,7 @@ date: 2026-06-16
 - [x] Platform E2E + Competitive Audit (2026-06-17) — 146-spec suite + MCP browser pass + 21-domain gap analysis — see [[Platform E2E + Competitive Audit]] · [[00 - E2E Audit Index]]
 - [x] Auth rate-limit quick-win (2026-06-17) — per-IP throttle on login + mobile sign-in + `/oauth/token` (verified 429 after 10) — see [[Spec - Auth MFA + Audit Log + Rate Limiting]]
 - [x] Billing customer-portal graceful error (2026-06-17) — 502 + actionable message when Stripe portal config absent (was raw 500)
+- [x] AI provider-abstraction seam + dev unit-suite repair (2026-06-17) — provider-agnostic `lib/ai/llm.ts` / `agent-loop.ts` / `models.ts`; executePortalTool single-ctx collapse; automation scope-gate; roi-calculator lockstep; 28 539 passed / 0 failed — see [[ADR executePortalTool single-ctx parameter]] · [[Company Brain & AI]] · [[Automations & Workflows]] · [[CMS & Blocks]]
 
 
 %% kanban:settings

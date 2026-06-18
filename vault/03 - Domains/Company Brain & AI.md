@@ -2,12 +2,18 @@
 type: domain-map
 domain: brain-ai
 status: active
-date: 2026-06-10
+date: 2026-06-17
 sources:
   - lib/brain/
   - lib/ai/
+  - lib/ai/llm.ts
+  - lib/ai/agent-loop.ts
+  - lib/ai/models.ts
+  - lib/ai/portal-tools/index.ts
+  - lib/ai/portal-tools/scopes.ts
   - lib/db/schema/brain.ts
   - lib/brain/meeting-sources/
+  - lib/automation/engine.ts
   - app/api/portal/brain/drive-sync/route.ts
   - app/api/portal/brain/adapters/route.ts
   - app/api/portal/brain/who-knows/route.ts
@@ -35,7 +41,11 @@ Company Brain is the per-tenant AI knowledge base. Each tenant gets an isolated 
 | `lib/ai/brain-tools/planner.ts` | Multi-step plan synthesis (Haiku) |
 | `lib/ai/brain-tools/grounder.ts` | Post-processing: groundedness check, hallucination guard |
 | `lib/ai/brain-tools/sanitizer.ts` | `sanitizeToolResult` — strips secrets before tool results reach the model |
-| `lib/ai/portal-tools/index.ts` | Portal AI tool registry (`PORTAL_TOOLS`, `HANDLERS`) aggregated from domain modules |
+| `lib/ai/llm.ts` | Provider-agnostic LLM seam: `complete`, `completeObject`, `streamComplete` (wraps Vercel AI SDK) — returns `{text, usage:{inputTokens,outputTokens,totalTokens}}` (88 lines) |
+| `lib/ai/agent-loop.ts` | `completeAgentLoop` (→ `{text, usage, steps}`) for agentic tool loops; `anthropicToolsToToolSet` adapter (79 lines) |
+| `lib/ai/models.ts` | Task→model registry: `getModelForTask(task, clientId)` resolves BYOK key + builds the model; env override `AI_MODEL__<task>` (145 lines) |
+| `lib/ai/portal-tools/index.ts` | Portal AI tool registry (`PORTAL_TOOLS`, `HANDLERS`); `executePortalTool(name, input, clientId, userId, ctx?: PortalToolCtx)` — see [[ADR executePortalTool single-ctx parameter]] (244 lines) |
+| `lib/ai/portal-tools/scopes.ts` | `requiredScopeFor(tool)` + `hasScope(granted, required)` — scope-gate helper used by the automation engine (165 lines) |
 | `lib/ai/meeting-processor.ts` | Meeting transcript processor (Sonnet) |
 | `lib/ai/resolve-client-key.ts` | `resolveClientApiKey` — BYOK vs. platform key resolver (60s cache, per-tenant) |
 | `lib/ai/plan-gate.ts` | `checkAiPlanGate` — enforces Starter-tier gate before every AI call |
@@ -170,6 +180,22 @@ Run: `scripts/test.sh --layer=unit --no-coverage` / `bun test:critical` (critica
 - **Billing / Credits** — `lib/ai/plan-gate.ts` gates AI calls by plan tier; `lib/ai-credits.ts` tracks platform credit balance used by `meeting-processor.ts`
 - **Crypto** — `lib/crypto/api-key.ts` encrypts/decrypts BYOK keys fetched by `lib/ai/resolve-client-key.ts`
 - **Kanban** — `brain_tasks` can be promoted to Kanban cards via `app/api/portal/brain/tasks/[id]/promote-to-kanban/`
+
+## AI provider seam (shipped 2026-06-17)
+
+All new LLM calls route through `lib/ai/llm.ts` or `lib/ai/agent-loop.ts` instead of the raw `@anthropic-ai/sdk`. The seam standardises usage reporting and will allow provider switching via config.
+
+**Carve-outs still on raw Anthropic SDK (by design):**
+
+| Location | Reason |
+|---|---|
+| `app/api/portal/ai/chat/route.ts` (301) | Has a Haiku intent router with direct SDK streaming; deferred |
+| Brain agent + chat streaming loops | Coordinating with `feat/ai-stream-tool-calling` branch |
+| Researcher tools | Uses native `web_search` — permanent carve-out |
+
+**Testing rule:** Unit tests for code that calls through the seam must mock `@/lib/ai/llm` or `@/lib/ai/agent-loop`, NOT `@anthropic-ai/sdk`. Assert on the `AiTask` tag rather than a model ID (model is registry-resolved at runtime). Mocking the raw SDK in tests that call through the seam will silently miss the seam and produce false passes. (~200 unit-test failures occurred when the seam landed before mocks were updated; all repaired in commit 9ea5f408.)
+
+**executePortalTool single-ctx contract:** `executePortalTool` takes exactly 5 parameters — the 5th is `ctx?: PortalToolCtx`. Do not add a 6th. See [[ADR executePortalTool single-ctx parameter]].
 
 ## Invariants & gotchas
 

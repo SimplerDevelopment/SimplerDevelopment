@@ -2,7 +2,7 @@
 type: domain-map
 domain: cms-blocks
 status: active
-date: 2026-06-10
+date: 2026-06-17
 sources:
   - lib/blocks/
   - lib/blocks/CLAUDE.md
@@ -21,6 +21,8 @@ sources:
   - tests/integration/api/cms-posts/upload-html.test.ts
   - app/api/block-templates/[id]/publish/route.ts
   - app/api/block-templates/[id]/cancel-delete/route.ts
+  - types/blocks/components.ts
+  - components/blocks/visual/RoiCalculatorBlockPreview.tsx
 ---
 
 # Domain: CMS, Posts & Blocks
@@ -162,7 +164,8 @@ Run `bun test:tenancy` after any data-access change in this domain; CMS post que
 
 ## Invariants & gotchas
 
-- **Blocks are universal, never client-specific.** A new block type must be added in lockstep: TS interface in `types/blocks/`, registry entry in `lib/blocks/registry.ts`, render component in `components/blocks/render/`, production renderer case in `app/sites/...`, and `/api/blocks` metadata. Every hand-rolled block has missed at least one step — use `simplerdev-block-type`. (Source: `lib/blocks/CLAUDE.md`)
+- **Blocks are universal, never client-specific.** A new block type must be added in lockstep: TS interface in `types/blocks/`, registry entry in `lib/blocks/registry.ts`, render component in `components/blocks/render/`, production renderer case in `app/sites/...`, defaults case in `lib/blocks/defaults.ts`, icon entry in `blockIcons.tsx`, settings-popup label, `VisualBlockPreview` case, visual preview component in `components/blocks/visual/`, and `/api/blocks` metadata — plus both `TYPE_TO_INTERFACE` and `TYPE_TO_RENDERER` entries in the coverage-harness maps. Every hand-rolled block has missed at least one step — use `simplerdev-block-type`. (Source: `lib/blocks/CLAUDE.md`)
+- **roi-calculator block lockstep (2026-06-17):** The block originally landed (commit f09344b8) missing most lockstep pieces, causing typecheck failure and 4 unit-test failures. It was completed in commits fcafe456 + 2d0568d9 across all locations: `lib/blocks/registry.ts`, `types/blocks/components.ts` (`RoiCalculatorBlock`), `components/blocks/render/` (`RoiCalculatorBlockRender`), `lib/blocks/defaults.ts`, `blockIcons.tsx`, settings-popup label, `VisualBlockPreview` case, and `components/blocks/visual/RoiCalculatorBlockPreview.tsx` (14 lines). **Known debt (baselined):** the block's 16 settings-panel input fields are not yet wired — only title/description are editable in the panel. Recorded in `.planning/audits/blocks-controls-coverage.baseline.json`. Not a regression.
 - **`posts` has no `clientId`.** Tenancy is via `websiteId → clientWebsites.clientId`. Never query `posts` without scoping to `websiteId` values owned by the current client.
 - **`block_templates.clientId = NULL` means platform-global** (visible to every tenant). Non-null = tenant-private. List endpoints must `OR` both.
 - **MCP writes to block templates land in `draft`.** Live pickers read only non-draft fields. Call `block_templates_publish` to promote.

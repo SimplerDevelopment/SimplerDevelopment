@@ -17,6 +17,7 @@ Core set:
 - [[Deployment Topology]] — Vercel, crons, workers, realtime server
 - [[Agent Harness]] — CLAUDE.md system, gates, hooks, orchestration
 - [[Building Custom Agents — Principles]] — seven production-agent principles mapped to this repo's implementation
+- [[ADR executePortalTool single-ctx parameter]] — collapses approval-gate + audit-source into one optional PortalToolCtx (accepted 2026-06-17)
 
 ```dataview
 TABLE status, date
