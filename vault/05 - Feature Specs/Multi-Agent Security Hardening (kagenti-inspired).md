@@ -21,6 +21,9 @@ sources:
   - app/.well-known/oauth-authorization-server/route.ts
   - app/.well-known/oauth-protected-resource/route.ts
   - lib/db/schema/audit.ts
+  - lib/ai/portal-tools/scopes.ts
+  - lib/ai/portal-tools/derive-rule-scopes.ts
+  - scripts/migrations/backfill-automation-rule-scopes.ts
 ---
 
 # Feature: Multi-Agent Security Hardening (kagenti-inspired)
@@ -138,16 +141,29 @@ Not applicable. This feature tightens the existing MCP gate; it does not add new
 
 Positive signals from this run: migration `drizzle/0011_agent_action_log_and_automation_scopes.sql` applies cleanly to a real Postgres (264 tables built via drizzle-kit push), the app builds and boots (281 passing tests prove brain.ts/imports are sound), and `scripts/migrations/backfill-automation-rule-scopes.ts` ran correctly against seeded rules.
 
-#### Orthogonal finding (Phase-1 follow-up consideration)
+#### Orthogonal finding — RESOLVED (commit 22084e61, PR #42)
 
-Seeded automation rules call action tools (`assign_ticket`, `send_notification`, `send_email`) that are not in the 81-tool portal-tools registry, so `requiredScopeFor()` returns `null` and the scope gate passes them through without a false denial. This reveals a vocabulary gap: the automation action set can diverge from the portal-tools handler set — the scope gate only covers actions that are real portal-tools handlers. No security regression today (unrecognized tools pass through as before), but a future phase may need to reconcile the two vocabularies or extend scope coverage to non-portal-tools action kinds.
+**Original observation:** seeded automation rules call action tools (`assign_ticket`, `send_notification`, `send_email`) not in the 81-tool portal-tools registry, raising a vocabulary-gap concern.
+
+**Audit result (reframing):** The flagged tool names are harmless no-ops. They are not registered portal-tool handlers, so they fall through to `executePortalTool` and return "Unknown tool" — they never executed real logic. They are seed-fixture names only, not a security gap.
+
+**The real gap (discovered and shipped):** The automation engine's two special-case action branches — `start_playbook` and `run_plugin_script` in `lib/automation/engine.ts` — exited BEFORE the Phase-1 scope gate, so any rule (even one with `scopes: []`) could start a Brain playbook or enqueue a plugin script un-gated:
+- `start_playbook` had no scope control of any kind.
+- `run_plugin_script` had a client-entitlement check but no scope check.
+
+**Fix shipped (commit 22084e61):**
+- Added `AUTOMATION_ACTION_SCOPES` in `lib/ai/portal-tools/scopes.ts` mapping `start_playbook → brain:write` and `run_plugin_script → automations:write`; consulted by `requiredScopeFor()`.
+- Kept `AUTOMATION_ACTION_SCOPES` separate from `PORTAL_TOOL_SCOPES` to preserve the 1:1 parity between `PORTAL_TOOL_SCOPES` and `HANDLERS` (the completeness drift test must not diverge).
+- Hoisted the scope gate in `lib/automation/engine.ts` ABOVE both special-case branches so they are now gated before any execution. `run_plugin_script` retains its client-entitlement check as a second defense layer.
+- `deriveRuleScopes` in `lib/ai/portal-tools/derive-rule-scopes.ts` automatically covers these action kinds — existing rules using `start_playbook` or `run_plugin_script` get their derived scopes on the next backfill run.
+- Tests: special-case gating covered in `isActionAllowed` unit tests + a `runRule` integration test asserting `startRun` is NOT called without `brain:write`. 40/40 unit tests pass.
 
 ### Remaining before Phase 1 is fully done
 
 1. ~~Run `bun test:tenancy`~~ DONE locally (9 pre-existing env-var failures, none on changed surfaces; see results above). Faithful run will re-confirm in CI.
 2. Run `bun test:critical` in CI — local env has an auth-500 config gap that cannot be resolved without the full integration secrets; CI is the authoritative gate.
 3. Hand-apply migration `drizzle/0011_agent_action_log_and_automation_scopes.sql` to prod.
-4. Run `scripts/migrations/backfill-automation-rule-scopes.ts` against prod to populate `scopes` on existing rules.
+4. Run `scripts/migrations/backfill-automation-rule-scopes.ts` against prod to populate `scopes` on existing rules. **Must be re-run after commit 22084e61** — `start_playbook` and `run_plugin_script` rules created before that commit will not yet carry their derived scopes (`brain:write` / `automations:write`); without the re-run they would be denied at the now-hoisted gate. Use `--dry-run` first to verify the diff before applying.
 
 ## Phase 2 — OBO / token-exchange seam (design)
 
