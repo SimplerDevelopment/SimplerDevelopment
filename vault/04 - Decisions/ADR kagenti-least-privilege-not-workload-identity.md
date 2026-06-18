@@ -15,6 +15,9 @@ sources:
   - lib/security/assert-owned.ts
   - lib/active-client.ts
   - lib/agentic-os/local-only.ts
+  - app/oauth/token/route.ts
+  - app/.well-known/oauth-authorization-server/route.ts
+  - lib/db/schema/audit.ts
 ---
 
 # ADR: Adopt kagenti least-privilege + OBO principles, not its workload-identity infrastructure
@@ -78,6 +81,34 @@ Adopt kagenti's **principles** and reject its **infrastructure**.
 **Do nothing:** Rejected. The automation engine has un-scoped full-tenant tool access. Any misconfigured or compromised automation rule can invoke any portal tool on behalf of the tenant. This is a clear least-privilege violation with no compensating control.
 
 **Build a new dedicated agent-authZ service:** Rejected. The existing `hasScope()` gate and scope vocabulary are proven and centralized. A parallel service would diverge, require dual maintenance, and add a network hop with no security benefit over extending the existing check.
+
+## Phase 2 design addendum — OBO / RFC 8693 token-exchange seam (2026-06-17)
+
+**Phase 2 status:** resource enforcement = implementing now; token-exchange grant = designed, deferred until first real A2A hop.
+
+### Rationale for continued deferral
+
+A code investigation confirms: no real agent-to-agent hop exists today. The OAuth server (`app/oauth/token/route.ts` line 57) dispatches only `authorization_code`; the MCP server, automation engine, and Brain/RAG act via direct DB queries or server-side credentials; the plugin JWT (`lib/plugins/jwt.ts`) is a closed portal→plugin handshake that never calls back into the OAuth server. Building the full RFC 8693 grant now remains speculative machinery — the ADR's original deferral stands.
+
+### Phase 2 prerequisite that ships now — RFC 8707 resource/audience enforcement
+
+`oauthAccessTokens.resource` (`lib/db/schema/audit.ts` line 80) is stored at issuance but not enforced in `lib/mcp-auth.ts` `resolveOAuthToken`. A token bound to one MCP server URL is currently accepted at any MCP endpoint. Enforcement is being implemented now as standalone hardening (null resource = unrestricted for backward-compat; non-null must match the MCP endpoint's canonical resource URL). This is also the prerequisite for token-exchange resource-downscoping.
+
+### What the seam looks like (recorded for the builder)
+
+Five touch points, all already identified and documented in full in the feature spec Phase 2 section ([[Multi-Agent Security Hardening (kagenti-inspired)]] § "Phase 2 — OBO / token-exchange seam"):
+
+1. `app/oauth/token/route.ts` line 57 — replace single-grant equality check with a dispatch map; add `urn:ietf:params:oauth:grant-type:token-exchange` handler (validate subject_token, optional actor_token, enforce scope + resource downscoping, insert new `oauthAccessTokens` row).
+2. `lib/db/schema/audit.ts` `oauthAccessTokens` — two NULLABLE FK columns: `subjectTokenId` (audit lineage) and `actorClientId` (RFC 8693 `act` claim analogue). Generate via `bun run db:generate`; never hand-edit `drizzle/*.sql`.
+3. `app/.well-known/oauth-authorization-server/route.ts` line 20 `grant_types_supported` — add the token-exchange URN when the handler exists.
+4. `lib/oauth/scopes.ts` — optional `delegation:use` / `agent:act` scope to gate subject/actor token eligibility.
+5. `lib/plugins/jwt.ts` `PluginJwtClaims` (lines 51–60) — add optional `act?: { sub: string; client_id?: string }` per RFC 8693 §4.4 so a plugin can carry delegation provenance on callbacks.
+
+### New invariant from this addendum
+
+When the token-exchange handler is eventually built, it must enforce scope downscoping (`requested_scopes ⊆ subject_token.scopes`) and resource downscoping (`requested_resource ⊆ subject_token.resource`) as hard gates — not optional checks. A token exchange that elevates privilege or expands audience is a security regression.
+
+---
 
 ## Related
 

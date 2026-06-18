@@ -17,6 +17,10 @@ sources:
   - lib/db/schema/approvals.ts
   - lib/db/schema/brain.ts
   - lib/agentic-os/local-only.ts
+  - app/oauth/token/route.ts
+  - app/.well-known/oauth-authorization-server/route.ts
+  - app/.well-known/oauth-protected-resource/route.ts
+  - lib/db/schema/audit.ts
 ---
 
 # Feature: Multi-Agent Security Hardening (kagenti-inspired)
@@ -144,6 +148,91 @@ Seeded automation rules call action tools (`assign_ticket`, `send_notification`,
 2. Run `bun test:critical` in CI — local env has an auth-500 config gap that cannot be resolved without the full integration secrets; CI is the authoritative gate.
 3. Hand-apply migration `drizzle/0011_agent_action_log_and_automation_scopes.sql` to prod.
 4. Run `scripts/migrations/backfill-automation-rule-scopes.ts` against prod to populate `scopes` on existing rules.
+
+## Phase 2 — OBO / token-exchange seam (design)
+
+**Status:** resource enforcement = implementing now (Phase 2 prerequisite); token-exchange grant = designed, deferred until first real A2A hop.
+
+### Why this is a seam-design, not an implementation
+
+No real agent-to-agent / on-behalf-of hop exists in the codebase today. The OAuth server (`app/oauth/token/route.ts`) supports only the `authorization_code` grant — a single equality check at line 57 (`if (grantType !== 'authorization_code')`) rejects everything else. The MCP server, automation engine, and Brain/RAG all act via direct DB queries or server-side credentials; none forward a user's token downstream to another agent. The only delegation surface is the plugin JWT (`lib/plugins/jwt.ts`, minted in middleware.ts) — a closed portal→plugin handshake that never calls back into the OAuth server. Building the full token-exchange grant now would be speculative machinery; this section records the exact seam so it can be assembled the day a real hop appears (most likely a plugin calling back into the MCP server on the user's behalf).
+
+### Phase 2 prerequisite — RFC 8707 resource / audience enforcement (in progress)
+
+`oauthAccessTokens.resource` (`lib/db/schema/audit.ts` line 80) is STORED at issuance (propagated from the authorization code through the token insert at `app/oauth/token/route.ts` lines 160–169) but is NOT enforced in `lib/mcp-auth.ts` `resolveOAuthToken`. A token bound to one audience is accepted at any MCP endpoint today. The comment in `app/.well-known/oauth-authorization-server/route.ts` (lines 27–28) explicitly notes this: "We persist and echo it but don't currently constrain tokens by audience beyond that."
+
+The Phase 2 prerequisite closes this gap: in `lib/mcp-auth.ts` `resolveOAuthToken`, after the token row is fetched, enforce that if `token.resource` is non-null it must match the MCP endpoint's canonical resource URL. `null` resource = unrestricted (backward-compatible with tokens issued before this enforcement). This standalone hardening ships independently of the token-exchange grant and is also the prerequisite for token-exchange resource-downscoping.
+
+### The seam — where token-exchange slots in when built
+
+#### 1. Grant dispatch — `app/oauth/token/route.ts`
+
+Replace the single equality check at line 57 with a dispatch map:
+
+```
+// today (line 57):
+if (grantType !== 'authorization_code') { ... }
+
+// when built:
+const SUPPORTED_GRANTS = ['authorization_code', 'urn:ietf:params:oauth:grant-type:token-exchange'];
+if (!SUPPORTED_GRANTS.includes(grantType)) { ... }
+// then route to handleAuthorizationCodeGrant() or handleTokenExchangeGrant()
+```
+
+The `handleTokenExchangeGrant` handler must:
+- Validate `subject_token` — an existing `sd_oauth_*` or `sd_mcp_*` token, looked up via the same hash path as `resolveOAuthToken` / `resolvePortalApiKey` in `lib/mcp-auth.ts`.
+- Accept optional `actor_token` — the requesting agent's own bearer token (RFC 8693 §2.1).
+- Enforce scope downscoping: `requested_scopes ⊆ subject_token.scopes` — the exchange cannot elevate privilege.
+- Enforce resource downscoping: if `resource` is present, it must be a subset of the subject token's bound resource — links directly to the RFC 8707 enforcement prerequisite above.
+- Insert a new `oauthAccessTokens` row for the issued delegation token.
+
+#### 2. Schema additions — `lib/db/schema/audit.ts`
+
+Two NULLABLE columns on `oauthAccessTokens` suffice for single-hop delegation:
+
+- `subjectTokenId` — FK → `oauthAccessTokens.id` (the token being exchanged; enables audit lineage: "this token was derived from that token").
+- `actorClientId` — `varchar` carrying the `client_id` of the agent that performed the exchange (RFC 8693 `act` claim analogue; FK to `oauthClients.clientId`).
+
+A separate `oauthDelegationChain` join table is only warranted for queryable multi-hop lineage, which is out of scope until multi-hop is real.
+
+Schema change requires: edit `lib/db/schema/audit.ts`, then `bun run db:generate`, never hand-edit `drizzle/*.sql`.
+
+#### 3. Discovery — `app/.well-known/oauth-authorization-server/route.ts`
+
+At line 20, `grant_types_supported: ['authorization_code']` — add the token-exchange grant URN when the handler is implemented:
+
+```
+grant_types_supported: ['authorization_code', 'urn:ietf:params:oauth:grant-type:token-exchange'],
+```
+
+Do not add it before the handler exists; discovery truthfully reflects capability.
+
+#### 4. Scopes — `lib/oauth/scopes.ts`
+
+Optionally add a `delegation:use` or `agent:act` scope to gate which tokens are eligible as `subject_token` or `actor_token` in an exchange. Tokens without this scope cannot be used as the subject of an exchange. This is optional — the downscoping enforcement at the handler level is the primary guard.
+
+#### 5. Plugin JWT — `lib/plugins/jwt.ts`
+
+`PluginJwtClaims` (lines 51–60) has no `act` claim today. When a plugin calls back into the MCP server on a user's behalf, add an optional `act` field to carry delegation provenance per RFC 8693 §4.4:
+
+```typescript
+export interface PluginJwtClaims {
+  // ... existing fields ...
+  /** RFC 8693 §4.4 — present when the plugin is acting on behalf of a user.
+   *  sub carries the user; act.sub carries the plugin's own identity. */
+  act?: { sub: string; client_id?: string };
+}
+```
+
+`signPluginJwt` would accept and embed this claim; `verifyPluginJwt` would surface it in the returned claims object for the callback-auth layer to propagate.
+
+### Open questions (Phase 2 scope)
+
+- Adopt full RFC 8693 (standard `act` / `may_act` claims, token chaining) or a lighter internal attenuated-token scheme? Full RFC 8693 is recommended — the seam above already follows it, and it keeps the OAuth server standards-conformant.
+- Should `delegation:use` be a new scope or should all `sd_oauth_*` tokens be eligible as subject tokens by default (guarded only by downscoping logic)? Defer until the first caller.
+- Multi-hop (agent A exchanges → agent B exchanges → tool): a second NULLABLE `actorTokenId` FK and/or a `oauthDelegationChain` table would be needed. Out of scope until a concrete multi-hop topology exists.
+
+---
 
 ## Out of scope (rejected — see ADR)
 - SPIFFE/SPIRE workload identity and mTLS mesh.
