@@ -60,19 +60,11 @@ vi.mock('@/lib/ai/validate-slide-response', () => ({
   validateSlideResponse: (...args: unknown[]) => validateSlideResponseMock(...args),
 }));
 
-// Anthropic SDK
-const messagesCreateMock = vi.fn();
-const anthropicCtorSpy = vi.fn();
-vi.mock('@anthropic-ai/sdk', () => {
-  class Anthropic {
-    public messages: { create: typeof messagesCreateMock };
-    constructor(opts: { apiKey: string }) {
-      anthropicCtorSpy(opts);
-      this.messages = { create: messagesCreateMock };
-    }
-  }
-  return { default: Anthropic };
-});
+// AI seam mock
+const completeMock = vi.fn();
+vi.mock('@/lib/ai/llm', () => ({
+  complete: (...args: unknown[]) => completeMock(...args),
+}));
 
 // drizzle-orm
 vi.mock('drizzle-orm', () => ({
@@ -295,12 +287,13 @@ function defaultDeck(over: Row = {}): Row {
 
 function aiResponse(
   text: string,
-  opts: { stop?: string; input?: number; output?: number } = {},
+  opts: { input?: number; output?: number } = {},
 ) {
+  const inputTokens = opts.input ?? 100;
+  const outputTokens = opts.output ?? 200;
   return {
-    content: [{ type: 'text', text }],
-    stop_reason: opts.stop ?? 'end_turn',
-    usage: { input_tokens: opts.input ?? 100, output_tokens: opts.output ?? 200 },
+    text,
+    usage: { inputTokens, outputTokens, totalTokens: inputTokens + outputTokens },
   };
 }
 
@@ -329,8 +322,7 @@ describe('POST /api/portal/tools/pitch-decks/[id]/slides/batch-edit', () => {
       'You modify individual slides based on natural language instructions.',
     );
     validateSlideResponseMock.mockReset();
-    messagesCreateMock.mockReset();
-    anthropicCtorSpy.mockReset();
+    completeMock.mockReset();
 
     authMock.mockResolvedValue({ user: { id: '7' } });
     getPortalClientMock.mockResolvedValue({ id: 10 });
@@ -423,7 +415,7 @@ describe('POST /api/portal/tools/pitch-decks/[id]/slides/batch-edit', () => {
     expect(res.status).toBe(402);
     const body = await res.json();
     expect(body).toEqual({ success: false, message: 'Upgrade required', reason: 'plan_lock' });
-    expect(messagesCreateMock).not.toHaveBeenCalled();
+    expect(completeMock).not.toHaveBeenCalled();
   });
 
   it('returns 400 when all slideIndices are out of range', async () => {
@@ -437,20 +429,23 @@ describe('POST /api/portal/tools/pitch-decks/[id]/slides/batch-edit', () => {
     expect(body.message).toBe('Invalid slide indices');
   });
 
-  it('passes the resolved Anthropic key to the SDK ctor', async () => {
+  it('passes the resolved client API key to the AI seam', async () => {
     state.pitchDecks.push(defaultDeck());
     resolveClientApiKeyMock.mockResolvedValueOnce({ source: 'byok', key: 'sk-byok-xyz' });
-    messagesCreateMock.mockResolvedValueOnce(aiResponse(batchSlidesJson()));
+    completeMock.mockResolvedValueOnce(aiResponse(batchSlidesJson()));
     await batchEditPOST(
       makeDeckRequest({ prompt: 'go', slideIndices: [0, 1] }),
       makeDeckParams('1'),
     );
-    expect(anthropicCtorSpy).toHaveBeenCalledWith({ apiKey: 'sk-byok-xyz' });
+    expect(resolveClientApiKeyMock).toHaveBeenCalled();
+    expect(completeMock).toHaveBeenCalledWith(
+      expect.objectContaining({ task: 'slideBatchEdit' }),
+    );
   });
 
   it('saves a version snapshot tagged ai_slide_edit before editing', async () => {
     state.pitchDecks.push(defaultDeck());
-    messagesCreateMock.mockResolvedValueOnce(aiResponse(batchSlidesJson()));
+    completeMock.mockResolvedValueOnce(aiResponse(batchSlidesJson()));
     await batchEditPOST(
       makeDeckRequest({ prompt: 'go', slideIndices: [0, 1] }),
       makeDeckParams('1'),
@@ -465,7 +460,7 @@ describe('POST /api/portal/tools/pitch-decks/[id]/slides/batch-edit', () => {
 
   it('returns 200 + updated deck on successful batch edit', async () => {
     state.pitchDecks.push(defaultDeck());
-    messagesCreateMock.mockResolvedValueOnce(aiResponse(batchSlidesJson()));
+    completeMock.mockResolvedValueOnce(aiResponse(batchSlidesJson()));
     const res = await batchEditPOST(
       makeDeckRequest({ prompt: 'shorten', slideIndices: [0, 1] }),
       makeDeckParams('1'),
@@ -481,7 +476,7 @@ describe('POST /api/portal/tools/pitch-decks/[id]/slides/batch-edit', () => {
   it('strips ```json fences from AI text before parsing', async () => {
     state.pitchDecks.push(defaultDeck());
     const fenced = '```json\n' + batchSlidesJson() + '\n```';
-    messagesCreateMock.mockResolvedValueOnce(aiResponse(fenced));
+    completeMock.mockResolvedValueOnce(aiResponse(fenced));
     const res = await batchEditPOST(
       makeDeckRequest({ prompt: 'go', slideIndices: [0, 1] }),
       makeDeckParams('1'),
@@ -495,7 +490,7 @@ describe('POST /api/portal/tools/pitch-decks/[id]/slides/batch-edit', () => {
       { id: 'slide-1', label: 'A', blocks: [] },
       { id: 'slide-2', label: 'B', blocks: [] },
     ]);
-    messagesCreateMock.mockResolvedValueOnce(aiResponse(arr));
+    completeMock.mockResolvedValueOnce(aiResponse(arr));
     const res = await batchEditPOST(
       makeDeckRequest({ prompt: 'go', slideIndices: [0, 1] }),
       makeDeckParams('1'),
@@ -507,7 +502,7 @@ describe('POST /api/portal/tools/pitch-decks/[id]/slides/batch-edit', () => {
 
   it('returns 500 with invalid-JSON message when text is not parsable', async () => {
     state.pitchDecks.push(defaultDeck());
-    messagesCreateMock.mockResolvedValueOnce(aiResponse('not json at all'));
+    completeMock.mockResolvedValueOnce(aiResponse('not json at all'));
     const res = await batchEditPOST(
       makeDeckRequest({ prompt: 'go', slideIndices: [0] }),
       makeDeckParams('1'),
@@ -520,7 +515,7 @@ describe('POST /api/portal/tools/pitch-decks/[id]/slides/batch-edit', () => {
   it('returns 500 when parsed payload is not an array', async () => {
     state.pitchDecks.push(defaultDeck());
     // Object without `.slides`, parsed but not an array
-    messagesCreateMock.mockResolvedValueOnce(aiResponse(JSON.stringify({ foo: 'bar' })));
+    completeMock.mockResolvedValueOnce(aiResponse(JSON.stringify({ foo: 'bar' })));
     const res = await batchEditPOST(
       makeDeckRequest({ prompt: 'go', slideIndices: [0] }),
       makeDeckParams('1'),
@@ -528,20 +523,20 @@ describe('POST /api/portal/tools/pitch-decks/[id]/slides/batch-edit', () => {
     expect(res.status).toBe(500);
   });
 
-  it('emits a continuation call on stop_reason=max_tokens and sums tokens', async () => {
+  it('emits a continuation call on finishReason=length and sums tokens', async () => {
     state.pitchDecks.push(defaultDeck());
     const partial = batchSlidesJson().slice(0, 20);
     const completion = batchSlidesJson().slice(20);
-    messagesCreateMock
-      .mockResolvedValueOnce(aiResponse(partial, { stop: 'max_tokens', input: 500, output: 800 }))
-      .mockResolvedValueOnce(aiResponse(completion, { stop: 'end_turn', input: 600, output: 400 }));
+    completeMock
+      .mockResolvedValueOnce({ text: partial, finishReason: 'length', usage: { inputTokens: 500, outputTokens: 800, totalTokens: 1300 } })
+      .mockResolvedValueOnce({ text: completion, finishReason: 'stop', usage: { inputTokens: 600, outputTokens: 400, totalTokens: 1000 } });
 
     const res = await batchEditPOST(
       makeDeckRequest({ prompt: 'go', slideIndices: [0, 1] }),
       makeDeckParams('1'),
     );
     expect(res.status).toBe(200);
-    expect(messagesCreateMock).toHaveBeenCalledTimes(2);
+    expect(completeMock).toHaveBeenCalledTimes(2);
     expect(recordAiUsageMock).toHaveBeenCalledWith(
       expect.objectContaining({ clientId: 10, source: 'platform', tokens: 500 + 800 + 600 + 400 }),
     );
@@ -557,7 +552,7 @@ describe('POST /api/portal/tools/pitch-decks/[id]/slides/batch-edit', () => {
       }
       return { valid: true, slide: makeSlide({ id, label: 'ok' }), warnings: [] };
     });
-    messagesCreateMock.mockResolvedValueOnce(aiResponse(batchSlidesJson()));
+    completeMock.mockResolvedValueOnce(aiResponse(batchSlidesJson()));
     const res = await batchEditPOST(
       makeDeckRequest({ prompt: 'go', slideIndices: [0, 1] }),
       makeDeckParams('1'),
@@ -571,7 +566,7 @@ describe('POST /api/portal/tools/pitch-decks/[id]/slides/batch-edit', () => {
   it('proceeds when getBrandingByClientId throws (non-critical)', async () => {
     state.pitchDecks.push(defaultDeck());
     getBrandingByClientIdMock.mockRejectedValueOnce(new Error('branding down'));
-    messagesCreateMock.mockResolvedValueOnce(aiResponse(batchSlidesJson()));
+    completeMock.mockResolvedValueOnce(aiResponse(batchSlidesJson()));
     const res = await batchEditPOST(
       makeDeckRequest({ prompt: 'go', slideIndices: [0, 1] }),
       makeDeckParams('1'),
@@ -583,7 +578,7 @@ describe('POST /api/portal/tools/pitch-decks/[id]/slides/batch-edit', () => {
 
   it('records AI usage with combined tokens on a single-shot response', async () => {
     state.pitchDecks.push(defaultDeck());
-    messagesCreateMock.mockResolvedValueOnce(
+    completeMock.mockResolvedValueOnce(
       aiResponse(batchSlidesJson(), { input: 11, output: 22 }),
     );
     await batchEditPOST(
@@ -597,7 +592,7 @@ describe('POST /api/portal/tools/pitch-decks/[id]/slides/batch-edit', () => {
 
   it('returns 500 with generic message when Anthropic call throws', async () => {
     state.pitchDecks.push(defaultDeck());
-    messagesCreateMock.mockRejectedValueOnce(new Error('boom'));
+    completeMock.mockRejectedValueOnce(new Error('boom'));
     const res = await batchEditPOST(
       makeDeckRequest({ prompt: 'go', slideIndices: [0, 1] }),
       makeDeckParams('1'),
@@ -609,7 +604,7 @@ describe('POST /api/portal/tools/pitch-decks/[id]/slides/batch-edit', () => {
 
   it('filters out invalid slide indices but proceeds with the valid ones', async () => {
     state.pitchDecks.push(defaultDeck());
-    messagesCreateMock.mockResolvedValueOnce(aiResponse(batchSlidesJson()));
+    completeMock.mockResolvedValueOnce(aiResponse(batchSlidesJson()));
     const res = await batchEditPOST(
       makeDeckRequest({ prompt: 'go', slideIndices: [0, 99, -2, 1] }),
       makeDeckParams('1'),

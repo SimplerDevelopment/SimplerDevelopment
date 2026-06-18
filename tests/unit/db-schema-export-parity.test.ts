@@ -235,6 +235,7 @@ const EXPECTED_EXPORTS: readonly string[] = [
   'abEvents',
   'abExperiments',
   'abVariants',
+  'agentActionLog',
   'agenticOsRunStatusEnum',
   'agenticOsRuns',
   'aiConversations',
@@ -346,6 +347,7 @@ const EXPECTED_EXPORTS: readonly string[] = [
   'customFields',
   'designAssets',
   'designs',
+  'devicePushTokens',
   'discountCodes',
   'documentComments',
   'easypostEvents',
@@ -507,6 +509,7 @@ const EXPECTED_TABLE_NAMES: Readonly<Record<string, string>> = {
   abEvents: 'ab_events',
   abExperiments: 'ab_experiments',
   abVariants: 'ab_variants',
+  agentActionLog: 'agent_action_log',
   agenticOsRuns: 'agentic_os_runs',
   aiConversations: 'ai_conversations',
   aiCreditBalances: 'ai_credit_balances',
@@ -617,6 +620,7 @@ const EXPECTED_TABLE_NAMES: Readonly<Record<string, string>> = {
   customFields: 'custom_fields',
   designAssets: 'design_assets',
   designs: 'designs',
+  devicePushTokens: 'device_push_tokens',
   discountCodes: 'discount_codes',
   documentComments: 'document_comments',
   easypostEvents: 'easypost_events',
@@ -804,13 +808,13 @@ describe('lib/db/schema export parity', () => {
     expect(actualTables).toEqual(EXPECTED_TABLE_NAMES);
   });
 
-  it('reports the recorded number of tables (265)', () => {
+  it('reports the recorded number of tables (267)', () => {
     const schemaMap = Schema as unknown as Record<string, unknown>;
     let count = 0;
     for (const value of Object.values(schemaMap)) {
       if (value && typeof value === 'object' && isTable(value)) count += 1;
     }
     expect(count).toBe(Object.keys(EXPECTED_TABLE_NAMES).length);
-    expect(count).toBe(265);
+    expect(count).toBe(267);
   });
 });

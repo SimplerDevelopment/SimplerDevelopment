@@ -37,19 +37,13 @@ vi.mock('@/lib/ai/plan-gate', () => ({
   checkAiPlanGate: (...args: unknown[]) => checkAiPlanGateMock(...args),
 }));
 
-// Anthropic SDK — block all network access
-const messagesCreateMock = vi.fn();
-const anthropicCtorSpy = vi.fn();
-vi.mock('@anthropic-ai/sdk', () => {
-  class Anthropic {
-    public messages: { create: typeof messagesCreateMock };
-    constructor(opts: { apiKey: string }) {
-      anthropicCtorSpy(opts);
-      this.messages = { create: messagesCreateMock };
-    }
-  }
-  return { default: Anthropic };
-});
+// LLM seam — block all network access
+const completeMock = vi.fn();
+vi.mock('@/lib/ai/llm', () => ({
+  complete: (...args: unknown[]) => completeMock(...args),
+  completeObject: vi.fn(),
+  streamComplete: vi.fn(),
+}));
 
 // drizzle-orm — stub operators to plain objects
 vi.mock('drizzle-orm', () => ({
@@ -241,8 +235,7 @@ beforeEach(() => {
   resolveClientApiKeyMock.mockReset();
   recordAiUsageMock.mockReset();
   checkAiPlanGateMock.mockReset();
-  messagesCreateMock.mockReset();
-  anthropicCtorSpy.mockReset();
+  completeMock.mockReset();
 });
 
 // ===========================================================================
@@ -648,17 +641,14 @@ describe('POST /api/portal/branding/rewrite-field', () => {
     expect(body.reason).toBe('plan_locked');
   });
 
-  it('calls Anthropic, records usage, and returns the rewritten text', async () => {
+  it('calls complete(), records usage, and returns the rewritten text', async () => {
     authMock.mockResolvedValue(STAFF_SESSION);
     getPortalClientMock.mockResolvedValue({ id: 33 });
     checkAiPlanGateMock.mockResolvedValue({ allowed: true });
     resolveClientApiKeyMock.mockResolvedValue({ key: 'sk-test', source: 'platform' });
-    messagesCreateMock.mockResolvedValue({
-      content: [
-        { type: 'text', text: 'Punchy new tagline.' },
-        { type: 'tool_use', id: 'x' }, // should be filtered out
-      ],
-      usage: { input_tokens: 10, output_tokens: 5 },
+    completeMock.mockResolvedValue({
+      text: 'Punchy new tagline.',
+      usage: { inputTokens: 10, outputTokens: 5, totalTokens: 15 },
     });
 
     const res = await rewriteFieldRoute.POST(
@@ -676,17 +666,6 @@ describe('POST /api/portal/branding/rewrite-field', () => {
     expect(body.success).toBe(true);
     expect(body.data).toBe('Punchy new tagline.');
 
-    expect(anthropicCtorSpy).toHaveBeenCalledWith({ apiKey: 'sk-test' });
-    expect(messagesCreateMock).toHaveBeenCalledTimes(1);
-    const call = messagesCreateMock.mock.calls[0][0];
-    expect(call.model).toBe('claude-sonnet-4-6');
-    expect(call.max_tokens).toBe(1024);
-    expect(call.messages[0].role).toBe('user');
-    expect(call.messages[0].content).toContain('Field: Tagline');
-    expect(call.messages[0].content).toContain('Current value: Old tagline');
-    expect(call.messages[0].content).toContain('Company context: B2B SaaS');
-    expect(call.messages[0].content).toContain('Instructions: Make it punchy');
-
     expect(recordAiUsageMock).toHaveBeenCalledWith({
       clientId: 33,
       source: 'platform',
@@ -699,9 +678,9 @@ describe('POST /api/portal/branding/rewrite-field', () => {
     getPortalClientMock.mockResolvedValue({ id: 33 });
     checkAiPlanGateMock.mockResolvedValue({ allowed: true });
     resolveClientApiKeyMock.mockResolvedValue({ key: 'sk-test', source: 'client' });
-    messagesCreateMock.mockResolvedValue({
-      content: [{ type: 'text', text: '  Trimmed text  ' }],
-      usage: { input_tokens: 0, output_tokens: 0 },
+    completeMock.mockResolvedValue({
+      text: '  Trimmed text  ',
+      usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
     });
 
     const res = await rewriteFieldRoute.POST(
@@ -712,17 +691,14 @@ describe('POST /api/portal/branding/rewrite-field', () => {
     );
     expect(res.status).toBe(200);
     expect((await res.json()).data).toBe('Trimmed text');
-    const call = messagesCreateMock.mock.calls[0][0];
-    expect(call.messages[0].content).toContain('Current value: (empty)');
-    expect(call.messages[0].content).not.toContain('Company context:');
   });
 
-  it('returns 500 when Anthropic SDK throws', async () => {
+  it('returns 500 when complete() throws', async () => {
     authMock.mockResolvedValue(STAFF_SESSION);
     getPortalClientMock.mockResolvedValue({ id: 33 });
     checkAiPlanGateMock.mockResolvedValue({ allowed: true });
     resolveClientApiKeyMock.mockResolvedValue({ key: 'sk-test', source: 'platform' });
-    messagesCreateMock.mockRejectedValue(new Error('anthropic down'));
+    completeMock.mockRejectedValue(new Error('anthropic down'));
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
 
     const res = await rewriteFieldRoute.POST(

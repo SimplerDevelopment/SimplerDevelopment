@@ -70,19 +70,11 @@ vi.mock('@/lib/ai/slide-edit-optimizer', () => ({
   isPatchResponse: (...args: unknown[]) => isPatchResponseMock(...args),
 }));
 
-// ---- Anthropic SDK — never let it touch the network ----
-const messagesCreateMock = vi.fn();
-const anthropicCtorSpy = vi.fn();
-vi.mock('@anthropic-ai/sdk', () => {
-  class Anthropic {
-    public messages: { create: typeof messagesCreateMock };
-    constructor(opts: { apiKey: string }) {
-      anthropicCtorSpy(opts);
-      this.messages = { create: messagesCreateMock };
-    }
-  }
-  return { default: Anthropic };
-});
+// ---- LLM seam — never let it touch the network ----
+const completeMock = vi.fn();
+vi.mock('@/lib/ai/llm', () => ({
+  complete: (...args: unknown[]) => completeMock(...args),
+}));
 
 // ---- schema mock ----
 vi.mock('@/lib/db/schema', () => {
@@ -265,11 +257,13 @@ function defaultDeck(over: Record<string, unknown> = {}) {
   };
 }
 
-function aiResponse(text: string, opts: { stop?: string; input?: number; output?: number } = {}) {
+function aiResponse(text: string, opts: { truncated?: boolean; input?: number; output?: number } = {}) {
+  const inputTokens = opts.input ?? 100;
+  const outputTokens = opts.output ?? 200;
   return {
-    content: [{ type: 'text', text }],
-    stop_reason: opts.stop ?? 'end_turn',
-    usage: { input_tokens: opts.input ?? 100, output_tokens: opts.output ?? 200 },
+    text,
+    finishReason: opts.truncated ? 'length' : 'stop',
+    usage: { inputTokens, outputTokens, totalTokens: inputTokens + outputTokens },
   };
 }
 
@@ -303,8 +297,7 @@ beforeEach(() => {
   }));
   applyPatchResponseMock.mockReset();
   isPatchResponseMock.mockReset().mockReturnValue(false);
-  messagesCreateMock.mockReset();
-  anthropicCtorSpy.mockReset();
+  completeMock.mockReset();
 
   // sane defaults
   authMock.mockResolvedValue({ user: { id: '7' } });
@@ -404,7 +397,7 @@ describe('POST /slides/[slideIndex]/generate — auth + early exits', () => {
     expect(res.status).toBe(402);
     const body = await res.json();
     expect(body).toEqual({ success: false, message: 'Upgrade required', reason: 'plan_lock' });
-    expect(messagesCreateMock).not.toHaveBeenCalled();
+    expect(completeMock).not.toHaveBeenCalled();
   });
 
   it('handles an empty slides array (out-of-range for index 0)', async () => {
@@ -421,7 +414,7 @@ describe('POST /slides/[slideIndex]/generate — auth + early exits', () => {
 describe('POST /slides/[slideIndex]/generate — happy path (full slide)', () => {
   it('returns 200 + updated deck on successful full-slide edit', async () => {
     state.pitchDecks.push(defaultDeck());
-    messagesCreateMock.mockResolvedValueOnce(aiResponse(fullSlideJson()));
+    completeMock.mockResolvedValueOnce(aiResponse(fullSlideJson()));
 
     const res = await POST(makeRequest({ prompt: 'rewrite this slide' }), makeParams('1', '0'));
     expect(res.status).toBe(200);
@@ -433,18 +426,19 @@ describe('POST /slides/[slideIndex]/generate — happy path (full slide)', () =>
     expect(body.data.formatVersion).toBe(2);
   });
 
-  it('passes the constructed Anthropic key into the SDK ctor', async () => {
+  it('resolveClientApiKey is called and seam receives the right clientId', async () => {
     state.pitchDecks.push(defaultDeck());
     resolveClientApiKeyMock.mockResolvedValueOnce({ source: 'byok', key: 'sk-byok-123' });
-    messagesCreateMock.mockResolvedValueOnce(aiResponse(fullSlideJson()));
+    completeMock.mockResolvedValueOnce(aiResponse(fullSlideJson()));
 
     await POST(makeRequest({ prompt: 'go' }), makeParams('1', '0'));
-    expect(anthropicCtorSpy).toHaveBeenCalledWith({ apiKey: 'sk-byok-123' });
+    expect(resolveClientApiKeyMock).toHaveBeenCalled();
+    expect(completeMock).toHaveBeenCalledWith(expect.objectContaining({ task: 'slideGen' }));
   });
 
   it('saves a version snapshot tagged ai_slide_edit before editing', async () => {
     state.pitchDecks.push(defaultDeck());
-    messagesCreateMock.mockResolvedValueOnce(aiResponse(fullSlideJson()));
+    completeMock.mockResolvedValueOnce(aiResponse(fullSlideJson()));
 
     await POST(makeRequest({ prompt: 'go' }), makeParams('1', '1'));
     expect(saveVersionSnapshotMock).toHaveBeenCalledTimes(1);
@@ -460,7 +454,7 @@ describe('POST /slides/[slideIndex]/generate — happy path (full slide)', () =>
   it('strips ```json fences before parsing', async () => {
     state.pitchDecks.push(defaultDeck());
     const fenced = '```json\n' + fullSlideJson() + '\n```';
-    messagesCreateMock.mockResolvedValueOnce(aiResponse(fenced));
+    completeMock.mockResolvedValueOnce(aiResponse(fenced));
     const res = await POST(makeRequest({ prompt: 'go' }), makeParams('1', '0'));
     expect(res.status).toBe(200);
   });
@@ -468,7 +462,7 @@ describe('POST /slides/[slideIndex]/generate — happy path (full slide)', () =>
   it('strips bare ``` fences (no language) before parsing', async () => {
     state.pitchDecks.push(defaultDeck());
     const fenced = '```\n' + fullSlideJson() + '\n```';
-    messagesCreateMock.mockResolvedValueOnce(aiResponse(fenced));
+    completeMock.mockResolvedValueOnce(aiResponse(fenced));
     const res = await POST(makeRequest({ prompt: 'go' }), makeParams('1', '0'));
     expect(res.status).toBe(200);
   });
@@ -476,14 +470,14 @@ describe('POST /slides/[slideIndex]/generate — happy path (full slide)', () =>
   it('extracts JSON from prose-wrapped responses via regex fallback', async () => {
     state.pitchDecks.push(defaultDeck());
     const text = 'Here you go!\n' + fullSlideJson() + '\nThanks!';
-    messagesCreateMock.mockResolvedValueOnce(aiResponse(text));
+    completeMock.mockResolvedValueOnce(aiResponse(text));
     const res = await POST(makeRequest({ prompt: 'go' }), makeParams('1', '0'));
     expect(res.status).toBe(200);
   });
 
   it('returns 500 when no JSON can be parsed at all', async () => {
     state.pitchDecks.push(defaultDeck());
-    messagesCreateMock.mockResolvedValueOnce(aiResponse('totally not json'));
+    completeMock.mockResolvedValueOnce(aiResponse('totally not json'));
     const res = await POST(makeRequest({ prompt: 'go' }), makeParams('1', '0'));
     expect(res.status).toBe(500);
     const body = await res.json();
@@ -493,7 +487,7 @@ describe('POST /slides/[slideIndex]/generate — happy path (full slide)', () =>
   it('returns 500 when the regex-extracted JSON is also malformed', async () => {
     state.pitchDecks.push(defaultDeck());
     // Contains braces, but invalid inside
-    messagesCreateMock.mockResolvedValueOnce(aiResponse('prefix {oops not valid json} suffix'));
+    completeMock.mockResolvedValueOnce(aiResponse('prefix {oops not valid json} suffix'));
     const res = await POST(makeRequest({ prompt: 'go' }), makeParams('1', '0'));
     expect(res.status).toBe(500);
     const body = await res.json();
@@ -507,7 +501,7 @@ describe('POST /slides/[slideIndex]/generate — happy path (full slide)', () =>
       slide: {} as never,
       warnings: ['bad shape'],
     });
-    messagesCreateMock.mockResolvedValueOnce(aiResponse(fullSlideJson()));
+    completeMock.mockResolvedValueOnce(aiResponse(fullSlideJson()));
     const res = await POST(makeRequest({ prompt: 'go' }), makeParams('1', '0'));
     expect(res.status).toBe(500);
     const body = await res.json();
@@ -521,7 +515,7 @@ describe('POST /slides/[slideIndex]/generate — happy path (full slide)', () =>
       slide: makeSlide(),
       warnings: ['minor: defaulted color'],
     });
-    messagesCreateMock.mockResolvedValueOnce(aiResponse(fullSlideJson()));
+    completeMock.mockResolvedValueOnce(aiResponse(fullSlideJson()));
     const res = await POST(makeRequest({ prompt: 'go' }), makeParams('1', '0'));
     expect(res.status).toBe(200);
     const body = await res.json();
@@ -530,7 +524,7 @@ describe('POST /slides/[slideIndex]/generate — happy path (full slide)', () =>
 
   it('omits warnings field when validator returns no warnings', async () => {
     state.pitchDecks.push(defaultDeck());
-    messagesCreateMock.mockResolvedValueOnce(aiResponse(fullSlideJson()));
+    completeMock.mockResolvedValueOnce(aiResponse(fullSlideJson()));
     const res = await POST(makeRequest({ prompt: 'go' }), makeParams('1', '0'));
     const body = await res.json();
     expect(body.warnings).toBeUndefined();
@@ -543,7 +537,7 @@ describe('POST /slides/[slideIndex]/generate — happy path (full slide)', () =>
       slide: makeSlide({ id: 'slide-2', label: 'BRAND NEW' }),
       warnings: [],
     });
-    messagesCreateMock.mockResolvedValueOnce(aiResponse(fullSlideJson()));
+    completeMock.mockResolvedValueOnce(aiResponse(fullSlideJson()));
 
     await POST(makeRequest({ prompt: 'edit middle' }), makeParams('1', '1'));
     const updated = state.pitchDecks[0].slides as Array<{ id: string; label: string }>;
@@ -574,7 +568,7 @@ describe('POST /slides/[slideIndex]/generate — patch edit path', () => {
       makeSlide({ label: 'Patched-Style' }),
     );
 
-    messagesCreateMock.mockResolvedValueOnce(
+    completeMock.mockResolvedValueOnce(
       aiResponse(JSON.stringify({ patches: [{ id: 'b-1', style: { color: '#fff' } }] })),
     );
 
@@ -600,7 +594,7 @@ describe('POST /slides/[slideIndex]/generate — patch edit path', () => {
     isPatchResponseMock.mockReturnValueOnce(true);
     applyPatchResponseMock.mockReturnValueOnce(makeSlide({ label: 'Patched-Content' }));
 
-    messagesCreateMock.mockResolvedValueOnce(
+    completeMock.mockResolvedValueOnce(
       aiResponse(JSON.stringify({ patches: [{ id: 'b-1', content: 'new content' }] })),
     );
 
@@ -615,7 +609,7 @@ describe('POST /slides/[slideIndex]/generate — patch edit path', () => {
     state.pitchDecks.push(defaultDeck());
     classifyEditMock.mockReturnValueOnce('style');
     isPatchResponseMock.mockReturnValueOnce(false);
-    messagesCreateMock.mockResolvedValueOnce(aiResponse(fullSlideJson()));
+    completeMock.mockResolvedValueOnce(aiResponse(fullSlideJson()));
 
     const res = await POST(makeRequest({ prompt: 'make it blue' }), makeParams('1', '0'));
     expect(res.status).toBe(200);
@@ -627,7 +621,7 @@ describe('POST /slides/[slideIndex]/generate — patch edit path', () => {
     state.pitchDecks.push(defaultDeck());
     classifyEditMock.mockReturnValueOnce('structural');
     isPatchResponseMock.mockReturnValueOnce(true); // even if patch-shaped, should still validate
-    messagesCreateMock.mockResolvedValueOnce(aiResponse(fullSlideJson()));
+    completeMock.mockResolvedValueOnce(aiResponse(fullSlideJson()));
 
     const res = await POST(makeRequest({ prompt: 'rebuild layout' }), makeParams('1', '0'));
     expect(res.status).toBe(200);
@@ -647,11 +641,11 @@ describe('POST /slides/[slideIndex]/generate — history + adjacency', () => {
       role: (i % 2 === 0 ? 'user' : 'assistant') as 'user' | 'assistant',
       content: `msg-${i}`,
     }));
-    messagesCreateMock.mockResolvedValueOnce(aiResponse(fullSlideJson()));
+    completeMock.mockResolvedValueOnce(aiResponse(fullSlideJson()));
 
     await POST(makeRequest({ prompt: 'go', history }), makeParams('1', '0'));
 
-    const call = messagesCreateMock.mock.calls[0]![0] as {
+    const call = completeMock.mock.calls[0]![0] as {
       messages: Array<{ role: string; content: string }>;
     };
     // 6 history msgs + 1 current turn
@@ -669,11 +663,11 @@ describe('POST /slides/[slideIndex]/generate — history + adjacency', () => {
       maxTokens: 2048,
       skipAdjacentSlides: true,
     });
-    messagesCreateMock.mockResolvedValueOnce(aiResponse(fullSlideJson()));
+    completeMock.mockResolvedValueOnce(aiResponse(fullSlideJson()));
 
     await POST(makeRequest({ prompt: 'go' }), makeParams('1', '1')); // middle slide
 
-    const call = messagesCreateMock.mock.calls[0]![0] as {
+    const call = completeMock.mock.calls[0]![0] as {
       messages: Array<{ content: string }>;
     };
     expect(call.messages[0].content).not.toContain('Adjacent slides');
@@ -681,11 +675,11 @@ describe('POST /slides/[slideIndex]/generate — history + adjacency', () => {
 
   it('includes adjacent slides section for middle slide when skipAdjacentSlides=false', async () => {
     state.pitchDecks.push(defaultDeck());
-    messagesCreateMock.mockResolvedValueOnce(aiResponse(fullSlideJson()));
+    completeMock.mockResolvedValueOnce(aiResponse(fullSlideJson()));
 
     await POST(makeRequest({ prompt: 'go' }), makeParams('1', '1')); // middle of 3
 
-    const call = messagesCreateMock.mock.calls[0]![0] as {
+    const call = completeMock.mock.calls[0]![0] as {
       messages: Array<{ content: string }>;
     };
     expect(call.messages[0].content).toContain('Adjacent slides');
@@ -695,10 +689,10 @@ describe('POST /slides/[slideIndex]/generate — history + adjacency', () => {
 
   it('only includes "Previous slide" when editing the last slide', async () => {
     state.pitchDecks.push(defaultDeck());
-    messagesCreateMock.mockResolvedValueOnce(aiResponse(fullSlideJson()));
+    completeMock.mockResolvedValueOnce(aiResponse(fullSlideJson()));
 
     await POST(makeRequest({ prompt: 'go' }), makeParams('1', '2')); // last of 3
-    const call = messagesCreateMock.mock.calls[0]![0] as {
+    const call = completeMock.mock.calls[0]![0] as {
       messages: Array<{ content: string }>;
     };
     expect(call.messages[0].content).toContain('Previous slide');
@@ -707,10 +701,10 @@ describe('POST /slides/[slideIndex]/generate — history + adjacency', () => {
 
   it('only includes "Next slide" when editing the first slide', async () => {
     state.pitchDecks.push(defaultDeck());
-    messagesCreateMock.mockResolvedValueOnce(aiResponse(fullSlideJson()));
+    completeMock.mockResolvedValueOnce(aiResponse(fullSlideJson()));
 
     await POST(makeRequest({ prompt: 'go' }), makeParams('1', '0'));
-    const call = messagesCreateMock.mock.calls[0]![0] as {
+    const call = completeMock.mock.calls[0]![0] as {
       messages: Array<{ content: string }>;
     };
     expect(call.messages[0].content).toContain('Next slide');
@@ -723,17 +717,17 @@ describe('POST /slides/[slideIndex]/generate — history + adjacency', () => {
 // ---------------------------------------------------------------------------
 
 describe('POST /slides/[slideIndex]/generate — continuation', () => {
-  it('makes a second Anthropic call and concatenates output when stop_reason=max_tokens', async () => {
+  it('makes a second LLM call and concatenates output when finishReason=length', async () => {
     state.pitchDecks.push(defaultDeck());
     const partial = fullSlideJson().slice(0, 20);
     const completion = fullSlideJson().slice(20);
-    messagesCreateMock
-      .mockResolvedValueOnce(aiResponse(partial, { stop: 'max_tokens', input: 500, output: 800 }))
-      .mockResolvedValueOnce(aiResponse(completion, { stop: 'end_turn', input: 600, output: 400 }));
+    completeMock
+      .mockResolvedValueOnce(aiResponse(partial, { truncated: true, input: 500, output: 800 }))
+      .mockResolvedValueOnce(aiResponse(completion, { input: 600, output: 400 }));
 
     const res = await POST(makeRequest({ prompt: 'go' }), makeParams('1', '0'));
     expect(res.status).toBe(200);
-    expect(messagesCreateMock).toHaveBeenCalledTimes(2);
+    expect(completeMock).toHaveBeenCalledTimes(2);
     expect(recordAiUsageMock).toHaveBeenCalledWith(
       expect.objectContaining({ clientId: 10, source: 'platform', tokens: 500 + 800 + 600 + 400 }),
     );
@@ -748,7 +742,7 @@ describe('POST /slides/[slideIndex]/generate — branding context', () => {
   it('proceeds normally when getBrandingByClientId throws (swallowed)', async () => {
     state.pitchDecks.push(defaultDeck());
     getBrandingByClientIdMock.mockRejectedValueOnce(new Error('branding service down'));
-    messagesCreateMock.mockResolvedValueOnce(aiResponse(fullSlideJson()));
+    completeMock.mockResolvedValueOnce(aiResponse(fullSlideJson()));
 
     const res = await POST(makeRequest({ prompt: 'go' }), makeParams('1', '0'));
     expect(res.status).toBe(200);
@@ -759,7 +753,7 @@ describe('POST /slides/[slideIndex]/generate — branding context', () => {
 
   it('forwards branding fields into buildSlideEditPrompt when available', async () => {
     state.pitchDecks.push(defaultDeck());
-    messagesCreateMock.mockResolvedValueOnce(aiResponse(fullSlideJson()));
+    completeMock.mockResolvedValueOnce(aiResponse(fullSlideJson()));
 
     await POST(makeRequest({ prompt: 'go' }), makeParams('1', '0'));
     const call = buildSlideEditPromptMock.mock.calls[0]!;
@@ -780,7 +774,7 @@ describe('POST /slides/[slideIndex]/generate — branding context', () => {
 describe('POST /slides/[slideIndex]/generate — audit + errors', () => {
   it('records AI usage with combined tokens', async () => {
     state.pitchDecks.push(defaultDeck());
-    messagesCreateMock.mockResolvedValueOnce(
+    completeMock.mockResolvedValueOnce(
       aiResponse(fullSlideJson(), { input: 11, output: 22 }),
     );
     await POST(makeRequest({ prompt: 'go' }), makeParams('1', '0'));
@@ -791,7 +785,7 @@ describe('POST /slides/[slideIndex]/generate — audit + errors', () => {
 
   it('returns 500 with generic message on unexpected throw inside the route', async () => {
     state.pitchDecks.push(defaultDeck());
-    messagesCreateMock.mockRejectedValueOnce(new Error('boom'));
+    completeMock.mockRejectedValueOnce(new Error('boom'));
     const res = await POST(makeRequest({ prompt: 'go' }), makeParams('1', '0'));
     expect(res.status).toBe(500);
     const body = await res.json();
@@ -801,7 +795,7 @@ describe('POST /slides/[slideIndex]/generate — audit + errors', () => {
   it('returns 500 when saveVersionSnapshot rejects', async () => {
     state.pitchDecks.push(defaultDeck());
     saveVersionSnapshotMock.mockRejectedValueOnce(new Error('snapshot failure'));
-    messagesCreateMock.mockResolvedValueOnce(aiResponse(fullSlideJson()));
+    completeMock.mockResolvedValueOnce(aiResponse(fullSlideJson()));
     const res = await POST(makeRequest({ prompt: 'go' }), makeParams('1', '0'));
     expect(res.status).toBe(500);
   });

@@ -93,7 +93,7 @@ function makeService(
   return {
     id: 10,
     name: 'Managed Hosting',
-    category: 'hosting',
+    category: 'plan-starter',
     price: 9900,
     billingCycle: 'monthly',
     stripePriceId: 'price_abc123',

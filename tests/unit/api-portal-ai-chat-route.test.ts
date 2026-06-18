@@ -610,7 +610,7 @@ describe('POST /api/portal/ai/chat — agentic tool loop', () => {
     expect(body.data.toolCalls).toEqual([
       { name: 'list_projects', input: { foo: 'bar' } },
     ]);
-    expect(executePortalToolMock).toHaveBeenCalledWith('list_projects', { foo: 'bar' }, 10, 7);
+    expect(executePortalToolMock).toHaveBeenCalledWith('list_projects', { foo: 'bar' }, 10, 7, { source: 'assistant' });
     expect(messagesCreateMock).toHaveBeenCalledTimes(2);
 
     // Assistant row stores the toolCalls JSON

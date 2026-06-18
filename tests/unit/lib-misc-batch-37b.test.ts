@@ -130,6 +130,15 @@ vi.mock('@anthropic-ai/sdk', () => {
   return { default: Anthropic };
 });
 
+// AI seam mock — nlp-parser.ts (and any future file in this batch) now calls
+// @/lib/ai/llm#complete instead of the Anthropic SDK directly.
+const completeMock = vi.fn();
+vi.mock('@/lib/ai/llm', () => ({
+  complete: (...args: unknown[]) => completeMock(...args),
+  completeObject: vi.fn(),
+  streamComplete: vi.fn(),
+}));
+
 const resendSendMock = vi.fn(async () => ({ id: 'mail_1' }));
 vi.mock('@/lib/email', () => ({
   resend: {
@@ -155,6 +164,7 @@ beforeEach(() => {
   resolveClientApiKeyMock.mockResolvedValue({ key: 'sk-test', source: 'platform' });
   recordAiUsageMock.mockClear();
   anthropicCreateMock.mockReset();
+  completeMock.mockReset();
   resendSendMock.mockClear();
   resendSendMock.mockResolvedValue({ id: 'mail_1' });
   delete process.env.ANTHROPIC_API_KEY;
@@ -216,6 +226,7 @@ describe('lib/automation/engine.ts', () => {
           id: 7,
           clientId: 10,
           enabled: true,
+          scopes: ['*'],
           trigger: { event: 'crm.contact.created', filters: { source: 'web' } },
           conditions: [
             { field: 'email', operator: 'contains', value: '@example.com' },
@@ -259,6 +270,7 @@ describe('lib/automation/engine.ts', () => {
           id: 9,
           clientId: 10,
           enabled: true,
+          scopes: ['*'],
           trigger: { event: 'crm.contact.created' },
           conditions: [],
           actions: [{ tool: 'create_support_ticket', params: {} }],
@@ -338,6 +350,7 @@ describe('lib/automation/engine.ts', () => {
           id: 11,
           clientId: 10,
           enabled: true,
+          scopes: ['*'],
           trigger: { event: 'crm.deal.created' },
           conditions: [],
           actions: [
@@ -385,54 +398,31 @@ describe('lib/automation/nlp-parser.ts', () => {
     );
   });
 
-  it('uses env key when no clientId is provided and parses the JSON response', async () => {
+  it('throws "requires clientId" when env key is set but no clientId is provided', async () => {
+    // The source checks ANTHROPIC_API_KEY first (no throw), then enforces clientId
+    // as a hard requirement before calling the provider-agnostic seam.
     vi.resetModules();
     process.env.ANTHROPIC_API_KEY = 'sk-env-test';
-    anthropicCreateMock.mockResolvedValueOnce({
-      content: [
-        {
-          type: 'text',
-          text: JSON.stringify({
-            name: 'Notify on contact create',
-            trigger: { event: 'crm.contact.created' },
-            conditions: [],
-            actions: [{ tool: 'create_support_ticket', params: { subject: 'hi' } }],
-            productScope: 'crm',
-          }),
-        },
-      ],
-      usage: { input_tokens: 12, output_tokens: 34 },
-    });
-
     const { parseAutomationDescription } = await import('@/lib/automation/nlp-parser');
-    const result = await parseAutomationDescription('When a contact is created, ticket me.');
-
-    expect(result.source).toBe('platform');
-    expect(result.inputTokens).toBe(12);
-    expect(result.outputTokens).toBe(34);
-    expect(result.parsed.name).toBe('Notify on contact create');
-    expect(result.parsed.trigger.event).toBe('crm.contact.created');
+    await expect(parseAutomationDescription('do a thing')).rejects.toThrow(
+      /parseAutomationDescription requires clientId/,
+    );
+    expect(completeMock).not.toHaveBeenCalled();
     expect(resolveClientApiKeyMock).not.toHaveBeenCalled();
-    expect(recordAiUsageMock).not.toHaveBeenCalled();
   });
 
   it('resolves BYOK key and records ai usage when clientId is supplied', async () => {
     vi.resetModules();
     resolveClientApiKeyMock.mockResolvedValueOnce({ key: 'sk-byok', source: 'byok' });
-    anthropicCreateMock.mockResolvedValueOnce({
-      content: [
-        {
-          type: 'text',
-          text: JSON.stringify({
-            name: 'Welcome new sub',
-            trigger: { event: 'email.subscriber.added' },
-            conditions: [],
-            actions: [{ tool: 'send_email', params: { to: '{{event.email}}' } }],
-            productScope: 'email',
-          }),
-        },
-      ],
-      usage: { input_tokens: 5, output_tokens: 7 },
+    completeMock.mockResolvedValueOnce({
+      text: JSON.stringify({
+        name: 'Welcome new sub',
+        trigger: { event: 'email.subscriber.added' },
+        conditions: [],
+        actions: [{ tool: 'send_email', params: { to: '{{event.email}}' } }],
+        productScope: 'email',
+      }),
+      usage: { inputTokens: 5, outputTokens: 7, totalTokens: 12 },
     });
 
     const { parseAutomationDescription } = await import('@/lib/automation/nlp-parser');
@@ -452,41 +442,44 @@ describe('lib/automation/nlp-parser.ts', () => {
     });
   });
 
-  it('ignores non-text content blocks when assembling the JSON response', async () => {
+  it('resolves platform key, calls complete() and returns parsed automation', async () => {
     vi.resetModules();
-    process.env.ANTHROPIC_API_KEY = 'sk-env';
-    anthropicCreateMock.mockResolvedValueOnce({
-      content: [
-        { type: 'tool_use', id: 't1', name: 'noop', input: {} },
-        {
-          type: 'text',
-          text: JSON.stringify({
-            name: 'Just text',
-            trigger: { event: 'order.placed' },
-            conditions: [],
-            actions: [],
-            productScope: null,
-          }),
-        },
-      ],
-      usage: { input_tokens: 1, output_tokens: 2 },
+    resolveClientApiKeyMock.mockResolvedValueOnce({ key: 'sk-test', source: 'platform' });
+    completeMock.mockResolvedValueOnce({
+      text: JSON.stringify({
+        name: 'Notify on contact create',
+        trigger: { event: 'crm.contact.created' },
+        conditions: [],
+        actions: [{ tool: 'create_support_ticket', params: { subject: 'hi' } }],
+        productScope: 'crm',
+      }),
+      usage: { inputTokens: 12, outputTokens: 34, totalTokens: 46 },
     });
 
     const { parseAutomationDescription } = await import('@/lib/automation/nlp-parser');
-    const result = await parseAutomationDescription('Order placed → noop');
-    expect(result.parsed.name).toBe('Just text');
-    expect(result.parsed.productScope).toBeNull();
+    const result = await parseAutomationDescription('When a contact is created, ticket me.', {
+      clientId: 10,
+    });
+
+    expect(result.source).toBe('platform');
+    expect(result.inputTokens).toBe(12);
+    expect(result.outputTokens).toBe(34);
+    expect(result.parsed.name).toBe('Notify on contact create');
+    expect(result.parsed.trigger.event).toBe('crm.contact.created');
+    expect(completeMock).toHaveBeenCalledWith(
+      expect.objectContaining({ task: 'nlpParse', clientId: 10 }),
+    );
   });
 
   it('propagates JSON.parse errors when the model returns malformed text', async () => {
     vi.resetModules();
-    process.env.ANTHROPIC_API_KEY = 'sk-env';
-    anthropicCreateMock.mockResolvedValueOnce({
-      content: [{ type: 'text', text: 'not json' }],
-      usage: { input_tokens: 1, output_tokens: 1 },
+    resolveClientApiKeyMock.mockResolvedValueOnce({ key: 'sk-test', source: 'platform' });
+    completeMock.mockResolvedValueOnce({
+      text: 'not json',
+      usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
     });
     const { parseAutomationDescription } = await import('@/lib/automation/nlp-parser');
-    await expect(parseAutomationDescription('bad')).rejects.toThrow();
+    await expect(parseAutomationDescription('bad', { clientId: 10 })).rejects.toThrow();
   });
 });
 

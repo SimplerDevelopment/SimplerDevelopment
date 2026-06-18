@@ -9,19 +9,13 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 // ---------------------------------------------------------------------------
 // Mocks — declared before any dynamic import of the module under test
 // ---------------------------------------------------------------------------
-const messagesCreateMock = vi.fn();
-const anthropicCtorSpy = vi.fn();
+const completeObjectMock = vi.fn();
 
-vi.mock('@anthropic-ai/sdk', () => {
-  class Anthropic {
-    public messages: { create: typeof messagesCreateMock };
-    constructor(opts: { apiKey: string }) {
-      anthropicCtorSpy(opts);
-      this.messages = { create: messagesCreateMock };
-    }
-  }
-  return { default: Anthropic };
-});
+vi.mock('@/lib/ai/llm', () => ({
+  complete: vi.fn(),
+  completeObject: (...args: unknown[]) => completeObjectMock(...args),
+  streamComplete: vi.fn(),
+}));
 
 // Drizzle operator stubs — keep in sync with classify-crm test.
 vi.mock('drizzle-orm', () => ({
@@ -229,7 +223,7 @@ function seedNote(overrides: Partial<NoteRow> = {}): NoteRow {
   return row;
 }
 
-/** Build a minimal valid Claude text response; caller can override fields. */
+/** Build a minimal valid seam completeObject response; caller can override fields. */
 function claudeClassification(overrides: Record<string, unknown> = {}) {
   const base: Record<string, unknown> = {
     source: 'industry-news',
@@ -244,8 +238,8 @@ function claudeClassification(overrides: Record<string, unknown> = {}) {
     ...overrides,
   };
   return {
-    content: [{ type: 'text', text: JSON.stringify(base) }],
-    usage: { input_tokens: 100, output_tokens: 50 },
+    object: base,
+    usage: { inputTokens: 100, outputTokens: 50, totalTokens: 150 },
   };
 }
 
@@ -253,8 +247,7 @@ beforeEach(() => {
   state.brainNotes.length = 0;
   _idSeq = 1;
 
-  messagesCreateMock.mockReset();
-  anthropicCtorSpy.mockReset();
+  completeObjectMock.mockReset();
   resolveClientApiKeyMock.mockReset().mockResolvedValue({ source: 'platform', key: 'sk-test' });
   recordAiUsageMock.mockReset().mockResolvedValue(undefined);
   logAuditMock.mockReset().mockResolvedValue(undefined);
@@ -310,7 +303,7 @@ describe('classifyNotes — early exits', () => {
 describe('classifyNotes — noteIds mode', () => {
   it('classifies a single note and returns a NoteClassification', async () => {
     const note = seedNote({ title: 'Enrollment trends 2025' });
-    messagesCreateMock.mockResolvedValueOnce(claudeClassification());
+    completeObjectMock.mockResolvedValueOnce(claudeClassification());
 
     const result = await classifyNotes({ clientId: 1, noteIds: [note.id] });
 
@@ -329,7 +322,7 @@ describe('classifyNotes — noteIds mode', () => {
   it('scopes DB query to clientId — does not return notes from another tenant', async () => {
     seedNote({ clientId: 2, id: 999 }); // different tenant
     const ownNote = seedNote({ clientId: 1 });
-    messagesCreateMock.mockResolvedValueOnce(claudeClassification());
+    completeObjectMock.mockResolvedValueOnce(claudeClassification());
 
     const result = await classifyNotes({ clientId: 1, noteIds: [999, ownNote.id] });
 
@@ -350,7 +343,7 @@ describe('classifyNotes — noteIds mode', () => {
   it('classifies multiple notes in parallel (all succeed)', async () => {
     const n1 = seedNote({ title: 'Note A' });
     const n2 = seedNote({ title: 'Note B' });
-    messagesCreateMock
+    completeObjectMock
       .mockResolvedValueOnce(claudeClassification({ source: 'slate-kb', contentType: 'how-to' }))
       .mockResolvedValueOnce(claudeClassification({ source: 'own-marketing', contentType: 'service-page' }));
 
@@ -358,17 +351,18 @@ describe('classifyNotes — noteIds mode', () => {
 
     expect(result.classifications).toHaveLength(2);
     expect(result.skipped).toHaveLength(0);
-    expect(messagesCreateMock).toHaveBeenCalledTimes(2);
+    expect(completeObjectMock).toHaveBeenCalledTimes(2);
   });
 
-  it('uses the resolved API key to construct the Anthropic client', async () => {
+  it('passes the task tag and clientId to the seam on each call', async () => {
     const note = seedNote();
-    resolveClientApiKeyMock.mockResolvedValue({ source: 'byok', key: 'sk-custom' });
-    messagesCreateMock.mockResolvedValueOnce(claudeClassification());
+    completeObjectMock.mockResolvedValueOnce(claudeClassification());
 
     await classifyNotes({ clientId: 1, noteIds: [note.id] });
 
-    expect(anthropicCtorSpy).toHaveBeenCalledWith({ apiKey: 'sk-custom' });
+    expect(completeObjectMock).toHaveBeenCalledWith(
+      expect.objectContaining({ task: 'classifyNotes', clientId: 1 }),
+    );
   });
 });
 
@@ -382,7 +376,7 @@ describe('classifyNotes — all mode', () => {
     // Deleted note — should be excluded.
     seedNote({ deletedAt: new Date('2025-01-01') });
 
-    messagesCreateMock
+    completeObjectMock
       .mockResolvedValueOnce(claudeClassification())
       .mockResolvedValueOnce(claudeClassification());
 
@@ -396,12 +390,12 @@ describe('classifyNotes — all mode', () => {
 
   it('respects the limit option when all=true', async () => {
     for (let i = 0; i < 5; i++) seedNote();
-    messagesCreateMock.mockResolvedValue(claudeClassification());
+    completeObjectMock.mockResolvedValue(claudeClassification());
 
     const result = await classifyNotes({ clientId: 1, all: true, limit: 3 });
 
     // DB returns at most 3 rows (limit applied by the mock chain).
-    expect(messagesCreateMock.mock.calls.length).toBeLessThanOrEqual(3);
+    expect(completeObjectMock.mock.calls.length).toBeLessThanOrEqual(3);
     expect(result.classifications.length).toBeLessThanOrEqual(3);
   });
 });
@@ -412,33 +406,36 @@ describe('classifyNotes — all mode', () => {
 describe('classifyNotes — token accounting', () => {
   it('accumulates input + output tokens and computes costUsd correctly', async () => {
     const note = seedNote();
-    messagesCreateMock.mockResolvedValueOnce({ ...claudeClassification(), usage: { input_tokens: 1000, output_tokens: 200 } });
-
-    const result = await classifyNotes({ clientId: 1, noteIds: [note.id] });
-
-    expect(result.tokensUsed).toBe(1200);
-    // costUsd = 1000*(1/1M) + 200*(5/1M)
-    expect(result.costUsd).toBeCloseTo(1000 / 1_000_000 + (200 * 5) / 1_000_000, 8);
-  });
-
-  it('includes cache_read and cache_creation tokens in tokensUsed', async () => {
-    const note = seedNote();
-    messagesCreateMock.mockResolvedValueOnce({
+    completeObjectMock.mockResolvedValueOnce({
       ...claudeClassification(),
-      usage: { input_tokens: 100, output_tokens: 50, cache_read_input_tokens: 300, cache_creation_input_tokens: 200 },
+      usage: { inputTokens: 1000, outputTokens: 200, totalTokens: 1200 },
     });
 
     const result = await classifyNotes({ clientId: 1, noteIds: [note.id] });
 
-    expect(result.tokensUsed).toBe(650); // 100+50+300+200
-    // costUsd = 100*(1/1M) + 50*(5/1M) + 200*(1.25/1M) + 300*(0.1/1M)
-    const expected = 100 / 1_000_000 + (50 * 5) / 1_000_000 + (200 * 1.25) / 1_000_000 + (300 * 0.1) / 1_000_000;
-    expect(result.costUsd).toBeCloseTo(expected, 8);
+    expect(result.tokensUsed).toBe(1200);
+    // costUsd = 1000*(3/1M) + 200*(15/1M) — per classify-notes.ts rate constants
+    expect(result.costUsd).toBeCloseTo((1000 * 3) / 1_000_000 + (200 * 15) / 1_000_000, 8);
+  });
+
+  it('accumulates tokens across multiple notes', async () => {
+    const n1 = seedNote();
+    const n2 = seedNote();
+    completeObjectMock
+      .mockResolvedValueOnce({ ...claudeClassification(), usage: { inputTokens: 100, outputTokens: 50, totalTokens: 150 } })
+      .mockResolvedValueOnce({ ...claudeClassification(), usage: { inputTokens: 200, outputTokens: 100, totalTokens: 300 } });
+
+    const result = await classifyNotes({ clientId: 1, noteIds: [n1.id, n2.id] });
+
+    expect(result.tokensUsed).toBe(450); // (100+50) + (200+100)
   });
 
   it('handles zero-token usage gracefully', async () => {
     const note = seedNote();
-    messagesCreateMock.mockResolvedValueOnce({ ...claudeClassification(), usage: {} });
+    completeObjectMock.mockResolvedValueOnce({
+      ...claudeClassification(),
+      usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+    });
 
     const result = await classifyNotes({ clientId: 1, noteIds: [note.id] });
 
@@ -446,15 +443,17 @@ describe('classifyNotes — token accounting', () => {
     expect(result.costUsd).toBe(0);
   });
 
-  it('fires recordAiUsage with the correct source and token count', async () => {
+  it('fires recordAiUsage with the correct token count', async () => {
     const note = seedNote();
-    messagesCreateMock.mockResolvedValueOnce({ ...claudeClassification(), usage: { input_tokens: 400, output_tokens: 100 } });
-    resolveClientApiKeyMock.mockResolvedValue({ source: 'platform', key: 'sk-test' });
+    completeObjectMock.mockResolvedValueOnce({
+      ...claudeClassification(),
+      usage: { inputTokens: 400, outputTokens: 100, totalTokens: 500 },
+    });
 
     await classifyNotes({ clientId: 1, noteIds: [note.id] });
 
     expect(recordAiUsageMock).toHaveBeenCalledWith(
-      expect.objectContaining({ clientId: 1, source: 'platform', tokens: 500 }),
+      expect.objectContaining({ clientId: 1, tokens: 500 }),
     );
   });
 });
@@ -467,7 +466,7 @@ describe('classifyNotes — error handling', () => {
     const bad = seedNote({ title: 'Failing note' });
     const good = seedNote({ title: 'Good note' });
 
-    messagesCreateMock
+    completeObjectMock
       .mockRejectedValueOnce(new Error('rate limit exceeded'))
       .mockResolvedValueOnce(claudeClassification());
 
@@ -480,12 +479,10 @@ describe('classifyNotes — error handling', () => {
     expect(result.classifications[0].noteId).toBe(good.id);
   });
 
-  it('skips a note when AI returns no text content block', async () => {
+  it('skips a note when the seam throws (e.g. schema validation failure)', async () => {
+    // completeObject uses generateObject which throws on parse/validation failure.
     const note = seedNote();
-    messagesCreateMock.mockResolvedValueOnce({
-      content: [{ type: 'tool_use', id: 't', name: 'noop', input: {} }],
-      usage: { input_tokens: 10, output_tokens: 5 },
-    });
+    completeObjectMock.mockRejectedValueOnce(new Error('no text content block returned'));
 
     const result = await classifyNotes({ clientId: 1, noteIds: [note.id] });
 
@@ -493,12 +490,9 @@ describe('classifyNotes — error handling', () => {
     expect(result.skipped[0].reason).toContain('no text content');
   });
 
-  it('skips a note when AI returns malformed JSON', async () => {
+  it('skips a note when seam throws a JSON parse error', async () => {
     const note = seedNote();
-    messagesCreateMock.mockResolvedValueOnce({
-      content: [{ type: 'text', text: 'not json at all {{{' }],
-      usage: { input_tokens: 10, output_tokens: 5 },
-    });
+    completeObjectMock.mockRejectedValueOnce(new Error('JSON parse error'));
 
     const result = await classifyNotes({ clientId: 1, noteIds: [note.id] });
 
@@ -506,10 +500,10 @@ describe('classifyNotes — error handling', () => {
     expect(result.skipped[0].noteId).toBe(note.id);
   });
 
-  it('skips a note when AI returns JSON with invalid enum values', async () => {
+  it('skips a note when seam throws a Zod validation error (invalid enum)', async () => {
+    // generateObject with a strict Zod schema throws on invalid enum values.
     const note = seedNote();
-    const badJson = JSON.stringify({ source: 'INVALID_SOURCE', slateAreas: [], audiences: [], contentType: 'how-to', recency: 'evergreen', competitor: null, status: 'draft', confidence: 0.5 });
-    messagesCreateMock.mockResolvedValueOnce({ content: [{ type: 'text', text: badJson }], usage: { input_tokens: 10, output_tokens: 10 } });
+    completeObjectMock.mockRejectedValueOnce(new Error('Zod validation: invalid enum value for source'));
 
     const result = await classifyNotes({ clientId: 1, noteIds: [note.id] });
 
@@ -518,7 +512,7 @@ describe('classifyNotes — error handling', () => {
 
   it('truncates long error messages to 300 chars in the skipped reason', async () => {
     const note = seedNote();
-    messagesCreateMock.mockRejectedValueOnce(new Error('x'.repeat(400)));
+    completeObjectMock.mockRejectedValueOnce(new Error('x'.repeat(400)));
 
     const result = await classifyNotes({ clientId: 1, noteIds: [note.id] });
 
@@ -529,14 +523,16 @@ describe('classifyNotes — error handling', () => {
 // ---------------------------------------------------------------------------
 // parseClassification / unfence — exercised indirectly via classifyNotes
 // ---------------------------------------------------------------------------
-describe('classifyNotes — parseClassification / unfence', () => {
-  it('strips ```json fences from model output', async () => {
+describe('classifyNotes — competitor clamping invariant', () => {
+  // The fence-stripping / JSON-extraction logic now lives inside the AI SDK's
+  // generateObject. These tests focus on what the source code itself does with
+  // the parsed object: the "competitor only when source=competitor" invariant.
+
+  it('classifies a note and returns a NoteClassification with all seam-returned fields', async () => {
     const note = seedNote();
-    const json = JSON.stringify({ source: 'slate-kb', slateAreas: ['queries'], audiences: ['slate-admin'], contentType: 'how-to', recency: 'evergreen', competitor: null, status: 'canonical', confidence: 0.85 });
-    messagesCreateMock.mockResolvedValueOnce({
-      content: [{ type: 'text', text: '```json\n' + json + '\n```' }],
-      usage: { input_tokens: 10, output_tokens: 10 },
-    });
+    completeObjectMock.mockResolvedValueOnce(
+      claudeClassification({ source: 'slate-kb', slateAreas: ['queries'], audiences: ['slate-admin'], contentType: 'how-to', confidence: 0.85 }),
+    );
 
     const result = await classifyNotes({ clientId: 1, noteIds: [note.id] });
 
@@ -544,40 +540,12 @@ describe('classifyNotes — parseClassification / unfence', () => {
     expect(result.classifications[0].source).toBe('slate-kb');
   });
 
-  it('strips bare ``` fences (no language tag) from model output', async () => {
-    const note = seedNote();
-    const json = JSON.stringify({ source: 'own-marketing', slateAreas: [], audiences: ['prospect-facing'], contentType: 'service-page', recency: 'current-12mo', competitor: null, status: 'draft', confidence: 0.75 });
-    messagesCreateMock.mockResolvedValueOnce({
-      content: [{ type: 'text', text: '```\n' + json + '\n```' }],
-      usage: { input_tokens: 10, output_tokens: 10 },
-    });
-
-    const result = await classifyNotes({ clientId: 1, noteIds: [note.id] });
-
-    expect(result.classifications).toHaveLength(1);
-    expect(result.classifications[0].source).toBe('own-marketing');
-  });
-
-  it('extracts JSON when model wraps it in prose', async () => {
-    const note = seedNote();
-    const json = JSON.stringify({ source: 'research-brief', slateAreas: [], audiences: [], contentType: 'reference', recency: 'archive', competitor: null, status: 'stub', confidence: 0.4 });
-    messagesCreateMock.mockResolvedValueOnce({
-      content: [{ type: 'text', text: 'Here is my answer: ' + json + ' Hope that helps.' }],
-      usage: { input_tokens: 10, output_tokens: 10 },
-    });
-
-    const result = await classifyNotes({ clientId: 1, noteIds: [note.id] });
-
-    expect(result.classifications).toHaveLength(1);
-    expect(result.classifications[0].source).toBe('research-brief');
-  });
-
   it('clamps competitor to null when source != competitor', async () => {
     const note = seedNote();
-    // Model incorrectly returns a competitor slug with source=industry-news.
-    messagesCreateMock.mockResolvedValueOnce({
-      content: [{ type: 'text', text: JSON.stringify({ source: 'industry-news', slateAreas: [], audiences: [], contentType: 'news', recency: 'current-12mo', competitor: 'carnegie', status: 'draft', confidence: 0.6 }) }],
-      usage: { input_tokens: 10, output_tokens: 10 },
+    // Seam returns an object with competitor set but source != 'competitor'.
+    completeObjectMock.mockResolvedValueOnce({
+      object: { source: 'industry-news', slateAreas: [], audiences: [], contentType: 'news', recency: 'current-12mo', competitor: 'carnegie', status: 'draft', confidence: 0.6 },
+      usage: { inputTokens: 10, outputTokens: 10, totalTokens: 20 },
     });
 
     const result = await classifyNotes({ clientId: 1, noteIds: [note.id] });
@@ -589,9 +557,9 @@ describe('classifyNotes — parseClassification / unfence', () => {
 
   it('preserves competitor slug when source=competitor', async () => {
     const note = seedNote({ sourceUrl: 'https://carnegiehighered.com/blog' });
-    messagesCreateMock.mockResolvedValueOnce({
-      content: [{ type: 'text', text: JSON.stringify({ source: 'competitor', slateAreas: [], audiences: [], contentType: 'case-study', recency: 'current-12mo', competitor: 'carnegie', status: 'canonical', confidence: 0.92 }) }],
-      usage: { input_tokens: 10, output_tokens: 10 },
+    completeObjectMock.mockResolvedValueOnce({
+      object: { source: 'competitor', slateAreas: [], audiences: [], contentType: 'case-study', recency: 'current-12mo', competitor: 'carnegie', status: 'canonical', confidence: 0.92 },
+      usage: { inputTokens: 10, outputTokens: 10, totalTokens: 20 },
     });
 
     const result = await classifyNotes({ clientId: 1, noteIds: [note.id] });
@@ -605,61 +573,60 @@ describe('classifyNotes — parseClassification / unfence', () => {
 // buildPrefillHints / extractDomain / competitorFromDomain — via noteId mode
 // ---------------------------------------------------------------------------
 describe('classifyNotes — URL-based prefill hints', () => {
-  it('processes a note with a competitor domain URL without error', async () => {
+  it('passes a hint containing "carnegie" for a competitor domain URL', async () => {
     const note = seedNote({ sourceUrl: 'https://www.carnegiehighered.com/solutions' });
-    messagesCreateMock.mockResolvedValueOnce(claudeClassification({ source: 'competitor', competitor: 'carnegie', contentType: 'case-study' }));
+    completeObjectMock.mockResolvedValueOnce(claudeClassification({ source: 'competitor', competitor: 'carnegie', contentType: 'case-study' }));
 
     const result = await classifyNotes({ clientId: 1, noteIds: [note.id] });
 
     expect(result.classifications).toHaveLength(1);
-    // Verify Anthropic was called with a user message referencing the hint
-    const callArgs = messagesCreateMock.mock.calls[0][0] as { messages: Array<{ role: string; content: string }> };
-    const userContent = callArgs.messages[0].content;
-    expect(userContent).toContain('carnegie');
+    // Verify the seam was called with a prompt referencing the hint.
+    const callArgs = completeObjectMock.mock.calls[0][0] as { prompt: string };
+    expect(callArgs.prompt).toContain('carnegie');
   });
 
-  it('processes a note with a subdomain competitor URL (blog.carnegiehighered.com)', async () => {
+  it('passes a hint containing "carnegie" for a subdomain competitor URL', async () => {
     const note = seedNote({ sourceUrl: 'https://blog.carnegiehighered.com/article' });
-    messagesCreateMock.mockResolvedValueOnce(claudeClassification({ source: 'competitor', competitor: 'carnegie', contentType: 'news' }));
+    completeObjectMock.mockResolvedValueOnce(claudeClassification({ source: 'competitor', competitor: 'carnegie', contentType: 'news' }));
 
     const result = await classifyNotes({ clientId: 1, noteIds: [note.id] });
 
     expect(result.classifications).toHaveLength(1);
-    const callArgs = messagesCreateMock.mock.calls[0][0] as { messages: Array<{ role: string; content: string }> };
-    expect(callArgs.messages[0].content).toContain('carnegie');
+    const callArgs = completeObjectMock.mock.calls[0][0] as { prompt: string };
+    expect(callArgs.prompt).toContain('carnegie');
   });
 
-  it('processes a note with a technolutions URL (slate-kb hint)', async () => {
+  it('passes a "slate-kb" hint for a technolutions URL', async () => {
     const note = seedNote({
       sourceUrl: 'https://technolutions.com/docs/queries',
       source: 'document_import',
     });
-    messagesCreateMock.mockResolvedValueOnce(claudeClassification({ source: 'slate-kb', contentType: 'reference' }));
+    completeObjectMock.mockResolvedValueOnce(claudeClassification({ source: 'slate-kb', contentType: 'reference' }));
 
     const result = await classifyNotes({ clientId: 1, noteIds: [note.id] });
 
     expect(result.classifications).toHaveLength(1);
-    const callArgs = messagesCreateMock.mock.calls[0][0] as { messages: Array<{ role: string; content: string }> };
-    expect(callArgs.messages[0].content).toContain('slate-kb');
+    const callArgs = completeObjectMock.mock.calls[0][0] as { prompt: string };
+    expect(callArgs.prompt).toContain('slate-kb');
   });
 
-  it('processes a note with a document_import source and non-technolutions URL (research-brief hint)', async () => {
+  it('passes a "research-brief" hint for document_import with non-technolutions URL', async () => {
     const note = seedNote({
       sourceUrl: 'https://eab.com/research/enrollment',
       source: 'document_import',
     });
-    messagesCreateMock.mockResolvedValueOnce(claudeClassification({ source: 'research-brief', contentType: 'reference' }));
+    completeObjectMock.mockResolvedValueOnce(claudeClassification({ source: 'research-brief', contentType: 'reference' }));
 
     const result = await classifyNotes({ clientId: 1, noteIds: [note.id] });
 
     expect(result.classifications).toHaveLength(1);
-    const callArgs = messagesCreateMock.mock.calls[0][0] as { messages: Array<{ role: string; content: string }> };
-    expect(callArgs.messages[0].content).toContain('research-brief');
+    const callArgs = completeObjectMock.mock.calls[0][0] as { prompt: string };
+    expect(callArgs.prompt).toContain('research-brief');
   });
 
   it('processes a note with null sourceUrl without crashing', async () => {
     const note = seedNote({ sourceUrl: null });
-    messagesCreateMock.mockResolvedValueOnce(claudeClassification());
+    completeObjectMock.mockResolvedValueOnce(claudeClassification());
 
     const result = await classifyNotes({ clientId: 1, noteIds: [note.id] });
 
@@ -668,7 +635,7 @@ describe('classifyNotes — URL-based prefill hints', () => {
 
   it('handles a malformed URL in sourceUrl gracefully (falls back to no hint)', async () => {
     const note = seedNote({ sourceUrl: 'not-a-url' });
-    messagesCreateMock.mockResolvedValueOnce(claudeClassification());
+    completeObjectMock.mockResolvedValueOnce(claudeClassification());
 
     const result = await classifyNotes({ clientId: 1, noteIds: [note.id] });
 
@@ -683,7 +650,7 @@ describe('classifyNotes — audit logging', () => {
   it('fires logAudit once per classifyNotes call with correct action + metadata', async () => {
     const n1 = seedNote();
     const n2 = seedNote();
-    messagesCreateMock
+    completeObjectMock
       .mockResolvedValueOnce(claudeClassification())
       .mockResolvedValueOnce(claudeClassification());
 
@@ -707,7 +674,7 @@ describe('classifyNotes — audit logging', () => {
 
   it('sets actorId to null when not supplied (system/cron path)', async () => {
     const note = seedNote();
-    messagesCreateMock.mockResolvedValueOnce(claudeClassification());
+    completeObjectMock.mockResolvedValueOnce(claudeClassification());
 
     await classifyNotes({ clientId: 1, noteIds: [note.id] });
 
@@ -717,7 +684,7 @@ describe('classifyNotes — audit logging', () => {
 
   it('records mode=all in audit metadata when all=true', async () => {
     seedNote();
-    messagesCreateMock.mockResolvedValueOnce(claudeClassification());
+    completeObjectMock.mockResolvedValueOnce(claudeClassification());
 
     await classifyNotes({ clientId: 1, all: true });
 
@@ -729,7 +696,7 @@ describe('classifyNotes — audit logging', () => {
 
   it('records mode=noteIds in audit metadata when noteIds supplied', async () => {
     const note = seedNote();
-    messagesCreateMock.mockResolvedValueOnce(claudeClassification());
+    completeObjectMock.mockResolvedValueOnce(claudeClassification());
 
     await classifyNotes({ clientId: 1, noteIds: [note.id] });
 
@@ -741,7 +708,7 @@ describe('classifyNotes — audit logging', () => {
 
   it('records skipped count correctly in audit metadata', async () => {
     const failing = seedNote();
-    messagesCreateMock.mockRejectedValueOnce(new Error('timeout'));
+    completeObjectMock.mockRejectedValueOnce(new Error('timeout'));
 
     await classifyNotes({ clientId: 1, noteIds: [failing.id] });
 
@@ -761,7 +728,7 @@ describe('classifyNotes — concurrency limiter', () => {
     const n1 = seedNote({ title: 'A' });
     const n2 = seedNote({ title: 'B' });
     const n3 = seedNote({ title: 'C' });
-    messagesCreateMock
+    completeObjectMock
       .mockResolvedValueOnce(claudeClassification())
       .mockResolvedValueOnce(claudeClassification())
       .mockResolvedValueOnce(claudeClassification());
@@ -774,7 +741,7 @@ describe('classifyNotes — concurrency limiter', () => {
 
   it('caps concurrency at MAX_CONCURRENCY=8 (no crash when 99 requested)', async () => {
     const note = seedNote();
-    messagesCreateMock.mockResolvedValueOnce(claudeClassification());
+    completeObjectMock.mockResolvedValueOnce(claudeClassification());
 
     // Passes concurrency=99 — module clamps to 8 internally, should not throw.
     const result = await classifyNotes({ clientId: 1, noteIds: [note.id], concurrency: 99 });

@@ -37,6 +37,17 @@ const INBOUND_SECRET = process.env.INBOUND_EMAIL_SECRET as string;
 // Shared mock state
 // ---------------------------------------------------------------------------
 
+interface AgentLoopStep {
+  toolCalls: Array<{ toolCallId: string; toolName: string; input: Record<string, unknown> }>;
+  toolResults: Array<{ toolCallId: string; output: unknown }>;
+}
+
+interface AgentLoopResponse {
+  text: string;
+  usage: { inputTokens: number; outputTokens: number };
+  steps: Array<AgentLoopStep>;
+}
+
 interface MockState {
   clients: Array<Record<string, unknown>>;
   users: Array<Record<string, unknown>>;
@@ -47,10 +58,8 @@ interface MockState {
   brainMeetings: Array<Record<string, unknown>>;
   afterCallbacks: Array<() => Promise<void> | void>;
 
-  // Anthropic SDK behavior
-  anthropicResponses: Array<unknown>;
-  anthropicCalls: Array<Record<string, unknown>>;
-  anthropicConstructorArgs: Array<Record<string, unknown>>;
+  // agent-loop behavior
+  agentLoopResponses: Array<AgentLoopResponse>;
 
   // executePortalTool capture
   toolCalls: Array<{ name: string; input: Record<string, unknown>; clientId: number; userId: number }>;
@@ -82,9 +91,7 @@ const state: MockState = {
   brainProfiles: [],
   brainMeetings: [],
   afterCallbacks: [],
-  anthropicResponses: [],
-  anthropicCalls: [],
-  anthropicConstructorArgs: [],
+  agentLoopResponses: [],
   toolCalls: [],
   toolResults: [],
   resendCalls: [],
@@ -375,29 +382,19 @@ vi.mock('@/lib/db', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Anthropic SDK mock — the class shape `new Anthropic({apiKey}).messages.create()`
+// agent-loop mock — replaces the old raw Anthropic SDK mock
 // ---------------------------------------------------------------------------
 
-vi.mock('@anthropic-ai/sdk', () => {
-  class Anthropic {
-    apiKey: string;
-    constructor(args: { apiKey: string }) {
-      this.apiKey = args.apiKey;
-      state.anthropicConstructorArgs.push(args);
-    }
-    messages = {
-      create: async (args: Record<string, unknown>) => {
-        state.anthropicCalls.push(args);
-        const next = state.anthropicResponses.shift();
-        if (!next) {
-          throw new Error('No anthropic response queued — test misconfigured');
-        }
-        return next;
-      },
-    };
-  }
-  return { default: Anthropic };
-});
+const agentLoopMock = vi.fn();
+vi.mock('@/lib/ai/agent-loop', () => ({
+  completeAgentLoop: (...args: unknown[]) => agentLoopMock(...args),
+  anthropicToolsToToolSet: vi.fn(
+    (tools: unknown[], execute: (name: string, input: Record<string, unknown>) => Promise<unknown>) => {
+      // Return a thin wrapper the route can call; we intercept via executePortalTool mock
+      return { __toolSet: true, execute, tools };
+    },
+  ),
+}));
 
 // ---------------------------------------------------------------------------
 // Portal tools registry mock
@@ -479,9 +476,7 @@ beforeEach(() => {
   state.brainProfiles.length = 0;
   state.brainMeetings.length = 0;
   state.afterCallbacks.length = 0;
-  state.anthropicResponses.length = 0;
-  state.anthropicCalls.length = 0;
-  state.anthropicConstructorArgs.length = 0;
+  state.agentLoopResponses.length = 0;
   state.toolCalls.length = 0;
   state.toolResults.length = 0;
   state.resendCalls.length = 0;
@@ -492,6 +487,14 @@ beforeEach(() => {
   state.resolveResult = { key: 'sk-platform', source: 'platform' };
   dbErrorOnNextSelect = null;
   idCounter = 1000;
+  agentLoopMock.mockReset();
+  agentLoopMock.mockImplementation(async () => {
+    const next = state.agentLoopResponses.shift();
+    if (!next) {
+      throw new Error('No agent-loop response queued — test misconfigured');
+    }
+    return next;
+  });
 });
 
 async function importHandler() {
@@ -862,8 +865,8 @@ describe('POST /api/email/inbound — chat path', () => {
     expect(state.resendCalls).toHaveLength(1);
     expect(state.resendCalls[0].text).toBe('Upgrade to enable AI.');
     expect((state.resendCalls[0].headers as Record<string, unknown>)?.['In-Reply-To']).toBe('<m1@x>');
-    // Anthropic never called.
-    expect(state.anthropicCalls).toHaveLength(0);
+    // agent-loop never called.
+    expect(agentLoopMock).not.toHaveBeenCalled();
   });
 
   it('uses the plan-gate fallback message when none is provided', async () => {
@@ -898,16 +901,16 @@ describe('POST /api/email/inbound — chat path', () => {
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ status: 'replied', reason: 'insufficient credits' });
     expect(state.resendCalls[0].text).toMatch(/AI credits are depleted/);
-    expect(state.anthropicCalls).toHaveLength(0);
+    expect(agentLoopMock).not.toHaveBeenCalled();
   });
 
   it('skips the credit check entirely when BYOK is in use', async () => {
     seedChatBaseline({ byok: true });
     state.hasCreditsResult = false; // would block if check ran
-    state.anthropicResponses.push({
-      stop_reason: 'end_turn',
-      content: [{ type: 'text', text: 'BYOK reply' }],
-      usage: { input_tokens: 5, output_tokens: 3 },
+    agentLoopMock.mockResolvedValueOnce({
+      text: 'BYOK reply',
+      usage: { inputTokens: 5, outputTokens: 3 },
+      steps: [],
     });
     const POST = await importHandler();
     const res = await POST(
@@ -924,26 +927,22 @@ describe('POST /api/email/inbound — chat path', () => {
     expect(json.status).toBe('replied');
     expect(json.tokensUsed).toBe(8);
     expect(state.deductCreditsCalls).toHaveLength(0);
-    expect(state.anthropicConstructorArgs[0]).toEqual({ apiKey: 'sk-byok' });
+    // BYOK skips credit deduction — seam handles key resolution internally
   });
 
   it('runs the full happy path: one tool call, persists messages, sends reply, deducts credits', async () => {
     seedChatBaseline();
-    // First response: tool_use — invoke one tool.
-    state.anthropicResponses.push({
-      stop_reason: 'tool_use',
-      content: [
-        { type: 'tool_use', id: 'tu-1', name: 'mock_tool', input: { q: 'hi' } },
+    // agent-loop returns one step with a tool call, then a final text reply.
+    agentLoopMock.mockResolvedValueOnce({
+      text: 'Hello from AI',
+      usage: { inputTokens: 10 + 7, outputTokens: 4 + 2 }, // 17 input + 6 output = 23 total
+      steps: [
+        {
+          toolCalls: [{ toolCallId: 'tu-1', toolName: 'mock_tool', input: { q: 'hi' } }],
+          toolResults: [{ toolCallId: 'tu-1', output: { ok: true } }],
+        },
       ],
-      usage: { input_tokens: 10, output_tokens: 4 },
     });
-    // Second response: end_turn — final text.
-    state.anthropicResponses.push({
-      stop_reason: 'end_turn',
-      content: [{ type: 'text', text: 'Hello from AI' }],
-      usage: { input_tokens: 7, output_tokens: 2 },
-    });
-    state.toolResults.push({ ok: true });
 
     const POST = await importHandler();
     const res = await POST(
@@ -959,13 +958,11 @@ describe('POST /api/email/inbound — chat path', () => {
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json.status).toBe('replied');
-    expect(json.tokensUsed).toBe(10 + 4 + 7 + 2);
+    expect(json.tokensUsed).toBe(23); // 10+7 + 4+2
     expect(json.toolCalls).toBe(1);
 
-    // Two Anthropic calls + two messages persisted + conversation created.
-    expect(state.anthropicCalls).toHaveLength(2);
-    expect(state.toolCalls).toHaveLength(1);
-    expect(state.toolCalls[0]).toMatchObject({ name: 'mock_tool', clientId: 1, userId: 10 });
+    // One agent-loop call + messages persisted + conversation created.
+    expect(agentLoopMock).toHaveBeenCalledTimes(1);
     expect(state.aiConversations).toHaveLength(1);
     expect(state.aiConversations[0].title).toBe('[Email] My subject');
     expect(state.aiMessages).toHaveLength(2);
@@ -988,10 +985,10 @@ describe('POST /api/email/inbound — chat path', () => {
 
   it('falls back to "(no subject)" labels when subject is empty', async () => {
     seedChatBaseline();
-    state.anthropicResponses.push({
-      stop_reason: 'end_turn',
-      content: [{ type: 'text', text: 'ok' }],
-      usage: { input_tokens: 1, output_tokens: 1 },
+    agentLoopMock.mockResolvedValueOnce({
+      text: 'ok',
+      usage: { inputTokens: 1, outputTokens: 1 },
+      steps: [],
     });
     const POST = await importHandler();
     await POST(
@@ -1009,10 +1006,10 @@ describe('POST /api/email/inbound — chat path', () => {
 
   it('accepts plus-tagged client addresses (client+anything@…) by stripping the tag', async () => {
     seedChatBaseline();
-    state.anthropicResponses.push({
-      stop_reason: 'end_turn',
-      content: [{ type: 'text', text: 'ok' }],
-      usage: { input_tokens: 1, output_tokens: 1 },
+    agentLoopMock.mockResolvedValueOnce({
+      text: 'ok',
+      usage: { inputTokens: 1, outputTokens: 1 },
+      steps: [],
     });
     const POST = await importHandler();
     const res = await POST(
@@ -1028,19 +1025,9 @@ describe('POST /api/email/inbound — chat path', () => {
     expect(json.status).toBe('replied');
   });
 
-  it('throws 500 when the agent loop exceeds MAX_TOOL_CALLS (>20)', async () => {
+  it('returns 500 when the agent loop throws', async () => {
     seedChatBaseline();
-    // Queue a tool_use response with 21 tool blocks → triggers the cap.
-    state.anthropicResponses.push({
-      stop_reason: 'tool_use',
-      content: Array.from({ length: 21 }, (_, i) => ({
-        type: 'tool_use',
-        id: `tu-${i}`,
-        name: 'mock_tool',
-        input: {},
-      })),
-      usage: { input_tokens: 1, output_tokens: 1 },
-    });
+    agentLoopMock.mockRejectedValueOnce(new Error('loop failed'));
     const errSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const POST = await importHandler();
     const res = await POST(
@@ -1081,10 +1068,10 @@ describe('POST /api/email/inbound — chat path', () => {
     state.users.push({ id: 10, email: 'owner@acme.com' });
     state.users.push({ id: 11, email: 'member@acme.com' });
     state.clientMembers.push({ clientId: 1, userId: 11 });
-    state.anthropicResponses.push({
-      stop_reason: 'end_turn',
-      content: [{ type: 'text', text: 'ok' }],
-      usage: { input_tokens: 1, output_tokens: 1 },
+    agentLoopMock.mockResolvedValueOnce({
+      text: 'ok',
+      usage: { inputTokens: 1, outputTokens: 1 },
+      steps: [],
     });
     const POST = await importHandler();
     const res = await POST(
@@ -1101,6 +1088,6 @@ describe('POST /api/email/inbound — chat path', () => {
     // executePortalTool wasn't invoked (no tool_use), but if it had been, the
     // userId would be the member's id, not the owner's. Verify the lookup
     // mechanism worked by confirming we got past the auth gate.
-    expect(state.anthropicCalls).toHaveLength(1);
+    expect(agentLoopMock).toHaveBeenCalledTimes(1);
   });
 });

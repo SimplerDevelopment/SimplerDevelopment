@@ -67,6 +67,7 @@ import {
   registerAutomationsTools,
   registerHostingTools,
   registerMetaTools,
+  registerResourceDocs,
   registerBrandingTools,
   registerStorefrontTools,
   registerBrainTools,
@@ -270,10 +271,10 @@ describe.each(DOMAIN_CASES)('registers %s tools', ({ name, fn, minTools, expecte
   });
 });
 
-describe('meta registrar also registers the blocks-schema resource', () => {
+describe('resource registrar registers the blocks-schema resource', () => {
   it('exposes the visual editor block schema as a resource', () => {
     const { stub, resources } = fakeServer();
-    registerMetaTools(stub, fullCtx());
+    registerResourceDocs(stub, fullCtx());
     expect(resources).toContain('blocks-schema');
   });
 });

@@ -39,26 +39,16 @@ vi.mock('@/lib/db', () => ({
   },
 }));
 
-// ── resolveClientApiKey mock ──────────────────────────────────────────────────
-const mockResolveClientApiKey = vi.fn();
-
-vi.mock('@/lib/ai/resolve-client-key', () => ({
-  resolveClientApiKey: (...args: unknown[]) => mockResolveClientApiKey(...args),
-}));
-
-// ── Anthropic SDK mock ────────────────────────────────────────────────────────
-// mockMessagesCreate is mutated per-test; the Anthropic constructor always
-// returns a stable object whose `messages.create` delegates to this fn.
+// ── AI seam mock (@/lib/ai/llm) ───────────────────────────────────────────────
+// mockComplete is mutated per-test via mockResolvedValue / mockRejectedValue.
 // We do NOT use vi.resetAllMocks() — vi.clearAllMocks() only clears call
 // history, leaving the implementations intact, which is what we want.
-const mockMessagesCreate = vi.fn();
+const mockComplete = vi.fn();
 
-vi.mock('@anthropic-ai/sdk', () => ({
-  default: class MockAnthropic {
-    messages = {
-      create: (...args: unknown[]) => mockMessagesCreate(...args),
-    };
-  },
+vi.mock('@/lib/ai/llm', () => ({
+  complete: (...args: unknown[]) => mockComplete(...args),
+  completeObject: vi.fn(),
+  streamComplete: vi.fn(),
 }));
 
 // ── module under test (after all vi.mock calls) ───────────────────────────────
@@ -143,14 +133,16 @@ function makeInsertChain(rows: unknown[]) {
   return chain;
 }
 
-function makeAnthropicResponse(text: string) {
+function makeCompleteResponse(text: string) {
   return {
-    content: [{ type: 'text', text }],
+    text,
+    usage: { inputTokens: 100, outputTokens: 50, totalTokens: 150 },
   };
 }
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // mockComplete needs a default resolved value; per-test overrides as needed.
 });
 
 // ── runConceptWriter — happy path ─────────────────────────────────────────────
@@ -160,9 +152,8 @@ describe('runConceptWriter — happy path', () => {
     mockDbSelect.mockReturnValue(
       makeSelectChain([{ id: 10, topics: [VALID_TOPIC] }]),
     );
-    mockResolveClientApiKey.mockResolvedValue({ key: 'sk-ant-test' });
-    mockMessagesCreate.mockResolvedValue(
-      makeAnthropicResponse(JSON.stringify(VALID_CONCEPT_RESPONSE)),
+    mockComplete.mockResolvedValue(
+      makeCompleteResponse(JSON.stringify(VALID_CONCEPT_RESPONSE)),
     );
     mockDbInsert.mockReturnValue(makeInsertChain([{ id: 99 }]));
 
@@ -182,9 +173,8 @@ describe('runConceptWriter — happy path', () => {
     mockDbSelect.mockReturnValue(
       makeSelectChain([{ id: 10, topics: [VALID_TOPIC] }]),
     );
-    mockResolveClientApiKey.mockResolvedValue({ key: 'sk-ant-test' });
-    mockMessagesCreate.mockResolvedValue(
-      makeAnthropicResponse(JSON.stringify(responseWinner1)),
+    mockComplete.mockResolvedValue(
+      makeCompleteResponse(JSON.stringify(responseWinner1)),
     );
     mockDbInsert.mockReturnValue(makeInsertChain([{ id: 77 }]));
 
@@ -197,9 +187,8 @@ describe('runConceptWriter — happy path', () => {
     mockDbSelect.mockReturnValue(
       makeSelectChain([{ id: 10, topics: [VALID_TOPIC] }]),
     );
-    mockResolveClientApiKey.mockResolvedValue({ key: 'sk-ant-test' });
-    mockMessagesCreate.mockResolvedValue(
-      makeAnthropicResponse(JSON.stringify(VALID_CONCEPT_RESPONSE)),
+    mockComplete.mockResolvedValue(
+      makeCompleteResponse(JSON.stringify(VALID_CONCEPT_RESPONSE)),
     );
     mockDbInsert.mockReturnValue(makeInsertChain([{ id: 99 }]));
 
@@ -215,43 +204,43 @@ describe('runConceptWriter — happy path', () => {
     );
   });
 
-  it('calls the Anthropic SDK with the model, system prompt, and user prompt', async () => {
+  it('calls complete() with the task tag, maxTokens, system prompt, and user prompt', async () => {
     mockDbSelect.mockReturnValue(
       makeSelectChain([{ id: 10, topics: [VALID_TOPIC] }]),
     );
-    mockResolveClientApiKey.mockResolvedValue({ key: 'sk-ant-key' });
-    mockMessagesCreate.mockResolvedValue(
-      makeAnthropicResponse(JSON.stringify(VALID_CONCEPT_RESPONSE)),
+    mockComplete.mockResolvedValue(
+      makeCompleteResponse(JSON.stringify(VALID_CONCEPT_RESPONSE)),
     );
     mockDbInsert.mockReturnValue(makeInsertChain([{ id: 1 }]));
 
     await runConceptWriter(BASE_INPUT);
 
-    expect(mockMessagesCreate).toHaveBeenCalledWith(
+    expect(mockComplete).toHaveBeenCalledWith(
       expect.objectContaining({
-        model: 'claude-opus-4-7',
-        max_tokens: 2048,
+        task: 'magamommyConcept',
+        maxTokens: 2048,
       }),
     );
-    const call = mockMessagesCreate.mock.calls[0][0];
+    const call = mockComplete.mock.calls[0][0] as {
+      task: string; clientId: number; system: string; prompt: string; maxTokens: number;
+    };
     expect(call.system).toContain('Magamommy');
-    expect(call.messages[0].content).toContain(VALID_TOPIC.slug);
+    expect(call.prompt).toContain(VALID_TOPIC.slug);
   });
 
-  it('calls resolveClientApiKey with the correct clientId and provider', async () => {
+  it('passes the correct clientId to complete()', async () => {
     mockDbSelect.mockReturnValue(
       makeSelectChain([{ id: 10, topics: [VALID_TOPIC] }]),
     );
-    mockResolveClientApiKey.mockResolvedValue({ key: 'sk-ant-test' });
-    mockMessagesCreate.mockResolvedValue(
-      makeAnthropicResponse(JSON.stringify(VALID_CONCEPT_RESPONSE)),
+    mockComplete.mockResolvedValue(
+      makeCompleteResponse(JSON.stringify(VALID_CONCEPT_RESPONSE)),
     );
     mockDbInsert.mockReturnValue(makeInsertChain([{ id: 1 }]));
 
     await runConceptWriter({ ...BASE_INPUT, clientId: 42 });
 
-    expect(mockResolveClientApiKey).toHaveBeenCalledWith(
-      expect.objectContaining({ clientId: 42, provider: 'anthropic' }),
+    expect(mockComplete).toHaveBeenCalledWith(
+      expect.objectContaining({ clientId: 42 }),
     );
   });
 
@@ -263,15 +252,14 @@ describe('runConceptWriter — happy path', () => {
     mockDbSelect.mockReturnValue(
       makeSelectChain([{ id: 10, topics }]),
     );
-    mockResolveClientApiKey.mockResolvedValue({ key: 'sk-ant-test' });
-    mockMessagesCreate.mockResolvedValue(
-      makeAnthropicResponse(JSON.stringify(VALID_CONCEPT_RESPONSE)),
+    mockComplete.mockResolvedValue(
+      makeCompleteResponse(JSON.stringify(VALID_CONCEPT_RESPONSE)),
     );
     mockDbInsert.mockReturnValue(makeInsertChain([{ id: 1 }]));
 
     const result = await runConceptWriter(BASE_INPUT);
-    const call = mockMessagesCreate.mock.calls[0][0];
-    expect(call.messages[0].content).toContain('top-topic');
+    const call = mockComplete.mock.calls[0][0] as { prompt: string };
+    expect(call.prompt).toContain('top-topic');
     expect(result.concept.topicSlug).toBe('top-topic');
   });
 
@@ -279,9 +267,8 @@ describe('runConceptWriter — happy path', () => {
     mockDbSelect.mockReturnValue(
       makeSelectChain([{ id: 10, topics: [VALID_TOPIC] }]),
     );
-    mockResolveClientApiKey.mockResolvedValue({ key: 'sk-ant-test' });
-    mockMessagesCreate.mockResolvedValue(
-      makeAnthropicResponse(
+    mockComplete.mockResolvedValue(
+      makeCompleteResponse(
         '```json\n' + JSON.stringify(VALID_CONCEPT_RESPONSE) + '\n```',
       ),
     );
@@ -295,27 +282,22 @@ describe('runConceptWriter — happy path', () => {
     mockDbSelect.mockReturnValue(
       makeSelectChain([{ id: 10, topics: [VALID_TOPIC] }]),
     );
-    mockResolveClientApiKey.mockResolvedValue({ key: 'sk-ant-test' });
     const raw = 'Here are your concepts:\n' + JSON.stringify(VALID_CONCEPT_RESPONSE) + '\nHope that helps!';
-    mockMessagesCreate.mockResolvedValue(makeAnthropicResponse(raw));
+    mockComplete.mockResolvedValue(makeCompleteResponse(raw));
     mockDbInsert.mockReturnValue(makeInsertChain([{ id: 1 }]));
 
     const result = await runConceptWriter(BASE_INPUT);
     expect(result.conceptId).toBe(1);
   });
 
-  it('handles multi-part content blocks (joins non-empty text parts)', async () => {
+  it('handles seam response that returns text directly (no multi-part content)', async () => {
     mockDbSelect.mockReturnValue(
       makeSelectChain([{ id: 10, topics: [VALID_TOPIC] }]),
     );
-    mockResolveClientApiKey.mockResolvedValue({ key: 'sk-ant-test' });
-    // Simulate content array with a tool_use block followed by a text block
-    mockMessagesCreate.mockResolvedValue({
-      content: [
-        { type: 'tool_use', id: 'x', name: 'foo', input: {} },
-        { type: 'text', text: JSON.stringify(VALID_CONCEPT_RESPONSE) },
-      ],
-    });
+    // The seam always returns a flat { text, usage } — no content array
+    mockComplete.mockResolvedValue(
+      makeCompleteResponse(JSON.stringify(VALID_CONCEPT_RESPONSE)),
+    );
     mockDbInsert.mockReturnValue(makeInsertChain([{ id: 1 }]));
 
     const result = await runConceptWriter(BASE_INPUT);
@@ -355,49 +337,40 @@ describe('runConceptWriter — brief loading failures', () => {
   });
 });
 
+
 // ── runConceptWriter — SDK / key failures ─────────────────────────────────────
 
-describe('runConceptWriter — API key and SDK failures', () => {
-  it('throws when resolveClientApiKey rejects', async () => {
+describe('runConceptWriter — AI seam failures', () => {
+  it('throws when complete() rejects', async () => {
     mockDbSelect.mockReturnValue(
       makeSelectChain([{ id: 10, topics: [VALID_TOPIC] }]),
     );
-    mockResolveClientApiKey.mockRejectedValue(new Error('no key configured'));
-
-    await expect(runConceptWriter(BASE_INPUT)).rejects.toThrow('no key configured');
-  });
-
-  it('throws when Anthropic SDK rejects', async () => {
-    mockDbSelect.mockReturnValue(
-      makeSelectChain([{ id: 10, topics: [VALID_TOPIC] }]),
-    );
-    mockResolveClientApiKey.mockResolvedValue({ key: 'sk-ant-test' });
-    mockMessagesCreate.mockRejectedValue(new Error('rate limit'));
+    mockComplete.mockRejectedValue(new Error('rate limit'));
 
     await expect(runConceptWriter(BASE_INPUT)).rejects.toThrow('rate limit');
   });
 
-  it('throws when model returns no text content blocks', async () => {
+  it('throws when model returns no text (empty string)', async () => {
     mockDbSelect.mockReturnValue(
       makeSelectChain([{ id: 10, topics: [VALID_TOPIC] }]),
     );
-    mockResolveClientApiKey.mockResolvedValue({ key: 'sk-ant-test' });
-    mockMessagesCreate.mockResolvedValue({ content: [] });
+    mockComplete.mockResolvedValue({ text: '', usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 } });
 
     await expect(runConceptWriter(BASE_INPUT)).rejects.toThrow(
       'runConceptWriter: model returned no text content',
     );
   });
 
-  it('throws when model text is empty string', async () => {
+  it('throws when model text is whitespace only (no JSON braces found)', async () => {
     mockDbSelect.mockReturnValue(
       makeSelectChain([{ id: 10, topics: [VALID_TOPIC] }]),
     );
-    mockResolveClientApiKey.mockResolvedValue({ key: 'sk-ant-test' });
-    mockMessagesCreate.mockResolvedValue({ content: [{ type: 'text', text: '   ' }] });
+    mockComplete.mockResolvedValue({ text: '   ', usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 } });
 
+    // Whitespace-only text is truthy so it bypasses the empty-check; parseAndValidate
+    // then fails because no '{...}' braces can be found in the trimmed string.
     await expect(runConceptWriter(BASE_INPUT)).rejects.toThrow(
-      'runConceptWriter: model returned no text content',
+      'runConceptWriter: model output did not contain a JSON object',
     );
   });
 });
@@ -409,9 +382,8 @@ describe('runConceptWriter — parseAndValidate: structural validation failures'
     mockDbSelect.mockReturnValue(
       makeSelectChain([{ id: 10, topics: [VALID_TOPIC] }]),
     );
-    mockResolveClientApiKey.mockResolvedValue({ key: 'sk-ant-test' });
-    mockMessagesCreate.mockResolvedValue(
-      makeAnthropicResponse(JSON.stringify(badResponse)),
+    mockComplete.mockResolvedValue(
+      makeCompleteResponse(JSON.stringify(badResponse)),
     );
 
     await expect(runConceptWriter(BASE_INPUT)).rejects.toThrow(pattern);
@@ -421,9 +393,8 @@ describe('runConceptWriter — parseAndValidate: structural validation failures'
     mockDbSelect.mockReturnValue(
       makeSelectChain([{ id: 10, topics: [VALID_TOPIC] }]),
     );
-    mockResolveClientApiKey.mockResolvedValue({ key: 'sk-ant-test' });
-    mockMessagesCreate.mockResolvedValue(
-      makeAnthropicResponse('Sorry, I cannot generate that content.'),
+    mockComplete.mockResolvedValue(
+      makeCompleteResponse('Sorry, I cannot generate that content.'),
     );
 
     await expect(runConceptWriter(BASE_INPUT)).rejects.toThrow(
@@ -435,9 +406,8 @@ describe('runConceptWriter — parseAndValidate: structural validation failures'
     mockDbSelect.mockReturnValue(
       makeSelectChain([{ id: 10, topics: [VALID_TOPIC] }]),
     );
-    mockResolveClientApiKey.mockResolvedValue({ key: 'sk-ant-test' });
-    mockMessagesCreate.mockResolvedValue(
-      makeAnthropicResponse('{bad json: [}'),
+    mockComplete.mockResolvedValue(
+      makeCompleteResponse('{bad json: [}'),
     );
 
     await expect(runConceptWriter(BASE_INPUT)).rejects.toThrow(
@@ -569,9 +539,8 @@ describe('runConceptWriter — DB insert failure', () => {
     mockDbSelect.mockReturnValue(
       makeSelectChain([{ id: 10, topics: [VALID_TOPIC] }]),
     );
-    mockResolveClientApiKey.mockResolvedValue({ key: 'sk-ant-test' });
-    mockMessagesCreate.mockResolvedValue(
-      makeAnthropicResponse(JSON.stringify(VALID_CONCEPT_RESPONSE)),
+    mockComplete.mockResolvedValue(
+      makeCompleteResponse(JSON.stringify(VALID_CONCEPT_RESPONSE)),
     );
     // Insert returns empty array → no id
     mockDbInsert.mockReturnValue(makeInsertChain([]));

@@ -49,7 +49,7 @@ const baseSub = {
 const baseService = {
   id: 10,
   name: 'Hosting Plus',
-  category: 'hosting',
+  category: 'plan-starter',
   price: 8000,
   billingCycle: 'monthly',
   stripePriceId: 'price_abc123',

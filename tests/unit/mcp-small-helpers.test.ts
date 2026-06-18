@@ -1,9 +1,10 @@
 // @vitest-environment node
 /**
  * Unit tests for three small lib/mcp modules:
- *   - lib/mcp/expire-pending.ts   (TTL helper + drizzle update/execute)
- *   - lib/mcp/tools/index.ts      (registrar barrel — shape + order)
- *   - lib/mcp/tools/meta.ts       (registers `blocks-schema` resource + `whoami` tool)
+ *   - lib/mcp/expire-pending.ts    (TTL helper + drizzle update/execute)
+ *   - lib/mcp/tools/index.ts       (registrar barrel — shape + order)
+ *   - lib/mcp/tools/meta.ts        (registers `whoami` tool)
+ *   - lib/mcp/tools/resources.ts   (registers `blocks-schema` resource)
  *
  * Strategy mirrors mcp-tools-bookings.test.ts: stub `db` and `drizzle-orm`,
  * use a fake McpServer that captures registered tools/resources, and exercise
@@ -108,8 +109,8 @@ vi.mock('@/lib/mcp/tools/storefront', () => ({ registerStorefrontTools: stubRegi
 vi.mock('@/lib/mcp/tools/brain', () => ({ registerBrainTools: stubRegistrar('registerBrainTools') }));
 vi.mock('@/lib/mcp/tools/post-types', () => ({ registerPostTypesTools: stubRegistrar('registerPostTypesTools') }));
 vi.mock('@/lib/mcp/tools/approvals', () => ({ registerApprovalsTools: stubRegistrar('registerApprovalsTools') }));
-// NOTE: deliberately NOT mocking @/lib/mcp/tools/meta — we exercise the real
-// implementation in the meta-specific describe block below.
+// NOTE: deliberately NOT mocking @/lib/mcp/tools/meta or @/lib/mcp/tools/resources —
+// we exercise the real implementations in the meta/resource-specific describe blocks below.
 
 // ── helpers ─────────────────────────────────────────────────────────────────
 
@@ -277,12 +278,12 @@ describe('expire-pending — expireStalePendings', () => {
 // lib/mcp/tools/meta.ts
 // ──────────────────────────────────────────────────────────────────────────
 
-describe('tools/meta — registerMetaTools', () => {
+describe('tools/resources — registerResourceDocs', () => {
   it('registers the blocks-schema resource with markdown mime + body', async () => {
-    const { registerMetaTools } = await import('@/lib/mcp/tools/meta');
+    const { registerResourceDocs } = await import('@/lib/mcp/tools/resources');
     const { stub, resources } = makeServer();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    registerMetaTools(stub as any, ctxFor(['*']));
+    registerResourceDocs(stub as any, ctxFor(['*']));
     expect(resources.has('blocks-schema')).toBe(true);
     const r = resources.get('blocks-schema')!;
     expect(r.uri).toBe('blocks://schema');
@@ -294,7 +295,9 @@ describe('tools/meta — registerMetaTools', () => {
     expect(typeof out.contents[0].text).toBe('string');
     expect(out.contents[0].text.length).toBeGreaterThan(10);
   });
+});
 
+describe('tools/meta — registerMetaTools', () => {
   it('registers the unscoped whoami tool that echoes ctx fields', async () => {
     const { registerMetaTools } = await import('@/lib/mcp/tools/meta');
     const { stub, tools } = makeServer();
@@ -319,11 +322,10 @@ describe('tools/meta — registerMetaTools', () => {
 
   it('registers whoami regardless of scopes (no gate)', async () => {
     const { registerMetaTools } = await import('@/lib/mcp/tools/meta');
-    const { stub, tools, resources } = makeServer();
+    const { stub, tools } = makeServer();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     registerMetaTools(stub as any, ctxFor([])); // no scopes at all
     expect(tools.has('whoami')).toBe(true);
-    expect(resources.has('blocks-schema')).toBe(true);
   });
 });
 
