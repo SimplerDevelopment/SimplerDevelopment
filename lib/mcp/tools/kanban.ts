@@ -1048,8 +1048,8 @@ export function registerKanbanTools(server: McpServer, ctx: PortalMcpContext): v
     }
   );
 
-
   // ── KANBAN CARD ARTIFACTS ──────────────────────────────────────────────
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const CARD_ARTIFACT_TABLES: Record<string, { table: any; titleField: string }> = {
     website: { table: clientWebsites, titleField: 'name' },
     email_campaign: { table: emailCampaigns, titleField: 'name' },
@@ -1240,6 +1240,7 @@ export function registerKanbanTools(server: McpServer, ctx: PortalMcpContext): v
     'kanban_card_templates_delete',
     {
       title: 'Delete a card template',
+      description: 'Permanently delete a kanban card template by id. This action is irreversible.',
       inputSchema: { id: z.coerce.number() },
     },
     async ({ id }) => {
@@ -1346,7 +1347,7 @@ export function registerKanbanTools(server: McpServer, ctx: PortalMcpContext): v
       // 3. Unresolved blockers per backlog card. A blocker is "unresolved" if
       // its column has is_done=false (or null).
       const cardIds = backlogCards.map(c => c.id);
-      let blockerMap = new Map<number, number[]>();
+      const blockerMap = new Map<number, number[]>();
       if (cardIds.length > 0) {
         const blockerRows = await db
           .select({
@@ -1466,6 +1467,7 @@ export function registerKanbanTools(server: McpServer, ctx: PortalMcpContext): v
     'kanban_recurrences_delete',
     {
       title: 'Delete a recurring task',
+      description: 'Permanently delete a recurring card-creation rule by id. This action is irreversible and stops future card generation.',
       inputSchema: { id: z.coerce.number() },
     },
     async ({ id }) => {

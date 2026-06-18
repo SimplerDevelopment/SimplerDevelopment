@@ -15,6 +15,7 @@ import ImpersonationBanner from '@/components/portal/ImpersonationBanner';
 import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import type { UserAppNavMeta } from '@/lib/plugins/load-user-apps';
+import type { SerializableEntitlements } from './PortalShell';
 
 // AI chat widget is purely on-demand — its FAB is the only first-paint
 // surface and a ~50ms shimmer before it appears is fine. Dynamic import keeps
@@ -31,11 +32,19 @@ interface PortalLayoutClientProps {
    *  server in `PortalShell` and passed through so the sidebar + cmd-K
    *  palette can render the "Apps" group without an extra round-trip. */
   apps?: UserAppNavMeta[];
+  /** Billing-domain entitlements resolved on the server. Drives nav gating
+   *  in the sidebar and Cmd+K palette. */
+  entitlements?: SerializableEntitlements;
 }
 
-export default function PortalLayoutClient({ children, apps }: PortalLayoutClientProps) {
+export default function PortalLayoutClient({ children, apps, entitlements }: PortalLayoutClientProps) {
   const pathname = usePathname();
-  const isLoginPage = pathname === '/portal/login';
+  // Pre-auth pages render without portal chrome (no sidebar/topbar).
+  const isLoginPage =
+    pathname === '/portal/login' ||
+    pathname === '/portal/signup' ||
+    pathname === '/portal/forgot-password' ||
+    pathname === '/portal/reset-password';
   const isEditorRoute = /\/portal\/websites\/\d+\/(posts\/|navigation)|\/portal\/tools\/pitch-decks\/\d+/.test(pathname);
   const [previewMode, setPreviewMode] = useState(false);
 
@@ -64,6 +73,7 @@ export default function PortalLayoutClient({ children, apps }: PortalLayoutClien
 
   useEffect(() => {
     if (!isEditorRoute) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- pre-existing pattern, predates this change
       setPreviewMode(false);
     }
 
@@ -101,7 +111,7 @@ export default function PortalLayoutClient({ children, apps }: PortalLayoutClien
       <PortalTitle />
       <ImpersonationBanner />
       <div className="min-h-screen bg-background overflow-x-hidden">
-        {!previewMode && <PortalSidebar apps={apps} />}
+        {!previewMode && <PortalSidebar apps={apps} entitlements={entitlements} />}
         <div>
           {!previewMode && (
             <div className="flex justify-end items-center gap-1 px-4 sm:px-6 pt-4 pb-0">
@@ -115,7 +125,7 @@ export default function PortalLayoutClient({ children, apps }: PortalLayoutClien
             the portal per request. Re-enable by uncommenting this line. */}
         {/* {!previewMode && <AIChatWidget />} */}
       </div>
-      <CmdKLauncher apps={apps} />
+      <CmdKLauncher apps={apps} entitlements={entitlements} />
     </AgencyChromeProvider>
   );
 }

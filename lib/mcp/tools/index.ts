@@ -28,6 +28,8 @@ import { registerAiTools } from './ai';
 import { registerAutomationsTools } from './automations';
 import { registerHostingTools } from './hosting';
 import { registerMetaTools } from './meta';
+import { registerResourceDocs } from './resources';
+import { registerPromptTemplates } from './prompts';
 import { registerBrandingTools } from './branding';
 import { registerStorefrontTools } from './storefront';
 import { registerBrainTools } from './brain';
@@ -54,6 +56,8 @@ export {
   registerAutomationsTools,
   registerHostingTools,
   registerMetaTools,
+  registerResourceDocs,
+  registerPromptTemplates,
   registerBrandingTools,
   registerStorefrontTools,
   registerBrainTools,
@@ -69,6 +73,8 @@ export {
  */
 export const allToolRegistrars: readonly McpToolRegistrar[] = [
   registerMetaTools,
+  registerResourceDocs,
+  registerPromptTemplates,
   registerProjectsTools,
   registerKanbanTools,
   registerTicketsTools,

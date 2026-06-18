@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import { paymentMethods } from '@/lib/db/schema';
 import { getPortalClient } from '@/lib/portal-client';
 import { eq, and } from 'drizzle-orm';
+import Stripe from 'stripe';
 
 export async function GET() {
   const session = await auth();
@@ -41,8 +42,21 @@ export async function DELETE(req: Request) {
     .limit(1);
   if (!method) return NextResponse.json({ success: false, message: 'Payment method not found' }, { status: 404 });
 
-  // TODO: Also detach from Stripe when SDK is integrated
-  // await stripe.paymentMethods.detach(method.stripePaymentMethodId);
+  // Detach from Stripe first; tolerate "already detached" (no longer attached
+  // to any customer) so retries and webhooks don't block local cleanup.
+  const stripeKey = process.env.STRIPE_SECRET_KEY;
+  if (stripeKey && method.stripePaymentMethodId) {
+    const stripe = new Stripe(stripeKey);
+    try {
+      await stripe.paymentMethods.detach(method.stripePaymentMethodId);
+    } catch (err: unknown) {
+      const stripeErr = err as { code?: string };
+      if (stripeErr?.code !== 'payment_method_not_attached') {
+        throw err;
+      }
+      // Already detached — safe to continue with local deletion.
+    }
+  }
 
   await db.delete(paymentMethods).where(eq(paymentMethods.id, parseInt(id, 10)));
 

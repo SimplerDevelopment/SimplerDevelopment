@@ -48,7 +48,7 @@ Read these files at the start of every invocation. Mirror structure line-for-lin
    - `admin` → `app/admin/<kebab-plural>/page.tsx`, hits `/api/<kebab-plural>`
    - `portal-site` → `app/portal/websites/[siteId]/<kebab-plural>/page.tsx`, hits `/api/portal/cms/websites/${siteId}/<kebab-plural>` **Default.**
    - `portal-client` → `app/portal/<kebab-plural>/page.tsx`, hits `/api/portal/<kebab-plural>`
-5. **Fields** — the resource's user-editable fields with types. Auto-detect from the schema if already scaffolded: `grep` the table export from `lib/db/schema.ts` and parse field names + types. Only fields that appear in the schema are valid — never invent fields.
+5. **Fields** — the resource's user-editable fields with types. Auto-detect from the schema if already scaffolded: `grep` the table export from the appropriate domain module under `lib/db/schema/` and parse field names + types. Only fields that appear in the schema are valid — never invent fields.
 6. **Material icon name** — for sidebar (e.g. `map`, `inventory_2`, `receipt_long`). Ask user if not obvious.
 
 Single confirmation round, then generate.
@@ -99,7 +99,8 @@ For admin pages, check if there's an admin sidebar component. If yes, print the 
    - `Read app/portal/websites/[siteId]/categories/page.tsx`
 3. If fields not explicitly given, detect from schema:
    ```
-   Grep lib/db/schema.ts for the table export and extract field definitions.
+   Grep lib/db/schema/ for the table export and extract field definitions.
+   (Schema is split into per-domain modules; grep the directory, not a single file.)
    ```
 4. Generate page file(s) with `Write`.
 5. Read `components/portal/PortalSidebar.tsx` — find the best insertion point for the nav entry.

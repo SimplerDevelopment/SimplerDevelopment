@@ -20,6 +20,8 @@ const APP_HOSTNAMES = new Set([
   '127.0.0.1:3100',
   'simplerdevelopment.com',
   'www.simplerdevelopment.com',
+  'staging.simplerdevelopment.com',
+  'dev.simplerdevelopment.com',
 ]);
 
 function getAppHostname(): string | null {
@@ -178,12 +180,20 @@ export async function middleware(req: NextRequest) {
       return NextResponse.next();
     }
 
-    // Subdomain portal/booking access: let these through to the main app
+    // Portal paths are only valid on the main app domain. Any subdomain that
+    // reaches here (e.g. a client subdomain with /portal in the path) gets
+    // redirected to the canonical app URL so portal auth + session work correctly.
     const subdomain = extractSubdomain(host);
-    if (subdomain && (pathname.startsWith('/portal') || pathname.startsWith('/book'))) {
-      const response = NextResponse.next();
-      if (pathname.startsWith('/portal')) response.headers.set('x-portal-subdomain', subdomain);
-      return response;
+    if (subdomain && pathname.startsWith('/portal')) {
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.simplerdevelopment.com';
+      const target = new URL(req.nextUrl.toString());
+      target.host = new URL(appUrl).host;
+      return NextResponse.redirect(target.toString(), { status: 308 });
+    }
+
+    // Booking subdomain passthrough — /book is used on client subdomains legitimately
+    if (subdomain && pathname.startsWith('/book')) {
+      return NextResponse.next();
     }
 
     // ── White-label custom domain ────────────────────────────────────────────
@@ -234,7 +244,14 @@ export async function middleware(req: NextRequest) {
     const siteDomain = domainMatch ? domainMatch[1] : '';
     const headers: Record<string, string> = { 'x-site-pathname': sitePath };
     if (siteDomain) headers['x-site-domain'] = siteDomain;
-    const response = NextResponse.next({ headers });
+    // Forward the same markers as REQUEST headers too, so server components
+    // (e.g. the root layout's marketing-chrome detection) can tell this is a
+    // client-site route even on an app host like staging.simplerdevelopment.com,
+    // where the marketing site and client sites share one hostname.
+    const requestHeaders = new Headers(req.headers);
+    requestHeaders.set('x-site-pathname', sitePath);
+    if (siteDomain) requestHeaders.set('x-site-domain', siteDomain);
+    const response = NextResponse.next({ request: { headers: requestHeaders }, headers });
     return response;
   }
 
@@ -257,14 +274,31 @@ export async function middleware(req: NextRequest) {
   }
 
   // For the app's own hostname, run the standard NextAuth middleware
-  const response = await (auth as unknown as (req: NextRequest) => Promise<NextResponse>)(req);
+  const authResponse = await (auth as unknown as (req: NextRequest) => Promise<NextResponse>)(req);
 
-  // Stamp dev CORS headers on responses going back to the mobile client. The
+  // If the auth middleware decided to redirect (or otherwise own the response),
+  // honor it as-is.
+  if (authResponse.headers.get('location')) return authResponse;
+
+  // Re-issue the passthrough with x-pathname stamped on the REQUEST headers so
+  // server layouts (e.g. app/admin/layout.tsx) can read the path via headers().
+  // NOTE: a *response* header (the previous approach) is NOT readable by RSCs —
+  // it must be on the request. Carry over the session-refresh cookies the auth
+  // middleware set so we don't drop a refreshed session.
+  const requestHeaders = new Headers(req.headers);
+  requestHeaders.set('x-pathname', pathname);
+  const response = NextResponse.next({ request: { headers: requestHeaders } });
+  for (const cookie of authResponse.headers.getSetCookie()) {
+    response.headers.append('set-cookie', cookie);
+  }
+
+  // Stamp dev CORS headers on API responses going back to the mobile client. The
   // OPTIONS preflight already short-circuited above; this handles the real
   // GET / POST / PATCH / DELETE responses.
   if (prePath.startsWith('/api/') && reqOrigin && isAllowedDevOrigin(reqOrigin)) {
     applyDevCors(response, reqOrigin);
   }
+
   return response;
 }
 
@@ -285,7 +319,6 @@ async function handlePluginRoute(
   const firstSlash = remainder.indexOf('/');
   const slug =
     firstSlash === -1 ? remainder : remainder.slice(0, firstSlash);
-  const pathSuffix = firstSlash === -1 ? '' : remainder.slice(firstSlash);
 
   // 1. Authenticate. No session → bounce to login with `callbackUrl` so the
   //    user returns to the plugin page after sign-in.

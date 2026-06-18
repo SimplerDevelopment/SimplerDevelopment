@@ -133,7 +133,7 @@ export default function SolutionsPage() {
                             Learn More
                             <span className="material-icons text-lg ml-1">arrow_forward</span>
                           </Button>
-                          <Button href="/contact" variant="ghost" size="md">
+                          <Button href="/portal/signup" variant="ghost" size="md">
                             Get Started
                           </Button>
                         </div>
@@ -197,12 +197,12 @@ export default function SolutionsPage() {
               Book a free consultation and we&apos;ll walk you through the platform. See exactly how it works for your business.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button href="/contact" size="lg">
-                Book a Free Consultation
+              <Button href="/portal/signup" size="lg">
+                Start Free Trial
                 <span className="material-icons text-lg ml-1">arrow_forward</span>
               </Button>
-              <Button href="/about" variant="outline" size="lg">
-                Learn About Us
+              <Button href="/contact" variant="outline" size="lg">
+                Book a Consultation
               </Button>
             </div>
           </FadeIn>

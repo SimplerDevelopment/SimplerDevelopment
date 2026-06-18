@@ -37,12 +37,17 @@ export default function CrmCustomFieldFilters({ entityType, values, onChange }: 
   const [fields, setFields] = useState<FieldDef[]>([]);
 
   useEffect(() => {
+    let cancelled = false;
     fetch(`/api/portal/crm/custom-fields?entityType=${entityType}`)
-      .then(r => r.json())
+      // Guard against an error/empty response — r.json() on an empty body throws.
+      .then(r => (r.ok ? r.json() : null))
       .then(d => {
+        if (cancelled || !d) return;
         const all: FieldDef[] = d.data ?? [];
         setFields(all.filter(f => f.filterable && FILTERABLE_TYPES.includes(f.fieldType)));
-      });
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
   }, [entityType]);
 
   if (fields.length === 0) return null;

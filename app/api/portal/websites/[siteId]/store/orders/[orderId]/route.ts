@@ -8,6 +8,8 @@ import {
   sendTransactionalEmail, getWebsiteUrls, formatCents, formatAddress, formatEmailDate, buildItemsHtml,
 } from '@/lib/email/send-transactional';
 import { emitEvent } from '@/lib/automation/event-bus';
+import { authorizePortal, isAuthError } from '@/lib/portal-auth';
+import { resolveSiteStripe, SiteStripeError } from '@/lib/stripe/site-stripe';
 
 type Params = { params: Promise<{ siteId: string; orderId: string }> };
 
@@ -27,6 +29,9 @@ async function resolveOrder(userId: number, siteId: string, orderId: string) {
 export async function GET(_req: Request, { params }: Params) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
+
+  const authResult = await authorizePortal({ action: 'read', requireService: 'store' });
+  if (isAuthError(authResult)) return authResult.response;
 
   const { siteId, orderId } = await params;
   const order = await resolveOrder(parseInt(session.user.id, 10), siteId, orderId);
@@ -72,6 +77,9 @@ export async function GET(_req: Request, { params }: Params) {
     unitPrice: row.unitPrice,
     quantity: row.quantity,
     total: row.total,
+    // Cents-suffixed aliases — the order-detail UI reads `*Cents` fields.
+    unitPriceCents: row.unitPrice,
+    totalCents: row.total,
     createdAt: row.createdAt,
     // `design` resolves to null both when the order line has no designId
     // AND when the referenced design row no longer exists (left-join miss).
@@ -87,7 +95,19 @@ export async function GET(_req: Request, { params }: Params) {
 
   return NextResponse.json({
     success: true,
-    data: { ...order, items, statusHistory: history },
+    data: {
+      ...order,
+      // Cents-suffixed aliases + plural note key — match the order-detail UI's
+      // field convention (the raw columns are already in cents).
+      subtotalCents: order.subtotal,
+      shippingCents: order.shippingTotal,
+      taxCents: order.taxTotal,
+      discountCents: order.discountTotal,
+      totalCents: order.total,
+      internalNotes: order.internalNote,
+      items,
+      statusHistory: history,
+    },
   });
 }
 
@@ -95,11 +115,41 @@ export async function PUT(req: Request, { params }: Params) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
 
+  const authResult = await authorizePortal({ action: 'write', requireService: 'store' });
+  if (isAuthError(authResult)) return authResult.response;
+
   const { siteId, orderId } = await params;
   const order = await resolveOrder(parseInt(session.user.id, 10), siteId, orderId);
   if (!order) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
 
   const body = await req.json();
+
+  // Guard: refund transition must succeed in Stripe before we flip status
+  if (body.status === 'refunded' && body.status !== order.status) {
+    if (!order.stripePaymentIntentId) {
+      return NextResponse.json(
+        { success: false, message: 'This order has no Stripe payment to refund' },
+        { status: 400 },
+      );
+    }
+    try {
+      const { stripe } = await resolveSiteStripe(order.websiteId);
+      await stripe.refunds.create({ payment_intent: order.stripePaymentIntentId });
+    } catch (err) {
+      if (err instanceof SiteStripeError) {
+        return NextResponse.json(
+          { success: false, message: `Stripe not configured: ${err.message}` },
+          { status: 400 },
+        );
+      }
+      console.error('[orders] refund error:', err);
+      return NextResponse.json(
+        { success: false, message: 'Stripe refund failed — status not updated' },
+        { status: 502 },
+      );
+    }
+  }
+
   const updateData: Record<string, unknown> = { updatedAt: new Date() };
 
   if (body.trackingNumber !== undefined) updateData.trackingNumber = body.trackingNumber;

@@ -29,6 +29,14 @@ vi.mock('@/lib/portal-client', () => ({
   resolveClientSite: (...args: unknown[]) => resolveClientSiteMock(...args),
 }));
 
+// authorizePortal — default: pass (routes now gate on requireService)
+const authorizePortalMock = vi.fn();
+vi.mock('@/lib/portal-auth', () => ({
+  authorizePortal: (...args: unknown[]) => authorizePortalMock(...args),
+  isAuthError: (r: unknown) =>
+    Boolean(r && typeof r === 'object' && 'response' in (r as Record<string, unknown>)),
+}));
+
 // ---------------------------------------------------------------------------
 // drizzle-orm operators — inert markers we can inspect in evalPredicate
 // ---------------------------------------------------------------------------
@@ -80,6 +88,9 @@ vi.mock('@/lib/db/schema', () => {
     clients: wrap('clients'),
     clientWebsites: wrap('clientWebsites'),
     clientMembers: wrap('clientMembers'),
+    oauthAccessTokens: wrap('oauthAccessTokens'),
+    oauthClients: wrap('oauthClients'),
+    portalApiKeys: wrap('portalApiKeys'),
   }, { has: (t, p) => (p in t) || !(p === "then" || p === "__esModule" || p === "default" || typeof p !== "string"), get: (t, p) => (p in t) ? t[p] : ((p === "then" || p === "__esModule" || p === "default" || typeof p !== "string") ? undefined : new Proxy({ __table: String(p) }, { get: (_x, c) => c === "__table" ? String(p) : (typeof c === "string" ? { __col: c, __table: String(p) } : undefined) })) });
 });
 
@@ -413,6 +424,7 @@ beforeEach(() => {
 
   authMock.mockReset();
   resolveClientSiteMock.mockReset();
+  authorizePortalMock.mockReset().mockResolvedValue({ client: { id: 5 }, userId: 7, role: 'admin' });
   verifyVisitorTokenMock.mockReset();
   subscribeChannelMock.mockReset();
   conversationChannelMock.mockClear();

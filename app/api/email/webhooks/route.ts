@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { Webhook } from 'svix';
 import { db } from '@/lib/db';
 import { emailCampaignSends, emailCampaigns, emailSubscribers } from '@/lib/db/schema';
 import { eq, sql } from 'drizzle-orm';
@@ -15,17 +16,34 @@ type ResendEvent =
   | { type: 'email.complained'; data: { email_id: string } };
 
 export async function POST(req: Request) {
-  // Verify webhook signature in production
-  // TODO(W2.1 security-fix-plan.md): add full Svix signature verification using the
-  // `svix` package — Wave 2 (requires new dep + prod env coordination).
   const secret = process.env.RESEND_WEBHOOK_SECRET;
   if (!secret) {
     return new NextResponse('Unauthorized', { status: 401 });
   }
-  const signature = req.headers.get('svix-signature');
-  if (!signature) return new NextResponse('Unauthorized', { status: 401 });
 
-  const event = (await req.json()) as ResendEvent;
+  // Read the raw body as text so Svix can verify against the exact bytes
+  // that were signed — JSON.parse → re-serialize would break the signature.
+  const rawBody = await req.text();
+
+  const svixId = req.headers.get('svix-id') ?? '';
+  const svixTimestamp = req.headers.get('svix-timestamp') ?? '';
+  const svixSignature = req.headers.get('svix-signature') ?? '';
+
+  if (!svixId || !svixTimestamp || !svixSignature) {
+    return new NextResponse('Unauthorized', { status: 401 });
+  }
+
+  let event: ResendEvent;
+  try {
+    const wh = new Webhook(secret);
+    event = wh.verify(rawBody, {
+      'svix-id': svixId,
+      'svix-timestamp': svixTimestamp,
+      'svix-signature': svixSignature,
+    }) as ResendEvent;
+  } catch {
+    return new NextResponse('Unauthorized', { status: 401 });
+  }
 
   if (!event?.type || !event?.data?.email_id) {
     return NextResponse.json({ received: true });

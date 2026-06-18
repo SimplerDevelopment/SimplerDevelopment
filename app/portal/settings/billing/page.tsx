@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import UsageMeters from '@/components/portal/billing/UsageMeters';
+import { useRouter } from 'next/navigation';
 
 interface Invoice {
   id: number;
@@ -40,12 +42,14 @@ const invoiceStatusStyles: Record<string, string> = {
 };
 
 export default function SettingsBillingPage() {
+  const router = useRouter();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [methods, setMethods] = useState<PaymentMethod[]>([]);
   const [loadingInvoices, setLoadingInvoices] = useState(true);
   const [loadingMethods, setLoadingMethods] = useState(true);
   const [removingId, setRemovingId] = useState<number | null>(null);
   const [section, setSection] = useState<'invoices' | 'payment-methods'>('invoices');
+  const [openingPortal, setOpeningPortal] = useState(false);
 
   useEffect(() => {
     fetch('/api/portal/settings/billing')
@@ -62,6 +66,19 @@ export default function SettingsBillingPage() {
   const totalDue = invoices
     .filter(i => i.status === 'sent' || i.status === 'overdue')
     .reduce((sum, i) => sum + i.total, 0);
+
+  const handleManageBilling = async () => {
+    setOpeningPortal(true);
+    try {
+      const res = await fetch('/api/portal/billing/customer-portal', { method: 'POST' });
+      const data = await res.json();
+      if (data.success && data.data?.url) {
+        router.push(data.data.url);
+      }
+    } finally {
+      setOpeningPortal(false);
+    }
+  };
 
   const handleRemoveMethod = async (id: number) => {
     if (!confirm('Remove this payment method?')) return;
@@ -81,6 +98,43 @@ export default function SettingsBillingPage() {
 
   return (
     <div className="space-y-6">
+      {/* Usage meters */}
+      <UsageMeters />
+
+      {/* Plans & modules CTA */}
+      <div className="flex items-center justify-between bg-card border border-border rounded-xl px-6 py-4">
+        <div>
+          <p className="text-sm font-semibold text-foreground">Plans &amp; modules</p>
+          <p className="text-xs text-muted-foreground mt-0.5">Add or remove feature modules from your subscription.</p>
+        </div>
+        <Link
+          href="/portal/settings/billing/plans"
+          className="inline-flex items-center gap-1.5 text-sm px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors flex-shrink-0"
+        >
+          <span className="material-icons text-base">explore</span>
+          Plans &amp; modules
+        </Link>
+      </div>
+
+      {/* Stripe Billing Portal CTA */}
+      <div className="flex items-center justify-between bg-card border border-border rounded-xl px-6 py-4">
+        <div>
+          <p className="text-sm font-semibold text-foreground">Manage billing</p>
+          <p className="text-xs text-muted-foreground mt-0.5">Update payment methods, download receipts, and manage subscriptions on Stripe.</p>
+        </div>
+        <button
+          onClick={handleManageBilling}
+          disabled={openingPortal}
+          className="inline-flex items-center gap-1.5 text-sm px-4 py-2 rounded-lg bg-accent text-foreground hover:bg-accent/80 transition-colors flex-shrink-0 disabled:opacity-50"
+        >
+          {openingPortal
+            ? <span className="material-icons text-base animate-spin">refresh</span>
+            : <span className="material-icons text-base">open_in_new</span>
+          }
+          Manage billing
+        </button>
+      </div>
+
       {/* Outstanding balance */}
       {totalDue > 0 && (
         <div className="bg-orange-50 border border-orange-200 rounded-xl p-4 flex items-center gap-3 dark:bg-orange-900/20 dark:border-orange-800">

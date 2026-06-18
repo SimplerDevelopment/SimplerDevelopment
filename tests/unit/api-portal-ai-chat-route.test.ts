@@ -60,8 +60,28 @@ vi.mock('@/lib/ai/plan-gate', () => ({
 
 const executePortalToolMock = vi.fn();
 vi.mock('@/lib/ai/portal-tools', () => ({
-  PORTAL_TOOLS: [{ name: 'fake_tool', description: 'fake', input_schema: { type: 'object' } }],
+  PORTAL_TOOLS: [{ name: 'list_projects', description: 'List projects', input_schema: { type: 'object', properties: {} } }],
   executePortalTool: (...args: unknown[]) => executePortalToolMock(...args),
+}));
+
+// Classifier — bypass Anthropic so it doesn't consume messagesCreateMock slots
+const classifyPortalRequestMock = vi.fn();
+vi.mock('@/lib/ai/portal-tools/classifier', () => ({
+  classifyPortalRequest: (...args: unknown[]) => classifyPortalRequestMock(...args),
+  classifyPortalComplexity: (...args: unknown[]) => classifyPortalRequestMock(...args),
+}));
+
+// withSpan / startSpan — just execute the callback
+vi.mock('@/lib/ai/tracer', () => ({
+  withSpan: async (_name: unknown, _attrs: unknown, fn: () => unknown) => fn(),
+  startSpan: () => ({ end: () => {} }),
+}));
+
+// toolsForDomains / domainsOfToolCalls — passthrough stubs
+vi.mock('@/lib/ai/portal-tools/domains', () => ({
+  toolsForDomains: (_domains: unknown, tools: unknown) => tools,
+  domainsOfToolCalls: () => [],
+  PORTAL_DOMAINS: [],
 }));
 
 // ---- Anthropic SDK — never let it touch the network ----
@@ -311,6 +331,13 @@ beforeEach(() => {
   recordAiUsageMock.mockReset().mockResolvedValue(undefined);
   checkAiPlanGateMock.mockReset().mockResolvedValue({ allowed: true });
   executePortalToolMock.mockReset();
+  classifyPortalRequestMock.mockReset().mockResolvedValue({
+    complexity: 'simple',
+    domains: [],
+    reasoning: 'test default',
+    inputTokens: 0,
+    outputTokens: 0,
+  });
   messagesCreateMock.mockReset();
   anthropicCtorSpy.mockReset();
 

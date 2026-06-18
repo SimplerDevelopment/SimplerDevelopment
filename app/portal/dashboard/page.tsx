@@ -4,29 +4,47 @@ import {
   services, clientServices, clientWebsites, posts,
   emailLists, emailSubscribers, emailCampaigns,
   bookingPages, bookings, pitchDecks,
-  projects, supportTickets, invoices,
-  userOnboarding,
+  userOnboarding, userDashboardPreferences,
 } from '@/lib/db/schema';
-import { eq, and, ne, count, sum, sql, desc } from 'drizzle-orm';
+import { eq, and, count, sql } from 'drizzle-orm';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { formatCents, ticketStatusColor, invoiceStatusColor, invoiceStatusLabel } from '@/lib/portal';
 import { getPortalClient } from '@/lib/portal-client';
 import { getBrainProfile } from '@/lib/brain/profiles';
 import CreditBalance from '@/components/portal/CreditBalance';
 import { BrainDashboardWidgetsServer } from '@/components/portal/brain-dashboard';
 import { EnableBrainBanner } from '@/components/portal/EnableBrainBanner';
+import { Suspense } from 'react';
+import { resolveVisibleWidgets, type DashboardWidgetPrefs } from '@/lib/dashboard/widgets';
+import { WIDGET_COMPONENTS } from '@/components/portal/dashboard/widgets';
+import WidgetBoard from '@/components/portal/dashboard/WidgetBoard';
+import { WidgetSkeleton } from '@/components/portal/dashboard/skeletons';
+import GetStartedChecklist from '@/components/portal/onboarding/GetStartedChecklist';
 
 const SERVICE_META: Record<string, { icon: string; color: string; bgColor: string; href: string; description: string; cta: string }> = {
   cms: { icon: 'language', color: 'text-blue-600', bgColor: 'bg-blue-50 dark:bg-blue-950/40', href: '/portal/websites', description: 'Drag-and-drop website builder with unlimited pages, blog, and SEO tools.', cta: 'Build your website' },
   email: { icon: 'email', color: 'text-purple-600', bgColor: 'bg-purple-50 dark:bg-purple-950/40', href: '/portal/email', description: 'Send beautiful campaigns, manage subscribers, and track engagement.', cta: 'Start email marketing' },
   booking: { icon: 'calendar_month', color: 'text-green-600', bgColor: 'bg-green-50 dark:bg-green-950/40', href: '/portal/tools/booking', description: 'Online scheduling with calendar sync, reminders, and embeddable widgets.', cta: 'Set up booking' },
-  'pitch-decks': { icon: 'slideshow', color: 'text-amber-600', bgColor: 'bg-amber-50 dark:bg-amber-950/40', href: '/portal/tools/pitch-decks', description: 'AI-powered pitch decks with auto-branding and PDF export.', cta: 'Create a deck' },
+  'pitch-decks': { icon: 'slideshow', color: 'text-amber-600', bgColor: 'bg-amber-50 dark:bg-amber-950/40', href: '/portal/tools/pitch-decks', description: 'AI-powered pitch decks with auto-branding and shareable presentation links.', cta: 'Create a deck' },
   'project-mgmt': { icon: 'view_kanban', color: 'text-indigo-600', bgColor: 'bg-indigo-50 dark:bg-indigo-950/40', href: '/portal/projects', description: 'Kanban boards, sprint planning, and team collaboration.', cta: 'Manage projects' },
-  ai: { icon: 'smart_toy', color: 'text-pink-600', bgColor: 'bg-pink-50 dark:bg-pink-950/40', href: '/portal/services', description: 'AI chatbot trained on your content for support and lead capture.', cta: 'Add AI chat' },
+  ai: { icon: 'chat', color: 'text-pink-600', bgColor: 'bg-pink-50 dark:bg-pink-950/40', href: '/portal/inbox', description: 'Branded live-chat widget with a shared team inbox for visitor conversations.', cta: 'Add live chat' },
   hosting: { icon: 'cloud', color: 'text-slate-600', bgColor: 'bg-slate-50 dark:bg-slate-950/40', href: '/portal/hosting', description: 'Managed hosting with SSL, CDN, daily backups, and 99.9% uptime.', cta: 'Get hosting' },
   bundle: { icon: 'auto_awesome', color: 'text-primary', bgColor: 'bg-primary/10', href: '/portal/services', description: 'All 7 tools in one package with 900K pooled AI tokens.', cta: 'View details' },
 };
+
+// A first-impression page must never crash on a single optional data load.
+// Each widget count / pref lookup degrades to its natural fallback (and logs)
+// rather than rejecting the whole page into the error boundary. The first
+// thing a new user sees after onboarding is this dashboard — a missing row or
+// a transient query failure should cost one widget, not the entire screen.
+async function safe<T>(p: Promise<T>, fallback: T, label: string): Promise<T> {
+  try {
+    return await p;
+  } catch (err) {
+    console.error(`[dashboard] optional load "${label}" failed — using fallback:`, err);
+    return fallback;
+  }
+}
 
 export default async function PortalDashboardPage() {
   const session = await auth();
@@ -58,68 +76,81 @@ export default async function PortalDashboardPage() {
     );
   }
 
-  const brainProfile = await getBrainProfile(client.id);
+  const brainProfile = await safe(getBrainProfile(client.id), null, 'brainProfile');
   const brainEnabled = brainProfile?.enabled ?? false;
 
-  // Fetch everything in parallel
+  // Fetch everything in parallel. Every item degrades independently — one
+  // failed count must not reject the whole page (see `safe`).
   const [
     allServices, mySubscriptions,
-    activeProjects, openTickets, pendingInvoices,
-    recentTickets, recentInvoices,
     websiteSites, emailListRows, bookingPageRows, deckCount,
+    dashboardPrefsRow,
   ] = await Promise.all([
-    db.select().from(services).where(eq(services.active, true)).orderBy(services.name),
-    db.select({ serviceId: clientServices.serviceId, status: clientServices.status })
-      .from(clientServices).where(eq(clientServices.clientId, client.id)),
-    db.select({ count: count() }).from(projects)
-      .where(and(eq(projects.clientId, client.id), ne(projects.status, 'archived'))),
-    db.select({ count: count() }).from(supportTickets)
-      .where(and(eq(supportTickets.clientId, client.id), ne(supportTickets.status, 'closed'))),
-    db.select({ count: count(), total: sum(invoices.total) }).from(invoices)
-      .where(and(eq(invoices.clientId, client.id), eq(invoices.status, 'sent'))),
-    db.select().from(supportTickets).where(eq(supportTickets.clientId, client.id))
-      .orderBy(desc(supportTickets.createdAt)).limit(3),
-    db.select().from(invoices).where(eq(invoices.clientId, client.id))
-      .orderBy(desc(invoices.createdAt)).limit(3),
+    safe(db.select().from(services).where(eq(services.active, true)).orderBy(services.name), [], 'services'),
+    safe(db.select({ serviceId: clientServices.serviceId, status: clientServices.status })
+      .from(clientServices).where(eq(clientServices.clientId, client.id)), [], 'subscriptions'),
     // Service-specific counts
-    db.select({ count: count() }).from(clientWebsites)
-      .where(and(eq(clientWebsites.clientId, client.id), eq(clientWebsites.active, true))),
-    db.select({ count: count() }).from(emailLists).where(eq(emailLists.clientId, client.id)),
-    db.select({ count: count() }).from(bookingPages).where(eq(bookingPages.clientId, client.id)),
-    db.select({ count: count() }).from(pitchDecks).where(eq(pitchDecks.clientId, client.id)),
+    safe(db.select({ count: count() }).from(clientWebsites)
+      .where(and(eq(clientWebsites.clientId, client.id), eq(clientWebsites.active, true))), [{ count: 0 }], 'websiteSites'),
+    safe(db.select({ count: count() }).from(emailLists).where(eq(emailLists.clientId, client.id)), [{ count: 0 }], 'emailLists'),
+    safe(db.select({ count: count() }).from(bookingPages).where(eq(bookingPages.clientId, client.id)), [{ count: 0 }], 'bookingPages'),
+    safe(db.select({ count: count() }).from(pitchDecks).where(eq(pitchDecks.clientId, client.id)), [{ count: 0 }], 'pitchDecks'),
+    // Dashboard widget prefs
+    safe(db.select({ prefs: userDashboardPreferences.prefs })
+      .from(userDashboardPreferences)
+      .where(and(
+        eq(userDashboardPreferences.userId, userId),
+        eq(userDashboardPreferences.clientId, client.id),
+      ))
+      .limit(1), [], 'dashboardPrefs'),
   ]);
 
   const activeIds = new Set(mySubscriptions.filter(s => s.status === 'active').map(s => s.serviceId));
 
+  // Compute active service categories for widget gating
+  const activeServiceCategories = new Set(
+    allServices
+      .filter(s => activeIds.has(s.id) && s.category && s.category !== 'bundle')
+      .map(s => s.category as string),
+  );
+
+  // Resolve widget visibility
+  const dashboardPrefs = (dashboardPrefsRow[0]?.prefs ?? {}) as DashboardWidgetPrefs;
+  const { visible: visibleWidgets, available: availableWidgets } = resolveVisibleWidgets(
+    dashboardPrefs,
+    activeServiceCategories,
+    brainEnabled,
+  );
+
   // Get deeper stats for active services
-  const siteIds = websiteSites[0]?.count ? (await db.select({ id: clientWebsites.id }).from(clientWebsites)
-    .where(and(eq(clientWebsites.clientId, client.id), eq(clientWebsites.active, true)))).map(r => r.id) : [];
+  const siteIds = websiteSites[0]?.count ? (await safe(db.select({ id: clientWebsites.id }).from(clientWebsites)
+    .where(and(eq(clientWebsites.clientId, client.id), eq(clientWebsites.active, true))), [], 'siteIds')).map(r => r.id) : [];
 
   let websitePageCount = 0;
   if (siteIds.length > 0) {
-    const r = await db.select({ count: count() }).from(posts)
-      .where(sql`${posts.websiteId} IN (${sql.join(siteIds.map(id => sql`${id}`), sql`, `)})`);
+    const r = await safe(db.select({ count: count() }).from(posts)
+      .where(sql`${posts.websiteId} IN (${sql.join(siteIds.map(id => sql`${id}`), sql`, `)})`), [{ count: 0 }], 'websitePageCount');
     websitePageCount = r[0]?.count ?? 0;
   }
 
   let emailSubCount = 0;
   let emailCampaignCount = 0;
   if (emailListRows[0]?.count) {
-    const listIds = (await db.select({ id: emailLists.id }).from(emailLists).where(eq(emailLists.clientId, client.id))).map(r => r.id);
+    const listIds = (await safe(db.select({ id: emailLists.id }).from(emailLists).where(eq(emailLists.clientId, client.id)), [], 'emailListIds')).map(r => r.id);
     if (listIds.length > 0) {
-      const s = await db.select({ count: count() }).from(emailSubscribers)
-        .where(sql`${emailSubscribers.listId} IN (${sql.join(listIds.map(id => sql`${id}`), sql`, `)}) AND ${emailSubscribers.status} = 'active'`);
+      const s = await safe(db.select({ count: count() }).from(emailSubscribers)
+        .where(sql`${emailSubscribers.listId} IN (${sql.join(listIds.map(id => sql`${id}`), sql`, `)}) AND ${emailSubscribers.status} = 'active'`), [{ count: 0 }], 'emailSubCount');
       emailSubCount = s[0]?.count ?? 0;
-      const c = await db.select({ count: count() }).from(emailCampaigns)
-        .where(sql`${emailCampaigns.listId} IN (${sql.join(listIds.map(id => sql`${id}`), sql`, `)}) AND ${emailCampaigns.status} = 'sent'`);
+      const c = await safe(db.select({ count: count() }).from(emailCampaigns)
+        .where(sql`${emailCampaigns.listId} IN (${sql.join(listIds.map(id => sql`${id}`), sql`, `)}) AND ${emailCampaigns.status} = 'sent'`), [{ count: 0 }], 'emailCampaignCount');
       emailCampaignCount = c[0]?.count ?? 0;
     }
   }
 
   let upcomingBookings = 0;
   if (bookingPageRows[0]?.count) {
-    const b = await db.select({ count: count() }).from(bookings)
-      .where(and(eq(bookings.clientId, client.id), eq(bookings.status, 'confirmed'), sql`${bookings.startTime} > NOW()`));
+    const b = await safe(db.select({ count: count() }).from(bookings)
+      .where(and(eq(bookings.clientId, client.id), eq(bookings.status, 'confirmed'), sql`${bookings.startTime} > NOW()`)), [{ count: 0 }], 'upcomingBookings');
     upcomingBookings = b[0]?.count ?? 0;
   }
 
@@ -154,13 +185,6 @@ export default async function PortalDashboardPage() {
     }
   }
 
-  const coreStats = [
-    { label: 'Active Projects', value: activeProjects[0]?.count ?? 0, icon: 'view_kanban', href: '/portal/projects', color: 'text-blue-600' },
-    { label: 'Open Tickets', value: openTickets[0]?.count ?? 0, icon: 'support_agent', href: '/portal/tickets', color: 'text-orange-600' },
-    { label: 'Unpaid Invoices', value: pendingInvoices[0]?.count ?? 0, icon: 'receipt_long', href: '/portal/invoices', color: 'text-red-600' },
-    { label: 'Amount Due', value: formatCents(Number(pendingInvoices[0]?.total ?? 0)), icon: 'attach_money', href: '/portal/invoices', color: 'text-green-600' },
-  ];
-
   return (
     <div className="max-w-6xl mx-auto space-y-8">
       {/* Header */}
@@ -183,6 +207,9 @@ export default async function PortalDashboardPage() {
         )}
       </div>
 
+      {/* Post-onboarding get-started checklist — client component, self-hiding */}
+      <GetStartedChecklist />
+
       {/* Brain — operational layer (top of dashboard when enabled).
           Streams in via Suspense so the rest of the dashboard doesn't block
           on the brain dashboard's cached-but-still-not-instant fetch. */}
@@ -191,17 +218,6 @@ export default async function PortalDashboardPage() {
       ) : (
         <EnableBrainBanner />
       )}
-
-      {/* Core Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {coreStats.map((s) => (
-          <Link key={s.label} href={s.href} className="bg-card border border-border rounded-xl p-5 hover:border-primary/50 transition-colors">
-            <span className={`material-icons text-2xl ${s.color}`}>{s.icon}</span>
-            <p className="mt-3 text-2xl font-bold text-foreground">{s.value}</p>
-            <p className="text-sm text-muted-foreground">{s.label}</p>
-          </Link>
-        ))}
-      </div>
 
       {/* Active Services */}
       {activeServices.length > 0 && (
@@ -245,60 +261,31 @@ export default async function PortalDashboardPage() {
       {/* AI Credits */}
       <CreditBalance />
 
-      {/* Recent Activity */}
-      <div className="grid lg:grid-cols-2 gap-6">
-        <div className="bg-card border border-border rounded-xl p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-semibold text-foreground">Recent Tickets</h2>
-            <Link href="/portal/tickets" className="text-xs text-primary hover:underline">View all</Link>
-          </div>
-          {recentTickets.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-4 text-center">No tickets yet.</p>
-          ) : (
-            <ul className="space-y-2">
-              {recentTickets.map((t) => (
-                <li key={t.id}>
-                  <Link href={`/portal/tickets/${t.id}`} className="flex items-start justify-between gap-2 hover:bg-accent p-2 rounded-lg transition-colors">
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-foreground truncate">#{t.number} {t.subject}</p>
-                      <p className="text-xs text-muted-foreground">{new Date(t.createdAt).toLocaleDateString()}</p>
-                    </div>
-                    <span className={`shrink-0 text-xs px-2 py-0.5 rounded-full font-medium ${ticketStatusColor(t.status)}`}>
-                      {t.status.replace('_', ' ')}
-                    </span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-
-        <div className="bg-card border border-border rounded-xl p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-semibold text-foreground">Recent Invoices</h2>
-            <Link href="/portal/invoices" className="text-xs text-primary hover:underline">View all</Link>
-          </div>
-          {recentInvoices.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-4 text-center">No invoices yet.</p>
-          ) : (
-            <ul className="space-y-2">
-              {recentInvoices.map((inv) => (
-                <li key={inv.id}>
-                  <Link href={`/portal/invoices/${inv.id}`} className="flex items-start justify-between gap-2 hover:bg-accent p-2 rounded-lg transition-colors">
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-foreground">{inv.number}</p>
-                      <p className="text-xs text-muted-foreground">{formatCents(inv.total)}</p>
-                    </div>
-                    <span className={`shrink-0 text-xs px-2 py-0.5 rounded-full font-medium ${invoiceStatusColor(inv.status)}`}>
-                      {invoiceStatusLabel(inv.status)}
-                    </span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      </div>
+      {/* Widget Board — replaces the old static Recent Activity grid */}
+      <WidgetBoard
+        widgets={visibleWidgets.map(w => ({ id: w.id, title: w.title, icon: w.icon, href: w.href }))}
+        allAvailable={availableWidgets.map(w => ({
+          id: w.id,
+          title: w.title,
+          icon: w.icon,
+          href: w.href,
+          description: w.description,
+          visible: !dashboardPrefs.hidden?.includes(w.id),
+          solution: w.solution,
+        }))}
+        initialPrefs={dashboardPrefs}
+        slots={Object.fromEntries(
+          visibleWidgets.map(w => {
+            const WidgetComponent = WIDGET_COMPONENTS[w.id];
+            return [
+              w.id,
+              <Suspense key={w.id} fallback={<WidgetSkeleton />}>
+                <WidgetComponent clientId={client.id} userId={userId} />
+              </Suspense>,
+            ];
+          }),
+        )}
+      />
 
       {/* Bundle Upsell */}
       {showBundleUpsell && bundleService && (
@@ -310,7 +297,7 @@ export default async function PortalDashboardPage() {
                 <h3 className="font-bold text-foreground">Save ${(bundleSavings / 100).toFixed(0)}/mo with All-In-One</h3>
               </div>
               <p className="text-sm text-muted-foreground max-w-lg">
-                You're using {activeServices.length} services individually. Get all 7 tools for ${(bundleService.price / 100).toFixed(0)}/mo with 900K pooled AI tokens and higher usage limits.
+                You&apos;re using {activeServices.length} services individually. Get all 7 tools for ${(bundleService.price / 100).toFixed(0)}/mo with 900K pooled AI tokens and higher usage limits.
               </p>
             </div>
             <Link href={`/portal/services/${bundleService.id}/request`}

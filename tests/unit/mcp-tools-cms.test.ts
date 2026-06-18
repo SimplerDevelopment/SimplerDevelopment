@@ -439,11 +439,26 @@ describe('sites_list', () => {
 describe('posts_list', () => {
   beforeEach(resetDbState);
 
-  it('lists agency posts (no websiteId)', async () => {
-    dbState.selectQueue = [[{ id: 10, title: 'X' }]];
+  it('scopes to the client-owned websites when no websiteId given', async () => {
+    // Tenancy: omitting websiteId must NOT return every post across every
+    // client. The handler first looks up this client's website ids, then
+    // restricts the posts query to them via inArray.
+    dbState.selectQueue = [
+      [{ id: 5 }],                 // client's owned website ids
+      [{ id: 10, title: 'X' }],    // posts scoped to those ids
+    ];
     const tools = registerAll();
     const res = await tools.get('posts_list')!.handler({});
     expect(parseJson(res)).toEqual([{ id: 10, title: 'X' }]);
+  });
+
+  it('returns empty when the client owns no websites', async () => {
+    dbState.selectQueue = [
+      [], // no owned websites → nothing to scope to
+    ];
+    const tools = registerAll();
+    const res = await tools.get('posts_list')!.handler({});
+    expect(parseJson(res)).toEqual([]);
   });
 
   it('returns Site not found when websiteId is foreign', async () => {

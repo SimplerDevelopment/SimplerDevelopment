@@ -381,8 +381,36 @@ async function seedAdminE2E() {
       console.log('Created White Label Domain service');
     }
 
+    // All-features bundle so the E2E tenant is fully entitled. `hasServiceAccess`
+    // (lib/portal-auth.ts) and the brain/MCP guards treat an active service whose
+    // category is `bundle` as access to EVERY feature category — without this the
+    // full suite fails ~250 specs with 402/403 (only @critical avoids the gated
+    // domains). Entitlement-*gate* tests use their own unentitled tenants, so
+    // granting the bundle to the shared e2e client is safe.
+    let bundleSvc = (await db.select().from(services).where(eq(services.slug, 'e2e-all-access-bundle')).limit(1))[0];
+    if (!bundleSvc) {
+      [bundleSvc] = await db.insert(services).values({
+        name: 'E2E All-Access Bundle',
+        slug: 'e2e-all-access-bundle',
+        description: 'Grants every feature category to the E2E test tenant.',
+        category: 'bundle',
+        price: 0,
+        billingCycle: 'monthly',
+        active: true,
+        includedAiCredits: 1000000,
+      }).returning();
+      console.log('Created E2E All-Access Bundle service');
+    }
+
     // Client subscriptions
     await db.insert(clientServices).values([
+      {
+        clientId,
+        serviceId: bundleSvc.id,
+        status: 'active',
+        startDate: new Date('2026-01-01'),
+        notes: 'All-access bundle — full feature entitlement for E2E',
+      },
       {
         clientId,
         serviceId: maintenanceSvc.id,

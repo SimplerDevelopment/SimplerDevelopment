@@ -26,8 +26,10 @@ vi.mock('@/lib/auth', () => ({
 }));
 
 const getPortalClientMock = vi.fn();
+const resolvePortalSiteMock = vi.fn();
 vi.mock('@/lib/portal-client', () => ({
   getPortalClient: (...args: unknown[]) => getPortalClientMock(...args),
+  resolvePortalSite: (...args: unknown[]) => resolvePortalSiteMock(...args),
 }));
 
 const removeDomainMock = vi.fn();
@@ -251,6 +253,7 @@ beforeEach(() => {
   deleteCalls.length = 0;
   authMock.mockReset();
   getPortalClientMock.mockReset();
+  resolvePortalSiteMock.mockReset();
   removeDomainMock.mockReset();
   verifyDomainMock.mockReset();
   resolveDomainProjectIdMock.mockReset();
@@ -258,6 +261,8 @@ beforeEach(() => {
   snapshotEnvironmentMock.mockReset();
   // Default resolveDomainProjectId returns a stable string id.
   resolveDomainProjectIdMock.mockImplementation((id: string | null | undefined) => id ?? 'platform');
+  // Default resolvePortalSite returns a valid site+client pair
+  resolvePortalSiteMock.mockResolvedValue({ site: { id: 1, clientId: 5, vercelProjectId: 'prj_abc' }, client: { id: 5 } });
 });
 
 // ===========================================================================
@@ -283,16 +288,7 @@ describe('DELETE /api/portal/websites/[siteId]/domains/[domainId]', () => {
 
   it('returns 404 when client cannot be resolved', async () => {
     authMock.mockResolvedValue(SESSION);
-    getPortalClientMock.mockResolvedValue(null);
-    const res = await domainRoute.DELETE(makeReq('http://x/'), { params: reparams() });
-    expect(res.status).toBe(404);
-    expect((await res.json()).message).toBe('Client not found');
-  });
-
-  it('returns 404 when site is not found', async () => {
-    authMock.mockResolvedValue(SESSION);
-    getPortalClientMock.mockResolvedValue({ id: 5 });
-    selectQueue.push([]); // site lookup empty
+    resolvePortalSiteMock.mockResolvedValue(null);
     const res = await domainRoute.DELETE(makeReq('http://x/'), { params: reparams() });
     expect(res.status).toBe(404);
     expect((await res.json()).message).toBe('Website not found');
@@ -300,8 +296,6 @@ describe('DELETE /api/portal/websites/[siteId]/domains/[domainId]', () => {
 
   it('returns 404 when domain is not found', async () => {
     authMock.mockResolvedValue(SESSION);
-    getPortalClientMock.mockResolvedValue({ id: 5 });
-    selectQueue.push([{ id: 1, clientId: 5, vercelProjectId: 'prj_abc' }]);
     selectQueue.push([]); // domain lookup empty
     const res = await domainRoute.DELETE(makeReq('http://x/'), { params: reparams() });
     expect(res.status).toBe(404);
@@ -310,8 +304,6 @@ describe('DELETE /api/portal/websites/[siteId]/domains/[domainId]', () => {
 
   it('deletes a non-primary domain successfully', async () => {
     authMock.mockResolvedValue(SESSION);
-    getPortalClientMock.mockResolvedValue({ id: 5 });
-    selectQueue.push([{ id: 1, clientId: 5, vercelProjectId: 'prj_abc' }]);
     selectQueue.push([
       { id: 10, websiteId: 1, domain: 'extra.com', isPrimary: false },
     ]);
@@ -330,8 +322,6 @@ describe('DELETE /api/portal/websites/[siteId]/domains/[domainId]', () => {
 
   it('promotes the next domain to primary when deleting a primary with siblings', async () => {
     authMock.mockResolvedValue(SESSION);
-    getPortalClientMock.mockResolvedValue({ id: 5 });
-    selectQueue.push([{ id: 1, clientId: 5, vercelProjectId: 'prj_abc' }]);
     selectQueue.push([
       { id: 10, websiteId: 1, domain: 'old.com', isPrimary: true },
     ]);
@@ -355,8 +345,6 @@ describe('DELETE /api/portal/websites/[siteId]/domains/[domainId]', () => {
 
   it('clears the legacy domain column when deleting the last primary', async () => {
     authMock.mockResolvedValue(SESSION);
-    getPortalClientMock.mockResolvedValue({ id: 5 });
-    selectQueue.push([{ id: 1, clientId: 5, vercelProjectId: 'prj_abc' }]);
     selectQueue.push([
       { id: 10, websiteId: 1, domain: 'only.com', isPrimary: true },
     ]);
@@ -371,8 +359,6 @@ describe('DELETE /api/portal/websites/[siteId]/domains/[domainId]', () => {
 
   it('still deletes the DB row when Vercel removal throws (non-fatal)', async () => {
     authMock.mockResolvedValue(SESSION);
-    getPortalClientMock.mockResolvedValue({ id: 5 });
-    selectQueue.push([{ id: 1, clientId: 5, vercelProjectId: 'prj_abc' }]);
     selectQueue.push([
       { id: 10, websiteId: 1, domain: 'flaky.com', isPrimary: false },
     ]);
@@ -402,19 +388,7 @@ describe('PATCH /api/portal/websites/[siteId]/domains/[domainId]', () => {
 
   it('returns 404 when client cannot be resolved', async () => {
     authMock.mockResolvedValue(SESSION);
-    getPortalClientMock.mockResolvedValue(null);
-    const res = await domainRoute.PATCH(
-      makeJsonReq('http://x/', 'PATCH', { isPrimary: true }),
-      { params: reparams() },
-    );
-    expect(res.status).toBe(404);
-    expect((await res.json()).message).toBe('Client not found');
-  });
-
-  it('returns 404 when site is not found', async () => {
-    authMock.mockResolvedValue(SESSION);
-    getPortalClientMock.mockResolvedValue({ id: 5 });
-    selectQueue.push([]);
+    resolvePortalSiteMock.mockResolvedValue(null);
     const res = await domainRoute.PATCH(
       makeJsonReq('http://x/', 'PATCH', { isPrimary: true }),
       { params: reparams() },
@@ -425,9 +399,7 @@ describe('PATCH /api/portal/websites/[siteId]/domains/[domainId]', () => {
 
   it('returns 404 when domain is not found', async () => {
     authMock.mockResolvedValue(SESSION);
-    getPortalClientMock.mockResolvedValue({ id: 5 });
-    selectQueue.push([{ id: 1, clientId: 5 }]);
-    selectQueue.push([]);
+    selectQueue.push([]); // domain lookup empty
     const res = await domainRoute.PATCH(
       makeJsonReq('http://x/', 'PATCH', { isPrimary: true }),
       { params: reparams() },
@@ -438,8 +410,6 @@ describe('PATCH /api/portal/websites/[siteId]/domains/[domainId]', () => {
 
   it('promotes the domain to primary when body.isPrimary is true', async () => {
     authMock.mockResolvedValue(SESSION);
-    getPortalClientMock.mockResolvedValue({ id: 5 });
-    selectQueue.push([{ id: 1, clientId: 5 }]);
     selectQueue.push([
       { id: 10, websiteId: 1, domain: 'newprimary.com', isPrimary: false },
     ]);
@@ -464,8 +434,6 @@ describe('PATCH /api/portal/websites/[siteId]/domains/[domainId]', () => {
 
   it('is a no-op when body.isPrimary is false/absent', async () => {
     authMock.mockResolvedValue(SESSION);
-    getPortalClientMock.mockResolvedValue({ id: 5 });
-    selectQueue.push([{ id: 1, clientId: 5 }]);
     selectQueue.push([{ id: 10, websiteId: 1, domain: 'x.com', isPrimary: false }]);
 
     const res = await domainRoute.PATCH(
@@ -492,16 +460,7 @@ describe('POST /api/portal/websites/[siteId]/domains/[domainId]/verify', () => {
 
   it('returns 404 when client cannot be resolved', async () => {
     authMock.mockResolvedValue(SESSION);
-    getPortalClientMock.mockResolvedValue(null);
-    const res = await domainVerifyRoute.POST(makeReq('http://x/'), { params: reparams() });
-    expect(res.status).toBe(404);
-    expect((await res.json()).message).toBe('Client not found');
-  });
-
-  it('returns 404 when site is not found', async () => {
-    authMock.mockResolvedValue(SESSION);
-    getPortalClientMock.mockResolvedValue({ id: 5 });
-    selectQueue.push([]);
+    resolvePortalSiteMock.mockResolvedValue(null);
     const res = await domainVerifyRoute.POST(makeReq('http://x/'), { params: reparams() });
     expect(res.status).toBe(404);
     expect((await res.json()).message).toBe('Website not found');
@@ -509,9 +468,7 @@ describe('POST /api/portal/websites/[siteId]/domains/[domainId]/verify', () => {
 
   it('returns 404 when domain is not found', async () => {
     authMock.mockResolvedValue(SESSION);
-    getPortalClientMock.mockResolvedValue({ id: 5 });
-    selectQueue.push([{ id: 1, clientId: 5, vercelProjectId: 'prj_abc' }]);
-    selectQueue.push([]);
+    selectQueue.push([]); // domain lookup empty
     const res = await domainVerifyRoute.POST(makeReq('http://x/'), { params: reparams() });
     expect(res.status).toBe(404);
     expect((await res.json()).message).toBe('Domain not found');
@@ -519,8 +476,6 @@ describe('POST /api/portal/websites/[siteId]/domains/[domainId]/verify', () => {
 
   it('returns verified=true and updates DB when verifier returns clean state', async () => {
     authMock.mockResolvedValue(SESSION);
-    getPortalClientMock.mockResolvedValue({ id: 5 });
-    selectQueue.push([{ id: 1, clientId: 5, vercelProjectId: 'prj_abc' }]);
     selectQueue.push([{ id: 10, websiteId: 1, domain: 'good.com' }]);
     verifyDomainMock.mockResolvedValue({
       verified: true,
@@ -546,8 +501,6 @@ describe('POST /api/portal/websites/[siteId]/domains/[domainId]/verify', () => {
 
   it('returns verified=true but no DB update when misconfigured', async () => {
     authMock.mockResolvedValue(SESSION);
-    getPortalClientMock.mockResolvedValue({ id: 5 });
-    selectQueue.push([{ id: 1, clientId: 5, vercelProjectId: 'prj_abc' }]);
     selectQueue.push([{ id: 10, websiteId: 1, domain: 'half.com' }]);
     verifyDomainMock.mockResolvedValue({
       verified: true,
@@ -567,8 +520,6 @@ describe('POST /api/portal/websites/[siteId]/domains/[domainId]/verify', () => {
 
   it('returns verified=false with pending message', async () => {
     authMock.mockResolvedValue(SESSION);
-    getPortalClientMock.mockResolvedValue({ id: 5 });
-    selectQueue.push([{ id: 1, clientId: 5, vercelProjectId: 'prj_abc' }]);
     selectQueue.push([{ id: 10, websiteId: 1, domain: 'pending.com' }]);
     verifyDomainMock.mockResolvedValue({
       verified: false,
@@ -588,8 +539,6 @@ describe('POST /api/portal/websites/[siteId]/domains/[domainId]/verify', () => {
 
   it('returns 500 when verifyDomain throws', async () => {
     authMock.mockResolvedValue(SESSION);
-    getPortalClientMock.mockResolvedValue({ id: 5 });
-    selectQueue.push([{ id: 1, clientId: 5, vercelProjectId: 'prj_abc' }]);
     selectQueue.push([{ id: 10, websiteId: 1, domain: 'boom.com' }]);
     verifyDomainMock.mockRejectedValue(new Error('vercel exploded'));
 
@@ -602,8 +551,6 @@ describe('POST /api/portal/websites/[siteId]/domains/[domainId]/verify', () => {
 
   it('returns 500 with default message when verifyDomain throws non-Error', async () => {
     authMock.mockResolvedValue(SESSION);
-    getPortalClientMock.mockResolvedValue({ id: 5 });
-    selectQueue.push([{ id: 1, clientId: 5, vercelProjectId: 'prj_abc' }]);
     selectQueue.push([{ id: 10, websiteId: 1, domain: 'weird.com' }]);
     verifyDomainMock.mockRejectedValue('string thrown');
 

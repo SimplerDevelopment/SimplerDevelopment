@@ -4,11 +4,16 @@ import { db } from '@/lib/db';
 import { crmContracts, crmContractSigners, crmContacts, crmCompanies, crmDeals } from '@/lib/db/schema';
 import { eq, and, desc, sql } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
+import { authorizePortal, isAuthError } from '@/lib/portal-auth';
 import crypto from 'crypto';
 
 export async function GET(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ success: false }, { status: 401 });
+
+  const authResult = await authorizePortal({ action: 'read', requireService: 'esign' });
+  if (isAuthError(authResult)) return authResult.response;
+
   const client = await getPortalClient(parseInt(session.user.id, 10));
   if (!client) return NextResponse.json({ success: false }, { status: 404 });
 
@@ -70,6 +75,10 @@ export async function GET(req: NextRequest) {
 export async function POST(req: Request) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ success: false }, { status: 401 });
+
+  const authResult = await authorizePortal({ action: 'write', requireService: 'esign' });
+  if (isAuthError(authResult)) return authResult.response;
+
   const userId = parseInt(session.user.id, 10);
   const client = await getPortalClient(userId);
   if (!client) return NextResponse.json({ success: false }, { status: 404 });

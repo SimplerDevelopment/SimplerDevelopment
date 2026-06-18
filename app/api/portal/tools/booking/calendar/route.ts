@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { bookingPages, bookings, bookingPageMembers, users } from '@/lib/db/schema';
-import { eq, and, gte, lte, ne } from 'drizzle-orm';
+import { eq, and, gte, lte, ne, inArray } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
 import { authorizePortal, isAuthError } from '@/lib/portal-auth';
 
@@ -29,8 +29,18 @@ export async function GET(req: Request) {
   const start = new Date(startDate);
   const end = new Date(endDate);
 
-  // Get all bookings for this client in the date range
-  let query = db
+  // Fetch the tenant's booking page IDs first — used both to scope the
+  // bookings query (prevent cross-tenant leak) and to fetch members below.
+  const pages = await db.select({ id: bookingPages.id }).from(bookingPages)
+    .where(eq(bookingPages.clientId, client.id));
+  const pageIds = pages.map(p => p.id);
+
+  if (pageIds.length === 0) {
+    return NextResponse.json({ success: true, data: { bookings: [], members: [] } });
+  }
+
+  // Get all bookings for this client in the date range, scoped to tenant pages
+  const query = db
     .select({
       id: bookings.id,
       bookingPageId: bookings.bookingPageId,
@@ -50,6 +60,7 @@ export async function GET(req: Request) {
     .innerJoin(bookingPages, eq(bookingPages.id, bookings.bookingPageId))
     .where(and(
       eq(bookings.clientId, client.id),
+      inArray(bookings.bookingPageId, pageIds),
       ne(bookings.status, 'cancelled'),
       gte(bookings.startTime, start),
       lte(bookings.startTime, end),
@@ -63,13 +74,7 @@ export async function GET(req: Request) {
     const memberId = parseInt(memberFilter);
     allBookings = allBookings.filter(b => b.assignedTo === memberId);
   }
-
-  // Get all page members for color coding
-  const pages = await db.select({ id: bookingPages.id }).from(bookingPages)
-    .where(eq(bookingPages.clientId, client.id));
-  const pageIds = pages.map(p => p.id);
-
-  const members = pageIds.length > 0 ? await db
+  const members = await db
     .select({
       id: bookingPageMembers.id,
       bookingPageId: bookingPageMembers.bookingPageId,
@@ -80,7 +85,12 @@ export async function GET(req: Request) {
     })
     .from(bookingPageMembers)
     .innerJoin(users, eq(users.id, bookingPageMembers.userId))
-    .where(eq(bookingPageMembers.active, true)) : [];
+    .where(
+      and(
+        inArray(bookingPageMembers.bookingPageId, pageIds),
+        eq(bookingPageMembers.active, true),
+      )
+    );
 
   // Build member color map
   const memberMap = new Map<number, { name: string; color: string }>();

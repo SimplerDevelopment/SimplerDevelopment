@@ -110,6 +110,13 @@ export interface BrainEnabledModules {
   calendar: boolean;
 }
 
+// Per-client brain-agent preferences (JSON blob on the brain profile; all keys optional).
+export type AgentPreferences = {
+  preferredFormat?: 'bullets' | 'prose';
+  responseLength?: 'brief' | 'thorough';
+  frequentAreas?: string[];
+};
+
 export const brainProfiles = pgTable('brain_profiles', {
   id: serial('id').primaryKey(),
   clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }).unique(),
@@ -129,6 +136,7 @@ export const brainProfiles = pgTable('brain_profiles', {
     calendar: true,
   }).notNull(),
   serviceLines: json('service_lines').$type<string[]>().default([]).notNull(),
+  agentPreferences: json('agent_preferences').$type<AgentPreferences>().default({}).notNull(),
   // Per-tenant token for the inbound email gateway. Inbound mail at
   // `brain+<token>@simplerdevelopment.com` is routed to this profile. Treat
   // as a shared secret — rotate to revoke external sender access.

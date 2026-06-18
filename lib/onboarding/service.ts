@@ -2,7 +2,7 @@
 // they just authenticate, parse, and delegate here.
 
 import { db } from '@/lib/db';
-import { users, clients, userOnboarding, brandingProfiles, brandingMessaging } from '@/lib/db/schema';
+import { users, clients, userOnboarding, brandingProfiles, brandingMessaging, clientServices } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
 import type { OnboardingAnswers, OnboardingStep, OnboardingState } from './types';
 import { ONBOARDING_STEPS } from './types';
@@ -19,7 +19,15 @@ export async function loadOnboarding(userId: number, clientId: number | null): P
     .where(eq(userOnboarding.userId, userId))
     .limit(1);
 
-  if (!existing) {
+  // Fetch user first — validates existence before any insert to prevent FK violations
+  // from stale JWT sessions referencing deleted/deactivated users (user_onboarding_user_id_users_id_fk).
+  const [user] = await db
+    .select({ name: users.name, email: users.email })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+
+  if (!existing && user) {
     await db.insert(userOnboarding).values({
       userId,
       clientId: clientId ?? null,
@@ -34,22 +42,27 @@ export async function loadOnboarding(userId: number, clientId: number | null): P
     .where(eq(userOnboarding.userId, userId))
     .limit(1);
 
-  const [user] = await db
-    .select({ name: users.name, email: users.email })
-    .from(users)
-    .where(eq(users.id, userId))
-    .limit(1);
-
   let company = '';
   let website = '';
+  let showBillingSteps = false;
   if (clientId) {
     const [c] = await db
-      .select({ company: clients.company, website: clients.website })
+      .select({ company: clients.company, website: clients.website, billingMode: clients.billingMode })
       .from(clients)
       .where(eq(clients.id, clientId))
       .limit(1);
     company = c?.company ?? '';
     website = c?.website ?? '';
+
+    if (c?.billingMode === 'saas') {
+      // Show billing steps only while the client has no active module subscription.
+      const [activeService] = await db
+        .select({ id: clientServices.id })
+        .from(clientServices)
+        .where(and(eq(clientServices.clientId, clientId), eq(clientServices.status, 'active')))
+        .limit(1);
+      showBillingSteps = !activeService;
+    }
   }
 
   return {
@@ -62,6 +75,7 @@ export async function loadOnboarding(userId: number, clientId: number | null): P
       company,
       website,
     },
+    showBillingSteps,
   };
 }
 
@@ -74,13 +88,16 @@ export async function saveOnboardingStep(args: {
 }): Promise<OnboardingState> {
   const { userId, clientId, step, patch } = args;
 
-  // Ensure row exists.
-  await db.insert(userOnboarding).values({
-    userId,
-    clientId: clientId ?? null,
-    step: 'welcome',
-    answers: {},
-  }).onConflictDoNothing();
+  // Ensure row exists — guard against stale sessions for deleted users.
+  const [userExists] = await db.select({ id: users.id }).from(users).where(eq(users.id, userId)).limit(1);
+  if (userExists) {
+    await db.insert(userOnboarding).values({
+      userId,
+      clientId: clientId ?? null,
+      step: 'welcome',
+      answers: {},
+    }).onConflictDoNothing();
+  }
 
   const [current] = await db
     .select()

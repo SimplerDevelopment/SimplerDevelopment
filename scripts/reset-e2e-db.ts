@@ -79,6 +79,12 @@ async function run() {
         } catch (err) {
           const msg = (err as Error).message;
           if (/already exists|does not exist/i.test(msg)) continue;
+          // Hand-written perf-index migrations (e.g. 9996) bundle multiple
+          // `CREATE INDEX CONCURRENTLY` statements without `--> statement-breakpoint`
+          // markers, so they run as one implicit-transaction batch and fail with
+          // "cannot run inside a transaction block". These indexes are pure perf
+          // and irrelevant to a throwaway e2e DB — skip them.
+          if (/cannot run inside a transaction block/i.test(msg)) continue;
           throw new Error(`Migration ${file} failed: ${msg}\nStatement: ${stmt.slice(0, 200)}`);
         }
       }

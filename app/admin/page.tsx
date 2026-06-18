@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { formatCents, ticketStatusColor, priorityColor, invoiceStatusColor, orderStatusColor } from '@/lib/portal-utils';
+import { fetchJsonSafe } from '@/lib/admin/fetch-json-safe';
 
 interface DashboardData {
   clients: { total: number; active: number };
@@ -29,11 +30,32 @@ interface DashboardData {
 export default function AdminDashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+
+  async function loadDashboard() {
+    setLoading(true);
+    setFetchError(null);
+    const result = await fetchJsonSafe<{ success: boolean; data: DashboardData }>('/api/admin/dashboard');
+    if (result.ok && result.data.success) {
+      setData(result.data.data);
+    } else {
+      setFetchError(result.ok ? 'Server returned an error.' : result.error);
+    }
+    setLoading(false);
+  }
 
   useEffect(() => {
-    fetch('/api/admin/dashboard')
-      .then(r => r.json())
-      .then(d => { if (d.success) setData(d.data); setLoading(false); });
+    void (async () => {
+      setLoading(true);
+      setFetchError(null);
+      const result = await fetchJsonSafe<{ success: boolean; data: DashboardData }>('/api/admin/dashboard');
+      if (result.ok && result.data.success) {
+        setData(result.data.data);
+      } else {
+        setFetchError(result.ok ? 'Server returned an error.' : result.error);
+      }
+      setLoading(false);
+    })();
   }, []);
 
   if (loading) {
@@ -44,9 +66,28 @@ export default function AdminDashboard() {
     );
   }
 
-  if (!data) {
+  if (fetchError || !data) {
     return (
-      <div className="p-8 text-center text-muted-foreground">Failed to load dashboard data.</div>
+      <div className="flex items-center justify-center h-[60vh] p-6">
+        <div className="bg-card border border-border rounded-lg p-8 max-w-md w-full space-y-4 text-center">
+          <div className="flex items-center justify-center w-12 h-12 mx-auto rounded-full bg-destructive/10">
+            <span className="material-icons text-destructive text-2xl">error_outline</span>
+          </div>
+          <div>
+            <h2 className="text-base font-semibold text-foreground">Failed to load dashboard</h2>
+            {fetchError && (
+              <p className="text-xs text-muted-foreground mt-1 font-mono">{fetchError}</p>
+            )}
+          </div>
+          <button
+            onClick={loadDashboard}
+            className="flex items-center gap-2 mx-auto px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
+          >
+            <span className="material-icons text-base">refresh</span>
+            Try again
+          </button>
+        </div>
+      </div>
     );
   }
 

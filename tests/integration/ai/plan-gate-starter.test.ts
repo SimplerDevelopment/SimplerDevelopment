@@ -4,10 +4,15 @@
  * `tests/unit/ai-plan-gate.test.ts` but exercises the live SQL rather than
  * mock chains.
  *
- *   tier=starter, no BYOK key  → blocked, message names "Starter tier"
+ * Post "BYOK inversion" contract:
+ *   tier=starter, no BYOK key  → allowed (platform AI; BYOK is Scale-only option)
  *   tier=starter, with BYOK    → allowed
  *   tier=growth, no BYOK       → allowed
  *   tier=scale,  no BYOK       → allowed
+ *
+ * `hasAnyByok` is still reported faithfully for metering/telemetry — we assert
+ * it here to ensure the helper still fires correctly even though it no longer
+ * gates access.
  *
  * Schema knobs we drive (lib/db/schema/sites.ts):
  *   services.category    = 'subscription'
@@ -65,19 +70,21 @@ describe('checkAiPlanGate @byok @ai @plan-gate', () => {
     ctx = await sessionForNewClientUser('plan-gate');
   });
 
-  it('Starter tier without BYOK → blocked with the documented message', async () => {
+  it('Starter tier without BYOK → allowed (platform AI covers all paid tiers)', async () => {
     await seedTier(ctx.client.id, 'starter');
 
     const verdict = await checkAiPlanGate({ clientId: ctx.client.id, provider: 'anthropic' });
 
-    expect(verdict.allowed).toBe(false);
+    expect(verdict.allowed).toBe(true);
     expect(verdict.tier).toBe('starter');
-    expect(verdict.reason).toBe('starter_requires_byok');
-    expect(verdict.message).toMatch(/AI is unavailable on Starter tier/);
+    // Post-inversion: no reason or message is set; gate is open.
+    expect(verdict.reason).toBeUndefined();
+    expect(verdict.message).toBeUndefined();
+    // hasAnyByok is still reported correctly for telemetry.
     expect(verdict.hasAnyByok).toBe(false);
   });
 
-  it('Starter tier WITH a matching BYOK key → allowed', async () => {
+  it('Starter tier WITH a matching BYOK key → still allowed (BYOK is additive, not required)', async () => {
     await seedTier(ctx.client.id, 'starter');
     await seedByok(ctx.client.id, 'anthropic', `sk-ant-api03-${'P'.repeat(86)}PP`);
 
@@ -109,18 +116,18 @@ describe('checkAiPlanGate @byok @ai @plan-gate', () => {
     expect(verdict.hasAnyByok).toBe(false);
   });
 
-  it('Starter on OpenAI without BYOK → blocked with provider-specific copy', async () => {
+  it('Starter on OpenAI without matching BYOK → still allowed (gate is tier-level, not per-provider)', async () => {
     await seedTier(ctx.client.id, 'starter');
-    // Even though an Anthropic BYOK exists, OpenAI requests still fail —
-    // the gate is per-provider.
+    // Only an Anthropic key exists — OpenAI BYOK is absent.
+    // Post-inversion the gate is open for all providers on any tier.
     await seedByok(ctx.client.id, 'anthropic', `sk-ant-api03-${'X'.repeat(86)}XX`);
 
     const verdict = await checkAiPlanGate({ clientId: ctx.client.id, provider: 'openai' });
 
-    expect(verdict.allowed).toBe(false);
+    expect(verdict.allowed).toBe(true);
     expect(verdict.tier).toBe('starter');
-    expect(verdict.reason).toBe('starter_requires_byok');
-    expect(verdict.message).toMatch(/OpenAI/);
-    expect(verdict.hasAnyByok).toBe(true); // anthropic key present
+    expect(verdict.reason).toBeUndefined();
+    // hasAnyByok reflects that *some* BYOK key exists (Anthropic in this case).
+    expect(verdict.hasAnyByok).toBe(true);
   });
 });

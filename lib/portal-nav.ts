@@ -15,6 +15,13 @@ export interface PortalNavChild {
   // sub-feature names) without polluting the visible label.
   keywords?: string[];
   children?: PortalNavChild[];
+  /** Billing domain key that gates this item (matches FEATURE_DOMAINS[n].key). */
+  requiredDomain?: string;
+  /** Set by buildPortalNavItems when the client is not entitled to this domain. */
+  locked?: boolean;
+  /** Render a section divider above this item (separates product nav from the
+   *  account cluster at the bottom of the sidebar). */
+  dividerBefore?: boolean;
 }
 
 export interface PortalNavItem extends PortalNavChild {
@@ -26,16 +33,29 @@ export interface PortalNavItem extends PortalNavChild {
  * the user is already inside `/portal/websites/[siteId]/...` — palette callers
  * should pass `null` for activeSiteId when they don't have site context yet.
  *
+ * The tree is consolidated into a small set of top-level groups (Brain,
+ * Projects, CRM, Marketing, Websites) followed by an account cluster
+ * (Support, Billing, Agency, Settings) below a divider, so the sidebar stays
+ * scannable. Single-feature areas (Email, Publishing, Surveys, Pitches) live
+ * inside the "Marketing" group; Media + A/B + the active-site tree live inside
+ * "Websites".
+ *
  * The optional `apps` param injects an "Apps" group (one parent + one child
  * per installed plugin + grandchildren for each plugin's manifest nav items)
  * directly before the trailing "Settings" entry. Server callers that know
  * the active client's entitled apps pass them in; client callers that don't
  * have that context omit the param and get the unmodified base tree.
+ *
+ * The optional `entitlements` param gates top-level items by billing domain.
+ * When provided and `gatingBypassed` is false, any item whose `requiredDomain`
+ * is not in `domains` gets `locked: true` (children inherit the lock). When
+ * omitted or bypassed, all items are rendered as today.
  */
 export function buildPortalNavItems(
   activeSiteId: string | null,
   activeSiteName: string | null,
   apps?: UserAppNavMeta[],
+  entitlements?: { domains: Set<string>; gatingBypassed: boolean },
 ): PortalNavItem[] {
   const items: PortalNavItem[] = [
     { href: '/portal/dashboard', label: 'Dashboard', icon: 'dashboard', keywords: ['home', 'overview'] },
@@ -44,7 +64,8 @@ export function buildPortalNavItems(
       label: 'Company Brain',
       icon: 'psychology',
       exact: true,
-      keywords: ['ai', 'knowledge'],
+      requiredDomain: 'brain',
+      keywords: ['ai', 'knowledge', 'brain'],
       children: [
         // Calendar is intentionally hidden from sidebar + cmd-k. The page at
         // /portal/brain/calendar still renders for direct URL navigation.
@@ -75,6 +96,7 @@ export function buildPortalNavItems(
       label: 'Projects',
       icon: 'view_kanban',
       exact: true,
+      requiredDomain: 'projects',
       alsoActiveOn: '/portal/my-tasks',
       children: [
         { href: '/portal/projects', label: 'All Projects', icon: 'view_kanban', exact: true },
@@ -82,114 +104,166 @@ export function buildPortalNavItems(
       ],
     },
     {
-      href: '/portal/publishing',
-      label: 'Publishing',
-      icon: 'rocket_launch',
-      keywords: ['content calendar', 'publishing command center', 'schedule', 'blog', 'social', 'email blast'],
-      children: [
-        { href: '/portal/publishing/board', label: 'Board', icon: 'view_kanban' },
-        { href: '/portal/publishing/calendar', label: 'Calendar', icon: 'calendar_month', keywords: ['content calendar', 'schedule'] },
-        { href: '/portal/publishing/campaigns', label: 'Campaigns', icon: 'campaign' },
-        { href: '/portal/publishing/tags', label: 'Tags', icon: 'sell' },
-        { href: '/portal/publishing/permissions', label: 'Permissions', icon: 'lock' },
-      ],
-    },
-    {
       href: '/portal/crm',
       label: 'CRM',
       icon: 'contacts',
       exact: true,
+      requiredDomain: 'crm',
       keywords: ['customer relationship management', 'pipeline'],
       children: [
         { href: '/portal/crm', label: 'Dashboard', icon: 'dashboard', exact: true, keywords: ['crm home'] },
         { href: '/portal/crm/contacts', label: 'Contacts', icon: 'people', keywords: ['leads', 'people'] },
         { href: '/portal/crm/companies', label: 'Companies', icon: 'business', keywords: ['organizations', 'accounts'] },
         { href: '/portal/crm/deals', label: 'Deals', icon: 'handshake', keywords: ['pipeline', 'opportunities'] },
+        { href: '/portal/crm/contracts', label: 'Contracts', icon: 'description', keywords: ['agreements', 'esign', 'documents'] },
         { href: '/portal/crm/settings', label: 'Settings', icon: 'settings', keywords: ['crm settings', 'custom fields'] },
       ],
     },
     {
-      href: '/portal/email',
-      label: 'Email',
-      icon: 'email',
-      exact: true,
-      keywords: ['marketing', 'newsletters'],
+      // Marketing groups the outbound/content surfaces so they don't each take
+      // a top-level slot. Each child keeps its own requiredDomain gate.
+      href: '/portal/marketing',
+      label: 'Marketing',
+      icon: 'campaign',
+      keywords: ['marketing', 'email', 'publishing', 'surveys', 'proposals', 'content', 'outbound'],
       children: [
-        { href: '/portal/email', label: 'Dashboard', icon: 'dashboard', exact: true },
-        { href: '/portal/email/campaigns', label: 'Campaigns', icon: 'campaign' },
-        { href: '/portal/email/templates', label: 'Templates', icon: 'dynamic_feed' },
-        { href: '/portal/email/lists', label: 'Lists', icon: 'list_alt', keywords: ['mailing list', 'audiences'] },
-        { href: '/portal/email/segments', label: 'Segments', icon: 'filter_alt' },
-        { href: '/portal/email/analytics', label: 'Analytics', icon: 'analytics', keywords: ['stats', 'opens', 'clicks'] },
-        { href: '/portal/email/settings', label: 'Settings', icon: 'settings', keywords: ['email settings'] },
-      ],
-    },
-    {
-      href: '/portal/surveys',
-      label: 'Surveys',
-      icon: 'poll',
-      exact: true,
-      keywords: ['forms', 'questionnaires'],
-      children: [
-        { href: '/portal/surveys', label: 'All Surveys', icon: 'poll', exact: true },
-        { href: '/portal/surveys/new', label: 'New Survey', icon: 'add_circle', keywords: ['create survey'] },
-      ],
-    },
-    {
-      href: '/portal/tools/pitch-decks',
-      label: 'Pitches & Proposals',
-      icon: 'slideshow',
-      exact: true,
-      keywords: ['slides', 'presentations', 'proposals', 'quotes'],
-      children: [
-        { href: '/portal/tools/pitch-decks', label: 'Pitch Decks', icon: 'slideshow', exact: true, keywords: ['slides', 'presentations'] },
-        { href: '/portal/crm/proposals', label: 'Proposals', icon: 'request_quote', keywords: ['quotes'] },
-      ],
-    },
-    { href: '/portal/websites', label: 'Websites', icon: 'language', exact: true, keywords: ['sites', 'cms'] },
-    ...(activeSiteId
-      ? [{
-          href: `/portal/websites/${activeSiteId}`,
-          label: activeSiteName || 'Website',
-          icon: 'web',
+        {
+          href: '/portal/email',
+          label: 'Email',
+          icon: 'email',
           exact: true,
+          requiredDomain: 'email',
+          keywords: ['marketing', 'newsletters'],
           children: [
-            {
-              href: `/portal/websites/${activeSiteId}/entries`,
-              label: 'Content',
-              icon: 'article',
-              alsoActiveOn: `/portal/websites/${activeSiteId}/posts`,
-              keywords: ['pages', 'posts'],
-              children: [
-                { href: `/portal/websites/${activeSiteId}/entries`, label: 'Entries', icon: 'edit_note', alsoActiveOn: `/portal/websites/${activeSiteId}/posts` },
-                { href: `/portal/websites/${activeSiteId}/taxonomy`, label: 'Taxonomies', icon: 'account_tree', keywords: ['categories', 'tags'] },
-                { href: `/portal/websites/${activeSiteId}/content-types`, label: 'Content Types', icon: 'description' },
-              ],
-            },
-            {
-              href: `/portal/websites/${activeSiteId}/store`,
-              label: 'Store',
-              icon: 'shopping_cart',
-              exact: true,
-              keywords: ['ecommerce', 'shop'],
-              children: [
-                { href: `/portal/websites/${activeSiteId}/store/products`, label: 'Products', icon: 'inventory_2' },
-                { href: `/portal/websites/${activeSiteId}/store/orders`, label: 'Orders', icon: 'receipt_long' },
-                { href: `/portal/websites/${activeSiteId}/store/categories`, label: 'Categories', icon: 'category' },
-                { href: `/portal/websites/${activeSiteId}/store/discounts`, label: 'Discounts', icon: 'sell' },
-                { href: `/portal/websites/${activeSiteId}/store/shipping`, label: 'Shipping', icon: 'local_shipping' },
-                { href: `/portal/websites/${activeSiteId}/store/settings`, label: 'Store Settings', icon: 'settings' },
-              ],
-            },
-            { href: `/portal/websites/${activeSiteId}/email`, label: 'Website Emails', icon: 'email', keywords: ['transactional', 'site emails'] },
-            { href: `/portal/websites/${activeSiteId}/navigation`, label: 'Navigation', icon: 'menu', keywords: ['menus'] },
-            { href: `/portal/websites/${activeSiteId}/settings`, label: 'Website Settings', icon: 'settings' },
+            { href: '/portal/email', label: 'Dashboard', icon: 'dashboard', exact: true },
+            { href: '/portal/email/campaigns', label: 'Campaigns', icon: 'campaign' },
+            { href: '/portal/email/templates', label: 'Templates', icon: 'dynamic_feed' },
+            { href: '/portal/email/lists', label: 'Lists', icon: 'list_alt', keywords: ['mailing list', 'audiences'] },
+            { href: '/portal/email/segments', label: 'Segments', icon: 'filter_alt' },
+            { href: '/portal/email/analytics', label: 'Analytics', icon: 'analytics', keywords: ['stats', 'opens', 'clicks'] },
+            { href: '/portal/email/settings', label: 'Settings', icon: 'settings', keywords: ['email settings'] },
           ],
-        }]
-      : []
-    ),
-    { href: '/portal/media', label: 'Media', icon: 'perm_media', keywords: ['images', 'files', 'uploads'] },
-    { href: '/portal/experiments', label: 'A/B Experiments', icon: 'science', keywords: ['ab', 'a/b', 'split test', 'variant', 'experiment'] },
+        },
+        {
+          href: '/portal/publishing',
+          label: 'Publishing',
+          icon: 'rocket_launch',
+          requiredDomain: 'publishing',
+          keywords: ['content calendar', 'publishing command center', 'schedule', 'blog', 'social', 'email blast'],
+          children: [
+            { href: '/portal/publishing/board', label: 'Board', icon: 'view_kanban' },
+            { href: '/portal/publishing/calendar', label: 'Calendar', icon: 'calendar_month', keywords: ['content calendar', 'schedule'] },
+            { href: '/portal/publishing/campaigns', label: 'Campaigns', icon: 'campaign' },
+            { href: '/portal/publishing/tags', label: 'Tags', icon: 'sell' },
+            { href: '/portal/publishing/permissions', label: 'Permissions', icon: 'lock' },
+          ],
+        },
+        {
+          href: '/portal/surveys',
+          label: 'Surveys',
+          icon: 'poll',
+          exact: true,
+          requiredDomain: 'surveys',
+          keywords: ['forms', 'questionnaires'],
+          children: [
+            { href: '/portal/surveys', label: 'All Surveys', icon: 'poll', exact: true },
+            { href: '/portal/surveys/new', label: 'New Survey', icon: 'add_circle', keywords: ['create survey'] },
+          ],
+        },
+        {
+          href: '/portal/tools/pitch-decks',
+          label: 'Pitches & Proposals',
+          icon: 'slideshow',
+          exact: true,
+          requiredDomain: 'pitch-decks',
+          keywords: ['slides', 'presentations', 'proposals', 'quotes'],
+          children: [
+            { href: '/portal/tools/pitch-decks', label: 'Pitch Decks', icon: 'slideshow', exact: true, keywords: ['slides', 'presentations'] },
+            { href: '/portal/crm/proposals', label: 'Proposals', icon: 'request_quote', keywords: ['quotes'] },
+          ],
+        },
+      ],
+    },
+    {
+      // Websites consolidates the site list, Media, A/B experiments, and (when
+      // inside a site) that site's content/store/settings tree.
+      href: '/portal/websites',
+      label: 'Websites',
+      icon: 'language',
+      requiredDomain: 'websites',
+      keywords: ['sites', 'cms', 'media', 'experiments', 'ab', 'a/b'],
+      children: [
+        { href: '/portal/websites', label: 'All Sites', icon: 'language', exact: true, keywords: ['sites', 'cms'] },
+        ...(activeSiteId
+          ? [{
+              href: `/portal/websites/${activeSiteId}`,
+              label: activeSiteName || 'Current Site',
+              icon: 'web',
+              exact: true,
+              children: [
+                {
+                  href: `/portal/websites/${activeSiteId}/entries`,
+                  label: 'Content',
+                  icon: 'article',
+                  alsoActiveOn: `/portal/websites/${activeSiteId}/posts`,
+                  keywords: ['pages', 'posts'],
+                  children: [
+                    { href: `/portal/websites/${activeSiteId}/entries`, label: 'Entries', icon: 'edit_note', alsoActiveOn: `/portal/websites/${activeSiteId}/posts` },
+                    { href: `/portal/websites/${activeSiteId}/taxonomy`, label: 'Taxonomies', icon: 'account_tree', keywords: ['categories', 'tags'] },
+                    { href: `/portal/websites/${activeSiteId}/content-types`, label: 'Content Types', icon: 'description' },
+                  ],
+                },
+                {
+                  href: `/portal/websites/${activeSiteId}/store`,
+                  label: 'Store',
+                  icon: 'shopping_cart',
+                  exact: true,
+                  keywords: ['ecommerce', 'shop'],
+                  children: [
+                    { href: `/portal/websites/${activeSiteId}/store/products`, label: 'Products', icon: 'inventory_2' },
+                    { href: `/portal/websites/${activeSiteId}/store/orders`, label: 'Orders', icon: 'receipt_long' },
+                    { href: `/portal/websites/${activeSiteId}/store/categories`, label: 'Categories', icon: 'category' },
+                    { href: `/portal/websites/${activeSiteId}/store/discounts`, label: 'Discounts', icon: 'sell' },
+                    { href: `/portal/websites/${activeSiteId}/store/shipping`, label: 'Shipping', icon: 'local_shipping' },
+                    { href: `/portal/websites/${activeSiteId}/store/settings`, label: 'Store Settings', icon: 'settings' },
+                  ],
+                },
+                { href: `/portal/websites/${activeSiteId}/email`, label: 'Website Emails', icon: 'email', keywords: ['transactional', 'site emails'] },
+                { href: `/portal/websites/${activeSiteId}/navigation`, label: 'Navigation', icon: 'menu', keywords: ['menus'] },
+                { href: `/portal/websites/${activeSiteId}/settings`, label: 'Website Settings', icon: 'settings' },
+              ],
+            }]
+          : []
+        ),
+        { href: '/portal/media', label: 'Media', icon: 'perm_media', keywords: ['images', 'files', 'uploads'] },
+        { href: '/portal/experiments', label: 'A/B Experiments', icon: 'science', keywords: ['ab', 'a/b', 'split test', 'variant', 'experiment'] },
+      ],
+    },
+    {
+      // ── Account cluster (below the divider) ──────────────────────────────
+      // Support surfaces grouped so they don't each take a top-level slot.
+      href: '/portal/tickets',
+      label: 'Support',
+      icon: 'support_agent',
+      dividerBefore: true,
+      keywords: ['help desk', 'support', 'requests', 'tickets', 'chat', 'inbox', 'live chat'],
+      children: [
+        { href: '/portal/tickets', label: 'Tickets', icon: 'support_agent', exact: true, keywords: ['help desk', 'support', 'requests'] },
+        { href: '/portal/inbox', label: 'Live Chat', icon: 'forum', keywords: ['chat', 'conversations', 'messages', 'live chat', 'inbox'] },
+      ],
+    },
+    {
+      // Billing & account surfaces (invoices, purchasable services, hosting).
+      href: '/portal/invoices',
+      label: 'Billing',
+      icon: 'receipt_long',
+      keywords: ['billing', 'payments', 'charges', 'invoices', 'services', 'subscriptions', 'add-ons', 'hosting', 'dns', 'domains'],
+      children: [
+        { href: '/portal/invoices', label: 'Invoices', icon: 'receipt_long', exact: true, keywords: ['billing', 'payments', 'charges'] },
+        { href: '/portal/services', label: 'Services', icon: 'miscellaneous_services', keywords: ['subscriptions', 'add-ons'] },
+        { href: '/portal/hosting', label: 'Hosting', icon: 'dns', keywords: ['dns', 'domains', 'servers'] },
+      ],
+    },
     // MCP Approvals is intentionally hidden from sidebar + cmd-k. The page
     // at /portal/approvals still renders for direct URL access.
     {
@@ -243,6 +317,32 @@ export function buildPortalNavItems(
     }
   }
 
+  // Apply entitlement gating: when entitlements are provided and gating is
+  // active, mark items and their children as locked when the required domain
+  // is not in the entitled set.
+  if (entitlements && !entitlements.gatingBypassed) {
+    const lockChildren = (children: PortalNavChild[]): PortalNavChild[] =>
+      children.map((c) => ({
+        ...c,
+        locked: true,
+        children: c.children ? lockChildren(c.children) : c.children,
+      }));
+
+    const applyLock = (nodes: PortalNavChild[]) => {
+      for (const item of nodes) {
+        if (item.requiredDomain && !entitlements.domains.has(item.requiredDomain)) {
+          item.locked = true;
+          if (item.children) item.children = lockChildren(item.children);
+        } else if (item.children) {
+          // No gate on this node (e.g. the Marketing container) — recurse so
+          // gated children inside it still lock individually.
+          applyLock(item.children);
+        }
+      }
+    };
+    applyLock(items);
+  }
+
   return items;
 }
 
@@ -268,6 +368,9 @@ export function flattenPortalNav(items: PortalNavItem[]): PortalNavTarget[] {
 
   const walk = (nodes: PortalNavChild[], trail: string[]) => {
     for (const node of nodes) {
+      // Locked nodes are not surfaced in the Cmd+K palette — their href is not
+      // a reachable destination for ungated users.
+      if (node.locked) continue;
       if (!seen.has(node.href)) {
         seen.add(node.href);
         const haystackParts = [

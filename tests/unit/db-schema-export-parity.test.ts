@@ -74,6 +74,7 @@ const EXPECTED_EXPORTS: readonly string[] = [
   'AbVariant',
   'AbVariantSplit',
   'AgenticOsRun',
+  'AgentPreferences',
   'AutomationAction',
   'AutomationCondition',
   'AutomationSchedule',
@@ -302,6 +303,11 @@ const EXPECTED_EXPORTS: readonly string[] = [
   'cardTemplates',
   'cartItems',
   'carts',
+  'catalogOptins',
+  'catalogProducts',
+  'catalogSides',
+  'catalogSizes',
+  'catalogStyles',
   'categories',
   'chatConversations',
   'chatMessages',
@@ -410,6 +416,7 @@ const EXPECTED_EXPORTS: readonly string[] = [
   'postcaptainBriefs',
   'postcaptainDrafts',
   'posts',
+  'printfulEvents',
   'productCategories',
   'productDesignSurfaces',
   'productDesigns',
@@ -473,9 +480,12 @@ const EXPECTED_EXPORTS: readonly string[] = [
   'ticketMessages',
   'triggerLinkClicks',
   'triggerLinks',
+  'usageAlertEvents',
   'usageBillingPeriods',
   'usageMeterEvents',
   'usageMeters',
+  'usageThresholds',
+  'userDashboardPreferences',
   'userOnboarding',
   'users',
   'websiteBackups',
@@ -564,6 +574,11 @@ const EXPECTED_TABLE_NAMES: Readonly<Record<string, string>> = {
   cardTemplates: 'card_templates',
   cartItems: 'cart_items',
   carts: 'carts',
+  catalogOptins: 'catalog_optins',
+  catalogProducts: 'catalog_products',
+  catalogSides: 'catalog_sides',
+  catalogSizes: 'catalog_sizes',
+  catalogStyles: 'catalog_styles',
   categories: 'categories',
   chatConversations: 'chat_conversations',
   chatMessages: 'chat_messages',
@@ -672,6 +687,7 @@ const EXPECTED_TABLE_NAMES: Readonly<Record<string, string>> = {
   postcaptainBriefs: 'postcaptain_briefs',
   postcaptainDrafts: 'postcaptain_drafts',
   posts: 'posts',
+  printfulEvents: 'printful_events',
   productCategories: 'product_categories',
   productDesignSurfaces: 'product_design_surfaces',
   productDesigns: 'product_designs',
@@ -735,9 +751,12 @@ const EXPECTED_TABLE_NAMES: Readonly<Record<string, string>> = {
   ticketMessages: 'ticket_messages',
   triggerLinkClicks: 'trigger_link_clicks',
   triggerLinks: 'trigger_links',
+  usageAlertEvents: 'usage_alert_events',
   usageBillingPeriods: 'usage_billing_periods',
   usageMeterEvents: 'usage_meter_events',
   usageMeters: 'usage_meters',
+  usageThresholds: 'usage_thresholds',
+  userDashboardPreferences: 'user_dashboard_preferences',
   userOnboarding: 'user_onboarding',
   users: 'users',
   websiteBackups: 'website_backups',
@@ -785,13 +804,13 @@ describe('lib/db/schema export parity', () => {
     expect(actualTables).toEqual(EXPECTED_TABLE_NAMES);
   });
 
-  it('reports the recorded number of tables (252)', () => {
+  it('reports the recorded number of tables (265)', () => {
     const schemaMap = Schema as unknown as Record<string, unknown>;
     let count = 0;
     for (const value of Object.values(schemaMap)) {
       if (value && typeof value === 'object' && isTable(value)) count += 1;
     }
     expect(count).toBe(Object.keys(EXPECTED_TABLE_NAMES).length);
-    expect(count).toBe(256);
+    expect(count).toBe(265);
   });
 });

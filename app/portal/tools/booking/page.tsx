@@ -102,6 +102,7 @@ export default async function BookingPagesListPage() {
             </form>
           </div>
         ) : (
+          // eslint-disable-next-line @next/next/no-html-link-for-pages -- OAuth redirect to an API route; next/link prefetch would be wrong
           <a
             href="/api/portal/tools/booking/google/auth"
             className="inline-flex items-center gap-2 px-4 py-2 bg-background border border-border rounded-lg text-sm font-medium text-foreground hover:bg-muted transition-colors"
@@ -141,6 +142,7 @@ export default async function BookingPagesListPage() {
             </form>
           </div>
         ) : (
+          // eslint-disable-next-line @next/next/no-html-link-for-pages -- OAuth redirect to an API route; next/link prefetch would be wrong
           <a
             href="/api/portal/tools/booking/zoom/auth"
             className="inline-flex items-center gap-2 px-4 py-2 bg-background border border-border rounded-lg text-sm font-medium text-foreground hover:bg-muted transition-colors"
@@ -211,15 +213,22 @@ export default async function BookingPagesListPage() {
                       {page.title}
                     </h3>
                   </div>
-                  <span
-                    className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                      page.active
-                        ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-                        : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'
-                    }`}
-                  >
-                    {page.active ? 'active' : 'inactive'}
-                  </span>
+                  <div className="flex flex-col items-end gap-1">
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                        page.active
+                          ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                          : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'
+                      }`}
+                    >
+                      {page.active ? 'active' : 'inactive'}
+                    </span>
+                    {!page.active && (
+                      <span className="text-xs text-muted-foreground text-right leading-tight max-w-[14rem]">
+                        New booking pages are reviewed before going live — usually within a few hours
+                      </span>
+                    )}
+                  </div>
                 </div>
                 {page.description && (
                   <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{page.description}</p>

@@ -8,6 +8,7 @@ import {
   verifyClientSecret,
   verifyPkceS256,
 } from '@/lib/oauth/server';
+import { checkRateLimit, getClientIp } from '@/lib/security/rate-limit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -34,6 +35,12 @@ function invalidClient(usedBasic: boolean, description: string) {
  *  The authorization code is single-use; consuming it sets `consumed_at` so a
  *  replay returns invalid_grant. */
 export async function POST(req: Request) {
+  // Throttle token requests per IP to blunt client-secret / code brute force.
+  // 30/15min is generous for legitimate machine clients refreshing tokens.
+  if (!checkRateLimit(`${getClientIp(req)}:oauth-token`, 30, 15 * 60 * 1000)) {
+    return err(429, 'temporarily_unavailable', 'Too many token requests. Please try again later.');
+  }
+
   // Token endpoint accepts application/x-www-form-urlencoded per spec.
   let form: URLSearchParams;
   const ct = req.headers.get('content-type') ?? '';

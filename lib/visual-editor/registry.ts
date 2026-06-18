@@ -49,6 +49,7 @@ import { PalizziFooterBlockRender } from '@/components/blocks/render/PalizziFoot
 import { ProductDetailBlockRender } from '@/components/blocks/render/ProductDetailBlockRender';
 import { SurveyResultsBlockRender } from '@/components/blocks/render/SurveyResultsBlockRender';
 import { TimelineBlockRender } from '@/components/blocks/render/TimelineBlockRender';
+import { StickyScrollTabsBlockRender } from '@/components/blocks/render/StickyScrollTabsBlockRender';
 import { TeamShowcaseBlockRender } from '@/components/blocks/render/TeamShowcaseBlockRender';
 import { TeamFlipGridBlockRender } from '@/components/blocks/render/TeamFlipGridBlockRender';
 import { BentoGridBlockRender } from '@/components/blocks/render/BentoGridBlockRender';
@@ -119,6 +120,7 @@ const BUILT_IN: Record<string, BlockComponent> = {
   'product-detail': ProductDetailBlockRender,
   'survey-results': SurveyResultsBlockRender,
   timeline: TimelineBlockRender,
+  'sticky-scroll-tabs': StickyScrollTabsBlockRender,
   'team-showcase': TeamShowcaseBlockRender,
   'team-flip-grid': TeamFlipGridBlockRender,
   'bento-grid': BentoGridBlockRender,

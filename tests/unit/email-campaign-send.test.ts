@@ -143,6 +143,22 @@ vi.mock('@/lib/email/render-cache', () => ({
   htmlToText: (...args: unknown[]) => H.htmlToTextMock(...args),
 }));
 
+// Mock resolveResendKey — tests use campaigns with no clientId so this is
+// only hit when clientId is set; mock it regardless to avoid real DB/crypto.
+vi.mock('@/lib/email/resolve-resend', () => ({
+  resolveResendKey: vi.fn().mockResolvedValue({ key: 'test-resend-key', source: 'platform' }),
+}));
+
+// Mock the Resend constructor so new Resend(key).emails.send routes to
+// H.resendSendMock. The platform key path (clientId == null) and the BYOK
+// path both call `new Resend(key)` now, so we intercept at the class level.
+vi.mock('resend', () => {
+  class MockResend {
+    emails = { send: (...args: unknown[]) => H.resendSendMock(...args) };
+  }
+  return { Resend: MockResend };
+});
+
 // ---------------------------------------------------------------------------
 // SUT (after mocks)
 // ---------------------------------------------------------------------------
@@ -181,6 +197,9 @@ function makeCampaign(overrides: Partial<Record<string, unknown>> = {}): {
 }
 
 beforeEach(() => {
+  // Ensure the platform Resend key is present so the else-branch in
+  // executeCampaignSend doesn't throw before reaching the mocked Resend ctor.
+  process.env.RESEND_API_KEY = 'test-platform-key';
   H.dbState.alreadySent = [];
   H.dbState.activeSubs = [];
   H.updateCalls.length = 0;

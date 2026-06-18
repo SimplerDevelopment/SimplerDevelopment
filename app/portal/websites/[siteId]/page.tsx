@@ -8,6 +8,7 @@ import { resolvePortalSite } from '@/lib/portal-client';
 import ApiKeysManager from '@/components/portal/ApiKeysManager';
 import UploadHtmlPageButton from '@/components/portal/UploadHtmlPageButton';
 import CreateSnapshotButton from '@/components/portal/CreateSnapshotButton';
+import RequestActivationButton from './_components/RequestActivationButton';
 
 export default async function PortalCmsDashboardPage({
   params,
@@ -63,6 +64,42 @@ export default async function PortalCmsDashboardPage({
           <div>
             <p className="font-medium text-sm">Website created successfully!</p>
             <p className="text-xs mt-0.5">Create your first page to start building your site.</p>
+          </div>
+        </div>
+      )}
+
+      {site.deploymentStatus === 'pending' && (
+        <div className="flex items-start gap-3 p-4 bg-yellow-50 border border-yellow-200 rounded-xl text-yellow-900 dark:bg-yellow-900/20 dark:border-yellow-800 dark:text-yellow-300">
+          <span className="material-icons text-yellow-600 mt-0.5">pending</span>
+          <div className="flex-1 min-w-0">
+            <p className="font-medium text-sm">Hosting not yet activated</p>
+            <p className="text-xs mt-0.5 text-yellow-700 dark:text-yellow-400">
+              Your site has been created but hosting infrastructure has not been provisioned.
+              Request activation to make it live.
+            </p>
+          </div>
+          <RequestActivationButton siteId={site.id} />
+        </div>
+      )}
+
+      {site.deploymentStatus === 'provisioning' && (
+        <div className="flex items-center gap-3 p-4 bg-blue-50 border border-blue-200 rounded-xl text-blue-900 dark:bg-blue-900/20 dark:border-blue-800 dark:text-blue-300">
+          <span className="material-icons text-blue-600 animate-spin" style={{ animationDuration: '2s' }}>autorenew</span>
+          <div>
+            <p className="font-medium text-sm">Hosting activation in progress</p>
+            <p className="text-xs mt-0.5 text-blue-700 dark:text-blue-400">This usually takes a few minutes. Refresh to check the latest status.</p>
+          </div>
+        </div>
+      )}
+
+      {site.deploymentStatus === 'failed' && (
+        <div className="flex items-center gap-3 p-4 bg-red-50 border border-red-200 rounded-xl text-red-900 dark:bg-red-900/20 dark:border-red-800 dark:text-red-300">
+          <span className="material-icons text-red-600">error</span>
+          <div>
+            <p className="font-medium text-sm">Hosting activation failed</p>
+            <p className="text-xs mt-0.5 text-red-700 dark:text-red-400">
+              There was a problem provisioning your site. Please contact support.
+            </p>
           </div>
         </div>
       )}

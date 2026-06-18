@@ -10,6 +10,7 @@ export * from './pm';
 export * from './brain';
 export * from './store';
 export * from './productDesigner';
+export * from './catalog';
 export * from './email';
 export * from './surveys';
 export * from './tools';

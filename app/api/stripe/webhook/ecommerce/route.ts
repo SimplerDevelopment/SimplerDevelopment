@@ -267,6 +267,13 @@ export async function POST(req: Request) {
         customerName: order.customerName,
         total: order.total,
       });
+
+      // Fire-and-forget Printful auto-fulfillment
+      import('@/lib/fulfillment/pod').then(({ submitPODOrder }) =>
+        submitPODOrder(orderId, db).catch(err =>
+          console.error('[webhook/ecommerce] submitPODOrder failed:', err)
+        )
+      );
     }
 
     if (event.type === 'payment_intent.payment_failed') {

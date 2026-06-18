@@ -3,7 +3,9 @@
   "framework": "nextjs",
   "buildCommand": "next build",
   "installCommand": "bun install --frozen-lockfile",
-  "regions": ["iad1"],
+  "regions": [
+    "iad1"
+  ],
   "crons": [
     {
       "path": "/api/cron/expire-mcp-pendings",
@@ -78,12 +80,24 @@
       "schedule": "30 7 * * *"
     },
     {
+      "path": "/api/cron/mcp-rollup",
+      "schedule": "0 4 * * *"
+    },
+    {
       "path": "/api/cron/resend-usage-sync",
       "schedule": "15 4 * * *"
     },
     {
       "path": "/api/cron/usage-rollup",
       "schedule": "45 4 * * *"
+    },
+    {
+      "path": "/api/cron/usage-alerts",
+      "schedule": "15 5 * * *"
+    },
+    {
+      "path": "/api/cron/purge-unverified",
+      "schedule": "30 5 * * *"
     },
     {
       "path": "/api/cron/process-scheduled-automations",
@@ -104,6 +118,18 @@
     {
       "path": "/api/cron/process-playbook-waits",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/email-scheduled-send",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/email-ab-promote",
+      "schedule": "*/30 * * * *"
+    },
+    {
+      "path": "/api/cron/invoices-overdue",
+      "schedule": "7 * * * *"
     }
   ]
 }

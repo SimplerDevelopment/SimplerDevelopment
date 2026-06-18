@@ -1,4 +1,15 @@
-# Coverage push to 75% — autonomous batch queue
+# Coverage push — autonomous batch queue
+
+## ✅ 65% GOAL ACHIEVED (2026-06-06): 65.16% statements (71,349/109,484), 66.18% lines
+Clean measurement (maxWorkers=2, 0 crashes). Journey on CODEX-MCP-BRANCH:
+52.84 → 55.35 → 58.42 → 59.89 → 62.51 → 64.67 → **65.16%**.
+17 batches + a 23-file bulk-restore of rebase-dropped tests. ~250 new test files,
+~10,000 new passing tests. Toward 75% (next milestone): ~10,800 more stmts needed;
+target the remaining 0% files (rank-from-final.mjs) + canvas/three files (jsdom-hard).
+NOTE: ~58-98 specs flake under full-suite+coverage contention (machine load) — they
+pass in isolation; not regressions. The CI gate (--no-coverage) is the green signal.
+
+
 
 Resumable work queue. Baseline (merged sharded coverage, 2026-06-05):
 **53.27% statements (58,272/109,378). Gap to 75%: +23,762 stmts.**
@@ -51,6 +62,28 @@ scroll-reset.patch + reflog d72f75e3).
 The ONLY reason coverage never emitted was reportOnFailure being false (config was on
 the wrong branch). v8 is fine; istanbul was installed then removed (not needed).
 Rank with: node .planning/rank-from-final.mjs  OR  check files with check-files.mjs.
+
+## STABLE MEASUREMENT RECIPE (critical — the number swings otherwise)
+Coverage workers OOM-crash under machine load (Spotlight/GitKraken/Chrome push
+load avg >100 on 8 cores), randomly dropping 30-80 already-tested files per run →
+measured % swings 40-53%. For a TRUE number, run with LOW concurrency + no parallel
+grinding:
+  TMPDIR=/Users/dancoyle/.cache/vitest-tmp NODE_OPTIONS="--max-old-space-size=4096" \
+    npx vitest run --project=unit --coverage --maxWorkers=2 --testTimeout=60000
+A clean run = 0 "Worker exited" crashes, ~606 files, ~20,179 tests. That gave the
+first trustworthy number: **52.84% statements (57,859/109,486)** after batch 9.
+Validate with: node .planning/check-files.mjs <substr...> (known files show real %).
+DO NOT measure with maxWorkers>=3 or while dispatching worker batches (causes crashes).
+
+## BULK-RESTORE proven tests (huge efficiency win)
+The branch rebases dropped ~57 original coverage-climb test files (commit 31888bf59).
+~23 cover currently-0% source and restore+pass cleanly (the rest duplicate batches 7-9):
+  git ls-tree -r --name-only 31888bf59 | grep tests/unit/.*test > old.txt
+  comm against on-disk (INCLUDE subdirs!) → restore the net-new, drop dups.
+Restored 23 (commit 00adcab01): block-content-editor (885), brain-note-list-pane (708),
+gradient-builder, crm-notification-bell, crm-custom-fields-panel, glossary-term-form,
+note-custom-fields-panel, visual-block-editor, ai-portal-tools-*, mcp-tools-{cms,kanban},
++more. 1116 tests, lint clean. ALWAYS check git history for a lost test before re-writing.
 
 ## RE-MEASURE after recovery — get real % + re-rank before B7.
 

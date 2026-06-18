@@ -19,6 +19,9 @@
 /.next/
 /out/
 
+# turborepo
+.turbo/
+
 # production
 /build
 
@@ -104,3 +107,16 @@ graphify-out/
 .planning/leads/*secrets*
 .planning/leads/*credentials*
 
+
+# Nested workspace deps + local test/debug artifacts (never commit)
+node_modules/
+.playwright-mcp/
+.vitest-reports/
+test-results/
+
+# Obsidian vault — track knowledge, not app state
+vault/.obsidian/workspace*
+vault/.obsidian/cache
+vault/.obsidian/plugins/*/main.js
+vault/.obsidian/plugins/*/styles.css
+vault/.obsidian/plugins/*/manifest.json

@@ -99,12 +99,12 @@ export default async function SolutionPage({ params }: PageProps) {
 
                 <FadeIn delay={0.25}>
                   <div className="flex flex-col sm:flex-row gap-3">
-                    <Button href="/contact" size="lg">
+                    <Button href="/portal/signup" size="lg">
                       Get Started
                       <span className="material-icons text-lg ml-1">arrow_forward</span>
                     </Button>
                     <Button href="/contact" variant="outline" size="lg">
-                      Get a Quote
+                      Book a Consultation
                     </Button>
                   </div>
                 </FadeIn>
@@ -318,12 +318,12 @@ export default async function SolutionPage({ params }: PageProps) {
               Let&apos;s discuss how {solution.badge.toLowerCase()} can transform your business
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button href="/contact" size="lg">
-                Book a Free Consultation
+              <Button href="/portal/signup" size="lg">
+                Start Free Trial
                 <span className="material-icons text-lg ml-1">arrow_forward</span>
               </Button>
-              <Button href="/solutions" variant="outline" size="lg">
-                View All Solutions
+              <Button href="/contact" variant="outline" size="lg">
+                Book a Consultation
               </Button>
             </div>
           </FadeIn>

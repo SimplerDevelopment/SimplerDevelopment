@@ -33,7 +33,15 @@ async function _GET(req: Request) {
   const url = new URL(req.url);
   const force = url.searchParams.get('force') === '1';
 
-  const result = await runWeeklyDrop({ force });
+  let result;
+  try {
+    result = await runWeeklyDrop({ force });
+  } catch (err) {
+    if (err instanceof Error && err.message.startsWith('[orchestrator] Magamommy website not found')) {
+      return NextResponse.json({ success: false, message: 'Magamommy tenant not provisioned in this environment — skipping', skip: true });
+    }
+    throw err;
+  }
 
   return NextResponse.json({
     success: result.status === 'live',

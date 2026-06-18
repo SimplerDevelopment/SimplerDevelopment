@@ -51,7 +51,12 @@ export async function GET() {
   // bypassing the registered_apps.allowedClientIds gate. Hide it here.
   const hiddenCategories = new Set(['hosting', 'plugins']);
 
-  const data = allServices.filter(svc => !hiddenCategories.has(svc.category)).map(svc => ({
+  // Pricing tiers (category 'plan-*') are bought via the pricing page /
+  // onboarding checkout, not requested à la carte — keep them out of the
+  // generic services nav so they don't render as "request a service" rows.
+  const data = allServices
+    .filter(svc => !hiddenCategories.has(svc.category) && !svc.category.startsWith('plan-'))
+    .map(svc => ({
     id: svc.id,
     name: svc.name,
     category: svc.category,

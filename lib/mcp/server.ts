@@ -14,7 +14,7 @@
  *     are first-class citizens of the same registry
  *
  * The list of expected tool names is locked in by
- * `tests/integration/api/mcp-tool-registry-baseline.test.ts` — that test
+ * `tests/unit/mcp-tool-registry-baseline.test.ts` — that test
  * fails if any registration drifts.
  */
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
@@ -25,7 +25,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
   const server = new McpServer(
     { name: 'simplerdevelopment-portal', version: '0.1.0' },
     {
-      capabilities: { tools: {}, resources: {} },
+      capabilities: { tools: {}, resources: {}, prompts: {} },
       instructions: `You are connected to the SimplerDevelopment portal for client "${ctx.client.company ?? `#${ctx.client.id}`}" (id ${ctx.client.id}). Use these tools to manage projects, tickets, CRM, content, media, websites, and email campaigns. All operations are automatically scoped to this client.`,
     },
   );

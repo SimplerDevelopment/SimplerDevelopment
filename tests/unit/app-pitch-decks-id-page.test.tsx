@@ -109,7 +109,7 @@ vi.mock('@/app/portal/tools/pitch-decks/[id]/_lib/api', () => apiMocks);
 // usePitchDeckState — drive the deck/loading state from a holder so tests
 // can vary the initial deck per-test.
 const stateHolder = vi.hoisted(() => ({
-  deck: null as any,
+  deck: null as unknown,
   loading: false,
   error: '',
   hasUnsavedChanges: false,
@@ -132,9 +132,9 @@ vi.mock('@/app/portal/tools/pitch-decks/[id]/_hooks/usePitchDeckState', () => ({
     const [publishing, setPublishingReact] = React.useState(stateHolder.publishing);
     const [error, setErrorReact] = React.useState(stateHolder.error);
 
-    const setDeck = (v: any) => {
+    const setDeck = (v: unknown) => {
       setDeckMock(v);
-      setDeckReact((prev) => (typeof v === 'function' ? v(prev) : v));
+      setDeckReact((prev) => (typeof v === 'function' ? (v as (p: typeof prev) => typeof prev)(prev) : v as typeof prev));
     };
     const setError = (v: string) => {
       setErrorMock(v);
@@ -174,56 +174,56 @@ vi.mock('@/app/portal/tools/pitch-decks/[id]/_hooks/usePitchDeckState', () => ({
 // as clickable buttons. Each stub renders a data-testid root so tests can
 // query, plus a button per callback the test wants to drive.
 const { makeStub } = vi.hoisted(() => {
-  const ReactRef = require('react') as typeof import('react');
   // Strip non-serializable values for the test inspection layer.
-  function serialize(v: any, depth = 0): any {
+  function serialize(v: unknown, depth = 0): unknown {
     if (v == null) return v;
     if (depth > 6) return '<deep>';
     if (typeof v === 'function') return '<fn>';
     if (v instanceof Set) return Array.from(v.values());
-    if (ReactRef.isValidElement(v)) return '<react-element>';
+    if (React.isValidElement(v)) return '<react-element>';
     if (Array.isArray(v)) return v.map((x) => serialize(x, depth + 1));
     if (typeof v === 'object') {
-      const out: any = {};
+      const out: Record<string, unknown> = {};
       for (const k of Object.keys(v)) {
-        try { out[k] = serialize(v[k], depth + 1); } catch { out[k] = '<unserialisable>'; }
+        try { out[k] = serialize((v as Record<string, unknown>)[k], depth + 1); } catch { out[k] = '<unserialisable>'; }
       }
       return out;
     }
     return v;
   }
   function makeStub(name: string, propsToButtons: string[] = []) {
-    return function Stub(props: any) {
-      return ReactRef.createElement(
+    return function Stub(props: Record<string, unknown>) {
+      return React.createElement(
         'div',
         { 'data-testid': name, 'data-props': JSON.stringify(serialize(props)) },
         propsToButtons.map((p) =>
-          ReactRef.createElement(
+          React.createElement(
             'button',
             {
               key: p,
               'data-testid': `${name}-${p}`,
-              onClick: (e: any) => {
-                if (typeof props[p] === 'function') {
+              onClick: (e: React.MouseEvent<HTMLButtonElement>) => {
+                const cb = props[p];
+                if (typeof cb === 'function') {
                   // For submit-style callbacks, always pass a synthetic event
                   // with preventDefault() — page handlers expect React.FormEvent.
                   if (p === 'onSubmit' || p === 'onSubmitSlidePrompt') {
-                    props[p]({ preventDefault: () => {} });
+                    (cb as (arg: { preventDefault: () => void }) => void)({ preventDefault: () => {} });
                     return;
                   }
                   const arg = (e.currentTarget as HTMLButtonElement).dataset.arg;
                   if (arg) {
                     try {
-                      const parsed = JSON.parse(arg);
+                      const parsed = JSON.parse(arg) as unknown;
                       if (Array.isArray(parsed)) {
-                        props[p](...parsed);
+                        (cb as (...args: unknown[]) => void)(...parsed);
                       } else {
-                        props[p](parsed);
+                        (cb as (arg: unknown) => void)(parsed);
                       }
                       return;
                     } catch {}
                   }
-                  props[p]();
+                  (cb as () => void)();
                 }
               },
             },
@@ -294,10 +294,9 @@ vi.mock('@/app/portal/tools/pitch-decks/[id]/_components/SlideContentEditor', ()
   ]),
 }));
 vi.mock('@/app/portal/tools/pitch-decks/[id]/_components/DeckCollaborationProvider', () => {
-  const Rx = require('react') as typeof import('react');
   return {
-    DeckCollaborationProvider: ({ children }: any) =>
-      Rx.createElement(Rx.Fragment, null, children),
+    DeckCollaborationProvider: ({ children }: { children: React.ReactNode }) =>
+      React.createElement(React.Fragment, null, children),
     useDeckCollab: () => ({
       ydoc: null,
       status: 'disconnected',
@@ -336,20 +335,24 @@ vi.mock('@dnd-kit/sortable', () => ({
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
-function makeBlock(id: string, type: string = 'heading', extra: Record<string, unknown> = {}) {
-  return { id, type, order: 1, content: 'h', ...extra } as any;
+type TestBlock = { id: string; type: string; order: number; content: string } & Record<string, unknown>;
+type TestSlide = { id: string; label: string; blocks: TestBlock[] } & Record<string, unknown>;
+type TestDeck = { id: number; title: string; slug: string; slides: TestSlide[] } & Record<string, unknown>;
+
+function makeBlock(id: string, type: string = 'heading', extra: Record<string, unknown> = {}): TestBlock {
+  return { id, type, order: 1, content: 'h', ...extra };
 }
 
-function makeSlide(id: string, label: string, extra: Record<string, unknown> = {}) {
+function makeSlide(id: string, label: string, extra: Record<string, unknown> = {}): TestSlide {
   return {
     id,
     label,
     blocks: [makeBlock(`${id}-b`, 'heading')],
     ...extra,
-  } as any;
+  };
 }
 
-function makeDeck(overrides: Partial<any> = {}) {
+function makeDeck(overrides: Partial<TestDeck> = {}): TestDeck {
   return {
     id: 1,
     title: 'My deck',
@@ -382,7 +385,8 @@ import PitchDeckEditorPage from '@/app/portal/tools/pitch-decks/[id]/page';
 
 // Cache a pre-resolved params promise — React.use needs a thenable that's
 // already settled (or that resolves synchronously via the React cache).
-const cachedParams: any = Promise.resolve({ id: '1' });
+type ResolvedParams = Promise<{ id: string }> & { status: string; value: { id: string } };
+const cachedParams = Promise.resolve({ id: '1' }) as ResolvedParams;
 // Attach `status` / `value` so React's `use` shortcuts to the resolved value
 // without suspending.
 cachedParams.status = 'fulfilled';
@@ -681,13 +685,35 @@ describe('Slide CRUD', () => {
     confirmSpy.mockRestore();
   });
 
-  it('removeSlide works when confirmed; the array shrinks', async () => {
+  it('removeSlide on a live slide marks it pendingDelete (tombstone) instead of dropping it', async () => {
+    // Live slides are no longer removed immediately — they get a pendingDelete
+    // draft tombstone and stay visible in the public deck until publish.
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
     const { container } = renderPage();
     clickCb(container, 'SlideList-onRemoveSlide', 0);
     await waitFor(() => {
       const list = getProps('SlideList', container);
+      expect(list.slides.length).toBe(2);
+      expect(list.slides[0].draft.pendingDelete).toBe(true);
+    });
+    confirmSpy.mockRestore();
+  });
+
+  it('removeSlide drops a pending-create draft slide immediately when confirmed', async () => {
+    // Pending-create slides have no live counterpart, so they are removed
+    // from the array right away.
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const { container } = renderPage(makeDeck({
+      slides: [
+        makeSlide('s1', 'Slide 1', { draft: { pendingCreate: true, blocks: [makeBlock('d1', 'heading')] } }),
+        makeSlide('s2', 'Slide 2'),
+      ],
+    }));
+    clickCb(container, 'SlideList-onRemoveSlide', 0);
+    await waitFor(() => {
+      const list = getProps('SlideList', container);
       expect(list.slides.length).toBe(1);
+      expect(list.slides[0].id).toBe('s2');
     });
     confirmSpy.mockRestore();
   });
@@ -726,7 +752,7 @@ describe('Path groups and decision slides', () => {
     clickCb(container, 'SlideList-onAddPathGroup');
     await waitFor(() => {
       const list = getProps('SlideList', container);
-      expect(list.slides.some((s: any) => s.pathGroup === 'case-studies')).toBe(true);
+      expect(list.slides.some((s: Record<string, unknown>) => s.pathGroup === 'case-studies')).toBe(true);
     });
     promptSpy.mockRestore();
   });
@@ -753,7 +779,7 @@ describe('Path groups and decision slides', () => {
     clickCb(container, 'SlideList-onAddSlideToPathGroup', 'alpha');
     await waitFor(() => {
       const list = getProps('SlideList', container);
-      expect(list.slides.filter((s: any) => s.pathGroup === 'alpha').length).toBe(2);
+      expect(list.slides.filter((s: Record<string, unknown>) => s.pathGroup === 'alpha').length).toBe(2);
     });
   });
 
@@ -770,7 +796,7 @@ describe('Path groups and decision slides', () => {
     clickCb(container, 'SlideList-onAddDecisionSlide');
     await waitFor(() => {
       const list = getProps('SlideList', container);
-      const decision = list.slides.find((s: any) => s.decisionSlide);
+      const decision = list.slides.find((s: Record<string, unknown>) => s.decisionSlide);
       expect(decision).toBeTruthy();
       expect(decision.decisionOptions.length).toBe(2);
     });
@@ -781,7 +807,7 @@ describe('Path groups and decision slides', () => {
     clickCb(container, 'SlideList-onAddDecisionSlide');
     await waitFor(() => {
       const list = getProps('SlideList', container);
-      const decision = list.slides.find((s: any) => s.decisionSlide);
+      const decision = list.slides.find((s: Record<string, unknown>) => s.decisionSlide);
       expect(decision.decisionOptions[0].label).toBe('Option A');
       expect(decision.decisionOptions[1].label).toBe('Option B');
     });
@@ -838,7 +864,7 @@ describe('Path groups and decision slides', () => {
     clickCb(container, 'DecisionSlideEditor-onRemoveOption', 'o1');
     await waitFor(() => {
       const list = getProps('SlideList', container);
-      expect(list.slides[0].decisionOptions.find((o: any) => o.id === 'o1')).toBeUndefined();
+      expect(list.slides[0].decisionOptions.find((o: Record<string, unknown>) => o.id === 'o1')).toBeUndefined();
     });
   });
 
@@ -1090,7 +1116,7 @@ describe('Survey slides', () => {
     clickCb(container, 'SlideList-onAddSurveySlide', [7, 'Intake']);
     await waitFor(() => {
       const list = getProps('SlideList', container);
-      const sv = list.slides.find((s: any) => s.surveySlide);
+      const sv = list.slides.find((s: Record<string, unknown>) => s.surveySlide);
       expect(sv).toBeTruthy();
       expect(sv.surveyId).toBe(7);
     });
@@ -1140,23 +1166,26 @@ describe('Theme and slide settings updates', () => {
 // ─── SlideContentEditor wiring ──────────────────────────────────────────────
 
 describe('SlideContentEditor wiring', () => {
-  it('block changes write through to slides', async () => {
+  it('block changes write through to the slide draft overlay', async () => {
     const { container } = renderPage();
     const newBlocks = [makeBlock('nb', 'text', { content: 'new' })];
     // Wrap in outer array so clickCb's spread passes newBlocks as the single arg.
     clickCb(container, 'SlideContentEditor-onBlocksChange', [newBlocks]);
     await waitFor(() => {
       const list = getProps('SlideList', container);
-      expect(list.slides[0].blocks[0].id).toBe('nb');
+      // Edits land in slide.draft — published live blocks stay untouched
+      // until the user explicitly publishes.
+      expect(list.slides[0].draft.blocks[0].id).toBe('nb');
+      expect(list.slides[0].blocks[0].id).toBe('s1-b');
     });
   });
 
-  it('notes change writes through to the slide', async () => {
+  it('notes change writes through to the slide draft overlay', async () => {
     const { container } = renderPage();
     clickCb(container, 'SlideContentEditor-onChangeNotes', 'speaker notes');
     await waitFor(() => {
       const list = getProps('SlideList', container);
-      expect(list.slides[0].notes).toBe('speaker notes');
+      expect(list.slides[0].draft.notes).toBe('speaker notes');
     });
   });
 
@@ -1260,7 +1289,11 @@ describe('HTML slide upload', () => {
     await waitFor(() => {
       const list = getProps('SlideList', container);
       const last = list.slides[list.slides.length - 1];
-      expect(last.blocks[0].type).toBe('html-embed');
+      // New uploads arrive as draft-only (pendingCreate) slides — live blocks
+      // stay empty until publish; the html-embed block lives in the draft.
+      expect(last.draft.pendingCreate).toBe(true);
+      expect(last.draft.blocks[0].type).toBe('html-embed');
+      expect(last.blocks).toEqual([]);
     });
   });
 
@@ -1299,7 +1332,7 @@ describe('Slide drag-and-drop reordering', () => {
     });
     await waitFor(() => {
       const list = getProps('SlideList', container);
-      expect(list.slides.map((s: any) => s.id)).toEqual(['s2', 's3', 's1']);
+      expect(list.slides.map((s: Record<string, unknown>) => s.id)).toEqual(['s2', 's3', 's1']);
     });
   });
 
@@ -1318,7 +1351,7 @@ describe('Slide drag-and-drop reordering', () => {
     });
     await waitFor(() => {
       const list = getProps('SlideList', container);
-      expect(list.slides.find((s: any) => s.id === 's2').pathGroup).toBeUndefined();
+      expect(list.slides.find((s: Record<string, unknown>) => s.id === 's2').pathGroup).toBeUndefined();
     });
   });
 
@@ -1334,7 +1367,7 @@ describe('Slide drag-and-drop reordering', () => {
     });
     await waitFor(() => {
       const list = getProps('SlideList', container);
-      expect(list.slides.find((s: any) => s.id === 's1').pathGroup).toBe('alpha');
+      expect(list.slides.find((s: Record<string, unknown>) => s.id === 's1').pathGroup).toBe('alpha');
     });
   });
 

@@ -79,12 +79,12 @@ export function HomeClient({ recentPosts = [] }: { recentPosts?: BlogPostWithRel
                   </FadeIn>
                   <FadeIn delay={0.4} immediate>
                     <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
-                      <Button href="/contact" size="lg" className="w-full sm:w-auto justify-center">
-                        Start Free Consultation
+                      <Button href="/portal/signup" size="lg" className="w-full sm:w-auto justify-center">
+                        Start Free
                         <span className="material-icons text-lg ml-1">arrow_forward</span>
                       </Button>
-                      <Button href="/solutions" variant="outline" size="lg" className="w-full sm:w-auto justify-center bg-background/80">
-                        See All Features
+                      <Button href="/contact" variant="outline" size="lg" className="w-full sm:w-auto justify-center bg-background/80">
+                        Book a Consultation
                       </Button>
                     </div>
                   </FadeIn>
@@ -335,17 +335,17 @@ export function HomeClient({ recentPosts = [] }: { recentPosts?: BlogPostWithRel
                   </p>
                   <div className="flex flex-col sm:flex-row gap-4">
                     <Link
-                      href="/contact"
+                      href="/portal/signup"
                       className="inline-flex items-center justify-center gap-2 rounded-lg px-8 py-4 text-lg font-medium bg-blue-500 text-white hover:bg-blue-600 transition-colors"
                     >
-                      Book a Free Consultation
+                      Start Free Trial
                       <span className="material-icons text-lg">arrow_forward</span>
                     </Link>
                     <Link
-                      href="/solutions"
+                      href="/contact"
                       className="inline-flex items-center justify-center gap-2 rounded-lg px-8 py-4 text-lg font-medium bg-transparent text-white border-2 border-white hover:bg-white/10 dark:text-black dark:border-black dark:hover:bg-black/10 transition-colors"
                     >
-                      Explore Features
+                      Book a Consultation
                     </Link>
                   </div>
                 </FadeIn>

@@ -125,8 +125,11 @@ async function createPublishingProject(
 /** Reverse-lookup from human column name back to the stable stage key. The
  *  bootstrap writes column names from PUBLISHING_STAGES; admins editing the
  *  column name in the kanban UI would break this mapping. Stage customization
- *  is explicitly a phase-2 unlock — for v1 we trust the bootstrap names. */
-function mapColumnNameToStageKey(name: string): string {
+ *  is explicitly a phase-2 unlock — for v1 we trust the bootstrap names.
+ *
+ *  Exported so move/transition handlers can derive the permission key without
+ *  re-implementing the name→key mapping. */
+export function mapColumnNameToStageKey(name: string): string {
   const stage = PUBLISHING_STAGES.find((s) => s.name === name);
   return stage?.key ?? 'unknown';
 }

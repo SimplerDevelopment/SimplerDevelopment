@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import { products, productCategories, productImages, productVariants } from '@/lib/db/schema';
 import { and, eq, ilike, sql, count, desc, asc } from 'drizzle-orm';
 import { resolveClientSite } from '@/lib/portal-client';
+import { authorizePortal, isAuthError } from '@/lib/portal-auth';
 
 export async function GET(
   req: Request,
@@ -11,6 +12,9 @@ export async function GET(
 ) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
+
+  const authResult = await authorizePortal({ action: 'read', requireService: 'store' });
+  if (isAuthError(authResult)) return authResult.response;
 
   const { siteId } = await params;
   const site = await resolveClientSite(parseInt(session.user.id, 10), parseInt(siteId));
@@ -102,6 +106,9 @@ export async function POST(
 ) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
+
+  const authResult = await authorizePortal({ action: 'write', requireService: 'store' });
+  if (isAuthError(authResult)) return authResult.response;
 
   const { siteId } = await params;
   const site = await resolveClientSite(parseInt(session.user.id, 10), parseInt(siteId));

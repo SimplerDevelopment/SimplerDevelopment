@@ -57,7 +57,7 @@ Search the SimplerDevelopment codebase for the equivalent domain. Key locations:
 | Visual editor previews | `/components/blocks/visual/` |
 | Block settings | `/components/blocks/visual/BlockSettings.tsx` |
 | Block icons/metadata | `/lib/utils/blockIcons.tsx` |
-| Database schema | `/lib/db/schema.ts` |
+| Database schema | `/lib/db/schema/` (per-domain modules; barrel: `lib/db/schema/index.ts`) |
 | API routes | `/app/api/` |
 | Standalone features | `/components/` (top-level feature dirs) |
 | Hooks | `/hooks/` |
@@ -147,7 +147,7 @@ Each gap falls into one of these integration patterns:
 7. Add settings UI in `BlockSettings.tsx` if the block has unique props
 
 **Database Extension** - If the feature needs new data storage:
-1. Add table(s) to `/lib/db/schema.ts` using Drizzle
+1. Add table(s) to the matching domain module under `lib/db/schema/` (e.g. `lib/db/schema/crm.ts`). If no module fits, create a new one and re-export it from `lib/db/schema/index.ts`. Consumers import from `@/lib/db/schema`.
 2. Create migration with `npx drizzle-kit generate`
 3. Add API routes in `/app/api/`
 4. Follow multi-tenant pattern (`websiteId` column)

@@ -14,6 +14,11 @@ import { NextRequest } from 'next/server';
 
 // ---- mocks (declared before importing the routes) ----
 
+const authMock = vi.fn();
+vi.mock('@/lib/auth', () => ({
+  auth: () => authMock(),
+}));
+
 vi.mock('drizzle-orm', () => ({
   eq: (a: unknown, b: unknown) => ({ op: 'eq', a, b }),
   desc: (col: unknown) => ({ op: 'desc', col }),
@@ -252,6 +257,7 @@ beforeEach(() => {
   nextDeleteThrows = null;
   nextInsertThrows = null;
   vi.clearAllMocks();
+  authMock.mockResolvedValue({ user: { id: '1', role: 'admin', email: 'a@b.com' } });
 });
 
 // ---------------------------------------------------------------------------

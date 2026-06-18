@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
+import { RelatedModulesStrip } from '@/components/portal/billing/RelatedModulesStrip';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -77,6 +78,7 @@ export default function PortalProjectsPage() {
       .finally(() => setLoading(false));
   };
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- pre-existing pattern, predates this change
   useEffect(() => { load(); }, []);
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -391,6 +393,7 @@ function ProjectGrid({
           </div>
         </Link>
       ))}
+      <RelatedModulesStrip currentDomain="projects" />
     </div>
   );
 }
