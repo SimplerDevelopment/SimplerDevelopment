@@ -122,6 +122,10 @@ describe('GET /api/portal/hosting/[id] @hosting @tenancy', () => {
       sessionForNewClientUser('hosting-get-a'),
       sessionForNewClientUser('hosting-get-b'),
     ]);
+    // The [id] route is also guarded by requireService: 'hosting'.
+    // Grant the service to A (the caller in every authed test) so the guard
+    // passes and assertions about 200/404 behaviour remain meaningful.
+    await enableHostingService(A);
   });
 
   it('rejects unauthenticated (401)', async () => {

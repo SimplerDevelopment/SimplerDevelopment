@@ -3,6 +3,7 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { clients, clientMembers, clientWebsites, productCategories } from '@/lib/db/schema';
 import { and, eq, asc, or } from 'drizzle-orm';
+import { authorizePortal, isAuthError } from '@/lib/portal-auth';
 
 async function resolveAccessibleSite(userId: number, siteId: number) {
   const [site] = await db
@@ -30,6 +31,9 @@ export async function GET(
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
 
+  const authResult = await authorizePortal({ action: 'read', requireService: 'store' });
+  if (isAuthError(authResult)) return authResult.response;
+
   const { siteId } = await params;
   const site = await resolveAccessibleSite(parseInt(session.user.id, 10), parseInt(siteId));
   if (!site) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
@@ -49,6 +53,9 @@ export async function POST(
 ) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
+
+  const authResult = await authorizePortal({ action: 'write', requireService: 'store' });
+  if (isAuthError(authResult)) return authResult.response;
 
   const { siteId } = await params;
   const site = await resolveAccessibleSite(parseInt(session.user.id, 10), parseInt(siteId));

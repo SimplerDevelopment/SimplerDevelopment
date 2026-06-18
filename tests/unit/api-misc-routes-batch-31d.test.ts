@@ -32,8 +32,10 @@ vi.mock('@/lib/portal-client', () => ({
 }));
 
 const headersMock = vi.fn();
+const cookiesMock = vi.fn();
 vi.mock('next/headers', () => ({
   headers: () => headersMock(),
+  cookies: () => cookiesMock(),
 }));
 
 const authorizeExperimentForUserMock = vi.fn();
@@ -254,6 +256,7 @@ beforeEach(() => {
   authMock.mockReset();
   getPortalClientMock.mockReset();
   headersMock.mockReset();
+  cookiesMock.mockReset();
   authorizeExperimentForUserMock.mockReset();
   twoProportionZTestMock.mockReset();
 });
@@ -858,10 +861,18 @@ describe('PATCH /api/portal/experiments/:id/variants', () => {
 // ===========================================================================
 
 describe('GET /api/portal/github/callback', () => {
+  const NONCE = 'aabbccdd'.repeat(8); // 64-char hex
+
   function setHeaders(host = 'localhost:3005', proto = 'http') {
     headersMock.mockReturnValue(
       fakeHeaders({ host, 'x-forwarded-proto': proto }),
     );
+  }
+
+  function setCookieWithNonce() {
+    cookiesMock.mockReturnValue({
+      get: (name: string) => name === 'gh_oauth_state' ? { value: NONCE } : undefined,
+    });
   }
 
   it('redirects to error when there is no session', async () => {
@@ -904,6 +915,7 @@ describe('GET /api/portal/github/callback', () => {
     setHeaders();
     authMock.mockResolvedValue(SESSION);
     getPortalClientMock.mockResolvedValue({ id: 5 });
+    setCookieWithNonce();
 
     const fetchSpy = vi
       .spyOn(globalThis, 'fetch')
@@ -915,7 +927,7 @@ describe('GET /api/portal/github/callback', () => {
       );
 
     const res = await githubCallbackRoute.GET(
-      makeReq('http://x/api/portal/github/callback?code=abc'),
+      makeReq(`http://x/api/portal/github/callback?code=abc&state=${NONCE}`),
     );
     expect(res.headers.get('location')).toBe(
       'http://localhost:3005/portal/websites?github=error',
@@ -927,6 +939,7 @@ describe('GET /api/portal/github/callback', () => {
     setHeaders();
     authMock.mockResolvedValue(SESSION);
     getPortalClientMock.mockResolvedValue({ id: 5 });
+    setCookieWithNonce();
 
     const fetchSpy = vi.spyOn(globalThis, 'fetch');
     fetchSpy
@@ -941,7 +954,7 @@ describe('GET /api/portal/github/callback', () => {
       );
 
     const res = await githubCallbackRoute.GET(
-      makeReq('http://x/api/portal/github/callback?code=abc'),
+      makeReq(`http://x/api/portal/github/callback?code=abc&state=${NONCE}`),
     );
     expect(res.headers.get('location')).toBe(
       'http://localhost:3005/portal/websites?github=error',
@@ -953,11 +966,12 @@ describe('GET /api/portal/github/callback', () => {
     setHeaders();
     authMock.mockResolvedValue(SESSION);
     getPortalClientMock.mockResolvedValue({ id: 5 });
+    setCookieWithNonce();
     const fetchSpy = vi
       .spyOn(globalThis, 'fetch')
       .mockRejectedValueOnce(new Error('network down'));
     const res = await githubCallbackRoute.GET(
-      makeReq('http://x/api/portal/github/callback?code=abc'),
+      makeReq(`http://x/api/portal/github/callback?code=abc&state=${NONCE}`),
     );
     expect(res.headers.get('location')).toBe(
       'http://localhost:3005/portal/websites?github=error',
@@ -969,6 +983,7 @@ describe('GET /api/portal/github/callback', () => {
     setHeaders('app.example.com', 'https');
     authMock.mockResolvedValue(SESSION);
     getPortalClientMock.mockResolvedValue({ id: 5 });
+    setCookieWithNonce();
 
     const fetchSpy = vi.spyOn(globalThis, 'fetch');
     fetchSpy
@@ -987,7 +1002,7 @@ describe('GET /api/portal/github/callback', () => {
 
     selectQueue.push([]); // no existing connection → insert
     const res = await githubCallbackRoute.GET(
-      makeReq('http://x/api/portal/github/callback?code=abc'),
+      makeReq(`http://x/api/portal/github/callback?code=abc&state=${NONCE}`),
     );
     expect(res.headers.get('location')).toBe(
       'https://app.example.com/portal/websites?github=connected',
@@ -1009,6 +1024,7 @@ describe('GET /api/portal/github/callback', () => {
     setHeaders();
     authMock.mockResolvedValue(SESSION);
     getPortalClientMock.mockResolvedValue({ id: 5 });
+    setCookieWithNonce();
 
     const fetchSpy = vi.spyOn(globalThis, 'fetch');
     fetchSpy
@@ -1029,7 +1045,7 @@ describe('GET /api/portal/github/callback', () => {
     updateReturnQueue.push([{ id: 50 }]);
 
     const res = await githubCallbackRoute.GET(
-      makeReq('http://x/api/portal/github/callback?code=abc'),
+      makeReq(`http://x/api/portal/github/callback?code=abc&state=${NONCE}`),
     );
     expect(res.headers.get('location')).toBe(
       'http://localhost:3005/portal/websites?github=connected',
@@ -1045,6 +1061,34 @@ describe('GET /api/portal/github/callback', () => {
     expect(updateCalls[0].patch.updatedAt).toBeInstanceOf(Date);
     expect(insertCalls).toHaveLength(0);
     fetchSpy.mockRestore();
+  });
+
+  it('redirects to error when state param does not match cookie', async () => {
+    setHeaders();
+    authMock.mockResolvedValue(SESSION);
+    getPortalClientMock.mockResolvedValue({ id: 5 });
+    cookiesMock.mockReturnValue({
+      get: (name: string) => name === 'gh_oauth_state' ? { value: NONCE } : undefined,
+    });
+    const res = await githubCallbackRoute.GET(
+      makeReq('http://x/api/portal/github/callback?code=abc&state=deadbeef11111111111111111111111111111111111111111111111111111111'),
+    );
+    expect(res.headers.get('location')).toBe(
+      'http://localhost:3005/portal/websites?github=error',
+    );
+  });
+
+  it('redirects to error when state cookie is absent', async () => {
+    setHeaders();
+    authMock.mockResolvedValue(SESSION);
+    getPortalClientMock.mockResolvedValue({ id: 5 });
+    cookiesMock.mockReturnValue({ get: () => undefined });
+    const res = await githubCallbackRoute.GET(
+      makeReq(`http://x/api/portal/github/callback?code=abc&state=${NONCE}`),
+    );
+    expect(res.headers.get('location')).toBe(
+      'http://localhost:3005/portal/websites?github=error',
+    );
   });
 });
 
@@ -1109,7 +1153,9 @@ describe('GET /api/portal/github/connect', () => {
       'https://app.example.com/api/portal/github/callback',
     );
     expect(u.searchParams.get('scope')).toBe('repo read:user');
-    expect(u.searchParams.get('state')).toBe('7'); // userId as string
+    const stateVal = u.searchParams.get('state') ?? '';
+    expect(stateVal).toMatch(/^[0-9a-f]{64}$/); // 32 random bytes as hex
+    expect(res.headers.get('set-cookie')).toMatch(/gh_oauth_state/);
   });
 
   it('falls back to localhost host when no host header present', async () => {

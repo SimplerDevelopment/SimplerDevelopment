@@ -170,6 +170,16 @@ describe('isActionAllowed (pure helper)', () => {
     expect(isActionAllowed(['automations:*'], 'run_plugin_script').allowed).toBe(true);
   });
 
+  it('gates the fire_webhook special-case action (requires integrations:write)', () => {
+    // fire_webhook POSTs the event payload to an arbitrary URL (data egress) —
+    // it must be scope-gated; it has no other control.
+    const denied = isActionAllowed([], 'fire_webhook');
+    expect(denied.allowed).toBe(false);
+    if (!denied.allowed) expect(denied.requiredScope).toBe('integrations:write');
+    expect(isActionAllowed(['integrations:write'], 'fire_webhook').allowed).toBe(true);
+    expect(isActionAllowed(['*'], 'fire_webhook').allowed).toBe(true);
+  });
+
   it('allows a genuinely unknown/unregistered tool regardless of scopes', () => {
     // Tools in neither PORTAL_TOOL_SCOPES nor AUTOMATION_ACTION_SCOPES pass
     // through (requiredScopeFor returns null) — they no-op at executePortalTool.

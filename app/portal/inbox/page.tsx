@@ -3,6 +3,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 
+interface Site {
+  id: number;
+  name: string;
+}
+
 interface Conversation {
   id: number;
   widgetId: number;
@@ -35,6 +40,13 @@ export default function InboxPage() {
   const [filter, setFilter] = useState<(typeof STATUS_FILTERS)[number]['id']>('all');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Create-widget modal state
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [sites, setSites] = useState<Site[]>([]);
+  const [selectedSiteId, setSelectedSiteId] = useState<string>('');
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
 
   async function loadConversations(status: string) {
     const url = `/api/portal/chat/conversations${status === 'all' ? '' : `?status=${status}`}`;
@@ -88,6 +100,43 @@ export default function InboxPage() {
 
   const empty = useMemo(() => !loading && conversations.length === 0, [loading, conversations.length]);
 
+  const openCreateModal = async () => {
+    setCreateError(null);
+    setSelectedSiteId('');
+    setShowCreateModal(true);
+    try {
+      const res = await fetch('/api/portal/cms/websites');
+      const json = await res.json();
+      if (json.success) setSites(json.data as Site[]);
+    } catch {
+      // non-critical — user can still type a site id if needed
+    }
+  };
+
+  const createWidget = async () => {
+    if (!selectedSiteId) return;
+    setCreating(true);
+    setCreateError(null);
+    try {
+      const res = await fetch('/api/portal/chat/widgets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ siteId: Number(selectedSiteId) }),
+      });
+      const json = await res.json();
+      if (!json.success) {
+        setCreateError(json.message ?? 'Failed to create widget');
+        return;
+      }
+      setWidgets((prev) => [...prev, json.data as Widget]);
+      setShowCreateModal(false);
+    } catch {
+      setCreateError('Network error — please try again');
+    } finally {
+      setCreating(false);
+    }
+  };
+
   return (
     <div className="max-w-5xl mx-auto p-6 space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-3">
@@ -107,7 +156,16 @@ export default function InboxPage() {
               <span className="material-icons text-base">settings</span>
               Widget settings
             </Link>
-          ) : null}
+          ) : (
+            <button
+              type="button"
+              onClick={openCreateModal}
+              className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
+            >
+              <span className="material-icons text-base">add</span>
+              Create widget
+            </button>
+          )}
         </div>
       </div>
 
@@ -133,9 +191,21 @@ export default function InboxPage() {
       {empty ? (
         <div className="text-center py-12 text-muted-foreground">
           <span className="material-icons text-4xl mb-2 block">inbox</span>
-          {widgets.length === 0
-            ? 'No chat widgets yet — embed one on a site to start receiving messages.'
-            : 'No conversations match this filter yet.'}
+          {widgets.length === 0 ? (
+            <div className="space-y-3">
+              <p>No chat widgets yet. Create one and embed it on a site to start receiving messages.</p>
+              <button
+                type="button"
+                onClick={openCreateModal}
+                className="inline-flex items-center gap-1 px-4 py-2 text-sm bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
+              >
+                <span className="material-icons text-base">add</span>
+                Create widget
+              </button>
+            </div>
+          ) : (
+            'No conversations match this filter yet.'
+          )}
         </div>
       ) : (
         <ul className="divide-y border rounded-md bg-card">
@@ -174,6 +244,70 @@ export default function InboxPage() {
             </li>
           ))}
         </ul>
+      )}
+
+      {/* Create widget modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-card border border-border rounded-lg shadow-lg w-full max-w-md p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold">Create chat widget</h2>
+              <button
+                type="button"
+                onClick={() => setShowCreateModal(false)}
+                className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+              >
+                <span className="material-icons text-lg">close</span>
+              </button>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              A chat widget lets visitors on your site start live conversations. Select which site to attach it to.
+            </p>
+            <div className="space-y-2">
+              <label htmlFor="widget-site" className="text-sm font-medium">Site</label>
+              {sites.length > 0 ? (
+                <select
+                  id="widget-site"
+                  value={selectedSiteId}
+                  onChange={(e) => setSelectedSiteId(e.target.value)}
+                  className="w-full border border-input rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+                >
+                  <option value="">Select a site…</option>
+                  {sites.map((s) => (
+                    <option key={s.id} value={String(s.id)}>{s.name}</option>
+                  ))}
+                </select>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  No sites found.{' '}
+                  <Link href="/portal/websites" className="underline hover:text-foreground" onClick={() => setShowCreateModal(false)}>
+                    Create a site first.
+                  </Link>
+                </p>
+              )}
+            </div>
+            {createError && (
+              <p className="text-sm text-destructive">{createError}</p>
+            )}
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowCreateModal(false)}
+                className="px-4 py-2 text-sm border rounded-md hover:bg-accent transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={createWidget}
+                disabled={!selectedSiteId || creating}
+                className="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {creating ? 'Creating…' : 'Create widget'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

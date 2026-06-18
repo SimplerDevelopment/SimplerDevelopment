@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { RelatedModulesStrip } from '@/components/portal/billing/RelatedModulesStrip';
 
 interface Campaign {
   id: number;
@@ -176,6 +177,7 @@ export default function PortalEmailPage() {
           </div>
         )}
       </div>
+      <RelatedModulesStrip currentDomain="email" />
     </div>
   );
 }

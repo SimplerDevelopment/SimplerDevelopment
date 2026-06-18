@@ -8,11 +8,15 @@ import { ONBOARDING_STEPS } from '@/lib/onboarding/types';
 import { StepWelcome } from './steps/StepWelcome';
 import { StepAboutYou } from './steps/StepAboutYou';
 import { StepAboutCompany } from './steps/StepAboutCompany';
+import { StepChooseModules } from './steps/StepChooseModules';
+import { StepPayment } from './steps/StepPayment';
 import { StepBrandVibe } from './steps/StepBrandVibe';
 import { StepMission } from './steps/StepMission';
 import { StepFeatures } from './steps/StepFeatures';
 import { StepPowerUp } from './steps/StepPowerUp';
 import { StepDone } from './steps/StepDone';
+import { StepModuleSetup } from './steps/StepModuleSetup';
+import { StepUpsell } from './steps/StepUpsell';
 
 interface Props {
   initialState: OnboardingState;
@@ -22,22 +26,57 @@ const STEP_META: Record<OnboardingStep, { title: string; subtitle: string }> = {
   welcome: { title: 'Welcome', subtitle: 'Two minutes to a personalized setup.' },
   'about-you': { title: 'About you', subtitle: 'Just the basics — you can change anything later.' },
   'about-company': { title: 'About your company', subtitle: 'Tells us how to size things for you.' },
+  'choose-modules': { title: 'Pick your tools', subtitle: 'Only pay for what you need — add more any time.' },
+  payment: { title: 'Start your free trial', subtitle: '14 days free, cancel any time.' },
+  'module-setup': { title: 'Get started', subtitle: 'A few quick first steps for each module you unlocked.' },
   'brand-vibe': { title: 'Your brand vibe', subtitle: 'We use this to draft content that sounds like you.' },
   mission: { title: 'What do you do?', subtitle: 'One sentence — your AI assistant will lean on this.' },
-  features: { title: 'What brings you here?', subtitle: 'Pick the tools you want to try. (You unlock them all anyway.)' },
+  features: { title: 'What brings you here?', subtitle: "Pick what you want to explore first — we'll tailor your setup around it." },
+  upsell: { title: 'Supercharge your plan', subtitle: 'Modules other teams like yours add first.' },
   'power-up': { title: 'Power up with Claude', subtitle: 'Optional, but the magic happens when you wire this up.' },
   done: { title: "You're all set!", subtitle: 'Welcome to SimplerDevelopment.' },
 };
 
+function seedTimezone(s: OnboardingState): OnboardingState {
+  if (s.answers.timezone) return s;
+  try {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (tz) return { ...s, answers: { ...s.answers, timezone: tz } };
+  } catch {}
+  return s;
+}
+
 export default function OnboardingWizard({ initialState }: Props) {
   const router = useRouter();
-  const [state, setState] = useState<OnboardingState>(initialState);
+  const [state, setState] = useState<OnboardingState>(() => seedTimezone(initialState));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Steps visible for this client. Billing steps are hidden when:
+  // • billingMode !== 'saas', OR
+  // • client already has an active subscription (showBillingSteps=false), OR
+  // • checkout was completed during this session (checkoutCompletedAt set).
+  const BILLING_STEPS: OnboardingStep[] = ['choose-modules', 'payment'];
+  const showBilling =
+    state.showBillingSteps && !state.answers.checkoutCompletedAt;
+  // Upsell is shown when the client went through billing (either showBillingSteps
+  // was true or they completed checkout in a prior session).
+  const showUpsell = state.showBillingSteps || !!state.answers.checkoutCompletedAt;
+  const activeSteps = useMemo(
+    () =>
+      ONBOARDING_STEPS.filter((s) => {
+        if (!showBilling && BILLING_STEPS.includes(s)) return false;
+        if (s === 'module-setup' && (state.answers.selectedModules?.length ?? 0) === 0) return false;
+        if (s === 'upsell' && !showUpsell) return false;
+        return true;
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [showBilling, showUpsell, state.answers.selectedModules?.length],
+  );
+
   const currentStep = state.step;
-  const stepIndex = ONBOARDING_STEPS.indexOf(currentStep);
-  const totalSteps = ONBOARDING_STEPS.length;
+  const stepIndex = activeSteps.indexOf(currentStep);
+  const totalSteps = activeSteps.length;
   const progress = ((stepIndex + 1) / totalSteps) * 100;
 
   const persist = useCallback(async (opts: { step?: OnboardingStep; patch?: Partial<OnboardingAnswers> }) => {
@@ -64,16 +103,16 @@ export default function OnboardingWizard({ initialState }: Props) {
   }, [persist]);
 
   const next = useCallback((patch?: Partial<OnboardingAnswers>) => {
-    const idx = ONBOARDING_STEPS.indexOf(currentStep);
-    if (idx < ONBOARDING_STEPS.length - 1) {
-      goTo(ONBOARDING_STEPS[idx + 1], patch);
+    const idx = activeSteps.indexOf(currentStep);
+    if (idx < activeSteps.length - 1) {
+      goTo(activeSteps[idx + 1], patch);
     }
-  }, [currentStep, goTo]);
+  }, [currentStep, goTo, activeSteps]);
 
   const back = useCallback(() => {
-    const idx = ONBOARDING_STEPS.indexOf(currentStep);
-    if (idx > 0) goTo(ONBOARDING_STEPS[idx - 1]);
-  }, [currentStep, goTo]);
+    const idx = activeSteps.indexOf(currentStep);
+    if (idx > 0) goTo(activeSteps[idx - 1]);
+  }, [currentStep, goTo, activeSteps]);
 
   const finish = useCallback(async () => {
     setSaving(true);
@@ -108,16 +147,17 @@ export default function OnboardingWizard({ initialState }: Props) {
     setState((s) => ({ ...s, answers: { ...s.answers, ...patch } }));
   }, []);
 
-  // Auto-detect timezone once, on mount, if not already saved.
+  // Fire-and-forget: sync the auto-detected timezone to the server once on
+  // mount. We call fetch directly (not `persist`) so no React state is touched
+  // inside this effect — satisfying the react-hooks/set-state-in-effect rule.
   useEffect(() => {
-    if (state.answers.timezone) return;
-    try {
-      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      if (tz) {
-        setAnswers({ timezone: tz });
-        void persist({ patch: { timezone: tz } });
-      }
-    } catch {}
+    const tz = state.answers.timezone;
+    if (!tz) return;
+    void fetch('/api/portal/onboarding', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ answers: { timezone: tz } }),
+    }).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -129,16 +169,20 @@ export default function OnboardingWizard({ initialState }: Props) {
       case 'welcome': return <StepWelcome {...common} />;
       case 'about-you': return <StepAboutYou {...common} />;
       case 'about-company': return <StepAboutCompany {...common} />;
+      case 'choose-modules': return <StepChooseModules {...common} />;
+      case 'payment': return <StepPayment {...common} />;
+      case 'module-setup': return <StepModuleSetup {...common} />;
       case 'brand-vibe': return <StepBrandVibe {...common} />;
       case 'mission': return <StepMission {...common} />;
       case 'features': return <StepFeatures {...common} />;
+      case 'upsell': return <StepUpsell {...common} />;
       case 'power-up': return <StepPowerUp {...common} />;
       case 'done': return <StepDone {...common} />;
     }
   }, [currentStep, state, setAnswers, persist, next, back, goTo, finish]);
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6 sm:py-12">
+    <div className="mx-auto max-w-3xl lg:max-w-5xl px-4 py-8 sm:px-6 sm:py-12">
       {/* Top bar: progress + skip */}
       <div className="mb-8 flex items-center gap-4" data-testid="onboarding-topbar">
         <div className="flex-1">

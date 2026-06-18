@@ -83,7 +83,11 @@ vi.mock('@/lib/db/schema', () => {
   return new Proxy({
     kanbanCards: wrap('kanbanCards'),
     kanbanColumns: wrap('kanbanColumns'),
+    kanbanCardLabels: wrap('kanbanCardLabels'),
+    kanbanCardChecklistItems: wrap('kanbanCardChecklistItems'),
+    cardTemplates: wrap('cardTemplates'),
     projects: wrap('projects'),
+    projectMembers: wrap('projectMembers'),
     chatConversations: wrap('chatConversations'),
     chatMessages: wrap('chatMessages'),
   }, { has: (t, p) => (p in t) || !(p === "then" || p === "__esModule" || p === "default" || typeof p !== "string"), get: (t, p) => (p in t) ? t[p] : ((p === "then" || p === "__esModule" || p === "default" || typeof p !== "string") ? undefined : wrap(p)) });

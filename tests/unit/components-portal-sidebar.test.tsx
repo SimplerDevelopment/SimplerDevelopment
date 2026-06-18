@@ -665,7 +665,9 @@ describe('PortalSidebar — apps prop', () => {
     mockPathname.mockReturnValue('/portal/dashboard');
     render(<PortalSidebar apps={mockApps} />);
     await waitFor(() => {
-      expect(buildPortalNavItems).toHaveBeenCalledWith(null, null, mockApps);
+      // 4th arg is the reconstructed entitlement set — undefined when the
+      // sidebar is rendered without an entitlements prop.
+      expect(buildPortalNavItems).toHaveBeenCalledWith(null, null, mockApps, undefined);
     });
   });
 

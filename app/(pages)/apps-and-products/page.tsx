@@ -61,7 +61,7 @@ const techStack = [
   { name: 'React Native', icon: 'phone_iphone' },
   { name: 'TypeScript', icon: 'code' },
   { name: 'PostgreSQL', icon: 'storage' },
-  { name: 'Prisma', icon: 'database' },
+  { name: 'Drizzle ORM', icon: 'database' },
   { name: 'Tailwind CSS', icon: 'palette' },
   { name: 'Stripe', icon: 'payments' },
   { name: 'Railway', icon: 'cloud' },
@@ -76,7 +76,7 @@ export default function AppsAndProductsPage() {
         <div className="container mx-auto px-4 relative z-10">
           <div className="max-w-3xl">
             <FadeIn>
-              <p className="text-primary font-mono text-sm font-semibold mb-4 tracking-wider">// APPS & PRODUCTS</p>
+              <p className="text-primary font-mono text-sm font-semibold mb-4 tracking-wider">{`// APPS & PRODUCTS`}</p>
             </FadeIn>
             <FadeIn delay={0.1}>
               <h1 className="font-display text-5xl md:text-7xl font-bold mb-6 leading-[1.05]">
@@ -150,7 +150,7 @@ export default function AppsAndProductsPage() {
                           className="font-mono text-sm font-semibold mb-3 tracking-wider"
                           style={{ color: product.color }}
                         >
-                          // {String(index + 1).padStart(2, '0')}
+                          {`// ${String(index + 1).padStart(2, '0')}`}
                         </p>
 
                         <div className="flex items-center gap-3 mb-5">
@@ -197,7 +197,7 @@ export default function AppsAndProductsPage() {
           <div className="max-w-6xl mx-auto">
             <FadeIn>
               <div className="max-w-2xl mb-14">
-                <p className="text-primary font-mono text-sm font-semibold mb-3 tracking-wider">// WHY US</p>
+                <p className="text-primary font-mono text-sm font-semibold mb-3 tracking-wider">{`// WHY US`}</p>
                 <h2 className="font-display text-3xl md:text-4xl font-bold mb-4">
                   Not just code. Products.
                 </h2>
@@ -229,7 +229,7 @@ export default function AppsAndProductsPage() {
           <div className="max-w-4xl mx-auto">
             <FadeIn>
               <div className="text-center mb-14">
-                <p className="text-primary font-mono text-sm font-semibold mb-3 tracking-wider">// TECH STACK</p>
+                <p className="text-primary font-mono text-sm font-semibold mb-3 tracking-wider">{`// TECH STACK`}</p>
                 <h2 className="font-display text-3xl md:text-4xl font-bold mb-4">
                   Built With Modern Technology
                 </h2>
@@ -258,7 +258,7 @@ export default function AppsAndProductsPage() {
         <div className="absolute inset-0 bg-dot-grid opacity-10" />
         <div className="container mx-auto px-4 text-center relative z-10">
           <FadeIn>
-            <p className="font-mono text-sm font-semibold mb-4 tracking-wider opacity-50">// NEXT STEP</p>
+            <p className="font-mono text-sm font-semibold mb-4 tracking-wider opacity-50">{`// NEXT STEP`}</p>
             <h2 className="font-display text-4xl md:text-5xl font-bold mb-6">
               Want something similar?
             </h2>

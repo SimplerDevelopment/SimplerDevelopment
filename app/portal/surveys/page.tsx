@@ -4,7 +4,9 @@ import { db } from '@/lib/db';
 import { surveys } from '@/lib/db/schema';
 import { eq, desc } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
+import { hasServiceAccess } from '@/lib/portal-auth';
 import Link from 'next/link';
+import { RelatedModulesStrip } from '@/components/portal/billing/RelatedModulesStrip';
 
 const statusColors: Record<string, string> = {
   draft: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
@@ -19,6 +21,9 @@ export default async function SurveysListPage() {
   const userId = parseInt(session.user.id, 10);
   const client = await getPortalClient(userId);
   if (!client) redirect('/portal/dashboard');
+
+  const entitled = await hasServiceAccess(client.id, 'surveys');
+  if (!entitled) redirect('/portal/services');
 
   const list = await db
     .select()
@@ -150,6 +155,7 @@ export default async function SurveysListPage() {
           </p>
         </div>
       </div>
+      <RelatedModulesStrip currentDomain="surveys" />
     </div>
   );
 }

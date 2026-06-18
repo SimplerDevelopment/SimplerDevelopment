@@ -28,6 +28,13 @@ vi.mock('@/lib/portal-client', () => ({
   resolveClientSite: (...args: unknown[]) => resolveClientSiteMock(...args),
 }));
 
+const authorizePortalMock = vi.fn();
+const isAuthErrorMock = vi.fn((r: unknown) => typeof r === 'object' && r !== null && 'response' in r);
+vi.mock('@/lib/portal-auth', () => ({
+  authorizePortal: (...args: unknown[]) => authorizePortalMock(...args),
+  isAuthError: (r: unknown) => isAuthErrorMock(r),
+}));
+
 vi.mock('@/lib/db/schema', () => {
   const wrap = (name: string) => {
     const target: Record<string, unknown> = {
@@ -458,9 +465,11 @@ beforeEach(() => {
 
   authMock.mockReset();
   resolveClientSiteMock.mockReset();
+  authorizePortalMock.mockReset();
 
   authMock.mockResolvedValue({ user: { id: '7' } });
   resolveClientSiteMock.mockResolvedValue({ id: 10 });
+  authorizePortalMock.mockResolvedValue({ client: { id: 5 }, userId: 7, role: 'owner' });
 });
 
 // ---------------------------------------------------------------------------

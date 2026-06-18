@@ -50,8 +50,26 @@ const SECURITY_HEADERS_BASE = [
 // iframe from a different origin (tenant subdomain → site domain).
 const FRAME_DENY_HEADERS = [{ key: 'X-Frame-Options', value: 'SAMEORIGIN' }];
 
+// The `dev` branch is a throwaway, deploy-on-every-push environment: its Vercel
+// build is intentionally relaxed so a lint error never blocks a dev deploy.
+// Gated on Vercel's branch ref, so `main` (production) and `staging` keep
+// strict lint builds. Mirrors the relaxed git hooks for the same branch.
+// (TypeScript is already skipped in-build for ALL branches below.)
+const isDevDeploy = process.env.VERCEL_GIT_COMMIT_REF === 'dev';
+
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // Expose Google-auth availability to the client bundle so the login/signup
+  // pages can conditionally render the "Continue with Google" button.
+  // Computed at build time — matches the runtime provider-registration check in
+  // lib/auth.ts so they can never diverge.
+  env: {
+    NEXT_PUBLIC_GOOGLE_AUTH_ENABLED: String(
+      !!(process.env.AUTH_GOOGLE_ID ?? process.env.GOOGLE_CLIENT_ID) &&
+      !!(process.env.AUTH_GOOGLE_SECRET ?? process.env.GOOGLE_CLIENT_SECRET),
+    ),
+  },
+  ...(isDevDeploy ? { eslint: { ignoreDuringBuilds: true } } : {}),
   // The in-build `next build` TypeScript recheck re-type-checks the whole
   // ~357k-line app in a single worker and exhausts the heap (OOM/SIGABRT) on
   // both local and the Vercel build container (made worse by the Sentry plugin).

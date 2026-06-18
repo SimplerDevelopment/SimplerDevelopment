@@ -49,6 +49,18 @@ export async function PATCH(req: Request) {
     if (Array.isArray(answers.featuresInterested)) patch.featuresInterested = answers.featuresInterested.filter((t): t is string => typeof t === 'string').slice(0, 30);
     if (typeof answers.skillsDownloaded === 'boolean') patch.skillsDownloaded = answers.skillsDownloaded;
     if (typeof answers.mcpKeyCreatedId === 'number') patch.mcpKeyCreatedId = answers.mcpKeyCreatedId;
+    if (Array.isArray(answers.selectedModules)) patch.selectedModules = answers.selectedModules.filter((t): t is string => typeof t === 'string').slice(0, 20);
+    if (typeof answers.checkoutCompletedAt === 'string') patch.checkoutCompletedAt = answers.checkoutCompletedAt.slice(0, 50);
+    if (answers.moduleSetup && typeof answers.moduleSetup === 'object' && !Array.isArray(answers.moduleSetup)) {
+      const safe: Record<string, string[]> = {};
+      for (const [k, v] of Object.entries(answers.moduleSetup as Record<string, unknown>)) {
+        if (typeof k === 'string' && Array.isArray(v)) {
+          safe[k.slice(0, 50)] = v.filter((x): x is string => typeof x === 'string').slice(0, 30);
+        }
+      }
+      patch.moduleSetup = safe;
+    }
+    if (typeof answers.checklistDismissedAt === 'string') patch.checklistDismissedAt = answers.checklistDismissedAt.slice(0, 50);
   }
 
   const state = await saveOnboardingStep({

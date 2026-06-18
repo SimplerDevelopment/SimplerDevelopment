@@ -6,6 +6,7 @@ import { eq, and } from 'drizzle-orm';
 import { generateUnsubscribeToken } from '@/lib/email';
 import { getPortalClient } from '@/lib/portal-client';
 import { authorizePortal, isAuthError } from '@/lib/portal-auth';
+import { emitEvent } from '@/lib/automation';
 
 async function requireClient() {
   const session = await auth();
@@ -26,6 +27,9 @@ export async function POST(req: Request) {
   // Service access check
   const authResult = await authorizePortal({ action: 'write', requireService: 'email' });
   if (isAuthError(authResult)) return authResult.response;
+
+  const session = await auth();
+  if (!session?.user?.id) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
 
   const client = await requireClient();
   if (!client) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
@@ -50,6 +54,13 @@ export async function POST(req: Request) {
     .values({ listId: parseInt(listId), email: email.toLowerCase().trim(), name: name?.trim() || null, unsubscribeToken: generateUnsubscribeToken() })
     .returning();
 
+  emitEvent('email.subscriber.added', client.id, parseInt(session.user.id, 10), {
+    subscriberId: subscriber.id,
+    listId: subscriber.listId,
+    email: subscriber.email,
+    name: subscriber.name,
+  });
+
   return NextResponse.json({ success: true, data: subscriber }, { status: 201 });
 }
 
@@ -58,6 +69,9 @@ export async function PUT(req: Request) {
   // Service access check
   const authResult = await authorizePortal({ action: 'write', requireService: 'email' });
   if (isAuthError(authResult)) return authResult.response;
+
+  const session = await auth();
+  if (!session?.user?.id) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
 
   const client = await requireClient();
   if (!client) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
@@ -74,6 +88,18 @@ export async function PUT(req: Request) {
     .map(s => ({ listId, email: s.email.toLowerCase().trim(), name: s.name?.trim() || null, unsubscribeToken: generateUnsubscribeToken() }));
 
   const inserted = await db.insert(emailSubscribers).values(rows).onConflictDoNothing().returning();
+
+  // Emit one event per newly-inserted subscriber so automations fire for each.
+  const userId = parseInt(session.user.id, 10);
+  for (const sub of inserted) {
+    emitEvent('email.subscriber.added', client.id, userId, {
+      subscriberId: sub.id,
+      listId: sub.listId,
+      email: sub.email,
+      name: sub.name,
+    });
+  }
+
   return NextResponse.json({ success: true, data: { imported: inserted.length, total: rows.length } });
 }
 

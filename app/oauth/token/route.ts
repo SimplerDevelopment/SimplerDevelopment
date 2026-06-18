@@ -8,6 +8,7 @@ import {
   verifyClientSecret,
   verifyPkceS256,
 } from '@/lib/oauth/server';
+import { checkRateLimit, getClientIp } from '@/lib/security/rate-limit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -34,6 +35,12 @@ function invalidClient(usedBasic: boolean, description: string) {
  *  The authorization code is single-use; consuming it sets `consumed_at` so a
  *  replay returns invalid_grant. */
 export async function POST(req: Request) {
+  // Throttle token requests per IP to blunt client-secret / code brute force.
+  // 30/15min is generous for legitimate machine clients refreshing tokens.
+  if (!checkRateLimit(`${getClientIp(req)}:oauth-token`, 30, 15 * 60 * 1000)) {
+    return err(429, 'temporarily_unavailable', 'Too many token requests. Please try again later.');
+  }
+
   // Token endpoint accepts application/x-www-form-urlencoded per spec.
   let form: URLSearchParams;
   const ct = req.headers.get('content-type') ?? '';
@@ -93,12 +100,13 @@ export async function POST(req: Request) {
     if (!clientSecretParam) {
       return invalidClient(usedBasic, 'client_secret is required for this client');
     }
-    if (authMethod === 'client_secret_basic' && !usedBasic) {
-      return invalidClient(usedBasic, 'This client must authenticate via HTTP Basic');
-    }
-    if (authMethod === 'client_secret_post' && usedBasic) {
-      return invalidClient(usedBasic, 'This client must authenticate via request body');
-    }
+    // Accept the secret via EITHER HTTP Basic or the request body, regardless of
+    // which method the client recorded at registration. RFC 6749 §2.3 lets a
+    // client present credentials by either mechanism; tying acceptance to the
+    // single registered method breaks real-world MCP connectors (e.g. Claude
+    // Desktop) that default to Basic even when the client was minted as
+    // `client_secret_post`. The double-send guard above still forbids using both
+    // at once, and the secret is verified below, so honoring either stays safe.
     if (!verifyClientSecret(clientSecretParam, oauthClient.clientSecretHash)) {
       return invalidClient(usedBasic, 'client_secret is incorrect');
     }

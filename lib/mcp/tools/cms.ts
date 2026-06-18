@@ -249,6 +249,7 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
     },
     async (args) => {
       if (!requireScope(ctx, 'sites:write')) return denied('sites:write');
+      if (!(await requireService(clientId, 'websites'))) return serviceDenied('websites');
       const [site] = await db.select({ id: clientWebsites.id }).from(clientWebsites)
         .where(and(eq(clientWebsites.id, args.websiteId), eq(clientWebsites.clientId, clientId))).limit(1);
       if (!site) return json({ error: 'Site not found' });
@@ -316,6 +317,7 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
     },
     async ({ id, includeContent, ...rest }) => {
       if (!requireScope(ctx, 'sites:write')) return denied('sites:write');
+      if (!(await requireService(clientId, 'websites'))) return serviceDenied('websites');
       const [post] = await db.select().from(posts).where(eq(posts.id, id)).limit(1);
       if (!post) return json({ error: 'Post not found' });
       if (post.websiteId) {
@@ -404,6 +406,7 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
     },
     async ({ id, titleSuffix = ' (fork)' }) => {
       if (!requireScope(ctx, 'sites:write')) return denied('sites:write');
+      if (!(await requireService(clientId, 'websites'))) return serviceDenied('websites');
       const [source] = await db.select().from(posts).where(eq(posts.id, id)).limit(1);
       if (!source) return json({ error: 'Source post not found' });
       if (!source.websiteId) return json({ error: 'Permission denied — agency post' });
@@ -451,6 +454,7 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
     },
     async ({ id }) => {
       if (!requireScope(ctx, 'sites:write')) return denied('sites:write');
+      if (!(await requireService(clientId, 'websites'))) return serviceDenied('websites');
       const [post] = await db.select().from(posts).where(eq(posts.id, id)).limit(1);
       if (!post) return json({ error: 'Post not found' });
       if (post.websiteId) {
@@ -498,6 +502,7 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
     },
     async ({ websiteId, filename, contentBase64, sourceUrl }) => {
       if (!requireScope(ctx, 'sites:write')) return denied('sites:write');
+      if (!(await requireService(clientId, 'websites'))) return serviceDenied('websites');
       // Gate on author role: posts_upload_html always produces an html-embed
       // block, which the SEO prefetch path may inline into the parent DOM —
       // same XSS risk as html-render. Restrict to staff (admin/editor/employee).
@@ -637,6 +642,7 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
     },
     async ({ websiteId, filename, contentBase64 }) => {
       if (!requireScope(ctx, 'sites:write')) return denied('sites:write');
+      if (!(await requireService(clientId, 'websites'))) return serviceDenied('websites');
       try {
         await assertBlocksAllowedForUserId([{ type: 'html-embed' }], ctx.userId);
       } catch (e) {
@@ -773,6 +779,7 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
     },
     async ({ url, filename, alt, caption, websiteId, brandingProfileId }) => {
       if (!requireScope(ctx, 'media:write')) return denied('media:write');
+      if (!(await requireService(clientId, 'websites'))) return serviceDenied('websites');
       try {
         await assertSafeUrl(url);
       } catch (err) {
@@ -853,6 +860,7 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
     },
     async ({ filename, mimeType, fileSize }) => {
       if (!requireScope(ctx, 'media:write')) return denied('media:write');
+      if (!(await requireService(clientId, 'websites'))) return serviceDenied('websites');
       const normalizedMime = mimeType.split(';')[0]?.trim().toLowerCase() ?? '';
       if (!ALLOWED_UPLOAD_MIME_TYPES.has(normalizedMime)) {
         return json({
@@ -902,6 +910,7 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
     },
     async ({ mediaKey, originalFilename, mimeType, alt, caption, websiteId, brandingProfileId }) => {
       if (!requireScope(ctx, 'media:write')) return denied('media:write');
+      if (!(await requireService(clientId, 'websites'))) return serviceDenied('websites');
       const normalizedDeclaredMime = mimeType.split(';')[0]?.trim().toLowerCase() ?? '';
       if (!ALLOWED_UPLOAD_MIME_TYPES.has(normalizedDeclaredMime)) {
         return json({ error: `mimeType "${mimeType}" is not in the allow-list.` });
@@ -967,6 +976,7 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
     },
     async ({ id }) => {
       if (!requireScope(ctx, 'media:write')) return denied('media:write');
+      if (!(await requireService(clientId, 'websites'))) return serviceDenied('websites');
       const [existing] = await db.select({ id: media.id }).from(media)
         .where(and(eq(media.id, id), eq(media.clientId, clientId))).limit(1);
       if (!existing) return json({ error: 'Media not found' });
@@ -1013,6 +1023,7 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
     },
     async ({ websiteId, name, slug, description, color }) => {
       if (!requireScope(ctx, 'sites:write')) return denied('sites:write');
+      if (!(await requireService(clientId, 'websites'))) return serviceDenied('websites');
       const [site] = await db.select({ id: clientWebsites.id, name: clientWebsites.name }).from(clientWebsites)
         .where(and(eq(clientWebsites.id, websiteId), eq(clientWebsites.clientId, clientId))).limit(1);
       if (!site) return json({ error: 'Site not found' });
@@ -1058,6 +1069,7 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
     },
     async ({ websiteId, name, slug }) => {
       if (!requireScope(ctx, 'sites:write')) return denied('sites:write');
+      if (!(await requireService(clientId, 'websites'))) return serviceDenied('websites');
       const [site] = await db.select({ id: clientWebsites.id, name: clientWebsites.name }).from(clientWebsites)
         .where(and(eq(clientWebsites.id, websiteId), eq(clientWebsites.clientId, clientId))).limit(1);
       if (!site) return json({ error: 'Site not found' });
@@ -1102,6 +1114,7 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
     },
     async ({ postId, categoryIds, tagIds }) => {
       if (!requireScope(ctx, 'sites:write')) return denied('sites:write');
+      if (!(await requireService(clientId, 'websites'))) return serviceDenied('websites');
       const [post] = await db.select({ websiteId: posts.websiteId, title: posts.title }).from(posts)
         .where(eq(posts.id, postId)).limit(1);
       if (!post) return json({ error: 'Post not found' });
@@ -1181,6 +1194,7 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
     },
     async ({ id, ...rest }) => {
       if (!requireScope(ctx, 'sites:write')) return denied('sites:write');
+      if (!(await requireService(clientId, 'websites'))) return serviceDenied('websites');
       const [existing] = await db.select().from(clientWebsites)
         .where(and(eq(clientWebsites.id, id), eq(clientWebsites.clientId, clientId))).limit(1);
       if (!existing) return json({ error: 'Site not found' });
@@ -1252,6 +1266,7 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
     },
     async ({ id, customCss, customJs }) => {
       if (!requireScope(ctx, 'sites:write')) return denied('sites:write');
+      if (!(await requireService(clientId, 'websites'))) return serviceDenied('websites');
       const [existing] = await db.select().from(clientWebsites)
         .where(and(eq(clientWebsites.id, id), eq(clientWebsites.clientId, clientId)))
         .limit(1);
@@ -1304,6 +1319,7 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
     },
     async ({ id }) => {
       if (!requireScope(ctx, 'sites:write')) return denied('sites:write');
+      if (!(await requireService(clientId, 'websites'))) return serviceDenied('websites');
       const [existing] = await db.select().from(clientWebsites)
         .where(and(eq(clientWebsites.id, id), eq(clientWebsites.clientId, clientId)))
         .limit(1);
@@ -1383,6 +1399,7 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
     },
     async (args) => {
       if (!requireScope(ctx, 'sites:write')) return denied('sites:write');
+      if (!(await requireService(clientId, 'websites'))) return serviceDenied('websites');
       const [site] = await db.select({ id: clientWebsites.id, name: clientWebsites.name }).from(clientWebsites)
         .where(and(eq(clientWebsites.id, args.websiteId), eq(clientWebsites.clientId, clientId))).limit(1);
       if (!site) return json({ error: 'Site not found' });
@@ -1453,6 +1470,7 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
     },
     async ({ id, ...rest }) => {
       if (!requireScope(ctx, 'sites:write')) return denied('sites:write');
+      if (!(await requireService(clientId, 'websites'))) return serviceDenied('websites');
       const [nav] = await db
         .select({
           id: siteNavigation.id,
@@ -1504,6 +1522,7 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
     },
     async ({ id }) => {
       if (!requireScope(ctx, 'sites:write')) return denied('sites:write');
+      if (!(await requireService(clientId, 'websites'))) return serviceDenied('websites');
       const [nav] = await db
         .select({
           id: siteNavigation.id,
@@ -1553,6 +1572,7 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
     },
     async ({ id }) => {
       if (!requireScope(ctx, 'sites:write')) return denied('sites:write');
+      if (!(await requireService(clientId, 'websites'))) return serviceDenied('websites');
       const [nav] = await db
         .select()
         .from(siteNavigation)
@@ -1608,6 +1628,7 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
     },
     async ({ websiteId }) => {
       if (!requireScope(ctx, 'sites:write')) return denied('sites:write');
+      if (!(await requireService(clientId, 'websites'))) return serviceDenied('websites');
       const [site] = await db.select({ id: clientWebsites.id, name: clientWebsites.name }).from(clientWebsites)
         .where(and(eq(clientWebsites.id, websiteId), eq(clientWebsites.clientId, clientId))).limit(1);
       if (!site) return json({ error: 'Site not found' });
@@ -1763,6 +1784,7 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
     },
     async (args) => {
       if (!requireScope(ctx, 'sites:write')) return denied('sites:write');
+      if (!(await requireService(clientId, 'websites'))) return serviceDenied('websites');
       try {
         await assertBlocksAllowedForUserId(args.blocks, ctx.userId);
       } catch (e) {
@@ -1843,6 +1865,7 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
     },
     async ({ id, ...rest }) => {
       if (!requireScope(ctx, 'sites:write')) return denied('sites:write');
+      if (!(await requireService(clientId, 'websites'))) return serviceDenied('websites');
       const [existing] = await db.select().from(blockTemplates).where(eq(blockTemplates.id, id)).limit(1);
       if (!existing) return json({ error: 'Template not found' });
       // Tenant gate — own client only. Refuse mutation on globals (NULL
@@ -1910,6 +1933,7 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
     },
     async ({ id }) => {
       if (!requireScope(ctx, 'sites:write')) return denied('sites:write');
+      if (!(await requireService(clientId, 'websites'))) return serviceDenied('websites');
       const [existing] = await db.select().from(blockTemplates).where(eq(blockTemplates.id, id)).limit(1);
       if (!existing) return json({ error: 'Template not found' });
       if (existing.clientId !== clientId) return json({ error: 'Template not found' });
@@ -1955,6 +1979,7 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
     },
     async ({ id }) => {
       if (!requireScope(ctx, 'sites:write')) return denied('sites:write');
+      if (!(await requireService(clientId, 'websites'))) return serviceDenied('websites');
       const [existing] = await db.select().from(blockTemplates).where(eq(blockTemplates.id, id)).limit(1);
       if (!existing) return json({ error: 'Template not found' });
       if (existing.clientId !== clientId) return json({ error: 'Template not found' });
@@ -2021,6 +2046,7 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
     },
     async ({ id, nameSuffix = ' (fork)', slugSuffix = '' }) => {
       if (!requireScope(ctx, 'sites:write')) return denied('sites:write');
+      if (!(await requireService(clientId, 'websites'))) return serviceDenied('websites');
       const [source] = await db.select().from(blockTemplates).where(eq(blockTemplates.id, id)).limit(1);
       if (!source) return json({ error: 'Source template not found' });
       // Source must be either this tenant's own template or a platform-global
@@ -2106,6 +2132,7 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
     },
     async ({ websiteId, domain, isPrimary }) => {
       if (!requireScope(ctx, 'sites:write')) return denied('sites:write');
+      if (!(await requireService(clientId, 'websites'))) return serviceDenied('websites');
       if (!(await requireClientSite(websiteId))) return json({ error: 'Site not found' });
       if (isPrimary) {
         await db.update(websiteDomains)
@@ -2131,6 +2158,7 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
     },
     async ({ id }) => {
       if (!requireScope(ctx, 'sites:write')) return denied('sites:write');
+      if (!(await requireService(clientId, 'websites'))) return serviceDenied('websites');
       const [domain] = await db
         .select({ id: websiteDomains.id, websiteId: websiteDomains.websiteId })
         .from(websiteDomains)
@@ -2182,6 +2210,7 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
     },
     async ({ websiteId, environment = 'production', key, value }) => {
       if (!requireScope(ctx, 'sites:write')) return denied('sites:write');
+      if (!(await requireService(clientId, 'websites'))) return serviceDenied('websites');
       if (!(await requireClientSite(websiteId))) return json({ error: 'Site not found' });
       const [env] = await db.select({ id: websiteEnvironments.id }).from(websiteEnvironments)
         .where(and(eq(websiteEnvironments.websiteId, websiteId), eq(websiteEnvironments.name, environment))).limit(1);
@@ -2214,6 +2243,7 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
     },
     async ({ id }) => {
       if (!requireScope(ctx, 'sites:write')) return denied('sites:write');
+      if (!(await requireService(clientId, 'websites'))) return serviceDenied('websites');
       const [envVar] = await db
         .select({ id: websiteEnvVars.id, websiteId: websiteEnvironments.websiteId })
         .from(websiteEnvVars)

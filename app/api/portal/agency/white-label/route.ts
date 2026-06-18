@@ -8,6 +8,7 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { clients } from '@/lib/db/schema';
 import { getPortalClient, getPortalRole } from '@/lib/portal-client';
+import { getClientEntitlements } from '@/lib/billing/entitlements';
 import { eq } from 'drizzle-orm';
 
 export async function POST(req: Request) {
@@ -37,6 +38,22 @@ export async function POST(req: Request) {
   }
 
   if (body.enabled) {
+    // White-label is a Scale-tier feature. Clients on Starter/Growth (or any
+    // tier without byokEligible) must upgrade before they can enable it.
+    // Agency-mode clients bypass gating entirely (byokEligible = true from
+    // allEntitlements), so existing managed clients are unaffected.
+    const entitlements = await getClientEntitlements(client.id);
+    if (!entitlements.byokEligible) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'White-label requires the Scale plan.',
+          hint: 'Upgrade to Scale at /portal/settings/billing/plans to unlock white-label branding.',
+        },
+        { status: 403 },
+      );
+    }
+
     const [row] = await db
       .select({
         verifiedAt: clients.customDomainVerifiedAt,

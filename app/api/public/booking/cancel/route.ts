@@ -5,6 +5,7 @@ import { eq } from 'drizzle-orm';
 import { sendCancellationEmail, loadBookingBrand } from '@/lib/email/booking-emails';
 import { deleteCalendarEvent } from '@/lib/google-calendar';
 import { deleteZoomMeeting } from '@/lib/zoom';
+import { emitEvent } from '@/lib/automation';
 
 export async function POST(req: Request) {
   const { token } = await req.json();
@@ -71,16 +72,34 @@ export async function POST(req: Request) {
       const [host] = await db.select({ email: users.email }).from(users)
         .where(eq(users.id, client.userId)).limit(1);
       if (host) {
-        const { resend } = await import('@/lib/email/index');
-        resend.emails.send({
-          from: `SimplerDevelopment <${process.env.RESEND_FROM_EMAIL || 'bookings@simplerdevelopment.com'}>`,
-          to: host.email,
-          subject: `Booking Cancelled: ${booking.guestName} — ${page.title}`,
-          html: `<p><strong>${booking.guestName}</strong> cancelled their ${page.title} appointment on ${new Intl.DateTimeFormat('en-US', { dateStyle: 'full', timeStyle: 'short', timeZone: booking.timezone }).format(booking.startTime)}.</p>`,
-        }).catch(() => {});
+        // Best-effort host notification. The `resend` proxy getter throws
+        // synchronously when RESEND_API_KEY is unset — the promise .catch
+        // alone doesn't cover that, so wrap the whole send.
+        try {
+          const { resend } = await import('@/lib/email/index');
+          resend.emails.send({
+            from: `SimplerDevelopment <${process.env.RESEND_FROM_EMAIL || 'bookings@simplerdevelopment.com'}>`,
+            to: host.email,
+            subject: `Booking Cancelled: ${booking.guestName} — ${page.title}`,
+            html: `<p><strong>${booking.guestName}</strong> cancelled their ${page.title} appointment on ${new Intl.DateTimeFormat('en-US', { dateStyle: 'full', timeStyle: 'short', timeZone: booking.timezone }).format(booking.startTime)}.</p>`,
+          }).catch(() => {});
+        } catch {
+          // Resend unconfigured — cancellation must still succeed.
+        }
       }
     }
   }
+
+  emitEvent('booking.cancelled', booking.clientId, 0, {
+    bookingId: booking.id,
+    bookingPageId: booking.bookingPageId,
+    pageTitle: page?.title ?? null,
+    pageSlug: page?.slug ?? null,
+    guestName: booking.guestName,
+    guestEmail: booking.guestEmail,
+    startTime: booking.startTime,
+    timezone: booking.timezone,
+  });
 
   return NextResponse.json({
     success: true,

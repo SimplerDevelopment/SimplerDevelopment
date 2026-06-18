@@ -31,6 +31,33 @@ export const clients = pgTable('clients', {
   // helper grants brain access without requiring an explicit clientServices
   // row. Expired trials simply fall through to the paid-subscription check.
   brainTrialUntil: timestamp('brain_trial_until'),
+  // How this client relates to the feature-domain SKU catalog
+  // (lib/billing/domain-catalog.ts):
+  //   agency — legacy managed client; module gating bypassed entirely.
+  //   saas   — self-serve module subscriptions, prepaid allowances + overage.
+  //   byok   — module subscriptions with own 3rd-party API keys; metered
+  //            COGS that land on their keys are waived.
+  billingMode: varchar('billing_mode', { length: 20 }).default('agency').notNull(),
+  // One 14-day module trial per client (self-serve signup). Null = trial not
+  // yet consumed; set by the Stripe webhook when a trialing subscription
+  // activates. Checkout only grants trial_period_days while this is null.
+  trialUsedAt: timestamp('trial_used_at'),
+  // ── Admin billing overrides (staff-set escape hatches; all null = default) ──
+  // Set from the admin "Billing & Plan" surface. They ripple into the portal's
+  // own billing too (seat display, byok gates), so changing them is a real
+  // billing action — see lib/billing/{seats,entitlements,recompute-subscription}.
+  //
+  //   billableSeatsOverride — when set, the billed seat count (wins over the
+  //     derived owner+accepted-members count in countBillableSeats). For comped
+  //     or contracted-seat deals.
+  billableSeatsOverride: integer('billable_seats_override'),
+  //   compDiscountPercent — 0–100; a per-account comp discount applied as a
+  //     Stripe percent_off coupon the reconciler preserves. SEPARATE from the
+  //     à-la-carte volume discount (which lives in the computed line items).
+  compDiscountPercent: integer('comp_discount_percent'),
+  //   byokEligibleOverride — true grants BYOK eligibility regardless of tier
+  //     (BYOK is contact-sales now); getClientEntitlements ORs it in.
+  byokEligibleOverride: boolean('byok_eligible_override'),
   // Publishing Command Center — the system-managed kanban project that holds
   // every Publishing card for this client. Set on first visit to
   // /portal/publishing by the bootstrap action. Null = not yet bootstrapped.
@@ -99,6 +126,10 @@ export const clientServices = pgTable('client_services', {
   startDate: timestamp('start_date').defaultNow(),
   renewalDate: timestamp('renewal_date'),
   creditsGrantedAt: timestamp('credits_granted_at'), // when last monthly AI credit grant was applied
+  // Stripe Subscription backing this grant when it was purchased self-serve
+  // (module checkout). Null for admin-assigned / legacy rows. Used to cancel
+  // or change the Stripe side when the portal subscription changes.
+  stripeSubscriptionId: varchar('stripe_subscription_id', { length: 255 }),
   notes: text('notes'),
   metadata: json('metadata'), // domain name, server details, etc.
   createdAt: timestamp('created_at').defaultNow().notNull(),

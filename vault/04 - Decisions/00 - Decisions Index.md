@@ -16,6 +16,16 @@ Static list (agents: maintain this when adding ADRs — Dataview below only rend
 - [[ADR site-migration-qa-via-local-dryrun]] · [[ADR migration-glass-btn-style]] · [[ADR migration-roi-calculator-static-snapshot]] · [[ADR migration-store-settings-preflight]] · [[ADR migration-target-staging-vs-metro]]
 - [[ADR approval-preview-page-scoped-token]]
 - [[ADR kagenti-least-privilege-not-workload-identity]]
+- [[ADR per-domain-billing-rides-services-catalog]]
+- [[ADR schema-constraints-hand-sql-only]]
+- [[ADR agent-topology-router-not-domain-mesh]]
+- [[ADR byok-inversion-scale-only]]
+- [[ADR tiers-are-first-class-stripe-products]]
+- [[ADR alacarte-volume-discount-replaces-tiers]]
+- [[ADR per-seat-pricing-computed-line-items]]
+- [[ADR admin-billing-overrides-comp-coupon]]
+- [[ADR proposed-audit-agents-and-workflows]]
+- [[ADR mcp-resources-and-prompts]]
 
 ```dataview
 TABLE domain, status, date

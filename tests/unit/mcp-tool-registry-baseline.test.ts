@@ -514,6 +514,35 @@ const EXPECTED_TOOLS: readonly string[] = [
   'whoami',
 ];
 
+/**
+ * Stable list of every resource URI buildMcpServer() registers under '*'.
+ * Resources are read-only context docs (see lib/mcp/tools/resources.ts) and
+ * drift the same way tools do — lock the URI set here too.
+ *   - blocks://schema, portal://capabilities — unscoped, always registered
+ *   - brand://default — gated on branding:read
+ *   - catalog://services — gated on services:read
+ */
+const EXPECTED_RESOURCES: readonly string[] = [
+  'blocks://schema',
+  'brand://default',
+  'catalog://services',
+  'portal://capabilities',
+];
+
+/**
+ * Stable list of every prompt name buildMcpServer() registers under '*'.
+ * Prompts are user-triggered guided workflows (see lib/mcp/tools/prompts.ts),
+ * each gated on a representative scope. Lock the name set so drift fails red.
+ *   - draft-page     — gated on sites:write
+ *   - triage-tickets — gated on tickets:read
+ *   - weekly-digest  — gated on projects:read
+ */
+const EXPECTED_PROMPTS: readonly string[] = [
+  'draft-page',
+  'triage-tickets',
+  'weekly-digest',
+];
+
 /** Build a fake context with a chosen scope set. Doesn't hit the DB. */
 function makeCtx(scopes: string[]): PortalMcpContext {
   return {
@@ -551,6 +580,43 @@ function getRegisteredTools(server: unknown): Record<string, {
     inputSchema?: unknown;
     handler: (...args: unknown[]) => unknown;
   }> })._registeredTools;
+}
+
+/**
+ * Reach into McpServer's private `_registeredResources` — a `Record<uri,
+ * RegisteredResource>` where each value carries `name`, `metadata` (the
+ * config), and `readCallback`. Same introspection approach as the tool
+ * registry: stricter than a resources/list round-trip and catches drift before
+ * the transport is stood up.
+ */
+function getRegisteredResources(server: unknown): Record<string, {
+  name?: string;
+  title?: string;
+  metadata?: { title?: string; description?: string };
+  readCallback: (...args: unknown[]) => unknown;
+}> {
+  return (server as { _registeredResources: Record<string, {
+    name?: string;
+    title?: string;
+    metadata?: { title?: string; description?: string };
+    readCallback: (...args: unknown[]) => unknown;
+  }> })._registeredResources;
+}
+
+/**
+ * Reach into McpServer's private `_registeredPrompts` — a `Record<name,
+ * RegisteredPrompt>` carrying `title`, `description`, `argsSchema`, `callback`.
+ */
+function getRegisteredPrompts(server: unknown): Record<string, {
+  title?: string;
+  description?: string;
+  callback: (...args: unknown[]) => unknown;
+}> {
+  return (server as { _registeredPrompts: Record<string, {
+    title?: string;
+    description?: string;
+    callback: (...args: unknown[]) => unknown;
+  }> })._registeredPrompts;
 }
 
 describe('MCP tool registry — baseline @critical', () => {
@@ -637,5 +703,80 @@ describe('MCP tool registry — baseline @critical', () => {
     for (const n of narrowNames) {
       expect(fullNames.has(n), `narrow tool ${n} missing from full`).toBe(true);
     }
+  });
+});
+
+describe('MCP resource registry — baseline @critical', () => {
+  it('registers exactly the expected resource URIs for full-access keys', () => {
+    const server = buildMcpServer(makeCtx(['*']));
+    const actual = new Set(Object.keys(getRegisteredResources(server)));
+    const expected = new Set(EXPECTED_RESOURCES);
+
+    const missing = [...expected].filter((u) => !actual.has(u));
+    const extra = [...actual].filter((u) => !expected.has(u));
+    expect(missing).toEqual([]);
+    expect(extra).toEqual([]);
+  });
+
+  it('every registered resource has a read callback and a title/description', () => {
+    const registry = getRegisteredResources(buildMcpServer(makeCtx(['*'])));
+    for (const [uri, res] of Object.entries(registry)) {
+      expect(typeof res.readCallback, `resource ${uri} missing readCallback`).toBe('function');
+      const hasMeta = typeof res.metadata?.title === 'string' || typeof res.metadata?.description === 'string';
+      expect(hasMeta, `resource ${uri} missing title/description`).toBe(true);
+    }
+  });
+
+  it('an empty-scope key sees only the unscoped resources', () => {
+    const uris = Object.keys(getRegisteredResources(buildMcpServer(makeCtx([])))).sort();
+    // blocks://schema (static) and portal://capabilities (echoes own grant)
+    // carry no tenant data and so register without a scope guard.
+    expect(uris).toEqual(['blocks://schema', 'portal://capabilities']);
+  });
+
+  it('tenant-scoped resources appear only with their gating scope', () => {
+    const branding = new Set(Object.keys(getRegisteredResources(buildMcpServer(makeCtx(['branding:read'])))));
+    expect(branding.has('brand://default')).toBe(true);
+    expect(branding.has('catalog://services')).toBe(false);
+
+    const servicesScope = new Set(Object.keys(getRegisteredResources(buildMcpServer(makeCtx(['services:read'])))));
+    expect(servicesScope.has('catalog://services')).toBe(true);
+    expect(servicesScope.has('brand://default')).toBe(false);
+  });
+});
+
+describe('MCP prompt registry — baseline @critical', () => {
+  it('registers exactly the expected prompt names for full-access keys', () => {
+    const actual = new Set(Object.keys(getRegisteredPrompts(buildMcpServer(makeCtx(['*'])))));
+    const expected = new Set(EXPECTED_PROMPTS);
+
+    const missing = [...expected].filter((n) => !actual.has(n));
+    const extra = [...actual].filter((n) => !expected.has(n));
+    expect(missing).toEqual([]);
+    expect(extra).toEqual([]);
+  });
+
+  it('every registered prompt has a callback and a title/description', () => {
+    const registry = getRegisteredPrompts(buildMcpServer(makeCtx(['*'])));
+    for (const [name, p] of Object.entries(registry)) {
+      expect(typeof p.callback, `prompt ${name} missing callback`).toBe('function');
+      const hasMeta = typeof p.title === 'string' || typeof p.description === 'string';
+      expect(hasMeta, `prompt ${name} missing title/description`).toBe(true);
+    }
+  });
+
+  it('an empty-scope key sees no prompts', () => {
+    expect(Object.keys(getRegisteredPrompts(buildMcpServer(makeCtx([]))))).toEqual([]);
+  });
+
+  it('each prompt appears only with its gating scope', () => {
+    const tickets = new Set(Object.keys(getRegisteredPrompts(buildMcpServer(makeCtx(['tickets:read'])))));
+    expect(tickets.has('triage-tickets')).toBe(true);
+    expect(tickets.has('draft-page')).toBe(false);
+    expect(tickets.has('weekly-digest')).toBe(false);
+
+    const sites = new Set(Object.keys(getRegisteredPrompts(buildMcpServer(makeCtx(['sites:write'])))));
+    expect(sites.has('draft-page')).toBe(true);
+    expect(sites.has('triage-tickets')).toBe(false);
   });
 });

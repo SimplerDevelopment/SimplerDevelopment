@@ -21,6 +21,7 @@ const APP_HOSTNAMES = new Set([
   'simplerdevelopment.com',
   'www.simplerdevelopment.com',
   'staging.simplerdevelopment.com',
+  'dev.simplerdevelopment.com',
 ]);
 
 function getAppHostname(): string | null {
@@ -273,14 +274,31 @@ export async function middleware(req: NextRequest) {
   }
 
   // For the app's own hostname, run the standard NextAuth middleware
-  const response = await (auth as unknown as (req: NextRequest) => Promise<NextResponse>)(req);
+  const authResponse = await (auth as unknown as (req: NextRequest) => Promise<NextResponse>)(req);
 
-  // Stamp dev CORS headers on responses going back to the mobile client. The
+  // If the auth middleware decided to redirect (or otherwise own the response),
+  // honor it as-is.
+  if (authResponse.headers.get('location')) return authResponse;
+
+  // Re-issue the passthrough with x-pathname stamped on the REQUEST headers so
+  // server layouts (e.g. app/admin/layout.tsx) can read the path via headers().
+  // NOTE: a *response* header (the previous approach) is NOT readable by RSCs —
+  // it must be on the request. Carry over the session-refresh cookies the auth
+  // middleware set so we don't drop a refreshed session.
+  const requestHeaders = new Headers(req.headers);
+  requestHeaders.set('x-pathname', pathname);
+  const response = NextResponse.next({ request: { headers: requestHeaders } });
+  for (const cookie of authResponse.headers.getSetCookie()) {
+    response.headers.append('set-cookie', cookie);
+  }
+
+  // Stamp dev CORS headers on API responses going back to the mobile client. The
   // OPTIONS preflight already short-circuited above; this handles the real
   // GET / POST / PATCH / DELETE responses.
   if (prePath.startsWith('/api/') && reqOrigin && isAllowedDevOrigin(reqOrigin)) {
     applyDevCors(response, reqOrigin);
   }
+
   return response;
 }
 

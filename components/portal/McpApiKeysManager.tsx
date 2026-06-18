@@ -88,9 +88,19 @@ const SCOPE_GROUPS: ScopeGroup[] = [
     ],
   },
   {
+    label: 'Company Brain',
+    description: 'Access to notes, contacts, meetings, tasks, and AI knowledge base.',
+    scopes: [
+      { value: 'brain:read', label: 'Read Brain (notes, contacts, meetings, tasks)' },
+      { value: 'brain:write', label: 'Write Brain (create/update notes, tasks, meetings)' },
+      { value: 'brain:approve', label: 'Approve / reject Brain review items' },
+    ],
+  },
+  {
     label: 'Approvals',
     description: 'Required to approve or reject staged changes created by other keys.',
     scopes: [
+      { value: 'approvals:read', label: 'Read staged changes (list / view)' },
       { value: 'approvals:manage', label: 'Approve / reject staged changes' },
     ],
   },
@@ -111,7 +121,7 @@ export default function McpApiKeysManager({
   const [name, setName] = useState('');
   const [fullAccess, setFullAccess] = useState(true);
   const [selectedScopes, setSelectedScopes] = useState<string[]>([]);
-  const [requireCmsApproval, setRequireCmsApproval] = useState(false);
+  const [requireCmsApproval, setRequireCmsApproval] = useState(true);
   const [newKey, setNewKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -123,6 +133,7 @@ export default function McpApiKeysManager({
     setLoading(false);
   }
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- pre-existing pattern, predates this change
   useEffect(() => { load(); }, []);
 
   async function handleCreate() {
@@ -141,7 +152,7 @@ export default function McpApiKeysManager({
     setName('');
     setFullAccess(true);
     setSelectedScopes([]);
-    setRequireCmsApproval(false);
+    setRequireCmsApproval(true);
     setShowCreate(false);
     load();
   }

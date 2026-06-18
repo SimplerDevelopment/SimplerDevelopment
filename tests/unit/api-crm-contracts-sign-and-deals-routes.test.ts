@@ -52,6 +52,14 @@ vi.mock('@/lib/esign/dropbox-sign', () => ({
   createSignatureRequest: (...args: unknown[]) => createSignatureRequestMock(...args),
 }));
 
+// portal-auth — mock authorizePortal to pass through (esign entitlement granted)
+const authorizePortalMock = vi.fn();
+const isAuthErrorMock = vi.fn();
+vi.mock('@/lib/portal-auth', () => ({
+  authorizePortal: (...args: unknown[]) => authorizePortalMock(...args),
+  isAuthError: (...args: unknown[]) => isAuthErrorMock(...args),
+}));
+
 vi.mock('@/lib/db/schema', () => {
   const wrap = (name: string) =>
     new Proxy(
@@ -213,6 +221,9 @@ beforeEach(() => {
   insertCalls.length = 0;
   insertReturnQueue.length = 0;
   buildCustomFieldFiltersMock.mockReturnValue([]);
+  // Default: esign service is granted — authorizePortal passes through
+  authorizePortalMock.mockResolvedValue({ ok: true });
+  isAuthErrorMock.mockReturnValue(false);
 });
 
 // ===========================================================================

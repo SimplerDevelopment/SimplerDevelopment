@@ -26,7 +26,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
   const server = new McpServer(
     { name: 'simplerdevelopment-portal', version: '0.1.0' },
     {
-      capabilities: { tools: {}, resources: {} },
+      capabilities: { tools: {}, resources: {}, prompts: {} },
       instructions: `You are connected to the SimplerDevelopment portal for client "${ctx.client.company ?? `#${ctx.client.id}`}" (id ${ctx.client.id}). Use these tools to manage projects, tickets, CRM, content, media, websites, and email campaigns. All operations are automatically scoped to this client.`,
     },
   );

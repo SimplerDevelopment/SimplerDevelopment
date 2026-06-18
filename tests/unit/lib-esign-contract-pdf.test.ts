@@ -32,6 +32,8 @@ function makeMockPage() {
     drawLine(opts: Record<string, unknown>) {
       drawLineCalls.push(opts as DrawLineCall);
     },
+    drawRectangle: vi.fn(),
+    drawImage: vi.fn(),
   };
 }
 
@@ -41,10 +43,17 @@ const mockFont = {
 
 const mockPdfDoc = {
   embedFont: vi.fn().mockResolvedValue(mockFont),
+  embedPng: vi.fn().mockResolvedValue({
+    scaleToFit: vi.fn().mockReturnValue({ width: 80, height: 24 }),
+  }),
+  embedJpg: vi.fn().mockResolvedValue({
+    scaleToFit: vi.fn().mockReturnValue({ width: 80, height: 24 }),
+  }),
   addPage: vi.fn(() => {
     pageCount++;
     return makeMockPage();
   }),
+  getPageCount: vi.fn(() => pageCount),
   save: vi.fn().mockResolvedValue(new Uint8Array([1, 2, 3, 4])),
 };
 
@@ -67,9 +76,13 @@ beforeEach(() => {
   drawLineCalls.length = 0;
   pageCount = 0;
   mockFont.widthOfTextAtSize.mockClear();
+  mockFont.widthOfTextAtSize.mockImplementation((_text: string, size: number) => size * 4);
   mockPdfDoc.addPage.mockClear();
   mockPdfDoc.save.mockClear();
   mockPdfDoc.embedFont.mockClear();
+  mockPdfDoc.embedPng.mockClear();
+  mockPdfDoc.embedJpg.mockClear();
+  mockPdfDoc.getPageCount.mockClear();
   // Reset mocks that return values
   mockPdfDoc.save.mockResolvedValue(new Uint8Array([1, 2, 3, 4]));
   mockPdfDoc.embedFont.mockResolvedValue(mockFont);
@@ -77,6 +90,7 @@ beforeEach(() => {
     pageCount++;
     return makeMockPage();
   });
+  mockPdfDoc.getPageCount.mockImplementation(() => pageCount);
 });
 
 // ---------------------------------------------------------------------------
@@ -131,6 +145,45 @@ describe('renderContractPdf', () => {
       expect(preparedFor).toContain('Alice Smith');
       expect(preparedFor).toContain('alice@example.com');
     });
+
+    it('draws the "CONTRACT" label in the brand bar', async () => {
+      await renderContractPdf(baseInput());
+      expect(allDrawnTexts()).toContain('CONTRACT');
+    });
+  });
+
+  describe('branding fields', () => {
+    it('draws brandName text in the brand bar when no logoUrl', async () => {
+      await renderContractPdf({ ...baseInput(), brandName: 'Acme Corp' });
+      expect(allDrawnTexts()).toContain('Acme Corp');
+    });
+
+    it('uses brandName as footer fallback when footerText is absent', async () => {
+      await renderContractPdf({ ...baseInput(), brandName: 'MyBrand' });
+      // Footer falls back to brandName when footerText is null/undefined
+      expect(allDrawnTexts()).toContain('MyBrand');
+    });
+
+    it('uses "Confidential" as footer when both footerText and brandName are absent', async () => {
+      await renderContractPdf(baseInput());
+      expect(allDrawnTexts()).toContain('Confidential');
+    });
+
+    it('does not throw when accentColor is a valid hex', async () => {
+      const result = await renderContractPdf({ ...baseInput(), accentColor: '#2563eb' });
+      expect(result).toBeInstanceOf(Buffer);
+    });
+
+    it('does not throw when accentColor is a 3-digit hex', async () => {
+      const result = await renderContractPdf({ ...baseInput(), accentColor: '#abc' });
+      expect(result).toBeInstanceOf(Buffer);
+    });
+
+    it('attempts to fetch and embed logoUrl when provided', async () => {
+      // The logo fetch will fail (not a real URL) — should proceed without throwing
+      const result = await renderContractPdf({ ...baseInput(), logoUrl: 'https://example.com/logo.png' });
+      expect(result).toBeInstanceOf(Buffer);
+    });
   });
 
   describe('summary section', () => {
@@ -153,12 +206,13 @@ describe('renderContractPdf', () => {
   });
 
   describe('clauses section', () => {
-    it('draws "Terms" heading when clauses are provided', async () => {
+    it('draws "Terms & Conditions" heading when clauses are provided', async () => {
       await renderContractPdf({
         ...baseInput(),
         clauses: [{ title: 'Confidentiality', content: '<p>Keep it secret.</p>', required: true }],
       });
-      expect(allDrawnTexts()).toContain('Terms');
+      // Heading is "Terms & Conditions"; toContain('Terms') still matches
+      expect(allDrawnTexts().some((t) => t.includes('Terms'))).toBe(true);
     });
 
     it('includes clause title with index', async () => {
@@ -170,22 +224,23 @@ describe('renderContractPdf', () => {
       expect(texts.some((t) => t.includes('1. Payment'))).toBe(true);
     });
 
-    it('appends (required) to required clauses', async () => {
+    it('appends " *" to required clauses', async () => {
+      // Code appends " *" (space + asterisk) — not "(required)"
       await renderContractPdf({
         ...baseInput(),
         clauses: [{ title: 'NDA', content: 'Keep secret.', required: true }],
       });
       const texts = allDrawnTexts();
-      expect(texts.some((t) => t.includes('(required)'))).toBe(true);
+      expect(texts.some((t) => t.includes('NDA *'))).toBe(true);
     });
 
-    it('does NOT append (required) to non-required clauses', async () => {
+    it('does NOT append " *" to non-required clauses', async () => {
       await renderContractPdf({
         ...baseInput(),
         clauses: [{ title: 'Optional', content: 'Optional text.', required: false }],
       });
       const texts = allDrawnTexts();
-      expect(texts.some((t) => t.includes('(required)'))).toBe(false);
+      expect(texts.some((t) => t.endsWith(' *'))).toBe(false);
     });
 
     it('strips HTML tags from clause content', async () => {
@@ -210,7 +265,7 @@ describe('renderContractPdf', () => {
 
     it('handles null clauses — omits Terms section', async () => {
       await renderContractPdf({ ...baseInput(), clauses: null });
-      expect(allDrawnTexts()).not.toContain('Terms');
+      expect(allDrawnTexts().some((t) => t.includes('Terms'))).toBe(false);
     });
 
     it('numbers multiple clauses sequentially', async () => {
@@ -230,28 +285,30 @@ describe('renderContractPdf', () => {
   });
 
   describe('line items section', () => {
-    it('draws "Line Items" heading when line items are provided', async () => {
+    it('draws "Pricing" heading when line items are provided', async () => {
+      // Section heading is "Pricing", not "Line Items"
       await renderContractPdf({
         ...baseInput(),
-        lineItems: [{ description: 'Design', quantity: 1, unitPrice: 500, total: 500 }],
+        lineItems: [{ description: 'Design', quantity: 1, unitPrice: 50000, total: 50000 }],
       });
-      expect(allDrawnTexts()).toContain('Line Items');
+      expect(allDrawnTexts()).toContain('Pricing');
     });
 
-    it('omits "Line Items" heading when lineItems is null', async () => {
+    it('omits "Pricing" heading when lineItems is null', async () => {
       await renderContractPdf({ ...baseInput(), lineItems: null });
-      expect(allDrawnTexts()).not.toContain('Line Items');
+      expect(allDrawnTexts()).not.toContain('Pricing');
     });
 
-    it('omits "Line Items" heading when lineItems is empty array', async () => {
+    it('omits "Pricing" heading when lineItems is empty array and no fees', async () => {
       await renderContractPdf({ ...baseInput(), lineItems: [] });
-      expect(allDrawnTexts()).not.toContain('Line Items');
+      expect(allDrawnTexts()).not.toContain('Pricing');
     });
 
     it('includes item description in drawn text', async () => {
       await renderContractPdf({
         ...baseInput(),
-        lineItems: [{ description: 'Logo Design', quantity: 2, unitPrice: 250, total: 500 }],
+        // unitPrice/total are CENTS: 25000 cents = $250.00, 50000 cents = $500.00
+        lineItems: [{ description: 'Logo Design', quantity: 2, unitPrice: 25000, total: 50000 }],
         currency: 'USD',
       });
       const texts = allDrawnTexts();
@@ -261,13 +318,14 @@ describe('renderContractPdf', () => {
     it('uses — for missing description', async () => {
       await renderContractPdf({
         ...baseInput(),
+        // 100 cents = $1.00
         lineItems: [{ quantity: 1, unitPrice: 100, total: 100 }],
       });
       const texts = allDrawnTexts();
       expect(texts.some((t) => t.includes('—'))).toBe(true);
     });
 
-    it('defaults unitPrice to 0 when omitted', async () => {
+    it('defaults unitPrice to 0 when omitted — renders $0.00', async () => {
       await renderContractPdf({
         ...baseInput(),
         lineItems: [{ description: 'Item', quantity: 3 }],
@@ -276,30 +334,32 @@ describe('renderContractPdf', () => {
       expect(texts.some((t) => t.includes('0.00'))).toBe(true);
     });
 
-    it('defaults quantity to 1 when omitted', async () => {
+    it('defaults quantity to 1 when omitted — total = unitPrice cents / 100', async () => {
       await renderContractPdf({
         ...baseInput(),
-        lineItems: [{ description: 'Item', unitPrice: 100 }],
+        // unitPrice = 10000 cents = $100.00; qty defaults to 1, total = $100.00
+        lineItems: [{ description: 'Item', unitPrice: 10000 }],
       });
       const texts = allDrawnTexts();
-      // quantity 1 × unitPrice 100 = total 100
       expect(texts.some((t) => t.includes('100.00'))).toBe(true);
     });
 
-    it('uses provided total when present (overrides qty×price)', async () => {
+    it('uses provided total when present (overrides qty×price) — cents input', async () => {
       await renderContractPdf({
         ...baseInput(),
-        lineItems: [{ description: 'X', quantity: 1, unitPrice: 100, total: 999 }],
+        // total = 99900 cents = $999.00
+        lineItems: [{ description: 'X', quantity: 1, unitPrice: 10000, total: 99900 }],
       });
       const texts = allDrawnTexts();
       expect(texts.some((t) => t.includes('999.00'))).toBe(true);
     });
 
-    it('draws fees with label and amount', async () => {
+    it('draws fees with label and formatted amount from cents', async () => {
       await renderContractPdf({
         ...baseInput(),
-        lineItems: [{ description: 'Item', quantity: 1, unitPrice: 50, total: 50 }],
-        fees: [{ label: 'Setup fee', amount: 25 }],
+        // unitPrice/total = 5000 cents = $50.00; fee amount = 2500 cents = $25.00
+        lineItems: [{ description: 'Item', quantity: 1, unitPrice: 5000, total: 5000 }],
+        fees: [{ label: 'Setup fee', amount: 2500 }],
       });
       const texts = allDrawnTexts();
       expect(texts.some((t) => t.includes('Setup fee'))).toBe(true);
@@ -309,42 +369,47 @@ describe('renderContractPdf', () => {
     it('falls back to "Fee" when fee label is omitted', async () => {
       await renderContractPdf({
         ...baseInput(),
-        lineItems: [{ description: 'X', quantity: 1, unitPrice: 10, total: 10 }],
-        fees: [{ amount: 5 }],
+        lineItems: [{ description: 'X', quantity: 1, unitPrice: 1000, total: 1000 }],
+        fees: [{ amount: 500 }],
       });
       const texts = allDrawnTexts();
       expect(texts.some((t) => t.includes('Fee'))).toBe(true);
     });
 
-    it('draws a Total line summing items + fees', async () => {
+    it('draws "Total:" label and grand total from cents (separate drawText calls)', async () => {
+      // lineItems total = 10000 cents, fee = 1000 cents → grand = 11000 cents = $110.00
       await renderContractPdf({
         ...baseInput(),
-        lineItems: [{ description: 'A', quantity: 1, unitPrice: 100, total: 100 }],
-        fees: [{ label: 'Tax', amount: 10 }],
+        lineItems: [{ description: 'A', quantity: 1, unitPrice: 10000, total: 10000 }],
+        fees: [{ label: 'Tax', amount: 1000 }],
         currency: 'USD',
       });
       const texts = allDrawnTexts();
-      expect(texts.some((t) => t.includes('Total:') && t.includes('110.00'))).toBe(true);
+      // "Total:" and the formatted amount are drawn as separate drawText calls
+      expect(texts.some((t) => t === 'Total:')).toBe(true);
+      expect(texts.some((t) => t.includes('110.00'))).toBe(true);
     });
 
     it('uses default currency USD when currency is null', async () => {
       await renderContractPdf({
         ...baseInput(),
-        lineItems: [{ description: 'X', quantity: 1, unitPrice: 50, total: 50 }],
+        lineItems: [{ description: 'X', quantity: 1, unitPrice: 5000, total: 5000 }],
         currency: null,
       });
       const texts = allDrawnTexts();
-      expect(texts.some((t) => t.includes('USD'))).toBe(true);
+      // Intl.NumberFormat with USD produces "$" not "USD" literally; check for $
+      expect(texts.some((t) => t.includes('$'))).toBe(true);
     });
 
     it('respects a custom currency code', async () => {
       await renderContractPdf({
         ...baseInput(),
-        lineItems: [{ description: 'X', quantity: 1, unitPrice: 100, total: 100 }],
+        lineItems: [{ description: 'X', quantity: 1, unitPrice: 10000, total: 10000 }],
         currency: 'EUR',
       });
       const texts = allDrawnTexts();
-      expect(texts.some((t) => t.includes('EUR'))).toBe(true);
+      // EUR formatting includes "€" or "EUR" depending on locale
+      expect(texts.some((t) => t.includes('€') || t.includes('EUR'))).toBe(true);
     });
   });
 
@@ -380,9 +445,9 @@ describe('renderContractPdf', () => {
       expect(texts.some((t) => t.includes('Confidential'))).toBe(true);
     });
 
-    it('omits footer when footerText is null', async () => {
+    it('does not throw when footerText is null — falls back to brandName or "Confidential"', async () => {
       await renderContractPdf({ ...baseInput(), footerText: null });
-      // Should not throw; just no footer text
+      // Should not throw; save must be called
       expect(mockPdfDoc.save).toHaveBeenCalled();
     });
   });
@@ -443,14 +508,14 @@ describe('renderContractPdf', () => {
     });
 
     it('handles fees without corresponding lineItems being non-empty', async () => {
-      // fees only matter when lineItems is non-empty per the source logic
+      // fees only render when lineItems is non-empty (lineItems check gates the whole Pricing section)
       await renderContractPdf({
         ...baseInput(),
-        lineItems: [{ description: 'Base', quantity: 1, unitPrice: 100, total: 100 }],
+        lineItems: [{ description: 'Base', quantity: 1, unitPrice: 10000, total: 10000 }],
         fees: [],
       });
       const texts = allDrawnTexts();
-      expect(texts.some((t) => t.includes('Total:'))).toBe(true);
+      expect(texts.some((t) => t === 'Total:')).toBe(true);
     });
   });
 });

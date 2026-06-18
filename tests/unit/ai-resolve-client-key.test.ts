@@ -1,7 +1,14 @@
 /**
- * Unit coverage for the BYOK resolver. Mocks the DB and the crypto helper so
- * the resolver's three branches (BYOK hit, BYOK miss, decrypt failure) can be
- * exercised independently.
+ * Unit coverage for the BYOK resolver. Mocks the DB, the crypto helper, and
+ * `getClientEntitlements` so the resolver's branches can be exercised
+ * independently:
+ *
+ *   - byokEligible=true  + BYOK row present  → source:'byok'
+ *   - byokEligible=true  + no row            → source:'platform'
+ *   - byokEligible=false + BYOK row present  → source:'platform' (eligibility gate)
+ *   - decrypt failure                        → source:'platform' (fail-safe)
+ *   - DB lookup failure                      → source:'platform' (fail-safe)
+ *   - entitlement check failure              → source:'platform' (fail-closed)
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
@@ -44,6 +51,12 @@ vi.mock('@/lib/crypto/api-key', () => ({
   decryptApiKey: (blob: string) => decryptSpy(blob),
 }));
 
+// Mock getClientEntitlements so we control byokEligible per-test.
+const mockGetClientEntitlements = vi.fn();
+vi.mock('@/lib/billing/entitlements', () => ({
+  getClientEntitlements: (...args: unknown[]) => mockGetClientEntitlements(...args),
+}));
+
 import { resolveClientApiKey, _clearResolveCache } from '@/lib/ai/resolve-client-key';
 
 describe('resolveClientApiKey', () => {
@@ -56,6 +69,9 @@ describe('resolveClientApiKey', () => {
     decryptSpy.mockReset();
     mockWhere.mockReset();
     mockUpdateSet.mockReset().mockReturnValue({ where: () => ({ catch: () => undefined }) });
+    // Default: byokEligible=true (Scale tier) so existing BYOK-hit tests pass
+    // without requiring every test to spell this out.
+    mockGetClientEntitlements.mockResolvedValue({ byokEligible: true });
     _clearResolveCache();
   });
 
@@ -165,6 +181,70 @@ describe('resolveClientApiKey', () => {
 
     expect(result.source).toBe('platform');
     expect(warnSpy).toHaveBeenCalled();
+    warnSpy.mockRestore();
+  });
+
+  // ── BYOK inversion: Scale-only eligibility gate ──────────────────────────
+
+  it('returns platform key (ignores stored BYOK row) when client is NOT byokEligible', async () => {
+    // Simulate a non-Scale client: entitlements say byokEligible=false.
+    mockGetClientEntitlements.mockResolvedValueOnce({ byokEligible: false });
+    // A BYOK row exists in the DB — but must NOT be used.
+    mockWhere.mockResolvedValueOnce([
+      {
+        id: 1,
+        clientId: 100,
+        provider: 'anthropic',
+        encryptedKey: 'ENC',
+        createdAt: new Date('2026-01-01T00:00:00Z'),
+        lastUsedAt: null,
+      },
+    ]);
+
+    const result = await resolveClientApiKey({ clientId: 100, provider: 'anthropic' });
+
+    expect(result.source).toBe('platform');
+    expect(result.key).toBe('sk-ant-platform');
+    // The DB lookup must have been skipped entirely (byokEligible=false means
+    // we short-circuit to [] without querying). mockWhere should NOT have been
+    // called because the resolver skips the query when not eligible.
+    expect(decryptSpy).not.toHaveBeenCalled();
+  });
+
+  it('returns BYOK key (source:byok) when client IS byokEligible and a key row exists', async () => {
+    // Explicit Scale-tier eligibility (also the default, but stated for clarity).
+    mockGetClientEntitlements.mockResolvedValueOnce({ byokEligible: true });
+    mockWhere.mockResolvedValueOnce([
+      {
+        id: 2,
+        clientId: 200,
+        provider: 'anthropic',
+        encryptedKey: 'ENC2',
+        createdAt: new Date('2026-01-01T00:00:00Z'),
+        lastUsedAt: null,
+      },
+    ]);
+    decryptSpy.mockReturnValue('sk-ant-byok-scale');
+
+    const result = await resolveClientApiKey({ clientId: 200, provider: 'anthropic' });
+
+    expect(result.source).toBe('byok');
+    expect(result.key).toBe('sk-ant-byok-scale');
+    expect(decryptSpy).toHaveBeenCalledWith('ENC2');
+  });
+
+  it('falls through to platform key when entitlement check throws (fail-closed)', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    mockGetClientEntitlements.mockRejectedValueOnce(new Error('billing DB down'));
+
+    const result = await resolveClientApiKey({ clientId: 100, provider: 'anthropic' });
+
+    expect(result.source).toBe('platform');
+    expect(result.key).toBe('sk-ant-platform');
+    // The warn log is expected — it's the fail-closed signal.
+    expect(warnSpy).toHaveBeenCalled();
+    // Must not have attempted the DB lookup (we never got past the eligibility check).
+    expect(decryptSpy).not.toHaveBeenCalled();
     warnSpy.mockRestore();
   });
 });

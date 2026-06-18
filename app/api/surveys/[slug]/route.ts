@@ -11,6 +11,7 @@ import { assignSurveyVariant } from '@/lib/surveys/variant-assign';
 import { computeSurveyScore } from '@/lib/surveys/score';
 import type { SurveyFieldDef } from '@/lib/db/schema/surveys';
 import { assertPipelineInClient, assertStageInClient } from '@/lib/security/assert-owned';
+import { upsertContactByEmail } from '@/lib/crm/contacts';
 
 // CORS — public survey submit needs to accept POST from sandboxed iframes
 // (their effective origin is `null`, so `*` matches). The endpoint is
@@ -335,6 +336,14 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
         .replace(/\{respondentEmail\}/g, respondentEmail)
         .replace(/\{score\}/g, String(computedScore));
 
+      // Upsert a CRM contact so the deal is never orphaned.
+      const { contactId } = await upsertContactByEmail({
+        clientId: survey.clientId,
+        email: respondentEmail,
+        displayName: response.respondentName ?? undefined,
+        source: 'survey',
+      });
+
       await db.insert(crmDeals).values({
         clientId: survey.clientId,
         pipelineId: autoRoute.pipelineId,
@@ -342,6 +351,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
         title: title.slice(0, 255),
         notes: `Auto-created from survey response #${response.id}`,
         ownerId: null,
+        contactId,
       });
     }
   } catch (err) {

@@ -172,6 +172,9 @@ export const PORTAL_TOOL_SCOPES: Record<string, string> = {
 export const AUTOMATION_ACTION_SCOPES: Record<string, string> = {
   start_playbook: 'brain:write',
   run_plugin_script: 'automations:write',
+  // fire_webhook POSTs the event payload to an arbitrary external URL (data
+  // egress) and has no other control — gate it as an outbound integration.
+  fire_webhook: 'integrations:write',
 };
 
 /**

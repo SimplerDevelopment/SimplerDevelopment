@@ -7,10 +7,24 @@ import { authorizePortal, isAuthError } from '@/lib/portal-auth';
 import { eq, asc, sql } from 'drizzle-orm';
 import Anthropic from '@anthropic-ai/sdk';
 import { PORTAL_TOOLS, executePortalTool } from '@/lib/ai/portal-tools';
+import { classifyPortalRequest } from '@/lib/ai/portal-tools/classifier';
+import { toolsForDomains, domainsOfToolCalls } from '@/lib/ai/portal-tools/domains';
+import { withSpan, startSpan } from '@/lib/ai/tracer';
 import { hasCredits, deductCredits, getBalance } from '@/lib/ai-credits';
 import { resolveClientApiKey } from '@/lib/ai/resolve-client-key';
 import { recordAiUsage } from '@/lib/ai/audit';
 import { checkAiPlanGate } from '@/lib/ai/plan-gate';
+
+// Model routing: a cheap Haiku classifier decides which model runs the loop.
+const HAIKU = 'claude-haiku-4-5-20251001';
+const SONNET = 'claude-sonnet-4-6';
+
+// Intent router rollout (ADR agent-topology-router-not-domain-mesh):
+//   'shadow' → measure router accuracy/latency; loop still gets ALL tools
+//              (zero capability risk on this client-facing, billing route).
+//   'active' → hand the loop only the routed domain subset (token savings).
+// Flip to 'active' once shadow data shows the router is reliable.
+const ROUTER_MODE: 'shadow' | 'active' = 'shadow';
 
 const SYSTEM_PROMPT = `You are a helpful AI assistant embedded in the Simpler Development client portal. You can help clients with EVERYTHING in their portal — projects, invoices, tickets, websites, email campaigns, booking pages, pitch decks, team management, services, hosting, CRM, and more.
 
@@ -153,11 +167,29 @@ export async function POST(req: Request) {
     // Append new user message
     anthropicMessages.push({ role: 'user', content: message.trim() });
 
-    // Agentic tool loop
+    // Cheap Haiku classifier does double duty in ONE call (no extra hop):
+    //  - complexity → model routing (simple → Haiku, complex → Sonnet)
+    //  - domains    → intent routing (which tool subset the request needs)
+    const classification = await withSpan(
+      'portal.classify',
+      { clientId: client.id },
+      () => classifyPortalRequest(message.trim(), anthropic),
+    );
+    const loopModel = classification.complexity === 'simple' ? HAIKU : SONNET;
+
+    // Intent router: the subset the router would hand the loop. In 'shadow'
+    // mode we still pass the full surface and only record what we *would* have
+    // selected; in 'active' mode the loop actually gets just this subset.
+    // Empty domains → toolsForDomains returns the full set (fail-open).
+    const routedTools = toolsForDomains(classification.domains, PORTAL_TOOLS);
+    const loopTools = ROUTER_MODE === 'active' ? routedTools : PORTAL_TOOLS;
+
+    // Agentic tool loop. Seed token totals with the classifier spend so
+    // platform-keyed credit deduction stays accurate.
     let finalText = '';
     const allToolCalls: { name: string; input: Record<string, unknown>; result: unknown }[] = [];
-    let totalInputTokens = 0;
-    let totalOutputTokens = 0;
+    let totalInputTokens = classification.inputTokens;
+    let totalOutputTokens = classification.outputTokens;
 
     let currentMessages = [...anthropicMessages];
 
@@ -171,10 +203,10 @@ export async function POST(req: Request) {
     while (loopCount < MAX_LOOPS) {
       loopCount++;
       const response = await anthropic.messages.create({
-        model: 'claude-sonnet-4-6',
+        model: loopModel,
         max_tokens: 2048,
         system: SYSTEM_PROMPT,
-        tools: PORTAL_TOOLS,
+        tools: loopTools,
         messages: currentMessages,
       });
 
@@ -196,12 +228,17 @@ export async function POST(req: Request) {
 
         const toolResults: Anthropic.ToolResultBlockParam[] = [];
         for (const block of toolUseBlocks) {
-          const result = await executePortalTool(
-            block.name,
-            block.input as Record<string, unknown>,
-            client.id,
-            userId,
-            { source: 'assistant' },
+          const result = await withSpan(
+            'portal.tool',
+            { tool: block.name, clientId: client.id },
+            () =>
+              executePortalTool(
+                block.name,
+                block.input as Record<string, unknown>,
+                client.id,
+                userId,
+                { source: 'assistant' },
+              ),
           );
           allToolCalls.push({ name: block.name, input: block.input as Record<string, unknown>, result });
           toolResults.push({
@@ -241,6 +278,25 @@ export async function POST(req: Request) {
         { status: 400 },
       );
     }
+
+    // Intent-router accuracy signal. Compare the domains the router predicted
+    // against the domains the loop's tool calls actually touched. A "miss" is
+    // a tool the model needed from a domain the router did NOT select — in
+    // 'active' mode that tool would have been unavailable. This is the data the
+    // ADR gate wants before flipping ROUTER_MODE to 'active'.
+    const usedDomains = domainsOfToolCalls(allToolCalls);
+    const predicted = new Set(classification.domains);
+    const routerMisses = usedDomains.filter((d) => !predicted.has(d));
+    startSpan('portal.route', {
+      clientId: client.id,
+      mode: ROUTER_MODE,
+      predictedDomains: classification.domains.join(',') || '(none)',
+      usedDomains: usedDomains.join(',') || '(none)',
+      routedToolCount: routedTools.length,
+      totalToolCount: PORTAL_TOOLS.length,
+      misses: routerMisses.join(',') || '(none)',
+      hit: routerMisses.length === 0,
+    }).end();
 
     // Save user message
     await db.insert(aiMessages).values({
@@ -288,6 +344,14 @@ export async function POST(req: Request) {
         toolCalls: allToolCalls.map(tc => ({ name: tc.name, input: tc.input })),
         tokensUsed: totalTokens,
         keySource: resolved.source,
+        model: loopModel,
+        router: {
+          mode: ROUTER_MODE,
+          domains: classification.domains,
+          routedToolCount: routedTools.length,
+          totalToolCount: PORTAL_TOOLS.length,
+          misses: routerMisses,
+        },
         creditsRemaining,
       },
     });

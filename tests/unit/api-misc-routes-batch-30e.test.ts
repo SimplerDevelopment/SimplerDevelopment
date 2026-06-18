@@ -29,6 +29,14 @@ vi.mock('@/lib/portal-client', () => ({
   getPortalClient: (...args: unknown[]) => getPortalClientMock(...args),
 }));
 
+// portal-auth — mock authorizePortal to pass through (esign entitlement granted)
+const authorizePortalMock = vi.fn();
+const isAuthErrorMock = vi.fn();
+vi.mock('@/lib/portal-auth', () => ({
+  authorizePortal: (...args: unknown[]) => authorizePortalMock(...args),
+  isAuthError: (...args: unknown[]) => isAuthErrorMock(...args),
+}));
+
 vi.mock('@/lib/db/schema', () => {
   const wrap = (tableName: string) =>
     new Proxy(
@@ -237,6 +245,9 @@ beforeEach(() => {
   deleteQueue.length = 0;
   insertCalls.length = 0;
   lastUpdateSet = undefined;
+  // Default: esign service is granted — authorizePortal passes through
+  authorizePortalMock.mockResolvedValue({ ok: true });
+  isAuthErrorMock.mockReturnValue(false);
 });
 
 // ===========================================================================

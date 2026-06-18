@@ -298,8 +298,10 @@ export default function WidgetBoard({
         );
       })()}
 
-      {/* Widget grid */}
-      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+      {/* Widget grid. A stable `id` is required: without it dnd-kit assigns an
+          auto-incrementing aria-describedby id that differs between the server
+          and client render, producing a hydration mismatch. */}
+      <DndContext id="dashboard-widget-board" sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
         <SortableContext items={order} strategy={verticalListSortingStrategy}>
           <div className="grid lg:grid-cols-2 gap-6 items-start">
             {visibleWidgets.map((w) => (

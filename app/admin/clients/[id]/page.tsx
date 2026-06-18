@@ -2,6 +2,7 @@
 
 import { useState, useEffect, use } from 'react';
 import Link from 'next/link';
+import ClientBillingSummary from '@/components/admin/ClientBillingSummary';
 
 interface Client {
   id: number; userId: number; company: string | null; phone: string | null;
@@ -295,6 +296,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
 
   useEffect(() => {
     if (tab === 'settings' && !domainsLoaded) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- pre-existing pattern: lazy-load email domains when the settings tab opens
       setDomainsLoading(true);
       fetch('/api/admin/email/domains').then(r => r.json()).then(d => {
         setDomains(d.data ?? []);
@@ -520,6 +522,8 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       {/* Billing */}
       {tab === 'billing' && (
         <div className="space-y-6">
+          <ClientBillingSummary clientId={clientId} />
+
           {!billingLoaded && (
             <div className="text-sm text-muted-foreground">Loading billing…</div>
           )}

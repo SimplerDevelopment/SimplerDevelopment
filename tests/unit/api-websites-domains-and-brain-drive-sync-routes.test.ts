@@ -67,8 +67,10 @@ vi.mock('@/lib/auth', () => ({
 }));
 
 const getPortalClientMock = vi.fn();
+const resolvePortalSiteMock = vi.fn();
 vi.mock('@/lib/portal-client', () => ({
   getPortalClient: (...args: unknown[]) => getPortalClientMock(...args),
+  resolvePortalSite: (...args: unknown[]) => resolvePortalSiteMock(...args),
 }));
 
 const addDomainMock = vi.fn();
@@ -321,6 +323,7 @@ beforeEach(() => {
 
   authMock.mockReset();
   getPortalClientMock.mockReset();
+  resolvePortalSiteMock.mockReset();
   addDomainMock.mockReset();
   getDomainConfigMock.mockReset();
   resolveDomainProjectIdMock.mockReset();
@@ -338,6 +341,8 @@ beforeEach(() => {
 
   authMock.mockResolvedValue({ user: { id: '7' } });
   getPortalClientMock.mockResolvedValue({ id: 10 });
+  // Default: resolvePortalSite returns { site: {...} } (matches portal-client shape)
+  resolvePortalSiteMock.mockResolvedValue({ site: { id: 55, clientId: 10, vercelProjectId: 'prj_dedicated', domain: null } });
   resolveDomainProjectIdMock.mockReturnValue('prj_123');
   addDomainMock.mockResolvedValue(undefined);
   getDomainConfigMock.mockResolvedValue({ cnames: ['custom.vercel-dns.com'] });
@@ -377,19 +382,19 @@ describe('GET /api/portal/websites/[siteId]/domains', () => {
   });
 
   it('returns 404 when getPortalClient is null', async () => {
-    getPortalClientMock.mockResolvedValueOnce(null);
+    // resolvePortalSite returns null when site not found or doesn't belong to user
+    resolvePortalSiteMock.mockResolvedValueOnce(null);
     const res = await DOMAINS_GET(makeGetReq(), siteParams('55'));
     expect(res.status).toBe(404);
   });
 
   it('returns 404 when site does not belong to client', async () => {
-    state.clientWebsites.push({ id: 55, clientId: 999 });
+    resolvePortalSiteMock.mockResolvedValueOnce(null);
     const res = await DOMAINS_GET(makeGetReq(), siteParams('55'));
     expect(res.status).toBe(404);
   });
 
   it('returns domains list for owned site', async () => {
-    state.clientWebsites.push({ id: 55, clientId: 10 });
     state.websiteDomains.push({
       id: 1,
       websiteId: 55,
@@ -439,6 +444,7 @@ describe('POST /api/portal/websites/[siteId]/domains', () => {
   });
 
   it('returns 404 when site not found', async () => {
+    resolvePortalSiteMock.mockResolvedValueOnce(null);
     const res = await DOMAINS_POST(makePostReq({ domain: 'a.com' }), siteParams('999'));
     expect(res.status).toBe(404);
   });

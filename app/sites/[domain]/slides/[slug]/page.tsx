@@ -6,6 +6,7 @@ import type { PitchDeckSlide, PitchDeckSlideV2, PitchDeckTheme } from '@/lib/db/
 import { inArray } from 'drizzle-orm';
 import { convertAllSlidesToV2, isV2Slides } from '@/lib/pitch-deck-migration';
 import { getBrandingByProfileId, getBrandingByClientId, getBrandingByWebsiteId, resolveFaviconUrlForClient } from '@/lib/branding';
+import { applyAbToDeckSlides } from '@/lib/ab/render';
 import type { Metadata } from 'next';
 import PitchDeckPresentation, { type SurveyDataForDeck } from './PitchDeckPresentation';
 
@@ -140,7 +141,13 @@ export default async function PublicPitchDeckPage({ params, searchParams }: Page
   }
 
   const theme = (deck.theme || {}) as PitchDeckTheme;
-  const slides = resolveSlides(deck.slides);
+  const rawSlides = resolveSlides(deck.slides);
+
+  // Apply A/B variant selection for this visitor (no-op when no test is running).
+  const ab = await applyAbToDeckSlides({ deckId: deck.id, slides: rawSlides });
+  // Variant payloads may be stored in V1 shape — normalize again (no-op for V2).
+  const slides = resolveSlides(ab.slides);
+
   const surveyData = await fetchSurveyData(slides);
 
   // Prefer the deck's explicitly assigned branding profile, then fall back to

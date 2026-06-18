@@ -228,11 +228,12 @@ describe('lib/auth — jwt callback', () => {
   });
 
   it('leaves token unchanged when no user is provided', async () => {
+    // checkedAt = now so the DB re-validation window hasn't expired yet
     const out = await capturedConfig.callbacks.jwt({
-      token: { sub: 'y', role: 'admin' } as any,
+      token: { sub: 'y', role: 'admin', checkedAt: Date.now() } as any,
       user: undefined as any,
     });
-    expect(out).toEqual({ sub: 'y', role: 'admin' });
+    expect(out).toMatchObject({ sub: 'y', role: 'admin' });
   });
 });
 

@@ -68,6 +68,23 @@ interface UseBookingPageResult {
   setThumbnail: (v: string) => void;
   allowStaffSelection: boolean;
   setAllowStaffSelection: (v: boolean) => void;
+  // Monetization
+  price: number | null;
+  setPrice: (v: number | null) => void;
+  priceLabel: string;
+  setPriceLabel: (v: string) => void;
+  enableAddOns: boolean;
+  setEnableAddOns: (v: boolean) => void;
+  enableGiftCertificates: boolean;
+  setEnableGiftCertificates: (v: boolean) => void;
+  enableDiscountCodes: boolean;
+  setEnableDiscountCodes: (v: boolean) => void;
+  enableWaivers: boolean;
+  setEnableWaivers: (v: boolean) => void;
+  waiverContent: string;
+  setWaiverContent: (v: string) => void;
+  requireWaiverBeforeBooking: boolean;
+  setRequireWaiverBeforeBooking: (v: boolean) => void;
   // Round-robin / group bookings
   assignmentMode: 'fixed' | 'round_robin' | 'fewest_upcoming';
   setAssignmentMode: (v: 'fixed' | 'round_robin' | 'fewest_upcoming') => void;
@@ -125,6 +142,15 @@ export function useBookingPage(id: string): UseBookingPageResult {
   const [styling, setStyling] = useState<StylingMap>({});
   const [thumbnail, setThumbnail] = useState('');
   const [allowStaffSelection, setAllowStaffSelection] = useState(false);
+  // Monetization state
+  const [price, setPrice] = useState<number | null>(null);
+  const [priceLabel, setPriceLabel] = useState('');
+  const [enableAddOns, setEnableAddOns] = useState(false);
+  const [enableGiftCertificates, setEnableGiftCertificates] = useState(false);
+  const [enableDiscountCodes, setEnableDiscountCodes] = useState(false);
+  const [enableWaivers, setEnableWaivers] = useState(false);
+  const [waiverContent, setWaiverContent] = useState('');
+  const [requireWaiverBeforeBooking, setRequireWaiverBeforeBooking] = useState(false);
   const [assignmentMode, setAssignmentMode] = useState<'fixed' | 'round_robin' | 'fewest_upcoming'>('fixed');
   const [roundRobinPool, setRoundRobinPool] = useState<{ userId: number; weight: number }[]>([]);
   const [bookingType, setBookingType] = useState<'individual' | 'group'>('individual');
@@ -161,6 +187,15 @@ export function useBookingPage(id: string): UseBookingPageResult {
         setStyling(((p as unknown as Record<string, unknown>).styling as StylingMap) || {});
         setThumbnail(((p as unknown as Record<string, unknown>).thumbnail as string) || '');
         setAllowStaffSelection(p.allowStaffSelection || false);
+        // Monetization hydration
+        setPrice(p.price ?? null);
+        setPriceLabel(p.priceLabel || '');
+        setEnableAddOns(p.enableAddOns || false);
+        setEnableGiftCertificates(p.enableGiftCertificates || false);
+        setEnableDiscountCodes(p.enableDiscountCodes || false);
+        setEnableWaivers(p.enableWaivers || false);
+        setWaiverContent(p.waiverContent || '');
+        setRequireWaiverBeforeBooking(p.requireWaiverBeforeBooking || false);
         setAssignmentMode((p.assignmentMode as 'fixed' | 'round_robin' | 'fewest_upcoming') || 'fixed');
         setRoundRobinPool(Array.isArray(p.roundRobinPool) ? p.roundRobinPool : []);
         setBookingType((p.bookingType as 'individual' | 'group') || 'individual');
@@ -200,6 +235,7 @@ export function useBookingPage(id: string): UseBookingPageResult {
   }, [id]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- pre-existing pattern, predates this change
     fetchPage();
     refreshBookings();
     refreshMembers();
@@ -234,6 +270,14 @@ export function useBookingPage(id: string): UseBookingPageResult {
         styling,
         thumbnail: thumbnail || null,
         allowStaffSelection,
+        price: price ?? null,
+        priceLabel: priceLabel || null,
+        enableAddOns,
+        enableGiftCertificates,
+        enableDiscountCodes,
+        enableWaivers,
+        waiverContent: waiverContent || null,
+        requireWaiverBeforeBooking,
         assignmentMode,
         roundRobinPool: roundRobinPool.length > 0 ? roundRobinPool : null,
         bookingType,
@@ -270,6 +314,14 @@ export function useBookingPage(id: string): UseBookingPageResult {
     styling,
     thumbnail,
     allowStaffSelection,
+    price,
+    priceLabel,
+    enableAddOns,
+    enableGiftCertificates,
+    enableDiscountCodes,
+    enableWaivers,
+    waiverContent,
+    requireWaiverBeforeBooking,
     assignmentMode,
     roundRobinPool,
     bookingType,
@@ -352,6 +404,22 @@ export function useBookingPage(id: string): UseBookingPageResult {
     setThumbnail,
     allowStaffSelection,
     setAllowStaffSelection,
+    price,
+    setPrice,
+    priceLabel,
+    setPriceLabel,
+    enableAddOns,
+    setEnableAddOns,
+    enableGiftCertificates,
+    setEnableGiftCertificates,
+    enableDiscountCodes,
+    setEnableDiscountCodes,
+    enableWaivers,
+    setEnableWaivers,
+    waiverContent,
+    setWaiverContent,
+    requireWaiverBeforeBooking,
+    setRequireWaiverBeforeBooking,
     assignmentMode,
     setAssignmentMode,
     roundRobinPool,

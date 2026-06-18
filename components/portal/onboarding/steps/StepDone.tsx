@@ -65,8 +65,7 @@ export function StepDone({ state, finish }: StepProps) {
 
       <h2 className="text-2xl font-bold">Nicely done.</h2>
       <p className="mt-3 text-sm text-muted-foreground max-w-md mx-auto">
-        Your workspace is dialed in. {firstFeature ? `Want to start with ${firstFeature.label.toLowerCase()}? ` : ''}
-        You can change anything from <strong>Settings → Branding</strong>.
+        Your workspace is dialed in.{firstFeature ? ` First stop: ${firstFeature.label}.` : ''} You can change anything from <strong>Settings → Branding</strong>.
       </p>
 
       {pickedMeta.length > 0 && (

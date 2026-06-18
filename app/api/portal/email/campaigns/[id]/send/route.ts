@@ -3,12 +3,14 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { emailCampaigns, emailSubscribers, emailCampaignSends } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
-import { resend, buildCampaignHtml, buildUnsubscribeUrl } from '@/lib/email';
+import { buildCampaignHtml, buildUnsubscribeUrl } from '@/lib/email';
 import { getOrRenderCampaignHtml, htmlToText } from '@/lib/email/render-cache';
 import type { Block } from '@/types/blocks';
 import { getPortalClient } from '@/lib/portal-client';
 import { splitForAbTest, type AbVariant } from '@/lib/email/subject-ab';
 import { authorizePortal, isAuthError } from '@/lib/portal-auth';
+import { resolveResendKey } from '@/lib/email/resolve-resend';
+import { Resend } from 'resend';
 
 async function requireClient() {
   const session = await auth();
@@ -109,6 +111,10 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     cachedText = r.text;
   }
 
+  // Resolve the Resend key once — BYOK if available, platform otherwise.
+  const { key: resendKey } = await resolveResendKey(client.id);
+  const resendClient = new Resend(resendKey);
+
   let sent = 0;
   let failed = 0;
 
@@ -121,7 +127,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
           : buildCampaignHtml(campaign.htmlContent, unsubscribeUrl, campaign.previewText);
         const text = cachedText ?? htmlToText(html);
 
-        const result = await resend.emails.send({
+        const result = await resendClient.emails.send({
           from: `${campaign.fromName} <${campaign.fromEmail}>`,
           to: subscriber.email,
           subject: bucket.subject,

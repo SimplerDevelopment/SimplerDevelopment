@@ -12,6 +12,7 @@ ZERO="0000000000000000000000000000000000000000"
 FALLOW_GATED_RE='^(staging|main)$'
 
 pushing=0
+dev_only=1
 changed=""
 fallow_targets=()   # "base_sha branch" for each ref pushed to a deploy branch
 
@@ -19,6 +20,10 @@ while read -r local_ref local_sha remote_ref remote_sha; do
   [ -z "${local_sha:-}" ] && continue
   [ "$local_sha" = "$ZERO" ] && continue   # branch deletion
   pushing=1
+  case "$remote_ref" in
+    refs/heads/dev|refs/heads/dev/*) : ;;   # dev branch — relaxed below
+    *) dev_only=0 ;;                         # a non-dev ref is part of this push
+  esac
 
   if [ "$remote_sha" = "$ZERO" ] || ! git rev-parse --quiet --verify "$remote_sha^{commit}" >/dev/null 2>&1; then
     # New branch or remote_sha not present locally — diff against the single commit
@@ -36,6 +41,14 @@ while read -r local_ref local_sha remote_ref remote_sha; do
     fallow_targets+=("$fallow_base $branch")
   fi
 done
+
+# Dev branches deploy immediately — local CI is intentionally skipped for a
+# dev-only push so the deploy starts the moment you push. Mixed pushes (dev + a
+# real branch) still run the full gate. One-off bypass: git push --no-verify
+if [ "$pushing" = 1 ] && [ "$dev_only" = 1 ]; then
+  echo "pre-push: dev branch only — gates relaxed, pushing immediately."
+  exit 0
+fi
 
 if [ "$pushing" = 0 ]; then
   # Only deletions in this push — nothing to gate

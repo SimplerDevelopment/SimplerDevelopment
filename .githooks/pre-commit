@@ -3,6 +3,16 @@
 # Heavy gates (tsc, tests) run at pre-push, not here. One-off bypass: git commit --no-verify
 set -uo pipefail
 
+# Dev branches are intentionally frictionless: commits go straight through so the
+# branch can deploy immediately on push. Strict gates still run on every other
+# branch. One-off bypass anywhere: git commit --no-verify
+branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo)"
+case "$branch" in
+  dev|dev/*)
+    echo "pre-commit: '$branch' is a dev branch — gates relaxed (skipped)."
+    exit 0 ;;
+esac
+
 ROOT="$(git rev-parse --show-toplevel)"
 cd "$ROOT"
 

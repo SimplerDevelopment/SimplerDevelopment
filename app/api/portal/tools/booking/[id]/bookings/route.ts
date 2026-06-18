@@ -4,10 +4,15 @@ import { db } from '@/lib/db';
 import { bookingPages, bookings } from '@/lib/db/schema';
 import { eq, and, desc } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
+import { authorizePortal, isAuthError } from '@/lib/portal-auth';
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
+
+  // Service access check — consistent with the booking list/create routes
+  const authResult = await authorizePortal({ action: 'read', requireService: 'booking' });
+  if (isAuthError(authResult)) return authResult.response;
 
   const userId = parseInt(session.user.id, 10);
   const client = await getPortalClient(userId);

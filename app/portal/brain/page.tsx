@@ -20,6 +20,7 @@ import { getIndustryTemplate } from '@/lib/brain/industry-templates';
 import { isBrainEntitled } from '@/lib/brain/entitlement';
 import { BrainDashboardWidgetsServer } from '@/components/portal/brain-dashboard';
 import { EnableBrainButton } from './EnableBrainButton';
+import { RelatedModulesStrip } from '@/components/portal/billing/RelatedModulesStrip';
 
 export default async function BrainDashboardPage() {
   const session = await auth();
@@ -124,6 +125,7 @@ export default async function BrainDashboardPage() {
       </div>
 
       <BrainDashboardWidgetsServer clientId={client.id} />
+      <RelatedModulesStrip currentDomain="brain" />
     </div>
   );
 }

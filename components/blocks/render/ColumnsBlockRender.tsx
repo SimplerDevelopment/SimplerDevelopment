@@ -114,7 +114,7 @@ export function ColumnsBlockRender({ block }: ColumnsBlockRenderProps) {
   const parseWidth = (w: number | string) =>
     typeof w === 'string' ? parseFloat(w) || 50 : w;
 
-  const columns = block.columns || [];
+  const columns = Array.isArray(block.columns) ? block.columns : [];
 
   // Normalize widths: if they sum to > 100, scale proportionally so they fit
   const rawWidths = columns.map(c => parseWidth(c.width));

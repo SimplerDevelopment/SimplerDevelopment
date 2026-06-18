@@ -145,11 +145,11 @@ async function executeAction(
 
   // ── Scope gate (applies to ALL actions, including the special-case bridges
   //    below) ──────────────────────────────────────────────────────────────
-  // Check the rule's granted scopes BEFORE dispatching. start_playbook and
-  // run_plugin_script are mapped in AUTOMATION_ACTION_SCOPES so they're gated
-  // too (run_plugin_script keeps its own entitlement check as a second layer).
-  // Unknown tools (requiredScope=null) pass through unchanged (they no-op at
-  // executePortalTool).
+  // Check the rule's granted scopes BEFORE dispatching. fire_webhook,
+  // start_playbook and run_plugin_script are mapped in AUTOMATION_ACTION_SCOPES
+  // so they're gated too (run_plugin_script keeps its own entitlement check as a
+  // second layer). Unknown tools (requiredScope=null) pass through unchanged
+  // (they no-op at executePortalTool).
   const scopeCheck = isActionAllowed(ruleScopes ?? [], action.tool);
   if (!scopeCheck.allowed) {
     const errorMsg = `scope_denied: ${scopeCheck.requiredScope}`;
@@ -167,6 +167,42 @@ async function executeAction(
       durationMs: 0,
     });
     return { tool: action.tool, params: resolvedParams, result: null, error: errorMsg };
+  }
+
+  // ─── fire_webhook ────────────────────────────────────────────────────────
+  // POST the event payload to a caller-configured URL. Params:
+  //   { url: string, headers?: Record<string, string> }
+  // Failures are swallowed (logged to console only) — a failing webhook must
+  // never break the automation run. The raw URL is not logged to prevent
+  // secrets embedded in query-string tokens from leaking to automation_logs.
+  if (action.tool === 'fire_webhook') {
+    const url = typeof resolvedParams.url === 'string' ? resolvedParams.url.trim() : '';
+    if (!url) {
+      return { tool: action.tool, params: { url: '[missing]' }, result: null, error: 'fire_webhook: params.url is required' };
+    }
+    const extraHeaders: Record<string, string> =
+      resolvedParams.headers && typeof resolvedParams.headers === 'object' && !Array.isArray(resolvedParams.headers)
+        ? Object.fromEntries(
+            Object.entries(resolvedParams.headers as Record<string, unknown>)
+              .filter(([, v]) => typeof v === 'string')
+              .map(([k, v]) => [k, v as string]),
+          )
+        : {};
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 10_000);
+      const resp = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...extraHeaders },
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      }).finally(() => clearTimeout(timer));
+      return { tool: action.tool, params: { url: '[redacted]' }, result: { status: resp.status, ok: resp.ok } };
+    } catch (err) {
+      const error = err instanceof Error ? err.message : String(err);
+      console.error('[automation] fire_webhook error (swallowed)', { error });
+      return { tool: action.tool, params: { url: '[redacted]' }, result: null, error };
+    }
   }
 
   // ─── start_playbook bridge ───────────────────────────────────────────────

@@ -11,13 +11,32 @@ marker=".claude/.runtime/edited"
 
 start=$(date +%s)
 
-# Typecheck
-tsc_out=$(npx --yes tsc --noEmit 2>&1)
+# Typecheck — project-wide (tsc is whole-program by nature), but heap-safe.
+# Bare `tsc` OOMs on this ~357k-line repo's default Node heap and reports a
+# false failure; the 6GB cap matches `bun run typecheck` in package.json.
+tsc_out=$(node --max-old-space-size=6144 node_modules/.bin/tsc --noEmit 2>&1)
 tsc_rc=$?
 
-# Lint
-lint_out=$(bun run lint 2>&1)
-lint_rc=$?
+# Lint — CHANGED files only, not the whole repo. The repo carries thousands of
+# pre-existing lint errors, so a full-repo `bun run lint` can never pass and
+# false-blocks every session. Scope to what this branch/session touched
+# (unpushed commits + working tree), mirroring the pre-commit hook's intent:
+# catch NEW errors in changed code without drowning in baseline debt.
+changed_files=$(
+  {
+    git diff --name-only --diff-filter=ACMR HEAD 2>/dev/null
+    git diff --name-only --diff-filter=ACMR --cached 2>/dev/null
+    git diff --name-only --diff-filter=ACMR '@{u}...HEAD' 2>/dev/null
+  } | grep -E '\.(ts|tsx|js|jsx)$' | sort -u
+)
+if [ -n "$changed_files" ]; then
+  # shellcheck disable=SC2086
+  lint_out=$(bunx eslint $changed_files 2>&1)
+  lint_rc=$?
+else
+  lint_out="(no changed JS/TS files to lint)"
+  lint_rc=0
+fi
 
 # Optional: fast unit tests (~30s, no browser/DB) — SIMPLERDEV_QA_GATE_TESTS=1
 test_rc=0

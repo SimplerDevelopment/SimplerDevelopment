@@ -47,6 +47,15 @@ export interface BookingPageData {
   roundRobinPool?: { userId: number; weight: number }[] | null;
   bookingType?: 'individual' | 'group';
   groupCapacity?: number | null;
+  // Monetization fields
+  price?: number | null;
+  priceLabel?: string | null;
+  enableAddOns?: boolean;
+  enableGiftCertificates?: boolean;
+  enableDiscountCodes?: boolean;
+  enableWaivers?: boolean;
+  waiverContent?: string | null;
+  requireWaiverBeforeBooking?: boolean;
   createdAt: string;
   updatedAt: string;
 }

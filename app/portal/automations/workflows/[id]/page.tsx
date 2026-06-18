@@ -269,6 +269,15 @@ export default function WorkflowEditorPage() {
 
   return (
     <div className="h-[calc(100vh-100px)] flex flex-col gap-3 p-3">
+      {/* Beta notice — workflow execution is not yet implemented */}
+      <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-200 text-xs">
+        <span className="material-icons text-base shrink-0">science</span>
+        <span>
+          <span className="font-semibold">Beta — workflows do not execute yet.</span>{' '}
+          Activating this workflow has no runtime effect. Use <strong>Automations</strong> (Rules) for live trigger-to-action rules today.
+        </span>
+      </div>
+
       {/* Header */}
       <div className="flex items-center gap-3 flex-wrap">
         <Link href="/portal/automations/workflows" className="text-muted-foreground hover:text-foreground">

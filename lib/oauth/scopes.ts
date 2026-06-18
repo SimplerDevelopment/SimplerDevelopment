@@ -35,6 +35,13 @@ export const SUPPORTED_SCOPES = [
   'billing:read',
   'hosting:read',
   'ai:read',
+  // Company Brain
+  'brain:read',
+  'brain:write',
+  'brain:approve',
+  // Approvals workflow
+  'approvals:read',
+  'approvals:manage',
 ] as const;
 
 export type SupportedScope = (typeof SUPPORTED_SCOPES)[number];
@@ -61,6 +68,10 @@ export const DEFAULT_GRANTED_SCOPES: string[] = [
   'billing:read',
   'hosting:read',
   'ai:read',
+  // Company Brain (read-only by default; brain:write and brain:approve are opt-in)
+  'brain:read',
+  // Approvals (read-only by default; approvals:manage is opt-in)
+  'approvals:read',
 ];
 
 /** Parse the OAuth `scope` query/form param (space-separated) and intersect

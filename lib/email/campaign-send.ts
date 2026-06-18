@@ -23,10 +23,12 @@ import {
   emailCampaignSends,
   emailSubscribers,
 } from '@/lib/db/schema';
-import { resend, buildCampaignHtml, buildUnsubscribeUrl } from './index';
+import { buildCampaignHtml, buildUnsubscribeUrl } from './index';
 import { getOrRenderCampaignHtml, htmlToText } from './render-cache';
 import type { Block } from '@/types/blocks';
 import { splitForAbTest, type AbVariant } from './subject-ab';
+import { resolveResendKey } from './resolve-resend';
+import { Resend } from 'resend';
 
 export async function executeCampaignSend(
   campaignId: number,
@@ -86,6 +88,19 @@ export async function executeCampaignSend(
     cachedText = result.text;
   }
 
+  // Resolve the Resend key: BYOK if the campaign has a clientId and the client
+  // has a connected key; platform otherwise. campaignId.clientId is nullable
+  // (global / agency campaigns have no owner), so we fall back gracefully.
+  let resendClient: Resend;
+  if (campaign.clientId != null) {
+    const { key } = await resolveResendKey(campaign.clientId);
+    resendClient = new Resend(key);
+  } else {
+    const platformKey = process.env.RESEND_API_KEY;
+    if (!platformKey) throw new Error('[executeCampaignSend] RESEND_API_KEY is not set');
+    resendClient = new Resend(platformKey);
+  }
+
   let sent = 0;
   let failed = 0;
   for (const bucket of plan) {
@@ -96,7 +111,7 @@ export async function executeCampaignSend(
           ? cachedHtml.replace(/\{\{UNSUBSCRIBE_URL\}\}/g, unsubscribeUrl)
           : buildCampaignHtml(campaign.htmlContent, unsubscribeUrl, campaign.previewText);
         const text = cachedText ?? htmlToText(html);
-        const result = await resend.emails.send({
+        const result = await resendClient.emails.send({
           from: `${campaign.fromName} <${campaign.fromEmail}>`,
           to: subscriber.email,
           subject: bucket.subject,

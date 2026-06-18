@@ -2,7 +2,7 @@
 type: architecture
 domain: mcp
 status: active
-date: 2026-06-09
+date: 2026-06-17
 sources:
   - lib/mcp/CLAUDE.md
   - lib/mcp/server.ts
@@ -10,6 +10,9 @@ sources:
   - app/api/mcp/route.ts
   - tests/unit/mcp-tool-registry-baseline.test.ts
   - lib/mcp/tools/index.ts
+  - lib/mcp/tools/resources.ts
+  - lib/mcp/tools/prompts.ts
+  - lib/branding/mcp-tools.ts
 ---
 
 # MCP Server
@@ -22,7 +25,7 @@ The portal-side MCP server exposes the SimplerDevelopment platform as a tool cat
 
 ## Server bootstrap
 
-`lib/mcp/server.ts` exports `buildMcpServer(ctx: PortalMcpContext)`. It creates an `McpServer` with per-client instructions baked into the capabilities block, then iterates `allToolRegistrars` from `lib/mcp/tools/index.ts` to compose the full tool catalogue. Each registrar is responsible for its own scope gates — the dispatcher applies no extra logic. This pattern means adding a domain is a one-line change in the barrel, not an edit to the monolith.
+`lib/mcp/server.ts` (42 lines) exports `buildMcpServer(ctx: PortalMcpContext)`. It creates an `McpServer` with per-client instructions baked into the capabilities block — including `resources: {}` and `prompts: {}` capability declarations — then iterates `allToolRegistrars` from `lib/mcp/tools/index.ts` (101 lines) to compose the full tool catalogue. Each registrar is responsible for its own scope gates — the dispatcher applies no extra logic. This pattern means adding a domain is a one-line change in the barrel, not an edit to the monolith.
 
 ## Auth and scopes
 
@@ -37,12 +40,13 @@ The portal-side MCP server exposes the SimplerDevelopment platform as a tool cat
 
 ## Registrar pattern
 
-Each file under `lib/mcp/tools/` exports a single `register*Tools(server, ctx)` function. Handlers are registered via `server.tool()` with Zod input schemas inline. The lockstep invariant (enforced by `lib/mcp/CLAUDE.md` and the `simplerdev-mcp-tool` skill) is:
+Each file under `lib/mcp/tools/` exports a single `register*` function. The barrel in `lib/mcp/tools/index.ts` exports `allToolRegistrars` — a list iterated by `buildMcpServer`. The pattern covers three MCP surfaces:
 
-1. Handler in `lib/mcp/tools/<domain>.ts`
-2. Zod input schema
-3. `hasScope` guard
-4. Telemetry pass-through via `lib/mcp/telemetry.ts`
+- **Tools** — `server.tool()` with Zod input schemas inline. The lockstep invariant (enforced by `lib/mcp/CLAUDE.md` and the `simplerdev-mcp-tool` skill): handler in `lib/mcp/tools/<domain>.ts`, Zod schema, `hasScope` guard, telemetry pass-through via `lib/mcp/telemetry.ts`.
+- **Resources** — `server.resource()` in `lib/mcp/tools/resources.ts` (162 lines). Four read-only URIs: `blocks://schema` (static block-editor reference), `brand://default` (brand profile + messaging; `branding:read`), `catalog://services` (service catalog + active entitlements; `services:read`), `portal://capabilities` (caller's granted scopes; unscoped). All queries scoped by `ctx.client.id`. See [[ADR mcp-resources-and-prompts]].
+- **Prompts** — `server.prompt()` in `lib/mcp/tools/prompts.ts` (87 lines). Callbacks return a message template the client model executes via tools (server-side execution intentionally avoided to preserve the approval model). Three prompts: `draft-page` (`sites:write`), `triage-tickets` (`tickets:read`), `weekly-digest` (`projects:read`). The set is deliberately small — not a mirror of the `sd-*` skill catalogue — to avoid double-maintenance.
+
+All three surfaces gate registration on `hasScope` identically; a narrow-scope key never sees a resource or prompt it could not act on. Resources and prompts represent an enhancement layer — anything reachable via resource/prompt must also be reachable via tools (client support is still inconsistent).
 
 `lib/mcp/projections.ts` and `lib/mcp/rollup.ts` provide slim projections for list responses. New tools must default to these and expose heavy fields (`body`, `html`, `blocks`, JSON blobs) only via an explicit `include` opt-in flag. The `simplerdev-mcp-token-budget` skill audits responses that have grown heavy over time.
 
@@ -83,7 +87,7 @@ Brain tools delegate to `lib/brain/mcp-sdk-adapter.ts` (5 630 lines — god file
 
 ## Registry baseline test (drift protection)
 
-`tests/unit/mcp-tool-registry-baseline.test.ts` locks in the exact set of tool names produced by `buildMcpServer` under a `"*"` scope key. It lives in the unit layer (no DB needed — `@/lib/db` is mocked) so it runs in the default `bun test` gate and in the pre-push hook. Any tool add, remove, or rename that does not also update `EXPECTED_TOOLS` fails the gate immediately. The test also asserts that every tool is gated by `hasScope` via scope-filter sub-tests. This is the primary guard against the "131 tools drifted red unseen" failure mode that occurred when the test lived in the integration layer.
+`tests/unit/mcp-tool-registry-baseline.test.ts` (782 lines) locks in the exact set of names produced by `buildMcpServer` under a `"*"` scope key across all three surfaces: `EXPECTED_TOOLS`, `EXPECTED_RESOURCES`, and `EXPECTED_PROMPTS`. It lives in the unit layer (no DB needed — `@/lib/db` is mocked) so it runs in the default `bun test` gate and in the pre-push hook. Any add, remove, or rename in tools, resources, or prompts that does not also update the relevant expected set fails the gate immediately. Scope-gating sub-tests cover all three surfaces. 14/14 baseline tests pass. This is the primary guard against the "131 tools drifted red unseen" failure mode that occurred when the test lived in the integration layer. See [[ADR mcp-registry-baseline-unit-gate]].
 
 ## Workflows
 

@@ -48,7 +48,8 @@ export async function POST(req: Request) {
   const name: string = (body.name ?? '').trim();
   const scopes: string[] = Array.isArray(body.scopes) && body.scopes.length > 0 ? body.scopes : DEFAULT_SCOPES;
   const expiresAt: Date | null = body.expiresAt ? new Date(body.expiresAt) : null;
-  const requireCmsApproval = body.requireCmsApproval === true;
+  // Default to requiring approval; caller must explicitly pass false to opt out.
+  const requireCmsApproval = body.requireCmsApproval !== false;
 
   if (!name) return NextResponse.json({ success: false, message: 'Name is required' }, { status: 400 });
 

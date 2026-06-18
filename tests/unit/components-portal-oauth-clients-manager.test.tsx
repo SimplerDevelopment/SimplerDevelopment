@@ -42,9 +42,26 @@ function makeClient(overrides?: Partial<OAuthClientFixture>): OAuthClientFixture
   };
 }
 
+// The list API speaks snake_case (OAuth RFC vocabulary); the component maps
+// rows to camelCase at the edge. Keep fixtures camelCase for ergonomics and
+// serialize to the wire shape here.
+function toApiRow(c: OAuthClientFixture) {
+  return {
+    id: c.id,
+    client_id: c.clientId,
+    client_name: c.clientName,
+    redirect_uris: c.redirectUris,
+    token_endpoint_auth_method: c.tokenEndpointAuthMethod,
+    client_secret_preview: c.clientSecretPreview,
+    client_secret_created_at: c.clientSecretCreatedAt,
+    client_secret_rotated_at: c.clientSecretRotatedAt,
+    created_at: c.createdAt,
+  };
+}
+
 function mockLoadSuccess(clients: OAuthClientFixture[]) {
   return vi.fn().mockResolvedValue({
-    json: async () => ({ success: true, data: clients }),
+    json: async () => ({ success: true, data: clients.map(toApiRow) }),
   } as unknown as Response);
 }
 
@@ -499,14 +516,14 @@ describe('OAuthClientsManager — rotate secret', () => {
 
   it('rotates secret and shows revealed panel on success', async () => {
     global.fetch = vi.fn()
-      .mockResolvedValueOnce({ json: async () => ({ success: true, data: [makeClient()] }) })
+      .mockResolvedValueOnce({ json: async () => ({ success: true, data: [toApiRow(makeClient())] }) })
       .mockResolvedValueOnce({
         json: async () => ({
           success: true,
           data: { client_id: 'client_abc123', client_secret: 'rotated_secret' },
         }),
       })
-      .mockResolvedValueOnce({ json: async () => ({ success: true, data: [makeClient()] }) });
+      .mockResolvedValueOnce({ json: async () => ({ success: true, data: [toApiRow(makeClient())] }) });
     await renderAndWait();
     await act(async () => {
       fireEvent.click(screen.getByText('Rotate secret'));
@@ -518,7 +535,7 @@ describe('OAuthClientsManager — rotate secret', () => {
 
   it('aborts rotate when confirm returns false', async () => {
     global.confirm = vi.fn(() => false);
-    const fetchFn = vi.fn().mockResolvedValue({ json: async () => ({ success: true, data: [makeClient()] }) });
+    const fetchFn = vi.fn().mockResolvedValue({ json: async () => ({ success: true, data: [toApiRow(makeClient())] }) });
     global.fetch = fetchFn;
     await renderAndWait();
     fireEvent.click(screen.getByText('Rotate secret'));
@@ -534,7 +551,7 @@ describe('OAuthClientsManager — rotate secret', () => {
 
   it('shows error message on rotate failure', async () => {
     global.fetch = vi.fn()
-      .mockResolvedValueOnce({ json: async () => ({ success: true, data: [makeClient()] }) })
+      .mockResolvedValueOnce({ json: async () => ({ success: true, data: [toApiRow(makeClient())] }) })
       .mockResolvedValueOnce({
         json: async () => ({ success: false, message: 'Rotate failed' }),
       });
@@ -549,7 +566,7 @@ describe('OAuthClientsManager — rotate secret', () => {
 
   it('shows generic error when rotate fetch throws', async () => {
     global.fetch = vi.fn()
-      .mockResolvedValueOnce({ json: async () => ({ success: true, data: [makeClient()] }) })
+      .mockResolvedValueOnce({ json: async () => ({ success: true, data: [toApiRow(makeClient())] }) })
       .mockRejectedValueOnce(new Error('Patch error'));
     await renderAndWait();
     await act(async () => {
@@ -573,7 +590,7 @@ describe('OAuthClientsManager — delete client', () => {
 
   it('deletes client and reloads on success', async () => {
     const fetchFn = vi.fn()
-      .mockResolvedValueOnce({ json: async () => ({ success: true, data: [makeClient()] }) })
+      .mockResolvedValueOnce({ json: async () => ({ success: true, data: [toApiRow(makeClient())] }) })
       .mockResolvedValueOnce({ json: async () => ({ success: true }) })
       .mockResolvedValueOnce({ json: async () => ({ success: true, data: [] }) });
     global.fetch = fetchFn;
@@ -588,7 +605,7 @@ describe('OAuthClientsManager — delete client', () => {
 
   it('aborts delete when confirm returns false', async () => {
     global.confirm = vi.fn(() => false);
-    const fetchFn = vi.fn().mockResolvedValue({ json: async () => ({ success: true, data: [makeClient()] }) });
+    const fetchFn = vi.fn().mockResolvedValue({ json: async () => ({ success: true, data: [toApiRow(makeClient())] }) });
     global.fetch = fetchFn;
     await renderAndWait();
     fireEvent.click(screen.getByText('Delete'));
@@ -603,7 +620,7 @@ describe('OAuthClientsManager — delete client', () => {
 
   it('shows error message on delete failure', async () => {
     global.fetch = vi.fn()
-      .mockResolvedValueOnce({ json: async () => ({ success: true, data: [makeClient()] }) })
+      .mockResolvedValueOnce({ json: async () => ({ success: true, data: [toApiRow(makeClient())] }) })
       .mockResolvedValueOnce({ json: async () => ({ success: false, message: 'Delete failed' }) });
     await renderAndWait();
     await act(async () => {
@@ -616,7 +633,7 @@ describe('OAuthClientsManager — delete client', () => {
 
   it('shows generic error when delete fetch throws', async () => {
     global.fetch = vi.fn()
-      .mockResolvedValueOnce({ json: async () => ({ success: true, data: [makeClient()] }) })
+      .mockResolvedValueOnce({ json: async () => ({ success: true, data: [toApiRow(makeClient())] }) })
       .mockRejectedValueOnce(new Error('Delete error'));
     await renderAndWait();
     await act(async () => {

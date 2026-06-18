@@ -74,6 +74,8 @@ vi.mock('@/lib/db/schema', () => {
     sprints: wrap('sprints'),
     projects: wrap('projects'),
     kanbanCards: wrap('kanbanCards'),
+    projectMembers: wrap('projectMembers'),
+    sprintScopeHistory: wrap('sprintScopeHistory'),
   }, { has: (t, p) => (p in t) || !(p === "then" || p === "__esModule" || p === "default" || typeof p !== "string"), get: (t, p) => (p in t) ? t[p] : ((p === "then" || p === "__esModule" || p === "default" || typeof p !== "string") ? undefined : wrap(p)) });
 });
 

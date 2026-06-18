@@ -17,6 +17,9 @@ AI orchestration layer: key resolution, plan-gating, tool execution for the Comp
 | Surface | Model | File |
 |---|---|---|
 | Brain classifier / planner / grounder | `claude-haiku-4-5-20251001` | `brain-tools/classifier.ts`, `planner.ts`, `grounder.ts` |
+| Portal chatbot classifier + intent router | `claude-haiku-4-5-20251001` | `portal-tools/classifier.ts` (one call returns both `complexity` for model routing and `domains[]` for tool-surface narrowing; domain map in `portal-tools/domains.ts`) |
+| Portal chatbot loop (routed) | `claude-haiku-4-5-20251001` (simple) / `claude-sonnet-4-6` (complex) | `app/api/portal/ai/chat/route.ts` |
+| Portal chatbot stream (mobile, text-only) | `claude-opus-4-7` | `app/api/portal/ai/chat/stream/route.ts` |
 | Meeting transcript processor | `claude-sonnet-4-5` | `meeting-processor.ts` |
 | Brain eval runner | `claude-sonnet-4-6` | `brain-tools/eval/runner.ts` |
 | Embeddings | `text-embedding-3-*` (OpenAI) | `resolve-client-key.ts` (provider `'embedding'` maps to OpenAI) |
@@ -46,6 +49,7 @@ AI orchestration layer: key resolution, plan-gating, tool execution for the Comp
 1. Create (or extend) a domain module under `portal-tools/` exporting `*Tools: Anthropic.Tool[]` and `*Handlers: Record<string, Handler>`.
 2. Import and spread both into `portal-tools/index.ts` (`PORTAL_TOOLS` + `HANDLERS`).
 3. Tool ordering in `PORTAL_TOOLS` is intentional (read block at top of `portal-tools/index.ts`); preserve the read/write grouping.
+4. **Add the tool name to `TOOL_DOMAIN` in `portal-tools/domains.ts`** (the intent-router map). `tests/unit/portal-tool-domains.test.ts` asserts exact set-equality with `PORTAL_TOOLS`, so a tool with no domain fails CI. If it's cross-cutting like `navigate_to`, add it to `BASELINE_TOOL_NAMES` instead.
 
 **New standalone AI pipeline (e.g., another processor like `meeting-processor.ts`):**
 1. Call `resolveClientApiKey` → `checkAiPlanGate` → make the AI call → `recordAiUsage` — in that order, every time.
@@ -57,7 +61,7 @@ AI orchestration layer: key resolution, plan-gating, tool execution for the Comp
 - **Prompt injection risk:** User-controlled strings (note bodies, meeting transcripts, CRM content) flow into model prompts. `sanitizeToolResult` handles the LLM-output direction; for LLM-input, truncate at `MAX_*_CHARS` and use structured tool-use (not freeform text) to extract outputs.
 - **BYOK key isolation:** `resolveClientApiKey` is keyed by `(clientId, provider)` with a 60s in-process cache. Keys are encrypted at rest (`lib/crypto/api-key.ts`). A decrypt failure falls through to the platform key — it never exposes another tenant's key.
 - **Groundedness:** The Brain agent runs `checkGroundedness` after every tool loop to detect hallucination. If `uncertain === true`, the agent should surface an explicit "I don't know" rather than a confident but unsupported claim.
-- **Tracing:** `brain-tools/tracer.ts` is a console-based OTEL shim. When real OTEL is wired, swap `console.warn` → real spans without changing call sites.
+- **Tracing:** `lib/ai/tracer.ts` (shared by the Brain agent + portal chatbot) emits real Sentry performance spans in prod (`sentry.server.config.ts`, `tracesSampleRate` 0.1) and falls back to structured `console.warn` JSON in dev. Wrap any new agent operation in `withSpan(name, attrs, fn)`; attrs are normalized to Sentry-safe primitives. Use `portal.*` / brain span names so traces group by agent.
 
 ## Pointers
 

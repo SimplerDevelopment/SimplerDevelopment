@@ -58,6 +58,7 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
       id: ticketMessages.id,
       body: ticketMessages.body,
       isInternal: ticketMessages.isInternal,
+      attachments: ticketMessages.attachments,
       createdAt: ticketMessages.createdAt,
       authorName: users.name,
       authorRole: users.role,
@@ -162,6 +163,22 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
                 </div>
               </div>
               <div className="text-sm text-foreground whitespace-pre-wrap">{msg.body}</div>
+              {Array.isArray(msg.attachments) && msg.attachments.length > 0 && (
+                <div className="mt-3 pt-3 border-t border-border/50 flex flex-wrap gap-2">
+                  {(msg.attachments as { url: string; filename: string; mimeType: string; fileSize: number }[]).map((att, i) => (
+                    <a
+                      key={i}
+                      href={att.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-muted text-xs text-foreground hover:bg-accent transition-colors"
+                    >
+                      <span className="material-icons text-sm">attach_file</span>
+                      {att.filename}
+                    </a>
+                  ))}
+                </div>
+              )}
             </div>
           );
         })}

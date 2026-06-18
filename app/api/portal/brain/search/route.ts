@@ -11,7 +11,7 @@ export async function GET(request: Request) {
   const typesParam = url.searchParams.get('types');
   const limitParam = url.searchParams.get('limit');
 
-  const allowed = new Set<BrainSearchEntityType>(['meeting', 'note', 'task', 'relationship']);
+  const allowed = new Set<BrainSearchEntityType>(['meeting', 'note', 'task', 'relationship', 'company', 'contact', 'deal', 'post']);
   const types = typesParam
     ? typesParam.split(',').map((s) => s.trim()).filter((s): s is BrainSearchEntityType => allowed.has(s as BrainSearchEntityType))
     : undefined;
