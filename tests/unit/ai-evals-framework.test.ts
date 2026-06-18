@@ -105,14 +105,15 @@ describe('eval runner — mock mode @critical', () => {
 describe('real suites — mock smoke run @critical', () => {
   it('scores the registered suites end-to-end and renders a report', async () => {
     const { ALL_SUITES } = await import('@/lib/ai/evals/suites');
-    expect(ALL_SUITES.length).toBeGreaterThanOrEqual(4);
+    expect(ALL_SUITES.length).toBeGreaterThanOrEqual(7);
 
     const report = await runAll(ALL_SUITES, { mock: true }, '2026-06-17T00:00:00Z');
     expect(report.mock).toBe(true);
-    // 4 automation + 2 survey + 6 classifier + 3 grounder.
-    expect(report.overall.total).toBe(15);
-    // Only automation's one deliberately-wrong case fails → 14/15.
-    expect(report.overall.passed).toBe(14);
+    // 4 automation + 2 survey + 6 classifier + 3 grounder + 2 page-extractor
+    // + 2 note-classifier + 2 meeting-extractor.
+    expect(report.overall.total).toBe(21);
+    // Only automation's one deliberately-wrong case fails → 20/21.
+    expect(report.overall.passed).toBe(20);
 
     const automation = report.suites.find((s) => s.suiteId === 'automation-parser')!;
     expect(automation.passRate).toBe(0.75);

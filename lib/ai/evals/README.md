@@ -52,10 +52,22 @@ DB-coupled prompts (note classifier, page extractor) resolve a tenant key and
 read rows, so their suites take `--clientId=<id>` against a seeded tenant — same
 pattern as the Brain runner.
 
-## Wired so far (POC)
+## Wired so far
 
-- `automation-parser` — plain-English rule → structured automation JSON (contract + trigger/action correctness).
-- `survey-summary` — free-text answers → themes/sentiment/per-question (contract + rules + LLM-judge groundedness).
+| Suite | Prompt | Notes |
+|---|---|---|
+| `automation-parser` | NLP rule parser | contract + trigger/action correctness |
+| `survey-summary` | survey synthesis | contract + rules + **LLM-judge** groundedness |
+| `brain-classifier` | intent classifier | label accuracy (intent/complexity) |
+| `brain-grounder` | hallucination checker | meta-eval: verdict correctness + self-consistency |
+| `page-extractor` | extension extractor | needs `--clientId` (tenant key); no row seeding |
+| `note-classifier` | note taxonomy | via pure `classifyNoteRow` core (no DB) |
+| `meeting-extractor` | transcript → tasks/decisions | via pure `extractMeetingTranscript` core (no DB) |
 
-Next candidates (from the prompt inventory): note classifier, meeting extractor,
-branding generators, pitch-deck generator, block style picker.
+`note-classifier` and `meeting-extractor` were DB-coupled (took row ids,
+persisted results). We extracted pure, apiKey-taking cores (`classifyNoteRow`,
+`extractMeetingTranscript`) that the production orchestrators now call, so the
+eval exercises the identical prompt path with no row seeding.
+
+Next candidates (from the prompt inventory): branding generators, pitch-deck
+generator, block style picker.
