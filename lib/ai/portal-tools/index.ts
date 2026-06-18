@@ -132,26 +132,34 @@ function summarizeToolCall(name: string, input: Record<string, unknown>): string
 export interface PortalToolCtx {
   source?: 'automation' | 'assistant';
   ruleId?: number;
+  /**
+   * Approval gate. When set AND the tool is a write requiring approval, the
+   * write is staged into the approval queue instead of committing (streaming
+   * chat / bearer-auth path) — `stageOrApply` decides from the key's
+   * `require_cms_approval` flag. The deferred call is replayed verbatim on
+   * approval (`ai_tool_call:execute` in `lib/mcp/approvals.ts`). Omit to
+   * execute directly.
+   */
+  gate?: PortalMcpContext | null;
 }
 
 /**
- * Execute an AI-chat tool. Two orthogonal cross-cutting concerns are applied:
+ * Execute an AI-chat tool. Two orthogonal cross-cutting concerns are applied,
+ * both carried on the single optional `ctx`:
  *
- *  1. Approval staging (`gateCtx`): on the streaming chat path (bearer auth),
+ *  1. Approval staging (`ctx.gate`): on the streaming chat path (bearer auth),
  *     when the tool is a write AND the caller's API key requires approval, the
- *     write is staged into the approval queue instead of committing —
- *     `stageOrApply` decides from the key's `require_cms_approval` flag. The
- *     deferred call is replayed verbatim on approval (`ai_tool_call:execute` in
- *     `lib/mcp/approvals.ts`). Omit `gateCtx` to execute directly.
- *  2. Agent-action audit (`ctx`): every call is logged to the agent-action log
- *     with source / outcome / duration (automation runs pass `{ source, ruleId }`).
+ *     write is staged into the approval queue instead of committing. Omit
+ *     `ctx.gate` to execute directly.
+ *  2. Agent-action audit (`ctx.source` / `ctx.ruleId`): every call is logged to
+ *     the agent-action log with source / outcome / duration (automation runs
+ *     pass `{ source: 'automation', ruleId }`).
  */
 export async function executePortalTool(
   name: string,
   input: Record<string, unknown>,
   clientId: number,
   userId: number,
-  gateCtx?: PortalMcpContext | null,
   ctx?: PortalToolCtx,
 ): Promise<unknown> {
   const handler = HANDLERS[name];
@@ -175,9 +183,9 @@ export async function executePortalTool(
   let result: unknown;
 
   try {
-    if (gateCtx && WRITE_TOOLS.has(name)) {
+    if (ctx?.gate && WRITE_TOOLS.has(name)) {
       const staged = await stageOrApply({
-        ctx: gateCtx,
+        ctx: ctx.gate,
         entityType: 'ai_tool_call',
         operation: 'execute',
         entityId: null,

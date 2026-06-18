@@ -289,7 +289,7 @@ async function executeAction(
   }
 
   try {
-    const result = await executePortalTool(action.tool, resolvedParams, clientId, userId, undefined, {
+    const result = await executePortalTool(action.tool, resolvedParams, clientId, userId, {
       source: 'automation',
       ruleId,
     });

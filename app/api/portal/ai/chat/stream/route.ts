@@ -401,7 +401,7 @@ export async function POST(req: Request) {
                 input,
                 client.id,
                 userId,
-                AI_TOOL_APPROVALS_ENABLED ? ctx : undefined,
+                { source: 'assistant', gate: AI_TOOL_APPROVALS_ENABLED ? ctx : undefined },
               );
             } catch (toolErr) {
               // Serialize the failure into the tool_result so the model can
