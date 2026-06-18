@@ -55,10 +55,23 @@ vi.mock('@/lib/ai/plan-gate', () => ({
   checkAiPlanGate: (...args: unknown[]) => checkAiPlanGateMock(...args),
 }));
 
-// ---- AI seam — mock complete() so no real SDK or network calls happen ----
-const completeMock = vi.fn();
+// ---- Anthropic SDK — never let it touch the network ----
+const messagesCreateMock = vi.fn();
+const anthropicCtorSpy = vi.fn();
+vi.mock('@anthropic-ai/sdk', () => {
+  class Anthropic {
+    public messages: { create: typeof messagesCreateMock };
+    constructor(opts: { apiKey: string }) {
+      anthropicCtorSpy(opts);
+      this.messages = { create: messagesCreateMock };
+    }
+  }
+  return { default: Anthropic };
+});
+
+// ---- LLM provider seam — for routes that use complete() instead of the SDK directly ----
 vi.mock('@/lib/ai/llm', () => ({
-  complete: (...args: unknown[]) => completeMock(...args),
+  complete: vi.fn(),
   completeObject: vi.fn(),
   streamComplete: vi.fn(),
 }));
@@ -241,6 +254,13 @@ vi.mock('@/lib/db', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Seam mock handle — import after vi.mock hoisting
+// ---------------------------------------------------------------------------
+
+import { complete as _complete } from '@/lib/ai/llm';
+const completeMock = vi.mocked(_complete);
+
+// ---------------------------------------------------------------------------
 // Modules under test
 // ---------------------------------------------------------------------------
 
@@ -277,8 +297,8 @@ function makeBareReq(url: string, method = 'GET'): Request {
 
 function aiResp(text: string) {
   return {
-    text,
-    usage: { inputTokens: 50, outputTokens: 100, totalTokens: 150 },
+    content: [{ type: 'text', text }],
+    usage: { input_tokens: 50, output_tokens: 100 },
   };
 }
 
@@ -296,6 +316,8 @@ beforeEach(() => {
     .mockResolvedValue({ source: 'platform', key: 'sk-test' });
   recordAiUsageMock.mockReset().mockResolvedValue(undefined);
   checkAiPlanGateMock.mockReset().mockResolvedValue({ allowed: true });
+  messagesCreateMock.mockReset();
+  anthropicCtorSpy.mockReset();
   completeMock.mockReset();
 
   // sane defaults
@@ -310,6 +332,14 @@ beforeEach(() => {
 
 describe('POST /api/portal/branding/generate-block-copy', () => {
   const url = 'http://x/api/portal/branding/generate-block-copy';
+
+  // Helper: seam-shaped response from complete()
+  function seamResp(text: string, inputTokens = 50, outputTokens = 100) {
+    return {
+      text,
+      usage: { inputTokens, outputTokens, totalTokens: inputTokens + outputTokens },
+    };
+  }
 
   it('returns 401 when there is no session', async () => {
     authMock.mockResolvedValueOnce(null);
@@ -374,7 +404,7 @@ describe('POST /api/portal/branding/generate-block-copy', () => {
 
   it('returns 200 with parsed JSON on the happy path', async () => {
     completeMock.mockResolvedValueOnce(
-      aiResp('{"headline":"Hello","sub":"World"}'),
+      seamResp('{"headline":"Hello","sub":"World"}'),
     );
     const res = await generateBlockCopyMod.POST(
       makeJsonReq(url, { blockType: 'hero', context: 'home' }),
@@ -387,23 +417,25 @@ describe('POST /api/portal/branding/generate-block-copy', () => {
     });
   });
 
-  it('resolves the client API key before calling complete', async () => {
+  it('resolves the client API key and passes task + clientId to complete()', async () => {
     resolveClientApiKeyMock.mockResolvedValueOnce({
       source: 'byok',
       key: 'sk-byok-abc',
     });
-    completeMock.mockResolvedValueOnce(aiResp('{"headline":"hi"}'));
+    completeMock.mockResolvedValueOnce(seamResp('{"headline":"hi"}'));
     await generateBlockCopyMod.POST(
       makeJsonReq(url, { blockType: 'hero' }),
     );
-    expect(resolveClientApiKeyMock).toHaveBeenCalledWith(
-      expect.objectContaining({ clientId: 10, provider: 'anthropic' }),
+    // resolveClientApiKey is still called (its source drives recordAiUsage)
+    expect(resolveClientApiKeyMock).toHaveBeenCalled();
+    // complete() is invoked with the expected task and clientId
+    expect(completeMock).toHaveBeenCalledWith(
+      expect.objectContaining({ task: 'brandingBlockCopy', clientId: 10 }),
     );
-    expect(completeMock).toHaveBeenCalled();
   });
 
   it('forwards profileId and variants into getBrandMessaging + user prompt', async () => {
-    completeMock.mockResolvedValueOnce(aiResp('{"variants":[]}'));
+    completeMock.mockResolvedValueOnce(seamResp('{"variants":[]}'));
     await generateBlockCopyMod.POST(
       makeJsonReq(url, {
         blockType: 'hero',
@@ -424,7 +456,7 @@ describe('POST /api/portal/branding/generate-block-copy', () => {
   });
 
   it('defaults variants to 1 when not a number and profileId to null', async () => {
-    completeMock.mockResolvedValueOnce(aiResp('{"x":1}'));
+    completeMock.mockResolvedValueOnce(seamResp('{"x":1}'));
     await generateBlockCopyMod.POST(
       makeJsonReq(url, { blockType: 'hero', profileId: 'nope', variants: 'x' }),
     );
@@ -436,10 +468,7 @@ describe('POST /api/portal/branding/generate-block-copy', () => {
   });
 
   it('records AI usage with combined input+output tokens', async () => {
-    completeMock.mockResolvedValueOnce({
-      text: '{"a":1}',
-      usage: { inputTokens: 7, outputTokens: 13, totalTokens: 20 },
-    });
+    completeMock.mockResolvedValueOnce(seamResp('{"a":1}', 7, 13));
     await generateBlockCopyMod.POST(
       makeJsonReq(url, { blockType: 'hero' }),
     );
@@ -454,7 +483,7 @@ describe('POST /api/portal/branding/generate-block-copy', () => {
 
   it('strips ```json fences before parsing', async () => {
     completeMock.mockResolvedValueOnce(
-      aiResp('```json\n{"headline":"Hi"}\n```'),
+      seamResp('```json\n{"headline":"Hi"}\n```'),
     );
     const res = await generateBlockCopyMod.POST(
       makeJsonReq(url, { blockType: 'hero' }),
@@ -465,7 +494,7 @@ describe('POST /api/portal/branding/generate-block-copy', () => {
   });
 
   it('returns 502 when the model returns non-JSON', async () => {
-    completeMock.mockResolvedValueOnce(aiResp('totally not json'));
+    completeMock.mockResolvedValueOnce(seamResp('totally not json'));
     const res = await generateBlockCopyMod.POST(
       makeJsonReq(url, { blockType: 'hero' }),
     );
@@ -475,11 +504,8 @@ describe('POST /api/portal/branding/generate-block-copy', () => {
     expect(body.raw).toBe('totally not json');
   });
 
-  it('parses valid JSON text returned by the seam', async () => {
-    completeMock.mockResolvedValueOnce({
-      text: '{"ok":true}',
-      usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
-    });
+  it('parses text returned by complete() directly (seam returns flat text, not content blocks)', async () => {
+    completeMock.mockResolvedValueOnce(seamResp('{"ok":true}'));
     const res = await generateBlockCopyMod.POST(
       makeJsonReq(url, { blockType: 'hero' }),
     );
@@ -489,10 +515,7 @@ describe('POST /api/portal/branding/generate-block-copy', () => {
   });
 
   it('handles missing usage object — tokens default to 0', async () => {
-    completeMock.mockResolvedValueOnce({
-      text: '{"ok":true}',
-      usage: undefined,
-    });
+    completeMock.mockResolvedValueOnce({ text: '{"ok":true}' });
     const res = await generateBlockCopyMod.POST(
       makeJsonReq(url, { blockType: 'hero' }),
     );
@@ -502,7 +525,7 @@ describe('POST /api/portal/branding/generate-block-copy', () => {
     );
   });
 
-  it('returns 500 with the error message when Anthropic rejects', async () => {
+  it('returns 500 with the error message when complete() rejects with an Error', async () => {
     completeMock.mockRejectedValueOnce(new Error('boom'));
     const res = await generateBlockCopyMod.POST(
       makeJsonReq(url, { blockType: 'hero' }),
@@ -584,11 +607,11 @@ describe('POST /api/portal/branding/generate-messaging', () => {
       message: 'Quota exceeded',
       reason: 'quota',
     });
-    expect(completeMock).not.toHaveBeenCalled();
+    expect(messagesCreateMock).not.toHaveBeenCalled();
   });
 
   it('returns 200 with parsed messaging JSON on the happy path', async () => {
-    completeMock.mockResolvedValueOnce(
+    messagesCreateMock.mockResolvedValueOnce(
       aiResp('{"companyName":"Acme","tagline":"We make stuff"}'),
     );
     const res = await generateMessagingMod.POST(
@@ -603,23 +626,20 @@ describe('POST /api/portal/branding/generate-messaging', () => {
     });
   });
 
-  it('resolves the client API key before calling complete', async () => {
+  it('passes the resolved Anthropic key into the SDK ctor', async () => {
     resolveClientApiKeyMock.mockResolvedValueOnce({
       source: 'byok',
       key: 'sk-msg-key',
     });
-    completeMock.mockResolvedValueOnce(aiResp('{"companyName":"x"}'));
+    messagesCreateMock.mockResolvedValueOnce(aiResp('{"companyName":"x"}'));
     await generateMessagingMod.POST(
       makeJsonReq(url, { description: 'acme' }),
     );
-    expect(resolveClientApiKeyMock).toHaveBeenCalledWith(
-      expect.objectContaining({ clientId: 10, provider: 'anthropic' }),
-    );
-    expect(completeMock).toHaveBeenCalled();
+    expect(anthropicCtorSpy).toHaveBeenCalledWith({ apiKey: 'sk-msg-key' });
   });
 
   it('strips ```json fences before parsing', async () => {
-    completeMock.mockResolvedValueOnce(
+    messagesCreateMock.mockResolvedValueOnce(
       aiResp('```json\n{"companyName":"Acme"}\n```'),
     );
     const res = await generateMessagingMod.POST(
@@ -631,9 +651,9 @@ describe('POST /api/portal/branding/generate-messaging', () => {
   });
 
   it('records AI usage with combined tokens', async () => {
-    completeMock.mockResolvedValueOnce({
-      text: '{"companyName":"x"}',
-      usage: { inputTokens: 4, outputTokens: 6, totalTokens: 10 },
+    messagesCreateMock.mockResolvedValueOnce({
+      content: [{ type: 'text', text: '{"companyName":"x"}' }],
+      usage: { input_tokens: 4, output_tokens: 6 },
     });
     await generateMessagingMod.POST(
       makeJsonReq(url, { description: 'acme' }),
@@ -644,7 +664,7 @@ describe('POST /api/portal/branding/generate-messaging', () => {
   });
 
   it('returns 500 when the model returns non-JSON', async () => {
-    completeMock.mockResolvedValueOnce(aiResp('not parseable'));
+    messagesCreateMock.mockResolvedValueOnce(aiResp('not parseable'));
     const res = await generateMessagingMod.POST(
       makeJsonReq(url, { description: 'acme' }),
     );
@@ -654,7 +674,7 @@ describe('POST /api/portal/branding/generate-messaging', () => {
   });
 
   it('returns 500 when Anthropic rejects', async () => {
-    completeMock.mockRejectedValueOnce(new Error('network'));
+    messagesCreateMock.mockRejectedValueOnce(new Error('network'));
     const res = await generateMessagingMod.POST(
       makeJsonReq(url, { description: 'acme' }),
     );
@@ -719,11 +739,11 @@ describe('POST /api/portal/branding/generate-theme', () => {
       makeJsonReq(url, { description: 'a brand' }),
     );
     expect(res.status).toBe(402);
-    expect(completeMock).not.toHaveBeenCalled();
+    expect(messagesCreateMock).not.toHaveBeenCalled();
   });
 
   it('returns 200 with parsed theme JSON on the happy path', async () => {
-    completeMock.mockResolvedValueOnce(
+    messagesCreateMock.mockResolvedValueOnce(
       aiResp('{"primaryColor":"#112233","headingFont":"Inter"}'),
     );
     const res = await generateThemeMod.POST(
@@ -738,25 +758,22 @@ describe('POST /api/portal/branding/generate-theme', () => {
     });
   });
 
-  it('resolves the client API key before calling complete', async () => {
+  it('passes the resolved Anthropic key into the SDK ctor', async () => {
     resolveClientApiKeyMock.mockResolvedValueOnce({
       source: 'byok',
       key: 'sk-theme',
     });
-    completeMock.mockResolvedValueOnce(aiResp('{"primaryColor":"#000"}'));
+    messagesCreateMock.mockResolvedValueOnce(aiResp('{"primaryColor":"#000"}'));
     await generateThemeMod.POST(
       makeJsonReq(url, { description: 'modern minimal' }),
     );
-    expect(resolveClientApiKeyMock).toHaveBeenCalledWith(
-      expect.objectContaining({ clientId: 10, provider: 'anthropic' }),
-    );
-    expect(completeMock).toHaveBeenCalled();
+    expect(anthropicCtorSpy).toHaveBeenCalledWith({ apiKey: 'sk-theme' });
   });
 
   it('records AI usage with combined tokens (called BEFORE parsing in this route)', async () => {
-    completeMock.mockResolvedValueOnce({
-      text: '{"primaryColor":"#000"}',
-      usage: { inputTokens: 9, outputTokens: 21, totalTokens: 30 },
+    messagesCreateMock.mockResolvedValueOnce({
+      content: [{ type: 'text', text: '{"primaryColor":"#000"}' }],
+      usage: { input_tokens: 9, output_tokens: 21 },
     });
     await generateThemeMod.POST(
       makeJsonReq(url, { description: 'modern minimal' }),
@@ -767,7 +784,7 @@ describe('POST /api/portal/branding/generate-theme', () => {
   });
 
   it('strips ```json fences before parsing', async () => {
-    completeMock.mockResolvedValueOnce(
+    messagesCreateMock.mockResolvedValueOnce(
       aiResp('```json\n{"primaryColor":"#abc"}\n```'),
     );
     const res = await generateThemeMod.POST(
@@ -779,7 +796,7 @@ describe('POST /api/portal/branding/generate-theme', () => {
   });
 
   it('returns 500 when the model returns non-JSON', async () => {
-    completeMock.mockResolvedValueOnce(aiResp('nonsense'));
+    messagesCreateMock.mockResolvedValueOnce(aiResp('nonsense'));
     const res = await generateThemeMod.POST(
       makeJsonReq(url, { description: 'a brand' }),
     );
@@ -789,7 +806,7 @@ describe('POST /api/portal/branding/generate-theme', () => {
   });
 
   it('returns 500 when Anthropic rejects', async () => {
-    completeMock.mockRejectedValueOnce(new Error('down'));
+    messagesCreateMock.mockRejectedValueOnce(new Error('down'));
     const res = await generateThemeMod.POST(
       makeJsonReq(url, { description: 'a brand' }),
     );

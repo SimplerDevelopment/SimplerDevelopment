@@ -2,8 +2,8 @@
 /**
  * Unit tests for lib/ai/meeting-processor.ts.
  *
- * The module is DB- and AI-seam-coupled. We mock @/lib/db, drizzle-orm,
- * @/lib/ai/llm, and every non-pure collaborator. The DB mock is a
+ * The module is DB- and Anthropic-coupled. We mock @/lib/db, drizzle-orm,
+ * @anthropic-ai/sdk, and every non-pure collaborator. The DB mock is a
  * chainable query builder backed by an in-memory state seeded per test,
  * matching the patterns in tests/unit/brain-classify-crm.test.ts and
  * tests/unit/brain-relationships.test.ts.
@@ -11,16 +11,22 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // ---------------------------------------------------------------------------
-// AI seam mock  (@/lib/ai/llm)
+// Anthropic SDK mock
 // ---------------------------------------------------------------------------
 
-const completeMock = vi.fn();
+const messagesCreateMock = vi.fn();
+const anthropicCtorSpy = vi.fn();
 
-vi.mock('@/lib/ai/llm', () => ({
-  complete: (...args: unknown[]) => completeMock(...args),
-  completeObject: vi.fn(),
-  streamComplete: vi.fn(),
-}));
+vi.mock('@anthropic-ai/sdk', () => {
+  class Anthropic {
+    public messages: { create: typeof messagesCreateMock };
+    constructor(opts: { apiKey: string }) {
+      anthropicCtorSpy(opts);
+      this.messages = { create: messagesCreateMock };
+    }
+  }
+  return { default: Anthropic };
+});
 
 // ---------------------------------------------------------------------------
 // Schema mock — Proxy wrappers so column access returns a typed marker
@@ -219,9 +225,12 @@ function defaultExtraction(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function claudeResponse(payload: unknown, usage = { inputTokens: 1500, outputTokens: 800, totalTokens: 2300 }) {
+function claudeResponse(payload: unknown, usage = { input_tokens: 1500, output_tokens: 800 }) {
   const text = typeof payload === 'string' ? payload : JSON.stringify(payload);
-  return { text, usage };
+  return {
+    content: [{ type: 'text', text }],
+    usage,
+  };
 }
 
 function baseArgs(over: Record<string, unknown> = {}) {
@@ -243,7 +252,8 @@ beforeEach(() => {
   auditCalls.length = 0;
   idCounter = 1000;
 
-  completeMock.mockReset();
+  messagesCreateMock.mockReset();
+  anthropicCtorSpy.mockReset();
   setMeetingAiSummaryMock.mockReset().mockResolvedValue(undefined);
   updateMeetingStatusMock.mockReset().mockResolvedValue(undefined);
   hasCreditsMock.mockReset().mockResolvedValue(true);
@@ -258,7 +268,7 @@ beforeEach(() => {
 
 describe('processMeetingTranscript — happy path', () => {
   it('runs the full pipeline and returns jobId + reviewItemIds + extraction', async () => {
-    completeMock.mockResolvedValueOnce(claudeResponse(defaultExtraction()));
+    messagesCreateMock.mockResolvedValueOnce(claudeResponse(defaultExtraction()));
 
     const res = await processMeetingTranscript(baseArgs());
 
@@ -280,7 +290,7 @@ describe('processMeetingTranscript — happy path', () => {
   });
 
   it('materializes review items for each extraction category', async () => {
-    completeMock.mockResolvedValueOnce(claudeResponse(defaultExtraction()));
+    messagesCreateMock.mockResolvedValueOnce(claudeResponse(defaultExtraction()));
 
     await processMeetingTranscript(baseArgs());
 
@@ -299,19 +309,16 @@ describe('processMeetingTranscript — happy path', () => {
     }
   });
 
-  it('passes through participant + meeting metadata to the complete() prompt', async () => {
-    completeMock.mockResolvedValueOnce(claudeResponse(defaultExtraction()));
+  it('passes through participant + meeting metadata to the Claude prompt', async () => {
+    messagesCreateMock.mockResolvedValueOnce(claudeResponse(defaultExtraction()));
 
     await processMeetingTranscript(baseArgs());
 
-    expect(completeMock).toHaveBeenCalledTimes(1);
-    const call = completeMock.mock.calls[0][0] as {
-      task: string; clientId: number; maxTokens: number; system: string; prompt: string;
-    };
-    expect(call.task).toBe('meetingProcess');
-    expect(call.clientId).toBe(1);
-    expect(call.maxTokens).toBe(4096);
-    const userText = call.prompt;
+    expect(messagesCreateMock).toHaveBeenCalledTimes(1);
+    const call = messagesCreateMock.mock.calls[0][0];
+    expect(call.model).toBe('claude-sonnet-4-5');
+    expect(call.max_tokens).toBe(4096);
+    const userText = call.messages[0].content as string;
     expect(userText).toContain('Q3 Planning');
     expect(userText).toContain('Ada');
     expect(userText).toContain('ada@acme.test');
@@ -322,13 +329,12 @@ describe('processMeetingTranscript — happy path', () => {
   });
 
   it('emits truncation notice when transcript exceeds 60k chars', async () => {
-    completeMock.mockResolvedValueOnce(claudeResponse(defaultExtraction()));
+    messagesCreateMock.mockResolvedValueOnce(claudeResponse(defaultExtraction()));
 
     const longTranscript = 'x'.repeat(60_001);
     await processMeetingTranscript(baseArgs({ transcript: longTranscript }));
 
-    const call = completeMock.mock.calls[0][0] as { prompt: string };
-    const userText = call.prompt;
+    const userText = messagesCreateMock.mock.calls[0][0].messages[0].content as string;
     expect(userText).toContain('Transcript was truncated');
     // job.input.truncated true
     const job = state.brainAiJobs[0];
@@ -336,27 +342,25 @@ describe('processMeetingTranscript — happy path', () => {
   });
 
   it('omits the participants section when none are provided', async () => {
-    completeMock.mockResolvedValueOnce(claudeResponse(defaultExtraction()));
+    messagesCreateMock.mockResolvedValueOnce(claudeResponse(defaultExtraction()));
 
     await processMeetingTranscript(baseArgs({ participants: [] }));
 
-    const call = completeMock.mock.calls[0][0] as { prompt: string };
-    const userText = call.prompt;
+    const userText = messagesCreateMock.mock.calls[0][0].messages[0].content as string;
     expect(userText).not.toContain('Participants:');
   });
 
   it('omits meeting date line when meetingDate is null', async () => {
-    completeMock.mockResolvedValueOnce(claudeResponse(defaultExtraction()));
+    messagesCreateMock.mockResolvedValueOnce(claudeResponse(defaultExtraction()));
 
     await processMeetingTranscript(baseArgs({ meetingDate: null }));
 
-    const call = completeMock.mock.calls[0][0] as { prompt: string };
-    const userText = call.prompt;
+    const userText = messagesCreateMock.mock.calls[0][0].messages[0].content as string;
     expect(userText).not.toContain('Meeting date:');
   });
 
   it('skips review-item insert when extraction has empty arrays', async () => {
-    completeMock.mockResolvedValueOnce(claudeResponse({
+    messagesCreateMock.mockResolvedValueOnce(claudeResponse({
       summary: 'Nothing actionable.',
       decisions: [],
       commitments: [],
@@ -392,8 +396,8 @@ describe('processMeetingTranscript — credits', () => {
     expect(job.error).toMatch(/Insufficient AI credits/);
     // Meeting reset back to draft
     expect(updateMeetingStatusMock).toHaveBeenLastCalledWith(1, 42, 'draft');
-    // AI seam never called
-    expect(completeMock).not.toHaveBeenCalled();
+    // Anthropic never called
+    expect(messagesCreateMock).not.toHaveBeenCalled();
     // Audit recorded the failure
     const audit = auditCalls.find((a) => a.action === 'meeting.process_failed');
     expect(audit).toBeDefined();
@@ -402,20 +406,21 @@ describe('processMeetingTranscript — credits', () => {
 
   it('BYOK bypasses the credit check and does not deduct credits', async () => {
     resolveClientApiKeyMock.mockResolvedValueOnce({ source: 'byok', key: 'sk-byok' });
-    completeMock.mockResolvedValueOnce(claudeResponse(defaultExtraction()));
+    messagesCreateMock.mockResolvedValueOnce(claudeResponse(defaultExtraction()));
 
     await processMeetingTranscript(baseArgs());
 
     expect(hasCreditsMock).not.toHaveBeenCalled();
     expect(deductCreditsMock).not.toHaveBeenCalled();
+    expect(anthropicCtorSpy).toHaveBeenCalledWith({ apiKey: 'sk-byok' });
     // Usage still recorded
     expect(recordAiUsageMock).toHaveBeenCalledWith(expect.objectContaining({ source: 'byok' }));
   });
 
   it('charges credits based on actual token usage on platform', async () => {
     // 4000 input → 4 credits ; 1000 output → 4 credits ; total = 8
-    completeMock.mockResolvedValueOnce(
-      claudeResponse(defaultExtraction(), { inputTokens: 4000, outputTokens: 1000, totalTokens: 5000 }),
+    messagesCreateMock.mockResolvedValueOnce(
+      claudeResponse(defaultExtraction(), { input_tokens: 4000, output_tokens: 1000 }),
     );
 
     await processMeetingTranscript(baseArgs());
@@ -430,8 +435,8 @@ describe('processMeetingTranscript — credits', () => {
   });
 
   it('floors credits at 1 when token usage is zero', async () => {
-    completeMock.mockResolvedValueOnce(
-      claudeResponse(defaultExtraction(), { inputTokens: 0, outputTokens: 0, totalTokens: 0 }),
+    messagesCreateMock.mockResolvedValueOnce(
+      claudeResponse(defaultExtraction(), { input_tokens: 0, output_tokens: 0 }),
     );
 
     await processMeetingTranscript(baseArgs());
@@ -440,8 +445,8 @@ describe('processMeetingTranscript — credits', () => {
   });
 
   it('handles a response with no usage field — treats tokens as 0', async () => {
-    completeMock.mockResolvedValueOnce({
-      text: JSON.stringify(defaultExtraction()),
+    messagesCreateMock.mockResolvedValueOnce({
+      content: [{ type: 'text', text: JSON.stringify(defaultExtraction()) }],
       // no usage
     });
 
@@ -458,8 +463,8 @@ describe('processMeetingTranscript — credits', () => {
 // ---------------------------------------------------------------------------
 
 describe('processMeetingTranscript — failures', () => {
-  it('marks job failed and rethrows when AI seam call rejects', async () => {
-    completeMock.mockRejectedValueOnce(new Error('rate limit hit'));
+  it('marks job failed and rethrows when Anthropic call rejects', async () => {
+    messagesCreateMock.mockRejectedValueOnce(new Error('rate limit hit'));
 
     await expect(processMeetingTranscript(baseArgs())).rejects.toThrow(/rate limit hit/);
 
@@ -472,7 +477,7 @@ describe('processMeetingTranscript — failures', () => {
   });
 
   it('records "Unknown AI processing error" when a non-Error value is thrown', async () => {
-    completeMock.mockRejectedValueOnce('string thrown directly');
+    messagesCreateMock.mockRejectedValueOnce('string thrown directly');
 
     await expect(processMeetingTranscript(baseArgs())).rejects.toBe('string thrown directly');
 
@@ -481,10 +486,10 @@ describe('processMeetingTranscript — failures', () => {
     expect(job.error).toBe('Unknown AI processing error');
   });
 
-  it('throws when seam response has no text', async () => {
-    completeMock.mockResolvedValueOnce({
-      text: '',
-      usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+  it('throws when Claude response has no text block', async () => {
+    messagesCreateMock.mockResolvedValueOnce({
+      content: [{ type: 'tool_use', id: 't', name: 'noop', input: {} }],
+      usage: { input_tokens: 1, output_tokens: 1 },
     });
 
     await expect(processMeetingTranscript(baseArgs())).rejects.toThrow(/no text content/);
@@ -494,7 +499,7 @@ describe('processMeetingTranscript — failures', () => {
   });
 
   it('throws when JSON parse fails', async () => {
-    completeMock.mockResolvedValueOnce(claudeResponse('not json {{{'));
+    messagesCreateMock.mockResolvedValueOnce(claudeResponse('not json {{{'));
 
     await expect(processMeetingTranscript(baseArgs())).rejects.toThrow(/non-JSON output/);
 
@@ -504,7 +509,7 @@ describe('processMeetingTranscript — failures', () => {
   });
 
   it('throws when AI returns a non-object root (e.g. null)', async () => {
-    completeMock.mockResolvedValueOnce(claudeResponse('null'));
+    messagesCreateMock.mockResolvedValueOnce(claudeResponse('null'));
 
     await expect(processMeetingTranscript(baseArgs())).rejects.toThrow(/not an object/);
   });
@@ -515,20 +520,26 @@ describe('processMeetingTranscript — failures', () => {
 // ---------------------------------------------------------------------------
 
 describe('processMeetingTranscript — extraction parsing', () => {
-  it('strips ```json fences from AI output', async () => {
-    completeMock.mockResolvedValueOnce({
-      text: '```json\n' + JSON.stringify(defaultExtraction()) + '\n```',
-      usage: { inputTokens: 100, outputTokens: 50, totalTokens: 150 },
+  it('strips ```json fences from Claude output', async () => {
+    messagesCreateMock.mockResolvedValueOnce({
+      content: [{
+        type: 'text',
+        text: '```json\n' + JSON.stringify(defaultExtraction()) + '\n```',
+      }],
+      usage: { input_tokens: 100, output_tokens: 50 },
     });
 
     const res = await processMeetingTranscript(baseArgs());
     expect(res.extraction.summary).toContain('Quarterly');
   });
 
-  it('strips bare ``` fences (no language) from AI output', async () => {
-    completeMock.mockResolvedValueOnce({
-      text: '```\n' + JSON.stringify(defaultExtraction()) + '\n```',
-      usage: { inputTokens: 100, outputTokens: 50, totalTokens: 150 },
+  it('strips bare ``` fences (no language) from Claude output', async () => {
+    messagesCreateMock.mockResolvedValueOnce({
+      content: [{
+        type: 'text',
+        text: '```\n' + JSON.stringify(defaultExtraction()) + '\n```',
+      }],
+      usage: { input_tokens: 100, output_tokens: 50 },
     });
 
     const res = await processMeetingTranscript(baseArgs());
@@ -536,7 +547,7 @@ describe('processMeetingTranscript — extraction parsing', () => {
   });
 
   it('coerces non-array fields into empty arrays and missing summary into ""', async () => {
-    completeMock.mockResolvedValueOnce(claudeResponse({
+    messagesCreateMock.mockResolvedValueOnce(claudeResponse({
       // summary absent
       decisions: 'not an array',
       commitments: null,
@@ -564,14 +575,12 @@ describe('processMeetingTranscript — extraction parsing', () => {
 // ---------------------------------------------------------------------------
 
 describe('processMeetingTranscript — API key resolution', () => {
-  it('resolves the client API key and passes clientId to the seam', async () => {
-    completeMock.mockResolvedValueOnce(claudeResponse(defaultExtraction()));
+  it('instantiates Anthropic with the platform key by default', async () => {
+    messagesCreateMock.mockResolvedValueOnce(claudeResponse(defaultExtraction()));
 
     await processMeetingTranscript(baseArgs());
 
+    expect(anthropicCtorSpy).toHaveBeenCalledWith({ apiKey: 'sk-test' });
     expect(resolveClientApiKeyMock).toHaveBeenCalledWith({ clientId: 1, provider: 'anthropic' });
-    expect(completeMock).toHaveBeenCalledWith(
-      expect.objectContaining({ task: 'meetingProcess', clientId: 1 }),
-    );
   });
 });

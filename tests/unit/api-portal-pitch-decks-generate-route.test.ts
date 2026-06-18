@@ -68,12 +68,20 @@ vi.mock('@/lib/ai/plan-gate', () => ({
   checkAiPlanGate: (...args: unknown[]) => checkAiPlanGateMock(...args),
 }));
 
-// ---- LLM seam — never let it touch the network ----
+// ---- Anthropic SDK — never let it touch the network ----
 
-const completeMock = vi.fn();
-vi.mock('@/lib/ai/llm', () => ({
-  complete: (...args: unknown[]) => completeMock(...args),
-}));
+const messagesCreateMock = vi.fn();
+const anthropicCtorSpy = vi.fn();
+vi.mock('@anthropic-ai/sdk', () => {
+  class Anthropic {
+    public messages: { create: typeof messagesCreateMock };
+    constructor(opts: { apiKey: string }) {
+      anthropicCtorSpy(opts);
+      this.messages = { create: messagesCreateMock };
+    }
+  }
+  return { default: Anthropic };
+});
 
 // ---- schema — wrap so column refs round-trip through our DB mock ----
 
@@ -301,14 +309,10 @@ function makeAiSlidesJson(slides = 1): string {
 }
 
 function aiResponse(text: string, opts: { stop?: string; input?: number; output?: number } = {}) {
-  const inputTokens = opts.input ?? 100;
-  const outputTokens = opts.output ?? 200;
-  // Map Anthropic stop_reason 'max_tokens' to the seam's finishReason 'length'
-  const finishReason = opts.stop === 'max_tokens' ? 'length' : 'stop';
   return {
-    text,
-    finishReason,
-    usage: { inputTokens, outputTokens, totalTokens: inputTokens + outputTokens },
+    content: [{ type: 'text', text }],
+    stop_reason: opts.stop ?? 'end_turn',
+    usage: { input_tokens: opts.input ?? 100, output_tokens: opts.output ?? 200 },
   };
 }
 
@@ -332,7 +336,8 @@ beforeEach(() => {
   resolveClientApiKeyMock.mockReset().mockResolvedValue({ source: 'platform', key: 'sk-test' });
   recordAiUsageMock.mockReset().mockResolvedValue(undefined);
   checkAiPlanGateMock.mockReset().mockResolvedValue({ allowed: true });
-  completeMock.mockReset();
+  messagesCreateMock.mockReset();
+  anthropicCtorSpy.mockReset();
 
   // sane defaults
   authMock.mockResolvedValue({ user: { id: '7' } });
@@ -420,7 +425,7 @@ describe('POST /generate — auth + early exits', () => {
     const body = await res.json();
     expect(body).toEqual({ success: false, message: 'Upgrade required', reason: 'plan_lock' });
     // We never reached Anthropic
-    expect(completeMock).not.toHaveBeenCalled();
+    expect(messagesCreateMock).not.toHaveBeenCalled();
   });
 
   it('returns 402 with creditsRemaining when on platform key + production + no credits', async () => {
@@ -439,14 +444,13 @@ describe('POST /generate — auth + early exits', () => {
     process.env.NODE_ENV = 'production';
     state.pitchDecks.push(defaultDeck());
     resolveClientApiKeyMock.mockResolvedValueOnce({ source: 'byok', key: 'sk-byok' });
-    completeMock.mockResolvedValueOnce(aiResponse(makeAiSlidesJson(2)));
+    messagesCreateMock.mockResolvedValueOnce(aiResponse(makeAiSlidesJson(2)));
     const res = await POST(makeRequest({ prompt: 'go' }), makeParams('1'));
     expect(res.status).toBe(200);
     expect(hasCreditsMock).not.toHaveBeenCalled();
     // BYOK should NOT trigger credit deduction either
     expect(deductCreditsMock).not.toHaveBeenCalled();
-    expect(resolveClientApiKeyMock).toHaveBeenCalled();
-    expect(completeMock).toHaveBeenCalledWith(expect.objectContaining({ task: 'deckGen' }));
+    expect(anthropicCtorSpy).toHaveBeenCalledWith({ apiKey: 'sk-byok' });
   });
 });
 
@@ -457,7 +461,7 @@ describe('POST /generate — auth + early exits', () => {
 describe('POST /generate — happy path', () => {
   it('returns 200 + updated deck with new slides on success', async () => {
     state.pitchDecks.push(defaultDeck());
-    completeMock.mockResolvedValueOnce(aiResponse(makeAiSlidesJson(3)));
+    messagesCreateMock.mockResolvedValueOnce(aiResponse(makeAiSlidesJson(3)));
 
     const res = await POST(makeRequest({ prompt: 'Make a deck' }), makeParams('1'));
     expect(res.status).toBe(200);
@@ -471,7 +475,7 @@ describe('POST /generate — happy path', () => {
   it('strips ```json fences from the AI response before parsing', async () => {
     state.pitchDecks.push(defaultDeck());
     const fenced = '```json\n' + makeAiSlidesJson(2) + '\n```';
-    completeMock.mockResolvedValueOnce(aiResponse(fenced));
+    messagesCreateMock.mockResolvedValueOnce(aiResponse(fenced));
 
     const res = await POST(makeRequest({ prompt: 'Make a deck' }), makeParams('1'));
     expect(res.status).toBe(200);
@@ -482,7 +486,7 @@ describe('POST /generate — happy path', () => {
   it('strips bare ``` fences (no language) from the AI response', async () => {
     state.pitchDecks.push(defaultDeck());
     const fenced = '```\n' + makeAiSlidesJson(1) + '\n```';
-    completeMock.mockResolvedValueOnce(aiResponse(fenced));
+    messagesCreateMock.mockResolvedValueOnce(aiResponse(fenced));
 
     const res = await POST(makeRequest({ prompt: 'Make a deck' }), makeParams('1'));
     expect(res.status).toBe(200);
@@ -493,7 +497,7 @@ describe('POST /generate — happy path', () => {
     const bare = JSON.stringify([
       { id: 's-1', label: 'Cover', blocks: [{ id: 'b-1', type: 'hero', order: 1, title: 'X' }] },
     ]);
-    completeMock.mockResolvedValueOnce(aiResponse(bare));
+    messagesCreateMock.mockResolvedValueOnce(aiResponse(bare));
 
     const res = await POST(makeRequest({ prompt: 'go' }), makeParams('1'));
     expect(res.status).toBe(200);
@@ -503,7 +507,7 @@ describe('POST /generate — happy path', () => {
 
   it('returns 500 with friendly message when AI returns malformed JSON', async () => {
     state.pitchDecks.push(defaultDeck());
-    completeMock.mockResolvedValueOnce(aiResponse('not json {{{'));
+    messagesCreateMock.mockResolvedValueOnce(aiResponse('not json {{{'));
 
     const res = await POST(makeRequest({ prompt: 'go' }), makeParams('1'));
     expect(res.status).toBe(500);
@@ -514,7 +518,7 @@ describe('POST /generate — happy path', () => {
 
   it('saves a version snapshot tagged ai_generate on first generation (no existing slides)', async () => {
     state.pitchDecks.push(defaultDeck({ slides: [] }));
-    completeMock.mockResolvedValueOnce(aiResponse(makeAiSlidesJson(1)));
+    messagesCreateMock.mockResolvedValueOnce(aiResponse(makeAiSlidesJson(1)));
     await POST(makeRequest({ prompt: 'go' }), makeParams('1'));
     expect(saveVersionSnapshotMock).toHaveBeenCalledWith(
       1,
@@ -528,7 +532,7 @@ describe('POST /generate — happy path', () => {
   it('saves a version snapshot tagged ai_regenerate when slides already exist', async () => {
     const existingSlides = [{ id: 'old-1', label: 'Cover', blocks: [] }];
     state.pitchDecks.push(defaultDeck({ slides: existingSlides }));
-    completeMock.mockResolvedValueOnce(aiResponse(makeAiSlidesJson(1)));
+    messagesCreateMock.mockResolvedValueOnce(aiResponse(makeAiSlidesJson(1)));
     await POST(makeRequest({ prompt: 'go' }), makeParams('1'));
     expect(saveVersionSnapshotMock).toHaveBeenCalledWith(
       1,
@@ -546,7 +550,7 @@ describe('POST /generate — happy path', () => {
     getBrandingByClientIdMock.mockResolvedValueOnce({
       primaryColor: '#ff0099', accentColor: null, headingFont: 'Inter', bodyFont: null, logoUrl: null,
     });
-    completeMock.mockResolvedValueOnce(
+    messagesCreateMock.mockResolvedValueOnce(
       aiResponse(makeAiSlidesJson(2), { input: 1000, output: 2000 }),
     );
     await POST(
@@ -566,7 +570,7 @@ describe('POST /generate — happy path', () => {
 
   it('writes the conversation row with the deck title', async () => {
     state.pitchDecks.push(defaultDeck({ title: 'Series A Deck' }));
-    completeMock.mockResolvedValueOnce(aiResponse(makeAiSlidesJson(1)));
+    messagesCreateMock.mockResolvedValueOnce(aiResponse(makeAiSlidesJson(1)));
     await POST(makeRequest({ prompt: 'go' }), makeParams('1'));
     expect(state.aiConversations).toHaveLength(1);
     expect(state.aiConversations[0].title).toBe('Pitch Deck: Series A Deck');
@@ -580,7 +584,7 @@ describe('POST /generate — happy path', () => {
     getBrandingByClientIdMock.mockResolvedValueOnce({
       primaryColor: '#ff0099', accentColor: null, headingFont: 'Inter', bodyFont: null, logoUrl: null,
     });
-    completeMock.mockResolvedValueOnce(aiResponse(makeAiSlidesJson(1)));
+    messagesCreateMock.mockResolvedValueOnce(aiResponse(makeAiSlidesJson(1)));
     await POST(
       makeRequest({ prompt: 'go', websiteUrl: 'https://acme.test' }),
       makeParams('1'),
@@ -593,7 +597,7 @@ describe('POST /generate — happy path', () => {
 
   it('preserves the existing sourceUrl when no websiteUrl is provided', async () => {
     state.pitchDecks.push(defaultDeck({ sourceUrl: 'https://existing.test' }));
-    completeMock.mockResolvedValueOnce(aiResponse(makeAiSlidesJson(1)));
+    messagesCreateMock.mockResolvedValueOnce(aiResponse(makeAiSlidesJson(1)));
     await POST(makeRequest({ prompt: 'go' }), makeParams('1'));
     expect(state.pitchDecks[0].sourceUrl).toBe('https://existing.test');
   });
@@ -611,13 +615,13 @@ describe('POST /generate — continuation when stop_reason=max_tokens', () => {
     const partial = '{"slides":[';
     const completion =
       '{"id":"s-1","label":"Cover","blocks":[{"id":"b-1","type":"hero","order":1,"title":"X"}]}]}';
-    completeMock
+    messagesCreateMock
       .mockResolvedValueOnce(aiResponse(partial, { stop: 'max_tokens', input: 500, output: 800 }))
       .mockResolvedValueOnce(aiResponse(completion, { stop: 'end_turn', input: 600, output: 400 }));
 
     const res = await POST(makeRequest({ prompt: 'go' }), makeParams('1'));
     expect(res.status).toBe(200);
-    expect(completeMock).toHaveBeenCalledTimes(2);
+    expect(messagesCreateMock).toHaveBeenCalledTimes(2);
     // Token totals across both calls were recorded
     const assistant = state.aiMessages.find((m) => m.role === 'assistant');
     expect(assistant!.inputTokens).toBe(1100);
@@ -641,13 +645,13 @@ describe('POST /generate — branding selection', () => {
     });
     const themed = { ...DEFAULT_THEME, primaryColor: '#ff0099' };
     brandingToPitchDeckThemeMock.mockReturnValueOnce(themed);
-    completeMock.mockResolvedValueOnce(aiResponse(makeAiSlidesJson(1)));
+    messagesCreateMock.mockResolvedValueOnce(aiResponse(makeAiSlidesJson(1)));
 
     await POST(makeRequest({ prompt: 'go' }), makeParams('1'));
     expect(brandingToPitchDeckThemeMock).toHaveBeenCalled();
     expect(state.pitchDecks[0].theme).toEqual(themed);
     // Only one Anthropic call — no brand-extract step
-    expect(completeMock).toHaveBeenCalledTimes(1);
+    expect(messagesCreateMock).toHaveBeenCalledTimes(1);
   });
 
   it('uses the deck-attached branding profile when brandingProfileId is set', async () => {
@@ -660,7 +664,7 @@ describe('POST /generate — branding selection', () => {
       logoUrl: 'https://cdn/logo.png',
     });
     brandingToPitchDeckThemeMock.mockReturnValueOnce(DEFAULT_THEME);
-    completeMock.mockResolvedValueOnce(aiResponse(makeAiSlidesJson(1)));
+    messagesCreateMock.mockResolvedValueOnce(aiResponse(makeAiSlidesJson(1)));
 
     await POST(makeRequest({ prompt: 'go' }), makeParams('1'));
     expect(getBrandingByProfileIdMock).toHaveBeenCalledWith(42);
@@ -675,7 +679,7 @@ describe('POST /generate — branding selection', () => {
       new Response(html, { status: 200 }),
     );
     // First Anthropic call = brand extract. Second = slide generation.
-    completeMock
+    messagesCreateMock
       .mockResolvedValueOnce(
         aiResponse(
           JSON.stringify({
@@ -701,7 +705,7 @@ describe('POST /generate — branding selection', () => {
     expect(res.status).toBe(200);
     expect(assertSafeUrlMock).toHaveBeenCalledWith('https://acme.test');
     expect(fetchSpy).toHaveBeenCalled();
-    expect(completeMock).toHaveBeenCalledTimes(2);
+    expect(messagesCreateMock).toHaveBeenCalledTimes(2);
     // Theme should have inherited from extract
     expect(state.pitchDecks[0].theme).toMatchObject({ primaryColor: '#111111' });
     fetchSpy.mockRestore();
@@ -710,7 +714,7 @@ describe('POST /generate — branding selection', () => {
   it('swallows brand-extract failures (e.g. SSRF reject) and proceeds with deck generation', async () => {
     state.pitchDecks.push(defaultDeck());
     assertSafeUrlMock.mockRejectedValueOnce(new Error('private network'));
-    completeMock.mockResolvedValueOnce(aiResponse(makeAiSlidesJson(1)));
+    messagesCreateMock.mockResolvedValueOnce(aiResponse(makeAiSlidesJson(1)));
 
     const res = await POST(
       makeRequest({ prompt: 'go', websiteUrl: 'https://10.0.0.1' }),
@@ -718,7 +722,7 @@ describe('POST /generate — branding selection', () => {
     );
     expect(res.status).toBe(200);
     // Generation still went through — exactly one Anthropic call (brand-extract failed early)
-    expect(completeMock).toHaveBeenCalledTimes(1);
+    expect(messagesCreateMock).toHaveBeenCalledTimes(1);
   });
 
   it('refuses to follow redirects from the brand-fetch (SSRF guard 3xx check)', async () => {
@@ -726,7 +730,7 @@ describe('POST /generate — branding selection', () => {
     const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
       new Response('', { status: 302 }),
     );
-    completeMock.mockResolvedValueOnce(aiResponse(makeAiSlidesJson(1)));
+    messagesCreateMock.mockResolvedValueOnce(aiResponse(makeAiSlidesJson(1)));
 
     const res = await POST(
       makeRequest({ prompt: 'go', websiteUrl: 'https://acme.test' }),
@@ -735,7 +739,7 @@ describe('POST /generate — branding selection', () => {
     // Should still 200 — fetch failure is caught silently
     expect(res.status).toBe(200);
     // Only the slide-generation call happened — brand-extract bailed out
-    expect(completeMock).toHaveBeenCalledTimes(1);
+    expect(messagesCreateMock).toHaveBeenCalledTimes(1);
     fetchSpy.mockRestore();
   });
 });
@@ -771,14 +775,14 @@ describe('POST /generate — messaging context', () => {
       headquarters: null,
       additionalContext: null,
     });
-    completeMock.mockResolvedValueOnce(aiResponse(makeAiSlidesJson(1)));
+    messagesCreateMock.mockResolvedValueOnce(aiResponse(makeAiSlidesJson(1)));
 
     await POST(makeRequest({ prompt: 'investor deck' }), makeParams('1'));
 
-    const call = completeMock.mock.calls[0]![0] as {
-      task: string; clientId: number; system: string; prompt?: string; messages?: unknown[];
+    const call = messagesCreateMock.mock.calls[0]![0] as {
+      messages: Array<{ content: string }>;
     };
-    const userMsg = call.prompt ?? '';
+    const userMsg = call.messages[0].content;
     expect(userMsg).toContain('Acme');
     expect(userMsg).toContain('Best in class');
     expect(userMsg).toContain('CTOs');
@@ -813,18 +817,18 @@ describe('POST /generate — messaging context', () => {
       headquarters: null,
       additionalContext: null,
     });
-    completeMock.mockResolvedValueOnce(aiResponse(makeAiSlidesJson(1)));
+    messagesCreateMock.mockResolvedValueOnce(aiResponse(makeAiSlidesJson(1)));
 
     await POST(makeRequest({ prompt: 'go' }), makeParams('1'));
-    const call = completeMock.mock.calls[0]![0] as {
-      task: string; clientId: number; system: string; prompt?: string; messages?: unknown[];
+    const call = messagesCreateMock.mock.calls[0]![0] as {
+      messages: Array<{ content: string }>;
     };
-    expect(call.prompt ?? '').toContain('Default Co');
+    expect(call.messages[0].content).toContain('Default Co');
   });
 
   it('proceeds normally when there is no messaging row at all', async () => {
     state.pitchDecks.push(defaultDeck());
-    completeMock.mockResolvedValueOnce(aiResponse(makeAiSlidesJson(1)));
+    messagesCreateMock.mockResolvedValueOnce(aiResponse(makeAiSlidesJson(1)));
     const res = await POST(makeRequest({ prompt: 'go' }), makeParams('1'));
     expect(res.status).toBe(200);
   });
@@ -838,7 +842,7 @@ describe('POST /generate — credits + audit', () => {
   it('deducts platform credits in production using total tokens across all calls', async () => {
     process.env.NODE_ENV = 'production';
     state.pitchDecks.push(defaultDeck());
-    completeMock.mockResolvedValueOnce(
+    messagesCreateMock.mockResolvedValueOnce(
       aiResponse(makeAiSlidesJson(1), { input: 3000, output: 5000 }),
     );
 
@@ -855,14 +859,14 @@ describe('POST /generate — credits + audit', () => {
   it('does NOT deduct credits when NODE_ENV is not production (skip in dev)', async () => {
     process.env.NODE_ENV = 'development';
     state.pitchDecks.push(defaultDeck());
-    completeMock.mockResolvedValueOnce(aiResponse(makeAiSlidesJson(1)));
+    messagesCreateMock.mockResolvedValueOnce(aiResponse(makeAiSlidesJson(1)));
     await POST(makeRequest({ prompt: 'go' }), makeParams('1'));
     expect(deductCreditsMock).not.toHaveBeenCalled();
   });
 
   it('always records AI usage regardless of source', async () => {
     state.pitchDecks.push(defaultDeck());
-    completeMock.mockResolvedValueOnce(
+    messagesCreateMock.mockResolvedValueOnce(
       aiResponse(makeAiSlidesJson(1), { input: 11, output: 22 }),
     );
     await POST(makeRequest({ prompt: 'go' }), makeParams('1'));
@@ -879,7 +883,7 @@ describe('POST /generate — credits + audit', () => {
 describe('POST /generate — error envelope', () => {
   it('returns 500 with the error message when an unexpected failure happens', async () => {
     state.pitchDecks.push(defaultDeck());
-    completeMock.mockRejectedValueOnce(new Error('boom from Anthropic'));
+    messagesCreateMock.mockRejectedValueOnce(new Error('boom from Anthropic'));
     const res = await POST(makeRequest({ prompt: 'go' }), makeParams('1'));
     expect(res.status).toBe(500);
     const body = await res.json();
@@ -889,7 +893,7 @@ describe('POST /generate — error envelope', () => {
 
   it('handles a thrown non-Error value (stringifies it into the 500 envelope)', async () => {
     state.pitchDecks.push(defaultDeck());
-    completeMock.mockRejectedValueOnce('string-not-error');
+    messagesCreateMock.mockRejectedValueOnce('string-not-error');
     const res = await POST(makeRequest({ prompt: 'go' }), makeParams('1'));
     expect(res.status).toBe(500);
     const body = await res.json();

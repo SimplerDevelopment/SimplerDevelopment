@@ -136,6 +136,7 @@ function makeRule(actions: { tool: string; params: Record<string, unknown>; dela
     conditions: [],
     actions,
     enabled: true,
+    scopes: ['*'],
     source: 'nlp' as const,
     productScope: null,
     schedule: null,
