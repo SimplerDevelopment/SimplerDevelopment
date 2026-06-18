@@ -75,9 +75,15 @@ async function runCase<I, O>(suite: EvalSuite<I, O>, c: EvalCase<I, O>, env: Eva
   return { caseId: c.id, input: c.input, output, error, latencyMs, inputTokens, outputTokens, scores, passed, aggregate };
 }
 
-export async function runSuite<I, O>(suite: EvalSuite<I, O>, env: EvalEnv) {
+export async function runSuite<I, O>(
+  suite: EvalSuite<I, O>,
+  env: EvalEnv,
+  // DB-backed cases (eval_cases) override the suite's in-code fixtures when the
+  // eval worker supplies them; defaults to the code fixtures otherwise.
+  casesOverride?: EvalCase<I, O>[],
+) {
   const cases: CaseResult<I, O>[] = [];
-  for (const c of suite.cases) {
+  for (const c of casesOverride ?? suite.cases) {
     cases.push(await runCase(suite, c, env));
   }
   return summarizeSuite(suite.id, suite.description, cases as CaseResult[]);

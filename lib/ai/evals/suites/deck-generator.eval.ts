@@ -67,7 +67,7 @@ export const deckGeneratorSuite: EvalSuite<Input, PitchDeckSlideV2[]> = {
   ],
   async run(input, env) {
     if (!env.anthropicApiKey) throw new Error('deck-generator suite needs an Anthropic key (or run --mock)');
-    const { slides, inputTokens, outputTokens } = await generateDeckSlides(input.prompt, env.anthropicApiKey);
+    const { slides, inputTokens, outputTokens } = await generateDeckSlides(input.prompt, env.anthropicApiKey, env.promptOverride);
     return { output: slides, inputTokens, outputTokens };
   },
 };

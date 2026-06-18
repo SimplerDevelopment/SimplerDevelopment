@@ -74,7 +74,7 @@ export const brandingThemeSuite: EvalSuite<Input, Theme> = {
   ],
   async run(input, env) {
     if (!env.anthropicApiKey) throw new Error('branding-theme suite needs an Anthropic key (or run --mock)');
-    const { theme, inputTokens, outputTokens } = await generateBrandTheme(input.description, env.anthropicApiKey);
+    const { theme, inputTokens, outputTokens } = await generateBrandTheme(input.description, env.anthropicApiKey, env.promptOverride);
     return { output: theme, inputTokens, outputTokens };
   },
 };

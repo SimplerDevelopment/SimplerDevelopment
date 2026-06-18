@@ -16,4 +16,11 @@ export interface EvalEnv {
   mock?: boolean;
   /** Model id for LLM-judge scorers (default Haiku — cheap, good enough). */
   judgeModel?: string;
+  /**
+   * Prompt body to evaluate (a specific registry version). Override-capable
+   * suites forward this to their core's `systemPromptOverride` so an eval can
+   * target ANY version, not the active one. Suites whose cores don't support
+   * overrides ignore it.
+   */
+  promptOverride?: string;
 }
