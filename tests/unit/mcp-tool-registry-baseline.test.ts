@@ -512,6 +512,9 @@ const EXPECTED_TOOLS: readonly string[] = [
   'website_env_vars_set',
   // ── whoami ──
   'whoami',
+  // ── workflow guides (unscoped — static guided-content, no tenant data) ──
+  'list_workflows',
+  'get_workflow',
 ];
 
 /**
@@ -685,12 +688,13 @@ describe('MCP tool registry — baseline @critical', () => {
     expect(Object.keys(withoutApprovals)).not.toContain('approvals_approve');
   });
 
-  it('an empty-scope key sees only the unscoped meta tool (whoami)', () => {
+  it('an empty-scope key sees only the unscoped meta + workflow-guide tools', () => {
     const server = buildMcpServer(makeCtx([]));
     const names = Object.keys(getRegisteredTools(server));
-    // whoami is the only unscoped tool — every other registration is gated
-    // behind a `hasScope(ctx.scopes, ...)` guard.
-    expect(names).toEqual(['whoami']);
+    // whoami + the workflow guides (list_workflows / get_workflow) are the only
+    // unscoped tools — they carry no tenant data (static guided-content). Every
+    // other registration is gated behind a `hasScope(ctx.scopes, ...)` guard.
+    expect(names.sort()).toEqual(['get_workflow', 'list_workflows', 'whoami']);
   });
 
   it('narrower scope strictly trims the catalog (no new tool names)', () => {
