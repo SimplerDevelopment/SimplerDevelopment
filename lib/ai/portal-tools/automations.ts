@@ -6,6 +6,7 @@ import { db } from '@/lib/db';
 import { automationRules } from '@/lib/db/schema';
 import type { AutomationTrigger, AutomationCondition, AutomationAction } from '@/lib/db/schema';
 import { eq, and, desc } from 'drizzle-orm';
+import { deriveRuleScopes } from './derive-rule-scopes';
 
 export const automationTools: Anthropic.Tool[] = [
   {
@@ -69,6 +70,7 @@ export const automationHandlers: Record<string, AutomationHandler> = {
       clientId, name: (input.name as string).trim(),
       description: (input.description as string)?.trim() || null,
       trigger, conditions, actions,
+      scopes: deriveRuleScopes(actions),
       source: 'ai', createdBy: userId,
     }).returning();
     return { success: true, ruleId: rule.id, message: `Automation "${rule.name}" created and enabled.` };

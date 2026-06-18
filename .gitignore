@@ -120,3 +120,6 @@ vault/.obsidian/cache
 vault/.obsidian/plugins/*/main.js
 vault/.obsidian/plugins/*/styles.css
 vault/.obsidian/plugins/*/manifest.json
+
+# local Sentry auth token (never commit)
+.sentry-token

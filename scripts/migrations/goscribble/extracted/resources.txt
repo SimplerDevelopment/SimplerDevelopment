@@ -1,0 +1,77 @@
+  [LINK] "See results →" -> for-agencies.html
+  [IMG] icon.png | "Scribble"
+  • Product
+  [LINK] "Product" -> index.html
+  • For Agencies
+  [LINK] "For Agencies" -> for-agencies.html
+  • For Clinicians
+  [LINK] "For Clinicians" -> for-clinicians.html
+  • Integrations
+  [LINK] "Integrations" -> integrations.html
+  • Resources
+  [LINK] "Resources" -> resources.html
+  • Company
+  [LINK] "Company" -> about.html
+  [LINK] "Book a Demo →" -> #
+  [LINK] "Product" -> index.html
+  [LINK] "For Agencies" -> for-agencies.html
+  [LINK] "For Clinicians" -> for-clinicians.html
+  [LINK] "Integrations" -> integrations.html
+  [LINK] "Resources" -> resources.html
+  [LINK] "Company" -> about.html
+  [LINK] "Book a Demo →" -> #
+  <div.page-hero>
+  <div.page-hero-inner>
+  <div.hero-eyebrow>
+H1: Insights for home health agency leaders and clinicians.
+  P: Practical guides and perspectives from the Scribble team, on AI, home health operations, and the future of point-of-care documentation.
+
+===== SECTION class="" =====
+  [LINK] "Our Approach · Featured" -> article-bedside.html
+H2: Why We Stay Close to the Bedside
+  P: Most healthcare AI is built around the back office. We start at the bedside, where the information is, where the clinical story begins, and where everything downstream gets better when you get it right.
+
+===== SECTION class="" =====
+H2: From the Scribble team.
+  [LINK] "INDUSTRY" -> article-charting.html
+H3: Why Home Health Clinicians Are Spending More Time Charting Than Caring
+  P: Documentation now takes longer than patient visits. Here's what the data shows, and what agencies can do about it.
+  [LINK] "EXPLAINER" -> article-ambient-ai.html
+H3: What Is Ambient AI for Home Health? A Plain-English Guide
+  P: No dictation. No narration. Just natural conversation, and structured OASIS documentation generated in real time. Here's how it works.
+  [LINK] "REIMBURSEMENT" -> article-pdgm.html
+H3: How PDGM Changed the Financial Stakes of OASIS Documentation
+  P: Under PDGM, every OASIS score directly determines how much Medicare pays for an episode. Here's what that means for your agency and why accurate bedside documentation matters more than ever.
+
+===== SECTION class="" =====
+H2: ROI Calculator
+  P: Model the revenue and productivity gains for your specific agency size.
+  [LINK] "Open ROI Calculator →" -> index.html#roi-calculator
+  <div.cta-band>
+H2: See Scribble in action.
+  <div.cta-buttons>
+  [LINK] "Book a Demo →" -> #
+  [IMG] icon.png | "Scribble"
+  P: The Point-of-Care AI for home health. What your clinicians capture at the bedside drives everything that follows: documentation, billing, compliance, and care.
+H4: Product
+  [LINK] "How It Works" -> index.html
+  [LINK] "For Agencies" -> for-agencies.html
+  [LINK] "For Clinicians" -> for-clinicians.html
+  [LINK] "Integrations" -> integrations.html
+H4: Resources
+  [LINK] "Blog" -> resources.html
+  [LINK] "ROI Calculator" -> index.html#roi-calculator
+  [LINK] "Support" -> mailto:support@goscribble.ai
+H4: Company
+  [LINK] "About Us" -> about.html
+  [LINK] "Contact" -> #
+  [LINK] "LinkedIn" -> https://www.linkedin.com/company/goscribble/
+  P: © 2026 Scribble Labs Corp. · 5 Great Valley Pkwy, Suite 210, Malvern PA 19355
+  [LINK] "Privacy Policy" -> privacy-policy.html
+  [LINK] "Terms of Service" -> terms-of-service.html
+H2: See Scribble live in 20 minutes
+  P: We'll walk through your workflow, show Scribble live, and model the ROI for your agency.
+  P: We respect your privacy. No spam, ever.
+H3: We received your request.
+  P: We'll be in touch within 1 business day. If you'd like to book a time now, pick a slot below.
+  [LINK] "Pick a Time for Your Demo →" -> https://meetings-na2.hubspot.com/andrew-ostrander?uuid=e7d6f1e5-a9a2-4609-82e4-6c83467d63bd

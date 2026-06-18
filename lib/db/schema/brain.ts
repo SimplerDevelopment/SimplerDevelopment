@@ -67,6 +67,7 @@ export const automationRules = pgTable('automation_rules', {
   enabled: boolean('enabled').default(true).notNull(),
   source: varchar('source', { length: 20 }).default('nlp').notNull(), // 'nlp' | 'settings' | 'manual'
   productScope: varchar('product_scope', { length: 50 }), // null = cross-product, or 'booking', 'email', 'crm', etc.
+  scopes: json('scopes').$type<string[]>().default([]).notNull(),
   // Time-based trigger config. Null = event-driven (current behavior). When
   // set, the scheduler cron drives execution and `next_run_at` is the next
   // firing time. The partial index `automation_rules_next_run_at_idx` keeps
@@ -97,6 +98,25 @@ export const automationLogs = pgTable('automation_logs', {
   status: varchar('status', { length: 20 }).default('success').notNull(), // 'success' | 'partial' | 'failed'
   duration: integer('duration'), // ms
   errorMessage: text('error_message'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+// Append-only audit log for every MCP tool call / automation action / assistant
+// tool invocation. One row per call regardless of outcome.
+export const agentActionLog = pgTable('agent_action_log', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  userId: integer('user_id').references(() => users.id, { onDelete: 'set null' }),
+  source: varchar('source', { length: 20 }).notNull(), // 'mcp' | 'automation' | 'assistant'
+  tool: varchar('tool', { length: 100 }).notNull(),
+  scopeRequired: varchar('scope_required', { length: 50 }),
+  scopeAllowed: boolean('scope_allowed'),
+  paramsHash: text('params_hash').notNull(),
+  outcome: varchar('outcome', { length: 20 }).notNull(), // 'success' | 'denied' | 'error'
+  errorMessage: text('error_message'),
+  ruleId: integer('rule_id').references(() => automationRules.id, { onDelete: 'set null' }),
+  keyId: integer('key_id'),
+  durationMs: integer('duration_ms'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 

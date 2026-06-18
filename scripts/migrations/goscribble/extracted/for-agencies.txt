@@ -1,0 +1,199 @@
+  [LINK] "See the ROI →" -> #roi
+  [IMG] icon.png | "Scribble"
+  • Product
+  [LINK] "Product" -> index.html
+  • For Agencies
+  [LINK] "For Agencies" -> for-agencies.html
+  • For Clinicians
+  [LINK] "For Clinicians" -> for-clinicians.html
+  • Integrations
+  [LINK] "Integrations" -> integrations.html
+  • Resources
+  [LINK] "Resources" -> resources.html
+  • Company
+  [LINK] "Company" -> about.html
+  [LINK] "Book a Demo →" -> #
+  [LINK] "Product" -> index.html
+  [LINK] "For Agencies" -> for-agencies.html
+  [LINK] "For Clinicians" -> for-clinicians.html
+  [LINK] "Integrations" -> integrations.html
+  [LINK] "Resources" -> resources.html
+  [LINK] "Company" -> about.html
+  [LINK] "Book a Demo →" -> #
+  <div.page-hero>
+  <div.page-hero-inner>
+  <div.hero-eyebrow>
+H1: Every hour away from the bedside is data your agency will never get back.
+  P: What your clinician observes at the bedside is the most valuable clinical and financial asset your agency has. The further from that moment it gets documented, the more you lose: accuracy, reimbursement, and quality of care that follows from that visit.
+  <div.hero-ctas>
+  [LINK] "Book a Demo →" -> #
+  [LINK] "See the ROI Math" -> #roi
+  <div.stats-bar>
+  <div.stats-inner>
+  <div.stat-item>
+  <div.stat-number>
+  <div.stat-label>
+  <div.stat-item>
+  <div.stat-number>
+  <div.stat-label>
+  <div.stat-item>
+  <div.stat-number>
+  <div.stat-label>
+  <div.stat-item>
+  <div.stat-number>
+  <div.stat-label>
+  <div.stat-badges>
+
+===== SECTION class="problem-bg" =====
+H2: The further from the bedside, the more you lose.
+  P: Your clinician finishes a visit at 10am. By the time they sit down to chart at 8pm, the nuances are gone. The observation that would have changed a reimbursement tier, the symptom detail that mattered for the care plan, the exact functional score that QA will flag. That gap is costing your agency more than you think.
+H3: Lost reimbursement you earned
+  P: OASIS scores documented from memory hours later are systematically lower than what was observed. Inaccurate functional and clinical scores mean lower PDGM payment tiers, on every episode.
+H3: QA rework that shouldn't exist
+  P: Most OASIS errors aren't carelessness; they're recall errors. A clinician who can't remember exactly what they observed fills in fields with their best guess. Your QA team fixes it. Or doesn't catch it.
+H3: Compliance risk hiding in plain sight
+  P: Every OASIS field that can't be traced back to a documented clinical observation is an audit vulnerability. The gap between what happened and what was written is where compliance exposure lives.
+H3: Clinicians who eventually leave
+  P: When your best nurses are charting at 9pm, they're not just tired; they're telling you something. The agencies losing clinicians to burnout are the ones asking them to carry the visit in their head all day.
+H3: Billing delays you can't afford
+  P: Incomplete documentation at visit close delays your 485 orders, which delays your billing cycle. Every day of delay is cash you've already earned sitting idle.
+H3: Capacity you can't unlock
+  P: A clinician spending 3 hours on documentation after visits can't take on more patients. That's not a staffing problem; it's a tools problem. The capacity is there. The time isn't.
+
+===== SECTION class="" =====
+H2: Capture everything at the bedside. Let nothing downstream be a guess.
+  P: Scribble listens during the visit and documents in real time. What your clinician observes at 10am is captured at 10am, not reconstructed at 8pm. That's the difference between what actually happened and what someone remembered.
+H3: Real-time OASIS documentation
+  P: Clinicians are done at the visit, not hours later. No dictation, no post-visit catch-up.
+H3: Higher OASIS accuracy
+  P: Every field is tied to a conversation moment. Your QA team sees fewer errors from day one.
+H3: EHR integration included
+  P: Documentation pushes directly to your existing system. No new logins, no double entry.
+H3: Downstream accuracy starts here
+  P: When documentation is captured at the bedside, every downstream process, billing, coding, QA, care planning, is built on what actually happened, not what someone recalled.
+
+===== SECTION class="" =====
+H2: Your clinicians are not a cost center. They are your agency.
+  P: In home health, your clinicians walk into patients' homes every day. They are your brand, your quality, and your growth engine. The agencies winning on recruitment, retention, and outcomes are the ones that give their clinicians tools that actually respect their time and expertise.
+H3: Recruit on reputation
+  P: Clinicians talk. Agencies known for giving their team the right tools attract better candidates and close offers faster.
+H3: Retain who you have
+  P: Documentation burnout is the leading reason experienced clinicians leave. Solving it is the most direct retention investment you can make.
+H3: Grow without adding headcount
+  P: When each clinician can see 1–3 more patients per week, your agency grows, without a single new hire on payroll.
+
+===== SECTION class="problem-bg" =====
+H2: Model the numbers for your board.
+  P: Every agency is different. Adjust the inputs below to estimate your specific productivity and revenue gains, then bring it to your next leadership meeting.
+  <div.roi-calc-v2>
+  <div.roi-inputs-v2>
+H3: Your Agency
+  <div.roi-field-v2>
+  <div.roi-field-header>
+  <div.roi-range-labels>
+  <div.roi-field-v2>
+  <div.roi-field-header>
+  <div.roi-range-labels>
+  <div.roi-assumptions>
+  <div.roi-results-v2>
+H3: What you get back
+  <div.roi-result-v2 roi-result-primary>
+  <div.roi-result-num>
+  <div.roi-result-lbl>
+  <div.roi-result-sub>
+  <div.roi-result-v2>
+  <div.roi-result-num>
+  <div.roi-result-lbl>
+  <div.roi-result-v2>
+  <div.roi-result-num>
+  <div.roi-result-lbl>
+  [LINK] "Get a Custom ROI Model for My Agency →" -> #
+
+===== SECTION class="" =====
+H2: Live in 2–4 weeks. We do the heavy lifting.
+  P: We handle EHR integration, clinician training, and configuration. Your team just needs to show up for one onboarding session.
+H3: Discovery Call
+  P: We map your EHR setup, documentation workflow, and agency-specific requirements. Usually 60 minutes.
+H3: EHR Integration
+  P: Our team configures the connection to your EHR system. Most integrations go live in 3–5 business days.
+H3: Clinician Onboarding
+  P: One 45-minute session per cohort. Most clinicians are proficient by their second visit using Scribble.
+H3: Go Live & Monitor
+  P: Your dedicated implementation manager monitors adoption and accuracy in real time during the first 30 days.
+
+===== SECTION class="testimonials-bg" =====
+H2: Hear it from Haggai Healthcare.
+  P: Brandon Lang, President, and Corbin King, Clinical Director, on what Scribble changed for their agency.
+  <div.testimonials-grid>
+  <div.testimonial-card>
+  <div.testimonial-stars>
+  <div.testimonial-quote>
+  <div.testimonial-author>
+  <div.testimonial-avatar>
+  <div.testimonial-name>
+  <div.testimonial-title>
+  <div.testimonial-card>
+  <div.testimonial-stars>
+  <div.testimonial-quote>
+  <div.testimonial-author>
+  <div.testimonial-avatar>
+  <div.testimonial-name>
+  <div.testimonial-title>
+  [LINK] "📋" -> integrations.html
+  [LINK] "⚕️" -> integrations.html
+  [LINK] "💻" -> integrations.html
+  [LINK] "🌐" -> integrations.html
+  [LINK] "🔗" -> integrations.html
+  [LINK] "+ Any HL7/FHIR EHR" -> integrations.html
+
+===== SECTION class="" =====
+H2: What directors ask before they commit.
+  <div.faq-grid>
+  <div.faq-item>
+  <div.faq-q>
+  <div.faq-a>
+  <div.faq-item>
+  <div.faq-q>
+  <div.faq-a>
+  <div.faq-item>
+  <div.faq-q>
+  <div.faq-a>
+  <div.faq-item>
+  <div.faq-q>
+  <div.faq-a>
+  <div.faq-item>
+  <div.faq-q>
+  <div.faq-a>
+  <div.faq-item>
+  <div.faq-q>
+  <div.faq-a>
+  <div.cta-band>
+H2: See what Scribble does for an agency your size.
+  P: 20-minute demo. We'll model the ROI for your specific headcount, visit volume, and EHR setup. No pressure, no obligation.
+  <div.cta-buttons>
+  [LINK] "Book Your Agency Demo →" -> #
+  [IMG] icon.png | "Scribble"
+  P: The Point-of-Care AI for home health. What your clinicians capture at the bedside drives everything that follows: documentation, billing, compliance, and care.
+H4: Product
+  [LINK] "How It Works" -> index.html
+  [LINK] "For Agencies" -> for-agencies.html
+  [LINK] "For Clinicians" -> for-clinicians.html
+  [LINK] "Integrations" -> integrations.html
+H4: Resources
+  [LINK] "Blog" -> resources.html
+  [LINK] "ROI Calculator" -> for-agencies.html#roi
+  [LINK] "Support" -> mailto:support@goscribble.ai
+H4: Company
+  [LINK] "About Us" -> about.html
+  [LINK] "Contact" -> #
+  [LINK] "LinkedIn" -> https://www.linkedin.com/company/goscribble/
+  P: © 2026 Scribble Labs Corp. · 5 Great Valley Pkwy, Suite 210, Malvern PA 19355
+  [LINK] "Privacy Policy" -> privacy-policy.html
+  [LINK] "Terms of Service" -> terms-of-service.html
+H2: Let's model the ROI for your agency.
+  P: Tell us about your team size and we'll build a custom analysis covering documentation time recovered, productivity value, and additional patient capacity, specific to your agency.
+  P: We respect your privacy. No spam, ever.
+H3: We received your request.
+  P: We'll be in touch within 1 business day. If you'd like to book a time now, pick a slot below.
+  [IMG] photo-andrew.jpeg | "Andrew Ostrander"
+  [LINK] "Pick a Time for Your Demo →" -> https://meetings-na2.hubspot.com/andrew-ostrander?uuid=e7d6f1e5-a9a2-4609-82e4-6c83467d63bd

@@ -478,50 +478,12 @@ function buildBlocks() {
       ],
     },
 
-    // ══════════════════════════════════════════════════════════════════
-    // 9. FOOTER — 4-column footer matching original
-    // ══════════════════════════════════════════════════════════════════
-    {
-      type: 'site-footer',
-      id: 'site-footer',
-      order: 9,
-      logoUrl: `${IMG}/logo-w.svg`,
-      logoAlt: 'Crossover Capital Advisors',
-      tagline: 'Peace of mind for all we serve. Personalized wealth management and financial planning in Yardley, PA.',
-      backgroundColor: '#0f2140',
-      textColor: 'rgba(255,255,255,0.5)',
-      accentColor: '#cfa122',
-      linkGroups: [
-        {
-          label: 'Services',
-          links: [
-            { label: 'Investments & Planning', href: '/services/investments-planning' },
-            { label: 'Divorce Financial Planning', href: '/services/divorce' },
-            { label: 'Family Business', href: '/services/family-business' },
-            { label: 'Cryptocurrency Education', href: '/services/cryptocurrency' },
-          ],
-        },
-        {
-          label: 'Company',
-          links: [
-            { label: 'About Us', href: '/about' },
-            { label: 'Our Process', href: '/process' },
-            { label: 'Insights', href: '/insights' },
-            { label: 'Schedule a Call', href: '/schedule' },
-          ],
-        },
-      ],
-      contactInfo: {
-        address: '113b Floral Vale Blvd\nYardley, PA 19067',
-        phone: '215.396.5517',
-        email: 'info@crosscapadvisors.com',
-      },
-      socialLinks: [
-        { platform: 'linkedin', url: '#', label: 'Follow us' },
-      ],
-      copyright: '\u00A9 2026 Crossover Capital Brands LLC. All rights reserved.',
-      disclaimer: 'Investment advisory services offered through Crossover Capital Brands LLC, a Registered Investment Advisor with the SEC. Testimonials from current, uncompensated clients.',
-    },
+    // ══ No site-footer block here, by design. ══
+    // The public site layout (app/sites/[domain]/layout.tsx) renders a universal
+    // <SiteFooter /> on every page; embedding a footer block here produced a
+    // DOUBLE footer on the home page only. The brand contact info + SEC compliance
+    // disclaimer now live in SITE_CONTACT_OVERRIDES ('crosscap-advisors') in that
+    // layout so they render site-wide. Prod backfill: fix-double-footer.ts.
   ];
 }
 

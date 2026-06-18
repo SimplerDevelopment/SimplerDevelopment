@@ -83,10 +83,16 @@ export async function checkGroundedness(
       }
     }
 
-    // Optimistic fallback: unexpected no-tool-use response
+    // Intentionally optimistic: the grounder API call succeeded but returned no
+    // tool_use block (e.g. a pure conversational model response). This is an
+    // unexpected but non-fatal shape — we allow it through rather than surfacing
+    // a spurious "I don't know" disclaimer for answers that don't need retrieval.
     return { confidence: 0.8, grounded: true, sources: [], uncertain: false };
   } catch {
-    // Optimistic fallback so errors don't silently block answers
-    return { confidence: 0.8, grounded: true, sources: [], uncertain: false };
+    // Fail CLOSED: if the grounder call throws (network error, API failure,
+    // unparseable response, etc.) we must NOT silently pass the answer through
+    // as confident. Surface the disclaimer so the user knows the answer was not
+    // independently verified against retrieved context.
+    return { confidence: 0, grounded: false, sources: [], uncertain: true };
   }
 }

@@ -1,0 +1,91 @@
+  [LINK] "See results →" -> for-agencies.html
+  [IMG] icon.png | "Scribble"
+  • Product
+  [LINK] "Product" -> index.html
+  • For Agencies
+  [LINK] "For Agencies" -> for-agencies.html
+  • For Clinicians
+  [LINK] "For Clinicians" -> for-clinicians.html
+  • Integrations
+  [LINK] "Integrations" -> integrations.html
+  • Resources
+  [LINK] "Resources" -> resources.html
+  • Company
+  [LINK] "Company" -> about.html
+  [LINK] "Book a Demo →" -> #
+  [LINK] "Product" -> index.html
+  [LINK] "For Agencies" -> for-agencies.html
+  [LINK] "For Clinicians" -> for-clinicians.html
+  [LINK] "Integrations" -> integrations.html
+  [LINK] "Resources" -> resources.html
+  [LINK] "Company" -> about.html
+  [LINK] "Book a Demo →" -> #
+  <div.article-hero>
+  <div.article-hero-inner>
+  <div.hero-eyebrow>
+H1: Why Home Health Clinicians Are Spending More Time Charting Than Caring
+  [LINK] "← Back to Resources" -> resources.html
+  P: A home health clinician's day starts with patients. It ends with paperwork.
+  P: The visits themselves, the actual patient care that drew these nurses, therapists, and aides into the profession, take up less of the workday than you might expect. According to industry data, the average home health clinician spends nearly as much time on documentation as they do on direct patient care. For Start of Care visits, documentation alone can run 1.5 hours or more.
+  <div.article-stat>
+  <div.article-stat-num>
+  <div.article-stat-label>
+  P: That number adds up fast. A clinician doing three SOC visits per week is spending nearly five hours, more than half a workday, just on Start of Care documentation. Add routine visit notes, recertifications, and administrative tasks, and you have a workforce spending a significant part of every shift on indirect care.
+H2: The documentation burden is getting worse, not better
+  P: The introduction of OASIS-E in 2023 added new items to an already complex assessment. The shift to PDGM in 2020 increased the stakes around accurate OASIS scoring, because reimbursement is now directly tied to clinical groupings derived from that documentation. Get the OASIS wrong, and you get paid wrong.
+  P: These changes were designed to improve care quality and reimbursement accuracy. But they also made documentation harder, longer, and higher-stakes for clinicians who were already stretched.
+  QUOTE: "By the time I sit down to chart, the visit is already a blur. I'm filling in what I think I remember, and hoping it holds up to QA."
+  P: "By the time I sit down to chart, the visit is already a blur. I'm filling in what I think I remember, and hoping it holds up to QA."
+  P: That quote, from a home health RN we spoke with, captures something important. The problem isn't just time. It's accuracy. When documentation happens hours after the visit, clinical memory degrades. Details that would have changed a functional score, a clinical grouping, or a care plan get lost or approximated.
+H2: What the data actually shows
+  P: A typical home health clinician sees 5–6 patients per day. That's 5–6 drives between homes, 5–6 full clinical assessments, and 5–6 rounds of documentation to complete. By most estimates, clinicians spend 3 or more hours per day on documentation, often after their visits are done, at home, in the evening.
+  <div.article-stat>
+  <div.article-stat-num>
+  <div.article-stat-label>
+  P: The consequence isn't just burnout, though burnout is real and it's driving attrition across the industry. The consequence is also financial. Every hour a clinician spends on documentation is an hour they're not available for patient care. For an agency paying clinical rates for administrative time, the math is stark.
+  P: For a 20-clinician agency at $55/hour, three hours of daily documentation per clinician equals over $250,000 in annual labor cost spent on paperwork, not care.
+H2: The quality problem no one talks about
+  P: Much of the conversation about documentation burden focuses on time and cost. Less attention goes to accuracy, but that's where the financial impact can be even larger.
+  P: Under PDGM, Medicare home health reimbursement is determined by clinical groupings that are based on OASIS scores. Functional scores, clinical categories, comorbidity adjustments, which map directly to payment tiers. A clinician who underscores a patient's functional impairment because they're documenting from memory at 9pm isn't just being imprecise. They may be miscategorizing an entire episode.
+  P: Multiply that across hundreds of episodes per year, and the revenue impact on a single agency can be significant.
+H2: The retention problem that documentation is causing
+  P: Ask any home health administrator why they're losing experienced clinicians, and documentation comes up quickly. It's not the clinical work; most nurses and therapists chose home health because they love the one-on-one nature of patient care. It's the administrative burden that follows them home.
+  P: Replacing a single experienced RN costs an average of $52,000: recruiting, onboarding, lost productivity during ramp-up. For agencies facing turnover rates well above the national average, documentation burden isn't just an operational issue. It's a talent and financial crisis.
+H2: What the best agencies are doing differently
+  P: The agencies that are winning on retention and quality share a common thread: they've made it easier for clinicians to document well, not harder.
+  P: Some have moved to real-time documentation tools that capture clinical information during the visit, not after. Instead of asking clinicians to reconstruct a visit from memory, these tools capture the conversation as it happens, map it to OASIS fields automatically, and give the clinician a draft to review and finalize.
+  P: The impact is measurable. Clinicians who use Scribble's bedside capture report completing SOC documentation in roughly half the previous time. QA teams report significantly fewer errors and corrections. And after-hours charting, the 8pm and 9pm sessions that accelerate burnout, drops substantially.
+  QUOTE: "Used to do 3 SOCs on a Saturday. Last time I completed 5." - Erica S., RN
+  P: "Used to do 3 SOCs on a Saturday. Last time I completed 5." - Erica S., RN
+  P: The math is simple. Less time on documentation means more time for patients, or more patients per clinician per week. Either way, the agency wins, and so does the clinician.
+H2: The bottom line
+  P: Home health has a documentation problem that won't solve itself. The complexity of OASIS-E, the financial stakes of PDGM scoring, and the realities of a mobile clinical workforce all point in the same direction: documentation needs to happen at the bedside, in real time, not reconstructed hours later.
+  P: Agencies that solve this problem will outcompete on clinician recruitment, patient outcomes, and bottom-line performance. The ones that don't will continue to lose good people to burnout, and revenue to inaccurate documentation.
+  <div.cta-band>
+H2: See how Scribble cuts documentation time in half.
+  <div.cta-buttons>
+  [LINK] "Book a Demo →" -> #
+  [IMG] icon.png | "Scribble"
+  P: The Point-of-Care AI for home health. What your clinicians capture at the bedside drives everything that follows: documentation, billing, compliance, and care.
+H4: Product
+  [LINK] "How It Works" -> index.html
+  [LINK] "For Agencies" -> for-agencies.html
+  [LINK] "For Clinicians" -> for-clinicians.html
+  [LINK] "Integrations" -> integrations.html
+H4: Resources
+  [LINK] "All Articles" -> resources.html
+  [LINK] "ROI Calculator" -> index.html#roi-calculator
+H4: Company
+  [LINK] "About Us" -> about.html
+  [LINK] "Contact" -> #
+  [LINK] "LinkedIn" -> https://www.linkedin.com/company/goscribble/
+  P: © 2026 Scribble Labs Corp. · 5 Great Valley Pkwy, Suite 210, Malvern PA 19355
+  [LINK] "Privacy Policy" -> privacy-policy.html
+  [LINK] "Terms of Service" -> terms-of-service.html
+H2: See Scribble live in 20 minutes
+  P: We'll walk through your workflow, show Scribble live, and model the ROI for your agency size.
+  P: We respect your privacy. No spam, ever.
+H3: We received your request.
+  P: We'll be in touch within 1 business day. If you'd like to book a time now, pick a slot below.
+  [IMG] photo-andrew.jpeg | "Andrew Ostrander"
+  [LINK] "Pick a Time for Your Demo →" -> https://meetings-na2.hubspot.com/andrew-ostrander?uuid=e7d6f1e5-a9a2-4609-82e4-6c83467d63bd

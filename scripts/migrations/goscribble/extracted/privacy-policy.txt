@@ -1,0 +1,91 @@
+  [LINK] "See results →" -> for-agencies.html
+  [IMG] icon.png | "Scribble"
+  • Product
+  [LINK] "Product" -> index.html
+  • For Agencies
+  [LINK] "For Agencies" -> for-agencies.html
+  • For Clinicians
+  [LINK] "For Clinicians" -> for-clinicians.html
+  • Integrations
+  [LINK] "Integrations" -> integrations.html
+  • Resources
+  [LINK] "Resources" -> resources.html
+  • Company
+  [LINK] "Company" -> about.html
+  [LINK] "Book a Demo →" -> #
+  [LINK] "Product" -> index.html
+  [LINK] "For Agencies" -> for-agencies.html
+  [LINK] "For Clinicians" -> for-clinicians.html
+  [LINK] "Integrations" -> integrations.html
+  [LINK] "Resources" -> resources.html
+  [LINK] "Company" -> about.html
+  [LINK] "Book a Demo →" -> #
+  <div.legal-hero>
+H1: Privacy Policy
+  P: Scribble Labs Corp
+  P: Effective Date:
+H2: 1. Information We Collect
+H3: a. Personal Information
+  • Name, email address, organization, and job title
+  • Login credentials
+H3: b. Clinical Usage Data
+  • Visit details, visit types, and interaction timestamps
+  • Voice recordings and transcripts submitted for documentation support
+  • Clinical documentation necessary to generate clinical workflows
+H3: c. Device & Technical Data
+  • IP address, browser type, device type, operating system
+  • App usage metrics, crash logs, and diagnostics
+H2: 2. How We Use Your Information
+  • Deliver and improve our AI-assisted documentation features
+  • Generate structured clinical notes
+  • Support customer service, technical troubleshooting, and product development
+  • Ensure compliance with security, privacy, and regulatory requirements
+  P: We do not sell or rent your data to third parties.
+H2: 3. HIPAA and Protected Health Information (PHI)
+  P: Goodly by Scribble Labs is designed for HIPAA-compliant workflows. We enter into Business Associate Agreements (BAAs) with covered entities as required. All PHI is encrypted in transit and at rest, and access is limited to authorized personnel.
+H2: 4. Data Sharing
+  • Service providers (e.g., transcription, AI processing, hosting) under signed agreements
+  • Authorized enterprise partners, if you use Goodly by Scribble Labs under a clinical organization's account
+  • Legal authorities, if required to comply with law or protect rights and safety
+  P: We do not share your personal or clinical data for advertising purposes.
+H2: 5. Your Choices & Rights
+  • Request access, correction, or deletion of your personal data
+  • Opt out of certain non-essential communications
+  • Contact your administrator if your access is managed by an organization
+H2: 6. Data Retention
+  P: We retain user data only as long as necessary for operational, contractual, or legal purposes. Clinical data may be deleted upon request or termination of the account, subject to applicable retention laws.
+H2: 7. Security
+  • End-to-end encryption
+  • Role-based access controls
+  • Regular security audits and vulnerability monitoring
+H2: 8. Children's Privacy
+  P: Goodly by Scribble Labs is intended for use by licensed clinicians and is not directed at children under 13.
+H2: 9. Changes to This Policy
+  P: We may update this Privacy Policy as needed. Significant changes will be communicated via email or in-app notice.
+H2: 10. Contact Us
+  • Email: support@goscribble.ai
+  [LINK] "support@goscribble.ai" -> mailto:support@goscribble.ai
+  • Address: Scribble Labs Corp | 5 Great Valley Parkway, Suite 210 | Malvern, PA 19355
+  [IMG] icon.png | "Scribble"
+  P: The Point-of-Care AI for home health. What your clinicians capture at the bedside drives everything that follows: documentation, billing, compliance, and care.
+H4: Product
+  [LINK] "How It Works" -> index.html
+  [LINK] "For Agencies" -> for-agencies.html
+  [LINK] "For Clinicians" -> for-clinicians.html
+  [LINK] "Integrations" -> integrations.html
+H4: Resources
+  [LINK] "Articles" -> resources.html
+  [LINK] "ROI Calculator" -> index.html#roi-calculator
+H4: Company
+  [LINK] "Contact" -> #
+  [LINK] "LinkedIn" -> https://www.linkedin.com/company/goscribble/
+  P: © 2026 Scribble Labs Corp. · 5 Great Valley Pkwy, Suite 210, Malvern PA 19355
+  [LINK] "Privacy Policy" -> privacy-policy.html
+  [LINK] "Terms of Service" -> terms-of-service.html
+H2: See Scribble live in 20 minutes
+  P: We'll walk through your workflow, show Scribble live, and model the ROI for your agency.
+  P: We respect your privacy. No spam, ever.
+H3: We received your request.
+  P: We'll be in touch within 1 business day. If you'd like to book a time now, pick a slot below.
+  [IMG] photo-andrew.jpeg | "Andrew Ostrander"
+  [LINK] "Pick a Time for Your Demo →" -> https://meetings-na2.hubspot.com/andrew-ostrander?uuid=e7d6f1e5-a9a2-4609-82e4-6c83467d63bd

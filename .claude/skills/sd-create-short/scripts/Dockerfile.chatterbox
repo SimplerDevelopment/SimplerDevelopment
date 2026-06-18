@@ -1,0 +1,35 @@
+# Chatterbox voice-cloning runtime for sd-create-short.
+#
+# WHY THIS EXISTS: chatterbox-tts hard-pins torch==2.6.0, which ships no
+# macOS x86_64 (Intel Mac) wheel — PyTorch dropped Intel-Mac builds after 2.2.2.
+# So on an Intel Mac the only way to run Chatterbox locally is a linux/amd64
+# container, which CAN use torch's manylinux x86_64 wheel.
+#
+# Build (from this scripts/ dir):
+#   docker build --platform linux/amd64 -f Dockerfile.chatterbox -t sd-chatterbox .
+#
+# Run (mount the per-short working dir as /work):
+#   docker run --platform linux/amd64 --rm \
+#     -v /tmp/sd-voice-test:/work \
+#     -v sd-chatterbox-hf:/root/.cache/huggingface \
+#     sd-chatterbox \
+#     --text /work/script.txt --out /work/narration.wav --ref /work/reference.wav
+#
+# The named volume sd-chatterbox-hf caches the ~1GB model weights across runs.
+FROM --platform=linux/amd64 python:3.11-slim
+
+# libsndfile + ffmpeg back torchaudio's WAV I/O.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libsndfile1 ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install the CPU build of torch FIRST so chatterbox-tts (which pins
+# torch==2.6.0 exactly) doesn't pull the multi-GB CUDA wheel.
+RUN pip install --no-cache-dir \
+      torch==2.6.0 torchaudio==2.6.0 \
+      --index-url https://download.pytorch.org/whl/cpu
+RUN pip install --no-cache-dir chatterbox-tts soundfile
+
+COPY chatterbox_tts.py /app/chatterbox_tts.py
+WORKDIR /work
+ENTRYPOINT ["python", "/app/chatterbox_tts.py"]

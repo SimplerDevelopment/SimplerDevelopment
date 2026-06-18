@@ -150,3 +150,25 @@ export function isAcceptableRedirectUri(uri: string): boolean {
   if (/^[a-z][a-z0-9+.-]*:$/.test(parsed.protocol) && parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return true;
   return false;
 }
+
+/** RFC 8707 audience check: does a token's bound `resource` indicator match the
+ *  protected resource it is being presented at? Both sides are normalised to
+ *  `protocol//host/path` (host lower-cased, trailing slashes stripped, query +
+ *  fragment ignored). A malformed token resource fails closed. Callers must
+ *  only invoke this when the token actually carries a (non-null) resource. */
+export function resourceIndicatorMatches(tokenResource: string, expected: string): boolean {
+  const norm = (s: string): string | null => {
+    try {
+      const u = new URL(s);
+      return `${u.protocol}//${u.host.toLowerCase()}${u.pathname.replace(/\/+$/, '')}`;
+    } catch {
+      return null;
+    }
+  };
+  const a = norm(tokenResource);
+  const b = norm(expected);
+  if (a !== null && b !== null) return a === b;
+  // Fail closed: if either isn't a valid absolute URI, require a lenient exact match.
+  const lenient = (s: string) => s.trim().replace(/\/+$/, '').toLowerCase();
+  return lenient(tokenResource) === lenient(expected);
+}

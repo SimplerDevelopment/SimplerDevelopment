@@ -237,6 +237,7 @@ export async function POST(req: Request) {
                 block.input as Record<string, unknown>,
                 client.id,
                 userId,
+                { source: 'assistant' },
               ),
           );
           allToolCalls.push({ name: block.name, input: block.input as Record<string, unknown>, result });

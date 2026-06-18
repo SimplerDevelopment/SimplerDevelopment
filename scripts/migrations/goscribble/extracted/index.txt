@@ -1,0 +1,276 @@
+  [LINK] "See results →" -> for-agencies.html
+  [IMG] icon.png | "Scribble"
+  • Product
+  [LINK] "Product" -> index.html
+  • For Agencies
+  [LINK] "For Agencies" -> for-agencies.html
+  • For Clinicians
+  [LINK] "For Clinicians" -> for-clinicians.html
+  • Integrations
+  [LINK] "Integrations" -> integrations.html
+  • Resources
+  [LINK] "Resources" -> resources.html
+  • Company
+  [LINK] "Company" -> about.html
+  [LINK] "Book a Demo →" -> #
+  [LINK] "Product" -> index.html
+  [LINK] "For Agencies" -> for-agencies.html
+  [LINK] "For Clinicians" -> for-clinicians.html
+  [LINK] "Integrations" -> integrations.html
+  [LINK] "Resources" -> resources.html
+  [LINK] "Company" -> about.html
+  [LINK] "Book a Demo →" -> #
+  <div.hero>
+  <div.hero-inner>
+  <div.hero-content>
+  <div.hero-eyebrow>
+H1: Your clinicians shouldn't choose between patients and paperwork.
+  P: Scribble is the Point-of-Care AI for home health. We capture what happens at the bedside, and make every downstream process more efficient and accurate.
+  <div.hero-ctas>
+  [LINK] "Book a Demo →" -> #
+  [LINK] "▷ See How It Works" -> #how
+  <div.hero-visual>
+  <div.float-stat>
+  <div.float-stat-icon>
+  <div.float-stat-num>
+  <div.float-stat-lbl>
+  <div.stats-bar>
+  <div.stats-inner>
+  <div.stat-item>
+  <div.stat-number>
+  <div.stat-label>
+  <div.stat-item>
+  <div.stat-number>
+  <div.stat-label>
+  <div.stat-item>
+  <div.stat-number>
+  <div.stat-label>
+  <div.stat-item>
+  <div.stat-number>
+  <div.stat-label>
+  <div.stat-badges>
+
+===== SECTION class="problem-bg" =====
+H2: Home health has a burnout problem. Documentation is the cause.
+H3: 3+ hours of documentation daily
+  P: Clinicians spend more time on indirect care than on actual patient visits, and most of it happens after hours, at home.
+H3: Highest attrition rate in healthcare
+  P: Home health loses experienced clinicians faster than any other care setting. Burnout from documentation is the leading driver.
+H3: $52K average cost to replace one RN
+  P: Recruitment, onboarding, and lost productivity add up fast. Keeping your clinicians happy is your highest-ROI investment.
+
+===== SECTION class="" =====
+H2: Real-time documentation. Less post-visit catch-up.
+  P: Scribble listens during the visit, understands clinical context, and fills OASIS fields automatically, while you focus entirely on your patient.
+H3: Activate at the door
+  P: One tap before you enter. Scribble runs silently in the background, with no special phrasing or narration required. Just talk to your patient naturally.
+H3: OASIS fills in real time
+  P: As the visit unfolds, Scribble identifies clinically relevant responses and maps them to OASIS fields automatically. Every answer is traceable back to the conversation.
+H3: Review and submit
+  P: After the visit, review the completed documentation in under 5 minutes. Make any adjustments and push directly to your EHR, or your coding team.
+
+===== SECTION class="outcomes-bg" =====
+H2: The numbers agencies care about.
+  P: ROI you can take to your board, and feel on your bottom line.
+  <div.outcomes-tabs>
+  <div.outcome-panel active>
+  <div.outcome-card>
+  <div.outcome-number>
+  <div.outcome-desc>
+  <div.outcome-source>
+  <div.outcome-card>
+  <div.outcome-number>
+  <div.outcome-desc>
+  <div.outcome-source>
+  <div.outcome-card>
+  <div.outcome-number>
+  <div.outcome-desc>
+  <div.outcome-source>
+  <div.outcome-card>
+  <div.outcome-number>
+  <div.outcome-desc>
+  <div.outcome-source>
+  <div.outcome-card>
+  <div.outcome-number>
+  <div.outcome-desc>
+  <div.outcome-source>
+  <div.outcome-card>
+  <div.outcome-number>
+  <div.outcome-desc>
+  <div.outcome-source>
+  <div.outcome-panel>
+  <div.outcome-card>
+  <div.outcome-number>
+  <div.outcome-desc>
+  <div.outcome-source>
+  <div.outcome-card>
+  <div.outcome-number>
+  <div.outcome-desc>
+  <div.outcome-source>
+  <div.outcome-card>
+  <div.outcome-number>
+  <div.outcome-desc>
+  <div.outcome-source>
+  <div.outcome-card>
+  <div.outcome-number>
+  <div.outcome-desc>
+  <div.outcome-source>
+  <div.outcome-card>
+  <div.outcome-number>
+  <div.outcome-desc>
+  <div.outcome-source>
+  <div.outcome-card>
+  <div.outcome-number>
+  <div.outcome-desc>
+  <div.outcome-source>
+  <div.outcome-panel>
+  <div.outcome-card>
+  <div.outcome-number>
+  <div.outcome-desc>
+  <div.outcome-source>
+  <div.outcome-card>
+  <div.outcome-number>
+  <div.outcome-desc>
+  <div.outcome-source>
+  <div.outcome-card>
+  <div.outcome-number>
+  <div.outcome-desc>
+  <div.outcome-source>
+  <div.outcome-card>
+  <div.outcome-number>
+  <div.outcome-desc>
+  <div.outcome-source>
+  <div.outcome-card>
+  <div.outcome-number>
+  <div.outcome-desc>
+  <div.outcome-source>
+  <div.outcome-card>
+  <div.outcome-number>
+  <div.outcome-desc>
+  <div.outcome-source>
+
+===== SECTION class="testimonials-bg" =====
+H2: From the field.
+  P: Real feedback from nurses and therapists using Scribble across the country.
+  <div.testimonials-grid>
+  <div.testimonial-card>
+  <div.testimonial-stars>
+  <div.testimonial-quote>
+  <div.testimonial-author>
+  <div.testimonial-avatar>
+  <div.testimonial-name>
+  <div.testimonial-title>
+  <div.testimonial-card>
+  <div.testimonial-stars>
+  <div.testimonial-quote>
+  <div.testimonial-author>
+  <div.testimonial-avatar>
+  <div.testimonial-name>
+  <div.testimonial-title>
+  <div.testimonial-card>
+  <div.testimonial-stars>
+  <div.testimonial-quote>
+  <div.testimonial-author>
+  <div.testimonial-avatar>
+  <div.testimonial-name>
+  <div.testimonial-title>
+  <div.testimonial-card>
+  <div.testimonial-stars>
+  <div.testimonial-quote>
+  <div.testimonial-author>
+  <div.testimonial-avatar>
+  <div.testimonial-name>
+  <div.testimonial-title>
+
+===== SECTION class="" =====
+H2: Purpose-built for post-acute care.
+  P: Dictation tools transcribe words. Consumer AI isn't HIPAA-safe. Scribble understands clinical context, maps it to OASIS fields in real time, and pushes it directly to your EHR. All this happens during the visit.
+  [LINK] "📋" -> integrations.html
+  [LINK] "⚕️" -> integrations.html
+  [LINK] "💻" -> integrations.html
+  [LINK] "🌐" -> integrations.html
+  [LINK] "🔗" -> integrations.html
+  [LINK] "+ Any HL7/FHIR EHR" -> integrations.html
+
+===== SECTION class="" =====
+H2: What agencies ask before they sign.
+  <div.faq-grid>
+  <div.faq-item>
+  <div.faq-q>
+  <div.faq-a>
+  <div.faq-item>
+  <div.faq-q>
+  <div.faq-a>
+  <div.faq-item>
+  <div.faq-q>
+  <div.faq-a>
+  <div.faq-item>
+  <div.faq-q>
+  <div.faq-a>
+  <div.faq-item>
+  <div.faq-q>
+  <div.faq-a>
+  <div.faq-item>
+  <div.faq-q>
+  <div.faq-a>
+
+===== SECTION class="" =====
+H2: What Scribble buys you.
+  P: Scribble saves clinicians ~1 hour per day across all visit types: SOC, routine, recert, ROC, and discharge. That time becomes new revenue and more patients served.
+  <div.roi-calc-v2>
+  <div.roi-inputs-v2>
+H3: Your Agency
+  <div.roi-field-v2>
+  <div.roi-field-header>
+  <div.roi-range-labels>
+  <div.roi-field-v2>
+  <div.roi-field-header>
+  <div.roi-payer-toggle>
+  <div.roi-assumptions>
+  <div.roi-results-v2>
+H3: Your ROI
+  <div.roi-result-v2 roi-result-primary>
+  <div.roi-result-num>
+  <div.roi-result-lbl>
+  <div.roi-result-sub>
+  <div.roi-result-v2>
+  <div.roi-result-num>
+  <div.roi-result-lbl>
+  <div.roi-result-v2>
+  <div.roi-result-num>
+  <div.roi-result-lbl>
+  <div.roi-result-v2>
+  <div.roi-result-num>
+  <div.roi-result-lbl>
+  [LINK] "See What This Looks Like for Your Agency →" -> #
+  <div.cta-band>
+H2: See a 20-minute demo.
+  P: No obligation. We'll walk through your current documentation workflow, show Scribble live, and model out exactly what the efficiency gains look like for your team size.
+  <div.cta-buttons>
+  [LINK] "Book Your Demo →" -> #
+  [LINK] "Learn More for Agencies" -> for-agencies.html
+  [IMG] icon.png | "Scribble"
+  P: The Point-of-Care AI for home health. What your clinicians capture at the bedside drives everything that follows: documentation, billing, compliance, and care.
+H4: Product
+  [LINK] "How It Works" -> index.html
+  [LINK] "For Agencies" -> for-agencies.html
+  [LINK] "For Clinicians" -> for-clinicians.html
+  [LINK] "Integrations" -> integrations.html
+H4: Resources
+  [LINK] "Blog" -> resources.html
+  [LINK] "ROI Calculator" -> index.html#roi-calculator
+  [LINK] "Support" -> mailto:support@goscribble.ai
+H4: Company
+  [LINK] "About Us" -> about.html
+  [LINK] "Contact" -> #
+  [LINK] "LinkedIn" -> https://www.linkedin.com/company/goscribble/
+  P: © 2026 Scribble Labs Corp. · 5 Great Valley Pkwy, Suite 210, Malvern PA 19355
+  [LINK] "Privacy Policy" -> privacy-policy.html
+  [LINK] "Terms of Service" -> terms-of-service.html
+H2: See Scribble live in 20 minutes
+  P: We'll walk through your workflow, show Scribble live, and model the ROI for your agency size.
+  P: We respect your privacy. No spam, ever.
+H3: We received your request.
+  P: We'll be in touch within 1 business day. If you'd like to book a time now, pick a slot below.
+  [IMG] photo-andrew.jpeg | "Andrew Ostrander"
+  [LINK] "Pick a Time for Your Demo →" -> https://meetings-na2.hubspot.com/andrew-ostrander?uuid=e7d6f1e5-a9a2-4609-82e4-6c83467d63bd

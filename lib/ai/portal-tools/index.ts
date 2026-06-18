@@ -5,6 +5,7 @@
  * is preserved exactly — every existing import continues to resolve.
  */
 import type Anthropic from '@anthropic-ai/sdk';
+import { logAgentAction, hashParams } from '@/lib/audit/agent-action-log';
 
 import { dashboardTools, dashboardHandlers } from './dashboard';
 import { projectTools, projectHandlers } from './projects';
@@ -77,7 +78,9 @@ export const PORTAL_TOOLS: Anthropic.Tool[] = [
 // Lookup table: tool name → handler. Built once at module load. Each handler
 // owns its own DB calls and is identical (line-for-line) to the body that
 // previously lived inside the monolithic `executePortalTool` switch.
-const HANDLERS: Record<string, Handler> = {
+// Exported so the completeness test in tests/unit/portal-tools-scopes.test.ts
+// can enumerate the full key set without importing every domain module.
+export const HANDLERS: Record<string, Handler> = {
   ...dashboardHandlers,
   ...projectHandlers,
   ...billingHandlers,
@@ -94,13 +97,75 @@ const HANDLERS: Record<string, Handler> = {
   ...automationHandlers,
 };
 
+export interface PortalToolCtx {
+  source?: 'automation' | 'assistant';
+  ruleId?: number;
+}
+
 export async function executePortalTool(
   name: string,
   input: Record<string, unknown>,
   clientId: number,
   userId: number,
+  ctx?: PortalToolCtx,
 ): Promise<unknown> {
   const handler = HANDLERS[name];
-  if (!handler) return { error: `Unknown tool: ${name}` };
-  return handler(input, clientId, userId);
+  if (!handler) {
+    // Best-effort audit: unknown tool is an error outcome.
+    void logAgentAction({
+      clientId,
+      userId,
+      source: ctx?.source ?? 'assistant',
+      tool: name,
+      paramsHash: hashParams(input),
+      outcome: 'error',
+      errorMessage: `Unknown tool: ${name}`,
+      ruleId: ctx?.ruleId ?? null,
+    });
+    return { error: `Unknown tool: ${name}` };
+  }
+
+  const start = Date.now();
+  let outcome: 'success' | 'error' = 'success';
+  let errorMessage: string | null = null;
+  let result: unknown;
+
+  try {
+    result = await handler(input, clientId, userId);
+    // Treat a result object carrying an `error` key as an error outcome.
+    if (result !== null && typeof result === 'object' && 'error' in (result as Record<string, unknown>)) {
+      outcome = 'error';
+      errorMessage = String((result as Record<string, unknown>).error);
+    }
+  } catch (err) {
+    outcome = 'error';
+    errorMessage = err instanceof Error ? err.message : String(err);
+    // Re-throw after logging so callers still observe the exception.
+    void logAgentAction({
+      clientId,
+      userId,
+      source: ctx?.source ?? 'assistant',
+      tool: name,
+      paramsHash: hashParams(input),
+      outcome,
+      errorMessage,
+      ruleId: ctx?.ruleId ?? null,
+      durationMs: Date.now() - start,
+    });
+    throw err;
+  }
+
+  void logAgentAction({
+    clientId,
+    userId,
+    source: ctx?.source ?? 'assistant',
+    tool: name,
+    paramsHash: hashParams(input),
+    outcome,
+    errorMessage,
+    ruleId: ctx?.ruleId ?? null,
+    durationMs: Date.now() - start,
+  });
+
+  return result;
 }

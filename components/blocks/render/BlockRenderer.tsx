@@ -21,6 +21,7 @@ import { ServicesGridBlockRender } from './ServicesGridBlockRender';
 import { CtaBlockRender } from './CtaBlockRender';
 import { TestimonialBlockRender } from './TestimonialBlockRender';
 import { StatsBlockRender } from './StatsBlockRender';
+import { RoiCalculatorBlockRender } from './RoiCalculatorBlockRender';
 import { BlogPostsBlockRender } from './BlogPostsBlockRender';
 import { FeaturedContentBlockRender } from './FeaturedContentBlockRender';
 import { CardGridBlockRender } from './CardGridBlockRender';
@@ -202,6 +203,8 @@ function renderBlock(block: Block, siteId?: number) {
       return <TestimonialBlockRender block={normalized} />;
     case 'stats':
       return <StatsBlockRender block={normalized} />;
+    case 'roi-calculator':
+      return <RoiCalculatorBlockRender block={normalized} />;
     case 'blog-posts':
       return <BlogPostsBlockRender block={normalized} />;
     case 'featured-content':

@@ -33,6 +33,8 @@ date: 2026-06-16
 
 ## Validating
 
+- [ ] `sd-create-short` skill — branded feature shorts (MP4) for LinkedIn + blog — built + pipeline validated locally; first real production run (incl. portal upload) pending — see [[sd-create-short]]
+- [ ] Multi-Agent Security Hardening (kagenti-inspired) — Phase 1 + Phase 2 implemented (PR #42); unit-green; awaiting CI critical-e2e + prod migration/backfill — see [[Multi-Agent Security Hardening (kagenti-inspired)]]
 - [ ] Per-Domain SaaS Billing & BYOK — see [[Per-Domain SaaS Billing & BYOK]]
 - [ ] Self-Serve Signup Funnel & Module Onboarding — see [[Self-Serve Signup Funnel & Module Onboarding]]
 - [ ] Per-seat pricing + computed line items — staging Stripe test-mode verification required; run `create-seat-product.ts` and populate `SEAT_SKU.stripeProductId` — see [[ADR per-seat-pricing-computed-line-items]] · [[Billing & Stripe]]
@@ -53,6 +55,8 @@ date: 2026-06-16
 **Complete**
 - [x] Repo cleanup + docs consolidation + README rewrite (2026-06-09)
 - [x] In-repo Obsidian vault: scaffold + 50-note knowledge sweep (2026-06-10)
+- [x] Scribble (goscribble.ai) site migration — LIVE at https://scribble.simplerdevelopment.com, all 12 pages 200 (2026-06-12) — see [[Scribble Site Migration]]
+- [x] Approval page WYSIWYG preview + page-scoped token (2026-06-16) — live-site iframe in public approval flow; scoped HMAC prevents site-wide token leak — see [[ADR approval-preview-page-scoped-token]] · [[E-Sign & Approvals]]
 - [x] Platform E2E + Competitive Audit (2026-06-17) — 146-spec suite + MCP browser pass + 21-domain gap analysis — see [[Platform E2E + Competitive Audit]] · [[00 - E2E Audit Index]]
 - [x] Auth rate-limit quick-win (2026-06-17) — per-IP throttle on login + mobile sign-in + `/oauth/token` (verified 429 after 10) — see [[Spec - Auth MFA + Audit Log + Rate Limiting]]
 - [x] Billing customer-portal graceful error (2026-06-17) — 502 + actionable message when Stripe portal config absent (was raw 500)

@@ -53,6 +53,7 @@ export const BUILT_IN_BLOCK_TYPES: BlockRegistryEntry[] = [
   { type: 'metric-cards', label: 'Metric Cards', icon: 'insights', category: 'Components', description: 'Case-study metric cards' },
   { type: 'logo-strip', label: 'Logo Strip', icon: 'view_column', category: 'Components', description: 'Row of client/partner logos' },
   { type: 'stats', label: 'Statistics', icon: 'bar_chart', category: 'Components', description: 'Stats display' },
+  { type: 'roi-calculator', label: 'ROI Calculator', icon: 'calculate', category: 'Components', description: 'Interactive ROI calculator with sliders + live outputs' },
   { type: 'testimonial', label: 'Testimonial', icon: 'rate_review', category: 'Components', description: 'Customer quote' },
   { type: 'featured-content', label: 'Featured', icon: 'star', category: 'Components', description: 'Featured content' },
   { type: 'services-grid', label: 'Services', icon: 'apps', category: 'Components', description: 'Services grid' },
