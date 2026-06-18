@@ -243,6 +243,11 @@
       "fieldsMissingFromBoth": 0,
       "deadElementKeys": 0,
       "hasE2E": true
+    },
+    "roi-calculator": {
+      "fieldsMissingFromBoth": 16,
+      "deadElementKeys": 0,
+      "hasE2E": false
     }
   }
 }

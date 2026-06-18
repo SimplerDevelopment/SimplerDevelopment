@@ -53,6 +53,7 @@ import { SiteFooterBlockPreview } from './SiteFooterBlockPreview';
 import { BookingMenuBlockPreview } from './BookingMenuBlockPreview';
 import { HtmlEmbedBlockPreview } from './HtmlEmbedBlockPreview';
 import { PopupBlockPreview } from './PopupBlockPreview';
+import { RoiCalculatorBlockPreview } from './RoiCalculatorBlockPreview';
 import { HtmlRenderBlockRender } from '@/components/blocks/render/HtmlRenderBlockRender';
 import { StickyScrollTabsBlockRender } from '@/components/blocks/render/StickyScrollTabsBlockRender';
 
@@ -241,6 +242,8 @@ export function VisualBlockPreview({ block, isSelected, onChange, selectedBlockI
       return <HtmlEmbedBlockPreview block={block} isSelected={isSelected} onChange={onChange} />;
     case 'popup':
       return <PopupBlockPreview block={block} isSelected={isSelected} onChange={onChange} />;
+    case 'roi-calculator':
+      return <RoiCalculatorBlockPreview block={block} isSelected={isSelected} onChange={onChange} />;
     case 'html-render':
       // Delegate to the production renderer — it already handles the empty-
       // state placeholder and (when the editor context is active) wires

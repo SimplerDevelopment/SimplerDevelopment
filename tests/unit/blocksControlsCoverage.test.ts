@@ -120,6 +120,7 @@ const TYPE_TO_INTERFACE: Record<string, string> = {
   'site-footer': 'SiteFooterBlock',
   'sticky-scroll-tabs': 'StickyScrollTabsBlock',
   'popup': 'PopupBlock',
+  'roi-calculator': 'RoiCalculatorBlock',
 };
 
 // Type -> renderer file path (relative to repo root).
@@ -172,6 +173,7 @@ const TYPE_TO_RENDERER: Record<string, string> = {
   'site-footer': 'components/blocks/render/SiteFooterBlockRender.tsx',
   'sticky-scroll-tabs': 'components/blocks/render/StickyScrollTabsBlockRender.tsx',
   'popup': 'components/blocks/render/PopupBlockRender.tsx',
+  'roi-calculator': 'components/blocks/render/RoiCalculatorBlockRender.tsx',
 };
 
 // Fields that come from BaseBlock or are auto-derived (id, type, style,
