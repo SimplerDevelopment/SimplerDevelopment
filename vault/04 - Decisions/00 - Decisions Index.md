@@ -13,6 +13,9 @@ Static list (agents: maintain this when adding ADRs — Dataview below only rend
 - [[ADR bun-as-sole-package-manager]] · [[ADR local-ci-over-github-actions]] · [[ADR typecheck-committed-head]]
 - [[ADR lint-staged-only]] · [[ADR file-size-budget-ratchet]] · [[ADR coverage-floors-tiered-by-domain]]
 - [[ADR nested-claude-md-context-discipline]] · [[ADR mcp-registry-baseline-unit-gate]] · [[ADR dev-block-routes-off-github-issues]]
+- [[ADR site-migration-qa-via-local-dryrun]] · [[ADR migration-glass-btn-style]] · [[ADR migration-roi-calculator-static-snapshot]] · [[ADR migration-store-settings-preflight]] · [[ADR migration-target-staging-vs-metro]]
+- [[ADR approval-preview-page-scoped-token]]
+- [[ADR kagenti-least-privilege-not-workload-identity]]
 - [[ADR per-domain-billing-rides-services-catalog]]
 - [[ADR schema-constraints-hand-sql-only]]
 - [[ADR agent-topology-router-not-domain-mesh]]
@@ -23,9 +26,7 @@ Static list (agents: maintain this when adding ADRs — Dataview below only rend
 - [[ADR admin-billing-overrides-comp-coupon]]
 - [[ADR proposed-audit-agents-and-workflows]]
 - [[ADR mcp-resources-and-prompts]]
-- [[ADR site-migration-qa-via-local-dryrun]] · [[ADR migration-glass-btn-style]] · [[ADR migration-roi-calculator-static-snapshot]] · [[ADR migration-store-settings-preflight]] · [[ADR migration-target-staging-vs-metro]]
-- [[ADR approval-preview-page-scoped-token]]
-- [[ADR kagenti-least-privilege-not-workload-identity]]
+- [[ADR executePortalTool single-ctx parameter]]
 
 ```dataview
 TABLE domain, status, date

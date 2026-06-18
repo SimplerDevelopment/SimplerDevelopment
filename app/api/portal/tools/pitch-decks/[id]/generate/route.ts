@@ -10,74 +10,11 @@ import { hasCredits, deductCredits, getBalance } from '@/lib/ai-credits';
 import { getBrandingByClientId, getBrandingByProfileId, brandingToPitchDeckTheme } from '@/lib/branding';
 import { assertSafeUrl } from '@/lib/ssrf-guard';
 import { brandingMessaging } from '@/lib/db/schema';
-import { complete } from '@/lib/ai/llm';
+import Anthropic from '@anthropic-ai/sdk';
 import { resolveClientApiKey } from '@/lib/ai/resolve-client-key';
 import { recordAiUsage } from '@/lib/ai/audit';
 import { checkAiPlanGate } from '@/lib/ai/plan-gate';
-
-const GENERATE_SYSTEM = `You are an expert pitch deck creator. You produce professional, compelling pitch decks using a block-based content system.
-
-You MUST respond with valid JSON only — no markdown, no code fences, no explanation text.
-
-The JSON must have this exact structure:
-{
-  "slides": [
-    {
-      "id": "unique-string",
-      "label": "Cover|Problem|Solution|Features|Metrics|Team|Pricing|Call to Action|etc.",
-      "blocks": [ ...array of block objects... ],
-      "notes": "optional speaker notes"
-    }
-  ]
-}
-
-Each block in the "blocks" array must have "id" (unique string), "type", and "order" (sequential integer starting at 1).
-
-Available block types:
-
-1. hero — Full-width banner for cover/title slides
-   { "id": "...", "type": "hero", "order": 1, "title": "string", "subtitle": "optional", "description": "optional", "ctaText": "optional button", "ctaLink": "optional url" }
-
-2. heading — Section titles
-   { "id": "...", "type": "heading", "order": 1, "content": "string", "level": 1|2|3, "alignment": "left|center|right" }
-
-3. text — Paragraph content
-   { "id": "...", "type": "text", "order": 2, "content": "string", "alignment": "left|center|right", "size": "sm|base|lg|xl" }
-
-4. stats — Numeric metrics display
-   { "id": "...", "type": "stats", "order": 2, "title": "optional", "stats": [{"id": "...", "value": "100+", "label": "Clients"}], "columns": 2|3|4 }
-
-5. card-grid — Grid of content cards (features, team, steps, bullets)
-   { "id": "...", "type": "card-grid", "order": 2, "title": "optional", "cards": [{"id": "...", "title": "string", "description": "string", "icon": "optional material icon name"}], "columns": 2|3|4 }
-
-6. testimonial — Quote/testimonial
-   { "id": "...", "type": "testimonial", "order": 2, "quote": "string", "author": "string", "role": "optional", "company": "optional" }
-
-7. cta — Call to action section
-   { "id": "...", "type": "cta", "order": 2, "title": "string", "description": "optional", "primaryButtonText": "string", "primaryButtonUrl": "#", "backgroundStyle": "gradient|solid|none" }
-
-8. image — Display an image
-   { "id": "...", "type": "image", "order": 2, "url": "https://...", "alt": "string" }
-
-9. spacer — Vertical spacing
-   { "id": "...", "type": "spacer", "order": 2, "height": "sm|md|lg" }
-
-10. divider — Horizontal line
-    { "id": "...", "type": "divider", "order": 2, "lineStyle": "solid|dashed" }
-
-Guidelines:
-- Generate 8-12 slides for a complete pitch deck
-- First slide should use a "hero" block, last slide should use a "cta" block
-- Use compelling, concise language — this is a presentation, not an essay
-- Each slide should have 1-4 blocks (keep it focused)
-- Use card-grid for features, team members, process steps, pricing tiers, and bullet lists
-- Use stats for numeric metrics
-- Use testimonial for quotes
-- Make all IDs unique across the entire deck (use descriptive IDs like "slide-1", "block-cover-hero", etc.)
-- Make the content specific to the company/topic, not generic
-- If company messaging is provided, USE IT to write slide content — weave in the company name, tagline, value proposition, differentiators, elevator pitch, and social proof into relevant slides
-- Match the provided tone of voice and writing style throughout
-- Use the target audience info to frame the narrative (who the deck is speaking to and their pain points)`;
+import { generateDeckSlidesRaw, unfenceJson } from '@/lib/ai/pitch-deck-generate';
 
 const BRAND_SYSTEM = `You are a brand analyst. Given website HTML content, extract the brand identity.
 
@@ -127,6 +64,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       return NextResponse.json({ success: false, message: gate.message, reason: gate.reason }, { status: 402 });
     }
     const resolved = await resolveClientApiKey({ clientId: client.id, provider: 'anthropic' });
+    const anthropic = new Anthropic({ apiKey: resolved.key });
 
     // Check AI credits (skip in development; skip when BYOK — client pays directly)
     if (process.env.NODE_ENV === 'production' && resolved.source === 'platform') {
@@ -191,18 +129,19 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         const html = await siteRes.text();
         const truncatedHtml = html.slice(0, 15000);
 
-        const brandResponse = await complete({
-          task: 'deckGen',
-          clientId: client.id,
-          maxTokens: 1024,
+        const brandResponse = await anthropic.messages.create({
+          model: 'claude-sonnet-4-6',
+          max_tokens: 1024,
           system: BRAND_SYSTEM,
-          prompt: `Extract brand identity from this website HTML:\n\n${truncatedHtml}`,
+          messages: [{ role: 'user', content: `Extract brand identity from this website HTML:\n\n${truncatedHtml}` }],
         });
 
-        totalInput += brandResponse.usage.inputTokens ?? 0;
-        totalOutput += brandResponse.usage.outputTokens ?? 0;
+        totalInput += brandResponse.usage.input_tokens;
+        totalOutput += brandResponse.usage.output_tokens;
 
-        let brandText = brandResponse.text;
+        let brandText = brandResponse.content
+          .filter((b): b is Anthropic.TextBlock => b.type === 'text')
+          .map(b => b.text).join('');
         brandText = brandText.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim();
 
         const brandData = JSON.parse(brandText);
@@ -269,39 +208,14 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       ? `${contextParts.join('\n\n')}\n\nUser request: ${prompt.trim()}`
       : prompt.trim();
 
-    // Use extended token limit for full deck generation (8-12 slides)
-    const response = await complete({
-      task: 'deckGen',
-      clientId: client.id,
-      maxTokens: 16384,
-      system: GENERATE_SYSTEM,
-      prompt: userPrompt,
-    });
+    // Use extended token limit for full deck generation (8-12 slides); the core
+    // handles the max_tokens continuation. Parsing stays here so the route keeps
+    // its specific invalid-JSON response.
+    const { rawText, inputTokens: genInput, outputTokens: genOutput } = await generateDeckSlidesRaw(userPrompt, resolved.key);
+    totalInput += genInput;
+    totalOutput += genOutput;
 
-    totalInput += response.usage.inputTokens ?? 0;
-    totalOutput += response.usage.outputTokens ?? 0;
-
-    let text = response.text;
-
-    // If output was truncated, continue generation
-    if (response.finishReason === 'length') {
-      const continuation = await complete({
-        task: 'deckGen',
-        clientId: client.id,
-        maxTokens: 8192,
-        system: GENERATE_SYSTEM,
-        messages: [
-          { role: 'user', content: userPrompt },
-          { role: 'assistant', content: text },
-        ],
-      });
-      totalInput += continuation.usage.inputTokens ?? 0;
-      totalOutput += continuation.usage.outputTokens ?? 0;
-      text += continuation.text;
-    }
-
-    // Strip markdown code fences if present
-    text = text.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim();
+    const text = unfenceJson(rawText);
 
     let slides: PitchDeckSlideV2[];
     try {

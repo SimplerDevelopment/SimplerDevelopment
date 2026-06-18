@@ -33,6 +33,8 @@ date: 2026-06-17
 
 ## Validating
 
+- [ ] `sd-create-short` skill — branded feature shorts (MP4) for LinkedIn + blog — built + pipeline validated locally; first real production run (incl. portal upload) pending — see [[sd-create-short]]
+- [ ] Multi-Agent Security Hardening (kagenti-inspired) — Phase 1 + Phase 2 implemented (PR #42); unit-green; awaiting CI critical-e2e + prod migration/backfill — see [[Multi-Agent Security Hardening (kagenti-inspired)]]
 - [ ] Per-Domain SaaS Billing & BYOK — see [[Per-Domain SaaS Billing & BYOK]]
 - [ ] Self-Serve Signup Funnel & Module Onboarding — see [[Self-Serve Signup Funnel & Module Onboarding]]
 - [ ] Per-seat pricing + computed line items — staging Stripe test-mode verification required; run `create-seat-product.ts` and populate `SEAT_SKU.stripeProductId` — see [[ADR per-seat-pricing-computed-line-items]] · [[Billing & Stripe]]
@@ -46,8 +48,6 @@ date: 2026-06-17
 - [ ] C7 — RSC admin auth shell (convert `app/admin/layout.tsx` to server component) — see [[Admin Billing Parity — Full Management]]
 - [ ] C8 — Targeted admin resilience (`app/admin/error.tsx` + `fetchJsonSafe`) — see [[Admin Billing Parity — Full Management]]
 - [ ] C9 — Cleanup: delete dead `AdminNav` + stale unit test refs — see [[Admin Billing Parity — Full Management]]
-- [ ] `sd-create-short` skill — branded feature shorts (MP4) for LinkedIn + blog — built + pipeline validated locally; first real production run (incl. portal upload) pending — see [[sd-create-short]]
-- [ ] Multi-Agent Security Hardening (kagenti-inspired) — Phase 1 implemented (commit 2f10f49d), unit-green 122/122; awaiting bun test:tenancy + bun test:critical + prod migration — see [[Multi-Agent Security Hardening (kagenti-inspired)]]
 
 
 ## Shipped

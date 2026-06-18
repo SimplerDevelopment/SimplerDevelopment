@@ -97,7 +97,11 @@ vi.mock('@/lib/audit/agent-action-log', () => ({
 // ─── Event-bus mock (no-op — we drive runRule directly) ────────────────────
 
 vi.mock('./event-bus', () => ({ onEvent: vi.fn() }));
-vi.mock('@/lib/brain/playbook-runs', () => ({ startRun: vi.fn() }));
+
+const mockStartRun = vi.fn().mockResolvedValue({ runId: 1 });
+vi.mock('@/lib/brain/playbook-runs', () => ({
+  startRun: (...args: unknown[]) => mockStartRun(...args),
+}));
 
 // ─── Import subjects under test ─────────────────────────────────────────────
 
@@ -147,20 +151,41 @@ describe('isActionAllowed (pure helper)', () => {
     }
   });
 
-  it('allows an unknown/unregistered tool regardless of scopes', () => {
-    // Tools not in PORTAL_TOOL_SCOPES pass through (requiredScopeFor returns null).
-    const result = isActionAllowed([], 'start_playbook');
-    // start_playbook is handled as a special case before the scope gate;
-    // it has no entry in PORTAL_TOOL_SCOPES so requiredScope is null → allowed.
-    expect(result.allowed).toBe(true);
-    if (result.allowed) {
-      expect(result.requiredScope).toBeNull();
-    }
+  it('gates the start_playbook special-case action (requires brain:write)', () => {
+    // start_playbook is an automation-engine special case mapped via
+    // AUTOMATION_ACTION_SCOPES — it must be scope-gated, not passed through.
+    const denied = isActionAllowed([], 'start_playbook');
+    expect(denied.allowed).toBe(false);
+    if (!denied.allowed) expect(denied.requiredScope).toBe('brain:write');
+    expect(isActionAllowed(['brain:write'], 'start_playbook').allowed).toBe(true);
+    expect(isActionAllowed(['brain:*'], 'start_playbook').allowed).toBe(true);
+    expect(isActionAllowed(['*'], 'start_playbook').allowed).toBe(true);
   });
 
-  it('allows with empty scopes for an unknown tool', () => {
+  it('gates the run_plugin_script special-case action (requires automations:write)', () => {
+    const denied = isActionAllowed([], 'run_plugin_script');
+    expect(denied.allowed).toBe(false);
+    if (!denied.allowed) expect(denied.requiredScope).toBe('automations:write');
+    expect(isActionAllowed(['automations:write'], 'run_plugin_script').allowed).toBe(true);
+    expect(isActionAllowed(['automations:*'], 'run_plugin_script').allowed).toBe(true);
+  });
+
+  it('gates the fire_webhook special-case action (requires integrations:write)', () => {
+    // fire_webhook POSTs the event payload to an arbitrary URL (data egress) —
+    // it must be scope-gated; it has no other control.
+    const denied = isActionAllowed([], 'fire_webhook');
+    expect(denied.allowed).toBe(false);
+    if (!denied.allowed) expect(denied.requiredScope).toBe('integrations:write');
+    expect(isActionAllowed(['integrations:write'], 'fire_webhook').allowed).toBe(true);
+    expect(isActionAllowed(['*'], 'fire_webhook').allowed).toBe(true);
+  });
+
+  it('allows a genuinely unknown/unregistered tool regardless of scopes', () => {
+    // Tools in neither PORTAL_TOOL_SCOPES nor AUTOMATION_ACTION_SCOPES pass
+    // through (requiredScopeFor returns null) — they no-op at executePortalTool.
     const result = isActionAllowed([], '__no_such_tool__');
     expect(result.allowed).toBe(true);
+    if (result.allowed) expect(result.requiredScope).toBeNull();
   });
 });
 
@@ -203,7 +228,40 @@ describe('runRule scope enforcement', () => {
   beforeEach(() => {
     mockExecutePortalTool.mockClear();
     mockLogAgentAction.mockClear();
+    mockStartRun.mockClear();
     state.inserts = [];
+  });
+
+  it('DENIES start_playbook when rule lacks brain:write; startRun NOT called', async () => {
+    const rule = makeRule({
+      scopes: [],  // no brain:write → the hoisted gate must block before the bridge
+      actions: [{ tool: 'start_playbook', params: { playbookId: 5 } }],
+    });
+
+    await runRule(rule, { _userId: 7 }, 'test.event');
+
+    // The gate runs BEFORE the start_playbook branch — startRun must not fire.
+    expect(mockStartRun).not.toHaveBeenCalled();
+
+    const logInsert = state.inserts.find((i) => i.table === 'automation_logs');
+    const actionsExecuted = logInsert!.values.actionsExecuted as Array<{ tool: string; error?: string }>;
+    expect(actionsExecuted[0].tool).toBe('start_playbook');
+    expect(actionsExecuted[0].error).toMatch(/scope_denied: brain:write/);
+    expect(mockLogAgentAction).toHaveBeenCalledWith(
+      expect.objectContaining({ tool: 'start_playbook', outcome: 'denied', scopeRequired: 'brain:write' }),
+    );
+  });
+
+  it('PERMITS start_playbook when rule holds brain:write; startRun IS called', async () => {
+    const rule = makeRule({
+      scopes: ['brain:write'],
+      actions: [{ tool: 'start_playbook', params: { playbookId: 5 } }],
+    });
+
+    await runRule(rule, { _userId: 7 }, 'test.event');
+
+    expect(mockStartRun).toHaveBeenCalledOnce();
+    expect(mockExecutePortalTool).not.toHaveBeenCalled();  // start_playbook never hits the portal-tool path
   });
 
   it('DENIES action when rule scope is insufficient; executePortalTool NOT called', async () => {

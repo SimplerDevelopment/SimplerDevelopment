@@ -40,6 +40,7 @@ import {
   CornerDownRight,
   FileCode2,
   BellRing,
+  Calculator,
 } from 'lucide-react';
 import { BlockType } from '@/types/blocks';
 import { LucideIcon } from 'lucide-react';
@@ -94,6 +95,7 @@ export const BLOCK_ICONS: Record<BlockType, LucideIcon> = {
   'product-detail': Package,
 
   // Interactive blocks
+  'roi-calculator': Calculator,
   booking: CalendarCheck,
   'booking-menu': CalendarCheck,
   survey: ClipboardList,

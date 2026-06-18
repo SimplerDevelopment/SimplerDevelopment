@@ -11,6 +11,14 @@ export interface PortalMcpContext {
   client: typeof clients.$inferSelect;
   scopes: string[];
   keyId: number;
+  /**
+   * RFC 8707 resource indicator (audience) the token is bound to, or null when
+   * the token carries no audience restriction (e.g. portal API keys, or OAuth
+   * tokens minted before/without a resource). `null` = unrestricted — accepted
+   * at any protected resource. Enforced by the protected resource itself
+   * (see `resourceIndicatorMatches` + app/api/mcp/route.ts).
+   */
+  resource?: string | null;
 }
 
 export function generatePortalApiKey(): { key: string; hash: string; preview: string } {
@@ -63,6 +71,8 @@ export async function resolvePortalApiKey(rawKey: string): Promise<PortalMcpCont
     client,
     scopes: record.scopes ?? [],
     keyId: record.id,
+    // Portal API keys are not audience-bound — unrestricted.
+    resource: null,
   };
 }
 
@@ -103,6 +113,8 @@ export async function resolveOAuthToken(rawToken: string): Promise<PortalMcpCont
     client,
     scopes: record.scopes ?? [],
     keyId: record.id,
+    // RFC 8707 audience binding (e.g. the MCP server URL), or null = unrestricted.
+    resource: record.resource ?? null,
   };
 }
 

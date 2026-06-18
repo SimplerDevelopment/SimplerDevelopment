@@ -44,9 +44,19 @@ describe('deriveRuleScopes', () => {
     expect(result).toEqual(['automations:write', 'crm:read', 'crm:write']);
   });
 
-  it('skips unknown tool names (e.g. start_playbook sentinel) without throwing', () => {
+  it('derives scopes for automation special-case actions (start_playbook, run_plugin_script)', () => {
+    // These aren't portal-tool handlers but ARE scope-gated via AUTOMATION_ACTION_SCOPES.
     const result = deriveRuleScopes([
-      action('start_playbook'),
+      action('start_playbook'),     // → brain:write
+      action('run_plugin_script'),  // → automations:write
+      action('create_crm_contact'), // → crm:write
+    ]);
+    expect(result).toEqual(['automations:write', 'brain:write', 'crm:write']);
+  });
+
+  it('skips genuinely unknown tool names without throwing', () => {
+    const result = deriveRuleScopes([
+      action('__no_such_tool__'),
       action('create_crm_contact'),
     ]);
     expect(result).toEqual(['crm:write']);
