@@ -65,6 +65,7 @@ pattern as the Brain runner.
 | `meeting-extractor` | transcript → tasks/decisions | via pure `extractMeetingTranscript` core (no DB) |
 | `branding-messaging` | messaging generator | contract + 3-5 differentiators + **LLM-judge** on-brand/no-fabrication |
 | `branding-theme` | visual identity generator | contract + colors-are-valid-hex |
+| `deck-generator` | pitch-deck generator | contract + 8-12 slides + hero-cover/cta-close (via `generateDeckSlides` core) |
 
 `note-classifier` and `meeting-extractor` were DB-coupled (took row ids,
 persisted results). We extracted pure, apiKey-taking cores (`classifyNoteRow`,
@@ -75,5 +76,5 @@ The branding generators' model logic was extracted from their API routes into
 `lib/branding/generators.ts` (the routes call it too) so the eval exercises the
 real path with just a key — same pattern as the brain cores.
 
-Next candidates (from the prompt inventory): pitch-deck generator, block style
-picker, CMS branding generator.
+Next candidates (from the prompt inventory): block style picker, CMS branding
+generator, slide editor, inbound-email agent.

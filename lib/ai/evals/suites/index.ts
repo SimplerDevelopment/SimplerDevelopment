@@ -24,6 +24,7 @@ import { noteClassifierSuite } from './note-classifier.eval';
 import { meetingExtractorSuite } from './meeting-extractor.eval';
 import { brandingMessagingSuite } from './branding-messaging.eval';
 import { brandingThemeSuite } from './branding-theme.eval';
+import { deckGeneratorSuite } from './deck-generator.eval';
 
 export const ALL_SUITES: EvalSuite[] = [
   automationParserSuite as unknown as EvalSuite,
@@ -35,6 +36,7 @@ export const ALL_SUITES: EvalSuite[] = [
   meetingExtractorSuite as unknown as EvalSuite,
   brandingMessagingSuite as unknown as EvalSuite,
   brandingThemeSuite as unknown as EvalSuite,
+  deckGeneratorSuite as unknown as EvalSuite,
 ];
 
 export function getSuite(id: string): EvalSuite | undefined {
