@@ -63,11 +63,17 @@ pattern as the Brain runner.
 | `page-extractor` | extension extractor | needs `--clientId` (tenant key); no row seeding |
 | `note-classifier` | note taxonomy | via pure `classifyNoteRow` core (no DB) |
 | `meeting-extractor` | transcript → tasks/decisions | via pure `extractMeetingTranscript` core (no DB) |
+| `branding-messaging` | messaging generator | contract + 3-5 differentiators + **LLM-judge** on-brand/no-fabrication |
+| `branding-theme` | visual identity generator | contract + colors-are-valid-hex |
 
 `note-classifier` and `meeting-extractor` were DB-coupled (took row ids,
 persisted results). We extracted pure, apiKey-taking cores (`classifyNoteRow`,
 `extractMeetingTranscript`) that the production orchestrators now call, so the
 eval exercises the identical prompt path with no row seeding.
 
-Next candidates (from the prompt inventory): branding generators, pitch-deck
-generator, block style picker.
+The branding generators' model logic was extracted from their API routes into
+`lib/branding/generators.ts` (the routes call it too) so the eval exercises the
+real path with just a key — same pattern as the brain cores.
+
+Next candidates (from the prompt inventory): pitch-deck generator, block style
+picker, CMS branding generator.
