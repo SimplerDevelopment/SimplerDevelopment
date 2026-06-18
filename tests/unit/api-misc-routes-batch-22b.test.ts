@@ -256,7 +256,9 @@ beforeEach(() => {
 
 describe('GET /api/portal/media', () => {
   it('returns 401 when no session', async () => {
-    authMock.mockResolvedValue(null);
+    authorizePortalMock.mockResolvedValue({
+      response: new Response(JSON.stringify({ success: false, message: 'Unauthorized' }), { status: 401 }),
+    });
     const res = await mediaRoute.GET(new Request('http://x/api/portal/media'));
     expect(res.status).toBe(401);
     const body = await res.json();
@@ -264,15 +266,15 @@ describe('GET /api/portal/media', () => {
   });
 
   it('returns 404 when no portal client', async () => {
-    authMock.mockResolvedValue(SESSION);
-    getPortalClientMock.mockResolvedValue(null);
+    authorizePortalMock.mockResolvedValue({
+      response: new Response(JSON.stringify({ success: false, message: 'Client not found' }), { status: 404 }),
+    });
     const res = await mediaRoute.GET(new Request('http://x/api/portal/media'));
     expect(res.status).toBe(404);
   });
 
   it('returns 200 with rows + pagination + branding profiles (default query)', async () => {
-    authMock.mockResolvedValue(SESSION);
-    getPortalClientMock.mockResolvedValue({ id: 33 });
+    authorizePortalMock.mockResolvedValue({ client: { id: 33 }, userId: 7, role: 'admin' });
     // Order: branding profiles → media rows → count
     selectQueue.push([{ id: 1, name: 'Default' }]);
     selectQueue.push([{ id: 10, filename: 'a.png' }]);
@@ -287,8 +289,7 @@ describe('GET /api/portal/media', () => {
   });
 
   it('parses limit/offset/search/mimeType/brandingProfileId query params', async () => {
-    authMock.mockResolvedValue(SESSION);
-    getPortalClientMock.mockResolvedValue({ id: 33 });
+    authorizePortalMock.mockResolvedValue({ client: { id: 33 }, userId: 7, role: 'admin' });
     selectQueue.push([]); // profiles
     selectQueue.push([]); // rows
     selectQueue.push([{ count: 0 }]);
@@ -301,8 +302,7 @@ describe('GET /api/portal/media', () => {
   });
 
   it('handles brandingProfileId=unassigned (isNull branch)', async () => {
-    authMock.mockResolvedValue(SESSION);
-    getPortalClientMock.mockResolvedValue({ id: 33 });
+    authorizePortalMock.mockResolvedValue({ client: { id: 33 }, userId: 7, role: 'admin' });
     selectQueue.push([]);
     selectQueue.push([]);
     selectQueue.push([{ count: 0 }]);
