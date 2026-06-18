@@ -12,6 +12,7 @@ import { setMeetingAiSummary, updateMeetingStatus } from '@/lib/brain/meetings';
 import { logAudit } from '@/lib/brain/audit';
 import { hasCredits, deductCredits } from '@/lib/ai-credits';
 import { resolveClientApiKey } from '@/lib/ai/resolve-client-key';
+import { resolvePrompt } from '@/lib/ai/prompt-registry';
 import { recordAiUsage } from '@/lib/ai/audit';
 
 const MODEL = 'claude-sonnet-4-5';
@@ -52,7 +53,7 @@ export interface MeetingExtraction {
   complianceWarnings: { message: string; severity?: 'low' | 'medium' | 'high' }[];
 }
 
-const SYSTEM_PROMPT = `You analyze meeting transcripts for a business intelligence system called Company Brain.
+export const SYSTEM_PROMPT = `You analyze meeting transcripts for a business intelligence system called Company Brain.
 
 Your job: extract STRUCTURED business outputs from a transcript so a human can review and approve them. You never make assumptions about people, companies, or commitments that aren't explicit in the transcript.
 
@@ -98,6 +99,9 @@ export async function extractMeetingTranscript(
     meetingDate?: Date | null;
     participants?: { name: string; email?: string }[];
     truncated?: boolean;
+    /** Override the system prompt (eval harness targets a specific version);
+     *  prod omits it → resolvePrompt returns the active version or the constant. */
+    systemPromptOverride?: string;
   },
   anthropic: Anthropic,
   onUsage?: (usage: { inputTokens: number; outputTokens: number }) => void,
@@ -110,10 +114,11 @@ export async function extractMeetingTranscript(
     truncated: args.truncated ?? false,
   });
 
+  const system = args.systemPromptOverride ?? await resolvePrompt('meeting-extractor', SYSTEM_PROMPT);
   const response = await anthropic.messages.create({
     model: MODEL,
     max_tokens: 4096,
-    system: SYSTEM_PROMPT,
+    system,
     messages: [{ role: 'user', content: userPrompt }],
   });
 

@@ -10,6 +10,7 @@
  */
 import Anthropic from '@anthropic-ai/sdk';
 import type { PitchDeckSlideV2 } from '@/lib/db/schema';
+import { resolvePrompt } from '@/lib/ai/prompt-registry';
 
 const MODEL = 'claude-sonnet-4-6';
 
@@ -94,16 +95,17 @@ export function unfenceJson(text: string): string {
 export async function generateDeckSlidesRaw(
   userPrompt: string,
   apiKey: string,
-  systemPrompt: string = GENERATE_SYSTEM,
+  systemPromptOverride?: string,
 ): Promise<{ rawText: string; inputTokens: number; outputTokens: number }> {
   const anthropic = new Anthropic({ apiKey });
+  const system = systemPromptOverride ?? await resolvePrompt('deck-generator', GENERATE_SYSTEM);
   let totalInput = 0;
   let totalOutput = 0;
 
   const response = await anthropic.messages.create({
     model: MODEL,
     max_tokens: 16384,
-    system: systemPrompt,
+    system,
     messages: [{ role: 'user', content: userPrompt }],
   });
   totalInput += response.usage.input_tokens;
@@ -114,7 +116,7 @@ export async function generateDeckSlidesRaw(
     const continuation = await anthropic.messages.create({
       model: MODEL,
       max_tokens: 8192,
-      system: systemPrompt,
+      system,
       messages: [
         { role: 'user', content: userPrompt },
         { role: 'assistant', content: text },
@@ -136,9 +138,9 @@ export async function generateDeckSlidesRaw(
 export async function generateDeckSlides(
   userPrompt: string,
   apiKey: string,
-  systemPrompt: string = GENERATE_SYSTEM,
+  systemPromptOverride?: string,
 ): Promise<{ slides: PitchDeckSlideV2[]; inputTokens: number; outputTokens: number }> {
-  const { rawText, inputTokens, outputTokens } = await generateDeckSlidesRaw(userPrompt, apiKey, systemPrompt);
+  const { rawText, inputTokens, outputTokens } = await generateDeckSlidesRaw(userPrompt, apiKey, systemPromptOverride);
   const parsed = JSON.parse(unfenceJson(rawText));
   const slides = (parsed.slides || parsed) as PitchDeckSlideV2[];
   return { slides, inputTokens, outputTokens };
