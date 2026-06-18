@@ -7,6 +7,7 @@ import { authorizePortal, isAuthError } from '@/lib/portal-auth';
 import { eq, desc } from 'drizzle-orm';
 import { computeNextRunAt, validateSchedule } from '@/lib/automation/schedule';
 import type { AutomationSchedule } from '@/lib/db/schema';
+import { deriveRuleScopes } from '@/lib/ai/portal-tools/derive-rule-scopes';
 
 // GET /api/portal/automations — list all automation rules for client
 export async function GET() {
@@ -69,6 +70,7 @@ export async function POST(req: Request) {
     trigger,
     conditions: conditions || [],
     actions,
+    scopes: deriveRuleScopes(actions),
     source: source || 'manual',
     productScope: productScope || null,
     schedule: scheduleValue,

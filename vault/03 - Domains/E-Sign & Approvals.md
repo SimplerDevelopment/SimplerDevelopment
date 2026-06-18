@@ -2,13 +2,17 @@
 type: domain-map
 domain: esign-approvals
 status: active
-date: 2026-06-10
+date: 2026-06-16
 sources:
   - lib/esign/
   - lib/db/schema/approvals.ts
   - lib/db/schema/crm.ts
   - app/api/portal/crm/contracts/[id]/send/route.ts
   - app/api/admin/approvals/route.ts
+  - lib/preview-token.ts
+  - app/approve/[token]/page.tsx
+  - app/approve/[token]/PostPreview.tsx
+  - app/approve/[token]/ApprovalReviewer.tsx
 ---
 
 # Domain: E-Sign & Approvals
@@ -27,8 +31,10 @@ Two related but distinct sub-systems that share the concept of "a human must rev
 | Path | Role |
 |---|---|
 | `app/api/approve/[token]/route.ts` | Public token API (GET status / POST approve\|reject); no auth required |
-| `app/approve/[token]/page.tsx` | Public reviewer UI page (renders `ApprovalReviewer`) |
-| `app/approve/[token]/ApprovalReviewer.tsx` | React component for the external reviewer flow |
+| `app/approve/[token]/page.tsx` (310) | Public reviewer UI page (renders `ApprovalReviewer`); mints page-scoped preview token for post entities |
+| `app/approve/[token]/PostPreview.tsx` (92) | NEW — faithful WYSIWYG preview component: live-site iframe (desktop/mobile toggle) with `BlockRenderer` fallback when no domain is resolvable |
+| `app/approve/[token]/ApprovalReviewer.tsx` (647) | React component for the external reviewer flow; uses `PostPreview` for post entities |
+| `lib/preview-token.ts` (61) | `generatePreviewToken(siteId, scope?)` / `verifyPreviewToken(siteId, token, scope?)` — optional page-scoped HMAC narrowing; see [[ADR approval-preview-page-scoped-token]] |
 | `app/portal/approvals/page.tsx` | Portal staff approvals queue dashboard |
 | `app/admin/approvals/page.tsx` | Admin global approvals queue |
 | `app/api/portal/approvals/route.ts` | Portal CRUD for `mcp_pending_changes` (list/filter) |
@@ -177,6 +183,38 @@ Supporting helpers:
 
 ---
 
+## Approval preview — WYSIWYG post rendering
+
+When `entityType = 'post'`, the public approval page (`app/approve/[token]/page.tsx`) embeds the same live-site preview iframe the visual editor uses (`app/sites/[domain]/[[...slug]]/page.tsx` with `?_preview=true&_token=...`), so external reviewers see a faithful render of the actual page at both desktop (1280 px) and mobile (390 px) viewports.
+
+`PostPreview.tsx` handles the iframe path. It falls back to `BlockRenderer` (inline component rendering) when the approval's site has no resolvable public domain.
+
+### Page-scoped preview token
+
+The public approval page is unauthenticated. Embedding a site-wide preview token in the iframe URL would allow an external reviewer to lift the token from the URL and enumerate every draft page on the site.
+
+The fix is a page-scoped narrowing of the HMAC in `lib/preview-token.ts`:
+
+- `generatePreviewToken(siteId)` — site-wide token (unchanged; used by the authenticated visual editor).
+- `generatePreviewToken(siteId, scope)` — page-scoped token, `scope` = page path string (e.g. `"blog/hello"`). HMAC payload: `preview:<siteId>:<scope>:<day>`. A token minted with one scope cannot validate against a different page path.
+- `verifyPreviewToken(siteId, token, scope?)` — if `scope` is supplied, the server accepts either the site-wide token (backward-compatible) or the narrow scoped token. If `scope` is absent, only the site-wide token validates (no regression for the editor).
+
+`app/sites/[domain]/[[...slug]]/page.tsx` passes the resolved `pageSlug` as scope when verifying preview tokens, so the site renderer enforces the narrowing server-side.
+
+`app/approve/[token]/page.tsx` (`buildPostPreviewIframeSrc`):
+1. Cross-checks that the post's site `clientId` matches the approval link's `clientId` (tenancy guard — prevents a crafted approval link from previewing another tenant's page).
+2. Mints a page-scoped token (never site-wide) for the iframe URL.
+
+See [[ADR approval-preview-page-scoped-token]] for the full decision rationale and alternatives.
+
+### New unit tests
+
+`tests/unit/lib-misc-batch-37h.test.ts` — 2 new cases:
+- Page-scoped token validates only for its own scope (not for a different page, not as a site-wide token).
+- A site-wide token still validates when a `scope` argument is passed to `verifyPreviewToken`.
+
+---
+
 ## Tests & gates
 
 **Coverage floor:** `lib/esign/**/*.ts` has a 70% target (lines/statements/functions/branches) per `tests/CI-GATES.md`. Not a hard blocking gate in CI currently — but documented and enforced when coverage mode is enabled.
@@ -207,6 +245,7 @@ Supporting helpers:
 | `tests/e2e/portal-mcp-approvals.spec.ts` | e2e | MCP approval queue portal flow |
 | `tests/e2e/portal-approvals-mutations.spec.ts` | e2e | Staff approval mutations |
 | `tests/unit/components-approval-reviewer.test.tsx` | unit | `app/approve/[token]/ApprovalReviewer.tsx` component rendering and interaction |
+| `tests/unit/lib-misc-batch-37h.test.ts` | unit | Page-scoped preview token: validates only for own scope; site-wide token backward-compatible when scope supplied |
 
 ---
 
@@ -231,6 +270,7 @@ Supporting helpers:
 - **`DROPBOX_SIGN_API_KEY` and `DROPBOX_SIGN_WEBHOOK_SECRET` must be set in production.** `lib/esign/dropbox-sign.ts` throws immediately (not silently) if missing.
 - **Tenancy:** both `mcp_pending_changes` and `mcp_approval_links` carry `clientId`. Run `bun test:tenancy` after any data-access change touching these tables.
 - **Approval link expiry** — `expiresAt` column exists on `mcp_approval_links` but expiry enforcement is the responsibility of `lookupApprovalLink` in `lib/mcp/approval-links.ts`; confirm before relying on it.
+- **Never mint a site-wide preview token on the public approval page.** The approval route is unauthenticated; use `generatePreviewToken(siteId, pageSlug)` (page-scoped) so a leaked URL validates only for that one page. The visual editor (authenticated) uses the unscoped site-wide token — the two paths are intentionally different. See `lib/preview-token.ts` and [[ADR approval-preview-page-scoped-token]].
 
 ---
 

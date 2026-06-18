@@ -17,7 +17,7 @@ vi.mock('@/lib/crm/default-pipeline', () => ({ ensureDefaultPipeline: vi.fn() })
 
 import * as portalTools from '@/lib/ai/portal-tools';
 
-const EXPECTED_EXPORTS = ['PORTAL_TOOLS', 'executePortalTool'] as const;
+const EXPECTED_EXPORTS = ['PORTAL_TOOLS', 'executePortalTool', 'HANDLERS'] as const;
 
 // The full, locked-in tool registry. Every name → list of `required` keys and
 // the full set of input_schema property keys (in declaration order is fine, we
@@ -235,9 +235,11 @@ describe('@/lib/ai/portal-tools — public API surface', () => {
     }
   });
 
-  it('executePortalTool has arity 4 (name, input, clientId, userId)', () => {
+  it('executePortalTool has arity 5 (name, input, clientId, userId, ctx?)', () => {
     expect(typeof portalTools.executePortalTool).toBe('function');
-    expect(portalTools.executePortalTool.length).toBe(4);
+    // 5th param `ctx?` (audit/scope context: source + ruleId) is optional but
+    // still counts toward Function.length since it carries no default value.
+    expect(portalTools.executePortalTool.length).toBe(5);
   });
 
   it('PORTAL_TOOLS entries have unique tool names', () => {

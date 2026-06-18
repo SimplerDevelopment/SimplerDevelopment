@@ -5,6 +5,7 @@
  * is preserved exactly — every existing import continues to resolve.
  */
 import type Anthropic from '@anthropic-ai/sdk';
+import { logAgentAction, hashParams } from '@/lib/audit/agent-action-log';
 
 import { stageOrApply } from '@/lib/mcp/pending-changes';
 import type { PortalMcpContext } from '@/lib/mcp-auth';
@@ -80,7 +81,9 @@ export const PORTAL_TOOLS: Anthropic.Tool[] = [
 // Lookup table: tool name → handler. Built once at module load. Each handler
 // owns its own DB calls and is identical (line-for-line) to the body that
 // previously lived inside the monolithic `executePortalTool` switch.
-const HANDLERS: Record<string, Handler> = {
+// Exported so the completeness test in tests/unit/portal-tools-scopes.test.ts
+// can enumerate the full key set without importing every domain module.
+export const HANDLERS: Record<string, Handler> = {
   ...dashboardHandlers,
   ...projectHandlers,
   ...billingHandlers,
@@ -126,16 +129,22 @@ function summarizeToolCall(name: string, input: Record<string, unknown>): string
   return label != null ? `AI assistant: ${name} — ${String(label)}` : `AI assistant: ${name}`;
 }
 
+export interface PortalToolCtx {
+  source?: 'automation' | 'assistant';
+  ruleId?: number;
+}
+
 /**
- * Execute an AI-chat tool.
+ * Execute an AI-chat tool. Two orthogonal cross-cutting concerns are applied:
  *
- * When `gateCtx` is supplied (the streaming chat path, bearer auth) AND the
- * tool is a write AND the caller's API key requires approval, the write is
- * staged into the approval queue instead of committing — `stageOrApply`
- * makes that decision from the key's `require_cms_approval` flag. The deferred
- * call is replayed verbatim on approval (see `ai_tool_call:execute` in
- * `lib/mcp/approvals.ts`). Omit `gateCtx` (the non-streaming path, the replay
- * path) to execute directly, exactly as before.
+ *  1. Approval staging (`gateCtx`): on the streaming chat path (bearer auth),
+ *     when the tool is a write AND the caller's API key requires approval, the
+ *     write is staged into the approval queue instead of committing —
+ *     `stageOrApply` decides from the key's `require_cms_approval` flag. The
+ *     deferred call is replayed verbatim on approval (`ai_tool_call:execute` in
+ *     `lib/mcp/approvals.ts`). Omit `gateCtx` to execute directly.
+ *  2. Agent-action audit (`ctx`): every call is logged to the agent-action log
+ *     with source / outcome / duration (automation runs pass `{ source, ruleId }`).
  */
 export async function executePortalTool(
   name: string,
@@ -143,31 +152,85 @@ export async function executePortalTool(
   clientId: number,
   userId: number,
   gateCtx?: PortalMcpContext | null,
+  ctx?: PortalToolCtx,
 ): Promise<unknown> {
   const handler = HANDLERS[name];
-  if (!handler) return { error: `Unknown tool: ${name}` };
-
-  if (gateCtx && WRITE_TOOLS.has(name)) {
-    const result = await stageOrApply({
-      ctx: gateCtx,
-      entityType: 'ai_tool_call',
-      operation: 'execute',
-      entityId: null,
-      summary: summarizeToolCall(name, input),
-      payload: { tool: name, input },
-      apply: () => handler(input, clientId, userId),
+  if (!handler) {
+    void logAgentAction({
+      clientId,
+      userId,
+      source: ctx?.source ?? 'assistant',
+      tool: name,
+      paramsHash: hashParams(input),
+      outcome: 'error',
+      errorMessage: `Unknown tool: ${name}`,
+      ruleId: ctx?.ruleId ?? null,
     });
-    if (result.pending) {
-      return {
-        pending: true,
-        pendingId: result.pendingId,
-        status: 'pending_approval',
-        summary: result.summary,
-        message: 'Queued for the workspace owner to approve before it runs.',
-      };
-    }
-    return result.data;
+    return { error: `Unknown tool: ${name}` };
   }
 
-  return handler(input, clientId, userId);
+  const start = Date.now();
+  let outcome: 'success' | 'error' = 'success';
+  let errorMessage: string | null = null;
+  let result: unknown;
+
+  try {
+    if (gateCtx && WRITE_TOOLS.has(name)) {
+      const staged = await stageOrApply({
+        ctx: gateCtx,
+        entityType: 'ai_tool_call',
+        operation: 'execute',
+        entityId: null,
+        summary: summarizeToolCall(name, input),
+        payload: { tool: name, input },
+        apply: () => handler(input, clientId, userId),
+      });
+      result = staged.pending
+        ? {
+            pending: true,
+            pendingId: staged.pendingId,
+            status: 'pending_approval',
+            summary: staged.summary,
+            message: 'Queued for the workspace owner to approve before it runs.',
+          }
+        : staged.data;
+    } else {
+      result = await handler(input, clientId, userId);
+    }
+    // Treat a result object carrying an `error` key as an error outcome.
+    if (result !== null && typeof result === 'object' && 'error' in (result as Record<string, unknown>)) {
+      outcome = 'error';
+      errorMessage = String((result as Record<string, unknown>).error);
+    }
+  } catch (err) {
+    outcome = 'error';
+    errorMessage = err instanceof Error ? err.message : String(err);
+    // Re-throw after logging so callers still observe the exception.
+    void logAgentAction({
+      clientId,
+      userId,
+      source: ctx?.source ?? 'assistant',
+      tool: name,
+      paramsHash: hashParams(input),
+      outcome,
+      errorMessage,
+      ruleId: ctx?.ruleId ?? null,
+      durationMs: Date.now() - start,
+    });
+    throw err;
+  }
+
+  void logAgentAction({
+    clientId,
+    userId,
+    source: ctx?.source ?? 'assistant',
+    tool: name,
+    paramsHash: hashParams(input),
+    outcome,
+    errorMessage,
+    ruleId: ctx?.ruleId ?? null,
+    durationMs: Date.now() - start,
+  });
+
+  return result;
 }

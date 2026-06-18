@@ -1,0 +1,960 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SD Short – 4×5</title>
+<script id="sd-short-data" type="application/json">
+{
+  "meta":  { "width": 1080, "height": 1350, "fps": 30, "duration": 31 },
+  "brand": {
+    "primaryColor":     "#0F172A",
+    "secondaryColor":   "#2563EB",
+    "accentColor":      "#06B6D4",
+    "backgroundColor":  "#FFFFFF",
+    "textColor":        "#0F172A",
+    "headingFont":      "Inter",
+    "bodyFont":         "Inter",
+    "logoUrl":          "",
+    "logoSquareUrl":    "",
+    "companyName":      "SimplerDevelopment",
+    "tagline":          "Ship faster. Look sharper.",
+    "ctaUrl":           "simplerdevelopment.com"
+  },
+  "scenes": [
+    {
+      "kind":    "hook",
+      "start":   0,
+      "end":     5,
+      "heading": "Your website,\nedited like\na canvas.",
+      "sub":     "Meet the SimplerDevelopment Visual Editor."
+    },
+    {
+      "kind":    "feature",
+      "start":   5,
+      "end":     11,
+      "heading": "Drag. Drop. Done.",
+      "bullets": [
+        "Click any element to edit in-place",
+        "Resize & reorder blocks visually",
+        "Live preview — no refresh needed"
+      ]
+    },
+    {
+      "kind":    "feature",
+      "start":   11,
+      "end":     16,
+      "heading": "Built for\nyour brand.",
+      "bullets": [
+        "Brand colors & fonts auto-applied",
+        "Responsive layout baked in",
+        "Publish with one click"
+      ]
+    },
+    {
+      "kind":            "demo",
+      "start":           16,
+      "end":             23,
+      "heading":         "See it in action",
+      "caption":         "Editing a live page in the visual editor",
+      "clipSrc":         "clip.mp4",
+      "clipStartOffset": 0
+    },
+    {
+      "kind":    "stat",
+      "start":   23,
+      "end":     27,
+      "stat":    "3×",
+      "label":   "faster page\nupdates vs.\ntraditional CMS"
+    },
+    {
+      "kind":    "cta",
+      "start":   27,
+      "end":     31,
+      "heading": "Ready to edit\nyour site visually?",
+      "cta":     "simplerdevelopment.com"
+    }
+  ]
+}
+</script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    margin: 0;
+    overflow: hidden;
+    background: #000;
+    display: flex;
+    align-items: flex-start;
+    justify-content: flex-start;
+  }
+
+  #stage {
+    position: relative;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+
+  /* CSS custom properties filled from brand blob */
+  #stage {
+    --color-primary:    #0F172A;
+    --color-secondary:  #2563EB;
+    --color-accent:     #06B6D4;
+    --color-bg:         #FFFFFF;
+    --color-text:       #0F172A;
+    --font-heading:     Inter, system-ui, sans-serif;
+    --font-body:        Inter, system-ui, sans-serif;
+  }
+
+  /* ── Progress bar ─────────────────────────────────────── */
+  #progress-bar {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    height: 6px;
+    width: 0%;
+    background: var(--color-accent);
+    z-index: 100;
+    transform-origin: left center;
+  }
+
+  /* ── Brand mark ───────────────────────────────────────── */
+  #brand-mark {
+    position: absolute;
+    bottom: 24px;
+    right: 32px;
+    z-index: 90;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  #brand-mark .logo-img {
+    width: 32px;
+    height: 32px;
+    object-fit: contain;
+    border-radius: 6px;
+  }
+  #brand-mark .wordmark {
+    font-family: var(--font-heading);
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    line-height: 1;
+  }
+  /* wordmark color flips per scene bg */
+  #brand-mark.on-dark .wordmark { color: rgba(255,255,255,0.7); }
+  #brand-mark.on-light .wordmark { color: rgba(15,23,42,0.45); }
+
+  /* ── Scene layer ──────────────────────────────────────── */
+  .scene {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 80px 72px;
+    opacity: 0;
+    pointer-events: none;
+    will-change: transform, opacity;
+  }
+
+  /* ── HOOK scene ───────────────────────────────────────── */
+  .scene-hook {
+    background: var(--color-primary);
+    justify-content: flex-end;
+    padding-bottom: 160px;
+  }
+  .scene-hook .accent-bar {
+    width: 64px;
+    height: 5px;
+    background: var(--color-accent);
+    border-radius: 3px;
+    margin-bottom: 32px;
+  }
+  .scene-hook h1 {
+    font-family: var(--font-heading);
+    font-size: 100px;
+    font-weight: 800;
+    line-height: 1.0;
+    letter-spacing: -0.04em;
+    color: #FFFFFF;
+    white-space: pre-line;
+    margin-bottom: 28px;
+  }
+  .scene-hook h1 .highlight {
+    color: var(--color-accent);
+  }
+  .scene-hook .sub {
+    font-family: var(--font-body);
+    font-size: 28px;
+    font-weight: 400;
+    color: rgba(255,255,255,0.65);
+    line-height: 1.45;
+    max-width: 520px;
+  }
+  .scene-hook .bg-circle {
+    position: absolute;
+    top: -180px;
+    right: -160px;
+    width: 680px;
+    height: 680px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(37,99,235,0.22) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .scene-hook .bg-accent-dot {
+    position: absolute;
+    top: 120px;
+    left: 72px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--color-accent);
+    opacity: 0.5;
+  }
+
+  /* ── FEATURE scene ────────────────────────────────────── */
+  .scene-feature {
+    background: var(--color-bg);
+    justify-content: flex-start;
+    padding-top: 140px;
+  }
+  .scene-feature .eyebrow {
+    font-family: var(--font-body);
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--color-secondary);
+    margin-bottom: 20px;
+  }
+  .scene-feature h2 {
+    font-family: var(--font-heading);
+    font-size: 84px;
+    font-weight: 800;
+    letter-spacing: -0.035em;
+    line-height: 1.0;
+    color: var(--color-text);
+    white-space: pre-line;
+    margin-bottom: 40px;
+  }
+  .scene-feature .divider {
+    width: 56px;
+    height: 5px;
+    background: var(--color-accent);
+    border-radius: 3px;
+    margin-bottom: 40px;
+  }
+  .scene-feature ul {
+    list-style: none;
+  }
+  .scene-feature ul li {
+    font-family: var(--font-body);
+    font-size: 32px;
+    font-weight: 400;
+    color: var(--color-text);
+    line-height: 1.4;
+    padding: 20px 0;
+    display: flex;
+    align-items: flex-start;
+    gap: 20px;
+    border-bottom: 1px solid rgba(15,23,42,0.08);
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  .scene-feature ul li:last-child { border-bottom: none; }
+  .scene-feature ul li .check {
+    flex-shrink: 0;
+    margin-top: 4px;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: var(--color-secondary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .scene-feature ul li .check svg {
+    width: 14px;
+    height: 14px;
+    stroke: #fff;
+    fill: none;
+    stroke-width: 2.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  .scene-feature .bg-rule {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 8px;
+    background: linear-gradient(to bottom, var(--color-secondary), var(--color-accent));
+    opacity: 0.15;
+  }
+
+  /* ── STAT scene ───────────────────────────────────────── */
+  .scene-stat {
+    background: linear-gradient(145deg, var(--color-primary) 0%, #1e3a5f 100%);
+    align-items: center;
+    text-align: center;
+    justify-content: center;
+    gap: 0;
+  }
+  .scene-stat .stat-bg-ring {
+    position: absolute;
+    width: 700px;
+    height: 700px;
+    border-radius: 50%;
+    border: 3px solid rgba(6,182,212,0.20);
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+  }
+  .scene-stat .stat-bg-ring::after {
+    content: '';
+    position: absolute;
+    inset: 40px;
+    border-radius: 50%;
+    border: 3px solid rgba(6,182,212,0.10);
+  }
+  .scene-stat .stat-value {
+    font-family: var(--font-heading);
+    font-size: 240px;
+    font-weight: 900;
+    letter-spacing: -0.06em;
+    color: #FFFFFF;
+    line-height: 1;
+    position: relative;
+    z-index: 1;
+  }
+  .scene-stat .stat-value .accent-digit {
+    color: var(--color-accent);
+  }
+  .scene-stat .stat-label {
+    font-family: var(--font-body);
+    font-size: 36px;
+    font-weight: 400;
+    color: rgba(255,255,255,0.70);
+    line-height: 1.45;
+    white-space: pre-line;
+    margin-top: 24px;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ── CTA scene ────────────────────────────────────────── */
+  .scene-cta {
+    background: var(--color-primary);
+    justify-content: center;
+    text-align: left;
+  }
+  .scene-cta .cta-bg-stripe {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: 100%;
+    height: 320px;
+    background: linear-gradient(to top, rgba(37,99,235,0.18), transparent);
+    pointer-events: none;
+  }
+  .scene-cta h2 {
+    font-family: var(--font-heading);
+    font-size: 88px;
+    font-weight: 800;
+    letter-spacing: -0.04em;
+    line-height: 1.05;
+    color: #FFFFFF;
+    white-space: pre-line;
+    margin-bottom: 56px;
+    position: relative;
+    z-index: 1;
+  }
+  .scene-cta .cta-url-wrapper {
+    display: inline-flex;
+    align-items: center;
+    gap: 16px;
+    background: var(--color-accent);
+    padding: 24px 40px;
+    border-radius: 8px;
+    position: relative;
+    z-index: 1;
+  }
+  .scene-cta .cta-url {
+    font-family: var(--font-heading);
+    font-size: 32px;
+    font-weight: 700;
+    color: #0F172A;
+    letter-spacing: -0.01em;
+  }
+  .scene-cta .cta-arrow {
+    font-size: 28px;
+    color: #0F172A;
+    font-weight: 700;
+  }
+
+  /* ── DEMO scene ───────────────────────────────────────── */
+  .scene-demo {
+    background: var(--color-primary);
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    gap: 0;
+    padding: 60px 72px;
+  }
+  .scene-demo .demo-heading {
+    font-family: var(--font-heading);
+    font-size: 56px;
+    font-weight: 800;
+    letter-spacing: -0.035em;
+    line-height: 1.1;
+    color: #FFFFFF;
+    text-align: center;
+    margin-bottom: 32px;
+    position: relative;
+    z-index: 1;
+    width: 100%;
+  }
+  .scene-demo .demo-chrome-wrap {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 900px;
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  .scene-demo .demo-chrome {
+    width: 100%;
+    height: 100%;
+    background: #1e293b;
+    border-radius: 14px;
+    box-shadow: 0 32px 80px rgba(0,0,0,0.6), 0 8px 24px rgba(0,0,0,0.4);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    flex: 1 1 auto;
+  }
+  .scene-demo .demo-chrome-bar {
+    flex-shrink: 0;
+    height: 40px;
+    background: #2d3748;
+    display: flex;
+    align-items: center;
+    padding: 0 14px;
+    gap: 8px;
+    border-bottom: 1px solid rgba(255,255,255,0.07);
+  }
+  .scene-demo .demo-chrome-bar .dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .scene-demo .demo-chrome-bar .dot-red   { background: #ff5f57; }
+  .scene-demo .demo-chrome-bar .dot-yellow { background: #ffbd2e; }
+  .scene-demo .demo-chrome-bar .dot-green { background: #28c840; }
+  .scene-demo .demo-chrome-bar .url-pill {
+    flex: 1 1 auto;
+    background: rgba(255,255,255,0.08);
+    border-radius: 6px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 10px;
+    margin: 0 8px;
+  }
+  .scene-demo .demo-chrome-bar .url-pill .url-text {
+    font-family: var(--font-body);
+    font-size: 11px;
+    color: rgba(255,255,255,0.55);
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 220px;
+  }
+  .scene-demo .demo-chrome-bar .url-pill .url-accent {
+    color: var(--color-accent);
+    font-weight: 600;
+  }
+  .scene-demo .demo-video-area {
+    flex: 1 1 auto;
+    position: relative;
+    overflow: hidden;
+    background: #0f172a;
+    min-height: 0;
+  }
+  .scene-demo .demo-video-area video {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .scene-demo .demo-video-area .demo-placeholder {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    background: linear-gradient(135deg, rgba(37,99,235,0.25) 0%, rgba(6,182,212,0.12) 100%);
+  }
+  .scene-demo .demo-video-area .demo-placeholder .placeholder-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: rgba(6,182,212,0.2);
+    border: 2px solid rgba(6,182,212,0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .scene-demo .demo-video-area .demo-placeholder .placeholder-icon svg {
+    width: 22px;
+    height: 22px;
+    fill: var(--color-accent);
+  }
+  .scene-demo .demo-video-area .demo-placeholder .placeholder-text {
+    font-family: var(--font-body);
+    font-size: 18px;
+    color: rgba(255,255,255,0.45);
+    text-align: center;
+  }
+  .scene-demo .demo-caption {
+    font-family: var(--font-body);
+    font-size: 24px;
+    font-weight: 400;
+    color: rgba(255,255,255,0.55);
+    text-align: center;
+    margin-top: 20px;
+    position: relative;
+    z-index: 1;
+    width: 100%;
+  }
+  .scene-demo .demo-bg-glow {
+    position: absolute;
+    top: -120px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 600px;
+    height: 600px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(37,99,235,0.15) 0%, transparent 70%);
+    pointer-events: none;
+  }
+</style>
+</head>
+<body>
+<div id="stage">
+  <!-- scenes injected by JS -->
+  <div id="progress-bar"></div>
+  <div id="brand-mark"></div>
+</div>
+
+<script src="./gsap.min.js"></script>
+<script>
+(function () {
+  // ── 1. Parse data blob ─────────────────────────────────────────────────
+  const blob  = JSON.parse(document.getElementById('sd-short-data').textContent);
+  const meta  = blob.meta;
+  const brand = blob.brand;
+  const scenes = blob.scenes;
+
+  // ── 2. Stage sizing ────────────────────────────────────────────────────
+  const stage = document.getElementById('stage');
+  stage.style.width  = meta.width  + 'px';
+  stage.style.height = meta.height + 'px';
+
+  // ── 3. Apply CSS custom properties ────────────────────────────────────
+  const cp = [
+    ['--color-primary',   brand.primaryColor],
+    ['--color-secondary', brand.secondaryColor],
+    ['--color-accent',    brand.accentColor],
+    ['--color-bg',        brand.backgroundColor],
+    ['--color-text',      brand.textColor],
+    ['--font-heading',    `"${brand.headingFont}", system-ui, sans-serif`],
+    ['--font-body',       `"${brand.bodyFont}", system-ui, sans-serif`],
+  ];
+  cp.forEach(([k, v]) => stage.style.setProperty(k, v));
+
+  // ── 4. Google Fonts ────────────────────────────────────────────────────
+  const fonts = [...new Set([brand.headingFont, brand.bodyFont])].filter(Boolean);
+  if (fonts.length && navigator.onLine !== false) {
+    const link = document.createElement('link');
+    link.rel  = 'stylesheet';
+    link.href = `https://fonts.googleapis.com/css2?${
+      fonts.map(f => `family=${encodeURIComponent(f)}:wght@400;600;700;800;900`).join('&')
+    }&display=swap`;
+    document.head.appendChild(link);
+  }
+
+  // ── 5. Brand mark ──────────────────────────────────────────────────────
+  const brandMark = document.getElementById('brand-mark');
+  function buildBrandMark() {
+    brandMark.innerHTML = '';
+    const src = brand.logoSquareUrl || brand.logoUrl;
+    if (src) {
+      const img = document.createElement('img');
+      img.className = 'logo-img';
+      img.src = src;
+      img.alt = brand.companyName;
+      brandMark.appendChild(img);
+    }
+    const wm = document.createElement('span');
+    wm.className = 'wordmark';
+    wm.textContent = brand.companyName;
+    brandMark.appendChild(wm);
+  }
+  buildBrandMark();
+
+  // ── 6. Build scene DOM ────────────────────────────────────────────────
+  function checkIcon() {
+    return `<span class="check"><svg viewBox="0 0 16 16"><polyline points="3,8 7,12 13,4"/></svg></span>`;
+  }
+
+  function buildSceneEl(scene, idx) {
+    const el = document.createElement('div');
+    el.className = `scene scene-${scene.kind}`;
+    el.dataset.idx = idx;
+
+    if (scene.kind === 'hook') {
+      el.innerHTML = `
+        <div class="bg-circle" data-overflow-ok></div>
+        <div class="bg-accent-dot"></div>
+        <div class="accent-bar"></div>
+        <h1>${escapeHtml(scene.heading)}</h1>
+        <p class="sub">${escapeHtml(scene.sub || '')}</p>
+      `;
+    } else if (scene.kind === 'feature') {
+      const bullets = (scene.bullets || []).map(b =>
+        `<li>${checkIcon()}<span>${escapeHtml(b)}</span></li>`
+      ).join('');
+      el.innerHTML = `
+        <div class="bg-rule" data-overflow-ok></div>
+        <p class="eyebrow">Visual Editor</p>
+        <h2>${escapeHtml(scene.heading)}</h2>
+        <div class="divider"></div>
+        <ul>${bullets}</ul>
+      `;
+    } else if (scene.kind === 'stat') {
+      el.innerHTML = `
+        <div class="stat-bg-ring" data-overflow-ok></div>
+        <div class="stat-value" data-stat="${escapeHtml(scene.stat)}"></div>
+        <div class="stat-label">${escapeHtml(scene.label || '')}</div>
+      `;
+    } else if (scene.kind === 'cta') {
+      el.innerHTML = `
+        <div class="cta-bg-stripe" data-overflow-ok></div>
+        <h2>${escapeHtml(scene.heading)}</h2>
+        <div class="cta-url-wrapper">
+          <span class="cta-url">${escapeHtml(scene.cta || brand.ctaUrl)}</span>
+          <span class="cta-arrow">→</span>
+        </div>
+      `;
+    } else if (scene.kind === 'demo') {
+      const urlText = brand.ctaUrl || '';
+      const urlHtml = urlText
+        ? `<span class="url-accent">${escapeHtml(urlText)}</span>`
+        : `<span>Preview</span>`;
+      el.innerHTML = `
+        <div class="demo-bg-glow" data-overflow-ok></div>
+        <div class="demo-heading">${escapeHtml(scene.heading || '')}</div>
+        <div class="demo-chrome-wrap">
+          <div class="demo-chrome">
+            <div class="demo-chrome-bar">
+              <div class="dot dot-red"></div>
+              <div class="dot dot-yellow"></div>
+              <div class="dot dot-green"></div>
+              <div class="url-pill"><span class="url-text">${urlHtml}</span></div>
+            </div>
+            <div class="demo-video-area">
+              <div class="demo-placeholder">
+                <div class="placeholder-icon">
+                  <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                </div>
+                <div class="placeholder-text">Loading video…</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        ${scene.caption ? `<div class="demo-caption">${escapeHtml(scene.caption)}</div>` : ''}
+      `;
+    }
+    return el;
+  }
+
+  function escapeHtml(str) {
+    return String(str)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;').replace(/\n/g,'<br>');
+  }
+
+  // Insert scenes before progress bar
+  const progressBar = document.getElementById('progress-bar');
+  scenes.forEach((scene, idx) => {
+    const el = buildSceneEl(scene, idx);
+    stage.insertBefore(el, progressBar);
+  });
+
+  // ── 7. Build master GSAP timeline ─────────────────────────────────────
+  let masterTl = null;
+
+  function buildTimeline() {
+    const tl = gsap.timeline({ paused: true });
+    const totalDur = meta.duration;
+
+    // Progress bar tween (tracks timeline position)
+    tl.to('#progress-bar', {
+      width: '100%',
+      ease: 'none',
+      duration: totalDur
+    }, 0);
+
+    scenes.forEach((scene, idx) => {
+      const sceneEl = stage.querySelector(`.scene[data-idx="${idx}"]`);
+      const start   = scene.start;
+      const end     = scene.end;
+      const dur     = end - start;
+
+      // Determine brand-mark color scheme
+      const onDark = ['hook', 'stat', 'cta'].includes(scene.kind);
+
+      // Scene enter (y-translate + fade)
+      tl.fromTo(sceneEl,
+        { opacity: 0, y: 40 },
+        { opacity: 1, y: 0, duration: 0.6, ease: 'power3.out' },
+        start
+      );
+
+      // Scene exit
+      tl.to(sceneEl,
+        { opacity: 0, y: -24, duration: 0.4, ease: 'power2.in' },
+        end - 0.4
+      );
+
+      // Brand mark color flip at scene start
+      tl.call(() => {
+        brandMark.className = onDark ? 'on-dark' : 'on-light';
+      }, null, start + 0.01);
+
+      // Scene-specific animations
+      if (scene.kind === 'hook') {
+        const h1 = sceneEl.querySelector('h1');
+        const sub = sceneEl.querySelector('.sub');
+        const bar = sceneEl.querySelector('.accent-bar');
+        tl.from(bar, { scaleX: 0, transformOrigin: 'left center', duration: 0.5, ease: 'power3.out' }, start + 0.3);
+        tl.from(h1,  { opacity: 0, y: 30, duration: 0.55, ease: 'power3.out' }, start + 0.45);
+        tl.from(sub, { opacity: 0, y: 20, duration: 0.5, ease: 'power3.out' }, start + 0.7);
+
+      } else if (scene.kind === 'feature') {
+        const h2      = sceneEl.querySelector('h2');
+        const divider = sceneEl.querySelector('.divider');
+        const items   = sceneEl.querySelectorAll('li');
+        tl.from(h2,      { opacity: 0, y: 30, duration: 0.5, ease: 'power3.out' }, start + 0.3);
+        tl.from(divider, { scaleX: 0, transformOrigin: 'left center', duration: 0.4, ease: 'power2.out' }, start + 0.55);
+        tl.to(items, {
+          opacity: 1, y: 0, duration: 0.4, ease: 'power2.out',
+          stagger: 0.12
+        }, start + 0.65);
+
+      } else if (scene.kind === 'stat') {
+        const statEl = sceneEl.querySelector('.stat-value');
+        const labelEl = sceneEl.querySelector('.stat-label');
+        const raw = scene.stat;
+        // Always pre-populate so seek() shows something even before the tween
+        statEl.textContent = raw;
+        // Try to animate a numeric portion
+        const numMatch = raw.match(/^([0-9.]+)(.*)$/);
+        if (numMatch) {
+          const numEnd = parseFloat(numMatch[1]);
+          const suffix = numMatch[2];
+          const proxy  = { val: 0 };
+          // Helper to render the proxy value to DOM
+          const isInteger = Number.isInteger(numEnd);
+          const renderStat = () => {
+            const v = proxy.val;
+            const disp = (!isInteger && numEnd < 10) ? v.toFixed(1) : Math.round(v).toString();
+            statEl.textContent = disp + suffix;
+          };
+          const countTween = tl.to(proxy, {
+            val: numEnd,
+            duration: 1.2,
+            ease: 'power2.out',
+            onUpdate: renderStat,
+            onComplete: renderStat,
+          }, start + 0.4);
+          // For seek(): GSAP doesn't call onUpdate on seek, so we use a
+          // sub-tween invalidation approach — store the tween ref so seek
+          // helper can call renderStat after positioning.
+          statEl._countProxy = proxy;
+          statEl._renderStat = renderStat;
+          statEl._countTween = countTween;
+        } else {
+          tl.from(statEl, { opacity: 0, scale: 0.7, duration: 0.6, ease: 'back.out(1.4)' }, start + 0.3);
+        }
+        tl.from(labelEl, { opacity: 0, y: 20, duration: 0.45, ease: 'power3.out' }, start + 1.0);
+
+      } else if (scene.kind === 'cta') {
+        const h2  = sceneEl.querySelector('h2');
+        const btn = sceneEl.querySelector('.cta-url-wrapper');
+        tl.from(h2,  { opacity: 0, y: 30, duration: 0.55, ease: 'power3.out' }, start + 0.3);
+        tl.from(btn, { opacity: 0, y: 20, scale: 0.95, duration: 0.5, ease: 'back.out(1.2)' }, start + 0.7);
+
+      } else if (scene.kind === 'demo') {
+        const heading  = sceneEl.querySelector('.demo-heading');
+        const chrome   = sceneEl.querySelector('.demo-chrome-wrap');
+        const caption  = sceneEl.querySelector('.demo-caption');
+        tl.from(heading, { opacity: 0, y: 24, duration: 0.5, ease: 'power3.out' }, start + 0.3);
+        tl.from(chrome,  { opacity: 0, y: 32, scale: 0.96, duration: 0.6, ease: 'power3.out' }, start + 0.45);
+        if (caption) {
+          tl.from(caption, { opacity: 0, y: 16, duration: 0.4, ease: 'power3.out' }, start + 0.75);
+        }
+      }
+    });
+
+    return tl;
+  }
+
+  // ── 7b. Demo video loader ─────────────────────────────────────────────
+  // Map from scene index → { video, loaded, sceneData }
+  const demoVideos = new Map();
+
+  function resolveSrc(src) {
+    if (!src) return null;
+    // Resolve relative to HTML document location
+    try {
+      return new URL(src, document.baseURI).href;
+    } catch (_) {
+      return src;
+    }
+  }
+
+  // Load videos for demo scenes and inject into the DOM
+  const videoLoadPromises = [];
+  scenes.forEach((scene, idx) => {
+    if (scene.kind !== 'demo') return;
+    const sceneEl   = stage.querySelector(`.scene[data-idx="${idx}"]`);
+    const videoArea = sceneEl ? sceneEl.querySelector('.demo-video-area') : null;
+    if (!videoArea) return;
+
+    const clipSrc = resolveSrc(scene.clipSrc);
+    const entry = { video: null, loaded: false, failed: false, sceneData: scene };
+    demoVideos.set(idx, entry);
+
+    if (!clipSrc) {
+      entry.failed = true;
+      videoLoadPromises.push(Promise.resolve());
+      return;
+    }
+
+    const video = document.createElement('video');
+    video.muted       = true;
+    video.playsInline = true;
+    video.preload     = 'auto';
+    video.src         = clipSrc;
+    entry.video       = video;
+
+    const loadP = new Promise(res => {
+      const timeout = setTimeout(() => {
+        entry.failed = true;
+        res();
+      }, 3000);
+
+      const onLoaded = () => {
+        clearTimeout(timeout);
+        entry.loaded = true;
+        // Hide placeholder, show video
+        const placeholder = videoArea.querySelector('.demo-placeholder');
+        if (placeholder) placeholder.style.display = 'none';
+        videoArea.appendChild(video);
+        res();
+      };
+
+      if (video.readyState >= 2) {
+        onLoaded();
+      } else {
+        video.addEventListener('loadeddata', onLoaded, { once: true });
+        video.addEventListener('error', () => { clearTimeout(timeout); entry.failed = true; res(); }, { once: true });
+      }
+    });
+
+    videoLoadPromises.push(loadP);
+  });
+
+  // ── 8. window.__short API ─────────────────────────────────────────────
+  const readyPromise = new Promise(resolve => {
+    // Wait for fonts + images + demo videos
+    const imageUrls = [brand.logoUrl, brand.logoSquareUrl].filter(Boolean);
+    const imgLoads  = imageUrls.map(src => new Promise(res => {
+      const img = new Image(); img.src = src;
+      img.onload = img.onerror = res;
+    }));
+
+    Promise.all([document.fonts.ready, ...imgLoads, ...videoLoadPromises]).then(() => {
+      masterTl = buildTimeline();
+      resolve();
+    });
+  });
+
+  window.__short = {
+    width:    meta.width,
+    height:   meta.height,
+    fps:      meta.fps,
+    duration: meta.duration,
+    seek(t) {
+      if (!masterTl) return;
+      masterTl.pause();
+      masterTl.seek(Math.max(0, Math.min(t, meta.duration)));
+      // After seek, onUpdate callbacks don't fire — manually flush stat renders
+      stage.querySelectorAll('.stat-value').forEach(el => {
+        if (el._renderStat) el._renderStat();
+      });
+
+      // Handle demo video seeking — returns a Promise
+      const videoSeekPromises = [];
+      scenes.forEach((scene, idx) => {
+        if (scene.kind !== 'demo') return;
+        const entry = demoVideos.get(idx);
+        if (!entry || !entry.loaded || !entry.video) return;
+        if (t >= scene.start && t < scene.end) {
+          const clipDur    = entry.video.duration || 0;
+          const offset     = scene.clipStartOffset || 0;
+          let targetTime   = offset + (t - scene.start);
+          if (clipDur > 0) {
+            // Loop if scene outlasts clip
+            const loopLength = Math.max(clipDur - offset, 0.001);
+            targetTime = offset + ((targetTime - offset) % loopLength);
+          }
+          targetTime = Math.max(0, clipDur > 0 ? Math.min(targetTime, clipDur) : targetTime);
+
+          const video = entry.video;
+          const FRAME = 1 / 60;
+          if (Math.abs(video.currentTime - targetTime) < FRAME) {
+            // Already at the right time, nothing to wait for
+            return;
+          }
+          const seekP = new Promise(res => {
+            const timeout = setTimeout(res, 250);
+            video.addEventListener('seeked', () => { clearTimeout(timeout); res(); }, { once: true });
+          });
+          video.currentTime = targetTime;
+          videoSeekPromises.push(seekP);
+        }
+      });
+
+      if (videoSeekPromises.length > 0) {
+        return Promise.all(videoSeekPromises);
+      }
+    },
+    ready: readyPromise,
+  };
+})();
+</script>
+</body>
+</html>

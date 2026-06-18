@@ -215,6 +215,69 @@ export async function POST(req: Request) {
       }),
     );
 
+    const MAX_LOOPS = 8;
+    const MAX_TOOL_CALLS = 20;
+    let loopCount = 0;
+    let toolCallCount = 0;
+    let stopReason: string | null = null;
+    while (loopCount < MAX_LOOPS) {
+      loopCount++;
+      const response = await anthropic.messages.create({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 2048,
+        system: SYSTEM_PROMPT,
+        tools: PORTAL_TOOLS,
+        messages: currentMessages,
+      });
+
+      totalInputTokens += response.usage.input_tokens;
+      totalOutputTokens += response.usage.output_tokens;
+      stopReason = response.stop_reason;
+
+      if (response.stop_reason === 'tool_use') {
+        const toolUseBlocks = response.content.filter(
+          (b): b is Anthropic.ToolUseBlock => b.type === 'tool_use'
+        );
+
+        toolCallCount += toolUseBlocks.length;
+        if (toolCallCount > MAX_TOOL_CALLS) {
+          throw new Error('Tool-call cap exceeded');
+        }
+
+        const toolResults: Anthropic.ToolResultBlockParam[] = [];
+        for (const block of toolUseBlocks) {
+          const result = await executePortalTool(
+            block.name,
+            block.input as Record<string, unknown>,
+            client.id,
+            senderId,
+            { source: 'assistant' },
+          );
+          allToolCalls.push({ name: block.name, input: block.input as Record<string, unknown>, result });
+          toolResults.push({
+            type: 'tool_result',
+            tool_use_id: block.id,
+            content: JSON.stringify(result),
+          });
+        }
+
+        currentMessages = [
+          ...currentMessages,
+          { role: 'assistant', content: response.content },
+          { role: 'user', content: toolResults },
+        ];
+      } else {
+        finalText = response.content
+          .filter((b): b is Anthropic.TextBlock => b.type === 'text')
+          .map(b => b.text)
+          .join('');
+        break;
+      }
+    }
+    if (loopCount >= MAX_LOOPS && stopReason === 'tool_use') {
+      console.warn('[inbound-email] LLM loop hit MAX_LOOPS cap');
+    }
+
     // Save messages to conversation
     await db.insert(aiMessages).values({
       conversationId: convId,

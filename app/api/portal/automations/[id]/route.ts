@@ -6,6 +6,7 @@ import { getPortalClient } from '@/lib/portal-client';
 import { authorizePortal, isAuthError } from '@/lib/portal-auth';
 import { eq, and } from 'drizzle-orm';
 import { computeNextRunAt, validateSchedule } from '@/lib/automation/schedule';
+import { deriveRuleScopes } from '@/lib/ai/portal-tools/derive-rule-scopes';
 
 // PATCH /api/portal/automations/[id] — update a rule (toggle, edit, etc.)
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -29,7 +30,10 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   if (body.description !== undefined) updates.description = body.description;
   if (body.trigger !== undefined) updates.trigger = body.trigger;
   if (body.conditions !== undefined) updates.conditions = body.conditions;
-  if (body.actions !== undefined) updates.actions = body.actions;
+  if (body.actions !== undefined) {
+    updates.actions = body.actions;
+    updates.scopes = deriveRuleScopes(body.actions);
+  }
   if (body.enabled !== undefined) updates.enabled = body.enabled;
   if (body.productScope !== undefined) updates.productScope = body.productScope;
 

@@ -840,6 +840,32 @@ describe('lib/preview-token.ts', () => {
     expect(verifyPreviewToken(1, 'z'.repeat(64))).toBe(false);
   });
 
+  it('page-scoped token validates only when the same scope is supplied', async () => {
+    const { generatePreviewToken, verifyPreviewToken } = await import(
+      '@/lib/preview-token'
+    );
+    const scoped = generatePreviewToken(7, 'blog/hello');
+    // Authorizes only its own page path...
+    expect(verifyPreviewToken(7, scoped, 'blog/hello')).toBe(true);
+    // ...never a different page, and never a site-wide (no-scope) check —
+    // this is the property that stops a lifted approval-iframe token from
+    // enumerating other draft pages on the same site.
+    expect(verifyPreviewToken(7, scoped, 'blog/secret')).toBe(false);
+    expect(verifyPreviewToken(7, scoped)).toBe(false);
+  });
+
+  it('site-wide token is accepted even when a scope is supplied (editor path)', async () => {
+    const { generatePreviewToken, verifyPreviewToken } = await import(
+      '@/lib/preview-token'
+    );
+    // The authenticated editor mints a no-scope (site-wide) token; the site
+    // renderer passes the page path as scope — the site-wide token must still
+    // validate so existing editor previews keep working.
+    const siteWide = generatePreviewToken(8);
+    expect(verifyPreviewToken(8, siteWide, 'blog/hello')).toBe(true);
+    expect(verifyPreviewToken(8, siteWide, 'anything')).toBe(true);
+  });
+
   it('verifyPreviewToken accepts yesterday-bucket tokens (day boundary)', async () => {
     const realDateNow = Date.now;
     // Pin "now" to T, generate a token, then advance "now" by ~25h so the

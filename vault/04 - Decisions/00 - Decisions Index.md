@@ -23,6 +23,9 @@ Static list (agents: maintain this when adding ADRs — Dataview below only rend
 - [[ADR admin-billing-overrides-comp-coupon]]
 - [[ADR proposed-audit-agents-and-workflows]]
 - [[ADR mcp-resources-and-prompts]]
+- [[ADR site-migration-qa-via-local-dryrun]] · [[ADR migration-glass-btn-style]] · [[ADR migration-roi-calculator-static-snapshot]] · [[ADR migration-store-settings-preflight]] · [[ADR migration-target-staging-vs-metro]]
+- [[ADR approval-preview-page-scoped-token]]
+- [[ADR kagenti-least-privilege-not-workload-identity]]
 
 ```dataview
 TABLE domain, status, date

@@ -174,16 +174,12 @@ export async function POST(req: Request) {
 
         const toolResults: Anthropic.ToolResultBlockParam[] = [];
         for (const block of toolUseBlocks) {
-          const result = await withSpan(
-            'portal.tool',
-            { tool: block.name, clientId: client.id },
-            () =>
-              executePortalTool(
-                block.name,
-                block.input as Record<string, unknown>,
-                client.id,
-                userId,
-              ),
+          const result = await executePortalTool(
+            block.name,
+            block.input as Record<string, unknown>,
+            client.id,
+            userId,
+            { source: 'assistant' },
           );
           allToolCalls.push({ name: block.name, input: block.input as Record<string, unknown>, result });
           toolResults.push({

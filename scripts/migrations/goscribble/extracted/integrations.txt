@@ -1,0 +1,121 @@
+  [LINK] "See results →" -> for-agencies.html
+  [IMG] icon.png | "Scribble"
+  • Product
+  [LINK] "Product" -> index.html
+  • For Agencies
+  [LINK] "For Agencies" -> for-agencies.html
+  • For Clinicians
+  [LINK] "For Clinicians" -> for-clinicians.html
+  • Integrations
+  [LINK] "Integrations" -> integrations.html
+  • Resources
+  [LINK] "Resources" -> resources.html
+  • Company
+  [LINK] "Company" -> about.html
+  [LINK] "Book a Demo →" -> #
+  [LINK] "Product" -> index.html
+  [LINK] "For Agencies" -> for-agencies.html
+  [LINK] "For Clinicians" -> for-clinicians.html
+  [LINK] "Integrations" -> integrations.html
+  [LINK] "Resources" -> resources.html
+  [LINK] "Company" -> about.html
+  [LINK] "Book a Demo →" -> #
+  <div.page-hero>
+  <div.page-hero-inner>
+  <div.hero-eyebrow>
+H1: Works with the EHR your agency already uses.
+  P: No ripping and replacing. No new logins. Scribble pushes directly to your existing EHR after every visit.
+  <div.hero-ctas>
+  [LINK] "See Supported EHRs →" -> #ehr-grid
+  [LINK] "Talk to Our Team" -> #
+
+===== SECTION class="" =====
+H2: Works with your EHR. Out of the box.
+H3: KanTime
+  P: Full OASIS documentation sync. Visits and note summary push directly to KanTime visit records.
+H3: WellSky
+  P: Complete OASIS integration push and pull. Tasks with WellSky Kinnser (home health).
+H3: Netsmart myUnity
+  P: OASIS and visit documentation sync. Live for home health agencies.
+H3: Axxess
+  P: OASIS documentation sync with Axxess Home Health. Strategic partner, live integration.
+H3: MatrixCare
+  P: Integration in development. We're working with MatrixCare to bring full OASIS sync to their agencies.
+H3: Your EHR
+  P: If your EHR supports modern interoperability standards, we can connect. Ask us about your specific platform.
+
+===== SECTION class="problem-bg" =====
+H2: Simple to connect. Simpler to maintain.
+H3: Discovery
+  P: We map your EHR configuration and data flows. Typically one 60-minute call. No heavy IT involvement needed.
+H3: Setup
+  P: Our team configures the connection. Most EHR integrations go live in 3–5 business days. We handle everything.
+H3: Ongoing sync
+  P: OASIS fields and visit notes push automatically to your EHR after every visit. No manual exports, no double entry.
+
+===== SECTION class="outcomes-bg" =====
+H2: Built for healthcare's data requirements.
+  <div.outcome-panel active>
+  <div.outcome-card>
+  <div.outcome-number>
+  <div.outcome-desc>
+  <div.outcome-desc>
+  <div.outcome-card>
+  <div.outcome-number>
+  <div.outcome-desc>
+  <div.outcome-desc>
+  <div.outcome-card>
+  <div.outcome-number>
+  <div.outcome-desc>
+  <div.outcome-desc>
+
+===== SECTION class="" =====
+H2: Integration questions answered.
+  <div.faq-grid>
+  <div.faq-item>
+  <div.faq-q>
+  <div.faq-a>
+  <div.faq-item>
+  <div.faq-q>
+  <div.faq-a>
+  <div.faq-item>
+  <div.faq-q>
+  <div.faq-a>
+  <div.faq-item>
+  <div.faq-q>
+  <div.faq-a>
+  <div.faq-item>
+  <div.faq-q>
+  <div.faq-a>
+  <div.faq-item>
+  <div.faq-q>
+  <div.faq-a>
+  <div.cta-band>
+H2: Don't see your EHR? Let's talk.
+  P: We add new integrations regularly. If you're on an EHR not listed, reach out and we'll tell you what's possible.
+  <div.cta-buttons>
+  [LINK] "Talk to Our Integration Team →" -> #
+  [IMG] icon.png | "Scribble"
+  P: The Point-of-Care AI for home health. What your clinicians capture at the bedside drives everything that follows: documentation, billing, compliance, and care.
+H4: Product
+  [LINK] "How It Works" -> index.html
+  [LINK] "For Agencies" -> for-agencies.html
+  [LINK] "For Clinicians" -> for-clinicians.html
+  [LINK] "Integrations" -> integrations.html
+H4: Resources
+  [LINK] "Blog" -> resources.html
+  [LINK] "ROI Calculator" -> index.html#roi-calculator
+  [LINK] "Support" -> mailto:support@goscribble.ai
+H4: Company
+  [LINK] "About Us" -> about.html
+  [LINK] "Contact" -> #
+  [LINK] "LinkedIn" -> https://www.linkedin.com/company/goscribble/
+  P: © 2026 Scribble Labs Corp. · 5 Great Valley Pkwy, Suite 210, Malvern PA 19355
+  [LINK] "Privacy Policy" -> privacy-policy.html
+  [LINK] "Terms of Service" -> terms-of-service.html
+H2: See Scribble live in 20 minutes
+  P: We'll walk through your workflow, show Scribble live, and model the ROI for your agency size.
+  P: We respect your privacy. No spam, ever.
+H3: We received your request.
+  P: We'll be in touch within 1 business day. If you'd like to book a time now, pick a slot below.
+  [LINK] "Pick a Time for Your Demo →" -> https://meetings-na2.hubspot.com/andrew-ostrander?uuid=e7d6f1e5-a9a2-4609-82e4-6c83467d63bd
