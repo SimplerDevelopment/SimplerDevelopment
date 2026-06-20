@@ -188,8 +188,16 @@ async function smokeRoute(
     if (opts.allowDashboardRedirect) {
       const currentUrl = new URL(page.url());
       const path = currentUrl.pathname;
-      const validPath = path === route || path === '/portal/dashboard' || path.startsWith(route);
-      expect(validPath, `expected ${route} or /portal/dashboard, got ${path}`).toBe(true);
+      // An authenticated user hitting /portal/login is bounced to the portal —
+      // to the dashboard when onboarded, or to /portal/onboarding when not (the
+      // onboarding specs can leave client@example.com mid-wizard). All three are
+      // valid clean-load outcomes.
+      const validPath =
+        path === route ||
+        path === '/portal/dashboard' ||
+        path === '/portal/onboarding' ||
+        path.startsWith(route);
+      expect(validPath, `expected ${route}, /portal/dashboard or /portal/onboarding, got ${path}`).toBe(true);
     }
 
     await assertNoNextOverlay(page);
