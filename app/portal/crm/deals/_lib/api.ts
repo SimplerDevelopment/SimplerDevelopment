@@ -106,6 +106,12 @@ export async function fetchDeals(params: {
   const search = new URLSearchParams({
     pipelineId: String(params.pipelineId),
     status: params.status,
+    // The Kanban groups deals client-side, so it needs every deal in the
+    // pipeline — not just the API's default first page (limit=50), which
+    // silently hid deals in older stages once a pipeline exceeded 50 cards.
+    // Request the route's hard cap (200). TODO: per-stage pagination when a
+    // single pipeline can exceed 200 deals.
+    limit: '200',
   });
   for (const [fid, val] of Object.entries(params.customFilters)) {
     if (val) search.append('cf', `${fid}:${val}`);
