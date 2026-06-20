@@ -53,6 +53,15 @@ async function loginAsAdmin(page: Page) {
 test.describe('admin agentic-os @admin @agentic-os @critical', () => {
   test.describe.configure({ mode: 'serial' });
 
+  // Agentic OS is a local-dev-only surface: app/api/admin/agentic-os/route.ts
+  // (and the page) return 404 when !isLocalDev(), i.e. under a production build
+  // (`--mode=prod` / `next start`). Skip the whole suite when the feature is
+  // gated off so a prod-mode e2e run isn't red on a dev-only feature.
+  test.beforeEach(async ({ page }) => {
+    const res = await page.request.get('/api/admin/agentic-os');
+    test.skip(res.status() === 404, 'Agentic OS disabled in this build (isLocalDev gate)');
+  });
+
   test('catalog loads with heading, a domain section, and skill cards', async ({ page }) => {
     await loginAsAdmin(page);
     await page.goto('/admin/agentic-os', { waitUntil: 'domcontentloaded' });

@@ -119,6 +119,11 @@ if [[ "$LAYER" == "all" || "$LAYER" == "e2e" ]]; then
   # CI hosts without the `claude` CLI. Force it off so a developer's local
   # AGENTIC_OS_EXECUTOR_ENABLED=1 doesn't flip the run-drawer UI under test.
   export AGENTIC_OS_EXECUTOR_ENABLED=0
+  # In --mode=prod the server runs as a real production build, where Auth.js v5
+  # refuses requests from an untrusted Host (localhost) unless told to trust it.
+  # Dev mode auto-trusts localhost; prod does not. Without this every sign-in
+  # 500s with UntrustedHost and the whole suite goes red.
+  export AUTH_TRUST_HOST=true
   export NODE_V8_COVERAGE="$ROOT/coverage/.v8-server"
   if [[ "$NO_COVERAGE" == "1" ]]; then
     export COLLECT_CLIENT_COVERAGE=0
