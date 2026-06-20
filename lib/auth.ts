@@ -14,6 +14,17 @@ import { checkRateLimit, getClientIp } from '@/lib/security/rate-limit';
 const googleClientId = process.env.AUTH_GOOGLE_ID ?? process.env.GOOGLE_CLIENT_ID;
 const googleClientSecret = process.env.AUTH_GOOGLE_SECRET ?? process.env.GOOGLE_CLIENT_SECRET;
 
+// The credential brute-force guard buckets attempts per client IP. Under the
+// e2e suite every request originates from localhost (one bucket) and dozens of
+// specs each sign in, so the 10/15min limit trips almost immediately and turns
+// the whole auth-dependent suite red. Allow an explicit, opt-in bypass that is
+// OFF by default and only ever set by the test harness (`next dev` forces
+// NODE_ENV=development, so the harness exports DISABLE_AUTH_RATE_LIMIT=1). Unit
+// tests run with NODE_ENV=test (cf. lib/plugins/jwt.ts) and are covered too.
+// Production sets neither, so the guard stays fully active there.
+const AUTH_RATE_LIMIT_DISABLED =
+  process.env.DISABLE_AUTH_RATE_LIMIT === '1' || process.env.NODE_ENV === 'test';
+
 function safeCallbackUrl(raw: string | null | undefined): string {
   if (!raw) return '/portal/dashboard';
   // Reject absolute URLs and protocol-relative URLs.
@@ -42,7 +53,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         // Brute-force guard: throttle credential attempts per IP *before* any DB
         // hit or bcrypt compare. `request` is a standard Request in the
         // credentials flow; guard in case a future flow omits it.
-        if (request && !checkRateLimit(`${getClientIp(request as Request)}:login`, 10, 15 * 60 * 1000)) {
+        if (!AUTH_RATE_LIMIT_DISABLED && request && !checkRateLimit(`${getClientIp(request as Request)}:login`, 10, 15 * 60 * 1000)) {
           throw new Error('Too many sign-in attempts. Please wait a few minutes and try again.');
         }
 
