@@ -111,6 +111,7 @@ import {
 import { executeCampaignSend } from '@/lib/email/campaign-send';
 import { revoke as revokeGoogleToken } from '@/lib/google/oauth';
 import { getTenantWorkspaceCredentialsByClientId } from '@/lib/google/tenant-credentials';
+import { generateUniqueSubdomain, validateSubdomain, isSubdomainAvailable } from '@/lib/subdomain';
 import { stageOrApply } from '../pending-changes';
 import { mintLinkForResult, approvalEnvelope, createApprovalLink } from '../approval-links';
 import { publishBlocksUpdate } from '@/lib/realtime/internal-publisher';
@@ -152,6 +153,65 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
         .where(eq(clientWebsites.clientId, clientId))
         .orderBy(desc(clientWebsites.createdAt));
       return json(rows);
+    }
+  );
+
+  hasScope(ctx.scopes, 'sites:write') && server.registerTool(
+    'sites_create',
+    {
+      title: 'Create website',
+      description: 'Create a new website for the client. Generates a unique subdomain automatically unless one is provided.',
+      inputSchema: {
+        name: z.string().min(1),
+        domain: z.string().nullable().optional(),
+        description: z.string().nullable().optional(),
+        subdomain: z.string().optional(),
+      },
+    },
+    async (args) => {
+      if (!requireScope(ctx, 'sites:write')) return denied('sites:write');
+      if (!(await requireService(clientId, 'websites'))) return serviceDenied('websites');
+
+      let sub: string;
+      if (args.subdomain) {
+        const err = validateSubdomain(args.subdomain);
+        if (err) return json({ error: err });
+        if (!(await isSubdomainAvailable(args.subdomain))) return json({ error: 'subdomain taken' });
+        sub = args.subdomain;
+      } else {
+        sub = await generateUniqueSubdomain(ctx.client.company || 'site', args.name);
+      }
+
+      const result = await stageOrApply({
+        ctx,
+        entityType: 'site',
+        operation: 'create',
+        entityId: null,
+        summary: `Create website "${args.name}"`,
+        payload: {
+          name: args.name,
+          domain: args.domain ?? null,
+          description: args.description ?? null,
+          subdomain: sub,
+        },
+        apply: async () => {
+          const [row] = await db.insert(clientWebsites).values({
+            clientId,
+            name: args.name,
+            domain: args.domain ?? null,
+            description: args.description ?? null,
+            subdomain: sub,
+            vercelDomain: `${sub}.simplerdevelopment.com`,
+            deploymentStatus: 'pending',
+            active: true,
+          }).returning();
+          return row;
+        },
+      });
+      if (result.pending) return json({ pending: true, pendingId: result.pendingId, summary: result.summary, status: 'pending' });
+      revalidateForWrite('sites');
+      const { id, name, subdomain: siteSub, vercelDomain } = result.data;
+      return json({ id, name, subdomain: siteSub, vercelDomain });
     }
   );
 
@@ -1148,7 +1208,7 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
     {
       title: 'Update website settings',
       description:
-        'Update metadata on a client website (name, domain, description, active flag, public access gating). DNS/Vercel provisioning is not triggered by this tool — changes are persisted to the portal only.',
+        'Update metadata on a client website (name, domain, description, active flag, public access gating, preview code). DNS/Vercel provisioning is not triggered by this tool — changes are persisted to the portal only.',
       inputSchema: {
         id: z.number(),
         name: z.string().min(1).optional(),
@@ -1164,20 +1224,45 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
         // The `.int().positive()` chain emits proper number constraints
         // that the transport coerces correctly.
         brandingProfileId: z.number().int().positive().nullable().optional(),
+        previewCode: z.string().nullable().optional(),
       },
     },
-    async ({ id, ...rest }) => {
+    async ({ id, previewCode, ...rest }) => {
       if (!requireScope(ctx, 'sites:write')) return denied('sites:write');
       const [existing] = await db.select().from(clientWebsites)
         .where(and(eq(clientWebsites.id, id), eq(clientWebsites.clientId, clientId))).limit(1);
       if (!existing) return json({ error: 'Site not found' });
+
+      // Validate + resolve previewCode before entering stageOrApply, mirroring
+      // the PUT route — normalize → validate format → uniqueness check.
+      let resolvedPreviewCode: string | null | undefined = undefined; // undefined = not provided
+      if (previewCode !== undefined) {
+        if (previewCode === null || previewCode === '') {
+          resolvedPreviewCode = null;
+        } else {
+          const normalized = previewCode.trim().toUpperCase().replace(/\s+/g, '');
+          if (!/^[A-Z0-9-]{4,64}$/.test(normalized)) {
+            return json({ error: 'Preview code must be 4-64 chars (letters, numbers, hyphens).' });
+          }
+          const [clash] = await db
+            .select({ id: clientWebsites.id })
+            .from(clientWebsites)
+            .where(eq(clientWebsites.previewCode, normalized))
+            .limit(1);
+          if (clash && clash.id !== id) {
+            return json({ error: 'That preview code is already in use on another site.' });
+          }
+          resolvedPreviewCode = normalized;
+        }
+      }
+
       const result = await stageOrApply({
         ctx,
         entityType: 'site',
         operation: 'update',
         entityId: id,
         summary: `Update website "${existing.name}" settings`,
-        payload: { id, ...rest },
+        payload: { id, ...(resolvedPreviewCode !== undefined ? { previewCode: resolvedPreviewCode } : {}), ...rest },
         originalSnapshot: {
           name: existing.name,
           domain: existing.domain,
@@ -1185,10 +1270,14 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
           active: existing.active,
           publicAccess: existing.publicAccess,
           brandingProfileId: existing.brandingProfileId,
+          previewCode: existing.previewCode,
         },
         apply: async () => {
           const patch: Record<string, unknown> = { updatedAt: new Date() };
           for (const [k, v] of Object.entries(rest)) if (v !== undefined) patch[k] = v;
+          // previewCode handled explicitly (not via generic loop) — already
+          // normalized and validated above.
+          if (resolvedPreviewCode !== undefined) patch.previewCode = resolvedPreviewCode;
           const [row] = await db.update(clientWebsites).set(patch)
             .where(eq(clientWebsites.id, id)).returning();
           return row;
