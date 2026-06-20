@@ -12,21 +12,20 @@ sources:
 
 ## To Test
 
-- [ ] Auto-ingest connectors (Slack, Confluence, SharePoint)
-- [ ] ACL-aware retrieval (per-tenant scoping enforced)
-- [ ] Brain RAG → approval queue → publish loop
-- [ ] Governance entities: decisions, playbooks, goals CRUD
-- [ ] review-items approve mutation: POST /brain/review-items/[id]/approve commits AI-generated content to canonical data
-- [ ] review-items reject mutation: POST /brain/review-items/[id]/reject discards a pending review item
-- [ ] saved-searches CRUD lifecycle: create → list → update → delete a saved search filter
-- [ ] brain note custom fields: POST /brain/knowledge/[id]/fields creates a field value; PATCH updates it; DELETE removes it
-- [ ] topics attach + for-entity: POST /brain/topics/attach links a topic to a note/decision/initiative; GET /topics/for-entity returns attached topics
-- [ ] topics merge: POST /brain/topics/[id]/merge re-parents children and re-attaches entities then deletes source
-- [ ] org-unit merge: POST /brain/org-units/[id]/merge moves members and children to target then deletes source
-- [ ] task promote-to-kanban: POST /brain/tasks/[id]/promote-to-kanban creates a Kanban card and links back to the brain task
-- [ ] knowledge trash empty: POST /brain/knowledge/trash/empty hard-deletes all soft-deleted notes for the tenant
-- [ ] dataview structured query: GET /brain/dataview returns a cross-entity tabular result given a valid query payload
-- [ ] meeting full lifecycle: create via paste adapter → GET detail → PUT update → DELETE a real meeting (not 404 stubs)
+- [ ] Auto-ingest connectors (Slack, Confluence, SharePoint) — needs spec
+- [ ] ACL-aware retrieval (per-tenant scoping enforced) — needs spec
+- [ ] Brain RAG → approval queue → publish loop — needs spec
+- [ ] review-items approve mutation: POST /brain/review-items/[id]/approve commits AI-generated content to canonical data — needs spec
+- [ ] review-items reject mutation: POST /brain/review-items/[id]/reject discards a pending review item — needs spec
+- [ ] saved-searches CRUD lifecycle: create → list → update → delete a saved search filter — needs spec
+- [ ] brain note custom fields: POST /brain/knowledge/[id]/fields creates a field value; PATCH updates it; DELETE removes it — needs spec
+- [ ] topics attach + for-entity: POST /brain/topics/attach links a topic to a note/decision/initiative; GET /topics/for-entity returns attached topics — needs spec
+- [ ] topics merge: POST /brain/topics/[id]/merge re-parents children and re-attaches entities then deletes source — needs spec
+- [ ] org-unit merge: POST /brain/org-units/[id]/merge moves members and children to target then deletes source — needs spec
+- [ ] task promote-to-kanban: POST /brain/tasks/[id]/promote-to-kanban creates a Kanban card and links back to the brain task — needs spec
+- [ ] knowledge trash empty: POST /brain/knowledge/trash/empty hard-deletes all soft-deleted notes for the tenant — needs spec
+- [ ] dataview structured query: GET /brain/dataview returns a cross-entity tabular result given a valid query payload — needs spec
+- [ ] meeting full lifecycle: create via paste adapter → GET detail → PUT update → DELETE a real meeting (not 404 stubs) — needs spec
 
 ## Testing
 
@@ -41,6 +40,7 @@ sources:
 - [ ] ✓ verified 2026-06-20: brain/ask page loads clean (hydration fix applied)
 - [ ] ✓ verified 2026-06-20: knowledge note create→edit→delete→404 lifecycle verified
 - [ ] ✓ verified 2026-06-20: brain-agent SSE stream verified
+- [ ] ✓ verified 2026-06-20 — Governance entities: decisions, playbooks, goals CRUD (brain-decisions.spec.ts, brain-playbooks.spec.ts, brain-initiatives.spec.ts)
 
 ## Gaps Found
 

@@ -11,21 +11,19 @@ sources:
 
 ## To Test
 
-- [ ] Plugin install / uninstall lifecycle
-- [ ] Plugin entitlement gating
-- [ ] Plugin sandboxing (tenant isolation)
-- [ ] Extension marketplace browse + install
-- [ ] Installed apps gallery (/portal/apps) lists active plugins for entitled client
-- [ ] Plugin with status=draft or status=disabled returns 404 at /portal/apps/<slug>
-- [ ] Plugin callback endpoint rejects replay: second request with same JTI gets 409
-- [ ] Cron plugin-runs-drain transitions queued run to succeeded and persists resultId
-- [ ] Cron plugin-jobs-tick fires due job and bumps nextRunAt to next slot
-- [ ] draft-blog-post run kind produces a postcaptain_drafts row visible in /drafts UI
-- [ ] Extension API auth probe (/api/extension/v1/auth/test) returns session identity for authenticated portal user
-- [ ] Extension AI page extraction (/api/extension/v1/extract) returns structured entity from page content
-- [ ] Extension CRM contact creation from captured page context creates contact scoped to correct client
-- [ ] Extension Brain note creation (/api/extension/v1/notes) creates note scoped to correct client
-- [ ] Manifest scope-superset rejection: manifest requesting uncovered scope causes portal to refuse plugin load
+- [ ] Plugin install / uninstall lifecycle — needs spec
+- [ ] Plugin sandboxing (tenant isolation) — needs spec
+- [ ] Extension marketplace browse + install — needs spec
+- [ ] Plugin with status=draft or status=disabled returns 404 at /portal/apps/<slug> — needs spec
+- [ ] Plugin callback endpoint rejects replay: second request with same JTI gets 409 — needs spec
+- [ ] Cron plugin-runs-drain transitions queued run to succeeded and persists resultId — needs spec
+- [ ] Cron plugin-jobs-tick fires due job and bumps nextRunAt to next slot — needs spec
+- [ ] draft-blog-post run kind produces a postcaptain_drafts row visible in /drafts UI — needs spec
+- [ ] Extension API auth probe (/api/extension/v1/auth/test) returns session identity for authenticated portal user — needs spec
+- [ ] Extension AI page extraction (/api/extension/v1/extract) returns structured entity from page content — needs spec
+- [ ] Extension CRM contact creation from captured page context creates contact scoped to correct client — needs spec
+- [ ] Extension Brain note creation (/api/extension/v1/notes) creates note scoped to correct client — needs spec
+- [ ] Manifest scope-superset rejection: manifest requesting uncovered scope causes portal to refuse plugin load — needs spec
 
 ## Testing
 
@@ -36,6 +34,8 @@ sources:
 ## Passed
 
 - [ ] Plugin schema + entitlement infrastructure ✓
+- [ ] ✓ verified 2026-06-20 — Plugin entitlement gating (plugin-postcaptain-tools.spec.ts)
+- [ ] ✓ verified 2026-06-20 — Installed apps gallery (/portal/apps) lists active plugins for entitled client (plugin-postcaptain-tools.spec.ts)
 
 ## Gaps Found
 

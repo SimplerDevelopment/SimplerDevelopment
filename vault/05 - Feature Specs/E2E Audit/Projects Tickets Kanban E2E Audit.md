@@ -13,20 +13,20 @@ sources:
 
 ## To Test
 
-- [ ] Burndown / velocity reporting
-- [ ] SLA tracking on tickets
-- [ ] CSAT on ticket close
-- [ ] Time log entry and reporting
-- [ ] Recurrence and template creation
-- [ ] Card recurrences CRUD — POST/GET/DELETE /projects/[id]/recurrences, cadence validation, column-must-belong-to-project guard
-- [ ] Card templates standalone CRUD — POST/GET/DELETE /projects/[id]/card-templates and /card-templates/[id] outside the clone flow
-- [ ] Column create and delete — POST /projects/[id]/columns adds a new column; DELETE /projects/[id]/columns/[columnId] removes an empty one
-- [ ] Column reorder — POST /projects/[id]/columns/reorder persists display order
-- [ ] Project velocity/CFD/cycle-time analytics — GET /projects/[id]/velocity, /cfd, /cycle-time return 200 and a valid data shape for a project with sprint history
-- [ ] Project file attachments — POST/GET /projects/[id]/files scopes to tenant and rejects unauthenticated
-- [ ] Project artifacts link/unlink — POST/DELETE /projects/[id]/artifacts attaches and removes an artifact, tenancy-scoped
-- [ ] Ticket GET detail — GET /tickets/[id] returns the ticket with its message thread; cross-tenant ticket id returns 404
-- [ ] Kanban card comments tenancy — a card comment created on tenant A is not visible when fetching from tenant B's session
+- [ ] Burndown / velocity reporting — needs spec
+- [ ] SLA tracking on tickets — needs spec
+- [ ] CSAT on ticket close — needs spec
+- [ ] Time log entry and reporting — needs spec
+- [ ] Recurrence and template creation — needs spec
+- [ ] Card recurrences CRUD — POST/GET/DELETE /projects/[id]/recurrences, cadence validation, column-must-belong-to-project guard — needs spec
+- [ ] Card templates standalone CRUD — POST/GET/DELETE /projects/[id]/card-templates and /card-templates/[id] outside the clone flow — needs spec
+- [ ] Column create and delete — POST /projects/[id]/columns adds a new column; DELETE /projects/[id]/columns/[columnId] removes an empty one — needs spec
+- [ ] Column reorder — POST /projects/[id]/columns/reorder persists display order — needs spec
+- [ ] Project velocity/CFD/cycle-time analytics — GET /projects/[id]/velocity, /cfd, /cycle-time return 200 and a valid data shape for a project with sprint history — needs spec
+- [ ] Project file attachments — POST/GET /projects/[id]/files scopes to tenant and rejects unauthenticated — needs spec
+- [ ] Project artifacts link/unlink — POST/DELETE /projects/[id]/artifacts attaches and removes an artifact, tenancy-scoped — needs spec
+- [ ] Ticket GET detail — GET /tickets/[id] returns the ticket with its message thread; cross-tenant ticket id returns 404 — needs spec
+- [ ] Kanban card comments tenancy — a card comment created on tenant A is not visible when fetching from tenant B's session — needs spec
 
 ## Testing
 

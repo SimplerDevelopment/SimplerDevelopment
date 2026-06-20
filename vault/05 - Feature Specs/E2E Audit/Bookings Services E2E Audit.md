@@ -10,20 +10,19 @@ sources:
 
 ## To Test
 
-- [ ] External-calendar free/busy check (double-book prevention)
-- [ ] Reschedule flow
-- [ ] SMS reminder trigger
-- [ ] Gift certificate purchase + redemption
-- [ ] Waiver sign-on-book flow
-- [ ] Booking analytics API returns revenue/stats/byDay/byPage for date range
-- [ ] Booking calendar view returns enriched bookings list scoped to tenant pages
-- [ ] Check-in today list returns today's bookings with check-in status summary
-- [ ] Check-in by code marks booking checked-in; rejects already-checked-in (409)
-- [ ] Public cancel-by-token cancels booking; double-cancel returns 409
-- [ ] Discount code validation at booking — valid code applies, expired/exhausted code rejected
-- [ ] Add-ons from store products — POST from-products links product variants as add-ons
-- [ ] Individual booking status update (portal PUT /bookings/[bookingId]) — cancel, reassign
-- [ ] Public available-slots endpoint returns slot windows respecting availability config
+- [ ] External-calendar free/busy check (double-book prevention) — needs spec
+- [ ] Reschedule flow — needs spec
+- [ ] SMS reminder trigger — needs spec
+- [ ] Waiver sign-on-book flow — needs spec
+- [ ] Booking analytics API returns revenue/stats/byDay/byPage for date range — needs spec
+- [ ] Booking calendar view returns enriched bookings list scoped to tenant pages — needs spec
+- [ ] Check-in today list returns today's bookings with check-in status summary — needs spec
+- [ ] Check-in by code marks booking checked-in; rejects already-checked-in (409) — needs spec
+- [ ] Public cancel-by-token cancels booking; double-cancel returns 409 — needs spec
+- [ ] Discount code validation at booking — valid code applies, expired/exhausted code rejected — needs spec
+- [ ] Add-ons from store products — POST from-products links product variants as add-ons — needs spec
+- [ ] Individual booking status update (portal PUT /bookings/[bookingId]) — cancel, reassign — needs spec
+- [ ] Public available-slots endpoint returns slot windows respecting availability config — needs spec
 
 ## Testing
 
@@ -37,6 +36,7 @@ sources:
 - [ ] Public booking form /book/[slug] renders end-to-end ✓ (Phase 2 — screenshot audit-08-public-booking.png)
 - [ ] Gift certs, waivers, add-ons, approval-gated publish ✓
 - [ ] ✓ verified 2026-06-20: gift-cert issue→redeem→double-redeem lifecycle verified
+- [ ] ✓ verified 2026-06-20 — Gift certificate purchase + redemption (portal-gift-certs-mutations.spec.ts)
 
 ## Gaps Found
 

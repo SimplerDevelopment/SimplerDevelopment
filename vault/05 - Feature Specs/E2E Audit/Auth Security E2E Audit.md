@@ -11,23 +11,23 @@ sources:
 
 ## To Test
 
-- [ ] MFA enrollment + TOTP login flow
-- [ ] Platform-wide audit log writes on auth events
-- [ ] Rate limiting on /api/auth/reset and login endpoints
-- [ ] OAuth 2.1 server scoped sd_mcp_* token issuance
-- [ ] Self-serve signup flow — POST /api/auth/signup with valid inputs creates inactive user and triggers verification email
-- [ ] Email verification token — GET /api/auth/verify-email?token=<valid> activates user and allows login
-- [ ] Resend verification — POST /api/auth/resend-verification sends new token for unverified user
-- [ ] Google OAuth sign-in — provider callback creates or links user, session established
-- [ ] Admin deactivates user (active=false) — that user's next authenticated request returns 401 within REVALIDATE_MS window
-- [ ] Invite token acceptance — POST /api/portal/invite/accept with valid token activates invited user and allows login
-- [ ] Portal OAuth client CRUD — GET/POST/DELETE /api/portal/oauth-clients scoped to caller's tenant
-- [ ] OAuth access token revocation — DELETE /api/portal/oauth-tokens revokes token; subsequent MCP request returns 401
-- [ ] OAuth 2.1 discovery — GET /.well-known/oauth-authorization-server returns valid RFC 8414 metadata document
-- [ ] Admin role gate — client-role user directed to /portal/dashboard when attempting /admin routes
-- [ ] clientMembers viewer role enforcement — viewer-role member cannot create/edit kanban cards
-- [ ] API key scope enforcement — sd_mcp_* key with narrowly-scoped scopes is rejected by out-of-scope MCP tools
-- [ ] Admin impersonation start + stop — admin can impersonate a portal user and end the session via /api/portal/impersonate/stop
+- [ ] MFA enrollment + TOTP login flow — needs spec
+- [ ] Platform-wide audit log writes on auth events — needs spec
+- [ ] Rate limiting on /api/auth/reset and login endpoints — needs spec
+- [ ] OAuth 2.1 server scoped sd_mcp_* token issuance — needs spec
+- [ ] Self-serve signup flow — POST /api/auth/signup with valid inputs creates inactive user and triggers verification email — needs spec
+- [ ] Email verification token — GET /api/auth/verify-email?token=<valid> activates user and allows login — needs spec
+- [ ] Resend verification — POST /api/auth/resend-verification sends new token for unverified user — needs spec
+- [ ] Google OAuth sign-in — provider callback creates or links user, session established — needs spec
+- [ ] Admin deactivates user (active=false) — that user's next authenticated request returns 401 within REVALIDATE_MS window — needs spec
+- [ ] Invite token acceptance — POST /api/portal/invite/accept with valid token activates invited user and allows login — needs spec
+- [ ] Portal OAuth client CRUD — GET/POST/DELETE /api/portal/oauth-clients scoped to caller's tenant — needs spec
+- [ ] OAuth access token revocation — DELETE /api/portal/oauth-tokens revokes token; subsequent MCP request returns 401 — needs spec
+- [ ] OAuth 2.1 discovery — GET /.well-known/oauth-authorization-server returns valid RFC 8414 metadata document — needs spec
+- [ ] Admin role gate — client-role user directed to /portal/dashboard when attempting /admin routes — needs spec
+- [ ] clientMembers viewer role enforcement — viewer-role member cannot create/edit kanban cards — needs spec
+- [ ] API key scope enforcement — sd_mcp_* key with narrowly-scoped scopes is rejected by out-of-scope MCP tools — needs spec
+- [ ] Admin impersonation start + stop — admin can impersonate a portal user and end the session via /api/portal/impersonate/stop — needs spec
 
 ## Testing
 

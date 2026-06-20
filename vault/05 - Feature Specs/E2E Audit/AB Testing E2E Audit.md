@@ -13,19 +13,19 @@ sources:
 
 ## To Test
 
-- [ ] Sequential / valid-peeking statistics
-- [ ] Sample-ratio mismatch (SRM) guardrail
-- [ ] Experiment on rendered CMS block via visual editor
-- [ ] Per-tenant variant assignment isolation
-- [ ] Dynamic variant add / remove: auto-letter, control-arm protected, min-2-variant guard, blocked while running
-- [ ] Traffic split rebalance ("Rebalance to even") normalises weights to floor(100/N) per arm
-- [ ] PATCH status → archived transitions experiment out of active state
-- [ ] cta_click goal metric with goal_selector: AbGoalTracker fires goal event on matching CSS selector click
-- [ ] form_submit goal metric with goal_selector: goal event fires on matching form submission
-- [ ] blockTreeOverride non-null swap: public post SSR serves variant block tree, not control content
-- [ ] New Experiment modal on /portal/experiments: picker supports both page and pitch deck target types
-- [ ] Significance badge: hourglass shown below MIN_SAMPLE_PER_ARM, green-check shown once both arms ≥ 100 views
-- [ ] Cross-tenant access guard: experiment belonging to another client returns 404
+- [ ] Sequential / valid-peeking statistics — needs spec
+- [ ] Sample-ratio mismatch (SRM) guardrail — needs spec
+- [ ] Experiment on rendered CMS block via visual editor — needs spec
+- [ ] Per-tenant variant assignment isolation — needs spec
+- [ ] Dynamic variant add / remove: auto-letter, control-arm protected, min-2-variant guard, blocked while running — needs spec
+- [ ] Traffic split rebalance ("Rebalance to even") normalises weights to floor(100/N) per arm — needs spec
+- [ ] PATCH status → archived transitions experiment out of active state — needs spec
+- [ ] cta_click goal metric with goal_selector: AbGoalTracker fires goal event on matching CSS selector click — needs spec
+- [ ] form_submit goal metric with goal_selector: goal event fires on matching form submission — needs spec
+- [ ] blockTreeOverride non-null swap: public post SSR serves variant block tree, not control content — needs spec
+- [ ] New Experiment modal on /portal/experiments: picker supports both page and pitch deck target types — needs spec
+- [ ] Significance badge: hourglass shown below MIN_SAMPLE_PER_ARM, green-check shown once both arms ≥ 100 views — needs spec
+- [ ] Cross-tenant access guard: experiment belonging to another client returns 404 — needs spec
 
 ## Testing
 

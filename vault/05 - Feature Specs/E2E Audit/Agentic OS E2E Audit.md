@@ -12,19 +12,17 @@ sources:
 
 ## To Test
 
-- [ ] MCP-write agent actions across all 6 approval entity types
-- [ ] sd_mcp_* scoped token issuance + expiry
-- [ ] Agent action audit trail
-- [ ] Approval gate blocks unauthorized agent writes
-- [ ] Governed agent ops loop: generate → approve → publish
-- [ ] GET /api/admin/agentic-os/runs returns paginated run history with correct shape
-- [ ] GET /api/admin/agentic-os/runs/[id] returns single run row fields (skillId, status, output, exitCode)
-- [ ] POST /api/admin/agentic-os/runs/[id]/cancel returns 200 and flips status to cancelled
-- [ ] Non-admin (client) request to /api/admin/agentic-os returns 401 or 404
-- [ ] MCP ai_conversations_list tool returns only conversations scoped to the calling client
-- [ ] MCP ai_conversations_get tool returns 404 envelope for a foreign conversation id
-- [ ] DELETE /api/portal/ai/conversations/[id] removes the conversation and returns 200
-- [ ] Credits purchase: POST to buy a credit package succeeds and increments balance
+- [ ] sd_mcp_* scoped token issuance + expiry — needs spec
+- [ ] Agent action audit trail — needs spec
+- [ ] Governed agent ops loop: generate → approve → publish — needs spec
+- [ ] GET /api/admin/agentic-os/runs returns paginated run history with correct shape — needs spec
+- [ ] GET /api/admin/agentic-os/runs/[id] returns single run row fields (skillId, status, output, exitCode) — needs spec
+- [ ] POST /api/admin/agentic-os/runs/[id]/cancel returns 200 and flips status to cancelled — needs spec
+- [ ] Non-admin (client) request to /api/admin/agentic-os returns 401 or 404 — needs spec
+- [ ] MCP ai_conversations_list tool returns only conversations scoped to the calling client — needs spec
+- [ ] MCP ai_conversations_get tool returns 404 envelope for a foreign conversation id — needs spec
+- [ ] DELETE /api/portal/ai/conversations/[id] removes the conversation and returns 200 — needs spec
+- [ ] Credits purchase: POST to buy a credit package succeeds and increments balance — needs spec
 
 ## Testing
 
@@ -38,6 +36,8 @@ sources:
 - [ ] MCP-write surface + approval gate functional ✓
 - [ ] Scoped token issuance ✓
 - [ ] ✓ verified 2026-06-20: executor-disabled state verified (env parity fix applied)
+- [ ] ✓ verified 2026-06-20 — MCP-write agent actions across all 6 approval entity types (portal-mcp-approvals.spec.ts)
+- [ ] ✓ verified 2026-06-20 — Approval gate blocks unauthorized agent writes (portal-mcp-approvals.spec.ts)
 
 ## Gaps Found
 

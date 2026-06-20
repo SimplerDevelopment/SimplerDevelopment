@@ -11,24 +11,24 @@ sources:
 
 ## To Test
 
-- [ ] Storefront checkout golden-path (add to cart → payment → confirmation)
-- [ ] Abandoned-cart recovery email trigger
-- [ ] Automatic tax calculation
-- [ ] Wallet checkout (Apple Pay / Google Pay)
-- [ ] Printful POD order pipeline
-- [ ] PUT /store/orders/:id updates order status (pending → processing → shipped → delivered)
-- [ ] POST /store/orders/:id/note adds internal note to an order
-- [ ] GET /store/orders/:id/rates fetches EasyPost live shipping rate quotes for an order
-- [ ] POST /store/orders/:id/label purchases EasyPost shipping label and stores label URL + cost
-- [ ] POST /store/orders/:id/printful/submit sends order to Printful and records printfulOrderId
-- [ ] Public storefront customer register → login → JWT session flow
-- [ ] Public storefront cart: add item → update quantity → remove item → cart total reflects correctly
-- [ ] Public storefront discount validate: valid code reduces cart total; expired/invalid code returns error
-- [ ] Public storefront account order history returns orders belonging to authenticated customer only
-- [ ] Portal product review moderation: list pending reviews → approve one → reject one
-- [ ] Portal customer messages: list messages → post staff reply → status transitions to replied
-- [ ] Store BYOK Stripe config: PUT /store/stripe persists encrypted secret key; GET returns masked key and mode
-- [ ] Tenant isolation: store products and orders of site A are not accessible via portal session scoped to site B
+- [ ] Storefront checkout golden-path (add to cart → payment → confirmation) — needs spec
+- [ ] Abandoned-cart recovery email trigger — needs spec
+- [ ] Automatic tax calculation — needs spec
+- [ ] Wallet checkout (Apple Pay / Google Pay) — needs spec
+- [ ] Printful POD order pipeline — needs spec
+- [ ] PUT /store/orders/:id updates order status (pending → processing → shipped → delivered) — needs spec
+- [ ] POST /store/orders/:id/note adds internal note to an order — needs spec
+- [ ] GET /store/orders/:id/rates fetches EasyPost live shipping rate quotes for an order — needs spec
+- [ ] POST /store/orders/:id/label purchases EasyPost shipping label and stores label URL + cost — needs spec
+- [ ] POST /store/orders/:id/printful/submit sends order to Printful and records printfulOrderId — needs spec
+- [ ] Public storefront customer register → login → JWT session flow — needs spec
+- [ ] Public storefront cart: add item → update quantity → remove item → cart total reflects correctly — needs spec
+- [ ] Public storefront discount validate: valid code reduces cart total; expired/invalid code returns error — needs spec
+- [ ] Public storefront account order history returns orders belonging to authenticated customer only — needs spec
+- [ ] Portal product review moderation: list pending reviews → approve one → reject one — needs spec
+- [ ] Portal customer messages: list messages → post staff reply → status transitions to replied — needs spec
+- [ ] Store BYOK Stripe config: PUT /store/stripe persists encrypted secret key; GET returns masked key and mode — needs spec
+- [ ] Tenant isolation: store products and orders of site A are not accessible via portal session scoped to site B — needs spec
 
 ## Testing
 

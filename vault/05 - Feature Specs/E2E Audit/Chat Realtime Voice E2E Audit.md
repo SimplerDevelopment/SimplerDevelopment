@@ -11,24 +11,24 @@ sources:
 
 ## To Test
 
-- [ ] Yjs CRDT collab session (multi-user editing)
-- [ ] Chat widget Brain retrieval (brainEnabled flag wiring)
-- [ ] Voice call integration
-- [ ] Real-time presence indicators
-- [ ] POST /api/portal/voice/session rejects unauthenticated (401)
-- [ ] POST /api/portal/voice/session returns 402 when plan gate blocks or credits exhausted
-- [ ] POST /api/portal/voice/tool returns 400 for unknown tool name
-- [ ] POST /api/portal/voice/tool rejects unauthenticated (401)
-- [ ] POST /api/portal/voice/tool read tool executes immediately (no confirm phase, status=done)
-- [ ] POST /api/portal/voice/tool mutation tool first-phase returns needs_confirmation + confirmToken
-- [ ] POST /api/portal/voice/tool mutation tool second-phase with valid confirmToken returns status=done
-- [ ] POST /api/portal/voice/tool mutation tool tampered confirmToken returns 400
-- [ ] GET /api/public/chat/stream rejects missing or invalid visitor token (401)
-- [ ] DELETE /api/portal/realtime/comments/:id deletes a reply (author-only)
-- [ ] DELETE /api/portal/realtime/comments/:id on thread root cascades to all children
-- [ ] PATCH /api/portal/realtime/comments/:id body edit returns 403 for non-author
-- [ ] POST /api/realtime/token issues a valid JWT for entity type deck
-- [ ] POST /api/portal/realtime/comments creates comment with slideIndex anchor (deck entity)
+- [ ] Yjs CRDT collab session (multi-user editing) — needs spec
+- [ ] Chat widget Brain retrieval (brainEnabled flag wiring) — needs spec
+- [ ] Voice call integration — needs spec
+- [ ] Real-time presence indicators — needs spec
+- [ ] POST /api/portal/voice/session rejects unauthenticated (401) — needs spec
+- [ ] POST /api/portal/voice/session returns 402 when plan gate blocks or credits exhausted — needs spec
+- [ ] POST /api/portal/voice/tool returns 400 for unknown tool name — needs spec
+- [ ] POST /api/portal/voice/tool rejects unauthenticated (401) — needs spec
+- [ ] POST /api/portal/voice/tool read tool executes immediately (no confirm phase, status=done) — needs spec
+- [ ] POST /api/portal/voice/tool mutation tool first-phase returns needs_confirmation + confirmToken — needs spec
+- [ ] POST /api/portal/voice/tool mutation tool second-phase with valid confirmToken returns status=done — needs spec
+- [ ] POST /api/portal/voice/tool mutation tool tampered confirmToken returns 400 — needs spec
+- [ ] GET /api/public/chat/stream rejects missing or invalid visitor token (401) — needs spec
+- [ ] DELETE /api/portal/realtime/comments/:id deletes a reply (author-only) — needs spec
+- [ ] DELETE /api/portal/realtime/comments/:id on thread root cascades to all children — needs spec
+- [ ] PATCH /api/portal/realtime/comments/:id body edit returns 403 for non-author — needs spec
+- [ ] POST /api/realtime/token issues a valid JWT for entity type deck — needs spec
+- [ ] POST /api/portal/realtime/comments creates comment with slideIndex anchor (deck entity) — needs spec
 
 ## Testing
 

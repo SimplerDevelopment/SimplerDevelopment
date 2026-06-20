@@ -12,20 +12,20 @@ sources:
 
 ## To Test
 
-- [ ] Durable retry on workflow step failure
-- [ ] Branching / conditional logic in workflow
-- [ ] Loop / iteration step
-- [ ] enqueueWorkflowRunsForTrigger wired to live CRM events
-- [ ] send_email / add_to_list action kinds
-- [ ] Plain-English rule parser → workflow creation
-- [ ] Visual workflow CRUD: list, create blank, GET by id, DELETE
-- [ ] Visual workflow status transitions: draft → active → paused via PATCH
-- [ ] Visual workflow test-run endpoint returns completed status and step logs
-- [ ] Visual workflow run history: GET /workflows/[id]/runs returns runs array
-- [ ] Visual workflow templates: GET /workflows/templates returns template list; POST with templateId clones graph
-- [ ] Schedule preview: POST /automations/preview-schedule returns description + nextRunAt for valid schedule
-- [ ] GET /automations/[id] fetches single rule by id; 404 for unknown id
-- [ ] Scope-gated action denial: rule without required scope produces scope_denied log entry, not action execution
+- [ ] Durable retry on workflow step failure — needs spec
+- [ ] Branching / conditional logic in workflow — needs spec
+- [ ] Loop / iteration step — needs spec
+- [ ] enqueueWorkflowRunsForTrigger wired to live CRM events — needs spec
+- [ ] send_email / add_to_list action kinds — needs spec
+- [ ] Plain-English rule parser → workflow creation — needs spec
+- [ ] Visual workflow CRUD: list, create blank, GET by id, DELETE — needs spec
+- [ ] Visual workflow status transitions: draft → active → paused via PATCH — needs spec
+- [ ] Visual workflow test-run endpoint returns completed status and step logs — needs spec
+- [ ] Visual workflow run history: GET /workflows/[id]/runs returns runs array — needs spec
+- [ ] Visual workflow templates: GET /workflows/templates returns template list; POST with templateId clones graph — needs spec
+- [ ] Schedule preview: POST /automations/preview-schedule returns description + nextRunAt for valid schedule — needs spec
+- [ ] GET /automations/[id] fetches single rule by id; 404 for unknown id — needs spec
+- [ ] Scope-gated action denial: rule without required scope produces scope_denied log entry, not action execution — needs spec
 
 ## Testing
 

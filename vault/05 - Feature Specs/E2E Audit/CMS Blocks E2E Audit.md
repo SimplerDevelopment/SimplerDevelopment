@@ -10,20 +10,17 @@ sources:
 
 ## To Test
 
-- [ ] Reference fields between post types
-- [ ] Scheduled auto-publish (cron wired to CMS posts)
-- [ ] MCP-authored post → approval queue → publish flow
-- [ ] Block type registry: all registered types render correctly
-- [ ] Block template CRUD lifecycle: create → update → publish (draft to live) → delete
-- [ ] Block template fork: fork a platform-global template, customize, publish as tenant-private copy
-- [ ] Post fork (A/B variant): POST /api/portal/cms/websites/[siteId]/posts/[id]/fork creates a linked copy with parentPostId set
-- [ ] Post-type template: GET/PUT content-types/[typeId]/template round-trips block-tree JSON wrapper
-- [ ] Post custom field values: set + retrieve values on a post via /api/posts/[id]/custom-fields
-- [ ] Post SEO fields: create post with seoTitle, metaDescription, ogImage, canonicalUrl; verify retrieval
-- [ ] Per-site custom code: PUT /code, POST /code/publish, POST /code/discard lifecycle
-- [ ] Per-site tracking configuration: GET/PUT /tracking round-trips provider keys
-- [ ] HTML import (upload-html): POST /posts/upload-html creates a post from raw HTML with blocks parsed
-- [ ] Cross-tenant post isolation: a request from tenant B for a post owned by tenant A's site returns 403/404
+- [ ] Reference fields between post types — needs spec
+- [ ] Scheduled auto-publish (cron wired to CMS posts) — needs spec
+- [ ] Block template CRUD lifecycle: create → update → publish (draft to live) → delete — needs spec
+- [ ] Block template fork: fork a platform-global template, customize, publish as tenant-private copy — needs spec
+- [ ] Post fork (A/B variant): POST /api/portal/cms/websites/[siteId]/posts/[id]/fork creates a linked copy with parentPostId set — needs spec
+- [ ] Post-type template: GET/PUT content-types/[typeId]/template round-trips block-tree JSON wrapper — needs spec
+- [ ] Post SEO fields: create post with seoTitle, metaDescription, ogImage, canonicalUrl; verify retrieval — needs spec
+- [ ] Per-site custom code: PUT /code, POST /code/publish, POST /code/discard lifecycle — needs spec
+- [ ] Per-site tracking configuration: GET/PUT /tracking round-trips provider keys — needs spec
+- [ ] HTML import (upload-html): POST /posts/upload-html creates a post from raw HTML with blocks parsed — needs spec
+- [ ] Cross-tenant post isolation: a request from tenant B for a post owned by tenant A's site returns 403/404 — needs spec
 
 ## Testing
 
@@ -36,6 +33,9 @@ sources:
 - [ ] CMS post CRUD for entitled tenant ✓
 - [ ] Block JSON persistence and retrieval ✓
 - [ ] ✓ verified 2026-06-20: nav menu add/edit/nest persistence verified end-to-end
+- [ ] ✓ verified 2026-06-20 — MCP-authored post → approval queue → publish flow (portal-mcp-approvals.spec.ts)
+- [ ] ✓ verified 2026-06-20 — Block type registry: all registered types render correctly (visual-editor-blocks.spec.ts)
+- [ ] ✓ verified 2026-06-20 — Post custom field values: set + retrieve values on a post via /api/posts/[id]/custom-fields (custom-fields.spec.ts)
 
 ## Gaps Found
 

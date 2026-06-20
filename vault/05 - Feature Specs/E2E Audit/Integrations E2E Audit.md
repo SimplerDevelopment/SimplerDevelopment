@@ -9,21 +9,21 @@ sources: []
 
 ## To Test
 
-- [ ] Google OAuth token refresh + revocation (upstream)
-- [ ] Microsoft OAuth token refresh + revocation (upstream)
-- [ ] Encrypt refresh tokens at rest
-- [ ] Public outbound webhook delivery
-- [ ] Developer / headless content-delivery API
-- [ ] GET /api/portal/integrations/google/status returns tier + connection shape and 401 when unauthenticated
-- [ ] POST /api/portal/integrations/google/disconnect scrubs tokens locally and is idempotent on second call
-- [ ] GET /api/portal/integrations/microsoft/status returns configured flag + connection row and 401 when unauthenticated
-- [ ] POST /api/portal/integrations/microsoft/disconnect marks connection revoked locally and returns alreadyDisconnected on repeat
-- [ ] BYOK integrations API keys: POST creates encrypted key (keyPreview only returned, raw key never), GET lists with masked preview, DELETE removes
-- [ ] BYOK API key: POST rejects unsupported provider, wrong-prefix Anthropic key, and short key; POST gates AI providers behind Scale entitlement (403 on lower tier)
-- [ ] BYOK API key label PATCH updates label; PATCH returns 404 for unknown id; DELETE returns 404 for unknown id; both require auth
-- [ ] OAuth tokens: GET /api/portal/oauth-tokens lists tokens scoped to active client with clientName join; DELETE revokes a token and reflects revokedAt
-- [ ] Unified webhooks console: GET /api/portal/settings/webhooks aggregates project + survey webhooks for the active client and returns 401 unauthenticated
-- [ ] SD OAuth 2.1 discovery: GET /.well-known/oauth-authorization-server and /.well-known/oauth-protected-resource return valid JSON documents with required RFC fields
+- [ ] Google OAuth token refresh + revocation (upstream) — needs spec
+- [ ] Microsoft OAuth token refresh + revocation (upstream) — needs spec
+- [ ] Encrypt refresh tokens at rest — needs spec
+- [ ] Public outbound webhook delivery — needs spec
+- [ ] Developer / headless content-delivery API — needs spec
+- [ ] GET /api/portal/integrations/google/status returns tier + connection shape and 401 when unauthenticated — needs spec
+- [ ] POST /api/portal/integrations/google/disconnect scrubs tokens locally and is idempotent on second call — needs spec
+- [ ] GET /api/portal/integrations/microsoft/status returns configured flag + connection row and 401 when unauthenticated — needs spec
+- [ ] POST /api/portal/integrations/microsoft/disconnect marks connection revoked locally and returns alreadyDisconnected on repeat — needs spec
+- [ ] BYOK integrations API keys: POST creates encrypted key (keyPreview only returned, raw key never), GET lists with masked preview, DELETE removes — needs spec
+- [ ] BYOK API key: POST rejects unsupported provider, wrong-prefix Anthropic key, and short key; POST gates AI providers behind Scale entitlement (403 on lower tier) — needs spec
+- [ ] BYOK API key label PATCH updates label; PATCH returns 404 for unknown id; DELETE returns 404 for unknown id; both require auth — needs spec
+- [ ] OAuth tokens: GET /api/portal/oauth-tokens lists tokens scoped to active client with clientName join; DELETE revokes a token and reflects revokedAt — needs spec
+- [ ] Unified webhooks console: GET /api/portal/settings/webhooks aggregates project + survey webhooks for the active client and returns 401 unauthenticated — needs spec
+- [ ] SD OAuth 2.1 discovery: GET /.well-known/oauth-authorization-server and /.well-known/oauth-protected-resource return valid JSON documents with required RFC fields — needs spec
 
 ## Testing
 

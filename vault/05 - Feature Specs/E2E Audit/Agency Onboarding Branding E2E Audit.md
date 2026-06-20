@@ -9,18 +9,18 @@ sources: []
 
 ## To Test
 
-- [ ] White-label onboarding clone flow
-- [ ] Tiered entitlement provisioning for resold tenants
-- [ ] Brand profile creation → drives produce-on-brand pipeline
-- [ ] Stripe usage rebilling for resold tenants
-- [ ] POST /agency/custom-domain/verify returns 422 when TXT record not yet present (no domain registered → 400)
-- [ ] GET /agency/chrome returns populated chrome payload when whiteLabelEnabled=true (post-verified domain)
-- [ ] Onboarding brand-vibe + mission answers mirrored into branding_profiles / branding_messaging after wizard completion
-- [ ] MCP branding tools: branding_list_profiles, branding_get_profile, branding_update_profile return correct data under branding:read scope
-- [ ] MCP branding tools: branding_get_messaging, branding_update_messaging, branding_audit round-trip under correct scopes
-- [ ] MCP branding_check_contrast returns valid WCAG pass/fail for a given foreground+background pair
-- [ ] POST /agency/custom-domain rejects invalid/non-public domain (400) and domain already claimed by another tenant (409)
-- [ ] Brand style guide page renders (/portal/branding/profiles/[id]/guide) with correct color swatches and typography preview
+- [ ] White-label onboarding clone flow — needs spec
+- [ ] Tiered entitlement provisioning for resold tenants — needs spec
+- [ ] Brand profile creation → drives produce-on-brand pipeline — needs spec
+- [ ] Stripe usage rebilling for resold tenants — needs spec
+- [ ] POST /agency/custom-domain/verify returns 422 when TXT record not yet present (no domain registered → 400) — needs spec
+- [ ] GET /agency/chrome returns populated chrome payload when whiteLabelEnabled=true (post-verified domain) — needs spec
+- [ ] Onboarding brand-vibe + mission answers mirrored into branding_profiles / branding_messaging after wizard completion — needs spec
+- [ ] MCP branding tools: branding_list_profiles, branding_get_profile, branding_update_profile return correct data under branding:read scope — needs spec
+- [ ] MCP branding tools: branding_get_messaging, branding_update_messaging, branding_audit round-trip under correct scopes — needs spec
+- [ ] MCP branding_check_contrast returns valid WCAG pass/fail for a given foreground+background pair — needs spec
+- [ ] POST /agency/custom-domain rejects invalid/non-public domain (400) and domain already claimed by another tenant (409) — needs spec
+- [ ] Brand style guide page renders (/portal/branding/profiles/[id]/guide) with correct color swatches and typography preview — needs spec
 
 ## Testing
 
