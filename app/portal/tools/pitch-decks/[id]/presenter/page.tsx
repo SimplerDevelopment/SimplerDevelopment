@@ -92,6 +92,18 @@ export default function PresenterViewPage({ params }: { params: Promise<{ id: st
     );
   }
 
+  // A deck with no slides would make `deck.slides[current]` undefined and crash
+  // the render at `slide.blocks` (the optional chain is on `.blocks`, not the
+  // slide). Guard it with an empty state.
+  if (deck.slides.length === 0) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-[#1a1a2e] text-white gap-2">
+        <span className="material-icons text-4xl text-white/40">slideshow</span>
+        <p className="text-white/70">This deck has no slides yet.</p>
+      </div>
+    );
+  }
+
   const slide = deck.slides[current];
   const nextSlide = current < deck.slides.length - 1 ? deck.slides[current + 1] : null;
   const mins = Math.floor(elapsed / 60);

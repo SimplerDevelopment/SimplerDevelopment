@@ -9,7 +9,7 @@
  */
 'use client';
 
-import { useState, use } from 'react';
+import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
@@ -34,6 +34,11 @@ export default function EditBookingPage({ params }: { params: Promise<{ id: stri
 
   const [activeTab, setActiveTab] = useState<Tab>('settings');
   const [deleteConfirm, setDeleteConfirm] = useState(false);
+  // Resolve origin after mount — reading window.location during render makes the
+  // embed publicUrl/iframe text differ SSR vs client (React #418). Default '' so
+  // both render a relative URL, then fill in the origin client-side.
+  const [origin, setOrigin] = useState('');
+  useEffect(() => setOrigin(window.location.origin), []);
 
   if (state.loading) {
     return (
@@ -61,7 +66,6 @@ export default function EditBookingPage({ params }: { params: Promise<{ id: stri
     );
   }
 
-  const origin = typeof window !== 'undefined' ? window.location.origin : '';
   const publicUrl = `${origin}/book/${state.page.slug}`;
   const iframeCode = `<iframe src="${publicUrl}" style="width:100%;height:700px;border:none;border-radius:12px;" title="${state.title}"></iframe>`;
 

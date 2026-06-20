@@ -81,6 +81,11 @@ export default function SurveyDetailPage() {
   }, [pathname, router, searchParams]);
 
   const [tab, setTab] = useState<Tab>('overview');
+  // Resolve origin after mount — reading window.location during render makes the
+  // share URL text differ SSR vs client (React #418). Default '' so both render a
+  // relative URL, then fill in the origin client-side.
+  const [origin, setOrigin] = useState('');
+  useEffect(() => setOrigin(window.location.origin), []);
 
   // Editable fields hydrated from the loaded survey.
   const [editTitle, setEditTitle] = useState('');
@@ -198,8 +203,7 @@ export default function SurveyDetailPage() {
     );
   }
 
-  const publicUrl =
-    typeof window !== 'undefined' ? `${window.location.origin}/s/${survey.slug}` : `/s/${survey.slug}`;
+  const publicUrl = `${origin}/s/${survey.slug}`;
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
