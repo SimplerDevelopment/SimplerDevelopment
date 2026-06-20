@@ -7,7 +7,7 @@ date: 2026-06-20
 sources: []
 ---
 
-2026-06-20: @critical 510 pass (from 35). All consistent failures fixed across 12 commits; residual ~2-4 are dev-mode compile flakiness (pass in isolation; run --mode=prod for a clean gate).
+2026-06-20: @critical 510 pass dev / 508 pass prod-mode (from 35). PROD-MODE NOW RUNNABLE (next build + start) — needed AUTH_TRUST_HOST=true (Auth.js rejects untrusted localhost in prod) + skip the dev-only Agentic OS suite (isLocalDev gate → 404 in prod). Down to ONE consistent failure: route-smoke GET /portal/login emits a console/hydration error in prod (under investigation); everything else passes or is flaky-on-retry.
 
 ## To Test
 
@@ -47,6 +47,7 @@ sources: []
 - [ ] FIXED: brain knowledge GET returned 200 for soft-deleted notes — now 404 — `app/api/portal/brain/knowledge/[id]/route.ts`
 - [ ] FIXED: publishing — getPublishingSession resolves client via membership + routes re-throw redirect (307) instead of 500
 - [ ] FIXED: e2e harness/seed — admin user + owner membership + Publishing project + onboarding-complete seeded; auth rate-limit bypass; postText/switch-client/request harness fixes; executor=0 parity
+- [ ] FIXED: prod-mode (`--mode=prod`) e2e now runnable — `scripts/test.sh` exports `AUTH_TRUST_HOST=true` (Auth.js v5 rejects untrusted localhost Host in prod → every sign-in 500'd); `admin-agentic-os` spec probes the API and `test.skip()`s when it 404s (Agentic OS is a dev-only `isLocalDev` feature)
 
 ## Gaps Found
 
@@ -60,6 +61,7 @@ sources: []
 - [x] RESOLVED: Publishing API routes 500'd instead of 307/403 — `getPublishingSession()` now resolves the active client via `getPortalClient` (cookie → membership → ownership) and routes re-throw `redirect()` (new `isRedirectError`) so unauth emits 307. All 18 publishing @critical tests pass — see [[Sites Hosting Publishing E2E Audit]]
 - [x] RESOLVED: product-designer storefront POST `/designs` required `sessionId` in body and wrote the legacy `designs` table — now mints `sd_design_session` cookie + writes `productDesigns` table — see [[Storefront Commerce E2E Audit]]
 - [ ] OPEN: Dev-mode flakiness — route-smoke + a few baseline specs blip under Turbopack compile load; run @critical with --mode=prod for a deterministic gate
+- [ ] OPEN (real, prod-deterministic): route-smoke `GET /portal/login` emits a client console/hydration error in a production build (the last consistent @critical failure; ab-experiment row + integrations/api-keys smoke are flaky-on-retry) — see [[Auth Security E2E Audit]]
 - [ ] OPEN (env): realtime token route needs `REALTIME_JWT_SECRET` env var (now provided by `scripts/test.sh` for e2e runs) — see [[Chat Realtime Voice E2E Audit]]
 - [ ] OPEN (UI/known, triage-only): ab-experiment results-panel views/goals baseline; agency-white-label PATCH branding; admin-portal-invoices; admin agentic-os run-drawer load-flaky — classified UI-baseline, not product bugs
 
