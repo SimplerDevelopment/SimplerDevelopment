@@ -7,7 +7,7 @@ date: 2026-06-20
 sources: []
 ---
 
-2026-06-20: full @critical run 454 pass / 12 fail (from 35/294 before fixes this session). Isolated local Postgres, never staging. See fixes recorded in Passed lane below.
+2026-06-20: full @critical run 457 pass / 9 fail (from 35/294 before fixes this session). Isolated local Postgres, never staging. See fixes recorded in Passed lane below. Remaining 9 are UI-baseline snapshots + the product-designer /designs gap + the /portal/brain/ask console error.
 
 ## To Test
 
@@ -49,7 +49,7 @@ sources: []
 - [ ] INFRA: schema needs pgvector/pgcrypto/uuid-ossp pre-installed or ~150 tables silently drop — see [[Platform E2E Audit 2026-06-17]]
 - [ ] INFRA: `verify-db-target` prod-guard omits the `switchyard` host the committed `.env` points at — see [[Platform E2E Audit 2026-06-17]]
 - [ ] Cross-cutting competitive gaps: dunning, durable automation, MFA/audit log, SaaS-resell — see [[Competitive Gap Analysis 2026-06]]
-- [ ] OPEN (deferred by decision): Publishing API routes return 500 instead of 307/403 — `getPublishingSession()` leaks `redirect()` and resolves staff client cookie-only (`lib/publishing/active-client.ts`); 3 @critical tests still failing; tenancy-sensitive, product fix deferred — see [[Sites Hosting Publishing E2E Audit]]
+- [x] RESOLVED: Publishing API routes 500'd instead of 307/403 — `getPublishingSession()` now resolves the active client via `getPortalClient` (cookie → membership → ownership) and routes re-throw `redirect()` (new `isRedirectError`) so unauth emits 307. All 18 publishing @critical tests pass — see [[Sites Hosting Publishing E2E Audit]]
 - [ ] OPEN (real bug, larger): product-designer storefront POST `/designs` requires `sessionId` in body and writes the legacy `designs` table instead of minting the `sd_design_session` cookie + writing `productDesigns`; needs its own fix — see [[Storefront Commerce E2E Audit]]
 - [ ] OPEN (env): realtime token route needs `REALTIME_JWT_SECRET` env var (now provided by `scripts/test.sh` for e2e runs) — see [[Chat Realtime Voice E2E Audit]]
 - [ ] OPEN (UI/known, document only): `/portal/brain/ask` console pageerror; pitch-decks refactor-baseline save/open UI; surveys-detail analytics tab UI; admin agentic-os "Catalog mode" UI; websites-navigation baseline; ab-experiment results-panel views/goals; agency-white-label PATCH branding; admin-portal-invoices — remain failing, classified UI-baseline/needs-triage
