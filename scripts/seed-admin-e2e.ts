@@ -39,8 +39,11 @@ async function seedAdminE2E() {
       // Bookings
       bookingPages,
       bookings,
+      // Membership (portal active-client resolution)
+      clientMembers,
     } = await import('../lib/db/schema');
-    const { eq } = await import('drizzle-orm');
+    const { eq, and } = await import('drizzle-orm');
+    const { getOrCreatePublishingProject } = await import('../lib/publishing/bootstrap');
 
     // ── Find or create client ──────────────────────────────────────────────────
 
@@ -73,6 +76,52 @@ async function seedAdminE2E() {
     console.log('Client ready:', client.id);
 
     const clientId = client.id;
+
+    // ── Admin user + portal client context ──────────────────────────────────────
+    // The e2e fixtures' `adminApi` signs in as admin@example.com and hits
+    // /api/portal/* routes, which resolve the active client via team membership
+    // or ownership (lib/portal-client.ts → getPortalClients). A bare admin user
+    // has neither, so every adminApi portal call 404s ("Client not found").
+    // Provision the admin user here (test.sh only runs THIS seed for e2e) and
+    // make it an admin member of the demo client so the active-client resolver
+    // returns clientId for adminApi without needing the sd-active-client cookie.
+    const adminEmail = process.env.ADMIN_EMAIL || 'admin@example.com';
+    const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
+    const existingAdmin = await db.select().from(users).where(eq(users.email, adminEmail)).limit(1);
+    const [adminUser] = existingAdmin.length > 0
+      ? existingAdmin
+      : await db.insert(users).values({
+          name: 'Admin User',
+          email: adminEmail,
+          password: await hash(adminPassword, 10),
+          role: 'admin',
+          active: true,
+        }).returning();
+    console.log('Admin user ready:', adminUser.id);
+
+    // Idempotent membership wiring (unique index on clientId+userId).
+    const existingMembership = await db
+      .select()
+      .from(clientMembers)
+      .where(and(eq(clientMembers.clientId, clientId), eq(clientMembers.userId, adminUser.id)))
+      .limit(1);
+    if (existingMembership.length === 0) {
+      await db.insert(clientMembers).values({
+        clientId,
+        userId: adminUser.id,
+        // 'owner' so adminApi can exercise owner-gated flows (team invites,
+        // publishing manage_campaigns) — the demo client's underlying owner is
+        // the client user, but e2e drives these as the admin/owner persona.
+        role: 'owner',
+      });
+    }
+
+    // Bootstrap the Publishing project (+ Idea/Draft/In Review/Scheduled/Published
+    // columns) for the demo client. Idempotent (find-or-create). Unblocks the
+    // publishing calendar/campaign specs and gives the kanban-card specs a
+    // project with columns to resolve via getFirstColumnId.
+    const publishingProject = await getOrCreatePublishingProject(clientId, adminUser.id);
+    console.log('Publishing project ready:', publishingProject.id, `(${publishingProject.columns.length} columns)`);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // 1. CRM DATA

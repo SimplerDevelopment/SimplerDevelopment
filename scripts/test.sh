@@ -106,6 +106,15 @@ fi
 
 # ── Layer 3: E2E (Playwright) ───────────────────────────────────────────
 if [[ "$LAYER" == "all" || "$LAYER" == "e2e" ]]; then
+  # The credential brute-force guard buckets sign-in attempts per client IP.
+  # Every Playwright request comes from localhost (one bucket) and dozens of
+  # specs each sign in, so the 10/15min limit trips and turns the suite red.
+  # `next dev`/`next start` force NODE_ENV away from 'test', so opt the server
+  # into the explicit bypass here (lib/auth.ts). Never set in prod deploys.
+  export DISABLE_AUTH_RATE_LIMIT=1
+  # Realtime collab token route 503s without a signing secret. Provide a throwaway
+  # one for e2e so the @critical realtime spec can mint/verify tokens. Not a prod secret.
+  export REALTIME_JWT_SECRET="${REALTIME_JWT_SECRET:-e2e-realtime-secret}"
   export NODE_V8_COVERAGE="$ROOT/coverage/.v8-server"
   if [[ "$NO_COVERAGE" == "1" ]]; then
     export COLLECT_CLIENT_COVERAGE=0

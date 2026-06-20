@@ -82,4 +82,4 @@ export const test = base.extend<Fixtures>({
   },
 });
 
-export { expect } from '@playwright/test';
+export { expect, request } from '@playwright/test';

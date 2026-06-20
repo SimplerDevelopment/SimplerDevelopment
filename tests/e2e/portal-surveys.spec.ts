@@ -165,6 +165,7 @@ test.describe('Portal Surveys — CRUD @surveys @critical', () => {
 
     const res = await clientApi.get(`/api/portal/surveys/${result!.survey.id}/responses`);
     expect(res.status).toBe(200);
-    expect(Array.isArray(res.data.data)).toBe(true);
+    // The responses route returns { responses, stats, filters, sourcesPresent }.
+    expect(Array.isArray(res.data.data.responses)).toBe(true);
   });
 });

@@ -35,6 +35,22 @@ export class ApiClient {
       if (signInRes.status() >= 400) {
         throw new Error(`Login failed for ${this.email}: ${signInRes.status()}`);
       }
+
+      // Pin an active client. Most portal routes resolve the client via team
+      // membership/ownership, but cookie-only resolvers (e.g. the Publishing
+      // Command Center → getPublishingSession) need the `sd-active-client`
+      // cookie. Staff users have no implicit client, so resolve the accessible
+      // workspace and persist the cookie via switch-client (its Set-Cookie
+      // lands in this context's jar). No-op for users with no client.
+      const clientsRes = await this.ctx.get('/api/portal/clients');
+      if (clientsRes.ok()) {
+        const { activeClientId } = (await clientsRes.json().catch(() => ({}))) as {
+          activeClientId?: number | null;
+        };
+        if (activeClientId) {
+          await this.ctx.post('/api/portal/switch-client', { data: { clientId: activeClientId } });
+        }
+      }
     }
   }
 
@@ -85,6 +101,22 @@ export class ApiClient {
     return {
       status: res.status(),
       data: await res.json().catch(() => null),
+    };
+  }
+
+  /**
+   * POST and return the RAW response body as text (plus status + content-type).
+   * Used for streaming / non-JSON endpoints such as the Brain Agent SSE route
+   * (`text/event-stream`) where `.json()` would throw. Callers parse the SSE
+   * frames themselves.
+   */
+  async postText(path: string, body?: Record<string, unknown>) {
+    await this.ready;
+    const res = await this.ctx.post(path, { data: body });
+    return {
+      status: res.status(),
+      headers: res.headers(),
+      text: await res.text().catch(() => ''),
     };
   }
 
