@@ -35,6 +35,7 @@ sources:
 
 - [ ] CMS post CRUD for entitled tenant ✓
 - [ ] Block JSON persistence and retrieval ✓
+- [ ] ✓ verified 2026-06-20: nav menu add/edit/nest persistence verified end-to-end
 
 ## Gaps Found
 
@@ -42,6 +43,7 @@ sources:
 - [ ] No reference fields / relational content linking — see [[Competitive Gap Analysis 2026-06]]
 - [ ] Scheduled auto-publish not wired: cron exists, CMS hookup missing — see [[Competitive Gap Analysis 2026-06]]
 - [ ] Navigation publish/publish_all MCP tools have no e2e coverage — nav_publish and nav_publish_all exist in lib/mcp/tools/cms.ts but only flat CRUD is tested in portal-cms-navigation.spec.ts
+- [x] RESOLVED: insertLevel() dropped new menu items whose parent is an existing DB row — fixed — `app/api/portal/websites/[siteId]/navigation/route.ts`
 
 
 %% kanban:settings

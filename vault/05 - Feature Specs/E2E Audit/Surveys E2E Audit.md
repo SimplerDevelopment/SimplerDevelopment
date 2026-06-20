@@ -39,6 +39,7 @@ sources:
 
 - [ ] Survey CRUD for entitled tenant ✓
 - [ ] Native CRM routing, scoring, A/B ✓ (no Zapier hop required)
+- [ ] ✓ verified 2026-06-20: responses endpoint verified; analytics tab verified (TAB_INDEX fix applied)
 
 ## Gaps Found
 

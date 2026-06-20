@@ -39,6 +39,7 @@ sources:
 ## Passed
 
 - [ ] Storefront product catalog renders for entitled tenant ✓
+- [ ] ✓ verified 2026-06-20: product-designer /designs POST+GET lifecycle — sd_design_session cookie minted, productDesigns table written, GET returns session-scoped design list
 
 ## Gaps Found
 
@@ -51,6 +52,7 @@ sources:
 - [ ] EasyPost label purchase and Printful submit flows have no integration or E2E tests despite being wired routes
 - [ ] `store_product_reviews` and `store_customer_messages` tables have no E2E tests despite MCP tools and portal routes existing
 - [ ] Magamommy autonomous pipeline (lib/magamommy/) has zero unit/integration/E2E coverage — noted in lib/magamommy/README.md
+- [x] RESOLVED: product-designer /designs POST required sessionId in body and wrote legacy designs table — now mints sd_design_session cookie + writes productDesigns table — `app/api/storefront/[siteId]/designs/route.ts`
 
 
 %% kanban:settings

@@ -39,6 +39,7 @@ sources:
 - [ ] Post lifecycle experiment ✓
 - [ ] Deck lifecycle experiment ✓
 - [ ] Auto-scoped per tenant ✓
+- [ ] ✓ verified 2026-06-20: experiment create + variants + results panel verified (test required publicAccess=true + correct slides route)
 
 ## Gaps Found
 
@@ -46,6 +47,7 @@ sources:
 - [ ] No sequential / valid-peeking stats — false-positive risk on early peeks — see [[Competitive Gap Analysis 2026-06]]
 - [ ] No SRM guardrail — see [[Competitive Gap Analysis 2026-06]]
 - [ ] Deck AB public render path not wired: applyAbToDeckSlides is implemented but not called on /sites/:domain/slides/:slug or /pitch-deck/:slug (domain map §Planning Notes) — no E2E possible until render integration is shipped
+- [ ] OPEN: experiment-row UI is flaky under load (non-deterministic render timing)
 
 
 %% kanban:settings

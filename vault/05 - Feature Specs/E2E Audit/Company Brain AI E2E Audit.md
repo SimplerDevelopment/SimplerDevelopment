@@ -38,16 +38,20 @@ sources:
 
 - [ ] Brain decisions/documents/glossary/initiatives/knowledge specs — pass with BRAIN_ENTITLEMENT_BYPASS ✓
 - [ ] "Connect AI" state renders for non-entitled tenant ✓
+- [ ] ✓ verified 2026-06-20: brain/ask page loads clean (hydration fix applied)
+- [ ] ✓ verified 2026-06-20: knowledge note create→edit→delete→404 lifecycle verified
+- [ ] ✓ verified 2026-06-20: brain-agent SSE stream verified
 
 ## Gaps Found
 
 - [ ] e2e seed lacks entitlements (402 / BRAIN_NOT_ENTITLED) — see [[Platform E2E Audit 2026-06-17]]
-- [ ] /portal/brain/ask renders with 1 console error (to triage) — Phase 2 finding — see [[Platform E2E Audit 2026-06-17]]
 - [ ] No auto-ingest connectors (Slack/Confluence/SharePoint) — see [[Competitive Gap Analysis 2026-06]]
 - [ ] No ACL-aware retrieval across tenant boundaries — see [[Competitive Gap Analysis 2026-06]]
 - [ ] review-items approve/reject have no e2e mutation test — GET /review list is covered but no spec drives approve or reject through the human review queue
 - [ ] meetings detail lifecycle is stub-only — only 404 probes exist for PUT/DELETE; no spec creates a real meeting then updates/deletes it via the [id] routes
 - [ ] brain note custom fields (/knowledge/[id]/fields) have no e2e coverage despite real routes and schema existing in brain.ts
+- [x] RESOLVED: /portal/brain/ask console pageerror — window.origin read moved out of render into useEffect — `app/portal/brain/ask/page.tsx`
+- [x] RESOLVED: brain knowledge GET returned 200 for soft-deleted notes — now 404 — `app/api/portal/brain/knowledge/[id]/route.ts`
 
 
 %% kanban:settings

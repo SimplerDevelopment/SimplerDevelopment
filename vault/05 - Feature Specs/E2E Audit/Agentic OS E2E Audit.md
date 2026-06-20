@@ -37,6 +37,7 @@ sources:
 - [ ] Agentic OS admin panel renders ✓
 - [ ] MCP-write surface + approval gate functional ✓
 - [ ] Scoped token issuance ✓
+- [ ] ✓ verified 2026-06-20: executor-disabled state verified (env parity fix applied)
 
 ## Gaps Found
 
@@ -44,6 +45,7 @@ sources:
 - [ ] Domain was not audited in Phase 3 competitive pass — gap data incomplete — see [[Competitive Gap Analysis 2026-06]]
 - [ ] PATCH /api/portal/ai/conversations/[id] (rename) not yet implemented — sentinel in portal-ai-extras.spec.ts
 - [ ] Agentic OS local-dev-only gate (isLocalDev) not exercised at e2e layer — only unit-tested via mock; staging deploy exposure is unverified
+- [ ] OPEN: run-drawer is load-flaky under Turbopack compile pressure (non-deterministic)
 
 
 %% kanban:settings

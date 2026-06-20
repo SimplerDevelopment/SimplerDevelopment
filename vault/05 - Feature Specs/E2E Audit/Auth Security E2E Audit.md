@@ -39,6 +39,7 @@ sources:
 
 - [ ] NextAuth login → portal dashboard ✓ (Phase 2 MCP pass)
 - [ ] scoped MCP token issuance for agent access ✓
+- [ ] ✓ verified 2026-06-20: login flow verified; rate-limiter bypass wired (DISABLE_AUTH_RATE_LIMIT); onboarding-complete seeded + verified
 
 ## Gaps Found
 
@@ -49,6 +50,7 @@ sources:
 - [ ] OAuth 2.1 consent screen (/oauth/authorize) has no e2e test — entire user-facing consent flow is untested
 - [ ] Self-serve signup + email verification funnel has no e2e test despite routes being live (/api/auth/signup, /api/auth/verify-email, /api/auth/resend-verification)
 - [ ] Admin impersonation (/api/portal/impersonate/status + /stop) has no e2e coverage
+- [x] RESOLVED: credential brute-force rate-limiter blocked entire suite under localhost parallelism — DISABLE_AUTH_RATE_LIMIT bypass added to `lib/auth.ts` and wired into `scripts/test.sh`
 
 
 %% kanban:settings

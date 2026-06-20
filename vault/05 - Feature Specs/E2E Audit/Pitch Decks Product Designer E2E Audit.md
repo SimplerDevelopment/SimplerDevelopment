@@ -38,6 +38,7 @@ sources:
 
 - [ ] Pitch decks render for entitled tenant ✓ (redirects to /portal/crm/proposals?tab=decks — Phase 2 MCP pass — screenshot audit-04-pitch-decks.png)
 - [ ] Draft/live approval gate and brand-shared blocks ✓
+- [ ] ✓ verified 2026-06-20: deck open/render verified; save-button transitions Update→Saved confirmed
 
 ## Gaps Found
 
@@ -47,6 +48,7 @@ sources:
 - [ ] No e2e coverage for /designs/[id]/ai-image or /designs/[id]/ai-text endpoints — AI-assisted layer generation untested end-to-end
 - [ ] No e2e coverage for /designs/generate-thumbnail endpoint — thumbnail generation path has no automated test
 - [ ] No e2e test for claim anonymous design flow (POST /designs/claim) after customer login — cookie-to-customer handoff is untested
+- [x] RESOLVED: collabActive was `ydoc!==null` (always true) permanently suppressing the unsaved-changes flag — now keyed to ws-connected — `usePitchDeckState.ts`
 
 
 %% kanban:settings

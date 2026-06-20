@@ -36,6 +36,7 @@ sources:
 - [ ] Booking service renders for entitled tenant ✓ (Phase 2 MCP pass — screenshot audit-05-booking.png)
 - [ ] Public booking form /book/[slug] renders end-to-end ✓ (Phase 2 — screenshot audit-08-public-booking.png)
 - [ ] Gift certs, waivers, add-ons, approval-gated publish ✓
+- [ ] ✓ verified 2026-06-20: gift-cert issue→redeem→double-redeem lifecycle verified
 
 ## Gaps Found
 
@@ -45,6 +46,7 @@ sources:
 - [ ] No SMS reminders — see [[Competitive Gap Analysis 2026-06]]
 - [ ] No waiver PDF generation test — /waivers/[waiverId]/pdf route untested
 - [ ] No public quote view + payment flow test — /api/public/booking/quote/[slug] and /pay untested
+- [x] RESOLVED: booking page POST silently dropped price/enableGiftCertificates (+25 fields) on create — now forwarded — `app/api/portal/tools/booking/route.ts`
 
 
 %% kanban:settings

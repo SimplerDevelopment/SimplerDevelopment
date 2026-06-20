@@ -40,14 +40,15 @@ sources:
 - [ ] Tickets CRUD for entitled tenant ✓
 - [ ] Assignees / watchers ✓
 - [ ] Time logs, recurrences, templates, dependencies ✓ (base-tier, no paywall)
+- [ ] ✓ verified 2026-06-20: card CRUD verified; publishing columns verified (seed bootstrap fix applied)
 
 ## Gaps Found
 
 - [ ] e2e seed lacks entitlements (402) — see [[Platform E2E Audit 2026-06-17]]
-- [ ] "No project columns available for test" error observed in Phase 1 — see [[Platform E2E Audit 2026-06-17]]
-- [ ] "Publishing project not found after bootstrap" error observed in Phase 1 — see [[Platform E2E Audit 2026-06-17]]
 - [ ] No burndown / velocity reporting — see [[Competitive Gap Analysis 2026-06]]
 - [ ] No SLA / CSAT on tickets — see [[Competitive Gap Analysis 2026-06]]
+- [x] RESOLVED: "No project columns available for test" — seed now bootstraps a Publishing project + columns and wires admin client membership — `scripts/seed-admin-e2e.ts`
+- [x] RESOLVED: "Publishing project not found after bootstrap" — same seed fix — `scripts/seed-admin-e2e.ts`
 
 
 %% kanban:settings

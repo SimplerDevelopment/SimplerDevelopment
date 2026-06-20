@@ -40,6 +40,7 @@ sources:
 
 - [ ] Site renders for entitled tenant via domain resolver ✓
 - [ ] Public booking form /book/[slug] renders end-to-end ✓ (Phase 2)
+- [ ] ✓ verified 2026-06-20: nav menu add/edit/nest persistence verified; all 18 publishing @critical tests pass
 
 ## Gaps Found
 
@@ -47,6 +48,7 @@ sources:
 - [ ] No true staging environment (preview token ≠ staging branch) — see [[Competitive Gap Analysis 2026-06]]
 - [ ] No automated backups / auto-rollback on failed publish — see [[Competitive Gap Analysis 2026-06]]
 - [ ] Scheduled auto-publish cron not wired to CMS posts — see [[Competitive Gap Analysis 2026-06]]
+- [x] RESOLVED: Publishing API routes 500'd instead of 307/403 — getPublishingSession() now resolves active client via membership + routes re-throw redirect() so unauth emits 307 — see [[00 - E2E Audit Index]]
 
 
 %% kanban:settings
