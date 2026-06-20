@@ -7,7 +7,7 @@ date: 2026-06-20
 sources: []
 ---
 
-2026-06-20: @critical prod-mode (next build + start) — ALL consistent failures resolved. PROD-MODE made runnable: AUTH_TRUST_HOST=true (Auth.js rejects untrusted localhost in prod) + skip dev-only Agentic OS (isLocalDev gate → 404 in prod) + route-smoke /portal/login accepts the /portal/onboarding redirect (un-onboarded user lands there). Remaining run-level blips (ab-experiment UI row, integrations/api-keys smoke) are flaky-on-retry only — each passes in isolation.
+2026-06-20: @critical prod-mode (next build + start) — 548 pass; all consistent failures resolved. Latest canonical gate fixes: api-keys #418 hydration (product) + route-smoke now ignores collab-WS connection-refused noise (the ws://localhost:3030 realtime server isn't part of the e2e harness). Remaining blips (ab-experiment row, agency-branding PATCH) are flaky-on-retry only. PROD-MODE made runnable: AUTH_TRUST_HOST=true (Auth.js rejects untrusted localhost in prod) + skip dev-only Agentic OS (isLocalDev gate → 404 in prod) + route-smoke /portal/login accepts the /portal/onboarding redirect (un-onboarded user lands there). Remaining run-level blips (ab-experiment UI row, integrations/api-keys smoke) are flaky-on-retry only — each passes in isolation.
 
 ## To Test
 

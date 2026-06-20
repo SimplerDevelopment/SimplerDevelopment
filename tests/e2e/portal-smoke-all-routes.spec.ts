@@ -83,6 +83,15 @@ function isIgnorableConsoleMsg(text: string): boolean {
   if (lower.includes('clientfetcherror') && lower.includes('failed to fetch')) {
     return true;
   }
+  // Realtime-collab WebSocket connection failures. The live collab server
+  // (NEXT_PUBLIC_REALTIME_URL, default ws://localhost:3030) is a separate
+  // process that is NOT part of the e2e harness, so the deck/editor pages log
+  // a browser-level "WebSocket connection to ... failed: ERR_CONNECTION_REFUSED"
+  // on mount. That is an environmental gap, not an app bug — collab degrades
+  // gracefully without it. Narrow match so any other WS error still trips.
+  if (lower.includes('websocket connection to') && lower.includes('failed')) {
+    return true;
+  }
   return false;
 }
 
