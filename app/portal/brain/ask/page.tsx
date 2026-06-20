@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import McpApiKeysManager from '@/components/portal/McpApiKeysManager';
 import OAuthTokensManager from '@/components/portal/OAuthTokensManager';
 
@@ -17,9 +17,14 @@ export default function ConnectAiPage() {
   const [tab, setTab] = useState<ClientId>('claude-web');
   const [origin, setOrigin] = useState('https://simplerdevelopment.com');
 
-  if (typeof window !== 'undefined' && origin === 'https://simplerdevelopment.com' && window.location.origin !== origin) {
-    setOrigin(window.location.origin);
-  }
+  // Detect the actual origin client-side to avoid hardcoding the domain.
+  // Must be in useEffect (not render body) to prevent a hydration mismatch.
+  useEffect(() => {
+    if (window.location.origin !== origin) {
+      setOrigin(window.location.origin);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const endpoint = `${origin}/api/mcp`;
 

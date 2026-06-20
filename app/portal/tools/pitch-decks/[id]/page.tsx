@@ -108,7 +108,7 @@ function PitchDeckEditorContent({ id }: { id: string }) {
   const {
     deck, setDeck, loading, error, setError,
     hasUnsavedChanges, setHasUnsavedChanges, saving, setSaving, publishing, setPublishing,
-  } = usePitchDeckState(id, { ydoc: collab.ydoc });
+  } = usePitchDeckState(id, { ydoc: collab.ydoc, collabEnabled: collab.enabled });
 
   // Container for the active slide's preview area — DeckSlideCursors uses
   // its bounding rect to normalize cursor coordinates.
