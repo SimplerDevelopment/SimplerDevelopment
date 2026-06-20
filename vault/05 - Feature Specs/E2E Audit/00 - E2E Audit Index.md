@@ -62,7 +62,9 @@ sources: []
 - [x] RESOLVED: product-designer storefront POST `/designs` required `sessionId` in body and wrote the legacy `designs` table — now mints `sd_design_session` cookie + writes `productDesigns` table — see [[Storefront Commerce E2E Audit]]
 - [ ] OPEN: Dev-mode flakiness — route-smoke + a few baseline specs blip under Turbopack compile load; run @critical with --mode=prod for a deterministic gate
 - [x] RESOLVED: route-smoke `GET /portal/login` failed because an authenticated client with incomplete onboarding is bounced to `/portal/onboarding` (the onboarding specs leave client@example.com mid-wizard). The smoke check now accepts `/portal/onboarding` as a valid clean-load landing — see [[Auth Security E2E Audit]]
-- [ ] OPEN (flaky-only): ab-experiment "UI experiment row" + route-smoke `/portal/integrations/api-keys` blip under full-suite load but pass in isolation (and on retry) — timing, not product bugs
+- [x] RESOLVED (real prod hydration bug): route-smoke `/portal/settings/api-keys` threw React #418 (server text didn't match client) — the MCP endpoint `<code>` read `window.location.origin` during render. Now defaults to '' (SSR + first paint both render `/api/mcp`) and fills the origin in `useEffect` — `app/portal/settings/api-keys/page.tsx` — see [[Auth Security E2E Audit]]
+- [ ] OPEN (flaky-only): ab-experiment "UI experiment row" + agency-white-label branding PATCH blip under full-suite load but pass in isolation (and on retry) — timing, not product bugs
+- [ ] WATCH: same `window.location.origin`-in-render pattern also present in `tools/booking/[id]` + `surveys/[id]` (dynamic routes, not yet smoke-surfaced) — fix with the useEffect-origin pattern if they ever fail #418
 - [ ] OPEN (env): realtime token route needs `REALTIME_JWT_SECRET` env var (now provided by `scripts/test.sh` for e2e runs) — see [[Chat Realtime Voice E2E Audit]]
 - [ ] OPEN (UI/known, triage-only): ab-experiment results-panel views/goals baseline; agency-white-label PATCH branding; admin-portal-invoices; admin agentic-os run-drawer load-flaky — classified UI-baseline, not product bugs
 

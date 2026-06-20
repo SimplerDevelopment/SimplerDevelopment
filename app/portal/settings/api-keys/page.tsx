@@ -67,6 +67,13 @@ function ByokChecklist() {
 }
 
 export default function ApiKeysPage() {
+  // Resolve the MCP endpoint origin after mount. Reading window.location during
+  // render makes SSR ('/api/mcp') and the client's first paint ('<origin>/api/mcp')
+  // disagree → React #418 hydration text mismatch. Default to '' so both render
+  // '/api/mcp', then fill in the origin client-side.
+  const [origin, setOrigin] = useState('');
+  useEffect(() => setOrigin(window.location.origin), []);
+
   return (
     <div className="space-y-6">
       <ByokChecklist />
@@ -81,7 +88,7 @@ export default function ApiKeysPage() {
         <h3 className="font-medium">Connect to Claude</h3>
         <p className="text-muted-foreground">MCP endpoint:</p>
         <code className="block p-2 bg-muted rounded text-xs break-all">
-          {typeof window !== 'undefined' ? `${window.location.origin}/api/mcp` : '/api/mcp'}
+          {origin}/api/mcp
         </code>
         <p className="text-muted-foreground mt-2">
           Claude.ai web users can paste this URL into <strong>Settings → Connectors → Add custom connector</strong> with no API key.
