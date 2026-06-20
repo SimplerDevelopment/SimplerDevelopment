@@ -19,6 +19,18 @@ sources:
 - [ ] Automated reminder nudges for pending approvals
 - [ ] All 6 approval entity types via public /approve/[token] (post, deck, email, contract, form, booking)
 - [ ] Orphaned/stale pending-change graceful error state
+- [ ] Public /api/approve/[token] POST approve via token link (non-authenticated reviewer approves; side-effect publishes entity)
+- [ ] Public /api/approve/[token] POST reject via token link (reviewer rejects; link status flips to rejected, entity unchanged)
+- [ ] approvals_get MCP tool returns diff and payload for a pending change
+- [ ] approvals_reject MCP tool marks pending as rejected and verifies entity not applied
+- [ ] Survey entity type via public /approve/[token]: approval flips survey status to active
+- [ ] Booking page entity type via public /approve/[token]: approval flips booking_page active=true
+- [ ] Block template entity type via public /approve/[token]: draft overlay is promoted to live on approval
+- [ ] mcp_approval_links expiresAt enforcement: expired token returns 400/410, cannot be used to approve
+- [ ] Native contract send path (/api/portal/crm/contracts/[id]/send): sends per-signer emails, sets status=sent, records documentHash
+- [ ] Public contract viewer /contract/[token]: page loads for valid signer token; 404 for unknown token
+- [ ] Admin cross-tenant approvals inbox (/api/admin/approvals): lists pending changes across tenants; approve/reject via admin route
+- [ ] GET /api/portal/approvals?status=applied returns only applied records (status filter coverage)
 
 ## Testing
 
@@ -38,6 +50,9 @@ sources:
 - [ ] Public /approve endpoint 500s on orphaned/stale pending-change dependency (stale email_lists row) — robustness gap, not just env artifact — see [[Platform E2E Audit 2026-06-17]]
 - [ ] No signer identity verification (OTP/KBA) — identity-assurance gap shared with Auth — see [[Competitive Gap Analysis 2026-06]]
 - [ ] No reminder nudges for pending approvals — see [[Competitive Gap Analysis 2026-06]]
+- [ ] No e2e test exercises the public /api/approve/[token] route at all — the token-link approval path (entity and pending_change link types) is entirely uncovered at the e2e layer despite being the external-reviewer entry point
+- [ ] crm_contract_templates has schema and CRUD data but no API routes (app/api/portal/crm/contract-templates/ absent) — cannot be tested until routes are scaffolded
+- [ ] Cross-tenant token isolation has no e2e gate: a token minted for client A should 404/403 when called from client B session; currently only enforced by unit tests on the route handler
 
 
 %% kanban:settings

@@ -15,6 +15,15 @@ sources:
 - [ ] SMS reminder trigger
 - [ ] Gift certificate purchase + redemption
 - [ ] Waiver sign-on-book flow
+- [ ] Booking analytics API returns revenue/stats/byDay/byPage for date range
+- [ ] Booking calendar view returns enriched bookings list scoped to tenant pages
+- [ ] Check-in today list returns today's bookings with check-in status summary
+- [ ] Check-in by code marks booking checked-in; rejects already-checked-in (409)
+- [ ] Public cancel-by-token cancels booking; double-cancel returns 409
+- [ ] Discount code validation at booking — valid code applies, expired/exhausted code rejected
+- [ ] Add-ons from store products — POST from-products links product variants as add-ons
+- [ ] Individual booking status update (portal PUT /bookings/[bookingId]) — cancel, reassign
+- [ ] Public available-slots endpoint returns slot windows respecting availability config
 
 ## Testing
 
@@ -34,6 +43,8 @@ sources:
 - [ ] No external-calendar free/busy check — double-book risk — see [[Competitive Gap Analysis 2026-06]]
 - [ ] No reschedule flow — see [[Competitive Gap Analysis 2026-06]]
 - [ ] No SMS reminders — see [[Competitive Gap Analysis 2026-06]]
+- [ ] No waiver PDF generation test — /waivers/[waiverId]/pdf route untested
+- [ ] No public quote view + payment flow test — /api/public/booking/quote/[slug] and /pay untested
 
 
 %% kanban:settings

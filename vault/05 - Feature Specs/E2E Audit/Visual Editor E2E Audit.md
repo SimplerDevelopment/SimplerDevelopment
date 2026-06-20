@@ -13,6 +13,14 @@ sources: []
 - [ ] Scroll / timeline interaction blocks
 - [ ] Full approval-iframe client sign-off flow (all 6 entity types)
 - [ ] postMessage protocol: selection, resize, save round-trip
+- [ ] Revision history API: create post, update twice, fetch /revisions returns ordered list
+- [ ] Breakpoint / viewport switching: mobile and tablet modes render iframe at correct width
+- [ ] Cross-tenant isolation: client A cannot read or mutate client B's post via editor API (403)
+- [ ] Unauthenticated editor route redirects to portal login
+- [ ] Block picker lists all registered block types for a tenant's site
+- [ ] Context menu: duplicate block action produces identical block appended after selection
+- [ ] BLOCKS_REORDERED postMessage from iframe propagates and persists new order
+- [ ] Page settings (title, SEO meta, slug) saved via editor shell survive reload
 
 ## Testing
 
