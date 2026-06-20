@@ -38,20 +38,26 @@ async function loginAsClient(page: Page) {
 
 /** Click a top-level tab on the survey detail page. Tabs live inside the
  *  border-bottom flex container. We resolve by ordinal index, which matches
- *  the page's authoritative tab order (overview, edit, recommendation,
- *  responses, analytics, share, settings). */
+ *  the page's authoritative tab order:
+ *  overview(0), edit(1), flow(2), recommendation(3), variants(4),
+ *  responses(5), analytics(6), share(7), webhooks(8), email-followups(9),
+ *  settings(10). */
 const TAB_INDEX: Record<string, number> = {
   overview: 0,
   edit: 1,
-  recommendation: 2,
-  responses: 3,
-  analytics: 4,
-  share: 5,
-  settings: 6,
+  flow: 2,
+  recommendation: 3,
+  variants: 4,
+  responses: 5,
+  analytics: 6,
+  share: 7,
+  webhooks: 8,
+  'email-followups': 9,
+  settings: 10,
 };
 
 async function clickTab(page: Page, key: keyof typeof TAB_INDEX) {
-  // Wait for the tab strip to render (7 tab buttons).
+  // Wait for the tab strip to render (11 tab buttons — settings is last at index 10).
   const tabStrip = page.locator('div.border-b.border-border > button');
   await expect(tabStrip.nth(TAB_INDEX.settings)).toBeVisible({ timeout: 20_000 });
   await tabStrip.nth(TAB_INDEX[key]).click();

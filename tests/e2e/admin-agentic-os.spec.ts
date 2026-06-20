@@ -91,33 +91,54 @@ test.describe('admin agentic-os @admin @agentic-os @critical', () => {
   });
 
   test('executor-disabled state is surfaced', async ({ page }) => {
+    // Log in first so that subsequent requests (API probe + page navigation)
+    // all use an authenticated session.
     await loginAsAdmin(page);
+
+    // Query the API (now with auth) to know which executor state this
+    // environment has, so the assertion can match whichever badge the page
+    // renders. A dev machine with AGENTIC_OS_EXECUTOR_ENABLED=1 in .env.local
+    // will render "Local executor available" rather than "Catalog mode"; CI
+    // (env var unset) renders "Catalog mode". Either is correct.
+    const apiRes = await page.request.get('/api/admin/agentic-os');
+    const apiJson = await apiRes.json();
+    const executorAvailable: boolean = apiJson?.data?.executorAvailable ?? false;
+
     await page.goto('/admin/agentic-os', { waitUntil: 'domcontentloaded' });
 
     // Wait for the catalog to hydrate so the executor badge has a chance to
-    // render. The header heading is the cheapest hydration anchor.
+    // render. The header heading is the cheapest hydration anchor — it only
+    // appears after the client-side fetch to /api/admin/agentic-os completes
+    // (the page renders a spinner while loading=true).
     await expect(
       page.getByRole('heading', { level: 1, name: 'Agentic OS' }),
     ).toBeVisible({ timeout: 15_000 });
 
-    // The page renders a "Catalog mode" badge next to the title when
-    // `executorAvailable === false` (see page.tsx around line 644-650).
-    // It also renders the `executorHostHint` paragraph which contains the
-    // literal string "Set AGENTIC_OS_EXECUTOR_ENABLED=1" (see
-    // app/api/admin/agentic-os/route.ts line 61). Either one is sufficient
-    // evidence that the page knows the executor is off; assert the badge
-    // (more stable than scraping the hint copy).
-    await expect(page.getByText('Catalog mode', { exact: true })).toBeVisible({
-      timeout: 10_000,
-    });
+    // The page renders exactly one of two badges next to the h1:
+    //   • "Local executor available" when executorAvailable === true
+    //   • "Catalog mode"             when executorAvailable === false
+    // (page.tsx ~line 636-650; route.ts ~line 49-63)
+    if (executorAvailable) {
+      // The badge span also contains the "bolt" material-icon text node, so
+      // exact matching won't work; use a regex and .first() to avoid
+      // strict-mode ambiguity from ancestor elements that include this text.
+      await expect(
+        page.getByText(/Local executor available/).first(),
+      ).toBeVisible({ timeout: 10_000 });
+    } else {
+      // Same structure: the span contains "visibility" + "Catalog mode".
+      await expect(page.getByText(/Catalog mode/).first()).toBeVisible({
+        timeout: 10_000,
+      });
 
-    // Belt-and-suspenders: the host hint copy should also be visible. If the
-    // server ever changes the hint string this assertion will need to be
-    // updated, but it's worth catching a regression where the hint stops
-    // rendering at all.
-    await expect(
-      page.getByText(/Set AGENTIC_OS_EXECUTOR_ENABLED=1/),
-    ).toBeVisible();
+      // Belt-and-suspenders: when executor is off, the host hint should also
+      // be visible. If the server ever changes the hint string this assertion
+      // will need updating, but it catches regressions where the hint stops
+      // rendering at all.
+      await expect(
+        page.getByText(/Set AGENTIC_OS_EXECUTOR_ENABLED=1/),
+      ).toBeVisible();
+    }
   });
 
   test('run drawer opens with Copy prompt enabled and Run disabled', async ({ page }) => {

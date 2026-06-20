@@ -115,6 +115,10 @@ if [[ "$LAYER" == "all" || "$LAYER" == "e2e" ]]; then
   # Realtime collab token route 503s without a signing secret. Provide a throwaway
   # one for e2e so the @critical realtime spec can mint/verify tokens. Not a prod secret.
   export REALTIME_JWT_SECRET="${REALTIME_JWT_SECRET:-e2e-realtime-secret}"
+  # The agentic-os specs assume catalog mode (no in-browser executor), matching
+  # CI hosts without the `claude` CLI. Force it off so a developer's local
+  # AGENTIC_OS_EXECUTOR_ENABLED=1 doesn't flip the run-drawer UI under test.
+  export AGENTIC_OS_EXECUTOR_ENABLED=0
   export NODE_V8_COVERAGE="$ROOT/coverage/.v8-server"
   if [[ "$NO_COVERAGE" == "1" ]]; then
     export COLLECT_CLIENT_COVERAGE=0

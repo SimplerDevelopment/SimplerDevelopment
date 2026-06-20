@@ -41,6 +41,8 @@ async function seedAdminE2E() {
       bookings,
       // Membership (portal active-client resolution)
       clientMembers,
+      // Onboarding completion (portal redirect gate)
+      userOnboarding,
     } = await import('../lib/db/schema');
     const { eq, and } = await import('drizzle-orm');
     const { getOrCreatePublishingProject } = await import('../lib/publishing/bootstrap');
@@ -122,6 +124,21 @@ async function seedAdminE2E() {
     // project with columns to resolve via getFirstColumnId.
     const publishingProject = await getOrCreatePublishingProject(clientId, adminUser.id);
     console.log('Publishing project ready:', publishingProject.id, `(${publishingProject.columns.length} columns)`);
+
+    // Mark onboarding complete for the demo client so the portal behaves like a
+    // settled tenant — an incomplete-onboarding user is redirected from
+    // /portal/login (and most routes) to /portal/onboarding, which breaks the
+    // route-smoke spec and anything asserting it lands on the dashboard.
+    for (const onboardUserId of [user.id, adminUser.id]) {
+      await db
+        .insert(userOnboarding)
+        .values({ userId: onboardUserId, clientId, step: 'done', completedAt: new Date() })
+        .onConflictDoUpdate({
+          target: userOnboarding.userId,
+          set: { step: 'done', completedAt: new Date(), clientId },
+        });
+    }
+    console.log('Onboarding marked complete for client + admin users');
 
     // ═══════════════════════════════════════════════════════════════════════════
     // 1. CRM DATA
