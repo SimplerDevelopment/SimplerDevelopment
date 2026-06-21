@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import { HtmlRenderBlock } from '@/types/blocks';
 import { combineResponsiveClasses } from '@/lib/utils/responsive';
 import { renderHtmlTemplate } from '@/lib/blocks/html-render-template';
-import { useEditorModeContext } from '@/components/visual-editor/EditorModeProvider';
+import { useEditorModeContext } from '@/components/visual-editor/editor-mode-context';
 import { sendToParent } from '@/lib/visual-editor/protocol';
 import { IFRAME_MESSAGES } from '@/types/visual-editor';
 

@@ -5,7 +5,7 @@ import { Block, BlockEditorData } from '@/types/blocks';
 import { BlockStyleWrapper } from './BlockStyleWrapper';
 import { BlockRenderer } from './BlockRenderer';
 import { SelectableBlock } from '@/components/visual-editor/SelectableBlock';
-import { useEditorModeContext } from '@/components/visual-editor/EditorModeProvider';
+import { useEditorModeContext } from '@/components/visual-editor/editor-mode-context';
 import { getBlockRegistry } from '@/lib/visual-editor/registry';
 import { sendToParent } from '@/lib/visual-editor/protocol';
 import { IFRAME_MESSAGES } from '@/types/visual-editor';

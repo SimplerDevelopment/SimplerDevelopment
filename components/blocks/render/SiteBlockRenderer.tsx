@@ -4,7 +4,6 @@ import { useSearchParams } from 'next/navigation';
 import { Suspense, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { BlockRenderer } from './BlockRenderer';
-import { EditorModeProvider } from '@/components/visual-editor/EditorModeProvider';
 import type { ResolvedBranding } from '@/lib/branding';
 import { BrandingProvider } from '@/contexts/BrandingContext';
 import { collectBlockFonts, googleFontsHref } from '@/lib/blocks/page-fonts';
@@ -15,6 +14,15 @@ import { DeferredStylesheet } from '@/components/sites/DeferredStylesheet';
 // `?_edit=true`. Lazy-load it (client-only) so visitors never download it.
 const EditableBlockRenderer = dynamic(
   () => import('./EditableBlockRenderer').then((m) => m.EditableBlockRenderer),
+  { ssr: false },
+);
+
+// The editor provider pulls in `useEditorMode` → the full block registry (all 64
+// renderers) + dnd-kit. Statically importing it here shipped that ~400KB chunk
+// to every PUBLIC page even though it only renders at `?_edit=true`. Lazy-load
+// it (client-only) alongside EditableBlockRenderer so visitors never download it.
+const EditorModeProvider = dynamic(
+  () => import('@/components/visual-editor/EditorModeProvider').then((m) => m.EditorModeProvider),
   { ssr: false },
 );
 
