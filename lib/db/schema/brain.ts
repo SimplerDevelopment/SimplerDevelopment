@@ -73,7 +73,11 @@ export const automationRules = pgTable('automation_rules', {
   // firing time. The partial index `automation_rules_next_run_at_idx` keeps
   // the per-minute scan cheap.
   schedule: json('schedule').$type<AutomationSchedule>(),
-  nextRunAt: timestamp('next_run_at'),
+  // timestamptz so reads round-trip to the correct UTC epoch regardless of the
+  // PG session timezone — lets the scheduler's exact-match CAS work (was a
+  // `timestamp without time zone`, which mis-parsed under non-UTC sessions and
+  // caused the claim to match 0 rows so scheduled rules never fired).
+  nextRunAt: timestamp('next_run_at', { withTimezone: true }),
   executionCount: integer('execution_count').default(0).notNull(),
   lastExecutedAt: timestamp('last_executed_at'),
   createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),

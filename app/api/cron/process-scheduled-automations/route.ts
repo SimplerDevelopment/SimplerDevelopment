@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { withCronHealth } from '@/lib/cron-health';
 import { db } from '@/lib/db';
 import { automationRules } from '@/lib/db/schema';
-import { and, eq, isNotNull, asc, sql } from 'drizzle-orm';
+import { and, eq, isNotNull, asc, lte } from 'drizzle-orm';
 import { computeNextRunAt } from '@/lib/automation/schedule';
 import { runRule } from '@/lib/automation/engine';
 
@@ -32,18 +32,16 @@ async function _GET(req: Request) {
   }
 
   const now = new Date();
-  const nowIso = now.toISOString();
-  const nowUtc = sql`${nowIso}::timestamptz at time zone 'UTC'`;
-
   // Find due rules. The partial index automation_rules_next_run_at_idx
   // (enabled, next_run_at) WHERE schedule IS NOT NULL covers this scan.
+  // next_run_at is timestamptz, so this comparison is TZ-correct.
   const due = await db.select()
     .from(automationRules)
     .where(and(
       eq(automationRules.enabled, true),
       isNotNull(automationRules.schedule),
       isNotNull(automationRules.nextRunAt),
-      sql`${automationRules.nextRunAt} <= ${nowUtc}`,
+      lte(automationRules.nextRunAt, now),
     ))
     .orderBy(asc(automationRules.nextRunAt))
     .limit(100);
@@ -66,15 +64,16 @@ async function _GET(req: Request) {
     const nextNext = computeNextRunAt(rule.schedule, now);
     const claimNext = nextNext ?? null;
 
-    // Atomic claim: only one worker should fire this rule. Setting
-    // next_run_at to `claimNext` here means a parallel scheduler tick won't
-    // see the same row as due. updatedAt is bumped so the row's revision
-    // moves on every successful claim.
+    // CAS claim, still-due predicate. Exact `nextRunAt = <observed>` can't be
+    // used: timestamptz has microsecond precision but postgres-js reads it back
+    // as a millisecond JS Date, so equality never matches. Re-assert
+    // `nextRunAt <= now` instead — the winner advances nextRunAt to a future
+    // slot (or null), so a racing tick's predicate is false and it claims 0 rows.
     const claimed = await db.update(automationRules)
       .set({ nextRunAt: claimNext, updatedAt: new Date() })
       .where(and(
         eq(automationRules.id, rule.id),
-        sql`${automationRules.nextRunAt} <= ${nowUtc}`,
+        lte(automationRules.nextRunAt, now),
       ))
       .returning({ id: automationRules.id });
 

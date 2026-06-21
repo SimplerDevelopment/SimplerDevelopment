@@ -54,7 +54,7 @@ test.describe('Workflows — branching / conditional logic @automations', () => 
     }
   });
 
-  test('BUG: condition node in graph causes run to fail with DB constraint error', async ({
+  test('condition node in graph runs to completion (was a NOT-NULL crash)', async ({
     clientApi,
   }) => {
     const ts = Date.now();
@@ -102,15 +102,13 @@ test.describe('Workflows — branching / conditional logic @automations', () => 
     });
     expect(patchRes.status).toBe(200);
 
-    // This should succeed but BUG: run fails — runtime inserts undefined into
-    // workflow_step_logs.action (NOT NULL) because condition node data has no .kind
+    // FIXED: the runtime now falls back to node.type when condition-node data
+    // has no .kind, so workflow_step_logs.action is never null and the run
+    // completes instead of crashing on the NOT-NULL constraint.
     const runRes = await clientApi.post(`/api/portal/workflows/${wf.id}/test-run`, {
       context: { conditions: { 'deal.stale': true } },
     });
     expect(runRes.status).toBe(200);
-    // BUG documented: run status is 'failed' instead of 'completed'
-    // When fixed, this assertion should become toBe('completed')
-    expect(runRes.data.data.status).toBe('failed');
-    expect(runRes.data.data.error).toMatch(/Failed query|null value in column|action/i);
+    expect(runRes.data.data.status).toBe('completed');
   });
 });

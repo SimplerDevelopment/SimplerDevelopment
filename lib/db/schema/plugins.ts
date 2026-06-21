@@ -143,7 +143,9 @@ export const registeredAppJobs = pgTable('registered_app_jobs', {
   // Cron mode (nullable when weekly mode is set).
   cronExpr: varchar('cron_expr', { length: 64 }), // 5-field cron, UTC
   enabled: boolean('enabled').default(true).notNull(),
-  nextRunAt: timestamp('next_run_at').notNull(),
+  // timestamptz so reads round-trip to the correct UTC epoch regardless of PG
+  // session timezone — lets fire-due-jobs' exact-match CAS claim work reliably.
+  nextRunAt: timestamp('next_run_at', { withTimezone: true }).notNull(),
   lastRunAt: timestamp('last_run_at'),
   createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').defaultNow().notNull(),

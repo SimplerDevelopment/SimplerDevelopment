@@ -110,7 +110,7 @@ function seedDueRule(ts: number): SeedIds {
       'manual',
       '${scopesJson}'::json,
       '${scheduleJson}'::json,
-      (NOW() AT TIME ZONE 'UTC') - INTERVAL '1 minute',
+      NOW() - INTERVAL '1 minute',
       0,
       NOW(), NOW()
     )

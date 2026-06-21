@@ -96,9 +96,8 @@ function seedDueJob(ts: number): SeedIds {
   const appId = Number(appRow[0]);
   if (!appId) throw new Error('Failed to insert registered_apps row');
 
-  // Insert a job with next_run_at = 30 minutes ago in UTC literal form.
-  // We use AT TIME ZONE 'UTC' to force the subtraction to stay in UTC
-  // regardless of the Postgres session timezone.
+  // Insert a job with next_run_at = 30 minutes ago. next_run_at is timestamptz,
+  // so NOW() - INTERVAL gives a correct past instant regardless of session TZ.
   //
   // cron_expr: 0 3 1 1 * = Jan 1 at 03:00 UTC — always months in the
   // future, so the "next run" after claim will not slip into the past by
@@ -111,7 +110,7 @@ function seedDueJob(ts: number): SeedIds {
       'E2E due job ${ts}', 'research-brief',
       '0 3 1 1 *',
       true,
-      (NOW() AT TIME ZONE 'UTC') - INTERVAL '30 minutes',
+      NOW() - INTERVAL '30 minutes',
       NOW(), NOW()
     )
     RETURNING id
