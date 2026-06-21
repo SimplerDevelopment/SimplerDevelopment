@@ -183,9 +183,13 @@ export default async function SlidesRoute({ params, searchParams }: PageProps) {
 
   // Render in place when: localhost (cross-host redirect would dead-end), no
   // routable host, or the redirect target is the host we're already on (the
-  // platform tenant owns the apex — redirecting there loops). Otherwise send
-  // the viewer to the owning tenant's host.
-  if (isLocal || !host || host.toLowerCase() === reqHost) {
+  // platform tenant owns the apex — redirecting there loops). The compare is
+  // www-insensitive: a platform-level non-www→www canonical redirect means
+  // requests arrive as `www.<domain>` while the deck's site domain is stored
+  // without `www`, so a raw compare misses the match and bounces non-www↔www
+  // forever. Otherwise send the viewer to the owning tenant's host.
+  const stripWww = (h: string) => h.replace(/^www\./, '');
+  if (isLocal || !host || stripWww(host.toLowerCase()) === stripWww(reqHost)) {
     return renderDeckInline(deck);
   }
 
