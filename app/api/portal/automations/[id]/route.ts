@@ -8,6 +8,35 @@ import { eq, and } from 'drizzle-orm';
 import { computeNextRunAt, validateSchedule } from '@/lib/automation/schedule';
 import { deriveRuleScopes } from '@/lib/ai/portal-tools/derive-rule-scopes';
 
+// GET /api/portal/automations/[id] — fetch a single rule by id
+export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const session = await auth();
+  if (!session?.user?.id) return NextResponse.json({ success: false }, { status: 401 });
+
+  const authResult = await authorizePortal({ action: 'read' });
+  if (isAuthError(authResult)) return authResult.response;
+
+  const userId = parseInt(session.user.id, 10);
+  const client = await getPortalClient(userId);
+  if (!client) return NextResponse.json({ success: false }, { status: 404 });
+
+  const { id } = await params;
+  const ruleId = parseInt(id, 10);
+  if (Number.isNaN(ruleId))
+    return NextResponse.json({ success: false, error: 'Invalid id' }, { status: 400 });
+
+  const [rule] = await db.select().from(automationRules)
+    .where(and(
+      eq(automationRules.id, ruleId),
+      eq(automationRules.clientId, client.id),
+    ))
+    .limit(1);
+
+  if (!rule) return NextResponse.json({ success: false, error: 'Rule not found' }, { status: 404 });
+
+  return NextResponse.json({ success: true, rule });
+}
+
 // PATCH /api/portal/automations/[id] — update a rule (toggle, edit, etc.)
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
