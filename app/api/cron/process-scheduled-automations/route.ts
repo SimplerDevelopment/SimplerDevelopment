@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { withCronHealth } from '@/lib/cron-health';
 import { db } from '@/lib/db';
 import { automationRules } from '@/lib/db/schema';
-import { and, eq, isNotNull, lte, asc } from 'drizzle-orm';
+import { and, eq, isNotNull, asc, sql } from 'drizzle-orm';
 import { computeNextRunAt } from '@/lib/automation/schedule';
 import { runRule } from '@/lib/automation/engine';
 
@@ -32,6 +32,8 @@ async function _GET(req: Request) {
   }
 
   const now = new Date();
+  const nowIso = now.toISOString();
+  const nowUtc = sql`${nowIso}::timestamptz at time zone 'UTC'`;
 
   // Find due rules. The partial index automation_rules_next_run_at_idx
   // (enabled, next_run_at) WHERE schedule IS NOT NULL covers this scan.
@@ -41,7 +43,7 @@ async function _GET(req: Request) {
       eq(automationRules.enabled, true),
       isNotNull(automationRules.schedule),
       isNotNull(automationRules.nextRunAt),
-      lte(automationRules.nextRunAt, now),
+      sql`${automationRules.nextRunAt} <= ${nowUtc}`,
     ))
     .orderBy(asc(automationRules.nextRunAt))
     .limit(100);
@@ -63,7 +65,6 @@ async function _GET(req: Request) {
     // at save time), null it out so the rule won't keep ticking.
     const nextNext = computeNextRunAt(rule.schedule, now);
     const claimNext = nextNext ?? null;
-    const currentNextRunAt = rule.nextRunAt;
 
     // Atomic claim: only one worker should fire this rule. Setting
     // next_run_at to `claimNext` here means a parallel scheduler tick won't
@@ -73,7 +74,7 @@ async function _GET(req: Request) {
       .set({ nextRunAt: claimNext, updatedAt: new Date() })
       .where(and(
         eq(automationRules.id, rule.id),
-        eq(automationRules.nextRunAt, currentNextRunAt),
+        sql`${automationRules.nextRunAt} <= ${nowUtc}`,
       ))
       .returning({ id: automationRules.id });
 
