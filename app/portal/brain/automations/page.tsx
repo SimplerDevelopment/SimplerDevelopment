@@ -274,8 +274,10 @@ const SCOPE_COLORS: Record<string, string> = {
   store: 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300',
 };
 
-function getEventScope(event: string): string {
-  const prefix = event.split('.')[0];
+function getEventScope(event: string | null | undefined): string {
+  // Some automations (e.g. workflow/condition rules) carry no trigger event;
+  // guard so the whole page doesn't crash on `undefined.split`.
+  const prefix = (event ?? '').split('.')[0];
   if (prefix === 'crm') return 'crm';
   if (prefix === 'booking') return 'booking';
   if (prefix === 'email') return 'email';
