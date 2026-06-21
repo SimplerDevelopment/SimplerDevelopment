@@ -15,8 +15,6 @@ sources:
 
 ## To Test
 
-- [ ] Orphaned/stale pending-change graceful error state — needs spec (BUG: Route returns 500 instead of graceful 4xx when pending_change is already applied; test APPR-STALE-01 pins the broken behaviour)
-
 ## Testing
 
 
@@ -41,11 +39,12 @@ sources:
 - [ ] ✓ verified 2026-06-20 — Public contract viewer /contract/[token]: page loads for valid signer token; 404 for unknown token (cov-u37.spec.ts)
 - [ ] ✓ verified 2026-06-20 — Admin cross-tenant approvals inbox (/api/admin/approvals): lists pending changes across tenants; approve/reject via admin route (cov-u37.spec.ts)
 - [ ] ✓ verified 2026-06-20 — GET /api/portal/approvals?status=applied returns only applied records (status filter coverage) (cov-u37.spec.ts)
+- [ ] ✓ verified 2026-06-20 — Orphaned/stale pending-change graceful error state: POST /api/approve/[token] returns 409 (not 500) when pending change is already applied (cov-u34.spec.ts APPR-STALE-01)
 
 ## Gaps Found
 
 - [ ] e2e seed lacks entitlements (402) — see [[Platform E2E Audit 2026-06-17]]
-- [ ] Public /approve endpoint 500s on orphaned/stale pending-change dependency (stale email_lists row) — robustness gap, not just env artifact — see [[Platform E2E Audit 2026-06-17]]
+- [x] RESOLVED 2026-06-20 — Public /approve endpoint 500s on orphaned/stale pending-change dependency (stale email_lists row) — fixed: returns 409 with "no longer applicable" message (app/api/approve/[token]/route.ts); verified by APPR-STALE-01 in cov-u34.spec.ts
 - [ ] No signer identity verification (OTP/KBA) — identity-assurance gap shared with Auth — see [[Competitive Gap Analysis 2026-06]]
 - [ ] No reminder nudges for pending approvals — see [[Competitive Gap Analysis 2026-06]]
 - [ ] No e2e test exercises the public /api/approve/[token] route at all — the token-link approval path (entity and pending_change link types) is entirely uncovered at the e2e layer despite being the external-reviewer entry point

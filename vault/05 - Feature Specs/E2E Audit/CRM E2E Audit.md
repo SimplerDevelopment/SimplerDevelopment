@@ -11,9 +11,6 @@ sources:
 
 ## To Test
 
-- [ ] GET /api/portal/crm/notifications/[id] and DELETE /api/portal/crm/notifications/[id] — single-notification read and dismiss — needs spec (BUG: route only implements PATCH, not GET or DELETE; described interface doesn't match implementation)
-- [ ] PUT + DELETE /api/portal/crm/pipelines/[id]/stages/[stageId] — update and delete an individual pipeline stage — needs spec (BUG: PUT for individual stage does not exist at this URL; only DELETE is implemented at [stageId]; individual stage update is bulk-only via PUT /pipelines/[id]/stages)
-
 ## Testing
 
 
@@ -33,6 +30,8 @@ sources:
 - [ ] ✓ verified 2026-06-20 — GET /api/portal/crm/deals/[id]/artifacts and GET /api/portal/crm/deals/[id]/artifacts/available — list linked artifacts and available artifacts for a deal (crm-coverage.spec.ts)
 - [ ] ✓ verified 2026-06-20 — POST + DELETE /api/portal/crm/deals/[id]/artifacts — link and unlink an artifact to a deal (crm-coverage.spec.ts)
 - [ ] ✓ verified 2026-06-20 — Cross-tenant isolation: contact/company/deal created by tenant A is not visible to tenant B (401/404) (crm-coverage.spec.ts)
+- [ ] ✓ verified 2026-06-20 — GET + DELETE /api/portal/crm/notifications/[id] — single-notification read and dismiss (crm-coverage.spec.ts)
+- [ ] ✓ verified 2026-06-20 — PUT /api/portal/crm/pipelines/[id]/stages/[stageId] — update an individual pipeline stage (crm-coverage.spec.ts)
 
 ## Gaps Found
 

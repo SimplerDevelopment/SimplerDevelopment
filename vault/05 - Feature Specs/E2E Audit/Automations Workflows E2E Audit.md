@@ -12,8 +12,6 @@ sources:
 
 ## To Test
 
-- [ ] Branching / conditional logic in workflow — needs spec (BUG: executeStep() reads action from node.data.kind which is undefined for condition nodes, causing NOT NULL constraint failure in workflow_step_logs insert; runs always fail with 'Failed query' error)
-
 ## Testing
 
 
@@ -33,6 +31,7 @@ sources:
 - [ ] ✓ verified 2026-06-20 — Visual workflow run history: GET /workflows/[id]/runs returns runs array (spec: cov-u28.spec.ts)
 - [ ] ✓ verified 2026-06-20 — Visual workflow templates: GET /workflows/templates returns template list; POST with templateId clones graph (spec: cov-u28.spec.ts)
 - [ ] ✓ verified 2026-06-20 — Schedule preview: POST /automations/preview-schedule returns description + nextRunAt for valid schedule (spec: cov-u28.spec.ts)
+- [ ] ✓ verified 2026-06-20 — Branching / conditional logic in workflow: condition node on true branch completes run (status: completed, no NOT NULL error); condition node on false branch also completes (spec: portal-automations.spec.ts "Workflow condition node execution"). Fix: lib/workflows/runtime.ts line 191 — `const action = (node.data as WorkflowAction).kind ?? node.type` ensures workflow_step_logs.action is never null for condition nodes.
 
 ## Gaps Found
 

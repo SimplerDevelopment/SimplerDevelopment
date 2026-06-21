@@ -11,7 +11,6 @@ sources:
 
 ## To Test
 
-- [ ] API key delete: DELETE /websites/:id/api-keys/:keyId removes key from masked list — needs spec (BUG: generateApiKey() in lib/api-keys.ts emits 'sd_live_' + 64 hex chars = 72 chars, but api_keys.key is varchar(64) — POST /websites/:id/api-keys 500s on DB constraint violation, blocking the delete flow test.)
 
 ## Testing
 
@@ -37,6 +36,7 @@ sources:
 - [ ] ✓ verified 2026-06-20 — Preview code unlock: POST /api/sites/unlock with valid previewCode sets signed cookie and allows access to non-public site (cov-u13.spec.ts)
 - [ ] ✓ verified 2026-06-20 — publicAccess gate: site with publicAccess=false returns 403/noindex wall; toggling to true allows public render (cov-u13.spec.ts)
 - [ ] ✓ verified 2026-06-20 — Site tracking settings: PATCH site tracking fields (gaMeasurementId, gtmContainerId) persists and GET reflects updated values (cov-u13.spec.ts)
+- [ ] ✓ verified 2026-06-20 — API key lifecycle (create → masked list → delete) (cov-u12.spec.ts). FIXED the underlying bug: widened api_keys.key varchar(64)→varchar(255) (lib/db/schema/auth.ts) so the 72-char sd_live_ key no longer overflows. ⚠ PROD: needs hand-apply `ALTER TABLE api_keys ALTER COLUMN key TYPE varchar(255);` (drizzle journal out of sync — manual migrate per lib/db/CLAUDE.md)
 
 ## Gaps Found
 

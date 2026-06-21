@@ -13,7 +13,6 @@ sources:
 
 - [ ] Plugin sandboxing (tenant isolation) — needs spec
 - [ ] Plugin callback endpoint rejects replay: second request with same JTI gets 409 — needs spec
-- [ ] Cron plugin-jobs-tick fires due job and bumps nextRunAt to next slot — needs spec (BUG: fireDueJobs CAS UPDATE matches 0 rows when Postgres session timezone (America/New_York) differs from Node.js process timezone (UTC): the timestamp without time zone equality predicate gets mismatched, so due jobs are found by SELECT but never claimed — fired list always empty)
 - [ ] draft-blog-post run kind produces a postcaptain_drafts row visible in /drafts UI — needs spec
 - [ ] Manifest scope-superset rejection: manifest requesting uncovered scope causes portal to refuse plugin load — needs spec
 
@@ -30,6 +29,7 @@ sources:
 - [ ] ✓ verified 2026-06-20 — Installed apps gallery (/portal/apps) lists active plugins for entitled client (plugin-postcaptain-tools.spec.ts)
 - [ ] ✓ verified 2026-06-20 — Plugin with status=draft or status=disabled returns 404 at /portal/apps/<slug> (cov-u57.spec.ts)
 - [ ] ✓ verified 2026-06-20 — Cron plugin-runs-drain transitions queued run to succeeded and persists resultId (cov-u58.spec.ts)
+- [ ] ✓ verified 2026-06-21 — Cron plugin-jobs-tick fires due job, bumps nextRunAt to next slot, and is idempotent on second tick (cron-plugin-jobs-tick.spec.ts) — BUG FIXED: `timestamp without time zone` TZ mismatch in fireDueJobs CAS UPDATE; fix uses `::timestamptz AT TIME ZONE 'UTC'` predicate in both SELECT and UPDATE (fire-due-jobs.ts)
 - [ ] ✓ verified 2026-06-20 — Extension API auth probe (/api/extension/v1/auth/test) returns session identity for authenticated portal user (cov-u59.spec.ts)
 - [ ] ✓ verified 2026-06-20 — Extension AI page extraction (/api/extension/v1/extract) returns structured entity from page content (cov-u59.spec.ts)
 - [ ] ✓ verified 2026-06-20 — Extension CRM contact creation from captured page context creates contact scoped to correct client (cov-u59.spec.ts)

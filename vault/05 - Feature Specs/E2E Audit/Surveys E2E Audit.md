@@ -11,7 +11,6 @@ sources:
 ## To Test
 
 - [ ] Post-submit sequence trigger — needs spec
-- [ ] allowMultiple=false blocks same-email second submission — needs spec (BUG: submit route does not check allowMultiple; second same-email submission returns 201 instead of 403)
 
 ## Testing
 
@@ -36,6 +35,7 @@ sources:
 - [ ] ✓ verified 2026-06-20 — maxResponses cap: submission rejected when responseCount >= maxResponses (surveys-coverage.spec.ts)
 - [ ] ✓ verified 2026-06-20 — Cross-tenant isolation: survey from another tenant returns 404/403 on portal routes (surveys-coverage.spec.ts)
 - [ ] ✓ verified 2026-06-20 — Scoring + conditional logic (surveys-coverage.spec.ts)
+- [ ] ✓ verified 2026-06-20 — allowMultiple=false blocks same-email second submission (surveys-coverage.spec.ts)
 
 ## Gaps Found
 
