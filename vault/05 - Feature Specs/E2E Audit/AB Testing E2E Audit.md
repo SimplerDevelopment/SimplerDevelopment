@@ -13,19 +13,7 @@ sources:
 
 ## To Test
 
-- [ ] Sequential / valid-peeking statistics — needs spec
-- [ ] Sample-ratio mismatch (SRM) guardrail — needs spec
 - [ ] Experiment on rendered CMS block via visual editor — needs spec
-- [ ] Per-tenant variant assignment isolation — needs spec
-- [ ] Dynamic variant add / remove: auto-letter, control-arm protected, min-2-variant guard, blocked while running — needs spec
-- [ ] Traffic split rebalance ("Rebalance to even") normalises weights to floor(100/N) per arm — needs spec
-- [ ] PATCH status → archived transitions experiment out of active state — needs spec
-- [ ] cta_click goal metric with goal_selector: AbGoalTracker fires goal event on matching CSS selector click — needs spec
-- [ ] form_submit goal metric with goal_selector: goal event fires on matching form submission — needs spec
-- [ ] blockTreeOverride non-null swap: public post SSR serves variant block tree, not control content — needs spec
-- [ ] New Experiment modal on /portal/experiments: picker supports both page and pitch deck target types — needs spec
-- [ ] Significance badge: hourglass shown below MIN_SAMPLE_PER_ARM, green-check shown once both arms ≥ 100 views — needs spec
-- [ ] Cross-tenant access guard: experiment belonging to another client returns 404 — needs spec
 
 ## Testing
 
@@ -40,6 +28,16 @@ sources:
 - [ ] Deck lifecycle experiment ✓
 - [ ] Auto-scoped per tenant ✓
 - [ ] ✓ verified 2026-06-20: experiment create + variants + results panel verified (test required publicAccess=true + correct slides route)
+- [ ] ✓ verified 2026-06-20 — Per-tenant variant assignment isolation (cov-u38.spec.ts)
+- [ ] ✓ verified 2026-06-20 — Dynamic variant add / remove: auto-letter, control-arm protected, min-2-variant guard, blocked while running (cov-u39.spec.ts)
+- [ ] ✓ verified 2026-06-20 — Traffic split rebalance ("Rebalance to even") normalises weights to floor(100/N) per arm (cov-u39.spec.ts)
+- [ ] ✓ verified 2026-06-20 — PATCH status → archived transitions experiment out of active state (cov-u39.spec.ts)
+- [ ] ✓ verified 2026-06-20 — cta_click goal metric with goal_selector: AbGoalTracker fires goal event on matching CSS selector click (cov-u39.spec.ts)
+- [ ] ✓ verified 2026-06-20 — form_submit goal metric with goal_selector: goal event fires on matching form submission (cov-u40.spec.ts) — parallel-safe: serial mode added 2026-06-20
+- [ ] ✓ verified 2026-06-20 — blockTreeOverride non-null swap: public post SSR serves variant block tree, not control content (cov-u40.spec.ts) — parallel-safe: serial mode added 2026-06-20
+- [ ] ✓ verified 2026-06-20 — New Experiment modal on /portal/experiments: picker supports both page and pitch deck target types (cov-u40.spec.ts) — parallel-safe: serial mode added 2026-06-20
+- [ ] ✓ verified 2026-06-20 — Significance badge: hourglass shown below MIN_SAMPLE_PER_ARM, green-check shown once both arms ≥ 100 views (cov-u40.spec.ts) — parallel-safe: serial mode added 2026-06-20
+- [ ] ✓ verified 2026-06-20 — Cross-tenant access guard: experiment belonging to another client returns 404 (cov-u41.spec.ts)
 
 ## Gaps Found
 
@@ -48,6 +46,8 @@ sources:
 - [ ] No SRM guardrail — see [[Competitive Gap Analysis 2026-06]]
 - [ ] Deck AB public render path not wired: applyAbToDeckSlides is implemented but not called on /sites/:domain/slides/:slug or /pitch-deck/:slug (domain map §Planning Notes) — no E2E possible until render integration is shipped
 - [ ] OPEN: experiment-row UI is flaky under load (non-deterministic render timing)
+- [ ] GAP (no implementation): Sequential / valid-peeking statistics — needs spec
+- [ ] GAP (no implementation): Sample-ratio mismatch (SRM) guardrail — needs spec
 
 
 %% kanban:settings

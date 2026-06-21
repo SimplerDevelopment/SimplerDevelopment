@@ -10,19 +10,6 @@ sources:
 
 ## To Test
 
-- [ ] External-calendar free/busy check (double-book prevention) — needs spec
-- [ ] Reschedule flow — needs spec
-- [ ] SMS reminder trigger — needs spec
-- [ ] Waiver sign-on-book flow — needs spec
-- [ ] Booking analytics API returns revenue/stats/byDay/byPage for date range — needs spec
-- [ ] Booking calendar view returns enriched bookings list scoped to tenant pages — needs spec
-- [ ] Check-in today list returns today's bookings with check-in status summary — needs spec
-- [ ] Check-in by code marks booking checked-in; rejects already-checked-in (409) — needs spec
-- [ ] Public cancel-by-token cancels booking; double-cancel returns 409 — needs spec
-- [ ] Discount code validation at booking — valid code applies, expired/exhausted code rejected — needs spec
-- [ ] Add-ons from store products — POST from-products links product variants as add-ons — needs spec
-- [ ] Individual booking status update (portal PUT /bookings/[bookingId]) — cancel, reassign — needs spec
-- [ ] Public available-slots endpoint returns slot windows respecting availability config — needs spec
 
 ## Testing
 
@@ -37,6 +24,16 @@ sources:
 - [ ] Gift certs, waivers, add-ons, approval-gated publish ✓
 - [ ] ✓ verified 2026-06-20: gift-cert issue→redeem→double-redeem lifecycle verified
 - [ ] ✓ verified 2026-06-20 — Gift certificate purchase + redemption (portal-gift-certs-mutations.spec.ts)
+- [ ] ✓ verified 2026-06-20 — Booking analytics API returns revenue/stats/byDay/byPage for date range (bookings-coverage.spec.ts)
+- [ ] ✓ verified 2026-06-20 — Booking calendar view returns enriched bookings list scoped to tenant pages (bookings-coverage.spec.ts)
+- [ ] ✓ verified 2026-06-20 — Check-in today list returns today's bookings with check-in status summary (bookings-coverage.spec.ts)
+- [ ] ✓ verified 2026-06-20 — Check-in by code marks booking checked-in; rejects already-checked-in (409) (bookings-coverage.spec.ts)
+- [ ] ✓ verified 2026-06-20 — Public cancel-by-token cancels booking; double-cancel returns 409 (bookings-coverage.spec.ts)
+- [ ] ✓ verified 2026-06-20 — Discount code validation at booking — valid code applies, expired/exhausted code rejected (bookings-coverage.spec.ts)
+- [ ] ✓ verified 2026-06-20 — Add-ons from store products — POST from-products links product variants as add-ons (bookings-coverage.spec.ts)
+- [ ] ✓ verified 2026-06-20 — Individual booking status update (portal PUT /bookings/[bookingId]) — cancel, reassign (bookings-coverage.spec.ts)
+- [ ] ✓ verified 2026-06-20 — Public available-slots endpoint returns slot windows respecting availability config (bookings-coverage.spec.ts)
+- [ ] ✓ verified 2026-06-20 — Waiver sign-on-book flow (bookings-coverage.spec.ts)
 
 ## Gaps Found
 

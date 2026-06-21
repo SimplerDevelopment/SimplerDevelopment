@@ -12,20 +12,7 @@ sources:
 
 ## To Test
 
-- [ ] Durable retry on workflow step failure — needs spec
-- [ ] Branching / conditional logic in workflow — needs spec
-- [ ] Loop / iteration step — needs spec
-- [ ] enqueueWorkflowRunsForTrigger wired to live CRM events — needs spec
-- [ ] send_email / add_to_list action kinds — needs spec
-- [ ] Plain-English rule parser → workflow creation — needs spec
-- [ ] Visual workflow CRUD: list, create blank, GET by id, DELETE — needs spec
-- [ ] Visual workflow status transitions: draft → active → paused via PATCH — needs spec
-- [ ] Visual workflow test-run endpoint returns completed status and step logs — needs spec
-- [ ] Visual workflow run history: GET /workflows/[id]/runs returns runs array — needs spec
-- [ ] Visual workflow templates: GET /workflows/templates returns template list; POST with templateId clones graph — needs spec
-- [ ] Schedule preview: POST /automations/preview-schedule returns description + nextRunAt for valid schedule — needs spec
-- [ ] GET /automations/[id] fetches single rule by id; 404 for unknown id — needs spec
-- [ ] Scope-gated action denial: rule without required scope produces scope_denied log entry, not action execution — needs spec
+- [ ] Branching / conditional logic in workflow — needs spec (BUG: executeStep() reads action from node.data.kind which is undefined for condition nodes, causing NOT NULL constraint failure in workflow_step_logs insert; runs always fail with 'Failed query' error)
 
 ## Testing
 
@@ -38,6 +25,14 @@ sources:
 - [ ] Workflow CRUD for entitled tenant ✓
 - [ ] Trigger-links as workflow entry points ✓
 - [ ] Plain-English→rule parser ✓
+- [ ] ✓ verified 2026-06-20 — send_email / add_to_list action kinds (spec: cov-u27.spec.ts)
+- [ ] ✓ verified 2026-06-20 — Plain-English rule parser → workflow creation (spec: cov-u27.spec.ts)
+- [ ] ✓ verified 2026-06-20 — Visual workflow CRUD: list, create blank, GET by id, DELETE (spec: cov-u27.spec.ts)
+- [ ] ✓ verified 2026-06-20 — Visual workflow status transitions: draft → active → paused via PATCH (spec: cov-u27.spec.ts)
+- [ ] ✓ verified 2026-06-20 — Visual workflow test-run endpoint returns completed status and step logs (spec: cov-u28.spec.ts)
+- [ ] ✓ verified 2026-06-20 — Visual workflow run history: GET /workflows/[id]/runs returns runs array (spec: cov-u28.spec.ts)
+- [ ] ✓ verified 2026-06-20 — Visual workflow templates: GET /workflows/templates returns template list; POST with templateId clones graph (spec: cov-u28.spec.ts)
+- [ ] ✓ verified 2026-06-20 — Schedule preview: POST /automations/preview-schedule returns description + nextRunAt for valid schedule (spec: cov-u28.spec.ts)
 
 ## Gaps Found
 
@@ -47,6 +42,11 @@ sources:
 - [ ] send_email / add_to_list action kinds not implemented — see [[Project Board]]
 - [ ] Trigger-link click → automation bridge not wired: contactFieldKey stored but never acted on; no trigger_link.clicked event emitted — see trigger-links.ts schema comment
 - [ ] Visual workflow builder has zero e2e spec coverage despite having live API routes (list/create/patch/delete/test-run/runs/templates)
+- [ ] GAP (no implementation): Durable retry on workflow step failure
+- [ ] GAP (no implementation): Loop / iteration step
+- [ ] GAP (no implementation): enqueueWorkflowRunsForTrigger wired to live CRM events
+- [ ] GAP (no implementation): GET /automations/[id] fetches single rule by id; 404 for unknown id
+- [ ] GAP (no implementation): Scope-gated action denial: rule without required scope produces scope_denied log entry, not action execution
 
 
 %% kanban:settings

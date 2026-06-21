@@ -10,10 +10,6 @@ sources:
 
 ## To Test
 
-- [ ] Failed-payment dunning + automatic retry — needs spec
-- [ ] Customer self-serve billing portal (card/invoice/subscription management) — needs spec
-- [ ] Stripe Connect / BYOK flow — needs spec
-- [ ] Module subscription checkout — POST /billing/modules/checkout creates Stripe Checkout session with correct price_data line items (no real Stripe call; guard on sk_test key) — needs spec
 - [ ] Add module to existing subscription — POST /billing/modules/add-item adds SKU to live subscription and returns updated module list — needs spec
 - [ ] Cancel module subscription — POST /billing/modules/[id]/cancel marks module inactive and returns 200 — needs spec
 - [ ] Admin billing management: set-seats override, comp discount, BYOK override toggle via POST /admin/portal/clients/[id]/billing — needs spec
@@ -38,6 +34,14 @@ sources:
 - [ ] Stripe Connect / BYOK in place ✓
 - [ ] ✓ verified 2026-06-20 — Metered usage rollup and billing (usage-rollup-admin.spec.ts)
 - [ ] ✓ verified 2026-06-20 — AI credit ledger (portal-credits.spec.ts)
+- [ ] ✓ verified 2026-06-20 — POST /api/admin/portal/subscriptions/:id/refund validates invoiceId required and 404 on unknown subscription (cov-u19.spec.ts)
+- [ ] ✓ verified 2026-06-20 — GET /api/admin/portal/clients/:id/billing/usage returns liveTotals, dryRun, history structure (cov-u19.spec.ts)
+- [ ] ✓ verified 2026-06-20 — GET /api/admin/portal/clients/:id/billing/metered-items lists metered items for a client (cov-u19.spec.ts)
+- [ ] ✓ verified 2026-06-20 — PATCH /api/admin/portal/clients/:id/billing/metered-items/:itemId updates local metered item fields (cov-u19.spec.ts)
+- [ ] ✓ verified 2026-06-20 — GET /api/admin/portal/subscriptions — admin can list all client subscriptions (cov-u20.spec.ts)
+- [ ] ✓ verified 2026-06-20 — POST /api/admin/portal/subscriptions — admin can create a client subscription (cov-u20.spec.ts)
+- [ ] ✓ verified 2026-06-20 — POST /api/admin/portal/subscriptions/[id]/cancel — admin cancel subscription returns 409 when no Stripe subscription is linked (cov-u20.spec.ts)
+- [ ] ✓ verified 2026-06-20 — GET /api/admin/portal/subscriptions/[id]/invoices — admin can list invoices for a subscription (cov-u20.spec.ts)
 
 ## Gaps Found
 
@@ -47,6 +51,10 @@ sources:
 - [ ] No e2e coverage for Stripe platform webhook (checkout.session.completed) — invoice-paid, service-activation, and credit-purchase branches are unit-tested only; no integration/e2e test against a real or stubbed webhook handler
 - [ ] Per-seat billing reconciler has zero automated test coverage — no test for countBillableSeats, buildDesiredItems, or recomputeClientSubscription; noted in domain-map planning notes
 - [ ] Monthly AI credit re-grant cron is missing — credits granted on activation/renewal webhook only; no scheduled re-grant worker exists (noted in domain-map planning notes)
+- [ ] GAP (no implementation): Failed-payment dunning + automatic retry
+- [ ] GAP (no implementation): Customer self-serve billing portal (card/invoice/subscription management)
+- [ ] GAP (no implementation): Stripe Connect / BYOK flow
+- [ ] GAP (no implementation): Module subscription checkout — POST /billing/modules/checkout creates Stripe Checkout session with correct price_data line items (no real Stripe call; guard on sk_test key)
 
 
 %% kanban:settings

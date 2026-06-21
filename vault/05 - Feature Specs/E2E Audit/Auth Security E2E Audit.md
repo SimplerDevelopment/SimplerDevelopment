@@ -11,23 +11,8 @@ sources:
 
 ## To Test
 
-- [ ] MFA enrollment + TOTP login flow — needs spec
-- [ ] Platform-wide audit log writes on auth events — needs spec
-- [ ] Rate limiting on /api/auth/reset and login endpoints — needs spec
-- [ ] OAuth 2.1 server scoped sd_mcp_* token issuance — needs spec
-- [ ] Self-serve signup flow — POST /api/auth/signup with valid inputs creates inactive user and triggers verification email — needs spec
-- [ ] Email verification token — GET /api/auth/verify-email?token=<valid> activates user and allows login — needs spec
-- [ ] Resend verification — POST /api/auth/resend-verification sends new token for unverified user — needs spec
-- [ ] Google OAuth sign-in — provider callback creates or links user, session established — needs spec
-- [ ] Admin deactivates user (active=false) — that user's next authenticated request returns 401 within REVALIDATE_MS window — needs spec
-- [ ] Invite token acceptance — POST /api/portal/invite/accept with valid token activates invited user and allows login — needs spec
-- [ ] Portal OAuth client CRUD — GET/POST/DELETE /api/portal/oauth-clients scoped to caller's tenant — needs spec
-- [ ] OAuth access token revocation — DELETE /api/portal/oauth-tokens revokes token; subsequent MCP request returns 401 — needs spec
-- [ ] OAuth 2.1 discovery — GET /.well-known/oauth-authorization-server returns valid RFC 8414 metadata document — needs spec
-- [ ] Admin role gate — client-role user directed to /portal/dashboard when attempting /admin routes — needs spec
-- [ ] clientMembers viewer role enforcement — viewer-role member cannot create/edit kanban cards — needs spec
-- [ ] API key scope enforcement — sd_mcp_* key with narrowly-scoped scopes is rejected by out-of-scope MCP tools — needs spec
-- [ ] Admin impersonation start + stop — admin can impersonate a portal user and end the session via /api/portal/impersonate/stop — needs spec
+- [ ] Admin deactivates user (active=false) — that user's next authenticated request returns 401 within REVALIDATE_MS window — needs spec (requires 60s wait for JWT revalidation; too slow for E2E without test hook)
+- [ ] OAuth 2.1 server scoped sd_mcp_* token issuance — needs spec (full authorization_code OAuth flow with consent screen not E2E-testable via API; scope enforcement via API keys is covered)
 
 ## Testing
 
@@ -40,6 +25,17 @@ sources:
 - [ ] NextAuth login → portal dashboard ✓ (Phase 2 MCP pass)
 - [ ] scoped MCP token issuance for agent access ✓
 - [ ] ✓ verified 2026-06-20: login flow verified; rate-limiter bypass wired (DISABLE_AUTH_RATE_LIMIT); onboarding-complete seeded + verified
+- [ ] ✓ verified 2026-06-20 — Self-serve signup flow — POST /api/auth/signup with valid inputs creates inactive user and triggers verification email (auth-security-coverage.spec.ts)
+- [ ] ✓ verified 2026-06-20 — Resend verification — POST /api/auth/resend-verification sends new token for unverified user (auth-security-coverage.spec.ts)
+- [ ] ✓ verified 2026-06-20 — Invite token acceptance — POST /api/portal/invite/accept with valid token activates invited user and allows login (auth-security-coverage.spec.ts)
+- [ ] ✓ verified 2026-06-20 — Portal OAuth client CRUD — GET/POST/DELETE /api/portal/oauth-clients scoped to caller's tenant (auth-security-coverage.spec.ts)
+- [ ] ✓ verified 2026-06-20 — OAuth access token revocation — DELETE /api/portal/oauth-tokens revokes token; list reflects revokedAt (auth-security-coverage.spec.ts)
+- [ ] ✓ verified 2026-06-20 — OAuth 2.1 discovery — GET /.well-known/oauth-authorization-server returns valid RFC 8414 metadata document (auth-security-coverage.spec.ts)
+- [ ] ✓ verified 2026-06-20 — Admin role gate — client-role user directed to 401 when calling /api/admin routes; admin user passes (auth-security-coverage.spec.ts)
+- [ ] ✓ verified 2026-06-20 — clientMembers viewer role enforcement — viewer-role project member cannot create/edit kanban cards (403) (auth-security-coverage.spec.ts)
+- [ ] ✓ verified 2026-06-20 — API key scope enforcement — sd_mcp_* key with narrowly-scoped scopes is rejected by out-of-scope MCP tools (auth-security-coverage.spec.ts)
+- [ ] ✓ verified 2026-06-20 — Admin impersonation start + stop — admin can impersonate a portal user and end the session via /api/portal/impersonate/stop (auth-security-coverage.spec.ts)
+- [ ] ✓ verified 2026-06-20 — Email verification token — GET /api/auth/verify-email?token=<valid> activates user and allows login (cov-u1.spec.ts)
 
 ## Gaps Found
 
@@ -50,6 +46,9 @@ sources:
 - [ ] OAuth 2.1 consent screen (/oauth/authorize) has no e2e test — entire user-facing consent flow is untested
 - [ ] Self-serve signup + email verification funnel has no e2e test despite routes being live (/api/auth/signup, /api/auth/verify-email, /api/auth/resend-verification)
 - [ ] Admin impersonation (/api/portal/impersonate/status + /stop) has no e2e coverage
+- [ ] GAP (no implementation): MFA enrollment + TOTP login flow — MFA not implemented in codebase
+- [ ] GAP (no implementation): Platform-wide audit log writes on auth events — no audit log table or event hooks exist
+- [ ] GAP (no E2E path): Google OAuth sign-in — provider callback requires external Google OAuth flow; not testable via API without browser + provider credentials
 - [x] RESOLVED: credential brute-force rate-limiter blocked entire suite under localhost parallelism — DISABLE_AUTH_RATE_LIMIT bypass added to `lib/auth.ts` and wired into `scripts/test.sh`
 
 

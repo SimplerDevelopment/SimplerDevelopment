@@ -7,7 +7,16 @@ date: 2026-06-20
 sources: []
 ---
 
-2026-06-20 RECONCILIATION: boards re-filed to reality. Of ~379 scenario cards, **80 are in Passed** (each backed by a concrete passing e2e spec) and **299 remain in To Test, all marked "needs spec"** — they are identified coverage GAPS with no e2e test yet, NOT verified behaviour. The green @critical run validates the *existing* specs, not these uncovered scenarios. Closing the 299 = a separate test-authoring effort.
+2026-06-20 COVERAGE AUTHORING: wrote + verified specs for the needs-spec backlog (fan-out: 82 agents, ~4-card units, prod server @ DB_POOL_MAX=24). NEW STATE: **Passed 272** (each backed by a spec that passes — 760 new coverage tests green, 0 fail / 5 flaky in the consolidated run), **Gaps Found 184** (incl. ~45 features confirmed NOT implemented), **To Test 46** (genuinely hard/unstable, kept honest). 8 real product BUGS surfaced by the new tests (flagged on their boards):
+- CRM notifications [id]: only PATCH; GET/DELETE 405 (interface mismatch)
+- CRM pipeline stage [stageId]: only DELETE; PUT 405
+- Surveys: allowMultiple=false NOT enforced — 2nd same-email submit returns 201
+- Sites API keys: generateApiKey emits 72 chars but api_keys.key is varchar(64) → POST 500
+- Automations: condition-node action undefined → workflow_step_logs NOT NULL fail → runs always fail
+- ESign: orphaned/applied pending-change returns 500 not graceful 4xx
+- Plugins/Cron: plugin-jobs-tick TZ mismatch (NY vs UTC) → due jobs never claimed
+
+2026-06-20 RECONCILIATION (earlier): boards first re-filed to reality (80 Passed / 299 needs-spec) before the authoring pass above closed most of the backlog.
 
 2026-06-20: @critical prod-mode gate (`scripts/test.sh --mode=prod`) is GREEN — **577 passed / 0 failed** (1 flaky ab-experiment UI row passed on retry; 30 dev-only skipped). From 35 pass at session start. presenter crash + api-keys/booking/survey #418 + collab-WS smoke filter all fixed; tenancy gate 415/0. Latest canonical gate fixes: api-keys #418 hydration (product) + route-smoke now ignores collab-WS connection-refused noise (the ws://localhost:3030 realtime server isn't part of the e2e harness). Remaining blips (ab-experiment row, agency-branding PATCH) are flaky-on-retry only. PROD-MODE made runnable: AUTH_TRUST_HOST=true (Auth.js rejects untrusted localhost in prod) + skip dev-only Agentic OS (isLocalDev gate → 404 in prod) + route-smoke /portal/login accepts the /portal/onboarding redirect (un-onboarded user lands there). Remaining run-level blips (ab-experiment UI row, integrations/api-keys smoke) are flaky-on-retry only — each passes in isolation.
 
