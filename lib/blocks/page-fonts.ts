@@ -114,10 +114,33 @@ export function collectBlockFonts(content: string): string[] {
  * seals, OG/favicon) live in the LAYOUT, not in `content`, so the first image
  * URL in `content` is reliably the first on-page (hero) image.
  */
+const CONTENT_IMAGE_RX = /(https?:\/\/[^"'()\s\\]+?\.(?:png|jpe?g|webp|avif|gif)|\/[^"'()\s\\]+?\.(?:png|jpe?g|webp|avif))/gi;
+
 export function firstContentImageUrl(content: string): string | null {
-  // Match absolute http(s) image URLs OR root-relative ones, common raster/next-gen formats.
-  const m = content.match(/(https?:\/\/[^"'()\s\\]+?\.(?:png|jpe?g|webp|avif|gif)|\/[^"'()\s\\]+?\.(?:png|jpe?g|webp|avif))/i);
-  return m ? m[1] : null;
+  return firstContentImageUrls(content, 1)[0] ?? null;
+}
+
+/**
+ * Find the first `max` DISTINCT on-page image URLs, in document order. Used to
+ * preload the likely-LCP image(s). One URL isn't always enough: the LCP element
+ * differs by viewport. A common home layout is a small hero photo (the desktop
+ * LCP, first in `content`) followed by a full-width image grid whose first cell
+ * is the MOBILE LCP (second in `content`, and authored as `loading="lazy"`).
+ * Preloading only the first leaves the mobile LCP image undiscovered until the
+ * page JS clears, pushing its load-delay to several seconds. Returning the first
+ * couple of URLs lets HeroPreload cover both candidates.
+ */
+export function firstContentImageUrls(content: string, max = 2): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const m of content.matchAll(CONTENT_IMAGE_RX)) {
+    const url = m[1];
+    if (seen.has(url)) continue;
+    seen.add(url);
+    out.push(url);
+    if (out.length >= max) break;
+  }
+  return out;
 }
 
 /**

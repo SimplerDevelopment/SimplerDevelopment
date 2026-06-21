@@ -1,5 +1,5 @@
 import { preload, preconnect } from 'react-dom';
-import { firstContentImageUrl } from '@/lib/blocks/page-fonts';
+import { firstContentImageUrls } from '@/lib/blocks/page-fonts';
 
 /**
  * Server component (NO 'use client') that preloads the likely-LCP image into
@@ -17,13 +17,26 @@ import { firstContentImageUrl } from '@/lib/blocks/page-fonts';
  * head resource hints.
  */
 export function HeroPreload({ content }: { content: string }) {
-  const url = firstContentImageUrl(content);
-  if (url) {
+  // Preload the first couple of on-page images. The LCP element differs by
+  // viewport — a small hero photo on desktop, the first full-width grid image
+  // on mobile — so covering both candidates keeps the mobile LCP image from
+  // sitting undiscovered (lazy, in an html-render block) until the page JS
+  // clears. The non-LCP grid cells stay `loading="lazy"`, so these few high-
+  // priority preloads don't contend with a dozen eager image requests.
+  const urls = firstContentImageUrls(content, 2);
+  const seenOrigins = new Set<string>();
+  for (const url of urls) {
     try {
-      // Preconnect to the image origin (no crossOrigin: CSS background-image
-      // fetches are not CORS, so a crossorigin hint would open a separate,
-      // unused connection).
-      if (/^https?:\/\//i.test(url)) preconnect(new URL(url).origin);
+      if (/^https?:\/\//i.test(url)) {
+        const origin = new URL(url).origin;
+        if (!seenOrigins.has(origin)) {
+          seenOrigins.add(origin);
+          // Preconnect to the image origin (no crossOrigin: CSS background-image
+          // fetches are not CORS, so a crossorigin hint would open a separate,
+          // unused connection).
+          preconnect(origin);
+        }
+      }
     } catch {
       /* ignore malformed URL */
     }
