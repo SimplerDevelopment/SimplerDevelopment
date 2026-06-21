@@ -32,14 +32,13 @@ sources:
 - [ ] ✓ verified 2026-06-20 — Cross-tenant isolation: contact/company/deal created by tenant A is not visible to tenant B (401/404) (crm-coverage.spec.ts)
 - [ ] ✓ verified 2026-06-20 — GET + DELETE /api/portal/crm/notifications/[id] — single-notification read and dismiss (crm-coverage.spec.ts)
 - [ ] ✓ verified 2026-06-20 — PUT /api/portal/crm/pipelines/[id]/stages/[stageId] — update an individual pipeline stage (crm-coverage.spec.ts)
+- [x] RESOLVED: send-email validation paths already covered in crm-coverage.spec.ts (confirmed during gap pass)
 
 ## Gaps Found
 
-- [ ] e2e seed lacks entitlements (402) — see [[Platform E2E Audit 2026-06-17]]
 - [ ] No two-way email sync — sequences/cadences missing (most-used CRM surface) — see [[Competitive Gap Analysis 2026-06]]
 - [ ] No AI deal assistant / forecasting — see [[Competitive Gap Analysis 2026-06]]
 - [ ] crmContractTemplates table exists in schema but no /api/portal/crm/contract-templates route — feature is dark
-- [ ] contacts/[id]/send-email route exists but no e2e tests and no integration with Gmail MCP or outbound email provider — functionality is unverified end-to-end
 - [ ] GAP (no implementation): PUT + DELETE /api/portal/crm/pipelines/[id] — rename and delete a pipeline — no route.ts exists at pipelines/[id]; only pipelines/[id]/stages/* routes exist
 - [ ] GAP (no implementation): Two-way email sync with Gmail/Outlook
 - [ ] GAP (no implementation): Sequences / email cadences from CRM

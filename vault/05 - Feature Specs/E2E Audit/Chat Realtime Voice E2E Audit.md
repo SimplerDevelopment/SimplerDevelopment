@@ -42,7 +42,6 @@ sources:
 
 ## Gaps Found
 
-- [ ] e2e seed lacks entitlements (402) — see [[Platform E2E Audit 2026-06-17]]
 - [ ] chat_widgets.brainEnabled not wired to actual Brain retrieval — see [[Project Board]]
 - [ ] Domain was not audited in Phase 3 competitive pass — gap data incomplete — see [[Competitive Gap Analysis 2026-06]]
 - [ ] VoiceAssistant component built but not mounted in portal layout (PortalLayoutClient.tsx commented out) — voice feature is unreachable by end users

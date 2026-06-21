@@ -36,14 +36,13 @@ sources:
 - [ ] ✓ verified 2026-06-20 — Cross-tenant isolation: survey from another tenant returns 404/403 on portal routes (surveys-coverage.spec.ts)
 - [ ] ✓ verified 2026-06-20 — Scoring + conditional logic (surveys-coverage.spec.ts)
 - [ ] ✓ verified 2026-06-20 — allowMultiple=false blocks same-email second submission (surveys-coverage.spec.ts)
+- [x] RESOLVED (partial): webhook dispatcher delivery-row attempt covered — gap-surveys-plugins-coverage.spec.ts (external delivery network-dependent)
+- [x] RESOLVED: SurveyStyling override round-trip + public-GET surfacing covered — gap-surveys-plugins-coverage.spec.ts
 
 ## Gaps Found
 
-- [ ] e2e seed lacks entitlements (402) — see [[Platform E2E Audit 2026-06-17]]
 - [ ] No in-form payment field — see [[Competitive Gap Analysis 2026-06]]
 - [ ] No in-form e-signature field — see [[Competitive Gap Analysis 2026-06]]
-- [ ] No E2E coverage for webhook dispatcher fire-and-forget path (HOOK-02 BullMQ migration pending; current inline-retry path has only unit tests)
-- [ ] No E2E covering survey-level branding override (SurveyStyling jsonb) — branding QA spec uses a hardcoded production slug, not a fixture survey
 - [ ] GAP (no implementation): Fork survey creates draft with parentSurveyId pointer — fork is implemented only as MCP tool `surveys_fork`, no portal REST endpoint; portal E2E cannot exercise this path
 - [ ] GAP (no portal E2E path): File field upload round-trip (POST /api/surveys/[slug]/upload → answer records S3 key) — requires S3 credentials not available in test environment
 

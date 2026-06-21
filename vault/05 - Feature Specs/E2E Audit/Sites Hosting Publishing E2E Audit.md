@@ -40,7 +40,6 @@ sources:
 
 ## Gaps Found
 
-- [ ] e2e seed lacks entitlements (402) — see [[Platform E2E Audit 2026-06-17]]
 - [ ] No true staging environment (preview token ≠ staging branch) — see [[Competitive Gap Analysis 2026-06]]
 - [ ] No automated backups / auto-rollback on failed publish — see [[Competitive Gap Analysis 2026-06]]
 - [ ] Scheduled auto-publish cron not wired to CMS posts — see [[Competitive Gap Analysis 2026-06]]

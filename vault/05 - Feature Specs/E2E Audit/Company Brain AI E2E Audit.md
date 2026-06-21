@@ -39,15 +39,15 @@ sources:
 - [ ] ✓ verified 2026-06-20 — knowledge trash empty: POST /brain/knowledge/trash/empty hard-deletes all soft-deleted notes for the tenant (cov-u7.spec.ts)
 - [ ] ✓ verified 2026-06-20 — dataview structured query: GET /brain/dataview returns a cross-entity tabular result given a valid query payload (cov-u8.spec.ts)
 - [ ] ✓ verified 2026-06-20 — meeting full lifecycle: create via paste adapter → GET detail → PUT update → DELETE a real meeting (not 404 stubs) (cov-u8.spec.ts)
+- [x] RESOLVED: review-items approve + reject mutations covered — gap-brain-coverage.spec.ts
+- [x] RESOLVED: meetings create→GET→PUT-link→DELETE lifecycle covered — gap-brain-coverage.spec.ts
+- [x] RESOLVED: note custom fields GET+PATCH (upsert/clear) covered — gap-brain-coverage.spec.ts
 
 ## Gaps Found
 
 - [ ] e2e seed lacks entitlements (402 / BRAIN_NOT_ENTITLED) — see [[Platform E2E Audit 2026-06-17]]
 - [ ] No auto-ingest connectors (Slack/Confluence/SharePoint) — see [[Competitive Gap Analysis 2026-06]]
 - [ ] No ACL-aware retrieval across tenant boundaries — see [[Competitive Gap Analysis 2026-06]]
-- [ ] review-items approve/reject have no e2e mutation test — GET /review list is covered but no spec drives approve or reject through the human review queue
-- [ ] meetings detail lifecycle is stub-only — only 404 probes exist for PUT/DELETE; no spec creates a real meeting then updates/deletes it via the [id] routes
-- [ ] brain note custom fields (/knowledge/[id]/fields) have no e2e coverage despite real routes and schema existing in brain.ts
 - [ ] GAP (no implementation): Auto-ingest connectors (Slack, Confluence, SharePoint)
 - [ ] GAP (no implementation): ACL-aware retrieval (per-tenant scoping enforced)
 - [x] RESOLVED: /portal/brain/ask console pageerror — window.origin read moved out of render into useEffect — `app/portal/brain/ask/page.tsx`

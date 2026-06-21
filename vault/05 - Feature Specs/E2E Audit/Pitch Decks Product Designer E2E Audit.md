@@ -34,15 +34,14 @@ sources:
 - [ ] ✓ verified 2026-06-20 — Product designer: POST /designs/[id]/save-as-template marks isTemplate=true and lists in templates (cov-u16.spec.ts)
 - [ ] ✓ verified 2026-06-20 — Product designer: design-assets CRUD — add icon asset, list by category, delete from library (cov-u17.spec.ts)
 - [ ] ✓ verified 2026-06-20 — Product designer: design saved with explicit styleId retains styleId on GET (cov-u17.spec.ts)
+- [x] RESOLVED (partial): ai-image/ai-text auth+validation paths covered — gap-pitch-coverage.spec.ts (generation success needs AI provider)
+- [x] RESOLVED (partial): generate-thumbnail validation + https pass-through covered — gap-pitch-coverage.spec.ts (S3 upload success blocked in test)
+- [x] RESOLVED: claim-anonymous-design ownership-transfer flow covered — gap-pitch-coverage.spec.ts
 
 ## Gaps Found
 
-- [ ] e2e seed lacks entitlements (402) — see [[Platform E2E Audit 2026-06-17]]
 - [ ] No viewer analytics on shared deck links — see [[Competitive Gap Analysis 2026-06]]
 - [ ] No access control (password/expiry) on shared deck links — see [[Competitive Gap Analysis 2026-06]]
-- [ ] No e2e coverage for /designs/[id]/ai-image or /designs/[id]/ai-text endpoints — AI-assisted layer generation untested end-to-end
-- [ ] No e2e coverage for /designs/generate-thumbnail endpoint — thumbnail generation path has no automated test
-- [ ] No e2e test for claim anonymous design flow (POST /designs/claim) after customer login — cookie-to-customer handoff is untested
 - [x] RESOLVED: collabActive was `ydoc!==null` (always true) permanently suppressing the unsaved-changes flag — now keyed to ws-connected — `usePitchDeckState.ts`
 - [ ] GAP (no implementation): Viewer analytics on shared deck (view count, time-on-slide)
 - [ ] GAP (no implementation): Access control on shared deck link (password / expiry)

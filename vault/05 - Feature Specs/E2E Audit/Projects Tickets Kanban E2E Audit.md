@@ -44,7 +44,6 @@ sources:
 
 ## Gaps Found
 
-- [ ] e2e seed lacks entitlements (402) — see [[Platform E2E Audit 2026-06-17]]
 - [ ] No burndown / velocity reporting — see [[Competitive Gap Analysis 2026-06]]
 - [ ] No SLA / CSAT on tickets — see [[Competitive Gap Analysis 2026-06]]
 - [x] RESOLVED: "No project columns available for test" — seed now bootstraps a Publishing project + columns and wires admin client membership — `scripts/seed-admin-e2e.ts`

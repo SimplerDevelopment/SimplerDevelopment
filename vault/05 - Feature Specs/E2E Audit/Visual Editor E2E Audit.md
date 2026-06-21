@@ -34,7 +34,6 @@ sources: []
 
 ## Gaps Found
 
-- [ ] e2e seed lacks entitlements (402) — see [[Platform E2E Audit 2026-06-17]]
 - [ ] No in-canvas AI section generation — see [[Competitive Gap Analysis 2026-06]]
 - [ ] No scroll/timeline interaction support — see [[Competitive Gap Analysis 2026-06]]
 - [ ] NOTE: Yjs CRDT collab exists (Chat/Realtime domain) — "no co-editing" finding from gap report is refuted

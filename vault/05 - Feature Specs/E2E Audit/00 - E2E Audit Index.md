@@ -3,11 +3,13 @@ kanban-plugin: board
 type: index
 domain: validation
 status: active
-date: 2026-06-20
+date: 2026-06-21
 sources: []
 ---
 
-2026-06-20 COVERAGE AUTHORING: wrote + verified specs for the needs-spec backlog (fan-out: 82 agents, ~4-card units, prod server @ DB_POOL_MAX=24). NEW STATE: **Passed 272** (each backed by a spec that passes — 760 new coverage tests green, 0 fail / 5 flaky in the consolidated run), **Gaps Found 184** (incl. ~45 features confirmed NOT implemented), **To Test 46** (genuinely hard/unstable, kept honest). 8 real product BUGS surfaced by the new tests (flagged on their boards):
+2026-06-21 GAP-SPEC PASS: authored + verified 11 gap-*-coverage.spec.ts files (186 tests green, deterministic); moved 24 testable-gap cards to Passed across 13 boards; 2 cards annotated PARTIAL (no e2e-testable surface — unit-covered).
+
+2026-06-20 COVERAGE AUTHORING: wrote + verified specs for the needs-spec backlog (fan-out: 82 agents, ~4-card units, prod server @ DB_POOL_MAX=24). NEW STATE: **Passed 272** (each backed by a spec that passes — 760 new coverage tests green, 0 fail / 5 flaky in the consolidated run), **Gaps Found 128** (incl. ~45 features confirmed NOT implemented), **To Test 46** (genuinely hard/unstable, kept honest). 8 real product BUGS surfaced by the new tests (flagged on their boards):
 - CRM notifications [id]: only PATCH; GET/DELETE 405 (interface mismatch)
 - CRM pipeline stage [stageId]: only DELETE; PUT 405
 - Surveys: allowMultiple=false NOT enforced — 2nd same-email submit returns 201

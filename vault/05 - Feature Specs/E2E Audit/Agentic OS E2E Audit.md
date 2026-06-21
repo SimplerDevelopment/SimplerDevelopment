@@ -39,7 +39,6 @@ sources:
 
 ## Gaps Found
 
-- [ ] e2e seed lacks entitlements (402) — see [[Platform E2E Audit 2026-06-17]]
 - [ ] Domain was not audited in Phase 3 competitive pass — gap data incomplete — see [[Competitive Gap Analysis 2026-06]]
 - [ ] PATCH /api/portal/ai/conversations/[id] (rename) not yet implemented — sentinel in portal-ai-extras.spec.ts
 - [ ] Agentic OS local-dev-only gate (isLocalDev) not exercised at e2e layer — only unit-tested via mock; staging deploy exposure is unverified

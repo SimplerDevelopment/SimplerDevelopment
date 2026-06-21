@@ -34,7 +34,6 @@ sources: []
 
 ## Gaps Found
 
-- [ ] e2e seed lacks entitlements (402) — see [[Platform E2E Audit 2026-06-17]]
 - [ ] Google/Microsoft refresh tokens not encrypted at rest — see [[Project Board]]
 - [ ] Microsoft token revocation is local-only no-op — upstream revoke missing — see [[Project Board]]
 - [ ] No public outbound webhooks / developer API — cross-cutting gap — see [[Competitive Gap Analysis 2026-06]]

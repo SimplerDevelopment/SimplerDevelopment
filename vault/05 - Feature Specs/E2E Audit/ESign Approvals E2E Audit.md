@@ -40,16 +40,15 @@ sources:
 - [ ] ✓ verified 2026-06-20 — Admin cross-tenant approvals inbox (/api/admin/approvals): lists pending changes across tenants; approve/reject via admin route (cov-u37.spec.ts)
 - [ ] ✓ verified 2026-06-20 — GET /api/portal/approvals?status=applied returns only applied records (status filter coverage) (cov-u37.spec.ts)
 - [ ] ✓ verified 2026-06-20 — Orphaned/stale pending-change graceful error state: POST /api/approve/[token] returns 409 (not 500) when pending change is already applied (cov-u34.spec.ts APPR-STALE-01)
+- [x] RESOLVED: public /approve/[token] entity + pending_change link types, invalid/expired/resolved/validation paths covered — gap-esign-coverage.spec.ts
+- [x] RESOLVED: cross-tenant approve-token isolation gate covered — gap-esign-coverage.spec.ts
 
 ## Gaps Found
 
-- [ ] e2e seed lacks entitlements (402) — see [[Platform E2E Audit 2026-06-17]]
 - [x] RESOLVED 2026-06-20 — Public /approve endpoint 500s on orphaned/stale pending-change dependency (stale email_lists row) — fixed: returns 409 with "no longer applicable" message (app/api/approve/[token]/route.ts); verified by APPR-STALE-01 in cov-u34.spec.ts
 - [ ] No signer identity verification (OTP/KBA) — identity-assurance gap shared with Auth — see [[Competitive Gap Analysis 2026-06]]
 - [ ] No reminder nudges for pending approvals — see [[Competitive Gap Analysis 2026-06]]
-- [ ] No e2e test exercises the public /api/approve/[token] route at all — the token-link approval path (entity and pending_change link types) is entirely uncovered at the e2e layer despite being the external-reviewer entry point
 - [ ] crm_contract_templates has schema and CRUD data but no API routes (app/api/portal/crm/contract-templates/ absent) — cannot be tested until routes are scaffolded
-- [ ] Cross-tenant token isolation has no e2e gate: a token minted for client A should 404/403 when called from client B session; currently only enforced by unit tests on the route handler
 - [ ] GAP (no implementation): Signer identity verification (OTP / KBA)
 - [ ] GAP (no implementation): Automated reminder nudges for pending approvals
 

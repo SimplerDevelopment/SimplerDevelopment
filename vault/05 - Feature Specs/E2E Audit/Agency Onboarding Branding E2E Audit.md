@@ -29,14 +29,13 @@ sources: []
 - [ ] ✓ verified 2026-06-20 — MCP branding_check_contrast returns valid WCAG pass/fail for a given foreground+background pair (cov-u44.spec.ts)
 - [ ] ✓ verified 2026-06-20 — POST /agency/custom-domain rejects invalid/non-public domain (400) and domain already claimed by another tenant (409) (cov-u44.spec.ts)
 - [ ] ✓ verified 2026-06-20 — Brand style guide page renders (/portal/branding/profiles/[id]/guide) with correct color swatches and typography preview (cov-u44.spec.ts)
+- [x] RESOLVED (partial): custom-domain/verify 401/400/422 paths covered — gap-agency-coverage.spec.ts (verified-success path needs real DNS)
+- [x] RESOLVED: all 5 MCP branding READ tools + scope-denial covered — gap-agency-coverage.spec.ts
+- [x] RESOLVED: agency chrome populated white-label payload covered — gap-agency-coverage.spec.ts
 
 ## Gaps Found
 
-- [ ] e2e seed lacks entitlements (402) — see [[Platform E2E Audit 2026-06-17]]
 - [ ] No SaaS-resell layer: no cloneable onboarding, no tiered entitlement management, no Stripe rebilling — see [[Competitive Gap Analysis 2026-06]]
-- [ ] POST /agency/custom-domain/verify has no e2e coverage at all — DNS-verify route exists but no spec exercises the 422 (DNS miss) or success path
-- [ ] MCP branding read tools (branding_list_profiles, branding_get_profile, branding_get_messaging, branding_audit, branding_check_contrast) have zero e2e test coverage; only branding_create_profile and branding_delete_profile are exercised in mcp-coverage-fills.spec.ts
-- [ ] Agency chrome GET with whiteLabelEnabled=true (populated payload) is never tested — all existing specs only assert the disabled/empty state
 - [ ] GAP (no implementation): White-label onboarding clone flow
 - [ ] GAP (no implementation): Tiered entitlement provisioning for resold tenants
 - [ ] GAP (no implementation): Stripe usage rebilling for resold tenants

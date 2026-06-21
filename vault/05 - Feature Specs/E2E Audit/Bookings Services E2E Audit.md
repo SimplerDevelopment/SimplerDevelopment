@@ -34,15 +34,14 @@ sources:
 - [ ] ✓ verified 2026-06-20 — Individual booking status update (portal PUT /bookings/[bookingId]) — cancel, reassign (bookings-coverage.spec.ts)
 - [ ] ✓ verified 2026-06-20 — Public available-slots endpoint returns slot windows respecting availability config (bookings-coverage.spec.ts)
 - [ ] ✓ verified 2026-06-20 — Waiver sign-on-book flow (bookings-coverage.spec.ts)
+- [x] RESOLVED (partial): waiver PDF 401/404 paths covered — gap-bookings-coverage.spec.ts (PDF-gen success path partial)
+- [x] RESOLVED: public quote view (green) + pay (partial — success needs Stripe) covered — gap-bookings-coverage.spec.ts
 
 ## Gaps Found
 
-- [ ] e2e seed lacks entitlements (402) — see [[Platform E2E Audit 2026-06-17]]
 - [ ] No external-calendar free/busy check — double-book risk — see [[Competitive Gap Analysis 2026-06]]
 - [ ] No reschedule flow — see [[Competitive Gap Analysis 2026-06]]
 - [ ] No SMS reminders — see [[Competitive Gap Analysis 2026-06]]
-- [ ] No waiver PDF generation test — /waivers/[waiverId]/pdf route untested
-- [ ] No public quote view + payment flow test — /api/public/booking/quote/[slug] and /pay untested
 - [x] RESOLVED: booking page POST silently dropped price/enableGiftCertificates (+25 fields) on create — now forwarded — `app/api/portal/tools/booking/route.ts`
 
 

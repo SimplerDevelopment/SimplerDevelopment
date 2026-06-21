@@ -42,13 +42,12 @@ sources:
 - [ ] ✓ verified 2026-06-20 — POST /api/admin/portal/subscriptions — admin can create a client subscription (cov-u20.spec.ts)
 - [ ] ✓ verified 2026-06-20 — POST /api/admin/portal/subscriptions/[id]/cancel — admin cancel subscription returns 409 when no Stripe subscription is linked (cov-u20.spec.ts)
 - [ ] ✓ verified 2026-06-20 — GET /api/admin/portal/subscriptions/[id]/invoices — admin can list invoices for a subscription (cov-u20.spec.ts)
+- [x] RESOLVED (partial): Stripe webhook signature-validation (400) + 405 guard paths covered — gap-billing-coverage.spec.ts (success branch needs real Stripe)
 
 ## Gaps Found
 
-- [ ] e2e seed lacks entitlements (402) — see [[Platform E2E Audit 2026-06-17]]
 - [ ] No dunning: failed payments silently lost — active revenue leak — see [[Competitive Gap Analysis 2026-06]]
 - [ ] No self-serve billing portal (billingPortal.sessions.create not wired) — active revenue leak — see [[Competitive Gap Analysis 2026-06]]
-- [ ] No e2e coverage for Stripe platform webhook (checkout.session.completed) — invoice-paid, service-activation, and credit-purchase branches are unit-tested only; no integration/e2e test against a real or stubbed webhook handler
 - [ ] Per-seat billing reconciler has zero automated test coverage — no test for countBillableSeats, buildDesiredItems, or recomputeClientSubscription; noted in domain-map planning notes
 - [ ] Monthly AI credit re-grant cron is missing — credits granted on activation/renewal webhook only; no scheduled re-grant worker exists (noted in domain-map planning notes)
 - [ ] GAP (no implementation): Failed-payment dunning + automatic retry

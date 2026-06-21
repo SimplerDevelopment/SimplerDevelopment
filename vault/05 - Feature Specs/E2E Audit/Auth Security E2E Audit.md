@@ -36,20 +36,19 @@ sources:
 - [ ] ✓ verified 2026-06-20 — API key scope enforcement — sd_mcp_* key with narrowly-scoped scopes is rejected by out-of-scope MCP tools (auth-security-coverage.spec.ts)
 - [ ] ✓ verified 2026-06-20 — Admin impersonation start + stop — admin can impersonate a portal user and end the session via /api/portal/impersonate/stop (auth-security-coverage.spec.ts)
 - [ ] ✓ verified 2026-06-20 — Email verification token — GET /api/auth/verify-email?token=<valid> activates user and allows login (cov-u1.spec.ts)
+- [x] RESOLVED: credential brute-force rate-limiter blocked entire suite under localhost parallelism — DISABLE_AUTH_RATE_LIMIT bypass added to `lib/auth.ts` and wired into `scripts/test.sh`
+- [x] RESOLVED: OAuth /oauth/authorize consent flow (error pages + unauth redirect + authenticated consent render) covered — gap-auth-coverage.spec.ts
+- [x] RESOLVED (partial): signup/verify-email/resend guard+validation paths covered — gap-auth-coverage.spec.ts (happy-path already in auth-security-coverage.spec.ts)
+- [x] RESOLVED (partial): impersonate status/stop guard paths covered — gap-auth-coverage.spec.ts (full round-trip already in auth-security-coverage.spec.ts)
 
 ## Gaps Found
 
-- [ ] e2e seed lacks entitlements (402) — see [[Platform E2E Audit 2026-06-17]]
 - [ ] No MFA (TOTP/SMS/backup codes) — hard table-stakes gap — see [[Competitive Gap Analysis 2026-06]]
 - [ ] No platform-wide audit log for auth events — see [[Competitive Gap Analysis 2026-06]]
 - [ ] No rate limiting on auth/reset endpoints — see [[Competitive Gap Analysis 2026-06]]
-- [ ] OAuth 2.1 consent screen (/oauth/authorize) has no e2e test — entire user-facing consent flow is untested
-- [ ] Self-serve signup + email verification funnel has no e2e test despite routes being live (/api/auth/signup, /api/auth/verify-email, /api/auth/resend-verification)
-- [ ] Admin impersonation (/api/portal/impersonate/status + /stop) has no e2e coverage
 - [ ] GAP (no implementation): MFA enrollment + TOTP login flow — MFA not implemented in codebase
 - [ ] GAP (no implementation): Platform-wide audit log writes on auth events — no audit log table or event hooks exist
 - [ ] GAP (no E2E path): Google OAuth sign-in — provider callback requires external Google OAuth flow; not testable via API without browser + provider credentials
-- [x] RESOLVED: credential brute-force rate-limiter blocked entire suite under localhost parallelism — DISABLE_AUTH_RATE_LIMIT bypass added to `lib/auth.ts` and wired into `scripts/test.sh`
 
 
 %% kanban:settings

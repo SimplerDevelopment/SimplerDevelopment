@@ -33,7 +33,6 @@ sources:
 
 ## Gaps Found
 
-- [ ] e2e seed lacks entitlements (402) — see [[Platform E2E Audit 2026-06-17]]
 - [ ] email-events specs fail: Resend neutralized in sandbox — by design, not a product bug — see [[Platform E2E Audit 2026-06-17]]
 - [ ] No branching journeys / conditional send logic — see [[Competitive Gap Analysis 2026-06]]
 - [ ] No deliverability testing / inbox preview — see [[Competitive Gap Analysis 2026-06]]

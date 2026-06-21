@@ -31,13 +31,12 @@ sources:
 - [ ] ✓ verified 2026-06-20 — Per-site custom code: PUT /code, POST /code/publish, POST /code/discard lifecycle (cms-blocks-coverage.spec.ts)
 - [ ] ✓ verified 2026-06-20 — Per-site tracking configuration: GET/PUT /tracking round-trips provider keys (cms-blocks-coverage.spec.ts)
 - [ ] ✓ verified 2026-06-20 — Cross-tenant post isolation: a request from tenant B for a post owned by tenant A's site returns 403/404 (cms-blocks-coverage.spec.ts)
+- [x] RESOLVED: nav_publish + nav_publish_all (MCP + REST mirror) covered — gap-cms-nav-coverage.spec.ts
 
 ## Gaps Found
 
-- [ ] e2e seed lacks entitlements (402) — see [[Platform E2E Audit 2026-06-17]]
 - [ ] No reference fields / relational content linking — see [[Competitive Gap Analysis 2026-06]]
 - [ ] Scheduled auto-publish not wired: cron exists, CMS hookup missing — see [[Competitive Gap Analysis 2026-06]]
-- [ ] Navigation publish/publish_all MCP tools have no e2e coverage — nav_publish and nav_publish_all exist in lib/mcp/tools/cms.ts but only flat CRUD is tested in portal-cms-navigation.spec.ts
 - [x] RESOLVED: insertLevel() dropped new menu items whose parent is an existing DB row — fixed — `app/api/portal/websites/[siteId]/navigation/route.ts`
 - [ ] GAP (no implementation): Post fork (A/B variant): POST /api/portal/cms/websites/[siteId]/posts/[id]/fork creates a linked copy with parentPostId set — schema field exists (parent_post_id) but no route exists
 - [ ] GAP (no implementation): Block template fork: fork a platform-global template, customize, publish as tenant-private copy — no dedicated fork endpoint; workaround is POST to /block-templates with new slug only
