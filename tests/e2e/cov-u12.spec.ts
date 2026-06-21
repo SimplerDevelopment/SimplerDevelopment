@@ -311,10 +311,29 @@ test.describe('Sites Publishing — API key delete @sites-publishing', () => {
     siteId = await resolveClientSiteId(clientApi);
   });
 
-  // BUG: generateApiKey() emits 72 chars ("sd_live_" + 64 hex) but api_keys.key is
-  // varchar(64) — POST /websites/:id/api-keys 500s on DB constraint violation, so the
-  // full create→list→delete flow cannot be tested until the schema or key generator is
-  // fixed. Test deleted; card moved to "To Test" on Sites Hosting Publishing E2E Audit.
+  // FIXED: api_keys.key widened varchar(64) → varchar(255) so generateApiKey()'s
+  // 72-char `sd_live_…` key no longer overflows on insert. Full lifecycle now works.
+  test('create → list (masked) → delete removes the key @critical', async ({ clientApi }) => {
+    const name = `Key-${Date.now()}`;
+    const create = await clientApi.post(`/api/portal/websites/${siteId}/api-keys`, { name });
+    expect(create.status).toBe(200);
+    expect(create.data.success).toBe(true);
+    const keyId: number = create.data.data.id;
+    expect(create.data.data.key).toMatch(/^sd_live_[0-9a-f]{64}$/);
+
+    const list = await clientApi.get(`/api/portal/websites/${siteId}/api-keys`);
+    expect(list.status).toBe(200);
+    const row = (list.data.data as Array<{ id: number; keyPrefix: string }>).find(k => k.id === keyId);
+    expect(row, 'created key appears in the masked list').toBeTruthy();
+    expect(row!.keyPrefix).toContain('...'); // masked, not the full key
+
+    const del = await clientApi.delete(`/api/portal/websites/${siteId}/api-keys/${keyId}`);
+    expect(del.status).toBe(200);
+    expect(del.data.success).toBe(true);
+
+    const after = await clientApi.get(`/api/portal/websites/${siteId}/api-keys`);
+    expect((after.data.data as Array<{ id: number }>).find(k => k.id === keyId)).toBeFalsy();
+  });
 
   test('DELETE /api-keys/:keyId rejects unauthenticated', async ({ unauthApi }) => {
     const res = await unauthApi.delete(`/api/portal/websites/1/api-keys/1`);

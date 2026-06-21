@@ -275,18 +275,17 @@ test.describe('Public /api/approve/[token] — post entity type @approvals @publ
 
 // ── Card 3: Orphaned/stale pending-change graceful error state ───────────────
 //
-// The audit board documents this as a bug:
+// Previously a bug:
 //   "Public /approve endpoint 500s on orphaned/stale pending-change dependency
 //    (stale email_lists row) — robustness gap, not just env artifact"
 //
-// Simulate: create a pending_change approval link, delete/invalidate the
-// underlying pending change row, then attempt to approve it. The route
-// currently returns 500 instead of a graceful 4xx.
+// Fixed: the route now detects stale/already-applied domain errors and returns
+// 409 (Conflict) with a human-readable message instead of leaking a 500.
 //
 // We test the closest simulatable variant: a pending_change link whose
 // pending change has already been applied (status='applied') — the route's
-// applyApproval throws "Pending change is applied" which it catches and
-// re-surfaces as 500. A 400 or 410 would be more appropriate.
+// applyApproval throws "Pending change is applied", which is now caught and
+// returned as 409 with message "This change is no longer applicable: ...".
 
 test.describe('Stale pending-change approval link error behaviour @approvals @stale', () => {
   let cleanups: Array<() => Promise<void>> = [];
@@ -298,7 +297,7 @@ test.describe('Stale pending-change approval link error behaviour @approvals @st
   });
 
   test(
-    'APPR-STALE-01: approving a link whose pending-change is already applied returns 500 (known bug)',
+    'APPR-STALE-01: approving a link whose pending-change is already applied returns 409',
     async ({ clientApi, unauthApi }) => {
       // ── Setup: site + approval-required MCP key (stages → pending_change link) ──
       const { website, cleanup: siteCleanup } = await createTestWebsite(clientApi);
@@ -358,16 +357,17 @@ test.describe('Stale pending-change approval link error behaviour @approvals @st
       }
 
       // ── Now try to approve via the public token — pending change is already 'applied' ──
-      // The route catches the error and returns 500. A graceful 400/410 would be
-      // the correct behaviour — this test documents the bug.
+      // The route now detects the stale domain-error and returns 409 (Conflict)
+      // instead of leaking a 500. Verify the graceful behaviour.
       const staleApprove = await unauthApi.post(`/api/approve/${token}`, {
         action: 'approve',
         reviewerName: 'Stale Tester',
       });
 
-      // BUG: returns 500 instead of a graceful 4xx. We assert 500 to pin the
-      // current (broken) behaviour and detect if/when it's fixed.
-      expect(staleApprove.status).toBe(500);
+      // FIXED: returns 409 (no longer applicable) instead of 500.
+      expect(staleApprove.status).toBe(409);
+      expect(staleApprove.data.success).toBe(false);
+      expect(staleApprove.data.message).toMatch(/no longer applicable/i);
     }
   );
 });

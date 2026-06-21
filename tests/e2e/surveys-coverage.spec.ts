@@ -581,10 +581,58 @@ test.describe(`Surveys Coverage ${TAG}`, () => {
     });
   });
 
-  // BUG: allowMultiple=false is stored in the surveys table but the submit route
-  // (/api/surveys/[slug]/route.ts) never reads it — a second same-email submission
-  // returns 201 instead of 403. Test deleted; card moved to "To Test" on
-  // Surveys E2E Audit until the submit route enforces the flag.
+  // ── allowMultiple=false blocks same-email second submission ───────────────
+
+  test.describe('allowMultiple=false blocks duplicate email submissions', () => {
+    test('second submission from same email returns 403 when allowMultiple=false', async ({ clientApi }) => {
+      test.skip(!hasAccess, 'No surveys subscription on this client');
+
+      const ts = Date.now();
+      const email = `dup-test-${ts}@example.com`;
+
+      const { survey, cleanup } = await createTestSurvey(clientApi, {
+        title: `SURV-COV-AllowMultiple-${ts}`,
+        fields: [{ id: 'q1', type: 'text', label: 'Name', required: true }],
+      });
+      cleanups.push(cleanup);
+
+      // Enable the flag + activate
+      await clientApi.put(`/api/portal/surveys/${survey.id}`, {
+        status: 'active',
+        allowMultiple: false,
+      });
+
+      const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
+
+      // First submission — should succeed
+      const first = await fetch(`${baseUrl}/api/surveys/${survey.slug}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          answers: { q1: `First submission ${ts}` },
+          email,
+          formName: 'coverage-test',
+        }),
+      });
+      expect(first.status).toBe(201);
+      const firstJson = await first.json();
+      expect(firstJson.success).toBe(true);
+
+      // Second submission from same email — should be blocked
+      const second = await fetch(`${baseUrl}/api/surveys/${survey.slug}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          answers: { q1: `Second submission ${ts}` },
+          email,
+          formName: 'coverage-test',
+        }),
+      });
+      expect(second.status).toBe(403);
+      const secondJson = await second.json();
+      expect(secondJson.success).toBe(false);
+    });
+  });
 
   // ── Cross-tenant isolation ────────────────────────────────────────────────
 

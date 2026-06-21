@@ -522,3 +522,151 @@ test.describe('CRM — Cross-tenant isolation @crm @crm-tenancy', () => {
     expect(res.status).toBe(401);
   });
 });
+
+// ── Notifications — GET single + DELETE (dismiss) ────────────────────────────
+
+test.describe('CRM — Notifications GET + DELETE single @crm @crm-notifications-get-delete', () => {
+  // GET /notifications/[id] — guard cases (no real row needed)
+  test('GET /notifications/999999 returns 404 for unknown notification', async ({ clientApi }) => {
+    const res = await clientApi.get('/api/portal/crm/notifications/999999');
+    expect(res.status).toBe(404);
+  });
+
+  test('GET /notifications/notanumber returns 400', async ({ clientApi }) => {
+    const res = await clientApi.get('/api/portal/crm/notifications/notanumber');
+    expect(res.status).toBe(400);
+  });
+
+  test('rejects unauthenticated GET', async ({ unauthApi }) => {
+    const res = await unauthApi.get('/api/portal/crm/notifications/1');
+    expect(res.status).toBe(401);
+  });
+
+  // DELETE /notifications/[id] — guard cases
+  test('DELETE /notifications/999999 returns 404 for unknown notification', async ({ clientApi }) => {
+    const res = await clientApi.delete('/api/portal/crm/notifications/999999');
+    expect(res.status).toBe(404);
+  });
+
+  test('DELETE /notifications/notanumber returns 400', async ({ clientApi }) => {
+    const res = await clientApi.delete('/api/portal/crm/notifications/notanumber');
+    expect(res.status).toBe(400);
+  });
+
+  test('rejects unauthenticated DELETE', async ({ unauthApi }) => {
+    const res = await unauthApi.delete('/api/portal/crm/notifications/1');
+    expect(res.status).toBe(401);
+  });
+
+  // Positive round-trip: GET reads a notification, DELETE dismisses it,
+  // subsequent GET returns 404. Uses the list endpoint to find an existing
+  // notification; skips gracefully if the tenant has none.
+  test('GET reads a notification then DELETE dismisses it (round-trip)', async ({ clientApi }) => {
+    const listRes = await clientApi.get('/api/portal/crm/notifications?limit=1');
+    expect(listRes.status).toBe(200);
+    const notifications = listRes.data.data as Array<{ id: number; title: string; read: boolean }>;
+    if (!notifications || notifications.length === 0) {
+      test.skip(true, 'No notifications in tenant — skipping positive round-trip');
+      return;
+    }
+    const notif = notifications[0];
+
+    // GET single — must return the same row with expected fields
+    const getRes = await clientApi.get(`/api/portal/crm/notifications/${notif.id}`);
+    expect(getRes.status).toBe(200);
+    expect(getRes.data.success).toBe(true);
+    expect(getRes.data.data.id).toBe(notif.id);
+    expect(getRes.data.data).toHaveProperty('title');
+    expect(getRes.data.data).toHaveProperty('read');
+    expect(getRes.data.data).toHaveProperty('clientId');
+    expect(getRes.data.data).toHaveProperty('userId');
+
+    // DELETE — must succeed and return the deleted row
+    const delRes = await clientApi.delete(`/api/portal/crm/notifications/${notif.id}`);
+    expect(delRes.status).toBe(200);
+    expect(delRes.data.success).toBe(true);
+    expect(delRes.data.data.id).toBe(notif.id);
+
+    // Confirm gone — subsequent GET must 404
+    const goneRes = await clientApi.get(`/api/portal/crm/notifications/${notif.id}`);
+    expect(goneRes.status).toBe(404);
+  });
+});
+
+// ── Pipelines — individual stage PUT update ───────────────────────────────────
+
+test.describe('CRM — Pipeline Stage PUT (individual update) @crm @crm-stage-put', () => {
+  let cleanups: Array<() => Promise<void>> = [];
+
+  test.afterEach(async () => {
+    await runCleanups(cleanups);
+    cleanups = [];
+  });
+
+  test('PUT /pipelines/[id]/stages/[stageId] renames a single stage', async ({ clientApi }) => {
+    const { pipeline, cleanup } = await createTestPipeline(clientApi);
+    cleanups.push(cleanup);
+
+    const stages = pipeline.stages as Array<{ id: number; name: string; color: string; sortOrder: number; probability: number | null }>;
+    expect(stages.length).toBeGreaterThan(0);
+    const stage = stages[0];
+    const ts = Date.now();
+    const newName = `E2E-Stage-${ts}`;
+
+    const res = await clientApi.put(
+      `/api/portal/crm/pipelines/${pipeline.id}/stages/${stage.id}`,
+      { name: newName, color: stage.color, sortOrder: stage.sortOrder, probability: stage.probability }
+    );
+    expect(res.status).toBe(200);
+    expect(res.data.success).toBe(true);
+    expect(res.data.data.id).toBe(stage.id);
+    expect(res.data.data.name).toBe(newName);
+    expect(res.data.data.color).toBe(stage.color);
+  });
+
+  test('PUT /pipelines/[id]/stages/[stageId] returns 400 when name is missing', async ({ clientApi }) => {
+    const { pipeline, cleanup } = await createTestPipeline(clientApi);
+    cleanups.push(cleanup);
+    const stages = pipeline.stages as Array<{ id: number }>;
+    const res = await clientApi.put(
+      `/api/portal/crm/pipelines/${pipeline.id}/stages/${stages[0].id}`,
+      { color: '#ff0000', sortOrder: 0 }
+    );
+    expect(res.status).toBe(400);
+  });
+
+  test('PUT /pipelines/[id]/stages/999999 returns 404 for unknown stage', async ({ clientApi }) => {
+    const { pipeline, cleanup } = await createTestPipeline(clientApi);
+    cleanups.push(cleanup);
+    const res = await clientApi.put(
+      `/api/portal/crm/pipelines/${pipeline.id}/stages/999999`,
+      { name: 'Ghost Stage', color: '#6366f1', sortOrder: 0 }
+    );
+    expect(res.status).toBe(404);
+  });
+
+  test('PUT /pipelines/999999/stages/1 returns 404 for unknown pipeline', async ({ clientApi }) => {
+    const res = await clientApi.put(
+      '/api/portal/crm/pipelines/999999/stages/1',
+      { name: 'X', color: '#6366f1', sortOrder: 0 }
+    );
+    expect(res.status).toBe(404);
+  });
+
+  test('PUT /pipelines/[id]/stages/notanumber returns 400', async ({ clientApi }) => {
+    const { pipeline, cleanup } = await createTestPipeline(clientApi);
+    cleanups.push(cleanup);
+    const res = await clientApi.put(
+      `/api/portal/crm/pipelines/${pipeline.id}/stages/notanumber`,
+      { name: 'X', color: '#6366f1', sortOrder: 0 }
+    );
+    expect(res.status).toBe(400);
+  });
+
+  test('rejects unauthenticated PUT stage', async ({ unauthApi }) => {
+    const res = await unauthApi.put('/api/portal/crm/pipelines/1/stages/1', {
+      name: 'X', color: '#6366f1', sortOrder: 0,
+    });
+    expect(res.status).toBe(401);
+  });
+});

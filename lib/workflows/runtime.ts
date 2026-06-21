@@ -188,7 +188,10 @@ async function executeStep(
     };
   }
 
-  const action = (node.data as WorkflowAction).kind;
+  // For condition nodes node.type === 'condition' and data.kind === 'condition'.
+  // Guard against any node whose data lacks a kind (e.g. legacy/corrupt graphs)
+  // so the NOT NULL constraint on workflow_step_logs.action is always satisfied.
+  const action = (node.data as WorkflowAction).kind ?? node.type;
   await db.insert(workflowStepLogs).values({
     runId,
     nodeId: node.id,

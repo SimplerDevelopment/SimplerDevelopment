@@ -253,3 +253,134 @@ test.describe('Portal Automations @automations @critical', () => {
     expect(res.data.success).toBe(false);
   });
 });
+
+// ── WORKFLOW CONDITION NODE (BRANCHING) ──────────────────────────────────────
+// Regression test for the bug where executeStep() read action from
+// node.data.kind which was undefined for condition nodes, causing a NOT NULL
+// constraint failure in workflow_step_logs and making every workflow containing
+// a condition node always fail with "Failed query".
+//
+// Fix: lib/workflows/runtime.ts line 191 — fallback to node.type so the insert
+// always has a non-null action value.
+
+test.describe('Workflow condition node execution @automations', () => {
+  let workflowId: number | null = null;
+
+  test.afterEach(async ({ clientApi }) => {
+    if (workflowId != null) {
+      await (clientApi as unknown as { delete: (path: string) => Promise<unknown> })
+        .delete(`/api/portal/workflows/${workflowId}`)
+        .catch(() => {});
+      workflowId = null;
+    }
+  });
+
+  test('workflow with a condition/branch node completes without NOT NULL failure @critical', async ({ clientApi }) => {
+    const ts = Date.now();
+
+    // 1. Create a blank workflow.
+    const createRes = await clientApi.post('/api/portal/workflows', {
+      name: `e2e-condition-bug-${ts}`,
+    });
+    expect(createRes.status).toBe(200);
+    expect(createRes.data.success).toBe(true);
+    const wf = createRes.data.data as { id: number };
+    workflowId = wf.id;
+
+    // 2. Patch in a graph that contains a condition node branching to a
+    //    create_task action on the "true" branch. This is the shape that
+    //    previously caused a NOT NULL failure in workflow_step_logs.action.
+    const graph = {
+      nodes: [
+        {
+          id: 'trigger',
+          type: 'trigger',
+          position: { x: 50, y: 50 },
+          data: { kind: 'contact.created' },
+        },
+        {
+          id: 'cond-1',
+          type: 'condition',
+          position: { x: 50, y: 200 },
+          // condition nodes have data.kind === 'condition'; the bug was that
+          // the runtime coerced this to undefined under certain paths.
+          data: { kind: 'condition', expression: 'always.true' },
+        },
+        {
+          id: 'task-1',
+          type: 'action',
+          position: { x: 50, y: 350 },
+          data: { kind: 'create_task', title: `E2E condition branch task ${ts}` },
+        },
+      ],
+      edges: [
+        { id: 'e1', source: 'trigger', target: 'cond-1' },
+        // label 'true' — the condition engine defaults to true so this branch fires.
+        { id: 'e2', source: 'cond-1', target: 'task-1', label: 'true' },
+      ],
+    };
+
+    const patchRes = await clientApi.patch(`/api/portal/workflows/${workflowId}`, { graph });
+    expect(patchRes.status).toBe(200);
+
+    // 3. Trigger a test-run. Before the fix this always returned status:'failed'
+    //    with error containing "Failed query" or similar PG NOT NULL violation.
+    const runRes = await clientApi.post(`/api/portal/workflows/${workflowId}/test-run`, {
+      // Pass a condition override so the true branch fires deterministically.
+      context: { conditions: { 'always.true': true } },
+    });
+    expect(runRes.status).toBe(200);
+
+    const result = runRes.data.data as { status: string; runId: number; error?: string };
+
+    // 4. The run must succeed — not fail with a NOT NULL DB error.
+    expect(result.status).toBe('completed');
+    expect(result.error).toBeUndefined();
+
+    // 5. Verify the run history records the step.
+    const runsRes = await clientApi.get(`/api/portal/workflows/${workflowId}/runs`);
+    expect(runsRes.status).toBe(200);
+    const runs = runsRes.data.data as Array<{ id: number; status: string }>;
+    const thisRun = runs.find((r) => r.id === result.runId);
+    expect(thisRun).toBeDefined();
+    expect(thisRun?.status).toBe('completed');
+  });
+
+  test('workflow with condition node on false branch still completes @automations', async ({ clientApi }) => {
+    const ts = Date.now();
+
+    const createRes = await clientApi.post('/api/portal/workflows', {
+      name: `e2e-condition-false-${ts}`,
+    });
+    expect(createRes.status).toBe(200);
+    const wf = createRes.data.data as { id: number };
+    workflowId = wf.id;
+
+    // Graph with a condition node and TWO branches: true → task, false → wait.
+    const graph = {
+      nodes: [
+        { id: 'trigger', type: 'trigger', position: { x: 50, y: 0 }, data: { kind: 'contact.created' } },
+        { id: 'cond-1', type: 'condition', position: { x: 50, y: 150 }, data: { kind: 'condition', expression: 'deal.stale' } },
+        { id: 'task-true', type: 'action', position: { x: -100, y: 300 }, data: { kind: 'create_task', title: `Stale deal follow-up ${ts}` } },
+        // false branch — just a wait so the graph has two branches.
+        { id: 'wait-false', type: 'action', position: { x: 200, y: 300 }, data: { kind: 'wait', ms: 0 } },
+      ],
+      edges: [
+        { id: 'e1', source: 'trigger', target: 'cond-1' },
+        { id: 'e2', source: 'cond-1', target: 'task-true', label: 'true' },
+        { id: 'e3', source: 'cond-1', target: 'wait-false', label: 'false' },
+      ],
+    };
+
+    await clientApi.patch(`/api/portal/workflows/${workflowId}`, { graph });
+
+    // Pass condition=false so the false branch fires.
+    const runRes = await clientApi.post(`/api/portal/workflows/${workflowId}/test-run`, {
+      context: { conditions: { 'deal.stale': false } },
+    });
+    expect(runRes.status).toBe(200);
+    const result = runRes.data.data as { status: string; error?: string };
+    expect(result.status).toBe('completed');
+    expect(result.error).toBeUndefined();
+  });
+});

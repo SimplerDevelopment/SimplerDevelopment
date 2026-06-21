@@ -242,6 +242,29 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
     answerVal('name') ||
     answerVal('full_name');
 
+  // MULTI-01: when allowMultiple=false, block a second submission from the
+  // same email address. Only active when derivedEmail is non-empty — anonymous
+  // submissions (no email at all) still go through so as not to block
+  // respondents who legitimately have no email to provide.
+  if (!survey.allowMultiple && derivedEmail) {
+    const [existing] = await db
+      .select({ id: surveyResponses.id })
+      .from(surveyResponses)
+      .where(
+        and(
+          eq(surveyResponses.surveyId, survey.id),
+          eq(surveyResponses.respondentEmail, derivedEmail),
+        ),
+      )
+      .limit(1);
+    if (existing) {
+      return corsJson(
+        { success: false, message: 'You have already submitted a response to this survey' },
+        { status: 403 },
+      );
+    }
+  }
+
   // KNOWN LIMITATION: maxResponses gate at line 69 reads from initial SELECT, not inside
   // the transaction. Under extreme concurrency at exactly max capacity, two requests could
   // both pass the gate. The transaction prevents count desync but not the gate race.

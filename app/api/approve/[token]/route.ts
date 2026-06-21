@@ -99,9 +99,16 @@ export async function POST(
       await applyApproval(link);
     } catch (err) {
       console.error('[approve] side-effect failed', err);
+      const msg = err instanceof Error ? err.message : 'Failed to apply approval';
+      // Stale / already-applied pending changes are domain errors, not server
+      // failures. Return 409 so callers can distinguish "change no longer
+      // applicable" from a genuine infrastructure error.
+      const isStale =
+        msg.startsWith('Pending change is ') ||
+        msg === 'Pending change not found';
       return NextResponse.json(
-        { success: false, message: err instanceof Error ? err.message : 'Failed to apply approval' },
-        { status: 500 },
+        { success: false, message: isStale ? `This change is no longer applicable: ${msg}` : msg },
+        { status: isStale ? 409 : 500 },
       );
     }
   }
