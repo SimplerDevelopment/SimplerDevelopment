@@ -7,6 +7,8 @@ date: 2026-06-21
 sources: []
 ---
 
+2026-06-22 BACKLOG BUILD-DOWN: shipped 13 features from the backlog to `dev` (small-API completeness; portal-REST parity; site-level outbound webhooks; CRM email threads + sequences + Outlook foundation; A/B sequential stats + SRM; Tickets CSAT; CMS scheduled auto-publish + reference fields; deck fork + viewer analytics; ESign signature reminders) + drafted 2 design specs ([[Spec - CRM Email Sync + Sequences]], [[Spec - Sites Publishing Safety]]). ~15 gap cards moved to RESOLVED across the per-domain boards (each cites its commit) — so **Gaps Found is now ~113** (headline below is the 2026-06-21 figure; per-board cards are authoritative). Remaining gaps are external-dep (Bookings free/busy+SMS, Surveys payment/e-sign, Brain connectors, ESign OTP/KBA, Visual-editor AI) or large multi-PR (Email branching journeys).
+
 2026-06-21 GAP-SPEC PASS: authored + verified 11 gap-*-coverage.spec.ts files (186 tests green, deterministic); moved 24 testable-gap cards to Passed across 13 boards; 2 cards annotated PARTIAL (no e2e-testable surface — unit-covered).
 
 2026-06-20 COVERAGE AUTHORING: wrote + verified specs for the needs-spec backlog (fan-out: 82 agents, ~4-card units, prod server @ DB_POOL_MAX=24). NEW STATE: **Passed 272** (each backed by a spec that passes — 760 new coverage tests green, 0 fail / 5 flaky in the consolidated run), **Gaps Found 128** (incl. ~45 features confirmed NOT implemented), **To Test 46** (genuinely hard/unstable, kept honest). 8 real product BUGS surfaced by the new tests (flagged on their boards):
