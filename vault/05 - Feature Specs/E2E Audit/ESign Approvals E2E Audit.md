@@ -47,10 +47,10 @@ sources:
 
 - [x] RESOLVED 2026-06-20 — Public /approve endpoint 500s on orphaned/stale pending-change dependency (stale email_lists row) — fixed: returns 409 with "no longer applicable" message (app/api/approve/[token]/route.ts); verified by APPR-STALE-01 in cov-u34.spec.ts
 - [ ] No signer identity verification (OTP/KBA) — identity-assurance gap shared with Auth — see [[Competitive Gap Analysis 2026-06]]
-- [ ] No reminder nudges for pending approvals — see [[Competitive Gap Analysis 2026-06]]
+- [x] RESOLVED 2026-06-22: reminder nudges — process-contract-signature-reminders cron (every 6h, 3-day interval, idempotent) + remindSignatureRequest (20059587)
 - [ ] crm_contract_templates has schema and CRUD data but no API routes (app/api/portal/crm/contract-templates/ absent) — cannot be tested until routes are scaffolded
 - [ ] GAP (no implementation): Signer identity verification (OTP / KBA)
-- [ ] GAP (no implementation): Automated reminder nudges for pending approvals
+- [x] RESOLVED 2026-06-22: Automated reminder nudges — process-contract-signature-reminders cron (20059587); gap-contract-reminders-coverage.spec.ts
 
 
 %% kanban:settings
