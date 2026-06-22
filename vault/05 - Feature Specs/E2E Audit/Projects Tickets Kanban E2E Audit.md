@@ -14,7 +14,7 @@ sources:
 ## To Test
 
 - [ ] SLA tracking on tickets — needs spec
-- [ ] CSAT on ticket close — needs spec
+- [x] RESOLVED 2026-06-22: CSAT on ticket close — csat_score/comment/submitted_at on support_tickets, POST /tickets/[id]/csat (resolved-gated), aggregate in /tickets/reports — 05cd5290
 - [ ] Time log entry and reporting — needs spec
 - [ ] Recurrence and template creation — needs spec
 - [ ] Card templates standalone CRUD — POST/GET/DELETE /projects/[id]/card-templates and /card-templates/[id] outside the clone flow — needs spec
@@ -45,7 +45,7 @@ sources:
 ## Gaps Found
 
 - [ ] No burndown / velocity reporting — see [[Competitive Gap Analysis 2026-06]]
-- [ ] No SLA / CSAT on tickets — see [[Competitive Gap Analysis 2026-06]]
+- [x] RESOLVED: SLA tracking (shipped) + CSAT (2026-06-22, 05cd5290) on tickets — see [[Competitive Gap Analysis 2026-06]]
 - [x] RESOLVED: "No project columns available for test" — seed now bootstraps a Publishing project + columns and wires admin client membership — `scripts/seed-admin-e2e.ts`
 - [x] RESOLVED: "Publishing project not found after bootstrap" — same seed fix — `scripts/seed-admin-e2e.ts`
 
