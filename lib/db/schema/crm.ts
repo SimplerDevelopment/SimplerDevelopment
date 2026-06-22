@@ -486,6 +486,33 @@ export const crmEnrichmentLog = pgTable('crm_enrichment_log', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
+// ─── CRM EMAIL THREADS ──────────────────────────────────────────────────────
+// Unified per-contact/per-deal email thread (inbound Gmail + outbound Resend),
+// stitched by threadKey. Inbound rows are upserted by the Gmail ingest path
+// (lib/brain/ingest-gmail-message.ts) on a contact-email match; outbound rows
+// by the send-email route. See [[Spec - CRM Email Sync + Sequences]] Phase 1.
+export const crmEmailMessages = pgTable('crm_email_messages', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  contactId: integer('contact_id').notNull().references(() => crmContacts.id, { onDelete: 'cascade' }),
+  dealId: integer('deal_id').references(() => crmDeals.id, { onDelete: 'set null' }),
+  direction: varchar('direction', { length: 10 }).notNull(), // 'inbound' | 'outbound'
+  // Gmail message id (inbound) or Resend id (outbound) — idempotency key.
+  providerMessageId: varchar('provider_message_id', { length: 255 }),
+  // Gmail threadId (inbound) or root Message-ID — groups a conversation.
+  threadKey: varchar('thread_key', { length: 255 }),
+  fromEmail: varchar('from_email', { length: 320 }),
+  toEmail: varchar('to_email', { length: 320 }),
+  subject: varchar('subject', { length: 500 }),
+  snippet: text('snippet'),
+  sentAt: timestamp('sent_at').defaultNow().notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => ({
+  // Idempotent ingest: one row per (client, provider message).
+  providerMsgUnique: uniqueIndex('crm_email_messages_client_provider_idx').on(t.clientId, t.providerMessageId),
+  contactIdx: index('crm_email_messages_contact_idx').on(t.contactId, t.sentAt),
+}));
+
 // ─── COMPANY BRAIN ────────────────────────────────────────────────────────────
 // Per-client business intelligence layer. Phase 0 ships the profile/config row
 // only; meeting + review tables follow in Phase 2.

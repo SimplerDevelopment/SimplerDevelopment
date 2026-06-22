@@ -1,7 +1,7 @@
 import { after } from 'next/server';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { brainMeetings, brainProfiles, clients } from '@/lib/db/schema';
+import { brainMeetings, brainProfiles, clients, crmContacts, crmEmailMessages } from '@/lib/db/schema';
 import { processBrainMeeting } from '@/lib/brain/process-meeting';
 import type { FetchedMessage } from '@/lib/google/gmail-history';
 
@@ -98,6 +98,37 @@ export async function ingestGmailMessageIntoBrain(opts: {
 
   if (!meetingRow) {
     return { meetingId: null, status: 'skipped', reason: 'insert_returned_no_row' };
+  }
+
+  // CRM email thread (Phase 1 — [[Spec - CRM Email Sync + Sequences]]). If the
+  // sender matches a CRM contact for this client, record the inbound message on
+  // its thread. Best-effort + idempotent (unique client+providerMessageId);
+  // decoupled from the async AI classification that may also create a contact.
+  try {
+    const [crmContact] = await db
+      .select({ id: crmContacts.id })
+      .from(crmContacts)
+      .where(and(eq(crmContacts.clientId, clientId), eq(crmContacts.email, senderEmail)))
+      .limit(1);
+    if (crmContact) {
+      await db
+        .insert(crmEmailMessages)
+        .values({
+          clientId,
+          contactId: crmContact.id,
+          direction: 'inbound',
+          providerMessageId: message.id,
+          threadKey: message.threadId,
+          fromEmail: senderEmail,
+          toEmail: message.to ?? null,
+          subject: message.subject ?? null,
+          snippet: message.snippet ?? null,
+          sentAt: message.receivedAt,
+        })
+        .onConflictDoNothing();
+    }
+  } catch (threadErr) {
+    console.error('[ingest-gmail] crm email-thread upsert failed', threadErr);
   }
 
   // Auto-process the AI pipeline post-response, matching MX path semantics.
