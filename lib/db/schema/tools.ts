@@ -207,6 +207,19 @@ export const pitchDecks = pgTable('pitch_decks', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
+// Viewer analytics on shared decks — one row per tracked event from the public
+// presenter. slideIndex=null is a deck-open; non-null is a per-slide dwell.
+export const pitchDeckViews = pgTable('pitch_deck_views', {
+  id: serial('id').primaryKey(),
+  deckId: integer('deck_id').notNull().references(() => pitchDecks.id, { onDelete: 'cascade' }),
+  sessionId: varchar('session_id', { length: 100 }), // anonymous viewer session
+  slideIndex: integer('slide_index'), // null = deck open/view
+  dwellMs: integer('dwell_ms'), // time-on-slide, when reported
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => ({
+  deckIdx: index('pitch_deck_views_deck_idx').on(t.deckId, t.createdAt),
+}));
+
 export const pitchDeckVersions = pgTable('pitch_deck_versions', {
   id: serial('id').primaryKey(),
   deckId: integer('deck_id').notNull().references(() => pitchDecks.id, { onDelete: 'cascade' }),
