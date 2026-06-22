@@ -52,10 +52,11 @@ export const apiKeys = pgTable('api_keys', {
   id: serial('id').primaryKey(),
   clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
   websiteId: integer('website_id').notNull().references(() => clientWebsites.id, { onDelete: 'cascade' }),
-  // generateApiKey() emits `sd_live_` + 64 hex = 72 chars; the old varchar(64)
-  // made every key-create 500 on a length-overflow. Widened to 255 (matches the
-  // other SD key columns in sites.ts).
-  key: varchar('key', { length: 255 }).notNull().unique(),
+  // Keys are stored hashed at rest (SHA-256 hex of the raw `sd_live_…` token),
+  // never in plaintext. keyPreview is a display-safe masked form (first 12 + …
+  // + last 4). The raw key is shown to the caller exactly once at creation.
+  keyHash: varchar('key_hash', { length: 64 }).notNull().unique(),
+  keyPreview: varchar('key_preview', { length: 32 }).notNull(),
   name: varchar('name', { length: 100 }).notNull(),
   scopes: json('scopes').$type<string[]>().default([]),
   rateLimitPerMinute: integer('rate_limit_per_minute').default(60),

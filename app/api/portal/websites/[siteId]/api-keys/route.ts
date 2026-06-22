@@ -4,7 +4,7 @@ import { resolveClientSite } from '@/lib/portal-client';
 import { db } from '@/lib/db';
 import { apiKeys } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
-import { generateApiKey } from '@/lib/api-keys';
+import { generateApiKey, hashApiKey, previewApiKey } from '@/lib/api-keys';
 
 export async function GET(_req: Request, { params }: { params: Promise<{ siteId: string }> }) {
   const session = await auth();
@@ -19,7 +19,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ siteId:
     .select({
       id: apiKeys.id,
       name: apiKeys.name,
-      keyPrefix: apiKeys.key,
+      keyPrefix: apiKeys.keyPreview,
       scopes: apiKeys.scopes,
       rateLimitPerMinute: apiKeys.rateLimitPerMinute,
       active: apiKeys.active,
@@ -30,13 +30,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ siteId:
     .where(eq(apiKeys.websiteId, site.id))
     .orderBy(apiKeys.createdAt);
 
-  // Mask keys — only show prefix
-  const masked = keys.map(k => ({
-    ...k,
-    keyPrefix: k.keyPrefix.slice(0, 12) + '...' + k.keyPrefix.slice(-4),
-  }));
-
-  return NextResponse.json({ success: true, data: masked });
+  // keyPreview is already the display-safe masked form (stored at creation).
+  return NextResponse.json({ success: true, data: keys });
 }
 
 export async function POST(req: Request, { params }: { params: Promise<{ siteId: string }> }) {
@@ -56,7 +51,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ siteId:
   const [record] = await db.insert(apiKeys).values({
     clientId: site.clientId,
     websiteId: site.id,
-    key,
+    keyHash: hashApiKey(key),
+    keyPreview: previewApiKey(key),
     name,
     scopes: body.scopes || [],
     rateLimitPerMinute: body.rateLimitPerMinute || 60,

@@ -33,30 +33,37 @@ export function withApiKeyAndCors(handler: RouteHandler): RouteHandler {
         ? apiKeyHeader
         : null;
 
-    if (key) {
-      const record = await validateApiKey(key, siteIdNum);
-      if (!record) {
-        return NextResponse.json(
-          { success: false, message: 'Invalid API key' },
-          { status: 401, headers: corsHeaders() },
-        );
-      }
+    // A valid API key is REQUIRED. A missing key used to fall through to the
+    // handler, leaving the headless v1 surface effectively public.
+    if (!key) {
+      return NextResponse.json(
+        { success: false, message: 'API key required' },
+        { status: 401, headers: corsHeaders() },
+      );
+    }
 
-      const rateLimit = checkRateLimit(record.id, record.rateLimitPerMinute ?? 60);
-      if (!rateLimit.allowed) {
-        return NextResponse.json(
-          { success: false, message: 'Rate limit exceeded' },
-          {
-            status: 429,
-            headers: {
-              ...corsHeaders(),
-              'Retry-After': String(Math.ceil((rateLimit.resetAt.getTime() - Date.now()) / 1000)),
-              'X-RateLimit-Limit': String(record.rateLimitPerMinute ?? 60),
-              'X-RateLimit-Remaining': '0',
-            },
+    const record = await validateApiKey(key, siteIdNum);
+    if (!record) {
+      return NextResponse.json(
+        { success: false, message: 'Invalid API key' },
+        { status: 401, headers: corsHeaders() },
+      );
+    }
+
+    const rateLimit = checkRateLimit(record.id, record.rateLimitPerMinute ?? 60);
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { success: false, message: 'Rate limit exceeded' },
+        {
+          status: 429,
+          headers: {
+            ...corsHeaders(),
+            'Retry-After': String(Math.ceil((rateLimit.resetAt.getTime() - Date.now()) / 1000)),
+            'X-RateLimit-Limit': String(record.rateLimitPerMinute ?? 60),
+            'X-RateLimit-Remaining': '0',
           },
-        );
-      }
+        },
+      );
     }
 
     const response = await handler(req, context);
