@@ -46,7 +46,7 @@ sources:
 - [ ] GAP (no implementation): Viewer analytics on shared deck (view count, time-on-slide)
 - [ ] GAP (no implementation): Access control on shared deck link (password / expiry)
 - [ ] GAP (no implementation): Draft/live approval gate for deck publish
-- [ ] GAP (no implementation): Fork a deck via decks_fork — forked deck is independent, parentDeckId set, original unchanged
+- [x] RESOLVED 2026-06-22: Fork a deck — portal route POST /tools/pitch-decks/[id]/fork (independent draft, parentDeckId set, original unchanged); gap-deck-fork-coverage.spec.ts — e2ca8508
 
 
 %% kanban:settings
