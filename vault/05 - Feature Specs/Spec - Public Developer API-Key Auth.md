@@ -21,9 +21,11 @@ sources:
 
 # Feature: Public Developer Surface — API-Key Auth
 
-## ⚠ Security finding (reframes this gap)
+## ⚠ Security finding — the two holes are now FIXED (57abb226, 2026-06-22)
 
-Research found the headless content API **already exists** (`app/api/v1/sites/[siteId]/**`, 13 read routes) with a **partially-built** API-key layer that has two security holes: (1) the `api_keys` table stores the **raw key in plaintext** (`api_keys.key varchar(64)`), unlike `portalApiKeys` which stores only a hash; (2) `withApiKeyAndCors` **passes through on a missing key** — so the v1 surface is effectively anonymous. This spec is therefore primarily a HARDENING of existing code, not a greenfield build. The plaintext-key + open-pass-through issues should be treated as a near-term security fix, not deferred.
+Research found the headless content API **already exists** (`app/api/v1/sites/[siteId]/**`, 13 read routes) with a **partially-built** API-key layer that had two security holes: (1) `api_keys` stored the **raw key in plaintext**; (2) `withApiKeyAndCors` **passed through on a missing key** — so the v1 surface was effectively anonymous. **Both are now fixed** (commit 57abb226): keys are stored as `key_hash` (SHA-256) + `key_preview` (migration 10008 backfills then drops the plaintext column); a missing key now returns 401. Verified no internal code consumes `/api/v1/sites/**` (platform SSR uses `/api/public/**`), so require-key is not a breaking change. e2e: `gap-api-key-auth-coverage.spec.ts`.
+
+**Still open from Phase 1:** per-key **scope enforcement** (the `requiredScope` middleware arg + per-route wiring) and the **portal key-management UI** (`app/portal/websites/[siteId]/developer/`). Phases 2 (Redis rate limit) + 3 (write surface) unchanged.
 
 ## Overview
 
