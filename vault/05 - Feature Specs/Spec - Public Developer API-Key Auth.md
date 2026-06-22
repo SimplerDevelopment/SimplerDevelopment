@@ -25,7 +25,7 @@ sources:
 
 Research found the headless content API **already exists** (`app/api/v1/sites/[siteId]/**`, 13 read routes) with a **partially-built** API-key layer that had two security holes: (1) `api_keys` stored the **raw key in plaintext**; (2) `withApiKeyAndCors` **passed through on a missing key** — so the v1 surface was effectively anonymous. **Both are now fixed** (commit 57abb226): keys are stored as `key_hash` (SHA-256) + `key_preview` (migration 10008 backfills then drops the plaintext column); a missing key now returns 401. Verified no internal code consumes `/api/v1/sites/**` (platform SSR uses `/api/public/**`), so require-key is not a breaking change. e2e: `gap-api-key-auth-coverage.spec.ts`.
 
-**Still open from Phase 1:** per-key **scope enforcement** (the `requiredScope` middleware arg + per-route wiring) and the **portal key-management UI** (`app/portal/websites/[siteId]/developer/`). Phases 2 (Redis rate limit) + 3 (write surface) unchanged.
+**Phase 1 is now COMPLETE** (e577b067): per-key **scope enforcement** is wired into `withApiKeyAndCors` (derives `content:read` vs `store:read` from the path; a key with no scopes is unrestricted, a scoped key is limited → 403 otherwise), and scope selection was added to the **existing** portal UI (`components/portal/ApiKeysManager.tsx` — already rendered on the website page + settings; the spec's "no UI" assumption was wrong). e2e extended in `gap-api-key-auth-coverage.spec.ts`. **Remaining:** Phase 2 (Redis-backed distributed rate limit) + Phase 3 (write surface) — both still open.
 
 ## Overview
 
