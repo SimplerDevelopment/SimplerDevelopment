@@ -76,6 +76,10 @@
       "schedule": "*/15 * * * *"
     },
     {
+      "path": "/api/cron/process-crm-sequences",
+      "schedule": "*/15 * * * *"
+    },
+    {
       "path": "/api/cron/brain-12",
       "schedule": "30 7 * * *"
     },

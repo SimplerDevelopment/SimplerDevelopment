@@ -1,7 +1,7 @@
 import { after } from 'next/server';
 import { and, eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { brainMeetings, brainProfiles, clients, crmContacts, crmEmailMessages } from '@/lib/db/schema';
+import { brainMeetings, brainProfiles, clients, crmContacts, crmEmailMessages, crmSequenceEnrollments } from '@/lib/db/schema';
 import { processBrainMeeting } from '@/lib/brain/process-meeting';
 import type { FetchedMessage } from '@/lib/google/gmail-history';
 
@@ -126,6 +126,19 @@ export async function ingestGmailMessageIntoBrain(opts: {
           sentAt: message.receivedAt,
         })
         .onConflictDoNothing();
+
+      // Halt-on-reply (Phase 2): an inbound message from an enrolled contact
+      // stops their active email sequences — you don't keep cold-emailing
+      // someone who just replied.
+      await db
+        .update(crmSequenceEnrollments)
+        .set({ status: 'halted', haltedReason: 'replied' })
+        .where(
+          and(
+            eq(crmSequenceEnrollments.contactId, crmContact.id),
+            eq(crmSequenceEnrollments.status, 'active'),
+          ),
+        );
     }
   } catch (threadErr) {
     console.error('[ingest-gmail] crm email-thread upsert failed', threadErr);

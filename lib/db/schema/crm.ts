@@ -513,6 +513,60 @@ export const crmEmailMessages = pgTable('crm_email_messages', {
   contactIdx: index('crm_email_messages_contact_idx').on(t.contactId, t.sentAt),
 }));
 
+// ─── CRM EMAIL SEQUENCES / CADENCES ─────────────────────────────────────────
+// Multi-step delay-scheduled outbound email series. Mirrors the survey email-
+// sequence tables. A contact is enrolled in a sequence; process-crm-sequences
+// cron advances enrollments step by step. See [[Spec - CRM Email Sync + Sequences]] Phase 2.
+export const crmSequences = pgTable('crm_sequences', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  name: varchar('name', { length: 255 }).notNull(),
+  enabled: boolean('enabled').default(true).notNull(),
+  createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export const crmSequenceSteps = pgTable('crm_sequence_steps', {
+  id: serial('id').primaryKey(),
+  sequenceId: integer('sequence_id').notNull().references(() => crmSequences.id, { onDelete: 'cascade' }),
+  stepOrder: integer('step_order').notNull(),
+  delayHours: integer('delay_hours').notNull().default(0), // delay since enroll / previous send
+  subject: varchar('subject', { length: 500 }).notNull(),
+  bodyHtml: text('body_html').notNull(),
+  enabled: boolean('enabled').default(true).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => ({
+  seqOrderIdx: index('crm_sequence_steps_seq_order_idx').on(t.sequenceId, t.stepOrder),
+}));
+
+export const crmSequenceEnrollments = pgTable('crm_sequence_enrollments', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  sequenceId: integer('sequence_id').notNull().references(() => crmSequences.id, { onDelete: 'cascade' }),
+  contactId: integer('contact_id').notNull().references(() => crmContacts.id, { onDelete: 'cascade' }),
+  status: varchar('status', { length: 20 }).default('active').notNull(), // active | completed | halted | unsubscribed
+  currentStep: integer('current_step').default(0).notNull(), // 0-based index into ordered steps
+  enrolledAt: timestamp('enrolled_at').defaultNow().notNull(),
+  lastSentAt: timestamp('last_sent_at'),
+  haltedReason: varchar('halted_reason', { length: 50 }),
+}, (t) => ({
+  // One active-or-historical enrollment per contact per sequence.
+  enrollUnique: uniqueIndex('crm_sequence_enrollments_seq_contact_idx').on(t.sequenceId, t.contactId),
+}));
+
+export const crmSequenceSends = pgTable('crm_sequence_sends', {
+  id: serial('id').primaryKey(),
+  enrollmentId: integer('enrollment_id').notNull().references(() => crmSequenceEnrollments.id, { onDelete: 'cascade' }),
+  stepId: integer('step_id').notNull().references(() => crmSequenceSteps.id, { onDelete: 'cascade' }),
+  sentAt: timestamp('sent_at').defaultNow().notNull(),
+  resendEmailId: varchar('resend_email_id', { length: 255 }),
+  error: text('error'),
+}, (t) => ({
+  // Idempotency guard — mirrors survey_email_sequence_sends.
+  sendUnique: uniqueIndex('crm_sequence_sends_enrollment_step_idx').on(t.enrollmentId, t.stepId),
+}));
+
 // ─── COMPANY BRAIN ────────────────────────────────────────────────────────────
 // Per-client business intelligence layer. Phase 0 ships the profile/config row
 // only; meeting + review tables follow in Phase 2.
