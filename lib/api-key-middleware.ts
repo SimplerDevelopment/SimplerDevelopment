@@ -1,5 +1,12 @@
 import { NextResponse } from 'next/server';
 import { validateApiKey, checkRateLimit } from '@/lib/api-keys';
+import { hasScope } from '@/lib/mcp-auth';
+
+// Derive the scope a v1 request requires from its path. Store endpoints need
+// `store:read`; everything else under /api/v1/sites is `content:read`.
+function requiredScopeForPath(pathname: string): string {
+  return /\/(products|product-categories)(\/|$)/.test(pathname) ? 'store:read' : 'content:read';
+}
 
 type RouteHandler = (
   req: Request,
@@ -48,6 +55,19 @@ export function withApiKeyAndCors(handler: RouteHandler): RouteHandler {
         { success: false, message: 'Invalid API key' },
         { status: 401, headers: corsHeaders() },
       );
+    }
+
+    // Per-key scope enforcement. A key with NO scopes is unrestricted (legacy /
+    // full-access); a key WITH scopes is limited to them.
+    const scopes = (record.scopes ?? []) as string[];
+    if (scopes.length > 0) {
+      const required = requiredScopeForPath(new URL(req.url).pathname);
+      if (!hasScope(scopes, required)) {
+        return NextResponse.json(
+          { success: false, message: `Insufficient scope — '${required}' required` },
+          { status: 403, headers: corsHeaders() },
+        );
+      }
     }
 
     const rateLimit = checkRateLimit(record.id, record.rateLimitPerMinute ?? 60);

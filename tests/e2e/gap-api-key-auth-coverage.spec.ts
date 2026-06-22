@@ -21,8 +21,11 @@ test.describe('Headless API key auth @gap @api-key-auth', () => {
   let rawKey: string;
   let keyId: number;
 
+  const extraKeyIds: number[] = [];
+
   test.afterAll(async () => {
-    if (keyId) sql(`DELETE FROM api_keys WHERE id=${keyId}`);
+    const ids = [keyId, ...extraKeyIds].filter(Boolean);
+    if (ids.length) sql(`DELETE FROM api_keys WHERE id IN (${ids.join(',')})`);
   });
 
   test('creating a key returns the raw key once and stores only a hash', async ({ clientApi }) => {
@@ -55,5 +58,30 @@ test.describe('Headless API key auth @gap @api-key-auth', () => {
     sql(`UPDATE api_keys SET active=false WHERE id=${keyId}`);
     expect((await request.get(`/api/v1/sites/${siteId}/posts`, { headers: { Authorization: `Bearer ${rawKey}` } })).status()).toBe(401);
     sql(`UPDATE api_keys SET active=true WHERE id=${keyId}`);
+  });
+
+  test('per-key scopes are enforced on the v1 surface', async ({ clientApi, request }) => {
+    const create = (scopes: string[]) =>
+      clientApi.post(`/api/portal/websites/${siteId}/api-keys`, { name: `scoped-${scopes.join('-') || 'full'}`, scopes });
+
+    const contentRes = await create(['content:read']);
+    extraKeyIds.push(contentRes.data.data.id);
+    const contentKey = contentRes.data.data.key;
+    const storeRes = await create(['store:read']);
+    extraKeyIds.push(storeRes.data.data.id);
+    const storeKey = storeRes.data.data.key;
+
+    const get = (path: string, key: string) =>
+      request.get(`/api/v1/sites/${siteId}${path}`, { headers: { Authorization: `Bearer ${key}` } });
+
+    // content:read key — posts ok, products forbidden.
+    expect((await get('/posts', contentKey)).status()).toBe(200);
+    expect((await get('/products', contentKey)).status()).toBe(403);
+    // store:read key — products ok, posts forbidden.
+    expect((await get('/products', storeKey)).status()).toBe(200);
+    expect((await get('/posts', storeKey)).status()).toBe(403);
+    // The unscoped key from the first test is full-access — both ok.
+    expect((await get('/posts', rawKey)).status()).toBe(200);
+    expect((await get('/products', rawKey)).status()).toBe(200);
   });
 });

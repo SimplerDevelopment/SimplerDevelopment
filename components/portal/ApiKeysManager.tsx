@@ -15,9 +15,13 @@ export default function ApiKeysManager({ siteId }: { siteId: number }) {
   const [keys, setKeys] = useState<ApiKey[]>([]);
   const [loading, setLoading] = useState(true);
   const [newKeyName, setNewKeyName] = useState('');
+  const [scopes, setScopes] = useState<string[]>([]);
   const [createdKey, setCreatedKey] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  const toggleScope = (s: string) =>
+    setScopes(prev => (prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]));
 
   const fetchKeys = async () => {
     const res = await fetch(`/api/portal/websites/${siteId}/api-keys`);
@@ -34,12 +38,13 @@ export default function ApiKeysManager({ siteId }: { siteId: number }) {
     const res = await fetch(`/api/portal/websites/${siteId}/api-keys`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: newKeyName.trim() }),
+      body: JSON.stringify({ name: newKeyName.trim(), scopes }),
     });
     const json = await res.json();
     if (json.success) {
       setCreatedKey(json.data.key);
       setNewKeyName('');
+      setScopes([]);
       fetchKeys();
     }
     setCreating(false);
@@ -77,6 +82,18 @@ export default function ApiKeysManager({ siteId }: { siteId: number }) {
         >
           {creating ? 'Creating...' : 'Create Key'}
         </button>
+      </div>
+
+      {/* Scopes — none selected = full access */}
+      <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+        <span>Scopes:</span>
+        {(['content:read', 'store:read'] as const).map(s => (
+          <label key={s} className="flex items-center gap-1.5 cursor-pointer">
+            <input type="checkbox" checked={scopes.includes(s)} onChange={() => toggleScope(s)} />
+            <code>{s}</code>
+          </label>
+        ))}
+        <span className="text-muted-foreground/60">{scopes.length === 0 ? '(none selected = full access)' : ''}</span>
       </div>
 
       {/* Newly created key (shown once) */}
