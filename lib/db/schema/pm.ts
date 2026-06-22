@@ -131,6 +131,10 @@ export const supportTickets = pgTable('support_tickets', {
   assignedTo: integer('assigned_to').references(() => users.id, { onDelete: 'set null' }),
   createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
   resolvedAt: timestamp('resolved_at'),
+  // CSAT — the client rates the resolution after a ticket is resolved/closed.
+  csatScore: integer('csat_score'), // 1..5, null until rated
+  csatComment: text('csat_comment'),
+  csatSubmittedAt: timestamp('csat_submitted_at'),
   // SLA targets — populated on create from priority via lib/tickets/sla.ts
   firstResponseDueAt: timestamp('first_response_due_at'),
   firstResponseAt: timestamp('first_response_at'),

@@ -36,9 +36,30 @@ export async function GET(req: Request) {
       createdAt: supportTickets.createdAt,
       resolvedAt: supportTickets.resolvedAt,
       firstResponseAt: supportTickets.firstResponseAt,
+      csatScore: supportTickets.csatScore,
     })
     .from(supportTickets)
     .where(eq(supportTickets.clientId, clientId));
+
+  // ── CSAT (client satisfaction) — over tickets that have been rated ────────
+  const csatScores = allTickets
+    .map((t) => t.csatScore)
+    .filter((s): s is number => typeof s === 'number');
+  const csatDistribution: Record<1 | 2 | 3 | 4 | 5, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+  for (const s of csatScores) {
+    if (s >= 1 && s <= 5) csatDistribution[s as 1 | 2 | 3 | 4 | 5] += 1;
+  }
+  const csat = {
+    responses: csatScores.length,
+    averageScore: csatScores.length
+      ? Math.round((csatScores.reduce((a, b) => a + b, 0) / csatScores.length) * 100) / 100
+      : 0,
+    // % of 4-5 ratings (the conventional "satisfied" cut).
+    satisfactionRate: csatScores.length
+      ? Math.round((csatScores.filter((s) => s >= 4).length / csatScores.length) * 100)
+      : 0,
+    distribution: csatDistribution,
+  };
 
   // ── 2. Status counts (all-time) ───────────────────────────────────────────
   const statusCounts: Record<string, number> = {};
@@ -158,6 +179,7 @@ export async function GET(req: Request) {
       // Response-time stats (minutes)
       firstResponse: firstResponseStats,
       resolution: resolutionStats,
+      csat,
       // Volume trend
       days,
       volumeTrend: Object.values(byDay).sort((a, b) => a.date.localeCompare(b.date)),
