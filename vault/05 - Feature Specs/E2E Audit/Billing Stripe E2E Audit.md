@@ -43,17 +43,15 @@ sources:
 - [ ] ✓ verified 2026-06-20 — POST /api/admin/portal/subscriptions/[id]/cancel — admin cancel subscription returns 409 when no Stripe subscription is linked (cov-u20.spec.ts)
 - [ ] ✓ verified 2026-06-20 — GET /api/admin/portal/subscriptions/[id]/invoices — admin can list invoices for a subscription (cov-u20.spec.ts)
 - [x] RESOLVED (partial): Stripe webhook signature-validation (400) + 405 guard paths covered — gap-billing-coverage.spec.ts (success branch needs real Stripe)
+- [x] RESOLVED 2026-06-21 (verify-sweep): failed-payment dunning IS handled — invoice.payment_failed in app/api/stripe/webhook/route.ts emails the client a fix-card link + logs (lib/billing/dunning-emails.ts); Stripe Smart Retries do the retry. Covered by cov-u18 + email-events specs. The "silently lost" card was stale.
+- [x] RESOLVED 2026-06-21 (verify-sweep): self-serve billing portal IS wired — app/api/portal/billing/customer-portal/route.ts (billingPortal.sessions.create + lazy Stripe-customer + graceful 502), surfaced at app/portal/settings/billing/page.tsx.
+- [x] RESOLVED 2026-06-21 (verify-sweep): module subscription checkout implemented — app/api/portal/billing/modules/checkout/route.ts.
 
 ## Gaps Found
 
-- [ ] No dunning: failed payments silently lost — active revenue leak — see [[Competitive Gap Analysis 2026-06]]
-- [ ] No self-serve billing portal (billingPortal.sessions.create not wired) — active revenue leak — see [[Competitive Gap Analysis 2026-06]]
 - [ ] Per-seat billing reconciler has zero automated test coverage — no test for countBillableSeats, buildDesiredItems, or recomputeClientSubscription; noted in domain-map planning notes
-- [ ] Monthly AI credit re-grant cron is missing — credits granted on activation/renewal webhook only; no scheduled re-grant worker exists (noted in domain-map planning notes)
-- [ ] GAP (no implementation): Failed-payment dunning + automatic retry
-- [ ] GAP (no implementation): Customer self-serve billing portal (card/invoice/subscription management)
-- [ ] GAP (no implementation): Stripe Connect / BYOK flow
-- [ ] GAP (no implementation): Module subscription checkout — POST /billing/modules/checkout creates Stripe Checkout session with correct price_data line items (no real Stripe call; guard on sk_test key)
+- [ ] Monthly AI credit re-grant: no dedicated cron worker — but invoice.paid (billing_reason=subscription_cycle) re-grants the monthly credit on renewal in app/api/stripe/webhook/route.ts `[verify-sweep 2026-06-21: re-grant happens on renewal webhook, not a cron]`
+- [ ] GAP: Stripe Connect flow (BYOK is in progress — see Project Board → Validating → Per-Domain SaaS Billing & BYOK)
 
 
 %% kanban:settings
