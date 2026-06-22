@@ -21,7 +21,7 @@ date: 2026-06-17
 - [ ] White-label SaaS resell `[verified: partial — entitlement engine exists; rebilling/snapshot/enforcement remain]` — see [[Spec - White-Label SaaS Resell]]
 - [ ] Predictive scoring layer `[verified: absent — greenfield L]` — see [[Spec - Predictive Scoring Layer]]
 - [ ] Audit follow-ups: env-doctor + sharded-coverage + gap-to-backlog agents; fix `verify-db-target` switchyard guard; harden `/approve` (410 on stale pending-change) — see [[ADR proposed-audit-agents-and-workflows]] · [[00 - E2E Audit Index]]
-- [ ] CRM email engagement: two-way email threads + sequences/cadences `[verified 2026-06-21 real-gap; pipeline rename/delete + Gmail-inbound→Brain already shipped]` `[2026-06-22: DESIGN DRAFTED]` — see [[Spec - CRM Email Sync + Sequences]] · [[CRM E2E Audit]]
+- [ ] CRM email engagement: sequences/cadences (Phase 2) + Outlook (Phase 3) `[2026-06-22: Phase 1 Gmail two-way email threads SHIPPED c2c0886c; Phase 2 next — mirror survey_email_sequences]` — see [[Spec - CRM Email Sync + Sequences]] · [[CRM E2E Audit]]
 - [ ] Bookings scheduling depth: reschedule flow + Google-Calendar free/busy pre-check + SMS reminder channel `[verified 2026-06-21 real-gap]` — see [[Bookings Services E2E Audit]]
 - [ ] E-sign assurance: signer identity verification (OTP/KBA) + automated signature-reminder cron `[verified 2026-06-21 real-gap; esign plumbing exists, additive]` — see [[ESign Approvals E2E Audit]]
 - [ ] Pitch-deck sharing: viewer analytics (views/time-on-slide) + shared-link access control (password/expiry) + portal-facing deck-fork route/button `[verified 2026-06-21; publish approval gate shipped, fork exists MCP-only]` — see [[Pitch Decks Product Designer E2E Audit]]

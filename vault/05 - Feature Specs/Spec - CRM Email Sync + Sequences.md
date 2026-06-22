@@ -1,7 +1,7 @@
 ---
 type: spec
 domain: crm
-status: proposed
+status: in-progress
 date: 2026-06-22
 sources:
   - app/api/portal/crm/contacts/[id]/send-email/route.ts
@@ -92,7 +92,7 @@ crm_sequence_sends     id, enrollmentId, stepId, sentAt, resendEmailId?, error?
 
 ## Phasing
 
-- **Phase 1 — Gmail email threads** (`crm_email_messages` + inbound wire + outbound wire + thread API/UI). Highest standalone value; reuses Gmail infra; no scheduler.
+- **Phase 1 — Gmail email threads** ✅ SHIPPED 2026-06-22 (c2c0886c): `crm_email_messages` table + migration, inbound wire (Gmail ingest → contact-email match), outbound wire (send-email), `GET …/contacts/[id]/thread`. (Thread *UI* + the outbound *send* e2e — blocked by Resend sandbox — remain as small follow-ups.)
 - **Phase 2 — Sequences** (4 tables + cron + enroll API + event-bus auto-enroll + halt-on-reply). Mirrors survey sequences; depends on Phase 1 for reply detection.
 - **Phase 3 — Outlook** (add `Mail.Read`/`Mail.Send` scopes + a Graph sync/send worker mirroring the Gmail pipeline). Greenfield; lowest priority.
 
