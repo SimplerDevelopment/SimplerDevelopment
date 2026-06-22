@@ -40,8 +40,8 @@ sources: []
 - [ ] Domain was not audited in Phase 3 competitive pass — gap data incomplete — see [[Competitive Gap Analysis 2026-06]]
 - [ ] GAP (no implementation): Microsoft OAuth token refresh + revocation (upstream)
 - [ ] GAP (no implementation): Encrypt refresh tokens at rest
-- [ ] GAP (no implementation): Public outbound webhook delivery
-- [ ] GAP (no implementation): Developer / headless content-delivery API
+- [x] RESOLVED 2026-06-22: Public outbound webhook delivery — site_webhooks + HMAC-signed dispatcher wired to the automation event-bus; CRUD + rotate + delivery log in the unified console (gap-site-webhooks-coverage.spec.ts, live-fire verified) — d90587fd
+- [ ] GAP (no implementation): Developer / headless content-delivery API (+ optional API-key auth) — still open; "headless content API" target needs pinning down
 
 
 %% kanban:settings

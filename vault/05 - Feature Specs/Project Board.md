@@ -32,7 +32,7 @@ date: 2026-06-17
 - [ ] Storefront conversion: abandoned-cart recovery + automatic jurisdiction-based tax calculation `[verified 2026-06-21; wallet checkout already shipped via Stripe PaymentElement]` — see [[Storefront Commerce E2E Audit]]
 - [ ] Surveys in-form fields: payment field + e-signature field `[verified 2026-06-21 real-gap]` — see [[Surveys E2E Audit]]
 - [ ] Plugins ecosystem: self-serve/admin install-uninstall lifecycle + marketplace browse/install UI `[verified 2026-06-21; runtime + entitlements + consumer view already shipped]` — see [[Plugins Extension E2E Audit]]
-- [ ] Public developer surface: site-level outbound webhooks table + dispatcher (currently 501 stub) + API-key auth on the headless content API `[verified 2026-06-21]` — see [[Integrations E2E Audit]]
+- [ ] Public developer surface: API-key auth on the headless content API `[2026-06-22: site-level outbound webhooks SHIPPED (d90587fd); this remaining half needs the target "headless content API" pinned down first]` — see [[Integrations E2E Audit]]
 - [ ] A/B testing statistical rigor: sequential / valid-peeking stats + sample-ratio-mismatch (SRM) guardrail `[verified 2026-06-21 real-gap]` — see [[AB Testing E2E Audit]]
 - [ ] Tickets: post-resolution CSAT (score + prompt-after-resolution) `[verified 2026-06-21; burndown/velocity + ticket SLA already shipped]` — see [[Projects Tickets Kanban E2E Audit]]
 - [ ] Visual editor: in-canvas AI section generation `[verified 2026-06-21; scroll/timeline blocks already shipped]` — see [[Visual Editor E2E Audit]]
