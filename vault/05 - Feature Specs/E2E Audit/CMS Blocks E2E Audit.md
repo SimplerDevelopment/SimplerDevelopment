@@ -36,12 +36,12 @@ sources:
 ## Gaps Found
 
 - [ ] No reference fields / relational content linking — see [[Competitive Gap Analysis 2026-06]]
-- [ ] Scheduled auto-publish not wired: cron exists, CMS hookup missing — see [[Competitive Gap Analysis 2026-06]]
+- [x] RESOLVED 2026-06-22: scheduled auto-publish wired — posts.scheduled_publish_at + process-scheduled-posts cron + PUT-route support (9226a3fc)
 - [x] RESOLVED: insertLevel() dropped new menu items whose parent is an existing DB row — fixed — `app/api/portal/websites/[siteId]/navigation/route.ts`
 - [ ] GAP (no implementation): Post fork (A/B variant): POST /api/portal/cms/websites/[siteId]/posts/[id]/fork creates a linked copy with parentPostId set — schema field exists (parent_post_id) but no route exists
 - [ ] GAP (no implementation): Block template fork: fork a platform-global template, customize, publish as tenant-private copy — no dedicated fork endpoint; workaround is POST to /block-templates with new slug only
 - [ ] Reference fields between post types — needs spec (no API endpoint; schema notes field but no route)
-- [ ] Scheduled auto-publish (cron wired to CMS posts) — needs spec (cron exists in app/api/cron, CMS hookup not found)
+- [x] RESOLVED 2026-06-22: Scheduled auto-publish (cron wired to CMS posts) — process-scheduled-posts (9226a3fc); gap-scheduled-publish-coverage.spec.ts
 
 
 %% kanban:settings

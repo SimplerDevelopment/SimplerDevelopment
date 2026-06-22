@@ -27,7 +27,7 @@ date: 2026-06-17
 - [ ] Pitch-deck sharing: viewer analytics (views/time-on-slide) + shared-link access control (password/expiry) + portal-facing deck-fork route/button `[verified 2026-06-21; publish approval gate shipped, fork exists MCP-only]` — see [[Pitch Decks Product Designer E2E Audit]]
 - [ ] Company Brain ingestion + ACL: auto-ingest connectors (Slack/Confluence/SharePoint) + cross-source ACL-aware retrieval `[verified 2026-06-21 real-gap]` — see [[Company Brain AI E2E Audit]]
 - [ ] Email automation depth: branching/drip journeys + deliverability testing (inbox/spam) + embedded list-growth forms `[verified 2026-06-21; approval-vs-send gate already shipped]` — see [[Email Campaigns E2E Audit]]
-- [ ] CMS content modeling: reference/relational fields + scheduled post auto-publish (cron wiring) `[verified 2026-06-21; post + block-template fork already shipped (MCP)]` — see [[CMS Blocks E2E Audit]]
+- [ ] CMS content modeling: reference/relational fields `[verified 2026-06-21; post + block-template fork (MCP) + scheduled auto-publish (9226a3fc) already shipped]` — see [[CMS Blocks E2E Audit]]
 - [ ] Sites publishing safety: publish-to-prod content promotion + automated backup on publish + auto-rollback on failed publish `[verified 2026-06-21; true staging env already shipped]` — see [[Sites Hosting Publishing E2E Audit]]
 - [ ] Storefront conversion: abandoned-cart recovery + automatic jurisdiction-based tax calculation `[verified 2026-06-21; wallet checkout already shipped via Stripe PaymentElement]` — see [[Storefront Commerce E2E Audit]]
 - [ ] Surveys in-form fields: payment field + e-signature field `[verified 2026-06-21 real-gap]` — see [[Surveys E2E Audit]]
