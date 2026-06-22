@@ -457,5 +457,39 @@ export const siteBranding = pgTable('site_branding', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
+// ─── Site (tenant-level) Outbound Webhooks ──────────────────────────────────
+// Generic per-tenant outbound webhooks that fire on platform automation events
+// (the lib/automation event-bus). Mirrors survey_webhooks / project_webhooks;
+// the unified webhook console reads all three. Scoped by clientId.
+export const siteWebhooks = pgTable('site_webhooks', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  url: varchar('url', { length: 500 }).notNull(),
+  secret: varchar('secret', { length: 64 }),
+  // Subscribed automation event names (see AUTOMATION_EVENTS). '*' = all events.
+  events: json('events').$type<string[]>().notNull().default(['*']),
+  enabled: boolean('enabled').default(true).notNull(),
+  lastFiredAt: timestamp('last_fired_at'),
+  lastStatus: integer('last_status'),
+  failureCount: integer('failure_count').default(0).notNull(),
+  createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// One row per HTTP attempt (the dispatcher retries up to 3x per event).
+export const siteWebhookDeliveries = pgTable('site_webhook_deliveries', {
+  id: serial('id').primaryKey(),
+  webhookId: integer('webhook_id').notNull().references(() => siteWebhooks.id, { onDelete: 'cascade' }),
+  event: varchar('event', { length: 50 }).notNull(),
+  attempt: integer('attempt').notNull().default(1),
+  status: varchar('status', { length: 20 }).notNull(), // 'success' | 'failed'
+  statusCode: integer('status_code'),
+  requestBody: json('request_body').$type<Record<string, unknown>>(),
+  responseBody: text('response_body'),
+  error: text('error'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
 // ─── Branding Profiles ──────────────────────────────────────────────────────
 

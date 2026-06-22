@@ -16,6 +16,7 @@ import {
   projectWebhooks,
   surveys,
   surveyWebhooks,
+  siteWebhooks,
 } from '@/lib/db/schema';
 import { eq, inArray, desc } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
@@ -88,10 +89,27 @@ export async function GET() {
         .orderBy(desc(surveyWebhooks.createdAt))
     : [];
 
-  // 3) Site webhooks: schema does not yet include a per-site webhooks table.
-  //    The console renders the "site" source as soon as a `siteWebhooks`
-  //    table is added — until then this slice is intentionally empty.
-  const siteRows: UnifiedWebhookRow[] = [];
+  // 3) Site webhooks: tenant-level, scoped by clientId.
+  const siteHookRows = await db
+    .select()
+    .from(siteWebhooks)
+    .where(eq(siteWebhooks.clientId, client.id))
+    .orderBy(desc(siteWebhooks.createdAt));
+  const siteRows: UnifiedWebhookRow[] = siteHookRows.map((r) => ({
+    source: 'site',
+    sourceId: client.id,
+    sourceLabel: client.company ?? 'Site',
+    sourceHref: '/portal/settings/webhooks',
+    id: r.id,
+    url: r.url,
+    events: r.events ?? [],
+    enabled: r.enabled,
+    lastDeliveryAt: r.lastFiredAt ? r.lastFiredAt.toISOString() : null,
+    lastStatus: r.lastStatus ?? null,
+    secretLast4: r.secret ? r.secret.slice(-4) : null,
+    failing: r.failureCount > 0 || (r.lastStatus !== null && r.lastStatus >= 400),
+    createdAt: r.createdAt.toISOString(),
+  }));
 
   const unified: UnifiedWebhookRow[] = [
     ...projectRows.map<UnifiedWebhookRow>((r) => ({

@@ -11,6 +11,7 @@ import type { AutomationCondition, AutomationAction, BrainPlaybookLinkEntityType
 import { eq, and } from 'drizzle-orm';
 import { sql } from 'drizzle-orm';
 import { onEvent, type AutomationEvent } from './event-bus';
+import { dispatchSiteWebhooksForEvent } from '@/lib/site-webhooks/dispatcher';
 import { executePortalTool } from '@/lib/ai/portal-tools';
 import { requiredScopeFor } from '@/lib/ai/portal-tools/scopes';
 import { hasScope } from '@/lib/mcp-auth';
@@ -571,6 +572,7 @@ export function initAutomationEngine(): void {
   initialized = true;
   onEvent(processEvent);
   onEvent(processEventForPlaybookAutoStart);
+  onEvent(dispatchSiteWebhooksForEvent);
   console.log('[automation] Engine initialized');
 }
 
