@@ -93,7 +93,7 @@ crm_sequence_sends     id, enrollmentId, stepId, sentAt, resendEmailId?, error?
 ## Phasing
 
 - **Phase 1 — Gmail email threads** ✅ SHIPPED 2026-06-22 (c2c0886c): `crm_email_messages` table + migration, inbound wire (Gmail ingest → contact-email match), outbound wire (send-email), `GET …/contacts/[id]/thread`. (Thread *UI* + the outbound *send* e2e — blocked by Resend sandbox — remain as small follow-ups.)
-- **Phase 2 — Sequences** (4 tables + cron + enroll API + event-bus auto-enroll + halt-on-reply). Mirrors survey sequences; depends on Phase 1 for reply detection.
+- **Phase 2 — Sequences** ✅ SHIPPED 2026-06-22 (533c6487): 4 tables + sequences CRUD + enroll API + `process-crm-sequences` cron (idempotent step advance) + halt-on-reply. (Event-bus *auto-enroll* — i.e. enroll on `crm.contact.created`/deal events — deferred as a small follow-up; manual enroll ships now.)
 - **Phase 3 — Outlook** (add `Mail.Read`/`Mail.Send` scopes + a Graph sync/send worker mirroring the Gmail pipeline). Greenfield; lowest priority.
 
 ## Key decisions (ADR-style)
