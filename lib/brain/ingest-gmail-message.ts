@@ -1,8 +1,9 @@
 import { after } from 'next/server';
-import { and, eq } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { brainMeetings, brainProfiles, clients, crmContacts, crmEmailMessages, crmSequenceEnrollments } from '@/lib/db/schema';
+import { brainMeetings, brainProfiles, clients } from '@/lib/db/schema';
 import { processBrainMeeting } from '@/lib/brain/process-meeting';
+import { recordInboundCrmEmail } from '@/lib/crm/inbound-email';
 import type { FetchedMessage } from '@/lib/google/gmail-history';
 
 /**
@@ -100,46 +101,21 @@ export async function ingestGmailMessageIntoBrain(opts: {
     return { meetingId: null, status: 'skipped', reason: 'insert_returned_no_row' };
   }
 
-  // CRM email thread (Phase 1 — [[Spec - CRM Email Sync + Sequences]]). If the
-  // sender matches a CRM contact for this client, record the inbound message on
-  // its thread. Best-effort + idempotent (unique client+providerMessageId);
-  // decoupled from the async AI classification that may also create a contact.
+  // Record the inbound message on the matching CRM contact's email thread +
+  // halt their active sequences (Phase 1+2 — [[Spec - CRM Email Sync + Sequences]]).
+  // Best-effort, idempotent, decoupled from the async AI classification; the
+  // recorder is shared with the Outlook ingest path.
   try {
-    const [crmContact] = await db
-      .select({ id: crmContacts.id })
-      .from(crmContacts)
-      .where(and(eq(crmContacts.clientId, clientId), eq(crmContacts.email, senderEmail)))
-      .limit(1);
-    if (crmContact) {
-      await db
-        .insert(crmEmailMessages)
-        .values({
-          clientId,
-          contactId: crmContact.id,
-          direction: 'inbound',
-          providerMessageId: message.id,
-          threadKey: message.threadId,
-          fromEmail: senderEmail,
-          toEmail: message.to ?? null,
-          subject: message.subject ?? null,
-          snippet: message.snippet ?? null,
-          sentAt: message.receivedAt,
-        })
-        .onConflictDoNothing();
-
-      // Halt-on-reply (Phase 2): an inbound message from an enrolled contact
-      // stops their active email sequences — you don't keep cold-emailing
-      // someone who just replied.
-      await db
-        .update(crmSequenceEnrollments)
-        .set({ status: 'halted', haltedReason: 'replied' })
-        .where(
-          and(
-            eq(crmSequenceEnrollments.contactId, crmContact.id),
-            eq(crmSequenceEnrollments.status, 'active'),
-          ),
-        );
-    }
+    await recordInboundCrmEmail({
+      clientId,
+      senderEmail,
+      providerMessageId: message.id,
+      threadKey: message.threadId,
+      toEmail: message.to ?? null,
+      subject: message.subject ?? null,
+      snippet: message.snippet ?? null,
+      sentAt: message.receivedAt,
+    });
   } catch (threadErr) {
     console.error('[ingest-gmail] crm email-thread upsert failed', threadErr);
   }
