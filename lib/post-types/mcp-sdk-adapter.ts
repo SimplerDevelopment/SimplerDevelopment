@@ -149,7 +149,7 @@ async function findEditableType(siteId: number, typeId: number, clientId: number
   return type ? { site, type } : null;
 }
 
-const FIELD_TYPE_ENUM = ['text', 'textarea', 'number', 'date', 'select', 'checkbox', 'url', 'email', 'image', 'user_select', 'repeater', 'group'] as const;
+const FIELD_TYPE_ENUM = ['text', 'textarea', 'number', 'date', 'select', 'checkbox', 'url', 'email', 'image', 'user_select', 'repeater', 'group', 'reference'] as const;
 
 export function registerPostTypeToolsOnSdk(server: McpServer, ctx: PortalMcpContext) {
   const clientId = ctx.client.id;

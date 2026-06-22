@@ -1,8 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { postCustomFieldValues, customFields } from '@/lib/db/schema';
-import { eq, and } from 'drizzle-orm';
+import { postCustomFieldValues, customFields, posts } from '@/lib/db/schema';
+import { eq, and, inArray } from 'drizzle-orm';
 import { z } from 'zod';
+
+// A 'reference' field value is a referenced post id, stored as a bare id ("5")
+// or a JSON array of ids ("[5,6]"). Parse either into a number[].
+function parseReferenceIds(value: string | null): number[] {
+  if (!value) return [];
+  const raw = value.trim();
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      return parsed.map((n) => Number(n)).filter((n) => Number.isInteger(n) && n > 0);
+    }
+    if (Number.isInteger(parsed) && parsed > 0) return [parsed];
+  } catch {
+    const n = Number(raw);
+    if (Number.isInteger(n) && n > 0) return [n];
+  }
+  return [];
+}
 
 // GET /api/posts/[id]/custom-fields - Get custom field values for a post
 export async function GET(
@@ -35,7 +53,26 @@ export async function GET(
       .innerJoin(customFields, eq(postCustomFieldValues.customFieldId, customFields.id))
       .where(eq(postCustomFieldValues.postId, postId));
 
-    return NextResponse.json({ success: true, data: values });
+    // Resolve 'reference' field values to referenced post summaries.
+    const refIds = new Set<number>();
+    for (const v of values) {
+      if (v.fieldType === 'reference') for (const id of parseReferenceIds(v.value)) refIds.add(id);
+    }
+    const refById = new Map<number, { id: number; title: string; slug: string; published: boolean }>();
+    if (refIds.size > 0) {
+      const refPosts = await db
+        .select({ id: posts.id, title: posts.title, slug: posts.slug, published: posts.published })
+        .from(posts)
+        .where(inArray(posts.id, [...refIds]));
+      for (const p of refPosts) refById.set(p.id, p);
+    }
+    const data = values.map((v) =>
+      v.fieldType === 'reference'
+        ? { ...v, referencedPosts: parseReferenceIds(v.value).map((id) => refById.get(id)).filter(Boolean) }
+        : v,
+    );
+
+    return NextResponse.json({ success: true, data });
   } catch (error) {
     console.error('Error fetching custom field values:', error);
     return NextResponse.json(
@@ -68,6 +105,47 @@ export async function PUT(
 
     const body = await request.json();
     const { customFieldId, value } = upsertSchema.parse(body);
+
+    // Reference fields: the value must point at real post(s).
+    const [field] = await db
+      .select({ fieldType: customFields.fieldType })
+      .from(customFields)
+      .where(eq(customFields.id, customFieldId))
+      .limit(1);
+    if (!field) {
+      return NextResponse.json({ success: false, error: 'Custom field not found' }, { status: 404 });
+    }
+    if (field.fieldType === 'reference' && value) {
+      const ids = parseReferenceIds(value);
+      if (ids.length === 0) {
+        return NextResponse.json(
+          { success: false, error: 'A reference value must be a post id or a JSON array of post ids' },
+          { status: 400 },
+        );
+      }
+      const [host] = await db
+        .select({ websiteId: posts.websiteId })
+        .from(posts)
+        .where(eq(posts.id, postId))
+        .limit(1);
+      const found = await db
+        .select({ id: posts.id, websiteId: posts.websiteId })
+        .from(posts)
+        .where(inArray(posts.id, ids));
+      if (found.length !== new Set(ids).size) {
+        return NextResponse.json(
+          { success: false, error: 'One or more referenced posts do not exist' },
+          { status: 400 },
+        );
+      }
+      // A reference must point at a post on the same website (no cross-site refs).
+      if (host && found.some((p) => p.websiteId !== host.websiteId)) {
+        return NextResponse.json(
+          { success: false, error: 'Referenced posts must be on the same website' },
+          { status: 400 },
+        );
+      }
+    }
 
     // Check if a value row already exists
     const [existing] = await db
