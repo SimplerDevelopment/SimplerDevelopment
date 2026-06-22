@@ -40,10 +40,10 @@ sources:
 
 ## Gaps Found
 
-- [ ] No viewer analytics on shared deck links — see [[Competitive Gap Analysis 2026-06]]
+- [x] RESOLVED 2026-06-22: viewer analytics — pitch_deck_views + public /view tracking + portal /analytics aggregate (c8eba501)
 - [ ] No access control (password/expiry) on shared deck links — see [[Competitive Gap Analysis 2026-06]]
 - [x] RESOLVED: collabActive was `ydoc!==null` (always true) permanently suppressing the unsaved-changes flag — now keyed to ws-connected — `usePitchDeckState.ts`
-- [ ] GAP (no implementation): Viewer analytics on shared deck (view count, time-on-slide)
+- [x] RESOLVED 2026-06-22: Viewer analytics on shared deck (view count, time-on-slide) — c8eba501; gap-deck-analytics-coverage.spec.ts
 - [ ] GAP (no implementation): Access control on shared deck link (password / expiry)
 - [ ] GAP (no implementation): Draft/live approval gate for deck publish
 - [x] RESOLVED 2026-06-22: Fork a deck — portal route POST /tools/pitch-decks/[id]/fork (independent draft, parentDeckId set, original unchanged); gap-deck-fork-coverage.spec.ts — e2ca8508
