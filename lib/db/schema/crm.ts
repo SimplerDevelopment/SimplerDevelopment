@@ -275,6 +275,9 @@ export const crmContracts = pgTable('crm_contracts', {
   esignSentAt: timestamp('esign_sent_at'),
   esignSignedAt: timestamp('esign_signed_at'),
   esignDeclinedAt: timestamp('esign_declined_at'),
+  // Signature-reminder tracking (process-contract-signature-reminders cron).
+  esignLastReminderAt: timestamp('esign_last_reminder_at'),
+  esignReminderCount: integer('esign_reminder_count').default(0).notNull(),
   esignAuditFileUrl: text('esign_audit_file_url'), // link to the signed PDF / audit trail
   esignWebhookEvents: json('esign_webhook_events').$type<ContractEsignWebhookEvent[]>().default([]),
   createdAt: timestamp('created_at').defaultNow().notNull(),

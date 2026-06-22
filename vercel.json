@@ -84,6 +84,10 @@
       "schedule": "*/5 * * * *"
     },
     {
+      "path": "/api/cron/process-contract-signature-reminders",
+      "schedule": "0 */6 * * *"
+    },
+    {
       "path": "/api/cron/brain-12",
       "schedule": "30 7 * * *"
     },
