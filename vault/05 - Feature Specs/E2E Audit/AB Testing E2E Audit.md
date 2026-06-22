@@ -41,12 +41,12 @@ sources:
 
 ## Gaps Found
 
-- [ ] No sequential / valid-peeking stats — false-positive risk on early peeks — see [[Competitive Gap Analysis 2026-06]]
-- [ ] No SRM guardrail — see [[Competitive Gap Analysis 2026-06]]
+- [x] RESOLVED 2026-06-22: sequential/valid-peeking stats — mSPRT always-valid p-value in lib/ab/stats.ts (sequentialPValue), wired into /experiments/[id]/results — e646d8b7
+- [x] RESOLVED 2026-06-22: SRM guardrail — chi-square goodness-of-fit (sampleRatioMismatch), surfaced as `srm` on the results payload — e646d8b7
 - [ ] Deck AB public render path not wired: applyAbToDeckSlides is implemented but not called on /sites/:domain/slides/:slug or /pitch-deck/:slug (domain map §Planning Notes) — no E2E possible until render integration is shipped
 - [ ] OPEN: experiment-row UI is flaky under load (non-deterministic render timing)
-- [ ] GAP (no implementation): Sequential / valid-peeking statistics — needs spec
-- [ ] GAP (no implementation): Sample-ratio mismatch (SRM) guardrail — needs spec
+- [x] RESOLVED 2026-06-22: Sequential / valid-peeking statistics (mSPRT) — see lib/ab/stats.ts sequentialPValue (e646d8b7)
+- [x] RESOLVED 2026-06-22: Sample-ratio mismatch (SRM) guardrail (chi-square) — see lib/ab/stats.ts sampleRatioMismatch (e646d8b7)
 
 
 %% kanban:settings
