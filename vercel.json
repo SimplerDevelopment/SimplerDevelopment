@@ -80,6 +80,10 @@
       "schedule": "*/15 * * * *"
     },
     {
+      "path": "/api/cron/process-scheduled-posts",
+      "schedule": "*/5 * * * *"
+    },
+    {
       "path": "/api/cron/brain-12",
       "schedule": "30 7 * * *"
     },
