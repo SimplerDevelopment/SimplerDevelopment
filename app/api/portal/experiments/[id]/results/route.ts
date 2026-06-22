@@ -9,7 +9,7 @@ import { db } from '@/lib/db';
 import { abExperiments, abVariants, abEvents } from '@/lib/db/schema';
 import { eq, sql } from 'drizzle-orm';
 import { authorizeExperimentForUser } from '@/lib/ab/access';
-import { twoProportionZTest } from '@/lib/ab/stats';
+import { twoProportionZTest, sequentialPValue, sampleRatioMismatch } from '@/lib/ab/stats';
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
@@ -67,10 +67,11 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const control = stats.find(s => s.key === 'a') ?? stats[0];
   const comparisons = control
     ? stats.filter(s => s.key !== control.key).map(s => {
-        const result = twoProportionZTest(
-          { n: control.views, x: control.goals },
-          { n: s.views, x: s.goals },
-        );
+        const ctrl = { n: control.views, x: control.goals };
+        const chal = { n: s.views, x: s.goals };
+        const result = twoProportionZTest(ctrl, chal);
+        // Always-valid (peeking-safe) p-value alongside the fixed-horizon one.
+        const seq = sequentialPValue(ctrl, chal);
         return {
           variantKey: s.key,
           controlKey: control.key,
@@ -78,9 +79,17 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
           p: result.p,
           lift: result.lift,
           significant: result.p < 0.05,
+          // Sequential/anytime-valid: safe to act on while the test is running.
+          pSequential: seq.pValue,
+          sequentiallySignificant: seq.pValue < 0.05 && result.lift > 0,
         };
       })
     : [];
+
+  // Sample-ratio mismatch guardrail: if the observed exposure split deviates
+  // from an equal allocation beyond p<0.001, the randomization is suspect and
+  // the comparisons above should not be trusted.
+  const srm = sampleRatioMismatch(stats.map((s) => s.views));
 
   return NextResponse.json({
     success: true,
@@ -88,6 +97,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       experiment,
       stats,
       comparisons,
+      srm,
     },
   });
 }
