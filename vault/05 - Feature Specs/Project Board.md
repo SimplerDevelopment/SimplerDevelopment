@@ -30,7 +30,6 @@ date: 2026-06-17
 - [ ] CMS content modeling: reference/relational fields + scheduled post auto-publish (cron wiring) `[verified 2026-06-21; post + block-template fork already shipped (MCP)]` — see [[CMS Blocks E2E Audit]]
 - [ ] Sites publishing safety: publish-to-prod content promotion + automated backup on publish + auto-rollback on failed publish `[verified 2026-06-21; true staging env already shipped]` — see [[Sites Hosting Publishing E2E Audit]]
 - [ ] Storefront conversion: abandoned-cart recovery + automatic jurisdiction-based tax calculation `[verified 2026-06-21; wallet checkout already shipped via Stripe PaymentElement]` — see [[Storefront Commerce E2E Audit]]
-- [ ] Portal-REST parity (MCP-only today): storefront review moderation + customer messages + survey fork as portal routes `[verified 2026-06-21 real-gap]` — see [[Storefront Commerce E2E Audit]] · [[Surveys E2E Audit]]
 - [ ] Surveys in-form fields: payment field + e-signature field `[verified 2026-06-21 real-gap]` — see [[Surveys E2E Audit]]
 - [ ] Plugins ecosystem: self-serve/admin install-uninstall lifecycle + marketplace browse/install UI `[verified 2026-06-21; runtime + entitlements + consumer view already shipped]` — see [[Plugins Extension E2E Audit]]
 - [ ] Public developer surface: site-level outbound webhooks table + dispatcher (currently 501 stub) + API-key auth on the headless content API `[verified 2026-06-21]` — see [[Integrations E2E Audit]]

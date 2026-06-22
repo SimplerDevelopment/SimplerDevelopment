@@ -44,8 +44,8 @@ sources:
 - [ ] EasyPost label purchase and Printful submit flows have no integration or E2E tests despite being wired routes
 - [ ] Magamommy autonomous pipeline (lib/magamommy/) has zero unit/integration/E2E coverage — noted in lib/magamommy/README.md
 - [x] RESOLVED: product-designer /designs POST required sessionId in body and wrote legacy designs table — now mints sd_design_session cookie + writes productDesigns table — `app/api/storefront/[siteId]/designs/route.ts`
-- [ ] GAP (no implementation): Portal product review moderation: list pending reviews → approve one → reject one — MCP-only (store_reviews_list/moderate in lib/storefront/mcp-sdk-adapter.ts); no portal REST route exists
-- [ ] GAP (no implementation): Portal customer messages: list messages → post staff reply → status transitions to replied — MCP-only for staff; only customer-facing storefront routes exist (app/api/storefront/[siteId]/account/support/)
+- [x] RESOLVED 2026-06-21: Portal review moderation now has REST routes — GET /api/portal/websites/[siteId]/store/reviews + PATCH .../reviews/[reviewId] (approve/reject); tenancy-scoped, cross-site 404 — gap-portal-rest-parity-coverage.spec.ts
+- [x] RESOLVED 2026-06-21: Portal customer messages now have REST routes — GET .../store/customer-messages + POST .../customer-messages/[messageId]/reply (status→replied); cross-site 404 — gap-portal-rest-parity-coverage.spec.ts
 
 
 %% kanban:settings

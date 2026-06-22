@@ -43,7 +43,7 @@ sources:
 
 - [ ] No in-form payment field — see [[Competitive Gap Analysis 2026-06]]
 - [ ] No in-form e-signature field — see [[Competitive Gap Analysis 2026-06]]
-- [ ] GAP (no implementation): Fork survey creates draft with parentSurveyId pointer — fork is implemented only as MCP tool `surveys_fork`, no portal REST endpoint; portal E2E cannot exercise this path
+- [x] RESOLVED 2026-06-21: survey fork now has a portal REST route — POST /api/portal/surveys/[id]/fork (clone → draft, parentSurveyId set, clientId-scoped) — gap-portal-rest-parity-coverage.spec.ts
 - [ ] GAP (no portal E2E path): File field upload round-trip (POST /api/surveys/[slug]/upload → answer records S3 key) — requires S3 credentials not available in test environment
 
 
