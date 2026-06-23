@@ -43,8 +43,15 @@ export default function CmdKLauncher({ apps, entitlements }: CmdKLauncherProps) 
         setHasMounted(true);
       }
     };
+    // Lets non-keyboard surfaces (e.g. the topbar search button) open the
+    // palette without synthesizing a keystroke.
+    const openHandler = () => { setOpen(true); setHasMounted(true); };
     window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
+    window.addEventListener('portal:open-cmdk', openHandler);
+    return () => {
+      window.removeEventListener('keydown', handler);
+      window.removeEventListener('portal:open-cmdk', openHandler);
+    };
   }, []);
 
   const handleClose = useCallback(() => setOpen(false), []);

@@ -49,6 +49,15 @@
   --accent-secondary: #10b981;
   --destructive: #ef4444;
   --destructive-foreground: #ffffff;
+  /* Portal redesign helper tokens (additive — chrome + dashboard widgets).
+     Status tones, the active-nav soft accent, a second surface, and a
+     stronger border used by the persistent sidebar/topbar + widget board. */
+  --portal-ok: #15803d;        --portal-ok-bg: rgba(21,128,61,0.09);
+  --portal-warn: #b45309;      --portal-warn-bg: rgba(180,83,9,0.10);
+  --portal-bad: #dc2626;       --portal-bad-bg: rgba(220,38,38,0.08);
+  --portal-accent-soft: rgba(37,99,235,0.10);
+  --portal-surface-2: #f7f6f4;
+  --portal-border-strong: #c9c5c1;
 }
 
 .nav-logo-icon {
@@ -80,6 +89,12 @@
   --accent-secondary: #10b981;
   --destructive: #ef4444;
   --destructive-foreground: #ffffff;
+  --portal-ok: #34d399;        --portal-ok-bg: rgba(52,211,153,0.14);
+  --portal-warn: #fbbf24;      --portal-warn-bg: rgba(251,191,36,0.14);
+  --portal-bad: #f87171;       --portal-bad-bg: rgba(248,113,113,0.14);
+  --portal-accent-soft: rgba(59,130,246,0.18);
+  --portal-surface-2: #1c1c1f;
+  --portal-border-strong: #52525b;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -101,6 +116,12 @@
     --accent-secondary: #10b981;
     --destructive: #ef4444;
     --destructive-foreground: #ffffff;
+    --portal-ok: #34d399;        --portal-ok-bg: rgba(52,211,153,0.14);
+    --portal-warn: #fbbf24;      --portal-warn-bg: rgba(251,191,36,0.14);
+    --portal-bad: #f87171;       --portal-bad-bg: rgba(248,113,113,0.14);
+    --portal-accent-soft: rgba(59,130,246,0.18);
+    --portal-surface-2: #1c1c1f;
+    --portal-border-strong: #52525b;
   }
 }
 
