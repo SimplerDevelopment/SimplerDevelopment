@@ -50,7 +50,11 @@ AI-powered knowledge base per tenant. Embeddings are generated via OpenAI (`text
 
 ### MCP server
 
-An in-repo Model Context Protocol server exposes platform tools to AI agents (Claude Code, Cursor, etc.). Tools are registered in `lib/mcp/` via a tool registrar pattern with scope guards. Use `simplerdev-mcp-tool` to add a new tool — handler, schema, and scope guard are registered in lockstep.
+An in-repo Model Context Protocol server (`app/api/mcp/route.ts` + `lib/mcp/`) exposes 200+ scoped platform tools to AI agents (Claude Code, Claude Desktop, Cursor, any MCP client). Tools are registered per-domain with a scope guard on every tool.
+
+- **Connect a client:** [`docs/mcp.md`](docs/mcp.md) (Claude.ai OAuth, API key, Claude Desktop/Code config)
+- **Tool catalog:** [`docs/api/mcp/overview.md`](docs/api/mcp/overview.md)
+- **Add a tool (contributors):** [`docs/guides/MCP_TOOLS.md`](docs/guides/MCP_TOOLS.md)
 
 ---
 
@@ -251,8 +255,8 @@ This repo is built to be worked on by AI agents (primarily Claude Code) alongsid
 
 - [`CLAUDE.md`](CLAUDE.md) — the root agent operating guide: architecture invariants, commands, conventions, don't-touch zones.
 - Nested `CLAUDE.md` files carry per-area invariants and god-file warnings, loaded automatically when an agent works in that subtree: `app/portal/`, `app/admin/`, `lib/blocks/`, `lib/mcp/`, `lib/db/`, `lib/ai/`, `components/portal/visual-editor/`, `tests/`.
-- `.claude/index.md` — the navigation map: "I need to work on X" → the right nested guide, skill, or doc.
-- `graphify-out/` — a generated knowledge graph of the codebase, rebuilt on commit via git hooks, used for broad cross-cutting questions.
+
+> The maintainers' private agent tooling (the `.claude/` skill library, navigation index, and generated knowledge graph) is not bundled in this public repository. The `CLAUDE.md` operating guides above are the portable, public core.
 
 ### Skills (scaffolding workflows)
 
@@ -271,10 +275,6 @@ See `docs/skills/` for the full reference.
 ### Subagents and orchestration
 
 Larger work runs through an orchestration hierarchy: a planning model decomposes work and dispatches well-scoped units to worker agents in parallel (e.g. `block-orchestrator` driving `block-implementer` workers for the CMS-blocks audit). Workers operate under an escalation contract — anything beyond a mechanical change is promoted back to the planner rather than guessed at (see `CLAUDE.md` § Agent operating rules).
-
-### Autonomous dev loop
-
-The `dev-block` skill runs hands-off development sessions driven by an n8n workflow: pick a GitHub issue labeled `claude`, implement, run gates, commit, return structured JSON for the loop to route on. State and retro notes live in `.claude/HANDS_OFF_DEV_PLAN.md` and `.claude/learnings.md`.
 
 ### Guardrails (architecture fitness functions)
 
@@ -297,6 +297,9 @@ Agent- and human-authored changes are held to the same automated invariants, wir
 | [`docs/guides/BLOCK_EDITOR_GUIDE.md`](docs/guides/BLOCK_EDITOR_GUIDE.md) | Block JSON schema, examples, troubleshooting |
 | [`docs/guides/USER_MANAGEMENT.md`](docs/guides/USER_MANAGEMENT.md) | Auth, roles, NextAuth configuration |
 | [`docs/guides/BRAIN.md`](docs/guides/BRAIN.md) | Company Brain architecture, embedding pipeline, RAG patterns |
+| [`docs/mcp.md`](docs/mcp.md) | Connect an AI client to the MCP server (OAuth / API key / Claude config) |
+| [`docs/api/mcp/overview.md`](docs/api/mcp/overview.md) | MCP tool catalog by domain |
+| [`docs/guides/MCP_TOOLS.md`](docs/guides/MCP_TOOLS.md) | Extending the MCP server — adding a tool (handler, schema, scope guard, token budget) |
 | [`docs/guides/AB_TESTING_GUIDE.md`](docs/guides/AB_TESTING_GUIDE.md) | A/B testing setup and usage |
 | [`tests/TESTING_PLAN.md`](tests/TESTING_PLAN.md) | Full test responsibility model, layer targets |
 | [`tests/CI-GATES.md`](tests/CI-GATES.md) | Gate definitions, coverage floors, local git hook setup |
