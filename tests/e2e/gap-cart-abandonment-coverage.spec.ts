@@ -46,6 +46,8 @@ test.describe('Abandoned-cart recovery @gap @cart-abandonment', () => {
 
     expect(sql(`SELECT status FROM carts WHERE id=${oldCartId}`)).toBe('abandoned');
     expect(sql(`SELECT recovery_token IS NOT NULL FROM carts WHERE id=${oldCartId}`)).toBe('t');
+    // A recovery email was sent (best-effort; the timestamp is the dedup guard).
+    expect(sql(`SELECT recovery_email_sent_at IS NOT NULL FROM carts WHERE id=${oldCartId}`)).toBe('t');
     expect(sql(`SELECT status FROM carts WHERE id=${recentCartId}`)).toBe('active');
   });
 

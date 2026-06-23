@@ -5,6 +5,7 @@ import { db } from '@/lib/db';
 import { carts, cartItems, orders, clientWebsites } from '@/lib/db/schema';
 import { and, eq, gt, isNotNull, sql, inArray } from 'drizzle-orm';
 import { emitEvent } from '@/lib/automation/event-bus';
+import { sendCartRecoveryEmail } from '@/lib/email/cart-recovery-email';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -157,6 +158,21 @@ async function _GET(req: Request) {
       itemCount,
       cartValue,
     });
+
+    // 8. Send the recovery email (best-effort) and stamp recovery_email_sent_at
+    //    so we don't re-email the same cart on a later tick.
+    try {
+      await sendCartRecoveryEmail({
+        to: email,
+        websiteId: cart.websiteId,
+        recoveryToken,
+        itemCount,
+        cartValue,
+      });
+    } catch (err) {
+      console.error(`[cart-abandonment] recovery email failed for cart ${cart.id}`, err);
+    }
+    await db.update(carts).set({ recoveryEmailSentAt: now }).where(eq(carts.id, cart.id));
   }
 
   return NextResponse.json({
