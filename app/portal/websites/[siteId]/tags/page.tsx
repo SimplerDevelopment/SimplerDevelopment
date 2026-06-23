@@ -30,7 +30,13 @@ export default function PortalTagsPage() {
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    fetch(base)
+      .then(r => r.json())
+      .then(res => { if (res.success) setTags(res.data); })
+      .finally(() => setLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const openCreate = () => {
     setEditing(null);

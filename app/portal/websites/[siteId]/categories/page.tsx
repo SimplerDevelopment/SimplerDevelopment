@@ -32,7 +32,13 @@ export default function PortalCategoriesPage() {
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    fetch(base)
+      .then(r => r.json())
+      .then(res => { if (res.success) setCategories(res.data); })
+      .finally(() => setLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const openCreate = () => {
     setEditing(null);

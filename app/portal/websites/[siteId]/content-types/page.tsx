@@ -36,7 +36,13 @@ export default function ContentTypesPage() {
     setLoading(false);
   }, [base]);
 
-  useEffect(() => { loadContentTypes(); }, [loadContentTypes]);
+  useEffect(() => {
+    fetch(`${base}/content-types`)
+      .then(r => r.json())
+      .then(res => { if (res.success) setContentTypes(res.data); })
+      .finally(() => setLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const openCreate = () => {
     setEditingType(null);

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Block } from '@/types/blocks';
+import { BaseBlock } from '@/types/blocks/base';
 import { slugify } from '@/lib/publishing/slug';
 
 interface SaveAsTemplateModalProps {
@@ -33,7 +34,7 @@ export function SaveAsTemplateModal({ blocks, onClose, onSaved, endpoint = '/api
 
     // Strip IDs from blocks so they get new ones when inserted
     const sanitizedBlocks = blocks.map((block) => {
-      const { id, order, ...rest } = block as any;
+      const { id: _id, order: _order, ...rest } = block as BaseBlock & Record<string, unknown>;
       return rest;
     });
 

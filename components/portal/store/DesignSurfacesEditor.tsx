@@ -90,6 +90,7 @@ export default function DesignSurfacesEditor({ productId, siteId }: DesignSurfac
   }, [base]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- fetchSurfaces resets loading/error before its async fetch; synchronous setState in the callback is load-bearing for re-fetch UX
     fetchSurfaces();
   }, [fetchSurfaces]);
 

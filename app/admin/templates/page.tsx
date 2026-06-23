@@ -10,7 +10,7 @@ interface BlockTemplate {
   description?: string | null;
   category: string;
   scope: string;
-  blocks: any[];
+  blocks: Record<string, unknown>[];
   thumbnail?: string | null;
   tags: string[];
   lockedFields: string[];
@@ -57,10 +57,6 @@ export default function TemplatesPage() {
     tags: '',
   });
 
-  useEffect(() => {
-    fetchTemplates();
-  }, [filter, search]);
-
   const fetchTemplates = async () => {
     const params = new URLSearchParams();
     if (filter !== 'all') params.set('scope', filter);
@@ -73,6 +69,21 @@ export default function TemplatesPage() {
     }
     setLoading(false);
   };
+
+  useEffect(() => {
+    async function load() {
+      const params = new URLSearchParams();
+      if (filter !== 'all') params.set('scope', filter);
+      if (search) params.set('search', search);
+      const response = await fetch(`/api/block-templates?${params.toString()}`);
+      const data = await response.json();
+      if (data.success) {
+        setTemplates(data.data);
+      }
+      setLoading(false);
+    }
+    void load();
+  }, [filter, search]);
 
   const handleDelete = async (id: number) => {
     if (!confirm('Stage this template for deletion? It stays live until you click Publish.')) return;
@@ -177,11 +188,11 @@ export default function TemplatesPage() {
   };
 
 
-  const getBlockSummary = (blocks: any[]) => {
+  const getBlockSummary = (blocks: Record<string, unknown>[]) => {
     if (!blocks || blocks.length === 0) return 'Empty';
     if (blocks.length === 1) {
       const block = blocks[0];
-      const type = block.type || 'unknown';
+      const type = (typeof block.type === 'string' ? block.type : null) ?? 'unknown';
       return type.charAt(0).toUpperCase() + type.slice(1).replace(/-/g, ' ');
     }
     return `${blocks.length} blocks`;

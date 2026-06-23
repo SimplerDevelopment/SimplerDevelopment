@@ -42,7 +42,12 @@ export default function StoreCategoriesPage() {
   };
 
   useEffect(() => {
-    load();
+    fetch(base)
+      .then(r => r.json())
+      .then(data => { if (data.success) setCategories(data.data || []); })
+      .catch(() => { /* fail silently */ })
+      .finally(() => setLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const openCreate = () => {

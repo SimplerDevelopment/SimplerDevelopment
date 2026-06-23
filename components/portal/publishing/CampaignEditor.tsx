@@ -6,7 +6,7 @@
 //   - campaign={existing row} → PATCH on save (existing slug is preserved).
 //   - campaign=null            → POST on save (slug auto-derived from name).
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import type { CampaignRow } from './PublishingCampaignsList';
 import { slugify } from '@/lib/publishing/slug';
 
@@ -56,11 +56,6 @@ export default function CampaignEditor({ campaign, onSaved, onCancel }: Props) {
   // field we stop derivation.
   const [slugTouched, setSlugTouched] = useState(isEdit);
 
-  useEffect(() => {
-    if (!slugTouched && !isEdit) {
-      setForm((f) => ({ ...f, slug: slugify(f.name) }));
-    }
-  }, [form.name, slugTouched, isEdit]);
 
   const onSubmit = useCallback(
     async (e: React.FormEvent) => {
@@ -127,7 +122,14 @@ export default function CampaignEditor({ campaign, onSaved, onCancel }: Props) {
             type="text"
             required
             value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
+            onChange={(e) => {
+              const name = e.target.value;
+              setForm((f) => ({
+                ...f,
+                name,
+                slug: !slugTouched && !isEdit ? slugify(name) : f.slug,
+              }));
+            }}
             className="w-full rounded border border-gray-300 dark:border-gray-700 dark:bg-gray-800 px-2 py-1.5 text-sm"
             placeholder="Fall 2026 outbound"
           />

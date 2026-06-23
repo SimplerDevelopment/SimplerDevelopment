@@ -68,15 +68,28 @@ export default function TaxonomyPage() {
     setTermsLoading(false);
   }, [base]);
 
-  useEffect(() => { loadTaxonomies(); }, [loadTaxonomies]);
+  useEffect(() => {
+    fetch(`${base}/taxonomies`)
+      .then(r => r.json())
+      .then(res => { if (res.success) setTaxonomies(res.data); })
+      .finally(() => setLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
-    if (selectedTaxonomy) loadTerms(selectedTaxonomy.id);
-  }, [selectedTaxonomy, loadTerms]);
+    if (selectedTaxonomy) {
+      fetch(`${base}/taxonomies/${selectedTaxonomy.id}/terms`)
+        .then(r => r.json())
+        .then(res => { if (res.success) setTerms(res.data); })
+        .finally(() => setTermsLoading(false));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedTaxonomy]);
 
   // Auto-select first taxonomy
   useEffect(() => {
     if (taxonomies.length > 0 && !selectedTaxonomy) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- derived selection from async data, not a data-fetch setState
       setSelectedTaxonomy(taxonomies[0]);
     }
   }, [taxonomies, selectedTaxonomy]);

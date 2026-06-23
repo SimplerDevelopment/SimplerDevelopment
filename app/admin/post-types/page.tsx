@@ -35,8 +35,31 @@ export default function PostTypesPage() {
     active: true,
   });
 
+  const fetchPostTypes = async () => {
+    const response = await fetch('/api/post-types');
+    const data = await response.json();
+    if (data.success) {
+      setPostTypes(data.data);
+    }
+    setLoading(false);
+  };
+
+  const handleCancel = () => {
+    setShowForm(false);
+    setEditingPostType(null);
+    setFormData({ name: '', slug: '', description: '', icon: 'article', active: true });
+  };
+
   useEffect(() => {
-    fetchPostTypes();
+    async function load() {
+      const response = await fetch('/api/post-types');
+      const data = await response.json();
+      if (data.success) {
+        setPostTypes(data.data);
+      }
+      setLoading(false);
+    }
+    void load();
   }, []);
 
   // Handle escape key and prevent body scroll when modal is open
@@ -56,15 +79,6 @@ export default function PostTypesPage() {
       };
     }
   }, [showForm]);
-
-  const fetchPostTypes = async () => {
-    const response = await fetch('/api/post-types');
-    const data = await response.json();
-    if (data.success) {
-      setPostTypes(data.data);
-    }
-    setLoading(false);
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -107,13 +121,6 @@ export default function PostTypesPage() {
       fetchPostTypes();
     }
   };
-
-  const handleCancel = () => {
-    setShowForm(false);
-    setEditingPostType(null);
-    setFormData({ name: '', slug: '', description: '', icon: 'article', active: true });
-  };
-
 
   return (
     <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
