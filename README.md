@@ -1,6 +1,6 @@
 # SimplerDevelopment
 
-[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE) [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md) [![Built with Bun](https://img.shields.io/badge/built%20with-Bun-14151a.svg)](https://bun.sh) [![Tenancy gate](https://img.shields.io/badge/tenancy-required-blue)](tests/CI-GATES.md)
+[![CI](https://github.com/DanielPCoyle/simplerdevelopment2026/actions/workflows/ci.yml/badge.svg)](https://github.com/DanielPCoyle/simplerdevelopment2026/actions/workflows/ci.yml) [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE) [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md) [![Built with Bun](https://img.shields.io/badge/built%20with-Bun-14151a.svg)](https://bun.sh) [![Tenancy gate](https://img.shields.io/badge/tenancy-required-blue)](tests/CI-GATES.md)
 
 **An open-source, MCP-native, all-in-one platform for agencies and operators.** Run per-tenant client **websites**, a **CRM**, an AI-powered **Company Brain** (RAG over client knowledge), workflow **automations**, **bookings**, a **storefront**, **email** campaigns, **surveys**, e-signatures, and **Stripe billing** — from one multi-tenant portal. Then drive *all* of it through an AI agent: the platform ships **200+ Model Context Protocol (MCP) tools**, so Claude, Cursor, or any MCP client can build pages, manage the CRM, send campaigns, and operate the whole system programmatically.
 
