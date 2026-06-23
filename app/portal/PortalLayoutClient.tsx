@@ -6,8 +6,7 @@ import dynamic from 'next/dynamic';
 // its own /api/auth/session fetch + refetch interval, which previously caused
 // 6× duplicate session calls per page load.
 import PortalSidebar from '@/components/portal/PortalSidebar';
-import CrmNotificationBell from '@/components/portal/CrmNotificationBell';
-import PmNotificationBell from '@/components/portal/PmNotificationBell';
+import PortalTopbar from '@/components/portal/PortalTopbar';
 import PortalTitle from '@/components/portal/PortalTitle';
 import CmdKLauncher from '@/components/CmdKLauncher';
 import { AgencyChromeProvider } from '@/components/portal/AgencyChromeProvider';
@@ -21,6 +20,9 @@ import type { SerializableEntitlements } from './PortalShell';
 // surface and a ~50ms shimmer before it appears is fine. Dynamic import keeps
 // `react-markdown` + the rest of the 441-LoC widget out of the initial
 // portal bundle. See perf phase 3.
+// Kept (unused) so the floating AI chat widget can be re-enabled by
+// uncommenting its render below — see note near the bottom of the tree.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const AIChatWidget = dynamic(() => import('@/components/portal/AIChatWidget'), {
   ssr: false,
   loading: () => null,
@@ -47,6 +49,32 @@ export default function PortalLayoutClient({ children, apps, entitlements }: Por
     pathname === '/portal/reset-password';
   const isEditorRoute = /\/portal\/websites\/\d+\/(posts\/|navigation)|\/portal\/tools\/pitch-decks\/\d+/.test(pathname);
   const [previewMode, setPreviewMode] = useState(false);
+
+  // Desktop icon-rail collapse (persisted) + mobile drawer open state. Lifted
+  // here so the topbar's collapse/hamburger controls drive the sidebar and the
+  // content offset stays in sync.
+  const [collapsed, setCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  useEffect(() => {
+    const saved = localStorage.getItem('portalSidebarCollapsed');
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time hydrate of persisted UI pref
+    if (saved === 'true') setCollapsed(true);
+  }, []);
+
+  const toggleCollapse = () => {
+    setCollapsed(prev => {
+      const next = !prev;
+      try { localStorage.setItem('portalSidebarCollapsed', String(next)); } catch { /* ignore */ }
+      return next;
+    });
+  };
+
+  // Close the mobile drawer whenever the route changes.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- dismissing a transient UI drawer on navigation
+    setMobileOpen(false);
+  }, [pathname]);
 
   // Auto-resolve subdomain portal: e.g. acme.simplerdevelopment.com/portal
   useEffect(() => {
@@ -106,20 +134,50 @@ export default function PortalLayoutClient({ children, apps, entitlements }: Por
     /\/portal\/websites\/\d+\/(posts\/|navigation)/.test(pathname) ||
     /\/portal\/branding\/profiles\/\d+\/guide/.test(pathname);
 
+  // The persistent rail + topbar apply to normal pages. Full-screen editors
+  // (and preview mode) keep the sidebar as an overlay drawer so they retain
+  // their full canvas width.
+  const persistent = !isEditorPage && !previewMode;
+
   return (
     <AgencyChromeProvider>
       <PortalTitle />
       <ImpersonationBanner />
-      <div className="min-h-screen bg-background overflow-x-hidden">
-        {!previewMode && <PortalSidebar apps={apps} entitlements={entitlements} />}
-        <div>
-          {!previewMode && (
-            <div className="flex justify-end items-center gap-1 px-4 sm:px-6 pt-4 pb-0">
-              <PmNotificationBell />
-              <CrmNotificationBell />
-            </div>
+      <div className="portal-shell min-h-screen bg-background overflow-x-hidden">
+        {!previewMode && (
+          <PortalSidebar
+            apps={apps}
+            entitlements={entitlements}
+            persistent={persistent}
+            collapsed={collapsed}
+            mobileOpen={mobileOpen}
+            onCloseMobile={() => setMobileOpen(false)}
+            onExpandRail={() => { setCollapsed(false); try { localStorage.setItem('portalSidebarCollapsed', 'false'); } catch { /* ignore */ } }}
+          />
+        )}
+
+        {/* Full-screen editor pages have no topbar — give them a floating
+            control to open the nav drawer so navigation stays reachable. */}
+        {!previewMode && !persistent && !mobileOpen && (
+          <button
+            onClick={() => setMobileOpen(true)}
+            className="fixed top-3 left-3 z-50 w-9 h-9 grid place-items-center rounded-md bg-card border border-border text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+            title="Menu"
+            aria-label="Open navigation"
+          >
+            <span className="material-icons text-xl">menu</span>
+          </button>
+        )}
+
+        <div className={`min-h-screen flex flex-col transition-[padding] duration-200 ${persistent ? (collapsed ? 'lg:pl-16' : 'lg:pl-64') : ''}`}>
+          {persistent && (
+            <PortalTopbar
+              collapsed={collapsed}
+              onToggleCollapse={toggleCollapse}
+              onOpenMobile={() => setMobileOpen(true)}
+            />
           )}
-          <main className={`min-h-screen ${isEditorPage || previewMode ? '' : 'p-4 sm:p-6'}`}>{children}</main>
+          <main className={`flex-1 ${isEditorPage || previewMode ? '' : 'p-4 sm:p-6'}`}>{children}</main>
         </div>
         {/* AIChatWidget (floating robot/chat toggle) temporarily hidden across
             the portal per request. Re-enable by uncommenting this line. */}

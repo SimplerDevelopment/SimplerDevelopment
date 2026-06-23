@@ -14,9 +14,29 @@ import {
   orders, crmDeals, crmContacts, crmProposals, emailCampaigns,
   bookingPages, bookings, automationRules, hostedSites,
 } from '@/lib/db/schema';
-import { count, eq, sql, or } from 'drizzle-orm';
+import { count, eq, sql, or, and } from 'drizzle-orm';
 
 export const ADMIN_DASHBOARD_TAG = 'admin-dashboard';
+
+// Last `n` calendar months as { key: 'YYYY-MM', label: 'Jul' }, oldest first.
+function monthKeys(n: number): { key: string; label: string }[] {
+  const out: { key: string; label: string }[] = [];
+  const now = new Date();
+  for (let i = n - 1; i >= 0; i--) {
+    const m = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    out.push({
+      key: `${m.getFullYear()}-${String(m.getMonth() + 1).padStart(2, '0')}`,
+      label: m.toLocaleString('en-US', { month: 'short' }),
+    });
+  }
+  return out;
+}
+
+// Align grouped {month, value} rows onto a continuous month axis (0-fill gaps).
+function alignSeries(rows: Array<{ month: string; value: number }>, keys: Array<{ key: string }>): number[] {
+  const map = new Map(rows.map((r) => [r.month, Number(r.value)]));
+  return keys.map((k) => map.get(k.key) ?? 0);
+}
 
 async function loadAdminDashboard() {
   const [
@@ -39,6 +59,9 @@ async function loadAdminDashboard() {
     recentTickets,
     recentInvoices,
     recentOrders,
+    revenueByMonth,
+    clientsByMonth,
+    ticketsByMonth,
   ] = await Promise.all([
     db.select({ count: count() }).from(clients),
     db.select({ count: count() })
@@ -107,7 +130,29 @@ async function loadAdminDashboard() {
       status: orders.status,
       createdAt: orders.createdAt,
     }).from(orders).orderBy(sql`${orders.createdAt} desc`).limit(5),
+    // 12-month time series (admin-global; the dashboard intentionally aggregates
+    // across all tenants). Continuous axis is filled in JS via alignSeries().
+    db.select({
+      month: sql<string>`to_char(date_trunc('month', ${invoices.createdAt}), 'YYYY-MM')`,
+      value: sql<number>`coalesce(sum(${invoices.total}), 0)`,
+    }).from(invoices)
+      .where(and(eq(invoices.status, 'paid'), sql`${invoices.createdAt} >= date_trunc('month', now()) - interval '11 months'`))
+      .groupBy(sql`1`),
+    db.select({
+      month: sql<string>`to_char(date_trunc('month', ${clients.createdAt}), 'YYYY-MM')`,
+      value: sql<number>`count(*)`,
+    }).from(clients)
+      .where(sql`${clients.createdAt} >= date_trunc('month', now()) - interval '11 months'`)
+      .groupBy(sql`1`),
+    db.select({
+      month: sql<string>`to_char(date_trunc('month', ${supportTickets.createdAt}), 'YYYY-MM')`,
+      value: sql<number>`count(*)`,
+    }).from(supportTickets)
+      .where(sql`${supportTickets.createdAt} >= date_trunc('month', now()) - interval '11 months'`)
+      .groupBy(sql`1`),
   ]);
+
+  const months = monthKeys(12);
 
   return {
     clients: {
@@ -161,6 +206,12 @@ async function loadAdminDashboard() {
       tickets: recentTickets,
       invoices: recentInvoices,
       orders: recentOrders,
+    },
+    trends: {
+      months: months.map((m) => m.label),
+      revenue: alignSeries(revenueByMonth, months),
+      clients: alignSeries(clientsByMonth, months),
+      tickets: alignSeries(ticketsByMonth, months),
     },
   };
 }

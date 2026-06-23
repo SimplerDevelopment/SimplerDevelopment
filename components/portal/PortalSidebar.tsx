@@ -91,19 +91,40 @@ interface PortalSidebarProps {
   /** Billing-domain entitlements used to gate nav items. Threaded down from
    *  `PortalShell`. When absent, all items are shown unlocked. */
   entitlements?: SerializableEntitlements;
+  /** Persistent rail on `lg+` (normal pages). When false the sidebar only
+   *  exists as a mobile/overlay drawer (full-screen editor pages keep their
+   *  width). */
+  persistent?: boolean;
+  /** Desktop icon-rail collapse. Only takes visual effect on `lg+`; the mobile
+   *  drawer always renders full-width with labels. */
+  collapsed?: boolean;
+  /** Mobile drawer open state (lifted to the layout so the topbar hamburger
+   *  can open it). */
+  mobileOpen?: boolean;
+  /** Close the mobile drawer (called after navigating, on backdrop click). */
+  onCloseMobile?: () => void;
+  /** Expand the desktop rail (used when a collapsed group icon is clicked). */
+  onExpandRail?: () => void;
 }
 
-export default function PortalSidebar({ apps, entitlements }: PortalSidebarProps = {}) {
+export default function PortalSidebar({
+  apps,
+  entitlements,
+  persistent = true,
+  collapsed = false,
+  mobileOpen = false,
+  onCloseMobile,
+  onExpandRail,
+}: PortalSidebarProps = {}) {
   const pathname = usePathname();
   const { brandName, brandLogoUrl, agencyPrimaryColor, whiteLabelEnabled } = useAgencyChrome();
 
   // When an agency primary color is configured, override the active-nav
   // background with it so the sidebar accent matches the agency's brand.
-  // Undefined/null means no override — Tailwind's bg-primary applies as usual.
+  // Undefined/null means no override — the default accent-soft + stripe applies.
   const agencyActiveStyle = whiteLabelEnabled && agencyPrimaryColor
     ? { backgroundColor: agencyPrimaryColor, color: '#fff' }
     : undefined;
-  const [isOpen, setIsOpen] = useState(false);
   const [theme, setTheme] = useState<Theme>('system');
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
   const [navServices, setNavServices] = useState<NavService[]>([]);
@@ -273,12 +294,6 @@ export default function PortalSidebar({ apps, entitlements }: PortalSidebarProps
     });
   };
 
-  const toggleOpen = () => {
-    const next = !isOpen;
-    setIsOpen(next);
-    window.dispatchEvent(new CustomEvent('portalSidebarToggle', { detail: { open: next } }));
-  };
-
   // Renders a nav item link (or parent toggle)
   const renderNavLink = (
     item: { href: string; label: string; icon: string; exact?: boolean; alsoActiveOn?: string; children?: NavChild[]; locked?: boolean; requiredDomain?: string },
@@ -290,24 +305,34 @@ export default function PortalSidebar({ apps, entitlements }: PortalSidebarProps
     const childActive = !isLocked && isChildActive(item.children, pathname);
     const isExpanded = expandedSections[item.href];
     const depthPadding: Record<number, string> = {
-      0: 'px-4',
-      1: 'pl-8 pr-4',
-      2: 'pl-12 pr-4',
-      3: 'pl-16 pr-4',
+      0: 'px-3',
+      1: 'pl-8 pr-3',
+      2: 'pl-11 pr-3',
+      3: 'pl-14 pr-3',
     };
-    const pl = depthPadding[depth] ?? 'pl-16 pr-4';
+    const pl = depthPadding[depth] ?? 'pl-14 pr-3';
+
+    // Active/hover appearance. White-label agencies keep their solid brand
+    // fill; everyone else gets the stark-warm soft accent + left stripe.
+    const stateClass = active && !childActive
+      ? (agencyActiveStyle ? 'text-primary-foreground font-semibold' : 'bg-[var(--portal-accent-soft)] text-primary font-semibold')
+      : childActive
+      ? 'text-foreground'
+      : 'text-muted-foreground hover:bg-accent hover:text-foreground';
 
     const lockClass = isLocked ? ' opacity-60' : '';
-    const linkClass = `flex items-center gap-3 ${pl} py-2.5 rounded-md text-sm font-medium transition-colors relative group w-full${lockClass} ${
-      active && !childActive
-        ? 'bg-primary text-primary-foreground'
-        : childActive
-        ? 'text-foreground bg-accent/50'
-        : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-    }`;
+    const linkClass = `flex items-center gap-3 ${pl} py-2 rounded-md text-[13.5px] font-medium transition-colors relative group/navrow w-full${lockClass} group-data-[collapsed=true]/sb:lg:justify-center group-data-[collapsed=true]/sb:lg:px-0 ${stateClass}`;
+
+    const stripe = active && !childActive && (
+      <span
+        className="absolute left-0 top-1.5 bottom-1.5 w-[2.5px] rounded-r bg-primary group-data-[collapsed=true]/sb:lg:left-0"
+        style={agencyActiveStyle ? { backgroundColor: agencyActiveStyle.backgroundColor } : undefined}
+        aria-hidden
+      />
+    );
 
     const chevron = !isLocked && hasChildren && (
-      <span className="material-icons text-base opacity-50 shrink-0">
+      <span className="material-icons text-base opacity-50 shrink-0 group-data-[collapsed=true]/sb:lg:hidden">
         {isExpanded ? 'expand_less' : 'expand_more'}
       </span>
     );
@@ -322,15 +347,16 @@ export default function PortalSidebar({ apps, entitlements }: PortalSidebarProps
       return (
         <Link
           href={billingHref}
-          onClick={toggleOpen}
+          onClick={onCloseMobile}
+          title={collapsed ? item.label : undefined}
           className={linkClass + ' cursor-pointer group/lock'}
           onMouseEnter={lockDomain ? (e) => openLockPopover(e, item.requiredDomain!) : undefined}
           onMouseLeave={lockDomain ? closeLockPopoverSoon : undefined}
         >
           <span className="material-icons text-xl shrink-0">{item.icon}</span>
-          <span className="flex-1 truncate">{item.label}</span>
+          <span className="flex-1 truncate group-data-[collapsed=true]/sb:lg:hidden">{item.label}</span>
           {priceLabel && (
-            <span className="text-xs font-semibold text-primary opacity-0 translate-x-2 group-hover/lock:opacity-100 group-hover/lock:translate-x-0 transition-all duration-200 shrink-0">
+            <span className="text-xs font-semibold text-primary opacity-0 translate-x-2 group-hover/lock:opacity-100 group-hover/lock:translate-x-0 transition-all duration-200 shrink-0 group-data-[collapsed=true]/sb:lg:hidden">
               {priceLabel}
               <span className="font-normal text-[10px] text-muted-foreground">/mo</span>
             </span>
@@ -344,10 +370,17 @@ export default function PortalSidebar({ apps, entitlements }: PortalSidebarProps
       return (
         <div
           className={linkClass + ' cursor-pointer'}
-          onClick={() => toggleSection(item.href)}
+          title={collapsed ? item.label : undefined}
+          onClick={() => {
+            // Collapsed rail: a group has no visible children, so first expand
+            // the rail, then open the group.
+            if (collapsed) onExpandRail?.();
+            toggleSection(item.href);
+          }}
         >
+          {stripe}
           <span className="material-icons text-xl shrink-0">{item.icon}</span>
-          <span className="flex-1 truncate">{item.label}</span>
+          <span className="flex-1 truncate group-data-[collapsed=true]/sb:lg:hidden">{item.label}</span>
           {chevron}
         </div>
       );
@@ -358,14 +391,16 @@ export default function PortalSidebar({ apps, entitlements }: PortalSidebarProps
     return (
       <Link
         href={item.href}
-        onClick={toggleOpen}
+        onClick={onCloseMobile}
+        title={collapsed ? item.label : undefined}
         className={linkClass}
         style={active && !childActive ? agencyActiveStyle : undefined}
       >
+        {stripe}
         <span className="material-icons text-xl shrink-0">{item.icon}</span>
-        <span className="flex-1 truncate">{item.label}</span>
+        <span className="flex-1 truncate group-data-[collapsed=true]/sb:lg:hidden">{item.label}</span>
         {badgeCount > 0 && (
-          <span className="min-w-[20px] h-5 px-1.5 rounded-full bg-amber-500 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
+          <span className="min-w-[20px] h-5 px-1.5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center shrink-0 group-data-[collapsed=true]/sb:lg:hidden">
             {badgeCount > 99 ? '99+' : badgeCount}
           </span>
         )}
@@ -387,7 +422,7 @@ export default function PortalSidebar({ apps, entitlements }: PortalSidebarProps
       >
         {renderNavLink(item, depth)}
         {showChildren && (
-          <ul className="mt-0.5 space-y-0.5">
+          <ul className="mt-0.5 space-y-0.5 group-data-[collapsed=true]/sb:lg:hidden">
             {item.children!.map(child => renderNavItem(child, depth + 1))}
           </ul>
         )}
@@ -397,82 +432,76 @@ export default function PortalSidebar({ apps, entitlements }: PortalSidebarProps
 
   return (
     <>
-      {/* Hamburger toggle + logo — visible when sidebar is closed.
-          Toggle sticks to viewport top on desktop; logo scrolls with the page. */}
-      {!isOpen && (
-        <>
-          <button
-            onClick={toggleOpen}
-            className="fixed top-4 left-4 z-50 p-2 rounded-md bg-card border border-border hover:bg-accent transition-colors"
-          >
-            <span className="material-icons text-xl">menu</span>
-          </button>
-          <Link href="/portal" className="fixed top-4 left-16 z-50 flex items-center">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={brandLogoUrl} alt="" className="nav-logo-icon" style={{ height: '2rem', width: '2rem', marginRight: '-0.25rem' }} />
-            <span className="text-sm text-foreground font-heading">{brandName === 'Simpler Development' ? (<><b>Simpler</b> Development</>) : brandName}</span>
-          </Link>
-        </>
-      )}
-
-      {/* Sidebar */}
+      {/* Sidebar — persistent rail on lg (normal pages) + mobile/overlay drawer.
+          Collapse only takes visual effect on lg via the data-collapsed group;
+          the mobile drawer always renders full-width with labels. */}
       <aside
-        className={`fixed top-0 left-0 z-40 h-screen w-64 transition-transform duration-300 ${
-          isOpen ? 'translate-x-0' : '-translate-x-full'
-        } bg-card border-r border-border`}
+        data-collapsed={collapsed ? 'true' : 'false'}
+        className={`group/sb fixed top-0 left-0 z-40 h-screen w-64 flex flex-col bg-card border-r border-border transition-[transform,width] duration-200 ${
+          mobileOpen ? 'translate-x-0' : '-translate-x-full'
+        } ${persistent ? 'lg:translate-x-0' : ''} ${collapsed ? 'lg:data-[collapsed=true]:w-16' : ''}`}
       >
-        <div className="h-full flex flex-col">
-          {/* Header with close button */}
-          <div className="flex items-center justify-between h-14 border-b border-border px-3">
+        {/* Header: company switcher (full) / brand mark (collapsed) + close (mobile) */}
+        <div className="flex items-center gap-1 h-14 border-b border-border px-3 shrink-0">
+          <div className="flex-1 min-w-0 group-data-[collapsed=true]/sb:lg:hidden">
             <CompanySwitcher />
-            <div className="flex items-center gap-1 shrink-0">
-              <button
-                onClick={toggleOpen}
-                className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-                title="Close sidebar"
-              >
-                <span className="material-icons text-lg">close</span>
-              </button>
-            </div>
           </div>
+          <Link
+            href="/portal"
+            className="hidden group-data-[collapsed=true]/sb:lg:grid place-items-center w-9 h-9 rounded-md mx-auto overflow-hidden bg-muted"
+            title={brandName}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={brandLogoUrl} alt="" className="w-6 h-6 object-contain" />
+          </Link>
+          <button
+            onClick={onCloseMobile}
+            className="lg:hidden p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors shrink-0"
+            title="Close"
+            aria-label="Close navigation"
+          >
+            <span className="material-icons text-lg">close</span>
+          </button>
+        </div>
 
-          {/* Unified Nav */}
-          <nav className="flex-1 overflow-y-auto py-4">
-            <ul className="space-y-1 px-3">
-              {navItems.map(item => renderNavItem(item, 0))}
-            </ul>
-          </nav>
+        {/* Unified Nav */}
+        <nav className="flex-1 overflow-y-auto overflow-x-hidden py-3">
+          <ul className="space-y-0.5 px-2.5">
+            {navItems.map(item => renderNavItem(item, 0))}
+          </ul>
+        </nav>
 
-          {/* Footer */}
-          <div className="border-t border-border p-4 space-y-1">
-            <button
-              onClick={cycleTheme}
-              className="flex items-center gap-2 w-full px-4 py-2 rounded-md text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
-            >
-              <span className="material-icons text-xl">{themeIcon[theme]}</span>
-              <span className="flex-1 text-left">{themeLabel[theme]} Mode</span>
-              <span className="material-icons text-sm opacity-40">swap_horiz</span>
-            </button>
+        {/* Footer: theme cycle + sign out */}
+        <div className="border-t border-border p-2.5 space-y-0.5 shrink-0">
+          <button
+            onClick={cycleTheme}
+            title={collapsed ? `${themeLabel[theme]} mode` : undefined}
+            className="flex items-center gap-3 w-full px-3 py-2 rounded-md text-[13.5px] text-muted-foreground hover:bg-accent hover:text-foreground transition-colors group-data-[collapsed=true]/sb:lg:justify-center group-data-[collapsed=true]/sb:lg:px-0"
+          >
+            <span className="material-icons text-xl shrink-0">{themeIcon[theme]}</span>
+            <span className="flex-1 text-left group-data-[collapsed=true]/sb:lg:hidden">{themeLabel[theme]} Mode</span>
+            <span className="material-icons text-sm opacity-40 group-data-[collapsed=true]/sb:lg:hidden">swap_horiz</span>
+          </button>
 
-            <button
-              onClick={async () => {
-                await fetch('/api/portal/sign-out', { method: 'POST' });
-                await signOut({ callbackUrl: '/portal/login' });
-              }}
-              className="flex items-center gap-2 w-full px-4 py-2 rounded-md text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
-            >
-              <span className="material-icons text-xl">logout</span>
-              <span>Sign Out</span>
-            </button>
-          </div>
+          <button
+            onClick={async () => {
+              await fetch('/api/portal/sign-out', { method: 'POST' });
+              await signOut({ callbackUrl: '/portal/login' });
+            }}
+            title={collapsed ? 'Sign out' : undefined}
+            className="flex items-center gap-3 w-full px-3 py-2 rounded-md text-[13.5px] text-muted-foreground hover:bg-accent hover:text-foreground transition-colors group-data-[collapsed=true]/sb:lg:justify-center group-data-[collapsed=true]/sb:lg:px-0"
+          >
+            <span className="material-icons text-xl shrink-0">logout</span>
+            <span className="group-data-[collapsed=true]/sb:lg:hidden">Sign Out</span>
+          </button>
         </div>
       </aside>
 
-      {/* Overlay when sidebar is open */}
-      {isOpen && (
+      {/* Mobile drawer backdrop */}
+      {mobileOpen && (
         <div
-          className="fixed inset-0 bg-black/50 z-30"
-          onClick={toggleOpen}
+          className="fixed inset-0 bg-black/50 z-30 lg:hidden"
+          onClick={onCloseMobile}
         />
       )}
 
@@ -511,7 +540,7 @@ export default function PortalSidebar({ apps, entitlements }: PortalSidebarProps
             )}
             <Link
               href={`/portal/settings/billing/plans?highlight=${lockPopover.key}`}
-              onClick={() => { setLockPopover(null); toggleOpen(); }}
+              onClick={() => { setLockPopover(null); onCloseMobile?.(); }}
               className="flex items-center justify-center gap-1 w-full rounded-md bg-primary text-primary-foreground text-sm font-medium py-2 hover:bg-primary/90 transition-colors"
               style={agencyActiveStyle}
             >

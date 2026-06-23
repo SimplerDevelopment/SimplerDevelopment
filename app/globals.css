@@ -49,6 +49,15 @@
   --accent-secondary: #10b981;
   --destructive: #ef4444;
   --destructive-foreground: #ffffff;
+  /* Portal redesign helper tokens (additive — chrome + dashboard widgets).
+     Status tones, the active-nav soft accent, a second surface, and a
+     stronger border used by the persistent sidebar/topbar + widget board. */
+  --portal-ok: #15803d;        --portal-ok-bg: rgba(21,128,61,0.09);
+  --portal-warn: #b45309;      --portal-warn-bg: rgba(180,83,9,0.10);
+  --portal-bad: #dc2626;       --portal-bad-bg: rgba(220,38,38,0.08);
+  --portal-accent-soft: rgba(37,99,235,0.10);
+  --portal-surface-2: #f7f6f4;
+  --portal-border-strong: #c9c5c1;
 }
 
 .nav-logo-icon {
@@ -80,6 +89,12 @@
   --accent-secondary: #10b981;
   --destructive: #ef4444;
   --destructive-foreground: #ffffff;
+  --portal-ok: #34d399;        --portal-ok-bg: rgba(52,211,153,0.14);
+  --portal-warn: #fbbf24;      --portal-warn-bg: rgba(251,191,36,0.14);
+  --portal-bad: #f87171;       --portal-bad-bg: rgba(248,113,113,0.14);
+  --portal-accent-soft: rgba(59,130,246,0.18);
+  --portal-surface-2: #1c1c1f;
+  --portal-border-strong: #52525b;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -101,6 +116,12 @@
     --accent-secondary: #10b981;
     --destructive: #ef4444;
     --destructive-foreground: #ffffff;
+    --portal-ok: #34d399;        --portal-ok-bg: rgba(52,211,153,0.14);
+    --portal-warn: #fbbf24;      --portal-warn-bg: rgba(251,191,36,0.14);
+    --portal-bad: #f87171;       --portal-bad-bg: rgba(248,113,113,0.14);
+    --portal-accent-soft: rgba(59,130,246,0.18);
+    --portal-surface-2: #1c1c1f;
+    --portal-border-strong: #52525b;
   }
 }
 
@@ -372,3 +393,113 @@ html,body {
     animation: none;
   }
 }
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Admin panel — scoped "stark" (Geist / Vercel) theme.
+
+   Overrides the semantic design tokens ONLY for descendants of `.admin-shell`,
+   so the client portal (app/portal) and public sites (app/sites, app/s) keep
+   the original palette untouched. Custom-property inheritance resolves to the
+   nearest defining ancestor, so redefining the tokens on `.admin-shell` flips
+   every `bg-card` / `text-foreground` / `border-border` / `bg-primary`
+   utility inside admin without changing :root.
+
+   Theme: light is the base; dark applies when the admin shell opts in
+   (data-theme="dark") OR the OS prefers dark and the admin shell hasn't
+   explicitly chosen light. Mirrors the global :root:not(.light) pattern.
+   ─────────────────────────────────────────────────────────────────────────── */
+.admin-shell {
+  /* semantic tokens (override globals within this subtree) */
+  --background: #ffffff;
+  --foreground: #0a0a0a;
+  --card: #ffffff;
+  --card-foreground: #0a0a0a;
+  --popover: #ffffff;
+  --popover-foreground: #0a0a0a;
+  --muted: #fafafa;
+  --muted-foreground: #666666;
+  --accent: #f4f4f4;
+  --accent-foreground: #0a0a0a;
+  --border: #ebebeb;
+  --primary: #0a0a0a;
+  --primary-foreground: #ffffff;
+
+  /* admin-only extras (referenced via var() / arbitrary values) */
+  --admin-accent: #0070f3;
+  --admin-accent-glow: rgba(0, 112, 243, 0.10);
+  --admin-surface-2: #fafafa;
+  --admin-hover: #f4f4f4;
+  --admin-border-strong: #d4d4d4;
+  --admin-ok: #15803d;       --admin-ok-bg: rgba(21, 128, 61, 0.08);
+  --admin-warn: #b45309;     --admin-warn-bg: rgba(180, 83, 9, 0.08);
+  --admin-bad: #dc2626;      --admin-bad-bg: rgba(220, 38, 38, 0.07);
+  --admin-neutral: #b0b0b0;
+
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  letter-spacing: -0.006em;
+  -webkit-font-smoothing: antialiased;
+}
+
+.admin-shell[data-theme="dark"] {
+  --background: #000000;
+  --foreground: #ededed;
+  --card: #0a0a0a;
+  --card-foreground: #ededed;
+  --popover: #0a0a0a;
+  --popover-foreground: #ededed;
+  --muted: #111111;
+  --muted-foreground: #8f8f8f;
+  --accent: #161616;
+  --accent-foreground: #ededed;
+  --border: #1f1f1f;
+  --primary: #ededed;
+  --primary-foreground: #0a0a0a;
+
+  --admin-accent: #3291ff;
+  --admin-accent-glow: rgba(50, 145, 255, 0.18);
+  --admin-surface-2: #111111;
+  --admin-hover: #161616;
+  --admin-border-strong: #383838;
+  --admin-ok: #34d399;       --admin-ok-bg: rgba(52, 211, 153, 0.12);
+  --admin-warn: #fbbf24;     --admin-warn-bg: rgba(251, 191, 36, 0.12);
+  --admin-bad: #f87171;      --admin-bad-bg: rgba(248, 113, 113, 0.12);
+  --admin-neutral: #6e6e6e;
+}
+
+@media (prefers-color-scheme: dark) {
+  .admin-shell:not([data-theme="light"]) {
+    --background: #000000;
+    --foreground: #ededed;
+    --card: #0a0a0a;
+    --card-foreground: #ededed;
+    --popover: #0a0a0a;
+    --popover-foreground: #ededed;
+    --muted: #111111;
+    --muted-foreground: #8f8f8f;
+    --accent: #161616;
+    --accent-foreground: #ededed;
+    --border: #1f1f1f;
+    --primary: #ededed;
+    --primary-foreground: #0a0a0a;
+
+    --admin-accent: #3291ff;
+    --admin-accent-glow: rgba(50, 145, 255, 0.18);
+    --admin-surface-2: #111111;
+    --admin-hover: #161616;
+    --admin-border-strong: #383838;
+    --admin-ok: #34d399;       --admin-ok-bg: rgba(52, 211, 153, 0.12);
+    --admin-warn: #fbbf24;     --admin-warn-bg: rgba(251, 191, 36, 0.12);
+    --admin-bad: #f87171;      --admin-bad-bg: rgba(248, 113, 113, 0.12);
+    --admin-neutral: #6e6e6e;
+  }
+}
+
+/* tabular, mono numerals for any element opting in */
+.admin-shell .num { font-family: var(--font-mono), ui-monospace, monospace; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+
+/* stark scrollbars within admin */
+.admin-shell *::-webkit-scrollbar { width: 9px; height: 9px; }
+.admin-shell *::-webkit-scrollbar-thumb { background: var(--admin-border-strong); border-radius: 99px; }
+.admin-shell *::-webkit-scrollbar-track { background: transparent; }

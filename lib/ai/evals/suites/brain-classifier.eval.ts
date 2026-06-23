@@ -4,8 +4,8 @@
  * Label-accuracy archetype: a forced-tool call returns {intent, complexity,
  * reasoning}. We measure whether it picks the right intent (and complexity)
  * against a labeled set — the metric you'd track when tuning the classifier
- * prompt or swapping its model. Clean to wire: `classifyIntent(message,
- * anthropic)` takes the client directly, no DB / tenant.
+ * prompt or swapping its model. `classifyIntent(message, clientId)` resolves
+ * its model key per-tenant, so the suite needs a --clientId.
  */
 import { z } from 'zod';
 import { classifyIntent, type Classification, type BrainIntent } from '@/lib/ai/brain-tools/classifier';
