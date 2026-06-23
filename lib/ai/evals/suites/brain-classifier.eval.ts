@@ -7,7 +7,6 @@
  * prompt or swapping its model. Clean to wire: `classifyIntent(message,
  * anthropic)` takes the client directly, no DB / tenant.
  */
-import Anthropic from '@anthropic-ai/sdk';
 import { z } from 'zod';
 import { classifyIntent, type Classification, type BrainIntent } from '@/lib/ai/brain-tools/classifier';
 import type { EvalSuite } from '../types';
@@ -63,9 +62,10 @@ export const brainClassifierSuite: EvalSuite<Input, Classification> = {
     latencyUnder(8_000),
   ],
   async run(input, env) {
-    if (!env.anthropicApiKey) throw new Error('brain-classifier suite needs an Anthropic key (or run --mock)');
-    const anthropic = new Anthropic({ apiKey: env.anthropicApiKey });
-    const output = await classifyIntent(input.message, anthropic);
+    // classifyIntent routes through the platform AI (completeObject + clientId
+    // → resolveClientApiKey), so the suite needs --clientId, not a raw key.
+    if (!env.clientId) throw new Error('brain-classifier suite needs --clientId (routes through platform AI)');
+    const output = await classifyIntent(input.message, env.clientId);
     return { output };
   },
 };
