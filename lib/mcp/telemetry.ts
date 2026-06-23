@@ -19,8 +19,9 @@
 
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { db } from '@/lib/db';
-import { mcpToolCalls } from '@/lib/db/schema';
+import { mcpToolCalls, agentAuditLogs } from '@/lib/db/schema';
 import type { PortalMcpContext } from '@/lib/mcp-auth';
+import { redactInputs } from '@/lib/mcp/audit-redact';
 
 const TELEMETRY_VERSION = '1.0';
 
@@ -100,6 +101,46 @@ function logToolCall(log: ToolCallLog): void {
     .then(() => {})
     .catch((err) => {
       console.warn('[mcp-telemetry] insert failed:', err);
+    });
+}
+
+interface AuditRowParams {
+  clientId: number;
+  apiKeyId: number | null;
+  userId: number | null;
+  runId: string | null | undefined;
+  toolName: string;
+  inputArgs: unknown;
+  responseText: string;
+  status: 'success' | 'denied' | 'error';
+  errorMessage: string | null;
+  durationMs: number;
+}
+
+/**
+ * Fire-and-forget insert into agent_action_logs (the durable audit table).
+ * Dual-write alongside logToolCall: telemetry (mcp_tool_calls, 14-day TTL)
+ * and audit (agent_action_logs, permanent) serve different consumers.
+ * Failures are swallowed — this must never affect tool latency or behavior.
+ */
+function logAuditRow(p: AuditRowParams): void {
+  void db
+    .insert(agentAuditLogs)
+    .values({
+      clientId: p.clientId,
+      runId: p.runId ?? null,
+      apiKeyId: p.apiKeyId ?? null,
+      userId: p.userId ?? null,
+      toolName: p.toolName,
+      inputsSummary: redactInputs(p.inputArgs) as Record<string, unknown>,
+      outputSummary: p.responseText.slice(0, 2048) || null,
+      status: p.status,
+      errorMessage: p.errorMessage ?? null,
+      durationMs: p.durationMs,
+    })
+    .then(() => {})
+    .catch((err) => {
+      console.warn('[mcp-telemetry] audit insert failed:', err);
     });
 }
 
@@ -196,6 +237,19 @@ export function wrapRegisterTool(server: McpServer, ctx: PortalMcpContext): void
           success: false,
           errorMessage,
         });
+        logAuditRow({
+          clientId: ctx.client.id,
+          apiKeyId: ctx.keyId ?? null,
+          userId: ctx.userId ?? null,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          runId: (ctx as any).runId ?? null,
+          toolName: name,
+          inputArgs,
+          responseText: '',
+          status: 'error',
+          errorMessage,
+          durationMs,
+        });
         throw err;
       }
 
@@ -215,6 +269,21 @@ export function wrapRegisterTool(server: McpServer, ctx: PortalMcpContext): void
         durationMs,
         success,
         errorMessage,
+      });
+      logAuditRow({
+        clientId: ctx.client.id,
+        apiKeyId: ctx.keyId ?? null,
+        userId: ctx.userId ?? null,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        runId: (ctx as any).runId ?? null,
+        toolName: name,
+        inputArgs,
+        responseText,
+        // isError:true counts as a logical denial/error; map to 'error' for the
+        // audit trail to be consistent with the thrown-exception case.
+        status: success ? 'success' : 'error',
+        errorMessage,
+        durationMs,
       });
 
       // Inject `_meta.usage` per MCP spec 2025-06-18 conventions. Existing
