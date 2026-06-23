@@ -32,6 +32,9 @@ export const SUPPORTED_SCOPES = [
   'integrations:write',
   'services:read',
   'services:write',
+  // Store / commerce (storefront tools use these; now grantable via OAuth)
+  'store:read',
+  'store:write',
   'billing:read',
   'hosting:read',
   'ai:read',
@@ -71,6 +74,7 @@ export const DEFAULT_GRANTED_SCOPES: string[] = [
   'team:read',
   'integrations:read',
   'services:read',
+  'store:read',
   'billing:read',
   'hosting:read',
   'ai:read',

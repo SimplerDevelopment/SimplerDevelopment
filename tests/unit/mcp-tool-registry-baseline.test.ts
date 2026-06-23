@@ -73,6 +73,7 @@ const EXPECTED_TOOLS: readonly string[] = [
   'booking_pages_list',
   'booking_pages_update',
   // ── bookings ──
+  'booking_analytics_get',
   'bookings_cancel',
   'bookings_get',
   'bookings_list',
@@ -294,6 +295,7 @@ const EXPECTED_TOOLS: readonly string[] = [
   'crm_saved_views_list',
   'crm_scoring_rules_list',
   // ── decks ──
+  'deck_analytics_get',
   'decks_add_slide',
   'decks_create',
   'decks_delete',
@@ -307,6 +309,7 @@ const EXPECTED_TOOLS: readonly string[] = [
   'decks_upload_html',
   'decks_upload_html_zip',
   // ── email ──
+  'email_analytics_get',
   'email_campaigns_create',
   'email_campaigns_delete',
   'email_campaigns_fork',
@@ -461,6 +464,7 @@ const EXPECTED_TOOLS: readonly string[] = [
   'sprints_list',
   'sprints_update',
   // ── store ──
+  'store_analytics_get',
   'store_categories_create',
   'store_categories_list',
   'store_customer_messages_list',

@@ -15,7 +15,7 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
-import { and, desc, eq, gte, ilike, or, sql } from 'drizzle-orm';
+import { and, count, desc, eq, gte, ilike, or, sql, sum } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import {
   clientWebsites,
@@ -875,6 +875,58 @@ export function registerStoreToolsOnSdk(server: McpServer, ctx: PortalMcpContext
       if (!(await requireSite(websiteId))) return json({ error: 'Site not found' });
       const rows = await db.execute(sql`SELECT * FROM store_settings WHERE website_id = ${websiteId} LIMIT 1`);
       return json(rows[0] ?? { error: 'Store not yet configured' });
+    }
+  );
+
+  // ── STORE ANALYTICS ───────────────────────────────────────────────────────
+  hasScope(ctx.scopes, 'store:read') && server.registerTool(
+    'store_analytics_get',
+    {
+      title: 'Get store analytics',
+      description:
+        'Return order and revenue aggregates for a client storefront over a time window: total revenue, order count, average order value, and order counts by status. The siteId must belong to the authenticated client.',
+      inputSchema: {
+        siteId: z.number().describe('ID of the client website whose store to analyse.'),
+        days: z.number().min(1).max(365).default(30).optional().describe('Look-back window in days (default 30).'),
+      },
+    },
+    async ({ siteId, days = 30 }) => {
+      if (!hasScope(ctx.scopes, 'store:read')) return denied('store:read');
+      if (!(await requireSite(siteId))) return json({ error: 'Site not found' });
+
+      const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+      const paidConditions = and(
+        eq(orders.websiteId, siteId),
+        eq(orders.paymentStatus, 'paid'),
+        gte(orders.createdAt, startDate),
+      );
+
+      const [revenueResult] = await db
+        .select({ totalRevenue: sum(orders.total), totalOrders: count() })
+        .from(orders)
+        .where(paidConditions);
+
+      const totalRevenue = parseInt(revenueResult.totalRevenue ?? '0');
+      const totalOrders = revenueResult.totalOrders;
+
+      const ordersByStatus = await db
+        .select({ status: orders.status, cnt: count() })
+        .from(orders)
+        .where(and(eq(orders.websiteId, siteId), gte(orders.createdAt, startDate)))
+        .groupBy(orders.status);
+
+      const statusCounts: Record<string, number> = {};
+      for (const row of ordersByStatus) statusCounts[row.status] = row.cnt;
+
+      return json({
+        siteId,
+        days,
+        totalRevenue,
+        totalOrders,
+        averageOrderValue: totalOrders > 0 ? Math.round(totalRevenue / totalOrders) : 0,
+        ordersByStatus: statusCounts,
+      });
     }
   );
 
