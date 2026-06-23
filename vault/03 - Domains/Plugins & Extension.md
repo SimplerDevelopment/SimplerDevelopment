@@ -2,7 +2,7 @@
 type: domain-map
 domain: plugins-extension
 status: active
-date: 2026-06-10
+date: 2026-06-23
 sources:
   - lib/db/schema/plugins.ts
   - lib/plugins/jwt.ts
@@ -14,18 +14,18 @@ sources:
   - lib/plugins/callback-auth.ts
   - lib/plugins/load-user-apps.ts
   - lib/plugins/rate-limit.ts
-  - lib/plugins/handlers/postcaptain-tools/brain.ts
-  - lib/plugins/handlers/postcaptain-tools/briefs.ts
-  - lib/plugins/handlers/postcaptain-tools/dispatch.ts
-  - lib/plugins/handlers/postcaptain-tools/jobs.ts
-  - lib/plugins/handlers/postcaptain-tools/runner.ts
-  - lib/plugins/handlers/postcaptain-tools/complete.ts
-  - lib/plugins/handlers/postcaptain-tools/competitor-brain.ts
-  - lib/plugins/handlers/postcaptain-tools/scripts.ts
-  - lib/plugins/handlers/postcaptain-tools/drafts.ts
-  - lib/plugins/handlers/postcaptain-tools/schedule.ts
-  - lib/plugins/handlers/postcaptain-tools/fire-due-jobs.ts
-  - lib/plugins/handlers/postcaptain-tools/cron-auth.ts
+  - lib/plugins/handlers/content-tools/brain.ts
+  - lib/plugins/handlers/content-tools/briefs.ts
+  - lib/plugins/handlers/content-tools/dispatch.ts
+  - lib/plugins/handlers/content-tools/jobs.ts
+  - lib/plugins/handlers/content-tools/runner.ts
+  - lib/plugins/handlers/content-tools/complete.ts
+  - lib/plugins/handlers/content-tools/competitor-brain.ts
+  - lib/plugins/handlers/content-tools/scripts.ts
+  - lib/plugins/handlers/content-tools/drafts.ts
+  - lib/plugins/handlers/content-tools/schedule.ts
+  - lib/plugins/handlers/content-tools/fire-due-jobs.ts
+  - lib/plugins/handlers/content-tools/cron-auth.ts
   - lib/plugins/handlers/registry.ts
   - lib/extension/extract.ts
   - lib/extension/with-auth.ts
@@ -86,18 +86,18 @@ Two distinct but related extension mechanisms for the SimplerDevelopment platfor
 | `lib/plugins/entitlement.ts` | Entitlement helpers for `visibility` model enforcement |
 | `lib/plugins/load-user-apps.ts` | Per-request loader: which installed apps should appear in portal nav |
 | `lib/plugins/rate-limit.ts` | Per-plugin rate limiting primitives for callback routes |
-| `lib/plugins/handlers/postcaptain-tools/dispatch.ts` | Run dispatcher for Postcaptain Tools jobs |
-| `lib/plugins/handlers/postcaptain-tools/runner.ts` | Execution lifecycle: `enqueueRun` / `executeRun` / `drainQueuedRuns` — CAS-based queue management for plugin runs |
-| `lib/plugins/handlers/postcaptain-tools/complete.ts` | Worker completion callback; requires `postcaptain:internal:complete` scope; persists results and triggers downstream ingestion |
-| `lib/plugins/handlers/postcaptain-tools/competitor-brain.ts` | Brain ingestion for completed competitor-research runs: writes `brain_notes` + drops `kanban_card_comments` on vulnerability score changes |
-| `lib/plugins/handlers/postcaptain-tools/brain.ts` | Callback handler for GET `/brain/scraped-urls` — returns already-ingested source URLs for a competitor domain so the plugin can skip re-scraping (scope: `postcaptain:internal:brain:read`) |
-| `lib/plugins/handlers/postcaptain-tools/briefs.ts` | Brief generation and storage handler |
-| `lib/plugins/handlers/postcaptain-tools/jobs.ts` | Scheduled job management for Postcaptain |
-| `lib/plugins/handlers/postcaptain-tools/scripts.ts` | Handlers for `/scripts/run` POST and `/scripts/runs` GET |
-| `lib/plugins/handlers/postcaptain-tools/drafts.ts` | `/drafts` endpoint handlers |
-| `lib/plugins/handlers/postcaptain-tools/schedule.ts` | `nextRunAt` computation for scheduled jobs |
-| `lib/plugins/handlers/postcaptain-tools/fire-due-jobs.ts` | CAS job firing for the tick cron |
-| `lib/plugins/handlers/postcaptain-tools/cron-auth.ts` | Shared Vercel `CRON_SECRET` auth check used by cron routes |
+| `lib/plugins/handlers/content-tools/dispatch.ts` | Run dispatcher for Postcaptain Tools jobs |
+| `lib/plugins/handlers/content-tools/runner.ts` | Execution lifecycle: `enqueueRun` / `executeRun` / `drainQueuedRuns` — CAS-based queue management for plugin runs |
+| `lib/plugins/handlers/content-tools/complete.ts` | Worker completion callback; requires `postcaptain:internal:complete` scope; persists results and triggers downstream ingestion |
+| `lib/plugins/handlers/content-tools/competitor-brain.ts` | Brain ingestion for completed competitor-research runs: writes `brain_notes` + drops `kanban_card_comments` on vulnerability score changes |
+| `lib/plugins/handlers/content-tools/brain.ts` | Callback handler for GET `/brain/scraped-urls` — returns already-ingested source URLs for a competitor domain so the plugin can skip re-scraping (scope: `postcaptain:internal:brain:read`) |
+| `lib/plugins/handlers/content-tools/briefs.ts` | Brief generation and storage handler |
+| `lib/plugins/handlers/content-tools/jobs.ts` | Scheduled job management for Postcaptain |
+| `lib/plugins/handlers/content-tools/scripts.ts` | Handlers for `/scripts/run` POST and `/scripts/runs` GET |
+| `lib/plugins/handlers/content-tools/drafts.ts` | `/drafts` endpoint handlers |
+| `lib/plugins/handlers/content-tools/schedule.ts` | `nextRunAt` computation for scheduled jobs |
+| `lib/plugins/handlers/content-tools/fire-due-jobs.ts` | CAS job firing for the tick cron |
+| `lib/plugins/handlers/content-tools/cron-auth.ts` | Shared Vercel `CRON_SECRET` auth check used by cron routes |
 | `lib/plugins/handlers/registry.ts` | Handler registry and route dispatcher |
 | `lib/extension/extract.ts` | AI page extraction (Claude Haiku) + CRM entity resolution, tenant-scoped |
 | `lib/extension/with-auth.ts` | Auth middleware for extension API routes |

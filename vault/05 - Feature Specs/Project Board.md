@@ -6,6 +6,8 @@ date: 2026-06-17
 
 ## Backlog
 
+- [ ] Prune unused npm dependencies (~22, knip-flagged) — needs false-positive review first (platform binaries like `@next/swc-darwin-x64` and possibly type-only deps are false positives; do not bulk-remove without a per-package check); deferred from the ponytail sweep — see [[ADR ponytail-refactor-sweep-canonical-utils]]
+- [ ] Consolidate fetch/API-envelope wrapper (~269 call sites) — needs an error-handling contract decision before sweeping (what does a failed fetch surface to the caller? what shape does the error take?); sibling: `useDebounce` hook (~11 hand-rolled `useRef` debounce sites); deferred from the ponytail sweep — see [[ADR ponytail-refactor-sweep-canonical-utils]]
 - [ ] Unify AI tool surfaces (MCP 431 / Brain 12 / portal ~15 → one source of truth) — see [[Unify AI Tool Surfaces]]
 - [ ] Wire `enqueueWorkflowRunsForTrigger` to live CRM events — see [[Automations & Workflows]]
 - [ ] Implement `send_email` / `add_to_list` action kinds in the visual workflow runtime — see [[Automations & Workflows]]
@@ -66,6 +68,7 @@ date: 2026-06-17
 ## Shipped
 
 **Complete**
+- [x] Ponytail refactor sweep — canonical utils + dead-code removal (2026-06-23) — `lib/publishing/slug`, `lib/utils/{money,bytes,html}`, `lib/mcp/types`, `lib/decks/publish-slide` canonicalized; `content-tools` rename completed; 32 dead files removed; prompt-intake rule added — see [[ADR ponytail-refactor-sweep-canonical-utils]]
 - [x] Repo cleanup + docs consolidation + README rewrite (2026-06-09)
 - [x] In-repo Obsidian vault: scaffold + 50-note knowledge sweep (2026-06-10)
 - [x] Scribble (goscribble.ai) site migration — LIVE at https://scribble.simplerdevelopment.com, all 12 pages 200 (2026-06-12) — see [[Scribble Site Migration]]

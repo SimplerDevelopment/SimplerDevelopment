@@ -90,6 +90,22 @@ Agents operate in three tiers:
 
 `graphify-out/` holds a pre-built Obsidian-compatible knowledge graph of the codebase (52 857 nodes, 90 005 edges as of 2026-06-09, built from commit `90f839cb`). `graphify-out/GRAPH_REPORT.md` is the index. The graph is preferred over grep for broad cross-cutting structural questions. It is updated with `graphify update .` after significant code changes (no API cost for incremental updates).
 
+## Prompt intake (complex requests)
+
+For prompts carrying substantial instruction or a big/cross-cutting change (multi-step,
+architectural, touches multiple domains or many files, or has ambiguous scope), two
+pre-work steps are mandatory before any plan or edit:
+
+1. **Restate the request grounded in the current codebase only.** Surface where the ask
+   meets, conflicts with, or is already partly solved by real routes, schema, helpers,
+   and invariants in the repo — not training priors. Read/Explore first if needed.
+2. **Auto-invoke `/grill-me`.** Run the skill to interview through the decision tree
+   and resolve open branches before writing code.
+
+Trivial or fully-specified single-file edits are exempt. When unsure whether a prompt
+qualifies, treat it as qualifying. Full rule text lives in `CLAUDE.md` (project root)
+under "Prompt intake."
+
 ## Autonomous loop
 
 `scripts/dev-block-loop.sh` is the hands-off development driver. Each iteration: checks out into a worktree, invokes the `dev-block` skill via `claude -p`, parses the JSON result, journals it, reflects on failures, and compacts periodically. It stops on `finished: true`, a passing success test, or an iteration cap. A kill switch at `.claude/.runtime/dev-block/STOP` exits cleanly at the next iteration boundary. The loop auto-merges the PR when the goal is met and all four gates pass; otherwise it leaves the PR for human review. The plan doc that described this workflow has been retired; the loop script and the `dev-block` skill are the source of truth.

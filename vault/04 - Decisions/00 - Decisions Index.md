@@ -27,6 +27,7 @@ Static list (agents: maintain this when adding ADRs — Dataview below only rend
 - [[ADR proposed-audit-agents-and-workflows]]
 - [[ADR mcp-resources-and-prompts]]
 - [[ADR executePortalTool single-ctx parameter]]
+- [[ADR ponytail-refactor-sweep-canonical-utils]]
 
 ```dataview
 TABLE domain, status, date
