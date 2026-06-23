@@ -98,6 +98,7 @@ export const AUTOMATION_EVENTS = {
   'order.placed': 'A new order is placed',
   'order.paid': 'An order payment is received',
   'order.shipped': 'An order is shipped',
+  'cart.abandoned': 'A cart with items is left inactive for over an hour',
 
   // Invoices
   'invoice.sent': 'An invoice is sent',

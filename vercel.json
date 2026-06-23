@@ -88,6 +88,14 @@
       "schedule": "0 */6 * * *"
     },
     {
+      "path": "/api/cron/process-cart-abandonment",
+      "schedule": "*/30 * * * *"
+    },
+    {
+      "path": "/api/cron/process-journey-enrollments",
+      "schedule": "* * * * *"
+    },
+    {
       "path": "/api/cron/brain-12",
       "schedule": "30 7 * * *"
     },

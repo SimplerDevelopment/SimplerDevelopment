@@ -255,8 +255,13 @@ export const carts = pgTable('carts', {
   customerId: integer('customer_id'), // FK added at runtime to avoid circular ref with storeCustomers
   sessionId: varchar('session_id', { length: 255 }),
   customerEmail: varchar('customer_email', { length: 255 }),
+  // status: 'active' | 'converted' | 'abandoned'
   status: varchar('status', { length: 20 }).default('active').notNull(),
   expiresAt: timestamp('expires_at'),
+  // ─── Abandoned-cart recovery ───────────────────────────────────────────────
+  recoveryToken: varchar('recovery_token', { length: 100 }),
+  recoveryTokenExpiresAt: timestamp('recovery_token_expires_at'),
+  recoveryEmailSentAt: timestamp('recovery_email_sent_at'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });

@@ -6,10 +6,12 @@ import {
   bulkPricingRules, shippingRates, shippingZones, discountCodes,
   orders, orderItems, orderStatusHistory,
   giftCertificates, giftCertificateRedemptions,
+  clientWebsites,
 } from '@/lib/db/schema';
 import { eq, and, asc, desc, sql } from 'drizzle-orm';
 import { resolveSiteStripe, SiteStripeError, type SiteStripeContext } from '@/lib/stripe/site-stripe';
 import { revalidateAdminDashboard } from '@/lib/admin/dashboard-cache';
+import { emitEvent } from '@/lib/automation/event-bus';
 
 function generateOrderNumber(prefix: string, lastNumber: string | null): string {
   if (!lastNumber) {
@@ -407,6 +409,25 @@ export async function POST(
       status: 'pending',
       note: 'Order created, awaiting payment',
     });
+
+    // Emit order.placed at order-row creation (before payment confirmation).
+    // Resolving clientId from clientWebsites so automation rules can filter
+    // by tenant. Fire-and-forget — the response is not blocked.
+    db.select({ clientId: clientWebsites.clientId })
+      .from(clientWebsites)
+      .where(eq(clientWebsites.id, websiteId))
+      .limit(1)
+      .then(([website]) => {
+        emitEvent('order.placed', website?.clientId ?? 0, 0, {
+          orderId: order.id,
+          orderNumber,
+          customerEmail,
+          customerName,
+          total,
+          websiteId,
+        });
+      })
+      .catch((err) => console.error('[checkout] order.placed emit failed:', err));
 
     // Redeem gift certificate if used
     if (appliedGiftCertId && appliedGiftCertCode && giftCertAmount > 0) {
