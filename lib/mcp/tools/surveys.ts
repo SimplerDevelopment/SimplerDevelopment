@@ -103,6 +103,7 @@ import {
 import { executeCampaignSend } from '@/lib/email/campaign-send';
 import { revoke as revokeGoogleToken } from '@/lib/google/oauth';
 import { getTenantWorkspaceCredentialsByClientId } from '@/lib/google/tenant-credentials';
+import { computeSurveyScore } from '@/lib/surveys/score';
 import { stageOrApply } from '../pending-changes';
 import { BLOCKS_SCHEMA_REFERENCE } from '../blocks-schema';
 import { createApprovalLink, approvalEnvelope } from '../approval-links';
@@ -321,6 +322,99 @@ export function registerSurveysTools(server: McpServer, ctx: PortalMcpContext): 
       );
       revalidateForWrite('portal');
       return json({ ...row, approval });
+    }
+  );
+
+  // ── SURVEY RESPONSE SUBMISSION ────────────────────────────────────────
+  // Allows an MCP caller to submit a response to any active survey owned by
+  // this tenant. Mirrors the validation logic in app/api/surveys/[slug]/route.ts
+  // but deliberately omits the post-submit side-effects (CRM auto-route,
+  // webhooks, email follow-ups) — those are v1 follow-up work.
+  hasScope(ctx.scopes, 'surveys:write') && server.registerTool(
+    'surveys_submit_response',
+    {
+      title: 'Submit a survey response',
+      description:
+        'Submit a response to an active survey owned by this client. Provide either surveyId or slug (not both). Answers is a record keyed by field id. Validates required fields and allowMultiple before inserting.',
+      inputSchema: {
+        surveyId: z.number().int().positive().optional(),
+        slug: z.string().min(1).optional(),
+        answers: z.record(z.unknown()),
+        respondentEmail: z.string().email().optional(),
+        respondentName: z.string().optional(),
+      },
+    },
+    async ({ surveyId, slug, answers, respondentEmail, respondentName }) => {
+      if (!requireScope(ctx, 'surveys:write')) return denied('surveys:write');
+
+      // Exactly one of surveyId / slug must be provided.
+      if (!surveyId && !slug) return json({ error: 'Provide either surveyId or slug' });
+      if (surveyId && slug) return json({ error: 'Provide either surveyId or slug, not both' });
+
+      // Resolve survey — AND clientId = ctx.clientId enforces the tenant boundary.
+      const conds = [eq(surveys.clientId, clientId)];
+      if (surveyId) conds.push(eq(surveys.id, surveyId));
+      if (slug) conds.push(eq(surveys.slug, slug));
+      const [survey] = await db.select().from(surveys).where(and(...conds)).limit(1);
+      if (!survey) return json({ error: 'Survey not found' });
+
+      if (survey.status !== 'active') return json({ error: 'Survey is not active' });
+
+      // Required-field validation (mirrors public route).
+      const fields = (survey.fields || []) as { id: string; required: boolean; label: string; type: string }[];
+      for (const field of fields) {
+        if (field.required && field.type !== 'heading') {
+          const val = answers[field.id];
+          if (val === undefined || val === null || val === '') {
+            return json({ error: `${field.label} is required` });
+          }
+        }
+      }
+
+      if (survey.requireEmail && !respondentEmail?.trim()) {
+        return json({ error: 'respondentEmail is required for this survey' });
+      }
+
+      // allowMultiple=false: block a second submission from the same email.
+      if (!survey.allowMultiple && respondentEmail) {
+        const [existing] = await db
+          .select({ id: surveyResponses.id })
+          .from(surveyResponses)
+          .where(
+            and(
+              eq(surveyResponses.surveyId, survey.id),
+              eq(surveyResponses.respondentEmail, respondentEmail),
+            ),
+          )
+          .limit(1);
+        if (existing) return json({ error: 'A response from this email already exists for this survey' });
+      }
+
+      // Compute score (null when survey has no scoring rules).
+      const score = computeSurveyScore(fields as unknown as SurveyFieldDef[], answers as Record<string, unknown>);
+
+      // Insert response + increment responseCount atomically.
+      const [inserted] = await db.transaction(async (tx) => {
+        const [row] = await tx.insert(surveyResponses).values({
+          surveyId: survey.id,
+          formName: 'mcp',
+          answers,
+          respondentEmail: respondentEmail || null,
+          respondentName: respondentName || null,
+          source: 'mcp',
+          completedAt: new Date(),
+          score,
+        }).returning({ id: surveyResponses.id });
+
+        await tx
+          .update(surveys)
+          .set({ responseCount: sql`${surveys.responseCount} + 1`, updatedAt: new Date() })
+          .where(eq(surveys.id, survey.id));
+
+        return [row];
+      });
+
+      return json({ responseId: inserted.id });
     }
   );
 

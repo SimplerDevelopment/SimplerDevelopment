@@ -332,6 +332,8 @@ const EXPECTED_TOOLS: readonly string[] = [
   // ── invoices ──
   'invoices_get',
   'invoices_list',
+  // ── usage ──
+  'usage_get',
   // ── kanban ──
   'kanban_card_add_blocker',
   'kanban_card_add_comment',
@@ -486,6 +488,7 @@ const EXPECTED_TOOLS: readonly string[] = [
   'surveys_get',
   'surveys_list',
   'surveys_list_responses',
+  'surveys_submit_response',
   'surveys_update',
   // ── taxonomies ──
   'taxonomies_create_category',
