@@ -246,11 +246,11 @@ const { authenticateCallback, isScopeCovered, requireScope } = await import(
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────
 
-const APP_SLUG = 'postcaptain-tools';
+const APP_SLUG = 'content-tools';
 const APP_ID = 42;
 const KID = 'k1';
 const SECRET = randomBytes(32).toString('base64');
-const HOST_URL = 'https://postcaptain-tools.simplerdevelopment.com';
+const HOST_URL = 'https://content-tools.simplerdevelopment.com';
 const PORTAL_CLIENT_ID = 103;
 
 function baseClaims(overrides: Record<string, unknown> = {}) {
@@ -259,7 +259,7 @@ function baseClaims(overrides: Record<string, unknown> = {}) {
     sub: '7',
     clientId: PORTAL_CLIENT_ID,
     siteId: null as number | null,
-    scopes: ['postcaptain:research:read', 'postcaptain:research:write'],
+    scopes: ['content:research:read', 'content:research:write'],
     ...overrides,
   };
 }
@@ -304,7 +304,7 @@ beforeEach(() => {
 describe('authenticateCallback — failure modes', () => {
   it('returns 401 when Authorization header is missing', async () => {
     const req = mkRequest(
-      'https://simplerdevelopment.com/api/plugin-callback/postcaptain-tools/scripts/run',
+      'https://simplerdevelopment.com/api/plugin-callback/content-tools/scripts/run',
       { headers: { origin: HOST_URL } },
     );
     const res = await authenticateCallback(req, APP_SLUG);
@@ -321,7 +321,7 @@ describe('authenticateCallback — failure modes', () => {
       ttlSeconds: 60,
     });
     const req = mkRequest(
-      'https://simplerdevelopment.com/api/plugin-callback/postcaptain-tools/scripts/run',
+      'https://simplerdevelopment.com/api/plugin-callback/content-tools/scripts/run',
       {
         headers: {
           authorization: `Bearer ${token}`,
@@ -341,7 +341,7 @@ describe('authenticateCallback — failure modes', () => {
   it('returns 403 when Origin header does not match app.hostUrl', async () => {
     const token = await signPluginJwtTestOnly(SECRET, KID, baseClaims());
     const req = mkRequest(
-      'https://simplerdevelopment.com/api/plugin-callback/postcaptain-tools/scripts/run',
+      'https://simplerdevelopment.com/api/plugin-callback/content-tools/scripts/run',
       {
         headers: {
           authorization: `Bearer ${token}`,
@@ -365,7 +365,7 @@ describe('authenticateCallback — failure modes', () => {
       origin: HOST_URL,
     };
     const req1 = mkRequest(
-      'https://simplerdevelopment.com/api/plugin-callback/postcaptain-tools/scripts/run',
+      'https://simplerdevelopment.com/api/plugin-callback/content-tools/scripts/run',
       { headers },
     );
     const first = await authenticateCallback(req1, APP_SLUG);
@@ -373,7 +373,7 @@ describe('authenticateCallback — failure modes', () => {
 
     // Second use of the SAME token (same jti) must be rejected.
     const req2 = mkRequest(
-      'https://simplerdevelopment.com/api/plugin-callback/postcaptain-tools/scripts/run',
+      'https://simplerdevelopment.com/api/plugin-callback/content-tools/scripts/run',
       { headers },
     );
     const second = await authenticateCallback(req2, APP_SLUG);
@@ -394,7 +394,7 @@ describe('authenticateCallback — failure modes', () => {
       baseClaims({ clientId: PORTAL_CLIENT_ID }),
     );
     const req = mkRequest(
-      'https://simplerdevelopment.com/api/plugin-callback/postcaptain-tools/scripts/run',
+      'https://simplerdevelopment.com/api/plugin-callback/content-tools/scripts/run',
       {
         headers: {
           authorization: `Bearer ${token}`,
@@ -418,7 +418,7 @@ describe('authenticateCallback — failure modes', () => {
 
     const token = await signPluginJwtTestOnly(SECRET, KID, baseClaims());
     const req = mkRequest(
-      'https://simplerdevelopment.com/api/plugin-callback/postcaptain-tools/scripts/run',
+      'https://simplerdevelopment.com/api/plugin-callback/content-tools/scripts/run',
       {
         headers: {
           authorization: `Bearer ${token}`,
@@ -439,7 +439,7 @@ describe('authenticateCallback — happy path', () => {
   it('returns a context populated with app, client, jti', async () => {
     const token = await signPluginJwtTestOnly(SECRET, KID, baseClaims());
     const req = mkRequest(
-      'https://simplerdevelopment.com/api/plugin-callback/postcaptain-tools/scripts/run',
+      'https://simplerdevelopment.com/api/plugin-callback/content-tools/scripts/run',
       {
         headers: {
           authorization: `Bearer ${token}`,
@@ -457,14 +457,14 @@ describe('authenticateCallback — happy path', () => {
       expect(res.ctx.requestId).toBe('req-abc-123');
       expect(typeof res.ctx.jti).toBe('string');
       expect(res.ctx.jti).toBe(res.ctx.claims.jti);
-      expect(res.ctx.claims.scopes).toContain('postcaptain:research:read');
+      expect(res.ctx.claims.scopes).toContain('content:research:read');
     }
   });
 
   it('generates a request id when x-sd-request-id is absent', async () => {
     const token = await signPluginJwtTestOnly(SECRET, KID, baseClaims());
     const req = mkRequest(
-      'https://simplerdevelopment.com/api/plugin-callback/postcaptain-tools/scripts/run',
+      'https://simplerdevelopment.com/api/plugin-callback/content-tools/scripts/run',
       {
         headers: {
           authorization: `Bearer ${token}`,
@@ -492,7 +492,7 @@ describe('scope helpers', () => {
     expect(isScopeCovered('a:b:read', ['a:c:*'])).toBe(false);
   });
   it('requireScope mirrors isScopeCovered', () => {
-    expect(requireScope(['postcaptain:research:*'], 'postcaptain:research:write')).toBe(true);
-    expect(requireScope(['postcaptain:research:read'], 'postcaptain:research:write')).toBe(false);
+    expect(requireScope(['content:research:*'], 'content:research:write')).toBe(true);
+    expect(requireScope(['content:research:read'], 'content:research:write')).toBe(false);
   });
 });

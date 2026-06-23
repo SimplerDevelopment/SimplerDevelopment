@@ -341,7 +341,7 @@ test.describe('Survey SurveyStyling jsonb override @gap @surveys', () => {
 // The retiring/revoked key status is managed entirely in the DB schema
 // (registered_app_signing_keys.status). There is NO HTTP API endpoint to
 // rotate or retire a signing key — this is a seed-script operation only
-// (scripts/migrations/plugins/seed-postcaptain-tools.ts). The JWT lifecycle
+// (scripts/migrations/plugins/seed-content-tools.ts). The JWT lifecycle
 // behavior (retiring verifies, revoked rejects) is unit-tested in
 // tests/unit/plugins-jwt.test.ts against a mocked DB.
 //

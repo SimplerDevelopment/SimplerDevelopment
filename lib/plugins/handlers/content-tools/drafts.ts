@@ -1,4 +1,4 @@
-// Postcaptain Tools — blog draft handlers.
+// Content Tools — blog draft handlers.
 //
 // /drafts        GET    — paginated list filtered to ctx.client.id
 // /drafts/:id    GET    — single draft detail (IDOR-defended)
@@ -10,7 +10,7 @@
 import { z } from 'zod';
 import { and, desc, eq, lt } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { postcaptainDrafts } from '@/lib/db/schema/plugins';
+import { contentDrafts } from '@/lib/db/schema/plugins';
 import type { CallbackHandler } from '../types';
 import { ok, fail } from '../types';
 
@@ -28,7 +28,7 @@ const PatchDraftSchema = z.object({
 const getDrafts: CallbackHandler = {
   method: 'GET',
   path: '/drafts',
-  scope: 'postcaptain:research:read',
+  scope: 'content:research:read',
   async handle(req, ctx) {
     const url = new URL(req.url);
     const parsed = ListQuerySchema.safeParse({
@@ -46,16 +46,16 @@ const getDrafts: CallbackHandler = {
     const { limit, cursor } = parsed.data;
     const whereExpr = cursor
       ? and(
-          eq(postcaptainDrafts.clientId, ctx.client.id),
-          lt(postcaptainDrafts.id, cursor),
+          eq(contentDrafts.clientId, ctx.client.id),
+          lt(contentDrafts.id, cursor),
         )
-      : eq(postcaptainDrafts.clientId, ctx.client.id);
+      : eq(contentDrafts.clientId, ctx.client.id);
 
     const rows = await db
       .select()
-      .from(postcaptainDrafts)
+      .from(contentDrafts)
       .where(whereExpr)
-      .orderBy(desc(postcaptainDrafts.id))
+      .orderBy(desc(contentDrafts.id))
       .limit(limit);
     const nextCursor = rows.length === limit ? rows[rows.length - 1].id : null;
     return ok({ drafts: rows, nextCursor });
@@ -65,7 +65,7 @@ const getDrafts: CallbackHandler = {
 const getDraftById: CallbackHandler = {
   method: 'GET',
   path: '/drafts/:id',
-  scope: 'postcaptain:research:read',
+  scope: 'content:research:read',
   async handle(_req, ctx, params) {
     const id = Number(params.id);
     if (!Number.isFinite(id) || id <= 0) {
@@ -73,10 +73,10 @@ const getDraftById: CallbackHandler = {
     }
     const [row] = await db
       .select()
-      .from(postcaptainDrafts)
+      .from(contentDrafts)
       .where(and(
-        eq(postcaptainDrafts.id, id),
-        eq(postcaptainDrafts.clientId, ctx.client.id),
+        eq(contentDrafts.id, id),
+        eq(contentDrafts.clientId, ctx.client.id),
       ))
       .limit(1);
     if (!row) {
@@ -89,7 +89,7 @@ const getDraftById: CallbackHandler = {
 const patchDraft: CallbackHandler = {
   method: 'PATCH',
   path: '/drafts/:id',
-  scope: 'postcaptain:research:write',
+  scope: 'content:research:write',
   async handle(req, ctx, params) {
     const id = Number(params.id);
     if (!Number.isFinite(id) || id <= 0) {
@@ -128,11 +128,11 @@ const patchDraft: CallbackHandler = {
     if (parsed.data.status !== undefined) updates.status = parsed.data.status;
 
     const [updated] = await db
-      .update(postcaptainDrafts)
+      .update(contentDrafts)
       .set(updates)
       .where(and(
-        eq(postcaptainDrafts.id, id),
-        eq(postcaptainDrafts.clientId, ctx.client.id),
+        eq(contentDrafts.id, id),
+        eq(contentDrafts.clientId, ctx.client.id),
       ))
       .returning();
     if (!updated) {

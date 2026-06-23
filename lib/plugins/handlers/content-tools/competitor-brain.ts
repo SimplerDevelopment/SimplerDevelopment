@@ -1,17 +1,17 @@
 // Wave 4 — brain ingestion + card-comment loop for competitor-research runs.
 //
 // After SD's /complete handler persists a `competitor-research` result
-// into postcaptain_briefs, this module:
+// into content_briefs, this module:
 //
 //   1. Looks up the dedicated `tools-bot@simplerdevelopment.com` user
 //      so all auto-authored content has a stable, machine-identifiable
 //      author. The lookup is cached for the process lifetime — the row
-//      is seeded once via 0118_postcaptain_tools_bot_user.sql.
+//      is seeded once via 0118_content_tools_bot_user.sql.
 //
 //   2. Inserts a `brain_notes` row (client-scoped, tagged
 //      `competitor:<slug>` + `monitor:<depth>`, source =
-//      'plugin-postcaptain-tools') so the long-lived knowledge object
-//      lives alongside the rest of the postcaptain brain.
+//      'plugin-content-tools') so the long-lived knowledge object
+//      lives alongside the rest of the content brain.
 //
 //   3. For depth='deep' runs, compares meta.vulnerability.score against
 //      the most recent prior deep-dive for the same competitor. If the
@@ -28,7 +28,7 @@
 // insert or the comment insert throws, the calling /complete handler
 // catches the error and logs it BUT still finalizes the run as
 // 'succeeded'. The competitor-research output already lives in
-// postcaptain_briefs; the brain_note + card-comment are reproducible
+// content_briefs; the brain_note + card-comment are reproducible
 // signal on top of that.
 
 import { and, desc, eq, sql } from 'drizzle-orm';
@@ -36,10 +36,10 @@ import { db } from '@/lib/db';
 import { users } from '@/lib/db/schema/auth';
 import { brainNotes } from '@/lib/db/schema/brain';
 import { kanbanCardComments } from '@/lib/db/schema/pm';
-import { postcaptainBriefs, type CompetitorVulnerability } from '@/lib/db/schema/plugins';
+import { contentBriefs, type CompetitorVulnerability } from '@/lib/db/schema/plugins';
 
 const BOT_EMAIL = 'tools-bot@simplerdevelopment.com';
-const BRAIN_NOTE_SOURCE = 'plugin-postcaptain-tools';
+const BRAIN_NOTE_SOURCE = 'plugin-content-tools';
 
 // In-memory cache; the bot user row is seeded once and never deleted.
 let botUserIdCache: number | null | undefined; // undefined = not yet looked up
@@ -105,7 +105,7 @@ export async function ingestBriefAsBrainNote(
       body: opts.body,
       tags: tagSet,
       source: BRAIN_NOTE_SOURCE,
-      sourceUrl: `plugin-postcaptain-tools://briefs/${opts.briefId}`,
+      sourceUrl: `plugin-content-tools://briefs/${opts.briefId}`,
       createdBy: botUserId,
     }).returning({ id: brainNotes.id });
     return row?.id ?? null;
@@ -200,15 +200,15 @@ async function findPreviousDeepDiveVulnerability(
   excludeId: number,
 ): Promise<CompetitorVulnerability | null> {
   const rows = await db
-    .select({ meta: postcaptainBriefs.meta, id: postcaptainBriefs.id })
-    .from(postcaptainBriefs)
+    .select({ meta: contentBriefs.meta, id: contentBriefs.id })
+    .from(contentBriefs)
     .where(and(
-      eq(postcaptainBriefs.clientId, clientId),
-      sql`${postcaptainBriefs.meta}->>'competitorSlug' = ${competitorSlug}`,
-      sql`${postcaptainBriefs.meta}->>'depth' = 'deep'`,
-      sql`${postcaptainBriefs.id} <> ${excludeId}`,
+      eq(contentBriefs.clientId, clientId),
+      sql`${contentBriefs.meta}->>'competitorSlug' = ${competitorSlug}`,
+      sql`${contentBriefs.meta}->>'depth' = 'deep'`,
+      sql`${contentBriefs.id} <> ${excludeId}`,
     ))
-    .orderBy(desc(postcaptainBriefs.id))
+    .orderBy(desc(contentBriefs.id))
     .limit(1);
   if (rows.length === 0) return null;
   const meta = rows[0].meta as { vulnerability?: CompetitorVulnerability };
@@ -235,7 +235,7 @@ function formatScoreChangeCommentBody(opts: {
   if (opts.rationale) {
     lines.push('', '**Why the model scored this differently:**', opts.rationale);
   }
-  lines.push('', '_Auto-posted by postcaptain-tools-bot. Review the full brief in postcaptain-tools → Briefs._');
+  lines.push('', '_Auto-posted by content-tools-bot. Review the full brief in content-tools → Briefs._');
   return lines.join('\n');
 }
 

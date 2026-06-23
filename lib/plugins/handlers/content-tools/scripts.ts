@@ -1,4 +1,4 @@
-// Postcaptain Tools — script-run handlers.
+// Content Tools — script-run handlers.
 //
 // /scripts/run        POST   — kick off a research-brief or draft-blog-post run
 // /scripts/runs       GET    — paginated history filtered to ctx.client.id
@@ -43,7 +43,7 @@ const ListRunsQuerySchema = z.object({
 const postScriptsRun: CallbackHandler = {
   method: 'POST',
   path: '/scripts/run',
-  scope: 'postcaptain:research:write',
+  scope: 'content:research:write',
   async handle(req, ctx) {
     let body: unknown;
     try {
@@ -120,7 +120,7 @@ const postScriptsRun: CallbackHandler = {
 const getScriptsRuns: CallbackHandler = {
   method: 'GET',
   path: '/scripts/runs',
-  scope: 'postcaptain:research:read',
+  scope: 'content:research:read',
   async handle(req, ctx) {
     const url = new URL(req.url);
     const parsed = ListRunsQuerySchema.safeParse({
@@ -166,7 +166,7 @@ const getScriptsRuns: CallbackHandler = {
 const getScriptsRunById: CallbackHandler = {
   method: 'GET',
   path: '/scripts/runs/:id',
-  scope: 'postcaptain:research:read',
+  scope: 'content:research:read',
   async handle(_req, ctx, params) {
     const id = Number(params.id);
     if (!Number.isFinite(id) || id <= 0) {

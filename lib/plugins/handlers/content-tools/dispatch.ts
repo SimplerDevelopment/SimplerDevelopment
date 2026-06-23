@@ -1,10 +1,10 @@
-// Dispatch a queued plugin run to the postcaptain-tools worker.
+// Dispatch a queued plugin run to the content-tools worker.
 //
 // In Wave 1 of the plugin registry the runner executed Anthropic calls
 // directly inside SD's drain cron. Wave 2 moves the heavy compute (Anthropic
-// + web_search, 30-300s) to the second-server postcaptain-tools deploy. SD
+// + web_search, 30-300s) to the second-server content-tools deploy. SD
 // keeps owning storage, scheduling, the audit trail, and the run state
-// machine; postcaptain-tools owns execution.
+// machine; content-tools owns execution.
 //
 // Flow (Pattern P — push):
 //   1. SD's `executeRun()` CAS-claims a queued run → status='running' (was
@@ -16,12 +16,12 @@
 //      `after()` (Vercel Pro, 300s ceiling).
 //   4. When the worker finishes (success or failure) it calls back to SD's
 //      `POST /scripts/runs/:id/complete` callback with the result payload.
-//      That handler persists the row into postcaptain_briefs/drafts and
+//      That handler persists the row into content_briefs/drafts and
 //      transitions the run to succeeded/failed.
 //
 // The dispatch JWT uses the standard plugin JWT contract (HS256, iss=
 // simplerdev-portal, aud=<app slug>) with a system subject (`sub='system'`)
-// and a dedicated scope (`postcaptain:internal:execute`). The worker's
+// and a dedicated scope (`content:internal:execute`). The worker's
 // inbound `/internal/execute-run` route verifies this scope and rejects
 // anything else, so a leaked user-context JWT can't trigger executions.
 //
@@ -41,7 +41,7 @@ import type { RegisteredApp } from '@/lib/db/schema';
 // necessary.
 const DISPATCH_TIMEOUT_MS = 10_000;
 
-export const DISPATCH_SCOPE = 'postcaptain:internal:execute' as const;
+export const DISPATCH_SCOPE = 'content:internal:execute' as const;
 
 export interface DispatchPayload {
   runId: number;

@@ -65,7 +65,7 @@ export const productSides = pgTable('product_sides', {
 //   - 'icon' → react-icons reference (iconName + iconPack)
 //   - 'art'  → a hosted SVG/PNG (imageUrl)
 
-export const philaprintsDesignAssets = pgTable('philaprints_design_assets', {
+export const designLibraryAssets = pgTable('design_library_assets', {
   id: serial('id').primaryKey(),
   websiteId: integer('website_id').notNull().references(() => clientWebsites.id, { onDelete: 'cascade' }),
   type: varchar('type', { length: 20 }).notNull(), // 'icon' | 'art'

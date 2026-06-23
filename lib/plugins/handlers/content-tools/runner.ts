@@ -1,7 +1,7 @@
-// Execution backbone for postcaptain-tools plugin runs.
+// Execution backbone for content-tools plugin runs.
 //
 // Wave 1 ran Anthropic + web_search inline on SD's compute. Wave 2 moved
-// that to the postcaptain-tools deploy: SD now claims a queued run, posts
+// that to the content-tools deploy: SD now claims a queued run, posts
 // a dispatch payload to the worker, and waits for an asynchronous
 // completion callback (see `./complete.ts`). This file only owns the
 // queue / claim / dispatch lifecycle on the SD side.
@@ -100,7 +100,7 @@ export type ExecuteRunResult =
 
 /**
  * CAS-claims a queued run, looks up its app, and dispatches it to the
- * postcaptain-tools worker. Idempotent: a non-queued row returns 'skipped'.
+ * content-tools worker. Idempotent: a non-queued row returns 'skipped'.
  *
  * On dispatch failure we explicitly classify retriable vs not:
  *   - retriable (5xx / network) → run reverts to 'queued' for next tick

@@ -19,11 +19,11 @@ const validNavItem = {
 const validCallback = {
   method: 'POST' as const,
   path: '/scripts/run',
-  scope: 'postcaptain:research:write',
+  scope: 'content:research:write',
 };
 
 const validManifest = {
-  id: 'postcaptain-tools',
+  id: 'content-tools',
   version: '0.1.0',
   nav: [
     { label: 'Dashboard', href: '/', icon: 'dashboard' },
@@ -34,7 +34,7 @@ const validManifest = {
       keywords: ['research', 'reports'],
     },
   ],
-  requiredScopes: ['postcaptain:research:read', 'postcaptain:research:write'],
+  requiredScopes: ['content:research:read', 'content:research:write'],
   callbacks: [validCallback],
   publishedAt: '2026-05-15T00:00:00Z',
 };

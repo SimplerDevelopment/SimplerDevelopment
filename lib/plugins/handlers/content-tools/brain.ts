@@ -5,7 +5,7 @@
 // for the calling client, so it can skip re-fetching them.
 //
 // Auth: callback router uses our JWT chain (kid → registered_app_signing_keys
-// → HMAC verify). This handler requires the `postcaptain:internal:brain:read`
+// → HMAC verify). This handler requires the `content:internal:brain:read`
 // scope. The JWT's clientId claim is already verified by the dispatcher;
 // here we just use ctx.client.id as the WHERE filter.
 //
@@ -27,7 +27,7 @@ const MAX_URLS = 5_000;
 const getScrapedUrls: CallbackHandler = {
   method: 'GET',
   path: '/brain/scraped-urls',
-  scope: 'postcaptain:internal:brain:read',
+  scope: 'content:internal:brain:read',
   async handle(req, ctx) {
     const url = new URL(req.url);
     const domain = (url.searchParams.get('domain') ?? '').trim().toLowerCase();

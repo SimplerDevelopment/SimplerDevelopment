@@ -11,8 +11,8 @@ import { buildPortalNavItems } from '@/lib/portal-nav';
 import type { UserAppNavMeta } from '@/lib/plugins/load-user-apps';
 
 const APP_FIXTURE: UserAppNavMeta = {
-  slug: 'postcaptain-tools',
-  name: 'Postcaptain Tools',
+  slug: 'content-tools',
+  name: 'Content Tools',
   icon: 'science',
   manifestStale: false,
   navItems: [
@@ -76,33 +76,33 @@ describe('buildPortalNavItems — apps injection', () => {
     const apps = items.find((i) => i.label === 'Apps');
     expect(apps?.children).toHaveLength(2);
     const slugs = apps!.children!.map((c) => c.href);
-    expect(slugs).toContain('/portal/apps/postcaptain-tools');
+    expect(slugs).toContain('/portal/apps/content-tools');
     expect(slugs).toContain('/portal/apps/analytics-pro');
   });
 
   it("each app's children include the slug-root AND the manifest nav items as grandchildren", () => {
     const items = buildPortalNavItems(null, null, [APP_FIXTURE]);
     const apps = items.find((i) => i.label === 'Apps');
-    const pc = apps!.children!.find((c) => c.href === '/portal/apps/postcaptain-tools');
+    const pc = apps!.children!.find((c) => c.href === '/portal/apps/content-tools');
     expect(pc).toBeDefined();
-    expect(pc!.label).toBe('Postcaptain Tools');
+    expect(pc!.label).toBe('Content Tools');
     expect(pc!.icon).toBe('science');
 
     // The grandchildren are the manifest nav items, rewritten under /portal/apps/<slug>
     const grandchildren = pc!.children ?? [];
     expect(grandchildren).toHaveLength(3);
     const hrefs = grandchildren.map((g) => g.href);
-    // Bare '/' collapses to just the slug root rather than '/postcaptain-tools/'
-    expect(hrefs).toContain('/portal/apps/postcaptain-tools');
-    expect(hrefs).toContain('/portal/apps/postcaptain-tools/briefs');
-    expect(hrefs).toContain('/portal/apps/postcaptain-tools/schedules');
+    // Bare '/' collapses to just the slug root rather than '/content-tools/'
+    expect(hrefs).toContain('/portal/apps/content-tools');
+    expect(hrefs).toContain('/portal/apps/content-tools/briefs');
+    expect(hrefs).toContain('/portal/apps/content-tools/schedules');
   });
 
   it('preserves manifest icons + keywords on the grandchildren', () => {
     const items = buildPortalNavItems(null, null, [APP_FIXTURE]);
     const apps = items.find((i) => i.label === 'Apps');
-    const pc = apps!.children!.find((c) => c.href === '/portal/apps/postcaptain-tools');
-    const briefs = pc!.children!.find((g) => g.href === '/portal/apps/postcaptain-tools/briefs');
+    const pc = apps!.children!.find((c) => c.href === '/portal/apps/content-tools');
+    const briefs = pc!.children!.find((g) => g.href === '/portal/apps/content-tools/briefs');
     expect(briefs?.icon).toBe('biotech');
     expect(briefs?.keywords).toEqual(['research']);
   });
@@ -125,8 +125,8 @@ describe('buildPortalNavItems — apps injection', () => {
   it('uses the app slug as a cmd-K keyword on the app-level child', () => {
     const items = buildPortalNavItems(null, null, [APP_FIXTURE]);
     const apps = items.find((i) => i.label === 'Apps');
-    const pc = apps!.children!.find((c) => c.href === '/portal/apps/postcaptain-tools');
-    expect(pc?.keywords).toContain('postcaptain-tools');
+    const pc = apps!.children!.find((c) => c.href === '/portal/apps/content-tools');
+    expect(pc?.keywords).toContain('content-tools');
   });
 
   it('"Apps" top-level entry carries cmd-K keywords for discoverability', () => {

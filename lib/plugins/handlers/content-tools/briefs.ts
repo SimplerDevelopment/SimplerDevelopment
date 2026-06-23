@@ -1,4 +1,4 @@
-// Postcaptain Tools — research brief handlers.
+// Content Tools — research brief handlers.
 //
 // /briefs        GET — paginated list filtered to ctx.client.id
 // /briefs/:id    GET — single brief detail with IDOR defense
@@ -9,7 +9,7 @@
 import { z } from 'zod';
 import { and, desc, eq, lt } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { postcaptainBriefs } from '@/lib/db/schema/plugins';
+import { contentBriefs } from '@/lib/db/schema/plugins';
 import type { CallbackHandler } from '../types';
 import { ok, fail } from '../types';
 
@@ -21,7 +21,7 @@ const ListQuerySchema = z.object({
 const getBriefs: CallbackHandler = {
   method: 'GET',
   path: '/briefs',
-  scope: 'postcaptain:research:read',
+  scope: 'content:research:read',
   async handle(req, ctx) {
     const url = new URL(req.url);
     const parsed = ListQuerySchema.safeParse({
@@ -40,16 +40,16 @@ const getBriefs: CallbackHandler = {
 
     const whereExpr = cursor
       ? and(
-          eq(postcaptainBriefs.clientId, ctx.client.id),
-          lt(postcaptainBriefs.id, cursor),
+          eq(contentBriefs.clientId, ctx.client.id),
+          lt(contentBriefs.id, cursor),
         )
-      : eq(postcaptainBriefs.clientId, ctx.client.id);
+      : eq(contentBriefs.clientId, ctx.client.id);
 
     const rows = await db
       .select()
-      .from(postcaptainBriefs)
+      .from(contentBriefs)
       .where(whereExpr)
-      .orderBy(desc(postcaptainBriefs.id))
+      .orderBy(desc(contentBriefs.id))
       .limit(limit);
     const nextCursor = rows.length === limit ? rows[rows.length - 1].id : null;
     return ok({ briefs: rows, nextCursor });
@@ -59,7 +59,7 @@ const getBriefs: CallbackHandler = {
 const getBriefById: CallbackHandler = {
   method: 'GET',
   path: '/briefs/:id',
-  scope: 'postcaptain:research:read',
+  scope: 'content:research:read',
   async handle(_req, ctx, params) {
     const id = Number(params.id);
     if (!Number.isFinite(id) || id <= 0) {
@@ -67,10 +67,10 @@ const getBriefById: CallbackHandler = {
     }
     const [row] = await db
       .select()
-      .from(postcaptainBriefs)
+      .from(contentBriefs)
       .where(and(
-        eq(postcaptainBriefs.id, id),
-        eq(postcaptainBriefs.clientId, ctx.client.id),
+        eq(contentBriefs.id, id),
+        eq(contentBriefs.clientId, ctx.client.id),
       ))
       .limit(1);
     if (!row) {

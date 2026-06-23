@@ -1,11 +1,11 @@
 // POST /scripts/runs/:id/complete — worker → portal completion callback.
 //
 // The Wave 2 dispatch model splits a run into two phases. SD claims a
-// queued run and POSTs it to the postcaptain-tools worker; the worker
+// queued run and POSTs it to the content-tools worker; the worker
 // executes (Anthropic + web_search), then calls this endpoint to finalize.
 //
 // This handler is on the *callback* side — i.e. the worker authenticates
-// with a JWT that carries the dedicated `postcaptain:internal:complete`
+// with a JWT that carries the dedicated `content:internal:complete`
 // scope. A user-context JWT (from the proxy flow) is rejected by the
 // callback router's scope check, so a leaked end-user token can't be used
 // to forge a completion.
@@ -23,8 +23,8 @@ import { and, eq, inArray } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import {
   registeredAppRuns,
-  postcaptainBriefs,
-  postcaptainDrafts,
+  contentBriefs,
+  contentDrafts,
 } from '@/lib/db/schema/plugins';
 import { brainNotes } from '@/lib/db/schema/brain';
 import { users } from '@/lib/db/schema/auth';
@@ -63,7 +63,7 @@ const SuccessResultCompetitorResearch = z.object({
   focus: z.string().nullable().optional(),
   body: z.string().min(1),
   sources: z.array(z.object({ url: z.string(), title: z.string().optional() })).default([]),
-  // Structured signal — persisted into postcaptain_briefs.meta so Wave 4
+  // Structured signal — persisted into content_briefs.meta so Wave 4
   // can detect score changes between consecutive runs.
   competitorSlug: z.string().min(1).max(64),
   depth: z.enum(['news', 'deep']),
@@ -140,7 +140,7 @@ const CompleteBodySchema = z.discriminatedUnion('outcome', [SuccessSchema, Failu
 const postComplete: CallbackHandler = {
   method: 'POST',
   path: '/scripts/runs/:id/complete',
-  scope: 'postcaptain:internal:complete',
+  scope: 'content:internal:complete',
   async handle(req, ctx, params) {
     const runId = Number(params.id);
     if (!Number.isFinite(runId) || runId <= 0) {
@@ -213,15 +213,15 @@ const postComplete: CallbackHandler = {
             400,
           );
         }
-        const [row] = await db.insert(postcaptainBriefs).values({
+        const [row] = await db.insert(contentBriefs).values({
           clientId: run.clientId,
           runId: run.id,
           topic: result.topic.slice(0, 255),
           focus: result.focus ?? null,
           body: result.body,
           sources: result.sources.map((s) => ({ url: s.url, title: s.title ?? s.url })),
-        }).returning({ id: postcaptainBriefs.id });
-        if (!row) throw new Error('complete: postcaptainBriefs insert returned no row');
+        }).returning({ id: contentBriefs.id });
+        if (!row) throw new Error('complete: contentBriefs insert returned no row');
         resultId = row.id;
       } else if (result.kind === 'competitor-research') {
         // Per-competitor scrape kinds (`scrape-<slug>` — declared in the
@@ -229,7 +229,7 @@ const postComplete: CallbackHandler = {
         // through runCompetitorResearch on the worker side and emit a
         // `competitor-research` result. Accept both `competitor-research`
         // and `scrape-*` run kinds here so each scrape script lands as a
-        // postcaptain_briefs row + brain ingestion the same way.
+        // content_briefs row + brain ingestion the same way.
         if (run.kind !== 'competitor-research' && !run.kind.startsWith('scrape-')) {
           return fail(
             'validation_error',
@@ -237,9 +237,9 @@ const postComplete: CallbackHandler = {
             400,
           );
         }
-        // Persisted into postcaptain_briefs with a structured `meta` block
+        // Persisted into content_briefs with a structured `meta` block
         // so Wave 4 can read meta.vulnerability and diff vs prior runs.
-        const [row] = await db.insert(postcaptainBriefs).values({
+        const [row] = await db.insert(contentBriefs).values({
           clientId: run.clientId,
           runId: run.id,
           topic: result.topic.slice(0, 255),
@@ -251,8 +251,8 @@ const postComplete: CallbackHandler = {
             depth: result.depth,
             ...(result.vulnerability ? { vulnerability: result.vulnerability } : {}),
           },
-        }).returning({ id: postcaptainBriefs.id });
-        if (!row) throw new Error('complete: postcaptainBriefs insert returned no row');
+        }).returning({ id: contentBriefs.id });
+        if (!row) throw new Error('complete: contentBriefs insert returned no row');
         resultId = row.id;
 
         // Wave 4 — brain ingestion + card-comment loop. We deliberately do
@@ -327,15 +327,15 @@ const postComplete: CallbackHandler = {
             400,
           );
         }
-        const [row] = await db.insert(postcaptainDrafts).values({
+        const [row] = await db.insert(contentDrafts).values({
           clientId: run.clientId,
           runId: run.id,
           briefId: result.briefId ?? null,
           title: result.title.slice(0, 255),
           body: result.body,
           status: 'draft',
-        }).returning({ id: postcaptainDrafts.id });
-        if (!row) throw new Error('complete: postcaptainDrafts insert returned no row');
+        }).returning({ id: contentDrafts.id });
+        if (!row) throw new Error('complete: contentDrafts insert returned no row');
         resultId = row.id;
       } else {
         // Generic 'script' result — no kind-specific result table. Cross-
@@ -411,7 +411,7 @@ export const completeHandlers: CallbackHandler[] = [postComplete];
 // (and counted) — a single bad URL shouldn't fail the whole run.
 
 const TOOLS_BOT_EMAIL = 'tools-bot@simplerdevelopment.com';
-const BRAIN_NOTE_SOURCE = 'plugin-postcaptain-tools';
+const BRAIN_NOTE_SOURCE = 'plugin-content-tools';
 let toolsBotUserIdCache: number | null | undefined;
 
 async function getToolsBotUserId(): Promise<number | null> {

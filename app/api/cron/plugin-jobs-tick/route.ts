@@ -13,8 +13,8 @@
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { withCronHealth } from '@/lib/cron-health';
-import { fireDueJobs } from '@/lib/plugins/handlers/postcaptain-tools/fire-due-jobs';
-import { isAuthorizedCron } from '@/lib/plugins/handlers/postcaptain-tools/cron-auth';
+import { fireDueJobs } from '@/lib/plugins/handlers/content-tools/fire-due-jobs';
+import { isAuthorizedCron } from '@/lib/plugins/handlers/content-tools/cron-auth';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
