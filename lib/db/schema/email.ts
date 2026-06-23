@@ -290,3 +290,22 @@ export const emailJourneyStepSends = pgTable('email_journey_step_sends', {
   index('email_journey_step_sends_subscriber_idx').on(t.subscriberId),
 ]);
 
+// Embeddable public signup forms — a public POST adds a subscriber to `listId`
+// and (via onEmailSubscriberJoined) enrolls them into matching list_join
+// journeys. Keyed publicly by `embedKey`.
+export const emailSignupForms = pgTable('email_signup_forms', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').references(() => clients.id, { onDelete: 'cascade' }),
+  listId: integer('list_id').notNull().references(() => emailLists.id, { onDelete: 'cascade' }),
+  name: varchar('name', { length: 255 }).notNull(),
+  embedKey: varchar('embed_key', { length: 64 }).notNull().unique(),
+  askName: boolean('ask_name').default(false).notNull(),
+  redirectUrl: varchar('redirect_url', { length: 500 }),
+  enabled: boolean('enabled').default(true).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => [
+  index('email_signup_forms_client_idx').on(t.clientId),
+  index('email_signup_forms_list_idx').on(t.listId),
+]);
+
