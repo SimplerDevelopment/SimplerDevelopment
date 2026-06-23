@@ -79,38 +79,50 @@ An in-repo Model Context Protocol server exposes platform tools to AI agents (Cl
 
 ## Prerequisites and setup
 
-**Requirements:** Bun 1.3.11+, PostgreSQL 14+, Node.js 20+ (for scripts that use `tsx`).
+**Requirements:** Bun 1.3.11+, **PostgreSQL 14+ with the [`pgvector`](https://github.com/pgvector/pgvector) extension** (the Company Brain / RAG needs it), Node.js 20+ (for scripts that use `tsx`), and optionally Docker.
+
+### Quick start
 
 ```bash
-# 1. Install dependencies
+# 1. Start Postgres + pgvector (Docker — easiest, no local Postgres needed)
+docker compose up -d
+
+# 2. Install dependencies
 bun install
 
-# 2. Copy environment variables and fill in values
+# 3. Configure environment
 cp .env.example .env.local
-```
+#   For the Docker DB above, set in .env.local:
+#   DATABASE_URL=postgresql://postgres:postgres@localhost:5432/simplerdev
+#   Generate the required secrets:
+#   AUTH_SECRET / NEXTAUTH_SECRET / OAUTH_STATE_SECRET → openssl rand -hex 32
+#   WORKSPACE_TENANT_SECRETS_KEY                       → openssl rand -hex 32
+#   PORTAL_KMS_KEY                                     → openssl rand -base64 32
 
-Key environment variables to set in `.env.local`:
-
-| Variable | Purpose |
-|---|---|
-| `DATABASE_URL` | Postgres connection string |
-| `NEXTAUTH_SECRET` | NextAuth session secret |
-| `ANTHROPIC_API_KEY` | Platform-level Anthropic key (BYOK fallback) |
-| `OPENAI_API_KEY` | Brain embeddings fallback |
-| `STRIPE_SECRET_KEY` | Stripe billing |
-| `ENCRYPTION_KEY` | 64 hex chars — encrypts BYOK client API keys. Generate: `openssl rand -hex 32` |
-| `PORTAL_KMS_KEY` | Base64 key for plugin JWT signing. Generate: `openssl rand -base64 32` |
-| `DROPBOX_SIGN_API_KEY` | E-signature contracts |
-
-See `.env.example` for the full list and descriptions.
-
-```bash
-# 3. Run database migrations
+# 4. Create the schema (runs CREATE EXTENSION vector) and seed dev data
 bun run db:migrate
+bun run db:seed:dev      # optional
 
-# 4. (Optional) Seed an admin user
-bun run db:seed
+# 5. Run it
+bun dev                  # http://localhost:3000
 ```
+
+> Not using Docker? Point `DATABASE_URL` at any Postgres that has `pgvector` installed. Reset the Docker DB anytime with `docker compose down -v`.
+
+### Minimum env to boot
+
+Most variables in `.env.example` gate **optional integrations** (Stripe, Google Workspace, S3, Resend, Zoom, etc.) — the app boots without them; those features stay dormant until configured. The minimum to start:
+
+| Variable | Purpose | Generate |
+|---|---|---|
+| `DATABASE_URL` | Postgres (with pgvector) connection string | — |
+| `AUTH_SECRET` / `NEXTAUTH_SECRET` | NextAuth session secret | `openssl rand -hex 32` |
+| `NEXTAUTH_URL` / `NEXT_PUBLIC_APP_URL` | Base URL, e.g. `http://localhost:3000` | — |
+| `WORKSPACE_TENANT_SECRETS_KEY` | 32-byte hex — encrypts per-tenant BYOK secrets | `openssl rand -hex 32` |
+| `PORTAL_KMS_KEY` | Base64 key for plugin JWT signing | `openssl rand -base64 32` |
+| `OAUTH_STATE_SECRET` | OAuth state signing | `openssl rand -hex 32` |
+
+Then add integration keys (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `STRIPE_SECRET_KEY`, …) as you enable each feature. See `.env.example` for the full annotated list.
 
 ---
 

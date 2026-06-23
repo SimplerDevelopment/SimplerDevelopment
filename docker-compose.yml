@@ -1,0 +1,36 @@
+# Local development database: Postgres 16 with the pgvector extension preinstalled.
+# This is the one piece of infrastructure that's annoying to set up by hand
+# (the platform's Company Brain / RAG requires pgvector). The app itself runs on
+# the host via `bun dev`.
+#
+# Usage:
+#   docker compose up -d
+#   # point your .env / .env.local at it:
+#   #   DATABASE_URL=postgresql://postgres:postgres@localhost:5432/simplerdev
+#   bun run db:migrate     # creates the schema (incl. CREATE EXTENSION vector)
+#   bun run db:seed:dev    # optional: seed dev data
+#   bun dev                # http://localhost:3000
+#
+# Reset everything: docker compose down -v   (the -v drops the data volume)
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: simplerdev-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: simplerdev
+    ports:
+      - "5432:5432"
+    volumes:
+      - simplerdev-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d simplerdev"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  simplerdev-pgdata:
