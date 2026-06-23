@@ -254,8 +254,8 @@ export interface TeamFlipMember {
   /**
    * Optional vertical offset in pixels. Applied as `transform: translateY(<n>px)`
    * on the card. Useful for staggered/offset grid layouts where one card needs
-   * to drop down to balance an asymmetric row (e.g. Post Captain's team grid
-   * has one member's card offset to compensate for a shorter title). Default 0
+   * to drop down to balance an asymmetric row (e.g. a team grid where one
+   * member's card is offset to compensate for a shorter title). Default 0
    * — backward-compatible no-op when unset.
    */
   verticalOffset?: number;
@@ -393,8 +393,8 @@ export interface MetricCardsBlock extends BaseBlock {
    * CSS-unit width reserved for the institution-logo region inside each
    * card. When set, the heading + label column is constrained so the
    * logo sits to the side without overlapping. Useful when paired with
-   * customCss that absolute-positions the logo top-right (as in the
-   * Post Captain stats section).
+   * customCss that absolute-positions the logo top-right (as in a
+   * metrics/stats section).
    *
    * Applied as `--mc-logo-col-width` on the section root + as
    * `padding-right` on the heading column. Defaults to unset (no
@@ -423,7 +423,7 @@ export interface SiteFooterBlock extends BaseBlock {
   logoAlt?: string;
   /**
    * Wordmark text displayed inline next to the logo image (e.g. for a
-   * brand lockup like LOGO + "POST CAPTAIN / CONSULTING"). Multi-line is
+   * brand lockup like LOGO + "ACME CO / CONSULTING"). Multi-line is
    * supported via `\n` — newlines render as a `<br>`. When omitted, the
    * logo renders alone, preserving the legacy single-image behavior.
    */
@@ -434,7 +434,7 @@ export interface SiteFooterBlock extends BaseBlock {
    * - `'sm'` — compact (logo h-8, wordmark 9px) for dense footers.
    * - `'md'` — default (logo h-10, wordmark 10px). Matches legacy behavior.
    * - `'lg'` — enlarged (logo h-12, wordmark 12px) for prominent brand-first
-   *   footers like Post Captain's "POST CAPTAIN / CONSULTING" lockup.
+   *   footers like a prominent brand-first "ACME CO / CONSULTING" lockup.
    *
    * Defaults to `'md'`. `elementStyles.logo` / `elementStyles.wordmark` still
    * win when set, so this is a non-breaking convenience prop.

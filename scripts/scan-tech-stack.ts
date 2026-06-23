@@ -20,7 +20,7 @@
  * an aggregate summary CSV (tech → company count) and a console digest.
  *
  * Flags:
- *   --email <email>     Resolve clientId via user email (default: postcaptain@simplerdevelopment.com)
+ *   --email <email>     Resolve clientId via user email (default: $SCAN_CONTACT_EMAIL or bot@example.com)
  *   --client-id <n>     Override: scan this clientId directly
  *   --limit <n>         Only process the first N companies
  *   --concurrency <n>   Parallel fetches (default 8)
@@ -44,7 +44,7 @@ function argVal(name: string, def?: string): string | undefined {
 }
 const DRY_RUN = args.includes('--dry-run');
 const PROBE_WP = args.includes('--probe-wp');
-const EMAIL = argVal('--email', 'postcaptain@simplerdevelopment.com')!;
+const EMAIL = argVal('--email', process.env.SCAN_CONTACT_EMAIL || 'bot@example.com')!;
 const CLIENT_ID_ARG = argVal('--client-id');
 const LIMIT = argVal('--limit') ? parseInt(argVal('--limit')!, 10) : undefined;
 const CONCURRENCY = parseInt(argVal('--concurrency', '8')!, 10);
@@ -446,7 +446,7 @@ async function fetchWithTimeout(url: string, ms: number): Promise<{
       signal: ctrl.signal,
       headers: {
         'User-Agent':
-          'Mozilla/5.0 (compatible; PostCaptainTechScan/1.0; +https://postcaptain.com)',
+          'Mozilla/5.0 (compatible; TechStackScan/1.0)',
         Accept: 'text/html,application/xhtml+xml',
       },
     });

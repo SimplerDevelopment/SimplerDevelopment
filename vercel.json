@@ -96,10 +96,6 @@
       "schedule": "* * * * *"
     },
     {
-      "path": "/api/cron/brain-12",
-      "schedule": "30 7 * * *"
-    },
-    {
       "path": "/api/cron/mcp-rollup",
       "schedule": "0 4 * * *"
     },

@@ -281,7 +281,7 @@ A reasonable build order. **Phase 0 is complete (see audit above) — start at P
   mode: 'replace' | 'patch' | 'prose',
   instructions: string,        // what to change, in plain language
   source?: {                   // optional sourcing material
-    kb?: string,               // postcaptain-kb path
+    kb?: string,               // knowledge base path
     url?: string,
     text?: string,
   },

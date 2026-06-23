@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { randomBytes } from 'node:crypto';
 import { withCronHealth } from '@/lib/cron-health';
+import { isAuthorizedCron } from '@/lib/cron-auth';
 import { db } from '@/lib/db';
 import { carts, cartItems, orders, clientWebsites } from '@/lib/db/schema';
 import { and, eq, gt, isNotNull, sql, inArray } from 'drizzle-orm';
@@ -26,13 +27,8 @@ const RECOVERY_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
  * Runs every 30 minutes (vercel.json: path /api/cron/process-cart-abandonment, schedule: every 30 min).
  */
 async function _GET(req: Request) {
-  const isVercelCron = req.headers.get('x-vercel-cron') === '1';
-  if (!isVercelCron) {
-    const cronSecret = process.env.CRON_SECRET;
-    const auth = req.headers.get('authorization');
-    if (!cronSecret || auth !== `Bearer ${cronSecret}`) {
-      return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
-    }
+  if (!isAuthorizedCron(req)) {
+    return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
   }
 
   const now = new Date();

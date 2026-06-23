@@ -12,7 +12,7 @@ export const cronHealth = pgTable('cron_health', {
   /** Stable job identifier, e.g. "api-cron:process-embeddings" or
    *  "routine:embeddings-backlog". Unique. */
   name: varchar('name', { length: 200 }).notNull().unique(),
-  /** "api-cron" | "routine" | "brain-12" (free-form for now). */
+  /** "api-cron" | "routine" (free-form for now). */
   area: varchar('area', { length: 40 }).notNull(),
   /** Set on every invocation when the handler enters. */
   lastRunAt: timestamp('last_run_at'),

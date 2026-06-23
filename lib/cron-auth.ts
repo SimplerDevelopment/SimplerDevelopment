@@ -1,7 +1,8 @@
-// Shared cron auth check for the plugin-registry crons. Accepts either the
-// Vercel cron platform header (`x-vercel-cron: 1`) or a Bearer secret in the
-// `Authorization` header matching `process.env.CRON_SECRET`. Mirrors the
-// pattern used by app/api/cron/process-scheduled-automations/route.ts.
+// Shared cron auth check. Accepts either the Vercel cron platform header
+// (`x-vercel-cron: 1`) or a Bearer secret in the `Authorization` header
+// matching `process.env.CRON_SECRET`. Returns false (unauthorized) if
+// CRON_SECRET is unset — unlike the old inline pattern which skipped the
+// check entirely when the env var was missing.
 
 import type { NextRequest } from 'next/server';
 

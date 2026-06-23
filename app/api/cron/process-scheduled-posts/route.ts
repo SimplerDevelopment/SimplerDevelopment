@@ -16,18 +16,14 @@ import { withCronHealth } from '@/lib/cron-health';
 import { db } from '@/lib/db';
 import { posts } from '@/lib/db/schema';
 import { and, eq, isNotNull, lte, sql } from 'drizzle-orm';
+import { isAuthorizedCron } from '@/lib/cron-auth';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 async function _GET(req: Request): Promise<Response> {
-  const isVercelCron = req.headers.get('x-vercel-cron') === '1';
-  if (!isVercelCron) {
-    const cronSecret = process.env.CRON_SECRET;
-    const authz = req.headers.get('authorization');
-    if (!cronSecret || authz !== `Bearer ${cronSecret}`) {
-      return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
-    }
+  if (!isAuthorizedCron(req)) {
+    return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
   }
 
   const now = new Date();

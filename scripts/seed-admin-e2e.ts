@@ -365,8 +365,8 @@ async function seedAdminE2E() {
         },
         {
           contractId: contract.id,
-          name: 'Dan Coyle',
-          email: 'dan@simplerdevelopment.com',
+          name: 'Admin User',
+          email: 'admin@example.com',
           role: 'signer',
           order: 2,
           token: randomToken(),

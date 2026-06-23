@@ -60,8 +60,8 @@ export function __resetBotUserIdCache(): void {
 }
 
 // ─── Slug → BRAIN card mapping ────────────────────────────────────────────
-// Hardcoded for v1. The cards live in project 141 (BRAIN — Post Captain
-// Knowledge Curation). Verified against production on 2026-05-19.
+// Hardcoded for v1. The cards live in project 141 (BRAIN — Knowledge Curation).
+// Verified against production on 2026-05-19.
 
 const COMPETITOR_SLUG_TO_BRAIN_CARD: Record<string, number> = {
   carnegie: 144,        // BRAIN-4 — Pull what matters from Carnegie Higher Ed

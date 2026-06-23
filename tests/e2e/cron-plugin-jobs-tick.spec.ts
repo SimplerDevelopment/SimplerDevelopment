@@ -37,7 +37,7 @@ import { test, expect } from '@playwright/test';
 import { execSync } from 'node:child_process';
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
-const DATABASE_URL = process.env.DATABASE_URL || 'postgresql://dancoyle@localhost:5432/simplerdev_test';
+const DATABASE_URL = process.env.DATABASE_URL || 'postgresql://postgres@localhost:5432/simplerdev_test';
 
 // ────────────────────────────────────────────────────────────────────────────
 // Minimal DB helpers (psql via child_process — avoids pulling the Drizzle

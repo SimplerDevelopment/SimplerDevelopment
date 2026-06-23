@@ -19,7 +19,7 @@ import { test, expect } from './setup/fixtures';
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 const DB_URL =
-  process.env.DATABASE_URL || 'postgresql://dancoyle@localhost:5432/simplerdev_test';
+  process.env.DATABASE_URL || 'postgresql://postgres@localhost:5432/simplerdev_test';
 
 function psql(sql: string) {
   execSync(`psql "${DB_URL}" -c "${sql.replace(/"/g, '\\"')}"`, {

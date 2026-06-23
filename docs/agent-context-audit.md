@@ -117,7 +117,7 @@ This PR adds explicit `/edit-*.png` and `/editor-*.png` patterns for symmetry wi
 
 ## 6. Memory hygiene
 
-Auto-memory under `~/.claude/projects/-Users-dancoyle-simplerdevelopment/memory/` contains 13 entries. All currently relevant. No action.
+Auto-memory under `~/.claude/projects/<project>/memory/` contains 13 entries. All currently relevant. No action.
 
 ---
 

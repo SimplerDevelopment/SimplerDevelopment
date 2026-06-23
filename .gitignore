@@ -125,3 +125,24 @@ vault/.obsidian/plugins/*/manifest.json
 .sentry-token
 
 evals-out/
+
+# Per-client site-migration working data (real client content/PII — never commit).
+# Top-level scripts/migrations/*.ts are generic and stay tracked; per-client subdirs do not.
+/scripts/migrations/*/
+
+# OSS-prep: stop tracking local Obsidian app/plugin state (a plugin data.json
+# contained a live API key + RSA private key) and per-client scrape output (real PII).
+vault/.obsidian/
+/scripts/output/
+.vscode/
+.idea/
+
+# OSS-prep: internal-only dirs excluded from the public repo (kept on disk locally).
+# Internal architecture/ADR knowledge base, agent tooling, and generated artifacts.
+/vault/
+/.claude/
+/dist/
+/fallow-baselines/
+
+# OSS-prep: internal planning archive (frozen; contains client-replication notes)
+/.planning/

@@ -21,7 +21,7 @@ import { runCleanups, resolveClientSiteId } from './setup/helpers';
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
 const DATABASE_URL =
-  process.env.DATABASE_URL || 'postgresql://dancoyle@localhost:5432/simplerdev_test';
+  process.env.DATABASE_URL || 'postgresql://postgres@localhost:5432/simplerdev_test';
 
 // ── DB helpers ────────────────────────────────────────────────────────────────
 

@@ -480,7 +480,7 @@ const page = await fetchOneEntry({
 ### Endpoint
 
 **Route**: `POST /api/contact`
-**File**: `/Users/dancoyle/simplerdevelopment2026/app/api/contact/route.ts`
+**File**: `app/api/contact/route.ts`
 
 ### Request Schema
 

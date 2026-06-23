@@ -465,7 +465,7 @@ export async function runUsageAlerts(): Promise<UsageAlertsResult> {
           try {
             const resend = getResend();
             await resend.emails.send({
-              from: 'SimplerDevelopment <billing@simplerdevelopment.com>',
+              from: `SimplerDevelopment <${process.env.BILLING_EMAIL || 'billing@simplerdevelopment.com'}>`,
               to: ownerEmail,
               subject: alertSubject(alert),
               html: alertBody(alert, ownerEmail),

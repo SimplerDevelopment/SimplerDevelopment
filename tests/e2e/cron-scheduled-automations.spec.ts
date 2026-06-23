@@ -30,7 +30,7 @@ import { execSync } from 'node:child_process';
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
 const DATABASE_URL =
-  process.env.DATABASE_URL || 'postgresql://dancoyle@localhost:5432/simplerdev_test';
+  process.env.DATABASE_URL || 'postgresql://postgres@localhost:5432/simplerdev_test';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Minimal DB helpers via psql child_process — avoids importing the Drizzle

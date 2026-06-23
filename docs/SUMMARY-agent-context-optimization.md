@@ -1,7 +1,7 @@
 # Agent Context Optimization — Summary
 
 **Branch:** `feat/agent-context-optimization`
-**Worktree:** `/Users/dancoyle/simplerdevelopment/sd2026-agent-context`
+**Worktree:** `<worktree>/sd2026-agent-context`
 **Authored:** 2026-05-20 (overnight autonomous run)
 
 ## What this branch does
@@ -64,7 +64,7 @@ Captured in `docs/agent-context-audit.md`:
 
 ```bash
 # In the worktree:
-cd /Users/dancoyle/simplerdevelopment/sd2026-agent-context/simplerdevelopment2026
+cd <worktree>/sd2026-agent-context/simplerdevelopment2026
 npx tsc --noEmit   # should pass (no code changes)
 bun run lint       # should pass (no code changes)
 ```

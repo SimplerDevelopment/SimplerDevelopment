@@ -1,12 +1,17 @@
 /**
- * Fetch a batch of postcaptain CRM contacts that still have NULL linkedin_url.
- * Usage: npx tsx --env-file=.env scripts/li-enrich-fetch-batch.ts <limit> <offset> > .planning/li-enrich/batch.json
+ * Fetch a batch of CRM contacts that still have NULL linkedin_url.
+ * Usage: CLIENT_ID=<n> npx tsx --env-file=.env scripts/li-enrich-fetch-batch.ts <limit> <offset> > .planning/li-enrich/batch.json
  */
 import { db } from '@/lib/db';
 import { crmContacts, crmCompanies } from '@/lib/db/schema';
 import { eq, and, isNull, sql } from 'drizzle-orm';
 
-const CLIENT_ID = 100;
+const _rawClientId = process.env.CLIENT_ID ? Number(process.env.CLIENT_ID) : NaN;
+if (!_rawClientId || isNaN(_rawClientId)) {
+  console.error('Error: CLIENT_ID env var is required. Usage: CLIENT_ID=<n> npx tsx --env-file=.env scripts/li-enrich-fetch-batch.ts [limit] [offset]');
+  process.exit(1);
+}
+const CLIENT_ID = _rawClientId;
 
 async function main() {
   const limit = Number(process.argv[2] ?? 50);

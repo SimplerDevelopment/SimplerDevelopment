@@ -21,7 +21,7 @@ import { execSync } from 'child_process';
 // ── DB helpers ────────────────────────────────────────────────────────────────
 
 const DB_URL =
-  process.env.DATABASE_URL || 'postgresql://dancoyle@localhost:5432/simplerdev_test';
+  process.env.DATABASE_URL || 'postgresql://postgres@localhost:5432/simplerdev_test';
 
 /**
  * Feed SQL via stdin so multiline statements and special chars don't need

@@ -14,7 +14,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { withCronHealth } from '@/lib/cron-health';
 import { fireDueJobs } from '@/lib/plugins/handlers/content-tools/fire-due-jobs';
-import { isAuthorizedCron } from '@/lib/plugins/handlers/content-tools/cron-auth';
+import { isAuthorizedCron } from '@/lib/cron-auth';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';

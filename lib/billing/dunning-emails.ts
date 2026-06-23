@@ -33,7 +33,7 @@ function wrapInShell(headline: string, bodyHtml: string): string {
     </div>
     <p style="font-size:12px;color:#94a3b8;line-height:1.5;">
       If you believe this is a mistake, reply to this email or
-      contact <a href="mailto:billing@simplerdevelopment.com" style="color:#2563eb;">billing@simplerdevelopment.com</a>.
+      contact <a href="mailto:${process.env.BILLING_EMAIL || 'billing@simplerdevelopment.com'}" style="color:#2563eb;">${process.env.BILLING_EMAIL || 'billing@simplerdevelopment.com'}</a>.
     </p>
   </div>
   <div style="padding:24px 32px;background:#f8fafc;border-top:1px solid #e2e8f0;text-align:center;">
