@@ -16,6 +16,7 @@ import { and, eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { brandingProfiles, brandingMessaging } from '@/lib/db/schema';
 import { hasScope, type PortalMcpContext } from '@/lib/mcp-auth';
+import { json, denied } from '@/lib/mcp/types';
 import {
   handleBrandingListProfiles,
   handleBrandingGetProfile,
@@ -23,17 +24,6 @@ import {
   handleBrandingAudit,
   handleBrandingCheckContrast,
 } from './mcp-tools';
-
-function json(payload: unknown) {
-  return { content: [{ type: 'text' as const, text: JSON.stringify(payload, null, 2) }] };
-}
-
-function denied(scope: string) {
-  return {
-    content: [{ type: 'text' as const, text: `Permission denied: this API key lacks the "${scope}" scope.` }],
-    isError: true,
-  };
-}
 
 export function registerBrandingToolsOnSdk(server: McpServer, ctx: PortalMcpContext) {
   const clientId = ctx.client.id;

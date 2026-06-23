@@ -47,32 +47,10 @@ import { uploadToS3 } from '@/lib/s3/upload';
 import { cleanEmbedHtml } from '@/lib/html-embed-clean';
 import { importHtmlAssets } from '@/lib/html-asset-import';
 import { hasScope, type PortalMcpContext } from '@/lib/mcp-auth';
+import { json, denied, serializePostContent } from '@/lib/mcp/types';
 import { renderBlocksToEmailHtml } from '@/lib/email';
 import { executeCampaignSend } from '@/lib/email/campaign-send';
 import { publishEntityFromDb } from '@/lib/realtime/internal-publisher';
-
-function json(payload: unknown) {
-  return { content: [{ type: 'text' as const, text: JSON.stringify(payload, null, 2) }] };
-}
-
-function denied(scope: string) {
-  return {
-    content: [{ type: 'text' as const, text: `Permission denied: this API key lacks the "${scope}" scope.` }],
-    isError: true,
-  };
-}
-
-function serializePostContent(args: { blocks?: unknown; content?: string }): string {
-  if (Array.isArray(args.blocks) && args.blocks.length > 0) {
-    return JSON.stringify({ blocks: args.blocks, version: '1.0' });
-  }
-  const raw = args.content ?? '';
-  if (!raw.trim()) return JSON.stringify({ blocks: [], version: '1.0' });
-  return JSON.stringify({
-    blocks: [{ id: `block-${Date.now()}`, type: 'text', order: 0, content: raw }],
-    version: '1.0',
-  });
-}
 
 /**
  * Per-slide publish helper. Mirrors `publishOneSlide` in
