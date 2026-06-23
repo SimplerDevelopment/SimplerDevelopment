@@ -2,15 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
+import { slugify } from '@/lib/publishing/slug';
 
 interface Tag {
   id: number;
   name: string;
   slug: string;
-}
-
-function generateSlug(name: string) {
-  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 }
 
 export default function PortalTagsPage() {
@@ -53,7 +50,7 @@ export default function PortalTagsPage() {
     setForm(prev => ({
       ...prev,
       name,
-      slug: !editing ? generateSlug(name) : prev.slug,
+      slug: !editing ? slugify(name) : prev.slug,
     }));
     setError('');
   };

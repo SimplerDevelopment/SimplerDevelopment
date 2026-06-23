@@ -4,6 +4,7 @@
 import { useRef, useState } from 'react';
 import { createCategory, createTag } from '../_lib/api';
 import type { Post, TaxonomyItem } from '../_lib/types';
+import { slugify } from '@/lib/publishing/slug';
 
 interface TaxonomySectionProps {
   siteId: number;
@@ -37,7 +38,7 @@ export function TaxonomySection({
             : [...(prev.categoryIds || []), id],
         }))}
         onCreate={async (name) => {
-          const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+          const slug = slugify(name);
           const created = await createCategory(siteId, name, slug);
           if (created) {
             setAvailableCategories(prev => [...prev, created]);
@@ -56,7 +57,7 @@ export function TaxonomySection({
             : [...(prev.tagIds || []), id],
         }))}
         onCreate={async (name) => {
-          const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+          const slug = slugify(name);
           const created = await createTag(siteId, name, slug);
           if (created) {
             setAvailableTags(prev => [...prev, created]);

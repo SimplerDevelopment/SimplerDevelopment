@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import MediaPicker from '@/components/admin/MediaPicker';
+import { slugify } from '@/lib/publishing/slug';
 
 interface DesignSurface {
   id: number;
@@ -39,13 +40,6 @@ interface NewSurfaceDraft {
 interface DesignSurfacesEditorProps {
   productId: number;
   siteId: string;
-}
-
-function slugify(name: string) {
-  return name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '');
 }
 
 const DEFAULT_DRAFT: NewSurfaceDraft = {

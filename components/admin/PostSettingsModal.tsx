@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import MediaPicker from './MediaPicker';
+import { slugify } from '@/lib/publishing/slug';
 
 interface PostSettingsModalProps {
   isOpen: boolean;
@@ -55,12 +56,7 @@ export function PostSettingsModal({
 
   if (!isOpen) return null;
 
-  const generateSlug = (title: string) => {
-    return title
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-|-$/g, '');
-  };
+  const generateSlug = (title: string) => slugify(title);
 
   const handleTitleChange = (title: string) => {
     onFormDataChange({

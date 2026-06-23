@@ -106,6 +106,7 @@ import { getTenantWorkspaceCredentialsByClientId } from '@/lib/google/tenant-cre
 import { stageOrApply } from '../pending-changes';
 import { BLOCKS_SCHEMA_REFERENCE } from '../blocks-schema';
 import { createApprovalLink, approvalEnvelope } from '../approval-links';
+import { slugify } from '@/lib/publishing/slug';
 import {
   json,
   serializePostContent,
@@ -220,7 +221,7 @@ export function registerSurveysTools(server: McpServer, ctx: PortalMcpContext): 
     async (args) => {
       if (!requireScope(ctx, 'surveys:write')) return denied('surveys:write');
       if (!(await requireService(clientId, 'surveys'))) return serviceDenied('surveys');
-      const baseSlug = args.title.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+      const baseSlug = slugify(args.title.trim());
       const slug = `${baseSlug}-${Date.now().toString(36)}`;
       const [row] = await db.insert(surveys).values({
         clientId,

@@ -3,6 +3,7 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { services } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
+import { slugify } from '@/lib/publishing/slug';
 
 export const runtime = 'nodejs';
 
@@ -28,7 +29,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: false, message: 'name, category, and price are required' }, { status: 400 });
   }
 
-  const slug = body.slug ?? body.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+  const slug = body.slug ?? slugify(body.name);
   const [svc] = await db.insert(services).values({
     name: body.name,
     slug,

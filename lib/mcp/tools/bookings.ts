@@ -11,6 +11,7 @@ import { and, desc, eq, ilike, inArray, isNull, or, sql, gte, lte } from 'drizzl
 import crypto from 'crypto';
 import { hash as hashPassword } from 'bcryptjs';
 import { db } from '@/lib/db';
+import { slugify } from '@/lib/publishing/slug';
 import {
   projects,
   kanbanCards,
@@ -189,9 +190,7 @@ export function registerBookingsTools(server: McpServer, ctx: PortalMcpContext):
     async (args) => {
       if (!requireScope(ctx, 'bookings:write')) return denied('bookings:write');
       // Slug uniqueness — auto-derive if not provided, then bump with date suffix on collision.
-      const baseSlug = (args.slug ?? args.title)
-        .trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
-        .slice(0, 80) || 'booking';
+      const baseSlug = slugify(args.slug ?? args.title, 80) || 'booking';
       let slug = baseSlug;
       const [collide] = await db.select({ id: bookingPages.id }).from(bookingPages)
         .where(and(eq(bookingPages.slug, slug), eq(bookingPages.clientId, clientId))).limit(1);

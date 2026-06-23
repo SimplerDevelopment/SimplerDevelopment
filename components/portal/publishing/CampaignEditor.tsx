@@ -8,6 +8,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import type { CampaignRow } from './PublishingCampaignsList';
+import { slugify } from '@/lib/publishing/slug';
 
 interface CampaignFormState {
   name: string;
@@ -27,16 +28,6 @@ interface Props {
 }
 
 const STATUSES: CampaignFormState['status'][] = ['active', 'completed', 'archived'];
-
-function slugifyClient(input: string): string {
-  return input
-    .toLowerCase()
-    .normalize('NFKD')
-    .replace(/[̀-ͯ]/g, '')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 100);
-}
 
 function isoToDateInput(iso: string | null): string {
   if (!iso) return '';
@@ -67,7 +58,7 @@ export default function CampaignEditor({ campaign, onSaved, onCancel }: Props) {
 
   useEffect(() => {
     if (!slugTouched && !isEdit) {
-      setForm((f) => ({ ...f, slug: slugifyClient(f.name) }));
+      setForm((f) => ({ ...f, slug: slugify(f.name) }));
     }
   }, [form.name, slugTouched, isEdit]);
 
@@ -148,7 +139,7 @@ export default function CampaignEditor({ campaign, onSaved, onCancel }: Props) {
             value={form.slug}
             onChange={(e) => {
               setSlugTouched(true);
-              setForm({ ...form, slug: slugifyClient(e.target.value) });
+              setForm({ ...form, slug: slugify(e.target.value) });
             }}
             className="w-full rounded border border-gray-300 dark:border-gray-700 dark:bg-gray-800 px-2 py-1.5 text-sm font-mono text-xs"
             placeholder="fall-2026-outbound"

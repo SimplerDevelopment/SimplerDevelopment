@@ -134,6 +134,7 @@ import {
   campaignProjection,
   SLIM_POST_COLUMNS,
 } from '../projections';
+import { slugify } from '@/lib/publishing/slug';
 
 export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void {
   const clientId = ctx.client.id;
@@ -559,11 +560,7 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
 
           // Find a free slug — append numeric suffix on collision (matches the
           // route's behavior so API + MCP yield identical post layouts).
-          const baseSlug = (filename.trim().toLowerCase()
-            .replace(/\.[^.]+$/, '')
-            .replace(/[^a-z0-9]+/g, '-')
-            .replace(/(^-|-$)/g, '')
-            .slice(0, 80)) || 'page';
+          const baseSlug = slugify(filename.trim().replace(/\.[^.]+$/, ''), 80) || 'page';
           let slug = baseSlug;
           for (let i = 2; i < 100; i++) {
             const [collision] = await db.select({ id: posts.id }).from(posts)
@@ -686,11 +683,7 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
       await db.insert(media).values(mediaRows);
 
       // Pick a free slug derived from the zip filename minus .zip.
-      const baseSlug = (filename.trim().toLowerCase()
-        .replace(/\.zip$/i, '')
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/(^-|-$)/g, '')
-        .slice(0, 80)) || 'bundle';
+      const baseSlug = slugify(filename.trim().replace(/\.zip$/i, ''), 80) || 'bundle';
       let slug = baseSlug;
       for (let i = 2; i < 100; i++) {
         const [collision] = await db.select({ id: posts.id }).from(posts)
@@ -1027,7 +1020,7 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
       const [site] = await db.select({ id: clientWebsites.id, name: clientWebsites.name }).from(clientWebsites)
         .where(and(eq(clientWebsites.id, websiteId), eq(clientWebsites.clientId, clientId))).limit(1);
       if (!site) return json({ error: 'Site not found' });
-      const finalSlug = (slug ?? name).toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+      const finalSlug = slugify((slug ?? name).trim());
       const result = await stageOrApply({
         ctx,
         entityType: 'taxonomy',
@@ -1073,7 +1066,7 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
       const [site] = await db.select({ id: clientWebsites.id, name: clientWebsites.name }).from(clientWebsites)
         .where(and(eq(clientWebsites.id, websiteId), eq(clientWebsites.clientId, clientId))).limit(1);
       if (!site) return json({ error: 'Site not found' });
-      const finalSlug = (slug ?? name).toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+      const finalSlug = slugify((slug ?? name).trim());
       const result = await stageOrApply({
         ctx,
         entityType: 'taxonomy',

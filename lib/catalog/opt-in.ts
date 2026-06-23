@@ -15,6 +15,7 @@
 
 import { eq, and, inArray } from 'drizzle-orm';
 import { db } from '@/lib/db';
+import { slugify } from '@/lib/publishing/slug';
 import {
   catalogProducts,
   catalogStyles,
@@ -84,14 +85,6 @@ function orderSizes(names: string[]): string[] {
   });
 }
 
-function slugify(s: string): string {
-  return s
-    .toLowerCase()
-    .replace(/&[a-z0-9#]+;/g, ' ')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 200) || 'product';
-}
 
 async function uniqueSlug(websiteId: number, base: string): Promise<string> {
   let slug = base;
@@ -149,7 +142,7 @@ export async function optInCatalogProduct(opts: OptInOptions): Promise<OptInResu
   const baseCost = sizeCosts.length ? Math.min(...sizeCosts) : 0;
   const retail = baseCost ? Math.round(baseCost * markup) : 0;
 
-  const slug = await uniqueSlug(opts.websiteId, cp.slug || slugify(cp.name));
+  const slug = await uniqueSlug(opts.websiteId, cp.slug || slugify(cp.name.replace(/&[a-z0-9#]+;/gi, ' '), 200) || 'product');
 
   return db.transaction(async (tx) => {
     const [prod] = await tx

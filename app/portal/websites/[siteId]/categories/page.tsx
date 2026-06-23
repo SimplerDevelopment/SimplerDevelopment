@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
+import { slugify } from '@/lib/publishing/slug';
 
 interface Category {
   id: number;
@@ -9,10 +10,6 @@ interface Category {
   slug: string;
   description?: string | null;
   color?: string | null;
-}
-
-function generateSlug(name: string) {
-  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 }
 
 export default function PortalCategoriesPage() {
@@ -60,7 +57,7 @@ export default function PortalCategoriesPage() {
     setForm(prev => ({
       ...prev,
       name,
-      slug: !editing ? generateSlug(name) : prev.slug,
+      slug: !editing ? slugify(name) : prev.slug,
     }));
     setError('');
   };

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { slugify } from '@/lib/publishing/slug';
 
 interface BlockTemplate {
   id: number;
@@ -175,12 +176,6 @@ export default function TemplatesPage() {
     }
   };
 
-  const generateSlug = (name: string) => {
-    return name
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/(^-|-$)/g, '');
-  };
 
   const getBlockSummary = (blocks: any[]) => {
     if (!blocks || blocks.length === 0) return 'Empty';
@@ -257,7 +252,7 @@ export default function TemplatesPage() {
                     setFormData({
                       ...formData,
                       name: e.target.value,
-                      ...(!editingTemplate ? { slug: generateSlug(e.target.value) } : {}),
+                      ...(!editingTemplate ? { slug: slugify(e.target.value) } : {}),
                     });
                   }}
                   className="w-full px-3 py-2 rounded-md border border-border bg-background text-foreground text-sm"

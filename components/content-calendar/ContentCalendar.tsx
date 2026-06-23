@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
+import { slugify } from '@/lib/publishing/slug';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -259,10 +260,7 @@ function CreatePostModal({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
-  const slug = title
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '');
+  const slug = slugify(title);
 
   const handleCreate = async () => {
     if (!title.trim()) { setError('Title is required'); return; }

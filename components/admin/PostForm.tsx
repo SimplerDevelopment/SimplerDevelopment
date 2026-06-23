@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
+import { slugify } from '@/lib/publishing/slug';
 import MediaPicker from './MediaPicker';
 import { BlockEditor } from '@/components/blocks/BlockEditor';
 import { EditorWithPreview } from '@/components/blocks/EditorWithPreview';
@@ -207,12 +208,7 @@ export default function PostForm({ post, mode }: PostFormProps) {
     }
   };
 
-  const generateSlug = (title: string) => {
-    return title
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-|-$/g, '');
-  };
+  const generateSlug = (title: string) => slugify(title);
 
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const title = e.target.value;

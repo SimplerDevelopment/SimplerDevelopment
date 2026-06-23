@@ -36,6 +36,7 @@ import {
 } from '@/lib/db/schema';
 import { hasScope, type PortalMcpContext } from '@/lib/mcp-auth';
 import { json, denied } from '@/lib/mcp/types';
+import { slugify } from '@/lib/publishing/slug';
 
 function revalidatePortal() {
   try { revalidatePath('/portal', 'layout'); } catch { /* ignore */ }
@@ -132,8 +133,7 @@ export function registerStoreToolsOnSdk(server: McpServer, ctx: PortalMcpContext
     async (args) => {
       if (!hasScope(ctx.scopes, 'store:write')) return denied('store:write');
       if (!(await requireSite(args.websiteId))) return json({ error: 'Site not found' });
-      const finalSlug = (args.slug ?? args.name)
-        .toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+      const finalSlug = slugify(args.slug ?? args.name);
       try {
         const [row] = await db.insert(products).values({
           websiteId: args.websiteId,
@@ -419,8 +419,7 @@ export function registerStoreToolsOnSdk(server: McpServer, ctx: PortalMcpContext
     async ({ websiteId, name, slug, description, parentId, image }) => {
       if (!hasScope(ctx.scopes, 'store:write')) return denied('store:write');
       if (!(await requireSite(websiteId))) return json({ error: 'Site not found' });
-      const finalSlug = (slug ?? name)
-        .toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+      const finalSlug = slugify(slug ?? name);
       try {
         const [row] = await db.insert(productCategories).values({
           websiteId,

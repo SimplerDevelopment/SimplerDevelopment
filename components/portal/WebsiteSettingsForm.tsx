@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { slugify } from '@/lib/publishing/slug';
 
 export default function WebsiteSettingsForm({
   siteId,
@@ -53,7 +54,7 @@ export default function WebsiteSettingsForm({
   };
 
   const handleSubChange = (val: string) => {
-    setSub(val.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').slice(0, 63));
+    setSub(slugify(val, 63));
   };
 
   const handleSave = async () => {

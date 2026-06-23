@@ -1,18 +1,14 @@
 import { db } from '@/lib/db';
 import { clientWebsites } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
+import { slugify } from '@/lib/publishing/slug';
 
 /**
  * Generate a URL-safe subdomain slug from company name + site name.
  * e.g. ("Acme Corp", "Main Site") → "acme-corp-main-site"
  */
 export function generateSubdomain(companyName: string, siteName: string): string {
-  const raw = `${companyName}-${siteName}`
-    .toLowerCase()
-    .replace(/[^a-z0-9-]/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '')
-    .slice(0, 63);
+  const raw = slugify(`${companyName}-${siteName}`, 63);
   return raw || 'site';
 }
 

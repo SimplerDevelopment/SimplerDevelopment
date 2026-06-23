@@ -46,6 +46,7 @@ import {
 import { and, asc, desc, eq, sql, inArray } from 'drizzle-orm';
 import { logAudit } from './audit';
 import { revalidateBrainDashboard } from './dashboard';
+import { slugify } from '@/lib/publishing/slug';
 
 export type BrainInitiative = typeof brainInitiatives.$inferSelect;
 export type BrainGoal = typeof brainGoals.$inferSelect;
@@ -60,15 +61,7 @@ export type { BrainInitiativeStatus, BrainInitiativePriority, BrainInitiativeLin
  * 150-char column for a numeric collision suffix).
  */
 export function slugifyInitiativeName(name: string): string {
-  const base = name
-    .toLowerCase()
-    .normalize('NFKD')
-    .replace(/[̀-ͯ]/g, '') // strip combining marks
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .replace(/-{2,}/g, '-')
-    .slice(0, 140);
-  return base || 'initiative';
+  return slugify(name, 140) || 'initiative';
 }
 
 /**

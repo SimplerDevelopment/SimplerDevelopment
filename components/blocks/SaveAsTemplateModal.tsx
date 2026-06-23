@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Block } from '@/types/blocks';
+import { slugify } from '@/lib/publishing/slug';
 
 interface SaveAsTemplateModalProps {
   blocks: Block[];
@@ -23,12 +24,7 @@ export function SaveAsTemplateModal({ blocks, onClose, onSaved, endpoint = '/api
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
-  const generateSlug = (value: string) => {
-    return value
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/(^-|-$)/g, '');
-  };
+  const generateSlug = (value: string) => slugify(value);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -51,6 +51,7 @@ import { json, denied, serializePostContent } from '@/lib/mcp/types';
 import { renderBlocksToEmailHtml } from '@/lib/email';
 import { executeCampaignSend } from '@/lib/email/campaign-send';
 import { publishEntityFromDb } from '@/lib/realtime/internal-publisher';
+import { slugify } from '@/lib/publishing/slug';
 
 /**
  * Per-slide publish helper. Mirrors `publishOneSlide` in
@@ -152,7 +153,7 @@ export async function applyPendingChange(change: typeof mcpPendingChanges.$infer
     // ── PITCH DECKS ──────────────────────────────────────────────────────
     case 'pitch_deck:create': {
       const title = payload.title as string;
-      const baseSlug = title.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+      const baseSlug = slugify(title.trim());
       const slug = `${baseSlug}-${Date.now().toString(36)}`;
       const theme = payload.theme as Record<string, string> | undefined;
       const [row] = await db.insert(pitchDecks).values({
@@ -342,11 +343,7 @@ export async function applyPendingChange(change: typeof mcpPendingChanges.$infer
       const filenameNoExt = filename.replace(/\.[^.]+$/, '');
       const titleArg = payload.title as string | undefined;
       const deckTitle = titleArg?.trim() || filenameNoExt || 'Uploaded HTML Deck';
-      const baseSlug = (filename.trim().toLowerCase()
-        .replace(/\.[^.]+$/, '')
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/(^-|-$)/g, '')
-        .slice(0, 80)) || 'deck';
+      const baseSlug = slugify(filename.trim().replace(/\.[^.]+$/, ''), 80) || 'deck';
       const slug = `${baseSlug}-${Date.now().toString(36)}`;
       const ts = Date.now();
       const slide: PitchDeckSlideV2 = {
@@ -844,11 +841,7 @@ export async function applyPendingChange(change: typeof mcpPendingChanges.$infer
         clientId,
         websiteId: site.id,
       });
-      const baseSlug = (filename.trim().toLowerCase()
-        .replace(/\.[^.]+$/, '')
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/(^-|-$)/g, '')
-        .slice(0, 80)) || 'page';
+      const baseSlug = slugify(filename.trim().replace(/\.[^.]+$/, ''), 80) || 'page';
       let slug = baseSlug;
       for (let i = 2; i < 100; i++) {
         const [collision] = await db.select({ id: posts.id }).from(posts)
