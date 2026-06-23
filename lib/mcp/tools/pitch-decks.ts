@@ -961,6 +961,6 @@ export function registerPitchDecksTools(server: McpServer, ctx: PortalMcpContext
 }
 
 // ─── Slide-draft publish helpers ─────────────────────────────────────────────
-// Pure functions live in `lib/mcp/decks-publish.ts` so the public approval
+// Pure functions live in `lib/decks/publish-slide.ts` so the public approval
 // route can reuse them without dragging in the whole MCP SDK.
-import { applyPublishToSlides, applyPublishAllToSlides } from '@/lib/mcp/decks-publish';
+import { applyPublishToSlides, applyPublishAllToSlides } from '@/lib/decks/publish-slide';
