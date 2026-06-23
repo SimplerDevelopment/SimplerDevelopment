@@ -39,14 +39,6 @@ import { SurveyBlockRender } from '@/components/blocks/render/SurveyBlockRender'
 import { SocialLinksBlockRender } from '@/components/blocks/render/SocialLinksBlockRender';
 import { EmailHeaderBlockRender } from '@/components/blocks/render/EmailHeaderBlockRender';
 import { EmailFooterBlockRender } from '@/components/blocks/render/EmailFooterBlockRender';
-import { PalizziNavBlockRender } from '@/components/blocks/render/PalizziNavBlockRender';
-import { PalizziHeroBlockRender } from '@/components/blocks/render/PalizziHeroBlockRender';
-import { PalizziWelcomeBlockRender } from '@/components/blocks/render/PalizziWelcomeBlockRender';
-import { PalizziHistoryBlockRender } from '@/components/blocks/render/PalizziHistoryBlockRender';
-import { PalizziMenuBlockRender } from '@/components/blocks/render/PalizziMenuBlockRender';
-import { PalizziRulesBlockRender } from '@/components/blocks/render/PalizziRulesBlockRender';
-import { PalizziMembershipBlockRender } from '@/components/blocks/render/PalizziMembershipBlockRender';
-import { PalizziFooterBlockRender } from '@/components/blocks/render/PalizziFooterBlockRender';
 import { ProductDetailBlockRender } from '@/components/blocks/render/ProductDetailBlockRender';
 import { SurveyResultsBlockRender } from '@/components/blocks/render/SurveyResultsBlockRender';
 import { TimelineBlockRender } from '@/components/blocks/render/TimelineBlockRender';
@@ -111,14 +103,6 @@ const BUILT_IN: Record<string, BlockComponent> = {
   'social-links': SocialLinksBlockRender,
   'email-header': EmailHeaderBlockRender,
   'email-footer': EmailFooterBlockRender,
-  'palizzi-nav': PalizziNavBlockRender,
-  'palizzi-hero': PalizziHeroBlockRender,
-  'palizzi-welcome': PalizziWelcomeBlockRender,
-  'palizzi-history': PalizziHistoryBlockRender,
-  'palizzi-menu': PalizziMenuBlockRender,
-  'palizzi-rules': PalizziRulesBlockRender,
-  'palizzi-membership': PalizziMembershipBlockRender,
-  'palizzi-footer': PalizziFooterBlockRender,
   'product-detail': ProductDetailBlockRender,
   'survey-results': SurveyResultsBlockRender,
   timeline: TimelineBlockRender,

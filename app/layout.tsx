@@ -66,7 +66,7 @@ export default async function RootLayout({
   const headersList = await headers();
   const host = headersList.get("host") || "";
   // Detect client site requests — those supply their own nav/footer and skip
-  // the app marketing chrome. On a dedicated client host (e.g. cystrategies.co)
+  // the app marketing chrome. On a dedicated client host (e.g. a client's own domain)
   // the hostname check is enough. But `staging.simplerdevelopment.com` is an app
   // host that multiplexes BOTH the marketing site (/) and client sites
   // (/sites/<domain>) on one host, so hostname alone can't tell them apart —

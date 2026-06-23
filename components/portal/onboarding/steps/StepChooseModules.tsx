@@ -26,7 +26,7 @@ const BUNDLE_KEY = 'bundle';
 
 // Where BYOK ("bring your own AI key") enquiries go — no self-serve price.
 const BYOK_MAILTO =
-  'mailto:info@danielpcoyle.com?subject=BYOK%20pricing%20—%20bring%20your%20own%20AI%20key';
+  'mailto:sales@simplerdevelopment.com?subject=BYOK%20pricing%20—%20bring%20your%20own%20AI%20key';
 
 export function StepChooseModules({ state, setAnswers, persist, next }: StepProps) {
   const [modules, setModules] = useState<ModuleItem[]>([]);

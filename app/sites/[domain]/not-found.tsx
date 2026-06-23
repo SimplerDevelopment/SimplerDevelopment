@@ -73,7 +73,7 @@ export default async function SiteNotFound() {
         color: '#ffffff',
       }}
     >
-      {/* Decorative diagonal accent — echoes the cardiff.co hero treatment so
+      {/* Decorative diagonal accent — mirrors the site's hero treatment so
           the 404 reads as part of the same brand family rather than a generic
           Next.js fallback. */}
       <div

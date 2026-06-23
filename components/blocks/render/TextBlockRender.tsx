@@ -44,8 +44,8 @@ export function TextBlockRender({ block }: TextBlockRenderProps) {
 
   // Support two text-block shapes:
   //   (a) canonical: { content: string }
-  //   (b) LLM-authored: { heading?: string, body?: string } — used by the
-  //       PostCaptain MCP template output and other AI-generated decks.
+  //   (b) LLM-authored: { heading?: string, body?: string } — used by older
+  //       MCP template output and other AI-generated decks.
   //       When `heading` is present we render it as a real <h2> above the
   //       body so it has semantic weight + the theme's heading font; flat
   //       concatenation loses visual hierarchy.

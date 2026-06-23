@@ -54,15 +54,6 @@ const NOT_USER_PICKABLE: ReadonlySet<BlockType> = new Set<BlockType>([
   // Template-only placeholder (only surfaced via extraBlockTypes when
   // editing post-type templates; not part of the universal picker).
   'post-content',
-  // Site-specific (Palizzi tenant only)
-  'palizzi-nav',
-  'palizzi-hero',
-  'palizzi-welcome',
-  'palizzi-history',
-  'palizzi-menu',
-  'palizzi-rules',
-  'palizzi-membership',
-  'palizzi-footer',
 ]);
 
 const ALL_BLOCK_TYPES = Object.keys(BLOCK_ICONS) as BlockType[];

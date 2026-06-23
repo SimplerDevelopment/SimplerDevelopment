@@ -18,7 +18,6 @@ const SelfDestruct = lazy(() => import('@/components/easter-eggs/SelfDestruct'))
 // so every such surface must be listed here. Add new standalone routes to this
 // list rather than reintroducing per-route booleans.
 const STANDALONE_PREFIXES = [
-  '/p/',                 // Peters Outdoor public site
   '/admin',              // internal admin panel (own chrome)
   '/portal',             // tenant client portal (own chrome)
   '/pitch-deck',         // full-screen presentation

@@ -104,16 +104,6 @@ export const BLOCK_ICONS: Record<BlockType, LucideIcon> = {
   'email-header': MailOpen,
   'email-footer': MailMinus,
 
-  // Palizzi custom blocks
-  'palizzi-nav': Layers,
-  'palizzi-hero': Target,
-  'palizzi-welcome': FileText,
-  'palizzi-history': FileText,
-  'palizzi-menu': LayoutGrid,
-  'palizzi-rules': FileText,
-  'palizzi-membership': FileText,
-  'palizzi-footer': Layers,
-
   // New blocks
   timeline: Layers,
   'team-showcase': Layers,

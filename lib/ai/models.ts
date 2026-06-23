@@ -42,9 +42,7 @@ export type AiTask =
   | 'slideGen'
   | 'slideBatchEdit'
   | 'inboundEmail'
-  | 'extensionExtract'
-  | 'magamommyResearch'
-  | 'magamommyConcept';
+  | 'extensionExtract';
 
 export interface ModelChoice {
   provider: LlmProvider;
@@ -61,9 +59,6 @@ export interface ModelChoice {
  *   - app/api/portal/brain/agent/route.ts    — streaming SSE tool loop
  *   - app/api/portal/ai/chat/route.ts         — streaming SSE tool loop
  *   - app/api/portal/ai/chat/stream/route.ts  — streaming (the active branch's file)
- *
- * PERMANENT carve-out (provider-specific, can't be made agnostic):
- *   - lib/magamommy/agents/researcher.ts      — uses Anthropic's NATIVE web_search tool
  *
  * DONE: the non-streaming agentic loop (app/api/email/inbound/route.ts) now uses
  * `completeAgentLoop` (lib/ai/agent-loop.ts) — extend that with a streaming
@@ -98,8 +93,6 @@ export const MODELS: Record<AiTask, ModelChoice> = {
   slideBatchEdit:    { provider: 'anthropic', model: 'claude-sonnet-4-6' },
   inboundEmail:      { provider: 'anthropic', model: 'claude-sonnet-4-6' },
   extensionExtract:  { provider: 'anthropic', model: 'claude-haiku-4-5-20251001' },
-  magamommyResearch: { provider: 'anthropic', model: 'claude-sonnet-4-6' },
-  magamommyConcept:  { provider: 'anthropic', model: 'claude-opus-4-7' },
 };
 
 const HF_BASE_URL = process.env.HUGGINGFACE_BASE_URL ?? 'https://router.huggingface.co/v1';

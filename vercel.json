@@ -132,10 +132,6 @@
       "schedule": "* * * * *"
     },
     {
-      "path": "/api/cron/magamommy-weekly-drop",
-      "schedule": "0 14 * * 1"
-    },
-    {
       "path": "/api/cron/process-playbook-waits",
       "schedule": "*/5 * * * *"
     },

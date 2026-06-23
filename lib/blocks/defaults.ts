@@ -287,23 +287,6 @@ export function createDefaultBlock(
       return { ...base, type: 'deck-next-slide', text: 'Next' };
     case 'deck-jump-to':
       return { ...base, type: 'deck-jump-to', text: 'Go', targetSlide: 1 };
-    case 'palizzi-nav':
-      return { ...base, type: 'palizzi-nav', logoUrl: '', brandName: '', links: [] };
-    case 'palizzi-hero':
-      return { ...base, type: 'palizzi-hero', address: '', crestUrl: '', neonUrl: '', tagline: '', established: '', scrollTarget: '' };
-    case 'palizzi-welcome':
-      return { ...base, type: 'palizzi-welcome', overline: '', title: '', titleAccent: '', paragraphs: [], bookImage: '', bookTitle: '', bookSubtitle: '', bookAuthors: '', bookLabel: '' };
-    case 'palizzi-history':
-      return { ...base, type: 'palizzi-history', overline: '', title: '', titleAccent: '', backgroundImage: '', marqueeImage: '', paragraphs: [] };
-    case 'palizzi-menu':
-      return { ...base, type: 'palizzi-menu', overline: '', title: '', subtitle: '', foodSections: [], cocktails: [] };
-    case 'palizzi-rules':
-      return { ...base, type: 'palizzi-rules', overline: '', title: '', titleAccent: '', hoursTitle: '', hoursSubtitle: '', badges: [], rules: [], disclaimer: '' };
-    case 'palizzi-membership':
-      return { ...base, type: 'palizzi-membership', overline: '', title: '', titleAccent: '', paragraphs: [], highlight: '', closingNote: '', signature: '', footnote: '' };
-    case 'palizzi-footer':
-      return { ...base, type: 'palizzi-footer', marqueeImage: '', columns: [], bottomText: '' };
-
     // ── HTML embed ────────────────────────────────────────────────────────────
     case 'html-embed':
       return {

@@ -76,7 +76,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   };
 
   // Home page (no slug) — surface the SEO from the post flagged as the
-  // home page so cystrategies.co/ uses the same metadata as cystrategies.co/home.
+  // home page so a client's root URL uses the same metadata as /home.
   if (!pageSlug || pageSlug === '') {
     const homePage = await getClientHomePage(site.id);
     if (homePage) return buildFromPage(homePage as SeoPage);

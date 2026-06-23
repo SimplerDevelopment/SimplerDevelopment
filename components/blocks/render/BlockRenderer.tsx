@@ -27,14 +27,6 @@ import { FeaturedContentBlockRender } from './FeaturedContentBlockRender';
 import { CardGridBlockRender } from './CardGridBlockRender';
 import { SectionBlockRender } from './SectionBlockRender';
 import { GalleryBlockRender } from './GalleryBlockRender';
-import { PalizziNavBlockRender } from './PalizziNavBlockRender';
-import { PalizziHeroBlockRender } from './PalizziHeroBlockRender';
-import { PalizziWelcomeBlockRender } from './PalizziWelcomeBlockRender';
-import { PalizziHistoryBlockRender } from './PalizziHistoryBlockRender';
-import { PalizziMenuBlockRender } from './PalizziMenuBlockRender';
-import { PalizziRulesBlockRender } from './PalizziRulesBlockRender';
-import { PalizziMembershipBlockRender } from './PalizziMembershipBlockRender';
-import { PalizziFooterBlockRender } from './PalizziFooterBlockRender';
 import { SocialLinksBlockRender } from './SocialLinksBlockRender';
 import { EmailHeaderBlockRender } from './EmailHeaderBlockRender';
 import { EmailFooterBlockRender } from './EmailFooterBlockRender';
@@ -100,15 +92,10 @@ export function BlockRenderer({ content, siteId, branding }: BlockRendererProps)
     return null;
   }
 
-  // Detect if content uses custom layout blocks (no wrapper spacing needed)
-  const hasCustomLayout = blocks.some((b) => b.type.startsWith('palizzi-'));
-
   // Full-width block types that should NOT get a constraining container.
   // These handle their own internal widths (hero = full viewport, section = has maxWidth prop, etc.)
   const FULL_WIDTH_TYPES = new Set([
     'hero', 'hero-slideshow', 'section', 'marquee', 'cta', 'site-footer',
-    'palizzi-nav', 'palizzi-hero', 'palizzi-welcome', 'palizzi-history',
-    'palizzi-menu', 'palizzi-rules', 'palizzi-membership', 'palizzi-footer',
     // html-embed manages its own width via block.width ('full' | 'contained');
     // keep it out of the default max-w-7xl wrapper so 'full' really is full.
     'html-embed',
@@ -117,7 +104,7 @@ export function BlockRenderer({ content, siteId, branding }: BlockRendererProps)
   ]);
 
   const rendered = (
-    <div className={hasCustomLayout ? 'block-content' : 'block-content'} data-site-id={siteId || undefined}>
+    <div className="block-content" data-site-id={siteId || undefined}>
       {blocks.map((block, idx) => {
         const isFullWidth = FULL_WIDTH_TYPES.has(block.type);
         // Fallback key for legacy data where block.id is missing (e.g. older
@@ -130,7 +117,7 @@ export function BlockRenderer({ content, siteId, branding }: BlockRendererProps)
             id={block.anchor || undefined}
             data-block-id={block.id}
             data-block-type={block.type}
-            className={hasCustomLayout ? '' : isFullWidth ? '' : 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'}
+            className={isFullWidth ? '' : 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'}
             style={block.anchor ? { scrollMarginTop: '80px' } : undefined}
           >
             <BlockStyleWrapper block={block}>
@@ -215,22 +202,6 @@ function renderBlock(block: Block, siteId?: number) {
       return <SectionBlockRender block={normalized} />;
     case 'gallery':
       return <GalleryBlockRender block={normalized} />;
-    case 'palizzi-nav':
-      return <PalizziNavBlockRender block={normalized} />;
-    case 'palizzi-hero':
-      return <PalizziHeroBlockRender block={normalized} />;
-    case 'palizzi-welcome':
-      return <PalizziWelcomeBlockRender block={normalized} />;
-    case 'palizzi-history':
-      return <PalizziHistoryBlockRender block={normalized} />;
-    case 'palizzi-menu':
-      return <PalizziMenuBlockRender block={normalized} />;
-    case 'palizzi-rules':
-      return <PalizziRulesBlockRender block={normalized} />;
-    case 'palizzi-membership':
-      return <PalizziMembershipBlockRender block={normalized} />;
-    case 'palizzi-footer':
-      return <PalizziFooterBlockRender block={normalized} />;
     case 'product-grid':
       return <ProductGridBlockRender block={normalized} siteId={siteId} />;
     case 'featured-products':

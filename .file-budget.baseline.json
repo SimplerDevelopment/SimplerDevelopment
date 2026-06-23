@@ -137,7 +137,6 @@
   "lib/db/schema/tools.ts": 761,
   "lib/designer/canvasStore.ts": 1205,
   "lib/email/booking-emails.ts": 515,
-  "lib/magamommy/agents/designer.ts": 564,
   "lib/mcp/approvals.ts": 1207,
   "lib/mcp/blocks-schema.ts": 637,
   "lib/mcp/tools/bookings.ts": 550,
@@ -152,8 +151,6 @@
   "lib/storefront/mcp-sdk-adapter.ts": 883,
   "scripts/audits/mobile-audit.ts": 551,
   "scripts/flag-slate-enabled.ts": 616,
-  "scripts/magamommy/bootstrap-tenant.ts": 523,
-  "scripts/magamommy/compose-storefront.ts": 1290,
   "scripts/migrations/cardiff/import-home.ts": 864,
   "scripts/migrations/cardiff/styled-equipment-financing-iter1.ts": 527,
   "scripts/migrations/crosscap/crawl-firm-websites.ts": 550,
@@ -175,6 +172,5 @@
   "scripts/scrape-postcaptain-staff-playwright.ts": 582,
   "scripts/seed-admin-e2e.ts": 690,
   "scripts/seed-brain-demo.ts": 520,
-  "scripts/seed-peters-outdoor.ts": 732,
   "scripts/smoke-sd-skills.ts": 641
 }

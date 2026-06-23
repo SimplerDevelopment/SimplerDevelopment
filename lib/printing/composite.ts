@@ -1,13 +1,13 @@
-// Server-side image compositor for the magamommy autonomous-shop pipeline.
+// Server-side image compositor for the product design pipeline.
 //
-// Takes a transparent artwork PNG (from gpt-image-1) and stamps it onto a
-// blank shirt mockup at the product's print-area bounds. Uses `sharp` so we
-// stay on the same Buffer-in / Buffer-out contract the rest of the design
-// pipeline already speaks (see `app/api/storefront/.../ai-image/route.ts`).
+// Takes a transparent artwork PNG and stamps it onto a blank mockup image at
+// the product's print-area bounds. Uses `sharp` so we stay on the same
+// Buffer-in / Buffer-out contract the rest of the design pipeline already
+// speaks (see `app/api/storefront/.../ai-image/route.ts`).
 //
 // Output is a PNG sized to the original baseMockup — important so the
-// publisher can drop the result straight into product_images without a
-// follow-up resize pass.
+// result can be dropped straight into product_images without a follow-up
+// resize pass.
 
 import sharp from 'sharp';
 
@@ -23,9 +23,9 @@ export interface PrintArea {
 }
 
 export interface CompositeArtworkOnShirtArgs {
-  /** Transparent 1024x1024 PNG from gpt-image-1. */
+  /** Transparent artwork PNG. */
   artworkPng: Buffer;
-  /** The blank shirt mockup (e.g. white tee with empty chest). */
+  /** The blank product mockup image. */
   baseMockupPng: Buffer;
   /** Where on the base mockup the artwork should land, in mockup pixels. */
   printArea: PrintArea;
@@ -40,7 +40,7 @@ export interface CompositeArtworkOnShirtArgs {
  * the LONGER axis hits the print-area edge, leaving the SHORTER axis with
  * empty transparent space inside the print area. That matches the customer-
  * facing canvas behaviour (LayerData.data.fit === 'contain') and avoids
- * cropping any of the slogan or visual.
+ * cropping any artwork or text.
  */
 export async function compositeArtworkOnShirt(
   args: CompositeArtworkOnShirtArgs,
@@ -67,8 +67,8 @@ export async function compositeArtworkOnShirt(
   }
 
   // 1) Resize the artwork to fit inside the print area, preserving aspect.
-  //    `withoutEnlargement: false` lets us scale a small AI image UP to fill
-  //    the print area when needed — print quality is the publisher's problem.
+  //    `withoutEnlargement: false` lets us scale a small artwork image UP to
+  //    fill the print area when needed.
   let resizedArtwork: Buffer;
   try {
     resizedArtwork = await sharp(artworkPng)

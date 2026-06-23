@@ -4,7 +4,7 @@ import { db } from '@/lib/db';
 import { posts } from '@/lib/db/schema';
 import { eq, and, isNull } from 'drizzle-orm';
 
-// These helpers back main-domain routes (e.g. app/(pages)/p/[slug]) and
+// These helpers back main-domain page routes and
 // must ONLY return SimplerDevelopment's own "global" content — rows where
 // posts.websiteId IS NULL per the schema convention. Tenant content lives
 // in rows with a non-null websiteId and is served through

@@ -2,7 +2,7 @@
 // sides with mockup images + printable-area bounds, per-website asset library
 // (icons + clip-art), and saved customer designs (layer arrays).
 //
-// Ported from ~/monorepo/packages/philaprints. See lib/db/schema/store.ts —
+// Ported from an upstream product-designer package. See lib/db/schema/store.ts —
 // products.designable flips this on for a given product, and
 // cartItems/orderItems carry a forward-declared `designId` FK back to
 // productDesigns (declared here; see store.ts for the column).

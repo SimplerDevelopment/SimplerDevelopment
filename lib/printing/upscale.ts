@@ -6,13 +6,11 @@
 //
 // We use the `nightmareai/real-esrgan` model on Replicate. It preserves alpha
 // (so transparent artwork stays transparent through the upscale) and handles
-// flat folk-art / poster-style fills cleanly — which is exactly what our
-// magamommy artwork is.
+// flat folk-art / poster-style fills cleanly.
 //
 // Replicate auth: REPLICATE_API_TOKEN in env. Get one at
 // https://replicate.com/account/api-tokens — there's a generous free tier
-// and Real-ESRGAN runs at roughly $0.0007 per 1024-input upscale (~$0.01 per
-// magamommy product, all 13 = ~$0.13).
+// and Real-ESRGAN runs at roughly $0.0007 per 1024-input upscale.
 
 const REPLICATE_API = 'https://api.replicate.com/v1';
 

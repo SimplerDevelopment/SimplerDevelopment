@@ -589,11 +589,6 @@ describe('LayoutContent', () => {
     expect(screen.queryByTestId('mock-nav')).toBeNull();
   });
 
-  it('skips chrome on /p/ peters-outdoor routes', () => {
-    renderAt('/p/something');
-    expect(screen.queryByTestId('mock-nav')).toBeNull();
-  });
-
   it('skips chrome on /sites/ routes', () => {
     renderAt('/sites/abc/edit');
     expect(screen.queryByTestId('mock-nav')).toBeNull();

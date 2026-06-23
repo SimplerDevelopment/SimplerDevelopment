@@ -27,5 +27,4 @@ export * from './chat';
 export * from './cronHealth';
 export * from './agenticOs';
 export * from './plugins';
-export * from './magamommy';
 export * from './publishing';

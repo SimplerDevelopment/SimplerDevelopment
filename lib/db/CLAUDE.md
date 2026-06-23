@@ -7,7 +7,7 @@ Drizzle ORM schema + DB client. **All data access flows through here.**
 ## Layout
 
 - `index.ts` — DB client (singleton; Postgres + Drizzle).
-- `schema/` — domain modules (one file per area: `auth`, `sites`, `cms`, `crm`, `pm`, `brain`, `store`, `email`, `surveys`, `tools`, `billing`, `approvals`, `audit`, `collab`, `trigger-links`, `ab`, `snapshots`, `workflows`, `chat`, `cronHealth`, `agenticOs`, `plugins`, `magamommy`).
+- `schema/` — domain modules (one file per area: `auth`, `sites`, `cms`, `crm`, `pm`, `brain`, `store`, `email`, `surveys`, `tools`, `billing`, `approvals`, `audit`, `collab`, `trigger-links`, `ab`, `snapshots`, `workflows`, `chat`, `cronHealth`, `agenticOs`, `plugins`).
 - `schema/index.ts` — public barrel. **Import from `@/lib/db/schema`, never from a specific module.**
 
 ## Migration workflow (load-bearing — break and prod 500s)

@@ -188,7 +188,7 @@ function resolveDesignMode(product: { isDesignable?: boolean; metadata?: unknown
   const raw = metadata.productDesignMode;
   if (raw === 'standard' || raw === 'store' || raw === 'customer') return raw;
   if (product.isDesignable) return 'customer';
-  if (metadata.magamommyDesignId || metadata.magamommyLifestyleHeroUrl || metadata.storeDesignId) {
+  if (metadata.storeDesignId) {
     return 'store';
   }
   return 'standard';

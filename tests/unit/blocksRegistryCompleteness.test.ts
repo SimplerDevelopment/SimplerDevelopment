@@ -28,16 +28,6 @@ const NOT_USER_PICKABLE: ReadonlySet<BlockType> = new Set<BlockType>([
   'survey-input',
   'deck-next-slide',
   'deck-jump-to',
-
-  // Site-specific custom block — only used by the Palizzi tenant
-  'palizzi-nav',
-  'palizzi-hero',
-  'palizzi-welcome',
-  'palizzi-history',
-  'palizzi-menu',
-  'palizzi-rules',
-  'palizzi-membership',
-  'palizzi-footer',
 ]);
 
 const REPO_ROOT = join(__dirname, '..', '..');
