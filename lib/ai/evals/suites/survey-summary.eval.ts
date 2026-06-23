@@ -124,8 +124,8 @@ export const surveySummarySuite: EvalSuite<Input, SurveyAiSummary> = {
     latencyUnder(20_000),
   ],
   async run(input, env) {
-    if (!env.anthropicApiKey) throw new Error('survey-summary suite needs an Anthropic key (or run --mock)');
-    const out = await generateSurveySummary({ fields: input.fields, responses: input.responses, apiKey: env.anthropicApiKey });
+    if (env.clientId == null) throw new Error('survey-summary suite needs --clientId (the summary resolves its model key per-tenant)');
+    const out = await generateSurveySummary({ fields: input.fields, responses: input.responses, clientId: env.clientId });
     if (!out) throw new Error('survey-summary: no summarizable text responses for this case');
     return { output: out, outputTokens: out.tokensUsed };
   },
