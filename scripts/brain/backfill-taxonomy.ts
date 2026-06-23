@@ -159,10 +159,13 @@ function parseArgs(): Args {
 // PROD_INDICATORS list in sync with that script; if a new prod proxy lands,
 // update both places.
 
-const PROD_INDICATORS = [
-  'tramway.proxy.rlwy.net:43167',
-  'metro.proxy.rlwy.net:25565',
-];
+// PROD_DB_HOSTS: optional comma-separated list of hostname[:port] fragments
+// that identify production database proxies. See scripts/verify-db-target.ts
+// for full documentation. When unset, only RAILWAY_ENVIRONMENT_NAME is used.
+const PROD_INDICATORS: string[] = (process.env.PROD_DB_HOSTS ?? '')
+  .split(',')
+  .map((h) => h.trim())
+  .filter(Boolean);
 
 function refusalCheck(): void {
   const url = process.env.DATABASE_URL ?? '';

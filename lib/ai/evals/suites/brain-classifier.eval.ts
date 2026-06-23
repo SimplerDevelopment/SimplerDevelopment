@@ -62,7 +62,9 @@ export const brainClassifierSuite: EvalSuite<Input, Classification> = {
     latencyUnder(8_000),
   ],
   async run(input, env) {
-    if (!env.clientId) throw new Error('brain-classifier suite needs --clientId (resolves the tenant key)');
+    // classifyIntent routes through the platform AI (completeObject + clientId
+    // → resolveClientApiKey), so the suite needs --clientId, not a raw key.
+    if (!env.clientId) throw new Error('brain-classifier suite needs --clientId (routes through platform AI)');
     const output = await classifyIntent(input.message, env.clientId);
     return { output };
   },

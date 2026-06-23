@@ -22,7 +22,7 @@ export interface FireDueJobsResult {
   runId: number;
 }
 
-const FIRE_LIMIT = 50; // safety cap — postcaptain v1 should never exceed this
+const FIRE_LIMIT = 50; // safety cap — content v1 should never exceed this
 
 /**
  * Scans for due weekly jobs and enqueues a run per claimed row. Returns one

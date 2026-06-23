@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { philaprintsDesignAssets as designAssets } from '@/lib/db/schema';
+import { designLibraryAssets as designAssets } from '@/lib/db/schema';
 import { and, asc, eq } from 'drizzle-orm';
 
 // GET /api/storefront/[siteId]/designs/assets?type=icon|art&category=

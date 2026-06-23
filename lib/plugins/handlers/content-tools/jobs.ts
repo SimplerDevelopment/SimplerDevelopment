@@ -1,4 +1,4 @@
-// Postcaptain Tools — schedule handlers.
+// Content Tools — schedule handlers.
 //
 // /jobs        POST    — create a schedule (weekly or cron)
 // /jobs        GET     — list schedules (filtered to clientId)
@@ -81,7 +81,7 @@ export function computeNextWeeklyRun(
 const postJob: CallbackHandler = {
   method: 'POST',
   path: '/jobs',
-  scope: 'postcaptain:research:write',
+  scope: 'content:research:write',
   async handle(req, ctx) {
     let body: unknown;
     try {
@@ -147,7 +147,7 @@ const postJob: CallbackHandler = {
 const getJobs: CallbackHandler = {
   method: 'GET',
   path: '/jobs',
-  scope: 'postcaptain:research:read',
+  scope: 'content:research:read',
   async handle(_req, ctx) {
     const rows = await db
       .select()
@@ -164,7 +164,7 @@ const getJobs: CallbackHandler = {
 const patchJob: CallbackHandler = {
   method: 'PATCH',
   path: '/jobs/:id',
-  scope: 'postcaptain:research:write',
+  scope: 'content:research:write',
   async handle(req, ctx, params) {
     const id = Number(params.id);
     if (!Number.isFinite(id) || id <= 0) {
@@ -263,7 +263,7 @@ const patchJob: CallbackHandler = {
 const deleteJob: CallbackHandler = {
   method: 'DELETE',
   path: '/jobs/:id',
-  scope: 'postcaptain:research:write',
+  scope: 'content:research:write',
   async handle(_req, ctx, params) {
     const id = Number(params.id);
     if (!Number.isFinite(id) || id <= 0) {

@@ -27,7 +27,7 @@ Branch: `claude/serene-lamarr-729c5e` — **not pushed** (per repo policy).
 | 1 | `sd-init` writes `.sd/config.json` from whoami + brand + inventory | ✅ |
 | 2 | `sd-create-page` produces a 13-block landing page + approval URL | ✅ post 698 |
 | 3 | `sd-create-deck` produces an 8-slide deck with brand theme inherited | ✅ deck 350 |
-| 4 | `sd-create-email` renders blocks to HTML, ships via Resend | ✅ campaign 36, real email landed at `info@danielpcoyle.com` |
+| 4 | `sd-create-email` renders blocks to HTML, ships via Resend | ✅ campaign 36, real email landed at `admin@simplerdevelopment.com` |
 | 5 | Approve `post`        → `published=true` | ✅ |
 | 6 | Approve `pitch_deck`  → `status='published'` + slide drafts promoted (bug found, fixed in this commit) | ✅ |
 | 7 | Approve `email_campaign` → link approved, send remains separate | ✅ |

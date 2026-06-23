@@ -12,8 +12,19 @@
  * Pure function — no side effects, no I/O. Unit-testable in isolation.
  */
 
-/** Keys matching this pattern are redacted wherever they appear in the tree. */
-const SECRET_KEY_RE = /password|secret|token|key|credential|auth|bearer/i;
+/**
+ * Keys matching this pattern are redacted wherever they appear in the tree.
+ *
+ * Covers auth/credential material. The added terms (passphrase/passcode/cookie/
+ * otp/totp/mfa/recovery-or-backup code) are all collision-safe substrings — none
+ * appears inside a benign key name. We deliberately do NOT redact contact PII
+ * (`email`, `name`): the audit log's whole purpose is to record *what* a tool
+ * did, and the contact is usually the action's subject — redacting it would gut
+ * the log. Short PII tokens are also unsafe with substring matching anyway
+ * (e.g. /pin/ hits "shipping", /ssn/ hits "className").
+ */
+const SECRET_KEY_RE =
+  /password|passphrase|passcode|secret|token|credential|auth|bearer|cookie|otp|totp|mfa|recoverycode|backupcode|key/i;
 
 const MAX_BYTES = 4096;
 

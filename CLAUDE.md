@@ -59,14 +59,10 @@ Routing rule:
 
 ## Deployment (host topology)
 
-- **Hosting: Vercel.** The app deploys from the Vercel project **`simplerdevelopment-workfriends-ai`** (account `info@danielpcoyle.com`, team "Dan's projects"), connected to the GitHub repo `DanielPCoyle/simplerdevelopment2026`. The name is historical — it *is* this app. Production branch = **`main`**; every other pushed branch deploys as a **Preview** automatically.
-- **Databases: Railway** (project "Simpler Development"). `production` and `staging` environments each host the Postgres. DB URLs are wired into Vercel as per-branch env vars (`DATABASE_URL` scoped to `staging`, `dev`, etc.). `lib/db/schema/` needs the `vector` (pgvector) extension on every DB.
-- **`dev` branch = throwaway fast-iteration line.** Git hooks (`.githooks/pre-commit`, `pre-push`) self-skip on `dev`/`dev/*`, and `next.config.ts` relaxes the Vercel build (`ignoreBuildErrors`/`ignoreDuringBuilds` when `VERCEL_GIT_COMMIT_REF === 'dev'`) so a push deploys immediately regardless of type/lint errors. It has its **own** isolated Railway env (`dev`) + Postgres (`Postgres-ZyfY`), schema applied via `drizzle-kit push` (the migration *replay* is broken on a fresh DB — a migration `ALTER`s `brain_notes` before it exists). `main`/`staging` keep strict hooks + strict builds.
-- **Railway DB proxy → environment map** (Railway TCP-proxy host = which DB — memorize this before running ANY `psql`/migration against a remote URL):
-  - `metro.proxy.rlwy.net` → **production** (`PRODUCTION DB` service)
-  - `switchyard.proxy.rlwy.net` → **staging**
-  - `acela.proxy.rlwy.net` → **dev** (`Postgres-ZyfY` service; the genuinely-isolated dev Postgres)
-  - ⚠️ A local `.env` `DATABASE_URL` pointing at `switchyard…`/`metro…` is **remote staging/production**, NOT local — never hand-apply migrations there outside the deploy process. The `dev` DB (`acela…`) is the only remote DB safe to push schema to ad-hoc.
+- **Hosting: Vercel (or any Next.js host).** Production branch = **`main`**; every other pushed branch deploys as a **Preview** automatically. Configure the deploy target in your own Vercel/host project.
+- **Databases: Postgres** (Railway, Neon, Supabase, or self-hosted). Each environment hosts its own Postgres; wire the connection string into the host as a per-environment env var (`DATABASE_URL`). `lib/db/schema/` requires the `vector` (pgvector) extension on every DB.
+- **`dev` branch = throwaway fast-iteration line.** Git hooks (`.githooks/pre-commit`, `pre-push`) self-skip on `dev`/`dev/*`, and `next.config.ts` relaxes the build (`ignoreBuildErrors`/`ignoreDuringBuilds` when `VERCEL_GIT_COMMIT_REF === 'dev'`) so a push deploys immediately regardless of type/lint errors. `dev` should point at its own isolated Postgres, schema applied via `drizzle-kit push`. `main`/`staging` keep strict hooks + strict builds.
+- ⚠️ **Know which DB your `DATABASE_URL` points at before running any `psql`/migration.** A local `.env` pointing at a remote staging/production DB is *not* local — never hand-apply migrations against prod/staging outside the deploy process. Only an isolated dev DB is safe to push schema to ad-hoc.
 
 ## Architecture invariants (load-bearing — break at your peril)
 
@@ -132,7 +128,7 @@ Routing rule:
 - **Branches:** `feat/<topic>`, `fix/<topic>`, or `<NNN>-<topic>` for milestone work. PR target is `main` unless explicitly told otherwise.
 - **Granularity:** one-block-per-commit during audits; one-feature-per-PR otherwise.
 - **Material Icons over emojis** in any rendered UI.
-- **Crosscap migrations:** auto-derive client email from domain as `{sitename}@simplerdevelopment.com`.
+- **Site migrations:** auto-derive client email from domain as `{sitename}@simplerdevelopment.com`.
 
 ## Pointers (read on demand — `@`-mention to import)
 

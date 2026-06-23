@@ -88,8 +88,8 @@ vi.mock('@/lib/db/schema/plugins', () => {
   };
   return {
     registeredAppRuns: tbl('registeredAppRuns', ['id', 'clientId', 'status', 'kind']),
-    postcaptainBriefs: tbl('postcaptainBriefs', ['id', 'clientId', 'runId', 'topic']),
-    postcaptainDrafts: tbl('postcaptainDrafts', ['id', 'clientId', 'runId', 'briefId', 'title', 'body', 'status']),
+    contentBriefs: tbl('contentBriefs', ['id', 'clientId', 'runId', 'topic']),
+    contentDrafts: tbl('contentDrafts', ['id', 'clientId', 'runId', 'briefId', 'title', 'body', 'status']),
   };
 });
 
@@ -222,7 +222,7 @@ describe('completeHandlers — handler metadata', () => {
   it('handler is POST /scripts/runs/:id/complete with correct scope', () => {
     expect(handler.method).toBe('POST');
     expect(handler.path).toBe('/scripts/runs/:id/complete');
-    expect(handler.scope).toBe('postcaptain:internal:complete');
+    expect(handler.scope).toBe('content:internal:complete');
   });
 });
 
@@ -345,7 +345,7 @@ describe('completeHandlers — CAS conflict guard', () => {
 });
 
 describe('completeHandlers — research-brief success path', () => {
-  it('inserts a postcaptainBrief and transitions run to succeeded (200)', async () => {
+  it('inserts a contentBrief and transitions run to succeeded (200)', async () => {
     selectQueue.push([baseRun({ kind: 'research-brief' })]);
     insertReturns.push([{ id: 77 }]); // brief insert
     updateReturns.push([{ id: 1 }]); // run update returning
@@ -444,7 +444,7 @@ describe('completeHandlers — research-brief success path', () => {
 });
 
 describe('completeHandlers — draft-blog-post success path', () => {
-  it('inserts a postcaptainDraft and transitions run to succeeded (200)', async () => {
+  it('inserts a contentDraft and transitions run to succeeded (200)', async () => {
     selectQueue.push([baseRun({ kind: 'draft-blog-post' })]);
     insertReturns.push([{ id: 55 }]);
     updateReturns.push([{ id: 1 }]);

@@ -6,7 +6,7 @@
  *   [4] Plugin callback endpoint rejects replay: second request with same JTI gets 409
  *   [5] Cron plugin-runs-drain transitions queued run to succeeded and persists resultId
  *   [6] Cron plugin-jobs-tick fires due job and bumps nextRunAt to next slot
- *   [7] draft-blog-post run kind produces a postcaptain_drafts row visible in /drafts UI
+ *   [7] draft-blog-post run kind produces a content_drafts row visible in /drafts UI
  *
  * Setup strategy:
  *   - Cards 4 and 7 require a real registered_apps row + signing key in the DB.
@@ -164,7 +164,7 @@ test.describe('Plugin callback — JTI replay rejection @plugins', () => {
     const token = mintJwt({
       appSlug: TEST_APP_SLUG,
       clientId: TEST_CLIENT_ID,
-      scopes: ['postcaptain:internal:complete'],
+      scopes: ['content:internal:complete'],
     });
 
     // First request: auth passes (JTI row inserted), but no handler registered
@@ -330,24 +330,24 @@ test.describe('Cron plugin-jobs-tick @plugins @cron', () => {
   });
 });
 
-// ─── Card 7: draft-blog-post complete callback → postcaptain_drafts ──────────
+// ─── Card 7: draft-blog-post complete callback → content_drafts ──────────
 //
-// Strategy: seed a 'postcaptain-tools' registered_app row (the slug the route's
+// Strategy: seed a 'content-tools' registered_app row (the slug the route's
 // side-effect import registers handlers for) with a signing key encrypted via
 // the dev-fallback KMS key (32 zero bytes — used when PORTAL_KMS_KEY is unset).
 // Insert a run in 'running' state, call the /complete callback, and assert the
-// postcaptain_drafts row is created and the run status reaches 'succeeded'.
+// content_drafts row is created and the run status reaches 'succeeded'.
 
 test.describe('Plugin complete callback — draft-blog-post creates draft row @plugins', () => {
-  // The complete handler is registered ONLY for 'postcaptain-tools' slug.
-  const COMPLETE_APP_SLUG = 'postcaptain-tools';
+  // The complete handler is registered ONLY for 'content-tools' slug.
+  const COMPLETE_APP_SLUG = 'content-tools';
   let pctAppId: number | null = null;
   let pctRunId: number | null = null;
   let createdDraftId: number | null = null;
   let existingAppId: number | null = null; // non-null if app already exists (skip seed)
 
   test.beforeAll(async () => {
-    // Check if postcaptain-tools is already seeded (operator-managed).
+    // Check if content-tools is already seeded (operator-managed).
     const existing = sql(
       `SELECT id FROM registered_apps WHERE slug = '${COMPLETE_APP_SLUG}' LIMIT 1`,
     );
@@ -355,10 +355,10 @@ test.describe('Plugin complete callback — draft-blog-post creates draft row @p
       existingAppId = parseInt(existing.trim(), 10);
       pctAppId = existingAppId;
     } else {
-      // Seed a minimal postcaptain-tools app for the test.
+      // Seed a minimal content-tools app for the test.
       const appResult = sql(
         `INSERT INTO registered_apps (slug, name, host_url, manifest_url, visibility, allowed_client_ids, status, created_at, updated_at)
-         VALUES ('${COMPLETE_APP_SLUG}', 'Postcaptain Tools (e2e)', 'http://localhost:9999', 'http://localhost:9999/sd-manifest.json', 'global', '[]', 'active', NOW(), NOW())
+         VALUES ('${COMPLETE_APP_SLUG}', 'Content Tools (e2e)', 'http://localhost:9999', 'http://localhost:9999/sd-manifest.json', 'global', '[]', 'active', NOW(), NOW())
          RETURNING id`,
       );
       pctAppId = parseInt(appResult.trim(), 10);
@@ -387,7 +387,7 @@ test.describe('Plugin complete callback — draft-blog-post creates draft row @p
       sql(`DELETE FROM registered_app_runs WHERE id = ${pctRunId}`);
     }
     if (createdDraftId !== null) {
-      sql(`DELETE FROM postcaptain_drafts WHERE id = ${createdDraftId}`);
+      sql(`DELETE FROM content_drafts WHERE id = ${createdDraftId}`);
     }
     // Only delete the app row if WE seeded it (existingAppId is null).
     if (existingAppId === null && pctAppId !== null) {
@@ -399,7 +399,7 @@ test.describe('Plugin complete callback — draft-blog-post creates draft row @p
     existingAppId = null;
   });
 
-  test('POST /complete with draft-blog-post payload creates postcaptain_drafts row', async () => {
+  test('POST /complete with draft-blog-post payload creates content_drafts row', async () => {
     if (pctAppId === null || pctRunId === null) {
       test.skip(true, 'Seed failed — skipping draft-blog-post test');
       return;
@@ -408,7 +408,7 @@ test.describe('Plugin complete callback — draft-blog-post creates draft row @p
     const token = mintJwt({
       appSlug: COMPLETE_APP_SLUG,
       clientId: TEST_CLIENT_ID,
-      scopes: ['postcaptain:internal:complete'],
+      scopes: ['content:internal:complete'],
     });
 
     const completePath = `/api/plugin-callback/${COMPLETE_APP_SLUG}/scripts/runs/${pctRunId}/complete`;
@@ -430,9 +430,9 @@ test.describe('Plugin complete callback — draft-blog-post creates draft row @p
     });
 
     if (res.status === 401) {
-      // JWT verification failed — likely because an existing postcaptain-tools
+      // JWT verification failed — likely because an existing content-tools
       // app row has a different signing key (not our dev-fallback-encrypted one).
-      test.skip(true, 'JWT 401: postcaptain-tools app has a different signing key; operator-managed seed required');
+      test.skip(true, 'JWT 401: content-tools app has a different signing key; operator-managed seed required');
       return;
     }
 
@@ -447,14 +447,14 @@ test.describe('Plugin complete callback — draft-blog-post creates draft row @p
     expect(body.success).toBe(true);
     expect(body.data?.runId).toBe(pctRunId);
 
-    // resultId is set for draft-blog-post kind → non-null postcaptain_drafts id.
+    // resultId is set for draft-blog-post kind → non-null content_drafts id.
     expect(body.data?.resultId).not.toBeNull();
     createdDraftId = body.data?.resultId ?? null;
 
-    // Verify the postcaptain_drafts row in DB.
+    // Verify the content_drafts row in DB.
     if (createdDraftId !== null) {
       const statusStr = sql(
-        `SELECT status FROM postcaptain_drafts WHERE id = ${createdDraftId}`,
+        `SELECT status FROM content_drafts WHERE id = ${createdDraftId}`,
       );
       expect(statusStr.trim()).toBe('draft');
     }

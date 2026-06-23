@@ -2,7 +2,7 @@
  * Add an approved email sender to a client account.
  *
  * Usage: npx tsx scripts/add-approved-sender.ts <email_prefix> <sender_email>
- * Example: npx tsx scripts/add-approved-sender.ts caq info@danielpcoyle.com
+ * Example: npx tsx scripts/add-approved-sender.ts caq admin@simplerdevelopment.com
  */
 import * as dotenv from 'dotenv';
 dotenv.config({ path: '.env' });

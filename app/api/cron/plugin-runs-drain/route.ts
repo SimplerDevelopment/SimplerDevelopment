@@ -1,4 +1,4 @@
-// Per-minute cron: drains queued postcaptain-tools plugin runs.
+// Per-minute cron: drains queued content-tools plugin runs.
 //
 // Auth: Vercel cron platform header `x-vercel-cron: 1` OR a Bearer secret
 // in `Authorization` matching `process.env.CRON_SECRET`. Mirrors the auth

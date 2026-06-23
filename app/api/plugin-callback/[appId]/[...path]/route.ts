@@ -9,7 +9,7 @@
 //   4. scope check — JWT's `scopes` claim must cover handler.scope
 //   5. delegate to handler.handle(req, ctx, urlParams)
 //
-// `params.appId` in the URL is actually the app SLUG (e.g. 'postcaptain-tools').
+// `params.appId` in the URL is actually the app SLUG (e.g. 'content-tools').
 // We use the path placeholder name from the plan ("[appId]") even though the
 // value is a string slug — renaming would force a docs+manifest churn.
 
@@ -25,7 +25,7 @@ import {
 import { lookupHandler } from '@/lib/plugins/handlers/registry';
 import { fail } from '@/lib/plugins/handlers/types';
 
-// Side-effect import: registers every postcaptain-tools handler into the
+// Side-effect import: registers every content-tools handler into the
 // registry on first module load. Future plugins add their own index file
 // here.
 import '@/lib/plugins/handlers/content-tools/index';

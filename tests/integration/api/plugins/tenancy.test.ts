@@ -55,15 +55,15 @@ import { resetPluginCallbackRateLimit } from '@/lib/plugins/rate-limit';
 // Fixtures
 // ───────────────────────────────────────────────────────────────────────────
 
-const APP_SLUG = 'postcaptain-tools';
-const SERVICE_SLUG_PREFIX = 'plugin-postcaptain-tools';
+const APP_SLUG = 'content-tools';
+const SERVICE_SLUG_PREFIX = 'plugin-content-tools';
 const KID = 'k1';
-const HOST_URL = 'https://postcaptain-tools.simplerdevelopment.com';
+const HOST_URL = 'https://content-tools.simplerdevelopment.com';
 const CALLBACK_BASE = `https://simplerdevelopment.com/api/plugin-callback/${APP_SLUG}`;
 
 const FULL_SCOPES = [
-  'postcaptain:research:read',
-  'postcaptain:research:write',
+  'content:research:read',
+  'content:research:write',
 ] as const;
 
 interface PluginFixture {
@@ -102,7 +102,7 @@ async function setupPluginFixture(opts?: {
   const [svc] = await sql<{ id: number }[]>`
     INSERT INTO ${sql(TEST_SCHEMA)}.services
       (name, slug, category, price, billing_cycle, active)
-    VALUES ('Postcaptain Tools', ${serviceSlug}, 'plugins', 0, 'monthly', true)
+    VALUES ('Content Tools', ${serviceSlug}, 'plugins', 0, 'monthly', true)
     RETURNING id
   `;
 
@@ -127,7 +127,7 @@ async function setupPluginFixture(opts?: {
       default_scopes, billing_service_id, visibility,
       allowed_client_ids, status
     ) VALUES (
-      ${APP_SLUG}, 'Postcaptain Tools', 'science',
+      ${APP_SLUG}, 'Content Tools', 'science',
       ${HOST_URL}, ${`${HOST_URL}/sd-manifest.json`},
       ${JSON.stringify(FULL_SCOPES)}::jsonb,
       ${svc.id}, 'allowlist',
@@ -151,7 +151,7 @@ async function setupPluginFixture(opts?: {
   `;
 
   // Seed a couple of briefs + drafts per tenant. Each row needs a run row
-  // first because postcaptain_briefs/drafts FK to registered_app_runs.
+  // first because content_briefs/drafts FK to registered_app_runs.
   async function seedTenantData(clientId: number) {
     const runIds: number[] = [];
     for (let i = 0; i < 2; i++) {
@@ -169,7 +169,7 @@ async function setupPluginFixture(opts?: {
     }
     for (let i = 0; i < 2; i++) {
       await sql`
-        INSERT INTO ${sql(TEST_SCHEMA)}.postcaptain_briefs
+        INSERT INTO ${sql(TEST_SCHEMA)}.content_briefs
           (client_id, run_id, topic, focus, body, sources)
         VALUES (
           ${clientId}, ${runIds[i]},
@@ -181,7 +181,7 @@ async function setupPluginFixture(opts?: {
     }
     for (let i = 0; i < 2; i++) {
       await sql`
-        INSERT INTO ${sql(TEST_SCHEMA)}.postcaptain_drafts
+        INSERT INTO ${sql(TEST_SCHEMA)}.content_drafts
           (client_id, run_id, title, body, status)
         VALUES (
           ${clientId}, ${runIds[i]},
@@ -417,7 +417,7 @@ describe('plugin-callback tenancy @plugins @tenancy', () => {
     // Find a brief that belongs to clientA.
     const sql = getTestSql();
     const [briefA] = await sql<{ id: number }[]>`
-      SELECT id FROM ${sql(TEST_SCHEMA)}.postcaptain_briefs
+      SELECT id FROM ${sql(TEST_SCHEMA)}.content_briefs
       WHERE client_id = ${fx.clientA.client.id}
       ORDER BY id ASC LIMIT 1
     `;
@@ -445,7 +445,7 @@ describe('plugin-callback tenancy @plugins @tenancy', () => {
     const fx = await setupPluginFixture({ allowList: 'both' });
     const sql = getTestSql();
     const [draftA] = await sql<{ id: number; body: string }[]>`
-      SELECT id, body FROM ${sql(TEST_SCHEMA)}.postcaptain_drafts
+      SELECT id, body FROM ${sql(TEST_SCHEMA)}.content_drafts
       WHERE client_id = ${fx.clientA.client.id}
       ORDER BY id ASC LIMIT 1
     `;
@@ -469,7 +469,7 @@ describe('plugin-callback tenancy @plugins @tenancy', () => {
 
     // Re-read the draft directly from the DB and verify the body is unchanged.
     const [after] = await sql<{ body: string }[]>`
-      SELECT body FROM ${sql(TEST_SCHEMA)}.postcaptain_drafts
+      SELECT body FROM ${sql(TEST_SCHEMA)}.content_drafts
       WHERE id = ${draftA.id}
     `;
     expect(after.body).toBe(originalBody);
@@ -481,7 +481,7 @@ describe('plugin-callback tenancy @plugins @tenancy', () => {
     const readOnlyToken = await mintToken(fx.secret, {
       sub: String(fx.clientA.user.id),
       clientId: fx.clientA.client.id,
-      scopes: ['postcaptain:research:read'],
+      scopes: ['content:research:read'],
     });
     const res = await callPluginCallback<{
       success: boolean;

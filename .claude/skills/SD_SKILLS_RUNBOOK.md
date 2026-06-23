@@ -155,8 +155,8 @@ Exception: `decks_replace_slides` does NOT mint a new URL — it only mutates th
 ### Currently open
 
 1. **Migration tracker drift.** `drizzle.__drizzle_migrations` only records migration `0003`; everything `0004..0113` has been hand-applied SQL. `bun run db:migrate` won't run cleanly until this is repaired. New migrations must be hand-applied to both staging and production (which today share one Railway Postgres). Track every new `drizzle/NNNN_*.sql` file as a manual psql run.
-2. **Staging + production share one Postgres** (`metro.proxy.rlwy.net`). The Vercel `DATABASE_URL` env var has the same value for Preview and Production. Schema changes on staging are immediately visible to production users. Plan: stand up a separate staging DB before any destructive migration.
-3. **No stable staging hostname.** Staging is reachable only via the per-deployment Vercel Preview URL (e.g. `simplerdevelopment-workfriends-<hash>-dans-projects-b17bafc2.vercel.app`) behind deployment protection. Clients can't point Claude at staging without a bypass-secret. Plan: alias `staging.simplerdevelopment.com` once the shared-DB risk above is resolved.
+2. **Staging + production share one Postgres** (the production Postgres host). The Vercel `DATABASE_URL` env var has the same value for Preview and Production. Schema changes on staging are immediately visible to production users. Plan: stand up a separate staging DB before any destructive migration.
+3. **No stable staging hostname.** Staging is reachable only via the per-deployment Vercel Preview URL (e.g. `<project>-<hash>.vercel.app`) behind deployment protection. Clients can't point Claude at staging without a bypass-secret. Plan: alias `staging.simplerdevelopment.com` once the shared-DB risk above is resolved.
 4. **`drizzle-kit generate` is stuck** on a pre-existing meta-snapshot collision. Documented in CLAUDE.md / project memory. New schema work goes via hand-written SQL until this is repaired.
 
 ### Historical (fixed) — kept here so future maintainers can match symptoms to remediation
@@ -278,7 +278,7 @@ UPDATE portal_api_keys SET require_cms_approval = true WHERE id = N;
 | `sd-init` → produces `.sd/config.json` with brand snapshot + inventory | ✅ verified |
 | `sd-create-page` → posts_create with 13 well-formed blocks + approval URL | ✅ verified |
 | `sd-create-deck` → decks_create + replace_slides + brand-theme inheritance | ✅ verified |
-| `sd-create-email` → email_campaigns_create + blocks rendered to HTML + Resend delivery | ✅ verified (real email landed at info@danielpcoyle.com) |
+| `sd-create-email` → email_campaigns_create + blocks rendered to HTML + Resend delivery | ✅ verified (real email landed at admin@simplerdevelopment.com) |
 | Approve post → published=true, link approved | ✅ verified |
 | Approve deck → status=published + slide drafts promoted | ✅ verified (after route fix) |
 | Approve email → link approved, status untouched | ✅ verified |

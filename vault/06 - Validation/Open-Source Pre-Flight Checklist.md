@@ -11,6 +11,8 @@ goal: Community / credibility OSS launch (Apache-2.0)
 
 The go-public gate. Getting any 🔴 item wrong destroys the credibility this launch is meant to build. Work top-down — do not skip a tier.
 
+> **Status 2026-06-23:** Done on branch `oss-prep` (8 commits, never merges to main) — Tier 1A (data/secrets), Tier 1B (client code), Bucket 2 (generic renames), Tier 2 (LICENSE/SECURITY/infra sanitize), **secret-scanner gate PASSED** (trufflehog 0 live secrets; gitleaks 39 → all FP or vault-excluded), **README reframed + CONTRIBUTING.md + complete .env.example**. **Remaining:** (1) create the public repo — fresh `git init` from cleaned tree + single initial Drizzle migration + `.gitleaksignore`; (2) USER: rotate Google Fonts key (GCP), rotate Obsidian REST key, `rm -rf` untracked client-data remnants on disk.
+
 > **Findings verified 2026-06-23** via read-only scan + an Explore catalog sweep over git-tracked files. Concrete paths are inlined. Tier 1 still mandates a real scanner pass before publish — "grep found nothing" is not clearance.
 
 ---

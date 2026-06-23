@@ -1,6 +1,6 @@
 // Portal tools: pitch decks, booking pages and bookings, gift certificates, and Google Workspace / Zoom integrations.
 
-import { pgTable, serial, varchar, text, timestamp, boolean, integer, json, jsonb, index, uniqueIndex } from 'drizzle-orm/pg-core';
+import { pgTable, serial, varchar, text, timestamp, boolean, integer, bigint, json, jsonb, index, uniqueIndex } from 'drizzle-orm/pg-core';
 import { portalApiKeys, users } from './auth';
 import { clientWebsites, clients } from './sites';
 import { brandingProfiles } from './cms';
@@ -764,10 +764,13 @@ export const mcpToolCallDailyRollups = pgTable('mcp_tool_call_daily_rollups', {
   callCount: integer('call_count').default(0).notNull(),
   successCount: integer('success_count').default(0).notNull(),
   errorCount: integer('error_count').default(0).notNull(),
-  totalRequestBytes: integer('total_request_bytes').default(0).notNull(),
-  totalResponseBytes: integer('total_response_bytes').default(0).notNull(),
-  totalEstimatedTokens: integer('total_estimated_tokens').default(0).notNull(),
-  totalDurationMs: integer('total_duration_ms').default(0).notNull(),
+  // bigint: per-day accumulators sum across every call for a (client, tool);
+  // a busy tool overflows int4 (~2.1B) over long windows. mode:'number' keeps
+  // the JS surface a number (safe < 2^53) so rollup/usage-stats need no change.
+  totalRequestBytes: bigint('total_request_bytes', { mode: 'number' }).default(0).notNull(),
+  totalResponseBytes: bigint('total_response_bytes', { mode: 'number' }).default(0).notNull(),
+  totalEstimatedTokens: bigint('total_estimated_tokens', { mode: 'number' }).default(0).notNull(),
+  totalDurationMs: bigint('total_duration_ms', { mode: 'number' }).default(0).notNull(),
   p95ResponseBytes: integer('p95_response_bytes').default(0).notNull(),
   p95EstimatedTokens: integer('p95_estimated_tokens').default(0).notNull(),
   p95DurationMs: integer('p95_duration_ms').default(0).notNull(),

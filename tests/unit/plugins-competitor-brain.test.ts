@@ -26,7 +26,7 @@ vi.mock('@/lib/db/schema/pm', () => ({
   kanbanCardComments: { _t: 'kanbanCardComments' },
 }));
 vi.mock('@/lib/db/schema/plugins', () => ({
-  postcaptainBriefs: { _t: 'postcaptainBriefs', clientId: { _c: 'clientId' }, meta: { _c: 'meta' }, id: { _c: 'id' } },
+  contentBriefs: { _t: 'contentBriefs', clientId: { _c: 'clientId' }, meta: { _c: 'meta' }, id: { _c: 'id' } },
 }));
 
 const {
@@ -108,8 +108,8 @@ describe('ingestBriefAsBrainNote', () => {
     expect(valuesCall.clientId).toBe(100);
     expect(valuesCall.title).toMatch(/Competitor monitor: rhb \(deep\)/);
     expect(valuesCall.tags).toEqual(['competitor:rhb', 'monitor:deep']);
-    expect(valuesCall.source).toBe('plugin-postcaptain-tools');
-    expect(valuesCall.sourceUrl).toBe('plugin-postcaptain-tools://briefs/42');
+    expect(valuesCall.source).toBe('plugin-content-tools');
+    expect(valuesCall.sourceUrl).toBe('plugin-content-tools://briefs/42');
     expect(valuesCall.createdBy).toBe(BOT_USER_ID);
   });
 

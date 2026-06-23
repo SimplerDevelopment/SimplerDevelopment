@@ -26,10 +26,14 @@ if (!URL_STR) throw new Error('DATABASE_URL is not set');
 // two guards never disagree. Substring matching on substring-of-name (e.g. the
 // old `/prod/i` regex) false-positives on local DBs like
 // `simplerdev_realprod_dryrun` even though they're on 127.0.0.1.
-const PROD_INDICATORS = [
-  'tramway.proxy.rlwy.net:43167',
-  'metro.proxy.rlwy.net:25565',
-];
+//
+// PROD_DB_HOSTS: optional comma-separated list of hostname[:port] fragments
+// that identify production database proxies. See scripts/verify-db-target.ts
+// for full documentation. When unset, only RAILWAY_ENVIRONMENT_NAME is used.
+const PROD_INDICATORS: string[] = (process.env.PROD_DB_HOSTS ?? '')
+  .split(',')
+  .map((h) => h.trim())
+  .filter(Boolean);
 const hitProd =
   PROD_INDICATORS.some((p) => URL_STR.includes(p)) ||
   process.env.RAILWAY_ENVIRONMENT_NAME === 'production';
