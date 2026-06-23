@@ -72,6 +72,6 @@ describe('deriveSlug', () => {
     // Non-[a-z0-9] (including any unicode letters) → dashes. The fallback
     // kicks in if the entire input collapses to empty.
     expect(deriveSlug('日本語')).toBe('topic');
-    expect(deriveSlug('café')).toBe('caf');  // é dropped, "caf" survives
+    expect(deriveSlug('café')).toBe('cafe');  // é normalized to "e" via NFKD diacritic strip (canonical slugify)
   });
 });
