@@ -14,6 +14,17 @@ This is a ~357k-line monorepo (app 157k / lib 81k / components 119k LOC). Contex
 - **Don't read documentation speculatively.** Pointers at the bottom of this file are read-on-demand; only follow when the task touches that area.
 - **Escalation contract (worker → boss):** If a task turns out to need a design/architecture decision, hits an unknown root cause, requires touching files outside your assigned scope, would break a test you can't cleanly fix, or is otherwise beyond a straightforward mechanical change — **stop**. Return a message starting with `ESCALATE:` covering: (1) what you completed, (2) exactly where you got stuck, (3) why it exceeds a worker task, (4) what the boss needs (file/line, error, decision required), (5) recommended next step. Revert any half-done risky edits before returning.
 
+## Prompt intake (complex requests — do this BEFORE planning/coding)
+
+When a prompt carries a **decent amount of instruction** OR asks for a **big / cross-cutting change** (multi-step, architectural, touches multiple domains or many files, or has ambiguous scope), do the following two things first — before any plan or edit:
+
+1. **Revise the prompt against the *current* understanding of the project — and nothing else.** Restate the request back, grounded only in how this codebase *actually* works right now (real routes, schema, existing helpers/patterns, the invariants below, nested `CLAUDE.md` notes) — not training priors or assumptions about how a generic app "usually" works. Surface where the ask meets, conflicts with, or is already partly solved by what's in the repo. If you don't yet know the relevant code, read/Explore it first, then revise.
+2. **Run the `/grill-me` skill automatically.** Invoke it (Skill tool, `skill: "grill-me"`) to interview me through the decision tree until we reach shared understanding, resolving each branch before you write code. Do not skip it for this class of prompt just because the path "seems obvious."
+
+Only after the revised prompt is confirmed and grilling has resolved the open branches do you proceed to plan/implement.
+
+**Skip this** for trivial or already-fully-specified work: small single-file edits, quick questions, mechanical fixes, or a task whose scope and approach are already unambiguous. When unsure whether a prompt qualifies, treat it as qualifying.
+
 ## Where knowledge lives (route notes here — three tools, three axes)
 
 These three systems are **complementary, not redundant** — each owns a different axis. Route knowledge by *kind*, don't duplicate across them:
