@@ -6,7 +6,7 @@ date: 2026-06-17
 
 ## Backlog
 
-- [ ] MCP parity: add tickets/chat/notifications/surveys-submit/analytics MCP tools (API+UI domains with ZERO MCP coverage) `[scoped 2026-06-23]` — see [[Spec - MCP Parity]] · board [[MCP Parity Board]]
+- [ ] MCP parity: add tickets/chat/notifications/surveys-submit/analytics MCP tools (API+UI domains with ZERO MCP coverage) `[scoped 2026-06-23]` `[shipped 2026-06-23: surveys_submit/usage_get/notifications/chat/analytics + store-scope; tickets already existed]` — see [[Spec - MCP Parity]] · board [[MCP Parity Board]]
 - [ ] Unify AI tool surfaces (MCP 431 / Brain 12 / portal ~15 → one source of truth) — see [[Unify AI Tool Surfaces]]
 - [ ] Wire `enqueueWorkflowRunsForTrigger` to live CRM events — see [[Automations & Workflows]]
 - [ ] Implement `send_email` / `add_to_list` action kinds in the visual workflow runtime — see [[Automations & Workflows]]

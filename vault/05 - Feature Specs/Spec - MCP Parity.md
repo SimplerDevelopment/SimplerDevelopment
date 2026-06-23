@@ -1,7 +1,7 @@
 ---
 type: spec
 domain: mcp
-status: planned
+status: shipped
 date: 2026-06-23
 sources:
   - docs/audits/portal-layer-audit-2026-06.md
@@ -25,6 +25,17 @@ sources:
 ---
 
 # Spec - MCP Parity (Chat, Notifications, Surveys-submit, Analytics)
+
+## Shipped 2026-06-23
+
+All four build groups and the store-scope fix landed:
+
+- **surveys_submit_response + usage_get** — commit `11211559`
+- **notifications_list / notifications_mark_read + chat_* tools** — commit `12689e0b`
+- **email/booking/store/deck _analytics_get + store:read/store:write scope catalog fix** — commit `bebd32ef`
+- **tickets_*** — pre-existing (hardened `225eecdb`); corrected from audit error
+
+Pending gate closure: full-repo `tsc --noEmit` + `bun test:tenancy` on the new chat tools before declaring CI-clean.
 
 ## Overview
 

@@ -9,15 +9,7 @@ date: 2026-06-23
 
 ## Backlog
 
-- [ ] Fix scope catalog: add store:read/store:write to SUPPORTED_SCOPES (used by storefront tools but ungrantable via OAuth) [effort S] — see [[Spec - MCP Parity]]
-
 ## Planned
-
-- [ ] surveys_submit_response MCP tool — reuse surveys:write [effort S] — see [[Spec - MCP Parity]]
-- [ ] notifications_* MCP tools (list/mark_read) — new notifications:* scope [effort S] — see [[Spec - MCP Parity]]
-- [ ] usage_get MCP tool (self-report MCP cost) — reuse billing:read [effort S] — see [[Spec - MCP Parity]]
-- [ ] chat_* MCP tools (conversations list/get/reply, widgets) — new chat:* scope [effort M] — see [[Spec - MCP Parity]]
-- [ ] analytics_get per-domain MCP tools (email/booking/store/deck) — reuse per-domain read scopes [effort M] — see [[Spec - MCP Parity]]
 
 ## In Progress
 
@@ -25,7 +17,13 @@ date: 2026-06-23
 
 ## Shipped
 
-- [x] tickets_* MCP tools ALREADY EXISTED (`lib/mcp/tools/tickets.ts`) — audit error corrected; hardened 2026-06-23 (status-enum waiting→waiting_on_customer bug + slim projections) — see [[Spec - MCP Parity]]
+- [x] tickets_* MCP tools — already existed; hardened 2026-06-23 (status-enum bug + slim projections) (225eecdb) — see [[Spec - MCP Parity]]
+- [x] surveys_submit_response (surveys:write) — submit a response to a tenant-owned active survey (11211559) — see [[Spec - MCP Parity]]
+- [x] usage_get (billing:read) — caller's own MCP token/call spend, clientId-scoped (11211559) — see [[Spec - MCP Parity]]
+- [x] notifications_list / notifications_mark_read (notifications:*, scoped to userId) (12689e0b) — see [[Spec - MCP Parity]]
+- [x] chat_widgets_list / conversations_list / conversations_get / conversation_reply / conversation_update (chat:*) (12689e0b) — see [[Spec - MCP Parity]]
+- [x] email/booking/store/deck _analytics_get (per-domain read scopes) (bebd32ef) — see [[Spec - MCP Parity]]
+- [x] Scope catalog fix: store:read/store:write added to SUPPORTED_SCOPES (bebd32ef) — see [[Spec - MCP Parity]]
 
 
 %% kanban:settings
