@@ -4,34 +4,24 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
-
-interface NavItem {
-  href: string;
-  label: string;
-  icon: string;
-  badge?: number;
-  subItems?: NavItem[];
-}
-
-interface NavSection {
-  label: string;
-  items: NavItem[];
-}
+import { getNavSections, type NavItem, type NavSection } from '@/lib/admin/nav';
 
 export default function AdminSidebar() {
-  const { status } = useSession();
+  const { data: session, status } = useSession();
   const pathname = usePathname();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
+  const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
   const [approvalsCount, setApprovalsCount] = useState<number>(0);
 
   useEffect(() => {
     const saved = localStorage.getItem('adminSidebarCollapsed');
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- hydrate collapse state from localStorage on mount
     if (saved !== null) setIsCollapsed(saved === 'true');
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- close the mobile drawer when the route changes
     setIsMobileOpen(false);
   }, [pathname]);
 
@@ -64,7 +54,7 @@ export default function AdminSidebar() {
   };
 
   const toggleSection = (label: string) => {
-    setExpandedSections(prev => {
+    setCollapsedSections(prev => {
       const next = new Set(prev);
       if (next.has(label)) next.delete(label);
       else next.add(label);
@@ -72,133 +62,26 @@ export default function AdminSidebar() {
     });
   };
 
-  const sections: NavSection[] = [
-    {
-      label: 'Platform',
-      items: [
-        { href: '/admin', label: 'Dashboard', icon: 'space_dashboard' },
-        { href: '/admin/clients', label: 'Clients', icon: 'business' },
-        { href: '/admin/users', label: 'Staff', icon: 'badge' },
-      ],
-    },
-    {
-      label: 'Services',
-      items: [
-        {
-          href: '/admin/portal-websites',
-          label: 'Websites',
-          icon: 'language',
-          subItems: [
-            { href: '/admin/branding', label: 'Branding', icon: 'palette' },
-            { href: '/admin/portal-hosting', label: 'Hosting & DNS', icon: 'cloud' },
-          ],
-        },
-        { href: '/admin/portal-ecommerce', label: 'eCommerce', icon: 'shopping_cart' },
-        {
-          href: '/admin/email',
-          label: 'Email Marketing',
-          icon: 'campaign',
-          subItems: [
-            { href: '/admin/email/campaigns', label: 'Campaigns', icon: 'send' },
-            { href: '/admin/email/lists', label: 'Lists', icon: 'list' },
-            { href: '/admin/email/domains', label: 'Domains', icon: 'dns' },
-          ],
-        },
-        { href: '/admin/booking', label: 'Booking', icon: 'calendar_month' },
-      ],
-    },
-    {
-      label: 'Sales & CRM',
-      items: [
-        { href: '/admin/crm', label: 'CRM Dashboard', icon: 'monitoring' },
-        { href: '/admin/crm/contacts', label: 'Contacts', icon: 'contacts' },
-        { href: '/admin/crm/companies', label: 'Companies', icon: 'apartment' },
-        { href: '/admin/crm/deals', label: 'Deals', icon: 'handshake' },
-        { href: '/admin/crm/proposals', label: 'Proposals', icon: 'description' },
-        { href: '/admin/crm/contracts', label: 'Contracts', icon: 'gavel' },
-      ],
-    },
-    {
-      label: 'Operations',
-      items: [
-        { href: '/admin/approvals', label: 'Approvals', icon: 'inbox', badge: approvalsCount },
-        {
-          href: '/admin/portal-projects',
-          label: 'Projects',
-          icon: 'view_kanban',
-          subItems: [
-            { href: '/admin/portal-suggested-projects', label: 'Project Market', icon: 'rocket_launch' },
-            { href: '/admin/portal-project-requests', label: 'Requests', icon: 'assignment_add' },
-          ],
-        },
-        { href: '/admin/portal-tickets', label: 'Support Tickets', icon: 'support_agent' },
-        { href: '/admin/automations', label: 'Automations', icon: 'bolt' },
-        { href: '/admin/system-health', label: 'System Health', icon: 'monitor_heart' },
-        { href: '/admin/oauth-clients', label: 'OAuth Clients', icon: 'key' },
-        // Agentic OS is a developer-only feature. NODE_ENV is statically
-        // inlined by Next.js at build time, so the entry is stripped from
-        // production bundles entirely (matches the server-side route gate).
-        ...(process.env.NODE_ENV === 'development'
-          ? [{ href: '/admin/agentic-os', label: 'Agentic OS', icon: 'auto_awesome' }]
-          : []),
-        { href: '/admin/portal-ai', label: 'AI Chat', icon: 'smart_toy' },
-      ],
-    },
-    {
-      label: 'Billing',
-      items: [
-        { href: '/admin/portal-invoices', label: 'Invoices', icon: 'receipt_long' },
-        { href: '/admin/subscriptions', label: 'Subscriptions', icon: 'loyalty' },
-        { href: '/admin/ai-credits', label: 'AI Credits', icon: 'token' },
-        {
-          href: '/admin/portal-services',
-          label: 'Service Catalog',
-          icon: 'storefront',
-          subItems: [
-            { href: '/admin/portal-service-requests', label: 'Service Requests', icon: 'assignment' },
-          ],
-        },
-      ],
-    },
-    {
-      label: 'Content',
-      items: [
-        {
-          href: '/admin/posts',
-          label: 'Posts',
-          icon: 'article',
-          subItems: [
-            { href: '/admin/content-calendar', label: 'Calendar', icon: 'calendar_month' },
-            { href: '/admin/post-types', label: 'Post Types', icon: 'category' },
-            { href: '/admin/categories', label: 'Categories', icon: 'folder' },
-            { href: '/admin/tags', label: 'Tags', icon: 'label' },
-          ],
-        },
-        { href: '/admin/templates', label: 'Templates', icon: 'bookmark' },
-        { href: '/admin/media', label: 'Media', icon: 'perm_media' },
-      ],
-    },
-  ];
+  const sections = getNavSections();
+  const badgeFor = (item: NavItem) => (item.badgeKey === 'approvals' ? approvalsCount : 0);
 
   const isActive = (href: string) => {
     if (href === '/admin') return pathname === '/admin';
     return pathname === href || pathname.startsWith(href + '/');
   };
-
-  const isSectionActive = (section: NavSection) =>
-    section.items.some(item =>
-      isActive(item.href) || item.subItems?.some(sub => isActive(sub.href))
-    );
-
   const isItemExpanded = (item: NavItem) =>
     isActive(item.href) || item.subItems?.some(sub => isActive(sub.href));
+
+  const userInitials = (session?.user?.name ?? session?.user?.email ?? 'A')
+    .split(/\s+/).map(s => s[0]).slice(0, 2).join('').toUpperCase();
 
   return (
     <>
       {/* Mobile toggle */}
       <button
         onClick={() => setIsMobileOpen(!isMobileOpen)}
-        className="lg:hidden fixed top-4 left-4 z-50 p-2 rounded-md bg-card border border-border"
+        className="lg:hidden fixed top-3 left-3 z-50 w-9 h-9 grid place-items-center rounded-md bg-card border border-border text-foreground"
+        aria-label="Toggle navigation"
       >
         <span className="material-icons text-xl">{isMobileOpen ? 'close' : 'menu'}</span>
       </button>
@@ -206,137 +89,144 @@ export default function AdminSidebar() {
       <aside
         className={`fixed top-0 left-0 z-40 h-screen transition-all duration-300 ${
           isMobileOpen ? 'translate-x-0' : '-translate-x-full'
-        } lg:translate-x-0 ${
-          isCollapsed ? 'w-16' : 'w-64'
-        } bg-card border-r border-border flex flex-col`}
+        } lg:translate-x-0 ${isCollapsed ? 'w-16' : 'w-64'} bg-card border-r border-border flex flex-col`}
       >
         {/* Header */}
-        <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'} h-14 border-b border-border px-3`}>
+        <div className={`flex items-center h-14 border-b border-border ${isCollapsed ? 'justify-center px-2' : 'justify-between px-4'}`}>
           {!isCollapsed && (
-            <Link href="/admin" className="flex items-center gap-2">
-              <span className="material-icons text-primary text-xl">hub</span>
-              <span className="font-bold text-foreground text-sm">SimplerDev</span>
+            <Link href="/admin" className="flex items-center gap-2.5 min-w-0">
+              <span className="rounded-md bg-foreground text-background grid place-items-center font-mono font-bold text-[15px] leading-none shrink-0" style={{ width: 26, height: 26 }}>S</span>
+              <span className="font-semibold text-foreground text-sm tracking-tight truncate">SimplerDev</span>
             </Link>
           )}
           <button
             onClick={toggleCollapsed}
-            className="hidden lg:flex p-1.5 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+            className="hidden lg:grid place-items-center w-7 h-7 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+            aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           >
-            <span className="material-icons text-lg">
-              {isCollapsed ? 'chevron_right' : 'chevron_left'}
-            </span>
+            <span className="material-icons text-lg">{isCollapsed ? 'chevron_right' : 'chevron_left'}</span>
           </button>
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto py-2 scrollbar-thin">
-          {sections.map((section) => (
-            <div key={section.label} className="mb-1">
-              {!isCollapsed ? (
-                <button
-                  onClick={() => toggleSection(section.label)}
-                  className="w-full flex items-center justify-between px-4 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider hover:text-foreground transition-colors"
-                >
-                  {section.label}
-                  <span className="material-icons text-xs">
-                    {expandedSections.has(section.label) ? 'expand_less' : 'expand_more'}
-                  </span>
-                </button>
-              ) : (
-                <div className="border-t border-border mx-2 my-1" />
-              )}
+        <nav className="flex-1 overflow-y-auto py-3 px-2.5">
+          {sections.map((section: NavSection) => {
+            const open = !collapsedSections.has(section.label);
+            return (
+              <div key={section.label} className="mb-3 last:mb-0">
+                {!isCollapsed ? (
+                  <button
+                    onClick={() => toggleSection(section.label)}
+                    className="w-full flex items-center justify-between px-2 pt-1.5 pb-1 text-[10.5px] font-semibold text-muted-foreground/80 uppercase tracking-[0.09em] hover:text-foreground transition-colors"
+                  >
+                    {section.label}
+                    <span className="material-icons text-sm opacity-60">{open ? 'expand_less' : 'expand_more'}</span>
+                  </button>
+                ) : (
+                  <div className="border-t border-border mx-1 my-2" />
+                )}
 
-              {(!expandedSections.has(section.label) || isCollapsed) && (
-                <ul className={`space-y-0.5 ${isCollapsed ? 'px-1.5' : 'px-2'}`}>
-                  {section.items.map((item) => (
-                    <li key={item.href}>
-                      <Link
-                        href={item.href}
-                        className={`flex items-center gap-2.5 ${
-                          isCollapsed ? 'justify-center px-2' : 'px-3'
-                        } py-2 rounded-md text-[13px] font-medium transition-colors relative group ${
-                          isActive(item.href)
-                            ? 'bg-primary text-primary-foreground'
-                            : 'text-muted-foreground hover:bg-accent hover:text-foreground'
-                        }`}
-                        title={isCollapsed ? item.label : ''}
-                      >
-                        <span className="material-icons text-lg">{item.icon}</span>
-                        {!isCollapsed && <span className="truncate flex-1">{item.label}</span>}
-                        {!isCollapsed && typeof item.badge === 'number' && item.badge > 0 && (
-                          <span className={`text-[10px] font-semibold leading-none px-1.5 py-0.5 rounded-full ${
-                            isActive(item.href) ? 'bg-primary-foreground text-primary' : 'bg-primary text-primary-foreground'
-                          }`}>
-                            {item.badge}
-                          </span>
-                        )}
-                        {isCollapsed && (
-                          <>
-                            {typeof item.badge === 'number' && item.badge > 0 && (
-                              <span className="absolute -top-0.5 -right-0.5 text-[9px] font-semibold leading-none px-1 py-0.5 rounded-full bg-primary text-primary-foreground">
-                                {item.badge}
+                {(open || isCollapsed) && (
+                  <ul className="space-y-0.5">
+                    {section.items.map((item) => {
+                      const active = isActive(item.href);
+                      const badge = badgeFor(item);
+                      return (
+                        <li key={item.href}>
+                          <Link
+                            href={item.href}
+                            title={isCollapsed ? item.label : ''}
+                            className={`group relative flex items-center gap-2.5 rounded-md text-[13.5px] font-medium transition-colors ${
+                              isCollapsed ? 'justify-center px-2 py-2' : 'px-2 py-[7px]'
+                            } ${
+                              active
+                                ? 'bg-accent text-foreground'
+                                : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+                            }`}
+                          >
+                            {active && !isCollapsed && (
+                              <span className="absolute left-[-10px] top-[7px] bottom-[7px] w-0.5 rounded bg-foreground" />
+                            )}
+                            <span className="material-icons text-[18px] shrink-0">{item.icon}</span>
+                            {!isCollapsed && <span className="truncate flex-1">{item.label}</span>}
+                            {!isCollapsed && badge > 0 && (
+                              <span className="text-[10.5px] font-mono leading-none px-1.5 h-[17px] min-w-[17px] grid place-items-center rounded-full text-white bg-[var(--admin-accent)]">
+                                {badge}
                               </span>
                             )}
-                            <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap transition-opacity z-50">
-                              {item.label}
-                            </div>
-                          </>
-                        )}
-                      </Link>
+                            {isCollapsed && (
+                              <>
+                                {badge > 0 && (
+                                  <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-[var(--admin-accent)]" />
+                                )}
+                                <span className="absolute left-full ml-2 px-2 py-1 bg-popover text-popover-foreground border border-border text-xs rounded-md opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap transition-opacity z-50 shadow-sm">
+                                  {item.label}
+                                </span>
+                              </>
+                            )}
+                          </Link>
 
-                      {/* Sub-items */}
-                      {item.subItems && !isCollapsed && isItemExpanded(item) && (
-                        <ul className="mt-0.5 ml-3 pl-3 border-l border-border space-y-0.5">
-                          {item.subItems.map((sub) => (
-                            <li key={sub.href}>
-                              <Link
-                                href={sub.href}
-                                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs transition-colors ${
-                                  isActive(sub.href)
-                                    ? 'bg-primary/10 text-primary font-medium'
-                                    : 'text-muted-foreground hover:bg-accent hover:text-foreground'
-                                }`}
-                              >
-                                <span className="material-icons text-sm">{sub.icon}</span>
-                                <span>{sub.label}</span>
-                              </Link>
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          ))}
+                          {/* Sub-items */}
+                          {item.subItems && !isCollapsed && isItemExpanded(item) && (
+                            <ul className="mt-0.5 ml-[15px] pl-3 border-l border-border space-y-0.5">
+                              {item.subItems.map((sub) => {
+                                const subActive = isActive(sub.href);
+                                return (
+                                  <li key={sub.href}>
+                                    <Link
+                                      href={sub.href}
+                                      className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-[12.5px] transition-colors ${
+                                        subActive
+                                          ? 'text-foreground font-medium bg-accent'
+                                          : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+                                      }`}
+                                    >
+                                      <span className="material-icons text-[15px]">{sub.icon}</span>
+                                      <span className="truncate">{sub.label}</span>
+                                    </Link>
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                          )}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+            );
+          })}
         </nav>
 
         {/* Footer */}
-        <div className={`border-t border-border ${isCollapsed ? 'p-1.5' : 'p-2'}`}>
-          <Link
-            href="/"
-            className={`flex items-center gap-2 ${
-              isCollapsed ? 'justify-center px-2' : 'px-3'
-            } py-2 rounded-md text-xs text-muted-foreground hover:bg-accent hover:text-foreground transition-colors relative group`}
-            title={isCollapsed ? 'Back to Site' : ''}
-          >
-            <span className="material-icons text-lg">arrow_back</span>
-            {!isCollapsed && <span>Back to Site</span>}
-            {isCollapsed && (
-              <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap transition-opacity z-50">
-                Back to Site
+        <div className="border-t border-border p-2">
+          {!isCollapsed ? (
+            <div className="flex items-center gap-2.5 px-2 py-1.5 rounded-md">
+              <span className="w-7 h-7 rounded-full shrink-0 grid place-items-center text-white text-[11px] font-semibold" style={{ background: 'linear-gradient(135deg,#0070f3,#7928ca)' }}>
+                {userInitials}
+              </span>
+              <div className="min-w-0 flex-1 leading-tight">
+                <div className="text-[12.5px] font-medium text-foreground truncate">{session?.user?.name ?? 'Staff'}</div>
+                <div className="text-[11px] text-muted-foreground truncate">{session?.user?.email}</div>
               </div>
-            )}
-          </Link>
+              <Link href="/" title="Back to site" className="grid place-items-center w-7 h-7 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors">
+                <span className="material-icons text-lg">logout</span>
+              </Link>
+            </div>
+          ) : (
+            <Link href="/" title="Back to site" className="group relative grid place-items-center w-full py-2 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors">
+              <span className="material-icons text-lg">logout</span>
+              <span className="absolute left-full ml-2 px-2 py-1 bg-popover text-popover-foreground border border-border text-xs rounded-md opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap transition-opacity z-50 shadow-sm">
+                Back to site
+              </span>
+            </Link>
+          )}
         </div>
       </aside>
 
       {isMobileOpen && (
-        <div
-          className="fixed inset-0 bg-black/50 z-30 lg:hidden"
-          onClick={() => setIsMobileOpen(false)}
-        />
+        <div className="fixed inset-0 bg-black/50 z-30 lg:hidden" onClick={() => setIsMobileOpen(false)} />
       )}
     </>
   );
