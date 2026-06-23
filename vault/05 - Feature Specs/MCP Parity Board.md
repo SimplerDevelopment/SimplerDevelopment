@@ -5,7 +5,7 @@ domain: mcp
 date: 2026-06-23
 ---
 
-> Initiative board for [[Spec - MCP Parity]]. Tracks the five tool groups that close the API+UI–vs–MCP layers gap identified in `docs/audits/portal-layer-audit-2026-06.md` §5. Lanes: Backlog → Planned → In Progress → Validating → Shipped.
+> Initiative board for [[Spec - MCP Parity]]. Tracks the four build-target tool groups that close the API+UI–vs–MCP layers gap identified in `docs/audits/portal-layer-audit-2026-06.md` §5 (tickets_* already existed — audit error; corrected 2026-06-23). Lanes: Backlog → Planned → In Progress → Validating → Shipped.
 
 ## Backlog
 
@@ -13,7 +13,6 @@ date: 2026-06-23
 
 ## Planned
 
-- [ ] tickets_* MCP tools (list/get/create/reply/update) — scopes ALREADY exist, build first [effort M] — see [[Spec - MCP Parity]]
 - [ ] surveys_submit_response MCP tool — reuse surveys:write [effort S] — see [[Spec - MCP Parity]]
 - [ ] notifications_* MCP tools (list/mark_read) — new notifications:* scope [effort S] — see [[Spec - MCP Parity]]
 - [ ] usage_get MCP tool (self-report MCP cost) — reuse billing:read [effort S] — see [[Spec - MCP Parity]]
@@ -25,6 +24,8 @@ date: 2026-06-23
 ## Validating
 
 ## Shipped
+
+- [x] tickets_* MCP tools ALREADY EXISTED (`lib/mcp/tools/tickets.ts`) — audit error corrected; hardened 2026-06-23 (status-enum waiting→waiting_on_customer bug + slim projections) — see [[Spec - MCP Parity]]
 
 
 %% kanban:settings

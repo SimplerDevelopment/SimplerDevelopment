@@ -24,13 +24,15 @@ sources:
   - app/api/surveys/[slug]
 ---
 
-# Spec - MCP Parity (Tickets, Chat, Notifications, Surveys, Analytics)
+# Spec - MCP Parity (Chat, Notifications, Surveys-submit, Analytics)
 
 ## Overview
 
-Five domains have full API and portal UI coverage but zero MCP tools: tickets/helpdesk, live chat, notifications, surveys (response submission), and analytics readback. This spec closes that gap with 15–18 new tools across five groups. Source of gap analysis: `docs/audits/portal-layer-audit-2026-06.md` §5 (MCP audit).
+**Correction (2026-06-23):** The original audit incorrectly listed tickets/helpdesk as a missing group. `lib/mcp/tools/tickets.ts` has existed since commit `000195cd4` with `tickets_list`, `tickets_get`, `tickets_create`, `tickets_reply`, `tickets_update`, `tickets_attach_file_from_url` — all scope-guarded and `clientId`-scoped. That file was hardened on 2026-06-23 (status-enum `waiting` → `waiting_on_customer` bug fix + slim projections). Section 1 below is kept for the record but is DONE, not a build target.
 
-Audience: portal tenants whose agents or OAuth integrations need to triage tickets, read/reply to chat conversations, consume notifications, submit survey responses on behalf of contacts, or pull analytics aggregates — all operations that currently require brittle HTML scraping or undocumented internal API calls.
+Four domains have full API and portal UI coverage but zero MCP tools: live chat, notifications, surveys (response submission), and analytics readback. This spec closes that gap with 12–15 new tools across four build groups. Source of gap analysis: `docs/audits/portal-layer-audit-2026-06.md` §5 (MCP audit).
+
+Audience: portal tenants whose agents or OAuth integrations need to read/reply to chat conversations, consume notifications, submit survey responses on behalf of contacts, or pull analytics aggregates — all operations that currently require brittle HTML scraping or undocumented internal API calls.
 
 ## Domain context
 
@@ -53,21 +55,20 @@ Grantable scopes live in `lib/oauth/scopes.ts` (`SUPPORTED_SCOPES` + `DEFAULT_GR
 
 ## Tool groups
 
-### 1. tickets_* (effort M) — Cheapest win
+### 1. tickets_* — DONE (audit error corrected)
 
-**Scopes:** `tickets:read` / `tickets:write` — both are ALREADY in `lib/oauth/scopes.ts` (reserved, never used). A `triage-tickets` prompt exists in `lib/mcp/tools/prompts.ts` but the tools it implies are absent.
+> **STATUS: ALREADY SHIPPED.** `lib/mcp/tools/tickets.ts` has existed since commit `000195cd4`. The original audit incorrectly listed this group as missing. Section kept for the record only — not a build target.
 
-**Data:** API at `app/api/portal/tickets/` and `app/api/portal/tickets/[id]`; tables `supportTickets`, `ticketMessages` in `lib/db/schema/pm.ts` (no separate assignees table — assignee is a field on `supportTickets`).
+**Tools present in `lib/mcp/tools/tickets.ts`:** `tickets_list`, `tickets_get`, `tickets_create`, `tickets_reply`, `tickets_update`, `tickets_attach_file_from_url`.
 
-| Tool | Scope | Input | Slim projection |
-|---|---|---|---|
-| `tickets_list` | tickets:read | status, priority, assignee, overdue flag | {id, subject, status, priority, requester, updatedAt} |
-| `tickets_get` | tickets:read | ticketId | ticket + message thread |
-| `tickets_create` | tickets:write | {subject, body, priority, requesterEmail?} | {ticketId} |
-| `tickets_reply` | tickets:write | {ticketId, body, internal?} | {messageId} |
-| `tickets_update` | tickets:write | {ticketId, status?, priority?, assigneeId?, slaNote?} | {ticketId, updatedAt} |
+**Scopes:** `tickets:read` / `tickets:write` — both in `lib/oauth/scopes.ts`; all tools scope-guarded and `clientId`-scoped.
 
-**Value:** enables the Classify-and-Act multi-agent pattern for support triage — a fleet agent reads `tickets_list`, classifies each, and dispatches sub-agents to draft replies.
+**Hardening applied 2026-06-23:**
+- Status-enum bug fixed: `waiting` → `waiting_on_customer` to match schema.
+- Slim projections applied to list/get responses.
+- Breaking reply-param rename was reverted.
+
+**Data:** `app/api/portal/tickets/` and `app/api/portal/tickets/[id]`; tables `supportTickets`, `ticketMessages` in `lib/db/schema/pm.ts`.
 
 ### 2. surveys_submit_response (effort S)
 
@@ -139,20 +140,21 @@ Each tool returns the same aggregates shown in the corresponding UI analytics pa
 
 ## Suggested build order
 
-1. `tickets_*` — scopes already exist, highest agent value (triage pattern), prompt already references them
-2. `surveys_submit_response` — S-effort, scope already exists
-3. `notifications_*` — S-effort, straightforward new scopes
-4. `usage_get` — S-effort, closes Journey D audit gap
-5. `chat_*` — M-effort, new scopes needed, SSE caveat to navigate
-6. Analytics per-domain — M-effort, multiple data sources, define projection shape per domain first
+1. `surveys_submit_response` — S-effort, scope already exists
+2. `notifications_*` — S-effort, straightforward new scopes
+3. `usage_get` — S-effort, closes Journey D audit gap
+4. `chat_*` — M-effort, new scopes needed, SSE caveat to navigate
+5. Analytics per-domain — M-effort, multiple data sources, define projection shape per domain first
+
+(tickets_* was originally #1 but is already shipped — see Section 1 above.)
 
 ## Related fixes
 
 These side-findings from `docs/audits/portal-layer-audit-2026-06.md` §5 should be resolved in the same initiative:
 
-- **`tickets:read`/`tickets:write` reserved but unused** (`lib/oauth/scopes.ts` lines 11–12): these scopes exist but have no tools. Building tickets_* above closes this.
+- **`tickets:read`/`tickets:write`** (`lib/oauth/scopes.ts`): these scopes exist and ARE used by `lib/mcp/tools/tickets.ts`. No action needed — resolved by the pre-existing implementation.
 - **`store:read`/`store:write` missing from `SUPPORTED_SCOPES`** (`lib/oauth/scopes.ts`): `lib/storefront/mcp-sdk-adapter.ts` uses these scopes as guards, but they are not registered in `SUPPORTED_SCOPES` or `DEFAULT_GRANTED_SCOPES`. OAuth users can only access storefront tools today via a wildcard grant (`*`). Fix: add both to `SUPPORTED_SCOPES`; add `store:read` to defaults. This is a Backlog item on [[MCP Parity Board]] (effort S, independent of the tool work).
-- **`triage-tickets` prompt without tools** (`lib/mcp/tools/prompts.ts`): the prompt was written speculatively. Building `tickets_*` removes the dead-reference concern.
+- **`triage-tickets` prompt** (`lib/mcp/tools/prompts.ts`): the prompt references the tickets tools that now exist in `lib/mcp/tools/tickets.ts`. No dead-reference concern.
 
 ## Validation plan
 
