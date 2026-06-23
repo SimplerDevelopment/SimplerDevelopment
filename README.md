@@ -255,8 +255,7 @@ This repo is built to be worked on by AI agents (primarily Claude Code) alongsid
 
 - [`CLAUDE.md`](CLAUDE.md) — the root agent operating guide: architecture invariants, commands, conventions, don't-touch zones.
 - Nested `CLAUDE.md` files carry per-area invariants and god-file warnings, loaded automatically when an agent works in that subtree: `app/portal/`, `app/admin/`, `lib/blocks/`, `lib/mcp/`, `lib/db/`, `lib/ai/`, `components/portal/visual-editor/`, `tests/`.
-
-> The maintainers' private agent tooling (the `.claude/` skill library, navigation index, and generated knowledge graph) is not bundled in this public repository. The `CLAUDE.md` operating guides above are the portable, public core.
+- [`.claude/index.md`](.claude/index.md) — the navigation map: "I need to work on X" → the right nested guide, skill, or doc.
 
 ### Skills (scaffolding workflows)
 
