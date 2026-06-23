@@ -3,8 +3,8 @@ import { getFeaturedBlogPosts } from '@/lib/actions/blog';
 import { HomeClient } from './(pages)/HomeClient';
 
 export const metadata = generateSEO({
-  title: 'Web & Mobile Development Agency',
-  description: 'Full-stack web and mobile development agency. We build beautiful, scalable applications with modern technology, stunning design, and seamless user experiences.',
+  title: 'Open-Source All-in-One Agency Platform',
+  description: 'Run your whole agency on one open-source platform — websites, CRM, an AI brain, email, bookings & billing in 18 connected modules. Self-host it free (Apache-2.0), or use managed hosting from $19/seat/mo.',
   path: '/',
 });
 
