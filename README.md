@@ -1,10 +1,20 @@
-# SimplerDevelopment Platform
+# SimplerDevelopment
 
-[![Coverage](https://img.shields.io/badge/coverage-60%25-orange)](#testing) [![Tenancy gate](https://img.shields.io/badge/tenancy-required-blue)](tests/CI-GATES.md) [![Critical e2e](https://img.shields.io/badge/critical%20e2e-required-blue)](tests/CI-GATES.md)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE) [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md) [![Built with Bun](https://img.shields.io/badge/built%20with-Bun-14151a.svg)](https://bun.sh) [![Tenancy gate](https://img.shields.io/badge/tenancy-required-blue)](tests/CI-GATES.md)
 
-> Coverage badge is static until a publisher endpoint is wired up. The actual gate is defined in [`tests/CI-GATES.md`](tests/CI-GATES.md).
+**An open-source, MCP-native, all-in-one platform for agencies and operators.** Run per-tenant client **websites**, a **CRM**, an AI-powered **Company Brain** (RAG over client knowledge), workflow **automations**, **bookings**, a **storefront**, **email** campaigns, **surveys**, e-signatures, and **Stripe billing** — from one multi-tenant portal. Then drive *all* of it through an AI agent: the platform ships **200+ Model Context Protocol (MCP) tools**, so Claude, Cursor, or any MCP client can build pages, manage the CRM, send campaigns, and operate the whole system programmatically.
 
-SimplerDevelopment is a multi-tenant SaaS platform for a design, development, and automation agency. It provides a global internal admin panel, a per-tenant client portal, and per-tenant public-facing websites — all from a single Next.js monorepo. Core capabilities include a block-based CMS with a visual editor, a CRM, an AI-powered Company Brain (RAG over client knowledge), workflow automations, Google Workspace integration, Stripe billing, e-signatures, and an in-repo MCP server that exposes platform tools to AI agents.
+Think *"open-source, agent-operable alternative to the usual stack of a site builder + CRM + email tool + booking app + knowledge base"* — unbundled into one self-hostable codebase.
+
+## Why it's different
+
+- **MCP-native, not MCP-bolted-on.** 200+ scoped MCP tools span the entire platform surface (content, CRM, brain, commerce, email, bookings, billing). Build a site or run an outreach campaign by *talking to an agent*.
+- **All-in-one & multi-tenant.** A single Next.js codebase serves an internal admin panel, a per-tenant client portal, and per-tenant public websites.
+- **Block-based CMS + visual editor.** Content is typed JSON blocks edited in an iframe visual page builder.
+- **AI Company Brain.** Per-tenant retrieval-augmented knowledge base over client material.
+- **Self-hostable.** Apache-2.0 licensed. Bring your own Postgres and API keys.
+
+> Open-sourced from a production codebase. See **[CONTRIBUTING.md](CONTRIBUTING.md)** for how the codebase is organized (it has an unusually rich set of contributor/architecture docs) and **[SECURITY.md](SECURITY.md)** to report a vulnerability.
 
 ---
 
@@ -287,8 +297,16 @@ The platform deploys to Vercel (region `iad1`) using Next.js framework mode. Ins
 
 ---
 
+## Contributing
+
+Contributions are welcome. This codebase ships with an unusually rich set of contributor docs: **[`CONTRIBUTING.md`](CONTRIBUTING.md)** explains how the monorepo is organized and how to add a block type, an MCP tool, or a CRUD resource; the root [`CLAUDE.md`](CLAUDE.md) plus per-subsystem nested `CLAUDE.md` files document the architecture invariants. New here? Start with a [`good first issue`](../../issues?q=label%3A%22good+first+issue%22).
+
+Use conventional commits (`feat(scope):`, `fix(scope):`, …). Run `bun run typecheck` and `bun test` before opening a PR; any change touching tenant data must pass `bun test:tenancy`.
+
+## Security
+
+Found a vulnerability? Please **don't** open a public issue — see **[`SECURITY.md`](SECURITY.md)** for private disclosure.
+
 ## License
 
-All rights reserved — SimplerDevelopment
-
-For questions: contact@simplerdevelopment.com
+[Apache License 2.0](LICENSE) © SimplerDevelopment.
