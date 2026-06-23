@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { formatMoney } from '@/lib/utils/money';
 
 interface Product {
   id: number;
@@ -28,10 +29,6 @@ const statusBadge: Record<string, string> = {
   draft: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400',
   archived: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
 };
-
-function formatMoney(cents: number) {
-  return '$' + (cents / 100).toFixed(2);
-}
 
 export default function ProductsListPage() {
   const { siteId } = useParams<{ siteId: string }>();

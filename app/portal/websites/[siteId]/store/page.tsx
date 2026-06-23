@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
+import { formatMoney } from '@/lib/utils/money';
 
 interface StoreSettings {
   enabled: boolean;
@@ -37,10 +38,6 @@ const statusColors: Record<string, string> = {
   cancelled: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
   refunded: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
 };
-
-function formatMoney(cents: number) {
-  return '$' + (cents / 100).toFixed(2);
-}
 
 export default function StoreDashboardPage() {
   const { siteId } = useParams<{ siteId: string }>();

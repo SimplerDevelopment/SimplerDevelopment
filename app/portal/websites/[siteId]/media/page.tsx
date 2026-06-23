@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'next/navigation';
+import { formatBytes } from '@/lib/utils/bytes';
 
 interface MediaItem {
   id: number;
@@ -32,12 +33,6 @@ interface MediaVersionEntry {
 interface BrandingProfileOption {
   id: number;
   name: string;
-}
-
-function formatFileSize(bytes: number) {
-  if (bytes < 1024) return bytes + ' B';
-  if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
-  return (bytes / 1048576).toFixed(1) + ' MB';
 }
 
 export default function PortalMediaPage() {
@@ -343,7 +338,7 @@ export default function PortalMediaPage() {
               <div className="p-3">
                 <p className="text-xs font-medium text-foreground truncate">{item.filename}</p>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  {formatFileSize(item.fileSize)}
+                  {formatBytes(item.fileSize)}
                   {item.width && item.height ? ` · ${item.width}x${item.height}` : ''}
                 </p>
                 {brandingProfiles.length > 0 && item.brandingProfileName && (
@@ -486,7 +481,7 @@ export default function PortalMediaPage() {
               <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
                 <div><span className="font-medium">Filename:</span> {detail.filename}</div>
                 <div><span className="font-medium">Type:</span> {detail.mimeType}</div>
-                <div><span className="font-medium">Size:</span> {formatFileSize(detail.fileSize)}</div>
+                <div><span className="font-medium">Size:</span> {formatBytes(detail.fileSize)}</div>
                 {detail.width && detail.height && <div><span className="font-medium">Dimensions:</span> {detail.width} x {detail.height}</div>}
                 <div><span className="font-medium">Uploaded:</span> {new Date(detail.createdAt).toLocaleDateString()}</div>
                 {detail.brandingProfileName && <div><span className="font-medium">Brand:</span> {detail.brandingProfileName}</div>}
@@ -599,7 +594,7 @@ export default function PortalMediaPage() {
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium text-foreground truncate">v{v.version} · {v.filename}</p>
                             <p className="text-xs text-muted-foreground">
-                              {formatFileSize(v.fileSize)} · {new Date(v.createdAt).toLocaleString()}
+                              {formatBytes(v.fileSize)} · {new Date(v.createdAt).toLocaleString()}
                             </p>
                           </div>
                           <a

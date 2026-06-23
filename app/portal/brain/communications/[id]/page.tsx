@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState, useCallback } from 'react';
 import { stripQuotedReply } from '@/lib/brain/strip-quoted';
+import { formatBytes } from '@/lib/utils/bytes';
 
 interface MeetingParticipant {
   id: number;
@@ -85,12 +86,6 @@ interface Meeting {
     createdAt: string;
     completedAt: string | null;
   };
-}
-
-function formatBytes(n: number): string {
-  if (n < 1024) return `${n} B`;
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
-  return `${(n / 1024 / 1024).toFixed(1)} MB`;
 }
 
 const STATUS_LABELS: Record<Meeting['status'], { label: string; tone: string }> = {

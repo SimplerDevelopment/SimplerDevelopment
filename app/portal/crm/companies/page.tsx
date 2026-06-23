@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import CrmCustomFieldFilters from '@/components/portal/CrmCustomFieldFilters';
 import CompanyMap, { type MapCompany } from '@/components/portal/CompanyMap';
 import MediaPicker from '@/components/admin/MediaPicker';
+import { formatMoney } from '@/lib/utils/money';
 
 interface Company {
   id: number;
@@ -33,10 +34,6 @@ const sizeOptions = [
   { value: '501-1000', label: '501-1000 employees' },
   { value: '1001+', label: '1001+ employees' },
 ];
-
-function formatCurrency(cents: number): string {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100);
-}
 
 const LIMIT = 25;
 
@@ -366,7 +363,7 @@ export default function CrmCompaniesPage() {
                     {c.contactCount} contact{c.contactCount !== 1 ? 's' : ''}
                   </div>
                   <div className="font-semibold text-foreground">
-                    {formatCurrency(c.totalDealValue)}
+                    {formatMoney(c.totalDealValue)}
                   </div>
                 </div>
               </div>

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
+import { formatMoney } from '@/lib/utils/money';
 
 interface Discount {
   id: number;
@@ -25,10 +26,6 @@ interface DiscountForm {
   active: boolean;
   startsAt: string;
   expiresAt: string;
-}
-
-function formatMoney(cents: number) {
-  return '$' + (cents / 100).toFixed(2);
 }
 
 function centsToDollars(cents: number) {

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useCustomerAuth } from '@/components/storefront/account/CustomerAuthContext';
 import { RequireAuth } from '@/components/storefront/account/RequireAuth';
 import { AccountLayout } from '@/components/storefront/account/AccountLayout';
+import { formatMoney } from '@/lib/utils/money';
 
 interface Order {
   id: number;
@@ -27,8 +28,6 @@ export function AccountDashboardClient({ siteId, domain }: { siteId: number; dom
       .then(res => { if (res.success) setRecentOrders(res.data.slice(0, 5)); })
       .catch(() => {});
   }, [siteId, token]);
-
-  const formatCurrency = (cents: number) => `$${(cents / 100).toFixed(2)}`;
 
   const statusColor: Record<string, string> = {
     pending: 'bg-yellow-100 text-yellow-800',
@@ -57,7 +56,7 @@ export function AccountDashboardClient({ siteId, domain }: { siteId: number; dom
             </div>
             <div className="border border-gray-200 rounded-xl p-4">
               <p className="text-xs text-gray-500 mb-1">Total Spent</p>
-              <p className="text-2xl font-bold text-gray-900">{formatCurrency(customer?.totalSpent ?? 0)}</p>
+              <p className="text-2xl font-bold text-gray-900">{formatMoney(customer?.totalSpent ?? 0)}</p>
             </div>
             <div className="border border-gray-200 rounded-xl p-4">
               <p className="text-xs text-gray-500 mb-1">Member Since</p>
@@ -115,7 +114,7 @@ export function AccountDashboardClient({ siteId, domain }: { siteId: number; dom
                     <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${statusColor[order.status] ?? 'bg-gray-100 text-gray-700'}`}>
                       {order.status}
                     </span>
-                    <span className="text-sm font-medium text-gray-900">{formatCurrency(order.total)}</span>
+                    <span className="text-sm font-medium text-gray-900">{formatMoney(order.total)}</span>
                     <span className="material-icons text-gray-400" style={{ fontSize: '18px' }}>chevron_right</span>
                   </Link>
                 ))}

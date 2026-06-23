@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useCustomerAuth } from '@/components/storefront/account/CustomerAuthContext';
 import { RequireAuth } from '@/components/storefront/account/RequireAuth';
 import { AccountLayout } from '@/components/storefront/account/AccountLayout';
+import { formatMoney } from '@/lib/utils/money';
 
 interface OrderItem {
   id: number;
@@ -93,8 +94,6 @@ const timelineIcon: Record<string, string> = {
   delivered: 'check_circle',
   cancelled: 'cancel',
 };
-
-const formatCurrency = (cents: number) => `$${(cents / 100).toFixed(2)}`;
 
 // Map EasyPost tracking status → { label, pill class }
 const trackingStatusMeta: Record<string, { label: string; pill: string }> = {
@@ -355,9 +354,9 @@ export function OrderDetailClient({ siteId, domain, orderNumber }: { siteId: num
                             <p className="text-xs text-gray-500">Qty: {item.quantity}</p>
                           </div>
                           <div className="text-right">
-                            <p className="text-sm font-medium text-gray-900">{formatCurrency(item.total)}</p>
+                            <p className="text-sm font-medium text-gray-900">{formatMoney(item.total)}</p>
                             {item.quantity > 1 && (
-                              <p className="text-xs text-gray-500">{formatCurrency(item.unitPrice)} each</p>
+                              <p className="text-xs text-gray-500">{formatMoney(item.unitPrice)} each</p>
                             )}
                           </div>
                         </div>
@@ -368,19 +367,19 @@ export function OrderDetailClient({ siteId, domain, orderNumber }: { siteId: num
                   <div className="border-t border-gray-200 px-5 py-4 space-y-2">
                     <div className="flex justify-between text-sm text-gray-500">
                       <span>Subtotal</span>
-                      <span>{formatCurrency(order.subtotal)}</span>
+                      <span>{formatMoney(order.subtotal)}</span>
                     </div>
                     <div className="flex justify-between text-sm text-gray-500">
                       <span>Shipping</span>
-                      <span>{formatCurrency(order.shipping)}</span>
+                      <span>{formatMoney(order.shipping)}</span>
                     </div>
                     <div className="flex justify-between text-sm text-gray-500">
                       <span>Tax</span>
-                      <span>{formatCurrency(order.tax)}</span>
+                      <span>{formatMoney(order.tax)}</span>
                     </div>
                     <div className="flex justify-between text-sm font-semibold text-gray-900 pt-2 border-t border-gray-200">
                       <span>Total</span>
-                      <span>{formatCurrency(order.total)}</span>
+                      <span>{formatMoney(order.total)}</span>
                     </div>
                   </div>
                 </div>

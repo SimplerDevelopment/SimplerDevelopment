@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
+import { formatMoney } from '@/lib/utils/money';
 
 type RateSource = 'manual' | 'easypost';
 
@@ -24,10 +25,6 @@ interface ShippingZone {
   name: string;
   countries: string[];
   rates: ShippingRate[];
-}
-
-function formatMoney(cents: number) {
-  return '$' + (cents / 100).toFixed(2);
 }
 
 function centsToDollars(cents: number) {
