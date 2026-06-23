@@ -7,7 +7,7 @@
  */
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import { and, desc, eq, ilike, inArray, isNull, or, sql, gte, lte } from 'drizzle-orm';
+import { and, count, desc, eq, ilike, inArray, isNull, ne, or, sql, gte, lte } from 'drizzle-orm';
 import crypto from 'crypto';
 import { hash as hashPassword } from 'bcryptjs';
 import { db } from '@/lib/db';
@@ -42,6 +42,7 @@ import {
   surveyResponses,
   bookingPages,
   bookings,
+  bookingSelectedAddOns,
   sprints,
   crmActivities,
   categories,
@@ -543,6 +544,80 @@ export function registerBookingsTools(server: McpServer, ctx: PortalMcpContext):
       }).returning();
       revalidateForWrite('portal');
       return json(row);
+    }
+  );
+
+  // ── BOOKING ANALYTICS ─────────────────────────────────────────────────────
+  hasScope(ctx.scopes, 'bookings:read') && server.registerTool(
+    'booking_analytics_get',
+    {
+      title: 'Get booking analytics',
+      description:
+        'Return booking performance aggregates for the client over a time window: total paid bookings, revenue (base + add-on), cancelled count, total guests, and average booking value. All figures are client-scoped.',
+      inputSchema: {
+        days: z.number().min(1).max(365).default(30).optional().describe('Look-back window in days (default 30, max 365).'),
+      },
+    },
+    async ({ days = 30 }) => {
+      if (!requireScope(ctx, 'bookings:read')) return denied('bookings:read');
+
+      const start = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+      const now = new Date();
+
+      const allBookings = await db
+        .select({
+          id: bookings.id,
+          total: bookings.total,
+          paymentStatus: bookings.paymentStatus,
+          status: bookings.status,
+          groupSize: bookings.groupSize,
+        })
+        .from(bookings)
+        .where(
+          and(
+            eq(bookings.clientId, clientId),
+            ne(bookings.status, 'cancelled'),
+            gte(bookings.createdAt, start),
+            lte(bookings.createdAt, now),
+          ),
+        );
+
+      const paidBookings = allBookings.filter(
+        (b) => b.paymentStatus === 'paid' || b.paymentStatus === 'free',
+      );
+      const cancelledCount = allBookings.filter((b) => b.status === 'cancelled').length;
+
+      let addOnRevenue = 0;
+      if (paidBookings.length > 0) {
+        const ids = paidBookings.map((b) => b.id);
+        const addOns = await db
+          .select({ quantity: bookingSelectedAddOns.quantity, unitPrice: bookingSelectedAddOns.unitPrice })
+          .from(bookingSelectedAddOns)
+          .where(inArray(bookingSelectedAddOns.bookingId, ids));
+        addOnRevenue = addOns.reduce((s, a) => s + a.unitPrice * a.quantity, 0);
+      }
+
+      const totalRevenue = paidBookings.reduce((s, b) => s + (b.total ?? 0), 0);
+      const totalGuests = paidBookings.reduce((s, b) => s + (b.groupSize ?? 1), 0);
+
+      // By-status breakdown
+      const [statusCounts] = await db
+        .select({ total: count() })
+        .from(bookings)
+        .where(and(eq(bookings.clientId, clientId), gte(bookings.createdAt, start)));
+
+      return json({
+        days,
+        bookingCount: paidBookings.length,
+        cancelledCount,
+        totalRevenue,
+        bookingRevenue: totalRevenue - addOnRevenue,
+        addOnRevenue,
+        totalGuests,
+        averageBookingValue:
+          paidBookings.length > 0 ? Math.round(totalRevenue / paidBookings.length) : 0,
+        totalInWindow: statusCounts.total,
+      });
     }
   );
 }

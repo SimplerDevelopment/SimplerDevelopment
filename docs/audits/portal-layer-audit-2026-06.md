@@ -49,7 +49,7 @@ Legend: ✅ full · ◑ partial / indirect · ❌ absent · — n/a
 | **Pitch decks** | ✅ | ✅ (view) | ✅ | ✅ | `decks_*` MCP; public: `app/pitch-deck/[slug]` (+ per-slide dwell tracking) |
 | **Projects / Kanban** | ✅ | — | ✅ | ✅ | `kanban_*` + `projects_*` + `sprints_*` MCP (~50 tools) |
 | **Company Brain (notes/docs/decisions/playbooks/people)** | ✅ | — | ✅ | ✅ | `brain_*` MCP (~150 tools); `/api/portal/brain/**` (entitlement-gated) |
-| **Tickets / support** | ✅ | ◑ (storefront support only) | ✅ | ❌ | `/api/portal/tickets` — **no MCP tools** |
+| **Tickets / support** | ✅ | ◑ (storefront support only) | ✅ | ✅ | **CORRECTION (2026-06-23):** MCP DOES exist — `tickets_list/get/create/reply/update/attach_file_from_url` (`lib/mcp/tools/tickets.ts`, committed since `000195cd4`). An earlier draft wrongly marked ❌. |
 | **Chat / inbox** | ✅ | ✅ (widget) | ✅ | ❌ | `app/portal/inbox`; public widget `app/widget/chat`; **no MCP** |
 | **Approvals (staged MCP writes)** | ✅ | ✅ (token approve) | ✅ | ✅ | `approvals_*` MCP; public `app/approve/[token]` |
 | **Automations (rules)** | ✅ | — | ✅ | ✅ | `automations_*` MCP |
@@ -96,7 +96,7 @@ Effort key: **S** ≤1 day · **M** ≤1 week · **L** >1 week.
 | H4 | **MCP token estimate is heuristic ±30-60%**, and `getTopTools` computes `max(p95)` across days (overstates) | `lib/mcp/telemetry.ts:estimateTokens`, `lib/mcp/usage-stats.ts:145` | **S–M** |
 | H5 | **PII unredacted in audit log** — `email`, `guestName`, `contactEmail`, and raw 2KB output summaries stored | `lib/mcp/audit-redact.ts` only matches `password\|secret\|token\|key\|credential\|auth\|bearer` | **S** |
 | H6 | **Read-parity gap: RSC-only pages have no GET API** | ~10 pages query Drizzle directly; MCP/external clients can't read them | **M** |
-| H7 | **Tickets / Chat / Notifications / Workflows have no MCP tools** | Agentic clients can't triage support or read inbox | **M** |
+| H7 | **Chat / Notifications / visual-Workflows have no MCP tools** (~~Tickets~~ — corrected: tickets DO have MCP tools, see matrix) | Agentic clients can't read inbox or act on notifications | **M** |
 | **C4b** | **NEW — confirmed: `app/sites/[domain]/slides/[slug]?preview=1` serves draft decks with no auth** | `getPitchDeckByDomainAndSlug(domain, slug, preview=true)` (`lib/actions/client-sites.ts:122`) drops the `status='published'` filter; the slides page sets `preview` purely from `?preview=1` with **no `auth()`** — unlike the canonical `app/pitch-deck/[slug]` which gates the same flag behind `auth()`+`getPortalClient` (lines 152-154). Anyone who knows a deck slug can view it unpublished. **Fix is NOT a one-liner:** the route lives on the tenant *custom domain* where the portal session cookie doesn't apply (that's why it has no `auth()`), so it needs a signed preview token wired through the deck editor's Preview button — same shape as `lib/preview-token.ts` for posts. | **M** |
 
 ### MEDIUM
@@ -178,7 +178,7 @@ Effort key: **S** ≤1 day · **M** ≤1 week · **L** >1 week.
 **MCP tools that SHOULD exist but don't:**
 | Proposed tool(s) | Why | Effort |
 |---|---|---|
-| `tickets_list/get/reply/update` | agent-assisted support triage (Classify & Act pattern) | M |
+| ~~`tickets_*`~~ | **already exist** (`lib/mcp/tools/tickets.ts`) — removed from this list; hardened 2026-06-23 (status-enum bug + slim projections) | — |
 | `surveys_submit_response` | let agents file structured intake on behalf of a user | S |
 | `chat_conversations_list/reply` | agent inbox handling | M |
 | `notifications_list/mark_read` | agents acting on their own notifications | S |
@@ -300,7 +300,7 @@ Daily rollup cron (exists); weekly stakeholder digest (reuse `claude-mem`/standu
 ### Medium Projects (< 1 week each)
 8. **H2 + §7.2** API-source event/metric wrapper around `authorizePortal` → `portal_events` + per-endpoint p50/p95 (OTel spans → Sentry).
 9. **H1 + §7.3** Portal UI analytics hook (`usePortalAnalytics`) + `POST /api/portal/events` + PostHog SDK; instrument top dashboard CTAs + Brain/CRM search.
-10. **H7 + §5** Add `tickets_*`, `chat_*`, `notifications_*`, `surveys_submit_response`, `usage_get` MCP tools (use `simplerdev-mcp-tool` skill).
+10. **H7 + §5** Add `chat_*`, `notifications_*`, `surveys_submit_response`, `usage_get` MCP tools (use `simplerdev-mcp-tool` skill). (`tickets_*` already exist — corrected; hardened 2026-06-23.)
 11. **C2** Lock down public survey CORS + add origin allowlist / rate-limit on CRM-writing public endpoints.
 12. **M5** Booking + store funnel events (server-side at each step).
 

@@ -7,7 +7,7 @@
  */
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import { and, desc, eq, ilike, inArray, isNull, or, sql, gte, lte } from 'drizzle-orm';
+import { and, avg, count, countDistinct, desc, eq, ilike, inArray, isNotNull, isNull, or, sql, gte, lte } from 'drizzle-orm';
 import crypto from 'crypto';
 import { hash as hashPassword } from 'bcryptjs';
 import { db } from '@/lib/db';
@@ -34,6 +34,7 @@ import {
   emailLists,
   emailCampaigns,
   pitchDecks,
+  pitchDeckViews,
   brandingProfiles,
   emailSubscribers,
   emailCampaignSends,
@@ -948,6 +949,61 @@ export function registerPitchDecksTools(server: McpServer, ctx: PortalMcpContext
       if (result.pending) return json({ pending: true, pendingId: result.pendingId, summary: result.summary, status: 'pending' });
       revalidateForWrite('portal');
       return json(result.data);
+    }
+  );
+
+  // ── DECK ANALYTICS ────────────────────────────────────────────────────────
+  hasScope(ctx.scopes, 'decks:read') && server.registerTool(
+    'deck_analytics_get',
+    {
+      title: 'Get deck analytics',
+      description:
+        'Return viewer analytics for a single pitch deck: total view events, unique sessions, and per-slide view counts with average dwell time in milliseconds. The deck must belong to the authenticated client.',
+      inputSchema: {
+        deckId: z.number().describe('ID of the pitch deck to analyse.'),
+      },
+    },
+    async ({ deckId }) => {
+      if (!requireScope(ctx, 'decks:read')) return denied('decks:read');
+
+      // Verify ownership
+      const [deck] = await db
+        .select({ id: pitchDecks.id, title: pitchDecks.title })
+        .from(pitchDecks)
+        .where(and(eq(pitchDecks.id, deckId), eq(pitchDecks.clientId, clientId)))
+        .limit(1);
+      if (!deck) return json({ error: 'Deck not found' });
+
+      const [totals] = await db
+        .select({
+          totalEvents: count(),
+          uniqueSessions: countDistinct(pitchDeckViews.sessionId),
+        })
+        .from(pitchDeckViews)
+        .where(eq(pitchDeckViews.deckId, deckId));
+
+      const perSlideRows = await db
+        .select({
+          slideIndex: pitchDeckViews.slideIndex,
+          views: count(),
+          avgDwellMs: avg(pitchDeckViews.dwellMs),
+        })
+        .from(pitchDeckViews)
+        .where(and(eq(pitchDeckViews.deckId, deckId), isNotNull(pitchDeckViews.slideIndex)))
+        .groupBy(pitchDeckViews.slideIndex)
+        .orderBy(pitchDeckViews.slideIndex);
+
+      return json({
+        deckId,
+        title: deck.title,
+        totalEvents: Number(totals?.totalEvents ?? 0),
+        uniqueSessions: Number(totals?.uniqueSessions ?? 0),
+        perSlide: perSlideRows.map((r) => ({
+          slideIndex: r.slideIndex,
+          views: Number(r.views),
+          avgDwellMs: r.avgDwellMs != null ? Math.round(Number(r.avgDwellMs)) : null,
+        })),
+      });
     }
   );
 }

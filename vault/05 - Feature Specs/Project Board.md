@@ -6,6 +6,7 @@ date: 2026-06-17
 
 ## Backlog
 
+- [ ] MCP parity: add tickets/chat/notifications/surveys-submit/analytics MCP tools (API+UI domains with ZERO MCP coverage) `[scoped 2026-06-23]` `[shipped 2026-06-23: surveys_submit/usage_get/notifications/chat/analytics + store-scope; tickets already existed]` — see [[Spec - MCP Parity]] · board [[MCP Parity Board]]
 - [ ] Prune unused npm dependencies (~22, knip-flagged) — needs false-positive review first (platform binaries like `@next/swc-darwin-x64` and possibly type-only deps are false positives; do not bulk-remove without a per-package check); deferred from the ponytail sweep — see [[ADR ponytail-refactor-sweep-canonical-utils]]
 - [ ] Consolidate fetch/API-envelope wrapper (~269 call sites) — needs an error-handling contract decision before sweeping (what does a failed fetch surface to the caller? what shape does the error take?); sibling: `useDebounce` hook (~11 hand-rolled `useRef` debounce sites); deferred from the ponytail sweep — see [[ADR ponytail-refactor-sweep-canonical-utils]]
 - [ ] Unify AI tool surfaces (MCP 431 / Brain 12 / portal ~15 → one source of truth) — see [[Unify AI Tool Surfaces]]
