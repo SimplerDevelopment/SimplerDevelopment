@@ -190,7 +190,7 @@ Most write tools use the approval-flow pattern (`stageOrApply`) rather than muta
 | Unit (route handlers) | `tests/unit/api-portal-crm-*.test.ts`, `tests/unit/api-crm-*.test.ts` (10+ files) |
 | Unit (components) | `tests/unit/app-crm-*.test.tsx`, `tests/unit/components-portal-crm-*.test.tsx` |
 | Unit (MCP tools) | `tests/unit/mcp-tools-crm.test.ts`, `tests/unit/ai-portal-tools-crm*.test.ts` |
-| Unit (lib helpers) | `tests/unit/crm-parse.test.ts`, `tests/unit/crm-helpers.test.ts`, `tests/unit/lib-crm-notifications.test.ts` |
+| Unit (lib helpers) | `tests/unit/crm-parse.test.ts`, `tests/unit/lib-crm-notifications.test.ts` |
 | Unit (brain classify) | `tests/unit/brain-classify-crm.test.ts` |
 | Integration (API) | `tests/integration/api/crm/` (companies, contacts, contracts, pipelines, proposals, import, saved-views, scoring-rules, custom-field-values, deal-comments, deal-artifacts) |
 | Integration (components) | `tests/integration/crm/DealFilters.test.tsx`, `tests/integration/crm/NewDealModal.test.tsx` |
