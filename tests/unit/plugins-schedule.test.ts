@@ -1,6 +1,6 @@
 // @vitest-environment node
 /**
- * Unit tests for `lib/plugins/handlers/postcaptain-tools/schedule.ts`:
+ * Unit tests for `lib/plugins/handlers/content-tools/schedule.ts`:
  *
  *   - assertExactlyOneMode / detectMode: which of {weekly, cron} the input
  *     describes, and rejection of ambiguous / under-specified shapes.
@@ -19,7 +19,7 @@ import {
   computeNextRun,
   detectMode,
   validateCronExpr,
-} from '@/lib/plugins/handlers/postcaptain-tools/schedule';
+} from '@/lib/plugins/handlers/content-tools/schedule';
 
 // ─── detectMode / assertExactlyOneMode ──────────────────────────────────────
 

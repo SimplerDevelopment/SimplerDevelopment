@@ -1,6 +1,6 @@
 // @vitest-environment node
 /**
- * Unit tests for lib/plugins/handlers/postcaptain-tools/complete.ts
+ * Unit tests for lib/plugins/handlers/content-tools/complete.ts
  *
  * The exported surface is:
  *   - completeHandlers: CallbackHandler[]  (one POST handler)
@@ -128,7 +128,7 @@ vi.mock('drizzle-orm', () => ({
 // ─── redact mock ─────────────────────────────────────────────────────────────
 
 vi.mock(
-  '@/lib/plugins/handlers/postcaptain-tools/runner-redact',
+  '@/lib/plugins/handlers/content-tools/runner-redact',
   () => ({
     redactLog: (s: string) => s,
     capLogTail: (s: string) => s,
@@ -139,7 +139,7 @@ vi.mock(
 
 const ingestCompetitorBriefArtifactsMock = vi.fn();
 vi.mock(
-  '@/lib/plugins/handlers/postcaptain-tools/competitor-brain',
+  '@/lib/plugins/handlers/content-tools/competitor-brain',
   () => ({
     ingestCompetitorBriefArtifacts: (...args: unknown[]) =>
       ingestCompetitorBriefArtifactsMock(...args),
@@ -149,7 +149,7 @@ vi.mock(
 // ─── Import module AFTER mocks ───────────────────────────────────────────────
 
 const { completeHandlers, __resetToolsBotUserIdCache } = await import(
-  '@/lib/plugins/handlers/postcaptain-tools/complete'
+  '@/lib/plugins/handlers/content-tools/complete'
 );
 
 // ─── Test helpers ───────────────────────────────────────────────────────────

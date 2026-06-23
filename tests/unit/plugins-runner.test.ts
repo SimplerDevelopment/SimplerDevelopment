@@ -43,7 +43,7 @@ vi.mock('@/lib/db/schema', () => ({
 // Mock dispatchRun so executeRun can be tested without an actual HTTP
 // round-trip to the worker.
 const dispatchRunMock = vi.fn();
-vi.mock('@/lib/plugins/handlers/postcaptain-tools/dispatch', () => ({
+vi.mock('@/lib/plugins/handlers/content-tools/dispatch', () => ({
   dispatchRun: dispatchRunMock,
   DISPATCH_SCOPE: 'postcaptain:internal:execute',
 }));
@@ -53,10 +53,10 @@ const {
   enqueueRun,
   executeRun,
   drainQueuedRuns,
-} = await import('@/lib/plugins/handlers/postcaptain-tools/runner');
+} = await import('@/lib/plugins/handlers/content-tools/runner');
 
 const { computeNextWeeklyRun } = await import(
-  '@/lib/plugins/handlers/postcaptain-tools/jobs'
+  '@/lib/plugins/handlers/content-tools/jobs'
 );
 
 // Minimal RegisteredApp stub.

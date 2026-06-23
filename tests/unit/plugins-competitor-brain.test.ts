@@ -1,6 +1,6 @@
 // @vitest-environment node
 /**
- * Unit tests for `lib/plugins/handlers/postcaptain-tools/competitor-brain.ts`:
+ * Unit tests for `lib/plugins/handlers/content-tools/competitor-brain.ts`:
  *
  *   - getBrainCardIdForCompetitor: pure slug→cardId lookup.
  *   - ingestBriefAsBrainNote: inserts the right shape into brain_notes.
@@ -34,7 +34,7 @@ const {
   ingestBriefAsBrainNote,
   maybePostVulnerabilityChangeComment,
   __resetBotUserIdCache,
-} = await import('@/lib/plugins/handlers/postcaptain-tools/competitor-brain');
+} = await import('@/lib/plugins/handlers/content-tools/competitor-brain');
 
 const BOT_USER_ID = 999;
 

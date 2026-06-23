@@ -1,6 +1,6 @@
 // @vitest-environment node
 /**
- * Unit tests for `lib/plugins/handlers/postcaptain-tools/dispatch.ts`:
+ * Unit tests for `lib/plugins/handlers/content-tools/dispatch.ts`:
  *
  *   - Successful 202 from the worker → ok:true.
  *   - 4xx from the worker → ok:false, retriable:false (permanent).
@@ -17,7 +17,7 @@ vi.mock('@/lib/plugins/jwt', () => ({
 }));
 
 const { dispatchRun, DISPATCH_SCOPE } = await import(
-  '@/lib/plugins/handlers/postcaptain-tools/dispatch'
+  '@/lib/plugins/handlers/content-tools/dispatch'
 );
 
 const fakeApp = {

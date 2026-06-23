@@ -38,7 +38,7 @@ import { randomBytes } from 'node:crypto';
 
 // `lib/auth` is unused by /api/plugin-callback (callbacks authenticate via
 // JWT, not NextAuth) — but the route module imports
-// `lib/plugins/handlers/postcaptain-tools/index` whose transitive imports may
+// `lib/plugins/handlers/content-tools/index` whose transitive imports may
 // pull `lib/auth`. Mock-and-no-op it so a missing NEXTAUTH env doesn't blow
 // the file load.
 vi.mock('@/lib/auth', () => ({ auth: vi.fn().mockResolvedValue(null) }));

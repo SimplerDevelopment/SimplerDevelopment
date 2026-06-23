@@ -28,7 +28,7 @@ import { fail } from '@/lib/plugins/handlers/types';
 // Side-effect import: registers every postcaptain-tools handler into the
 // registry on first module load. Future plugins add their own index file
 // here.
-import '@/lib/plugins/handlers/postcaptain-tools/index';
+import '@/lib/plugins/handlers/content-tools/index';
 
 type RouteParams = Promise<{ appId: string; path: string[] }>;
 
