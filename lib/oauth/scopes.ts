@@ -42,6 +42,12 @@ export const SUPPORTED_SCOPES = [
   // Approvals workflow
   'approvals:read',
   'approvals:manage',
+  // Chat
+  'chat:read',
+  'chat:write',
+  // Notifications
+  'notifications:read',
+  'notifications:write',
 ] as const;
 
 export type SupportedScope = (typeof SUPPORTED_SCOPES)[number];
@@ -72,6 +78,10 @@ export const DEFAULT_GRANTED_SCOPES: string[] = [
   'brain:read',
   // Approvals (read-only by default; approvals:manage is opt-in)
   'approvals:read',
+  // Notifications (read-only by default)
+  'notifications:read',
+  // Chat (read-only by default)
+  'chat:read',
 ];
 
 /** Parse the OAuth `scope` query/form param (space-separated) and intersect

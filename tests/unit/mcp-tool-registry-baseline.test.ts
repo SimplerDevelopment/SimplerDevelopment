@@ -244,6 +244,12 @@ const EXPECTED_TOOLS: readonly string[] = [
   'branding_list_profiles',
   'branding_update_messaging',
   'branding_update_profile',
+  // ── chat ──
+  'chat_conversations_get',
+  'chat_conversations_list',
+  'chat_conversation_reply',
+  'chat_conversation_update',
+  'chat_widgets_list',
   // ── client ──
   'client_get',
   'client_update',
@@ -389,6 +395,9 @@ const EXPECTED_TOOLS: readonly string[] = [
   'nav_publish',
   'nav_publish_all',
   'nav_update',
+  // ── notifications ──
+  'notifications_list',
+  'notifications_mark_read',
   // ── post ──
   'post_types_create',
   'post_types_delete',
