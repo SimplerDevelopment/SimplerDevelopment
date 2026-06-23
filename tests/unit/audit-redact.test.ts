@@ -35,18 +35,50 @@ describe('redactInputs', () => {
     expect(result.bearer).toBe('[REDACTED]');
   });
 
-  it('leaves non-secret keys unchanged', () => {
+  it('redacts the extended auth-secret key patterns', () => {
+    const result = redactInputs({
+      passphrase: 'correct horse',
+      passcode: '1234',
+      cookie: 'session=abc',
+      otp: '000000',
+      totp: '111111',
+      mfa: 'on',
+      recoveryCode: 'rc-1',
+      backupCode: 'bc-1',
+    }) as Record<string, unknown>;
+
+    expect(result.passphrase).toBe('[REDACTED]');
+    expect(result.passcode).toBe('[REDACTED]');
+    expect(result.cookie).toBe('[REDACTED]');
+    expect(result.otp).toBe('[REDACTED]');
+    expect(result.totp).toBe('[REDACTED]');
+    expect(result.mfa).toBe('[REDACTED]');
+    expect(result.recoveryCode).toBe('[REDACTED]');
+    expect(result.backupCode).toBe('[REDACTED]');
+  });
+
+  it('leaves non-secret keys unchanged (incl. contact PII and substring near-misses)', () => {
     const result = redactInputs({
       title: 'Hello World',
       count: 42,
       active: true,
       tags: ['a', 'b'],
+      // contact PII is intentionally preserved — it's the audit subject
+      email: 'jane@example.com',
+      name: 'Jane Doe',
+      // substring near-misses must NOT trip the secret patterns
+      shippingAddress: '1 Main St',
+      className: 'btn-primary',
     }) as Record<string, unknown>;
 
     expect(result.title).toBe('Hello World');
     expect(result.count).toBe(42);
     expect(result.active).toBe(true);
     expect(result.tags).toEqual(['a', 'b']);
+    expect(result.email).toBe('jane@example.com');
+    expect(result.name).toBe('Jane Doe');
+    expect(result.shippingAddress).toBe('1 Main St');
+    expect(result.className).toBe('btn-primary');
   });
 
   it('redacts nested secret keys', () => {
