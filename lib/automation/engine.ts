@@ -331,7 +331,7 @@ async function runPluginScriptAction(
 
   // Dynamic import keeps the automation engine module-load surface narrow.
   const { findActivePluginBySlug, isClientEntitledToApp } = await import('@/lib/plugins/entitlement');
-  const { enqueueRun } = await import('@/lib/plugins/handlers/postcaptain-tools/runner');
+  const { enqueueRun } = await import('@/lib/plugins/handlers/content-tools/runner');
 
   const app = await findActivePluginBySlug(pluginSlug);
   if (!app) {
