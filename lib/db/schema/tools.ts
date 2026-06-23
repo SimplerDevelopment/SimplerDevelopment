@@ -323,6 +323,9 @@ export const bookingPages = pgTable('booking_pages', {
   // 'group' — one slot accepts multiple attendees (capped by groupCapacity).
   bookingType: varchar('booking_type', { length: 20 }).default('individual').notNull(),
   groupCapacity: integer('group_capacity'), // null when bookingType = 'individual'
+  // Reschedule settings (Phase 1)
+  rescheduleEnabled: boolean('reschedule_enabled').default(true).notNull(),
+  rescheduleWindowHours: integer('reschedule_window_hours').default(24).notNull(),
   createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
@@ -392,6 +395,11 @@ export const bookings = pgTable('bookings', {
   // pre-booking nudge to the guest. NULL = no reminder sent yet. The cron
   // is idempotent: it only picks rows where this column is NULL.
   reminderSentAt: timestamp('reminder_sent_at'),
+  // Reschedule support (Phase 1)
+  rescheduleToken: varchar('reschedule_token', { length: 64 }).unique(),
+  previousStartTime: timestamp('previous_start_time'),
+  previousEndTime: timestamp('previous_end_time'),
+  rescheduleCount: integer('reschedule_count').default(0).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (t) => [

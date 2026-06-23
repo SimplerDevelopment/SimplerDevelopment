@@ -450,6 +450,125 @@ export async function sendCancellationEmail(
 }
 
 /**
+ * Send rescheduled-booking confirmation to the guest and, optionally, the host.
+ * Mirrors `sendGuestConfirmation` / `sendCancellationEmail` shape — brand-aware,
+ * best-effort (errors are logged and swallowed so the reschedule POST can continue).
+ */
+export async function sendRescheduleEmail(data: {
+  guestName: string;
+  guestEmail: string;
+  pageTitle: string;
+  newStartTime: Date;
+  newEndTime: Date;
+  previousStartTime: Date;
+  timezone: string;
+  cancelToken: string;
+  rescheduleToken: string;
+  bookingSlug: string;
+  duration: number;
+  meetingLink?: string | null;
+  hostEmail?: string | null;
+  brand?: BookingBrand | null;
+}): Promise<void> {
+  const cancelUrl = `${BASE_URL}/book/cancel?token=${data.cancelToken}`;
+  const formattedNew = formatDateTime(data.newStartTime, data.timezone);
+  const formattedNewEnd = formatTime(data.newEndTime, data.timezone);
+  const formattedPrevious = formatDateTime(data.previousStartTime, data.timezone);
+  const accent = brandAccent(data.brand);
+  const heading = data.brand?.textColor ?? '#111827';
+  const fromBrandName = data.brand?.companyName ?? 'SimplerDevelopment';
+
+  const guestHtml = bookingEmailHtml(`
+    <h1 style="margin:0 0 8px;font-size:24px;color:${heading};">Booking Rescheduled</h1>
+    <p style="margin:0 0 24px;font-size:14px;color:#6b7280;">Your appointment has been moved to a new time.</p>
+
+    <table role="presentation" width="100%" style="background:#f9fafb;border-radius:8px;padding:20px;margin-bottom:24px;" cellpadding="0" cellspacing="0">
+      <tr>
+        <td style="padding:12px 20px;">
+          <p style="margin:0 0 4px;font-size:12px;color:#9ca3af;text-transform:uppercase;letter-spacing:0.05em;">What</p>
+          <p style="margin:0;font-size:16px;color:${heading};font-weight:600;">${esc(data.pageTitle)}</p>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:12px 20px;">
+          <p style="margin:0 0 4px;font-size:12px;color:#9ca3af;text-transform:uppercase;letter-spacing:0.05em;">New Time</p>
+          <p style="margin:0;font-size:16px;color:${heading};font-weight:600;">${formattedNew}</p>
+          <p style="margin:4px 0 0;font-size:14px;color:#6b7280;">${data.duration} minutes (until ${formattedNewEnd})</p>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:12px 20px;">
+          <p style="margin:0 0 4px;font-size:12px;color:#9ca3af;text-transform:uppercase;letter-spacing:0.05em;">Previous Time</p>
+          <p style="margin:0;font-size:14px;color:#6b7280;text-decoration:line-through;">${formattedPrevious}</p>
+        </td>
+      </tr>
+      ${data.meetingLink ? `<tr>
+        <td style="padding:12px 20px;">
+          <p style="margin:0 0 4px;font-size:12px;color:#9ca3af;text-transform:uppercase;letter-spacing:0.05em;">Where</p>
+          <a href="${esc(data.meetingLink)}" style="display:inline-block;padding:10px 24px;background:${accent};color:#ffffff;text-decoration:none;border-radius:6px;font-size:14px;font-weight:500;">Join Video Call</a>
+        </td>
+      </tr>` : ''}
+    </table>
+
+    <p style="margin:0 0 24px;font-size:14px;color:#6b7280;line-height:1.6;">
+      Need to make changes?
+      <a href="${cancelUrl}" style="color:${accent};text-decoration:none;">Cancel</a>
+    </p>
+  `, `Your ${data.pageTitle} appointment has been rescheduled to ${formattedNew}`, data.brand);
+
+  try {
+    await resend.emails.send({
+      from: `${fromBrandName} <${FROM_EMAIL}>`,
+      to: data.guestEmail,
+      subject: `Rescheduled: ${data.pageTitle} — ${formattedNew}`,
+      html: guestHtml,
+    });
+  } catch (err) {
+    console.error('Failed to send reschedule confirmation to guest:', err);
+  }
+
+  if (data.hostEmail) {
+    const hostHtml = bookingEmailHtml(`
+      <h1 style="margin:0 0 8px;font-size:24px;color:${heading};">Booking Rescheduled</h1>
+      <p style="margin:0 0 24px;font-size:14px;color:#6b7280;">${esc(data.guestName)} has rescheduled their appointment.</p>
+
+      <table role="presentation" width="100%" style="background:#f9fafb;border-radius:8px;padding:20px;margin-bottom:24px;" cellpadding="0" cellspacing="0">
+        <tr>
+          <td style="padding:12px 20px;">
+            <p style="margin:0 0 4px;font-size:12px;color:#9ca3af;text-transform:uppercase;letter-spacing:0.05em;">Guest</p>
+            <p style="margin:0;font-size:16px;color:${heading};font-weight:600;">${esc(data.guestName)}</p>
+            <p style="margin:4px 0 0;font-size:14px;color:#6b7280;">${esc(data.guestEmail)}</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:12px 20px;">
+            <p style="margin:0 0 4px;font-size:12px;color:#9ca3af;text-transform:uppercase;letter-spacing:0.05em;">New Time</p>
+            <p style="margin:0;font-size:16px;color:${heading};font-weight:600;">${formattedNew}</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:12px 20px;">
+            <p style="margin:0 0 4px;font-size:12px;color:#9ca3af;text-transform:uppercase;letter-spacing:0.05em;">Previous Time</p>
+            <p style="margin:0;font-size:14px;color:#6b7280;text-decoration:line-through;">${formattedPrevious}</p>
+          </td>
+        </tr>
+      </table>
+    `, `${data.guestName} rescheduled their ${data.pageTitle} to ${formattedNew}`, data.brand);
+
+    try {
+      await resend.emails.send({
+        from: `${fromBrandName} <${FROM_EMAIL}>`,
+        to: data.hostEmail,
+        subject: `Rescheduled: ${data.guestName} — ${data.pageTitle}`,
+        html: hostHtml,
+      });
+    } catch (err) {
+      console.error('Failed to send reschedule notification to host:', err);
+    }
+  }
+}
+
+/**
  * Send a pre-booking reminder. Triggered by `/api/cron/booking-reminders` on
  * rows whose `reminder_sent_at` is NULL and whose `start_time` is inside the
  * send window (≈ 24h ahead). One reminder per booking — the cron updates

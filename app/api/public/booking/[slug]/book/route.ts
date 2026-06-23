@@ -254,6 +254,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
   // ─── CREATE BOOKING ────────────────────────────────────────────────────────
 
   const cancelToken = crypto.randomUUID();
+  const rescheduleToken = crypto.randomBytes(32).toString('hex');
   const checkinCode = page.checkinEnabled ? generateCheckinCode() : null;
   const needsPayment = total > 0;
 
@@ -307,6 +308,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
     timezone: timezone || page.timezone,
     answers: answers || null,
     cancelToken,
+    rescheduleToken,
     groupSize: isGroupBooking ? seats : groupSize,
     subtotal,
     discountTotal,

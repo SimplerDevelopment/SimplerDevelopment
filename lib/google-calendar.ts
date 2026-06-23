@@ -126,6 +126,45 @@ export async function createCalendarEvent(opts: {
 }
 
 /**
+ * Update an existing Google Calendar event when a booking is rescheduled.
+ * Returns true on success, false on any failure (best-effort — caller should
+ * try/catch and continue regardless of the result).
+ */
+export async function updateCalendarEvent(opts: {
+  clientId: number;
+  googleEventId: string;
+  startTime: Date;
+  endTime: Date;
+  timezone: string;
+}): Promise<boolean> {
+  const auth = await getAuthedClient(opts.clientId);
+  if (!auth) return false;
+
+  const calendar = google.calendar({ version: 'v3', auth: auth.oauth2Client });
+
+  try {
+    await calendar.events.patch({
+      calendarId: auth.calendarId,
+      eventId: opts.googleEventId,
+      requestBody: {
+        start: {
+          dateTime: opts.startTime.toISOString(),
+          timeZone: opts.timezone,
+        },
+        end: {
+          dateTime: opts.endTime.toISOString(),
+          timeZone: opts.timezone,
+        },
+      },
+    });
+    return true;
+  } catch (err) {
+    console.error('Failed to update Google Calendar event:', err);
+    return false;
+  }
+}
+
+/**
  * Delete a Google Calendar event when a booking is cancelled.
  */
 export async function deleteCalendarEvent(
