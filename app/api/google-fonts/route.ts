@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const GOOGLE_FONTS_API_KEY = process.env.GOOGLE_FONTS_API_KEY || 'AIzaSyBYzFFZd61s0ERdCWvO7rmkh7ydwEsky2E';
+const GOOGLE_FONTS_API_KEY = process.env.GOOGLE_FONTS_API_KEY;
 const CACHE_TTL = 60 * 60 * 24; // 24 hours
 
 let cachedFonts: { family: string; category: string; variants: string[]; files: Record<string, string> }[] | null = null;
@@ -10,6 +10,10 @@ export async function GET(request: NextRequest) {
   const search = request.nextUrl.searchParams.get('search') || '';
   const limit = parseInt(request.nextUrl.searchParams.get('limit') || '30');
   const offset = parseInt(request.nextUrl.searchParams.get('offset') || '0');
+
+  if (!GOOGLE_FONTS_API_KEY) {
+    return NextResponse.json({ success: false, error: 'Google Fonts not configured' }, { status: 503 });
+  }
 
   try {
     // Fetch and cache the full font list
