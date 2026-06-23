@@ -6,8 +6,8 @@
  *   - users row "SimplerDevelopment" (placeholder owner; password is random &
  *     unused — you log in as your existing user and switch into this client)
  *   - clients row company="SimplerDevelopment", owned by that user
- *   - client_members row adding info@danielpcoyle.com as admin
- *   - sets info@danielpcoyle.com's default_client_id to the new client
+ *   - client_members row adding the team admin (SEED_ADMIN_EMAIL) as admin
+ *   - sets the team admin's default_client_id to the new client
  */
 
 import * as dotenv from 'dotenv';
@@ -16,7 +16,7 @@ import { randomBytes } from 'crypto';
 
 dotenv.config({ path: '.env' });
 
-const TEAM_ADMIN_EMAIL = 'info@danielpcoyle.com';
+const TEAM_ADMIN_EMAIL = process.env.SEED_ADMIN_EMAIL ?? 'admin@simplerdevelopment.com';
 const OWNER_EMAIL = 'simplerdevelopment@simplerdevelopment.com';
 const COMPANY = 'SimplerDevelopment';
 
@@ -25,7 +25,7 @@ async function main() {
   const { users, clients, clientMembers } = await import('../lib/db/schema');
   const { eq } = await import('drizzle-orm');
 
-  // 1. Resolve the team admin user (info@danielpcoyle.com) — must exist.
+  // 1. Resolve the team admin user (SEED_ADMIN_EMAIL / admin@simplerdevelopment.com) — must exist.
   const [teamAdmin] = await db.select().from(users).where(eq(users.email, TEAM_ADMIN_EMAIL)).limit(1);
   if (!teamAdmin) {
     throw new Error(`User ${TEAM_ADMIN_EMAIL} not found — create it first (login at least once via the admin portal).`);

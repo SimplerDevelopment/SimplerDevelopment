@@ -43,7 +43,7 @@ In n8n, manually execute the workflow (don't wait for cron). Watch:
 |---|---|---|
 | Pre-Check | stdout shows `git status`, recent commits, `claude`-labelled issues, STATE.md head | Empty or all-error → SSH or repo path wrong |
 | Create Dev Plan | A plain-text plan with FOCUS TASK / SCOPE / DONE CRITERIA / IMPLEMENTATION STEPS / FILES / RISKS | "NO TASKS" → no `claude`-labelled issues, fix #2 above |
-| Ask for approval (email) | Email arrives at `info@danielpcoyle.com` with the plan | No email → Gmail credential or webhook ID issue |
+| Ask for approval (email) | Email arrives at `admin@simplerdevelopment.com` with the plan | No email → Gmail credential or webhook ID issue |
 | Reply `approved` | Workflow advances | Reply anything else → loops back to rewrite (max 3) |
 | Create Dev Worktree | `BRANCH=claude/dev-YYYYMMDD-HHMM` and `SETUP_COMPLETE` in stdout | `bun install` failures → check bun version on host |
 | Dev Iteration (First) | Returns parseable JSON with `finished` field | Plain prose / markdown → run-claude.sh isn't invoking the /dev-block skill, or env not forwarded |
@@ -101,6 +101,6 @@ All of these:
 - A `claude/dev-*` branch was pushed to origin
 - A PR was opened with at least one commit beyond main
 - `cost-log.jsonl` got a new entry with non-zero output_tokens
-- Email summary arrived at info@danielpcoyle.com
+- Email summary arrived at admin@simplerdevelopment.com
 - No HANDS_OFF firewall block ever fired (else the agent tried something it shouldn't)
 - Either auto-merge fired AND the PR merged within 30 minutes, OR auto-merge skipped (gates red) AND the PR is open for review with a clear failure summary in the email

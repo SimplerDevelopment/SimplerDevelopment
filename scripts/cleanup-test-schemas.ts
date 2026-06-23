@@ -22,7 +22,13 @@ if (!URL_STR) throw new Error('DATABASE_URL_TEST or DATABASE_URL is not set');
 // Host-based prod check — matches scripts/verify-db-target.ts so it can't
 // false-positive on local DBs whose names happen to contain "prod"
 // (e.g. simplerdev_realprod_dryrun on 127.0.0.1).
-const PROD_HOSTS = ['tramway.proxy.rlwy.net', 'metro.proxy.rlwy.net'];
+// PROD_DB_HOSTS: optional comma-separated list of hostname[:port] fragments
+// that identify production database proxies. See scripts/verify-db-target.ts
+// for full documentation. When unset, only RAILWAY_ENVIRONMENT_NAME is used.
+const PROD_HOSTS: string[] = (process.env.PROD_DB_HOSTS ?? '')
+  .split(',')
+  .map((h) => h.trim())
+  .filter(Boolean);
 if (PROD_HOSTS.some(h => URL_STR.includes(h)) || process.env.RAILWAY_ENVIRONMENT_NAME === 'production') {
   console.error('Refusing to run: DATABASE_URL points at production');
   process.exit(1);
