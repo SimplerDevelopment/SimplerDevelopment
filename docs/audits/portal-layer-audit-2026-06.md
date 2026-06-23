@@ -97,6 +97,7 @@ Effort key: **S** ≤1 day · **M** ≤1 week · **L** >1 week.
 | H5 | **PII unredacted in audit log** — `email`, `guestName`, `contactEmail`, and raw 2KB output summaries stored | `lib/mcp/audit-redact.ts` only matches `password\|secret\|token\|key\|credential\|auth\|bearer` | **S** |
 | H6 | **Read-parity gap: RSC-only pages have no GET API** | ~10 pages query Drizzle directly; MCP/external clients can't read them | **M** |
 | H7 | **Tickets / Chat / Notifications / Workflows have no MCP tools** | Agentic clients can't triage support or read inbox | **M** |
+| **C4b** | **NEW — confirmed: `app/sites/[domain]/slides/[slug]?preview=1` serves draft decks with no auth** | `getPitchDeckByDomainAndSlug(domain, slug, preview=true)` (`lib/actions/client-sites.ts:122`) drops the `status='published'` filter; the slides page sets `preview` purely from `?preview=1` with **no `auth()`** — unlike the canonical `app/pitch-deck/[slug]` which gates the same flag behind `auth()`+`getPortalClient` (lines 152-154). Anyone who knows a deck slug can view it unpublished. **Fix is NOT a one-liner:** the route lives on the tenant *custom domain* where the portal session cookie doesn't apply (that's why it has no `auth()`), so it needs a signed preview token wired through the deck editor's Preview button — same shape as `lib/preview-token.ts` for posts. | **M** |
 
 ### MEDIUM
 
@@ -285,13 +286,16 @@ Daily rollup cron (exists); weekly stakeholder digest (reuse `claude-mem`/standu
 ## 8. Prioritized Roadmap
 
 ### Quick Wins (< 1 day each)
-1. **C1** Register `mcp-cleanup` in `vercel.json` (after `mcp-rollup`). *File: `vercel.json`.*
-2. **H3** Migrate rollup token/count columns `integer`→`bigint` (`lib/db/schema/tools.ts` → `bun run db:generate`).
-3. **H5** Extend `lib/mcp/audit-redact.ts` to redact `email|phone|guestName|contactEmail|address`; cap/hash output summaries.
-4. **M4** Make `media_delete` purge S3 (or add `media_purge`).
-5. **M8** Wire the email sender-defaults save endpoint (or hide the form).
-6. **M6/L3** Add retention TTL + IP anonymization to `httpRequestLogs`, `abEvents`, `pitchDeckViews`.
-7. **C4** Verify `app/preview/[id]` auth (check `middleware.ts`); add guard if missing.
+1. **C1** ✅ DONE — Registered `mcp-cleanup` in `vercel.json` at `23 4 * * *`.
+2. **H3** ✅ DONE (schema) — rollup accumulators `integer`→`bigint`; ALTER must be hand-applied (`db:generate` blocked by a pre-existing `drizzle/meta` collision).
+3. **H5** ✅ DONE (revised) — extended `lib/mcp/audit-redact.ts` with collision-safe auth-secret keys (passphrase/passcode/cookie/otp/totp/mfa/recovery-or-backup-code) + tests. **Deliberately did NOT redact `email`/`name`** — they're the audit subject and substring-matching short PII tokens is unsafe (`/pin/`→"shipping", `/ssn/`→"className"). Masking contact PII is a separate, larger change.
+4. **C4** ✅ DONE — `app/preview/[id]` now requires a valid `verifyPreviewToken`.
+5. **C4b** ⚠️ NEW vuln found during the C4-pattern sweep (see HIGH table) — needs a preview-token through the deck editor; **not** a quick win.
+6. **`preview/live`** ✅ verified safe — client-side `sessionStorage` only, no server/DB read.
+7. **H4** — RECLASSIFIED: not a defect. `max(p95)` is an author-documented approximation (`usage-stats.ts:143`); a true p95 needs raw-event queries (adds load). Leave unless the dashboard label is changed to "peak daily p95".
+8. **M4** — RECLASSIFIED: `media_delete` not purging S3 is documented + intentional (assets are shareable across posts); a safe fix is a reference-aware orphan sweep, not auto-purge-on-delete.
+9. **M8** Wire the email sender-defaults save endpoint (or hide the form). *Still open — needs an endpoint.*
+10. **M6/L3** Add retention TTL + IP anonymization to `httpRequestLogs`, `abEvents`, `pitchDeckViews`. *Still open — schema migration, same `drizzle/meta` blocker as H3.*
 
 ### Medium Projects (< 1 week each)
 8. **H2 + §7.2** API-source event/metric wrapper around `authorizePortal` → `portal_events` + per-endpoint p50/p95 (OTel spans → Sentry).
