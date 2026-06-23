@@ -5,6 +5,7 @@ import type Anthropic from '@anthropic-ai/sdk';
 import { db } from '@/lib/db';
 import { pitchDecks } from '@/lib/db/schema';
 import { eq, and, desc } from 'drizzle-orm';
+import { slugify } from '@/lib/publishing/slug';
 
 export const pitchDeckTools: Anthropic.Tool[] = [
   {
@@ -82,7 +83,7 @@ export const pitchDeckHandlers: Record<string, PitchDeckHandler> = {
   create_pitch_deck: async (input, clientId, _userId) => {
     const title = input.title as string;
     const description = input.description as string | undefined;
-    const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    const slug = slugify(title);
 
     const [deck] = await db.insert(pitchDecks).values({
       clientId,

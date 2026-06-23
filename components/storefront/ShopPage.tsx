@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { formatMoney } from '@/lib/utils/money';
 
 interface Product {
   id: number;
@@ -25,10 +26,6 @@ interface Category {
 
 interface ShopPageProps {
   siteId: number;
-}
-
-function formatPrice(cents: number) {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100);
 }
 
 export function ShopPage({ siteId }: ShopPageProps) {
@@ -239,10 +236,10 @@ export function ShopPage({ siteId }: ShopPageProps) {
                         <p className="text-sm text-muted-foreground mb-2 line-clamp-2">{product.shortDescription}</p>
                       )}
                       <div className="flex items-center gap-2">
-                        <span className="font-bold">{formatPrice(product.price)}</span>
+                        <span className="font-bold">{formatMoney(product.price)}</span>
                         {product.compareAtPrice && product.compareAtPrice > product.price && (
                           <span className="text-sm text-muted-foreground line-through">
-                            {formatPrice(product.compareAtPrice)}
+                            {formatMoney(product.compareAtPrice)}
                           </span>
                         )}
                       </div>

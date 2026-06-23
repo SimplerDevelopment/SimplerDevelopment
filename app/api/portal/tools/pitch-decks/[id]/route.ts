@@ -8,17 +8,7 @@ import { getPortalClient } from '@/lib/portal-client';
 import { authorizePortal, isAuthError } from '@/lib/portal-auth';
 import { convertAllSlidesToV2, isV2Slides } from '@/lib/pitch-deck-migration';
 import { assertBlocksAllowedForRole, BlockGateError } from '@/lib/security/block-allowlist';
-
-/** Normalize a user-entered slug to a URL-safe form. */
-function slugify(input: string): string {
-  return input
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9\s-]/g, '')
-    .replace(/\s+/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-+|-+$/g, '');
-}
+import { slugify } from '@/lib/publishing/slug';
 
 async function resolveDecks(deckId: number, userId: number) {
   const client = await getPortalClient(userId);

@@ -5,7 +5,7 @@
  * Strategy:
  *  - lookupApprovalLink and recordReview are mocked from @/lib/mcp/approval-links.
  *  - applyPendingChange mocked from @/lib/mcp/approvals.
- *  - applyPublishAllToSlides mocked from @/lib/mcp/decks-publish.
+ *  - applyPublishAllToSlides mocked from @/lib/decks/publish-slide.
  *  - revalidatePath mocked from next/cache.
  *  - @/lib/db is mocked with a chainable select/update/delete/insert builder.
  *  - All schema tables are proxied as inert column markers.
@@ -159,10 +159,10 @@ vi.mock('@/lib/mcp/approvals', () => ({
   applyPendingChange: (...args: unknown[]) => mockApplyPendingChange(...args),
 }));
 
-// ── decks-publish mock ────────────────────────────────────────────────────────
+// ── decks/publish-slide mock ───────────────────────────────────────────────────
 const mockApplyPublishAllToSlides = vi.fn();
 
-vi.mock('@/lib/mcp/decks-publish', () => ({
+vi.mock('@/lib/decks/publish-slide', () => ({
   applyPublishAllToSlides: (...args: unknown[]) => mockApplyPublishAllToSlides(...args),
 }));
 

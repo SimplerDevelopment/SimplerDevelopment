@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
+import { slugify } from '@/lib/publishing/slug';
 
 interface ProductCategory {
   id: number;
@@ -12,10 +13,6 @@ interface ProductCategory {
   parentId?: number | null;
   parentName?: string | null;
   productCount?: number;
-}
-
-function generateSlug(name: string) {
-  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 }
 
 export default function StoreCategoriesPage() {
@@ -45,7 +42,12 @@ export default function StoreCategoriesPage() {
   };
 
   useEffect(() => {
-    load();
+    fetch(base)
+      .then(r => r.json())
+      .then(data => { if (data.success) setCategories(data.data || []); })
+      .catch(() => { /* fail silently */ })
+      .finally(() => setLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const openCreate = () => {
@@ -74,7 +76,7 @@ export default function StoreCategoriesPage() {
     setForm((prev) => ({
       ...prev,
       name,
-      slug: !editing ? generateSlug(name) : prev.slug,
+      slug: !editing ? slugify(name) : prev.slug,
     }));
     setError('');
   };

@@ -1,4 +1,5 @@
 import { generateSEO } from '@/lib/utils/seo';
+import { formatMoney } from '@/lib/utils/money';
 import { Button } from '@/components/ui/Button';
 import { FadeIn } from '@/components/animations/FadeIn';
 import { SlideIn } from '@/components/animations/SlideIn';
@@ -33,10 +34,6 @@ const faqs = [
   },
 ];
 
-// cents → "$N" integer display
-function formatPrice(cents: number): string {
-  return `$${cents / 100}`;
-}
 
 export default function PricingPage() {
   return (
@@ -104,7 +101,7 @@ export default function PricingPage() {
 
                     <div className="mb-6 pb-6 border-b border-border">
                       <div className="flex items-end gap-1">
-                        <span className="text-4xl font-bold">{formatPrice(tier.monthlyPriceCents)}</span>
+                        <span className="text-4xl font-bold">{formatMoney(tier.monthlyPriceCents, { fractionDigits: 0 })}</span>
                         <span className="text-sm text-muted-foreground mb-1.5">/seat/mo</span>
                       </div>
                       <div className="text-xs text-muted-foreground mt-1">

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { formatBytes } from '@/lib/utils/bytes';
 
 interface ProjectFile {
   id: number;
@@ -14,12 +15,6 @@ interface ProjectFile {
   cardId: number;
   cardTitle: string;
   createdAt: string;
-}
-
-function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes}B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)}KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
 }
 
 function FileCard({ file }: { file: ProjectFile }) {
@@ -41,7 +36,7 @@ function FileCard({ file }: { file: ProjectFile }) {
         <p className="text-xs font-medium text-foreground truncate" title={file.originalName}>
           {file.originalName}
         </p>
-        <p className="text-xs text-muted-foreground">{formatFileSize(file.fileSize)}</p>
+        <p className="text-xs text-muted-foreground">{formatBytes(file.fileSize)}</p>
         <div className="flex items-center gap-1 text-xs text-muted-foreground">
           <span className="material-icons text-xs">sticky_note_2</span>
           <span className="truncate" title={file.cardTitle}>{file.cardTitle}</span>

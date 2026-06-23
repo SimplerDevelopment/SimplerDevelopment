@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { RelatedModulesStrip } from '@/components/portal/billing/RelatedModulesStrip';
+import { formatMoney } from '@/lib/utils/money';
 
 // --- Types ---
 
@@ -46,10 +47,6 @@ const activityIcons: Record<string, string> = {
   deal_created: 'add_circle', deal_won: 'emoji_events', deal_lost: 'cancel',
   contact_created: 'person_add', stage_change: 'swap_horiz',
 };
-
-function formatCurrency(cents: number): string {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(cents / 100);
-}
 
 function formatCompact(cents: number): string {
   const dollars = cents / 100;
@@ -150,7 +147,7 @@ function FunnelChart({ stages }: { stages: FunnelStage[] }) {
         <div key={stage.stage_name} className="space-y-0.5">
           <div className="flex justify-between text-xs">
             <span className="text-foreground font-medium">{stage.stage_name}</span>
-            <span className="text-muted-foreground">{Number(stage.deal_count)} deals &middot; {formatCurrency(Number(stage.total_value))}</span>
+            <span className="text-muted-foreground">{Number(stage.deal_count)} deals &middot; {formatMoney(Number(stage.total_value), { fractionDigits: 0 })}</span>
           </div>
           <div className="w-full bg-accent rounded-full h-4 overflow-hidden">
             <div className="h-full rounded-full transition-all duration-700" style={{ width: `${Math.max((Number(stage.total_value) / maxValue) * 100, 2)}%`, backgroundColor: stage.color || '#6366f1' }} />
@@ -233,8 +230,8 @@ export default function CrmDashboardPage() {
           { label: 'Contacts', value: dashboard?.totalContacts ?? 0, icon: 'people', color: 'text-blue-500', href: '/portal/crm/contacts' },
           { label: 'Companies', value: dashboard?.totalCompanies ?? 0, icon: 'business', color: 'text-purple-500', href: '/portal/crm/companies' },
           { label: 'Win Rate', value: winRate === '--' ? '--' : `${winRate}%`, icon: 'emoji_events', color: 'text-green-500' },
-          { label: 'Open Pipeline', value: formatCurrency(openPipelineValue), icon: 'trending_up', color: 'text-orange-500', href: '/portal/crm/deals' },
-          { label: 'MRR', value: formatCurrency(analytics?.mrr ?? 0), subtitle: `ARR: ${formatCurrency(analytics?.arr ?? 0)}`, icon: 'autorenew', color: 'text-emerald-500' },
+          { label: 'Open Pipeline', value: formatMoney(openPipelineValue, { fractionDigits: 0 }), icon: 'trending_up', color: 'text-orange-500', href: '/portal/crm/deals' },
+          { label: 'MRR', value: formatMoney(analytics?.mrr ?? 0, { fractionDigits: 0 }), subtitle: `ARR: ${formatMoney(analytics?.arr ?? 0, { fractionDigits: 0 })}`, icon: 'autorenew', color: 'text-emerald-500' },
           { label: 'Avg Close', value: analytics?.avgDaysToClose != null ? `${analytics.avgDaysToClose}d` : '--', icon: 'schedule', color: 'text-cyan-500' },
         ].map((s) => {
           const content = (
@@ -331,7 +328,7 @@ export default function CrmDashboardPage() {
                 {analytics.topDeals.map((deal) => (
                   <tr key={deal.id} className="border-b border-border/50 last:border-0">
                     <td className="py-2.5 text-foreground font-medium text-sm">{deal.title}</td>
-                    <td className="py-2.5 text-foreground text-right text-sm">{deal.value != null ? formatCurrency(Number(deal.value)) : '--'}</td>
+                    <td className="py-2.5 text-foreground text-right text-sm">{deal.value != null ? formatMoney(Number(deal.value), { fractionDigits: 0 }) : '--'}</td>
                     <td className="py-2.5 text-right">
                       <Link href={`/portal/crm/deals?deal=${deal.id}`} className="text-primary hover:text-primary/80 text-xs font-medium">View</Link>
                     </td>

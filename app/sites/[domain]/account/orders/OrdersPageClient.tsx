@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useCustomerAuth } from '@/components/storefront/account/CustomerAuthContext';
 import { RequireAuth } from '@/components/storefront/account/RequireAuth';
 import { AccountLayout } from '@/components/storefront/account/AccountLayout';
+import { formatMoney } from '@/lib/utils/money';
 
 interface Order {
   id: number;
@@ -22,8 +23,6 @@ const statusColor: Record<string, string> = {
   delivered: 'bg-green-100 text-green-800',
   cancelled: 'bg-red-100 text-red-800',
 };
-
-const formatCurrency = (cents: number) => `$${(cents / 100).toFixed(2)}`;
 
 export function OrdersPageClient({ siteId, domain }: { siteId: number; domain: string }) {
   const { token } = useCustomerAuth();
@@ -98,7 +97,7 @@ export function OrdersPageClient({ siteId, domain }: { siteId: number; domain: s
                       <p className="text-sm text-gray-500">{order.itemCount ?? '--'} item{order.itemCount !== 1 ? 's' : ''}</p>
                     </div>
                     <div className="col-span-4 sm:col-span-2 text-right flex items-center justify-end gap-2">
-                      <span className="text-sm font-medium text-gray-900">{formatCurrency(order.total)}</span>
+                      <span className="text-sm font-medium text-gray-900">{formatMoney(order.total)}</span>
                       <span className="material-icons text-gray-400" style={{ fontSize: '18px' }}>chevron_right</span>
                     </div>
                   </Link>

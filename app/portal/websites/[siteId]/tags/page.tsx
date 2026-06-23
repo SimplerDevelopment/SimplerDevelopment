@@ -2,15 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
+import { slugify } from '@/lib/publishing/slug';
 
 interface Tag {
   id: number;
   name: string;
   slug: string;
-}
-
-function generateSlug(name: string) {
-  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 }
 
 export default function PortalTagsPage() {
@@ -33,7 +30,13 @@ export default function PortalTagsPage() {
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    fetch(base)
+      .then(r => r.json())
+      .then(res => { if (res.success) setTags(res.data); })
+      .finally(() => setLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const openCreate = () => {
     setEditing(null);
@@ -53,7 +56,7 @@ export default function PortalTagsPage() {
     setForm(prev => ({
       ...prev,
       name,
-      slug: !editing ? generateSlug(name) : prev.slug,
+      slug: !editing ? slugify(name) : prev.slug,
     }));
     setError('');
   };

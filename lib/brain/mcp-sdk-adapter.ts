@@ -15,6 +15,7 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { hasScope, type PortalMcpContext } from '@/lib/mcp-auth';
+import { json, denied } from '@/lib/mcp/types';
 import { searchBrain } from './search';
 import { getOrCreateBrainProfile } from './profiles';
 import {
@@ -230,10 +231,6 @@ import {
 import { eq, and, desc, inArray, sql } from 'drizzle-orm';
 import { assertUserVisibleToClient, OwnershipError } from '@/lib/security/assert-owned';
 
-function json(payload: unknown) {
-  return { content: [{ type: 'text' as const, text: JSON.stringify(payload, null, 2) }] };
-}
-
 // MCP clients are off-origin (Claude Desktop, etc.), so relative paths like
 // /portal/brain/knowledge are useless to them. Absolutize against the public
 // portal origin before returning.
@@ -241,13 +238,6 @@ const PORTAL_BASE_URL = (process.env.NEXTAUTH_URL || 'https://simplerdevelopment
 function absolutizeUrl(path: string): string {
   if (/^https?:\/\//i.test(path)) return path;
   return `${PORTAL_BASE_URL}${path.startsWith('/') ? path : `/${path}`}`;
-}
-
-function denied(scope: string) {
-  return {
-    content: [{ type: 'text' as const, text: `Permission denied: this API key lacks the "${scope}" scope.` }],
-    isError: true,
-  };
 }
 
 function err(message: string) {

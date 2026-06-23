@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import CrmCustomFieldsPanel from '@/components/portal/CrmCustomFieldsPanel';
 import CrmCompanyTypeaheadPicker from '@/components/portal/CrmCompanyTypeaheadPicker';
+import { formatMoney } from '@/lib/utils/money';
 
 interface Tag {
   id: number;
@@ -83,10 +84,6 @@ const dealStatusColor: Record<string, string> = {
   lost: 'bg-red-100 text-red-700',
 };
 
-function formatCurrency(cents: number): string {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100);
-}
-
 function relativeTime(dateStr: string): string {
   const now = Date.now();
   const then = new Date(dateStr).getTime();
@@ -161,7 +158,10 @@ export default function CrmContactDetailPage() {
   }, [contactId]);
 
   useEffect(() => {
-    Promise.all([fetchContact(), fetchActivities()]).then(() => setLoading(false));
+    (async () => {
+      await Promise.all([fetchContact(), fetchActivities()]);
+      setLoading(false);
+    })();
   }, [fetchContact, fetchActivities]);
 
   function startEditing() {
@@ -785,7 +785,7 @@ export default function CrmContactDetailPage() {
                   <p className="text-xs text-muted-foreground">{d.stageName}</p>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="text-sm font-semibold text-foreground">{formatCurrency(d.value)}</span>
+                  <span className="text-sm font-semibold text-foreground">{formatMoney(d.value)}</span>
                   <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${dealStatusColor[d.status] ?? 'bg-gray-100 text-gray-700'}`}>
                     {d.status}
                   </span>

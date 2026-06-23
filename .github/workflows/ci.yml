@@ -1,0 +1,90 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Cancel superseded runs on the same ref.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ── Fast gates that need no database ────────────────────────────────────────
+  quality:
+    name: Lint · Typecheck · Unit
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.11
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Lint
+        run: bun run lint
+
+      - name: Typecheck
+        run: bun run typecheck
+
+      - name: File-size budget (god-file guard)
+        run: bun scripts/check-file-budget.ts
+
+      - name: Doc drift (cited paths must exist)
+        run: bun scripts/check-doc-drift.ts
+
+      - name: Unit tests
+        run: bun run test:unit
+
+  # ── Multi-tenant leak regression — needs Postgres + pgvector ────────────────
+  # Mirrors the local `bun test:tenancy` gate. Uses the pgvector image so the
+  # `vector` extension (required by lib/db/schema) is available for migrations.
+  tenancy:
+    name: Tenancy regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: simplerdev_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/simplerdev_test
+      DATABASE_URL_TEST: postgresql://postgres:postgres@localhost:5432/simplerdev_test
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.11
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Apply schema (Drizzle migrations create the pgvector extension)
+        run: bun run db:migrate
+
+      - name: Tenancy gate
+        run: bun run test:tenancy
+
+# NOTE: the @critical Playwright e2e gate (`bun test:critical`) is intentionally
+# not wired here yet — it needs a fully-booted app plus runtime secrets. See
+# tests/CI-GATES.md ("Trailing gate / promotion") for the intended setup and add
+# an `e2e` job here once the app's required env/secrets are provisioned in CI.

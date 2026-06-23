@@ -6,6 +6,7 @@ import { eq, desc, and } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
 import { authorizePortal, isAuthError } from '@/lib/portal-auth';
 import { emitEvent } from '@/lib/automation';
+import { slugify } from '@/lib/publishing/slug';
 
 export async function GET() {
   const session = await auth();
@@ -46,7 +47,7 @@ export async function POST(req: Request) {
   if (!title?.trim()) return NextResponse.json({ success: false, message: 'Title is required' }, { status: 400 });
 
   // Generate slug from title + random suffix
-  const baseSlug = title.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+  const baseSlug = slugify(title.trim());
   const slug = `${baseSlug}-${Date.now().toString(36)}`;
 
   // Default brandingProfileId to the tenant's default brand profile when not

@@ -7,6 +7,7 @@
  * the email is skipped to avoid flooding during bursts of agent activity.
  */
 
+import { escapeHtml } from '@/lib/utils/html';
 import { db } from '@/lib/db';
 import { crmNotifications, users, clients } from '@/lib/db/schema';
 import { and, eq, gt, inArray, sql } from 'drizzle-orm';
@@ -17,14 +18,6 @@ const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'portal@simplerdevelopment.c
 const COOLDOWN_MINUTES = 10;
 const EMAILS_ENABLED = process.env.MCP_APPROVAL_EMAILS_ENABLED !== 'false';
 
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
 
 function renderEmail(params: {
   summary: string;

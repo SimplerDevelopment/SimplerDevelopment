@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
+import { slugify } from '@/lib/publishing/slug';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -259,10 +260,7 @@ function CreatePostModal({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
-  const slug = title
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '');
+  const slug = slugify(title);
 
   const handleCreate = async () => {
     if (!title.trim()) { setError('Title is required'); return; }
@@ -509,6 +507,7 @@ export default function ContentCalendar({ websiteId, basePath, siteId }: Content
   }, [currentDate, view, websiteId]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- fetchPosts resets loading before its async fetch; setLoading(true) in the callback is load-bearing for re-fetch UX
     fetchPosts();
   }, [fetchPosts]);
 

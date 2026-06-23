@@ -40,7 +40,7 @@ import {
   type ApprovableEntityType,
 } from '@/lib/mcp/approval-links';
 import { applyPendingChange } from '@/lib/mcp/approvals';
-import { applyPublishAllToSlides } from '@/lib/mcp/decks-publish';
+import { applyPublishAllToSlides } from '@/lib/decks/publish-slide';
 import { revalidatePath } from 'next/cache';
 
 export async function GET(
@@ -181,7 +181,7 @@ async function applyApproval(link: ApprovalLinkRow): Promise<void> {
       // slide to live — otherwise the public renderer sees the prior live
       // state (or, for a brand-new deck, an empty deck) even though status
       // says published. Slide promotion is the same logic decks_publish_all
-      // runs, factored out into lib/mcp/decks-publish.ts.
+      // runs, factored out into lib/decks/publish-slide.ts.
       const [deck] = await db
         .select()
         .from(pitchDecks)

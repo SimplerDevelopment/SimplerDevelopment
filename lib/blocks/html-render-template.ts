@@ -26,6 +26,7 @@
 
 import sanitizeHtmlLib from 'sanitize-html';
 import type { HtmlRenderField } from '@/types/blocks';
+import { escapeHtml } from '@/lib/utils/html';
 
 // Narrow allow-list for `richtext` field values substituted via `{{name}}`.
 // SKILL.md (html-render-block) documents: "If the field is `richtext`, the
@@ -615,14 +616,6 @@ function inferTypeFromContext(template: string, idx: number): HtmlRenderField['t
   return 'text';
 }
 
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
 
 function titleize(name: string): string {
   return name

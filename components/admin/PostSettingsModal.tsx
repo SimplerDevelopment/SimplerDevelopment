@@ -2,6 +2,20 @@
 
 import { useState } from 'react';
 import MediaPicker from './MediaPicker';
+import { slugify } from '@/lib/publishing/slug';
+
+interface CustomFieldDef {
+  id: number;
+  postTypeId: number;
+  name: string;
+  slug: string;
+  fieldType: string;
+  options: string[] | null;
+  required: boolean;
+  defaultValue?: string | null;
+  helpText?: string | null;
+  order: number;
+}
 
 interface PostSettingsModalProps {
   isOpen: boolean;
@@ -17,24 +31,13 @@ interface PostSettingsModalProps {
   };
   onFormDataChange: (updates: Partial<PostSettingsModalProps['formData']>) => void;
   postTypes: Array<{ id: number; name: string; slug: string; icon: string; active: boolean }>;
-  customFields: Array<{
-    id: number;
-    postTypeId: number;
-    name: string;
-    slug: string;
-    fieldType: string;
-    options: string[] | null;
-    required: boolean;
-    defaultValue?: string | null;
-    helpText?: string | null;
-    order: number;
-  }>;
+  customFields: CustomFieldDef[];
   customFieldValues: Record<string, string>;
   onCustomFieldChange: (slug: string, value: string) => void;
   mode: 'create' | 'edit';
   users: Array<{ id: number; name: string; email: string; role: string; active: boolean }>;
   onPostTypeChange: (postType: string) => void;
-  renderCustomField: (field: any) => React.ReactNode;
+  renderCustomField: (field: CustomFieldDef) => React.ReactNode;
 }
 
 export function PostSettingsModal({
@@ -55,12 +58,7 @@ export function PostSettingsModal({
 
   if (!isOpen) return null;
 
-  const generateSlug = (title: string) => {
-    return title
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-|-$/g, '');
-  };
+  const generateSlug = (title: string) => slugify(title);
 
   const handleTitleChange = (title: string) => {
     onFormDataChange({

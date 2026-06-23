@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
+import { formatMoney } from '@/lib/utils/money';
 
 interface OrderItem {
   id: number;
@@ -110,10 +111,6 @@ const printfulStatusColors: Record<string, string> = {
 };
 
 const statusOptions = ['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded'];
-
-function formatMoney(cents: number) {
-  return '$' + (cents / 100).toFixed(2);
-}
 
 function formatAddress(addr?: Address | null) {
   if (!addr) return null;

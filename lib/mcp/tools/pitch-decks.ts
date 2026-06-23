@@ -237,7 +237,7 @@ export function registerPitchDecksTools(server: McpServer, ctx: PortalMcpContext
         summary: `Create pitch deck "${args.title}"`,
         payload: args,
         apply: async () => {
-          const baseSlug = args.title.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+          const baseSlug = slugify(args.title.trim());
           const slug = `${baseSlug}-${Date.now().toString(36)}`;
           // Precedence: explicit args.theme > branding profile > defaults.
           const themeFromProfile = profile ? {
@@ -673,11 +673,7 @@ export function registerPitchDecksTools(server: McpServer, ctx: PortalMcpContext
 
           const filenameNoExt = filename.replace(/\.[^.]+$/, '');
           const deckTitle = title?.trim() || filenameNoExt || 'Uploaded HTML Deck';
-          const baseSlug = (filename.trim().toLowerCase()
-            .replace(/\.[^.]+$/, '')
-            .replace(/[^a-z0-9]+/g, '-')
-            .replace(/(^-|-$)/g, '')
-            .slice(0, 80)) || 'deck';
+          const baseSlug = slugify(filename.trim().replace(/\.[^.]+$/, ''), 80) || 'deck';
           const slug = `${baseSlug}-${Date.now().toString(36)}`;
           const ts = Date.now();
 
@@ -788,11 +784,7 @@ export function registerPitchDecksTools(server: McpServer, ctx: PortalMcpContext
       }));
       await db.insert(media).values(mediaRows);
 
-      const baseSlug = (filename.trim().toLowerCase()
-        .replace(/\.zip$/i, '')
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/(^-|-$)/g, '')
-        .slice(0, 80)) || 'deck';
+      const baseSlug = slugify(filename.trim().replace(/\.zip$/i, ''), 80) || 'deck';
       const slug = `${baseSlug}-${Date.now().toString(36)}`;
       const titleNorm = title?.trim() || baseSlug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) || 'Uploaded HTML Deck';
 
@@ -1017,6 +1009,7 @@ export function registerPitchDecksTools(server: McpServer, ctx: PortalMcpContext
 }
 
 // ─── Slide-draft publish helpers ─────────────────────────────────────────────
-// Pure functions live in `lib/mcp/decks-publish.ts` so the public approval
+// Pure functions live in `lib/decks/publish-slide.ts` so the public approval
 // route can reuse them without dragging in the whole MCP SDK.
-import { applyPublishToSlides, applyPublishAllToSlides } from '@/lib/mcp/decks-publish';
+import { applyPublishToSlides, applyPublishAllToSlides } from '@/lib/decks/publish-slide';
+import { slugify } from '@/lib/publishing/slug';

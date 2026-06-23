@@ -7,121 +7,20 @@
  */
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import { and, desc, eq, ilike, inArray, isNull, or, sql, gte, lte } from 'drizzle-orm';
-import crypto from 'crypto';
-import { hash as hashPassword } from 'bcryptjs';
+import { and, eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import {
   projects,
-  kanbanCards,
-  kanbanColumns,
-  kanbanLabels,
-  kanbanCardLabels,
-  kanbanCardChecklistItems,
-  kanbanCardAssignees,
-  kanbanCardWatchers,
-  kanbanCardDependencies,
-  supportTickets,
-  ticketMessages,
-  crmContacts,
-  crmCompanies,
-  crmDeals,
-  crmPipelines,
-  crmPipelineStages,
-  posts,
-  media,
-  clientWebsites,
-  emailLists,
-  emailCampaigns,
-  pitchDecks,
-  brandingProfiles,
-  emailSubscribers,
-  emailCampaignSends,
-  surveys,
-  surveyResponses,
-  bookingPages,
-  bookings,
   sprints,
-  crmActivities,
-  categories,
-  tags,
-  postCategories,
-  postTags,
-  automationRules,
-  clientMembers,
-  users,
-  crmProposals,
-  crmContracts,
-  crmContractSigners,
-  invoices,
-  invoiceItems,
-  serviceRequests,
-  suggestedProjectRequests,
-  suggestedProjects,
-  services,
-  aiConversations,
-  aiMessages,
-  kanbanCardComments,
-  kanbanCardTimeLogs,
-  kanbanCardFiles,
-  kanbanCardArtifacts,
-  crmDealArtifacts,
-  siteNavigation,
-  postRevisions,
-  blockTemplates,
-  blockTemplateUsages,
-  emailTemplates,
-  emailSegments,
-  giftCertificates,
-  crmCustomFields,
-  crmCustomFieldValues,
-  crmSavedViews,
-  crmScoringRules,
-  websiteDomains,
-  websiteEnvironments,
-  websiteEnvVars,
-  clients,
-  aiCreditBalances,
-  aiCreditLedger,
-  hostedSites,
-  googleWorkspaceUserConnections,
 } from '@/lib/db/schema';
-import type { SurveyFieldDef, ProposalSection, ProposalLineItem, ProposalFee, ContractClause, PitchDeckSlideV2 } from '@/lib/db/schema';
 import type { PortalMcpContext } from '@/lib/mcp-auth';
 import { hasScope } from '@/lib/mcp-auth';
-import { logCardActivity } from '@/lib/pm-activity';
-import { uploadToS3 } from '@/lib/s3/upload';
-import { cleanEmbedHtml } from '@/lib/html-embed-clean';
-import { importHtmlAssets } from '@/lib/html-asset-import';
-import {
-  renderBlocksToEmailHtml,
-  resend,
-  buildCampaignHtml,
-  buildUnsubscribeUrl,
-  generateUnsubscribeToken,
-} from '@/lib/email';
-import { executeCampaignSend } from '@/lib/email/campaign-send';
-import { revoke as revokeGoogleToken } from '@/lib/google/oauth';
-import { getTenantWorkspaceCredentialsByClientId } from '@/lib/google/tenant-credentials';
-import { stageOrApply } from '../pending-changes';
-import { BLOCKS_SCHEMA_REFERENCE } from '../blocks-schema';
 import {
   json,
-  serializePostContent,
   denied,
-  extractRows,
-  dbErrorEnvelope,
   requireScope,
-  serviceDenied,
-  requireService,
-  assignBlockIds,
   revalidateForWrite,
 } from '../types';
-import {
-  postProjection,
-  deckProjection,
-  campaignProjection,
-} from '../projections';
 
 export function registerSprintsTools(server: McpServer, ctx: PortalMcpContext): void {
   const clientId = ctx.client.id;
