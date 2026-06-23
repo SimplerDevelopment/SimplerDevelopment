@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# Fast pre-commit checks (staged files only).
+# Heavy gates (tsc, tests) run at pre-push, not here. One-off bypass: git commit --no-verify
+set -uo pipefail
+
+# Dev branches are intentionally frictionless: commits go straight through so the
+# branch can deploy immediately on push. Strict gates still run on every other
+# branch. One-off bypass anywhere: git commit --no-verify
+branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo)"
+case "$branch" in
+  dev|dev/*)
+    echo "pre-commit: '$branch' is a dev branch — gates relaxed (skipped)."
+    exit 0 ;;
+esac
+
+ROOT="$(git rev-parse --show-toplevel)"
+cd "$ROOT"
+
+staged="$(git diff --cached --name-only --diff-filter=ACMR)"
+[ -z "$staged" ] && exit 0
+
+ts_files="$(echo "$staged" | grep -E '\.(ts|tsx)$' || true)"
+
+fail=0
+if [ -n "$ts_files" ]; then
+  echo "pre-commit: eslint (staged)…"
+  # Fail on errors only (warnings are the existing backlog); this stops NEW
+  # errors landing in files you touch without forcing a repo-wide cleanup first.
+  printf '%s\n' "$ts_files" | tr '\n' '\0' | xargs -0 bunx eslint || fail=1
+fi
+echo "pre-commit: file-size budget…"
+bun scripts/check-file-budget.ts || fail=1
+echo "pre-commit: doc drift…"
+bun scripts/check-doc-drift.ts || fail=1
+
+if [ "$fail" -ne 0 ]; then
+  echo "pre-commit failed. Fix the above, or bypass once with: git commit --no-verify"
+  exit 1
+fi
+exit 0

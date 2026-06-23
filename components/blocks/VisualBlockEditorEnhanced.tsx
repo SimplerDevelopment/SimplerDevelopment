@@ -1,0 +1,1049 @@
+'use client';
+
+import { useEffect, useState, useRef } from 'react';
+import { Block, BlockType } from '@/types/blocks';
+import { VisualBlockPreview } from './visual/VisualBlockPreview';
+import { BlockSettings } from './visual/BlockSettings';
+import { BlockEditorProvider, useBlockEditor } from '@/contexts/BlockEditorContext';
+import { applyBrandDefaults, type BrandDefaultsContext } from '@/lib/branding/block-defaults';
+import { createDefaultBlock } from '@/lib/blocks/defaults';
+import { useKeyboardShortcuts } from '@/lib/hooks/useKeyboardShortcuts';
+import { Breakpoint } from '@/types/responsive';
+import { getViewportWidth } from '@/lib/utils/responsive';
+import { ResponsiveIndicator } from './ResponsiveIndicator';
+import { ResponsiveHelpButton } from './ResponsiveHelpModal';
+import { SaveAsTemplateModal } from './SaveAsTemplateModal';
+import { TemplateLibrary } from './TemplateLibrary';
+import { PageSettingsPanel } from './visual/PageSettingsPanel';
+import { BlockTypeIcon } from './BlockTypeIcon';
+import { LayersPanel } from './LayersPanel';
+import {
+  DndContext,
+  closestCenter,
+  pointerWithin,
+  rectIntersection,
+  KeyboardSensor,
+  MouseSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+  DragStartEvent,
+  DragOverEvent,
+  DragOverlay,
+  useDroppable,
+  type CollisionDetection,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+} from '@dnd-kit/sortable';
+
+// No-op sorting strategy: items stay in place during drag, only reorder on drop
+const noMovementStrategy = () => null;
+
+interface VisualBlockEditorEnhancedProps {
+  blocks: Block[];
+  onChange: (blocks: Block[]) => void;
+  initialViewport?: Breakpoint;
+  onViewportChange?: (viewport: Breakpoint) => void;
+  /**
+   * Optional brand context — pre-fills newly created blocks with messaging
+   * and tags them with brand sentinels so they follow brand changes.
+   */
+  brandDefaults?: BrandDefaultsContext;
+}
+
+// Custom collision detection: prefer drop zones when pointer is inside them
+const nestingCollisionDetection: CollisionDetection = (args) => {
+  // First check if pointer is within a drop zone
+  const pointerCollisions = pointerWithin(args);
+  const dropZoneHit = pointerCollisions.find(
+    (c) => typeof c.id === 'string' && c.id.startsWith('drop-zone-')
+  );
+  if (dropZoneHit) return [dropZoneHit];
+
+  // Otherwise use closestCenter for standard reordering
+  return closestCenter(args);
+};
+
+// Droppable zone inside a container block (column or tab)
+function ContainerDropZone({ id, isActive, label }: { id: string; isActive: boolean; label: string }) {
+  const { setNodeRef, isOver } = useDroppable({ id });
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={`border-2 border-dashed rounded-lg transition-all text-center text-xs py-3 ${
+        isOver
+          ? 'border-primary bg-primary/10 text-primary'
+          : isActive
+          ? 'border-primary/40 bg-primary/5 text-primary/60'
+          : 'border-transparent'
+      }`}
+    >
+      {(isOver || isActive) && (
+        <span>Drop here to nest in {label}</span>
+      )}
+    </div>
+  );
+}
+
+// Sortable block wrapper component
+function SortableBlock({
+  block,
+  isSelected,
+  isHovered,
+  hasNestedSelection,
+  selectedBlockId,
+  index,
+  totalBlocks,
+  onSelect,
+  onHover,
+  onUpdate,
+  onDelete,
+  onMove,
+  onDuplicate,
+  onInsertAfter,
+  onSaveAsTemplate,
+  isDraggingAny,
+  nestTargetId,
+  blockTypes,
+  showDropIndicator,
+}: {
+  block: Block;
+  isSelected: boolean;
+  isHovered: boolean;
+  hasNestedSelection: boolean;
+  selectedBlockId: string | null;
+  index: number;
+  totalBlocks: number;
+  onSelect: (id: string | null) => void;
+  onHover: (id: string | null) => void;
+  onUpdate: (id: string, updates: Partial<Block>) => void;
+  onDelete: (id: string) => void;
+  onMove: (id: string, direction: 'up' | 'down') => void;
+  onDuplicate: (id: string) => void;
+  onInsertAfter: (id: string) => void;
+  onSaveAsTemplate: (block: Block) => void;
+  isDraggingAny: boolean;
+  nestTargetId: string | null;
+  blockTypes: Array<{ type: BlockType; label: string }>;
+  showDropIndicator: boolean;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    isDragging,
+  } = useSortable({
+    id: block.id,
+    transition: null,
+  });
+
+  const style: React.CSSProperties = {
+    opacity: isDragging ? 0.3 : 1,
+    transition: 'opacity 200ms',
+  };
+
+  return (
+    <>
+    {showDropIndicator && (
+      <div className="relative z-20" style={{ height: 0 }}>
+        <div className="absolute inset-x-0 top-0 -translate-y-1/2 h-0.5 bg-primary rounded-full" />
+        <div className="absolute left-0 top-0 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-primary -ml-1" style={{ marginTop: '-4px' }} />
+        <div className="absolute right-0 top-0 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-primary -mr-1" style={{ marginTop: '-4px' }} />
+      </div>
+    )}
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="group relative"
+      onMouseEnter={() => onHover(block.id)}
+      onMouseLeave={() => onHover(null)}
+    >
+      {/* Block Toolbar */}
+      {(isSelected || isHovered) && (
+        <div className="absolute -top-10 left-0 right-0 flex items-center justify-between gap-2 bg-card border border-border rounded-t-lg px-3 py-2 shadow-lg z-10">
+          <div className="flex items-center gap-2">
+            {/* Drag Handle */}
+            <button
+              {...attributes}
+              {...listeners}
+              type="button"
+              className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-accent rounded cursor-grab active:cursor-grabbing"
+              title="Drag to reorder"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
+            <span className="text-xs font-medium text-muted-foreground">
+              {blockTypes.find((bt) => bt.type === block.type)?.label || block.type}
+            </span>
+            {hasNestedSelection && !isSelected && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onSelect(block.id);
+                }}
+                className="ml-1 px-2 py-0.5 text-xs bg-accent hover:bg-accent/80 rounded transition-colors"
+                title="Select container"
+              >
+                Select container
+              </button>
+            )}
+          </div>
+
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => onMove(block.id, 'up')}
+              disabled={index === 0}
+              className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-accent rounded disabled:opacity-30 disabled:cursor-not-allowed"
+              title="Move up"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              onClick={() => onMove(block.id, 'down')}
+              disabled={index === totalBlocks - 1}
+              className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-accent rounded disabled:opacity-30 disabled:cursor-not-allowed"
+              title="Move down"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            <div className="w-px h-4 bg-border mx-1" />
+            <button
+              type="button"
+              onClick={() => onDuplicate(block.id)}
+              className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-accent rounded"
+              title="Duplicate"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              onClick={() => onSaveAsTemplate(block)}
+              className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-accent rounded"
+              title="Save as template"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              onClick={() => onDelete(block.id)}
+              className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"
+              title="Delete"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Block Content */}
+      <div
+        onClick={(e) => {
+          // For container blocks, nested block clicks are stopped by e.stopPropagation().
+          // This handler fires for clicks on empty container space.
+          onSelect(block.id);
+        }}
+        className={`rounded-lg transition-all cursor-pointer relative ${
+          isSelected
+            ? 'ring-2 ring-primary ring-offset-2 ring-offset-background'
+            : hasNestedSelection
+            ? 'ring-2 ring-primary/40 ring-offset-2 ring-offset-background'
+            : isHovered
+            ? 'ring-2 ring-border'
+            : ''
+        }`}
+      >
+        <ResponsiveIndicator block={block} />
+        <VisualBlockPreview
+          block={block}
+          isSelected={isSelected || hasNestedSelection}
+          onChange={(updates) => onUpdate(block.id, updates)}
+          selectedBlockId={selectedBlockId}
+          onSelectBlock={onSelect}
+        />
+
+        {/* Drop zones for nesting into container blocks */}
+        {isDraggingAny && block.type === 'columns' && (
+          <div className="flex gap-2 px-4 pb-3">
+            {block.columns.map((col, i) => (
+              <div key={col.id} className="flex-1">
+                <ContainerDropZone
+                  id={`drop-zone-${col.id}`}
+                  isActive={isDraggingAny}
+                  label={`Column ${i + 1}`}
+                />
+              </div>
+            ))}
+          </div>
+        )}
+        {isDraggingAny && block.type === 'tabs' && (
+          <div className="flex gap-2 px-4 pb-3">
+            {block.tabs.map((tab) => (
+              <div key={tab.id} className="flex-1">
+                <ContainerDropZone
+                  id={`drop-zone-${tab.id}`}
+                  isActive={isDraggingAny}
+                  label={tab.label}
+                />
+              </div>
+            ))}
+          </div>
+        )}
+        {isDraggingAny && block.type === 'section' && (
+          <div className="px-4 pb-3">
+            <ContainerDropZone
+              id={`drop-zone-section-${block.id}`}
+              isActive={isDraggingAny}
+              label="Section"
+            />
+          </div>
+        )}
+      </div>
+
+      {/* Insert Block Button */}
+      <div className="flex items-center justify-center py-2 opacity-0 group-hover:opacity-100 transition-opacity">
+        <button
+          type="button"
+          onClick={() => onInsertAfter(block.id)}
+          className="p-1 bg-primary text-primary-foreground rounded-full hover:bg-primary/90 shadow-md"
+          title="Insert block below"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          </svg>
+        </button>
+      </div>
+    </div>
+    </>
+  );
+}
+
+// Inner editor component (exported for use with external provider)
+export function EditorInner({
+  onChange,
+  blockTypes,
+  brandDefaults,
+}: {
+  onChange: (blocks: Block[]) => void;
+  blockTypes: Array<{ type: BlockType; label: string; icon: string; category: string; description: string }>;
+  brandDefaults?: BrandDefaultsContext;
+}) {
+  const {
+    state,
+    undo,
+    redo,
+    reorderBlocks,
+    updateBlock,
+    deleteBlock,
+    duplicateBlock,
+    setBlocks,
+    selectBlock,
+    isSettingsPoppedOut,
+    openSettingsPopOut,
+    currentViewport,
+    setCurrentViewport,
+    pageSettings,
+    updatePageSettings,
+  } = useBlockEditor();
+  const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
+
+  // Sync local selectedBlockId with context
+  useEffect(() => {
+    selectBlock(selectedBlockId);
+  }, [selectedBlockId, selectBlock]);
+  const [hoveredBlockId, setHoveredBlockId] = useState<string | null>(null);
+  const [showBlockInserter, setShowBlockInserter] = useState(false);
+  const [showTemplateLibrary, setShowTemplateLibrary] = useState(false);
+  const [saveTemplateBlock, setSaveTemplateBlock] = useState<Block | null>(null);
+  const [insertAfterBlockId, setInsertAfterBlockId] = useState<string | null>(null);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const editorRef = useRef<HTMLDivElement>(null);
+
+  // Click outside editor to deselect
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (editorRef.current && !editorRef.current.contains(e.target as Node)) {
+        setSelectedBlockId(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Configure drag sensors
+  const sensors = useSensors(
+    useSensor(MouseSensor, {
+      activationConstraint: {
+        distance: 10,
+      },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 250,
+        tolerance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  // Keyboard shortcuts
+  useKeyboardShortcuts(
+    [
+      // Undo / Redo
+      {
+        keys: 'mod+z',
+        description: 'Undo',
+        handler: () => { if (state.canUndo) undo(); return false; },
+      },
+      {
+        keys: 'mod+shift+z',
+        description: 'Redo',
+        handler: () => { if (state.canRedo) redo(); return false; },
+      },
+      // Block operations
+      {
+        keys: 'mod+d',
+        description: 'Duplicate block',
+        handler: () => { if (selectedBlockId) duplicateBlock(selectedBlockId); return false; },
+      },
+      {
+        keys: 'mod+backspace',
+        description: 'Delete block',
+        handler: () => {
+          if (selectedBlockId) {
+            const idx = state.blocks.findIndex(b => b.id === selectedBlockId);
+            const nextId = idx < state.blocks.length - 1 ? state.blocks[idx + 1]?.id : state.blocks[idx - 1]?.id;
+            deleteBlock(selectedBlockId);
+            setSelectedBlockId(nextId || null);
+          }
+          return false;
+        },
+      },
+      {
+        keys: 'mod+enter',
+        description: 'Insert block after selected',
+        handler: () => {
+          if (selectedBlockId) {
+            setInsertAfterBlockId(selectedBlockId);
+            setShowBlockInserter(true);
+          }
+          return false;
+        },
+      },
+      // Reorder
+      {
+        keys: 'mod+shift+up',
+        description: 'Move block up',
+        handler: () => {
+          if (selectedBlockId) {
+            const idx = state.blocks.findIndex(b => b.id === selectedBlockId);
+            if (idx > 0) reorderBlocks(idx, idx - 1);
+          }
+          return false;
+        },
+      },
+      {
+        keys: 'mod+shift+down',
+        description: 'Move block down',
+        handler: () => {
+          if (selectedBlockId) {
+            const idx = state.blocks.findIndex(b => b.id === selectedBlockId);
+            if (idx >= 0 && idx < state.blocks.length - 1) reorderBlocks(idx, idx + 1);
+          }
+          return false;
+        },
+      },
+      // Navigation
+      {
+        keys: 'up',
+        description: 'Select previous block',
+        handler: () => {
+          if (!selectedBlockId) return false;
+          const idx = state.blocks.findIndex(b => b.id === selectedBlockId);
+          if (idx > 0) setSelectedBlockId(state.blocks[idx - 1].id);
+          return false;
+        },
+        preventDefault: false,
+      },
+      {
+        keys: 'down',
+        description: 'Select next block',
+        handler: () => {
+          if (!selectedBlockId) return false;
+          const idx = state.blocks.findIndex(b => b.id === selectedBlockId);
+          if (idx >= 0 && idx < state.blocks.length - 1) setSelectedBlockId(state.blocks[idx + 1].id);
+          return false;
+        },
+        preventDefault: false,
+      },
+      {
+        keys: 'escape',
+        description: 'Deselect block',
+        handler: () => { setSelectedBlockId(null); return false; },
+        preventDefault: false,
+      },
+    ],
+    [undo, redo, state.canUndo, state.canRedo, selectedBlockId, duplicateBlock, deleteBlock, reorderBlocks, state.blocks]
+  );
+
+  // Sync blocks to parent
+  useEffect(() => {
+    onChange(state.blocks);
+  }, [state.blocks, onChange]);
+
+  const [nestTargetId, setNestTargetId] = useState<string | null>(null);
+
+  const [overId, setOverId] = useState<string | null>(null);
+
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveId(event.active.id as string);
+    setNestTargetId(null);
+    setOverId(null);
+  };
+
+  const handleDragOver = (event: DragOverEvent) => {
+    const { over } = event;
+    if (over && typeof over.id === 'string' && over.id.startsWith('drop-zone-')) {
+      setNestTargetId(over.id);
+      setOverId(null);
+    } else {
+      setNestTargetId(null);
+      setOverId(over ? (over.id as string) : null);
+    }
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      const overId = over.id as string;
+
+      // Check if dropping into a container zone (e.g., "drop-zone-col-123" or "drop-zone-tab-456")
+      if (overId.startsWith('drop-zone-')) {
+        const targetId = overId.replace('drop-zone-', '');
+        const draggedBlockIndex = state.blocks.findIndex((b) => b.id === active.id);
+
+        if (draggedBlockIndex !== -1) {
+          const draggedBlock = state.blocks[draggedBlockIndex];
+
+          // Prevent dropping a container into itself
+          const isSelfNest =
+            (draggedBlock.type === 'columns' && draggedBlock.columns?.some((c) => c.id === targetId)) ||
+            (draggedBlock.type === 'tabs' && draggedBlock.tabs?.some((t) => t.id === targetId)) ||
+            (draggedBlock.type === 'section' && targetId === `section-${draggedBlock.id}`);
+          if (isSelfNest) {
+            setActiveId(null);
+            setNestTargetId(null);
+            return;
+          }
+
+          const newBlocks = state.blocks.filter((b) => b.id !== active.id);
+
+          // Find the container block and nest the dragged block
+          const updatedBlocks = newBlocks.map((block) => {
+            if (block.type === 'columns') {
+              const colIndex = block.columns.findIndex((c) => c.id === targetId);
+              if (colIndex !== -1) {
+                return {
+                  ...block,
+                  columns: block.columns.map((col) =>
+                    col.id === targetId
+                      ? { ...col, blocks: [...col.blocks, { ...draggedBlock, order: col.blocks.length }] }
+                      : col
+                  ),
+                };
+              }
+            }
+            if (block.type === 'tabs') {
+              const tabIndex = block.tabs.findIndex((t) => t.id === targetId);
+              if (tabIndex !== -1) {
+                return {
+                  ...block,
+                  tabs: block.tabs.map((tab) =>
+                    tab.id === targetId
+                      ? { ...tab, blocks: [...tab.blocks, { ...draggedBlock, order: tab.blocks.length }] }
+                      : tab
+                  ),
+                };
+              }
+            }
+            if (block.type === 'section' && targetId === `section-${block.id}`) {
+              return {
+                ...block,
+                blocks: [...block.blocks, { ...draggedBlock, order: block.blocks.length }],
+              };
+            }
+            return block;
+          });
+
+          // Update order
+          const reorderedBlocks = updatedBlocks.map((b, i) => ({ ...b, order: i }));
+          setBlocks(reorderedBlocks);
+        }
+      } else {
+        // Standard reorder
+        const oldIndex = state.blocks.findIndex((b) => b.id === active.id);
+        const newIndex = state.blocks.findIndex((b) => b.id === over.id);
+
+        if (oldIndex !== -1 && newIndex !== -1) {
+          reorderBlocks(oldIndex, newIndex);
+        }
+      }
+    }
+
+    setActiveId(null);
+    setNestTargetId(null);
+    setOverId(null);
+  };
+
+  const moveBlock = (id: string, direction: 'up' | 'down') => {
+    const index = state.blocks.findIndex((b) => b.id === id);
+    if (index === -1) return;
+
+    const newIndex = direction === 'up' ? index - 1 : index + 1;
+    if (newIndex < 0 || newIndex >= state.blocks.length) return;
+
+    reorderBlocks(index, newIndex);
+  };
+
+  const addBlock = (type: BlockType, afterBlockId: string | null = null) => {
+    let newBlock = createDefaultBlock(type, { order: state.blocks.length });
+    if (brandDefaults) {
+      newBlock = applyBrandDefaults(newBlock, brandDefaults);
+    }
+    let tempBlocks = [...state.blocks];
+
+    if (afterBlockId) {
+      const index = tempBlocks.findIndex((b) => b.id === afterBlockId);
+      tempBlocks.splice(index + 1, 0, newBlock);
+    } else {
+      tempBlocks.push(newBlock);
+    }
+
+    // Update order - create new objects to avoid mutating frozen objects
+    const newBlocks = tempBlocks.map((b, i) => ({
+      ...b,
+      order: i,
+    }));
+
+    setBlocks(newBlocks);
+    setSelectedBlockId(newBlock.id);
+    setShowBlockInserter(false);
+    setInsertAfterBlockId(null);
+  };
+
+  // Helper function to recursively find a block (including nested blocks)
+  const findBlock = (blockId: string, blocksList: Block[] = state.blocks): Block | null => {
+    for (const block of blocksList) {
+      if (block.id === blockId) return block;
+
+      // Check nested blocks in columns
+      if (block.type === 'columns') {
+        for (const column of block.columns) {
+          const found = findBlock(blockId, column.blocks);
+          if (found) return found;
+        }
+      }
+
+      // Check nested blocks in tabs
+      if (block.type === 'tabs') {
+        for (const tab of block.tabs) {
+          const found = findBlock(blockId, tab.blocks);
+          if (found) return found;
+        }
+      }
+
+      // Check nested blocks in sections
+      if (block.type === 'section') {
+        const found = findBlock(blockId, block.blocks);
+        if (found) return found;
+      }
+    }
+    return null;
+  };
+
+  // Check if a nested block within a container is selected
+  const isNestedBlockSelected = (containerBlock: Block): boolean => {
+    if (!selectedBlockId) return false;
+    if (selectedBlockId === containerBlock.id) return false;
+
+    if (containerBlock.type === 'columns') {
+      return containerBlock.columns.some(col =>
+        col.blocks.some(b => b.id === selectedBlockId || isNestedBlockSelected(b))
+      );
+    }
+    if (containerBlock.type === 'tabs') {
+      return containerBlock.tabs.some(tab =>
+        tab.blocks.some(b => b.id === selectedBlockId || isNestedBlockSelected(b))
+      );
+    }
+    if (containerBlock.type === 'section') {
+      return containerBlock.blocks.some(b => b.id === selectedBlockId || isNestedBlockSelected(b));
+    }
+    return false;
+  };
+
+  const categories = Array.from(new Set(blockTypes.map((bt) => bt.category)));
+  const selectedBlock = selectedBlockId ? findBlock(selectedBlockId) : null;
+  const activeBlock = state.blocks.find((b) => b.id === activeId);
+  const [layersCollapsed, setLayersCollapsed] = useState(false);
+
+  return (
+    <div className="relative">
+      {/* Layers Panel */}
+      <LayersPanel
+        blocks={state.blocks}
+        selectedBlockId={selectedBlockId}
+        onSelect={setSelectedBlockId}
+        onHover={setHoveredBlockId}
+        hoveredBlockId={hoveredBlockId}
+        collapsed={layersCollapsed}
+        onCollapsedChange={setLayersCollapsed}
+      />
+
+      {/* Editor */}
+      <div
+        className="relative flex gap-0"
+        ref={editorRef}
+        onClick={(e) => {
+          if (e.target === e.currentTarget) {
+            setSelectedBlockId(null);
+          }
+        }}
+      >
+        {/* Responsive Preview Container */}
+        <div
+          className={`flex-1 min-h-[500px] flex transition-all ${
+            currentViewport === 'desktop' ? '' : 'justify-center'
+          } ${!layersCollapsed ? 'ml-56' : 'ml-8'} ${!isSettingsPoppedOut ? 'mr-72' : ''}`}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setSelectedBlockId(null);
+            }
+          }}
+        >
+          <div
+            className={`bg-background transition-all duration-300 ease-in-out ${
+              currentViewport === 'desktop' ? 'w-full' : 'shadow-sm'
+            }`}
+            style={{
+              width: currentViewport === 'desktop' ? '100%' : `${getViewportWidth(currentViewport)}px`,
+              maxWidth: '100%',
+            }}
+            onClick={(e) => {
+              if (e.target === e.currentTarget) {
+                setSelectedBlockId(null);
+              }
+            }}
+          >
+          {state.blocks.length === 0 ? (
+            <div className="p-16 text-center">
+              <div className="mb-6">
+                <span className="text-6xl">✍️</span>
+              </div>
+              <h3 className="text-xl font-semibold mb-2">Start creating content</h3>
+              <p className="text-muted-foreground mb-6">Add your first block to begin</p>
+              <button
+                type="button"
+                onClick={() => setShowBlockInserter(true)}
+                className="px-6 py-3 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 font-medium"
+              >
+                + Add Block
+              </button>
+            </div>
+          ) : (
+            <DndContext sensors={sensors} collisionDetection={nestingCollisionDetection} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd}>
+              <SortableContext items={state.blocks.map((b) => b.id)} strategy={noMovementStrategy}>
+                <div
+                  className={`space-y-2 ${pageSettings.fontFamily || ''} ${pageSettings.cssClass || ''}`}
+                  style={{
+                    padding: `${pageSettings.paddingTop || '2rem'} ${pageSettings.paddingRight || '2rem'} ${pageSettings.paddingBottom || '2rem'} ${pageSettings.paddingLeft || '2rem'}`,
+                    ...(pageSettings.backgroundColor ? { backgroundColor: pageSettings.backgroundColor } : {}),
+                    ...(pageSettings.backgroundImage ? {
+                      backgroundImage: `url(${pageSettings.backgroundImage})`,
+                      backgroundSize: pageSettings.backgroundSize || 'cover',
+                      backgroundPosition: pageSettings.backgroundPosition || 'center',
+                    } : {}),
+                    ...(pageSettings.maxWidth ? { maxWidth: pageSettings.maxWidth, marginLeft: 'auto', marginRight: 'auto' } : {}),
+                    ...(pageSettings.color ? { color: pageSettings.color } : {}),
+                    minHeight: '500px',
+                  }}
+                  onClick={(e) => {
+                    if (e.target === e.currentTarget) {
+                      setSelectedBlockId(null);
+                    }
+                  }}
+                >
+                  {state.blocks.map((block, index) => (
+                    <SortableBlock
+                      key={block.id}
+                      block={block}
+                      isSelected={selectedBlockId === block.id}
+                      isHovered={hoveredBlockId === block.id}
+                      hasNestedSelection={isNestedBlockSelected(block)}
+                      selectedBlockId={selectedBlockId}
+                      index={index}
+                      totalBlocks={state.blocks.length}
+                      onSelect={setSelectedBlockId}
+                      onHover={setHoveredBlockId}
+                      onUpdate={updateBlock}
+                      onDelete={deleteBlock}
+                      onMove={moveBlock}
+                      onDuplicate={duplicateBlock}
+                      onInsertAfter={(id) => {
+                        setInsertAfterBlockId(id);
+                        setShowBlockInserter(true);
+                      }}
+                      onSaveAsTemplate={(block) => setSaveTemplateBlock(block)}
+                      isDraggingAny={!!activeId}
+                      nestTargetId={nestTargetId}
+                      blockTypes={blockTypes}
+                      showDropIndicator={!!activeId && overId === block.id && activeId !== block.id}
+                    />
+                  ))}
+                </div>
+              </SortableContext>
+              <DragOverlay>
+                {activeBlock ? (
+                  <div className="bg-card border-2 border-primary rounded-lg p-4 shadow-2xl opacity-90">
+                    <div className="text-sm font-medium text-foreground">
+                      {blockTypes.find((bt) => bt.type === activeBlock.type)?.label || activeBlock.type}
+                    </div>
+                  </div>
+                ) : null}
+              </DragOverlay>
+            </DndContext>
+          )}
+          </div>
+        </div>
+
+        {/* Settings Sidebar */}
+        {!isSettingsPoppedOut && (
+          <div className="w-72 bg-white dark:bg-gray-900 border-l border-border fixed right-0 top-[120px] bottom-0 z-10 overflow-y-auto">
+            <div className="p-5">
+              {selectedBlock ? (
+                <>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-sm font-semibold">
+                      {blockTypes.find((bt) => bt.type === selectedBlock.type)?.label || 'Block'} Settings
+                    </h3>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={openSettingsPopOut}
+                        className="p-1 text-muted-foreground hover:text-foreground rounded-full hover:bg-accent"
+                        title="Pop out settings"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                        </svg>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedBlockId(null)}
+                        className="p-1 text-muted-foreground hover:text-foreground rounded-full hover:bg-accent"
+                        title="Close settings"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                  <BlockSettings block={selectedBlock} onChange={(updates, options) => updateBlock(selectedBlock.id, updates, options)} currentViewport={currentViewport} />
+                </>
+              ) : (
+                <PageSettingsPanel settings={pageSettings} onChange={updatePageSettings} />
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Block Inserter Modal */}
+      {showBlockInserter && (
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+          onClick={() => {
+            setShowBlockInserter(false);
+            setInsertAfterBlockId(null);
+          }}
+        >
+          <div
+            className="bg-white dark:bg-gray-900 border border-border rounded-lg max-w-3xl w-full max-h-[80vh] overflow-hidden shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-6 border-b border-border bg-white dark:bg-gray-900">
+              <div className="flex justify-between items-center">
+                <h3 className="text-xl font-bold text-foreground">Add a Block</h3>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowBlockInserter(false);
+                      setInsertAfterBlockId(null);
+                      setShowTemplateLibrary(true);
+                    }}
+                    className="px-3 py-1.5 text-sm font-medium text-primary border border-primary rounded-md hover:bg-primary/10 transition-colors flex items-center gap-1.5"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                    </svg>
+                    From Template
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowBlockInserter(false);
+                      setInsertAfterBlockId(null);
+                    }}
+                    className="p-2 text-muted-foreground hover:text-foreground rounded-full hover:bg-accent"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="overflow-y-auto max-h-[calc(80vh-100px)] bg-white dark:bg-gray-900">
+              {categories.map(category => (
+                <div key={category} className="p-6 border-b border-border last:border-0 bg-white dark:bg-gray-900">
+                  <h4 className="text-sm font-semibold text-muted-foreground uppercase mb-4 tracking-wide">{category}</h4>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                    {blockTypes
+                      .filter(bt => bt.category === category)
+                      .map(blockType => (
+                        <button
+                          key={blockType.type}
+                          type="button"
+                          onClick={() => addBlock(blockType.type, insertAfterBlockId)}
+                          className="p-4 border border-border rounded-lg hover:border-primary hover:bg-primary/5 transition-all text-left group bg-white dark:bg-gray-900"
+                        >
+                          <div className="flex items-start gap-3">
+                            <BlockTypeIcon type={blockType.type} className="w-10 h-10 flex-shrink-0 group-hover:text-primary transition-colors" />
+                            <div className="min-w-0">
+                              <div className="text-sm font-medium text-foreground group-hover:text-primary mb-1">
+                                {blockType.label}
+                              </div>
+                              <div className="text-xs text-muted-foreground line-clamp-2">
+                                {blockType.description}
+                              </div>
+                            </div>
+                          </div>
+                        </button>
+                      ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Template Library Modal */}
+      {showTemplateLibrary && (
+        <TemplateLibrary
+          onInsert={(templateBlocks) => {
+            // Insert template blocks into the editor
+            const newBlocks = [...state.blocks];
+            const insertIndex = insertAfterBlockId
+              ? newBlocks.findIndex((b) => b.id === insertAfterBlockId) + 1
+              : newBlocks.length;
+
+            // Update order for inserted blocks
+            const updatedBlocks = [
+              ...newBlocks.slice(0, insertIndex),
+              ...templateBlocks.map((b, i) => ({ ...b, order: insertIndex + i })),
+              ...newBlocks.slice(insertIndex).map((b, i) => ({ ...b, order: insertIndex + templateBlocks.length + i })),
+            ];
+
+            setBlocks(updatedBlocks);
+            setInsertAfterBlockId(null);
+            if (templateBlocks.length === 1) {
+              setSelectedBlockId(templateBlocks[0].id);
+            }
+          }}
+          onClose={() => {
+            setShowTemplateLibrary(false);
+            setInsertAfterBlockId(null);
+          }}
+        />
+      )}
+
+      {/* Save As Template Modal */}
+      {saveTemplateBlock && (
+        <SaveAsTemplateModal
+          blocks={[saveTemplateBlock]}
+          onClose={() => setSaveTemplateBlock(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+// Main export with provider
+export function VisualBlockEditorEnhanced({ blocks, onChange, initialViewport, onViewportChange, brandDefaults }: VisualBlockEditorEnhancedProps) {
+  const blockTypes: Array<{ type: BlockType; label: string; icon: string; category: string; description: string }> = [
+    { type: 'heading', label: 'Heading', icon: '📝', category: 'Basic', description: 'Add a title or heading' },
+    { type: 'text', label: 'Text', icon: '📄', category: 'Basic', description: 'Plain paragraph text' },
+    { type: 'button', label: 'Button', icon: '🔘', category: 'Basic', description: 'Add a call-to-action button' },
+    { type: 'quote', label: 'Quote', icon: '💬', category: 'Basic', description: 'Add a quotation' },
+    { type: 'image', label: 'Image', icon: '🖼️', category: 'Media', description: 'Insert an image' },
+    { type: 'youtube', label: 'YouTube', icon: '📺', category: 'Media', description: 'Embed a YouTube video' },
+    { type: 'video', label: 'Video', icon: '🎬', category: 'Media', description: 'Embed a video file' },
+    { type: 'code', label: 'Code', icon: '💻', category: 'Media', description: 'Display code snippet' },
+    { type: 'spacer', label: 'Spacer', icon: '↕️', category: 'Layout', description: 'Add vertical space' },
+    { type: 'divider', label: 'Divider', icon: '➖', category: 'Layout', description: 'Add a horizontal line' },
+    { type: 'columns', label: 'Columns', icon: '📊', category: 'Layout', description: 'Display content in columns' },
+    { type: 'accordion', label: 'Accordion', icon: '📑', category: 'Layout', description: 'Collapsible content sections' },
+    { type: 'tabs', label: 'Tabs', icon: '🗂️', category: 'Layout', description: 'Tabbed content sections' },
+    { type: 'section', label: 'Section', icon: '📦', category: 'Layout', description: 'Container wrapper with styling' },
+    { type: 'hero', label: 'Hero', icon: '🎯', category: 'Components', description: 'Hero section with CTA' },
+    { type: 'services-grid', label: 'Services', icon: '📦', category: 'Components', description: 'Grid of services' },
+    { type: 'cta', label: 'Call to Action', icon: '📢', category: 'Components', description: 'CTA section' },
+    { type: 'card-grid', label: 'Card Grid', icon: '🎴', category: 'Components', description: 'Grid of cards' },
+    { type: 'stats', label: 'Stats', icon: '📈', category: 'Components', description: 'Statistics display' },
+    { type: 'testimonial', label: 'Testimonial', icon: '⭐', category: 'Components', description: 'Customer testimonial' },
+    { type: 'featured-content', label: 'Featured Content', icon: '✨', category: 'Components', description: 'Featured content with image' },
+    { type: 'blog-posts', label: 'Blog Posts', icon: '📰', category: 'Components', description: 'Display blog posts' },
+    { type: 'gallery', label: 'Gallery', icon: '🖼️', category: 'Media', description: 'Image gallery with lightbox' },
+    { type: 'booking', label: 'Booking', icon: 'calendar_month', category: 'Interactive', description: 'Embed a booking page' },
+    { type: 'survey', label: 'Survey', icon: 'assignment', category: 'Interactive', description: 'Embed a survey form' },
+  ];
+
+  return (
+    <BlockEditorProvider
+      initialBlocks={blocks}
+      onBlocksChange={onChange}
+      initialViewport={initialViewport}
+      onViewportChange={onViewportChange}
+    >
+      <EditorInner onChange={onChange} blockTypes={blockTypes} brandDefaults={brandDefaults} />
+    </BlockEditorProvider>
+  );
+}
+

@@ -1,0 +1,374 @@
+@import "tailwindcss";
+
+/* Self-hosted Material Icons — mirrors Google's hosted CSS but serves the woff2
+ * from /public/fonts so icons don't depend on fonts.gstatic.com being reachable.
+ * The literal ligature text (e.g. "menu", "add_circle_outline") shows through
+ * whenever this font fails to load — hotlinking Google broke for any visitor
+ * with a privacy/ad blocker or restrictive network. font-display: block hides
+ * the source text during the (now local, instant) load instead of flashing it. */
+@font-face {
+  font-family: "Material Icons";
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url("/fonts/material-icons.woff2") format("woff2");
+}
+
+.material-icons {
+  font-family: "Material Icons";
+  font-weight: normal;
+  font-style: normal;
+  font-size: 24px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  -webkit-font-feature-settings: "liga";
+  font-feature-settings: "liga";
+  -webkit-font-smoothing: antialiased;
+}
+
+:root {
+  --background: #fafaf9;
+  --foreground: #1c1917;
+  --card: #ffffff;
+  --card-foreground: #1c1917;
+  --popover: #ffffff;
+  --popover-foreground: #1c1917;
+  --primary: #2563eb;
+  --primary-foreground: #ffffff;
+  --muted: #f5f5f4;
+  --muted-foreground: #78716c;
+  --accent: #f5f5f4;
+  --accent-foreground: #1c1917;
+  --border: #e7e5e4;
+  --accent-warm: #f59e0b;
+  --accent-secondary: #10b981;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+}
+
+.nav-logo-icon {
+  height: 3.5rem;
+  width: 3.5rem;
+  margin-right: -0.5rem;
+  transition: filter 300ms;
+}
+
+.dark .nav-logo-icon {
+  filter: invert(1);
+}
+
+.dark {
+  --background: #18181b;
+  --foreground: #ededed;
+  --card: #0c0c0d;
+  --card-foreground: #ededed;
+  --popover: #1f1f23;
+  --popover-foreground: #ededed;
+  --primary: #3b82f6;
+  --primary-foreground: #ffffff;
+  --muted: #27272a;
+  --muted-foreground: #a1a1aa;
+  --accent: #27272a;
+  --accent-foreground: #ededed;
+  --border: #3f3f46;
+  --accent-warm: #f59e0b;
+  --accent-secondary: #10b981;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) {
+    --background: #18181b;
+    --foreground: #ededed;
+    --card: #0c0c0d;
+    --card-foreground: #ededed;
+    --popover: #1f1f23;
+    --popover-foreground: #ededed;
+    --primary: #3b82f6;
+    --primary-foreground: #ffffff;
+    --muted: #27272a;
+    --muted-foreground: #a1a1aa;
+    --accent: #27272a;
+    --accent-foreground: #ededed;
+    --border: #3f3f46;
+    --accent-warm: #f59e0b;
+    --accent-secondary: #10b981;
+    --destructive: #ef4444;
+    --destructive-foreground: #ffffff;
+  }
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-border: var(--border);
+  --color-accent-warm: var(--accent-warm);
+  --color-accent-secondary: var(--accent-secondary);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-heading: var(--font-inter);
+  --font-display: var(--font-dm-sans);
+  --font-playfair: var(--font-playfair);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Marquee animation */
+@keyframes marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+.animate-marquee {
+  animation: marquee 30s linear infinite;
+}
+
+/* Dot grid pattern background */
+.bg-dot-grid {
+  background-image: radial-gradient(circle, var(--border) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* Dark section — inverted colors for contrast breaks */
+.section-dark {
+  background: var(--foreground);
+  color: var(--background);
+}
+.section-dark .text-muted-foreground {
+  color: color-mix(in srgb, var(--background) 70%, transparent);
+}
+.section-dark .text-primary {
+  color: #60a5fa;
+}
+
+/* Signature accent stripe */
+.accent-stripe {
+  position: relative;
+}
+.accent-stripe::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: linear-gradient(to bottom, var(--primary), var(--accent-warm));
+  border-radius: 4px;
+}
+
+/*
+ * Minimal highlight.js token coloring for the brain markdown preview.
+ * Scoped to .markdown-preview so other surfaces (MarkdownView etc.) are unaffected.
+ * Designed to read on both the light (#fafaf9) and dark (#18181b) themes.
+ */
+.markdown-preview .hljs { color: var(--foreground); background: transparent; }
+.markdown-preview .hljs-comment,
+.markdown-preview .hljs-quote { color: color-mix(in srgb, var(--foreground) 50%, transparent); font-style: italic; }
+.markdown-preview .hljs-keyword,
+.markdown-preview .hljs-selector-tag,
+.markdown-preview .hljs-built_in,
+.markdown-preview .hljs-meta { color: #2563eb; }
+.dark .markdown-preview .hljs-keyword,
+.dark .markdown-preview .hljs-selector-tag,
+.dark .markdown-preview .hljs-built_in,
+.dark .markdown-preview .hljs-meta { color: #60a5fa; }
+.markdown-preview .hljs-string,
+.markdown-preview .hljs-doctag,
+.markdown-preview .hljs-attr { color: #059669; }
+.dark .markdown-preview .hljs-string,
+.dark .markdown-preview .hljs-doctag,
+.dark .markdown-preview .hljs-attr { color: #34d399; }
+.markdown-preview .hljs-number,
+.markdown-preview .hljs-literal,
+.markdown-preview .hljs-symbol { color: #d97706; }
+.dark .markdown-preview .hljs-number,
+.dark .markdown-preview .hljs-literal,
+.dark .markdown-preview .hljs-symbol { color: #fbbf24; }
+.markdown-preview .hljs-title,
+.markdown-preview .hljs-section,
+.markdown-preview .hljs-name { color: #be185d; font-weight: 600; }
+.dark .markdown-preview .hljs-title,
+.dark .markdown-preview .hljs-section,
+.dark .markdown-preview .hljs-name { color: #f472b6; }
+.markdown-preview .hljs-variable,
+.markdown-preview .hljs-template-variable { color: #b45309; }
+.dark .markdown-preview .hljs-variable,
+.dark .markdown-preview .hljs-template-variable { color: #fbbf24; }
+.markdown-preview .hljs-emphasis { font-style: italic; }
+.markdown-preview .hljs-strong { font-weight: 700; }
+
+/* Large section number watermark */
+.section-number {
+  font-size: 8rem;
+  font-weight: 900;
+  line-height: 1;
+  color: var(--border);
+  position: absolute;
+  right: 0;
+  top: -1rem;
+  pointer-events: none;
+  user-select: none;
+}
+.dark .section-number {
+  color: var(--muted);
+}
+
+html,body {
+  /* `clip` (vs `hidden`) prevents these from becoming scroll containers, so
+     position: sticky inside the document works against the real viewport
+     instead of pinning to a never-scrolling body. */
+  overflow-x: clip;
+  scroll-behavior: smooth;
+}
+
+/* Column responsive stacking */
+[data-col-stacks-md] {
+  width: 100%;
+  flex: 0 0 100%;
+}
+@media (min-width: 768px) {
+  [data-col-stacks-md] {
+    width: var(--col-width) !important;
+    flex: 0 0 var(--col-width) !important;
+  }
+}
+
+[data-col-stacks-lg] {
+  width: 100%;
+  flex: 0 0 100%;
+}
+@media (min-width: 1024px) {
+  [data-col-stacks-lg] {
+    width: var(--col-width) !important;
+    flex: 0 0 var(--col-width) !important;
+  }
+}
+
+[data-col-stacks-never] {
+  width: var(--col-width);
+  flex: 0 0 var(--col-width);
+}
+
+
+.font-playfair {
+  font-family: var(--font-playfair), serif;
+}
+
+/* Single blue light traveling around a card's border */
+@property --light-loop-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+.light-loop {
+  position: relative;
+}
+
+.light-loop::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: calc(1rem + 2px);
+  padding: 2px;
+  background: conic-gradient(
+    from var(--light-loop-angle),
+    transparent 0deg 280deg,
+    rgba(96, 165, 250, 0.35) 320deg,
+    #60a5fa 350deg,
+    #3b82f6 360deg
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+          mask-composite: exclude;
+  animation: light-loop-spin 4s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes light-loop-spin {
+  to { --light-loop-angle: 360deg; }
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Scroll-reveal animations (FadeIn / SlideIn)
+
+   Pure CSS, zero JS. These replaced framer-motion `motion.div` wrappers that
+   were a large hydration / Total-Blocking-Time cost on every marketing page and
+   (worse) hid above-the-fold content at opacity 0 until JS ran, pushing hero
+   LCP to ~7s on throttled mobile.
+
+   - Chromium (what Lighthouse runs) reveals each element as it scrolls into view
+     via a scroll-driven `animation-timeline: view()`.
+   - Browsers without scroll-driven animation support fall back to playing the
+     entrance once on load; `both` fill-mode leaves the element visible, so no
+     content is ever permanently hidden.
+   - prefers-reduced-motion: no animation, content shown immediately.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+@keyframes sd-reveal-fade {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes sd-slide-x {
+  from { opacity: 0; transform: translateX(var(--sd-slide-translate, -50px)); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes sd-slide-y {
+  from { opacity: 0; transform: translateY(var(--sd-slide-translate, 50px)); }
+  to   { opacity: 1; transform: none; }
+}
+
+.sd-reveal {
+  animation: sd-reveal-fade 0.6s cubic-bezier(0.25, 0.1, 0.25, 1) both;
+}
+
+.sd-slide--x {
+  animation: sd-slide-x 0.6s cubic-bezier(0.25, 0.1, 0.25, 1) both;
+}
+
+.sd-slide--y {
+  animation: sd-slide-y 0.6s cubic-bezier(0.25, 0.1, 0.25, 1) both;
+}
+
+@supports (animation-timeline: view()) {
+  .sd-reveal,
+  .sd-slide--x,
+  .sd-slide--y {
+    animation-timeline: view();
+    animation-range: entry 0% entry 85%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sd-reveal,
+  .sd-slide--x,
+  .sd-slide--y {
+    animation: none;
+  }
+}

@@ -1,0 +1,151 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+/node_modules
+/extension/node_modules
+/extension/dist
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# turborepo
+.turbo/
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+# Apple Developer + Windows signing material — must never land in git
+*.p12
+*.pfx
+*.cer
+# Local signing env (lives under ~/.simplerdev/ by convention, never in repo)
+.simplerdev/
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env files (can opt-in for committing if needed)
+.env*
+
+# vercel
+.vercel
+
+# Sentry
+.sentryclirc
+.env.sentry-build-plugin
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# screenshots / QA artifacts
+*.jpeg
+*.jpg
+*.png
+!public/**/*.png
+!public/**/*.jpg
+!public/**/*.jpeg
+/qa-screenshots/
+
+# playwright HTML report (run artifact, not source)
+/playwright-report/
+
+# claude code local state
+/.claude/scheduled_tasks.lock
+/.claude/.runtime/
+
+# DB backup dumps (large, sensitive)
+/.migration-backup/
+/.backups/
+
+# one-off debug scripts and editor snapshots
+# (CLAUDE.md "Don't-touch zones" — agents should not read these even if they exist locally)
+_tmp-*
+**/_tmp-*
+editor-snapshot.md
+audit-verify-*
+# Explicit (subsumed by *.png above but called out for symmetry with CLAUDE.md)
+/edit-*.png
+/editor-*.png
+
+# Probe / compare / inspect debug artifacts (per CLAUDE.md)
+scripts/_*
+public/_cmp*
+public/_cmp/
+.planning/postcaptain-replication/_probe-*.mjs
+.planning/postcaptain-replication/probe-*.mjs
+backups/
+
+# sd-init writes per-project bootstrap snapshot here; project-local only.
+.sd/
+.mobile-audit/
+
+# Graphify cache + output (large generated files, per-machine)
+graphify-out/
+
+# Skill test runs / dry-run logs (session-specific, not source)
+.planning/skill-test-runs/
+# MCP credentials — never commit
+.planning/leads/.mcp-secrets
+.planning/leads/*secrets*
+.planning/leads/*credentials*
+
+
+# Nested workspace deps + local test/debug artifacts (never commit)
+node_modules/
+.playwright-mcp/
+.vitest-reports/
+test-results/
+
+# Obsidian vault — track knowledge, not app state
+vault/.obsidian/workspace*
+vault/.obsidian/cache
+vault/.obsidian/plugins/*/main.js
+vault/.obsidian/plugins/*/styles.css
+vault/.obsidian/plugins/*/manifest.json
+
+# local Sentry auth token (never commit)
+.sentry-token
+
+evals-out/
+
+# Per-client site-migration working data (real client content/PII — never commit).
+# Top-level scripts/migrations/*.ts are generic and stay tracked; per-client subdirs do not.
+/scripts/migrations/*/
+
+# OSS-prep: stop tracking local Obsidian app/plugin state (a plugin data.json
+# contained a live API key + RSA private key) and per-client scrape output (real PII).
+vault/.obsidian/
+/scripts/output/
+.vscode/
+.idea/
+
+# OSS-prep: internal-only dirs excluded from the public repo (kept on disk locally).
+# Internal architecture/ADR knowledge base, agent tooling, and generated artifacts.
+/vault/
+/.claude/
+/dist/
+/fallow-baselines/
+
+# OSS-prep: internal planning archive (frozen; contains client-replication notes)
+/.planning/
+
+# Vendored per-machine agent skills (not shipped publicly)
+.agents/

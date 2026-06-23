@@ -1,0 +1,416 @@
+/* Product Designer styles — ported from an upstream product-designer */
+/* Google Font imports stripped — sd2026 loads fonts elsewhere. */
+
+.sd-product-designer .absolute {
+  touch-action: none; /* Prevents touch events from interfering with dragging */
+}
+
+.sd-product-designer .multiList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  max-width: 90%;
+  height: 100vh;
+  overflow-y: auto;
+}
+
+.sd-product-designer .mainViewContainer {
+  position: relative;
+  min-width: 600px;
+  min-height: 400px;
+  display: flex;
+  width: 100%;
+  text-align: center;
+}
+
+.sd-product-designer .mainView {
+  background-size: contain;
+  background-repeat: no-repeat;
+  width: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform: scale(1);
+  transform-origin: top left;
+}
+
+.sd-product-designer .multiList .mainView {
+  transform: scale(0.5);
+  margin: auto;
+}
+
+.sd-product-designer .sideTabs {
+  z-index: 9;
+}
+
+.sd-product-designer .layer:hover {
+  /* border:dotted 2px #000; */
+}
+
+.sd-product-designer .controlModeButtons button {
+  transition: all 0.3s ease;
+}
+
+.sd-product-designer .controlModeButtons button:hover {
+  transform: scale(1.1);
+}
+
+.sd-product-designer .colorIcon {
+  position: absolute;
+  width: 200px;
+  height: auto;
+  left: -70px;
+}
+
+.sd-product-designer .hoverZoom {
+  transition: all 0.3s ease;
+}
+
+.sd-product-designer .hoverZoom:hover {
+  transform: scale(1.1);
+}
+
+.sd-product-designer .help {
+  font-weight: bold;
+  font-size: 4em;
+  font-family: "New Amsterdam", sans-serif;
+}
+
+.sd-product-designer .rotate-icon {
+  opacity: 0;
+}
+
+.sd-product-designer .layer:hover .rotate-icon {
+  opacity: 1;
+}
+
+.sd-product-designer .leftPanelContent {
+  width: 400px;
+  overflow-y: auto;
+  height: 100%;
+}
+
+.sd-product-designer .leftPanel {
+  flex: 2;
+  background-color: #f7f7f7;
+  padding: 8px;
+  display: flex;
+  justify-content: center;
+}
+
+.sd-product-designer .leftPanel .navItem {
+  background-color: transparent;
+  border: 0;
+  width: 100px;
+}
+
+.sd-product-designer .leftPanel .navItem.color {
+  width: 200px;
+}
+
+.sd-product-designer .leftNav {
+  max-width: 100px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+
+.sd-product-designer .leftPanel.colorMode {
+  max-width: 100px;
+}
+
+.sd-product-designer .sdEditor {
+  overflow-y: auto;
+  color: black;
+}
+
+.sd-product-designer .qtyTable {
+  border-collapse: collapse;
+  border: 1px solid #d1d5db;
+  width: 90%;
+  text-align: center;
+  margin-right: 20px;
+}
+
+.sd-product-designer .stylePreview {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  gap: 0.25rem;
+  border: 2px solid #d1d5db;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  width: 90%;
+}
+
+.sd-product-designer .tableCell {
+  border: 1px solid #d1d5db;
+  padding: 0.25rem 0.5rem;
+}
+
+.sd-product-designer .tableCell.price {
+  font-size: 1.2em;
+  font-weight: bold;
+  color: #13ba81;
+}
+
+.sd-product-designer .qtyInput {
+  width: 3.5rem;
+  text-align: center;
+  border: 1px solid #d1d5db;
+  border-radius: 0.25rem;
+  font-size: 1.4em;
+}
+
+.sd-product-designer .centerPanel {
+  position: relative;
+  flex: 3.5;
+  position: relative;
+  overflow-x: hidden;
+  background-color: white;
+}
+
+/* Dynamic scaling handled by components - removed fixed scale */
+.sd-product-designer .stylePreview .mainViewContainer {
+  margin: auto;
+  margin-bottom: 30px;
+}
+
+.sd-product-designer .stylePreviews {
+  height: 100%;
+  overflow: auto;
+  padding-left: 20px;
+}
+
+.sd-product-designer .stylePreview {
+  min-height: 500px;
+}
+
+.sd-product-designer .layerSize,
+.sd-product-designer .layerRotate,
+.sd-product-designer .layerDelete {
+  position: absolute;
+  display: none;
+}
+
+.sd-product-designer .layerDelete {
+  bottom: 0;
+  right: 0;
+}
+
+.sd-product-designer .layerSize {
+  top: 0;
+  left: 0;
+}
+
+.sd-product-designer .layerRotate {
+  top: 0;
+  right: 0;
+}
+
+.sd-product-designer .layer:hover .layerSize,
+.sd-product-designer .layer:hover .layerRotate,
+.sd-product-designer .layer:hover .layerDelete {
+  display: block;
+  background-color: rgba(255, 255, 255, 0.8);
+  border-radius: 5px;
+  padding: 5px;
+  font-size: 12px;
+  color: #000;
+  z-index: 10;
+}
+
+.sd-product-designer .layer img {
+  width: 100%;
+}
+
+@keyframes sd-pd-continuous-rotation {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.sd-product-designer .spinner {
+  animation: sd-pd-continuous-rotation 2s linear infinite;
+}
+
+.sd-product-designer .layer svg {
+  max-width: 100%;
+  width: 100%;
+}
+
+/* Highlight selected layers */
+.sd-product-designer .layer.selected {
+  outline: 2px solid #3b82f6; /* blue outline for selected */
+}
+.sd-product-designer .selection-box {
+  pointer-events: none;
+}
+
+/* Hide scrollbars for style carousel */
+.sd-product-designer .style-carousel::-webkit-scrollbar {
+  display: none;
+}
+
+.sd-product-designer .style-carousel {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Scalable MainView Styles */
+.sd-product-designer .scalable-main-view {
+  position: relative;
+  transition: all 0.3s ease;
+  transform-origin: top left;
+}
+
+/* Preview Container Styles */
+.sd-product-designer .preview-container {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  overflow: hidden;
+  background: white;
+  position: relative;
+}
+
+.sd-product-designer .preview-container:hover {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+/* Resize Handle */
+.sd-product-designer .resize-handle {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  background: #3b82f6;
+  cursor: nw-resize;
+  right: -6px;
+  bottom: -6px;
+  border-radius: 3px;
+  border: 2px solid white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.sd-product-designer .preview-container:hover .resize-handle {
+  opacity: 1;
+}
+
+/* Preview Grid Layout */
+.sd-product-designer .preview-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  padding: 1rem;
+}
+
+/* Multi-Style Preview */
+.sd-product-designer .multi-style-preview {
+  width: 100%;
+}
+
+.sd-product-designer .preview-item {
+  transition: transform 0.2s ease;
+}
+
+.sd-product-designer .preview-item:hover {
+  transform: translateY(-2px);
+}
+
+/* Resizable Style Preview */
+.sd-product-designer .resizable-style-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* Preview Controls */
+.sd-product-designer .preview-controls {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+}
+
+.sd-product-designer .preview-controls select,
+.sd-product-designer .preview-controls input {
+  font-size: 0.875rem;
+  transition: border-color 0.2s ease;
+}
+
+.sd-product-designer .preview-controls select:focus,
+.sd-product-designer .preview-controls input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+/* Layout-specific styles */
+.sd-product-designer .preview-grid .preview-item {
+  min-width: 250px;
+}
+
+.sd-product-designer .preview-list {
+  display: flex;
+  gap: 1rem;
+  overflow-x: auto;
+  padding: 1rem;
+}
+
+.sd-product-designer .preview-list .preview-item {
+  flex-shrink: 0;
+  width: 300px;
+}
+
+.sd-product-designer .preview-comparison {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.sd-product-designer .preview-comparison .preview-item {
+  flex: 1;
+  min-width: 300px;
+  max-width: 400px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .sd-product-designer .preview-grid {
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 0.5rem;
+    padding: 0.5rem;
+  }
+
+  .sd-product-designer .preview-controls {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .sd-product-designer .resize-handle {
+    width: 16px;
+    height: 16px;
+    right: -8px;
+    bottom: -8px;
+  }
+}
+
+/* Animation for preview loading */
+.sd-product-designer .preview-loading {
+  animation: sd-pd-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes sd-pd-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}

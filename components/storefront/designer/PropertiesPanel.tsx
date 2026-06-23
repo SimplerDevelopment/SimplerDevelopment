@@ -1,0 +1,1274 @@
+'use client';
+
+import React, { useEffect, useMemo, useState } from 'react';
+import { filters as fabricFilters } from 'fabric';
+import type { FabricImage, FabricObject } from 'fabric';
+
+import { useCanvasStore } from '@/lib/designer/canvasStore';
+import { contrastingInkForTint } from '@/lib/designer/contrastInk';
+import { resolveLayerFill, tintKey } from '@/lib/designer/fillResolver';
+import { assessPrintQuality } from '@/lib/designer/printQuality';
+import type {
+  IconLayerData,
+  ImageFiltersData,
+  ImageLayerData,
+  LayerData,
+  TextLayerData,
+} from '@/lib/designer/types';
+
+import BatchPropertiesPanel from './BatchPropertiesPanel';
+import ColorPicker from './ColorPicker';
+import FontPicker from './FontPicker';
+
+// Tint hex → human-friendly label, lifted from ProductColorPicker so the
+// per-tint colour swatch can say "Color (Navy)" instead of "(#1f2a44)".
+const TINT_LABELS: Record<string, string> = {
+  '#ffffff': 'White',
+  '#c9cbcd': 'Heather Grey',
+  '#111111': 'Black',
+  '#1f2a44': 'Navy',
+  '#1d4ed8': 'Royal Blue',
+  '#1f5132': 'Forest Green',
+  '#b71c1c': 'Red',
+  '#65161f': 'Burgundy',
+  '#c9a227': 'Mustard',
+};
+
+// Canonical apparel tints (mirrors ProductColorPicker DEFAULT_COLORS) used by
+// the at-a-glance per-tint grid in the Properties panel. The 'No tint' entry
+// stays in front so customers always see the base-fill swatch first.
+const ALL_TINTS: Array<{ hex: string | null; label: string }> = [
+  { hex: null, label: 'No tint' },
+  { hex: '#ffffff', label: 'White' },
+  { hex: '#c9cbcd', label: 'Heather Grey' },
+  { hex: '#111111', label: 'Black' },
+  { hex: '#1f2a44', label: 'Navy' },
+  { hex: '#1d4ed8', label: 'Royal Blue' },
+  { hex: '#1f5132', label: 'Forest Green' },
+  { hex: '#b71c1c', label: 'Red' },
+  { hex: '#65161f', label: 'Burgundy' },
+  { hex: '#c9a227', label: 'Mustard' },
+];
+
+function tintLabel(tint: string | null): string {
+  if (!tint) return 'No tint';
+  return TINT_LABELS[tint.toLowerCase()] ?? tint.toUpperCase();
+}
+
+/**
+ * At-a-glance row of mini swatches — one per standard apparel tint —
+ * showing the resolved fill that will render on each shirt colour for the
+ * currently selected layer. Clicking a swatch jumps the active mockup
+ * tint to that shirt colour so the customer can edit its override in the
+ * picker above without leaving the panel.
+ */
+function PerTintColorGrid({ layer }: { layer: LayerData }) {
+  const setMockupTint = useCanvasStore((s) => s.setMockupTint);
+  const mockupTint = useCanvasStore((s) => s.mockupTint);
+  const data = (layer.data || {}) as Partial<TextLayerData & IconLayerData>;
+  const baseFill = data.fill || data.color || '#000000';
+  const overrides = data.fillByTint ?? {};
+  return (
+    <div className="space-y-1">
+      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+        Per-shirt colour
+      </div>
+      <div className="flex flex-wrap items-center gap-1">
+        {ALL_TINTS.map((opt) => {
+          const key = opt.hex ? opt.hex.toLowerCase() : 'none';
+          const override = overrides[key];
+          const effective = override ?? baseFill;
+          const isCurrent = (mockupTint ?? null) === (opt.hex ?? null);
+          return (
+            <button
+              key={opt.label}
+              type="button"
+              onClick={() => setMockupTint(opt.hex)}
+              aria-label={`${opt.label} → ${
+                override ? `override ${override}` : 'base color'
+              }`}
+              title={
+                override
+                  ? `${opt.label}: ${override} (override)`
+                  : `${opt.label}: ${effective} (base)`
+              }
+              className={`relative w-5 h-5 rounded border ${
+                isCurrent ? 'border-primary ring-1 ring-primary/40' : 'border-border'
+              }`}
+              style={{ backgroundColor: effective }}
+            >
+              {override && (
+                <span
+                  aria-hidden="true"
+                  className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-primary border border-background"
+                />
+              )}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Wrapper around `ColorPicker` that scopes a single layer's fill to the
+ * currently active mockup tint. When no tint is active it edits the base
+ * `data.fill`. When a tint is active it reads/writes `data.fillByTint[key]`,
+ * lets the customer fall back to the base, and surfaces a "Reset" button so
+ * they can delete the per-tint override.
+ *
+ * The caller stays generic — it just passes the layer and the patch fn so
+ * this can serve both Text and Icon panels.
+ */
+function TintAwareColorPicker({
+  layer,
+  label = 'Color',
+  patch,
+}: {
+  layer: LayerData;
+  label?: string;
+  patch: (next: Partial<TextLayerData & IconLayerData>) => void;
+}) {
+  const mockupTint = useCanvasStore((s) => s.mockupTint);
+  const data = (layer.data || {}) as Partial<TextLayerData & IconLayerData>;
+  const key = tintKey(mockupTint);
+  const overrides = data.fillByTint ?? {};
+  const baseFill = data.fill || data.color || '#000000';
+  const effective = mockupTint
+    ? (overrides[key] ?? baseFill)
+    : baseFill;
+  const hasOverride = mockupTint != null && typeof overrides[key] === 'string';
+
+  const handleChange = (hex: string) => {
+    if (!mockupTint) {
+      patch({ fill: hex, color: hex });
+      return;
+    }
+    patch({
+      fillByTint: { ...overrides, [key]: hex },
+    });
+  };
+
+  const handleReset = () => {
+    if (!hasOverride) return;
+    const next = { ...overrides };
+    delete next[key];
+    patch({
+      fillByTint: Object.keys(next).length > 0 ? next : undefined,
+    });
+  };
+
+  /**
+   * One-click readable-everywhere — sets an override for every standard
+   * apparel tint where the base fill would lack contrast. Skips tints
+   * where the base reads fine on its own so we don't clutter the override
+   * map with no-op entries. Dark tints → white; light tints (where the
+   * heuristic says black wins) get no entry and fall through to base.
+   */
+  const handleAutoContrastAll = () => {
+    const next: Record<string, string> = { ...overrides };
+    for (const opt of ALL_TINTS) {
+      if (!opt.hex) continue;
+      const ink = contrastingInkForTint(opt.hex);
+      if (!ink) continue;
+      // Only set white-on-dark; leave light tints to fall through to base.
+      if (ink === '#111111') continue;
+      next[opt.hex.toLowerCase()] = ink;
+    }
+    patch({ fillByTint: Object.keys(next).length > 0 ? next : undefined });
+  };
+
+  const hasAnyOverride = Object.keys(overrides).length > 0;
+  const handleClearAll = () => {
+    if (!hasAnyOverride) return;
+    patch({ fillByTint: undefined });
+  };
+
+  return (
+    <div className="space-y-2">
+      <ColorPicker
+        label={mockupTint ? `${label} (${tintLabel(mockupTint)})` : label}
+        value={effective}
+        onChange={handleChange}
+      />
+      {mockupTint && (
+        <p className="text-[10px] text-muted-foreground leading-snug">
+          {hasOverride ? (
+            <>
+              Override active for {tintLabel(mockupTint)} ·{' '}
+              <button
+                type="button"
+                onClick={handleReset}
+                className="text-primary hover:underline"
+              >
+                reset to base
+              </button>
+            </>
+          ) : (
+            <>
+              Pick a colour to override the base fill only when{' '}
+              {tintLabel(mockupTint)} is selected.
+            </>
+          )}
+        </p>
+      )}
+      <PerTintColorGrid layer={layer} />
+      {/* Bulk per-tint helpers. Auto-contrast fills overrides on every dark
+          shirt with white so the layer reads on dark mockups without manual
+          clicks; Clear-all wipes the override map for a clean slate. */}
+      <div className="flex items-center gap-2 text-[11px]">
+        <button
+          type="button"
+          onClick={handleAutoContrastAll}
+          title="Set white for every dark shirt colour so the layer reads everywhere"
+          className="inline-flex items-center gap-1 px-2 py-1 rounded border border-border text-foreground hover:bg-muted"
+        >
+          <span className="material-icons text-sm">auto_fix_high</span>
+          Auto-contrast all tints
+        </button>
+        {hasAnyOverride && (
+          <button
+            type="button"
+            onClick={handleClearAll}
+            title="Remove every per-tint override on this layer"
+            className="inline-flex items-center gap-1 px-2 py-1 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+          >
+            <span className="material-icons text-sm">clear_all</span>
+            Clear all
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+interface PropertiesPanelProps {
+  className?: string;
+  /** AI text-suggestion generator threaded down from DesignerShell so the
+   *  Text properties view can offer tagline / slogan suggestions inline. */
+  onGenerateAiText?: (req: {
+    prompt: string;
+    currentText?: string;
+    productName?: string;
+    n?: number;
+  }) => Promise<{ suggestions: string[] }>;
+  /** Product name passed to the AI text route as context — helps the
+   *  model match the vibe ("write a tagline for this T-shirt"). */
+  productName?: string;
+}
+
+interface GeneralPropertiesState {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+  scaleX: number;
+  scaleY: number;
+  angle: number;
+  opacity: number;
+  visible: boolean;
+  locked: boolean;
+}
+
+const DEFAULT_PROPS: GeneralPropertiesState = {
+  left: 0,
+  top: 0,
+  width: 0,
+  height: 0,
+  scaleX: 1,
+  scaleY: 1,
+  angle: 0,
+  opacity: 1,
+  visible: true,
+  locked: false,
+};
+
+/**
+ * Properties panel — shows transform / opacity / type-specific properties
+ * for the currently selected layer(s). When >1 layer is selected, shows the
+ * BatchPropertiesPanel.
+ */
+export default function PropertiesPanel({
+  className = '',
+  onGenerateAiText,
+  productName,
+}: PropertiesPanelProps) {
+  const selectedLayers = useCanvasStore((s) => s.selectedLayers);
+  const layers = useCanvasStore((s) => s.layers);
+  const updateLayer = useCanvasStore((s) => s.updateLayer);
+  const getSelectedLayerIds = useCanvasStore((s) => s.getSelectedLayerIds);
+  const getBatchEditableProperties = useCanvasStore(
+    (s) => s.getBatchEditableProperties
+  );
+  const batchUpdateLayers = useCanvasStore((s) => s.batchUpdateLayers);
+
+  const primary = selectedLayers[0];
+  const isMulti = selectedLayers.length > 1;
+  const primaryLayer = useMemo<LayerData | undefined>(
+    () =>
+      layers.find((l) => {
+        const id =
+          (primary as unknown as { data?: { id?: string } })?.data?.id ||
+          (primary as unknown as { id?: string })?.id;
+        return l.id === id;
+      }),
+    [layers, primary]
+  );
+
+  if (selectedLayers.length === 0) {
+    return (
+      <div
+        className={`bg-background border border-border rounded-md p-6 text-center ${className}`}
+      >
+        <span className="material-icons text-3xl text-muted-foreground mb-2 block">
+          tune
+        </span>
+        <p className="text-sm text-muted-foreground">
+          Select a layer to edit its properties
+        </p>
+      </div>
+    );
+  }
+
+  if (isMulti) {
+    const ids = getSelectedLayerIds();
+    const selectedTypes = layers
+      .filter((l) => ids.includes(l.id))
+      .map((l) => l.type);
+    return (
+      <div
+        className={`bg-background border border-border rounded-md ${className}`}
+      >
+        <div className="px-3 py-2 border-b border-border">
+          <h3 className="text-sm font-medium text-foreground">
+            Batch Properties
+          </h3>
+        </div>
+        <div className="p-3">
+          <BatchPropertiesPanel
+            selectedLayerIds={ids}
+            onBatchUpdate={batchUpdateLayers}
+            layerTypes={selectedTypes}
+            batchEditableProperties={getBatchEditableProperties()}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className={`bg-background border border-border rounded-md ${className}`}>
+      <div className="px-3 py-2 border-b border-border">
+        <h3 className="text-sm font-medium text-foreground truncate">
+          {primaryLayer?.name || 'Properties'}{' '}
+          <span className="text-xs text-muted-foreground">
+            ({primaryLayer?.type || 'unknown'})
+          </span>
+        </h3>
+      </div>
+      <div className="p-3 space-y-4">
+        <GeneralProperties primaryObject={primary} primaryLayer={primaryLayer} updateLayer={updateLayer} />
+        {primaryLayer?.type === 'text' && (
+          <TextProperties
+            layer={primaryLayer}
+            updateLayer={updateLayer}
+            onGenerateAiText={onGenerateAiText}
+            productName={productName}
+          />
+        )}
+        {primaryLayer?.type === 'icon' && (
+          <IconProperties layer={primaryLayer} updateLayer={updateLayer} />
+        )}
+        {primaryLayer?.type === 'image' && (
+          <ImageProperties layer={primaryLayer} updateLayer={updateLayer} />
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ────────────────────────────────────────────────────────────────────────── */
+
+function GeneralProperties({
+  primaryObject,
+  primaryLayer,
+  updateLayer,
+}: {
+  primaryObject: FabricObject | undefined;
+  primaryLayer: LayerData | undefined;
+  updateLayer: (id: string, updates: Partial<LayerData>) => void;
+}) {
+  const [props, setProps] = useState<GeneralPropertiesState>(DEFAULT_PROPS);
+  const [lockAspect, setLockAspect] = useState(true);
+
+  useEffect(() => {
+    if (!primaryObject) return;
+    const bounds = primaryObject.getBoundingRect();
+    setProps({
+      left: Math.round(primaryObject.left ?? 0),
+      top: Math.round(primaryObject.top ?? 0),
+      width: Math.round(bounds.width),
+      height: Math.round(bounds.height),
+      scaleX: primaryObject.scaleX ?? 1,
+      scaleY: primaryObject.scaleY ?? 1,
+      angle: Math.round(primaryObject.angle ?? 0),
+      opacity: primaryObject.opacity ?? 1,
+      visible: primaryObject.visible !== false,
+      locked: !primaryObject.selectable,
+    });
+  }, [primaryObject]);
+
+  const handleChange = (key: keyof GeneralPropertiesState, value: number | boolean) => {
+    setProps((p) => ({ ...p, [key]: value }));
+    if (!primaryObject) return;
+    switch (key) {
+      case 'left':
+      case 'top':
+      case 'angle':
+      case 'opacity':
+      case 'scaleX':
+      case 'scaleY':
+        primaryObject.set({ [key]: value } as Record<string, number>);
+        break;
+      case 'visible':
+        primaryObject.set({ visible: value as boolean });
+        break;
+      case 'locked':
+        primaryObject.set({
+          selectable: !(value as boolean),
+          evented: !(value as boolean),
+        });
+        break;
+    }
+    if (primaryLayer) {
+      const patch: Partial<LayerData> = { [key]: value } as Partial<LayerData>;
+      updateLayer(primaryLayer.id, patch);
+    }
+    primaryObject.canvas?.renderAll();
+  };
+
+  // "Center on print area" jumps the selected layer's bounding-rect center
+  // to the print-area center on the active surface. Saves a multi-select +
+  // toolbar dance for the single-layer case (which is most of them).
+  const surfaces = useCanvasStore((s) => s.surfaces);
+  const activeSurface = useCanvasStore((s) => s.activeSurface);
+  const handleCenterInPrintArea = () => {
+    if (!primaryObject || !primaryLayer) return;
+    const surface = surfaces.find((s) => s.slug === activeSurface) ?? surfaces[0];
+    if (!surface) return;
+    const bounds = primaryObject.getBoundingRect();
+    const targetCenterX = surface.printAreaX + surface.printAreaWidth / 2;
+    const targetCenterY = surface.printAreaY + surface.printAreaHeight / 2;
+    const currentCenterX = bounds.left + bounds.width / 2;
+    const currentCenterY = bounds.top + bounds.height / 2;
+    const dx = targetCenterX - currentCenterX;
+    const dy = targetCenterY - currentCenterY;
+    const newLeft = Math.round((primaryObject.left ?? 0) + dx);
+    const newTop = Math.round((primaryObject.top ?? 0) + dy);
+    primaryObject.set({ left: newLeft, top: newTop });
+    primaryObject.setCoords();
+    primaryObject.canvas?.fire('object:modified', { target: primaryObject });
+    primaryObject.canvas?.requestRenderAll();
+    updateLayer(primaryLayer.id, { left: newLeft, top: newTop });
+    setProps((p) => ({ ...p, left: newLeft, top: newTop }));
+  };
+
+  // "Fit to print area" scales the selected layer uniformly until its
+  // bounding rect just fits inside the print-area rect, then centers it.
+  // Useful for the very common "make this image fill the shirt" workflow,
+  // which otherwise requires fiddling with Scale X/Y until it lines up.
+  const handleFitToPrintArea = () => {
+    if (!primaryObject || !primaryLayer) return;
+    const surface = surfaces.find((s) => s.slug === activeSurface) ?? surfaces[0];
+    if (!surface) return;
+    const bounds = primaryObject.getBoundingRect();
+    if (bounds.width <= 0 || bounds.height <= 0) return;
+    const ratio = Math.min(
+      surface.printAreaWidth / bounds.width,
+      surface.printAreaHeight / bounds.height,
+    );
+    const currentScaleX = primaryObject.scaleX ?? 1;
+    const currentScaleY = primaryObject.scaleY ?? 1;
+    const newScaleX = currentScaleX * ratio;
+    const newScaleY = currentScaleY * ratio;
+    primaryObject.set({ scaleX: newScaleX, scaleY: newScaleY });
+    primaryObject.setCoords();
+    const refreshed = primaryObject.getBoundingRect();
+    const targetCenterX = surface.printAreaX + surface.printAreaWidth / 2;
+    const targetCenterY = surface.printAreaY + surface.printAreaHeight / 2;
+    const dx = targetCenterX - (refreshed.left + refreshed.width / 2);
+    const dy = targetCenterY - (refreshed.top + refreshed.height / 2);
+    const newLeft = Math.round((primaryObject.left ?? 0) + dx);
+    const newTop = Math.round((primaryObject.top ?? 0) + dy);
+    primaryObject.set({ left: newLeft, top: newTop });
+    primaryObject.setCoords();
+    primaryObject.canvas?.fire('object:modified', { target: primaryObject });
+    primaryObject.canvas?.requestRenderAll();
+    updateLayer(primaryLayer.id, {
+      left: newLeft,
+      top: newTop,
+      scaleX: newScaleX,
+      scaleY: newScaleY,
+    });
+    setProps((p) => ({
+      ...p,
+      left: newLeft,
+      top: newTop,
+      scaleX: newScaleX,
+      scaleY: newScaleY,
+    }));
+  };
+
+  return (
+    <div className="space-y-3">
+      <FieldRow label="Position">
+        <NumberField
+          label="X"
+          value={props.left}
+          onChange={(v) => handleChange('left', v)}
+        />
+        <NumberField
+          label="Y"
+          value={props.top}
+          onChange={(v) => handleChange('top', v)}
+        />
+        <button
+          type="button"
+          onClick={handleCenterInPrintArea}
+          aria-label="Center on print area"
+          title="Center on print area"
+          className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted"
+        >
+          <span className="material-icons text-base">filter_center_focus</span>
+        </button>
+        <button
+          type="button"
+          onClick={handleFitToPrintArea}
+          aria-label="Fit to print area"
+          title="Fit to print area"
+          className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted"
+        >
+          <span className="material-icons text-base">fit_screen</span>
+        </button>
+      </FieldRow>
+
+      <FieldRow label="Scale">
+        <NumberField
+          label="X"
+          step={0.1}
+          min={0.1}
+          max={10}
+          value={Number(props.scaleX.toFixed(2))}
+          onChange={(v) => {
+            if (lockAspect) {
+              handleChange('scaleX', v);
+              handleChange('scaleY', v);
+            } else {
+              handleChange('scaleX', v);
+            }
+          }}
+        />
+        <NumberField
+          label="Y"
+          step={0.1}
+          min={0.1}
+          max={10}
+          value={Number(props.scaleY.toFixed(2))}
+          onChange={(v) => {
+            if (lockAspect) {
+              handleChange('scaleX', v);
+              handleChange('scaleY', v);
+            } else {
+              handleChange('scaleY', v);
+            }
+          }}
+        />
+        <button
+          type="button"
+          onClick={() => setLockAspect((v) => !v)}
+          aria-pressed={lockAspect}
+          aria-label={lockAspect ? 'Unlock aspect ratio' : 'Lock aspect ratio'}
+          title={lockAspect ? 'Aspect ratio locked' : 'Lock aspect ratio'}
+          className={`p-1 rounded ${
+            lockAspect
+              ? 'text-primary bg-primary/10'
+              : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+          }`}
+        >
+          <span className="material-icons text-base">
+            {lockAspect ? 'link' : 'link_off'}
+          </span>
+        </button>
+      </FieldRow>
+
+      <div>
+        <div className="flex items-center justify-between mb-1">
+          <label className="text-xs font-medium text-foreground">
+            Rotation
+          </label>
+          <NumberField
+            label="°"
+            step={1}
+            min={0}
+            max={359}
+            value={props.angle}
+            onChange={(v) => handleChange('angle', ((v % 360) + 360) % 360)}
+          />
+        </div>
+        <input
+          type="range"
+          min={0}
+          max={360}
+          value={props.angle}
+          onChange={(e) => handleChange('angle', Number(e.target.value))}
+          className="w-full"
+        />
+      </div>
+
+      <div>
+        <label className="block text-xs font-medium text-foreground mb-1">
+          Opacity: {Math.round(props.opacity * 100)}%
+        </label>
+        <input
+          type="range"
+          min={0}
+          max={1}
+          step={0.01}
+          value={props.opacity}
+          onChange={(e) => handleChange('opacity', Number(e.target.value))}
+          className="w-full"
+        />
+      </div>
+
+      <div className="flex flex-wrap gap-3">
+        <label className="inline-flex items-center gap-2 text-sm text-foreground">
+          <input
+            type="checkbox"
+            checked={props.visible}
+            onChange={(e) => handleChange('visible', e.target.checked)}
+          />
+          Visible
+        </label>
+        <label className="inline-flex items-center gap-2 text-sm text-foreground">
+          <input
+            type="checkbox"
+            checked={props.locked}
+            onChange={(e) => handleChange('locked', e.target.checked)}
+          />
+          Locked
+        </label>
+      </div>
+    </div>
+  );
+}
+
+function TextProperties({
+  layer,
+  updateLayer,
+  onGenerateAiText,
+  productName,
+}: {
+  layer: LayerData;
+  updateLayer: (id: string, updates: Partial<LayerData>) => void;
+  onGenerateAiText?: (req: {
+    prompt: string;
+    currentText?: string;
+    productName?: string;
+    n?: number;
+  }) => Promise<{ suggestions: string[] }>;
+  productName?: string;
+}) {
+  const data = (layer.data || {}) as TextLayerData;
+  const [aiOpen, setAiOpen] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+  const [aiSuggestions, setAiSuggestions] = useState<string[]>([]);
+
+  const patch = (next: Partial<TextLayerData>) => {
+    updateLayer(layer.id, {
+      data: { ...data, ...next } as Partial<TextLayerData>,
+    } as Partial<LayerData>);
+  };
+
+  const handleSuggest = async () => {
+    if (!onGenerateAiText) return;
+    const prompt = aiPrompt.trim();
+    if (!prompt) {
+      setAiError('Tell us the vibe (e.g. "punny dog dad").');
+      return;
+    }
+    setAiLoading(true);
+    setAiError(null);
+    try {
+      const result = await onGenerateAiText({
+        prompt,
+        currentText: data.text,
+        productName,
+        n: 4,
+      });
+      setAiSuggestions(result.suggestions ?? []);
+    } catch (e) {
+      setAiError(e instanceof Error ? e.message : 'Failed to fetch suggestions');
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  return (
+    <div className="space-y-3 border-t border-border pt-3">
+      <div>
+        <div className="flex items-center justify-between mb-1">
+          <label className="block text-xs font-medium text-foreground">
+            Text
+          </label>
+          {onGenerateAiText && (
+            <button
+              type="button"
+              onClick={() => setAiOpen((v) => !v)}
+              className="text-[11px] inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-primary hover:bg-primary/10"
+              title="Ask AI for tagline ideas"
+            >
+              <span className="material-icons text-sm">auto_awesome</span>
+              {aiOpen ? 'Hide AI' : 'AI ideas'}
+            </button>
+          )}
+        </div>
+        <textarea
+          rows={2}
+          value={data.text || ''}
+          onChange={(e) => patch({ text: e.target.value })}
+          className="w-full px-2 py-1.5 text-sm rounded-md border border-border bg-background text-foreground"
+        />
+      </div>
+
+      {onGenerateAiText && aiOpen && (
+        <div className="rounded-md border border-primary/30 bg-primary/5 p-2 space-y-2">
+          <label
+            htmlFor="ai-text-prompt"
+            className="block text-[10px] uppercase tracking-wide text-muted-foreground"
+          >
+            Describe the vibe
+          </label>
+          <div className="flex items-center gap-1.5">
+            <input
+              id="ai-text-prompt"
+              type="text"
+              value={aiPrompt}
+              onChange={(e) => setAiPrompt(e.target.value)}
+              maxLength={600}
+              disabled={aiLoading}
+              placeholder="e.g. punny dog dad, retro arcade, gym bro"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  void handleSuggest();
+                }
+              }}
+              className="flex-1 px-2 py-1 text-xs rounded border border-border bg-background text-foreground focus:outline-none focus:border-primary disabled:opacity-50"
+            />
+            <button
+              type="button"
+              onClick={() => void handleSuggest()}
+              disabled={aiLoading || !aiPrompt.trim()}
+              className="px-2 py-1 text-xs rounded bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 inline-flex items-center gap-1"
+            >
+              {aiLoading ? (
+                <>
+                  <span className="material-icons text-sm animate-spin">
+                    refresh
+                  </span>
+                  …
+                </>
+              ) : (
+                <>
+                  <span className="material-icons text-sm">auto_awesome</span>
+                  Suggest
+                </>
+              )}
+            </button>
+          </div>
+
+          {aiError && (
+            <p className="text-[11px] text-destructive leading-snug">
+              {aiError}
+            </p>
+          )}
+
+          {aiSuggestions.length > 0 && (
+            <div className="space-y-1">
+              <span className="block text-[10px] uppercase tracking-wide text-muted-foreground">
+                Pick one
+              </span>
+              <div className="flex flex-col gap-1">
+                {aiSuggestions.map((s, idx) => (
+                  <button
+                    key={`${idx}-${s}`}
+                    type="button"
+                    onClick={() => {
+                      patch({ text: s });
+                      // Leave the panel open so the customer can try another
+                      // option without re-clicking AI ideas; clear the
+                      // suggestion list once accepted to confirm the pick.
+                      setAiSuggestions([]);
+                    }}
+                    className="text-left px-2 py-1.5 rounded border border-border bg-background text-xs text-foreground hover:border-primary hover:bg-primary/5 transition-colors"
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={() => void handleSuggest()}
+                disabled={aiLoading}
+                className="text-[10px] text-primary hover:underline disabled:opacity-50"
+              >
+                Another batch
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+      <div>
+        <label className="block text-xs font-medium text-foreground mb-1">
+          Font
+        </label>
+        <div className="flex items-center gap-2">
+          <FontPicker
+            className="flex-1"
+            value={data.fontFamily || ''}
+            onChange={(family) =>
+              patch({
+                fontFamily: family,
+                fontSource: 'google',
+                googleFont: { family },
+              })
+            }
+          />
+          <div className="w-20">
+            <NumberField
+              label="px"
+              value={data.fontSize ?? 24}
+              onChange={(v) => patch({ fontSize: v })}
+            />
+          </div>
+        </div>
+      </div>
+      <TintAwareColorPicker
+        layer={layer}
+        patch={(next) => patch(next as Partial<TextLayerData>)}
+      />
+      {/* B / I / U + alignment quick-toggles — same row, each is an
+          icon-only button that lights up when the style is active. */}
+      <div>
+        <label className="block text-xs font-medium text-foreground mb-1">
+          Style
+        </label>
+        <div className="inline-flex items-center rounded-md border border-border overflow-hidden">
+          {(() => {
+            const isBold = data.fontWeight === 'bold' || Number(data.fontWeight) >= 600;
+            const isItalic = data.fontStyle === 'italic';
+            const isUnderline = data.underline === true;
+            return (
+              <>
+                <StyleToggle
+                  label="Bold"
+                  glyph="format_bold"
+                  active={isBold}
+                  onClick={() => patch({ fontWeight: isBold ? 'normal' : 'bold' })}
+                />
+                <StyleToggle
+                  label="Italic"
+                  glyph="format_italic"
+                  active={isItalic}
+                  onClick={() => patch({ fontStyle: isItalic ? 'normal' : 'italic' })}
+                />
+                <StyleToggle
+                  label="Underline"
+                  glyph="format_underlined"
+                  active={isUnderline}
+                  onClick={() => patch({ underline: !isUnderline })}
+                />
+                <div className="w-px h-5 bg-border self-center" />
+                <StyleToggle
+                  label="Align left"
+                  glyph="format_align_left"
+                  active={data.textAlign === 'left'}
+                  onClick={() => patch({ textAlign: 'left' })}
+                />
+                <StyleToggle
+                  label="Align center"
+                  glyph="format_align_center"
+                  active={data.textAlign === 'center'}
+                  onClick={() => patch({ textAlign: 'center' })}
+                />
+                <StyleToggle
+                  label="Align right"
+                  glyph="format_align_right"
+                  active={data.textAlign === 'right'}
+                  onClick={() => patch({ textAlign: 'right' })}
+                />
+              </>
+            );
+          })()}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StyleToggle({
+  glyph,
+  label,
+  active,
+  onClick,
+}: {
+  glyph: string;
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      aria-pressed={active}
+      title={label}
+      className={`w-7 h-7 inline-flex items-center justify-center transition-colors ${
+        active
+          ? 'bg-primary/10 text-primary'
+          : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+      }`}
+    >
+      <span className="material-icons text-base">{glyph}</span>
+    </button>
+  );
+}
+
+function IconProperties({
+  layer,
+  updateLayer,
+}: {
+  layer: LayerData;
+  updateLayer: (id: string, updates: Partial<LayerData>) => void;
+}) {
+  const data = (layer.data || {}) as IconLayerData;
+  const patch = (next: Partial<IconLayerData>) => {
+    updateLayer(layer.id, {
+      data: { ...data, ...next } as Partial<IconLayerData>,
+    } as Partial<LayerData>);
+  };
+  return (
+    <div className="space-y-3 border-t border-border pt-3">
+      <FieldRow label="Icon name">
+        <input
+          type="text"
+          value={data.iconName || ''}
+          onChange={(e) => patch({ iconName: e.target.value })}
+          className="flex-1 px-2 py-1 text-sm rounded-md border border-border bg-background text-foreground"
+        />
+      </FieldRow>
+      <TintAwareColorPicker
+        layer={layer}
+        patch={(next) => patch(next as Partial<IconLayerData>)}
+      />
+      <FieldRow label="Size">
+        <NumberField
+          label="px"
+          value={data.size ?? 48}
+          onChange={(v) => patch({ size: v })}
+        />
+      </FieldRow>
+    </div>
+  );
+}
+
+const DEFAULT_IMAGE_FILTERS: ImageFiltersData = {
+  brightness: 0,
+  contrast: 0,
+  saturation: 0,
+  blur: 0,
+};
+
+function ImageProperties({
+  layer,
+  updateLayer,
+}: {
+  layer: LayerData;
+  updateLayer: (id: string, updates: Partial<LayerData>) => void;
+}) {
+  const data = (layer.data || {}) as ImageLayerData;
+  const canvas = useCanvasStore((s) => s.canvas);
+
+  // Local state lets sliders feel responsive even as we re-apply filters on
+  // the underlying Fabric image. Sync from layer.data when the active layer
+  // changes.
+  const [vals, setVals] = useState<ImageFiltersData>(
+    data.filters ?? DEFAULT_IMAGE_FILTERS
+  );
+
+  useEffect(() => {
+    setVals(data.filters ?? DEFAULT_IMAGE_FILTERS);
+    // We only want to reset when switching to a different layer.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [layer.id]);
+
+  const applyToCanvas = (next: ImageFiltersData) => {
+    if (!canvas) return;
+    const obj = canvas.getObjects().find((o) => {
+      const id =
+        (o as unknown as { data?: { id?: string } }).data?.id ||
+        (o as unknown as { id?: string }).id;
+      return id === layer.id;
+    }) as FabricImage | undefined;
+    if (!obj) return;
+    obj.filters = [
+      new fabricFilters.Brightness({ brightness: next.brightness }),
+      new fabricFilters.Contrast({ contrast: next.contrast }),
+      new fabricFilters.Saturation({ saturation: next.saturation }),
+      new fabricFilters.Blur({ blur: next.blur }),
+    ];
+    obj.applyFilters();
+    canvas.requestRenderAll();
+  };
+
+  const update = (next: ImageFiltersData) => {
+    setVals(next);
+    applyToCanvas(next);
+    updateLayer(layer.id, {
+      data: { ...data, filters: next } as Partial<ImageLayerData>,
+    } as Partial<LayerData>);
+  };
+
+  const reset = () => update(DEFAULT_IMAGE_FILTERS);
+
+  // Cheap "is this going to print well?" check using the layer's display
+  // width vs the source image's natural width. Surfaces *before* checkout
+  // so customers can shrink a low-res image instead of waiting for a
+  // disappointing printed shirt.
+  const printQuality = assessPrintQuality({
+    naturalWidth: data.originalWidth,
+    layerWidth: layer.width,
+    scaleX: layer.scaleX,
+  });
+
+  return (
+    <div className="space-y-3 border-t border-border pt-3">
+      {printQuality && (
+        <div
+          className={`rounded-md border p-2 text-xs flex items-start gap-2 ${
+            printQuality.level === 'great'
+              ? 'border-emerald-500/40 bg-emerald-500/5 text-emerald-700 dark:text-emerald-300'
+              : printQuality.level === 'okay'
+              ? 'border-amber-500/40 bg-amber-500/5 text-amber-700 dark:text-amber-300'
+              : 'border-red-500/40 bg-red-500/5 text-red-700 dark:text-red-300'
+          }`}
+          title={printQuality.reason}
+        >
+          <span className="material-icons text-sm mt-0.5">
+            {printQuality.level === 'great'
+              ? 'check_circle'
+              : printQuality.level === 'okay'
+              ? 'info'
+              : 'warning'}
+          </span>
+          <span className="flex-1 leading-snug">
+            <span className="font-medium block">
+              Print quality:{' '}
+              {printQuality.level === 'great'
+                ? 'Great'
+                : printQuality.level === 'okay'
+                ? 'Okay'
+                : 'Poor'}
+            </span>
+            <span className="text-[11px] opacity-80 line-clamp-2">
+              {printQuality.reason}
+            </span>
+          </span>
+        </div>
+      )}
+
+      {/* AI provenance — only shown when the layer carries the `ai`
+          metadata block stamped by the Generate flow. Surfaces the prompt
+          + a one-click Regenerate that fires a window event the
+          AddLayerPanel listens to (it owns the modal mount). */}
+      {data.ai && (
+        <div className="rounded-md border border-primary/30 bg-primary/5 p-2 space-y-2">
+          <div className="flex items-start gap-2">
+            <span className="material-icons text-base text-primary mt-0.5">
+              auto_awesome
+            </span>
+            <div className="flex-1 min-w-0">
+              <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                AI generated · {data.ai.style}
+              </div>
+              <div
+                className="text-xs text-foreground line-clamp-2"
+                title={data.ai.prompt}
+              >
+                &ldquo;{data.ai.prompt}&rdquo;
+              </div>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              if (typeof window === 'undefined') return;
+              window.dispatchEvent(
+                new CustomEvent('designer:request-ai-regenerate', {
+                  detail: {
+                    layerId: layer.id,
+                    prompt: data.ai!.prompt,
+                    style: data.ai!.style,
+                    transparent: data.ai!.transparent,
+                  },
+                }),
+              );
+            }}
+            className="w-full inline-flex items-center justify-center gap-1.5 px-2 py-1.5 text-xs rounded border border-primary/40 bg-background text-primary hover:bg-primary/10"
+          >
+            <span className="material-icons text-sm">refresh</span>
+            Regenerate
+          </button>
+        </div>
+      )}
+
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-medium text-foreground inline-flex items-center gap-1">
+          <span className="material-icons text-sm">auto_fix_high</span>
+          Filters
+        </span>
+        <button
+          type="button"
+          onClick={reset}
+          className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+        >
+          <span className="material-icons text-sm">refresh</span>
+          Reset
+        </button>
+      </div>
+
+      <FilterSlider
+        label="Brightness"
+        value={vals.brightness}
+        min={-1}
+        max={1}
+        step={0.01}
+        onChange={(v) => update({ ...vals, brightness: v })}
+      />
+      <FilterSlider
+        label="Contrast"
+        value={vals.contrast}
+        min={-1}
+        max={1}
+        step={0.01}
+        onChange={(v) => update({ ...vals, contrast: v })}
+      />
+      <FilterSlider
+        label="Saturation"
+        value={vals.saturation}
+        min={-1}
+        max={1}
+        step={0.01}
+        onChange={(v) => update({ ...vals, saturation: v })}
+      />
+      <FilterSlider
+        label="Blur"
+        value={vals.blur}
+        min={0}
+        max={1}
+        step={0.01}
+        onChange={(v) => update({ ...vals, blur: v })}
+      />
+    </div>
+  );
+}
+
+function FilterSlider({
+  label,
+  value,
+  min,
+  max,
+  step,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  onChange: (v: number) => void;
+}) {
+  return (
+    <div>
+      <div className="flex items-center justify-between text-xs font-medium text-foreground mb-1">
+        <span>{label}</span>
+        <span className="text-muted-foreground tabular-nums">{value.toFixed(2)}</span>
+      </div>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="w-full"
+      />
+    </div>
+  );
+}
+
+function FieldRow({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <label className="block text-xs font-medium text-foreground mb-1">
+        {label}
+      </label>
+      <div className="flex items-center gap-2">{children}</div>
+    </div>
+  );
+}
+
+function NumberField({
+  label,
+  value,
+  onChange,
+  step,
+  min,
+  max,
+}: {
+  label?: string;
+  value: number;
+  onChange: (v: number) => void;
+  step?: number;
+  min?: number;
+  max?: number;
+}) {
+  return (
+    <div className="flex-1">
+      {label && (
+        <div className="text-[10px] uppercase text-muted-foreground mb-0.5">
+          {label}
+        </div>
+      )}
+      <input
+        type="number"
+        step={step ?? 1}
+        min={min}
+        max={max}
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="w-full px-2 py-1 text-sm rounded-md border border-border bg-background text-foreground"
+      />
+    </div>
+  );
+}

@@ -1,0 +1,147 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs",
+  "buildCommand": "next build",
+  "installCommand": "bun install --frozen-lockfile",
+  "regions": [
+    "iad1"
+  ],
+  "crons": [
+    {
+      "path": "/api/cron/expire-mcp-pendings",
+      "schedule": "17 3 * * *"
+    },
+    {
+      "path": "/api/cron/renew-gmail-watches",
+      "schedule": "47 3 * * *"
+    },
+    {
+      "path": "/api/cron/renew-drive-watches",
+      "schedule": "13 4 * * *"
+    },
+    {
+      "path": "/api/cron/drive-sync",
+      "schedule": "*/10 * * * *"
+    },
+    {
+      "path": "/api/cron/process-embeddings",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/brain-daily-notes",
+      "schedule": "5 6 * * *"
+    },
+    {
+      "path": "/api/cron/brain-empty-old-trash",
+      "schedule": "15 7 * * *"
+    },
+    {
+      "path": "/api/cron/failing-automations-notify",
+      "schedule": "0 12 * * *"
+    },
+    {
+      "path": "/api/cron/surveys-zero-responses",
+      "schedule": "30 10 * * 1"
+    },
+    {
+      "path": "/api/cron/stale-crm-deals",
+      "schedule": "0 11 * * 1"
+    },
+    {
+      "path": "/api/cron/ticket-sla-breaches",
+      "schedule": "7 * * * *"
+    },
+    {
+      "path": "/api/cron/stuck-booking-holds",
+      "schedule": "*/30 * * * *"
+    },
+    {
+      "path": "/api/cron/booking-reminders",
+      "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/cron/renew-microsoft-subscriptions",
+      "schedule": "*/25 * * * *"
+    },
+    {
+      "path": "/api/cron/pm-recurrences",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/pm-column-snapshots",
+      "schedule": "55 23 * * *"
+    },
+    {
+      "path": "/api/cron/process-survey-email-followups",
+      "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/process-crm-sequences",
+      "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/process-scheduled-posts",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/process-contract-signature-reminders",
+      "schedule": "0 */6 * * *"
+    },
+    {
+      "path": "/api/cron/process-cart-abandonment",
+      "schedule": "*/30 * * * *"
+    },
+    {
+      "path": "/api/cron/process-journey-enrollments",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/mcp-rollup",
+      "schedule": "0 4 * * *"
+    },
+    {
+      "path": "/api/cron/resend-usage-sync",
+      "schedule": "15 4 * * *"
+    },
+    {
+      "path": "/api/cron/usage-rollup",
+      "schedule": "45 4 * * *"
+    },
+    {
+      "path": "/api/cron/usage-alerts",
+      "schedule": "15 5 * * *"
+    },
+    {
+      "path": "/api/cron/purge-unverified",
+      "schedule": "30 5 * * *"
+    },
+    {
+      "path": "/api/cron/process-scheduled-automations",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/plugin-runs-drain",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/plugin-jobs-tick",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/process-playbook-waits",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/email-scheduled-send",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/email-ab-promote",
+      "schedule": "*/30 * * * *"
+    },
+    {
+      "path": "/api/cron/invoices-overdue",
+      "schedule": "7 * * * *"
+    }
+  ]
+}

@@ -1,0 +1,477 @@
+/**
+ * Embedding + semantic-search layer for Company Brain. Phase 6.
+ *
+ * Provider-agnostic: the `embedText` function takes any string array and
+ * returns vectors. Default provider is OpenAI text-embedding-3-small (1536d,
+ * cheap, good enough). Swap by adding a branch and changing
+ * brain_profiles.embeddingProvider — code is structured so the rest of the
+ * system doesn't care which provider produced a vector, as long as the
+ * dimensions match the column declaration.
+ *
+ * Storage: brain_embeddings table, one row per (entity, chunk). HNSW cosine
+ * index on the vector column. Re-embedding is upsert-by-(entity, chunk_index).
+ */
+
+import { db } from '@/lib/db';
+import { sql } from 'drizzle-orm';
+import { resolveClientApiKey } from '@/lib/ai/resolve-client-key';
+import { recordAiUsage } from '@/lib/ai/audit';
+
+export type EmbeddingProvider = 'openai' | 'voyage' | 'cohere';
+export type EntityType =
+  | 'note'
+  | 'meeting'
+  | 'relationship'
+  | 'task'
+  | 'company'
+  | 'contact'
+  | 'deal'
+  | 'post';
+
+export const ALL_ENTITY_TYPES: EntityType[] = [
+  'note', 'meeting', 'relationship', 'task',
+  'company', 'contact', 'deal', 'post',
+];
+
+const DEFAULT_MODEL = 'text-embedding-3-small';
+const DEFAULT_DIM = 1536;
+
+interface EmbedResult {
+  vector: number[];
+  tokens: number;
+}
+
+/**
+ * Embed a batch of strings via the configured provider. Returns one vector per
+ * input string in the same order. Handles batching internally — OpenAI accepts
+ * up to ~2048 inputs per call but we cap at 100 to keep request bodies sane
+ * and to make per-batch retries cheap.
+ */
+export async function embedText(
+  inputs: string[],
+  opts: { provider?: EmbeddingProvider; model?: string; clientId?: number } = {},
+): Promise<EmbedResult[]> {
+  const provider = opts.provider ?? 'openai';
+  if (provider !== 'openai') {
+    throw new Error(`Embedding provider "${provider}" not yet implemented`);
+  }
+  const model = opts.model ?? DEFAULT_MODEL;
+
+  // Resolve BYOK > platform key. If no clientId is passed (legacy / system),
+  // fall back to env directly. Embeddings share the OpenAI bucket with chat.
+  let apiKey: string;
+  let source: 'byok' | 'platform' = 'platform';
+  if (typeof opts.clientId === 'number') {
+    const resolved = await resolveClientApiKey({ clientId: opts.clientId, provider: 'embedding' });
+    apiKey = resolved.key;
+    source = resolved.source;
+  } else {
+    const envKey = process.env.OPENAI_API_KEY;
+    if (!envKey) throw new Error('OPENAI_API_KEY not set');
+    apiKey = envKey;
+  }
+
+  const results: EmbedResult[] = [];
+  const BATCH_SIZE = 100;
+
+  for (let i = 0; i < inputs.length; i += BATCH_SIZE) {
+    const batch = inputs.slice(i, i + BATCH_SIZE);
+    const res = await fetch('https://api.openai.com/v1/embeddings', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ model, input: batch }),
+    });
+    if (!res.ok) {
+      const txt = await res.text();
+      throw new Error(`OpenAI embeddings failed: ${res.status} ${txt}`);
+    }
+    const json = await res.json() as {
+      data: { embedding: number[]; index: number }[];
+      usage: { prompt_tokens: number; total_tokens: number };
+    };
+    // Tokens are reported per-call, not per-input. Distribute proportionally
+    // by char count so per-row token attribution is approximately correct
+    // for cost accounting.
+    const totalChars = batch.reduce((s, t) => s + t.length, 0) || 1;
+    for (const item of json.data) {
+      const charShare = batch[item.index].length / totalChars;
+      results.push({
+        vector: item.embedding,
+        tokens: Math.round(json.usage.total_tokens * charShare),
+      });
+    }
+    if (typeof opts.clientId === 'number') {
+      void recordAiUsage({ clientId: opts.clientId, source, tokens: json.usage.total_tokens });
+    }
+  }
+
+  return results;
+}
+
+/**
+ * Markdown-aware chunker. Tries to break on H2/H3 boundaries, then paragraphs,
+ * then sentences. Targets ~500 tokens per chunk with ~100-token overlap.
+ *
+ * Token estimation is char-based (chars / 4) — fine for English markdown,
+ * within ~10% of true tiktoken count. Don't optimize unless it matters.
+ */
+const CHARS_PER_TOKEN = 4;
+const TARGET_CHUNK_TOKENS = 500;
+const OVERLAP_TOKENS = 100;
+const TARGET_CHARS = TARGET_CHUNK_TOKENS * CHARS_PER_TOKEN;
+const OVERLAP_CHARS = OVERLAP_TOKENS * CHARS_PER_TOKEN;
+
+// OpenAI text-embedding-3-small caps individual inputs at 8192 tokens. We
+// hard-split anything above this character count to stay safely under, with
+// a margin for the chars-per-token estimate being approximate.
+const HARD_MAX_CHARS = 7000 * CHARS_PER_TOKEN;
+
+/**
+ * Aggressive last-resort splitter for "paragraphs" that are themselves
+ * larger than TARGET_CHARS — e.g. an auto-generated index of links with no
+ * blank-line breaks. Splits on single-newline boundaries first, then hard
+ * character windows if even those individual lines are too large.
+ */
+function hardSplit(text: string, maxChars: number): string[] {
+  if (text.length <= maxChars) return [text];
+  // First try: split on single newlines.
+  const lines = text.split(/\n/);
+  const out: string[] = [];
+  let buf = '';
+  for (const line of lines) {
+    if ((buf + '\n' + line).length > maxChars && buf.length > 0) {
+      out.push(buf);
+      buf = line;
+    } else {
+      buf = buf.length > 0 ? `${buf}\n${line}` : line;
+    }
+  }
+  if (buf.length > 0) out.push(buf);
+  // Anything still oversize (single line longer than maxChars — unusual but
+  // possible for crawled HTML with no whitespace) gets hard-windowed.
+  const final: string[] = [];
+  for (const piece of out) {
+    if (piece.length <= maxChars) {
+      final.push(piece);
+    } else {
+      for (let i = 0; i < piece.length; i += maxChars) {
+        final.push(piece.slice(i, i + maxChars));
+      }
+    }
+  }
+  return final;
+}
+
+export function chunkMarkdown(text: string): string[] {
+  const trimmed = text.trim();
+  if (trimmed.length === 0) return [];
+  if (trimmed.length <= TARGET_CHARS) return [trimmed];
+
+  // First pass: split on H2/H3 headings. Anything before the first heading
+  // becomes its own section.
+  const sections = trimmed.split(/(?=^##+\s)/m).filter(s => s.trim().length > 0);
+
+  const chunks: string[] = [];
+  for (const section of sections) {
+    if (section.length <= TARGET_CHARS) {
+      chunks.push(section.trim());
+      continue;
+    }
+    // Section too big — fall through to paragraph splitting with overlap.
+    const paragraphs = section.split(/\n\n+/);
+    let buf = '';
+    for (const p of paragraphs) {
+      // If a single paragraph is itself huge (auto-generated indexes often
+      // have one big paragraph of bullets with no blank lines), hard-split
+      // it before bin-packing.
+      const pPieces = p.length > TARGET_CHARS ? hardSplit(p, TARGET_CHARS) : [p];
+      for (const piece of pPieces) {
+        if ((buf + '\n\n' + piece).length > TARGET_CHARS && buf.length > 0) {
+          chunks.push(buf.trim());
+          // Carry the tail of the previous chunk forward as overlap so context
+          // isn't lost at chunk boundaries.
+          buf = buf.slice(-OVERLAP_CHARS) + '\n\n' + piece;
+        } else {
+          buf = buf.length > 0 ? `${buf}\n\n${piece}` : piece;
+        }
+      }
+    }
+    if (buf.trim().length > 0) chunks.push(buf.trim());
+  }
+
+  // Final safety net — anything still over the hard token cap gets sliced
+  // (shouldn't fire after the paragraph-level split above, but the OpenAI
+  // 8192-token limit is a hard wall so we belt-and-suspenders it).
+  const safe: string[] = [];
+  for (const c of chunks) {
+    if (c.length <= HARD_MAX_CHARS) safe.push(c);
+    else for (const piece of hardSplit(c, HARD_MAX_CHARS)) safe.push(piece);
+  }
+  return safe;
+}
+
+/**
+ * Embed a brain entity (note, meeting, relationship) and store the vectors.
+ * Atomically replaces all existing chunks for that entity. Returns the number
+ * of chunks written.
+ */
+export async function embedEntity(args: {
+  clientId: number;
+  entityType: EntityType;
+  entityId: number;
+  content: string;
+  provider?: EmbeddingProvider;
+  model?: string;
+}): Promise<{ chunks: number; tokens: number }> {
+  const chunks = chunkMarkdown(args.content);
+  if (chunks.length === 0) {
+    // Nothing to embed — clear any prior chunks and return.
+    await db.execute(sql`
+      DELETE FROM brain_embeddings
+      WHERE entity_type = ${args.entityType} AND entity_id = ${args.entityId}
+    `);
+    return { chunks: 0, tokens: 0 };
+  }
+
+  const model = args.model ?? DEFAULT_MODEL;
+  const provider = args.provider ?? 'openai';
+  const dim = DEFAULT_DIM;
+
+  const results = await embedText(chunks, { provider, model, clientId: args.clientId });
+
+  // Replace strategy: delete all existing chunks for this entity, then bulk
+  // insert. Done in a single transaction so a partial failure doesn't leave
+  // the entity half-embedded.
+  await db.transaction(async (tx) => {
+    await tx.execute(sql`
+      DELETE FROM brain_embeddings
+      WHERE entity_type = ${args.entityType} AND entity_id = ${args.entityId}
+    `);
+    for (let i = 0; i < chunks.length; i++) {
+      const v = results[i].vector;
+      // pgvector accepts the array literal as a string '[1,2,...]'.
+      const vectorLiteral = `[${v.join(',')}]`;
+      await tx.execute(sql`
+        INSERT INTO brain_embeddings
+          (client_id, entity_type, entity_id, chunk_index, content, vector, model, dim, tokens)
+        VALUES (
+          ${args.clientId},
+          ${args.entityType},
+          ${args.entityId},
+          ${i},
+          ${chunks[i]},
+          ${vectorLiteral}::vector,
+          ${model},
+          ${dim},
+          ${results[i].tokens}
+        )
+      `);
+    }
+  });
+
+  const totalTokens = results.reduce((s, r) => s + r.tokens, 0);
+  return { chunks: chunks.length, tokens: totalTokens };
+}
+
+/**
+ * Bulk-embed many entities of the same type in a single round-trip per
+ * batch. Wins big for short-content entities (contacts, deals, simple
+ * companies) where every entity has 1 chunk: the OpenAI embeddings endpoint
+ * accepts up to 2048 inputs per request, so a 100-entity batch finishes in
+ * one ~1.5s call instead of 100 × 1.5s.
+ *
+ * Per-entity failures don't abort the batch — extraction errors just skip
+ * that entity. OpenAI errors fail the whole batch (caller decides whether
+ * to retry).
+ */
+export async function embedManyEntities(args: {
+  clientId: number;
+  entityType: EntityType;
+  entityIds: number[];
+  provider?: EmbeddingProvider;
+  model?: string;
+}): Promise<{ entities: number; chunks: number; tokens: number; skipped: number }> {
+  if (args.entityIds.length === 0) return { entities: 0, chunks: 0, tokens: 0, skipped: 0 };
+
+  const { extractContentForEntity } = await import('./embedding-extractors');
+  const provider = args.provider ?? 'openai';
+  const model = args.model ?? DEFAULT_MODEL;
+  const dim = DEFAULT_DIM;
+
+  // Pass 1: extract content per entity. Build a flat list of chunks +
+  // remember which entity each chunk came from.
+  const flatChunks: { entityId: number; chunkIndex: number; text: string }[] = [];
+  const entitiesToReplace: number[] = []; // ones we'll overwrite
+  let skipped = 0;
+  for (const id of args.entityIds) {
+    const { text, found } = await extractContentForEntity(args.clientId, args.entityType, id);
+    if (!found) {
+      // Entity gone — drop any orphan chunks. Cheap one-row delete.
+      await removeEmbeddings(args.entityType, id);
+      skipped++;
+      continue;
+    }
+    const trimmed = text.trim();
+    if (!trimmed) {
+      await removeEmbeddings(args.entityType, id);
+      skipped++;
+      continue;
+    }
+    const chunks = chunkMarkdown(trimmed);
+    if (chunks.length === 0) {
+      skipped++;
+      continue;
+    }
+    entitiesToReplace.push(id);
+    chunks.forEach((c, i) => flatChunks.push({ entityId: id, chunkIndex: i, text: c }));
+  }
+
+  if (flatChunks.length === 0) {
+    return { entities: 0, chunks: 0, tokens: 0, skipped };
+  }
+
+  // Pass 2: embed all chunks across all entities in a single (batched) call.
+  // embedText handles its own internal batching at 100 inputs per request.
+  const results = await embedText(flatChunks.map(c => c.text), { provider, model, clientId: args.clientId });
+
+  // Pass 3: replace existing chunks for these entities, bulk insert new ones.
+  // Single transaction so a failure mid-batch leaves the queue in a clean
+  // "still pending" state.
+  await db.transaction(async (tx) => {
+    if (entitiesToReplace.length > 0) {
+      await tx.execute(sql`
+        DELETE FROM brain_embeddings
+        WHERE entity_type = ${args.entityType}
+          AND entity_id IN (${sql.raw(entitiesToReplace.join(','))})
+      `);
+    }
+    for (let i = 0; i < flatChunks.length; i++) {
+      const c = flatChunks[i];
+      const v = results[i].vector;
+      const vectorLiteral = `[${v.join(',')}]`;
+      await tx.execute(sql`
+        INSERT INTO brain_embeddings
+          (client_id, entity_type, entity_id, chunk_index, content, vector, model, dim, tokens)
+        VALUES (
+          ${args.clientId}, ${args.entityType}, ${c.entityId}, ${c.chunkIndex},
+          ${c.text}, ${vectorLiteral}::vector, ${model}, ${dim}, ${results[i].tokens}
+        )
+      `);
+    }
+  });
+
+  const totalTokens = results.reduce((s, r) => s + r.tokens, 0);
+  return { entities: entitiesToReplace.length, chunks: flatChunks.length, tokens: totalTokens, skipped };
+}
+
+/**
+ * Remove all embeddings for an entity. Call from delete handlers so vectors
+ * don't outlive their source content.
+ */
+export async function removeEmbeddings(entityType: EntityType, entityId: number): Promise<void> {
+  await db.execute(sql`
+    DELETE FROM brain_embeddings
+    WHERE entity_type = ${entityType} AND entity_id = ${entityId}
+  `);
+}
+
+/**
+ * Fetch + embed an entity by id. The high-level "just embed this thing"
+ * entry point — backfill scripts and write-path hooks should both use this
+ * rather than calling embedEntity directly. Returns null when the entity
+ * doesn't exist (and removes any prior embeddings for it).
+ */
+export async function embedById(args: {
+  clientId: number;
+  entityType: EntityType;
+  entityId: number;
+}): Promise<{ chunks: number; tokens: number } | null> {
+  const { extractContentForEntity } = await import('./embedding-extractors');
+  const { text, found } = await extractContentForEntity(args.clientId, args.entityType, args.entityId);
+  if (!found) {
+    // Entity was deleted — clean up any orphaned embeddings.
+    await removeEmbeddings(args.entityType, args.entityId);
+    return null;
+  }
+  if (!text.trim()) {
+    // Entity exists but has nothing meaningful to embed (e.g. a deal with
+    // just a stage and no notes). Drop any prior chunks and skip.
+    await removeEmbeddings(args.entityType, args.entityId);
+    return { chunks: 0, tokens: 0 };
+  }
+  return embedEntity({
+    clientId: args.clientId,
+    entityType: args.entityType,
+    entityId: args.entityId,
+    content: text,
+  });
+}
+
+export interface SemanticHit {
+  entityType: EntityType;
+  entityId: number;
+  chunkIndex: number;
+  content: string;
+  similarity: number; // 1 - cosine_distance, so 1.0 = identical, 0 = orthogonal
+}
+
+/**
+ * Vector similarity search. Returns top-k chunks across all entity types
+ * (filterable). Caller is responsible for deduplicating by entityId if it
+ * only wants one result per source doc.
+ */
+export async function searchSemantic(args: {
+  clientId: number;
+  query: string;
+  k?: number;
+  entityTypes?: EntityType[];
+  provider?: EmbeddingProvider;
+  model?: string;
+}): Promise<SemanticHit[]> {
+  const k = Math.max(1, Math.min(args.k ?? 25, 200));
+  const [{ vector }] = await embedText([args.query], {
+    provider: args.provider,
+    model: args.model,
+    clientId: args.clientId,
+  });
+  const vectorLiteral = `[${vector.join(',')}]`;
+
+  // Build the type filter clause inline since drizzle's sql tag handles arrays
+  // poorly for `IN (...)` cases. Validate input strictly to keep this safe.
+  const allowed: EntityType[] = ALL_ENTITY_TYPES;
+  const types = (args.entityTypes ?? allowed).filter(t => allowed.includes(t));
+  if (types.length === 0) return [];
+
+  const typeList = types.map(t => `'${t}'`).join(',');
+
+  const rows = await db.execute(sql`
+    SELECT
+      entity_type,
+      entity_id,
+      chunk_index,
+      content,
+      1 - (vector <=> ${vectorLiteral}::vector) AS similarity
+    FROM brain_embeddings
+    WHERE client_id = ${args.clientId}
+      AND entity_type IN (${sql.raw(typeList)})
+    ORDER BY vector <=> ${vectorLiteral}::vector ASC
+    LIMIT ${k}
+  `);
+
+  return (rows as unknown as Array<{
+    entity_type: EntityType;
+    entity_id: number;
+    chunk_index: number;
+    content: string;
+    similarity: number;
+  }>).map(r => ({
+    entityType: r.entity_type,
+    entityId: r.entity_id,
+    chunkIndex: r.chunk_index,
+    content: r.content,
+    similarity: Number(r.similarity),
+  }));
+}

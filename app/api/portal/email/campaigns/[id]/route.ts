@@ -1,0 +1,228 @@
+import { NextResponse } from 'next/server';
+import { auth } from '@/lib/auth';
+import { db } from '@/lib/db';
+import { emailCampaigns, emailCampaignSends, emailSubscribers, emailLists } from '@/lib/db/schema';
+import { eq, and } from 'drizzle-orm';
+import { getPortalClient } from '@/lib/portal-client';
+import { renderBlocksToEmailHtml } from '@/lib/email';
+import { authorizePortal, isAuthError } from '@/lib/portal-auth';
+import { sanitizeRichHtml } from '@/lib/security/sanitize-html';
+
+async function requireClient() {
+  const session = await auth();
+  if (!session?.user?.id) return null;
+  return getPortalClient(parseInt(session.user.id, 10));
+}
+
+async function ownsCampaign(clientId: number, campaignId: number) {
+  const [c] = await db
+    .select({ id: emailCampaigns.id, status: emailCampaigns.status })
+    .from(emailCampaigns)
+    .where(and(eq(emailCampaigns.id, campaignId), eq(emailCampaigns.clientId, clientId)))
+    .limit(1);
+  return c ?? null;
+}
+
+export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  // Service access check
+  const authResult = await authorizePortal({ action: 'read', requireService: 'email' });
+  if (isAuthError(authResult)) return authResult.response;
+
+  const client = await requireClient();
+  if (!client) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
+
+  const { id } = await params;
+  const campaignId = parseInt(id);
+
+  if (!await ownsCampaign(client.id, campaignId)) {
+    return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
+  }
+
+  const url = new URL(req.url);
+  const mode = url.searchParams.get('mode'); // 'editor' = skip legacy mirrors
+
+  const [campaign] = await db
+    .select({
+      id: emailCampaigns.id,
+      name: emailCampaigns.name,
+      subject: emailCampaigns.subject,
+      previewText: emailCampaigns.previewText,
+      fromName: emailCampaigns.fromName,
+      fromEmail: emailCampaigns.fromEmail,
+      replyTo: emailCampaigns.replyTo,
+      listId: emailCampaigns.listId,
+      htmlContent: emailCampaigns.htmlContent,
+      blockContent: emailCampaigns.blockContent,
+      contentBlocks: emailCampaigns.contentBlocks,
+      useBlockEditor: emailCampaigns.useBlockEditor,
+      status: emailCampaigns.status,
+      scheduledAt: emailCampaigns.scheduledAt,
+      sentAt: emailCampaigns.sentAt,
+      totalRecipients: emailCampaigns.totalRecipients,
+      totalSent: emailCampaigns.totalSent,
+      totalOpened: emailCampaigns.totalOpened,
+      totalClicked: emailCampaigns.totalClicked,
+      totalBounced: emailCampaigns.totalBounced,
+      totalUnsubscribed: emailCampaigns.totalUnsubscribed,
+      // A/B subject test (standalone — see lib/email/subject-ab.ts)
+      abEnabled: emailCampaigns.abEnabled,
+      abSubjectB: emailCampaigns.abSubjectB,
+      abWinnerMetric: emailCampaigns.abWinnerMetric,
+      abTestSizePct: emailCampaigns.abTestSizePct,
+      abWinnerSubject: emailCampaigns.abWinnerSubject,
+      abDecidedAt: emailCampaigns.abDecidedAt,
+      createdAt: emailCampaigns.createdAt,
+      listName: emailLists.name,
+    })
+    .from(emailCampaigns)
+    .leftJoin(emailLists, eq(emailCampaigns.listId, emailLists.id))
+    .where(eq(emailCampaigns.id, campaignId))
+    .limit(1);
+
+  // ── Slim large payloads ──────────────────────────────────────────────────
+  // The campaign row historically returns THREE copies of the body:
+  //   htmlContent   → final rendered HTML (always regenerated at send time)
+  //   blockContent  → legacy BlockEditorData mirror
+  //   contentBlocks → canonical Block[] (the source of truth in editor mode)
+  //
+  // Trim rules (additive-only — default response still returns every field):
+  //   - When ?mode=editor OR the campaign uses the block editor
+  //     (useBlockEditor=true), drop blockContent — contentBlocks is the
+  //     source of truth, blockContent is a legacy mirror of the same tree.
+  //   - When ?mode=editor AND contentBlocks is non-empty, drop htmlContent
+  //     — the send path regenerates it from contentBlocks via
+  //     renderBlocksToEmailHtml, so the editor doesn't need the cached copy.
+  //     (We intentionally do NOT drop htmlContent in default mode because
+  //     the existing campaign detail view renders it directly; that's the
+  //     "preserve backward compat" guarantee.)
+  //
+  // Use a typed copy so we can selectively delete optional fields. We
+  // intentionally cast `campaign` to a partial because Drizzle's inferred
+  // type would forbid `delete` on required fields.
+  const slimCampaign: Record<string, unknown> | null = campaign
+    ? { ...(campaign as Record<string, unknown>) }
+    : null;
+  if (slimCampaign) {
+    const hasContentBlocks = Array.isArray(slimCampaign.contentBlocks) && (slimCampaign.contentBlocks as unknown[]).length > 0;
+    const useBlockEditor = slimCampaign.useBlockEditor === true;
+    if (mode === 'editor' || useBlockEditor) {
+      delete slimCampaign.blockContent;
+    }
+    if (mode === 'editor' && hasContentBlocks) {
+      delete slimCampaign.htmlContent;
+    }
+  }
+
+  const sends = await db
+    .select({
+      id: emailCampaignSends.id,
+      email: emailSubscribers.email,
+      name: emailSubscribers.name,
+      sentAt: emailCampaignSends.sentAt,
+      openedAt: emailCampaignSends.openedAt,
+      clickedAt: emailCampaignSends.clickedAt,
+      bouncedAt: emailCampaignSends.bouncedAt,
+    })
+    .from(emailCampaignSends)
+    .innerJoin(emailSubscribers, eq(emailCampaignSends.subscriberId, emailSubscribers.id))
+    .where(eq(emailCampaignSends.campaignId, campaignId))
+    .limit(100);
+
+  return NextResponse.json({ success: true, data: { campaign: slimCampaign, sends } });
+}
+
+export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  // Service access check
+  const authResult = await authorizePortal({ action: 'write', requireService: 'email' });
+  if (isAuthError(authResult)) return authResult.response;
+
+  const client = await requireClient();
+  if (!client) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
+
+  const { id } = await params;
+  const campaignId = parseInt(id);
+  const existing = await ownsCampaign(client.id, campaignId);
+  if (!existing) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
+  if (existing.status === 'sent') return NextResponse.json({ success: false, message: 'Cannot edit a sent campaign' }, { status: 400 });
+
+  const {
+    name,
+    subject,
+    previewText,
+    fromName,
+    fromEmail,
+    replyTo,
+    htmlContent,
+    blockContent,
+    contentBlocks,
+    useBlockEditor,
+    scheduledAt,
+    // A/B subject test fields (all optional; partial PATCH supported)
+    abEnabled,
+    abSubjectB,
+    abWinnerMetric,
+    abTestSizePct,
+  } = await req.json();
+
+  // If blockContent provided, render to HTML
+  let finalHtml = htmlContent?.trim() || undefined;
+  if (blockContent?.blocks) {
+    finalHtml = renderBlocksToEmailHtml(blockContent.blocks);
+  }
+  // If the new contentBlocks (Block[]) array is provided, also render it
+  // into htmlContent so legacy consumers (preview rendering, sites that
+  // don't yet read useBlockEditor) keep working. The send path consults
+  // useBlockEditor + contentBlocks first, and falls back to htmlContent.
+  if (Array.isArray(contentBlocks)) {
+    finalHtml = renderBlocksToEmailHtml(contentBlocks);
+  }
+  // Strip <script>/<iframe>/<object>/<embed>/event handlers from any
+  // user-supplied HTML before it's stored or rendered. sanitizeRichHtml
+  // keeps inline styles + classes — the email-safe surface — but drops
+  // executable payloads.
+  if (finalHtml) finalHtml = sanitizeRichHtml(finalHtml);
+
+  const [updated] = await db
+    .update(emailCampaigns)
+    .set({
+      ...(name && { name: name.trim() }),
+      ...(subject && { subject: subject.trim() }),
+      previewText: previewText?.trim() || null,
+      ...(fromName && { fromName: fromName.trim() }),
+      ...(fromEmail && { fromEmail: fromEmail.trim() }),
+      replyTo: replyTo?.trim() || null,
+      ...(finalHtml && { htmlContent: finalHtml }),
+      ...(blockContent !== undefined && { blockContent }),
+      ...(contentBlocks !== undefined && { contentBlocks }),
+      ...(typeof useBlockEditor === 'boolean' && { useBlockEditor }),
+      ...(typeof abEnabled === 'boolean' && { abEnabled }),
+      ...(abSubjectB !== undefined && { abSubjectB: abSubjectB?.trim() || null }),
+      ...(abWinnerMetric !== undefined && (abWinnerMetric === 'open' || abWinnerMetric === 'click') && { abWinnerMetric }),
+      ...(typeof abTestSizePct === 'number' && abTestSizePct >= 5 && abTestSizePct <= 50 && { abTestSizePct: Math.round(abTestSizePct) }),
+      scheduledAt: scheduledAt ? new Date(scheduledAt) : null,
+      status: scheduledAt ? 'scheduled' : 'draft',
+      updatedAt: new Date(),
+    })
+    .where(eq(emailCampaigns.id, campaignId))
+    .returning();
+
+  return NextResponse.json({ success: true, data: updated });
+}
+
+export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  // Service access check
+  const authResult = await authorizePortal({ action: 'write', requireService: 'email' });
+  if (isAuthError(authResult)) return authResult.response;
+
+  const client = await requireClient();
+  if (!client) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
+
+  const { id } = await params;
+  const campaignId = parseInt(id);
+  const existing = await ownsCampaign(client.id, campaignId);
+  if (!existing) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
+  if (existing.status === 'sending') return NextResponse.json({ success: false, message: 'Cannot delete a sending campaign' }, { status: 400 });
+
+  await db.delete(emailCampaigns).where(eq(emailCampaigns.id, campaignId));
+  return NextResponse.json({ success: true });
+}

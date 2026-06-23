@@ -1,0 +1,30 @@
+// Barrel: re-exports the entire DB schema. Consumers should keep importing
+// from `@/lib/db/schema` (or `./schema`) and never reach in to the domain
+// modules directly — the public surface is locked here.
+
+export * from './auth';
+export * from './sites';
+export * from './cms';
+export * from './crm';
+export * from './pm';
+export * from './brain';
+export * from './store';
+export * from './productDesigner';
+export * from './catalog';
+export * from './email';
+export * from './surveys';
+export * from './tools';
+export * from './billing';
+export * from './approvals';
+export * from './devices';
+export * from './audit';
+export * from './collab';
+export * from './trigger-links';
+export * from './ab';
+export * from './snapshots';
+export * from './workflows';
+export * from './chat';
+export * from './cronHealth';
+export * from './agenticOs';
+export * from './plugins';
+export * from './publishing';
