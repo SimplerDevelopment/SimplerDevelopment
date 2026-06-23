@@ -19,6 +19,14 @@ export interface PortalMcpContext {
    * (see `resourceIndicatorMatches` + app/api/mcp/route.ts).
    */
   resource?: string | null;
+  /**
+   * The agentic-OS run this MCP session belongs to, when the caller is an agent
+   * spawned by `POST /api/admin/agentic-os/run` (propagated via the
+   * `AGENTIC_RUN_ID` env → an `x-agentic-run-id` request header). null for
+   * interactive/portal sessions. Recorded on agent_action_logs for run
+   * correlation. (Full env→header propagation is a remaining Phase 2 item.)
+   */
+  runId?: string | null;
 }
 
 export function generatePortalApiKey(): { key: string; hash: string; preview: string } {

@@ -241,8 +241,7 @@ export function wrapRegisterTool(server: McpServer, ctx: PortalMcpContext): void
           clientId: ctx.client.id,
           apiKeyId: ctx.keyId ?? null,
           userId: ctx.userId ?? null,
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          runId: (ctx as any).runId ?? null,
+          runId: ctx.runId ?? null,
           toolName: name,
           inputArgs,
           responseText: '',
@@ -274,8 +273,7 @@ export function wrapRegisterTool(server: McpServer, ctx: PortalMcpContext): void
         clientId: ctx.client.id,
         apiKeyId: ctx.keyId ?? null,
         userId: ctx.userId ?? null,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        runId: (ctx as any).runId ?? null,
+        runId: ctx.runId ?? null,
         toolName: name,
         inputArgs,
         responseText,
