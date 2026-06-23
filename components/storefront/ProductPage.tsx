@@ -133,6 +133,7 @@ export function ProductPage({ siteId, productSlug }: ProductPageProps) {
   // Match variant when options change
   useEffect(() => {
     if (!product || product.variants.length === 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- synchronous derivation from props/state, no async involved
       setMatchedVariant(null);
       return;
     }

@@ -84,7 +84,11 @@ export function ProductDetailBlockRender({ block, siteId }: ProductDetailBlockRe
 
   // Match variant
   useEffect(() => {
-    if (!product || product.variants.length === 0) { setMatchedVariant(null); return; }
+    if (!product || product.variants.length === 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- synchronous derivation from props/state, no async involved
+      setMatchedVariant(null);
+      return;
+    }
     const match = product.variants.find(v =>
       v.optionValues && Object.entries(selectedOptions).every(([k, val]) => v.optionValues?.[k] === val)
     );
@@ -168,7 +172,7 @@ export function ProductDetailBlockRender({ block, siteId }: ProductDetailBlockRe
       <div className="py-16 text-center">
         <span className="material-icons text-5xl text-muted-foreground/30 mb-3 block">error_outline</span>
         <p className="text-lg font-semibold mb-1">Product not found</p>
-        <p className="text-muted-foreground">The product "{block.productSlug}" could not be loaded.</p>
+        <p className="text-muted-foreground">The product &quot;{block.productSlug}&quot; could not be loaded.</p>
       </div>
     );
   }

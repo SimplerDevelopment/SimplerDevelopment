@@ -145,7 +145,10 @@ export default function CrmCompanyDetailPage() {
   }, [companyId]);
 
   useEffect(() => {
-    fetchCompany().then(() => setLoading(false));
+    (async () => {
+      await fetchCompany();
+      setLoading(false);
+    })();
   }, [fetchCompany]);
 
   // Contacts are driven by the paginated /api/portal/crm/contacts endpoint so
@@ -169,7 +172,7 @@ export default function CrmCompanyDetailPage() {
   }, [companyId, contactPage, contactSearch, titleFilter]);
 
   useEffect(() => {
-    fetchContacts();
+    (async () => { await fetchContacts(); })();
   }, [fetchContacts]);
 
   useEffect(() => {

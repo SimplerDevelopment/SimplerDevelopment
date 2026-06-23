@@ -158,7 +158,10 @@ export default function CrmContactDetailPage() {
   }, [contactId]);
 
   useEffect(() => {
-    Promise.all([fetchContact(), fetchActivities()]).then(() => setLoading(false));
+    (async () => {
+      await Promise.all([fetchContact(), fetchActivities()]);
+      setLoading(false);
+    })();
   }, [fetchContact, fetchActivities]);
 
   function startEditing() {

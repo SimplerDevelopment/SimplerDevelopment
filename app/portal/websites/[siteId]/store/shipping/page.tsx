@@ -97,6 +97,7 @@ export default function ShippingSettingsPage() {
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- load() is reused by saveZone/deleteZone/saveRate/deleteRate handlers; setLoading(true) is intentional and does not cascade
     load();
   }, []);
 

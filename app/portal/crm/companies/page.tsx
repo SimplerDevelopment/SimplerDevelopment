@@ -80,7 +80,9 @@ export default function CrmCompaniesPage() {
   };
 
   useEffect(() => {
-    fetchCompanies();
+    void (async () => {
+      await fetchCompanies();
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search, page, customFilters]);
 

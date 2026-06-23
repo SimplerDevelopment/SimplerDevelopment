@@ -58,6 +58,7 @@ export default function OrdersListPage() {
   }, [base, page, statusFilter, search]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- load() is a useCallback reused across dep changes; setLoading(true) is intentional and does not cascade
     load();
   }, [load]);
 

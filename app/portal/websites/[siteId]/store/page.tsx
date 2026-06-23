@@ -75,6 +75,7 @@ export default function StoreDashboardPage() {
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- loadDashboard() is reused by enableStore handler; setLoading(true) is intentional and does not cascade
     loadDashboard();
   }, []);
 

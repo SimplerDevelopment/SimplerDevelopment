@@ -123,7 +123,7 @@ export default function BrainMeetingDetailPage() {
     }
   }, [meetingId]);
 
-  useEffect(() => { if (!Number.isNaN(meetingId)) load(); }, [meetingId, load]);
+  useEffect(() => { if (!Number.isNaN(meetingId)) { void (async () => { await load(); })(); } }, [meetingId, load]);
 
   const runProcessing = async () => {
     setProcessing(true);

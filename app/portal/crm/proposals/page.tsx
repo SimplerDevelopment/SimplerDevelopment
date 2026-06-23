@@ -201,11 +201,11 @@ function ProposalsAndDecksPage() {
   }, []);
 
   useEffect(() => {
-    fetchProposals();
+    (async () => { await fetchProposals(); })();
   }, [fetchProposals]);
 
   useEffect(() => {
-    fetchDecks();
+    (async () => { await fetchDecks(); })();
   }, [fetchDecks]);
 
   useEffect(() => {

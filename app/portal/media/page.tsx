@@ -95,6 +95,7 @@ export default function PortalMediaPage() {
       .finally(() => setLoading(false));
   };
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- load() is reused by upload/delete handlers; setLoading(true) is synchronous by design and does not cause render cascades
   useEffect(() => { load(); }, [search, filter, profileFilter, offset]);
 
   // Upload handlers

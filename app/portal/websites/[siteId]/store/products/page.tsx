@@ -68,6 +68,7 @@ export default function ProductsListPage() {
   }, [base, page, statusFilter, categoryFilter, search]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- load() is a useCallback reused by bulk-action handlers; setLoading(true) is intentional and does not cascade
     load();
   }, [load]);
 
