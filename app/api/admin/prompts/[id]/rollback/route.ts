@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { promptRegistry } from '@/lib/db/schema';
-import { eq } from 'drizzle-orm';
+import { promptRegistry, promptVersions } from '@/lib/db/schema';
+import { and, eq } from 'drizzle-orm';
 import { requireAdmin } from '../../_auth';
 import { setActiveVersion } from '@/lib/ai/evals/versions';
 import { logPromptAudit } from '@/lib/ai/evals/audit';
@@ -42,6 +42,23 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (!prompt) return NextResponse.json({ success: false, message: 'Prompt not found' }, { status: 404 });
   if (prompt.activeVersionId === versionId) {
     return NextResponse.json({ success: false, message: 'That version is already active' }, { status: 409 });
+  }
+
+  // Roll back only to a prior (archived) version — not a draft. Also confirms
+  // the target belongs to this prompt (route-level check alongside setActiveVersion).
+  const [target] = await db
+    .select({ status: promptVersions.status })
+    .from(promptVersions)
+    .where(and(eq(promptVersions.id, versionId), eq(promptVersions.promptId, promptId)))
+    .limit(1);
+  if (!target) {
+    return NextResponse.json({ success: false, message: 'Version not found for this prompt' }, { status: 404 });
+  }
+  if (target.status !== 'archived') {
+    return NextResponse.json(
+      { success: false, message: 'Rollback targets an archived version; promote a draft instead' },
+      { status: 409 },
+    );
   }
 
   const result = await setActiveVersion(promptId, versionId);

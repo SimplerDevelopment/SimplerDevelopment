@@ -32,12 +32,27 @@ export async function setActiveVersion(promptId: number, versionId: number): Pro
     .limit(1);
   if (!version) return { ok: false, error: 'Version not found for this prompt', previousVersionId: null };
 
-  const [prompt] = await db.select().from(promptRegistry).where(eq(promptRegistry.id, promptId)).limit(1);
-  if (!prompt) return { ok: false, error: 'Prompt not found', previousVersionId: null };
-
-  const previousVersionId = prompt.activeVersionId;
+  // The whole swap runs in ONE transaction with the registry row LOCKED
+  // (FOR UPDATE): two concurrent promotes/rollbacks serialize on that lock,
+  // so the outgoing-active read can't go stale and we can never leave two
+  // versions with status='active'.
+  let ok = false;
+  let error: string | undefined;
+  let previousVersionId: number | null = null;
 
   await db.transaction(async (tx) => {
+    const [prompt] = await tx
+      .select()
+      .from(promptRegistry)
+      .where(eq(promptRegistry.id, promptId))
+      .for('update')
+      .limit(1);
+    if (!prompt) {
+      error = 'Prompt not found';
+      return;
+    }
+    previousVersionId = prompt.activeVersionId;
+
     if (previousVersionId && previousVersionId !== versionId) {
       await tx
         .update(promptVersions)
@@ -52,7 +67,10 @@ export async function setActiveVersion(promptId: number, versionId: number): Pro
       .update(promptRegistry)
       .set({ activeVersionId: versionId, updatedAt: new Date() })
       .where(eq(promptRegistry.id, promptId));
+    ok = true;
   });
+
+  if (!ok) return { ok: false, error: error ?? 'Promote failed', previousVersionId: null };
 
   // Production resolvePrompt caches the active body for 60s — drop it so the
   // promote/rollback takes effect within the TTL rather than after it.

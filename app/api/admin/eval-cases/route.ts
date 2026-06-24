@@ -120,7 +120,7 @@ export async function POST(req: Request) {
 
   const actorId = parseInt((session.user as { id: string }).id, 10);
   await logPromptAudit({
-    actorUserId: actorId,
+    actorUserId: Number.isNaN(actorId) ? null : actorId,
     action: 'create_case',
     promptId: null,
     versionId: null,

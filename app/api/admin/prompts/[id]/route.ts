@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { promptRegistry, promptVersions, evalRuns } from '@/lib/db/schema';
 import { eq, asc, desc } from 'drizzle-orm';
+import { CronExpressionParser } from 'cron-parser';
 import { requireStaff, requireAdmin } from '../_auth';
 import { logPromptAudit } from '@/lib/ai/evals/audit';
 
@@ -53,7 +54,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   return NextResponse.json({ success: true, data: { prompt, versions, runs } });
 }
 
-// Light cron-expr validator — 5 space-separated fields (lenient).
+// Cheap shape pre-check; the real validity gate is CronExpressionParser below.
 const CRON_RE = /^(\S+\s+){4}\S+$/;
 
 /**
@@ -88,11 +89,19 @@ export async function PATCH(
     scheduleCron,
   } = body as { title?: unknown; description?: unknown; scheduleCron?: unknown };
 
-  // Validate scheduleCron if provided
+  // Validate scheduleCron if provided. Shape pre-check, then a real parse —
+  // otherwise a syntactically-shaped but invalid expr (e.g. "99 99 99 99 99")
+  // saves fine and then throws on every cron tick, so the schedule silently
+  // never fires.
   const hasCron = 'scheduleCron' in (body as object);
   if (hasCron && scheduleCron != null && scheduleCron !== '') {
     if (typeof scheduleCron !== 'string' || !CRON_RE.test(scheduleCron.trim())) {
       return NextResponse.json({ success: false, message: 'scheduleCron must be a valid 5-field cron expression or null/empty' }, { status: 400 });
+    }
+    try {
+      CronExpressionParser.parse(scheduleCron.trim(), { tz: 'UTC' });
+    } catch {
+      return NextResponse.json({ success: false, message: 'scheduleCron is not a valid cron expression' }, { status: 400 });
     }
   }
 
@@ -122,7 +131,7 @@ export async function PATCH(
   // Determine which audit action to log
   const auditAction = hasCron ? 'edit_schedule' : 'edit_prompt';
   await logPromptAudit({
-    actorUserId: actorId,
+    actorUserId: Number.isNaN(actorId) ? null : actorId,
     action: auditAction,
     promptId,
     versionId: null,

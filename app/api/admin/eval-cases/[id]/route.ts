@@ -67,7 +67,7 @@ export async function PUT(
   // Determine audit action: toggle vs edit
   const isToggleOnly = keys.length === 1 && keys[0] === 'enabled';
   await logPromptAudit({
-    actorUserId: actorId,
+    actorUserId: Number.isNaN(actorId) ? null : actorId,
     action: isToggleOnly ? 'toggle_case' : 'edit_case',
     promptId: null,
     versionId: null,

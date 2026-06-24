@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { promptRegistry, evalDatasets } from '@/lib/db/schema';
+import { promptRegistry, evalDatasets, evalRuns } from '@/lib/db/schema';
 import { and, eq } from 'drizzle-orm';
 import { enqueueEvalRun, runEvalJob } from '@/lib/ai/evals/job';
 import { requireStaff } from '../prompts/_auth';
@@ -39,6 +39,12 @@ export async function POST(req: Request) {
   }
   const mock = body.mock !== false; // default: mock
 
+  // A real (non-mock) run spends the platform Anthropic key — admins only.
+  // Mock runs are free, so any staff member may trigger them.
+  if (!mock && (session.user as { role?: string }).role !== 'admin') {
+    return NextResponse.json({ success: false, message: 'Real (non-mock) runs require an admin' }, { status: 403 });
+  }
+
   const [prompt] = await db.select().from(promptRegistry).where(eq(promptRegistry.id, promptId)).limit(1);
   if (!prompt) return NextResponse.json({ success: false, message: 'Prompt not found' }, { status: 404 });
   if (!prompt.activeVersionId) {
@@ -76,14 +82,20 @@ export async function POST(req: Request) {
     createdBy: Number.isNaN(createdBy) ? undefined : createdBy,
   });
 
-  // Fire-and-forget: dev drain. Safe on the isolated local DB (no competing
-  // cron worker to double-claim this run).
-  void runEvalJob(runId, {
-    mock,
-    anthropicApiKey: process.env.ANTHROPIC_API_KEY,
-  }).catch((err) => {
-    console.error(`[eval-runs] runEvalJob(${runId}) failed:`, err);
-  });
+  // Drive the run inline so the UI can poll it immediately (dev has no cron).
+  // Atomically CLAIM the row first (queued → running) so a concurrent cron
+  // worker can't also execute it — whoever wins the CAS runs it; the other skips.
+  void (async () => {
+    const [claimed] = await db
+      .update(evalRuns)
+      .set({ status: 'running', startedAt: new Date() })
+      .where(and(eq(evalRuns.id, runId), eq(evalRuns.status, 'queued')))
+      .returning({ id: evalRuns.id });
+    if (!claimed) return; // the cron worker claimed it first
+    await runEvalJob(runId, { mock, anthropicApiKey: process.env.ANTHROPIC_API_KEY }).catch((err) => {
+      console.error(`[eval-runs] runEvalJob(${runId}) failed:`, err);
+    });
+  })();
 
   return NextResponse.json({ success: true, data: { runId, mock } });
 }

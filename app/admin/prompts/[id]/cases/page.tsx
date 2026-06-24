@@ -76,7 +76,10 @@ interface EditRowProps {
   c: EvalCase;
   isAdmin: boolean;
   onToggle: (id: number, current: boolean) => Promise<void>;
-  onSave: (id: number, patch: Partial<Pick<EvalCase, 'caseKey' | 'input' | 'expected' | 'mockOutput' | 'order'>>) => Promise<void>;
+  onSave: (
+    id: number,
+    patch: Partial<Pick<EvalCase, 'caseKey' | 'input' | 'expected' | 'mockOutput' | 'order'>>,
+  ) => Promise<{ ok: boolean; error?: string }>;
 }
 
 function CaseRow({ c, isAdmin, onToggle, onSave }: EditRowProps) {
@@ -142,7 +145,7 @@ function CaseRow({ c, isAdmin, onToggle, onSave }: EditRowProps) {
     }
 
     setSaving(true);
-    await onSave(c.id, {
+    const result = await onSave(c.id, {
       caseKey: editKey.trim(),
       input: parsedInput.value,
       expected: parsedExpected,
@@ -150,6 +153,7 @@ function CaseRow({ c, isAdmin, onToggle, onSave }: EditRowProps) {
       order: orderNum,
     });
     setSaving(false);
+    if (!result.ok) setSaveError(result.error ?? 'Failed to save case');
   }
 
   return (
@@ -835,15 +839,21 @@ export default function PromptCasesPage() {
   async function handleSave(
     id: number,
     patch: Partial<Pick<EvalCase, 'caseKey' | 'input' | 'expected' | 'mockOutput' | 'order'>>,
-  ) {
-    const res = await fetch(`/api/admin/eval-cases/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(patch),
-    });
-    const d = await res.json();
-    if (d.success && d.data) {
-      setCases((prev) => prev.map((c) => (c.id === id ? (d.data as EvalCase) : c)));
+  ): Promise<{ ok: boolean; error?: string }> {
+    try {
+      const res = await fetch(`/api/admin/eval-cases/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(patch),
+      });
+      const d = await res.json();
+      if (d.success && d.data) {
+        setCases((prev) => prev.map((c) => (c.id === id ? (d.data as EvalCase) : c)));
+        return { ok: true };
+      }
+      return { ok: false, error: d.message ?? 'Failed to save case' };
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : 'Failed to save case' };
     }
   }
 

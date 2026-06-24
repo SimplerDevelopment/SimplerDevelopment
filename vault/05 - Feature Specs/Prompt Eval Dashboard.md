@@ -322,6 +322,17 @@ Verified: whole-repo `tsc` clean; ESLint clean (fixed a mount-fetch nit + an aud
 
 Apply `scripts/migrations/eval-dashboard.ts` to staging and prod, run the seed, then flip `PROMPT_REGISTRY_ENABLED=1`.
 
+### Adversarial review pass — HARDENED (2026-06-24)
+
+4-agent review (auth, integrity, tenancy, correctness) over the full diff. Tenant isolation confirmed intact; no HIGH auth issues. Fixed before merge:
+
+- **HIGH — non-atomic active-version swap:** `setActiveVersion` read `activeVersionId` outside the transaction → two concurrent promotes could leave two versions `status='active'`. Now reads it inside the txn under `SELECT … FOR UPDATE` on the registry row.
+- **HIGH — double-execution of a run:** the inline run-drive (eval-runs route) and the cron worker could both execute the same queued run → unique-violation marked a completed run `failed`. The inline path now CAS-claims (`queued → running` guarded) before executing; loser skips.
+- **MED:** real (non-mock) runs now require `admin` (were `requireStaff` — an employee could spend the platform key); `PATCH` schedule now parses the cron with cron-parser (a shaped-but-invalid expr previously saved then silently never fired); rollback now rejects non-`archived` targets (no activating a draft) + a route-level ownership check; the cases editor surfaces save failures (was a silent data-loss UX).
+- **LOW:** `parseInt(session.user.id)` NaN now coerced to null in audit writes.
+
+Verified after fixes: whole-repo tsc clean, ESLint clean, `@critical` promote/rollback E2E green.
+
 ## Top risks
 
 1. **Hot-path DB read on every AI call.** Mitigated by 60-second in-process cache + code-constant fallback. Fallback means a DB outage cannot break production AI features. Monitor cache hit rate after Phase 1 lands.
