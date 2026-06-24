@@ -58,11 +58,11 @@ export default async function ProposalsEsignWidget({
     <div>
       <div className="mb-3 flex gap-6">
         <div>
-          <span className="text-2xl font-bold text-foreground">{sentCount}</span>
+          <span className="font-display text-2xl font-extrabold tracking-[-0.02em] text-foreground">{sentCount}</span>
           <p className="text-xs text-muted-foreground">awaiting signature</p>
         </div>
         <div>
-          <span className="text-2xl font-bold text-foreground">{acceptedCount}</span>
+          <span className="font-display text-2xl font-extrabold tracking-[-0.02em] text-foreground">{acceptedCount}</span>
           <p className="text-xs text-muted-foreground">accepted</p>
         </div>
       </div>

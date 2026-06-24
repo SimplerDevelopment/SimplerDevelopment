@@ -22,7 +22,7 @@ export default async function WebsitesGlanceWidget({
     return (
       <div>
         <div className="mb-3">
-          <span className="text-2xl font-bold text-foreground">0</span>
+          <span className="font-display text-2xl font-extrabold tracking-[-0.02em] text-foreground">0</span>
           <span className="ml-2 text-sm text-muted-foreground">active websites</span>
         </div>
         <p className="text-sm text-muted-foreground py-2 text-center">No websites yet.</p>
@@ -70,7 +70,7 @@ export default async function WebsitesGlanceWidget({
     <div>
       <div className="mb-3 flex items-baseline gap-4">
         <div>
-          <span className="text-2xl font-bold text-foreground">{activeCount}</span>
+          <span className="font-display text-2xl font-extrabold tracking-[-0.02em] text-foreground">{activeCount}</span>
           <span className="ml-2 text-sm text-muted-foreground">
             active site{activeCount !== 1 ? 's' : ''}
           </span>

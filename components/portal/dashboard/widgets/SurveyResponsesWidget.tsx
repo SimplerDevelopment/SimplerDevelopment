@@ -55,11 +55,11 @@ export default async function SurveyResponsesWidget({
     <div>
       <div className="mb-3 flex gap-4">
         <div>
-          <span className="text-2xl font-bold text-foreground">{liveTotal}</span>
+          <span className="font-display text-2xl font-extrabold tracking-[-0.02em] text-foreground">{liveTotal}</span>
           <span className="ml-2 text-sm text-muted-foreground">total response{liveTotal !== 1 ? 's' : ''}</span>
         </div>
         <div>
-          <span className="text-2xl font-bold text-foreground">{activeSurveyCount}</span>
+          <span className="font-display text-2xl font-extrabold tracking-[-0.02em] text-foreground">{activeSurveyCount}</span>
           <span className="ml-2 text-sm text-muted-foreground">active</span>
         </div>
       </div>

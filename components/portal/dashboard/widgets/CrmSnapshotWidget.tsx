@@ -54,7 +54,7 @@ export default async function CrmSnapshotWidget({
             href={s.href}
             className="flex flex-col items-center p-2 rounded-lg hover:bg-accent transition-colors"
           >
-            <span className="text-2xl font-bold text-foreground">{s.value.toLocaleString()}</span>
+            <span className="font-display text-2xl font-extrabold tracking-[-0.02em] text-foreground">{s.value.toLocaleString()}</span>
             <span className="text-xs text-muted-foreground">{s.label}</span>
           </Link>
         ))}

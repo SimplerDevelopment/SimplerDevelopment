@@ -27,19 +27,19 @@ export default async function BrainTasksWidget({
     <div>
       <div className="mb-3 flex items-center gap-4 flex-wrap">
         <div>
-          <span className="text-2xl font-bold text-foreground">{openTasks}</span>
+          <span className="font-display text-2xl font-extrabold tracking-[-0.02em] text-foreground">{openTasks}</span>
           <span className="ml-1.5 text-sm text-muted-foreground">open</span>
         </div>
         {overdueCount > 0 && (
           <div>
-            <span className="text-2xl font-bold text-red-600 dark:text-red-400">
+            <span className="font-display text-2xl font-extrabold tracking-[-0.02em] text-red-600 dark:text-red-400">
               {overdueCount}
             </span>
             <span className="ml-1.5 text-sm text-muted-foreground">overdue</span>
           </div>
         )}
         <div>
-          <span className="text-2xl font-bold text-primary">{aiCreatedTasks}</span>
+          <span className="font-display text-2xl font-extrabold tracking-[-0.02em] text-primary">{aiCreatedTasks}</span>
           <span className="ml-1.5 text-sm text-muted-foreground">AI-created</span>
         </div>
       </div>

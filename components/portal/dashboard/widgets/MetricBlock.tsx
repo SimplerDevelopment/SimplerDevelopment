@@ -47,8 +47,8 @@ export default function MetricBlock({
         </span>
       </div>
 
-      {/* Big mono value */}
-      <p className="mt-[9px] font-mono tabular-nums tracking-tight text-[26px] font-medium text-foreground leading-none">
+      {/* Big value — DM Sans display, matches the redesign KPI archetype */}
+      <p className="mt-[9px] font-display tabular-nums tracking-[-0.02em] text-[28px] font-extrabold text-foreground leading-none">
         {value}
       </p>
 
