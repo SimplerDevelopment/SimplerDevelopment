@@ -131,3 +131,6 @@ evals-out/
 /scripts/migrations/*/
 /scripts/output/
 /.planning/
+
+# Guardrail-distillation proposal reports (review artifacts, not source)
+.claude/distill/
