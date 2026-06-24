@@ -49,6 +49,8 @@ export default function PortalLayoutClient({ children, apps, entitlements }: Por
     pathname === '/portal/signup' ||
     pathname === '/portal/forgot-password' ||
     pathname === '/portal/reset-password' ||
+    pathname === '/portal/mobile-auth' ||
+    pathname.startsWith('/portal/invite/') ||
     pathname === '/portal/onboarding';
   const isEditorRoute = /\/portal\/websites\/\d+\/(posts\/|navigation)|\/portal\/tools\/pitch-decks\/\d+/.test(pathname);
   const [previewMode, setPreviewMode] = useState(false);
