@@ -21,11 +21,7 @@ import { loadCasesFromDb } from './cases';
 import { runSuite } from './runner';
 import type { EvalEnv } from './env';
 import type { EvalSuite, CaseResult } from './types';
-
-// Rough blended Anthropic pricing for the cost rollup (USD per token). The
-// dedicated cost dashboard phase can refine this per-model.
-const INPUT_RATE = 3 / 1_000_000;
-const OUTPUT_RATE = 15 / 1_000_000;
+import { estimateCostUsd } from './cost';
 
 export async function enqueueEvalRun(args: {
   suiteId: string;
@@ -132,7 +128,7 @@ export async function runEvalJob(
 
     const totalInput = cases.reduce((a, c) => a + c.inputTokens, 0);
     const totalOutput = cases.reduce((a, c) => a + c.outputTokens, 0);
-    const costUsd = totalInput * INPUT_RATE + totalOutput * OUTPUT_RATE;
+    const costUsd = estimateCostUsd(run.suiteId, totalInput, totalOutput);
 
     await db
       .update(evalRuns)
