@@ -509,7 +509,7 @@ describe('OnboardingWizard', () => {
 
   // ── timezone auto-detect ─────────────────────────────────────────────────
 
-  it.skip('does NOT call fetch on mount when timezone is already set', () => {
+  it.skip('does NOT call fetch on mount when timezone is already set', 'product behavior changed: OnboardingWizard now always fires a timezone-sync PATCH on mount even when timezone is pre-filled; the original no-fetch assertion no longer matches the implementation — companion test "calls fetch PATCH with detected timezone when timezone is absent" covers the sync path', () => {
     // TODO: product behavior changed — OnboardingWizard now always fires a
     // timezone-sync PATCH on mount (even when timezone is already set) to keep
     // the server value fresh. The original assertion (no fetch on mount when tz

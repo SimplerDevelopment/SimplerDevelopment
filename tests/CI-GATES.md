@@ -1,11 +1,21 @@
-# SD2026 — CI gates (local)
+# SD2026 — CI gates
 
-**There is a GitHub `origin` remote, but no GitHub Actions / no remote CI.**
-The repo pushes to `github.com/DanielPCoyle/simplerdevelopment2026`, but nothing
-runs CI on the server side — so `scripts/ci-local.sh`, wired into git hooks under
-`.githooks/` (pre-commit = fast checks on staged files, pre-push = full gate), is
-the **only** CI in front of a push. It runs **on your machine** on every push to
-`origin` (including the force-push that deploys `staging`). Run it by hand any time:
+**GitHub Actions CI is live.** `.github/workflows/ci.yml` runs on every push or
+pull request targeting `main`. Two jobs run in parallel:
+
+- **`quality`** (lint, typecheck, god-file budget, doc-drift, unit tests) — no DB required.
+- **`tenancy`** (Drizzle migrations + `bun run test:tenancy`) — spins up a
+  `pgvector/pgvector:pg16` Postgres service container.
+
+Local git hooks (`.githooks/`, pre-commit = fast staged-file checks,
+pre-push = full `scripts/ci-local.sh` gate) run the same gates on your machine.
+Install once:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+Run the local gate by hand at any time:
 
 ```bash
 scripts/ci-local.sh          # full gate: boundaries, budgets, docs, lint, typecheck, unit
@@ -14,54 +24,61 @@ scripts/ci-local.sh --tenancy # + multi-tenant leak regression (needs local DB)
 scripts/ci-local.sh --full   # + tenancy + critical e2e (needs DB + Playwright)
 ```
 
-## The gates
+## The gates — remote vs local
 
-| Gate                          | Command                                          |
-|-------------------------------|--------------------------------------------------|
-| Architecture boundaries       | `bunx depcruise` via `.dependency-cruiser.cjs`   |
-| File-size budget / god files  | `bun scripts/check-file-budget.ts`               |
-| Doc drift                     | `bun scripts/check-doc-drift.ts`                 |
-| Lint                          | `bun run lint`                                   |
-| Typecheck                     | `tsc --noEmit` on the committed HEAD in a tmp worktree (via `node_modules/.bin/tsc`, raised heap) |
-| Unit tests                    | `bun run test:unit` (runs as part of ci-local)   |
-| Tenancy regression `@tenancy` | `bun run test:tenancy` (`--tenancy` / `--full`)  |
-| Critical e2e `@critical`      | `bun run test:critical` (`--full`)               |
-| Dead code (informational)     | `bunx knip`                                       |
+| Gate                          | Runs in CI (remote)? | Command                                          |
+|-------------------------------|----------------------|--------------------------------------------------|
+| Lint                          | ✅ `quality` job      | `bun run lint`                                   |
+| Typecheck                     | ✅ `quality` job      | `bun run typecheck`                              |
+| File-size budget / god files  | ✅ `quality` job      | `bun scripts/check-file-budget.ts`               |
+| Doc drift (cited paths exist) | ✅ `quality` job      | `bun scripts/check-doc-drift.ts`                 |
+| Unit tests                    | ✅ `quality` job      | `bun run test:unit`                              |
+| Tenancy regression `@tenancy` | ✅ `tenancy` job      | `bun run test:tenancy`                           |
+| Architecture boundaries       | ❌ local pre-push only | `bunx depcruise` via `.dependency-cruiser.cjs`  |
+| Critical e2e `@critical`      | ❌ local / promote gate | `bun run test:critical` (see below)             |
+| Dead code (informational)     | ❌ local only         | `bunx knip`                                      |
 
-The vitest coverage thresholds below still apply when you run coverage, but
-are **not** currently a blocking gate (unit-only coverage is low — see
-`tests/CLAUDE.md`). They document the intended floors for when coverage is
-healthy enough to enforce.
+**`@critical` Playwright e2e is intentionally NOT in CI** — it needs a
+fully-booted app plus runtime secrets (OAuth tokens, Stripe keys, etc.) that are
+not yet provisioned in the CI environment. It is gated via
+`scripts/promote-to-prod.sh` (see below) before every staging → production
+promotion.
 
-## Coverage floors
+## Coverage floors (aspirational — currently UNENFORCED)
+
+The floors below document the **intended** thresholds. They are **not currently
+enforced**: `vitest.config.ts` has all coverage thresholds set to `0`, so a
+`vitest --coverage` run will never fail on coverage alone. Enforcement will be
+raised once per-layer coverage is healthy enough to sustain the floors (unit-only
+coverage is ~4% today — see `tests/CLAUDE.md`).
 
 Defined in [`vitest.config.ts`](../vitest.config.ts) under `test.coverage.thresholds`.
 
 ### Project-wide floor (every file)
 
-| Metric     | Floor |
-|------------|------:|
-| Lines      |  60%  |
-| Statements |  60%  |
-| Functions  |  60%  |
-| Branches   |  50%  |
+| Metric     | Intended floor | Currently enforced? |
+|------------|:--------------:|:-------------------:|
+| Lines      |  60%           | ❌ (threshold = 0)  |
+| Statements |  60%           | ❌ (threshold = 0)  |
+| Functions  |  60%           | ❌ (threshold = 0)  |
+| Branches   |  50%           | ❌ (threshold = 0)  |
 
-### Per-feature higher floors
+### Per-feature higher floors (aspirational)
 
-The 12 newly-shipped feature modules carry user-facing money + secrets, so
-they're bumped:
+The feature modules below carry user-facing money + secrets, so they have
+higher intended floors:
 
-| Glob                    | Lines / Stmts / Funcs | Branches |
-|-------------------------|----------------------:|---------:|
-| `lib/billing/**/*.ts`   |                  70%  |    60%   |
-| `lib/ai/**/*.ts`        |                  70%  |    60%   |
-| `lib/agency/**/*.ts`    |                  70%  |    60%   |
-| `lib/esign/**/*.ts`     |                  70%  |    60%   |
-| `lib/chat/**/*.ts`      |                  70%  |    60%   |
-| `lib/crypto/**/*.ts`    |                  90%  |    80%   |
+| Glob                    | Lines / Stmts / Funcs | Branches | Currently enforced? |
+|-------------------------|----------------------:|:--------:|:-------------------:|
+| `lib/billing/**/*.ts`   |                  70%  |    60%   | ❌                  |
+| `lib/ai/**/*.ts`        |                  70%  |    60%   | ❌                  |
+| `lib/agency/**/*.ts`    |                  70%  |    60%   | ❌                  |
+| `lib/esign/**/*.ts`     |                  70%  |    60%   | ❌                  |
+| `lib/chat/**/*.ts`      |                  70%  |    60%   | ❌                  |
+| `lib/crypto/**/*.ts`    |                  90%  |    80%   | ❌                  |
 
 `lib/crypto` holds API-key + secret-encryption primitives — every branch
-matters, hence the 90/80 floor.
+matters, hence the 90/80 intended floor.
 
 ## Pre-push auto-gates
 
@@ -92,7 +109,8 @@ leaking rows across `clientId` / `siteId` boundaries, which would surface as
 one tenant seeing another tenant's data. There is no acceptable "flaky"
 explanation for a tenancy failure — investigate, do not retry.
 
-Local:
+Runs automatically in the `tenancy` CI job (pgvector Postgres service spun up
+by the workflow). Locally:
 
 ```bash
 bun test:tenancy           # uses your DATABASE_URL_TEST
@@ -101,9 +119,9 @@ bun test:integration:local # spins up a local DB first, then runs full integrati
 
 ## Trailing gate / promotion — `scripts/promote-to-prod.sh`
 
-The critical e2e + tenancy suites are intentionally **not** on the push hot
-path (they need a running DB + browser and can take minutes). Instead, after
-every staging deploy `scripts/promote-to-prod.sh` is the mandatory final gate:
+The critical e2e + tenancy suites are intentionally **not** in CI (they need a
+running app + browser and runtime secrets). Instead, after every staging deploy
+`scripts/promote-to-prod.sh` is the mandatory final gate:
 
 1. Runs `bun test:critical` against the **staging** deployment.
 2. Runs `bun test:tenancy` against the staging DB.
@@ -113,16 +131,13 @@ every staging deploy `scripts/promote-to-prod.sh` is the mandatory final gate:
    `git push origin staging:production` and exits 0. Wire the real action here
    once a production target exists.
 
-This keeps the slow suite off the pre-push hook while still gating production
+This keeps the slow suite off the CI hot path while still gating production
 on a full green run.
 
 ## Critical e2e — `bun test:critical`
 
 Playwright suite filtered to `@critical`-tagged specs (the golden-path
-subset). Same idea as the tenancy gate: this is the smoke test that the
-core flows still work end-to-end.
-
-Local:
+subset). Not yet in CI — runs locally and via `scripts/promote-to-prod.sh`.
 
 ```bash
 bun test:critical
@@ -147,8 +162,7 @@ When iterating, you sometimes need to run vitest without the threshold gate
      --coverage.thresholds.branches=0
    ```
 3. Or temporarily edit `vitest.config.ts` — but **do not commit** the
-   relaxation. The branch protection rule on `staging` will reject the PR
-   anyway once it's set up.
+   relaxation.
 
 ## Diff coverage (planned)
 
@@ -175,20 +189,16 @@ missing tests. Convention:
 
 There is no acceptable "retry until green" workaround on the critical path.
 
-## Enforcement — local git hooks
+## Enforcement summary
 
-There's a GitHub `origin` remote but no server-side CI or branch protection, so
-enforcement is the pre-push hook in `.githooks/`, installed via:
+| Scope | Mechanism |
+|---|---|
+| Every push/PR to `main` | GitHub Actions `quality` + `tenancy` jobs (remote) |
+| Every push to `origin` (any branch) | `.githooks/pre-push` → `scripts/ci-local.sh` (local) |
+| Staged files on commit | `.githooks/pre-commit` → eslint + file-budget + doc-drift (local) |
+| Staging → production promotion | `scripts/promote-to-prod.sh` (manual trigger) |
 
-```bash
-git config core.hooksPath .githooks
-```
-
-- **pre-commit** — fast checks on staged files (eslint + file-budget + doc-drift).
-- **pre-push** — full `scripts/ci-local.sh` gate; fires on every push to `origin`.
-
-Bypass for a one-off: `git commit --no-verify` / `git push --no-verify`.
-
-To add server-side CI, port `scripts/ci-local.sh` into a `.github/workflows/`
-job and list its steps as required status checks — the gate logic is already
-centralized in that one script, so the workflow is a thin wrapper.
+**`dev` and `dev/*` branches skip git hooks** (`pre-commit`/`pre-push`
+self-skip on those refs) and `next.config.ts` relaxes the build
+(`ignoreBuildErrors`/`ignoreDuringBuilds` when
+`VERCEL_GIT_COMMIT_REF === 'dev'`). CI still runs on PRs to `main`.
