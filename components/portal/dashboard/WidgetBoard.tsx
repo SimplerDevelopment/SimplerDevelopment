@@ -233,10 +233,10 @@ export default function WidgetBoard({
               });
             }}
             className={[
-              'inline-flex items-center gap-1.5 h-[34px] px-3 text-[13px] font-medium rounded-md border transition-colors',
+              'inline-flex items-center gap-1.5 h-[34px] px-3.5 text-[13px] font-semibold rounded-xl border transition-colors',
               screenOptionsOpen
-                ? 'bg-primary border-primary text-primary-foreground'
-                : 'bg-card border-border text-foreground hover:bg-accent',
+                ? 'bg-foreground border-foreground text-background'
+                : 'bg-card border-border text-foreground hover:border-foreground/25',
             ].join(' ')}
           >
             <span className="material-icons text-[17px] leading-none">tune</span>
@@ -247,11 +247,11 @@ export default function WidgetBoard({
 
       {/* ── Screen Options slide-in panel ─────────────────────────────────── */}
       {screenOptionsOpen && (
-        <div className="bg-card border border-[var(--portal-border-strong)] rounded-xl overflow-hidden">
+        <div className="bg-card border border-[var(--portal-border-strong)] rounded-2xl overflow-hidden">
           {/* Panel head */}
           <div className="flex items-start justify-between gap-3 px-[18px] py-4 border-b border-border">
             <div>
-              <h3 className="text-[15px] font-semibold text-foreground">Screen Options</h3>
+              <h3 className="font-display text-[15px] font-extrabold tracking-[-0.01em] text-foreground">Screen Options</h3>
               <p className="text-[12px] text-muted-foreground mt-0.5">Toggle widgets on or off. Drag to reorder.</p>
             </div>
             <button
@@ -273,7 +273,7 @@ export default function WidgetBoard({
                 value={widgetSearch}
                 onChange={(e) => setWidgetSearch(e.target.value)}
                 placeholder="Search widgets…"
-                className="w-full pl-9 pr-4 py-2 rounded-lg border border-border bg-background text-[13px] text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-border bg-background text-[13px] text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/15"
               />
             </div>
           </div>
@@ -289,7 +289,7 @@ export default function WidgetBoard({
                 filteredSolutionMap[slug].length === 0 ? null : (
                   <div key={slug}>
                     {/* Group label */}
-                    <p className="text-[10px] uppercase tracking-[0.08em] font-semibold text-muted-foreground px-[10px] pt-3 pb-1.5">
+                    <p className="font-mono text-[10px] uppercase tracking-[0.14em] font-semibold text-muted-foreground px-[10px] pt-3 pb-1.5">
                       {SOLUTION_LABELS[slug] ?? slug}
                     </p>
                     {filteredSolutionMap[slug].map((w) => {
@@ -311,7 +311,7 @@ export default function WidgetBoard({
                             onClick={() => handleToggleVisibility(w.id, !isVisible)}
                             className={[
                               'relative shrink-0 w-8 h-[18px] rounded-full transition-colors duration-150',
-                              isVisible ? 'bg-primary' : 'bg-[var(--portal-border-strong)]',
+                              isVisible ? 'bg-foreground' : 'bg-[var(--portal-border-strong)]',
                             ].join(' ')}
                           >
                             <span
