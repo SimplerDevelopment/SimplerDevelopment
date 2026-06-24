@@ -33,6 +33,7 @@ vi.mock('@/lib/db/schema', () => {
     oauthClients: wrap('oauthClients'),
     oauthAuthorizationCodes: wrap('oauthAuthorizationCodes'),
     oauthAccessTokens: wrap('oauthAccessTokens'),
+    oauthRefreshTokens: wrap('oauthRefreshTokens'),
     clientMembers: wrap('clientMembers'),
     clients: wrap('clients'),
   }, { has: (t, p) => (p in t) || !(p === "then" || p === "__esModule" || p === "default" || typeof p !== "string"), get: (t, p) => (p in t) ? t[p] : ((p === "then" || p === "__esModule" || p === "default" || typeof p !== "string") ? undefined : new Proxy({ __table: String(p) }, { get: (_x, c) => c === "__table" ? String(p) : (typeof c === "string" ? { __col: c, __table: String(p) } : undefined) })) });
@@ -77,6 +78,12 @@ vi.mock('@/lib/oauth/server', async () => {
       hash: 'access-token-hash',
       preview: 'sd_oauth_fake12…fake',
     })),
+    generateRefreshToken: vi.fn(() => ({
+      token: 'sd_oart_fake',
+      hash: 'refresh-token-hash',
+      preview: 'sd_oart_fake12…fake',
+    })),
+    generateRefreshFamilyId: vi.fn(() => 'rf_fixedfamily'),
   };
 });
 
@@ -126,6 +133,21 @@ interface AccessTokenRow {
   expiresAt: Date;
   [key: string]: unknown;
 }
+interface RefreshTokenRow {
+  id: number;
+  tokenHash: string;
+  tokenPreview: string;
+  oauthClientId: number;
+  userId: number;
+  clientId: number;
+  scopes: string[];
+  resource: string | null;
+  familyId: string;
+  expiresAt: Date;
+  consumedAt: Date | null;
+  revokedAt: Date | null;
+  [key: string]: unknown;
+}
 interface ClientMemberRow {
   userId: number;
   clientId: number;
@@ -141,22 +163,26 @@ interface State {
   oauthClients: OauthClientRow[];
   oauthAuthorizationCodes: AuthCodeRow[];
   oauthAccessTokens: AccessTokenRow[];
+  oauthRefreshTokens: RefreshTokenRow[];
   clientMembers: ClientMemberRow[];
   clients: ClientRow[];
   nextOauthClientPk: number;
   nextAuthCodePk: number;
   nextAccessTokenPk: number;
+  nextRefreshTokenPk: number;
 }
 
 const state: State = {
   oauthClients: [],
   oauthAuthorizationCodes: [],
   oauthAccessTokens: [],
+  oauthRefreshTokens: [],
   clientMembers: [],
   clients: [],
   nextOauthClientPk: 1,
   nextAuthCodePk: 1,
   nextAccessTokenPk: 1,
+  nextRefreshTokenPk: 1,
 };
 
 function tableArray(name: string): Array<Record<string, unknown>> {
@@ -167,6 +193,8 @@ function tableArray(name: string): Array<Record<string, unknown>> {
       return state.oauthAuthorizationCodes as unknown as Array<Record<string, unknown>>;
     case 'oauthAccessTokens':
       return state.oauthAccessTokens as unknown as Array<Record<string, unknown>>;
+    case 'oauthRefreshTokens':
+      return state.oauthRefreshTokens as unknown as Array<Record<string, unknown>>;
     case 'clientMembers':
       return state.clientMembers as unknown as Array<Record<string, unknown>>;
     case 'clients':
@@ -274,6 +302,10 @@ vi.mock('@/lib/db', () => {
             augmented.consumedAt = augmented.consumedAt ?? null;
           } else if (table.__table === 'oauthAccessTokens') {
             augmented.id = state.nextAccessTokenPk++;
+          } else if (table.__table === 'oauthRefreshTokens') {
+            augmented.id = state.nextRefreshTokenPk++;
+            augmented.consumedAt = augmented.consumedAt ?? null;
+            augmented.revokedAt = augmented.revokedAt ?? null;
           }
           tableArray(table.__table).push(augmented);
           inserted.push(augmented);
@@ -369,11 +401,13 @@ function resetState() {
   state.oauthClients.length = 0;
   state.oauthAuthorizationCodes.length = 0;
   state.oauthAccessTokens.length = 0;
+  state.oauthRefreshTokens.length = 0;
   state.clientMembers.length = 0;
   state.clients.length = 0;
   state.nextOauthClientPk = 1;
   state.nextAuthCodePk = 1;
   state.nextAccessTokenPk = 1;
+  state.nextRefreshTokenPk = 1;
   authMock.mockReset();
 }
 
@@ -530,7 +564,7 @@ describe('POST /oauth/register', () => {
     expect(body.client_id).toBe('oc_fixedclientid');
     expect(body.client_name).toBe('My App');
     expect(body.redirect_uris).toEqual(['https://app.example.com/cb']);
-    expect(body.grant_types).toEqual(['authorization_code']);
+    expect(body.grant_types).toEqual(['authorization_code', 'refresh_token']);
     expect(body.response_types).toEqual(['code']);
     expect(body.token_endpoint_auth_method).toBe('none');
     expect(typeof body.client_id_issued_at).toBe('number');
@@ -1017,5 +1051,129 @@ describe('POST /oauth/token', () => {
     // covers it.)
     const res = await tokenPOST(req);
     expect(res.status).toBe(200);
+  });
+
+  it('issues a refresh token alongside the access token on the code grant', async () => {
+    seedFullScenario();
+    const res = await tokenPOST(formRequest('http://x/oauth/token', validParams()));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.refresh_token).toBe('sd_oart_fake');
+    expect(body.expires_in).toBe(3600); // 1h, not the old 1yr
+
+    expect(state.oauthRefreshTokens).toHaveLength(1);
+    const stored = state.oauthRefreshTokens[0];
+    expect(stored.tokenHash).toBe('refresh-token-hash');
+    expect(stored.familyId).toBe('rf_fixedfamily');
+    expect(stored.userId).toBe(7);
+    expect(stored.clientId).toBe(42);
+    expect(stored.consumedAt).toBeNull();
+    expect(stored.revokedAt).toBeNull();
+  });
+});
+
+// ===========================================================================
+// /oauth/token — refresh_token grant (RFC 6749 §6, rotation + reuse detection)
+// ===========================================================================
+
+describe('POST /oauth/token (refresh_token grant)', () => {
+  const REDIRECT = 'https://app.example.com/cb';
+  const RAW_REFRESH = 'sd_oart_demo_refresh_value';
+  const REFRESH_HASH = sha256(RAW_REFRESH);
+
+  function seedRefresh(over: Partial<RefreshTokenRow> = {}): { client: OauthClientRow; row: RefreshTokenRow } {
+    const client = seedClient({ clientId: 'oc_test', redirectUris: [REDIRECT] });
+    const row: RefreshTokenRow = {
+      id: state.nextRefreshTokenPk++,
+      tokenHash: REFRESH_HASH,
+      tokenPreview: 'sd_oart_demo…alue',
+      oauthClientId: client.id,
+      userId: 7,
+      clientId: 42,
+      scopes: ['profile:read', 'projects:read'],
+      resource: 'https://mcp.example.com',
+      familyId: 'rf_seed',
+      expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+      consumedAt: null,
+      revokedAt: null,
+      ...over,
+    };
+    state.oauthRefreshTokens.push(row);
+    return { client, row };
+  }
+
+  function refreshParams(over: Partial<Record<string, string>> = {}): Record<string, string> {
+    return { grant_type: 'refresh_token', refresh_token: RAW_REFRESH, client_id: 'oc_test', ...over };
+  }
+
+  it('returns 400 invalid_request when refresh_token is missing', async () => {
+    const res = await tokenPOST(
+      formRequest('http://x/oauth/token', { grant_type: 'refresh_token', client_id: 'oc_test' }),
+    );
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe('invalid_request');
+  });
+
+  it('returns 400 invalid_grant when the refresh token is unknown', async () => {
+    seedClient({ clientId: 'oc_test', redirectUris: [REDIRECT] });
+    const res = await tokenPOST(formRequest('http://x/oauth/token', refreshParams()));
+    expect(res.status).toBe(400);
+    expect((await res.json()).error_description).toBe('Refresh token is invalid');
+  });
+
+  it('returns 400 invalid_grant when the token belongs to a different client', async () => {
+    seedRefresh({ oauthClientId: 9999 });
+    const res = await tokenPOST(formRequest('http://x/oauth/token', refreshParams()));
+    expect(res.status).toBe(400);
+    expect((await res.json()).error_description).toBe('Refresh token was not issued to this client');
+  });
+
+  it('returns 400 invalid_grant when the refresh token is expired', async () => {
+    seedRefresh({ expiresAt: new Date(Date.now() - 1000) });
+    const res = await tokenPOST(formRequest('http://x/oauth/token', refreshParams()));
+    expect(res.status).toBe(400);
+    expect((await res.json()).error_description).toBe('Refresh token expired');
+  });
+
+  it('returns 400 invalid_grant when the refresh token is revoked', async () => {
+    seedRefresh({ revokedAt: new Date() });
+    const res = await tokenPOST(formRequest('http://x/oauth/token', refreshParams()));
+    expect(res.status).toBe(400);
+    expect((await res.json()).error_description).toBe('Refresh token has been revoked');
+  });
+
+  it('rotates: issues a new pair, consumes the old token, inherits scope + resource', async () => {
+    const { row } = seedRefresh();
+    const res = await tokenPOST(formRequest('http://x/oauth/token', refreshParams()));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.access_token).toBe('sd_oauth_fake');
+    expect(body.refresh_token).toBe('sd_oart_fake');
+    expect(body.scope).toBe('profile:read projects:read');
+
+    // Old token consumed; a fresh access + refresh persisted (resource inherited).
+    expect(row.consumedAt).toBeInstanceOf(Date);
+    expect(state.oauthAccessTokens).toHaveLength(1);
+    expect(state.oauthAccessTokens[0].resource).toBe('https://mcp.example.com');
+    const fresh = state.oauthRefreshTokens.find((t) => t.id !== row.id);
+    expect(fresh?.familyId).toBe('rf_seed'); // same lineage
+    expect(fresh?.resource).toBe('https://mcp.example.com');
+  });
+
+  it('detects reuse: replaying a consumed token revokes the whole family', async () => {
+    // The replayed (already-rotated) token, plus its live descendant sibling.
+    seedRefresh({ consumedAt: new Date('2026-05-19T00:00:00Z'), familyId: 'rf_compromised' });
+    const sibling = seedRefresh({
+      tokenHash: sha256('sd_oart_sibling'),
+      familyId: 'rf_compromised',
+    }).row;
+
+    const res = await tokenPOST(formRequest('http://x/oauth/token', refreshParams()));
+    expect(res.status).toBe(400);
+    expect((await res.json()).error_description).toBe('Refresh token already used');
+
+    // No new tokens minted, and the live sibling is force-revoked.
+    expect(state.oauthAccessTokens).toHaveLength(0);
+    expect(sibling.revokedAt).toBeInstanceOf(Date);
   });
 });
