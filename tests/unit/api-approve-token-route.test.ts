@@ -722,7 +722,7 @@ describe('POST /api/approve/[token] — pending_change linkType', () => {
     expect(body.message).toMatch(/no pendingChangeId/);
   });
 
-  it('returns 500 when the pending change row is not found', async () => {
+  it('returns 409 when the pending change row is not found', async () => {
     const link = makePendingLink({
       linkType: 'pending_change',
       pendingChangeId: 33,
@@ -735,12 +735,16 @@ describe('POST /api/approve/[token] — pending_change linkType', () => {
       makePostRequest({ action: 'approve', reviewerName: 'Jane' }),
       makeParams(VALID_TOKEN),
     );
-    expect(res.status).toBe(500);
+    // Route returns 409 (not 500) for stale/missing pending-change rows so
+    // callers can distinguish a domain-level "change no longer applicable"
+    // from a genuine infrastructure failure. 500 would only fire for unknown
+    // errors. See route.ts lines 104-112.
+    expect(res.status).toBe(409);
     const body = await res.json();
     expect(body.message).toMatch(/Pending change not found/);
   });
 
-  it('returns 500 when the pending change is not in pending status', async () => {
+  it('returns 409 when the pending change is not in pending status', async () => {
     const link = makePendingLink({
       linkType: 'pending_change',
       pendingChangeId: 33,
@@ -753,7 +757,9 @@ describe('POST /api/approve/[token] — pending_change linkType', () => {
       makePostRequest({ action: 'approve', reviewerName: 'Jane' }),
       makeParams(VALID_TOKEN),
     );
-    expect(res.status).toBe(500);
+    // Same 409 "stale change" path — the change has already been applied so
+    // approving again must be rejected with a distinct status from 500.
+    expect(res.status).toBe(409);
     const body = await res.json();
     expect(body.message).toMatch(/approved/);
   });
