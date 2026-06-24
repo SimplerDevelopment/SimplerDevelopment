@@ -2,6 +2,12 @@
 
 import { Suspense, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { useAgencyChrome } from '@/components/portal/AgencyChromeProvider';
+
+const INPUT =
+  'w-full h-10 rounded-md border border-border bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground/70 transition-colors focus:outline-none focus:border-foreground/30 focus:ring-2 focus:ring-foreground/10';
+const LABEL =
+  'block mb-1.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground';
 
 function ResetPasswordForm() {
   const searchParams = useSearchParams();
@@ -15,15 +21,19 @@ function ResetPasswordForm() {
 
   if (!token) {
     return (
-      <div className="text-center space-y-4">
-        <div className="w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center mx-auto">
-          <span className="material-icons text-2xl text-destructive">link_off</span>
+      <div className="text-center">
+        <div className="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-lg bg-destructive/10 text-destructive">
+          <span className="material-icons text-2xl">link_off</span>
         </div>
-        <h2 className="text-xl font-semibold text-foreground">Invalid reset link</h2>
-        <p className="text-sm text-muted-foreground">
+        <h2 className="text-[15px] font-semibold tracking-tight text-foreground">Invalid reset link</h2>
+        <p className="mt-1.5 text-sm text-muted-foreground">
           This password reset link is invalid or has expired.
         </p>
-        <a href="/portal/forgot-password" className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline">
+        <a
+          href="/portal/forgot-password"
+          className="mt-5 inline-flex h-10 items-center justify-center gap-1.5 rounded-md border border-border bg-background px-4 text-sm font-medium text-foreground transition-colors hover:bg-accent"
+        >
+          <span className="material-icons text-base">refresh</span>
           Request a new link
         </a>
       </div>
@@ -65,33 +75,34 @@ function ResetPasswordForm() {
 
   if (success) {
     return (
-      <div className="text-center space-y-4">
-        <div className="w-12 h-12 rounded-full bg-green-500/10 flex items-center justify-center mx-auto">
-          <span className="material-icons text-2xl text-green-500">check_circle</span>
+      <div className="text-center">
+        <div className="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+          <span className="material-icons text-2xl">check_circle</span>
         </div>
-        <h2 className="text-xl font-semibold text-foreground">Password reset</h2>
-        <p className="text-sm text-muted-foreground">
+        <h2 className="text-[15px] font-semibold tracking-tight text-foreground">Password reset</h2>
+        <p className="mt-1.5 text-sm text-muted-foreground">
           Your password has been updated. You can now sign in with your new password.
         </p>
         <a
           href="/portal/login"
-          className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
+          className="mt-5 inline-flex h-10 items-center justify-center rounded-md bg-foreground px-5 text-sm font-medium text-background transition-colors hover:bg-foreground/90"
         >
-          Sign In
+          Sign in
         </a>
       </div>
     );
   }
 
+  // Live, low-key confirmation hint — warm, friendly feedback without nagging.
+  const mismatch = confirmPassword.length > 0 && password !== confirmPassword;
+
   return (
     <>
-      <h2 className="text-xl font-semibold text-foreground mb-2">Set a new password</h2>
-      <p className="text-sm text-muted-foreground mb-6">
-        Enter your new password below.
-      </p>
+      <h2 className="text-[15px] font-semibold tracking-tight text-foreground">Set a new password</h2>
+      <p className="mt-1 mb-6 text-sm text-muted-foreground">Enter your new password below.</p>
 
       {error && (
-        <div className="mb-4 p-3 bg-destructive/10 border border-destructive/20 rounded-lg flex items-center gap-2 text-sm text-destructive">
+        <div className="mb-4 flex items-center gap-2 rounded-md border border-destructive/20 bg-destructive/10 px-3 py-2.5 text-sm text-destructive">
           <span className="material-icons text-base">error_outline</span>
           {error}
         </div>
@@ -99,7 +110,7 @@ function ResetPasswordForm() {
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-foreground mb-1">New Password</label>
+          <label className={LABEL}>New password</label>
           <div className="relative">
             <input
               type={showPassword ? 'text' : 'password'}
@@ -109,21 +120,22 @@ function ResetPasswordForm() {
               minLength={8}
               autoComplete="new-password"
               autoFocus
-              className="w-full px-3 py-2 pr-10 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              className={`${INPUT} pr-10`}
               placeholder="At least 8 characters"
             />
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-foreground transition-colors"
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground transition-colors hover:text-foreground"
               tabIndex={-1}
+              aria-label={showPassword ? 'Hide password' : 'Show password'}
             >
               <span className="material-icons text-lg">{showPassword ? 'visibility_off' : 'visibility'}</span>
             </button>
           </div>
         </div>
         <div>
-          <label className="block text-sm font-medium text-foreground mb-1">Confirm Password</label>
+          <label className={LABEL}>Confirm password</label>
           <input
             type={showPassword ? 'text' : 'password'}
             value={confirmPassword}
@@ -131,44 +143,70 @@ function ResetPasswordForm() {
             required
             minLength={8}
             autoComplete="new-password"
-            className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-            placeholder="Confirm your password"
+            className={`${INPUT} ${mismatch ? 'border-destructive/40 focus:border-destructive/40 focus:ring-destructive/10' : ''}`}
+            placeholder="Re-enter your password"
           />
+          {mismatch && (
+            <p className="mt-1.5 flex items-center gap-1 text-xs text-destructive">
+              <span className="material-icons text-sm">close</span>
+              Passwords don&apos;t match yet
+            </p>
+          )}
         </div>
         <button
           type="submit"
           disabled={loading}
-          className="w-full py-2.5 px-4 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+          className="flex h-10 w-full items-center justify-center gap-2 rounded-md bg-foreground text-sm font-medium text-background transition-colors hover:bg-foreground/90 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {loading ? (
             <>
-              <span className="material-icons text-base animate-spin">refresh</span>
-              Resetting...
+              <span className="material-icons animate-spin text-base">refresh</span>
+              Resetting…
             </>
           ) : (
-            'Reset Password'
+            'Reset password'
           )}
         </button>
       </form>
+
+      <div className="mt-5 text-center">
+        <a href="/portal/login" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
+          Back to sign in
+        </a>
+      </div>
     </>
   );
 }
 
-export default function ResetPasswordPage() {
+function ResetPasswordChrome() {
+  const { brandName } = useAgencyChrome();
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background">
-      <div className="w-full max-w-md px-4">
-        <div className="text-center mb-8">
-          <p className="text-xs text-muted-foreground uppercase tracking-widest mb-1">Client Portal</p>
-          <h1 className="text-2xl font-bold text-foreground">Simpler Development</h1>
+    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-12">
+      <div className="w-full max-w-sm">
+        <div className="mb-8 text-center">
+          <p className="mb-1.5 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Client Portal</p>
+          <h1 className="text-xl font-semibold tracking-tight text-foreground">{brandName}</h1>
         </div>
 
-        <div className="bg-card border border-border rounded-xl p-8 shadow-sm">
-          <Suspense fallback={<div className="h-40 flex items-center justify-center"><span className="material-icons animate-spin">refresh</span></div>}>
+        <div className="rounded-xl border border-border bg-card p-7 shadow-sm">
+          <Suspense
+            fallback={
+              <div className="space-y-4" aria-hidden>
+                <div className="h-4 w-40 animate-pulse rounded bg-muted" />
+                <div className="h-10 animate-pulse rounded-md bg-muted" />
+                <div className="h-10 animate-pulse rounded-md bg-muted" />
+                <div className="h-10 animate-pulse rounded-md bg-muted" />
+              </div>
+            }
+          >
             <ResetPasswordForm />
           </Suspense>
         </div>
       </div>
     </div>
   );
+}
+
+export default function ResetPasswordPage() {
+  return <ResetPasswordChrome />;
 }

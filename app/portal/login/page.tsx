@@ -6,6 +6,11 @@ import { useSearchParams } from 'next/navigation';
 import { useAgencyChrome } from '@/components/portal/AgencyChromeProvider';
 import { isGoogleAuthEnabled } from '@/lib/auth-providers';
 
+const INPUT =
+  'w-full h-10 rounded-md border border-border bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground/70 transition-colors focus:outline-none focus:border-foreground/30 focus:ring-2 focus:ring-foreground/10';
+const LABEL =
+  'block mb-1.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground';
+
 interface Portal {
   clientId: number;
   company: string;
@@ -114,68 +119,70 @@ function LoginForm() {
 
   if (choosingPortal) {
     return (
-      <div className="w-full max-w-md px-4">
-        <div className="text-center mb-8">
-          <p className="text-xs text-muted-foreground uppercase tracking-widest mb-1">Client Portal</p>
-          <h1 className="text-2xl font-bold text-foreground">{brandName}</h1>
-        </div>
+      <div className="flex min-h-screen items-center justify-center bg-background px-4 py-12">
+        <div className="w-full max-w-sm">
+          <div className="mb-8 text-center">
+            <p className="mb-1.5 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Client Portal</p>
+            <h1 className="text-xl font-semibold tracking-tight text-foreground">{brandName}</h1>
+          </div>
 
-        <div className="bg-card border border-border rounded-xl p-8 shadow-sm">
-          <div className="text-center mb-6">
-            <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-3">
-              <span className="material-icons text-2xl text-primary">switch_account</span>
+          <div className="rounded-xl border border-border bg-card p-7 shadow-sm">
+            <div className="mb-6 text-center">
+              <div className="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-lg bg-foreground/5">
+                <span className="material-icons text-2xl text-foreground">switch_account</span>
+              </div>
+              <h2 className="text-[15px] font-semibold tracking-tight text-foreground">Choose your portal</h2>
+              <p className="mt-1.5 text-sm text-muted-foreground">You have access to multiple portals. Select one to continue.</p>
             </div>
-            <h2 className="text-xl font-semibold text-foreground">Choose your portal</h2>
-            <p className="text-sm text-muted-foreground mt-1">You have access to multiple portals. Select one to continue.</p>
-          </div>
 
-          <div className="space-y-2">
-            {portals.map((portal) => (
-              <button
-                key={portal.clientId}
-                onClick={() => selectPortal(portal, true)}
-                disabled={settingDefault}
-                className="w-full flex items-center gap-3 px-4 py-3 rounded-lg border border-border hover:border-primary/50 hover:bg-accent transition-colors text-left disabled:opacity-50"
-              >
-                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                  <span className="text-sm font-bold text-primary">
-                    {(portal.company || 'U').charAt(0).toUpperCase()}
-                  </span>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <span className="text-sm font-medium text-foreground block truncate">{portal.company}</span>
-                  {portal.subdomain && (
-                    <span className="text-xs text-muted-foreground">{portal.subdomain}.simplerdevelopment.com</span>
-                  )}
-                </div>
-                <span className="material-icons text-sm text-muted-foreground">arrow_forward</span>
-              </button>
-            ))}
-          </div>
+            <div className="space-y-2">
+              {portals.map((portal) => (
+                <button
+                  key={portal.clientId}
+                  onClick={() => selectPortal(portal, true)}
+                  disabled={settingDefault}
+                  className="w-full flex items-center gap-3 rounded-md border border-border bg-background px-4 py-3 text-left text-sm transition-colors hover:bg-accent disabled:opacity-50"
+                >
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-muted">
+                    <span className="text-sm font-bold text-foreground">
+                      {(portal.company || 'U').charAt(0).toUpperCase()}
+                    </span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <span className="block truncate text-sm font-medium text-foreground">{portal.company}</span>
+                    {portal.subdomain && (
+                      <span className="text-xs text-muted-foreground">{portal.subdomain}.simplerdevelopment.com</span>
+                    )}
+                  </div>
+                  <span className="material-icons text-sm text-muted-foreground">arrow_forward</span>
+                </button>
+              ))}
+            </div>
 
-          <p className="text-xs text-muted-foreground text-center mt-4">
-            This will be set as your default. You can change it in Settings.
-          </p>
+            <p className="mt-4 text-center text-xs text-muted-foreground">
+              This will be set as your default. You can change it in Settings.
+            </p>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="w-full max-w-md px-4">
-      <div className="w-full max-w-md">
-        {/* Logo */}
-        <div className="text-center mb-8">
-          <p className="text-xs text-muted-foreground uppercase tracking-widest mb-1">Client Portal</p>
-          <h1 className="text-2xl font-bold text-foreground">{brandName}</h1>
+    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-12">
+      <div className="w-full max-w-sm">
+        <div className="mb-8 text-center">
+          <p className="mb-1.5 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Client Portal</p>
+          <h1 className="text-xl font-semibold tracking-tight text-foreground">{brandName}</h1>
         </div>
 
-        <div className="bg-card border border-border rounded-xl p-8 shadow-sm">
-          <h2 className="text-xl font-semibold text-foreground mb-6">Sign in to your portal</h2>
+        <div className="rounded-xl border border-border bg-card p-7 shadow-sm">
+          <h2 className="text-[15px] font-semibold tracking-tight text-foreground">Sign in to your portal</h2>
+          <p className="mt-1 mb-6 text-sm text-muted-foreground">Enter your credentials to continue.</p>
 
           {/* Email-verified success banner */}
           {verified && (
-            <div className="mb-4 p-3 bg-green-500/10 border border-green-500/20 rounded-lg flex items-center gap-2 text-sm text-green-700 dark:text-green-400">
+            <div className="mb-4 flex items-center gap-2 rounded-md border border-emerald-500/20 bg-emerald-500/10 px-3 py-2.5 text-sm text-emerald-600 dark:text-emerald-400">
               <span className="material-icons text-base">check_circle</span>
               Email verified — sign in to continue.
             </div>
@@ -187,7 +194,7 @@ function LoginForm() {
               <button
                 type="button"
                 onClick={() => signIn('google', { callbackUrl })}
-                className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg border border-border bg-background text-foreground text-sm font-medium hover:bg-accent transition-colors mb-4"
+                className="mb-4 flex h-10 w-full items-center justify-center gap-2 rounded-md border border-border bg-background px-4 text-sm font-medium text-foreground transition-colors hover:bg-accent"
               >
                 <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
                   <path
@@ -211,7 +218,7 @@ function LoginForm() {
               </button>
 
               {/* Divider */}
-              <div className="relative flex items-center gap-3 mb-4">
+              <div className="relative mb-4 flex items-center gap-3">
                 <div className="flex-1 h-px bg-border" />
                 <span className="text-xs text-muted-foreground">or</span>
                 <div className="flex-1 h-px bg-border" />
@@ -220,7 +227,7 @@ function LoginForm() {
           )}
 
           {error && (
-            <div className="mb-4 p-3 bg-destructive/10 border border-destructive/20 rounded-lg flex items-center gap-2 text-sm text-destructive">
+            <div className="mb-4 flex items-center gap-2 rounded-md border border-destructive/20 bg-destructive/10 px-3 py-2.5 text-sm text-destructive">
               <span className="material-icons text-base">error_outline</span>
               {error}
             </div>
@@ -228,19 +235,19 @@ function LoginForm() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1">Email</label>
+              <label className={LABEL}>Email</label>
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 autoComplete="email"
-                className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                className={INPUT}
                 placeholder="you@company.com"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1">Password</label>
+              <label className={LABEL}>Password</label>
               <div className="relative">
                 <input
                   type={showPassword ? 'text' : 'password'}
@@ -248,13 +255,13 @@ function LoginForm() {
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   autoComplete="current-password"
-                  className="w-full px-3 py-2 pr-10 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  className={`${INPUT} pr-10`}
                   placeholder="••••••••"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-foreground transition-colors"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground transition-colors hover:text-foreground"
                   tabIndex={-1}
                 >
                   <span className="material-icons text-lg">{showPassword ? 'visibility_off' : 'visibility'}</span>
@@ -264,12 +271,12 @@ function LoginForm() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-2.5 px-4 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+              className="flex h-10 w-full items-center justify-center gap-2 rounded-md bg-foreground text-sm font-medium text-background transition-colors hover:bg-foreground/90 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {loading ? (
                 <>
-                  <span className="material-icons text-base animate-spin">refresh</span>
-                  Signing in...
+                  <span className="material-icons animate-spin text-base">refresh</span>
+                  Signing in…
                 </>
               ) : (
                 'Sign In'
@@ -277,20 +284,20 @@ function LoginForm() {
             </button>
           </form>
 
-          <div className="mt-4 flex flex-col items-center gap-2">
-            <a href="/portal/forgot-password" className="text-sm text-primary hover:underline">
+          <div className="mt-5 flex flex-col items-center gap-2">
+            <a href="/portal/forgot-password" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
               Forgot your password?
             </a>
-            <a href="/portal/signup" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+            <a href="/portal/signup" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
               New here?{' '}
-              <span className="text-primary hover:underline">Create an account</span>
+              <span className="font-medium text-foreground">Create an account</span>
             </a>
           </div>
         </div>
 
-        <p className="text-center text-xs text-muted-foreground mt-6">
+        <p className="mt-6 text-center text-xs text-muted-foreground">
           Need access?{' '}
-          <a href="/contact" className="text-primary hover:underline">
+          <a href="/contact" className="text-foreground transition-colors hover:underline">
             Contact us
           </a>
         </p>
