@@ -18,6 +18,9 @@ export const SUPPORTED_SCOPES = [
   'media:write',
   'email:read',
   'email:write',
+  // Sending campaigns is a separate, higher-privilege scope from email:write
+  // (which only drafts/edits). Gated on email_campaigns_send.
+  'email:send',
   'decks:read',
   'decks:write',
   'surveys:read',
@@ -38,6 +41,9 @@ export const SUPPORTED_SCOPES = [
   'billing:read',
   'hosting:read',
   'ai:read',
+  // Branding profile (brand colors / fonts / messaging tools use these)
+  'branding:read',
+  'branding:write',
   // Company Brain
   'brain:read',
   'brain:write',
@@ -78,6 +84,8 @@ export const DEFAULT_GRANTED_SCOPES: string[] = [
   'billing:read',
   'hosting:read',
   'ai:read',
+  // Branding (read-only by default; branding:write is opt-in)
+  'branding:read',
   // Company Brain (read-only by default; brain:write and brain:approve are opt-in)
   'brain:read',
   // Approvals (read-only by default; approvals:manage is opt-in)
