@@ -56,7 +56,7 @@ export default async function PortalCmsPage({
       />
 
       {created === '1' && (
-        <div className="flex items-center gap-3 p-4 bg-green-50 border border-green-200 rounded-xl text-green-800 dark:bg-green-900/20 dark:border-green-800 dark:text-green-300">
+        <div className="flex items-center gap-3 p-4 bg-green-50 border border-green-200 rounded-2xl text-green-800 dark:bg-green-900/20 dark:border-green-800 dark:text-green-300">
           <span className="material-icons text-green-600">check_circle</span>
           <div>
             <p className="font-medium text-sm">Website created!</p>
@@ -67,11 +67,11 @@ export default async function PortalCmsPage({
 
       {websites.length === 0 ? (
         <div className="space-y-4">
-          <div className="bg-card border border-border rounded-xl p-10 flex flex-col items-center text-center">
+          <div className="bg-card border border-border rounded-2xl p-10 flex flex-col items-center text-center">
             <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-4">
               <span className="material-icons text-3xl text-primary">web</span>
             </div>
-            <h2 className="font-semibold text-foreground mb-1">Set up your first website</h2>
+            <h2 className="font-display font-extrabold tracking-[-0.01em] text-foreground mb-1">Set up your first website</h2>
             <p className="text-sm text-muted-foreground max-w-sm mb-6">
               Create a website and start managing your pages using the built-in block editor — no coding required.
             </p>
@@ -84,7 +84,7 @@ export default async function PortalCmsPage({
             </Link>
           </div>
 
-          <div className="flex items-center gap-3 p-4 bg-card border border-border rounded-xl">
+          <div className="flex items-center gap-3 p-4 bg-card border border-border rounded-2xl">
             <span className="material-icons text-muted-foreground">support_agent</span>
             <div className="flex-1 text-sm">
               <p className="font-medium text-foreground">Prefer we handle the setup?</p>
@@ -112,15 +112,15 @@ export default async function PortalCmsPage({
                   // detail route is a heavy RSC payload and prefetching every
                   // tile saturates the server.
                   prefetch={false}
-                  className="group min-w-0 bg-card border border-border rounded-xl p-5 hover:border-primary/50 hover:shadow-sm transition-all"
+                  className="group min-w-0 bg-card border border-border rounded-2xl p-5 hover:border-primary/50 hover:shadow-sm transition-all"
                 >
                   <div className="flex items-start justify-between gap-3 mb-4">
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                      <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
                         <span className="material-icons text-primary text-lg">language</span>
                       </div>
                       <div className="min-w-0">
-                        <h2 className="font-semibold text-foreground group-hover:text-primary transition-colors truncate">
+                        <h2 className="font-display font-extrabold tracking-[-0.01em] text-foreground group-hover:text-primary transition-colors truncate">
                           {site.name}
                         </h2>
                         {site.subdomain ? (
@@ -178,14 +178,14 @@ export default async function PortalCmsPage({
             {/* Add another */}
             <Link
               href="/portal/websites/new"
-              className="group border-2 border-dashed border-border rounded-xl p-5 flex flex-col items-center justify-center text-center hover:border-primary/40 hover:bg-primary/3 transition-all min-h-36"
+              className="group border-2 border-dashed border-border rounded-2xl p-5 flex flex-col items-center justify-center text-center hover:border-primary/40 hover:bg-primary/3 transition-all min-h-36"
             >
               <span className="material-icons text-2xl text-muted-foreground group-hover:text-primary transition-colors mb-1">add_circle_outline</span>
               <p className="text-sm font-medium text-muted-foreground group-hover:text-primary transition-colors">Add another website</p>
             </Link>
           </div>
 
-          <div className="flex items-center gap-3 p-4 bg-card border border-border rounded-xl">
+          <div className="flex items-center gap-3 p-4 bg-card border border-border rounded-2xl">
             <span className="material-icons text-muted-foreground">support_agent</span>
             <div className="flex-1 text-sm">
               <p className="font-medium text-foreground">Need help with your website?</p>

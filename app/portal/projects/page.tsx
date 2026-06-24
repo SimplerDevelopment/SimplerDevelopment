@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { RelatedModulesStrip } from '@/components/portal/billing/RelatedModulesStrip';
 import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
-import { pBtnPrimary } from '@/components/portal/portal-ui';
+import { pBtnPrimary, pBtnGhost } from '@/components/portal/portal-ui';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -144,14 +144,14 @@ export default function PortalProjectsPage() {
           <div className="flex gap-2 flex-wrap">
             <Link
               href="/portal/projects/automations"
-              className="flex items-center gap-2 px-4 py-2 rounded-lg border border-border text-muted-foreground text-sm font-medium hover:bg-accent hover:text-foreground transition-colors"
+              className={pBtnGhost}
             >
               <span className="material-icons text-base">bolt</span>
               Automations
             </Link>
             <Link
               href="/portal/suggested-projects"
-              className="flex items-center gap-2 px-4 py-2 rounded-lg border border-border text-muted-foreground text-sm font-medium hover:bg-accent hover:text-foreground transition-colors"
+              className={pBtnGhost}
             >
               <span className="material-icons text-base">rocket_launch</span>
               Suggested Projects
@@ -169,33 +169,33 @@ export default function PortalProjectsPage() {
 
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <div className="bg-card border border-border rounded-xl p-4">
+        <div className="bg-card border border-border rounded-2xl p-4">
           <div className="flex items-center gap-2 mb-1">
             <span className="material-icons text-base text-green-600">play_circle</span>
             <span className="text-xs text-muted-foreground font-medium">Active</span>
           </div>
-          <p className="text-2xl font-bold text-foreground">{counts.active}</p>
+          <p className="text-2xl font-display font-extrabold tracking-[-0.02em] text-foreground">{counts.active}</p>
         </div>
-        <div className="bg-card border border-border rounded-xl p-4">
+        <div className="bg-card border border-border rounded-2xl p-4">
           <div className="flex items-center gap-2 mb-1">
             <span className="material-icons text-base text-yellow-600">pause_circle</span>
             <span className="text-xs text-muted-foreground font-medium">Paused</span>
           </div>
-          <p className="text-2xl font-bold text-foreground">{counts.paused}</p>
+          <p className="text-2xl font-display font-extrabold tracking-[-0.02em] text-foreground">{counts.paused}</p>
         </div>
-        <div className="bg-card border border-border rounded-xl p-4">
+        <div className="bg-card border border-border rounded-2xl p-4">
           <div className="flex items-center gap-2 mb-1">
             <span className="material-icons text-base text-blue-600">check_circle</span>
             <span className="text-xs text-muted-foreground font-medium">Completed</span>
           </div>
-          <p className="text-2xl font-bold text-foreground">{counts.completed}</p>
+          <p className="text-2xl font-display font-extrabold tracking-[-0.02em] text-foreground">{counts.completed}</p>
         </div>
-        <div className="bg-card border border-border rounded-xl p-4">
+        <div className="bg-card border border-border rounded-2xl p-4">
           <div className="flex items-center gap-2 mb-1">
             <span className="material-icons text-base text-muted-foreground">folder</span>
             <span className="text-xs text-muted-foreground font-medium">Total</span>
           </div>
-          <p className="text-2xl font-bold text-foreground">{counts.total}</p>
+          <p className="text-2xl font-display font-extrabold tracking-[-0.02em] text-foreground">{counts.total}</p>
         </div>
       </div>
 
@@ -229,8 +229,8 @@ export default function PortalProjectsPage() {
 
       {/* Create form */}
       {showCreateForm && (
-        <form onSubmit={handleCreate} className="bg-card border border-border rounded-xl p-5 space-y-4">
-          <h3 className="text-sm font-semibold text-foreground">Create Project</h3>
+        <form onSubmit={handleCreate} className="bg-card border border-border rounded-2xl p-5 space-y-4">
+          <h3 className="text-sm font-display font-extrabold tracking-[-0.01em] text-foreground">Create Project</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-foreground">Project Name <span className="text-destructive">*</span></label>
@@ -304,7 +304,7 @@ export default function PortalProjectsPage() {
             <button
               type="submit"
               disabled={creating}
-              className="flex items-center gap-2 px-5 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors"
+              className={pBtnPrimary}
             >
               {creating && <span className="material-icons text-base animate-spin">refresh</span>}
               Create Project
@@ -343,9 +343,9 @@ function ProjectGrid({
 }) {
   if (projects.length === 0) {
     return (
-      <div className="bg-card border border-border rounded-xl p-12 text-center">
+      <div className="bg-card border border-border rounded-2xl p-12 text-center">
         <span className="material-icons text-5xl text-muted-foreground">view_kanban</span>
-        <h3 className="mt-4 font-semibold text-foreground">No projects yet</h3>
+        <h3 className="mt-4 font-display font-extrabold tracking-[-0.01em] text-foreground">No projects yet</h3>
         <p className="mt-2 text-sm text-muted-foreground max-w-md mx-auto">{emptyMessage}</p>
       </div>
     );
@@ -361,7 +361,7 @@ function ProjectGrid({
           // prefetch on render storms the server with concurrent RSC payload
           // requests. Hover still triggers prefetch in Next/Link by default.
           prefetch={false}
-          className="bg-card border border-border rounded-xl p-5 hover:border-primary/50 hover:shadow-sm transition-all group min-w-0"
+          className="bg-card border border-border rounded-2xl p-5 hover:border-primary/50 hover:shadow-sm transition-all group min-w-0"
         >
           <div className="flex items-start justify-between gap-2 mb-3">
             <span className="material-icons text-2xl text-primary group-hover:scale-110 transition-transform">view_kanban</span>
@@ -370,7 +370,7 @@ function ProjectGrid({
               {project.status}
             </span>
           </div>
-          <h3 className="font-semibold text-foreground truncate">{project.name}</h3>
+          <h3 className="font-display font-extrabold tracking-[-0.01em] text-foreground truncate">{project.name}</h3>
           {project.description && (
             <p className="mt-1 text-sm text-muted-foreground line-clamp-2">{project.description}</p>
           )}

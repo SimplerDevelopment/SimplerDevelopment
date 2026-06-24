@@ -93,7 +93,7 @@ export default function PortalEmailPage() {
               <span className="material-icons text-sm">{stat.icon}</span>
               <span className="text-xs">{stat.label}</span>
             </div>
-            <p className="text-2xl font-bold text-foreground">{loading ? '—' : stat.value}</p>
+            <p className="text-2xl font-display font-extrabold tracking-[-0.02em] text-foreground">{loading ? '—' : stat.value}</p>
           </div>
         ))}
       </div>
@@ -104,7 +104,7 @@ export default function PortalEmailPage() {
           <div className="flex items-center gap-3">
             <span className="material-icons text-2xl text-primary">add_circle</span>
             <div>
-              <p className="font-semibold text-foreground group-hover:text-primary transition-colors">New Campaign</p>
+              <p className="font-display font-extrabold tracking-[-0.01em] text-foreground group-hover:text-primary transition-colors">New Campaign</p>
               <p className="text-sm text-muted-foreground">Create and send</p>
             </div>
           </div>
@@ -113,7 +113,7 @@ export default function PortalEmailPage() {
           <div className="flex items-center gap-3">
             <span className="material-icons text-2xl text-primary">dynamic_feed</span>
             <div>
-              <p className="font-semibold text-foreground group-hover:text-primary transition-colors">Templates</p>
+              <p className="font-display font-extrabold tracking-[-0.01em] text-foreground group-hover:text-primary transition-colors">Templates</p>
               <p className="text-sm text-muted-foreground">Reusable email designs</p>
             </div>
           </div>
@@ -122,7 +122,7 @@ export default function PortalEmailPage() {
           <div className="flex items-center gap-3">
             <span className="material-icons text-2xl text-primary">filter_alt</span>
             <div>
-              <p className="font-semibold text-foreground group-hover:text-primary transition-colors">Segments</p>
+              <p className="font-display font-extrabold tracking-[-0.01em] text-foreground group-hover:text-primary transition-colors">Segments</p>
               <p className="text-sm text-muted-foreground">Target specific audiences</p>
             </div>
           </div>
@@ -131,7 +131,7 @@ export default function PortalEmailPage() {
           <div className="flex items-center gap-3">
             <span className="material-icons text-2xl text-primary">analytics</span>
             <div>
-              <p className="font-semibold text-foreground group-hover:text-primary transition-colors">Analytics</p>
+              <p className="font-display font-extrabold tracking-[-0.01em] text-foreground group-hover:text-primary transition-colors">Analytics</p>
               <p className="text-sm text-muted-foreground">Performance insights</p>
             </div>
           </div>
@@ -141,7 +141,7 @@ export default function PortalEmailPage() {
       {/* Recent campaigns */}
       <div className="bg-card border border-border rounded-2xl overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-          <h2 className="font-semibold text-foreground">Recent Campaigns</h2>
+          <h2 className="font-display font-extrabold tracking-[-0.01em] text-foreground">Recent Campaigns</h2>
           <Link href="/portal/email/campaigns" className="text-sm text-primary hover:underline">View all</Link>
         </div>
         {loading ? (
