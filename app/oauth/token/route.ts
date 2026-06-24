@@ -109,16 +109,39 @@ async function handleRefreshGrant(
   // Atomic single-use consume. Zero rows updated => the token was already
   // redeemed and rotated away; treat the replay as reuse and revoke the entire
   // lineage so a thief's stolen copy stops working too (OAuth 2.1 §4.3.1).
+  const now = new Date();
   const consumed = await db
     .update(oauthRefreshTokens)
-    .set({ consumedAt: new Date() })
-    .where(and(eq(oauthRefreshTokens.id, stored.id), isNull(oauthRefreshTokens.consumedAt)))
+    .set({ consumedAt: now })
+    // Also require revokedAt IS NULL: a concurrent family revocation between the
+    // SELECT above and this UPDATE must lose the race, not silently rotate a
+    // revoked token into a fresh pair.
+    .where(and(
+      eq(oauthRefreshTokens.id, stored.id),
+      isNull(oauthRefreshTokens.consumedAt),
+      isNull(oauthRefreshTokens.revokedAt),
+    ))
     .returning({ id: oauthRefreshTokens.id });
   if (consumed.length === 0) {
+    // Replay (or a concurrent revocation) detected. Revoke the whole refresh-token
+    // family AND every co-issued access token for this lineage. oauthAccessTokens
+    // carries no family_id, so scope by the (oauth client, user, tenant) the family
+    // belongs to — otherwise a detected-stolen token's bearer stays valid for up to
+    // ACCESS_TOKEN_TTL_SECONDS (~1h), defeating the OAuth 2.1 §4.3.1 reuse detection
+    // this endpoint exists to provide.
     await db
       .update(oauthRefreshTokens)
-      .set({ revokedAt: new Date() })
+      .set({ revokedAt: now })
       .where(and(eq(oauthRefreshTokens.familyId, stored.familyId), isNull(oauthRefreshTokens.revokedAt)));
+    await db
+      .update(oauthAccessTokens)
+      .set({ revokedAt: now })
+      .where(and(
+        eq(oauthAccessTokens.oauthClientId, stored.oauthClientId),
+        eq(oauthAccessTokens.userId, stored.userId),
+        eq(oauthAccessTokens.clientId, stored.clientId),
+        isNull(oauthAccessTokens.revokedAt),
+      ));
     return err(400, 'invalid_grant', 'Refresh token already used');
   }
 

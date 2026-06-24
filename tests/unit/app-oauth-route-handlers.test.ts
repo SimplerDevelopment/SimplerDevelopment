@@ -1160,20 +1160,34 @@ describe('POST /oauth/token (refresh_token grant)', () => {
     expect(fresh?.resource).toBe('https://mcp.example.com');
   });
 
-  it('detects reuse: replaying a consumed token revokes the whole family', async () => {
+  it('detects reuse: replaying a consumed token revokes the whole family AND co-issued access tokens', async () => {
     // The replayed (already-rotated) token, plus its live descendant sibling.
-    seedRefresh({ consumedAt: new Date('2026-05-19T00:00:00Z'), familyId: 'rf_compromised' });
+    const { client } = seedRefresh({ consumedAt: new Date('2026-05-19T00:00:00Z'), familyId: 'rf_compromised' });
     const sibling = seedRefresh({
       tokenHash: sha256('sd_oart_sibling'),
       familyId: 'rf_compromised',
     }).row;
+    // A live access token co-issued to this lineage (same oauth client + user + tenant)
+    // — it MUST be revoked, else a detected-stolen token's bearer lives up to ~1h.
+    const lineageAT: AccessTokenRow = {
+      id: state.nextAccessTokenPk++, tokenHash: sha256('at_lineage'), tokenPreview: 'at…lineage',
+      oauthClientId: client.id, userId: 7, clientId: 42, scopes: ['profile:read'],
+      resource: null, expiresAt: new Date(Date.now() + 60 * 60 * 1000), revokedAt: null,
+    };
+    // An unrelated access token (different user) that MUST survive — proves the
+    // revocation is scoped to the lineage and does not over-revoke.
+    const otherAT: AccessTokenRow = { ...lineageAT, id: state.nextAccessTokenPk++, tokenHash: sha256('at_other'), userId: 999, revokedAt: null };
+    state.oauthAccessTokens.push(lineageAT, otherAT);
 
     const res = await tokenPOST(formRequest('http://x/oauth/token', refreshParams()));
     expect(res.status).toBe(400);
     expect((await res.json()).error_description).toBe('Refresh token already used');
 
-    // No new tokens minted, and the live sibling is force-revoked.
-    expect(state.oauthAccessTokens).toHaveLength(0);
+    // No new tokens minted; live refresh sibling force-revoked; co-issued access
+    // token revoked; the unrelated access token untouched.
+    expect(state.oauthAccessTokens).toHaveLength(2);
     expect(sibling.revokedAt).toBeInstanceOf(Date);
+    expect(lineageAT.revokedAt).toBeInstanceOf(Date);
+    expect(otherAT.revokedAt).toBeNull();
   });
 });
