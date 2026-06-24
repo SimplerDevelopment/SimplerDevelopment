@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { slugify } from '@/lib/publishing/slug';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnPrimary, pBtnGhost, pCard, pInput } from '@/components/portal/portal-ui';
 
 interface Tag {
   id: number;
@@ -104,23 +106,24 @@ export default function PortalTagsPage() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Tags</h1>
-          <p className="text-muted-foreground text-sm mt-1">Label your posts with tags for filtering and discovery.</p>
-        </div>
-        <button
-          onClick={showForm ? () => setShowForm(false) : openCreate}
-          className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
-        >
-          <span className="material-icons text-base">{showForm ? 'close' : 'add'}</span>
-          {showForm ? 'Cancel' : 'Add Tag'}
-        </button>
-      </div>
+      <PortalPageHeader
+        eyebrow="Website"
+        title="Tags"
+        subtitle="Label your posts with tags for filtering and discovery."
+        actions={
+          <button
+            onClick={showForm ? () => setShowForm(false) : openCreate}
+            className={pBtnPrimary}
+          >
+            <span className="material-icons text-base">{showForm ? 'close' : 'add'}</span>
+            {showForm ? 'Cancel' : 'Add Tag'}
+          </button>
+        }
+      />
 
       {showForm && (
-        <form onSubmit={handleSubmit} className="bg-card border border-border rounded-xl p-6 space-y-4">
-          <h2 className="font-semibold text-foreground">{editing ? 'Edit Tag' : 'New Tag'}</h2>
+        <form onSubmit={handleSubmit} className={`${pCard} p-6 space-y-4`}>
+          <h2 className="font-display font-extrabold tracking-[-0.01em] text-foreground text-sm">{editing ? 'Edit Tag' : 'New Tag'}</h2>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
@@ -130,7 +133,7 @@ export default function PortalTagsPage() {
                 onChange={e => handleNameChange(e.target.value)}
                 required
                 placeholder="e.g. Featured"
-                className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                className={`${pInput} w-full`}
               />
             </div>
             <div className="space-y-1.5">
@@ -140,7 +143,7 @@ export default function PortalTagsPage() {
                 onChange={e => { setForm(prev => ({ ...prev, slug: e.target.value })); setError(''); }}
                 required
                 placeholder="featured"
-                className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/40"
+                className={`${pInput} w-full font-mono`}
               />
             </div>
           </div>
@@ -155,14 +158,14 @@ export default function PortalTagsPage() {
             <button
               type="button"
               onClick={() => setShowForm(false)}
-              className="px-4 py-2 text-sm font-medium text-foreground bg-card border border-border rounded-lg hover:bg-accent transition-colors"
+              className={pBtnGhost}
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={saving}
-              className="flex items-center gap-2 px-5 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+              className={`${pBtnPrimary} disabled:opacity-50`}
             >
               {saving && <span className="material-icons text-base animate-spin">refresh</span>}
               {editing ? 'Update' : 'Create'} Tag
@@ -172,7 +175,7 @@ export default function PortalTagsPage() {
       )}
 
       {/* Tags list */}
-      <div className="bg-card border border-border rounded-xl overflow-hidden">
+      <div className={`${pCard} overflow-hidden`}>
         {tags.length === 0 ? (
           <div className="px-6 py-12 text-center">
             <span className="material-icons text-4xl text-muted-foreground/40">label</span>

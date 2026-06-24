@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { formatMoney } from '@/lib/utils/money';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnPrimary, pBtnGhost, pCard, pCardPad } from '@/components/portal/portal-ui';
 
 interface StoreSettings {
   enabled: boolean;
@@ -109,11 +111,8 @@ export default function StoreDashboardPage() {
   if (!settings?.enabled) {
     return (
       <div className="max-w-4xl mx-auto space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Store</h1>
-          <p className="text-muted-foreground text-sm mt-1">Sell products directly from your website.</p>
-        </div>
-        <div className="bg-card border border-border rounded-xl p-10 flex flex-col items-center text-center">
+        <PortalPageHeader eyebrow="Store" title="Store" subtitle="Sell products directly from your website." />
+        <div className="bg-card border border-border rounded-2xl p-10 flex flex-col items-center text-center">
           <span className="material-icons text-5xl text-muted-foreground/40 mb-3">storefront</span>
           <h2 className="text-xl font-semibold text-foreground mb-2">Enable Your Store</h2>
           <p className="text-sm text-muted-foreground mb-6 max-w-md">
@@ -122,7 +121,7 @@ export default function StoreDashboardPage() {
           <button
             onClick={enableStore}
             disabled={enabling}
-            className="flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+            className={pBtnPrimary}
           >
             {enabling ? (
               <span className="material-icons text-base animate-spin">refresh</span>
@@ -139,25 +138,21 @@ export default function StoreDashboardPage() {
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Store Dashboard</h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            {settings.storeName || 'Your store'} — last 30 days overview
-          </p>
-        </div>
-        <Link
-          href={`/portal/websites/${siteId}/store/products/new`}
-          className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors shrink-0"
-        >
-          <span className="material-icons text-base">add</span>
-          Add Product
-        </Link>
-      </div>
+      <PortalPageHeader
+        eyebrow="Store"
+        title="Store Dashboard"
+        subtitle={`${settings.storeName || 'Your store'} — last 30 days overview`}
+        actions={
+          <Link href={`/portal/websites/${siteId}/store/products/new`} className={pBtnPrimary}>
+            <span className="material-icons text-base">add</span>
+            Add Product
+          </Link>
+        }
+      />
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-card border border-border rounded-xl p-4">
+        <div className="bg-card border border-border rounded-2xl p-4">
           <div className="flex items-center gap-2 mb-1">
             <span className="material-icons text-green-600 text-lg">payments</span>
             <p className="text-xs text-muted-foreground">Total Revenue</p>
@@ -166,21 +161,21 @@ export default function StoreDashboardPage() {
             {analytics ? formatMoney(analytics.totalRevenue) : '$0.00'}
           </p>
         </div>
-        <div className="bg-card border border-border rounded-xl p-4">
+        <div className="bg-card border border-border rounded-2xl p-4">
           <div className="flex items-center gap-2 mb-1">
             <span className="material-icons text-blue-600 text-lg">shopping_cart</span>
             <p className="text-xs text-muted-foreground">Orders Today</p>
           </div>
           <p className="text-2xl font-bold text-foreground">{analytics?.ordersToday ?? 0}</p>
         </div>
-        <div className="bg-card border border-border rounded-xl p-4">
+        <div className="bg-card border border-border rounded-2xl p-4">
           <div className="flex items-center gap-2 mb-1">
             <span className="material-icons text-indigo-600 text-lg">inventory_2</span>
             <p className="text-xs text-muted-foreground">Active Products</p>
           </div>
           <p className="text-2xl font-bold text-foreground">{analytics?.activeProducts ?? 0}</p>
         </div>
-        <div className="bg-card border border-border rounded-xl p-4">
+        <div className="bg-card border border-border rounded-2xl p-4">
           <div className="flex items-center gap-2 mb-1">
             <span className="material-icons text-orange-600 text-lg">warning</span>
             <p className="text-xs text-muted-foreground">Low Stock Items</p>
@@ -190,7 +185,7 @@ export default function StoreDashboardPage() {
       </div>
 
       {/* Recent Orders */}
-      <div className="bg-card border border-border rounded-xl overflow-hidden">
+      <div className="bg-card border border-border rounded-2xl overflow-hidden">
         <div className="px-4 py-3 border-b border-border bg-muted/20 flex items-center justify-between">
           <h2 className="font-semibold text-sm text-foreground">Recent Orders</h2>
           <Link

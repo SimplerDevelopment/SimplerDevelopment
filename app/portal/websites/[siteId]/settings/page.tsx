@@ -19,6 +19,7 @@ import CopyableSiteId from '@/components/portal/CopyableSiteId';
 import DeveloperSetup from '@/components/portal/DeveloperSetup';
 import RepoConnectionManager from '@/components/portal/RepoConnectionManager';
 import TrackingSettingsCard from '@/components/portal/TrackingSettingsCard';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
 
 export default async function WebsiteSettingsPage({
   params,
@@ -71,12 +72,11 @@ export default async function WebsiteSettingsPage({
     <div className="max-w-4xl mx-auto space-y-6">
       {/* Header — site identity + back lives in WebsiteSubNav, this is just the
           page title. */}
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Settings</h1>
-        <p className="text-muted-foreground text-sm mt-1">
-          Manage deployment, domain, repository access, and general settings.
-        </p>
-      </div>
+      <PortalPageHeader
+        eyebrow="Website"
+        title="Settings"
+        subtitle="Manage deployment, domain, repository access, and general settings."
+      />
 
       {/* Site ID */}
       <CopyableSiteId siteId={site.id} />
@@ -136,7 +136,7 @@ export default async function WebsiteSettingsPage({
       {site.deploymentStatus === 'active' && (
         <Link
           href={`/portal/websites/${site.id}/automations`}
-          className="flex items-center justify-between bg-card border border-border rounded-xl p-5 hover:border-primary/30 transition-colors group"
+          className="flex items-center justify-between bg-card border border-border rounded-2xl p-5 hover:border-primary/30 transition-colors group"
         >
           <div className="flex items-center gap-3">
             <span className="material-icons text-muted-foreground text-lg group-hover:text-primary transition-colors">bolt</span>

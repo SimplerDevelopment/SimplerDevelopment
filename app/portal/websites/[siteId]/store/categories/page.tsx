@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { slugify } from '@/lib/publishing/slug';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnPrimary, pBtnGhost, pInput } from '@/components/portal/portal-ui';
 
 interface ProductCategory {
   id: number;
@@ -129,9 +131,6 @@ export default function StoreCategoriesPage() {
     }
   };
 
-  const inputClass =
-    'w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40';
-
   if (loading) {
     return (
       <div className="flex items-center justify-center py-16">
@@ -146,19 +145,20 @@ export default function StoreCategoriesPage() {
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Product Categories</h1>
-          <p className="text-muted-foreground text-sm mt-1">Organize products into categories.</p>
-        </div>
-        <button
-          onClick={showForm ? () => setShowForm(false) : openCreate}
-          className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
-        >
-          <span className="material-icons text-base">{showForm ? 'close' : 'add'}</span>
-          {showForm ? 'Cancel' : 'Add Category'}
-        </button>
-      </div>
+      <PortalPageHeader
+        eyebrow="Store"
+        title="Product Categories"
+        subtitle="Organize products into categories."
+        actions={
+          <button
+            onClick={showForm ? () => setShowForm(false) : openCreate}
+            className={showForm ? pBtnGhost : pBtnPrimary}
+          >
+            <span className="material-icons text-base">{showForm ? 'close' : 'add'}</span>
+            {showForm ? 'Cancel' : 'Add Category'}
+          </button>
+        }
+      />
 
       {/* Messages */}
       {error && !showForm && (
@@ -176,7 +176,7 @@ export default function StoreCategoriesPage() {
 
       {/* Form */}
       {showForm && (
-        <form onSubmit={handleSubmit} className="bg-card border border-border rounded-xl p-6 space-y-4">
+        <form onSubmit={handleSubmit} className="bg-card border border-border rounded-2xl p-6 space-y-4">
           <h2 className="font-semibold text-foreground">{editing ? 'Edit Category' : 'New Category'}</h2>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -187,7 +187,7 @@ export default function StoreCategoriesPage() {
                 onChange={(e) => handleNameChange(e.target.value)}
                 required
                 placeholder="e.g. T-Shirts"
-                className={inputClass}
+                className={pInput}
               />
             </div>
             <div className="space-y-1.5">
@@ -200,7 +200,7 @@ export default function StoreCategoriesPage() {
                 }}
                 required
                 placeholder="t-shirts"
-                className={`${inputClass} font-mono`}
+                className={`${pInput} font-mono`}
               />
             </div>
           </div>
@@ -212,7 +212,7 @@ export default function StoreCategoriesPage() {
               onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
               placeholder="Optional description"
               rows={2}
-              className={inputClass}
+              className={pInput}
             />
           </div>
 
@@ -223,7 +223,7 @@ export default function StoreCategoriesPage() {
                 value={form.imageUrl}
                 onChange={(e) => setForm((prev) => ({ ...prev, imageUrl: e.target.value }))}
                 placeholder="https://..."
-                className={inputClass}
+                className={pInput}
               />
               {form.imageUrl && (
                 <div className="mt-2">
@@ -243,7 +243,7 @@ export default function StoreCategoriesPage() {
               <select
                 value={form.parentId}
                 onChange={(e) => setForm((prev) => ({ ...prev, parentId: e.target.value }))}
-                className={inputClass}
+                className={pInput}
               >
                 <option value="">None (top-level)</option>
                 {parentOptions.map((cat) => (
@@ -266,14 +266,14 @@ export default function StoreCategoriesPage() {
             <button
               type="button"
               onClick={() => setShowForm(false)}
-              className="px-4 py-2 text-sm font-medium text-foreground bg-card border border-border rounded-lg hover:bg-accent transition-colors"
+              className={pBtnGhost}
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={saving}
-              className="flex items-center gap-2 px-5 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+              className={pBtnPrimary}
             >
               {saving && <span className="material-icons text-base animate-spin">refresh</span>}
               {editing ? 'Update' : 'Create'} Category
@@ -283,7 +283,7 @@ export default function StoreCategoriesPage() {
       )}
 
       {/* Categories List */}
-      <div className="bg-card border border-border rounded-xl overflow-hidden">
+      <div className="bg-card border border-border rounded-2xl overflow-hidden">
         {categories.length === 0 ? (
           <div className="px-6 py-12 text-center">
             <span className="material-icons text-4xl text-muted-foreground/40">category</span>

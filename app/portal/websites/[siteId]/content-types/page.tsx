@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { slugify } from '@/lib/publishing/slug';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnPrimary, pBtnGhost, pCard, pInput } from '@/components/portal/portal-ui';
 
 interface ContentType {
   id: number;
@@ -99,25 +101,24 @@ export default function ContentTypesPage() {
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Content Types</h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            Define the structure of your content. Built-in types are always available.
-          </p>
-        </div>
-        <button
-          onClick={showForm && !editingType ? () => setShowForm(false) : openCreate}
-          className="flex items-center gap-1.5 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
-        >
-          <span className="material-icons text-base">{showForm && !editingType ? 'close' : 'add'}</span>
-          {showForm && !editingType ? 'Cancel' : 'Add Content Type'}
-        </button>
-      </div>
+      <PortalPageHeader
+        eyebrow="Website"
+        title="Content Types"
+        subtitle="Define the structure of your content. Built-in types are always available."
+        actions={
+          <button
+            onClick={showForm && !editingType ? () => setShowForm(false) : openCreate}
+            className={showForm && !editingType ? pBtnGhost : pBtnPrimary}
+          >
+            <span className="material-icons text-base">{showForm && !editingType ? 'close' : 'add'}</span>
+            {showForm && !editingType ? 'Cancel' : 'Add Content Type'}
+          </button>
+        }
+      />
 
       {/* Form */}
       {showForm && (
-        <form onSubmit={handleSubmit} className="bg-card border border-border rounded-xl p-5 space-y-4">
+        <form onSubmit={handleSubmit} className={`${pCard} p-5 space-y-4`}>
           <h3 className="font-medium text-foreground text-sm">{editingType ? 'Edit' : 'New'} Content Type</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
@@ -131,7 +132,7 @@ export default function ContentTypesPage() {
                 }))}
                 required
                 placeholder="e.g. Case Study"
-                className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                className={pInput}
               />
             </div>
             <div className="space-y-1.5">
@@ -140,7 +141,7 @@ export default function ContentTypesPage() {
                 value={form.slug}
                 onChange={e => setForm(prev => ({ ...prev, slug: e.target.value }))}
                 required
-                className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/40"
+                className={`${pInput} font-mono`}
               />
             </div>
           </div>
@@ -150,7 +151,7 @@ export default function ContentTypesPage() {
               value={form.description}
               onChange={e => setForm(prev => ({ ...prev, description: e.target.value }))}
               placeholder="Optional description"
-              className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+              className={pInput}
             />
           </div>
           <div className="space-y-1.5">
@@ -179,14 +180,14 @@ export default function ContentTypesPage() {
             <button
               type="button"
               onClick={() => { setShowForm(false); setEditingType(null); }}
-              className="px-4 py-2 text-sm font-medium bg-card border border-border rounded-lg hover:bg-accent transition-colors"
+              className={pBtnGhost}
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={saving}
-              className="flex items-center gap-2 px-5 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-50"
+              className={pBtnPrimary}
             >
               {saving && <span className="material-icons text-base animate-spin">refresh</span>}
               {editingType ? 'Update' : 'Create'}
@@ -200,7 +201,7 @@ export default function ContentTypesPage() {
         {contentTypes.map(type => (
           <div
             key={type.id}
-            className="bg-card border border-border rounded-xl p-4 group hover:border-primary/30 transition-colors"
+            className="bg-card border border-border rounded-2xl p-4 group hover:border-primary/30 transition-colors"
           >
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-3">
