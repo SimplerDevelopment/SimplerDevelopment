@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import ProductAutomationSettings from '@/components/portal/ProductAutomationSettings';
 import { PRODUCT_PRESET_GROUPS } from '@/lib/automation/product-presets';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnPrimary, pBtnGhost, pBtnSoft, pInput, pSelect, pCard, pCardPad, pSectionTitle } from '@/components/portal/portal-ui';
 
 // Plugin-script item returned by /api/portal/plugins/scripts — one entry
 // per (plugin, script) pair the active client is entitled to run. The
@@ -657,34 +659,29 @@ export default function BrainAutomationsPage() {
 
   return (
     <div className="max-w-5xl mx-auto py-8">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-2 flex-wrap gap-3">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <span className="material-icons text-primary">bolt</span>
-            Brain Automations
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Cross-product rules that fire when something happens — booking, survey, deal, task — and act on your behalf.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Link
-            href="/portal/brain"
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md border border-border text-foreground hover:bg-accent"
-          >
-            <span className="material-icons text-base">arrow_back</span>
-            Brain
-          </Link>
-          <button
-            onClick={() => setTab('create')}
-            className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors text-sm font-medium"
-          >
-            <span className="material-icons text-lg">auto_awesome</span>
-            Create Automation
-          </button>
-        </div>
-      </div>
+      <PortalPageHeader
+        eyebrow="Company Brain"
+        title="Brain Automations"
+        subtitle="Cross-product rules that fire when something happens — booking, survey, deal, task — and act on your behalf."
+        actions={
+          <>
+            <Link
+              href="/portal/brain"
+              className={pBtnGhost}
+            >
+              <span className="material-icons text-base">arrow_back</span>
+              Brain
+            </Link>
+            <button
+              onClick={() => setTab('create')}
+              className={pBtnPrimary}
+            >
+              <span className="material-icons text-lg">auto_awesome</span>
+              Create Automation
+            </button>
+          </>
+        }
+      />
 
       {/* Tabs */}
       <div className="flex gap-1 border-b border-border mb-6 mt-6 overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0">
@@ -692,10 +689,10 @@ export default function BrainAutomationsPage() {
           <button
             key={t}
             onClick={() => setTab(t)}
-            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+            className={`px-4 py-2.5 text-sm font-medium transition-colors whitespace-nowrap ${
               tab === t
-                ? 'border-primary text-foreground'
-                : 'border-transparent text-muted-foreground hover:text-foreground'
+                ? 'bg-foreground text-background rounded-lg'
+                : 'text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-lg'
             }`}
           >
             {t === 'rules' && (
@@ -738,7 +735,7 @@ export default function BrainAutomationsPage() {
               </p>
               <button
                 onClick={() => setTab('create')}
-                className="mt-4 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90"
+                className={`mt-4 ${pBtnPrimary}`}
               >
                 Browse templates
               </button>
@@ -749,7 +746,7 @@ export default function BrainAutomationsPage() {
               return (
                 <div
                   key={rule.id}
-                  className="bg-card border border-border rounded-xl p-4 hover:border-border/80 transition-colors"
+                  className={`${pCard} p-4 hover:border-border/80 transition-colors`}
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1 min-w-0">
@@ -857,14 +854,14 @@ export default function BrainAutomationsPage() {
           </div>
 
           {PRODUCT_PRESET_GROUPS.map((group) => (
-            <section key={group.productScope} className="bg-card border border-border rounded-xl p-6">
+            <section key={group.productScope} className={`${pCard} p-6`}>
               <div className="flex items-start justify-between gap-4 mb-1">
                 <div className="flex items-start gap-3 min-w-0">
-                  <div className="shrink-0 w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+                  <div className="shrink-0 w-9 h-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
                     <span className="material-icons text-lg">{group.icon}</span>
                   </div>
                   <div className="min-w-0">
-                    <h2 className="text-lg font-semibold">{group.label}</h2>
+                    <h2 className={pSectionTitle}>{group.label}</h2>
                     <p className="text-sm text-muted-foreground">{group.description}</p>
                   </div>
                 </div>
@@ -896,7 +893,7 @@ export default function BrainAutomationsPage() {
             logs.map((log) => (
               <div
                 key={log.id}
-                className="flex items-center gap-3 bg-card border border-border rounded-lg px-4 py-3"
+                className={`flex items-center gap-3 ${pCard} px-4 py-3`}
               >
                 <span
                   className={`material-icons text-lg ${
@@ -936,9 +933,9 @@ export default function BrainAutomationsPage() {
       {tab === 'create' && (
         <div className="space-y-6">
           {/* Quick Start Templates */}
-          <div className="bg-card border border-border rounded-xl p-6">
+          <div className={`${pCard} p-6`}>
             <div className="flex items-center justify-between mb-1">
-              <h2 className="text-lg font-semibold">Quick start templates</h2>
+              <h2 className={pSectionTitle}>Quick start templates</h2>
               <span className="text-xs text-muted-foreground">One-click install</span>
             </div>
             <p className="text-sm text-muted-foreground mb-4">
@@ -951,7 +948,7 @@ export default function BrainAutomationsPage() {
                 return (
                   <div
                     key={tpl.id}
-                    className="flex flex-col gap-3 bg-background border border-border rounded-lg p-4 hover:border-border/80 transition-colors"
+                    className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4 hover:border-border/80 transition-colors"
                   >
                     <div className="flex items-start gap-3">
                       <div className={`shrink-0 w-9 h-9 rounded-lg flex items-center justify-center ${SCOPE_COLORS[tpl.scope] || 'bg-muted text-muted-foreground'}`}>
@@ -972,12 +969,12 @@ export default function BrainAutomationsPage() {
                       <button
                         onClick={() => handleInstallTemplate(tpl)}
                         disabled={installing || installed}
-                        className={`flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                        className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-medium transition-colors ${
                           installed
                             ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300 cursor-default'
                             : installing
                             ? 'bg-muted text-muted-foreground cursor-wait'
-                            : 'bg-primary text-primary-foreground hover:bg-primary/90'
+                            : pBtnSoft
                         }`}
                       >
                         {installed ? (
@@ -1005,8 +1002,8 @@ export default function BrainAutomationsPage() {
           </div>
 
           {/* NLP Input */}
-          <div className="bg-card border border-border rounded-xl p-6">
-            <h2 className="text-lg font-semibold mb-1">Describe your automation</h2>
+          <div className={`${pCard} p-6`}>
+            <h2 className={`${pSectionTitle} mb-1`}>Describe your automation</h2>
             <p className="text-sm text-muted-foreground mb-4">
               Tell us what you want to happen in plain English. AI will parse it into a structured rule.
             </p>
@@ -1015,7 +1012,7 @@ export default function BrainAutomationsPage() {
               value={nlpInput}
               onChange={(e) => setNlpInput(e.target.value)}
               placeholder="e.g. When someone books an appointment, send them a confirmation email and create a task for my team"
-              className="w-full h-28 resize-none bg-background border border-border rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-muted-foreground/60"
+              className={`${pInput} h-28 resize-none`}
             />
 
             <div className="flex items-center justify-between mt-3">
@@ -1026,7 +1023,7 @@ export default function BrainAutomationsPage() {
               <button
                 onClick={handleParse}
                 disabled={parsing || !nlpInput.trim()}
-                className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
+                className={pBtnPrimary}
               >
                 {parsing ? (
                   <>
@@ -1052,8 +1049,8 @@ export default function BrainAutomationsPage() {
 
           {/* Examples */}
           {!parsed && (
-            <div className="bg-card border border-border rounded-xl p-6">
-              <h3 className="text-sm font-semibold mb-3">Example automations</h3>
+            <div className={`${pCard} p-6`}>
+              <h3 className={`${pSectionTitle} mb-3`}>Example automations</h3>
               <div className="grid gap-2">
                 {[
                   'When someone books an appointment, send them a confirmation email and create a task for my team',
@@ -1077,9 +1074,9 @@ export default function BrainAutomationsPage() {
 
           {/* Parsed Result Preview */}
           {parsed && (
-            <div className="bg-card border border-primary/30 rounded-xl p-6">
+            <div className="rounded-2xl border border-primary/30 bg-card p-6">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold">Review Automation</h3>
+                <h3 className={pSectionTitle}>Review Automation</h3>
                 <span className="text-xs text-primary bg-primary/10 px-2 py-1 rounded-full font-medium">
                   AI Generated
                 </span>
@@ -1198,7 +1195,7 @@ export default function BrainAutomationsPage() {
                 <button
                   onClick={handleSaveRule}
                   disabled={saving}
-                  className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50"
+                  className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-xl text-sm font-medium hover:bg-green-700 disabled:opacity-50"
                 >
                   {saving ? (
                     <span className="material-icons text-base animate-spin">autorenew</span>
@@ -1221,10 +1218,10 @@ export default function BrainAutomationsPage() {
               time-based rule without going through NLP. Pairs a chosen
               template's actions with a cadence picker. */}
           {!parsed && (
-            <div className="bg-card border border-border rounded-xl p-6">
+            <div className={`${pCard} p-6`}>
               <div className="flex items-center gap-2 mb-1">
                 <span className="material-icons text-sky-500">schedule</span>
-                <h2 className="text-lg font-semibold">Schedule a rule</h2>
+                <h2 className={pSectionTitle}>Schedule a rule</h2>
               </div>
               <p className="text-sm text-muted-foreground mb-4">
                 Run an action on a fixed cadence — daily, weekly, monthly, or a custom cron expression. All times are UTC.
@@ -1238,7 +1235,7 @@ export default function BrainAutomationsPage() {
                     value={schedName}
                     onChange={(e) => setSchedName(e.target.value)}
                     placeholder="Weekly digest"
-                    className="bg-background border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    className={pInput}
                   />
                 </label>
                 <label className="flex flex-col gap-1">
@@ -1246,7 +1243,7 @@ export default function BrainAutomationsPage() {
                   <select
                     value={schedTemplateId}
                     onChange={(e) => setSchedTemplateId(e.target.value)}
-                    className="bg-background border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    className={pSelect}
                   >
                     <option value="">— pick one —</option>
                     <optgroup label="Built-in templates">
@@ -1298,7 +1295,7 @@ export default function BrainAutomationsPage() {
                 <button
                   onClick={handleSaveScheduledRule}
                   disabled={schedSaving || !schedName.trim() || !schedTemplateId}
-                  className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50"
+                  className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-xl text-sm font-medium hover:bg-green-700 disabled:opacity-50"
                 >
                   {schedSaving ? (
                     <span className="material-icons text-base animate-spin">autorenew</span>
@@ -1342,7 +1339,7 @@ function PluginScriptArgsEditor(props: PluginScriptArgsEditorProps) {
   };
 
   return (
-    <div className="mt-4 p-4 bg-muted/30 border border-border rounded-lg">
+    <div className="mt-4 p-4 bg-muted/30 border border-border rounded-xl">
       <div className="flex items-center gap-2 mb-3">
         <span className="material-icons text-base text-muted-foreground">tune</span>
         <h3 className="text-sm font-medium">Script inputs</h3>
@@ -1365,7 +1362,7 @@ function PluginScriptArgsEditor(props: PluginScriptArgsEditorProps) {
                 <select
                   value={value || (arg.default !== undefined ? String(arg.default) : 'false')}
                   onChange={(e) => setField(arg.name, e.target.value)}
-                  className="bg-background border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  className={pSelect}
                 >
                   <option value="true">true</option>
                   <option value="false">false</option>
@@ -1376,7 +1373,7 @@ function PluginScriptArgsEditor(props: PluginScriptArgsEditorProps) {
                   value={value}
                   onChange={(e) => setField(arg.name, e.target.value)}
                   placeholder={placeholder}
-                  className="bg-background border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  className={pInput}
                 />
               )}
               {arg.description && (
@@ -1408,14 +1405,14 @@ interface ScheduleEditorProps {
 function ScheduleEditor(props: ScheduleEditorProps) {
   const { cadence, time, dayOfWeek, dayOfMonth, cronExpression, preview, previewError } = props;
   return (
-    <div className="space-y-3 mt-2 p-4 bg-muted/30 border border-border rounded-lg">
+    <div className="space-y-3 mt-2 p-4 bg-muted/30 border border-border rounded-xl">
       <div className="grid sm:grid-cols-2 gap-3">
         <label className="flex flex-col gap-1">
           <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Cadence</span>
           <select
             value={cadence}
             onChange={(e) => props.onCadence(e.target.value as ScheduleEditorProps['cadence'])}
-            className="bg-background border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+            className={pSelect}
           >
             <option value="daily">Daily</option>
             <option value="weekly">Weekly</option>
@@ -1431,7 +1428,7 @@ function ScheduleEditor(props: ScheduleEditorProps) {
               type="time"
               value={time}
               onChange={(e) => props.onTime(e.target.value)}
-              className="bg-background border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+              className={pInput}
             />
           </label>
         )}
@@ -1442,7 +1439,7 @@ function ScheduleEditor(props: ScheduleEditorProps) {
             <select
               value={dayOfWeek}
               onChange={(e) => props.onDayOfWeek(Number(e.target.value))}
-              className="bg-background border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+              className={pSelect}
             >
               {DAYS_OF_WEEK.map((d) => (
                 <option key={d.value} value={d.value}>{d.label}</option>
@@ -1460,7 +1457,7 @@ function ScheduleEditor(props: ScheduleEditorProps) {
               max={31}
               value={dayOfMonth}
               onChange={(e) => props.onDayOfMonth(Math.min(31, Math.max(1, Number(e.target.value) || 1)))}
-              className="bg-background border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+              className={pInput}
             />
             <span className="text-[11px] text-muted-foreground">If the month has fewer days, fires on the last day.</span>
           </label>
@@ -1474,7 +1471,7 @@ function ScheduleEditor(props: ScheduleEditorProps) {
               value={cronExpression}
               onChange={(e) => props.onCronExpression(e.target.value)}
               placeholder="*/15 * * * *"
-              className="bg-background border border-border rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/50"
+              className={`${pInput} font-mono`}
             />
             <span className="text-[11px] text-muted-foreground">Five-field UTC cron (minute hour day-of-month month day-of-week).</span>
           </label>
