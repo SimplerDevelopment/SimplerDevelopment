@@ -123,6 +123,10 @@ export default async function PortalDashboardPage() {
     activeServiceCategories,
     brainEnabled,
   );
+  // True board membership — a widget can be "not hidden" yet not on the board
+  // (default-off + unentitled). The customize toggle must reflect this, not just
+  // the hidden set, or it lies about off-by-default widgets.
+  const visibleIds = new Set(visibleWidgets.map((w) => w.id));
 
   // Get deeper stats for active services
   const siteIds = websiteSites[0]?.count ? (await safe(db.select({ id: clientWebsites.id }).from(clientWebsites)
@@ -270,7 +274,7 @@ export default async function PortalDashboardPage() {
           icon: w.icon,
           href: w.href,
           description: w.description,
-          visible: !dashboardPrefs.hidden?.includes(w.id),
+          visible: visibleIds.has(w.id),
           solution: w.solution,
         }))}
         initialPrefs={dashboardPrefs}

@@ -106,6 +106,12 @@ export default function WidgetBoard({
   const [collapsed, setCollapsed] = useState<Set<string>>(
     () => new Set(initialPrefs.collapsed ?? []),
   );
+  // Which widgets are actually on the board. Seeded from server-resolved
+  // visibility (allAvailable[].visible), not just `hidden` — a default-off,
+  // unentitled widget is "not hidden" yet still off the board.
+  const [onBoard, setOnBoard] = useState<Set<string>>(
+    () => new Set(allAvailable.filter((w) => w.visible).map((w) => w.id)),
+  );
   const [screenOptionsOpen, setScreenOptionsOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [widgetSearch, setWidgetSearch] = useState('');
@@ -162,14 +168,23 @@ export default function WidgetBoard({
   }
 
   function handleToggleVisibility(id: string, visible: boolean) {
-    const next = new Set(hidden);
+    const nextHidden = new Set(hidden);
+    const nextOnBoard = new Set(onBoard);
+    let nextOrder = order;
     if (visible) {
-      next.delete(id);
+      nextHidden.delete(id);
+      nextOnBoard.add(id);
+      // Removing from `hidden` isn't enough: a default-off/unentitled widget is
+      // included only when it's in `order`. Append so it actually lands on the board.
+      if (!order.includes(id)) nextOrder = [...order, id];
     } else {
-      next.add(id);
+      nextHidden.add(id);
+      nextOnBoard.delete(id);
     }
-    setHidden(next);
-    persistPrefs(order, next, collapsed).then(() => router.refresh());
+    setHidden(nextHidden);
+    setOnBoard(nextOnBoard);
+    setOrder(nextOrder);
+    persistPrefs(nextOrder, nextHidden, collapsed).then(() => router.refresh());
   }
 
   // ─── Screen Options panel helpers ────────────────────────────────────────────
@@ -293,7 +308,7 @@ export default function WidgetBoard({
                       {SOLUTION_LABELS[slug] ?? slug}
                     </p>
                     {filteredSolutionMap[slug].map((w) => {
-                      const isVisible = !hidden.has(w.id);
+                      const isVisible = onBoard.has(w.id);
                       return (
                         <div
                           key={w.id}
