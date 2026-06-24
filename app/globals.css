@@ -503,3 +503,24 @@ html,body {
 .admin-shell *::-webkit-scrollbar { width: 9px; height: 9px; }
 .admin-shell *::-webkit-scrollbar-thumb { background: var(--admin-border-strong); border-radius: 99px; }
 .admin-shell *::-webkit-scrollbar-track { background: transparent; }
+
+/* ── Auth split-screen brand panel (login / signup / forgot) ─────────────────
+   The drifting color-mesh behind the auth pages' right panel — brand-agnostic,
+   the tenant's name renders over it. Honors prefers-reduced-motion. */
+@keyframes auth-drift {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(8%, -10%) scale(1.12); }
+  66% { transform: translate(-6%, 8%) scale(0.92); }
+}
+@keyframes auth-pulse { 50% { opacity: 0.4; } }
+.auth-mesh { position: absolute; inset: -30%; filter: blur(70px); opacity: 0.85; z-index: 0; }
+.auth-blob { position: absolute; border-radius: 50%; mix-blend-mode: screen; animation: auth-drift 18s ease-in-out infinite; }
+.auth-grain {
+  position: absolute; inset: 0; z-index: 1; opacity: 0.5;
+  background: radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.08) 1px, transparent 0);
+  background-size: 22px 22px;
+}
+.auth-dot { animation: auth-pulse 2s infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .auth-blob, .auth-dot { animation: none; }
+}
