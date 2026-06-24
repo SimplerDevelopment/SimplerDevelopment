@@ -13,6 +13,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnPrimary, pBtnGhost } from '@/components/portal/portal-ui';
 
 interface ContractClause {
   id: string;
@@ -219,12 +221,11 @@ export default function PortalContractDetailPage() {
 
   return (
     <div className="p-6 space-y-6">
-      <div className="flex items-center gap-2">
-        <Link href="/portal/crm" className="text-muted-foreground hover:text-foreground">
-          <span className="material-icons text-sm">arrow_back</span>
-        </Link>
-        <h1 className="text-2xl font-bold text-foreground">{contract.title}</h1>
-      </div>
+      <Link href="/portal/crm" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-1">
+        <span className="material-icons text-sm">arrow_back</span>
+        CRM
+      </Link>
+      <PortalPageHeader eyebrow="CRM" title={contract.title} />
 
       {errorText && (
         <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
@@ -234,7 +235,7 @@ export default function PortalContractDetailPage() {
       )}
 
       {/* E-signature panel */}
-      <div className="rounded-xl border border-border bg-card p-5 space-y-4">
+      <div className="rounded-2xl border border-border bg-card p-5 space-y-4">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-3">
             <span className="material-icons text-foreground">draw</span>
@@ -264,7 +265,7 @@ export default function PortalContractDetailPage() {
           {canSend && (
             <button
               onClick={() => setSendDialogOpen(true)}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90"
+              className={pBtnPrimary}
             >
               <span className="material-icons text-base">send</span>
               Send for signature
@@ -274,7 +275,7 @@ export default function PortalContractDetailPage() {
             <button
               onClick={handleSignNow}
               disabled={signLoading}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 disabled:opacity-60"
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 disabled:opacity-60"
             >
               <span className="material-icons text-base">edit_note</span>
               {signLoading ? 'Loading…' : 'Sign now'}
@@ -283,7 +284,7 @@ export default function PortalContractDetailPage() {
           {canCancel && (
             <button
               onClick={handleCancel}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-border text-sm hover:bg-accent"
+              className={pBtnGhost}
             >
               <span className="material-icons text-base">block</span>
               Cancel signature request
@@ -294,7 +295,7 @@ export default function PortalContractDetailPage() {
               href={contract.esignAuditFileUrl}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-border text-sm font-medium hover:bg-accent"
+              className={pBtnGhost}
             >
               <span className="material-icons text-base">picture_as_pdf</span>
               Download signed PDF
@@ -304,10 +305,10 @@ export default function PortalContractDetailPage() {
       </div>
 
       {/* Audit trail */}
-      <div className="rounded-xl border border-border bg-card p-5">
+      <div className="rounded-2xl border border-border bg-card p-5">
         <div className="flex items-center gap-2 mb-3">
           <span className="material-icons text-muted-foreground">history</span>
-          <h2 className="font-semibold text-foreground">Audit trail</h2>
+          <h2 className="font-display text-[17px] font-extrabold tracking-[-0.02em] text-foreground">Audit trail</h2>
         </div>
         {events.length === 0 ? (
           <div className="text-sm text-muted-foreground py-4">No signing events yet.</div>
@@ -334,15 +335,15 @@ export default function PortalContractDetailPage() {
       {/* Send dialog */}
       {sendDialogOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-card rounded-xl border border-border p-6 max-w-md w-full">
-            <h3 className="font-semibold text-foreground mb-3">Send contract for signature</h3>
+          <div className="bg-card rounded-2xl border border-border p-6 max-w-md w-full">
+            <h3 className="font-display text-[17px] font-extrabold tracking-[-0.02em] text-foreground mb-3">Send contract for signature</h3>
             <div className="space-y-3">
               <label className="block">
                 <span className="text-xs font-medium text-muted-foreground">Signer name</span>
                 <input
                   value={signerName}
                   onChange={e => setSignerName(e.target.value)}
-                  className="mt-1 w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground"
+                  className="mt-1 w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary focus:ring-4 focus:ring-primary/15"
                   placeholder="Jane Doe"
                 />
               </label>
@@ -352,7 +353,7 @@ export default function PortalContractDetailPage() {
                   value={signerEmail}
                   onChange={e => setSignerEmail(e.target.value)}
                   type="email"
-                  className="mt-1 w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground"
+                  className="mt-1 w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary focus:ring-4 focus:ring-primary/15"
                   placeholder="jane@example.com"
                 />
               </label>
@@ -360,7 +361,7 @@ export default function PortalContractDetailPage() {
             <div className="flex items-center justify-end gap-2 mt-5">
               <button
                 onClick={() => setSendDialogOpen(false)}
-                className="px-3 py-2 rounded-lg border border-border text-sm hover:bg-accent"
+                className={pBtnGhost}
                 disabled={sending}
               >
                 Cancel
@@ -368,7 +369,7 @@ export default function PortalContractDetailPage() {
               <button
                 onClick={handleSend}
                 disabled={sending || !signerEmail || !signerName}
-                className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 disabled:opacity-60"
+                className={pBtnPrimary}
               >
                 {sending ? 'Sending…' : 'Send'}
               </button>
@@ -380,9 +381,9 @@ export default function PortalContractDetailPage() {
       {/* Sign-now embedded modal */}
       {signUrl && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-          <div className="bg-card rounded-xl border border-border w-full max-w-4xl h-[80vh] flex flex-col">
+          <div className="bg-card rounded-2xl border border-border w-full max-w-4xl h-[80vh] flex flex-col">
             <div className="flex items-center justify-between p-3 border-b border-border">
-              <div className="font-semibold text-foreground">Sign contract</div>
+              <div className="font-display text-[17px] font-extrabold tracking-[-0.02em] text-foreground">Sign contract</div>
               <button
                 onClick={() => {
                   setSignUrl(null);

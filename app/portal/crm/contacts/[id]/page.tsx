@@ -6,6 +6,8 @@ import Link from 'next/link';
 import CrmCustomFieldsPanel from '@/components/portal/CrmCustomFieldsPanel';
 import CrmCompanyTypeaheadPicker from '@/components/portal/CrmCompanyTypeaheadPicker';
 import { formatMoney } from '@/lib/utils/money';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnPrimary, pBtnGhost, pCard, pCardPad, pInput, pSelect, pSectionTitle } from '@/components/portal/portal-ui';
 
 interface Tag {
   id: number;
@@ -327,74 +329,74 @@ export default function CrmContactDetailPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div className="flex items-center gap-3">
-          <Link href="/portal/crm/contacts" className="text-muted-foreground hover:text-foreground">
-            <span className="material-icons text-base">arrow_back</span>
-          </Link>
-          <div>
-            <div className="flex items-center gap-3">
-              <h2 className="text-xl font-bold text-foreground">{contact.firstName} {contact.lastName}</h2>
-              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusColor[contact.status] ?? 'bg-gray-100 text-gray-700'}`}>
-                {contact.status}
-              </span>
-              {contact.score > 0 && (
-                <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex items-center gap-1 ${
-                  contact.score >= 80 ? 'bg-green-100 text-green-700' :
-                  contact.score >= 50 ? 'bg-blue-100 text-blue-700' :
-                  contact.score >= 20 ? 'bg-yellow-100 text-yellow-700' :
-                  'bg-gray-100 text-gray-500'
-                }`}>
-                  <span className="material-icons text-xs">star</span>
-                  {contact.score}
-                </span>
-              )}
-            </div>
-            <div className="flex items-center gap-2 text-sm text-muted-foreground mt-0.5">
-              {contact.title && <span>{contact.title}</span>}
-              {contact.title && contact.companyName && <span>at</span>}
-              {contact.companyName && (
-                <Link href={`/portal/crm/companies/${contact.companyId}`} className="text-primary hover:underline">
-                  {contact.companyName}
-                </Link>
-              )}
-            </div>
+      {/* Back link */}
+      <Link href="/portal/crm/contacts" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-1">
+        <span className="material-icons text-base">arrow_back</span>
+        Contacts
+      </Link>
+
+      {/* Page Header */}
+      <PortalPageHeader
+        eyebrow="CRM"
+        title={`${contact.firstName} ${contact.lastName}`}
+        subtitle={
+          [contact.title, contact.companyName ? `at ${contact.companyName}` : null]
+            .filter(Boolean)
+            .join(' ') || undefined
+        }
+        actions={
+          <div className="flex gap-2">
+            {!editing && contact.email && (
+              <button
+                onClick={() => setShowEmailForm(true)}
+                className={pBtnPrimary}
+              >
+                <span className="material-icons text-base">mail</span>
+                Send Email
+              </button>
+            )}
+            {!editing && (
+              <button
+                onClick={startEditing}
+                className={pBtnGhost}
+              >
+                <span className="material-icons text-base">edit</span>
+                Edit
+              </button>
+            )}
+            <button
+              onClick={deleteContact}
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-semibold text-destructive transition hover:border-destructive/40 hover:shadow-sm"
+            >
+              <span className="material-icons text-base">delete</span>
+              Delete
+            </button>
           </div>
-        </div>
-        <div className="flex gap-2">
-          {!editing && contact.email && (
-            <button
-              onClick={() => setShowEmailForm(true)}
-              className="flex items-center gap-2 px-3 py-1.5 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
-            >
-              <span className="material-icons text-base">mail</span>
-              Send Email
-            </button>
-          )}
-          {!editing && (
-            <button
-              onClick={startEditing}
-              className="flex items-center gap-2 px-3 py-1.5 border border-border rounded-lg text-sm font-medium text-foreground hover:bg-accent transition-colors"
-            >
-              <span className="material-icons text-base">edit</span>
-              Edit
-            </button>
-          )}
-          <button
-            onClick={deleteContact}
-            className="flex items-center gap-2 px-3 py-1.5 border border-border rounded-lg text-sm font-medium text-destructive hover:bg-destructive/10 transition-colors"
-          >
-            <span className="material-icons text-base">delete</span>
-            Delete
-          </button>
-        </div>
+        }
+      />
+
+      {/* Status + score chips */}
+      <div className="flex items-center gap-2 -mt-3">
+        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusColor[contact.status] ?? 'bg-gray-100 text-gray-700'}`}>
+          {contact.status}
+        </span>
+        {contact.score > 0 && (
+          <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex items-center gap-1 ${
+            contact.score >= 80 ? 'bg-green-100 text-green-700' :
+            contact.score >= 50 ? 'bg-blue-100 text-blue-700' :
+            contact.score >= 20 ? 'bg-yellow-100 text-yellow-700' :
+            'bg-gray-100 text-gray-500'
+          }`}>
+            <span className="material-icons text-xs">star</span>
+            {contact.score}
+          </span>
+        )}
       </div>
 
       {/* Edit form */}
       {editing && (
-        <form onSubmit={saveEdit} className="bg-card border border-border rounded-xl p-6 space-y-4">
-          <h3 className="font-semibold text-foreground">Edit Contact</h3>
+        <form onSubmit={saveEdit} className={`${pCard} p-6 space-y-4`}>
+          <h3 className={pSectionTitle}>Edit Contact</h3>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <div>
               <label className="block text-xs font-medium text-muted-foreground mb-1">First Name</label>
@@ -402,7 +404,7 @@ export default function CrmContactDetailPage() {
                 required
                 value={editForm.firstName}
                 onChange={e => setEditForm(f => ({ ...f, firstName: e.target.value }))}
-                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                className={pInput}
               />
             </div>
             <div>
@@ -411,7 +413,7 @@ export default function CrmContactDetailPage() {
                 required
                 value={editForm.lastName}
                 onChange={e => setEditForm(f => ({ ...f, lastName: e.target.value }))}
-                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                className={pInput}
               />
             </div>
             <div>
@@ -420,7 +422,7 @@ export default function CrmContactDetailPage() {
                 type="email"
                 value={editForm.email}
                 onChange={e => setEditForm(f => ({ ...f, email: e.target.value }))}
-                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                className={pInput}
               />
             </div>
             <div>
@@ -428,7 +430,7 @@ export default function CrmContactDetailPage() {
               <input
                 value={editForm.phone}
                 onChange={e => setEditForm(f => ({ ...f, phone: e.target.value }))}
-                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                className={pInput}
               />
             </div>
             <div>
@@ -438,7 +440,7 @@ export default function CrmContactDetailPage() {
                 value={editForm.linkedinUrl}
                 onChange={e => setEditForm(f => ({ ...f, linkedinUrl: e.target.value }))}
                 placeholder="https://linkedin.com/in/..."
-                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                className={pInput}
               />
             </div>
             <div>
@@ -446,7 +448,7 @@ export default function CrmContactDetailPage() {
               <input
                 value={editForm.title}
                 onChange={e => setEditForm(f => ({ ...f, title: e.target.value }))}
-                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                className={pInput}
               />
             </div>
             <div>
@@ -466,7 +468,7 @@ export default function CrmContactDetailPage() {
               <select
                 value={editForm.status}
                 onChange={e => setEditForm(f => ({ ...f, status: e.target.value }))}
-                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                className={pSelect}
               >
                 <option value="lead">Lead</option>
                 <option value="active">Active</option>
@@ -479,7 +481,7 @@ export default function CrmContactDetailPage() {
               <select
                 value={editForm.source}
                 onChange={e => setEditForm(f => ({ ...f, source: e.target.value }))}
-                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                className={pSelect}
               >
                 <option value="">None</option>
                 {['web', 'referral', 'cold-call', 'event', 'social', 'other'].map(s => (
@@ -492,7 +494,7 @@ export default function CrmContactDetailPage() {
               <input
                 value={editForm.address}
                 onChange={e => setEditForm(f => ({ ...f, address: e.target.value }))}
-                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                className={pInput}
               />
             </div>
           </div>
@@ -500,14 +502,14 @@ export default function CrmContactDetailPage() {
             <button
               type="button"
               onClick={() => setEditing(false)}
-              className="px-4 py-2 border border-border rounded-lg text-sm font-medium text-foreground hover:bg-accent transition-colors"
+              className={pBtnGhost}
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={saving}
-              className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+              className={pBtnPrimary}
             >
               {saving && <span className="material-icons animate-spin text-sm">refresh</span>}
               Save Changes
@@ -526,9 +528,9 @@ export default function CrmContactDetailPage() {
 
       {/* Send Email Form */}
       {showEmailForm && (
-        <form onSubmit={sendEmail} className="bg-card border border-border rounded-xl p-6 space-y-4">
+        <form onSubmit={sendEmail} className={`${pCard} p-6 space-y-4`}>
           <div className="flex items-center justify-between">
-            <h3 className="font-semibold text-foreground">Send Email to {contact.email}</h3>
+            <h3 className={pSectionTitle}>Send Email to {contact.email}</h3>
             <button type="button" onClick={() => setShowEmailForm(false)} className="text-muted-foreground hover:text-foreground">
               <span className="material-icons text-base">close</span>
             </button>
@@ -545,7 +547,7 @@ export default function CrmContactDetailPage() {
               required
               value={emailForm.subject}
               onChange={e => setEmailForm(f => ({ ...f, subject: e.target.value }))}
-              className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+              className={pInput}
             />
           </div>
           <div>
@@ -555,21 +557,21 @@ export default function CrmContactDetailPage() {
               value={emailForm.body}
               onChange={e => setEmailForm(f => ({ ...f, body: e.target.value }))}
               rows={6}
-              className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 resize-y"
+              className={`${pInput} resize-y`}
             />
           </div>
           <div className="flex justify-end gap-2">
             <button
               type="button"
               onClick={() => setShowEmailForm(false)}
-              className="px-4 py-2 border border-border rounded-lg text-sm font-medium text-foreground hover:bg-accent transition-colors"
+              className={pBtnGhost}
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={emailSending}
-              className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+              className={pBtnPrimary}
             >
               {emailSending && <span className="material-icons animate-spin text-sm">refresh</span>}
               <span className="material-icons text-sm">send</span>
@@ -584,8 +586,8 @@ export default function CrmContactDetailPage() {
         {/* Left Column */}
         <div className="space-y-6">
           {/* Contact Info */}
-          <div className="bg-card border border-border rounded-xl p-6 space-y-4">
-            <h3 className="font-semibold text-foreground">Contact Information</h3>
+          <div className={`${pCard} p-6 space-y-4`}>
+            <h3 className={pSectionTitle}>Contact Information</h3>
             <div className="space-y-3">
               <div className="flex items-center gap-3">
                 <span className="material-icons text-base text-muted-foreground">mail</span>
@@ -621,8 +623,8 @@ export default function CrmContactDetailPage() {
           </div>
 
           {/* Tags */}
-          <div className="bg-card border border-border rounded-xl p-6 space-y-3">
-            <h3 className="font-semibold text-foreground">Tags</h3>
+          <div className={`${pCard} p-6 space-y-3`}>
+            <h3 className={pSectionTitle}>Tags</h3>
             <div className="flex flex-wrap gap-2">
               {(contact.tags ?? []).length === 0 && (
                 <p className="text-sm text-muted-foreground">No tags yet.</p>
@@ -646,12 +648,12 @@ export default function CrmContactDetailPage() {
                 onChange={e => setNewTag(e.target.value)}
                 placeholder="Add tag..."
                 onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addTag())}
-                className="flex-1 px-3 py-1.5 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                className={`${pInput} py-1.5`}
               />
               <button
                 onClick={addTag}
                 disabled={!newTag.trim()}
-                className="px-3 py-1.5 bg-primary text-primary-foreground rounded-lg text-sm hover:bg-primary/90 transition-colors disabled:opacity-40"
+                className={`${pBtnPrimary} py-1.5 px-3`}
               >
                 Add
               </button>
@@ -659,9 +661,9 @@ export default function CrmContactDetailPage() {
           </div>
 
           {/* Notes */}
-          <div className="bg-card border border-border rounded-xl p-6 space-y-3">
+          <div className={`${pCard} p-6 space-y-3`}>
             <div className="flex items-center justify-between">
-              <h3 className="font-semibold text-foreground">Notes</h3>
+              <h3 className={pSectionTitle}>Notes</h3>
               {notesSaving && <span className="text-xs text-muted-foreground">Saving...</span>}
             </div>
             <textarea
@@ -670,13 +672,13 @@ export default function CrmContactDetailPage() {
               onBlur={saveNotes}
               rows={4}
               placeholder="Add notes about this contact..."
-              className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 resize-y"
+              className={`${pInput} resize-y`}
             />
           </div>
 
           {/* Custom Fields */}
-          <div className="bg-card border border-border rounded-xl p-6 space-y-4">
-            <h3 className="font-semibold text-foreground">Custom Fields</h3>
+          <div className={`${pCard} p-6 space-y-4`}>
+            <h3 className={pSectionTitle}>Custom Fields</h3>
             <CrmCustomFieldsPanel entityType="contact" entityId={Number(contactId)} />
           </div>
         </div>
@@ -684,8 +686,8 @@ export default function CrmContactDetailPage() {
         {/* Right Column */}
         <div className="space-y-6">
           {/* Log Activity Form */}
-          <div className="bg-card border border-border rounded-xl p-6 space-y-4">
-            <h3 className="font-semibold text-foreground">Log Activity</h3>
+          <div className={`${pCard} p-6 space-y-4`}>
+            <h3 className={pSectionTitle}>Log Activity</h3>
             <form onSubmit={logActivity} className="space-y-3">
               <div className="flex gap-2">
                 {activityTypes.map(t => (
@@ -695,7 +697,7 @@ export default function CrmContactDetailPage() {
                     onClick={() => setActivityForm(f => ({ ...f, type: t.value }))}
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                       activityForm.type === t.value
-                        ? 'bg-primary text-primary-foreground'
+                        ? 'bg-foreground text-background'
                         : 'bg-accent text-foreground hover:bg-accent/80'
                     }`}
                   >
@@ -709,19 +711,19 @@ export default function CrmContactDetailPage() {
                 value={activityForm.title}
                 onChange={e => setActivityForm(f => ({ ...f, title: e.target.value }))}
                 placeholder="Activity title..."
-                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                className={pInput}
               />
               <textarea
                 value={activityForm.description}
                 onChange={e => setActivityForm(f => ({ ...f, description: e.target.value }))}
                 placeholder="Description (optional)..."
                 rows={2}
-                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
+                className={`${pInput} resize-none`}
               />
               <button
                 type="submit"
                 disabled={activitySaving || !activityForm.title.trim()}
-                className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+                className={pBtnPrimary}
               >
                 {activitySaving && <span className="material-icons animate-spin text-sm">refresh</span>}
                 Log Activity
@@ -730,8 +732,8 @@ export default function CrmContactDetailPage() {
           </div>
 
           {/* Activity Timeline */}
-          <div className="bg-card border border-border rounded-xl p-6 space-y-4">
-            <h3 className="font-semibold text-foreground">Activity Timeline</h3>
+          <div className={`${pCard} p-6 space-y-4`}>
+            <h3 className={pSectionTitle}>Activity Timeline</h3>
             {activities.length === 0 ? (
               <p className="text-sm text-muted-foreground py-4 text-center">No activities logged yet.</p>
             ) : (
@@ -764,9 +766,9 @@ export default function CrmContactDetailPage() {
       </div>
 
       {/* Deals */}
-      <div className="bg-card border border-border rounded-xl p-6 space-y-4">
+      <div className={`${pCard} p-6 space-y-4`}>
         <div className="flex items-center justify-between">
-          <h3 className="font-semibold text-foreground">Deals</h3>
+          <h3 className={pSectionTitle}>Deals</h3>
           <Link
             href="/portal/crm/deals"
             className="text-xs text-primary hover:underline"
