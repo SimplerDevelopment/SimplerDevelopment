@@ -19,6 +19,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import DecisionCard, { type DecisionRow } from '@/components/brain/DecisionCard';
 import type { BrainDecisionReversibility, BrainDecisionStatus } from '@/lib/db/schema';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnPrimary, pBtnGhost } from '@/components/portal/portal-ui';
 
 interface ListResponse {
   success: boolean;
@@ -184,23 +186,19 @@ export default function DecisionsListPage() {
   return (
     <div className="max-w-5xl mx-auto py-8 px-4 space-y-6">
       {/* Sticky header */}
-      <div className="sticky top-0 z-10 -mx-4 px-4 py-3 bg-background/95 backdrop-blur border-b border-border flex items-center justify-between gap-3 flex-wrap">
-        <div>
-          <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
-            <span className="material-icons text-primary">gavel</span>
-            Decisions
-          </h1>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            The rationale-bearing log of what your team has decided, why, and when.
-          </p>
-        </div>
-        <Link
-          href="/portal/brain/decisions/new"
-          className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90"
-        >
-          <span className="material-icons text-base">add</span>
-          Record decision
-        </Link>
+      <div className="sticky top-0 z-10 -mx-4 px-4 bg-background/95 backdrop-blur border-b border-border">
+        <PortalPageHeader
+          eyebrow="Brain"
+          title={<span className="flex items-center gap-2"><span className="material-icons text-primary">gavel</span>Decisions</span>}
+          subtitle="The rationale-bearing log of what your team has decided, why, and when."
+          actions={
+            <Link href="/portal/brain/decisions/new" className={pBtnPrimary}>
+              <span className="material-icons text-base">add</span>
+              Record decision
+            </Link>
+          }
+          className="mb-0"
+        />
       </div>
 
       {/* Filters */}
@@ -226,7 +224,7 @@ export default function DecisionsListPage() {
 
         {/* Secondary filter row */}
         <div className="flex items-center gap-2 flex-wrap">
-          <div className="inline-flex items-center gap-1 rounded-md border border-border bg-card p-0.5">
+          <div className="inline-flex items-center gap-1 rounded-xl border border-border bg-card p-0.5">
             {(['all', 'one_way', 'two_way'] as ReversibilityFilter[]).map((r) => (
               <button
                 key={r}
@@ -248,7 +246,7 @@ export default function DecisionsListPage() {
             onChange={(e) =>
               updateUrl({ decisionMakerId: e.target.value ? parseInt(e.target.value, 10) : null }, { resetPage: true })
             }
-            className="px-2 py-1.5 text-xs bg-card border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+            className="px-2 py-1.5 text-xs bg-card border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/15 focus:border-primary"
           >
             <option value="">All decision makers</option>
             {team.map((m) => (
@@ -264,7 +262,7 @@ export default function DecisionsListPage() {
               type="date"
               value={dateFrom}
               onChange={(e) => updateUrl({ dateFrom: e.target.value || null }, { resetPage: true })}
-              className="px-2 py-1 text-xs bg-card border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+              className="px-2 py-1 text-xs bg-card border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/15 focus:border-primary"
             />
           </label>
           <label className="inline-flex items-center gap-1 text-xs">
@@ -273,7 +271,7 @@ export default function DecisionsListPage() {
               type="date"
               value={dateTo}
               onChange={(e) => updateUrl({ dateTo: e.target.value || null }, { resetPage: true })}
-              className="px-2 py-1 text-xs bg-card border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+              className="px-2 py-1 text-xs bg-card border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/15 focus:border-primary"
             />
           </label>
 
@@ -319,7 +317,7 @@ export default function DecisionsListPage() {
           Loading decisions…
         </div>
       ) : error ? (
-        <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-4 text-sm text-destructive">
+        <div className="bg-destructive/10 border border-destructive/30 rounded-2xl p-4 text-sm text-destructive">
           <div className="flex items-center gap-2 font-medium mb-1">
             <span className="material-icons text-base">error_outline</span>
             Couldn&apos;t load decisions
@@ -351,7 +349,7 @@ export default function DecisionsListPage() {
               type="button"
               disabled={isFirstPage}
               onClick={() => updateUrl({ page: page > 1 ? page - 1 : null })}
-              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md border border-border text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-muted-foreground"
+              className={`${pBtnGhost} disabled:opacity-30 disabled:hover:shadow-none disabled:hover:border-border`}
             >
               <span className="material-icons text-base">chevron_left</span>
               Previous
@@ -361,7 +359,7 @@ export default function DecisionsListPage() {
               type="button"
               disabled={isLastPage}
               onClick={() => updateUrl({ page: page + 1 })}
-              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md border border-border text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-muted-foreground"
+              className={`${pBtnGhost} disabled:opacity-30 disabled:hover:shadow-none disabled:hover:border-border`}
             >
               Next
               <span className="material-icons text-base">chevron_right</span>
@@ -375,7 +373,7 @@ export default function DecisionsListPage() {
 
 function EmptyState() {
   return (
-    <div className="bg-card border border-border rounded-lg p-10 text-center">
+    <div className="bg-card border border-border rounded-2xl p-10 text-center">
       <span className="material-icons text-5xl text-primary mb-3 block">psychology_alt</span>
       <h2 className="text-base font-semibold text-foreground mb-1">No decisions captured yet</h2>
       <p className="text-sm text-muted-foreground max-w-md mx-auto mb-5">
@@ -384,7 +382,7 @@ function EmptyState() {
       </p>
       <Link
         href="/portal/brain/decisions/new"
-        className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90"
+        className={pBtnPrimary}
       >
         <span className="material-icons text-base">add</span>
         Record decision

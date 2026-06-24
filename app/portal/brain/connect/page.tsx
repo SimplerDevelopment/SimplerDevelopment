@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { pBtnPrimary, pBtnGhost, pCardPad } from '@/components/portal/portal-ui';
 
 interface ApiKey {
   id: number;
@@ -187,7 +188,7 @@ export default function BrainConnectPage() {
           <span className="material-icons text-base">chevron_right</span>
           <span>Connect Claude Desktop</span>
         </div>
-        <h1 className="mt-2 text-2xl font-semibold">Connect Claude Desktop to Brain</h1>
+        <h1 className="mt-2 font-display text-[clamp(1.5rem,2.4vw,2rem)] font-extrabold leading-[1.05] tracking-[-0.028em] text-foreground">Connect Claude Desktop to Brain</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Generate an API key, paste a one-line config into Claude Desktop, and your Brain&apos;s
           knowledge, meetings, tasks, and CRM become available as MCP tools.
@@ -195,7 +196,7 @@ export default function BrainConnectPage() {
       </div>
 
       {/* Section A — Status */}
-      <section className="rounded-md border border-border p-5 space-y-4">
+      <section className={`${pCardPad} space-y-4`}>
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
             <h2 className="text-lg font-semibold flex items-center gap-2">
@@ -226,7 +227,7 @@ export default function BrainConnectPage() {
             No API keys with brain scopes yet. Generate one below to get started.
           </p>
         ) : (
-          <div className="rounded-md border border-border overflow-x-auto -mx-4 sm:mx-0">
+          <div className="rounded-xl border border-border overflow-x-auto -mx-4 sm:mx-0">
             <table className="w-full text-sm min-w-[640px]">
               <thead className="bg-muted/50">
                 <tr className="text-left">
@@ -273,7 +274,7 @@ export default function BrainConnectPage() {
       </section>
 
       {/* Section B — Generate key */}
-      <section className="rounded-md border border-border p-5 space-y-4">
+      <section className={`${pCardPad} space-y-4`}>
         <div>
           <h2 className="text-lg font-semibold flex items-center gap-2">
             <span className="material-icons text-base">vpn_key</span>
@@ -291,7 +292,7 @@ export default function BrainConnectPage() {
         <button
           onClick={handleGenerate}
           disabled={generating}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:opacity-90 disabled:opacity-60"
+          className={pBtnPrimary}
         >
           <span className="material-icons text-base">
             {generating ? 'hourglass_top' : 'add'}
@@ -323,7 +324,7 @@ export default function BrainConnectPage() {
             <div className="flex gap-2">
               <button
                 onClick={copyKey}
-                className="inline-flex items-center gap-1 text-xs px-2 py-1 border border-border rounded hover:bg-muted"
+                className="inline-flex items-center gap-1 text-xs px-2 py-1 border border-border rounded-lg hover:bg-muted"
               >
                 <span className="material-icons text-sm">
                   {copiedKey ? 'check' : 'content_copy'}
@@ -332,7 +333,7 @@ export default function BrainConnectPage() {
               </button>
               <button
                 onClick={() => setNewKey(null)}
-                className="text-xs px-2 py-1 border border-border rounded hover:bg-muted"
+                className="text-xs px-2 py-1 border border-border rounded-lg hover:bg-muted"
               >
                 I&apos;ve saved it
               </button>
@@ -342,7 +343,7 @@ export default function BrainConnectPage() {
       </section>
 
       {/* Section C — Claude Desktop config */}
-      <section className="rounded-md border border-border p-5 space-y-4">
+      <section className={`${pCardPad} space-y-4`}>
         <div>
           <h2 className="text-lg font-semibold flex items-center gap-2">
             <span className="material-icons text-base">settings</span>
@@ -365,7 +366,7 @@ export default function BrainConnectPage() {
           </pre>
           <button
             onClick={copyConfig}
-            className="absolute top-2 right-2 inline-flex items-center gap-1 text-xs px-2 py-1 bg-background border border-border rounded hover:bg-muted"
+            className="absolute top-2 right-2 inline-flex items-center gap-1 text-xs px-2 py-1 bg-background border border-border rounded-lg hover:bg-muted"
           >
             <span className="material-icons text-sm">
               {copiedConfig ? 'check' : 'content_copy'}
@@ -394,7 +395,7 @@ export default function BrainConnectPage() {
       </section>
 
       {/* Section D — Test connection */}
-      <section className="rounded-md border border-border p-5 space-y-4">
+      <section className={`${pCardPad} space-y-4`}>
         <div>
           <h2 className="text-lg font-semibold flex items-center gap-2">
             <span className="material-icons text-base">network_check</span>
@@ -410,7 +411,7 @@ export default function BrainConnectPage() {
         <button
           onClick={handleTest}
           disabled={testing}
-          className="inline-flex items-center gap-2 px-4 py-2 border border-border rounded-md text-sm font-medium hover:bg-muted disabled:opacity-60"
+          className={pBtnGhost}
         >
           <span className="material-icons text-base">
             {testing ? 'hourglass_top' : 'play_arrow'}
