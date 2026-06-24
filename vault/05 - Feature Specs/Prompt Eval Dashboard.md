@@ -312,7 +312,9 @@ The write layer. Two decisions were resolved (no reusable audit table existed �
 
 Verified: whole-repo `tsc` clean; ESLint clean (fixed a mount-fetch nit + an audit-detail render that crashed on the json object — typed `detail` as object + render key:value pairs). Browser E2E on the isolated local DB: edit→save draft (v2)→promote v2 (confirm, v1 archived, regression run #3 enqueued, audit entry)→rollback to v1 (confirm)→save schedule cron→cases editor lists/toggles. Audit log showed all three actions with actor email.
 
-**Deferred (Phase 4 follow-ups):** the `@critical` Playwright promote-flow test (the flow is verified manually via browser, but no automated E2E spec exists yet — needs the auth-fixture/test-DB harness); dataset (not just case) management; per-model cost rates (the cost rollup uses a blended estimate). _(scheduleCron wiring — done, see Polish above.)_
+**`@critical` E2E — SHIPPED (2026-06-24):** `tests/e2e/admin-prompt-evals.spec.ts` (`@admin @prompt-evals @critical`) — API-level: create draft → promote (active moves, prior archived, regression gate) → rollback → audit-log assertions, plus a non-admin 401 guard. Self-seeds the eval schema via `tests/e2e/setup/ensure-eval-schema.ts` (the eval tables aren't in the drizzle chain). Both tests green. Run: `bun test:critical` (or target the spec with `BASE_URL`+`DATABASE_URL` at an eval-seeded server).
+
+**Deferred (Phase 4 follow-ups):** dataset (not just case) management; per-model cost rates (the cost rollup uses a blended estimate). _(scheduleCron wiring + the @critical promote test — done.)_
 
 ### To go live
 
