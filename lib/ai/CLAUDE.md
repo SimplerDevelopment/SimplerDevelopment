@@ -11,6 +11,7 @@ AI orchestration layer: key resolution, plan-gating, tool execution for the Comp
 - **Tool results must pass through `sanitizeToolResult` before reaching the LLM context.** Strips API keys, tokens, passwords, SSNs, CC numbers. Brain tools do this automatically via `executeBrainTool`; portal tools do not (they return structured data to the API layer, not directly to the model). Source: `brain-tools/sanitizer.ts`.
 - **All handlers receive `clientId` as first resolved argument and must scope every DB call to it.** No cross-tenant data must flow to a model context. This is structural, not optional.
 - **AI is never the source of truth.** Meeting extractions, slide edits, and brain notes flow through a human-review queue (`brainAiReviewItems`) before being committed. Never auto-commit AI output to canonical data without a review step.
+- **Eval suites shadow AI signatures — update them in the same edit batch.** `lib/ai/evals/suites/*.eval.ts` (brain-classifier, survey-summary, note-classifier) call the real classifiers with hand-written args/enums; `tsc` does NOT auto-fix those call sites. After ANY change to a classifier signature or its enum literals, run `tsc --noEmit` (it covers these files) and update the matching `*.eval.ts` together — they have drifted repeatedly. This is a 70%-floor domain; the suites are load-bearing.
 
 ## Model assignments (as of 2026-06)
 

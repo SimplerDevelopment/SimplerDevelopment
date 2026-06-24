@@ -49,6 +49,7 @@ date: 2026-06-17
 
 ## Validating
 
+- [ ] Harness Engineering + Security Hardening (2026-06-24) — distillation loop, entitlement-bypass fix, structural guardrails; `bun test:tenancy` + portal-auth integration NOT yet run on ~40 changed routes; required before merge — see [[Spec - Guardrail Distillation Loop]] · [[ADR paid-module-entitlement-vs-scope-gating]] · [[Storefront & Commerce]] · [[Billing & Stripe]]
 - [ ] `sd-create-short` skill — branded feature shorts (MP4) for LinkedIn + blog — built + pipeline validated locally; first real production run (incl. portal upload) pending — see [[sd-create-short]]
 - [ ] Multi-Agent Security Hardening (kagenti-inspired) — Phase 1 + Phase 2 implemented (PR #42); unit-green; awaiting CI critical-e2e + prod migration/backfill — see [[Multi-Agent Security Hardening (kagenti-inspired)]]
 - [ ] Per-Domain SaaS Billing & BYOK — see [[Per-Domain SaaS Billing & BYOK]]

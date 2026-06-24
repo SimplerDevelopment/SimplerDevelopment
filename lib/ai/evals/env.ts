@@ -16,4 +16,9 @@ export interface EvalEnv {
   mock?: boolean;
   /** Model id for LLM-judge scorers (default Haiku — cheap, good enough). */
   judgeModel?: string;
+  /**
+   * How many times to run each case; aggregate mean ± stddev reported.
+   * Default 1 — single run, byte-identical to previous behaviour.
+   */
+  runs?: number;
 }

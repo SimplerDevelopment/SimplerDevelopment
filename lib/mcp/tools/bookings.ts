@@ -190,6 +190,7 @@ export function registerBookingsTools(server: McpServer, ctx: PortalMcpContext):
     },
     async (args) => {
       if (!requireScope(ctx, 'bookings:write')) return denied('bookings:write');
+      if (!(await requireService(clientId, 'booking'))) return serviceDenied('booking');
       // Slug uniqueness — auto-derive if not provided, then bump with date suffix on collision.
       const baseSlug = slugify(args.slug ?? args.title, 80) || 'booking';
       let slug = baseSlug;
@@ -296,6 +297,7 @@ export function registerBookingsTools(server: McpServer, ctx: PortalMcpContext):
     },
     async ({ id, ...rest }) => {
       if (!requireScope(ctx, 'bookings:write')) return denied('bookings:write');
+      if (!(await requireService(clientId, 'booking'))) return serviceDenied('booking');
       const [existing] = await db.select({ id: bookingPages.id, title: bookingPages.title })
         .from(bookingPages)
         .where(and(eq(bookingPages.id, id), eq(bookingPages.clientId, clientId)))

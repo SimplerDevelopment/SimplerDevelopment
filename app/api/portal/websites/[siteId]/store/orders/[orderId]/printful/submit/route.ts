@@ -3,7 +3,7 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { orders } from '@/lib/db/schema';
 import { and, eq } from 'drizzle-orm';
-import { resolveClientSite } from '@/lib/portal-client';
+import { resolveStoreSite } from '@/lib/portal-auth';
 import { submitPODOrder } from '@/lib/fulfillment/pod';
 
 export const runtime = 'nodejs';
@@ -11,7 +11,7 @@ export const runtime = 'nodejs';
 type Params = { params: Promise<{ siteId: string; orderId: string }> };
 
 async function loadOrder(userId: number, siteId: string, orderId: string) {
-  const site = await resolveClientSite(userId, parseInt(siteId, 10));
+  const site = await resolveStoreSite(userId, parseInt(siteId, 10));
   if (!site) return null;
   const [order] = await db
     .select()

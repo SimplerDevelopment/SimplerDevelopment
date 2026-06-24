@@ -31,6 +31,7 @@ scripts/test.sh --layer=integration --tag=tenancy --no-coverage   # alias: bun t
 - Running existing E2E suite: `/e2e-runner`.
 - Visual / interactive QA: `/qa`.
 - Don't mock the DB in integration tests — we got burned. Integration must hit a real DB. (See memory `feedback`.)
+- In route tests, after the act phase assert the guard mock actually ran: `assertMockUsed(authorizePortalMock, 'authorizePortal')` (`tests/helpers/assertMockUsed.ts`). A test that mocks `@/lib/auth` keeps passing green after the route moves to `@/lib/portal-auth` — the stale mock just gets 0 calls and guards nothing.
 
 ## Layer-picking rule
 

@@ -3,14 +3,14 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { products, productDesignSurfaces } from '@/lib/db/schema';
 import { and, eq } from 'drizzle-orm';
-import { resolveClientSite } from '@/lib/portal-client';
+import { resolveStoreSite } from '@/lib/portal-auth';
 
 type Params = { params: Promise<{ siteId: string; productId: string; surfaceId: string }> };
 
 const SLUG_RE = /^[a-z0-9-]+$/;
 
 async function resolveSurface(userId: number, siteId: string, productId: string, surfaceId: string) {
-  const site = await resolveClientSite(userId, parseInt(siteId));
+  const site = await resolveStoreSite(userId, parseInt(siteId));
   if (!site) return null;
 
   const [product] = await db

@@ -5,6 +5,7 @@ import { pitchDecks } from '@/lib/db/schema';
 import type { PitchDeckSlideV2, PitchDeckTheme } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
+import { hasServiceAccess } from '@/lib/portal-auth';
 import { saveVersionSnapshot } from '@/lib/pitch-deck-versions';
 import { buildSlideEditPrompt } from '@/lib/ai/slide-prompt-builder';
 import { validateSlideResponse } from '@/lib/ai/validate-slide-response';
@@ -35,6 +36,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const userId = parseInt(session.user.id, 10);
     const client = await getPortalClient(userId);
     if (!client) return NextResponse.json({ success: false, message: 'Client not found' }, { status: 404 });
+    if (!(await hasServiceAccess(client.id, 'pitch-decks'))) return NextResponse.json({ success: false, message: 'This feature requires an active pitch-decks subscription.', requiresService: 'pitch-decks', upsellUrl: '/portal/services' }, { status: 403 });
 
     const { id } = await params;
     const deckId = parseInt(id);

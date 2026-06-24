@@ -150,6 +150,10 @@
     {
       "path": "/api/cron/invoices-overdue",
       "schedule": "7 * * * *"
+    },
+    {
+      "path": "/api/cron/ai-credits-monthly-regrant",
+      "schedule": "0 6 2 * *"
     }
   ]
 }

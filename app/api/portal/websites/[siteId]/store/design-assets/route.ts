@@ -3,7 +3,7 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { designLibraryAssets as designAssets } from '@/lib/db/schema';
 import { and, asc, eq } from 'drizzle-orm';
-import { resolveClientSite } from '@/lib/portal-client';
+import { resolveStoreSite } from '@/lib/portal-auth';
 
 type Params = { params: Promise<{ siteId: string }> };
 
@@ -16,7 +16,7 @@ export async function GET(req: Request, { params }: Params) {
     return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
   }
   const { siteId } = await params;
-  const site = await resolveClientSite(parseInt(session.user.id, 10), parseInt(siteId, 10));
+  const site = await resolveStoreSite(parseInt(session.user.id, 10), parseInt(siteId, 10));
   if (!site) {
     return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
   }
@@ -49,7 +49,7 @@ export async function POST(req: Request, { params }: Params) {
     return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
   }
   const { siteId } = await params;
-  const site = await resolveClientSite(parseInt(session.user.id, 10), parseInt(siteId, 10));
+  const site = await resolveStoreSite(parseInt(session.user.id, 10), parseInt(siteId, 10));
   if (!site) {
     return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
   }

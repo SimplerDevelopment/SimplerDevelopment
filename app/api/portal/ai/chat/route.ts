@@ -15,6 +15,7 @@ import { resolveClientApiKey } from '@/lib/ai/resolve-client-key';
 import { recordAiUsage } from '@/lib/ai/audit';
 import { checkAiPlanGate } from '@/lib/ai/plan-gate';
 import { PORTAL_CHAT_SYSTEM_PROMPT } from '@/lib/ai/portal-chat-prompt';
+import { sanitizeToolResult } from '@/lib/ai/brain-tools/sanitizer';
 
 // Model routing: a cheap Haiku classifier decides which model runs the loop.
 const HAIKU = 'claude-haiku-4-5-20251001';
@@ -188,7 +189,7 @@ export async function POST(req: Request) {
           toolResults.push({
             type: 'tool_result',
             tool_use_id: block.id,
-            content: JSON.stringify(result),
+            content: sanitizeToolResult(JSON.stringify(result)),
           });
         }
 

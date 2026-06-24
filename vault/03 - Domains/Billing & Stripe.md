@@ -2,7 +2,7 @@
 type: domain-map
 domain: billing
 status: active
-date: 2026-06-17
+date: 2026-06-24
 sources:
   - lib/billing/
   - lib/ai/plan-gate.ts
@@ -271,7 +271,9 @@ Run: `scripts/test.sh --layer=unit --no-coverage` (fast) or with coverage to ver
 
 ## Invariants & gotchas
 
-1. **Webhook idempotency (platform):** `checkout.session.completed` — credit purchases return early after `addPurchasedCredits`; invoice updates are by `invoiceId` (idempotent `db.update`); service activations use upsert on `(clientId, serviceId)`. Signature verification uses the raw request body (`req.text()`) — do not wrap in JSON middleware upstream.
+1. **Scope/auth gating ≠ entitlement gating — both are required on paid-module writes (2026-06-24).** Scope (`hasScope` / `requireScope`) verifies key/role permission. Entitlement (`requireService(clientId, category)` for MCP; `authorizePortal({ requireService })` / `hasServiceAccess` for REST) verifies an active subscription. Either gate alone is insufficient; a client without a subscription could otherwise mutate paid-module data. The canonical REST helper for store routes is `resolveStoreSite` in `lib/portal-auth.ts` (168), which wraps `resolveClientSite` + `hasServiceAccess('store')`. Three deliberately ungated routes (`store/stripe/test`, `store/stripe-connect/*`, `store/easypost/test`) are asserted on an allow-list in `tests/unit/paid-module-entitlement-guard.test.ts` (85). MCP store write tools gate via `requireStore()` in `lib/storefront/mcp-sdk-adapter.ts` (947). See [[ADR paid-module-entitlement-vs-scope-gating]].
+
+2. **Webhook idempotency (platform):** `checkout.session.completed` — credit purchases return early after `addPurchasedCredits`; invoice updates are by `invoiceId` (idempotent `db.update`); service activations use upsert on `(clientId, serviceId)`. Signature verification uses the raw request body (`req.text()`) — do not wrap in JSON middleware upstream.
 
 2. **Rollup idempotency:** `usage_billing_periods` has a unique index on `(clientId, period, resource)`. The rollup upserts with `onConflictDoUpdate` and uses `action='set'` (not `'increment'`) when calling `POST /v1/subscription_items/{id}/usage_records` — running the same period twice does not double-bill.
 
@@ -314,4 +316,4 @@ Run: `scripts/test.sh --layer=unit --no-coverage` (fast) or with coverage to ver
 
 [[Storefront & Commerce]], [[Agency, Onboarding & Branding]]
 
-ADRs: [[ADR admin-billing-overrides-comp-coupon]] · [[ADR per-seat-pricing-computed-line-items]] · [[ADR alacarte-volume-discount-replaces-tiers]] · [[ADR byok-inversion-scale-only]] · [[ADR tiers-are-first-class-stripe-products]] · [[ADR per-domain-billing-rides-services-catalog]]
+ADRs: [[ADR admin-billing-overrides-comp-coupon]] · [[ADR per-seat-pricing-computed-line-items]] · [[ADR alacarte-volume-discount-replaces-tiers]] · [[ADR byok-inversion-scale-only]] · [[ADR tiers-are-first-class-stripe-products]] · [[ADR per-domain-billing-rides-services-catalog]] · [[ADR paid-module-entitlement-vs-scope-gating]]

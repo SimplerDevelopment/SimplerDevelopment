@@ -3,12 +3,12 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { productCategories } from '@/lib/db/schema';
 import { and, eq } from 'drizzle-orm';
-import { resolveClientSite } from '@/lib/portal-client';
+import { resolveStoreSite } from '@/lib/portal-auth';
 
 type Params = { params: Promise<{ siteId: string; categoryId: string }> };
 
 async function resolveCategory(userId: number, siteId: string, categoryId: string) {
-  const site = await resolveClientSite(userId, parseInt(siteId));
+  const site = await resolveStoreSite(userId, parseInt(siteId));
   if (!site) return null;
 
   const [category] = await db
@@ -41,7 +41,7 @@ export async function PUT(req: Request, { params }: Params) {
 
   // Check slug uniqueness if slug is being updated
   if (body.slug && body.slug !== category.slug) {
-    const site = await resolveClientSite(parseInt(session.user.id, 10), parseInt(siteId));
+    const site = await resolveStoreSite(parseInt(session.user.id, 10), parseInt(siteId));
     if (site) {
       const [existing] = await db
         .select({ id: productCategories.id })

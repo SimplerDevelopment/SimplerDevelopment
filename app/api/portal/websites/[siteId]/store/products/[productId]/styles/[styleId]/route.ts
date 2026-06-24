@@ -3,7 +3,7 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { products, productStyles } from '@/lib/db/schema';
 import { and, eq } from 'drizzle-orm';
-import { resolveClientSite } from '@/lib/portal-client';
+import { resolveStoreSite } from '@/lib/portal-auth';
 
 type Params = {
   params: Promise<{ siteId: string; productId: string; styleId: string }>;
@@ -15,7 +15,7 @@ async function resolveStyle(
   productId: string,
   styleId: string,
 ) {
-  const site = await resolveClientSite(userId, parseInt(siteId, 10));
+  const site = await resolveStoreSite(userId, parseInt(siteId, 10));
   if (!site) return { site: null, product: null, style: null };
   const pid = parseInt(productId, 10);
   const sid = parseInt(styleId, 10);

@@ -81,6 +81,19 @@ export function renderMarkdown(report: EvalReport): string {
       lines.push(`| ${name} | ${pct(b.mean)} | ${pct(b.passRate)} | ${b.ran} | ${b.skipped} |`);
     }
     lines.push('');
+    // Per-case table — show mean ± stdev column when any case used N>1 runs.
+    const anyMultiRun = s.cases.some((c) => c.runs != null && c.runs > 1);
+    if (anyMultiRun) {
+      lines.push(`| case | aggregate | stdev | runs | passed |`);
+      lines.push(`|---|---|---|---|---|`);
+      for (const c of s.cases) {
+        const agg = pct(c.aggregate);
+        const stdev = c.aggregateStdev != null ? pct(c.aggregateStdev) : '—';
+        const runs = c.runs ?? 1;
+        lines.push(`| \`${c.caseId}\` | ${agg} | ±${stdev} | ${runs} | ${c.passed ? '✓' : '✗'} |`);
+      }
+      lines.push('');
+    }
     const failures = s.cases.filter((c) => !c.passed);
     if (failures.length) {
       lines.push(`<details><summary>${failures.length} failing case(s)</summary>`);

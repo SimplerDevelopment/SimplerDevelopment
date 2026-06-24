@@ -58,6 +58,7 @@ import { PORTAL_TOOLS, executePortalTool } from '@/lib/ai/portal-tools';
 import { classifyPortalRequest } from '@/lib/ai/portal-tools/classifier';
 import { toolsForDomains } from '@/lib/ai/portal-tools/domains';
 import { PORTAL_CHAT_SYSTEM_PROMPT } from '@/lib/ai/portal-chat-prompt';
+import { sanitizeToolResult } from '@/lib/ai/brain-tools/sanitizer';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -446,7 +447,7 @@ export async function POST(req: Request) {
             toolResults.push({
               type: 'tool_result',
               tool_use_id: block.id,
-              content: JSON.stringify(result),
+              content: sanitizeToolResult(JSON.stringify(result)),
             });
           }
 

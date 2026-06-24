@@ -2,11 +2,13 @@
 type: domain-map
 domain: storefront
 status: active
-date: 2026-06-10
+date: 2026-06-24
 sources:
   - lib/storefront/
   - lib/db/schema/store.ts
   - lib/db/schema/productDesigner.ts
+  - lib/portal-auth.ts
+  - tests/unit/paid-module-entitlement-guard.test.ts
 ---
 
 # Domain: Storefront & Commerce
@@ -162,6 +164,11 @@ E2E specs in `tests/e2e/`:
 
 Note: `portal-ecommerce.spec.ts` covers portal management, not the customer-facing add-to-cart → Stripe confirm flow. No dedicated E2E spec for the checkout golden path yet — noted as a coverage gap in `lib/magamommy/README.md`. Run `bun test:tenancy` after any data-access change (all tables are `websiteId`-scoped and must not leak across tenants).
 
+Entitlement regression tests (added 2026-06-24):
+- `tests/unit/paid-module-entitlement-guard.test.ts` (85) — scans store write surface; asserts all portal write routes use `resolveStoreSite` or `hasServiceAccess`; asserts all MCP write tools call `requireStore()`; allow-lists the three intentionally ungated routes.
+
+Caveat (as of 2026-06-24): `bun test:tenancy` + portal-auth integration tests have NOT been run on the ~40 changed data-access routes. Required before merging `worktree/study-guide` into dev/main.
+
 ## Cross-domain dependencies
 
 - **[[Billing & Stripe]]** — `store_settings.stripeAccountId` / `stripeMode` links each storefront to either a Stripe Connect account (platform-managed) or a BYOK secret key. The ecommerce webhook `app/api/stripe/webhook/ecommerce/route.ts` triggers POD order submission after payment. Platform fee percent is stored on `store_settings.platformFeePercent`.
@@ -173,6 +180,8 @@ Note: `portal-ecommerce.spec.ts` covers portal management, not the customer-faci
 - **S3 / `lib/printing/upscale.ts`** — design assets and print-ready renders stored in S3; upscale called before Printful submission.
 
 ## Invariants & gotchas
+
+- **Entitlement gate required on all store write surfaces (2026-06-24).** Portal write routes must use `resolveStoreSite` from `lib/portal-auth.ts` (168) — it wraps `resolveClientSite` + `hasServiceAccess('store')`. MCP write tools must call `requireStore()` in `lib/storefront/mcp-sdk-adapter.ts` (947) at handler entry. Three routes are explicitly ungated: `store/stripe/test`, `store/stripe-connect/*`, `store/easypost/test` (pre-activation diagnostics). See `tests/unit/paid-module-entitlement-guard.test.ts` (85) for the allow-list regression. Media write routes now require `member+` role — verify downstream callers before adding new media write paths. See [[ADR paid-module-entitlement-vs-scope-gating]] and [[Billing & Stripe]].
 
 - **`lib/magamommy/` is a client-specific autonomous pipeline, not a shared utility.** It drives a single tenant site (`magamommy.simplerdevelopment.com`) that drops one politically-themed shirt every Monday via a Vercel cron (`app/api/cron/magamommy-weekly-drop/route.ts`, schedule `0 14 * * 1`). The pipeline (researcher → concept-writer → designer → publisher) writes to `lib/db/schema/magamommy.ts` tables (`magamommy_briefs`, `magamommy_concepts`, `magamommy_drops`) and then publishes into the standard `products` + `designs` tables. This is the one sanctioned exception to the "no client-specific code paths" rule: the pipeline is self-contained in `lib/magamommy/`, its tables are isolated in `lib/db/schema/magamommy.ts`, and it uses shared platform primitives (products, designs, store settings) as its output. Do not replicate this pattern for other clients — any future autonomous-shop need should be extracted into a generic plugin.
 - **Blocks vs. store pages:** The "blocks are universal, never client-specific" rule applies to `lib/blocks/`. Store-rendering pages (`app/sites/[domain]/`) are *not* block-composed — they are purpose-built Next.js pages that call the storefront API. Product detail pages and the cart/checkout are standalone, not block types.
@@ -191,7 +200,8 @@ Note: `portal-ecommerce.spec.ts` covers portal management, not the customer-faci
 
 ## Related
 
-- [[Billing & Stripe]] — Stripe Connect, BYOK, platform fees
+- [[Billing & Stripe]] — Stripe Connect, BYOK, platform fees, entitlement gating
 - [[CMS & Blocks]] — block-rendered pages that surface store CTAs (blocks are universal; store pages are not block-composed)
 - [[Visual Editor]] — portal product-designer page shares design-surface primitives with the block editor infrastructure
 - `lib/magamommy/README.md` — full autonomous-shop runbook and tracing guide
+- ADRs: [[ADR paid-module-entitlement-vs-scope-gating]]

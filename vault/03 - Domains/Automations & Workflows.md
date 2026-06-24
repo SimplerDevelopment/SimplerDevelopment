@@ -2,7 +2,7 @@
 type: domain-map
 domain: automations
 status: active
-date: 2026-06-17
+date: 2026-06-24
 sources:
   - lib/automation/
   - lib/automation/engine.ts
@@ -11,6 +11,7 @@ sources:
   - lib/ai/portal-tools/scopes.ts
   - tests/integration/api/portal/trigger-links/
   - lib/mcp/tools/automations.ts
+  - tests/unit/automation-action-scope-completeness.test.ts
 ---
 
 # Domain: Automations & Workflows
@@ -141,6 +142,7 @@ No MCP tools exist for the visual workflow builder yet.
 | `tests/unit/workflows-runtime-branches.test.ts` | unit | Condition branch / DFS walk |
 | `tests/unit/workflows-templates.test.ts` | unit | Template clone shape |
 | `tests/unit/mcp-tools-automations.test.ts` | unit | MCP tool scope guards and handlers |
+| `tests/unit/automation-action-scope-completeness.test.ts` | unit | Source-scan: every `action.tool` bridge in engine.ts is in AUTOMATION_ACTION_SCOPES (2026-06-24) |
 | `tests/integration/api/automation-engine.test.ts` | integration | Full engine event → rule → log cycle |
 | `tests/integration/api/automations/rules.test.ts` | integration | CRUD API + tenancy isolation |
 | `tests/integration/api/automations/logs.test.ts` | integration | Logs query |
@@ -176,7 +178,7 @@ Run gate: `scripts/test.sh --layer=integration --no-coverage` covers tenancy + A
 
 ## Invariants & gotchas
 
-- **Scope gate runs BEFORE every action dispatch (shipped 2026-06-17).** `lib/automation/engine.ts` (575) calls `isActionAllowed(rule.scopes, action.tool)` via `requiredScopeFor` (`lib/ai/portal-tools/scopes.ts` (165)) + `hasScope` before invoking `executePortalTool`. A rule whose granted `scopes` array does not satisfy the tool's required scope causes the tool call to be skipped and a `scope_denied` agent-action audit row to be logged. Rule fixtures or automation records without a `scopes` field are denied by default. Do not bypass this check — it is the security boundary between automation rules and unrestricted tool execution.
+- **Scope gate runs BEFORE every action dispatch (shipped 2026-06-17).** `lib/automation/engine.ts` (581) calls `isActionAllowed(rule.scopes, action.tool)` via `requiredScopeFor` (`lib/ai/portal-tools/scopes.ts`) + `hasScope` before invoking `executePortalTool`. A rule whose granted `scopes` array does not satisfy the tool's required scope causes the tool call to be skipped and a `scope_denied` agent-action audit row to be logged. Rule fixtures or automation records without a `scopes` field are denied by default. Do not bypass this check — it is the security boundary between automation rules and unrestricted tool execution. **Regression (2026-06-24):** `tests/unit/automation-action-scope-completeness.test.ts` (36) source-scans `engine.ts` for every inline `action.tool === '...'` bridge and asserts each appears in `AUTOMATION_ACTION_SCOPES`. Adding a new action bridge without a matching scope entry will fail this test.
 - **Two separate engines, two separate tables.** `automation_rules` (in `brain.ts`) powers the live event-driven path. `workflows` (in `workflows.ts`) powers the visual canvas. They coexist and do not yet talk to each other — the shim comment in `lib/workflows/trigger.ts` is explicit about this.
 - **Visual workflow runtime is demo-grade.** No retry logic, no durable queue, no parallelism beyond DFS fan-out within a single process call. The `maxWaitMs` cap (default 5s) prevents the `wait` action from blocking a real server thread. Do not wire high-volume or latency-sensitive flows through it yet.
 - **Trigger links are not yet wired to automation.** `contactFieldKey` column and `contactId` on clicks are stored but never acted upon. The automation bridge described in `trigger-links.ts` is explicitly forward-looking.

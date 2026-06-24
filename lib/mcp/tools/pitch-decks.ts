@@ -366,6 +366,7 @@ export function registerPitchDecksTools(server: McpServer, ctx: PortalMcpContext
     },
     async ({ id, titleSuffix = ' (fork)' }) => {
       if (!requireScope(ctx, 'decks:write')) return denied('decks:write');
+      if (!(await requireService(clientId, 'pitch-decks'))) return serviceDenied('pitch-decks');
       const [source] = await db.select().from(pitchDecks)
         .where(and(eq(pitchDecks.id, id), eq(pitchDecks.clientId, clientId))).limit(1);
       if (!source) return json({ error: 'Source deck not found' });

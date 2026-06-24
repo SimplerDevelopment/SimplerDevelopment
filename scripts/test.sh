@@ -210,4 +210,26 @@ if [[ -f "$TEST_OUTPUT_LOG" ]]; then
   echo "Full test output captured at: $TEST_OUTPUT_LOG"
 fi
 
+# ── Runbook pointer on failure ──────────────────────────────────────────
+# Harness-engineering (AI DevCon 2026): a failing gate should point at its
+# remediation runbook so an agent self-heals instead of blindly re-running.
+# Keyed to the tag/layer that failed; all targets live in vault/06 - Validation.
+if [[ "$FAIL" != "0" ]]; then
+  echo ""
+  echo "────────────────────────────────────────────────────────────────────"
+  echo "✗ Gate failed — read the runbook before re-running:"
+  case "${TAG#@}" in
+    tenancy)  echo "  → vault/06 - Validation/Tenancy Regression.md  (tenant-leak triage)";;
+    critical) echo "  → vault/06 - Validation/QA Flows.md            (golden-path repair)";;
+    *)
+      case "$LAYER" in
+        e2e) echo "  → vault/06 - Validation/E2E Patterns.md         (flaky/selector triage)";;
+        *)   echo "  → vault/06 - Validation/Gate Picking.md         (which gate, why, how to read it)";;
+      esac
+      ;;
+  esac
+  echo "  Full output: $TEST_OUTPUT_LOG"
+  echo "────────────────────────────────────────────────────────────────────"
+fi
+
 exit "$FAIL"
