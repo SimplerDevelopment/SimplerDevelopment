@@ -15,11 +15,11 @@ export default async function BrainAgentPage() {
       {/* Page header */}
       <div className="shrink-0 border-b border-border bg-background px-6 py-4">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+          <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
             <span className="material-icons text-primary text-lg">psychology</span>
           </div>
           <div>
-            <h1 className="text-lg font-semibold text-foreground leading-tight">Brain Agent</h1>
+            <h1 className="font-display text-[17px] font-extrabold tracking-[-0.02em] text-foreground leading-tight">Brain Agent</h1>
             <p className="text-sm text-muted-foreground">
               Ask anything about your company knowledge base
             </p>

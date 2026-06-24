@@ -19,6 +19,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import {
+  pBtnPrimary,
+  pBtnGhost,
+  pCard,
+  pInput,
+  pSectionTitle,
+  pChip,
+} from '@/components/portal/portal-ui';
 
 type Trigger = 'manual' | 'daily' | 'meeting' | 'slash';
 
@@ -249,40 +258,40 @@ export default function BrainTemplatesPage() {
 
   return (
     <div className="max-w-6xl mx-auto py-8 px-4">
-      <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
+      <PortalPageHeader
+        eyebrow="Company Brain"
+        title={
+          <span className="flex items-center gap-2">
             <span className="material-icons text-primary">description</span>
             Note Templates
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Reusable note bodies with <code className="px-1 py-0.5 rounded bg-muted text-foreground text-xs">{'{{variable}}'}</code> placeholders. Apply manually, on a schedule, or when a meeting is created.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Link
-            href="/portal/brain/knowledge"
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md border border-border text-foreground hover:bg-accent"
-          >
-            <span className="material-icons text-base">arrow_back</span>
-            Knowledge
-          </Link>
-          <button
-            type="button"
-            onClick={handleNew}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors text-sm font-medium"
-          >
-            <span className="material-icons text-base">add</span>
-            New template
-          </button>
-        </div>
-      </div>
+          </span>
+        }
+        subtitle={
+          <>
+            Reusable note bodies with{' '}
+            <code className="px-1 py-0.5 rounded bg-muted text-foreground text-xs">{'{{variable}}'}</code>{' '}
+            placeholders. Apply manually, on a schedule, or when a meeting is created.
+          </>
+        }
+        actions={
+          <>
+            <Link href="/portal/brain/knowledge" className={pBtnGhost}>
+              <span className="material-icons text-base">arrow_back</span>
+              Knowledge
+            </Link>
+            <button type="button" onClick={handleNew} className={pBtnPrimary}>
+              <span className="material-icons text-base">add</span>
+              New template
+            </button>
+          </>
+        }
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-6">
         {/* List pane */}
-        <aside className="bg-card border border-border rounded-xl overflow-hidden">
+        <aside className={`${pCard} overflow-hidden`}>
           <div className="px-3 py-2 border-b border-border flex items-center justify-between">
-            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Templates</span>
+            <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Templates</span>
             <span className="text-xs text-muted-foreground">{items?.length ?? 0}</span>
           </div>
 
@@ -336,10 +345,7 @@ export default function BrainTemplatesPage() {
                       {tags.length > 0 && (
                         <div className="flex flex-wrap gap-1">
                           {tags.slice(0, 4).map((t) => (
-                            <span
-                              key={t}
-                              className="inline-flex items-center px-1.5 py-0.5 rounded bg-muted text-[10px] text-muted-foreground"
-                            >
+                            <span key={t} className={`${pChip} text-[10px] py-0.5 px-1.5`}>
                               {t}
                             </span>
                           ))}
@@ -359,18 +365,14 @@ export default function BrainTemplatesPage() {
         {/* Edit pane */}
         <section className="min-w-0">
           {!showForm && (
-            <div className="bg-card border border-border rounded-xl p-10 text-center">
+            <div className={`${pCard} p-10 text-center`}>
               <span className="material-icons text-5xl text-muted-foreground">description</span>
-              <h3 className="mt-3 font-semibold text-lg">Select a template to edit</h3>
+              <h3 className={`mt-3 ${pSectionTitle}`}>Select a template to edit</h3>
               <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto">
                 Pick one from the list, or click <span className="font-medium text-foreground">New template</span> to start fresh.
               </p>
               {items !== null && items.length === 0 && (
-                <button
-                  type="button"
-                  onClick={handleNew}
-                  className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90"
-                >
+                <button type="button" onClick={handleNew} className={`mt-4 ${pBtnPrimary}`}>
                   <span className="material-icons text-base">add</span>
                   Create your first template
                 </button>
@@ -379,9 +381,9 @@ export default function BrainTemplatesPage() {
           )}
 
           {showForm && (
-            <div className="bg-card border border-border rounded-xl p-6">
+            <div className={`${pCard} p-6`}>
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold">
+                <h2 className={pSectionTitle}>
                   {isNewMode ? 'New template' : 'Edit template'}
                 </h2>
                 {selectedTemplate && (
@@ -394,7 +396,7 @@ export default function BrainTemplatesPage() {
               <div className="space-y-5">
                 {/* Name */}
                 <div>
-                  <label htmlFor="tpl-name" className="block text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">
+                  <label htmlFor="tpl-name" className="block font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground mb-1.5">
                     Name
                   </label>
                   <input
@@ -404,13 +406,13 @@ export default function BrainTemplatesPage() {
                     onChange={(e) => setForm({ ...form, name: e.target.value })}
                     maxLength={150}
                     placeholder="Daily standup"
-                    className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-muted-foreground/60"
+                    className={pInput}
                   />
                 </div>
 
                 {/* Trigger */}
                 <div>
-                  <span className="block text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">
+                  <span className="block font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground mb-1.5">
                     Trigger
                   </span>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -421,10 +423,10 @@ export default function BrainTemplatesPage() {
                           key={t.value}
                           type="button"
                           onClick={() => setForm({ ...form, trigger: t.value })}
-                          className={`flex flex-col items-start gap-1 px-3 py-2 rounded-lg border text-left transition-colors ${
+                          className={`flex flex-col items-start gap-1 px-3 py-2 rounded-xl border text-left transition-colors ${
                             active
                               ? 'border-primary bg-primary/10 text-foreground'
-                              : 'border-border bg-background hover:bg-accent text-foreground'
+                              : 'border-border bg-card hover:bg-accent text-foreground'
                           }`}
                         >
                           <span className="flex items-center gap-1.5 text-sm font-medium">
@@ -453,7 +455,7 @@ export default function BrainTemplatesPage() {
                   </label>
 
                   <div>
-                    <label htmlFor="tpl-tags" className="block text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">
+                    <label htmlFor="tpl-tags" className="block font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground mb-1.5">
                       Default tags
                     </label>
                     <input
@@ -462,7 +464,7 @@ export default function BrainTemplatesPage() {
                       value={form.defaultTagsInput}
                       onChange={(e) => setForm({ ...form, defaultTagsInput: e.target.value })}
                       placeholder="daily, standup, eng"
-                      className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-muted-foreground/60"
+                      className={pInput}
                     />
                     <p className="text-[11px] text-muted-foreground mt-1">
                       Comma-separated. Pre-attached to every note created from this template.
@@ -473,7 +475,7 @@ export default function BrainTemplatesPage() {
                 {/* Body + variable hints */}
                 <div className="grid grid-cols-1 lg:grid-cols-[1fr_240px] gap-4">
                   <div>
-                    <label htmlFor="tpl-body" className="block text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">
+                    <label htmlFor="tpl-body" className="block font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground mb-1.5">
                       Body
                     </label>
                     <textarea
@@ -482,15 +484,15 @@ export default function BrainTemplatesPage() {
                       onChange={(e) => setForm({ ...form, body: e.target.value })}
                       placeholder={'# {{today}}\n\n## Open tasks\n{{open_tasks}}\n\n## Recent meetings\n{{recent_meetings}}'}
                       rows={18}
-                      className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-muted-foreground/60 resize-y min-h-[300px]"
+                      className={`${pInput} font-mono resize-y min-h-[300px]`}
                     />
                     <p className="text-[11px] text-muted-foreground mt-1">
                       Markdown body. <code className="px-1 py-0.5 rounded bg-muted text-foreground text-xs">{'{{vars}}'}</code> are resolved at apply time; unrecognized ones are left as-is.
                     </p>
                   </div>
 
-                  <aside className="bg-muted/30 border border-border rounded-lg p-4 self-start">
-                    <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1.5">
+                  <aside className="rounded-2xl border border-border bg-muted/30 p-4 self-start">
+                    <h3 className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground mb-3 flex items-center gap-1.5">
                       <span className="material-icons text-sm text-primary">data_object</span>
                       Variables
                     </h3>
@@ -523,7 +525,7 @@ export default function BrainTemplatesPage() {
                       type="button"
                       onClick={handleSave}
                       disabled={saving}
-                      className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className={pBtnPrimary}
                     >
                       {saving ? (
                         <>
@@ -544,7 +546,7 @@ export default function BrainTemplatesPage() {
                         onClick={handleTryIt}
                         disabled={tryingId !== null}
                         title="Create a new note from this template and open it"
-                        className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-border text-foreground hover:bg-accent text-sm font-medium disabled:opacity-50"
+                        className={pBtnGhost}
                       >
                         {tryingId === selectedTemplate.id ? (
                           <>
@@ -566,7 +568,7 @@ export default function BrainTemplatesPage() {
                       type="button"
                       onClick={handleDelete}
                       disabled={saving}
-                      className="inline-flex items-center gap-1.5 px-3 py-2 text-sm text-muted-foreground hover:text-red-500 transition-colors disabled:opacity-50"
+                      className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-muted-foreground hover:text-red-500 transition-colors disabled:opacity-50"
                     >
                       <span className="material-icons text-base">delete_outline</span>
                       Delete

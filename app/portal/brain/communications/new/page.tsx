@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnPrimary, pBtnGhost, pInput, pSectionTitle } from '@/components/portal/portal-ui';
 
 interface AdapterInfo {
   id: string;
@@ -124,15 +126,18 @@ export default function NewBrainMeetingPage() {
 
   return (
     <div className="max-w-3xl mx-auto py-8 space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-foreground">New note</h1>
+      <div>
         <Link
           href="/portal/brain/communications"
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md border border-border text-foreground hover:bg-accent"
+          className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground mb-4"
         >
-          <span className="material-icons text-base">arrow_back</span>
-          Back
+          <span className="material-icons text-sm">arrow_back</span>
+          Back to communications
         </Link>
+        <PortalPageHeader
+          eyebrow="Company Brain"
+          title="New note"
+        />
       </div>
 
       {error && (
@@ -176,7 +181,7 @@ export default function NewBrainMeetingPage() {
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="e.g. Acme Q1 review"
-              className="w-full px-3 py-2 rounded-md border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              className="w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary focus:ring-4 focus:ring-primary/15"
             />
           </Field>
           <Field label="Date (optional)">
@@ -184,7 +189,7 @@ export default function NewBrainMeetingPage() {
               type="datetime-local"
               value={meetingDate}
               onChange={(e) => setMeetingDate(e.target.value)}
-              className="w-full px-3 py-2 rounded-md border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              className="w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary focus:ring-4 focus:ring-primary/15"
             />
           </Field>
         </div>
@@ -208,19 +213,19 @@ export default function NewBrainMeetingPage() {
                 value={p.name}
                 onChange={(e) => updateParticipant(i, { name: e.target.value })}
                 placeholder="Name"
-                className="px-3 py-1.5 rounded-md border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                className="rounded-xl border border-border bg-card px-3.5 py-2 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary focus:ring-4 focus:ring-primary/15"
               />
               <input
                 type="email"
                 value={p.email}
                 onChange={(e) => updateParticipant(i, { email: e.target.value })}
                 placeholder="email@example.com"
-                className="px-3 py-1.5 rounded-md border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                className="rounded-xl border border-border bg-card px-3.5 py-2 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary focus:ring-4 focus:ring-primary/15"
               />
               <button
                 onClick={() => removeParticipant(i)}
                 disabled={participants.length === 1}
-                className="px-2 py-1.5 rounded-md border border-border text-muted-foreground hover:bg-accent disabled:opacity-30"
+                className="rounded-xl border border-border bg-card px-2 py-2 text-muted-foreground hover:border-foreground/25 disabled:opacity-30 inline-flex items-center justify-center"
                 aria-label="Remove participant"
               >
                 <span className="material-icons text-base">remove</span>
@@ -259,7 +264,7 @@ export default function NewBrainMeetingPage() {
           onChange={(e) => setTranscript(e.target.value)}
           rows={adapterId === 'upload' ? 8 : 14}
           placeholder={adapterId === 'upload' ? 'Parsed file text appears here. Edit if needed.' : 'Paste communication notes, transcript, or recording text here…'}
-          className="w-full px-3 py-2 rounded-md border border-border bg-background text-foreground text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary"
+          className="w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground font-mono outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/15"
         />
         <p className="text-xs text-muted-foreground mt-1">
           {transcript.length.toLocaleString()} characters. Long transcripts (&gt;60k chars) will be truncated.
@@ -271,14 +276,14 @@ export default function NewBrainMeetingPage() {
         <button
           onClick={() => submit(false)}
           disabled={creating || !transcript.trim()}
-          className="px-4 py-2 text-sm font-medium rounded-md border border-border text-foreground hover:bg-accent disabled:opacity-50"
+          className={`${pBtnGhost} disabled:opacity-50`}
         >
           Save as draft
         </button>
         <button
           onClick={() => submit(true)}
           disabled={creating || !transcript.trim()}
-          className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+          className={pBtnPrimary}
         >
           {processing
             ? <><span className="material-icons animate-spin text-base">progress_activity</span>Processing…</>
@@ -294,8 +299,8 @@ export default function NewBrainMeetingPage() {
 
 function Section({ title, icon, children }: { title: string; icon: string; children: React.ReactNode }) {
   return (
-    <section className="bg-card border border-border rounded-lg p-5">
-      <h2 className="text-sm font-semibold text-foreground flex items-center gap-2 mb-3">
+    <section className="bg-card border border-border rounded-2xl p-5">
+      <h2 className={`${pSectionTitle} flex items-center gap-2 mb-3`}>
         <span className="material-icons text-base text-muted-foreground">{icon}</span>
         {title}
       </h2>
@@ -343,7 +348,7 @@ function RelationshipPicker({
 
   if (value) {
     return (
-      <div className="flex items-center justify-between bg-muted/30 border border-border rounded-md p-3">
+      <div className="flex items-center justify-between bg-muted/30 border border-border rounded-2xl p-3">
         <div className="flex items-center gap-2 min-w-0">
           <span className="material-icons text-base text-muted-foreground">{value.type === 'company' ? 'business' : 'handshake'}</span>
           <span className="text-sm text-foreground truncate">{value.name}</span>
@@ -373,13 +378,13 @@ function RelationshipPicker({
   }
 
   return (
-    <div className="space-y-2 border border-border rounded-md p-3">
+    <div className="space-y-2 border border-border rounded-2xl p-3">
       <input
         type="text"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         placeholder="Search companies or deals…"
-        className="w-full px-3 py-2 rounded-md border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+        className="w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary focus:ring-4 focus:ring-primary/15"
         autoFocus
       />
       <div className="max-h-56 overflow-auto space-y-1">
@@ -455,7 +460,7 @@ function FilePicker({
 
   if (current) {
     return (
-      <div className="mb-3 flex items-center justify-between bg-muted/30 border border-border rounded-md p-3">
+      <div className="mb-3 flex items-center justify-between bg-muted/30 border border-border rounded-2xl p-3">
         <div className="flex items-center gap-2 text-sm text-foreground min-w-0">
           <span className="material-icons text-base text-muted-foreground">description</span>
           <span className="truncate">{current.name}</span>
@@ -474,7 +479,7 @@ function FilePicker({
 
   return (
     <div className="mb-3">
-      <label className="flex flex-col items-center justify-center gap-1 border-2 border-dashed border-border rounded-md p-6 cursor-pointer hover:bg-accent/30 transition-colors">
+      <label className="flex flex-col items-center justify-center gap-1 border-2 border-dashed border-border rounded-2xl p-6 cursor-pointer hover:bg-accent/30 transition-colors">
         <span className="material-icons text-3xl text-muted-foreground">cloud_upload</span>
         <span className="text-sm text-foreground font-medium">Choose a file</span>
         <span className="text-xs text-muted-foreground">{ACCEPTED_EXTENSIONS.join(', ')} · up to 5MB</span>
