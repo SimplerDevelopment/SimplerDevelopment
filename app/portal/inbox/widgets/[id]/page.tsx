@@ -2,6 +2,8 @@
 
 import { use, useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnPrimary, pBtnGhost, pCard, pSelect, pSectionTitle } from '@/components/portal/portal-ui';
 
 interface Widget {
   id: number;
@@ -72,23 +74,17 @@ export default function WidgetSettingsPage({ params }: { params: Promise<{ id: s
 
   return (
     <div className="max-w-3xl mx-auto p-6 space-y-6">
-      <div>
-        <Link
-          href="/portal/inbox"
-          className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
-        >
+      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <Link href="/portal/inbox" className="hover:text-foreground inline-flex items-center gap-1">
           <span className="material-icons text-base">arrow_back</span>
           Inbox
         </Link>
-        <h1 className="text-2xl font-semibold flex items-center gap-2 mt-2">
-          <span className="material-icons">settings</span>
-          Chat widget settings
-        </h1>
       </div>
+      <PortalPageHeader eyebrow="Inbox" title="Chat Widget Settings" />
 
       {error && <div className="bg-destructive/10 text-destructive p-3 rounded-md text-sm">{error}</div>}
 
-      <section className="border rounded-md p-4 bg-card space-y-4">
+      <section className={`${pCard} p-5 space-y-4`}>
         <div>
           <label className="flex items-center gap-2 text-sm">
             <input
@@ -106,7 +102,7 @@ export default function WidgetSettingsPage({ params }: { params: Promise<{ id: s
         <div>
           <label className="text-sm font-medium">Greeting message</label>
           <textarea
-            className="w-full border rounded-md p-2 mt-1 bg-background"
+            className="w-full rounded-xl border border-border bg-card px-3.5 py-2 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary focus:ring-4 focus:ring-primary/15 mt-1 resize-none"
             rows={2}
             value={widget.greetingMessage ?? ''}
             onChange={(e) => setWidget({ ...widget, greetingMessage: e.target.value })}
@@ -116,7 +112,7 @@ export default function WidgetSettingsPage({ params }: { params: Promise<{ id: s
         <div>
           <label className="text-sm font-medium">Away message</label>
           <textarea
-            className="w-full border rounded-md p-2 mt-1 bg-background"
+            className="w-full rounded-xl border border-border bg-card px-3.5 py-2 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary focus:ring-4 focus:ring-primary/15 mt-1 resize-none"
             rows={2}
             value={widget.awayMessage ?? ''}
             onChange={(e) => setWidget({ ...widget, awayMessage: e.target.value })}
@@ -127,7 +123,7 @@ export default function WidgetSettingsPage({ params }: { params: Promise<{ id: s
           <div>
             <label className="text-sm font-medium">Position</label>
             <select
-              className="w-full border rounded-md p-2 mt-1 bg-background"
+              className={`${pSelect} mt-1`}
               value={widget.position}
               onChange={(e) => setWidget({ ...widget, position: e.target.value })}
             >
@@ -151,22 +147,22 @@ export default function WidgetSettingsPage({ params }: { params: Promise<{ id: s
           type="button"
           onClick={() => void save()}
           disabled={saving}
-          className="inline-flex items-center gap-1 px-3 py-2 bg-primary text-primary-foreground rounded-md disabled:opacity-50"
+          className={pBtnPrimary}
         >
           <span className="material-icons text-base">save</span>
           {saving ? 'Saving…' : 'Save'}
         </button>
       </section>
 
-      <section className="border rounded-md p-4 bg-card space-y-2">
-        <h2 className="text-lg font-semibold flex items-center gap-2">
+      <section className={`${pCard} p-5 space-y-2`}>
+        <h2 className={`${pSectionTitle} flex items-center gap-2`}>
           <span className="material-icons">code</span>
           Embed
         </h2>
         <p className="text-sm text-muted-foreground">
           Paste this into the head of any page that should show the chat widget.
         </p>
-        <pre className="bg-muted p-3 rounded-md text-xs overflow-x-auto">{embed}</pre>
+        <pre className="bg-muted p-3 rounded-xl text-xs overflow-x-auto">{embed}</pre>
         <button
           type="button"
           onClick={async () => {
@@ -178,7 +174,7 @@ export default function WidgetSettingsPage({ params }: { params: Promise<{ id: s
               // ignore
             }
           }}
-          className="inline-flex items-center gap-1 px-3 py-1.5 text-sm border rounded-md hover:bg-accent"
+          className={pBtnGhost}
         >
           <span className="material-icons text-base">{copied ? 'check' : 'content_copy'}</span>
           {copied ? 'Copied' : 'Copy'}

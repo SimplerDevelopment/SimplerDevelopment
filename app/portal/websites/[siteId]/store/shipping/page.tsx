@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { formatMoney } from '@/lib/utils/money';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnPrimary, pBtnGhost, pBtnSoft, pCard, pInput, pSelect, pSectionTitle } from '@/components/portal/portal-ui';
 
 type RateSource = 'manual' | 'easypost';
 
@@ -266,9 +268,6 @@ export default function ShippingSettingsPage() {
     }
   };
 
-  const inputClass =
-    'w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40';
-
   if (loading) {
     return (
       <div className="flex items-center justify-center py-16">
@@ -279,20 +278,20 @@ export default function ShippingSettingsPage() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Shipping</h1>
-          <p className="text-muted-foreground text-sm mt-1">Manage shipping zones and rates.</p>
-        </div>
-        <button
-          onClick={showZoneForm ? () => setShowZoneForm(false) : openCreateZone}
-          className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
-        >
-          <span className="material-icons text-base">{showZoneForm ? 'close' : 'add'}</span>
-          {showZoneForm ? 'Cancel' : 'Add Zone'}
-        </button>
-      </div>
+      <PortalPageHeader
+        eyebrow="Store"
+        title="Shipping"
+        subtitle="Manage shipping zones and rates."
+        actions={
+          <button
+            onClick={showZoneForm ? () => setShowZoneForm(false) : openCreateZone}
+            className={pBtnPrimary}
+          >
+            <span className="material-icons text-base">{showZoneForm ? 'close' : 'add'}</span>
+            {showZoneForm ? 'Cancel' : 'Add Zone'}
+          </button>
+        }
+      />
 
       {/* Live-rates info banner */}
       <div className="flex items-start gap-2 p-3 bg-blue-50 border border-blue-200 rounded-xl text-blue-800 text-sm dark:bg-blue-900/20 dark:border-blue-800 dark:text-blue-300">
@@ -325,8 +324,8 @@ export default function ShippingSettingsPage() {
 
       {/* Zone Form */}
       {showZoneForm && (
-        <form onSubmit={saveZone} className="bg-card border border-border rounded-xl p-6 space-y-4">
-          <h2 className="font-semibold text-foreground">{editingZone ? 'Edit Zone' : 'New Shipping Zone'}</h2>
+        <form onSubmit={saveZone} className={`${pCard} p-6 space-y-4`}>
+          <h2 className={pSectionTitle}>{editingZone ? 'Edit Zone' : 'New Shipping Zone'}</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-foreground">Zone Name</label>
@@ -335,7 +334,7 @@ export default function ShippingSettingsPage() {
                 onChange={(e) => setZoneForm((p) => ({ ...p, name: e.target.value }))}
                 required
                 placeholder="e.g. Domestic, International"
-                className={inputClass}
+                className={pInput}
               />
             </div>
             <div className="space-y-1.5">
@@ -344,7 +343,7 @@ export default function ShippingSettingsPage() {
                 value={zoneForm.countries}
                 onChange={(e) => setZoneForm((p) => ({ ...p, countries: e.target.value }))}
                 placeholder="US, CA, GB (comma separated)"
-                className={inputClass}
+                className={pInput}
               />
               <p className="text-xs text-muted-foreground">Country codes, comma separated. Leave empty for all countries.</p>
             </div>
@@ -353,14 +352,14 @@ export default function ShippingSettingsPage() {
             <button
               type="button"
               onClick={() => setShowZoneForm(false)}
-              className="px-4 py-2 text-sm font-medium text-foreground bg-card border border-border rounded-lg hover:bg-accent transition-colors"
+              className={pBtnGhost}
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={saving}
-              className="flex items-center gap-2 px-5 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+              className={pBtnPrimary}
             >
               {saving && <span className="material-icons text-base animate-spin">refresh</span>}
               {editingZone ? 'Update' : 'Create'} Zone
@@ -371,7 +370,7 @@ export default function ShippingSettingsPage() {
 
       {/* Zones List */}
       {zones.length === 0 ? (
-        <div className="bg-card border border-border rounded-xl p-10 flex flex-col items-center text-center">
+        <div className={`${pCard} p-10 flex flex-col items-center text-center`}>
           <span className="material-icons text-4xl text-muted-foreground/40 mb-2">local_shipping</span>
           <h2 className="font-semibold text-foreground mb-1">No shipping zones</h2>
           <p className="text-sm text-muted-foreground">Create a shipping zone to define rates for different regions.</p>
@@ -379,7 +378,7 @@ export default function ShippingSettingsPage() {
       ) : (
         <div className="space-y-4">
           {zones.map((zone) => (
-            <div key={zone.id} className="bg-card border border-border rounded-xl overflow-hidden">
+            <div key={zone.id} className={`${pCard} overflow-hidden`}>
               {/* Zone header */}
               <div
                 className="px-6 py-4 flex items-center justify-between cursor-pointer hover:bg-muted/20 transition-colors"
@@ -513,8 +512,8 @@ export default function ShippingSettingsPage() {
 
                   {/* Rate Form */}
                   {showRateForm === zone.id ? (
-                    <form onSubmit={(e) => saveRate(e, zone.id)} className="p-4 bg-muted/20 rounded-lg space-y-4">
-                      <h4 className="font-medium text-foreground text-sm">
+                    <form onSubmit={(e) => saveRate(e, zone.id)} className="p-4 bg-muted/20 rounded-xl space-y-4">
+                      <h4 className="font-semibold text-foreground text-sm">
                         {editingRate ? 'Edit Rate' : 'New Rate'}
                       </h4>
 
@@ -523,7 +522,7 @@ export default function ShippingSettingsPage() {
                         <label className="text-xs font-medium text-foreground">Rate source</label>
                         <div className="flex gap-2">
                           <label
-                            className={`flex-1 flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer transition-colors ${
+                            className={`flex-1 flex items-center gap-2 px-3 py-2 rounded-xl border cursor-pointer transition-colors ${
                               rateSource === 'manual'
                                 ? 'border-primary bg-primary/5 text-foreground'
                                 : 'border-border bg-background text-muted-foreground hover:border-primary/40'
@@ -541,7 +540,7 @@ export default function ShippingSettingsPage() {
                             <span className="text-sm font-medium">Manual</span>
                           </label>
                           <label
-                            className={`flex-1 flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer transition-colors ${
+                            className={`flex-1 flex items-center gap-2 px-3 py-2 rounded-xl border cursor-pointer transition-colors ${
                               rateSource === 'easypost'
                                 ? 'border-primary bg-primary/5 text-foreground'
                                 : 'border-border bg-background text-muted-foreground hover:border-primary/40'
@@ -570,7 +569,7 @@ export default function ShippingSettingsPage() {
                             onChange={(e) => setRateForm((p) => ({ ...p, name: e.target.value }))}
                             required
                             placeholder={rateSource === 'easypost' ? 'Live carrier rate' : 'Standard, Express...'}
-                            className={inputClass}
+                            className={pInput}
                           />
                         </div>
 
@@ -582,7 +581,7 @@ export default function ShippingSettingsPage() {
                               <select
                                 value={rateForm.rateType}
                                 onChange={(e) => setRateForm((p) => ({ ...p, rateType: e.target.value }))}
-                                className={inputClass}
+                                className={pSelect}
                               >
                                 <option value="flat">Flat Rate</option>
                                 <option value="weight_based">Weight Based</option>
@@ -599,7 +598,7 @@ export default function ShippingSettingsPage() {
                                 value={centsToDollars(rateForm.price)}
                                 onChange={(e) => setRateForm((p) => ({ ...p, price: dollarsToCents(e.target.value) }))}
                                 disabled={rateForm.rateType === 'free'}
-                                className={inputClass}
+                                className={pInput}
                               />
                             </div>
                           </>
@@ -613,7 +612,7 @@ export default function ShippingSettingsPage() {
                               <select
                                 value={rateForm.carrierCode}
                                 onChange={(e) => setRateForm((p) => ({ ...p, carrierCode: e.target.value }))}
-                                className={inputClass}
+                                className={pSelect}
                               >
                                 {CARRIER_OPTIONS.map((opt) => (
                                   <option key={opt.value} value={opt.value}>
@@ -628,7 +627,7 @@ export default function ShippingSettingsPage() {
                                 value={rateForm.serviceCode}
                                 onChange={(e) => setRateForm((p) => ({ ...p, serviceCode: e.target.value }))}
                                 placeholder="Leave blank to allow all services from this carrier"
-                                className={inputClass}
+                                className={pInput}
                               />
                               <p className="text-[11px] text-muted-foreground">
                                 Examples: Priority, Ground, Express. Exact match against EasyPost service codes.
@@ -646,7 +645,7 @@ export default function ShippingSettingsPage() {
                             value={rateForm.minDeliveryDays}
                             onChange={(e) => setRateForm((p) => ({ ...p, minDeliveryDays: e.target.value }))}
                             placeholder="e.g. 3"
-                            className={inputClass}
+                            className={pInput}
                           />
                         </div>
                         <div className="space-y-1">
@@ -657,7 +656,7 @@ export default function ShippingSettingsPage() {
                             value={rateForm.maxDeliveryDays}
                             onChange={(e) => setRateForm((p) => ({ ...p, maxDeliveryDays: e.target.value }))}
                             placeholder="e.g. 7"
-                            className={inputClass}
+                            className={pInput}
                           />
                         </div>
 
@@ -672,7 +671,7 @@ export default function ShippingSettingsPage() {
                               value={centsToDollars(rateForm.freeAbove)}
                               onChange={(e) => setRateForm((p) => ({ ...p, freeAbove: dollarsToCents(e.target.value) }))}
                               placeholder="Optional"
-                              className={inputClass}
+                              className={pInput}
                             />
                           </div>
                         )}
@@ -684,14 +683,14 @@ export default function ShippingSettingsPage() {
                             setShowRateForm(null);
                             setEditingRate(null);
                           }}
-                          className="px-3 py-1.5 text-sm font-medium text-foreground bg-card border border-border rounded-lg hover:bg-accent transition-colors"
+                          className={pBtnGhost}
                         >
                           Cancel
                         </button>
                         <button
                           type="submit"
                           disabled={saving}
-                          className="flex items-center gap-2 px-4 py-1.5 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+                          className={pBtnPrimary}
                         >
                           {saving && <span className="material-icons text-sm animate-spin">refresh</span>}
                           {editingRate ? 'Update' : 'Add'} Rate
@@ -701,7 +700,7 @@ export default function ShippingSettingsPage() {
                   ) : (
                     <button
                       onClick={() => openCreateRate(zone.id)}
-                      className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-primary hover:bg-accent rounded-lg transition-colors"
+                      className={pBtnSoft}
                     >
                       <span className="material-icons text-sm">add</span>
                       Add Rate

@@ -7,6 +7,8 @@ import Link from 'next/link';
 import { resolvePortalSite } from '@/lib/portal-client';
 import ContentList from '../ContentList';
 import UploadHtmlPageButton from '@/components/portal/UploadHtmlPageButton';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnPrimary, pBtnGhost } from '@/components/portal/portal-ui';
 
 export default async function PortalCmsEntriesPage({
   params,
@@ -39,31 +41,24 @@ export default async function PortalCmsEntriesPage({
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Entries</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            {sitePosts.length} total &middot; {sitePosts.filter(p => p.published).length} published &middot; {sitePosts.filter(p => !p.published).length} drafts
-          </p>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <Link
-            href={`/portal/websites/${site.id}/calendar`}
-            className="flex items-center gap-2 px-4 py-2 border border-border text-foreground rounded-lg text-sm font-medium hover:bg-accent transition-colors"
-          >
-            <span className="material-icons text-base">calendar_month</span>
-            Calendar
-          </Link>
-          <UploadHtmlPageButton siteId={site.id} />
-          <Link
-            href={`/portal/websites/${site.id}/posts/new`}
-            className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
-          >
-            <span className="material-icons text-base">add</span>
-            New Entry
-          </Link>
-        </div>
-      </div>
+      <PortalPageHeader
+        eyebrow="Website"
+        title="Entries"
+        subtitle={<>{sitePosts.length} total &middot; {sitePosts.filter(p => p.published).length} published &middot; {sitePosts.filter(p => !p.published).length} drafts</>}
+        actions={
+          <div className="flex items-center gap-2">
+            <Link href={`/portal/websites/${site.id}/calendar`} className={pBtnGhost}>
+              <span className="material-icons text-base">calendar_month</span>
+              Calendar
+            </Link>
+            <UploadHtmlPageButton siteId={site.id} />
+            <Link href={`/portal/websites/${site.id}/posts/new`} className={pBtnPrimary}>
+              <span className="material-icons text-base">add</span>
+              New Entry
+            </Link>
+          </div>
+        }
+      />
 
       <ContentList
         siteId={site.id}

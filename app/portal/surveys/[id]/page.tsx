@@ -211,7 +211,7 @@ export default function SurveyDetailPage() {
 
       {/* Messages */}
       {error && (
-        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3 text-sm text-red-700 dark:text-red-400 flex items-center gap-2">
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-3 text-sm text-red-700 dark:text-red-400 flex items-center gap-2">
           <span className="material-icons text-lg">error</span>
           {error}
           <button onClick={() => setError('')} className="ml-auto">
@@ -220,7 +220,7 @@ export default function SurveyDetailPage() {
         </div>
       )}
       {successMsg && (
-        <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-3 text-sm text-green-700 dark:text-green-400 flex items-center gap-2">
+        <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl p-3 text-sm text-green-700 dark:text-green-400 flex items-center gap-2">
           <span className="material-icons text-lg">check_circle</span>
           {successMsg}
         </div>

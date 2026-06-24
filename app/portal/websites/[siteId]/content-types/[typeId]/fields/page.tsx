@@ -6,6 +6,7 @@ import { and, eq } from 'drizzle-orm';
 import { resolvePortalSite } from '@/lib/portal-client';
 import { CustomFieldsManager } from '@/components/portal/CustomFieldsManager';
 import { promoteBuiltInContentType } from '@/lib/portal/promote-content-type';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
 
 interface PageProps {
   params: Promise<{ siteId: string; typeId: string }>;
@@ -39,20 +40,11 @@ export default async function ContentTypeFieldsPage({ params }: PageProps) {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      <div>
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <span className="material-icons text-sm">input</span>
-          <span>Custom fields</span>
-          <span>·</span>
-          <code className="font-mono">{type.slug}</code>
-        </div>
-        <h1 className="text-2xl font-bold text-foreground">{type.name}</h1>
-        <p className="text-muted-foreground text-sm mt-1">
-          Define structured fields for every <code className="font-mono">{type.slug}</code> post — text,
-          select, image, repeaters, groups, etc. Authors fill them in alongside the block content on the post
-          edit page; values surface in templates via the same custom-field engine the CRM uses.
-        </p>
-      </div>
+      <PortalPageHeader
+        eyebrow="Website"
+        title={type.name}
+        subtitle={<>Define structured fields for every <code className="font-mono">{type.slug}</code> post — text, select, image, repeaters, groups, etc. Authors fill them in alongside the block content on the post edit page; values surface in templates via the same custom-field engine the CRM uses.</>}
+      />
 
       <CustomFieldsManager
         collectionEndpoint={base}
