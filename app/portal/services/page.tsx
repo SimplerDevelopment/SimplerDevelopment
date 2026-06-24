@@ -6,6 +6,8 @@ import { redirect } from 'next/navigation';
 import { formatCents } from '@/lib/portal';
 import Link from 'next/link';
 import BuyServiceButton from './_components/BuyServiceButton';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnPrimary } from '@/components/portal/portal-ui';
 
 const categoryIcon: Record<string, string> = {
   cms: 'web',
@@ -45,12 +47,11 @@ export default async function PortalServicesPage({
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Add a Service</h1>
-        <p className="text-muted-foreground mt-1 text-sm">
-          Extend your workspace with powerful add-ons managed by Simpler Development.
-        </p>
-      </div>
+      <PortalPageHeader
+        eyebrow="Catalog"
+        title="Add a Service"
+        subtitle="Extend your workspace with powerful add-ons managed by Simpler Development."
+      />
 
       {purchased === '1' && (
         <div className="flex items-center gap-3 p-4 bg-green-50 border border-green-200 rounded-xl text-green-800 dark:bg-green-900/20 dark:border-green-800 dark:text-green-300">
@@ -135,7 +136,7 @@ export default async function PortalServicesPage({
                         ) : hasSurvey ? (
                           <Link
                             href={`/portal/services/${svc.id}/request`}
-                            className="flex items-center gap-1 text-sm px-4 py-1.5 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors font-medium"
+                            className={pBtnPrimary}
                           >
                             Get Started
                             <span className="material-icons text-base">arrow_forward</span>
@@ -174,7 +175,7 @@ export default async function PortalServicesPage({
                       ) : hasSurvey ? (
                         <Link
                           href={`/portal/services/${svc.id}/request`}
-                          className="flex items-center gap-1 text-sm px-3 py-1.5 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors font-medium"
+                          className={pBtnPrimary}
                         >
                           Get Started
                           <span className="material-icons text-base">arrow_forward</span>

@@ -7,6 +7,8 @@ import { getPortalClient } from '@/lib/portal-client';
 import { hasServiceAccess } from '@/lib/portal-auth';
 import Link from 'next/link';
 import { RelatedModulesStrip } from '@/components/portal/billing/RelatedModulesStrip';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnPrimary } from '@/components/portal/portal-ui';
 
 const statusColors: Record<string, string> = {
   draft: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
@@ -34,21 +36,20 @@ export default async function SurveysListPage() {
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Surveys</h1>
-          <p className="text-muted-foreground mt-1 text-sm">
-            Create surveys and collect responses from customers, leads, and visitors
-          </p>
-        </div>
-        <Link
-          href="/portal/surveys/new"
-          className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
-        >
-          <span className="material-icons text-lg">add</span>
-          New Survey
-        </Link>
-      </div>
+      <PortalPageHeader
+        eyebrow="Forms"
+        title="Surveys"
+        subtitle="Create surveys and collect responses from customers, leads, and visitors"
+        actions={
+          <Link
+            href="/portal/surveys/new"
+            className={pBtnPrimary}
+          >
+            <span className="material-icons text-lg">add</span>
+            New Survey
+          </Link>
+        }
+      />
 
       {/* Quick Stats */}
       {list.length > 0 && (
@@ -84,7 +85,7 @@ export default async function SurveysListPage() {
           </p>
           <Link
             href="/portal/surveys/new"
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
+            className={pBtnPrimary}
           >
             <span className="material-icons text-lg">add_circle</span>
             Create Your First Survey

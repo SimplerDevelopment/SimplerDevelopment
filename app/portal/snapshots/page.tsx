@@ -6,6 +6,8 @@
 // export/import mechanics.
 
 import { useCallback, useEffect, useState } from 'react';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnPrimary } from '@/components/portal/portal-ui';
 
 type Snapshot = {
   id: number;
@@ -156,22 +158,20 @@ export default function PortalSnapshotsPage() {
 
   return (
     <div className="max-w-5xl mx-auto space-y-6 p-6">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Site snapshots</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Clone configured websites — export blocks, posts, navigation, custom code,
-            and post types as a portable bundle, then import into a new or existing site.
-          </p>
-        </div>
-        <button
-          onClick={() => setShowCreate((s) => !s)}
-          className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-primary-foreground bg-primary rounded-md hover:bg-primary/90"
-        >
-          <span className="material-icons text-base">add</span>
-          Create snapshot
-        </button>
-      </div>
+      <PortalPageHeader
+        eyebrow="History"
+        title="Site snapshots"
+        subtitle="Clone configured websites — export blocks, posts, navigation, custom code, and post types as a portable bundle, then import into a new or existing site."
+        actions={
+          <button
+            onClick={() => setShowCreate((s) => !s)}
+            className={pBtnPrimary}
+          >
+            <span className="material-icons text-base">add</span>
+            Create snapshot
+          </button>
+        }
+      />
 
       {flash && (
         <div

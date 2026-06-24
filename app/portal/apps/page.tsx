@@ -11,6 +11,7 @@ import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import { getPortalClient } from '@/lib/portal-client';
 import { loadUserApps } from '@/lib/plugins/load-user-apps';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,12 +27,11 @@ export default async function PortalAppsIndex() {
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-foreground">Apps</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Installed plugins available to your account.
-        </p>
-      </div>
+      <PortalPageHeader
+        eyebrow="Apps"
+        title="Apps"
+        subtitle="Installed plugins available to your account."
+      />
 
       {apps.length === 0 ? (
         <div className="border border-border rounded-2xl p-10 text-center bg-card">

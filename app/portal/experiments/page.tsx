@@ -13,6 +13,7 @@ import { eq, inArray, desc, and, or } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
 import ExperimentsTable, { type ExperimentRow } from '@/components/portal/ExperimentsTable';
 import { NewExperimentLauncher } from '@/components/portal/NewExperimentModal';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
 
 export const dynamic = 'force-dynamic';
 
@@ -113,19 +114,15 @@ export default async function ExperimentsListPage() {
 
   return (
     <div className="max-w-6xl mx-auto px-6 py-8">
-      <div className="flex items-center justify-between mb-6 gap-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-semibold flex items-center gap-2">
-            <span className="material-icons">science</span>
-            A/B Experiments
-          </h1>
-          <p className="text-sm text-gray-500 mt-1">Run head-to-head tests on any page. Track conversion lift with statistical significance.</p>
-        </div>
-        <NewExperimentLauncher />
-      </div>
+      <PortalPageHeader
+        eyebrow="Experiments"
+        title="A/B Experiments"
+        subtitle="Run head-to-head tests on any page. Track conversion lift with statistical significance."
+        actions={<NewExperimentLauncher />}
+      />
 
       {experiments.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-gray-300 px-8 py-16 text-center">
+        <div className="rounded-2xl border border-dashed border-gray-300 px-8 py-16 text-center">
           <span className="material-icons text-4xl text-gray-400 mb-2">science</span>
           <h2 className="text-lg font-medium mb-2">No experiments yet</h2>
           <p className="text-sm text-gray-500 max-w-md mx-auto mb-6">

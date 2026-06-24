@@ -20,6 +20,7 @@ import { WIDGET_COMPONENTS } from '@/components/portal/dashboard/widgets';
 import WidgetBoard from '@/components/portal/dashboard/WidgetBoard';
 import { WidgetSkeleton } from '@/components/portal/dashboard/skeletons';
 import GetStartedChecklist from '@/components/portal/onboarding/GetStartedChecklist';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
 
 const SERVICE_META: Record<string, { icon: string; color: string; bgColor: string; href: string; description: string; cta: string }> = {
   cms: { icon: 'language', color: 'text-blue-600', bgColor: 'bg-blue-50 dark:bg-blue-950/40', href: '/portal/websites', description: 'Drag-and-drop website builder with unlimited pages, blog, and SEO tools.', cta: 'Build your website' },
@@ -188,15 +189,16 @@ export default async function PortalDashboardPage() {
   return (
     <div className="max-w-6xl mx-auto space-y-8">
       {/* Header */}
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+      <PortalPageHeader
+        eyebrow="Workspace"
+        title={
+          <span className="flex items-center gap-2">
             {brainEnabled && <span className="material-icons text-primary">psychology</span>}
             Welcome back{client.company ? `, ${client.company}` : ''}!
-          </h1>
-          <p className="text-muted-foreground mt-1">Here&apos;s what&apos;s happening across your business.</p>
-        </div>
-        {brainEnabled && (
+          </span>
+        }
+        subtitle="Here's what's happening across your business."
+        actions={brainEnabled ? (
           <Link
             href="/portal/brain/settings"
             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md border border-border text-foreground hover:bg-accent shrink-0"
@@ -204,8 +206,8 @@ export default async function PortalDashboardPage() {
             <span className="material-icons text-base">settings</span>
             Brain Settings
           </Link>
-        )}
-      </div>
+        ) : undefined}
+      />
 
       {/* Post-onboarding get-started checklist — client component, self-hiding */}
       <GetStartedChecklist />

@@ -4,6 +4,7 @@ import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { priorityColor } from '@/lib/portal-utils';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
 
 type MyTaskCardSource = 'kanban' | 'brain';
 type MyTaskSourceFilter = 'all' | 'kanban' | 'brain';
@@ -265,24 +266,22 @@ function MyTasksPageInner() {
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">My Tasks</h1>
-          <p className="text-muted-foreground mt-1">
-            {total} task{total !== 1 ? 's' : ''} assigned to you
-            {overdueCount > 0 && <span className="text-destructive"> · {overdueCount} overdue</span>}
-          </p>
-        </div>
-        <label className="flex items-center gap-2 text-sm text-muted-foreground">
-          <input
-            type="checkbox"
-            checked={filters.openOnly}
-            onChange={toggleOpenOnly}
-            className="rounded border-border"
-          />
-          Hide completed
-        </label>
-      </div>
+      <PortalPageHeader
+        eyebrow="My work"
+        title="My Tasks"
+        subtitle={<>{total} task{total !== 1 ? 's' : ''} assigned to you{overdueCount > 0 && <span className="text-destructive"> · {overdueCount} overdue</span>}</>}
+        actions={
+          <label className="flex items-center gap-2 text-sm text-muted-foreground">
+            <input
+              type="checkbox"
+              checked={filters.openOnly}
+              onChange={toggleOpenOnly}
+              className="rounded border-border"
+            />
+            Hide completed
+          </label>
+        }
+      />
 
       {/* Filter chips */}
       <div className="bg-card border border-border rounded-xl p-3 space-y-3" aria-label="Task filters">

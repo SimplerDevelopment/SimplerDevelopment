@@ -3,6 +3,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { RelatedModulesStrip } from '@/components/portal/billing/RelatedModulesStrip';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnPrimary } from '@/components/portal/portal-ui';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -134,35 +136,36 @@ export default function PortalProjectsPage() {
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Projects</h1>
-          <p className="text-muted-foreground mt-1">All projects you have access to — agency-managed and your own.</p>
-        </div>
-        <div className="flex gap-2 flex-wrap">
-          <Link
-            href="/portal/projects/automations"
-            className="flex items-center gap-2 px-4 py-2 rounded-lg border border-border text-muted-foreground text-sm font-medium hover:bg-accent hover:text-foreground transition-colors"
-          >
-            <span className="material-icons text-base">bolt</span>
-            Automations
-          </Link>
-          <Link
-            href="/portal/suggested-projects"
-            className="flex items-center gap-2 px-4 py-2 rounded-lg border border-border text-muted-foreground text-sm font-medium hover:bg-accent hover:text-foreground transition-colors"
-          >
-            <span className="material-icons text-base">rocket_launch</span>
-            Suggested Projects
-          </Link>
-          <button
-            onClick={() => setShowCreateForm(!showCreateForm)}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
-          >
-            <span className="material-icons text-base">{showCreateForm ? 'close' : 'add'}</span>
-            {showCreateForm ? 'Cancel' : 'New Project'}
-          </button>
-        </div>
-      </div>
+      <PortalPageHeader
+        eyebrow="Delivery"
+        title="Projects"
+        subtitle="All projects you have access to — agency-managed and your own."
+        actions={
+          <div className="flex gap-2 flex-wrap">
+            <Link
+              href="/portal/projects/automations"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg border border-border text-muted-foreground text-sm font-medium hover:bg-accent hover:text-foreground transition-colors"
+            >
+              <span className="material-icons text-base">bolt</span>
+              Automations
+            </Link>
+            <Link
+              href="/portal/suggested-projects"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg border border-border text-muted-foreground text-sm font-medium hover:bg-accent hover:text-foreground transition-colors"
+            >
+              <span className="material-icons text-base">rocket_launch</span>
+              Suggested Projects
+            </Link>
+            <button
+              onClick={() => setShowCreateForm(!showCreateForm)}
+              className={pBtnPrimary}
+            >
+              <span className="material-icons text-base">{showCreateForm ? 'close' : 'add'}</span>
+              {showCreateForm ? 'Cancel' : 'New Project'}
+            </button>
+          </div>
+        }
+      />
 
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">

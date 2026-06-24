@@ -7,6 +7,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
 
 interface AgencyStatus {
   customDomain: string | null;
@@ -79,13 +80,11 @@ export default function AgencyHubPage() {
 
   return (
     <div className="max-w-3xl">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-foreground">Agency / White-Label</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Configure your agency&apos;s portal. Map a custom domain, override the brand chrome, and resell the
-          platform under your own identity.
-        </p>
-      </div>
+      <PortalPageHeader
+        eyebrow="White-label"
+        title="Agency / White-Label"
+        subtitle="Configure your agency's portal. Map a custom domain, override the brand chrome, and resell the platform under your own identity."
+      />
 
       {message && (
         <div

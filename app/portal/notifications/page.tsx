@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnGhost } from '@/components/portal/portal-ui';
 
 interface Notification {
   id: number;
@@ -94,40 +96,33 @@ export default function NotificationsPage() {
 
   return (
     <div className="max-w-3xl mx-auto space-y-4">
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-            <span className="material-icons text-primary">notifications</span>
-            Inbox
-            {unread > 0 && (
-              <span className="text-sm bg-primary text-primary-foreground rounded-full px-2 py-0.5 font-semibold">
-                {unread}
-              </span>
-            )}
-          </h1>
-          <p className="text-muted-foreground mt-1 text-sm">Comments, mentions, assignments, and sprint updates from across your projects.</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setUnreadOnly(v => !v)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-              unreadOnly ? 'bg-primary text-primary-foreground' : 'border border-border text-muted-foreground hover:bg-accent'
-            }`}
-          >
-            <span className="material-icons text-sm">filter_list</span>
-            {unreadOnly ? 'Unread only' : 'All'}
-          </button>
-          {unread > 0 && (
+      <PortalPageHeader
+        eyebrow="Activity"
+        title="Inbox"
+        subtitle="Comments, mentions, assignments, and sprint updates from across your projects."
+        actions={
+          <div className="flex items-center gap-2">
             <button
-              onClick={markAll}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-border text-muted-foreground hover:bg-accent"
+              onClick={() => setUnreadOnly(v => !v)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                unreadOnly ? 'bg-primary text-primary-foreground' : 'border border-border text-muted-foreground hover:bg-accent'
+              }`}
             >
-              <span className="material-icons text-sm">done_all</span>
-              Mark all read
+              <span className="material-icons text-sm">filter_list</span>
+              {unreadOnly ? 'Unread only' : 'All'}
             </button>
-          )}
-        </div>
-      </div>
+            {unread > 0 && (
+              <button
+                onClick={markAll}
+                className={`${pBtnGhost} flex items-center gap-1.5 px-3 py-1.5 text-xs`}
+              >
+                <span className="material-icons text-sm">done_all</span>
+                Mark all read
+              </button>
+            )}
+          </div>
+        }
+      />
 
       {loading ? (
         <div className="flex items-center justify-center py-16">

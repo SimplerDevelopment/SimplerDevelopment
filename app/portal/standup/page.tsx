@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
 
 type CardType = 'task' | 'story' | 'epic' | 'bug' | 'spike';
 type WorkflowState = 'todo' | 'in_progress' | 'in_review' | 'done' | 'canceled';
@@ -111,15 +112,11 @@ export default function StandupPage() {
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-          <span className="material-icons text-primary">groups</span>
-          Standup
-        </h1>
-        <p className="text-muted-foreground mt-1 text-sm">
-          What you did, what you're doing, and what's blocking you. Use this on the daily.
-        </p>
-      </div>
+      <PortalPageHeader
+        eyebrow="Team"
+        title="Standup"
+        subtitle="What you did, what you're doing, and what's blocking you. Use this on the daily."
+      />
 
       {loading || !data ? (
         <div className="flex items-center justify-center py-16">

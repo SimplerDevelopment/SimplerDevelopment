@@ -5,6 +5,8 @@ import { auth } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { getPortalClient } from '@/lib/portal-client';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnPrimary } from '@/components/portal/portal-ui';
 
 const statusColor: Record<string, string> = {
   provisioning: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
@@ -45,12 +47,11 @@ export default async function PortalHostingPage() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Hosting</h1>
-        <p className="text-muted-foreground mt-1 text-sm">
-          Your managed hosting environments, powered by Railway and managed by Simpler Development.
-        </p>
-      </div>
+      <PortalPageHeader
+        eyebrow="Infrastructure"
+        title="Hosting"
+        subtitle="Your managed hosting environments, powered by Railway and managed by Simpler Development."
+      />
 
       {sites.length === 0 ? (
         <div className="bg-card border border-border rounded-xl p-12 flex flex-col items-center text-center">
@@ -61,7 +62,7 @@ export default async function PortalHostingPage() {
           </p>
           <Link
             href="/portal/tickets/new"
-            className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
+            className={`mt-4 ${pBtnPrimary}`}
           >
             <span className="material-icons text-base">support_agent</span>
             Request Hosting

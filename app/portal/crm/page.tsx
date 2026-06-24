@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { RelatedModulesStrip } from '@/components/portal/billing/RelatedModulesStrip';
 import { formatMoney } from '@/lib/utils/money';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
 
 // --- Types ---
 
@@ -210,19 +211,20 @@ export default function CrmDashboardPage() {
   return (
     <div className="space-y-6">
       {/* Header with period selector */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">CRM Dashboard</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Sales performance and pipeline health</p>
-        </div>
-        <div className="flex items-center gap-1 bg-accent rounded-lg p-1">
-          {periods.map((p) => (
-            <button key={p.value} onClick={() => setPeriod(p.value)} className={`px-3 py-1.5 text-xs rounded-md transition-colors ${period === p.value ? 'bg-primary text-primary-foreground font-medium' : 'text-muted-foreground hover:text-foreground'}`}>
-              {p.label}
-            </button>
-          ))}
-        </div>
-      </div>
+      <PortalPageHeader
+        eyebrow="Sales"
+        title="CRM Dashboard"
+        subtitle="Sales performance and pipeline health"
+        actions={
+          <div className="flex items-center gap-1 bg-accent rounded-lg p-1">
+            {periods.map((p) => (
+              <button key={p.value} onClick={() => setPeriod(p.value)} className={`px-3 py-1.5 text-xs rounded-md transition-colors ${period === p.value ? 'bg-primary text-primary-foreground font-medium' : 'text-muted-foreground hover:text-foreground'}`}>
+                {p.label}
+              </button>
+            ))}
+          </div>
+        }
+      />
 
       {/* Top Metric Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">

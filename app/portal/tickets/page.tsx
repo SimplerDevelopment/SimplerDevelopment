@@ -7,6 +7,8 @@ import Link from 'next/link';
 import { ticketStatusColor, priorityColor } from '@/lib/portal';
 import TicketSlaBadge from '@/components/portal/TicketSlaBadge';
 import TicketIndexFilters from '@/components/portal/TicketIndexFilters';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnPrimary } from '@/components/portal/portal-ui';
 
 interface SearchParams {
   status?: string | string[];
@@ -104,21 +106,17 @@ export default async function TicketsIndexPage({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start sm:items-center justify-between gap-3 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Support Tickets</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Track conversations with our team. {isStaff ? 'Showing tickets across all tenants you can see.' : "Only your tenant's tickets are shown."}
-          </p>
-        </div>
-        <Link
-          href="/portal/tickets/new"
-          className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
-        >
-          <span className="material-icons text-base">add</span>
-          New Ticket
-        </Link>
-      </div>
+      <PortalPageHeader
+        eyebrow="Support"
+        title="Support Tickets"
+        subtitle={<>Track conversations with our team. {isStaff ? 'Showing tickets across all tenants you can see.' : "Only your tenant's tickets are shown."}</>}
+        actions={
+          <Link href="/portal/tickets/new" className={pBtnPrimary}>
+            <span className="material-icons text-base">add</span>
+            New Ticket
+          </Link>
+        }
+      />
 
       <TicketIndexFilters
         isStaff={isStaff}

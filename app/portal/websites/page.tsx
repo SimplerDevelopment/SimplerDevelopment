@@ -5,6 +5,8 @@ import { auth } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { getPortalClient } from '@/lib/portal-client';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnPrimary } from '@/components/portal/portal-ui';
 
 export default async function PortalCmsPage({
   searchParams,
@@ -38,21 +40,20 @@ export default async function PortalCmsPage({
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Websites</h1>
-          <p className="text-muted-foreground mt-1 text-sm">
-            Manage pages and content for your websites.
-          </p>
-        </div>
-        <Link
-          href="/portal/websites/new"
-          className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors shrink-0"
-        >
-          <span className="material-icons text-base">add</span>
-          New Website
-        </Link>
-      </div>
+      <PortalPageHeader
+        eyebrow="Sites"
+        title="Websites"
+        subtitle="Manage pages and content for your websites."
+        actions={
+          <Link
+            href="/portal/websites/new"
+            className={pBtnPrimary}
+          >
+            <span className="material-icons text-base">add</span>
+            New Website
+          </Link>
+        }
+      />
 
       {created === '1' && (
         <div className="flex items-center gap-3 p-4 bg-green-50 border border-green-200 rounded-xl text-green-800 dark:bg-green-900/20 dark:border-green-800 dark:text-green-300">
@@ -76,7 +77,7 @@ export default async function PortalCmsPage({
             </p>
             <Link
               href="/portal/websites/new"
-              className="flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
+              className={pBtnPrimary}
             >
               <span className="material-icons text-base">add</span>
               Create Website

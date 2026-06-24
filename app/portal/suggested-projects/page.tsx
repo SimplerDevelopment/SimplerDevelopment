@@ -4,6 +4,7 @@ import { clients, suggestedProjects } from '@/lib/db/schema';
 import { eq, isNull, or, and } from 'drizzle-orm';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
 
 const categoryLabel: Record<string, string> = {
   website: 'Website',
@@ -65,10 +66,11 @@ export default async function SuggestedProjectsPage() {
 
   return (
     <div className="max-w-5xl mx-auto space-y-10">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Suggested Projects</h1>
-        <p className="text-muted-foreground mt-1">Ideas we think would be a great fit for you.</p>
-      </div>
+      <PortalPageHeader
+        eyebrow="Suggestions"
+        title="Suggested Projects"
+        subtitle="Ideas we think would be a great fit for you."
+      />
 
       {categories.length === 0 ? (
         <div className="bg-card border border-border rounded-xl p-12 text-center">
