@@ -145,10 +145,18 @@ export function Footer() {
           </div>
         </div>
 
-        <div className="mt-12 pt-8 border-t text-center text-sm text-muted-foreground">
+        <div className="mt-12 pt-8 border-t flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-muted-foreground">
           <p>
             &copy; {currentYear} {siteConfig.name}. All rights reserved.
           </p>
+          <div className="flex items-center gap-4">
+            <Link href="/privacy" className="hover:text-primary transition-colors">
+              Privacy
+            </Link>
+            <Link href="/terms" className="hover:text-primary transition-colors">
+              Terms
+            </Link>
+          </div>
         </div>
       </div>
     </footer>

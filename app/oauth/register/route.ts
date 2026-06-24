@@ -62,7 +62,7 @@ export async function POST(req: Request) {
     client_id_issued_at: Math.floor(record.createdAt.getTime() / 1000),
     client_name: record.clientName,
     redirect_uris: record.redirectUris,
-    grant_types: ['authorization_code'],
+    grant_types: ['authorization_code', 'refresh_token'],
     response_types: ['code'],
     token_endpoint_auth_method: 'none',
   }, { status: 201 });

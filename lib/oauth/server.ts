@@ -44,6 +44,22 @@ export function generateAccessToken(): { token: string; hash: string; preview: s
   return { token, hash: sha256(token), preview: `${token.slice(0, 16)}…${token.slice(-4)}` };
 }
 
+export const REFRESH_TOKEN_PREFIX = 'sd_oart_';
+
+/** Mints a refresh token (`sd_oart_…`). Like access tokens, only the SHA-256
+ *  hash is stored; the raw value is returned to the client exactly once. */
+export function generateRefreshToken(): { token: string; hash: string; preview: string } {
+  const raw = crypto.randomBytes(32).toString('hex');
+  const token = `${REFRESH_TOKEN_PREFIX}${raw}`;
+  return { token, hash: sha256(token), preview: `${token.slice(0, 16)}…${token.slice(-4)}` };
+}
+
+/** Opaque id tying a refresh-token rotation lineage together for reuse
+ *  detection. Shared across every token descended from one authorization. */
+export function generateRefreshFamilyId(): string {
+  return `rf_${crypto.randomBytes(16).toString('hex')}`;
+}
+
 export const CLIENT_SECRET_PREFIX = 'sd_cs_';
 
 /** Mints a confidential-client secret. The raw `secret` is shown to the admin

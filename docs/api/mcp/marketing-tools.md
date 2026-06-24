@@ -553,6 +553,38 @@ Define a subscriber segment by filter rules.
 
 ---
 
+### `email_analytics_get`
+
+Return lifetime campaign performance aggregates for this client's email programme: campaigns sent, total recipients, opens, clicks, bounces, unsubscribes, open rate, click rate, and list count. Totals are across **all sent campaigns** (not date-windowed); the optional `days` parameter is accepted for forward-compatibility but has no effect.
+
+- **Auth:** scope `email:read`
+
+**Input fields:**
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `days` | number | No | Accepted for forward-compatibility; currently unused — totals are lifetime. |
+
+**Response:**
+
+```json
+{
+  "totalCampaigns": 12,
+  "totalSent": 14800,
+  "totalOpened": 5920,
+  "totalClicked": 1184,
+  "totalBounced": 74,
+  "totalUnsubscribed": 30,
+  "openRate": "40.0",
+  "clickRate": "8.0",
+  "totalLists": 3
+}
+```
+
+> `openRate` and `clickRate` are percentage strings with one decimal place (e.g. `"40.0"` = 40%).
+
+---
+
 ## Surveys
 
 **Required service:** `surveys`
@@ -1065,6 +1097,44 @@ Permanently delete a deck and all its versions.
 **Response:** `{ "success": true, "id": 4 }` or a pending approval object.
 
 **Errors:** `{ "error": "Deck not found" }`
+
+---
+
+### `deck_analytics_get`
+
+Return viewer analytics for a single pitch deck: total view events, unique viewer sessions, and per-slide view counts with average dwell time. The deck must belong to the authenticated client.
+
+- **Auth:** scope `decks:read`
+
+**Input fields:**
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `deckId` | number | Yes | ID of the pitch deck to analyse. |
+
+**Response:**
+
+```json
+{
+  "deckId": 4,
+  "title": "Investor Deck 2026",
+  "totalEvents": 312,
+  "uniqueSessions": 47,
+  "perSlide": [
+    { "slideIndex": 0, "views": 47, "avgDwellMs": 8200 },
+    { "slideIndex": 1, "views": 43, "avgDwellMs": 14500 },
+    { "slideIndex": 2, "views": 38, "avgDwellMs": null }
+  ]
+}
+```
+
+> `avgDwellMs` is `null` when no dwell-time data has been recorded for that slide yet. `totalEvents` counts all view events (a single session viewing the same slide twice counts twice); `uniqueSessions` counts distinct session IDs.
+
+**Errors:**
+
+| Condition | Response |
+|---|---|
+| Deck not found or wrong tenant | `{ "error": "Deck not found" }` |
 
 ---
 

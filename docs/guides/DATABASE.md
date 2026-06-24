@@ -84,6 +84,10 @@ npm run db:studio
 
 ## API Endpoints
 
+> **Internal routes — not the external API.** The endpoints documented in this section (`/api/posts`, `/api/categories`, `/api/tags`) are **session-cookie-authenticated internal routes** used by the portal UI. They are not intended for third-party integrations and will reject requests that do not carry a valid portal session.
+>
+> **External/third-party integrations should use the REST v1 API** (`/api/v1/sites/{siteId}/...`) authenticated with `sd_live_` API keys. See the [API overview](../api/README.md) and the [CMS Content API reference](../api/cms-content.md) for details.
+
 ### Posts
 
 #### List Posts
