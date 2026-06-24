@@ -189,6 +189,41 @@ async function createTables() {
     EXCEPTION WHEN duplicate_object THEN NULL; END $$
   `);
 
+  // Phase 4 — audit log (append-only history of admin writes to prompts).
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS "prompt_audit_log" (
+      "id" serial PRIMARY KEY NOT NULL,
+      "actor_user_id" integer,
+      "action" varchar(40) NOT NULL,
+      "prompt_id" integer,
+      "version_id" integer,
+      "detail" json,
+      "created_at" timestamp DEFAULT now() NOT NULL
+    )
+  `);
+  await db.execute(sql`CREATE INDEX IF NOT EXISTS "prompt_audit_log_prompt_idx" ON "prompt_audit_log" ("prompt_id","created_at")`);
+  await db.execute(sql`
+    DO $$ BEGIN
+      ALTER TABLE "prompt_audit_log"
+        ADD CONSTRAINT "prompt_audit_log_actor_user_id_fk"
+        FOREIGN KEY ("actor_user_id") REFERENCES "users"("id") ON DELETE SET NULL;
+    EXCEPTION WHEN duplicate_object THEN NULL; END $$
+  `);
+  await db.execute(sql`
+    DO $$ BEGIN
+      ALTER TABLE "prompt_audit_log"
+        ADD CONSTRAINT "prompt_audit_log_prompt_id_fk"
+        FOREIGN KEY ("prompt_id") REFERENCES "prompt_registry"("id") ON DELETE CASCADE;
+    EXCEPTION WHEN duplicate_object THEN NULL; END $$
+  `);
+  await db.execute(sql`
+    DO $$ BEGIN
+      ALTER TABLE "prompt_audit_log"
+        ADD CONSTRAINT "prompt_audit_log_version_id_fk"
+        FOREIGN KEY ("version_id") REFERENCES "prompt_versions"("id") ON DELETE SET NULL;
+    EXCEPTION WHEN duplicate_object THEN NULL; END $$
+  `);
+
   console.log('[eval-dashboard] Tables, indexes, and FK constraints ready.');
 }
 

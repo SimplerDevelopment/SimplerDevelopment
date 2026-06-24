@@ -296,7 +296,19 @@ Built on the slice; browser-verified end-to-end on the isolated local DB.
 
 Verified: whole-repo `tsc` clean; ESLint clean on all changed files; browser-confirmed cost page totals, version-compare row, and run drill-down (b2b-saas / artisan-coffee case results with output/scores expanders).
 
-**Phase 3 remaining (polish, deferred):** sortable leaderboard columns, real-run confirm-before-expensive UX (the mock/real selector exists; the cost-confirm dialog does not). **Phase 4** (prompt editor, dataset editor, soft-gated promote, rollback, opt-in schedule cron, audit log) unstarted — needs the audit-table-vs-implicit-trail decision and a stricter super-admin guard on the write ops.
+**Phase 3 remaining (polish, deferred):** sortable leaderboard columns, real-run confirm-before-expensive UX (the mock/real selector exists; the cost-confirm dialog does not).
+
+### Phase 4 — Edit, version, promote — SHIPPED (2026-06-24, branch worktree/mcp-review)
+
+The write layer. Two decisions were resolved (no reusable audit table existed — `audit.ts` is OAuth; no super-admin role exists): **dedicated `prompt_audit_log` table** + **`requireAdmin` (role==='admin') on all write ops** (reads stay `requireStaff`).
+
+- **Schema:** `prompt_audit_log` (actorUserId, action, promptId, versionId, detail json, createdAt) in `lib/db/schema/evals.ts`. `logPromptAudit()` helper in `lib/ai/evals/audit.ts` (never throws into the caller). `setActiveVersion()` + `latestDonePassRate()` in `lib/ai/evals/versions.ts` (atomic active-version swap via `db.transaction` + `clearPromptCache`).
+- **Write APIs** (all `requireAdmin`, audit-logged): `POST /prompts/[id]/versions` (create draft), `POST /prompts/[id]/promote` (soft regression gate — warns on pass-rate drop, never blocks; archives outgoing active, activates target, moves pointer, enqueues a `trigger='promote'` re-run), `POST /prompts/[id]/rollback` (re-activate a prior version, no re-run), `PATCH /prompts/[id]` (schedule cron + title/desc, light cron validation), `eval-cases` GET/POST + `eval-cases/[id]` PUT (cases CRUD + enable/disable), `GET /prompts/[id]/audit` (LEFT JOIN users).
+- **UI:** detail page write controls (collapsible body editor → save draft; per-version Promote/Rollback with inline two-step confirm + soft-regression warning; schedule cron input; read-only Audit Log) + a separate cases editor at `app/admin/prompts/[id]/cases/page.tsx` (table, expand-to-edit JSON with parse validation, toggle-enabled, add-case). Write controls gated client-side via `useSession` (`role==='admin'`); the API is the hard enforcement.
+
+Verified: whole-repo `tsc` clean; ESLint clean (fixed a mount-fetch nit + an audit-detail render that crashed on the json object — typed `detail` as object + render key:value pairs). Browser E2E on the isolated local DB: edit→save draft (v2)→promote v2 (confirm, v1 archived, regression run #3 enqueued, audit entry)→rollback to v1 (confirm)→save schedule cron→cases editor lists/toggles. Audit log showed all three actions with actor email.
+
+**Deferred (Phase 4 follow-ups):** the `@critical` Playwright promote-flow test (verified manually via browser this round); wiring the opt-in `scheduleCron` to an actual scheduler tick (the field saves + audits, but no cron reads opted-in prompts yet); dataset (not just case) management.
 
 ### To go live
 

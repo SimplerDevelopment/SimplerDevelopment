@@ -129,3 +129,31 @@ export const evalCaseResults = pgTable('eval_case_results', {
   // lock) silently duplicating per-case rows.
   uniqueIndex('eval_case_results_run_case_idx').on(t.runId, t.caseKey),
 ]);
+
+// ─── Audit log (Phase 4 — every write to a prompt/version/schedule/case) ─────
+// One append-only row per admin write action. Immutable history of WHO did WHAT
+// WHEN to high-blast-radius infra prompts. Admin-plane only.
+
+export type PromptAuditAction =
+  | 'create_draft'
+  | 'promote'
+  | 'rollback'
+  | 'edit_prompt'
+  | 'edit_schedule'
+  | 'create_case'
+  | 'edit_case'
+  | 'toggle_case';
+
+export const promptAuditLog = pgTable('prompt_audit_log', {
+  id: serial('id').primaryKey(),
+  // The staff user who performed the action (set null if the account is later removed).
+  actorUserId: integer('actor_user_id').references(() => users.id, { onDelete: 'set null' }),
+  action: varchar('action', { length: 40 }).$type<PromptAuditAction>().notNull(),
+  promptId: integer('prompt_id').references(() => promptRegistry.id, { onDelete: 'cascade' }),
+  versionId: integer('version_id').references(() => promptVersions.id, { onDelete: 'set null' }),
+  // Free-form before/after context (e.g. { fromVersionId, toVersionId, passRateDelta }).
+  detail: json('detail'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => [
+  index('prompt_audit_log_prompt_idx').on(t.promptId, t.createdAt),
+]);

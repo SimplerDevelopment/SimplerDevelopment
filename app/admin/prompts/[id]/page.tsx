@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 
 // ─── API shape interfaces ────────────────────────────────────────────────────
 
@@ -85,6 +86,25 @@ interface EvalCase {
 
 interface RunCasesCache {
   [runId: number]: { status: 'loading' | 'done' | 'error'; cases?: EvalCase[]; error?: string };
+}
+
+interface AuditEntry {
+  id: number;
+  action: string;
+  versionId: number | null;
+  detail: Record<string, unknown> | null;
+  createdAt: string;
+  actor: { id: number; email: string; name: string | null } | null;
+}
+
+interface PromoteResponseData {
+  activeVersionId: number;
+  enqueuedRunId: number | null;
+  regression: {
+    warned: boolean;
+    delta: number | null;
+    message: string | null;
+  };
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -198,6 +218,8 @@ function Sparkline({ runs }: { runs: EvalRun[] }) {
 export default function PromptDetailPage() {
   const params = useParams();
   const promptId = Number(params.id);
+  const { data: session } = useSession();
+  const isAdmin = session?.user && (session.user as { role?: string }).role === 'admin';
 
   const [data, setData] = useState<DetailData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -213,6 +235,31 @@ export default function PromptDetailPage() {
   const [expandedRunIds, setExpandedRunIds] = useState<Set<number>>(new Set());
   const [runCasesCache, setRunCasesCache] = useState<RunCasesCache>({});
   const fetchedRunIds = useRef<Set<number>>(new Set());
+
+  // ── Prompt editor state ──────────────────────────────────────────────────
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [editorBody, setEditorBody] = useState('');
+  const [editorNotes, setEditorNotes] = useState('');
+  const [editorSaving, setEditorSaving] = useState(false);
+  const [editorError, setEditorError] = useState<string | null>(null);
+
+  // ── Schedule state ───────────────────────────────────────────────────────
+  const [scheduleCron, setScheduleCron] = useState('');
+  const [scheduleSaving, setScheduleSaving] = useState(false);
+  const [scheduleError, setScheduleError] = useState<string | null>(null);
+  const [scheduleSuccess, setScheduleSuccess] = useState(false);
+
+  // ── Promote / rollback state ─────────────────────────────────────────────
+  const [versionActionInFlight, setVersionActionInFlight] = useState<number | null>(null);
+  const [promoteConfirm, setPromoteConfirm] = useState<number | null>(null); // versionId awaiting confirm
+  const [rollbackConfirm, setRollbackConfirm] = useState<number | null>(null);
+  const [promoteWarning, setPromoteWarning] = useState<string | null>(null);
+  const [versionActionError, setVersionActionError] = useState<string | null>(null);
+
+  // ── Audit log state ──────────────────────────────────────────────────────
+  const [auditEntries, setAuditEntries] = useState<AuditEntry[]>([]);
+  const [auditLoading, setAuditLoading] = useState(false);
+  const [auditError, setAuditError] = useState<string | null>(null);
 
   function toggleRunExpand(runId: number) {
     setExpandedRunIds((prev) => {
@@ -242,14 +289,38 @@ export default function PromptDetailPage() {
       });
   }
 
+  const loadAudit = useCallback(() => {
+    setAuditLoading(true);
+    setAuditError(null);
+    fetch(`/api/admin/prompts/${promptId}/audit`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success) setAuditEntries(d.data ?? []);
+        else setAuditError(d.message ?? 'Failed to load audit log');
+      })
+      .catch((e) => setAuditError(e instanceof Error ? e.message : 'Failed to load audit log'))
+      .finally(() => setAuditLoading(false));
+  }, [promptId]);
+
   const load = useCallback(() => {
     setLoading(true);
     setErr(null);
     fetch(`/api/admin/prompts/${promptId}`)
       .then((r) => r.json())
       .then((d) => {
-        if (d.success) setData(d.data ?? null);
-        else setErr(d.message ?? 'Failed to load');
+        if (d.success) {
+          const detail: DetailData = d.data ?? null;
+          setData(detail);
+          if (detail) {
+            // Seed schedule input from latest data
+            setScheduleCron(detail.prompt.scheduleCron ?? '');
+            // Seed editor body from active version
+            const activeVer = detail.versions.find((v) => v.id === detail.prompt.activeVersionId);
+            if (activeVer) setEditorBody(activeVer.body);
+          }
+        } else {
+          setErr(d.message ?? 'Failed to load');
+        }
       })
       .catch((e) => setErr(e instanceof Error ? e.message : 'Failed to load'))
       .finally(() => setLoading(false));
@@ -260,10 +331,11 @@ export default function PromptDetailPage() {
     // render is intentional and harmless for a page-load fetch.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
+    loadAudit();
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
     };
-  }, [load]);
+  }, [load, loadAudit]);
 
   function stopPolling() {
     if (pollRef.current) {
@@ -325,6 +397,135 @@ export default function PromptDetailPage() {
     }
   }
 
+  // ── Prompt editor handlers ───────────────────────────────────────────────
+
+  async function handleSaveDraft() {
+    if (editorSaving) return;
+    setEditorSaving(true);
+    setEditorError(null);
+    try {
+      const res = await fetch(`/api/admin/prompts/${promptId}/versions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ body: editorBody, notes: editorNotes }),
+      });
+      const d = await res.json();
+      if (d.success) {
+        setEditorOpen(false);
+        setEditorNotes('');
+        load();
+        loadAudit();
+      } else {
+        setEditorError(d.message ?? 'Failed to save draft');
+      }
+    } catch (e) {
+      setEditorError(e instanceof Error ? e.message : 'Failed to save draft');
+    } finally {
+      setEditorSaving(false);
+    }
+  }
+
+  // ── Schedule handler ─────────────────────────────────────────────────────
+
+  async function handleSaveSchedule() {
+    if (scheduleSaving) return;
+    setScheduleSaving(true);
+    setScheduleError(null);
+    setScheduleSuccess(false);
+    try {
+      const res = await fetch(`/api/admin/prompts/${promptId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ scheduleCron: scheduleCron.trim() || null }),
+      });
+      const d = await res.json();
+      if (d.success) {
+        setScheduleSuccess(true);
+        load();
+        loadAudit();
+      } else {
+        setScheduleError(d.message ?? 'Failed to save schedule');
+      }
+    } catch (e) {
+      setScheduleError(e instanceof Error ? e.message : 'Failed to save schedule');
+    } finally {
+      setScheduleSaving(false);
+    }
+  }
+
+  // ── Promote / rollback handlers ──────────────────────────────────────────
+
+  async function handlePromote(versionId: number) {
+    if (versionActionInFlight !== null) return;
+    setVersionActionInFlight(versionId);
+    setPromoteWarning(null);
+    setVersionActionError(null);
+    try {
+      const res = await fetch(`/api/admin/prompts/${promptId}/promote`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ versionId }),
+      });
+      const d = await res.json();
+      if (d.success) {
+        const resp: PromoteResponseData = d.data;
+        if (resp.regression?.warned && resp.regression.message) {
+          setPromoteWarning(resp.regression.message);
+        }
+        load();
+        loadAudit();
+      } else {
+        setVersionActionError(d.message ?? 'Failed to promote version');
+      }
+    } catch (e) {
+      setVersionActionError(e instanceof Error ? e.message : 'Failed to promote version');
+    } finally {
+      setVersionActionInFlight(null);
+      setPromoteConfirm(null);
+    }
+  }
+
+  async function handleRollback(versionId: number) {
+    if (versionActionInFlight !== null) return;
+    setVersionActionInFlight(versionId);
+    setVersionActionError(null);
+    try {
+      const res = await fetch(`/api/admin/prompts/${promptId}/rollback`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ versionId }),
+      });
+      const d = await res.json();
+      if (d.success) {
+        load();
+        loadAudit();
+      } else {
+        setVersionActionError(d.message ?? 'Failed to roll back version');
+      }
+    } catch (e) {
+      setVersionActionError(e instanceof Error ? e.message : 'Failed to roll back version');
+    } finally {
+      setVersionActionInFlight(null);
+      setRollbackConfirm(null);
+    }
+  }
+
+  // ── Audit icon helper ────────────────────────────────────────────────────
+
+  function auditActionIcon(action: string): string {
+    switch (action) {
+      case 'promote': return 'trending_up';
+      case 'rollback': return 'undo';
+      case 'create_draft': return 'edit_note';
+      case 'edit_schedule': return 'schedule';
+      case 'edit_prompt': return 'edit';
+      case 'create_case':
+      case 'edit_case':
+      case 'toggle_case': return 'dataset';
+      default: return 'info';
+    }
+  }
+
   // ── Render ──────────────────────────────────────────────────────────────
 
   return (
@@ -353,7 +554,16 @@ export default function PromptDetailPage() {
           {/* ── Header ── */}
           <div className="flex items-start justify-between gap-4">
             <div>
-              <h1 className="text-2xl font-bold text-foreground">{data.prompt.title}</h1>
+              <div className="flex items-center gap-3 flex-wrap">
+                <h1 className="text-2xl font-bold text-foreground">{data.prompt.title}</h1>
+                <Link
+                  href={`/admin/prompts/${promptId}/cases`}
+                  className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg border border-border bg-background text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                >
+                  <span className="material-icons text-sm leading-none">dataset</span>
+                  Edit test cases
+                </Link>
+              </div>
               <div className="flex items-center gap-2 mt-0.5">
                 <code className="text-xs text-muted-foreground font-mono">{data.prompt.key}</code>
                 {data.prompt.scheduleCron && (
@@ -411,6 +621,136 @@ export default function PromptDetailPage() {
               )}
             </div>
           </div>
+
+          {/* ── Prompt editor (admin only) ── */}
+          {isAdmin && (
+            <section className="bg-card border border-border rounded-xl p-4 space-y-3">
+              <button
+                onClick={() => {
+                  setEditorOpen((o) => !o);
+                  setEditorError(null);
+                  // Reset body to active version on open
+                  if (!editorOpen && data) {
+                    const activeVer = data.versions.find((v) => v.id === data.prompt.activeVersionId);
+                    if (activeVer) setEditorBody(activeVer.body);
+                    setEditorNotes('');
+                  }
+                }}
+                className="flex items-center gap-2 w-full text-left"
+              >
+                <span className="material-icons text-muted-foreground text-lg">
+                  {editorOpen ? 'expand_less' : 'expand_more'}
+                </span>
+                <span className="text-sm font-semibold text-foreground uppercase tracking-wide">
+                  Edit prompt
+                </span>
+              </button>
+
+              {editorOpen && (
+                <div className="space-y-3 pt-1">
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-muted-foreground">
+                      Prompt body
+                    </label>
+                    <textarea
+                      value={editorBody}
+                      onChange={(e) => setEditorBody(e.target.value)}
+                      rows={10}
+                      className="w-full text-sm font-mono border border-border rounded-lg px-3 py-2 bg-background text-foreground resize-y focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-50"
+                      disabled={editorSaving}
+                      placeholder="Prompt body…"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-muted-foreground">
+                      Notes (optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={editorNotes}
+                      onChange={(e) => setEditorNotes(e.target.value)}
+                      className="w-full text-sm border border-border rounded-lg px-3 py-1.5 bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-50"
+                      disabled={editorSaving}
+                      placeholder="What changed in this version?"
+                    />
+                  </div>
+                  {editorError && (
+                    <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded px-3 py-2">
+                      {editorError}
+                    </div>
+                  )}
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={handleSaveDraft}
+                      disabled={editorSaving || !editorBody.trim()}
+                      className="inline-flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      <span className={`material-icons text-base leading-none ${editorSaving ? 'animate-spin' : ''}`}>
+                        {editorSaving ? 'refresh' : 'save'}
+                      </span>
+                      {editorSaving ? 'Saving…' : 'Save as draft'}
+                    </button>
+                    <button
+                      onClick={() => { setEditorOpen(false); setEditorError(null); }}
+                      disabled={editorSaving}
+                      className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <span className="text-xs text-muted-foreground">
+                      Saves a new DRAFT version — does not change production.
+                    </span>
+                  </div>
+                </div>
+              )}
+            </section>
+          )}
+
+          {/* ── Schedule control (admin only) ── */}
+          {isAdmin && (
+            <section className="bg-card border border-border rounded-xl p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <span className="material-icons text-muted-foreground text-lg">schedule</span>
+                <h2 className="text-sm font-semibold text-foreground uppercase tracking-wide">
+                  Scheduled Eval
+                </h2>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Opt-in cron for scheduled eval runs; leave blank to disable.
+              </p>
+              <div className="flex items-center gap-2 flex-wrap">
+                <input
+                  type="text"
+                  value={scheduleCron}
+                  onChange={(e) => { setScheduleCron(e.target.value); setScheduleSuccess(false); setScheduleError(null); }}
+                  placeholder="0 9 * * 1"
+                  disabled={scheduleSaving}
+                  className="text-sm font-mono border border-border rounded-lg px-3 py-1.5 bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-50 w-48"
+                />
+                <button
+                  onClick={handleSaveSchedule}
+                  disabled={scheduleSaving}
+                  className="inline-flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <span className={`material-icons text-base leading-none ${scheduleSaving ? 'animate-spin' : ''}`}>
+                    {scheduleSaving ? 'refresh' : 'save'}
+                  </span>
+                  {scheduleSaving ? 'Saving…' : 'Save schedule'}
+                </button>
+                {scheduleSuccess && !scheduleError && (
+                  <span className="text-xs text-green-700 flex items-center gap-0.5">
+                    <span className="material-icons text-sm leading-none">check_circle</span>
+                    Saved
+                  </span>
+                )}
+              </div>
+              {scheduleError && (
+                <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded px-3 py-2">
+                  {scheduleError}
+                </div>
+              )}
+            </section>
+          )}
 
           {/* ── Timeline section ── */}
           <section className="bg-card border border-border rounded-xl p-4 space-y-4">
@@ -680,48 +1020,197 @@ export default function PromptDetailPage() {
               <span className="text-xs text-muted-foreground">({data.versions.length})</span>
             </div>
 
+            {promoteWarning && (
+              <div className="flex items-start gap-2 text-xs text-yellow-800 bg-yellow-50 border border-yellow-200 rounded px-3 py-2">
+                <span className="material-icons text-base leading-none flex-shrink-0">warning</span>
+                <span>{promoteWarning}</span>
+                <button onClick={() => setPromoteWarning(null)} className="ml-auto text-yellow-600 hover:text-yellow-900">
+                  <span className="material-icons text-sm leading-none">close</span>
+                </button>
+              </div>
+            )}
+
+            {versionActionError && (
+              <div className="flex items-start gap-2 text-xs text-red-800 bg-red-50 border border-red-200 rounded px-3 py-2">
+                <span className="material-icons text-base leading-none flex-shrink-0">error</span>
+                <span>{versionActionError}</span>
+                <button onClick={() => setVersionActionError(null)} className="ml-auto text-red-600 hover:text-red-900">
+                  <span className="material-icons text-sm leading-none">close</span>
+                </button>
+              </div>
+            )}
+
             {data.versions.length === 0 ? (
               <p className="text-xs text-muted-foreground">No versions yet.</p>
             ) : (
               <div className="space-y-2">
                 {data.versions.map((v) => {
                   const isActive = v.id === data.prompt.activeVersionId;
+                  const isInFlight = versionActionInFlight === v.id;
+                  const isPromoteConfirming = promoteConfirm === v.id;
+                  const isRollbackConfirming = rollbackConfirm === v.id;
                   return (
                     <div
                       key={v.id}
-                      className={`flex items-start gap-3 rounded-lg border px-3 py-2.5 transition-colors ${
+                      className={`rounded-lg border px-3 py-2.5 transition-colors ${
                         isActive
                           ? 'bg-green-50/50 border-green-200'
                           : 'border-border bg-background'
                       }`}
                     >
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-sm font-semibold text-foreground">
-                            v{v.version}
-                          </span>
-                          <span
-                            className={`inline-flex items-center text-xs px-2 py-0.5 rounded-full font-medium border ${versionStatusBadgeClass(v.status)}`}
-                          >
-                            {v.status}
-                          </span>
-                          {isActive && (
-                            <span className="inline-flex items-center gap-0.5 text-xs text-green-700 font-medium">
-                              <span className="material-icons text-sm leading-none">check_circle</span>
-                              active
+                      <div className="flex items-start gap-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-sm font-semibold text-foreground">
+                              v{v.version}
                             </span>
+                            <span
+                              className={`inline-flex items-center text-xs px-2 py-0.5 rounded-full font-medium border ${versionStatusBadgeClass(v.status)}`}
+                            >
+                              {v.status}
+                            </span>
+                            {isActive && (
+                              <span className="inline-flex items-center gap-0.5 text-xs text-green-700 font-medium">
+                                <span className="material-icons text-sm leading-none">check_circle</span>
+                                active
+                              </span>
+                            )}
+                          </div>
+                          {v.notes && (
+                            <p className="text-xs text-muted-foreground mt-0.5">{v.notes}</p>
                           )}
                         </div>
-                        {v.notes && (
-                          <p className="text-xs text-muted-foreground mt-0.5">{v.notes}</p>
-                        )}
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <span className="text-xs text-muted-foreground whitespace-nowrap">
+                            {fmtAge(v.createdAt)}
+                          </span>
+                          {isAdmin && !isActive && (
+                            v.status === 'draft' ? (
+                              <button
+                                onClick={() => { setPromoteConfirm(v.id); setRollbackConfirm(null); setVersionActionError(null); }}
+                                disabled={isInFlight || versionActionInFlight !== null}
+                                className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                              >
+                                <span className={`material-icons text-sm leading-none ${isInFlight ? 'animate-spin' : ''}`}>
+                                  {isInFlight ? 'refresh' : 'trending_up'}
+                                </span>
+                                {isInFlight ? 'Promoting…' : 'Promote'}
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => { setRollbackConfirm(v.id); setPromoteConfirm(null); setVersionActionError(null); }}
+                                disabled={isInFlight || versionActionInFlight !== null}
+                                className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg border border-border bg-background text-muted-foreground hover:text-foreground hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                              >
+                                <span className={`material-icons text-sm leading-none ${isInFlight ? 'animate-spin' : ''}`}>
+                                  {isInFlight ? 'refresh' : 'undo'}
+                                </span>
+                                {isInFlight ? 'Rolling back…' : 'Roll back to this'}
+                              </button>
+                            )
+                          )}
+                        </div>
                       </div>
-                      <div className="text-xs text-muted-foreground whitespace-nowrap">
-                        {fmtAge(v.createdAt)}
-                      </div>
+
+                      {/* Inline confirm row for promote */}
+                      {isAdmin && isPromoteConfirming && (
+                        <div className="mt-2 flex items-center gap-2 text-xs bg-primary/5 border border-primary/20 rounded px-3 py-2">
+                          <span className="text-foreground">Promote v{v.version} to active? This will enqueue a regression eval.</span>
+                          <button
+                            onClick={() => handlePromote(v.id)}
+                            disabled={isInFlight}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors font-medium"
+                          >
+                            Confirm
+                          </button>
+                          <button
+                            onClick={() => setPromoteConfirm(null)}
+                            className="px-2 py-1 text-muted-foreground hover:text-foreground transition-colors"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Inline confirm row for rollback */}
+                      {isAdmin && isRollbackConfirming && (
+                        <div className="mt-2 flex items-center gap-2 text-xs bg-yellow-50 border border-yellow-200 rounded px-3 py-2">
+                          <span className="text-yellow-900">Roll back to v{v.version}? The current active version will be archived.</span>
+                          <button
+                            onClick={() => handleRollback(v.id)}
+                            disabled={isInFlight}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-yellow-600 text-white hover:bg-yellow-700 disabled:opacity-50 transition-colors font-medium"
+                          >
+                            Confirm
+                          </button>
+                          <button
+                            onClick={() => setRollbackConfirm(null)}
+                            className="px-2 py-1 text-yellow-700 hover:text-yellow-900 transition-colors"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      )}
                     </div>
                   );
                 })}
+              </div>
+            )}
+          </section>
+          {/* ── Audit Log section (all staff) ── */}
+          <section className="bg-card border border-border rounded-xl p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <span className="material-icons text-muted-foreground text-lg">manage_history</span>
+              <h2 className="text-sm font-semibold text-foreground uppercase tracking-wide">
+                Audit Log
+              </h2>
+            </div>
+
+            {auditLoading ? (
+              <div className="flex items-center gap-2 py-3 text-xs text-muted-foreground">
+                <span className="material-icons animate-spin text-base leading-none">refresh</span>
+                Loading…
+              </div>
+            ) : auditError ? (
+              <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded px-3 py-2">
+                {auditError}
+              </div>
+            ) : auditEntries.length === 0 ? (
+              <p className="text-xs text-muted-foreground">No audit events yet.</p>
+            ) : (
+              <div className="space-y-1">
+                {auditEntries.map((entry) => (
+                  <div
+                    key={entry.id}
+                    className="flex items-start gap-2.5 text-xs py-1.5 border-b border-border/50 last:border-0"
+                  >
+                    <span className="material-icons text-muted-foreground text-base leading-none flex-shrink-0 mt-px">
+                      {auditActionIcon(entry.action)}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <span className="text-foreground font-medium">{entry.action.replace(/_/g, ' ')}</span>
+                      {entry.versionId != null && (
+                        <span className="text-muted-foreground ml-1.5">
+                          #{entry.versionId}
+                        </span>
+                      )}
+                      {entry.detail && Object.keys(entry.detail).length > 0 && (
+                        <span className="text-muted-foreground ml-1.5 font-mono">
+                          — {Object.entries(entry.detail)
+                            .filter(([, v]) => v != null)
+                            .map(([k, v]) => `${k}: ${typeof v === 'object' ? JSON.stringify(v) : v}`)
+                            .join(', ')}
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-muted-foreground whitespace-nowrap">
+                      {entry.actor?.email ?? 'system'}
+                    </span>
+                    <span className="text-muted-foreground whitespace-nowrap">
+                      {fmtAge(entry.createdAt)}
+                    </span>
+                  </div>
+                ))}
               </div>
             )}
           </section>

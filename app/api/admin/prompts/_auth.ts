@@ -16,3 +16,17 @@ export async function requireStaff() {
   if (role !== 'admin' && role !== 'employee') return null;
   return session;
 }
+
+/**
+ * Stricter gate for WRITE ops (create draft, promote, rollback, edit schedule,
+ * edit cases) — admins only, not employees. There is no dedicated super-admin
+ * role in this codebase; `admin` is the elevated tier (employees are read-staff
+ * for these high-blast-radius infra-prompt mutations).
+ */
+export async function requireAdmin() {
+  const session = await auth();
+  if (!session?.user?.id) return null;
+  const role = (session.user as { role?: string })?.role;
+  if (role !== 'admin') return null;
+  return session;
+}

@@ -21,10 +21,10 @@ date: 2026-06-10
 
 ## In Progress
 
-- [ ] Prompt Eval Dashboard — see [[Prompt Eval Dashboard]]
-
 
 ## Validating
+
+- [ ] Prompt Eval Dashboard — see [[Prompt Eval Dashboard]] (Phases 1-4 built + browser-verified on isolated local DB; pending go-live: apply migration to staging/prod + flip PROMPT_REGISTRY_ENABLED)
 
 
 ## Shipped
