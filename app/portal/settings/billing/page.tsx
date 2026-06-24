@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import UsageMeters from '@/components/portal/billing/UsageMeters';
 import { useRouter } from 'next/navigation';
+import { pBtnPrimary, pBtnGhost } from '@/components/portal/portal-ui';
 
 interface Invoice {
   id: number;
@@ -102,14 +103,14 @@ export default function SettingsBillingPage() {
       <UsageMeters />
 
       {/* Plans & modules CTA */}
-      <div className="flex items-center justify-between bg-card border border-border rounded-xl px-6 py-4">
+      <div className="flex items-center justify-between bg-card border border-border rounded-2xl px-6 py-4">
         <div>
-          <p className="text-sm font-semibold text-foreground">Plans &amp; modules</p>
+          <p className="text-sm font-display font-extrabold tracking-[-0.01em] text-foreground">Plans &amp; modules</p>
           <p className="text-xs text-muted-foreground mt-0.5">Add or remove feature modules from your subscription.</p>
         </div>
         <Link
           href="/portal/settings/billing/plans"
-          className="inline-flex items-center gap-1.5 text-sm px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors flex-shrink-0"
+          className={`${pBtnPrimary} flex-shrink-0`}
         >
           <span className="material-icons text-base">explore</span>
           Plans &amp; modules
@@ -117,15 +118,15 @@ export default function SettingsBillingPage() {
       </div>
 
       {/* Stripe Billing Portal CTA */}
-      <div className="flex items-center justify-between bg-card border border-border rounded-xl px-6 py-4">
+      <div className="flex items-center justify-between bg-card border border-border rounded-2xl px-6 py-4">
         <div>
-          <p className="text-sm font-semibold text-foreground">Manage billing</p>
+          <p className="text-sm font-display font-extrabold tracking-[-0.01em] text-foreground">Manage billing</p>
           <p className="text-xs text-muted-foreground mt-0.5">Update payment methods, download receipts, and manage subscriptions on Stripe.</p>
         </div>
         <button
           onClick={handleManageBilling}
           disabled={openingPortal}
-          className="inline-flex items-center gap-1.5 text-sm px-4 py-2 rounded-lg bg-accent text-foreground hover:bg-accent/80 transition-colors flex-shrink-0 disabled:opacity-50"
+          className={`${pBtnGhost} flex-shrink-0`}
         >
           {openingPortal
             ? <span className="material-icons text-base animate-spin">refresh</span>
@@ -172,13 +173,13 @@ export default function SettingsBillingPage() {
             <span className="material-icons animate-spin text-primary text-2xl">refresh</span>
           </div>
         ) : invoices.length === 0 ? (
-          <div className="bg-card border border-border rounded-xl p-12 text-center">
+          <div className="bg-card border border-border rounded-2xl p-12 text-center">
             <span className="material-icons text-5xl text-muted-foreground/40">receipt_long</span>
-            <h3 className="mt-4 font-semibold text-foreground">No invoices yet</h3>
+            <h3 className="mt-4 font-display font-extrabold tracking-[-0.01em] text-foreground">No invoices yet</h3>
             <p className="mt-2 text-sm text-muted-foreground">Invoices will appear here when created.</p>
           </div>
         ) : (
-          <div className="bg-card border border-border rounded-xl overflow-hidden">
+          <div className="bg-card border border-border rounded-2xl overflow-hidden">
             <div className="overflow-x-auto -mx-4 sm:mx-0">
               <table className="w-full min-w-[640px] text-sm">
               <thead className="bg-muted/50 border-b border-border">
@@ -198,7 +199,7 @@ export default function SettingsBillingPage() {
                         {inv.number}
                       </Link>
                     </td>
-                    <td className="px-4 py-3 font-medium text-foreground">{formatCents(inv.total)}</td>
+                    <td className="px-4 py-3 font-display font-extrabold tracking-[-0.02em] text-foreground">{formatCents(inv.total)}</td>
                     <td className="px-4 py-3">
                       <span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${invoiceStatusStyles[inv.status] ?? invoiceStatusStyles.draft}`}>
                         {inv.status}
@@ -211,7 +212,7 @@ export default function SettingsBillingPage() {
                       {(inv.status === 'sent' || inv.status === 'overdue') && (
                         <Link
                           href={`/portal/invoices/${inv.id}`}
-                          className="flex items-center gap-1 text-xs px-3 py-1 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors w-fit"
+                          className={`${pBtnPrimary} text-xs px-3 py-1 w-fit`}
                         >
                           <span className="material-icons text-xs">credit_card</span>
                           Pay Now
@@ -233,13 +234,13 @@ export default function SettingsBillingPage() {
             <span className="material-icons animate-spin text-primary text-2xl">refresh</span>
           </div>
         ) : methods.length === 0 ? (
-          <div className="bg-card border border-border rounded-xl p-12 text-center">
+          <div className="bg-card border border-border rounded-2xl p-12 text-center">
             <span className="material-icons text-5xl text-muted-foreground/40">credit_card_off</span>
-            <h3 className="mt-4 font-semibold text-foreground">No payment methods</h3>
+            <h3 className="mt-4 font-display font-extrabold tracking-[-0.01em] text-foreground">No payment methods</h3>
             <p className="mt-2 text-sm text-muted-foreground">Payment methods are saved when you pay an invoice via Stripe.</p>
           </div>
         ) : (
-          <div className="bg-card border border-border rounded-xl overflow-hidden">
+          <div className="bg-card border border-border rounded-2xl overflow-hidden">
             <ul className="divide-y divide-border">
               {methods.map(m => (
                 <li key={m.id} className="flex items-center gap-4 px-6 py-4">

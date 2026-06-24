@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { pBtnPrimary, pCard, pInput } from '@/components/portal/portal-ui';
 
 interface Conversation {
   id: number;
@@ -170,22 +171,22 @@ export default function AISettingsPage() {
     <div className="space-y-6">
       {/* Overview Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        <div className="bg-card border border-border rounded-xl p-4">
+        <div className={`${pCard} p-4`}>
           <span className="material-icons text-lg text-blue-500">mail</span>
           <p className="mt-2 text-xl font-bold text-foreground">{emailCount}</p>
           <p className="text-xs text-muted-foreground">Email Requests</p>
         </div>
-        <div className="bg-card border border-border rounded-xl p-4">
+        <div className={`${pCard} p-4`}>
           <span className="material-icons text-lg text-purple-500">chat</span>
           <p className="mt-2 text-xl font-bold text-foreground">{chatCount}</p>
           <p className="text-xs text-muted-foreground">Chat Conversations</p>
         </div>
-        <div className="bg-card border border-border rounded-xl p-4">
+        <div className={`${pCard} p-4`}>
           <span className="material-icons text-lg text-green-500">token</span>
           <p className="mt-2 text-xl font-bold text-foreground">{credits ? credits.balance.toLocaleString() : '---'}</p>
           <p className="text-xs text-muted-foreground">Credits Remaining</p>
         </div>
-        <div className="bg-card border border-border rounded-xl p-4">
+        <div className={`${pCard} p-4`}>
           <span className="material-icons text-lg text-pink-500">auto_awesome</span>
           <p className="mt-2 text-xl font-bold text-foreground">
             {imageUsage
@@ -207,13 +208,13 @@ export default function AISettingsPage() {
           one image event in the current month. Keeps the page calm for
           merchants who haven't enabled the product designer yet. */}
       {imageUsage && imageUsage.recentEvents.length > 0 && (
-        <div className="bg-card border border-border rounded-xl overflow-hidden">
+        <div className={`${pCard} overflow-hidden`}>
           <div className="flex items-center justify-between px-5 py-3 border-b border-border">
             <div className="flex items-center gap-2">
               <span className="material-icons text-base text-pink-500">
                 auto_awesome
               </span>
-              <h2 className="text-sm font-semibold text-foreground">
+              <h2 className="text-sm font-display font-extrabold tracking-[-0.01em] text-foreground">
                 AI Image Generations
               </h2>
             </div>
@@ -280,11 +281,11 @@ export default function AISettingsPage() {
       )}
 
       {/* Token Receipts */}
-      <div className="bg-card border border-border rounded-xl overflow-hidden">
+      <div className={`${pCard} overflow-hidden`}>
         <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-3 border-b border-border">
           <div className="flex items-center gap-2">
             <span className="material-icons text-base text-primary">receipt_long</span>
-            <h2 className="text-sm font-semibold text-foreground">Token Receipts</h2>
+            <h2 className="text-sm font-display font-extrabold tracking-[-0.01em] text-foreground">Token Receipts</h2>
           </div>
           <div className="flex items-center gap-3 text-xs text-muted-foreground">
             <span>This month: <span className="font-medium text-foreground">{monthlyUsage.toLocaleString()}</span> tokens</span>
@@ -345,10 +346,10 @@ export default function AISettingsPage() {
       </div>
 
       {/* Email Configuration */}
-      <div className="bg-card border border-border rounded-xl p-5 space-y-4">
+      <div className={`${pCard} p-5 space-y-4`}>
         <div className="flex items-center gap-2">
           <span className="material-icons text-base text-primary">mail</span>
-          <h2 className="text-sm font-semibold text-foreground">AI Email Address</h2>
+          <h2 className="text-sm font-display font-extrabold tracking-[-0.01em] text-foreground">AI Email Address</h2>
         </div>
         <p className="text-xs text-muted-foreground">
           Send requests to this email address and the AI assistant will process them automatically. Only registered team members can use this address.
@@ -377,7 +378,7 @@ export default function AISettingsPage() {
               setSavingEmail(false);
             }}
             disabled={savingEmail}
-            className="flex items-center gap-1.5 px-3 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+            className={pBtnPrimary}
           >
             {savingEmail ? <span className="material-icons animate-spin text-sm">refresh</span> : <span className="material-icons text-sm">save</span>}
             Save
@@ -393,9 +394,9 @@ export default function AISettingsPage() {
       </div>
 
       {/* Request Log */}
-      <div className="bg-card border border-border rounded-xl overflow-hidden">
+      <div className={`${pCard} overflow-hidden`}>
         <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-3 border-b border-border">
-          <h2 className="text-sm font-semibold text-foreground">Request Log</h2>
+          <h2 className="text-sm font-display font-extrabold tracking-[-0.01em] text-foreground">Request Log</h2>
           <div className="flex items-center gap-1 bg-accent rounded-lg p-0.5">
             {([
               { value: 'all' as const, label: 'All' },

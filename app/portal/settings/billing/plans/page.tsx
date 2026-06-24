@@ -16,6 +16,7 @@ import { type ReactNode, Suspense, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { VOLUME_TIERS, volumeTierFor, nextVolumeTier, SEAT_PRICE_CAP_CENTS, INCLUDED_SEATS } from '@/lib/billing/domain-catalog';
+import { pBtnPrimary, pBtnGhost } from '@/components/portal/portal-ui';
 
 // Where BYOK ("bring your own AI key") enquiries go — no self-serve price.
 const BYOK_MAILTO =
@@ -166,7 +167,7 @@ function ModuleCard({
         <button
           onClick={() => mod.clientServiceId && onCancel(mod.clientServiceId)}
           disabled={cancelling === mod.clientServiceId}
-          className="w-full mt-3 px-4 py-2 rounded-md text-sm font-medium border border-border text-muted-foreground hover:text-foreground hover:border-foreground/40 transition-colors disabled:opacity-50"
+          className={`${pBtnGhost} w-full mt-3`}
         >
           {cancelling === mod.clientServiceId ? 'Removing…' : 'Remove'}
         </button>
@@ -184,7 +185,7 @@ function ModuleCard({
       <button
         onClick={() => onSubscribe(mod.slug)}
         disabled={subscribing === mod.slug}
-        className="w-full mt-3 px-4 py-2 rounded-md text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+        className={`${pBtnPrimary} w-full mt-3`}
       >
         {subscribing === mod.slug ? 'Redirecting…' : 'Subscribe'}
       </button>
@@ -202,7 +203,7 @@ function ModuleCard({
   return (
     <div
       ref={cardRef}
-      className={`relative bg-card border rounded-lg p-5 flex flex-col transition-all ${
+      className={`relative bg-card border rounded-2xl p-5 flex flex-col transition-all ${
         highlight ? 'ring-2 ring-primary border-primary' : 'border-border'
       } ${isActive ? 'border-green-500/40' : ''}`}
     >
@@ -211,7 +212,7 @@ function ModuleCard({
         <div className="flex items-center gap-2">
           <span className="material-icons text-2xl text-primary">{mod.icon}</span>
           <div>
-            <h3 className="text-base font-semibold text-foreground leading-tight">{mod.name}</h3>
+            <h3 className="text-base font-display font-extrabold tracking-[-0.01em] text-foreground leading-tight">{mod.name}</h3>
           </div>
         </div>
         {stateLabel && <div className="shrink-0">{stateLabel}</div>}
@@ -221,7 +222,7 @@ function ModuleCard({
 
       {/* Price */}
       <div className="flex items-baseline gap-1 mb-4">
-        <span className="text-2xl font-bold text-foreground">{formatCents(mod.monthlyPriceCents)}</span>
+        <span className="text-2xl font-display font-extrabold tracking-[-0.02em] text-foreground">{formatCents(mod.monthlyPriceCents)}</span>
         <span className="text-sm text-muted-foreground">/mo</span>
       </div>
 
@@ -390,7 +391,7 @@ function BillingPlansInner() {
           <span className="material-icons text-base align-middle">arrow_back</span>
         </Link>
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Plans &amp; Modules</h1>
+          <h1 className="text-2xl font-display font-extrabold tracking-[-0.01em] text-foreground">Plans &amp; Modules</h1>
           <p className="text-sm text-muted-foreground">Subscribe to individual modules or get everything at once.</p>
         </div>
       </div>
@@ -417,10 +418,10 @@ function BillingPlansInner() {
 
       {/* Agency managed banner */}
       {(isAgency || gatingBypassed) && (
-        <div className="flex items-center gap-3 bg-primary/5 border border-primary/20 rounded-lg px-5 py-4">
+        <div className="flex items-center gap-3 bg-primary/5 border border-primary/20 rounded-2xl px-5 py-4">
           <span className="material-icons text-2xl text-primary">verified</span>
           <div>
-            <p className="font-semibold text-foreground">Everything is included in your managed plan</p>
+            <p className="font-display font-extrabold tracking-[-0.01em] text-foreground">Everything is included in your managed plan</p>
             <p className="text-sm text-muted-foreground">
               Your plan is managed by SimplerDevelopment. Contact us to make changes.
             </p>
@@ -430,10 +431,10 @@ function BillingPlansInner() {
 
       {/* Volume-discount strip — the more modules you run, the bigger the % off */}
       {showVolumeStrip && (
-        <div className="rounded-xl border border-border bg-muted/30 px-5 py-4">
+        <div className="rounded-2xl border border-border bg-muted/30 px-5 py-4">
           <div className="flex items-center gap-2 mb-2">
             <span className="material-icons text-base text-primary">savings</span>
-            <h2 className="text-sm font-semibold text-foreground">Volume pricing — pay only for what you use</h2>
+            <h2 className="text-sm font-display font-extrabold tracking-[-0.01em] text-foreground">Volume pricing — pay only for what you use</h2>
           </div>
           <div className="flex items-center gap-1.5 flex-wrap text-xs">
             {VOLUME_TIERS.slice().reverse().map((t) => {
@@ -473,10 +474,10 @@ function BillingPlansInner() {
 
       {/* Team seats — only for self-serve accounts */}
       {!isAgency && !gatingBypassed && seats && (
-        <div className="rounded-xl border border-border bg-muted/30 px-5 py-4">
+        <div className="rounded-2xl border border-border bg-muted/30 px-5 py-4">
           <div className="flex items-center gap-2 mb-2">
             <span className="material-icons text-base text-primary">groups</span>
-            <h2 className="text-sm font-semibold text-foreground">Team seats</h2>
+            <h2 className="text-sm font-display font-extrabold tracking-[-0.01em] text-foreground">Team seats</h2>
           </div>
           <p className="text-sm text-foreground mb-1">
             {seats.count} seat{seats.count !== 1 ? 's' : ''} —{' '}
@@ -509,13 +510,13 @@ function BillingPlansInner() {
       )}
 
       {/* Hero bundle card */}
-      <div className={`bg-card border rounded-xl p-6 ${bundleActive ? 'border-primary ring-2 ring-primary/20' : 'border-border'}`}>
+      <div className={`bg-card border rounded-2xl p-6 ${bundleActive ? 'border-primary ring-2 ring-primary/20' : 'border-border'}`}>
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
           <div className="flex items-start gap-4">
             <span className="material-icons text-4xl text-primary">{bundle.icon}</span>
             <div>
               <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="text-xl font-bold text-foreground">{bundle.name}</h2>
+                <h2 className="text-xl font-display font-extrabold tracking-[-0.01em] text-foreground">{bundle.name}</h2>
                 {bundleActive && (
                   <span className="inline-flex items-center gap-1 text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium">
                     <span className="material-icons text-sm">check</span>
@@ -536,7 +537,7 @@ function BillingPlansInner() {
           <div className="flex items-center gap-6 shrink-0">
             <div className="text-right">
               <div className="flex items-baseline gap-1">
-                <span className="text-3xl font-bold text-foreground">{formatCents(bundle.monthlyPriceCents)}</span>
+                <span className="text-3xl font-display font-extrabold tracking-[-0.02em] text-foreground">{formatCents(bundle.monthlyPriceCents)}</span>
                 <span className="text-sm text-muted-foreground">/mo</span>
               </div>
               {bundleSavings > 0 && (
@@ -550,7 +551,7 @@ function BillingPlansInner() {
                   <button
                     onClick={() => handleCancel(bundle.clientServiceId!)}
                     disabled={cancelling === bundle.clientServiceId}
-                    className="px-5 py-2.5 rounded-md text-sm font-medium border border-border text-muted-foreground hover:text-foreground hover:border-foreground/40 transition-colors disabled:opacity-50"
+                    className={pBtnGhost}
                   >
                     {cancelling === bundle.clientServiceId ? 'Cancelling…' : 'Cancel at period end'}
                   </button>
@@ -561,7 +562,7 @@ function BillingPlansInner() {
                 <button
                   onClick={() => handleSubscribe(bundle.slug)}
                   disabled={subscribing === bundle.slug}
-                  className="px-6 py-2.5 rounded-md text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+                  className={pBtnPrimary}
                 >
                   {subscribing === bundle.slug ? 'Redirecting…' : 'Subscribe to everything'}
                 </button>
@@ -581,7 +582,7 @@ function BillingPlansInner() {
 
       {/* Module grid */}
       <div>
-        <h2 className="text-lg font-semibold text-foreground mb-4">Individual modules</h2>
+        <h2 className="text-lg font-display font-extrabold tracking-[-0.01em] text-foreground mb-4">Individual modules</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {modules.map((mod) => (
             <ModuleCard

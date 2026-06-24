@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnPrimary, pBtnGhost, pCard } from '@/components/portal/portal-ui';
 
 interface Site {
   id: number;
@@ -139,19 +141,15 @@ export default function InboxPage() {
 
   return (
     <div className="max-w-5xl mx-auto p-6 space-y-4">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold flex items-center gap-2">
-            <span className="material-icons">forum</span>
-            Inbox
-          </h1>
-          <p className="text-sm text-muted-foreground">Live chat conversations from your sites.</p>
-        </div>
-        <div className="flex gap-2">
-          {widgets.length > 0 ? (
+      <PortalPageHeader
+        eyebrow="LIVE CHAT"
+        title="Inbox"
+        subtitle="Live chat conversations from your sites."
+        actions={
+          widgets.length > 0 ? (
             <Link
               href={`/portal/inbox/widgets/${widgets[0].id}`}
-              className="inline-flex items-center gap-1 px-3 py-1.5 text-sm border rounded-md hover:bg-accent"
+              className={pBtnGhost}
             >
               <span className="material-icons text-base">settings</span>
               Widget settings
@@ -160,14 +158,14 @@ export default function InboxPage() {
             <button
               type="button"
               onClick={openCreateModal}
-              className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
+              className={pBtnPrimary}
             >
               <span className="material-icons text-base">add</span>
               Create widget
             </button>
-          )}
-        </div>
-      </div>
+          )
+        }
+      />
 
       <div className="flex gap-2 border-b overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0">
         {STATUS_FILTERS.map((f) => (
@@ -197,7 +195,7 @@ export default function InboxPage() {
               <button
                 type="button"
                 onClick={openCreateModal}
-                className="inline-flex items-center gap-1 px-4 py-2 text-sm bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
+                className={pBtnPrimary}
               >
                 <span className="material-icons text-base">add</span>
                 Create widget
@@ -208,7 +206,7 @@ export default function InboxPage() {
           )}
         </div>
       ) : (
-        <ul className="divide-y border rounded-md bg-card">
+        <ul className={`divide-y ${pCard}`}>
           {conversations.map((c) => (
             <li key={c.id}>
               <Link
@@ -249,9 +247,9 @@ export default function InboxPage() {
       {/* Create widget modal */}
       {showCreateModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="bg-card border border-border rounded-lg shadow-lg w-full max-w-md p-6 space-y-4">
+          <div className="bg-card border border-border rounded-2xl shadow-lg w-full max-w-md p-6 space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold">Create chat widget</h2>
+              <h2 className="text-lg font-display font-extrabold tracking-[-0.01em]">Create chat widget</h2>
               <button
                 type="button"
                 onClick={() => setShowCreateModal(false)}
@@ -293,7 +291,7 @@ export default function InboxPage() {
               <button
                 type="button"
                 onClick={() => setShowCreateModal(false)}
-                className="px-4 py-2 text-sm border rounded-md hover:bg-accent transition-colors"
+                className={pBtnGhost}
               >
                 Cancel
               </button>
@@ -301,7 +299,7 @@ export default function InboxPage() {
                 type="button"
                 onClick={createWidget}
                 disabled={!selectedSiteId || creating}
-                className="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className={pBtnPrimary}
               >
                 {creating ? 'Creating…' : 'Create widget'}
               </button>

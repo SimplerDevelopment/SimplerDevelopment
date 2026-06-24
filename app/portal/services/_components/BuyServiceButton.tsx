@@ -38,7 +38,7 @@ export default function BuyServiceButton({ serviceId, label = 'Buy' }: Props) {
         type="button"
         onClick={handleBuy}
         disabled={loading}
-        className="flex items-center gap-1 text-sm px-4 py-1.5 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors font-medium disabled:opacity-60"
+        className="flex items-center gap-1 text-sm px-4 py-2 bg-foreground text-background rounded-xl font-semibold transition hover:-translate-y-px hover:shadow-lg hover:shadow-foreground/20 disabled:opacity-60 disabled:hover:translate-y-0"
       >
         {loading ? (
           <>

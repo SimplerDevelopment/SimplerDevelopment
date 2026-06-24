@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { pBtnPrimary, pCard, pInput } from '@/components/portal/portal-ui';
 
 interface ProfileData {
   name: string;
@@ -61,8 +62,8 @@ export default function ProfileSettingsPage() {
     <div className="space-y-6">
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Account info */}
-        <div className="bg-card border border-border rounded-xl p-6 space-y-5">
-          <h2 className="text-base font-semibold text-foreground">Account Information</h2>
+        <div className={`${pCard} p-6 space-y-5`}>
+          <h2 className="text-base font-display font-extrabold tracking-[-0.01em] text-foreground">Account Information</h2>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
@@ -72,7 +73,7 @@ export default function ProfileSettingsPage() {
                 value={form.name}
                 onChange={handleChange}
                 required
-                className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                className={pInput}
               />
             </div>
             <div className="space-y-1.5">
@@ -83,15 +84,15 @@ export default function ProfileSettingsPage() {
                 value={form.email}
                 onChange={handleChange}
                 required
-                className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                className={pInput}
               />
             </div>
           </div>
         </div>
 
         {/* Company info */}
-        <div className="bg-card border border-border rounded-xl p-6 space-y-5">
-          <h2 className="text-base font-semibold text-foreground">Company Information</h2>
+        <div className={`${pCard} p-6 space-y-5`}>
+          <h2 className="text-base font-display font-extrabold tracking-[-0.01em] text-foreground">Company Information</h2>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
@@ -101,7 +102,7 @@ export default function ProfileSettingsPage() {
                 value={form.company}
                 onChange={handleChange}
                 placeholder="Acme Inc."
-                className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                className={pInput}
               />
             </div>
             <div className="space-y-1.5">
@@ -111,7 +112,7 @@ export default function ProfileSettingsPage() {
                 value={form.phone}
                 onChange={handleChange}
                 placeholder="+1 (555) 000-0000"
-                className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                className={pInput}
               />
             </div>
           </div>
@@ -123,7 +124,7 @@ export default function ProfileSettingsPage() {
               value={form.website}
               onChange={handleChange}
               placeholder="https://acmeinc.com"
-              className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+              className={pInput}
             />
           </div>
 
@@ -135,7 +136,7 @@ export default function ProfileSettingsPage() {
               onChange={handleChange}
               rows={2}
               placeholder="123 Main St, Springfield, IL 62701"
-              className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 resize-none"
+              className={`${pInput} resize-none`}
             />
           </div>
         </div>
@@ -157,7 +158,7 @@ export default function ProfileSettingsPage() {
           <button
             type="submit"
             disabled={saving}
-            className="flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+            className={pBtnPrimary}
           >
             {saving && <span className="material-icons text-base animate-spin">refresh</span>}
             {saving ? 'Saving…' : 'Save Changes'}
@@ -218,9 +219,9 @@ function ChangePasswordSection() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="bg-card border border-border rounded-xl p-6 space-y-5">
+      <div className={`${pCard} p-6 space-y-5`}>
         <div className="flex items-center justify-between">
-          <h2 className="text-base font-semibold text-foreground">Change Password</h2>
+          <h2 className="text-base font-display font-extrabold tracking-[-0.01em] text-foreground">Change Password</h2>
           <button
             type="button"
             onClick={() => setShowPasswords(!showPasswords)}
@@ -239,7 +240,7 @@ function ChangePasswordSection() {
             onChange={(e) => setCurrentPassword(e.target.value)}
             required
             autoComplete="current-password"
-            className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+            className={pInput}
           />
         </div>
 
@@ -254,7 +255,7 @@ function ChangePasswordSection() {
               minLength={8}
               autoComplete="new-password"
               placeholder="At least 8 characters"
-              className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+              className={pInput}
             />
           </div>
           <div className="space-y-1.5">
@@ -267,7 +268,7 @@ function ChangePasswordSection() {
               minLength={8}
               autoComplete="new-password"
               placeholder="Confirm password"
-              className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+              className={pInput}
             />
           </div>
         </div>
@@ -290,7 +291,7 @@ function ChangePasswordSection() {
         <button
           type="submit"
           disabled={saving}
-          className="flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+          className={pBtnPrimary}
         >
           {saving && <span className="material-icons text-base animate-spin">refresh</span>}
           {saving ? 'Updating…' : 'Update Password'}
@@ -350,9 +351,9 @@ function PortalSubdomainSection() {
 
   return (
     <div className="space-y-6">
-      <div className="bg-card border border-border rounded-xl p-6 space-y-5">
+      <div className={`${pCard} p-6 space-y-5`}>
         <div>
-          <h2 className="text-base font-semibold text-foreground">Portal Subdomain</h2>
+          <h2 className="text-base font-display font-extrabold tracking-[-0.01em] text-foreground">Portal Subdomain</h2>
           <p className="text-sm text-muted-foreground mt-1">
             Choose which website determines your portal URL.
             {activeSubdomain && (
@@ -454,9 +455,9 @@ function DefaultPortalSection() {
 
   return (
     <div className="space-y-6">
-      <div className="bg-card border border-border rounded-xl p-6 space-y-5">
+      <div className={`${pCard} p-6 space-y-5`}>
         <div>
-          <h2 className="text-base font-semibold text-foreground">Default Portal</h2>
+          <h2 className="text-base font-display font-extrabold tracking-[-0.01em] text-foreground">Default Portal</h2>
           <p className="text-sm text-muted-foreground mt-1">Choose which portal you sign in to by default.</p>
         </div>
 

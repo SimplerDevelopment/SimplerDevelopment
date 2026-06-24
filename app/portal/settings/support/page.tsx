@@ -5,6 +5,7 @@ import { eq } from 'drizzle-orm';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { ticketStatusColor, priorityColor } from '@/lib/portal';
+import { pBtnPrimary } from '@/components/portal/portal-ui';
 
 export default async function SettingsSupportPage() {
   const session = await auth();
@@ -22,7 +23,7 @@ export default async function SettingsSupportPage() {
         <p className="text-sm text-muted-foreground">Get help from our team.</p>
         <Link
           href="/portal/tickets/new"
-          className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
+          className={pBtnPrimary}
         >
           <span className="material-icons text-base">add</span>
           New Ticket
@@ -30,17 +31,17 @@ export default async function SettingsSupportPage() {
       </div>
 
       {tickets.length === 0 ? (
-        <div className="bg-card border border-border rounded-xl p-12 text-center">
+        <div className="bg-card border border-border rounded-2xl p-12 text-center">
           <span className="material-icons text-5xl text-muted-foreground">support_agent</span>
-          <h3 className="mt-4 font-semibold text-foreground">No tickets yet</h3>
+          <h3 className="mt-4 font-display font-extrabold tracking-[-0.01em] text-foreground">No tickets yet</h3>
           <p className="mt-2 text-sm text-muted-foreground">Need help? Open your first support ticket.</p>
-          <Link href="/portal/tickets/new" className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium">
+          <Link href="/portal/tickets/new" className={`mt-4 ${pBtnPrimary}`}>
             <span className="material-icons text-base">add</span>
             Open Ticket
           </Link>
         </div>
       ) : (
-        <div className="bg-card border border-border rounded-xl overflow-hidden">
+        <div className="bg-card border border-border rounded-2xl overflow-hidden">
           <div className="overflow-x-auto -mx-4 sm:mx-0">
           <table className="w-full min-w-[640px] text-sm">
             <thead className="bg-muted/50 border-b border-border">

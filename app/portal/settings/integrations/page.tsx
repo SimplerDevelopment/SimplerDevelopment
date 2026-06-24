@@ -9,6 +9,7 @@ import { getTenantWorkspaceCredentialsByClientId } from '@/lib/google/tenant-cre
 import { revoke } from '@/lib/google/oauth';
 import { getEnvMicrosoftCredentials } from '@/lib/microsoft/oauth';
 import { deleteTranscriptsSubscription } from '@/lib/microsoft/transcripts-watch';
+import { pBtnPrimary, pBtnGhost } from '@/components/portal/portal-ui';
 
 interface PageProps {
   searchParams: Promise<{
@@ -215,7 +216,7 @@ export default async function SettingsIntegrationsPage({ searchParams }: PagePro
           (Slack, etc.) will sit as additional sections on this same page. */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-lg font-semibold text-foreground">Google Workspace</h2>
+          <h2 className="text-lg font-display font-extrabold tracking-[-0.01em] text-foreground">Google Workspace</h2>
           <p className="text-muted-foreground text-sm mt-1">
             Connect your Google account so the brain can ingest your Gmail, Calendar, Drive, and Contacts.
             Read-only — we never send email or change your data.
@@ -224,9 +225,9 @@ export default async function SettingsIntegrationsPage({ searchParams }: PagePro
       </div>
 
       {!tenant && (
-        <div className="bg-card border border-border rounded-xl p-8 flex flex-col items-center text-center">
+        <div className="bg-card border border-border rounded-2xl p-8 flex flex-col items-center text-center">
           <span className="material-icons text-5xl text-muted-foreground mb-3">workspace_premium</span>
-          <h3 className="font-semibold text-foreground mb-1">Workspace integration is an enterprise feature</h3>
+          <h3 className="font-display font-extrabold tracking-[-0.01em] text-foreground mb-1">Workspace integration is an enterprise feature</h3>
           <p className="text-sm text-muted-foreground max-w-md">
             This account uses standard email tracking (incoming mail to your SimplerDevelopment domain). To enable
             full Workspace ingestion (sent mail, calendar, Drive, contacts), upgrade and we&apos;ll provision
@@ -234,7 +235,7 @@ export default async function SettingsIntegrationsPage({ searchParams }: PagePro
           </p>
           <a
             href="/portal/tickets/new?subject=Workspace+integration+upgrade"
-            className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
+            className={`mt-4 ${pBtnPrimary}`}
           >
             <span className="material-icons text-base">support_agent</span>
             Request upgrade
@@ -243,10 +244,10 @@ export default async function SettingsIntegrationsPage({ searchParams }: PagePro
       )}
 
       {tenant && tenant.status !== 'active' && tenant.status !== 'configured' && (
-        <div className="bg-card border border-border rounded-xl p-6 flex items-start gap-3">
+        <div className="bg-card border border-border rounded-2xl p-6 flex items-start gap-3">
           <span className="material-icons text-2xl text-muted-foreground">pause_circle</span>
           <div>
-            <h3 className="font-semibold text-foreground">Workspace integration paused</h3>
+            <h3 className="font-display font-extrabold tracking-[-0.01em] text-foreground">Workspace integration paused</h3>
             <p className="text-sm text-muted-foreground mt-1">
               Status: <code className="font-mono">{tenant.status}</code>. Contact your SimplerDevelopment administrator to resume.
             </p>
@@ -255,11 +256,11 @@ export default async function SettingsIntegrationsPage({ searchParams }: PagePro
       )}
 
       {tenant && (tenant.status === 'active' || tenant.status === 'configured') && !connection && (
-        <div className="bg-card border border-border rounded-xl p-6 space-y-4">
+        <div className="bg-card border border-border rounded-2xl p-6 space-y-4">
           <div className="flex items-start gap-3">
             <span className="material-icons text-2xl text-muted-foreground">link_off</span>
             <div>
-              <h3 className="font-semibold text-foreground">Not connected</h3>
+              <h3 className="font-display font-extrabold tracking-[-0.01em] text-foreground">Not connected</h3>
               <p className="text-sm text-muted-foreground mt-1">
                 Connect your Google Workspace account ({session.user.email ?? 'your work email'}) to enable the brain.
               </p>
@@ -268,7 +269,7 @@ export default async function SettingsIntegrationsPage({ searchParams }: PagePro
           <div className="flex flex-col sm:flex-row gap-3">
             <a
               href={`/api/portal/integrations/google/connect?returnTo=${encodeURIComponent(SETTINGS_INTEGRATIONS_PATH)}`}
-              className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
+              className={pBtnPrimary}
             >
               <span className="material-icons text-base">link</span>
               Connect Google Workspace
@@ -281,11 +282,11 @@ export default async function SettingsIntegrationsPage({ searchParams }: PagePro
       )}
 
       {tenant && connection && (
-        <div className="bg-card border border-border rounded-xl p-6 space-y-5">
+        <div className="bg-card border border-border rounded-2xl p-6 space-y-5">
           <div className="flex items-start gap-3">
             <span className="material-icons text-2xl text-green-600 dark:text-green-500">check_circle</span>
             <div className="flex-1 min-w-0">
-              <h3 className="font-semibold text-foreground">Connected</h3>
+              <h3 className="font-display font-extrabold tracking-[-0.01em] text-foreground">Connected</h3>
               <p className="text-sm text-muted-foreground mt-1 truncate">
                 {connection.googleAccountEmail}
               </p>
@@ -315,7 +316,7 @@ export default async function SettingsIntegrationsPage({ searchParams }: PagePro
           <form action={disconnectAction}>
             <button
               type="submit"
-              className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-card border border-border text-foreground rounded-lg text-sm font-medium hover:bg-destructive/10 hover:border-destructive/30 hover:text-destructive transition-colors"
+              className={`${pBtnGhost} hover:bg-destructive/10 hover:border-destructive/30 hover:text-destructive`}
             >
               <span className="material-icons text-base">link_off</span>
               Disconnect
@@ -348,7 +349,7 @@ export default async function SettingsIntegrationsPage({ searchParams }: PagePro
 
       <div className="flex items-start justify-between gap-4 pt-4 border-t border-border">
         <div>
-          <h2 className="text-lg font-semibold text-foreground">Microsoft Teams</h2>
+          <h2 className="text-lg font-display font-extrabold tracking-[-0.01em] text-foreground">Microsoft Teams</h2>
           <p className="text-muted-foreground text-sm mt-1">
             Connect your Microsoft 365 account so transcripts from meetings you organize land in the brain automatically.
           </p>
@@ -356,10 +357,10 @@ export default async function SettingsIntegrationsPage({ searchParams }: PagePro
       </div>
 
       {!microsoftConfigured && (
-        <div className="bg-card border border-border rounded-xl p-6 flex items-start gap-3">
+        <div className="bg-card border border-border rounded-2xl p-6 flex items-start gap-3">
           <span className="material-icons text-2xl text-muted-foreground">settings</span>
           <div>
-            <h3 className="font-semibold text-foreground">Not yet enabled on this deploy</h3>
+            <h3 className="font-display font-extrabold tracking-[-0.01em] text-foreground">Not yet enabled on this deploy</h3>
             <p className="text-sm text-muted-foreground mt-1">
               The Teams integration requires <code className="font-mono">MICROSOFT_TEAMS_CLIENT_ID</code> and{' '}
               <code className="font-mono">MICROSOFT_TEAMS_CLIENT_SECRET</code> in the environment. Contact your SimplerDevelopment administrator.
@@ -369,11 +370,11 @@ export default async function SettingsIntegrationsPage({ searchParams }: PagePro
       )}
 
       {microsoftConfigured && !microsoftConnection && (
-        <div className="bg-card border border-border rounded-xl p-6 space-y-4">
+        <div className="bg-card border border-border rounded-2xl p-6 space-y-4">
           <div className="flex items-start gap-3">
             <span className="material-icons text-2xl text-muted-foreground">link_off</span>
             <div>
-              <h3 className="font-semibold text-foreground">Not connected</h3>
+              <h3 className="font-display font-extrabold tracking-[-0.01em] text-foreground">Not connected</h3>
               <p className="text-sm text-muted-foreground mt-1">
                 Connect your Microsoft 365 account to start syncing Teams meeting transcripts.
               </p>
@@ -391,7 +392,7 @@ export default async function SettingsIntegrationsPage({ searchParams }: PagePro
           <div className="flex flex-col sm:flex-row gap-3">
             <a
               href={`/api/portal/integrations/microsoft/connect?returnTo=${encodeURIComponent(SETTINGS_INTEGRATIONS_PATH)}`}
-              className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
+              className={pBtnPrimary}
             >
               <span className="material-icons text-base">link</span>
               Connect Microsoft Teams
@@ -404,11 +405,11 @@ export default async function SettingsIntegrationsPage({ searchParams }: PagePro
       )}
 
       {microsoftConfigured && microsoftConnection && (
-        <div className="bg-card border border-border rounded-xl p-6 space-y-5">
+        <div className="bg-card border border-border rounded-2xl p-6 space-y-5">
           <div className="flex items-start gap-3">
             <span className="material-icons text-2xl text-green-600 dark:text-green-500">check_circle</span>
             <div className="flex-1 min-w-0">
-              <h3 className="font-semibold text-foreground">Connected</h3>
+              <h3 className="font-display font-extrabold tracking-[-0.01em] text-foreground">Connected</h3>
               <p className="text-sm text-muted-foreground mt-1 truncate">
                 {microsoftConnection.microsoftAccountEmail}
               </p>
@@ -440,7 +441,7 @@ export default async function SettingsIntegrationsPage({ searchParams }: PagePro
           <form action={disconnectMicrosoftAction}>
             <button
               type="submit"
-              className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-card border border-border text-foreground rounded-lg text-sm font-medium hover:bg-destructive/10 hover:border-destructive/30 hover:text-destructive transition-colors"
+              className={`${pBtnGhost} hover:bg-destructive/10 hover:border-destructive/30 hover:text-destructive`}
             >
               <span className="material-icons text-base">link_off</span>
               Disconnect
