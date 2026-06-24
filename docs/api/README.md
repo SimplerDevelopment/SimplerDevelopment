@@ -16,6 +16,8 @@ Use this surface when you are building a server-side integration, CI pipeline, o
 
 [Get started with authentication →](./authentication.md)
 
+**Machine-readable spec:** an [OpenAPI 3.1 specification](/openapi.yaml) for this surface is served at `/openapi.yaml`. Import it into Postman, Insomnia, or an OpenAPI code generator to scaffold a typed client.
+
 ---
 
 ### (b) Public API — unauthenticated front-end endpoints
