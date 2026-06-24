@@ -249,6 +249,9 @@ export default function PromptDetailPage() {
   const [scheduleError, setScheduleError] = useState<string | null>(null);
   const [scheduleSuccess, setScheduleSuccess] = useState(false);
 
+  // ── Real-run confirmation state ──────────────────────────────────────────
+  const [confirmingReal, setConfirmingReal] = useState(false);
+
   // ── Promote / rollback state ─────────────────────────────────────────────
   const [versionActionInFlight, setVersionActionInFlight] = useState<number | null>(null);
   const [promoteConfirm, setPromoteConfirm] = useState<number | null>(null); // versionId awaiting confirm
@@ -590,7 +593,7 @@ export default function PromptDetailPage() {
                 <select
                   id="mock-select"
                   value={mock ? 'mock' : 'real'}
-                  onChange={(e) => setMock(e.target.value === 'mock')}
+                  onChange={(e) => { setMock(e.target.value === 'mock'); setConfirmingReal(false); }}
                   disabled={inFlight}
                   className="flex-1 text-xs border border-border rounded px-2 py-1 bg-background text-foreground disabled:opacity-50"
                 >
@@ -598,16 +601,37 @@ export default function PromptDetailPage() {
                   <option value="real">Real (costs tokens)</option>
                 </select>
               </div>
-              <button
-                onClick={handleRunEval}
-                disabled={inFlight}
-                className="w-full inline-flex items-center justify-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                <span className={`material-icons text-base leading-none ${inFlight ? 'animate-spin' : ''}`}>
-                  {inFlight ? 'refresh' : 'play_arrow'}
-                </span>
-                {inFlight ? 'Running…' : 'Run eval'}
-              </button>
+              {confirmingReal ? (
+                <div className="flex flex-col gap-2 bg-yellow-50 border border-yellow-200 rounded px-3 py-2 text-xs">
+                  <span className="text-yellow-900">Real run — hits the model and consumes tokens.</span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => { setConfirmingReal(false); handleRunEval(); }}
+                      disabled={inFlight}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-yellow-600 text-white hover:bg-yellow-700 disabled:opacity-50 transition-colors font-medium"
+                    >
+                      Run anyway
+                    </button>
+                    <button
+                      onClick={() => setConfirmingReal(false)}
+                      className="px-2 py-1 text-yellow-700 hover:text-yellow-900 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={() => { if (!mock) { setConfirmingReal(true); } else { handleRunEval(); } }}
+                  disabled={inFlight}
+                  className="w-full inline-flex items-center justify-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <span className={`material-icons text-base leading-none ${inFlight ? 'animate-spin' : ''}`}>
+                    {inFlight ? 'refresh' : 'play_arrow'}
+                  </span>
+                  {inFlight ? 'Running…' : 'Run eval'}
+                </button>
+              )}
               {liveStatus && (
                 <div className={`text-xs rounded px-2 py-1.5 border ${
                   liveStatus.startsWith('done')

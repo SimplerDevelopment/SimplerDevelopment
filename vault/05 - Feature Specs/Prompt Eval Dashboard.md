@@ -296,7 +296,11 @@ Built on the slice; browser-verified end-to-end on the isolated local DB.
 
 Verified: whole-repo `tsc` clean; ESLint clean on all changed files; browser-confirmed cost page totals, version-compare row, and run drill-down (b2b-saas / artisan-coffee case results with output/scores expanders).
 
-**Phase 3 remaining (polish, deferred):** sortable leaderboard columns, real-run confirm-before-expensive UX (the mock/real selector exists; the cost-confirm dialog does not).
+### Polish — SHIPPED (2026-06-24, branch worktree/mcp-review)
+
+- **Sortable leaderboard** — clickable Prompt / Pass Rate / Last Run column headers (nulls last) with an `arrow_upward`/`arrow_downward` indicator.
+- **Confirm-before-expensive** — selecting Real mode + Run eval now shows an inline "hits the model and consumes tokens" gate (Run anyway / Cancel); mock runs are unaffected.
+- **Schedule wiring** — `app/api/cron/eval-schedule/route.ts`: for each prompt with `scheduleCron`, cron-parser computes the prev fire time; if no `trigger='schedule'` run exists since then, enqueue one for the active version. `eval_runs` is the bookkeeping (no extra column); idempotent within a fire window. Verified live (enqueued for a due prompt; second call skipped). Wire it into the host's cron config alongside `/api/cron/eval-runs`.
 
 ### Phase 4 — Edit, version, promote — SHIPPED (2026-06-24, branch worktree/mcp-review)
 
@@ -308,7 +312,7 @@ The write layer. Two decisions were resolved (no reusable audit table existed �
 
 Verified: whole-repo `tsc` clean; ESLint clean (fixed a mount-fetch nit + an audit-detail render that crashed on the json object — typed `detail` as object + render key:value pairs). Browser E2E on the isolated local DB: edit→save draft (v2)→promote v2 (confirm, v1 archived, regression run #3 enqueued, audit entry)→rollback to v1 (confirm)→save schedule cron→cases editor lists/toggles. Audit log showed all three actions with actor email.
 
-**Deferred (Phase 4 follow-ups):** the `@critical` Playwright promote-flow test (verified manually via browser this round); wiring the opt-in `scheduleCron` to an actual scheduler tick (the field saves + audits, but no cron reads opted-in prompts yet); dataset (not just case) management.
+**Deferred (Phase 4 follow-ups):** the `@critical` Playwright promote-flow test (the flow is verified manually via browser, but no automated E2E spec exists yet — needs the auth-fixture/test-DB harness); dataset (not just case) management; per-model cost rates (the cost rollup uses a blended estimate). _(scheduleCron wiring — done, see Polish above.)_
 
 ### To go live
 

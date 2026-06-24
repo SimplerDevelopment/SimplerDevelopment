@@ -83,10 +83,51 @@ function TrendIcon({ trend }: { trend: PromptRow['trend'] }) {
   return <span className="text-muted-foreground text-sm">—</span>;
 }
 
+type SortKey = 'title' | 'passRate' | 'lastRun';
+type SortDir = 'asc' | 'desc';
+
+function sortedPrompts(rows: PromptRow[], key: SortKey, dir: SortDir): PromptRow[] {
+  const copy = [...rows];
+  copy.sort((a, b) => {
+    let cmp = 0;
+    if (key === 'title') {
+      cmp = a.title.localeCompare(b.title);
+    } else if (key === 'passRate') {
+      const av = a.latestRun?.passRate ?? null;
+      const bv = b.latestRun?.passRate ?? null;
+      if (av === null && bv === null) cmp = 0;
+      else if (av === null) cmp = 1; // nulls last
+      else if (bv === null) cmp = -1;
+      else cmp = av - bv;
+    } else {
+      // lastRun — sort by latestRun.createdAt
+      const at = a.latestRun?.createdAt ?? null;
+      const bt = b.latestRun?.createdAt ?? null;
+      if (at === null && bt === null) cmp = 0;
+      else if (at === null) cmp = 1; // nulls last
+      else if (bt === null) cmp = -1;
+      else cmp = new Date(at).getTime() - new Date(bt).getTime();
+    }
+    return dir === 'asc' ? cmp : -cmp;
+  });
+  return copy;
+}
+
 export default function PromptEvalsPage() {
   const [prompts, setPrompts] = useState<PromptRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
+  const [sortKey, setSortKey] = useState<SortKey>('title');
+  const [sortDir, setSortDir] = useState<SortDir>('asc');
+
+  function handleSort(key: SortKey) {
+    if (key === sortKey) {
+      setSortDir(sortDir === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortKey(key);
+      setSortDir('asc');
+    }
+  }
 
   useEffect(() => {
     fetch('/api/admin/prompts')
@@ -147,13 +188,33 @@ export default function PromptEvalsPage() {
               <thead className="bg-muted/50 border-b border-border">
                 <tr>
                   <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                    Prompt
+                    <button
+                      onClick={() => handleSort('title')}
+                      className="inline-flex items-center gap-1 cursor-pointer select-none hover:text-foreground transition-colors"
+                    >
+                      Prompt
+                      {sortKey === 'title' && (
+                        <span className="material-icons text-sm leading-none">
+                          {sortDir === 'asc' ? 'arrow_upward' : 'arrow_downward'}
+                        </span>
+                      )}
+                    </button>
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                     Active Ver.
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                    Pass Rate
+                    <button
+                      onClick={() => handleSort('passRate')}
+                      className="inline-flex items-center gap-1 cursor-pointer select-none hover:text-foreground transition-colors"
+                    >
+                      Pass Rate
+                      {sortKey === 'passRate' && (
+                        <span className="material-icons text-sm leading-none">
+                          {sortDir === 'asc' ? 'arrow_upward' : 'arrow_downward'}
+                        </span>
+                      )}
+                    </button>
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                     Trend
@@ -162,12 +223,22 @@ export default function PromptEvalsPage() {
                     Last Run Status
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                    Last Run
+                    <button
+                      onClick={() => handleSort('lastRun')}
+                      className="inline-flex items-center gap-1 cursor-pointer select-none hover:text-foreground transition-colors"
+                    >
+                      Last Run
+                      {sortKey === 'lastRun' && (
+                        <span className="material-icons text-sm leading-none">
+                          {sortDir === 'asc' ? 'arrow_upward' : 'arrow_downward'}
+                        </span>
+                      )}
+                    </button>
                   </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {prompts.map((p) => (
+                {sortedPrompts(prompts, sortKey, sortDir).map((p) => (
                   <tr
                     key={p.id}
                     className="hover:bg-accent/50 transition-colors cursor-pointer"
