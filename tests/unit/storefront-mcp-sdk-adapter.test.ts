@@ -426,6 +426,22 @@ describe('store_products_get', () => {
   });
 });
 
+describe('store entitlement gate (requireStore)', () => {
+  it('write handlers return serviceDenied + short-circuit when the client lacks the store subscription', async () => {
+    // The repaired tests default hasServiceAccess→true so they can exercise handler
+    // logic; this case verifies the gate itself. requireStore() → requireService →
+    // hasServiceAccess(false) must deny BEFORE any site lookup or DB write.
+    hasServiceAccessMock.mockReset().mockResolvedValue(false);
+    const tools = registerAll();
+    const res = await tools.get('store_products_create')!.handler({
+      websiteId: 1, name: 'X', price: 100,
+    });
+    expect((res as { isError?: boolean }).isError).toBe(true);
+    expect((res as { content: { text: string }[] }).content[0].text).toMatch(/active store subscription/i);
+    expect(dbState.insertCalls).toBe(0); // short-circuited at the gate, no write
+  });
+});
+
 describe('store_products_create', () => {
   it('returns site-not-found if website missing', async () => {
     queueSiteMiss();

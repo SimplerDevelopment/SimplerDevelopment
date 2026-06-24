@@ -156,13 +156,14 @@ describe('PortalSidebar — initial render (closed state)', () => {
     });
   });
 
-  it('renders "Simpler Development" brand name with bold prefix', async () => {
-    // Brand name now lives in the CompanySwitcher (mocked), so the sidebar header
-    // carries the CompanySwitcher stub which renders "CompanySwitcher" text.
-    // Verify the CompanySwitcher is mounted — that is what shows company identity.
+  it('renders the default brand name on the brand-mark link', async () => {
+    // Default brandName ('Simpler Development') is consumed by useAgencyChrome and
+    // passed to the brand-mark link's title attr — the same render path the custom
+    // brand test below checks. Asserts the brand identity actually renders, not just
+    // that the (always-present, mocked) CompanySwitcher stub mounted.
     render(<PortalSidebar />);
     await waitFor(() => {
-      expect(screen.getByTestId('company-switcher')).toBeInTheDocument();
+      expect(document.querySelector('a[title="Simpler Development"]')).toBeTruthy();
     });
   });
 
@@ -202,13 +203,12 @@ describe('PortalSidebar — open/close toggle', () => {
     expect(aside?.className).not.toContain('-translate-x-full');
   });
 
-  it('dispatches portalSidebarToggle custom event on open', async () => {
-    // This event is dispatched by the PARENT layout, not the sidebar itself.
-    // Verify the sidebar renders correctly when open — behavioral parity.
-    render(<PortalSidebar mobileOpen={true} />);
-    const aside = document.querySelector('aside');
-    expect(aside?.className).toContain('translate-x-0');
-  });
+  // Removed the former 'dispatches portalSidebarToggle custom event on open' test:
+  // the sidebar no longer dispatches that event (redesign f61b387d made it a
+  // controlled mobileOpen/onCloseMobile component — the toggle now lives in the
+  // parent layout). The repaired version had become a zero-teeth duplicate of
+  // 'opens the sidebar when mobileOpen is true'. Backlog: add a real toggle-event
+  // test in the parent layout spec where that behavior now lives.
 
   it('closes the sidebar with the close button inside the aside', async () => {
     const onClose = vi.fn();
