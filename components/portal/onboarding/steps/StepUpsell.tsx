@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import type { StepProps } from './types';
 import { BUNDLE, BUNDLE_SLUG, FEATURE_DOMAINS } from '@/lib/billing/domain-catalog';
+import { obPrimaryBtn, obChip, obFootbar } from '../ob-styles';
 
 interface ModuleItem {
   key: string;
@@ -161,21 +162,21 @@ export function StepUpsell({ next }: StepProps) {
             return (
               <div
                 key={mod.key}
-                className="flex items-center gap-4 rounded-xl border border-border p-4"
+                className="flex items-center gap-4 rounded-2xl border border-border bg-card p-4 transition-all hover:border-foreground/15 hover:bg-muted/20"
               >
-                <span className="material-icons text-2xl text-primary shrink-0">{mod.icon}</span>
+                <span className={obChip}><span className="material-icons text-xl">{mod.icon}</span></span>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold">{mod.name}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{mod.tagline}</p>
-                  <p className="text-xs text-muted-foreground/70 mt-0.5">{formatPrice(mod.monthlyPriceCents)}</p>
+                  <p className="text-[14px] font-semibold text-foreground">{mod.name}</p>
+                  <p className="text-[12.5px] text-muted-foreground mt-0.5 line-clamp-2">{mod.tagline}</p>
+                  <p className="text-[12px] text-muted-foreground/60 mt-0.5">{formatPrice(mod.monthlyPriceCents)}</p>
                   {st === 'error' && addErrors[mod.key] && (
                     <p className="text-xs text-destructive mt-1">{addErrors[mod.key]}</p>
                   )}
                 </div>
                 <div className="shrink-0">
                   {st === 'added' ? (
-                    <span className="inline-flex items-center gap-1 text-sm font-medium text-green-600">
-                      <span className="material-icons text-base">check_circle</span>
+                    <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-emerald-600">
+                      <span className="material-icons text-base text-emerald-600">check_circle</span>
                       Added
                     </span>
                   ) : st === 'checkout' ? (
@@ -191,7 +192,7 @@ export function StepUpsell({ next }: StepProps) {
                       type="button"
                       onClick={() => handleAddModule(mod)}
                       disabled={st === 'loading'}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-primary/30 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary hover:text-primary-foreground disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      className="inline-flex items-center gap-1.5 rounded-xl border border-border px-3 py-1.5 text-[12.5px] font-semibold text-foreground hover:border-foreground/30 hover:bg-muted/40 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                     >
                       {st === 'loading' ? (
                         <span className="material-icons text-sm animate-spin">refresh</span>
@@ -210,9 +211,9 @@ export function StepUpsell({ next }: StepProps) {
 
       {/* Bundle nudge */}
       {showBundleNudge && (
-        <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 flex items-center gap-3">
-          <span className="material-icons text-primary shrink-0">star</span>
-          <p className="flex-1 text-sm text-foreground">
+        <div className={`${obFootbar}`}>
+          <span className="material-icons text-foreground shrink-0">star</span>
+          <p className="flex-1 text-[13.5px] text-foreground">
             {bundleUpgradeCents > 0 ? (
               <>You&apos;re <strong>{formatPrice(bundleUpgradeCents)}/mo</strong> away from everything</>
             ) : (
@@ -229,10 +230,10 @@ export function StepUpsell({ next }: StepProps) {
             </button>
           </p>
           {bundleState === 'loading' && (
-            <span className="material-icons text-base animate-spin text-primary">refresh</span>
+            <span className="material-icons text-base animate-spin text-muted-foreground">refresh</span>
           )}
           {bundleState === 'added' && (
-            <span className="material-icons text-base text-green-600">check_circle</span>
+            <span className="material-icons text-base text-emerald-600">check_circle</span>
           )}
           {bundleState === 'checkout' && (
             <Link
@@ -252,7 +253,7 @@ export function StepUpsell({ next }: StepProps) {
         <button
           type="button"
           onClick={() => next()}
-          className="inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90 transition-colors"
+          className={obPrimaryBtn}
         >
           Continue
           <span className="material-icons text-base">arrow_forward</span>

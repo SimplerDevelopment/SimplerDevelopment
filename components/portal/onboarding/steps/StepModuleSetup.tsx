@@ -4,6 +4,7 @@ import { useState } from 'react';
 import type { StepProps } from './types';
 import { getSegmentForDomain } from '@/lib/onboarding/module-segments';
 import { FEATURE_DOMAINS } from '@/lib/billing/domain-catalog';
+import { obPrimaryBtn, obGhostBtn, obChip, obChipOn } from '../ob-styles';
 
 export function StepModuleSetup({ state, setAnswers, next }: StepProps) {
   // If the user selected the bundle, walk through the core 5 domains; otherwise
@@ -53,30 +54,38 @@ export function StepModuleSetup({ state, setAnswers, next }: StepProps) {
   const isMultiple = domainKeys.length > 1;
 
   return (
-    <div className="space-y-6">
-      {/* Pagination indicator */}
-      {isMultiple && (
-        <p className="text-xs text-muted-foreground font-medium">
-          Module {currentSegmentIndex + 1} of {domainKeys.length}
-        </p>
-      )}
-
-      {/* Segment header */}
-      <div>
-        <h2 className="text-lg font-semibold">{segment.title}</h2>
-        <p className="text-sm text-muted-foreground mt-1">{segment.blurb}</p>
+    <div className="space-y-5">
+      {/* Segment header — icon chip + title + progress dots */}
+      <div className="flex items-center gap-3 mb-1">
+        <span className={[obChip, obChipOn].join(' ')}>
+          <span className="material-icons text-[18px]">{catalogEntry?.icon ?? 'checklist'}</span>
+        </span>
+        <span className="font-extrabold text-[15px] tracking-[-0.01em]">{segment.title}</span>
+        {isMultiple && (
+          <span className="ml-auto flex gap-1.5">
+            {domainKeys.map((_, i) => (
+              <i
+                key={i}
+                className={[
+                  'block h-[7px] w-[7px] rounded-full',
+                  i === currentSegmentIndex ? 'bg-foreground' : 'bg-border',
+                ].join(' ')}
+              />
+            ))}
+          </span>
+        )}
       </div>
 
       {/* Action rows */}
-      <div className="space-y-3">
+      <div className="flex flex-col gap-2.5">
         {segment.actions.map((action) => {
           const done = completedKeys.includes(action.key);
           return (
             <div
               key={action.key}
               className={[
-                'flex items-center gap-4 rounded-xl border p-4 transition-colors',
-                done ? 'border-primary/30 bg-primary/5' : 'border-border bg-background/60',
+                'flex items-center gap-3.5 rounded-[13px] border px-[15px] py-[13px] transition-colors bg-card',
+                done ? 'border-emerald-400/40 bg-emerald-50/60 dark:bg-emerald-950/20' : 'border-border',
               ].join(' ')}
             >
               {/* Checkbox toggle */}
@@ -85,20 +94,20 @@ export function StepModuleSetup({ state, setAnswers, next }: StepProps) {
                 onClick={() => toggleAction(action.key)}
                 aria-pressed={done}
                 aria-label={done ? `Mark "${action.label}" incomplete` : `Mark "${action.label}" complete`}
-                className="shrink-0"
+                className="shrink-0 grid h-[22px] w-[22px] place-items-center rounded-[7px] border-[1.7px] transition-colors"
+                style={{
+                  background: done ? '#10b981' : undefined,
+                  borderColor: done ? '#10b981' : undefined,
+                  color: done ? '#fff' : undefined,
+                }}
               >
-                <span className={['material-icons text-xl', done ? 'text-primary' : 'text-muted-foreground/40'].join(' ')}>
-                  {done ? 'check_circle' : 'radio_button_unchecked'}
-                </span>
+                {done && <span className="material-icons text-[15px]">check</span>}
               </button>
-
-              {/* Icon */}
-              <span className="material-icons text-xl text-primary shrink-0">{action.icon}</span>
 
               {/* Text */}
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium">{action.label}</p>
-                <p className="text-xs text-muted-foreground mt-0.5">{action.description}</p>
+                <p className="text-[14px] font-semibold leading-snug">{action.label}</p>
+                <p className="text-[12.5px] text-muted-foreground mt-0.5">{action.description}</p>
               </div>
 
               {/* Open link */}
@@ -106,25 +115,32 @@ export function StepModuleSetup({ state, setAnswers, next }: StepProps) {
                 href={action.href}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="shrink-0 text-xs text-primary hover:text-primary/80 font-medium whitespace-nowrap"
+                className="shrink-0 inline-flex items-center gap-[3px] text-[13px] font-semibold text-primary hover:text-primary/80 whitespace-nowrap"
               >
                 Open
-                <span className="material-icons text-sm align-middle ml-0.5">arrow_forward</span>
+                <span className="material-icons text-[15px]">north_east</span>
               </a>
             </div>
           );
         })}
       </div>
 
-      {/* Continue */}
-      <div className="flex items-center justify-end pt-2">
+      {/* Actions row */}
+      <div className="flex items-center justify-end gap-3 pt-1">
+        <button
+          type="button"
+          onClick={() => next({})}
+          className={obGhostBtn}
+        >
+          Skip module
+        </button>
         <button
           type="button"
           onClick={handleContinue}
-          className="inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90 transition-colors"
+          className={obPrimaryBtn}
         >
           {currentSegmentIndex < domainKeys.length - 1 ? 'Next module' : 'Continue'}
-          <span className="material-icons text-base">arrow_forward</span>
+          <span className="material-icons text-[18px]">arrow_forward</span>
         </button>
       </div>
     </div>

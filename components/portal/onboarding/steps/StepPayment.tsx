@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import type { StepProps } from './types';
 import { BUNDLE, BUNDLE_SLUG, FEATURE_DOMAINS, applyVolumeDiscount } from '@/lib/billing/domain-catalog';
+import { obPrimaryBtn, obQuietLink } from '../ob-styles';
 
 const BUNDLE_KEY = 'bundle';
 
@@ -123,8 +124,8 @@ export function StepPayment({ state, setAnswers, persist, next }: StepProps) {
   if (checkoutSuccess) {
     return (
       <div className="flex flex-col items-center gap-4 py-10 text-center">
-        <div className="rounded-full bg-green-100 p-4">
-          <span className="material-icons text-4xl text-green-600">check_circle</span>
+        <div className="rounded-full bg-emerald-500/10 p-4">
+          <span className="material-icons text-4xl text-emerald-600">check_circle</span>
         </div>
         <h2 className="text-xl font-bold">Trial started!</h2>
         <p className="text-sm text-muted-foreground">Setting up your workspace…</p>
@@ -135,46 +136,46 @@ export function StepPayment({ state, setAnswers, persist, next }: StepProps) {
   return (
     <div className="space-y-6">
       {checkoutCancelled && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 flex items-start gap-2 text-sm text-amber-800">
+        <div className="rounded-2xl border border-amber-200/60 bg-amber-50/80 px-4 py-3 flex items-start gap-2 text-sm text-amber-800">
           <span className="material-icons text-base mt-0.5 shrink-0">info</span>
           No charge made — pick up where you left off.
         </div>
       )}
 
       {/* Order summary */}
-      <div className="rounded-xl border border-border bg-muted/30 divide-y divide-border overflow-hidden">
+      <div className="rounded-2xl border border-border bg-card divide-y divide-border overflow-hidden">
         {lineItems.length === 0 ? (
           <div className="px-4 py-4 text-sm text-muted-foreground">No modules selected.</div>
         ) : (
           lineItems.map((li) => (
-            <div key={li.name} className="flex items-center gap-3 px-4 py-3">
+            <div key={li.name} className="flex items-center gap-3 px-4 py-3.5">
               <span className="material-icons text-lg text-primary">{li.icon}</span>
-              <span className="flex-1 text-sm font-medium">{li.name}</span>
-              <span className="text-sm text-muted-foreground">{formatPrice(li.priceCents)}</span>
+              <span className="flex-1 text-[14px] font-semibold">{li.name}</span>
+              <span className="text-[13px] text-muted-foreground">{formatPrice(li.priceCents)}</span>
             </div>
           ))
         )}
         {discountPercent > 0 && (
           <>
-            <div className="flex items-center justify-between px-4 py-2 text-sm text-muted-foreground">
+            <div className="flex items-center justify-between px-4 py-2.5 text-[13px] text-muted-foreground">
               <span>Subtotal</span>
               <span>{formatPrice(subtotalCents)}</span>
             </div>
-            <div className="flex items-center justify-between px-4 py-2 text-sm text-primary">
+            <div className="flex items-center justify-between px-4 py-2.5 text-[13px] text-emerald-700">
               <span>Volume discount ({discountPercent}% off)</span>
               <span>−{formatPrice(discountCents)}</span>
             </div>
           </>
         )}
-        <div className="flex items-center justify-between px-4 py-3 bg-muted/50">
-          <span className="text-sm font-semibold">Total</span>
-          <span className="text-sm font-bold">{formatPrice(totalCents)}</span>
+        <div className="flex items-center justify-between px-4 py-3.5 bg-[var(--portal-surface-2)]">
+          <span className="text-[14px] font-bold">Total</span>
+          <span className="text-[14px] font-bold">{formatPrice(totalCents)}</span>
         </div>
       </div>
 
       {/* Trial notice */}
-      <div className="rounded-lg border border-primary/20 bg-primary/5 px-4 py-3 flex items-start gap-2 text-sm text-foreground">
-        <span className="material-icons text-base text-primary mt-0.5 shrink-0">card_giftcard</span>
+      <div className="rounded-2xl border border-emerald-200/70 bg-emerald-500/[0.07] px-4 py-3.5 flex items-start gap-2.5 text-sm text-foreground">
+        <span className="material-icons text-base text-emerald-600 mt-0.5 shrink-0">card_giftcard</span>
         <div>
           <span className="font-semibold">14-day free trial</span>
           <span className="text-muted-foreground"> — $0 today, card required. Cancel any time before day 14.</span>
@@ -183,7 +184,7 @@ export function StepPayment({ state, setAnswers, persist, next }: StepProps) {
 
       {/* Email verify notice */}
       {verifyNotice && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 flex items-start gap-2 text-sm text-amber-800">
+        <div className="rounded-2xl border border-amber-200/60 bg-amber-50/80 px-4 py-3 flex items-start gap-2 text-sm text-amber-800">
           <span className="material-icons text-base mt-0.5 shrink-0">mark_email_unread</span>
           Verify your email first — check your inbox for a confirmation link.
         </div>
@@ -191,7 +192,7 @@ export function StepPayment({ state, setAnswers, persist, next }: StepProps) {
 
       {/* Generic error */}
       {error && (
-        <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 flex items-start gap-2 text-sm text-destructive" role="alert">
+        <div className="rounded-2xl border border-destructive/30 bg-destructive/5 px-4 py-3 flex items-start gap-2 text-sm text-destructive" role="alert">
           <span className="material-icons text-base mt-0.5 shrink-0">error_outline</span>
           {error}
         </div>
@@ -202,7 +203,7 @@ export function StepPayment({ state, setAnswers, persist, next }: StepProps) {
         type="button"
         onClick={handleStartTrial}
         disabled={launching || lineItems.length === 0}
-        className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3 text-base font-semibold text-primary-foreground disabled:opacity-50 disabled:cursor-not-allowed hover:bg-primary/90 transition-colors"
+        className={`w-full ${obPrimaryBtn}`}
       >
         {launching ? (
           <span className="material-icons text-lg animate-spin">refresh</span>
@@ -217,7 +218,7 @@ export function StepPayment({ state, setAnswers, persist, next }: StepProps) {
         <button
           type="button"
           onClick={handleSkip}
-          className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors"
+          className={`${obQuietLink} underline underline-offset-2`}
         >
           Skip for now — I&apos;ll set up billing later
         </button>

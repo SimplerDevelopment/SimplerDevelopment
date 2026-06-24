@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import type { StepProps } from './types';
+import { obPrimaryBtn, obChip, obChipOn, obFootbar } from '../ob-styles';
 import {
   BUNDLE,
   FEATURE_DOMAINS,
@@ -174,7 +175,7 @@ export function StepChooseModules({ state, setAnswers, persist, next }: StepProp
         <>
           {/* Volume-discount progress — advertises the bulk pricing as you build */}
           {!isBundle && (
-            <div className="rounded-xl border border-border bg-muted/30 px-4 py-3">
+            <div className="rounded-2xl border border-border bg-card px-4 py-3">
               <div className="flex items-center gap-1.5 flex-wrap text-xs">
                 {VOLUME_TIERS.slice().reverse().map((t) => {
                   const unlocked = moduleCount >= t.minModules;
@@ -223,17 +224,24 @@ export function StepChooseModules({ state, setAnswers, persist, next }: StepProp
             type="button"
             onClick={() => toggle(BUNDLE_KEY)}
             className={[
-              'w-full text-left rounded-xl border-2 p-4 transition-colors',
-              isBundle ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50',
+              'w-full text-left rounded-2xl border-2 p-4 transition-all',
+              isBundle
+                ? 'border-foreground bg-[var(--portal-surface-2)] ring-2 ring-foreground/15'
+                : 'border-border bg-card hover:border-foreground/25 hover:bg-muted/20',
             ].join(' ')}
             aria-pressed={isBundle}
           >
+            <span className="inline-block font-mono text-[10px] font-semibold uppercase tracking-[0.12em] bg-foreground text-background px-2 py-0.5 rounded-[5px] mb-2">
+              Best value
+            </span>
             <div className="flex items-start gap-3">
-              <span className="material-icons text-2xl text-primary mt-0.5">{BUNDLE.icon}</span>
+              <span className={[obChip, isBundle ? obChipOn : ''].join(' ')}>
+                <span className="material-icons text-base">{BUNDLE.icon}</span>
+              </span>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="font-semibold text-sm">{BUNDLE.name}</span>
-                  <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium">
+                  <span className="text-[11px] bg-emerald-500/10 text-emerald-700 px-2 py-0.5 rounded-full font-semibold">
                     Save {Math.round((1 - bundlePriceCents / sumOfParts) * 100)}%
                   </span>
                 </div>
@@ -263,21 +271,25 @@ export function StepChooseModules({ state, setAnswers, persist, next }: StepProp
                   onClick={() => toggle(mod.key)}
                   disabled={!mod.purchasable}
                   className={[
-                    'text-left rounded-xl border-2 p-3 transition-colors disabled:opacity-40 disabled:cursor-not-allowed',
-                    checked ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50',
+                    'w-full text-left rounded-2xl border p-4 transition-all disabled:opacity-40 disabled:cursor-not-allowed',
+                    checked
+                      ? 'border-primary bg-primary/[0.06] ring-2 ring-primary/20'
+                      : 'border-border bg-card hover:border-foreground/20 hover:bg-muted/20',
                   ].join(' ')}
                   aria-pressed={checked}
                 >
                   <div className="flex items-start gap-2">
-                    <span className="material-icons text-xl text-primary mt-0.5">{mod.icon}</span>
+                    <span className={[obChip, checked ? obChipOn : ''].join(' ')}>
+                      <span className="material-icons text-base">{mod.icon}</span>
+                    </span>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-1">
-                        <span className="font-medium text-sm truncate">{mod.name}</span>
-                        <span className="text-xs text-muted-foreground whitespace-nowrap">{formatPrice(mod.monthlyPriceCents)}</span>
+                        <span className="font-semibold text-[14px] text-foreground truncate">{mod.name}</span>
+                        <span className="text-[12.5px] text-muted-foreground whitespace-nowrap">{formatPrice(mod.monthlyPriceCents)}</span>
                       </div>
-                      <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{mod.tagline}</p>
+                      <p className="text-[12.5px] text-muted-foreground mt-0.5 line-clamp-2">{mod.tagline}</p>
                     </div>
-                    <span className={['material-icons text-base shrink-0', checked ? 'text-primary' : 'text-muted-foreground/40'].join(' ')}>
+                    <span className={['material-icons text-base shrink-0', checked ? 'text-primary' : 'text-muted-foreground/30'].join(' ')}>
                       {checked ? 'check_circle' : 'radio_button_unchecked'}
                     </span>
                   </div>
@@ -289,7 +301,7 @@ export function StepChooseModules({ state, setAnswers, persist, next }: StepProp
           {/* BYOK — contact sales, not self-serve */}
           <a
             href={BYOK_MAILTO}
-            className="block rounded-xl border-2 border-dashed border-border p-3 hover:border-primary/50 transition-colors"
+            className="block rounded-2xl border border-dashed border-border p-4 hover:border-foreground/20 hover:bg-muted/20 transition-all"
           >
             <div className="flex items-start gap-2">
               <span className="material-icons text-xl text-primary mt-0.5">vpn_key</span>
@@ -307,7 +319,7 @@ export function StepChooseModules({ state, setAnswers, persist, next }: StepProp
 
           {/* Bundle upsell banner */}
           {showBundleSuggestion && (
-            <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 flex items-center gap-3">
+            <div className="rounded-2xl border border-primary/20 bg-primary/[0.06] p-4 flex items-center gap-3">
               <span className="material-icons text-primary">star</span>
               <p className="flex-1 text-sm text-foreground">
                 Get <strong>everything</strong> for {formatPrice(bundlePriceCents)} —{' '}
@@ -326,7 +338,7 @@ export function StepChooseModules({ state, setAnswers, persist, next }: StepProp
 
       {/* Sticky footer */}
       <div className="sticky bottom-0 -mx-6 -mb-8 px-6 pb-6 pt-4 bg-card/95 backdrop-blur border-t border-border mt-6">
-        <div className="flex items-center justify-between gap-3">
+        <div className={obFootbar}>
           <div className="min-w-0">
             {selected.size === 0 ? (
               <p className="text-sm text-muted-foreground">No modules selected</p>
@@ -365,7 +377,7 @@ export function StepChooseModules({ state, setAnswers, persist, next }: StepProp
             type="button"
             onClick={handleContinue}
             disabled={selected.size === 0 || saving}
-            className="inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50 disabled:cursor-not-allowed hover:bg-primary/90 transition-colors shrink-0"
+            className={`${obPrimaryBtn} shrink-0`}
           >
             {saving ? <span className="material-icons text-base animate-spin">refresh</span> : null}
             Continue
