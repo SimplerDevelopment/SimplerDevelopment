@@ -29,7 +29,7 @@ export default async function InvoicesWidget({
   return (
     <div>
       <div className="mb-3 flex items-baseline gap-3">
-        <span className="text-2xl font-bold text-foreground">{unpaidCount}</span>
+        <span className="font-display text-2xl font-extrabold tracking-[-0.02em] text-foreground">{unpaidCount}</span>
         <span className="text-sm text-muted-foreground">
           unpaid · {formatCents(amountDue)} due
         </span>

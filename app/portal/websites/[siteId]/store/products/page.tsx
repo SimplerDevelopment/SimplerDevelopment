@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { formatMoney } from '@/lib/utils/money';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnPrimary, pInput, pSelect } from '@/components/portal/portal-ui';
 
 interface Product {
   id: number;
@@ -142,20 +144,20 @@ export default function ProductsListPage() {
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Products</h1>
-          <p className="text-muted-foreground text-sm mt-1">Manage your store products and inventory.</p>
-        </div>
-        <Link
-          href={`/portal/websites/${siteId}/store/products/new`}
-          className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors shrink-0"
-        >
-          <span className="material-icons text-base">add</span>
-          Add Product
-        </Link>
-      </div>
+      <PortalPageHeader
+        eyebrow="Store"
+        title="Products"
+        subtitle="Manage your store products and inventory."
+        actions={
+          <Link
+            href={`/portal/websites/${siteId}/store/products/new`}
+            className={pBtnPrimary}
+          >
+            <span className="material-icons text-base">add</span>
+            Add Product
+          </Link>
+        }
+      />
 
       {/* Filters */}
       <div className="space-y-3">
@@ -186,13 +188,13 @@ export default function ProductsListPage() {
               value={search}
               onChange={(e) => { setSearch(e.target.value); setPage(1); }}
               placeholder="Search products..."
-              className="w-full pl-10 pr-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+              className={`${pInput} pl-10`}
             />
           </div>
           <select
             value={categoryFilter}
             onChange={(e) => { setCategoryFilter(e.target.value); setPage(1); }}
-            className="px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+            className="appearance-none rounded-xl border border-border bg-card px-3.5 py-2.5 pr-10 text-sm text-foreground outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/15"
           >
             <option value="">All Categories</option>
             {categories.map((cat) => (
@@ -251,7 +253,7 @@ export default function ProductsListPage() {
           <span className="material-icons animate-spin text-primary text-2xl">refresh</span>
         </div>
       ) : products.length === 0 ? (
-        <div className="bg-card border border-border rounded-xl p-10 flex flex-col items-center text-center">
+        <div className="bg-card border border-border rounded-2xl p-10 flex flex-col items-center text-center">
           <span className="material-icons text-4xl text-muted-foreground/40 mb-2">inventory_2</span>
           <h2 className="font-semibold text-foreground mb-1">No products found</h2>
           <p className="text-sm text-muted-foreground mb-4">
@@ -262,7 +264,7 @@ export default function ProductsListPage() {
           {!search && statusFilter === 'all' && !categoryFilter && (
             <Link
               href={`/portal/websites/${siteId}/store/products/new`}
-              className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
+              className={pBtnPrimary}
             >
               <span className="material-icons text-base">add</span>
               Add Product
@@ -270,7 +272,7 @@ export default function ProductsListPage() {
           )}
         </div>
       ) : (
-        <div className="bg-card border border-border rounded-xl overflow-hidden">
+        <div className="bg-card border border-border rounded-2xl overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -360,7 +362,7 @@ export default function ProductsListPage() {
           <button
             onClick={() => setPage((p) => Math.max(1, p - 1))}
             disabled={page === 1}
-            className="p-2 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-accent transition-colors disabled:opacity-30"
+            className="p-2 rounded-xl border border-border text-muted-foreground hover:text-foreground hover:bg-accent transition-colors disabled:opacity-30"
           >
             <span className="material-icons text-lg">chevron_left</span>
           </button>
@@ -370,7 +372,7 @@ export default function ProductsListPage() {
           <button
             onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
             disabled={page === totalPages}
-            className="p-2 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-accent transition-colors disabled:opacity-30"
+            className="p-2 rounded-xl border border-border text-muted-foreground hover:text-foreground hover:bg-accent transition-colors disabled:opacity-30"
           >
             <span className="material-icons text-lg">chevron_right</span>
           </button>

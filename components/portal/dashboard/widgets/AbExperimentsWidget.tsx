@@ -49,7 +49,7 @@ export default async function AbExperimentsWidget({
     return (
       <div>
         <div className="mb-3">
-          <span className="text-2xl font-bold text-foreground">0</span>
+          <span className="font-display text-2xl font-extrabold tracking-[-0.02em] text-foreground">0</span>
           <span className="ml-2 text-sm text-muted-foreground">experiments</span>
         </div>
         <div className="py-2 text-center">
@@ -103,7 +103,7 @@ export default async function AbExperimentsWidget({
   return (
     <div>
       <div className="mb-3">
-        <span className="text-2xl font-bold text-foreground">{runningCount}</span>
+        <span className="font-display text-2xl font-extrabold tracking-[-0.02em] text-foreground">{runningCount}</span>
         <span className="ml-2 text-sm text-muted-foreground">
           running experiment{runningCount !== 1 ? 's' : ''}
         </span>

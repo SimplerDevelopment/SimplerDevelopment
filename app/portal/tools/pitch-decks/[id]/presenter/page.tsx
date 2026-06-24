@@ -299,7 +299,7 @@ export default function PresenterViewPage({ params }: { params: Promise<{ id: st
                 <span className="material-icons text-sm">speaker_notes</span>
                 Speaker Notes
               </div>
-              <div className="flex-1 min-h-0 overflow-y-auto rounded-lg border border-white/10 bg-white/5 p-3 sm:p-4">
+              <div className="flex-1 min-h-0 overflow-y-auto rounded-xl border border-white/10 bg-white/5 p-3 sm:p-4">
                 {slide.notes ? (
                   <p className="text-sm leading-relaxed whitespace-pre-wrap text-white/80">{slide.notes}</p>
                 ) : (

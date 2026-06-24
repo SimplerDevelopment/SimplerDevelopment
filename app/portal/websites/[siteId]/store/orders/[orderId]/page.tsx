@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { formatMoney } from '@/lib/utils/money';
+import PortalPageHeader from '@/components/portal/PortalPageHeader';
+import { pBtnPrimary, pBtnGhost, pBtnSoft, pCard, pInput, pSelect, pSectionTitle } from '@/components/portal/portal-ui';
 
 interface OrderItem {
   id: number;
@@ -400,12 +402,10 @@ export default function OrderDetailPage() {
 
   const shippingLines = formatAddress(order.shippingAddress);
   const billingLines = formatAddress(order.billingAddress);
-  const inputClass =
-    'w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40';
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
-      {/* Breadcrumb */}
+      {/* Back-link — kept above PortalPageHeader per sweep convention */}
       <Link
         href={`/portal/websites/${siteId}/store/orders`}
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
@@ -414,22 +414,22 @@ export default function OrderDetailPage() {
         Orders
       </Link>
 
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold text-foreground">{order.orderNumber}</h1>
+      <PortalPageHeader
+        eyebrow="Store"
+        title={
+          <span className="inline-flex items-center gap-3">
+            {order.orderNumber}
             <span
-              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                statusColors[order.status] || 'bg-gray-100 text-gray-700'
+              className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                statusColors[order.status] || 'bg-muted text-muted-foreground'
               }`}
             >
               {order.status}
             </span>
-          </div>
-          <p className="text-muted-foreground text-sm mt-1">{new Date(order.createdAt).toLocaleString()}</p>
-        </div>
-      </div>
+          </span>
+        }
+        subtitle={new Date(order.createdAt).toLocaleString()}
+      />
 
       {/* Messages */}
       {error && (
@@ -446,15 +446,15 @@ export default function OrderDetailPage() {
       )}
 
       {/* Status Update */}
-      <div className="bg-card border border-border rounded-xl p-6 space-y-4">
-        <h2 className="font-semibold text-foreground flex items-center gap-2">
+      <div className={`${pCard} p-6 space-y-4`}>
+        <h2 className={`${pSectionTitle} flex items-center gap-2`}>
           <span className="material-icons text-lg text-muted-foreground">swap_horiz</span>
           Update Status
         </h2>
         <div className="flex items-end gap-3">
           <div className="flex-1 space-y-1.5">
             <label className="text-sm font-medium text-foreground">New Status</label>
-            <select value={newStatus} onChange={(e) => setNewStatus(e.target.value)} className={inputClass}>
+            <select value={newStatus} onChange={(e) => setNewStatus(e.target.value)} className={pSelect}>
               {statusOptions.map((s) => (
                 <option key={s} value={s}>
                   {s.charAt(0).toUpperCase() + s.slice(1)}
@@ -464,12 +464,12 @@ export default function OrderDetailPage() {
           </div>
           <div className="flex-1 space-y-1.5">
             <label className="text-sm font-medium text-foreground">Note (optional)</label>
-            <input value={statusNote} onChange={(e) => setStatusNote(e.target.value)} placeholder="Add a note..." className={inputClass} />
+            <input value={statusNote} onChange={(e) => setStatusNote(e.target.value)} placeholder="Add a note..." className={pInput} />
           </div>
           <button
             onClick={updateStatus}
             disabled={saving || newStatus === order.status}
-            className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+            className={pBtnPrimary}
           >
             {saving && <span className="material-icons text-base animate-spin">refresh</span>}
             Update
@@ -479,14 +479,14 @@ export default function OrderDetailPage() {
 
       {/* Customer + Addresses */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-card border border-border rounded-xl p-5 space-y-2">
-          <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Customer</h3>
+        <div className={`${pCard} p-5 space-y-2`}>
+          <h3 className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Customer</h3>
           <p className="text-sm font-medium text-foreground">{order.customerName}</p>
           <p className="text-sm text-muted-foreground">{order.customerEmail}</p>
           {order.customerPhone && <p className="text-sm text-muted-foreground">{order.customerPhone}</p>}
         </div>
-        <div className="bg-card border border-border rounded-xl p-5 space-y-2">
-          <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Shipping Address</h3>
+        <div className={`${pCard} p-5 space-y-2`}>
+          <h3 className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Shipping Address</h3>
           {shippingLines ? (
             shippingLines.map((line, i) => (
               <p key={i} className="text-sm text-foreground">
@@ -497,8 +497,8 @@ export default function OrderDetailPage() {
             <p className="text-sm text-muted-foreground">No shipping address</p>
           )}
         </div>
-        <div className="bg-card border border-border rounded-xl p-5 space-y-2">
-          <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Billing Address</h3>
+        <div className={`${pCard} p-5 space-y-2`}>
+          <h3 className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Billing Address</h3>
           {billingLines ? (
             billingLines.map((line, i) => (
               <p key={i} className="text-sm text-foreground">
@@ -512,9 +512,9 @@ export default function OrderDetailPage() {
       </div>
 
       {/* Order Items */}
-      <div className="bg-card border border-border rounded-xl overflow-hidden">
+      <div className={`${pCard} overflow-hidden`}>
         <div className="px-4 py-3 border-b border-border bg-muted/20">
-          <h2 className="font-semibold text-sm text-foreground">Order Items</h2>
+          <h2 className={pSectionTitle}>Order Items</h2>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -587,34 +587,34 @@ export default function OrderDetailPage() {
               <span className="text-green-600">-{formatMoney(order.discountCents)}</span>
             </div>
           )}
-          <div className="flex justify-between text-sm font-bold pt-2 border-t border-border">
-            <span className="text-foreground">Total</span>
-            <span className="text-foreground">{formatMoney(order.totalCents)}</span>
+          <div className="flex justify-between pt-2 border-t border-border">
+            <span className="font-display font-extrabold tracking-[-0.02em] text-foreground">Total</span>
+            <span className="font-display font-extrabold tracking-[-0.02em] text-foreground">{formatMoney(order.totalCents)}</span>
           </div>
         </div>
       </div>
 
       {/* Fulfillment */}
-      <div className="bg-card border border-border rounded-xl p-6 space-y-4">
-        <h2 className="font-semibold text-foreground flex items-center gap-2">
+      <div className={`${pCard} p-6 space-y-4`}>
+        <h2 className={`${pSectionTitle} flex items-center gap-2`}>
           <span className="material-icons text-lg text-muted-foreground">local_shipping</span>
           Fulfillment
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-foreground">Tracking Number</label>
-            <input value={trackingNumber} onChange={(e) => setTrackingNumber(e.target.value)} placeholder="Enter tracking number" className={inputClass} />
+            <input value={trackingNumber} onChange={(e) => setTrackingNumber(e.target.value)} placeholder="Enter tracking number" className={pInput} />
           </div>
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-foreground">Tracking URL</label>
-            <input value={trackingUrl} onChange={(e) => setTrackingUrl(e.target.value)} placeholder="https://..." className={inputClass} />
+            <input value={trackingUrl} onChange={(e) => setTrackingUrl(e.target.value)} placeholder="https://..." className={pInput} />
           </div>
         </div>
         <div className="flex items-center gap-3">
           <button
             onClick={updateFulfillment}
             disabled={saving}
-            className="flex items-center gap-2 px-4 py-2 bg-accent text-foreground rounded-lg text-sm font-medium hover:bg-accent/80 transition-colors disabled:opacity-50"
+            className={pBtnGhost}
           >
             Save Tracking
           </button>
@@ -622,7 +622,7 @@ export default function OrderDetailPage() {
             <button
               onClick={markAsShipped}
               disabled={saving}
-              className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+              className={pBtnPrimary}
             >
               <span className="material-icons text-base">local_shipping</span>
               Mark as Shipped
@@ -632,9 +632,9 @@ export default function OrderDetailPage() {
       </div>
 
       {/* Shipping Label */}
-      <div className="bg-card border border-border rounded-xl p-6 space-y-4">
-        <h2 className="font-semibold text-foreground flex items-center gap-2">
-          <span className="material-icons text-lg text-muted-foreground">local_shipping</span>
+      <div className={`${pCard} p-6 space-y-4`}>
+        <h2 className={`${pSectionTitle} flex items-center gap-2`}>
+          <span className="material-icons text-lg text-muted-foreground">label</span>
           Shipping Label
         </h2>
 
@@ -696,7 +696,7 @@ export default function OrderDetailPage() {
                 href={order.labelUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
+                className={pBtnPrimary}
               >
                 <span className="material-icons text-base">download</span>
                 View Label
@@ -704,7 +704,7 @@ export default function OrderDetailPage() {
               <button
                 onClick={refundLabel}
                 disabled={labelRefunding}
-                className="flex items-center gap-2 px-4 py-2 bg-accent text-foreground rounded-lg text-sm font-medium hover:bg-accent/80 transition-colors disabled:opacity-50"
+                className={pBtnGhost}
               >
                 {labelRefunding ? (
                   <span className="material-icons text-base animate-spin">refresh</span>
@@ -722,7 +722,7 @@ export default function OrderDetailPage() {
               <button
                 onClick={computeRates}
                 disabled={ratesLoading}
-                className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+                className={pBtnPrimary}
               >
                 {ratesLoading ? (
                   <span className="material-icons text-base animate-spin">refresh</span>
@@ -735,7 +735,7 @@ export default function OrderDetailPage() {
 
             {rates && parcelSummary && (
               <>
-                <div className="text-xs text-muted-foreground bg-muted/30 px-3 py-2 rounded-lg">
+                <div className="text-xs text-muted-foreground bg-muted/30 px-3 py-2 rounded-xl">
                   <span className="font-medium">Parcel:</span>{' '}
                   {parcelSummary.lengthIn} × {parcelSummary.widthIn} × {parcelSummary.heightIn} in,{' '}
                   {parcelSummary.weightOz} oz
@@ -796,7 +796,7 @@ export default function OrderDetailPage() {
                   <button
                     onClick={buyLabel}
                     disabled={labelBuying || !selectedRateId}
-                    className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+                    className={pBtnPrimary}
                   >
                     {labelBuying ? (
                       <span className="material-icons text-base animate-spin">refresh</span>
@@ -808,7 +808,7 @@ export default function OrderDetailPage() {
                   <button
                     onClick={computeRates}
                     disabled={ratesLoading || labelBuying}
-                    className="flex items-center gap-2 px-3 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+                    className={pBtnSoft}
                   >
                     <span className="material-icons text-base">refresh</span>
                     Refresh rates
@@ -822,8 +822,8 @@ export default function OrderDetailPage() {
 
       {/* Printful Fulfillment */}
       {fulfillmentProvider === 'printful' && (
-        <div className="bg-card border border-border rounded-xl p-6 space-y-4">
-          <h2 className="font-semibold text-foreground flex items-center gap-2">
+        <div className={`${pCard} p-6 space-y-4`}>
+          <h2 className={`${pSectionTitle} flex items-center gap-2`}>
             <span className="material-icons text-lg text-muted-foreground">print</span>
             Printful Fulfillment
           </h2>
@@ -842,7 +842,7 @@ export default function OrderDetailPage() {
                   <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Status</p>
                   <span
                     className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium mt-1 ${
-                      printfulStatusColors[order.printfulFulfillmentStatus || ''] || 'bg-gray-100 text-gray-700'
+                      printfulStatusColors[order.printfulFulfillmentStatus || ''] || 'bg-muted text-muted-foreground'
                     }`}
                   >
                     {order.printfulFulfillmentStatus || 'unknown'}
@@ -873,7 +873,7 @@ export default function OrderDetailPage() {
                 <button
                   onClick={submitToPrintful}
                   disabled={printfulSubmitting}
-                  className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+                  className={pBtnPrimary}
                 >
                   {printfulSubmitting ? (
                     <span className="material-icons text-base animate-spin">refresh</span>
@@ -889,8 +889,8 @@ export default function OrderDetailPage() {
       )}
 
       {/* Internal Notes */}
-      <div className="bg-card border border-border rounded-xl p-6 space-y-4">
-        <h2 className="font-semibold text-foreground flex items-center gap-2">
+      <div className={`${pCard} p-6 space-y-4`}>
+        <h2 className={`${pSectionTitle} flex items-center gap-2`}>
           <span className="material-icons text-lg text-muted-foreground">sticky_note_2</span>
           Internal Notes
         </h2>
@@ -899,20 +899,20 @@ export default function OrderDetailPage() {
           onChange={(e) => setInternalNotes(e.target.value)}
           rows={4}
           placeholder="Add private notes about this order..."
-          className={inputClass}
+          className={pInput}
         />
         <button
           onClick={saveNotes}
           disabled={saving}
-          className="flex items-center gap-2 px-4 py-2 bg-accent text-foreground rounded-lg text-sm font-medium hover:bg-accent/80 transition-colors disabled:opacity-50"
+          className={pBtnGhost}
         >
           Save Notes
         </button>
       </div>
 
       {/* Status History Timeline */}
-      <div className="bg-card border border-border rounded-xl p-6 space-y-4">
-        <h2 className="font-semibold text-foreground flex items-center gap-2">
+      <div className={`${pCard} p-6 space-y-4`}>
+        <h2 className={`${pSectionTitle} flex items-center gap-2`}>
           <span className="material-icons text-lg text-muted-foreground">history</span>
           Status History
         </h2>
@@ -928,7 +928,7 @@ export default function OrderDetailPage() {
                   <div className="flex items-center gap-2">
                     <span
                       className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                        statusColors[event.status] || 'bg-gray-100 text-gray-700'
+                        statusColors[event.status] || 'bg-muted text-muted-foreground'
                       }`}
                     >
                       {event.status}

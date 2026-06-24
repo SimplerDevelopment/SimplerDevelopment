@@ -21,6 +21,8 @@ import { isBrainEntitled } from '@/lib/brain/entitlement';
 import { BrainDashboardWidgetsServer } from '@/components/portal/brain-dashboard';
 import { EnableBrainButton } from './EnableBrainButton';
 import { RelatedModulesStrip } from '@/components/portal/billing/RelatedModulesStrip';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnGhost } from '@/components/portal/portal-ui';
 
 export default async function BrainDashboardPage() {
   const session = await auth();
@@ -104,25 +106,25 @@ export default async function BrainDashboardPage() {
 
   return (
     <div className="max-w-5xl mx-auto py-8 space-y-6">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+      <PortalPageHeader
+        eyebrow="Knowledge"
+        title={
+          <span className="flex items-center gap-2">
             <span className="material-icons text-primary">psychology</span>
             {profile.name}
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            {template?.label ?? 'Generic'} template · Confidentiality default:{' '}
-            {profile.defaultConfidentiality}
-          </p>
-        </div>
-        <Link
-          href="/portal/brain/settings"
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md border border-border text-foreground hover:bg-accent"
-        >
-          <span className="material-icons text-base">settings</span>
-          Settings
-        </Link>
-      </div>
+          </span>
+        }
+        subtitle={`${template?.label ?? 'Generic'} template · Confidentiality default: ${profile.defaultConfidentiality}`}
+        actions={
+          <Link
+            href="/portal/brain/settings"
+            className={pBtnGhost}
+          >
+            <span className="material-icons text-base">settings</span>
+            Settings
+          </Link>
+        }
+      />
 
       <BrainDashboardWidgetsServer clientId={client.id} />
       <RelatedModulesStrip currentDomain="brain" />

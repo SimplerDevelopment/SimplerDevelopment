@@ -10,6 +10,8 @@ import { EmailPreviewPane } from '@/components/email/EmailPreviewPane';
 import BrandingProfileSelector from '@/components/portal/BrandingProfileSelector';
 import type { EmailTemplateVariable } from '@/lib/db/schema';
 import { getEventDefinition } from '@/lib/email/website-email-events';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnPrimary, pBtnGhost, pCard, pCardPad, pInput, pSectionTitle } from '@/components/portal/portal-ui';
 
 interface Template {
   id: number;
@@ -116,7 +118,7 @@ export default function WebsiteEmailTemplatePage({ params }: { params: Promise<{
   if (loading) return <div className="flex items-center justify-center py-20"><span className="material-icons animate-spin text-3xl text-muted-foreground">autorenew</span></div>;
   if (!template) return <div className="p-6 text-muted-foreground text-sm">Template not found.</div>;
 
-  const inputClass = 'w-full border border-border rounded-md px-3 py-2 text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary';
+  const inputClass = 'w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary focus:ring-4 focus:ring-primary/15';
 
   const tabs: { id: ActiveTab; label: string; icon: string }[] = [
     { id: 'visual', label: 'Visual', icon: 'dashboard' },
@@ -131,29 +133,33 @@ export default function WebsiteEmailTemplatePage({ params }: { params: Promise<{
   return (
     <div className="w-full space-y-4 px-2">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Link href={`/portal/websites/${siteId}/email`} className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
-            <span className="material-icons">arrow_back</span>
-          </Link>
-          <div>
-            <h1 className="text-xl font-bold text-foreground">{name}</h1>
-            <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+      <div>
+        <Link href={`/portal/websites/${siteId}/email`} className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground mb-3">
+          <span className="material-icons text-base">arrow_back</span>
+          Email Templates
+        </Link>
+        <PortalPageHeader
+          eyebrow="Email"
+          title={name}
+          subtitle={
+            <span className="flex items-center gap-2 text-xs">
               <span className="font-mono bg-muted px-1.5 py-0.5 rounded">{template.event}</span>
               {template.isRequired && <span className="text-amber-600 dark:text-amber-400">Required</span>}
               <span>·</span>
-              <span className={enabled ? 'text-green-600' : 'text-gray-500'}>{enabled ? 'Active' : 'Disabled'}</span>
-            </div>
-          </div>
-        </div>
-        <button
-          onClick={save}
-          disabled={saving}
-          className="inline-flex items-center gap-1.5 px-4 py-2 text-sm rounded-lg font-medium bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40 transition-all"
-        >
-          {saving ? <span className="material-icons animate-spin text-base">autorenew</span> : <span className="material-icons text-base">save</span>}
-          {saving ? 'Saving...' : 'Save'}
-        </button>
+              <span className={enabled ? 'text-green-600' : 'text-muted-foreground'}>{enabled ? 'Active' : 'Disabled'}</span>
+            </span>
+          }
+          actions={
+            <button
+              onClick={save}
+              disabled={saving}
+              className={`${pBtnPrimary} disabled:opacity-40`}
+            >
+              {saving ? <span className="material-icons animate-spin text-base">autorenew</span> : <span className="material-icons text-base">save</span>}
+              {saving ? 'Saving...' : 'Save'}
+            </button>
+          }
+        />
       </div>
 
       {error && (
@@ -208,7 +214,7 @@ export default function WebsiteEmailTemplatePage({ params }: { params: Promise<{
       )}
 
       {activeTab === 'html' && (
-        <div className="bg-card border border-border rounded-xl overflow-hidden">
+        <div className="bg-card border border-border rounded-2xl overflow-hidden">
           <div className="px-5 py-3 border-b border-border flex items-center justify-between">
             <h3 className="text-sm font-semibold text-foreground">HTML Content</h3>
             <p className="text-xs text-muted-foreground">Use %%variableName%% for dynamic content</p>
@@ -226,9 +232,9 @@ export default function WebsiteEmailTemplatePage({ params }: { params: Promise<{
       )}
 
       {activeTab === 'variables' && (
-        <div className="bg-card border border-border rounded-xl p-6 space-y-4">
+        <div className="bg-card border border-border rounded-2xl p-6 space-y-4">
           <div>
-            <h2 className="text-lg font-semibold text-foreground">Available Variables</h2>
+            <h2 className="font-display text-[17px] font-extrabold tracking-[-0.02em] text-foreground">Available Variables</h2>
             <p className="text-sm text-muted-foreground mt-1">
               Click any variable to copy it to your clipboard, then paste it into the visual editor or HTML content.
               Variables are replaced with real data when the email is sent.
@@ -239,7 +245,7 @@ export default function WebsiteEmailTemplatePage({ params }: { params: Promise<{
               <button
                 key={v.key}
                 onClick={() => insertVariable(v.key)}
-                className="flex items-start gap-3 p-3 bg-muted/50 hover:bg-primary/5 hover:border-primary/20 border border-transparent rounded-lg transition-colors text-left group"
+                className="flex items-start gap-3 p-3 bg-muted/50 hover:bg-primary/5 hover:border-primary/20 border border-transparent rounded-xl transition-colors text-left group"
                 title={`Click to copy %%${v.key}%%`}
               >
                 <code className="font-mono text-xs text-primary bg-primary/10 px-2 py-1 rounded shrink-0 group-hover:bg-primary/20">%%{v.key}%%</code>
@@ -255,15 +261,15 @@ export default function WebsiteEmailTemplatePage({ params }: { params: Promise<{
       )}
 
       {activeTab === 'preview' && (
-        <div className="bg-card border border-border rounded-xl overflow-hidden" style={{ height: 'calc(100vh - 200px)' }}>
+        <div className="bg-card border border-border rounded-2xl overflow-hidden" style={{ height: 'calc(100vh - 200px)' }}>
           <EmailPreviewPane blocks={blocks} />
         </div>
       )}
 
       {activeTab === 'settings' && (
         <div className="max-w-2xl space-y-6">
-          <div className="bg-card border border-border rounded-xl p-6 space-y-5">
-            <h2 className="text-lg font-semibold text-foreground">Template Settings</h2>
+          <div className="bg-card border border-border rounded-2xl p-6 space-y-5">
+            <h2 className="font-display text-[17px] font-extrabold tracking-[-0.02em] text-foreground">Template Settings</h2>
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-foreground mb-1.5">Template Name</label>
@@ -301,8 +307,8 @@ export default function WebsiteEmailTemplatePage({ params }: { params: Promise<{
 
       {activeTab === 'branding' && (
         <div className="max-w-2xl space-y-6">
-          <div className="bg-card border border-border rounded-xl p-6 space-y-5">
-            <h2 className="text-lg font-semibold text-foreground">Branding Profile</h2>
+          <div className="bg-card border border-border rounded-2xl p-6 space-y-5">
+            <h2 className="font-display text-[17px] font-extrabold tracking-[-0.02em] text-foreground">Branding Profile</h2>
             <p className="text-sm text-muted-foreground">
               Select a branding profile to apply colors, fonts, and logo to this email template.
             </p>
@@ -312,7 +318,7 @@ export default function WebsiteEmailTemplatePage({ params }: { params: Promise<{
               allowNone
               noneLabel="No branding"
             />
-            <div className="bg-muted/50 rounded-lg p-4 text-xs text-muted-foreground space-y-1">
+            <div className="bg-muted/50 rounded-xl p-4 text-xs text-muted-foreground space-y-1">
               <p>When a branding profile is applied:</p>
               <ul className="list-disc pl-4 space-y-0.5">
                 <li>Email header block uses the profile logo</li>
@@ -327,8 +333,8 @@ export default function WebsiteEmailTemplatePage({ params }: { params: Promise<{
 
       {activeTab === 'event' && eventDef && (
         <div className="max-w-2xl space-y-6">
-          <div className="bg-card border border-border rounded-xl p-6 space-y-4">
-            <h2 className="text-lg font-semibold text-foreground">Event Details</h2>
+          <div className="bg-card border border-border rounded-2xl p-6 space-y-4">
+            <h2 className="font-display text-[17px] font-extrabold tracking-[-0.02em] text-foreground">Event Details</h2>
             <div className="space-y-3">
               <div>
                 <label className="block text-xs font-medium text-muted-foreground mb-1">Event Name</label>
@@ -336,7 +342,7 @@ export default function WebsiteEmailTemplatePage({ params }: { params: Promise<{
               </div>
               <div>
                 <label className="block text-xs font-medium text-muted-foreground mb-1">Event Code</label>
-                <p className="text-sm font-mono text-foreground bg-muted px-3 py-1.5 rounded-lg inline-block">{eventDef.event}</p>
+                <p className="text-sm font-mono text-foreground bg-muted px-3 py-1.5 rounded-xl inline-block">{eventDef.event}</p>
               </div>
               <div>
                 <label className="block text-xs font-medium text-muted-foreground mb-1">Description</label>

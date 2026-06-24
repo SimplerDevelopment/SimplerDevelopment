@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import CrmCompanyTypeaheadPicker from '@/components/portal/CrmCompanyTypeaheadPicker';
 import { formatMoney } from '@/lib/utils/money';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnPrimary, pBtnGhost, pCard, pCardPad, pInput, pSelect, pSectionTitle } from '@/components/portal/portal-ui';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -372,33 +374,33 @@ function ProposalsAndDecksPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div>
-          <p className="text-sm text-muted-foreground">
-            Send proposals and pitch decks to clients
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          {activeTab === 'proposals' && (
-            <button
-              onClick={() => setShowForm(f => !f)}
-              className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors shrink-0"
-            >
-              <span className="material-icons text-base">{showForm ? 'close' : 'add'}</span>
-              {showForm ? 'Cancel' : 'New Proposal'}
-            </button>
-          )}
-          {activeTab === 'decks' && (
-            <button
-              onClick={() => router.push('/portal/tools/pitch-decks/new')}
-              className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors shrink-0"
-            >
-              <span className="material-icons text-base">add</span>
-              New Deck
-            </button>
-          )}
-        </div>
-      </div>
+      <PortalPageHeader
+        eyebrow="CRM"
+        title="Proposals & Pitch Decks"
+        subtitle="Send proposals and pitch decks to clients"
+        actions={
+          <>
+            {activeTab === 'proposals' && (
+              <button
+                onClick={() => setShowForm(f => !f)}
+                className={pBtnPrimary}
+              >
+                <span className="material-icons text-base">{showForm ? 'close' : 'add'}</span>
+                {showForm ? 'Cancel' : 'New Proposal'}
+              </button>
+            )}
+            {activeTab === 'decks' && (
+              <button
+                onClick={() => router.push('/portal/tools/pitch-decks/new')}
+                className={pBtnPrimary}
+              >
+                <span className="material-icons text-base">add</span>
+                New Deck
+              </button>
+            )}
+          </>
+        }
+      />
 
       {/* Tabs */}
       <div className="flex items-center gap-1 bg-card border border-border rounded-lg p-1">
@@ -406,7 +408,7 @@ function ProposalsAndDecksPage() {
           onClick={() => setActiveTab('proposals')}
           className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
             activeTab === 'proposals'
-              ? 'bg-primary text-primary-foreground'
+              ? 'bg-foreground text-background'
               : 'text-muted-foreground hover:text-foreground hover:bg-accent'
           }`}
         >
@@ -414,7 +416,7 @@ function ProposalsAndDecksPage() {
           Proposals
           {!proposalsLoading && (
             <span className={`text-xs px-1.5 py-0.5 rounded-full ${
-              activeTab === 'proposals' ? 'bg-primary-foreground/20' : 'bg-muted'
+              activeTab === 'proposals' ? 'bg-background/20' : 'bg-muted'
             }`}>
               {totalCount}
             </span>
@@ -424,7 +426,7 @@ function ProposalsAndDecksPage() {
           onClick={() => setActiveTab('decks')}
           className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
             activeTab === 'decks'
-              ? 'bg-primary text-primary-foreground'
+              ? 'bg-foreground text-background'
               : 'text-muted-foreground hover:text-foreground hover:bg-accent'
           }`}
         >
@@ -432,7 +434,7 @@ function ProposalsAndDecksPage() {
           Pitch Decks
           {!decksLoading && (
             <span className={`text-xs px-1.5 py-0.5 rounded-full ${
-              activeTab === 'decks' ? 'bg-primary-foreground/20' : 'bg-muted'
+              activeTab === 'decks' ? 'bg-background/20' : 'bg-muted'
             }`}>
               {decks.length}
             </span>
@@ -445,28 +447,28 @@ function ProposalsAndDecksPage() {
         <>
           {/* Stats Row */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <div className="bg-card border border-border rounded-xl p-4">
+            <div className={`${pCard} p-4`}>
               <div className="flex items-center gap-2 text-muted-foreground text-xs font-medium mb-1">
                 <span className="material-icons text-base">description</span>
                 Total
               </div>
               <p className="text-2xl font-bold text-foreground">{totalCount}</p>
             </div>
-            <div className="bg-card border border-border rounded-xl p-4">
+            <div className={`${pCard} p-4`}>
               <div className="flex items-center gap-2 text-blue-600 text-xs font-medium mb-1">
                 <span className="material-icons text-base">send</span>
                 Sent
               </div>
               <p className="text-2xl font-bold text-foreground">{sentCount}</p>
             </div>
-            <div className="bg-card border border-border rounded-xl p-4">
+            <div className={`${pCard} p-4`}>
               <div className="flex items-center gap-2 text-green-600 text-xs font-medium mb-1">
                 <span className="material-icons text-base">check_circle</span>
                 Accepted
               </div>
               <p className="text-2xl font-bold text-foreground">{acceptedCount}</p>
             </div>
-            <div className="bg-card border border-border rounded-xl p-4">
+            <div className={`${pCard} p-4`}>
               <div className="flex items-center gap-2 text-red-600 text-xs font-medium mb-1">
                 <span className="material-icons text-base">cancel</span>
                 Declined
@@ -477,8 +479,8 @@ function ProposalsAndDecksPage() {
 
           {/* Inline Form */}
           {showForm && (
-            <form onSubmit={handleSubmit} className="bg-card border border-border rounded-xl p-6 space-y-4">
-              <h3 className="font-semibold text-foreground">New Proposal</h3>
+            <form onSubmit={handleSubmit} className={`${pCardPad} space-y-4`}>
+              <h3 className={pSectionTitle}>New Proposal</h3>
               {error && (
                 <div className="flex items-center gap-2 text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2">
                   <span className="material-icons text-base">error</span>
@@ -493,7 +495,7 @@ function ProposalsAndDecksPage() {
                     value={form.title}
                     onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
                     placeholder="Proposal title"
-                    className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    className={pInput}
                   />
                 </div>
                 <div>
@@ -501,7 +503,7 @@ function ProposalsAndDecksPage() {
                   <select
                     value={form.contactId}
                     onChange={e => setForm(f => ({ ...f, contactId: e.target.value }))}
-                    className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    className={pSelect}
                   >
                     <option value="">Select contact...</option>
                     {contacts.map(c => (
@@ -526,7 +528,7 @@ function ProposalsAndDecksPage() {
                   <select
                     value={form.dealId}
                     onChange={e => setForm(f => ({ ...f, dealId: e.target.value }))}
-                    className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    className={pSelect}
                   >
                     <option value="">No deal linked</option>
                     {deals.map(d => (
@@ -539,7 +541,7 @@ function ProposalsAndDecksPage() {
                   <select
                     value={form.templateId}
                     onChange={e => handleTemplateChange(e.target.value)}
-                    className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    className={pSelect}
                   >
                     <option value="">Start from scratch</option>
                     {templates.map(t => (
@@ -552,14 +554,14 @@ function ProposalsAndDecksPage() {
                 <button
                   type="button"
                   onClick={() => setShowForm(false)}
-                  className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                  className={pBtnGhost}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={saving}
-                  className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+                  className={pBtnPrimary}
                 >
                   {saving ? 'Creating...' : 'Create Proposal'}
                 </button>
@@ -574,7 +576,7 @@ function ProposalsAndDecksPage() {
               value={searchInput}
               onChange={e => setSearchInput(e.target.value)}
               placeholder="Search proposals by title..."
-              className="w-full pl-10 pr-4 py-2 bg-card border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+              className="w-full rounded-xl border border-border bg-card pl-10 pr-4 py-2.5 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary focus:ring-4 focus:ring-primary/15"
             />
           </div>
 
@@ -590,7 +592,7 @@ function ProposalsAndDecksPage() {
               <p>No proposals yet. Create your first proposal to get started.</p>
             </div>
           ) : (
-            <div className="bg-card border border-border rounded-xl overflow-hidden">
+            <div className={`${pCard} overflow-hidden`}>
               <div className="overflow-x-auto -mx-4 sm:mx-0">
                 <table className="w-full text-sm min-w-[640px]">
                   <thead>
@@ -694,7 +696,7 @@ function ProposalsAndDecksPage() {
                   value={deckSearchInput}
                   onChange={e => setDeckSearchInput(e.target.value)}
                   placeholder="Search decks by title or description..."
-                  className="w-full pl-10 pr-9 py-2 bg-card border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  className="w-full rounded-xl border border-border bg-card pl-10 pr-9 py-2.5 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary focus:ring-4 focus:ring-primary/15"
                 />
                 {deckSearchInput && (
                   <button
@@ -719,7 +721,7 @@ function ProposalsAndDecksPage() {
                       onClick={() => setDeckStatusFilter(status)}
                       className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
                         deckStatusFilter === status
-                          ? 'bg-primary text-primary-foreground'
+                          ? 'bg-foreground text-background'
                           : 'text-muted-foreground hover:text-foreground hover:bg-accent/40'
                       }`}
                     >
@@ -736,7 +738,7 @@ function ProposalsAndDecksPage() {
               <select
                 value={deckSort}
                 onChange={e => setDeckSort(e.target.value as typeof deckSort)}
-                className="px-3 py-2 bg-card border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                className={`${pSelect} w-auto`}
               >
                 <option value="updated-desc">Last updated (newest)</option>
                 <option value="updated-asc">Last updated (oldest)</option>
@@ -747,7 +749,7 @@ function ProposalsAndDecksPage() {
               {/* Create */}
               <button
                 onClick={() => router.push('/portal/tools/pitch-decks/new')}
-                className="inline-flex items-center gap-1.5 px-3 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors shrink-0"
+                className={`${pBtnPrimary} shrink-0`}
               >
                 <span className="material-icons text-base">add</span>
                 New Deck
@@ -761,25 +763,25 @@ function ProposalsAndDecksPage() {
               Loading pitch decks...
             </div>
           ) : decks.length === 0 ? (
-            <div className="bg-card border border-border rounded-xl p-10 text-center space-y-4">
+            <div className={`${pCard} p-10 text-center space-y-4`}>
               <span className="material-icons text-5xl text-muted-foreground/50">slideshow</span>
-              <h2 className="text-lg font-semibold text-foreground">No pitch decks yet</h2>
+              <h2 className={pSectionTitle}>No pitch decks yet</h2>
               <p className="text-muted-foreground text-sm max-w-md mx-auto">
                 Create your first AI-powered pitch deck. Enter a prompt describing what you need and optionally
                 provide your website URL to automatically brand the deck.
               </p>
               <button
                 onClick={() => router.push('/portal/tools/pitch-decks/new')}
-                className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
+                className={pBtnPrimary}
               >
                 <span className="material-icons text-lg">auto_awesome</span>
                 Create Your First Deck
               </button>
             </div>
           ) : filteredDecks.length === 0 ? (
-            <div className="bg-card border border-border rounded-xl p-10 text-center space-y-3">
+            <div className={`${pCard} p-10 text-center space-y-3`}>
               <span className="material-icons text-4xl text-muted-foreground/50">search_off</span>
-              <h2 className="text-base font-semibold text-foreground">No decks match your filters</h2>
+              <h2 className={pSectionTitle}>No decks match your filters</h2>
               <p className="text-muted-foreground text-sm">
                 {deckSearch && <>No deck titles or descriptions contain &ldquo;<span className="font-medium">{deckSearch}</span>&rdquo;. </>}
                 {deckStatusFilter !== 'all' && <>No <span className="font-medium">{deckStatusFilter}</span> decks. </>}
@@ -787,7 +789,7 @@ function ProposalsAndDecksPage() {
               </p>
               <button
                 onClick={() => { setDeckSearchInput(''); setDeckStatusFilter('all'); }}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-accent text-foreground rounded-md text-xs font-medium hover:bg-accent/70 transition-colors"
+                className={pBtnGhost}
               >
                 <span className="material-icons text-sm">refresh</span>
                 Reset filters
@@ -813,7 +815,7 @@ function ProposalsAndDecksPage() {
                   <div
                     key={deck.id}
                     onClick={() => router.push(`/portal/tools/pitch-decks/${deck.id}`)}
-                    className="bg-card border border-border rounded-xl p-5 hover:border-primary/50 hover:shadow-sm transition-all group cursor-pointer"
+                    className={`${pCard} p-5 hover:border-foreground/20 hover:shadow-sm transition-all group cursor-pointer`}
                   >
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex items-center gap-2">
@@ -862,8 +864,8 @@ function ProposalsAndDecksPage() {
         const deck = decks.find(d => d.id === deletingDeckId);
         return (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-card border border-border rounded-xl p-6 max-w-md w-full space-y-4">
-              <h3 className="font-semibold text-foreground flex items-center gap-2">
+            <div className={`${pCardPad} max-w-md w-full space-y-4`}>
+              <h3 className={`${pSectionTitle} flex items-center gap-2`}>
                 <span className="material-icons text-destructive">delete_forever</span>
                 Delete Pitch Deck
               </h3>
@@ -880,13 +882,13 @@ function ProposalsAndDecksPage() {
               <div className="flex justify-end gap-2">
                 <button
                   onClick={() => { setDeletingDeckId(null); setDeckDeleteError(''); }}
-                  className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                  className={pBtnGhost}
                 >
                   Cancel
                 </button>
                 <button
                   onClick={() => handleDeleteDeck(deletingDeckId)}
-                  className="px-4 py-2 bg-destructive text-destructive-foreground rounded-lg text-sm font-medium hover:bg-destructive/90 transition-colors"
+                  className="px-4 py-2.5 bg-destructive text-destructive-foreground rounded-xl text-sm font-medium hover:bg-destructive/90 transition-colors"
                 >
                   Delete
                 </button>
@@ -899,16 +901,16 @@ function ProposalsAndDecksPage() {
       {/* ─── Send Dialog ──────────────────────────────────────────────────── */}
       {sendDialogId !== null && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-card border border-border rounded-xl p-6 max-w-md w-full space-y-4">
+          <div className={`${pCardPad} max-w-md w-full space-y-4`}>
             {sendingUrl ? (
               <>
                 <div className="flex items-center gap-2 text-green-600">
                   <span className="material-icons">check_circle</span>
-                  <h3 className="font-semibold text-foreground">Proposal Sent</h3>
+                  <h3 className={`${pSectionTitle} flex items-center gap-2`}>Proposal Sent</h3>
                 </div>
                 <p className="text-sm text-muted-foreground">Share this link with your client:</p>
                 <div className="flex items-center gap-2">
-                  <input readOnly value={sendingUrl} className="flex-1 px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground font-mono" />
+                  <input readOnly value={sendingUrl} className="rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground font-mono outline-none flex-1" />
                   <button
                     onClick={() => navigator.clipboard.writeText(sendingUrl)}
                     className="p-2 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
@@ -920,7 +922,7 @@ function ProposalsAndDecksPage() {
                 <div className="flex justify-end">
                   <button
                     onClick={() => { setSendDialogId(null); setSendingUrl(''); }}
-                    className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
+                    className={pBtnPrimary}
                   >
                     Done
                   </button>
@@ -928,7 +930,7 @@ function ProposalsAndDecksPage() {
               </>
             ) : (
               <>
-                <h3 className="font-semibold text-foreground flex items-center gap-2">
+                <h3 className={`${pSectionTitle} flex items-center gap-2`}>
                   <span className="material-icons text-blue-600">send</span>
                   Send Proposal
                 </h3>
@@ -950,14 +952,14 @@ function ProposalsAndDecksPage() {
                 <div className="flex justify-end gap-2">
                   <button
                     onClick={() => setSendDialogId(null)}
-                    className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                    className={pBtnGhost}
                   >
                     Cancel
                   </button>
                   <button
                     onClick={() => handleSend(sendDialogId)}
                     disabled={sending}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-50"
+                    className={pBtnPrimary}
                   >
                     {sending ? 'Sending...' : 'Send Now'}
                   </button>

@@ -67,7 +67,7 @@ export default async function LiveChatWidget({
   return (
     <div>
       <div className="mb-3">
-        <span className="text-2xl font-bold text-foreground">{openCount}</span>
+        <span className="font-display text-2xl font-extrabold tracking-[-0.02em] text-foreground">{openCount}</span>
         <span className="ml-2 text-sm text-muted-foreground">
           open conversation{openCount !== 1 ? 's' : ''}
         </span>

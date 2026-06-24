@@ -8,6 +8,8 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import GlossaryTermForm from '@/components/brain/GlossaryTermForm';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pCardPad } from '@/components/portal/portal-ui';
 
 export default function BrainGlossaryNewPage() {
   const router = useRouter();
@@ -22,17 +24,18 @@ export default function BrainGlossaryNewPage() {
         <span>New term</span>
       </nav>
 
-      <header>
-        <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
-          <span className="material-icons text-primary">add</span>
-          New glossary term
-        </h1>
-        <p className="text-xs text-muted-foreground mt-0.5">
-          Define a term once — the canonical answer surfaces wherever AI or your team needs it.
-        </p>
-      </header>
+      <PortalPageHeader
+        eyebrow="Company Brain"
+        title={
+          <span className="flex items-center gap-2">
+            <span className="material-icons text-primary">add</span>
+            New glossary term
+          </span>
+        }
+        subtitle="Define a term once — the canonical answer surfaces wherever AI or your team needs it."
+      />
 
-      <div className="bg-card border border-border rounded-xl p-5">
+      <div className={pCardPad}>
         <GlossaryTermForm
           mode="create"
           onSaved={(saved) => router.push(`/portal/brain/glossary/${saved.id}`)}

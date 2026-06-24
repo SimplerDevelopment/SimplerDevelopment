@@ -41,7 +41,7 @@ export default function WidgetShell({
   return (
     <div
       className={[
-        'bg-card border rounded-xl overflow-hidden flex flex-col',
+        'bg-card border rounded-2xl overflow-hidden flex flex-col',
         isCustomizing
           ? 'border-dashed border-[var(--portal-border-strong)] cursor-grab'
           : 'border-border',
@@ -76,7 +76,7 @@ export default function WidgetShell({
         <h3 className="flex items-center gap-1.5 flex-1 min-w-0">
           <Link
             href={href}
-            className="text-[13px] font-semibold text-foreground hover:text-primary transition-colors truncate"
+            className="text-[13px] font-bold tracking-[-0.01em] text-foreground hover:text-primary transition-colors truncate"
           >
             {title}
           </Link>

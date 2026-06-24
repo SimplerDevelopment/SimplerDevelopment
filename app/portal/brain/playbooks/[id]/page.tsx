@@ -35,6 +35,8 @@ import {
   type PlaybookRow,
   type PlaybookStepRow,
 } from '@/components/brain/playbooks-shared';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnPrimary, pBtnGhost, pCard, pCardPad, pSectionTitle, pInput, pSelect } from '@/components/portal/portal-ui';
 
 interface TeamMember {
   userId: number;
@@ -271,48 +273,29 @@ export default function PlaybookDetailPage({
         Playbooks
       </Link>
 
-      <div className="bg-card border border-border rounded-xl p-5">
-        <div className="flex items-start justify-between gap-3 flex-wrap">
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-2xl font-bold text-foreground">{playbook.name}</h1>
-              <span
-                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${status.className}`}
-              >
-                <span className="material-icons text-[14px]">{status.icon}</span>
-                {status.label}
-              </span>
-              <span
-                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${trigger.className}`}
-              >
-                <span className="material-icons text-[14px]">{trigger.icon}</span>
-                {trigger.label}
-              </span>
-              {playbook.category && (
-                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-muted/60 text-muted-foreground">
-                  {playbook.category}
-                </span>
-              )}
-            </div>
-            <div className="mt-2 flex items-center gap-4 flex-wrap text-xs text-muted-foreground">
-              <span className="font-mono">{playbook.slug}</span>
-              {ownerName && (
-                <span className="inline-flex items-center gap-1">
-                  <span className="material-icons text-base">person</span>
-                  {ownerName}
-                </span>
-              )}
+      <PortalPageHeader
+        eyebrow="Company Brain"
+        title={playbook.name}
+        subtitle={
+          <span className="inline-flex items-center gap-3 flex-wrap text-xs text-muted-foreground">
+            <span className="font-mono">{playbook.slug}</span>
+            {ownerName && (
               <span className="inline-flex items-center gap-1">
-                <span className="material-icons text-base">format_list_numbered</span>
-                {steps.length} step{steps.length === 1 ? '' : 's'}
+                <span className="material-icons text-base">person</span>
+                {ownerName}
               </span>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-1 flex-shrink-0 flex-wrap">
+            )}
+            <span className="inline-flex items-center gap-1">
+              <span className="material-icons text-base">format_list_numbered</span>
+              {steps.length} step{steps.length === 1 ? '' : 's'}
+            </span>
+          </span>
+        }
+        actions={
+          <div className="flex items-center gap-2 flex-wrap">
             <Link
               href={`/portal/brain/playbooks/${playbookId}/edit`}
-              className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs rounded-md border border-border text-foreground hover:bg-accent"
+              className={pBtnGhost}
             >
               <span className="material-icons text-sm">edit</span>
               Edit
@@ -323,7 +306,7 @@ export default function PlaybookDetailPage({
                 onClick={onActivate}
                 disabled={busy || steps.length === 0}
                 title={steps.length === 0 ? 'Add at least one step before activating' : ''}
-                className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs rounded-md border border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/20 disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/20 disabled:opacity-50"
               >
                 <span className="material-icons text-sm">play_arrow</span>
                 Activate
@@ -334,7 +317,7 @@ export default function PlaybookDetailPage({
                 type="button"
                 onClick={() => setStartOpen(true)}
                 disabled={busy}
-                className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                className={`${pBtnPrimary} disabled:opacity-50`}
               >
                 <span className="material-icons text-sm">play_circle</span>
                 Start a run
@@ -345,7 +328,7 @@ export default function PlaybookDetailPage({
                 type="button"
                 onClick={onArchive}
                 disabled={busy}
-                className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs rounded-md border border-border text-foreground hover:bg-accent disabled:opacity-50"
+                className={`${pBtnGhost} disabled:opacity-50`}
               >
                 <span className="material-icons text-sm">archive</span>
                 Archive
@@ -361,16 +344,38 @@ export default function PlaybookDetailPage({
               Delete
             </button>
           </div>
+        }
+      />
+
+      <div className="mb-6 space-y-3">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span
+            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${status.className}`}
+          >
+            <span className="material-icons text-[14px]">{status.icon}</span>
+            {status.label}
+          </span>
+          <span
+            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${trigger.className}`}
+          >
+            <span className="material-icons text-[14px]">{trigger.icon}</span>
+            {trigger.label}
+          </span>
+          {playbook.category && (
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-muted/60 text-muted-foreground">
+              {playbook.category}
+            </span>
+          )}
         </div>
 
         {playbook.description && (
-          <div className="mt-4 text-sm text-foreground/90 whitespace-pre-wrap">
+          <div className="text-sm text-foreground/90 whitespace-pre-wrap">
             {playbook.description}
           </div>
         )}
 
         {error && (
-          <div className="mt-4 bg-destructive/10 border border-destructive/30 rounded-md p-3 text-xs text-destructive flex items-start gap-2">
+          <div className="bg-destructive/10 border border-destructive/30 rounded-md p-3 text-xs text-destructive flex items-start gap-2">
             <span className="material-icons text-base">error_outline</span>
             <div className="flex-1">
               {error}
@@ -387,8 +392,8 @@ export default function PlaybookDetailPage({
       </div>
 
       {/* Trigger config */}
-      <section className="bg-card border border-border rounded-xl p-5">
-        <h2 className="text-base font-semibold text-foreground inline-flex items-center gap-2">
+      <section className={pCardPad}>
+        <h2 className={`${pSectionTitle} inline-flex items-center gap-2`}>
           <span className="material-icons text-base text-primary">{trigger.icon}</span>
           Trigger
         </h2>
@@ -425,8 +430,8 @@ export default function PlaybookDetailPage({
 
       {/* Default topics */}
       {playbook.defaultTopicIds && playbook.defaultTopicIds.length > 0 && (
-        <section className="bg-card border border-border rounded-xl p-5">
-          <h2 className="text-base font-semibold text-foreground inline-flex items-center gap-2">
+        <section className={pCardPad}>
+          <h2 className={`${pSectionTitle} inline-flex items-center gap-2`}>
             <span className="material-icons text-base text-primary">sell</span>
             Default topics
           </h2>
@@ -445,9 +450,9 @@ export default function PlaybookDetailPage({
       )}
 
       {/* Steps */}
-      <section className="bg-card border border-border rounded-xl p-5">
+      <section className={pCardPad}>
         <div className="flex items-center justify-between gap-3 flex-wrap">
-          <h2 className="text-base font-semibold text-foreground inline-flex items-center gap-2">
+          <h2 className={`${pSectionTitle} inline-flex items-center gap-2`}>
             <span className="material-icons text-base text-primary">account_tree</span>
             Steps
             <span className="text-xs text-muted-foreground font-normal">
@@ -456,7 +461,7 @@ export default function PlaybookDetailPage({
           </h2>
           <Link
             href={`/portal/brain/playbooks/${playbookId}/edit`}
-            className="inline-flex items-center gap-1 px-2.5 py-1 text-xs rounded-md border border-border text-foreground hover:bg-accent"
+            className={pBtnGhost}
           >
             <span className="material-icons text-sm">edit</span>
             Edit steps
@@ -474,7 +479,7 @@ export default function PlaybookDetailPage({
               type="button"
               onClick={onActivate}
               disabled={busy}
-              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md border border-border text-foreground hover:bg-accent disabled:opacity-50"
+              className={`${pBtnGhost} disabled:opacity-50`}
             >
               <span className="material-icons text-sm">verified</span>
               Validate &amp; activate
@@ -484,10 +489,10 @@ export default function PlaybookDetailPage({
       </section>
 
       {/* Active runs link */}
-      <section className="bg-card border border-border rounded-xl p-5">
+      <section className={pCardPad}>
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div>
-            <h2 className="text-base font-semibold text-foreground inline-flex items-center gap-2">
+            <h2 className={`${pSectionTitle} inline-flex items-center gap-2`}>
               <span className="material-icons text-base text-primary">playlist_play</span>
               Active runs
             </h2>
@@ -499,7 +504,7 @@ export default function PlaybookDetailPage({
           </div>
           <Link
             href={`/portal/brain/playbook-runs?playbookId=${playbookId}`}
-            className="inline-flex items-center gap-1 px-2.5 py-1 text-xs rounded-md border border-border text-foreground hover:bg-accent"
+            className={pBtnGhost}
           >
             View all runs
             <span className="material-icons text-sm">chevron_right</span>
@@ -586,7 +591,7 @@ function StartRunDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-      <div className="w-full max-w-2xl bg-card border border-border rounded-xl shadow-xl overflow-hidden flex flex-col max-h-[90vh]">
+      <div className={`w-full max-w-2xl ${pCard} shadow-xl overflow-hidden flex flex-col max-h-[90vh]`}>
         <div className="flex items-center justify-between px-5 py-3 border-b border-border">
           <h2 className="text-base font-semibold text-foreground inline-flex items-center gap-2">
             <span className="material-icons text-base text-primary">play_circle</span>
@@ -616,7 +621,7 @@ function StartRunDialog({
               autoFocus
               maxLength={255}
               placeholder="e.g. New hire: Jane Doe"
-              className="w-full px-3 py-2 text-sm rounded-md border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+              className={pInput}
             />
             <p className="mt-1 text-[11px] text-muted-foreground">
               Human-readable identifier for this run.
@@ -675,7 +680,7 @@ function StartRunDialog({
                         )
                       }
                       disabled={submitting}
-                      className="col-span-5 px-2 py-1.5 text-sm rounded-md border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50"
+                      className={`col-span-5 ${pSelect}`}
                     >
                       {PLAYBOOK_LINK_ENTITY_TYPES.map((t) => (
                         <option key={t} value={t}>
@@ -696,7 +701,7 @@ function StartRunDialog({
                       }
                       placeholder="entity id"
                       disabled={submitting}
-                      className="col-span-6 px-2 py-1.5 text-sm rounded-md border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50"
+                      className={`col-span-6 ${pInput}`}
                     />
                     <button
                       type="button"
@@ -724,14 +729,14 @@ function StartRunDialog({
               type="button"
               onClick={onClose}
               disabled={submitting}
-              className="px-3 py-1.5 text-sm rounded-md border border-border text-foreground hover:bg-accent disabled:opacity-50"
+              className={`${pBtnGhost} disabled:opacity-50`}
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={submitting}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+              className={`${pBtnPrimary} disabled:opacity-50`}
             >
               {submitting ? (
                 <>

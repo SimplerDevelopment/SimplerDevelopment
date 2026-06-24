@@ -6,6 +6,8 @@ import Link from 'next/link';
 import { slugify } from '@/lib/publishing/slug';
 import MediaUploadModal from '@/components/admin/MediaUploadModal';
 import DesignSurfacesEditor from '@/components/portal/store/DesignSurfacesEditor';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnPrimary, pBtnGhost, pBtnSoft, pCard, pCardPad, pInput, pSelect, pSectionTitle, pChip } from '@/components/portal/portal-ui';
 
 interface ProductImage {
   id?: number;
@@ -513,9 +515,6 @@ export default function ProductEditPage() {
     );
   }
 
-  const inputClass =
-    'w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40';
-  const labelClass = 'text-sm font-medium text-foreground';
 
   const TABS = [
     { id: 'details', label: 'Details' },
@@ -532,34 +531,36 @@ export default function ProductEditPage() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      {/* Breadcrumb + Save */}
-      <div className="flex items-center justify-between gap-4">
-        <Link
-          href={`/portal/websites/${siteId}/store/products`}
-          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <span className="material-icons text-base">arrow_back</span>
-          Products
-        </Link>
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="flex items-center gap-2 px-5 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
-        >
-          {saving && <span className="material-icons text-base animate-spin">refresh</span>}
-          {saving ? 'Saving...' : 'Save Product'}
-        </button>
-      </div>
-
-      {/* Title */}
-      <h1 className="text-2xl font-bold text-foreground">{isNew ? 'New Product' : 'Edit Product'}</h1>
+      <PortalPageHeader
+        eyebrow="Store"
+        title={isNew ? 'New Product' : 'Edit Product'}
+        subtitle={
+          <Link
+            href={`/portal/websites/${siteId}/store/products`}
+            className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <span className="material-icons text-base">arrow_back</span>
+            Back to Products
+          </Link>
+        }
+        actions={
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className={pBtnPrimary}
+          >
+            {saving && <span className="material-icons text-base animate-spin">refresh</span>}
+            {saving ? 'Saving...' : 'Save Product'}
+          </button>
+        }
+      />
 
       {/* Designer tab link */}
       {!isNew && form.designable && (
         <div className="flex items-center gap-2">
           <Link
             href={`/portal/websites/${siteId}/store/products/${productId}/designer`}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-accent text-foreground rounded-lg text-sm font-medium hover:bg-accent/80 transition-colors"
+            className={pBtnGhost}
           >
             <span className="material-icons text-base">design_services</span>
             Open Designer Setup
@@ -585,16 +586,16 @@ export default function ProductEditPage() {
       )}
 
       {/* Tab bar */}
-      <div className="flex flex-wrap gap-1 border-b border-border pb-0">
+      <div className="flex flex-wrap gap-1.5">
         {TABS.map((tab) => (
           <button
             key={tab.id}
             type="button"
             onClick={() => setActiveTab(tab.id)}
-            className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors border-b-2 -mb-px ${
+            className={`px-4 py-2 text-sm font-medium rounded-xl transition-colors ${
               activeTab === tab.id
-                ? 'border-primary text-foreground bg-card'
-                : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/30'
+                ? 'bg-foreground text-background'
+                : 'text-muted-foreground hover:text-foreground hover:bg-muted/30'
             }`}
           >
             {tab.label}
@@ -604,56 +605,56 @@ export default function ProductEditPage() {
 
       {/* Details Tab */}
       {activeTab === 'details' && (
-        <div className="bg-card border border-border rounded-xl p-6 space-y-4">
-          <h2 className="font-semibold text-foreground flex items-center gap-2">
+        <div className="rounded-2xl border border-border bg-card p-6 space-y-4">
+          <h2 className={`${pSectionTitle} flex items-center gap-2`}>
             <span className="material-icons text-lg text-muted-foreground">info</span>
             Basic Information
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className={labelClass}>Name</label>
-              <input value={form.name} onChange={(e) => handleNameChange(e.target.value)} placeholder="Product name" className={inputClass} />
+              <label className="text-sm font-medium text-foreground">Name</label>
+              <input value={form.name} onChange={(e) => handleNameChange(e.target.value)} placeholder="Product name" className={pInput} />
             </div>
             <div className="space-y-1.5">
-              <label className={labelClass}>Slug</label>
+              <label className="text-sm font-medium text-foreground">Slug</label>
               <input
                 value={form.slug}
                 onChange={(e) => updateField('slug', e.target.value)}
                 placeholder="product-slug"
-                className={`${inputClass} font-mono`}
+                className={`${pInput} font-mono`}
               />
             </div>
           </div>
           <div className="space-y-1.5">
-            <label className={labelClass}>Short Description</label>
+            <label className="text-sm font-medium text-foreground">Short Description</label>
             <input
               value={form.shortDescription}
               onChange={(e) => updateField('shortDescription', e.target.value)}
               placeholder="Brief summary"
-              className={inputClass}
+              className={pInput}
             />
           </div>
           <div className="space-y-1.5">
-            <label className={labelClass}>Description</label>
+            <label className="text-sm font-medium text-foreground">Description</label>
             <textarea
               value={form.description}
               onChange={(e) => updateField('description', e.target.value)}
               placeholder="Full product description..."
               rows={5}
-              className={inputClass}
+              className={pInput}
             />
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className={labelClass}>Status</label>
-              <select value={form.status} onChange={(e) => updateField('status', e.target.value)} className={inputClass}>
+              <label className="text-sm font-medium text-foreground">Status</label>
+              <select value={form.status} onChange={(e) => updateField('status', e.target.value)} className={pSelect}>
                 <option value="draft">Draft</option>
                 <option value="active">Active</option>
                 <option value="archived">Archived</option>
               </select>
             </div>
             <div className="space-y-1.5">
-              <label className={labelClass}>Featured</label>
+              <label className="text-sm font-medium text-foreground">Featured</label>
               <div className="flex items-center gap-3 pt-1.5">
                 <button
                   type="button"
@@ -673,7 +674,7 @@ export default function ProductEditPage() {
             </div>
           </div>
           <div className="space-y-1.5 pt-2 border-t border-border">
-            <label className={labelClass}>Customer-designable product</label>
+            <label className="text-sm font-medium text-foreground">Customer-designable product</label>
             <div className="flex items-start gap-3 pt-1.5">
               <button
                 type="button"
@@ -703,14 +704,14 @@ export default function ProductEditPage() {
 
       {/* Pricing Tab */}
       {activeTab === 'pricing' && (
-        <div className="bg-card border border-border rounded-xl p-6 space-y-4">
-          <h2 className="font-semibold text-foreground flex items-center gap-2">
+        <div className="rounded-2xl border border-border bg-card p-6 space-y-4">
+          <h2 className={`${pSectionTitle} flex items-center gap-2`}>
             <span className="material-icons text-lg text-muted-foreground">payments</span>
             Pricing
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="space-y-1.5">
-              <label className={labelClass}>Price ($)</label>
+              <label className="text-sm font-medium text-foreground">Price ($)</label>
               <input
                 type="number"
                 step="0.01"
@@ -718,11 +719,11 @@ export default function ProductEditPage() {
                 value={centsToDollars(form.priceCents)}
                 onChange={(e) => updateField('priceCents', dollarsToCents(e.target.value))}
                 placeholder="0.00"
-                className={inputClass}
+                className={pInput}
               />
             </div>
             <div className="space-y-1.5">
-              <label className={labelClass}>Compare at Price ($)</label>
+              <label className="text-sm font-medium text-foreground">Compare at Price ($)</label>
               <input
                 type="number"
                 step="0.01"
@@ -730,11 +731,11 @@ export default function ProductEditPage() {
                 value={centsToDollars(form.compareAtPriceCents)}
                 onChange={(e) => updateField('compareAtPriceCents', dollarsToCents(e.target.value))}
                 placeholder="0.00"
-                className={inputClass}
+                className={pInput}
               />
             </div>
             <div className="space-y-1.5">
-              <label className={labelClass}>Cost Price ($)</label>
+              <label className="text-sm font-medium text-foreground">Cost Price ($)</label>
               <input
                 type="number"
                 step="0.01"
@@ -742,7 +743,7 @@ export default function ProductEditPage() {
                 value={centsToDollars(form.costPriceCents)}
                 onChange={(e) => updateField('costPriceCents', dollarsToCents(e.target.value))}
                 placeholder="0.00"
-                className={inputClass}
+                className={pInput}
               />
             </div>
           </div>
@@ -751,23 +752,23 @@ export default function ProductEditPage() {
 
       {/* Inventory Tab */}
       {activeTab === 'inventory' && (
-        <div className="bg-card border border-border rounded-xl p-6 space-y-4">
-          <h2 className="font-semibold text-foreground flex items-center gap-2">
+        <div className="rounded-2xl border border-border bg-card p-6 space-y-4">
+          <h2 className={`${pSectionTitle} flex items-center gap-2`}>
             <span className="material-icons text-lg text-muted-foreground">inventory</span>
             Inventory
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className={labelClass}>SKU</label>
-              <input value={form.sku} onChange={(e) => updateField('sku', e.target.value)} placeholder="SKU-001" className={inputClass} />
+              <label className="text-sm font-medium text-foreground">SKU</label>
+              <input value={form.sku} onChange={(e) => updateField('sku', e.target.value)} placeholder="SKU-001" className={pInput} />
             </div>
             <div className="space-y-1.5">
-              <label className={labelClass}>Barcode</label>
-              <input value={form.barcode} onChange={(e) => updateField('barcode', e.target.value)} placeholder="123456789" className={inputClass} />
+              <label className="text-sm font-medium text-foreground">Barcode</label>
+              <input value={form.barcode} onChange={(e) => updateField('barcode', e.target.value)} placeholder="123456789" className={pInput} />
             </div>
           </div>
           <div className="space-y-1.5">
-            <label className={labelClass}>Track Inventory</label>
+            <label className="text-sm font-medium text-foreground">Track Inventory</label>
             <div className="flex items-center gap-3 pt-1.5">
               <button
                 type="button"
@@ -787,13 +788,13 @@ export default function ProductEditPage() {
           </div>
           {form.trackInventory && (
             <div className="space-y-1.5 max-w-xs">
-              <label className={labelClass}>Quantity</label>
+              <label className="text-sm font-medium text-foreground">Quantity</label>
               <input
                 type="number"
                 min="0"
                 value={form.quantity}
                 onChange={(e) => updateField('quantity', parseInt(e.target.value) || 0)}
-                className={inputClass}
+                className={pInput}
               />
             </div>
           )}
@@ -802,14 +803,14 @@ export default function ProductEditPage() {
 
       {/* Shipping Tab */}
       {activeTab === 'shipping' && (
-        <div className="bg-card border border-border rounded-xl p-6 space-y-4">
-          <h2 className="font-semibold text-foreground flex items-center gap-2">
+        <div className="rounded-2xl border border-border bg-card p-6 space-y-4">
+          <h2 className={`${pSectionTitle} flex items-center gap-2`}>
             <span className="material-icons text-lg text-muted-foreground">local_shipping</span>
             Shipping
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className={labelClass}>Weight</label>
+              <label className="text-sm font-medium text-foreground">Weight</label>
               <input
                 type="number"
                 step="0.01"
@@ -817,12 +818,12 @@ export default function ProductEditPage() {
                 value={form.weight}
                 onChange={(e) => updateField('weight', e.target.value)}
                 placeholder="0"
-                className={inputClass}
+                className={pInput}
               />
             </div>
             <div className="space-y-1.5">
-              <label className={labelClass}>Weight Unit</label>
-              <select value={form.weightUnit} onChange={(e) => updateField('weightUnit', e.target.value)} className={inputClass}>
+              <label className="text-sm font-medium text-foreground">Weight Unit</label>
+              <select value={form.weightUnit} onChange={(e) => updateField('weightUnit', e.target.value)} className={pSelect}>
                 <option value="g">Grams (g)</option>
                 <option value="kg">Kilograms (kg)</option>
                 <option value="oz">Ounces (oz)</option>
@@ -835,14 +836,14 @@ export default function ProductEditPage() {
 
       {/* Print Tab */}
       {activeTab === 'print' && (
-        <div className="bg-card border border-border rounded-xl p-6 space-y-4">
-          <h2 className="font-semibold text-foreground flex items-center gap-2">
+        <div className="rounded-2xl border border-border bg-card p-6 space-y-4">
+          <h2 className={`${pSectionTitle} flex items-center gap-2`}>
             <span className="material-icons text-lg text-muted-foreground">print</span>
             Fulfillment
           </h2>
           {form.variants.length === 0 ? (
             <div className="space-y-1.5 max-w-xs">
-              <label className={labelClass}>Printful Variant ID</label>
+              <label className="text-sm font-medium text-foreground">Printful Variant ID</label>
               <input
                 type="number"
                 min="1"
@@ -851,7 +852,7 @@ export default function ProductEditPage() {
                   updateField('printfulVariantId', e.target.value ? parseInt(e.target.value) : null)
                 }
                 placeholder="e.g. 4012"
-                className={inputClass}
+                className={pInput}
               />
               <p className="text-xs text-muted-foreground">
                 Printful catalog variant ID — find this in Printful&apos;s Product Catalog. Required for automatic print-on-demand fulfillment via Printful.
@@ -869,16 +870,16 @@ export default function ProductEditPage() {
 
       {/* Images Tab */}
       {activeTab === 'images' && (
-        <div className="bg-card border border-border rounded-xl p-6 space-y-4">
+        <div className="rounded-2xl border border-border bg-card p-6 space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="font-semibold text-foreground flex items-center gap-2">
+            <h2 className={`${pSectionTitle} flex items-center gap-2`}>
               <span className="material-icons text-lg text-muted-foreground">photo_library</span>
               Images
             </h2>
             <button
               type="button"
               onClick={() => setShowMediaPicker(true)}
-              className="flex items-center gap-2 px-3 py-1.5 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
+              className={pBtnPrimary}
             >
               <span className="material-icons text-base">add_photo_alternate</span>
               Add from Media
@@ -887,7 +888,7 @@ export default function ProductEditPage() {
           {form.images.length > 0 ? (
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {form.images.map((img, i) => (
-                <div key={i} className="relative group rounded-lg border border-border overflow-hidden aspect-square">
+                <div key={i} className="relative group rounded-xl border border-border overflow-hidden aspect-square">
                   <img src={img.url} alt={img.altText || ''} className="w-full h-full object-cover" />
                   <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                     {i > 0 && (
@@ -936,7 +937,7 @@ export default function ProductEditPage() {
             <button
               type="button"
               onClick={() => setShowMediaPicker(true)}
-              className="w-full rounded-lg border-2 border-dashed border-border px-6 py-10 text-center hover:border-primary/50 transition-colors"
+              className="w-full rounded-2xl border-2 border-dashed border-border px-6 py-10 text-center hover:border-primary/50 transition-colors"
             >
               <span className="material-icons text-3xl text-muted-foreground/40 block mb-1">add_photo_alternate</span>
               <span className="text-sm text-muted-foreground">Click to add images from the media library</span>
@@ -948,7 +949,7 @@ export default function ProductEditPage() {
       {/* Media Picker Modal — rendered outside tab guard so it can open from any tab */}
       {showMediaPicker && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-card rounded-xl shadow-xl max-w-5xl w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col">
+          <div className="bg-card rounded-2xl shadow-xl max-w-5xl w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col">
             <div className="p-4 border-b border-border flex items-center justify-between">
               <h2 className="text-lg font-bold text-foreground">Select Images</h2>
               <button onClick={() => setShowMediaPicker(false)} className="p-1 hover:bg-muted rounded-lg transition-colors">
@@ -963,13 +964,13 @@ export default function ProductEditPage() {
                   placeholder="Search media..."
                   value={mediaSearch}
                   onChange={(e) => setMediaSearch(e.target.value)}
-                  className="w-full pl-10 pr-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  className={`${pInput} pl-10`}
                 />
               </div>
               <button
                 type="button"
                 onClick={() => setShowMediaUpload(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
+                className={pBtnPrimary}
               >
                 <span className="material-icons text-base">upload</span>
                 Upload New
@@ -1034,7 +1035,7 @@ export default function ProductEditPage() {
               <button
                 type="button"
                 onClick={() => setShowMediaPicker(false)}
-                className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
+                className={pBtnPrimary}
               >
                 Done
               </button>
@@ -1057,15 +1058,15 @@ export default function ProductEditPage() {
       {/* Organization Tab — Category & Tags card + SEO card */}
       {activeTab === 'organization' && (
         <div className="space-y-4">
-          <div className="bg-card border border-border rounded-xl p-6 space-y-4">
-            <h2 className="font-semibold text-foreground flex items-center gap-2">
+          <div className="rounded-2xl border border-border bg-card p-6 space-y-4">
+            <h2 className={`${pSectionTitle} flex items-center gap-2`}>
               <span className="material-icons text-lg text-muted-foreground">category</span>
               Category &amp; Tags
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <label className={labelClass}>Category</label>
-                <select value={form.categoryId} onChange={(e) => updateField('categoryId', e.target.value)} className={inputClass}>
+                <label className="text-sm font-medium text-foreground">Category</label>
+                <select value={form.categoryId} onChange={(e) => updateField('categoryId', e.target.value)} className={pSelect}>
                   <option value="">No category</option>
                   {categories.map((cat) => (
                     <option key={cat.id} value={String(cat.id)}>
@@ -1075,12 +1076,12 @@ export default function ProductEditPage() {
                 </select>
               </div>
               <div className="space-y-1.5">
-                <label className={labelClass}>Tags</label>
+                <label className="text-sm font-medium text-foreground">Tags</label>
                 <input
                   value={form.tags}
                   onChange={(e) => updateField('tags', e.target.value)}
                   placeholder="tag1, tag2, tag3"
-                  className={inputClass}
+                  className={pInput}
                 />
                 <p className="text-xs text-muted-foreground">Comma separated</p>
               </div>
@@ -1088,7 +1089,7 @@ export default function ProductEditPage() {
           </div>
 
           {/* SEO (collapsible) */}
-          <div className="bg-card border border-border rounded-xl overflow-hidden">
+          <div className="rounded-2xl border border-border bg-card overflow-hidden">
             <button
               type="button"
               onClick={() => setShowSeo(!showSeo)}
@@ -1103,22 +1104,22 @@ export default function ProductEditPage() {
             {showSeo && (
               <div className="px-6 pb-6 space-y-4">
                 <div className="space-y-1.5">
-                  <label className={labelClass}>SEO Title</label>
+                  <label className="text-sm font-medium text-foreground">SEO Title</label>
                   <input
                     value={form.seoTitle}
                     onChange={(e) => updateField('seoTitle', e.target.value)}
                     placeholder="Page title for search engines"
-                    className={inputClass}
+                    className={pInput}
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className={labelClass}>SEO Description</label>
+                  <label className="text-sm font-medium text-foreground">SEO Description</label>
                   <textarea
                     value={form.seoDescription}
                     onChange={(e) => updateField('seoDescription', e.target.value)}
                     placeholder="Meta description for search engines"
                     rows={3}
-                    className={inputClass}
+                    className={pInput}
                   />
                 </div>
               </div>
@@ -1129,32 +1130,32 @@ export default function ProductEditPage() {
 
       {/* Variants Tab */}
       {activeTab === 'variants' && (
-        <div className="bg-card border border-border rounded-xl p-6 space-y-4">
-          <h2 className="font-semibold text-foreground flex items-center gap-2">
+        <div className="rounded-2xl border border-border bg-card p-6 space-y-4">
+          <h2 className={`${pSectionTitle} flex items-center gap-2`}>
             <span className="material-icons text-lg text-muted-foreground">tune</span>
             Options &amp; Variants
           </h2>
           {/* Options */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <label className={labelClass}>Options</label>
+              <label className="text-sm font-medium text-foreground">Options</label>
               <button
                 type="button"
                 onClick={addOption}
-                className="flex items-center gap-1 px-3 py-1 text-xs font-medium text-primary hover:bg-accent rounded-lg transition-colors"
+                className={pBtnSoft}
               >
                 <span className="material-icons text-sm">add</span>
                 Add Option
               </button>
             </div>
             {form.options.map((opt, i) => (
-              <div key={i} className="flex items-start gap-3 p-3 bg-muted/20 rounded-lg">
+              <div key={i} className="flex items-start gap-3 p-3 bg-muted/20 rounded-xl">
                 <div className="space-y-1.5 flex-1">
                   <input
                     value={opt.name}
                     onChange={(e) => updateOption(i, 'name', e.target.value)}
                     placeholder="Option name (e.g. Color, Size)"
-                    className={inputClass}
+                    className={pInput}
                   />
                 </div>
                 <div className="space-y-1.5 flex-[2]">
@@ -1168,12 +1169,12 @@ export default function ProductEditPage() {
                       )
                     }
                     placeholder="Values (comma separated, e.g. Red, Blue, Green)"
-                    className={inputClass}
+                    className={pInput}
                   />
                   {opt.values.length > 0 && (
                     <div className="flex flex-wrap gap-1 mt-1">
                       {opt.values.map((v, vi) => (
-                        <span key={vi} className="inline-flex items-center px-2 py-0.5 bg-accent text-foreground text-xs rounded-full">
+                        <span key={vi} className={pChip}>
                           {v}
                         </span>
                       ))}
@@ -1196,7 +1197,7 @@ export default function ProductEditPage() {
             <button
               type="button"
               onClick={generateVariants}
-              className="flex items-center gap-2 px-4 py-2 bg-accent text-foreground rounded-lg text-sm font-medium hover:bg-accent/80 transition-colors"
+              className={pBtnGhost}
             >
               <span className="material-icons text-base">auto_awesome</span>
               Generate Variants
@@ -1225,7 +1226,7 @@ export default function ProductEditPage() {
                         <input
                           value={variant.sku}
                           onChange={(e) => updateVariant(i, 'sku', e.target.value)}
-                          className="w-24 px-2 py-1 rounded border border-border bg-background text-foreground text-xs focus:outline-none focus:ring-1 focus:ring-primary/40"
+                          className="w-24 rounded-lg border border-border bg-card px-2 py-1.5 text-xs text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
                         />
                       </td>
                       <td className="px-3 py-2">
@@ -1235,7 +1236,7 @@ export default function ProductEditPage() {
                           min="0"
                           value={centsToDollars(variant.priceCents)}
                           onChange={(e) => updateVariant(i, 'priceCents', dollarsToCents(e.target.value))}
-                          className="w-20 px-2 py-1 rounded border border-border bg-background text-foreground text-xs focus:outline-none focus:ring-1 focus:ring-primary/40"
+                          className="w-20 rounded-lg border border-border bg-card px-2 py-1.5 text-xs text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
                         />
                       </td>
                       <td className="px-3 py-2">
@@ -1244,7 +1245,7 @@ export default function ProductEditPage() {
                           min="0"
                           value={variant.quantity}
                           onChange={(e) => updateVariant(i, 'quantity', parseInt(e.target.value) || 0)}
-                          className="w-16 px-2 py-1 rounded border border-border bg-background text-foreground text-xs focus:outline-none focus:ring-1 focus:ring-primary/40"
+                          className="w-16 rounded-lg border border-border bg-card px-2 py-1.5 text-xs text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
                         />
                       </td>
                       <td className="px-3 py-2">
@@ -1260,7 +1261,7 @@ export default function ProductEditPage() {
                             )
                           }
                           placeholder="—"
-                          className="w-20 px-2 py-1 rounded border border-border bg-background text-foreground text-xs focus:outline-none focus:ring-1 focus:ring-primary/40"
+                          className="w-20 rounded-lg border border-border bg-card px-2 py-1.5 text-xs text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
                         />
                       </td>
                       <td className="px-3 py-2">
@@ -1289,18 +1290,18 @@ export default function ProductEditPage() {
 
       {/* Customization Tab — only for existing products (!isNew) */}
       {activeTab === 'customization' && !isNew && (
-        <div className="bg-card border border-border rounded-xl p-6 space-y-4">
-          <h2 className="font-semibold text-foreground flex items-center gap-2">
+        <div className="rounded-2xl border border-border bg-card p-6 space-y-4">
+          <h2 className={`${pSectionTitle} flex items-center gap-2`}>
             <span className="material-icons text-lg text-muted-foreground">brush</span>
             Customization
           </h2>
           <div className="space-y-3">
-            <label className={labelClass}>Product design type</label>
+            <label className="text-sm font-medium text-foreground">Product design type</label>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <button
                 type="button"
                 onClick={() => setDesignMode('standard')}
-                className={`text-left rounded-lg border p-3 transition-colors ${
+                className={`text-left rounded-xl border p-4 transition-colors ${
                   form.designMode === 'standard'
                     ? 'border-primary bg-primary/10 text-foreground'
                     : 'border-border bg-background hover:bg-muted/30 text-muted-foreground'
@@ -1313,7 +1314,7 @@ export default function ProductEditPage() {
               <button
                 type="button"
                 onClick={() => setDesignMode('store')}
-                className={`text-left rounded-lg border p-3 transition-colors ${
+                className={`text-left rounded-xl border p-4 transition-colors ${
                   form.designMode === 'store'
                     ? 'border-primary bg-primary/10 text-foreground'
                     : 'border-border bg-background hover:bg-muted/30 text-muted-foreground'
@@ -1326,7 +1327,7 @@ export default function ProductEditPage() {
               <button
                 type="button"
                 onClick={() => setDesignMode('customer')}
-                className={`text-left rounded-lg border p-3 transition-colors ${
+                className={`text-left rounded-xl border p-4 transition-colors ${
                   form.designMode === 'customer'
                     ? 'border-primary bg-primary/10 text-foreground'
                     : 'border-border bg-background hover:bg-muted/30 text-muted-foreground'
@@ -1350,7 +1351,7 @@ export default function ProductEditPage() {
                   Routed through the portal page so we don't expose the
                   ?staff=1 link directly in customer-facing UI. */}
               {form.designMode === 'store' && (
-                <div className="rounded-lg border border-primary/40 bg-primary/5 p-4 flex items-center justify-between gap-4">
+                <div className="rounded-xl border border-primary/40 bg-primary/5 p-4 flex items-center justify-between gap-4">
                   <div className="flex items-start gap-3">
                     <span className="material-icons text-primary">design_services</span>
                     <div>
@@ -1364,7 +1365,7 @@ export default function ProductEditPage() {
                     href={`/portal/websites/${siteId}/store/products/${productId}/designer`}
                     target="_blank"
                     rel="noopener"
-                    className="shrink-0 inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+                    className={`shrink-0 ${pBtnSoft}`}
                   >
                     <span className="material-icons text-base">open_in_new</span>
                     Open in Designer
@@ -1382,8 +1383,8 @@ export default function ProductEditPage() {
 
       {/* Bulk Pricing Tab */}
       {activeTab === 'bulkPricing' && (
-        <div className="bg-card border border-border rounded-xl p-6 space-y-4">
-          <h2 className="font-semibold text-foreground flex items-center gap-2">
+        <div className="rounded-2xl border border-border bg-card p-6 space-y-4">
+          <h2 className={`${pSectionTitle} flex items-center gap-2`}>
             <span className="material-icons text-lg text-muted-foreground">price_change</span>
             Bulk Pricing
           </h2>
@@ -1407,7 +1408,7 @@ export default function ProductEditPage() {
                         min="1"
                         value={rule.minQty}
                         onChange={(e) => updateBulkRule(i, 'minQty', parseInt(e.target.value) || 1)}
-                        className="w-16 px-2 py-1 rounded border border-border bg-background text-foreground text-xs focus:outline-none focus:ring-1 focus:ring-primary/40"
+                        className="w-16 rounded-lg border border-border bg-card px-2 py-1.5 text-xs text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
                       />
                     </td>
                     <td className="px-3 py-2">
@@ -1419,7 +1420,7 @@ export default function ProductEditPage() {
                           updateBulkRule(i, 'maxQty', e.target.value ? parseInt(e.target.value) : null)
                         }
                         placeholder="No limit"
-                        className="w-20 px-2 py-1 rounded border border-border bg-background text-foreground text-xs focus:outline-none focus:ring-1 focus:ring-primary/40"
+                        className="w-20 rounded-lg border border-border bg-card px-2 py-1.5 text-xs text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
                       />
                     </td>
                     <td className="px-3 py-2">
@@ -1439,7 +1440,7 @@ export default function ProductEditPage() {
                         min="0"
                         value={rule.amount}
                         onChange={(e) => updateBulkRule(i, 'amount', parseFloat(e.target.value) || 0)}
-                        className="w-20 px-2 py-1 rounded border border-border bg-background text-foreground text-xs focus:outline-none focus:ring-1 focus:ring-primary/40"
+                        className="w-20 rounded-lg border border-border bg-card px-2 py-1.5 text-xs text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
                       />
                     </td>
                     <td className="px-3 py-2">
@@ -1459,7 +1460,7 @@ export default function ProductEditPage() {
           <button
             type="button"
             onClick={addBulkRule}
-            className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-primary hover:bg-accent rounded-lg transition-colors"
+            className={pBtnSoft}
           >
             <span className="material-icons text-sm">add</span>
             Add Rule
@@ -1472,7 +1473,7 @@ export default function ProductEditPage() {
         <button
           onClick={handleSave}
           disabled={saving}
-          className="flex items-center gap-2 px-5 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+          className={pBtnPrimary}
         >
           {saving && <span className="material-icons text-base animate-spin">refresh</span>}
           {saving ? 'Saving...' : 'Save Product'}

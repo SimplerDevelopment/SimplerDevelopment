@@ -5,6 +5,7 @@ import McpApiKeysManager from '@/components/portal/McpApiKeysManager';
 import OAuthClientsManager from '@/components/portal/OAuthClientsManager';
 import OAuthTokensManager from '@/components/portal/OAuthTokensManager';
 import { BYOK_PROVIDER_LABELS } from '@/lib/billing/domain-catalog';
+import { pCard } from '@/components/portal/portal-ui';
 
 interface ByokStatusData {
   billingMode: string;
@@ -84,8 +85,8 @@ export default function ApiKeysPage() {
 
       <OAuthClientsManager />
 
-      <div className="rounded-md border border-border p-4 space-y-2 text-sm">
-        <h3 className="font-medium">Connect to Claude</h3>
+      <div className={`${pCard} p-4 space-y-2 text-sm`}>
+        <h3 className="font-display font-extrabold tracking-[-0.01em]">Connect to Claude</h3>
         <p className="text-muted-foreground">MCP endpoint:</p>
         <code className="block p-2 bg-muted rounded text-xs break-all">
           {origin}/api/mcp

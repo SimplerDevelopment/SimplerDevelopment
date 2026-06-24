@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnPrimary, pBtnGhost, pCard, pInput } from '@/components/portal/portal-ui';
 
 interface GiftCert {
   id: number;
@@ -88,69 +90,67 @@ export default function GiftCertificatesPage() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Gift Certificates</h1>
-          <p className="text-sm text-muted-foreground mt-1">Manage gift certificates redeemable for bookings and store purchases</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <Link href="/portal/tools/booking" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
-            <span className="material-icons text-lg">arrow_back</span>
-            Back
-          </Link>
-          <button onClick={() => setShowCreate(!showCreate)}
-            className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:opacity-90">
+      <Link href="/portal/tools/booking" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
+        <span className="material-icons text-lg">arrow_back</span>
+        Back
+      </Link>
+      <PortalPageHeader
+        eyebrow="Gift Cards"
+        title="Gift Certificates"
+        subtitle="Manage gift certificates redeemable for bookings and store purchases"
+        actions={
+          <button onClick={() => setShowCreate(!showCreate)} className={showCreate ? pBtnGhost : pBtnPrimary}>
             <span className="material-icons text-base">{showCreate ? 'close' : 'add'}</span>
             {showCreate ? 'Cancel' : 'Create Gift Cert'}
           </button>
-        </div>
-      </div>
+        }
+      />
 
       {/* Summary */}
       <div className="grid grid-cols-3 gap-4">
-        <div className="bg-card border border-border rounded-xl p-4 text-center">
-          <p className="text-2xl font-bold text-foreground">{certs.length}</p>
+        <div className="bg-card border border-border rounded-2xl p-4 text-center">
+          <p className="text-2xl font-display font-extrabold tracking-[-0.02em] text-foreground">{certs.length}</p>
           <p className="text-xs text-muted-foreground">Total Issued</p>
         </div>
-        <div className="bg-card border border-border rounded-xl p-4 text-center">
-          <p className="text-2xl font-bold text-foreground">{certs.filter(c => c.status === 'active').length}</p>
+        <div className="bg-card border border-border rounded-2xl p-4 text-center">
+          <p className="text-2xl font-display font-extrabold tracking-[-0.02em] text-foreground">{certs.filter(c => c.status === 'active').length}</p>
           <p className="text-xs text-muted-foreground">Active</p>
         </div>
-        <div className="bg-card border border-border rounded-xl p-4 text-center">
-          <p className="text-2xl font-bold text-foreground">{formatCents(totalActive)}</p>
+        <div className="bg-card border border-border rounded-2xl p-4 text-center">
+          <p className="text-2xl font-display font-extrabold tracking-[-0.02em] text-foreground">{formatCents(totalActive)}</p>
           <p className="text-xs text-muted-foreground">Outstanding Balance</p>
         </div>
       </div>
 
       {/* Create form */}
       {showCreate && (
-        <form onSubmit={handleCreate} className="bg-card border border-border rounded-xl p-5 space-y-4">
-          <h2 className="text-sm font-semibold text-foreground">Create Gift Certificate (Admin)</h2>
+        <form onSubmit={handleCreate} className="bg-card border border-border rounded-2xl p-5 space-y-4">
+          <h2 className="text-sm font-display font-extrabold tracking-[-0.01em] text-foreground">Create Gift Certificate (Admin)</h2>
           <p className="text-xs text-muted-foreground">This creates an immediately active certificate - no payment required.</p>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-foreground mb-1">Amount ($) *</label>
               <input type="number" step="0.01" min="1" required value={amount} onChange={e => setAmount(e.target.value)}
-                placeholder="50.00" className="w-full text-sm rounded-lg border border-border bg-background px-3 py-2 text-foreground" />
+                placeholder="50.00" className="w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary focus:ring-4 focus:ring-primary/15" />
             </div>
             <div>
               <label className="block text-sm font-medium text-foreground mb-1">Recipient Name</label>
               <input type="text" value={recipientName} onChange={e => setRecipientName(e.target.value)}
-                className="w-full text-sm rounded-lg border border-border bg-background px-3 py-2 text-foreground" />
+                className="w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary focus:ring-4 focus:ring-primary/15" />
             </div>
           </div>
           <div>
             <label className="block text-sm font-medium text-foreground mb-1">Recipient Email</label>
             <input type="email" value={recipientEmail} onChange={e => setRecipientEmail(e.target.value)}
-              className="w-full text-sm rounded-lg border border-border bg-background px-3 py-2 text-foreground" />
+              className="w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary focus:ring-4 focus:ring-primary/15" />
           </div>
           <div>
             <label className="block text-sm font-medium text-foreground mb-1">Personal Message</label>
             <textarea value={message} onChange={e => setMessage(e.target.value)} rows={2}
-              className="w-full text-sm rounded-lg border border-border bg-background px-3 py-2 text-foreground resize-none" />
+              className="w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary focus:ring-4 focus:ring-primary/15 resize-none" />
           </div>
           <button type="submit" disabled={creating || !amount}
-            className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium disabled:opacity-50">
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-foreground px-4 py-2.5 text-sm font-bold text-background transition hover:-translate-y-px hover:shadow-lg hover:shadow-foreground/20 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0">
             {creating ? 'Creating...' : 'Create Certificate'}
           </button>
         </form>
@@ -162,13 +162,13 @@ export default function GiftCertificatesPage() {
           <div className="animate-spin rounded-full h-8 w-8 border-2 border-muted-foreground/20 border-t-primary" />
         </div>
       ) : certs.length === 0 ? (
-        <div className="bg-card border border-border rounded-xl p-12 text-center">
+        <div className="bg-card border border-border rounded-2xl p-12 text-center">
           <span className="material-icons text-4xl text-muted-foreground mb-3 block">card_giftcard</span>
           <h2 className="text-lg font-semibold text-foreground mb-1">No gift certificates yet</h2>
           <p className="text-sm text-muted-foreground">Create one above or customers can purchase them on your site</p>
         </div>
       ) : (
-        <div className="bg-card border border-border rounded-xl overflow-hidden">
+        <div className={`${pCard} overflow-hidden`}>
           <div className="divide-y divide-border">
             {certs.map(cert => (
               <div key={cert.id} className="flex items-center gap-4 px-4 py-3">

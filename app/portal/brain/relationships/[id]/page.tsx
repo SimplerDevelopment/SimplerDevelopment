@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState, useCallback } from 'react';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnGhost, pBtnSoft, pSelect, pInput, pSectionTitle } from '@/components/portal/portal-ui';
 
 interface RelationshipDetail {
   overlay: {
@@ -106,7 +108,7 @@ export default function RelationshipDetailPage() {
   if (!data) {
     return (
       <div className="max-w-5xl mx-auto py-12">
-        <div className="bg-destructive/10 border border-destructive/30 rounded-md p-3 text-sm text-destructive">
+        <div className="bg-destructive/10 border border-destructive/30 rounded-xl p-3 text-sm text-destructive">
           {error || 'Relationship not found.'}
         </div>
       </div>
@@ -120,17 +122,21 @@ export default function RelationshipDetailPage() {
 
   return (
     <div className="max-w-5xl mx-auto py-8 space-y-6">
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0 flex-1">
-          <Link href="/portal/brain/relationships" className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
-            <span className="material-icons text-sm">arrow_back</span>
-            All relationships
-          </Link>
-          <h1 className="text-2xl font-bold text-foreground mt-2 flex items-center gap-2 break-words">
+      <PortalPageHeader
+        eyebrow="Company Brain"
+        title={
+          <span className="flex items-center gap-2">
             <span className="material-icons text-primary">{underlying.type === 'company' ? 'business' : 'handshake'}</span>
             {underlying.name}
-          </h1>
-          <div className="text-sm text-muted-foreground mt-1 flex items-center gap-2 flex-wrap">
+          </span>
+        }
+        subtitle={
+          <span className="flex items-center gap-2 flex-wrap">
+            <Link href="/portal/brain/relationships" className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground">
+              <span className="material-icons text-sm">arrow_back</span>
+              All relationships
+            </Link>
+            <span>·</span>
             <span>{overlay.relationshipType.replace(/_/g, ' ')}</span>
             <span>·</span>
             <Link href={crmHref} className="hover:text-primary inline-flex items-center gap-0.5">
@@ -142,20 +148,20 @@ export default function RelationshipDetailPage() {
             <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${PRIORITY_TONE[overlay.priority]}`}>
               {overlay.priority}
             </span>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
+          </span>
+        }
+        actions={
           <button
             onClick={remove}
-            className="inline-flex items-center gap-1 px-3 py-1.5 text-sm rounded-md border border-border text-foreground hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30"
+            className="inline-flex items-center gap-1 px-3 py-1.5 text-sm rounded-xl border border-border text-foreground hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30"
           >
             <span className="material-icons text-base">delete</span>
           </button>
-        </div>
-      </div>
+        }
+      />
 
       {error && (
-        <div className="bg-destructive/10 border border-destructive/30 rounded-md p-3 text-sm text-destructive">{error}</div>
+        <div className="bg-destructive/10 border border-destructive/30 rounded-xl p-3 text-sm text-destructive">{error}</div>
       )}
 
       <div className="grid md:grid-cols-3 gap-4">
@@ -170,7 +176,7 @@ export default function RelationshipDetailPage() {
             <select
               value={overlay.priority}
               onChange={(e) => save({ priority: e.target.value })}
-              className="w-full px-3 py-2 rounded-md border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              className={pSelect}
             >
               <option value="low">Low</option>
               <option value="medium">Medium</option>
@@ -182,7 +188,7 @@ export default function RelationshipDetailPage() {
             <select
               value={overlay.status}
               onChange={(e) => save({ status: e.target.value })}
-              className="w-full px-3 py-2 rounded-md border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              className={pSelect}
             >
               <option value="active">Active</option>
               <option value="paused">Paused</option>
@@ -194,7 +200,7 @@ export default function RelationshipDetailPage() {
               type="date"
               value={overlay.nextReviewAt ? overlay.nextReviewAt.slice(0, 10) : ''}
               onChange={(e) => save({ nextReviewAt: e.target.value ? new Date(e.target.value).toISOString() : null })}
-              className="w-full px-3 py-2 rounded-md border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              className={pInput}
             />
           </Field>
           <Field label="Stale after (days)">
@@ -203,7 +209,7 @@ export default function RelationshipDetailPage() {
               min={1}
               value={overlay.staleAfterDays ?? ''}
               onChange={(e) => save({ staleAfterDays: e.target.value ? parseInt(e.target.value, 10) : null })}
-              className="w-full px-3 py-2 rounded-md border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              className={pInput}
               placeholder="Optional"
             />
           </Field>
@@ -312,9 +318,9 @@ export default function RelationshipDetailPage() {
 
 function Section({ title, icon, action, children }: { title: string; icon: string; action?: React.ReactNode; children: React.ReactNode }) {
   return (
-    <section className="bg-card border border-border rounded-lg p-5">
+    <section className="bg-card border border-border rounded-2xl p-5">
       <div className="flex items-center justify-between mb-3">
-        <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
+        <h2 className={`${pSectionTitle} flex items-center gap-2`}>
           <span className="material-icons text-base text-muted-foreground">{icon}</span>
           {title}
         </h2>
@@ -336,7 +342,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 function Stat({ label, value, icon }: { label: string; value: number; icon: string }) {
   return (
-    <div className="bg-card border border-border rounded-lg p-4 flex items-center gap-3">
+    <div className="bg-card border border-border rounded-2xl p-4 flex items-center gap-3">
       <span className="material-icons text-2xl text-primary">{icon}</span>
       <div>
         <div className="text-2xl font-bold text-foreground">{value}</div>
@@ -362,19 +368,19 @@ function EditableTextarea({ value, onSave, placeholder, rows = 4 }: {
         onChange={(e) => setDraft(e.target.value)}
         rows={rows}
         placeholder={placeholder}
-        className="w-full px-3 py-2 rounded-md border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+        className={pInput}
       />
       {dirty && (
         <div className="flex items-center gap-2">
           <button
             onClick={() => onSave(draft.trim() || null)}
-            className="px-3 py-1 text-xs rounded-md bg-primary text-primary-foreground hover:bg-primary/90"
+            className={pBtnSoft}
           >
             Save
           </button>
           <button
             onClick={() => setDraft(value ?? '')}
-            className="px-3 py-1 text-xs rounded-md border border-border text-foreground hover:bg-accent"
+            className={pBtnGhost}
           >
             Cancel
           </button>

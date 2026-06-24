@@ -7,6 +7,8 @@ import Link from 'next/link';
 import { ticketStatusColor, priorityColor } from '@/lib/portal';
 import TicketSlaBadge from '@/components/portal/TicketSlaBadge';
 import TicketIndexFilters from '@/components/portal/TicketIndexFilters';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnPrimary, pBtnGhost, pCard } from '@/components/portal/portal-ui';
 
 interface SearchParams {
   status?: string | string[];
@@ -104,21 +106,17 @@ export default async function TicketsIndexPage({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start sm:items-center justify-between gap-3 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Support Tickets</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Track conversations with our team. {isStaff ? 'Showing tickets across all tenants you can see.' : "Only your tenant's tickets are shown."}
-          </p>
-        </div>
-        <Link
-          href="/portal/tickets/new"
-          className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
-        >
-          <span className="material-icons text-base">add</span>
-          New Ticket
-        </Link>
-      </div>
+      <PortalPageHeader
+        eyebrow="Support"
+        title="Support Tickets"
+        subtitle={<>Track conversations with our team. {isStaff ? 'Showing tickets across all tenants you can see.' : "Only your tenant's tickets are shown."}</>}
+        actions={
+          <Link href="/portal/tickets/new" className={pBtnPrimary}>
+            <span className="material-icons text-base">add</span>
+            New Ticket
+          </Link>
+        }
+      />
 
       <TicketIndexFilters
         isStaff={isStaff}
@@ -131,23 +129,23 @@ export default async function TicketsIndexPage({
       />
 
       {tickets.length === 0 ? (
-        <div className="bg-card border border-border rounded-xl p-12 text-center">
+        <div className={`${pCard} p-12 text-center`}>
           <span className="material-icons text-5xl text-muted-foreground">support_agent</span>
-          <h3 className="mt-4 font-semibold text-foreground">No tickets match these filters</h3>
+          <h3 className="mt-4 font-display font-extrabold tracking-[-0.01em] text-foreground">No tickets match these filters</h3>
           <p className="mt-2 text-sm text-muted-foreground">Try clearing the filters or open a new ticket.</p>
           <div className="mt-4 inline-flex items-center gap-2">
-            <Link href="/portal/tickets" className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground">
+            <Link href="/portal/tickets" className={pBtnGhost}>
               Clear filters
             </Link>
-            <Link href="/portal/tickets/new" className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium">
+            <Link href="/portal/tickets/new" className={pBtnPrimary}>
               <span className="material-icons text-base">add</span>
               Open Ticket
             </Link>
           </div>
         </div>
       ) : (
-        <div className="bg-card border border-border rounded-xl">
-          <div className="overflow-x-auto rounded-xl">
+        <div className={pCard}>
+          <div className="overflow-x-auto rounded-2xl">
           <table className="w-full min-w-[640px] text-sm">
             <thead className="bg-muted/50 border-b border-border">
               <tr>

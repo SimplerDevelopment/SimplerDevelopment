@@ -9,6 +9,8 @@ import ApiKeysManager from '@/components/portal/ApiKeysManager';
 import UploadHtmlPageButton from '@/components/portal/UploadHtmlPageButton';
 import CreateSnapshotButton from '@/components/portal/CreateSnapshotButton';
 import RequestActivationButton from './_components/RequestActivationButton';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pCard } from '@/components/portal/portal-ui';
 
 export default async function PortalCmsDashboardPage({
   params,
@@ -47,16 +49,17 @@ export default async function PortalCmsDashboardPage({
       {/* Page header — the shared layout (WebsiteSubNav) owns the site name +
           domain + +Entry button; this page is the dashboard, so its title
           reflects that. */}
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
-          <p className="text-sm text-muted-foreground mt-1">Overview of your content, types, and entries.</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <CreateSnapshotButton siteId={site.id} siteName={site.name} />
-          <UploadHtmlPageButton siteId={site.id} />
-        </div>
-      </div>
+      <PortalPageHeader
+        eyebrow="Website"
+        title="Dashboard"
+        subtitle="Overview of your content, types, and entries."
+        actions={
+          <>
+            <CreateSnapshotButton siteId={site.id} siteName={site.name} />
+            <UploadHtmlPageButton siteId={site.id} />
+          </>
+        }
+      />
 
       {created === '1' && (
         <div className="flex items-center gap-3 p-4 bg-green-50 border border-green-200 rounded-xl text-green-800 dark:bg-green-900/20 dark:border-green-800 dark:text-green-300">
@@ -106,21 +109,21 @@ export default async function PortalCmsDashboardPage({
 
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div className="bg-card border border-border rounded-xl p-4">
+        <div className="bg-card border border-border rounded-2xl p-4">
           <p className="text-xs text-muted-foreground mb-1">Total Entries</p>
-          <p className="text-2xl font-bold text-foreground">{sitePosts.length}</p>
+          <p className="text-2xl font-display font-extrabold tracking-[-0.02em] text-foreground">{sitePosts.length}</p>
         </div>
-        <div className="bg-card border border-border rounded-xl p-4">
+        <div className="bg-card border border-border rounded-2xl p-4">
           <p className="text-xs text-muted-foreground mb-1">Published</p>
-          <p className="text-2xl font-bold text-green-600">{published.length}</p>
+          <p className="text-2xl font-display font-extrabold tracking-[-0.02em] text-green-600">{published.length}</p>
         </div>
-        <div className="bg-card border border-border rounded-xl p-4">
+        <div className="bg-card border border-border rounded-2xl p-4">
           <p className="text-xs text-muted-foreground mb-1">Drafts</p>
-          <p className="text-2xl font-bold text-yellow-600">{drafts.length}</p>
+          <p className="text-2xl font-display font-extrabold tracking-[-0.02em] text-yellow-600">{drafts.length}</p>
         </div>
-        <div className="bg-card border border-border rounded-xl p-4">
+        <div className="bg-card border border-border rounded-2xl p-4">
           <p className="text-xs text-muted-foreground mb-1">Content Types</p>
-          <p className="text-2xl font-bold text-foreground">{Object.keys(typeCounts).length}</p>
+          <p className="text-2xl font-display font-extrabold tracking-[-0.02em] text-foreground">{Object.keys(typeCounts).length}</p>
         </div>
       </div>
 
@@ -162,9 +165,9 @@ export default async function PortalCmsDashboardPage({
       </div>
 
       {/* Recent entries */}
-      <div className="bg-card border border-border rounded-xl overflow-hidden">
+      <div className={`${pCard} overflow-hidden`}>
         <div className="px-5 py-4 border-b border-border flex items-center justify-between">
-          <h2 className="font-semibold text-foreground">Recent Entries</h2>
+          <h2 className="font-display font-extrabold tracking-[-0.01em] text-foreground text-sm">Recent Entries</h2>
           <Link
             href={`/portal/websites/${site.id}/entries`}
             className="text-xs text-primary hover:underline"
@@ -208,9 +211,9 @@ export default async function PortalCmsDashboardPage({
       </div>
 
       {/* API Keys / Developer */}
-      <div id="api-keys" className="bg-card border border-border rounded-xl overflow-hidden">
+      <div id="api-keys" className={`${pCard} overflow-hidden`}>
         <div className="px-5 py-4 border-b border-border">
-          <h2 className="font-semibold text-foreground flex items-center gap-2">
+          <h2 className="font-display font-extrabold tracking-[-0.01em] text-foreground text-sm flex items-center gap-2">
             <span className="material-icons text-base">code</span>
             Developer API Keys
           </h2>
@@ -225,9 +228,9 @@ export default async function PortalCmsDashboardPage({
 
       {/* Content type breakdown */}
       {Object.keys(typeCounts).length > 0 && (
-        <div className="bg-card border border-border rounded-xl overflow-hidden">
+        <div className={`${pCard} overflow-hidden`}>
           <div className="px-5 py-4 border-b border-border">
-            <h2 className="font-semibold text-foreground">By Content Type</h2>
+            <h2 className="font-display font-extrabold tracking-[-0.01em] text-foreground text-sm">By Content Type</h2>
           </div>
           <div className="divide-y divide-border">
             {Object.entries(typeCounts).map(([type, cnt]) => {
@@ -261,7 +264,7 @@ interface DashboardLink {
 function DashboardLinkGroup({ title, links }: { title: string; links: DashboardLink[] }) {
   return (
     <section>
-      <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-1">
+      <h2 className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground mb-2 px-1">
         {title}
       </h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -269,7 +272,7 @@ function DashboardLinkGroup({ title, links }: { title: string; links: DashboardL
           <Link
             key={link.href}
             href={link.href}
-            className="group flex items-start gap-3 p-4 bg-card border border-border rounded-xl hover:border-primary/30 hover:bg-accent/40 transition-colors"
+            className="group flex items-start gap-3 p-4 bg-card border border-border rounded-2xl hover:border-primary/30 hover:bg-accent/40 transition-colors"
           >
             <span className="material-icons text-xl text-muted-foreground group-hover:text-primary transition-colors shrink-0">
               {link.icon}

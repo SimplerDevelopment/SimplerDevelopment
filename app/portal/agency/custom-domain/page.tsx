@@ -11,6 +11,8 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnPrimary, pInput } from '@/components/portal/portal-ui';
 
 interface DomainState {
   customDomain: string | null;
@@ -123,17 +125,15 @@ export default function CustomDomainPage() {
         Agency settings
       </Link>
 
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-foreground">Custom Portal Domain</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Map your own apex or subdomain to this portal so clients see your brand instead of
-          simplerdevelopment.com.
-        </p>
-      </div>
+      <PortalPageHeader
+        eyebrow="Agency"
+        title="Custom Portal Domain"
+        subtitle="Map your own apex or subdomain to this portal so clients see your brand instead of simplerdevelopment.com."
+      />
 
       {message && (
         <div
-          className={`mb-4 p-3 rounded-lg flex items-center gap-2 text-sm ${
+          className={`mb-4 p-3 rounded-xl flex items-center gap-2 text-sm ${
             message.type === 'success'
               ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20'
               : message.type === 'error'
@@ -157,7 +157,7 @@ export default function CustomDomainPage() {
           <span className="material-icons animate-spin text-primary text-2xl">refresh</span>
         </div>
       ) : !state.customDomain ? (
-        <form onSubmit={submitDomain} className="bg-card border border-border rounded-xl p-6 space-y-4">
+        <form onSubmit={submitDomain} className="bg-card border border-border rounded-2xl p-6 space-y-4">
           <label className="block">
             <span className="text-sm font-medium text-foreground">Domain</span>
             <input
@@ -166,7 +166,7 @@ export default function CustomDomainPage() {
               onChange={e => setDomainInput(e.target.value)}
               placeholder="portal.your-agency.com"
               required
-              className="mt-1 block w-full px-3 py-2 rounded-md border border-border bg-background text-foreground"
+              className={`mt-1 ${pInput}`}
             />
             <span className="text-xs text-muted-foreground mt-1 block">
               We&apos;ll generate a TXT record to verify ownership before activating it.
@@ -175,7 +175,7 @@ export default function CustomDomainPage() {
           <button
             type="submit"
             disabled={submitting}
-            className="px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 disabled:opacity-50 inline-flex items-center gap-1"
+            className={pBtnPrimary}
           >
             {submitting && <span className="material-icons animate-spin text-base">refresh</span>}
             Continue
@@ -183,10 +183,10 @@ export default function CustomDomainPage() {
         </form>
       ) : (
         <div className="space-y-4">
-          <div className="bg-card border border-border rounded-xl p-6">
+          <div className="bg-card border border-border rounded-2xl p-6">
             <div className="flex items-start justify-between gap-4 flex-wrap">
               <div>
-                <h2 className="text-lg font-semibold text-foreground">{state.customDomain}</h2>
+                <h2 className="text-lg font-display font-extrabold tracking-[-0.01em] text-foreground">{state.customDomain}</h2>
                 {state.verifiedAt ? (
                   <p className="text-sm text-emerald-700 dark:text-emerald-300 mt-1 flex items-center gap-1">
                     <span className="material-icons text-base">verified</span>
@@ -211,7 +211,7 @@ export default function CustomDomainPage() {
           </div>
 
           {state.verificationRecord && !state.verifiedAt && (
-            <div className="bg-card border border-border rounded-xl p-6">
+            <div className="bg-card border border-border rounded-2xl p-6">
               <h3 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-1">
                 <span className="material-icons text-base">dns</span>
                 Add this TXT record at your DNS provider
@@ -245,7 +245,7 @@ export default function CustomDomainPage() {
                 type="button"
                 onClick={verify}
                 disabled={verifying}
-                className="mt-4 px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 disabled:opacity-50 inline-flex items-center gap-1"
+                className={`mt-4 ${pBtnPrimary}`}
               >
                 {verifying && <span className="material-icons animate-spin text-base">refresh</span>}
                 Verify
@@ -254,7 +254,7 @@ export default function CustomDomainPage() {
           )}
 
           {state.verifiedAt && (
-            <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-4 text-sm text-foreground">
+            <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-4 text-sm text-foreground">
               Your custom domain is live. To finish white-labeling, set your agency name and logo
               under <Link href="/portal/agency/branding" className="text-primary hover:underline">Agency
               Branding</Link>, then flip the switch on the <Link href="/portal/agency" className="text-primary hover:underline">agency

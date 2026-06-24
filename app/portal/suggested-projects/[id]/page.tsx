@@ -4,6 +4,7 @@ import { clients, suggestedProjects } from '@/lib/db/schema';
 import { eq, isNull, or, and } from 'drizzle-orm';
 import { redirect, notFound } from 'next/navigation';
 import Link from 'next/link';
+import { pBtnPrimary, pBtnGhost, pSectionTitle } from '@/components/portal/portal-ui';
 
 // ─── Category-specific content & design configs ──────────────────────────────
 
@@ -317,7 +318,7 @@ export default async function SuggestedProjectDetailPage({ params }: { params: P
             <div className="ml-auto self-end">
               <Link
                 href={`/portal/suggested-projects/${item.id}/request`}
-                className="inline-flex items-center gap-2 px-6 py-3 bg-white text-slate-900 rounded-xl font-semibold text-sm hover:bg-white/90 transition-colors shadow-lg"
+                className="inline-flex items-center gap-2 px-6 py-3 bg-white text-foreground rounded-xl font-bold text-sm hover:bg-white/90 transition-colors shadow-lg"
               >
                 <span className="material-icons text-base">{hasSurvey ? 'assignment' : 'chat'}</span>
                 {hasSurvey ? 'Get started' : 'Request this project'}
@@ -329,7 +330,7 @@ export default async function SuggestedProjectDetailPage({ params }: { params: P
 
       {/* ── Why this matters ── */}
       <div>
-        <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-4">Why this matters</p>
+        <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground mb-4">Why this matters</p>
         <p className={`text-lg text-foreground leading-relaxed border-l-4 ${cfg.accentBorder} pl-4`}>
           {cfg.subtagline}
         </p>
@@ -353,7 +354,7 @@ export default async function SuggestedProjectDetailPage({ params }: { params: P
         <div className="bg-background border border-border rounded-2xl overflow-hidden">
           <div className="px-6 py-4 border-b border-border flex items-center gap-2">
             <span className={`material-icons text-lg ${cfg.accentColor}`}>checklist</span>
-            <h2 className="font-semibold text-foreground">What&apos;s included</h2>
+            <h2 className={pSectionTitle}>What&apos;s included</h2>
             <span className="ml-auto text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
               {features.length} deliverable{features.length !== 1 ? 's' : ''}
             </span>
@@ -382,7 +383,7 @@ export default async function SuggestedProjectDetailPage({ params }: { params: P
 
       {/* ── How it works ── */}
       <div>
-        <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-6">How it works</p>
+        <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground mb-6">How it works</p>
         <div className="relative">
           {/* Connecting line */}
           <div className="hidden sm:block absolute top-7 left-7 right-7 h-0.5 bg-border z-0" />
@@ -407,7 +408,7 @@ export default async function SuggestedProjectDetailPage({ params }: { params: P
 
       {/* ── FAQ ── */}
       <div>
-        <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-4">Common questions</p>
+        <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground mb-4">Common questions</p>
         <div className="space-y-3">
           {cfg.faqs.map((faq, i) => (
             <div key={i} className="bg-background border border-border rounded-xl p-5">
@@ -426,7 +427,7 @@ export default async function SuggestedProjectDetailPage({ params }: { params: P
         <div className={`h-1.5 bg-gradient-to-r ${cfg.heroGradient}`} />
         <div className="p-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
           <div>
-            <h2 className="text-xl font-bold text-foreground">Ready to move forward?</h2>
+            <h2 className={pSectionTitle}>Ready to move forward?</h2>
             <p className="text-muted-foreground mt-1 text-sm">
               {hasSurvey
                 ? 'Fill out a quick intake form and we\'ll put together a detailed proposal.'
@@ -450,14 +451,14 @@ export default async function SuggestedProjectDetailPage({ params }: { params: P
           <div className="flex flex-col gap-2 flex-shrink-0">
             <Link
               href={`/portal/suggested-projects/${item.id}/request`}
-              className={`inline-flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r ${cfg.heroGradient} text-white rounded-xl font-semibold text-sm hover:opacity-90 transition-opacity shadow-lg`}
+              className={pBtnPrimary}
             >
               <span className="material-icons text-base">{hasSurvey ? 'assignment' : 'chat'}</span>
               {hasSurvey ? 'Start intake form' : 'Start a conversation'}
             </Link>
             <Link
               href="/portal/suggested-projects"
-              className="inline-flex items-center justify-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+              className={pBtnGhost}
             >
               <span className="material-icons text-sm">arrow_back</span>
               Browse other suggestions

@@ -52,7 +52,7 @@ export default async function HostingStatusWidget({
   return (
     <div>
       <div className="mb-3">
-        <span className="text-2xl font-bold text-foreground">{totalSites}</span>
+        <span className="font-display text-2xl font-extrabold tracking-[-0.02em] text-foreground">{totalSites}</span>
         <span className="ml-2 text-sm text-muted-foreground">
           site{totalSites !== 1 ? 's' : ''} hosted
         </span>

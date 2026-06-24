@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnPrimary, pCard } from '@/components/portal/portal-ui';
 
 interface PendingItem {
   id: number;
@@ -277,13 +279,11 @@ export default function PortalApprovalsPage() {
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">MCP Approvals</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Review AI-agent-initiated CMS changes before they go live. Keys flagged with{' '}
-          <code className="text-xs">require_cms_approval</code> stage writes here instead of applying directly.
-        </p>
-      </div>
+      <PortalPageHeader
+        eyebrow="REVIEW"
+        title="MCP Approvals"
+        subtitle={<>Review AI-agent-initiated CMS changes before they go live. Keys flagged with{' '}<code className="text-xs">require_cms_approval</code> stage writes here instead of applying directly.</>}
+      />
 
       {/* Filter tabs */}
       <div className="flex gap-1 border-b border-border text-sm overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0">
@@ -304,7 +304,7 @@ export default function PortalApprovalsPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.3fr] gap-4">
         {/* List */}
-        <div className="bg-card border border-border rounded-lg overflow-hidden flex flex-col">
+        <div className={`${pCard} overflow-hidden flex flex-col`}>
           {canManage && items.some(i => i.status === 'pending') && (() => {
             const pendingIds = items.filter(i => i.status === 'pending').map(i => i.id);
             const allChecked = pendingIds.length > 0 && pendingIds.every(id => checkedIds.has(id));
@@ -400,7 +400,7 @@ export default function PortalApprovalsPage() {
         </div>
 
         {/* Detail */}
-        <div className="bg-card border border-border rounded-lg p-5 space-y-4">
+        <div className={`${pCard} p-5 space-y-4`}>
           {!selected ? (
             <div className="py-12 text-center text-muted-foreground">
               <span className="material-icons text-4xl mb-2 block">visibility</span>
@@ -500,7 +500,7 @@ export default function PortalApprovalsPage() {
                     <button
                       onClick={approve}
                       disabled={busy}
-                      className="flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                      className={`flex-1 ${pBtnPrimary}`}
                     >
                       <span className="material-icons text-base">check</span>
                       {busy ? 'Applying...' : 'Approve & Apply'}
@@ -557,7 +557,7 @@ export default function PortalApprovalsPage() {
       {/* Bulk confirmation modal */}
       {bulkAction && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-card border border-border rounded-lg max-w-md w-full p-6 space-y-4">
+          <div className={`${pCard} max-w-md w-full p-6 space-y-4`}>
             <div>
               <h3 className="text-lg font-semibold text-foreground">
                 {bulkAction === 'approve' ? 'Approve' : 'Reject'} {checkedIds.size} change{checkedIds.size === 1 ? '' : 's'}?

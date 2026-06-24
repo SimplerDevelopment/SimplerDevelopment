@@ -22,7 +22,7 @@ export default async function StoreOverviewWidget({
     return (
       <div>
         <div className="mb-3">
-          <span className="text-2xl font-bold text-foreground">—</span>
+          <span className="font-display text-2xl font-extrabold tracking-[-0.02em] text-foreground">—</span>
           <span className="ml-2 text-sm text-muted-foreground">no active stores</span>
         </div>
         <p className="text-sm text-muted-foreground py-2 text-center">
@@ -64,7 +64,7 @@ export default async function StoreOverviewWidget({
     <div>
       <div className="mb-3 flex items-baseline gap-4">
         <div>
-          <span className="text-2xl font-bold text-foreground">{orderCount}</span>
+          <span className="font-display text-2xl font-extrabold tracking-[-0.02em] text-foreground">{orderCount}</span>
           <span className="ml-2 text-sm text-muted-foreground">
             order{orderCount !== 1 ? 's' : ''}
           </span>

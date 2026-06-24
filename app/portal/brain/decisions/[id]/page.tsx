@@ -28,6 +28,8 @@ import DecisionSupersedeChain, {
 } from '@/components/brain/DecisionSupersedeChain';
 import TopicPicker from '@/components/brain/TopicPicker';
 import { relativeDate } from '@/components/brain/DecisionCard';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnPrimary, pBtnGhost, pBtnSoft, pCard, pCardPad, pInput, pSectionTitle, pEyebrow, pChip } from '@/components/portal/portal-ui';
 
 interface TopicSummary {
   id: number;
@@ -307,7 +309,7 @@ export default function DecisionDetailPage() {
   if (error || !data) {
     return (
       <div className="max-w-3xl mx-auto py-12 space-y-4">
-        <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-4 text-sm text-destructive">
+        <div className="bg-destructive/10 border border-destructive/30 rounded-2xl p-4 text-sm text-destructive">
           <div className="flex items-center gap-2 font-medium mb-1">
             <span className="material-icons text-base">error_outline</span>
             Couldn&apos;t load decision
@@ -353,23 +355,28 @@ export default function DecisionDetailPage() {
     };
     return (
       <div className="max-w-3xl mx-auto py-8 px-4 space-y-6">
-        <div>
-          <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
-            <span className="material-icons text-primary">edit</span>
-            Edit decision
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Rationale, decision text, and reversibility are immutable — to change those,{' '}
-            <button
-              type="button"
-              onClick={() => router.push(`/portal/brain/decisions/new?supersedes=${id}`)}
-              className="underline hover:text-foreground"
-            >
-              supersede this decision
-            </button>{' '}
-            instead.
-          </p>
-        </div>
+        <PortalPageHeader
+          eyebrow="Company Brain"
+          title={
+            <span className="flex items-center gap-2">
+              <span className="material-icons text-primary">edit</span>
+              Edit decision
+            </span>
+          }
+          subtitle={
+            <>
+              Rationale, decision text, and reversibility are immutable — to change those,{' '}
+              <button
+                type="button"
+                onClick={() => router.push(`/portal/brain/decisions/new?supersedes=${id}`)}
+                className="underline hover:text-foreground"
+              >
+                supersede this decision
+              </button>{' '}
+              instead.
+            </>
+          }
+        />
         <DecisionForm
           mode="edit"
           initial={initial}
@@ -406,7 +413,7 @@ export default function DecisionDetailPage() {
               // Discard any unsaved topic edits when cancelling out.
               setTopicIdsDraft(originalTopicIds);
             }}
-            className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
+            className={pBtnGhost}
           >
             <span className="material-icons text-base">close</span>
             Cancel edit
@@ -425,13 +432,16 @@ export default function DecisionDetailPage() {
       </Link>
 
       {/* Header */}
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div className="min-w-0 flex-1">
-          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+      <PortalPageHeader
+        eyebrow="Company Brain"
+        title={
+          <span className="flex items-center gap-2">
             <span className="material-icons text-primary">gavel</span>
             <span className="break-words">{d.title}</span>
-          </h1>
-          <div className="mt-2 flex items-center gap-2 flex-wrap text-xs text-muted-foreground">
+          </span>
+        }
+        subtitle={
+          <div className="flex items-center gap-2 flex-wrap text-xs text-muted-foreground">
             <span
               className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border ${STATUS_STYLES[d.status]}`}
             >
@@ -457,44 +467,44 @@ export default function DecisionDetailPage() {
               </span>
             )}
           </div>
-        </div>
-
-        {/* Actions */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <button
-            type="button"
-            onClick={() => setEditing(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md border border-border text-foreground hover:bg-accent"
-          >
-            <span className="material-icons text-base">edit</span>
-            Edit
-          </button>
-          {d.status === 'accepted' && (
+        }
+        actions={
+          <div className="flex items-center gap-2 flex-wrap">
             <button
               type="button"
-              onClick={() => router.push(`/portal/brain/decisions/new?supersedes=${id}`)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90"
+              onClick={() => setEditing(true)}
+              className={pBtnGhost}
             >
-              <span className="material-icons text-base">history</span>
-              Supersede
+              <span className="material-icons text-base">edit</span>
+              Edit
             </button>
-          )}
-          {d.status !== 'rejected' && (
-            <button
-              type="button"
-              onClick={() => { setRejectOpen(true); setRejectError(null); }}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md border border-rose-500/30 text-rose-600 dark:text-rose-400 hover:bg-rose-500/10"
-            >
-              <span className="material-icons text-base">cancel</span>
-              Reject
-            </button>
-          )}
-        </div>
-      </div>
+            {d.status === 'accepted' && (
+              <button
+                type="button"
+                onClick={() => router.push(`/portal/brain/decisions/new?supersedes=${id}`)}
+                className={pBtnPrimary}
+              >
+                <span className="material-icons text-base">history</span>
+                Supersede
+              </button>
+            )}
+            {d.status !== 'rejected' && (
+              <button
+                type="button"
+                onClick={() => { setRejectOpen(true); setRejectError(null); }}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-xl border border-rose-500/30 text-rose-600 dark:text-rose-400 hover:bg-rose-500/10"
+              >
+                <span className="material-icons text-base">cancel</span>
+                Reject
+              </button>
+            )}
+          </div>
+        }
+      />
 
       {/* Reject confirm */}
       {rejectOpen && (
-        <div className="bg-rose-500/5 border border-rose-500/30 rounded-lg p-4 space-y-3">
+        <div className="bg-rose-500/5 border border-rose-500/30 rounded-2xl p-4 space-y-3">
           <div className="flex items-center gap-2 text-sm text-rose-700 dark:text-rose-400 font-medium">
             <span className="material-icons text-base">warning</span>
             Reject this decision?
@@ -507,7 +517,7 @@ export default function DecisionDetailPage() {
             value={rejectReason}
             onChange={(e) => setRejectReason(e.target.value)}
             placeholder="Reason (optional)"
-            className="w-full px-3 py-2 text-sm bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+            className={pInput}
           />
           {rejectError && (
             <p className="text-xs text-rose-600 dark:text-rose-400 flex items-center gap-1">
@@ -520,7 +530,7 @@ export default function DecisionDetailPage() {
               type="button"
               onClick={handleReject}
               disabled={rejecting}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md bg-rose-600 text-white hover:bg-rose-700 disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-xl bg-rose-600 text-white hover:bg-rose-700 disabled:opacity-50"
             >
               {rejecting && <span className="material-icons animate-spin text-base">progress_activity</span>}
               Confirm reject
@@ -528,7 +538,7 @@ export default function DecisionDetailPage() {
             <button
               type="button"
               onClick={() => { setRejectOpen(false); setRejectError(null); setRejectReason(''); }}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md border border-border text-foreground hover:bg-accent"
+              className={pBtnGhost}
             >
               Cancel
             </button>
@@ -576,7 +586,7 @@ export default function DecisionDetailPage() {
       )}
 
       {/* Decision — most prominent */}
-      <section className="bg-primary/5 border border-primary/20 rounded-lg p-5">
+      <section className="bg-primary/5 border border-primary/20 rounded-2xl p-5">
         <div className="text-xs font-medium text-primary mb-2 flex items-center gap-1.5 uppercase tracking-wide">
           <span className="material-icons text-base">check_circle</span>
           Decision
@@ -633,7 +643,7 @@ function Section({
   onToggle?: () => void;
 }) {
   return (
-    <section className="bg-card border border-border rounded-lg p-5">
+    <section className="bg-card border border-border rounded-2xl p-5">
       <div className="flex items-center justify-between mb-2">
         <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
           <span className="material-icons text-base text-primary">{icon}</span>

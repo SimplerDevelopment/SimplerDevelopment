@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { RelatedModulesStrip } from '@/components/portal/billing/RelatedModulesStrip';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnPrimary } from '@/components/portal/portal-ui';
 
 interface Campaign {
   id: number;
@@ -63,19 +65,20 @@ export default function PortalEmailPage() {
 
   return (
     <div className="max-w-5xl mx-auto space-y-8">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Email Marketing</h1>
-          <p className="text-muted-foreground mt-1">Manage your campaigns and subscriber lists.</p>
-        </div>
-        <Link
-          href="/portal/email/campaigns/new"
-          className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors shrink-0"
-        >
-          <span className="material-icons text-base">add</span>
-          New Campaign
-        </Link>
-      </div>
+      <PortalPageHeader
+        eyebrow="Marketing"
+        title="Email Marketing"
+        subtitle="Manage your campaigns and subscriber lists."
+        actions={
+          <Link
+            href="/portal/email/campaigns/new"
+            className={pBtnPrimary}
+          >
+            <span className="material-icons text-base">add</span>
+            New Campaign
+          </Link>
+        }
+      />
 
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -85,50 +88,50 @@ export default function PortalEmailPage() {
           { label: 'Campaigns Sent', value: sentCampaigns.length, icon: 'send', href: '/portal/email/campaigns' },
           { label: 'Avg Open Rate', value: `${avgOpenRate}%`, icon: 'drafts', href: null },
         ].map(stat => (
-          <div key={stat.label} className="bg-card border border-border rounded-lg p-4">
+          <div key={stat.label} className="bg-card border border-border rounded-2xl p-4">
             <div className="flex items-center gap-1.5 text-muted-foreground mb-1">
               <span className="material-icons text-sm">{stat.icon}</span>
               <span className="text-xs">{stat.label}</span>
             </div>
-            <p className="text-2xl font-bold text-foreground">{loading ? '—' : stat.value}</p>
+            <p className="text-2xl font-display font-extrabold tracking-[-0.02em] text-foreground">{loading ? '—' : stat.value}</p>
           </div>
         ))}
       </div>
 
       {/* Quick nav */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Link href="/portal/email/campaigns/new" className="bg-card border border-border rounded-lg p-5 hover:border-primary transition-colors group">
+        <Link href="/portal/email/campaigns/new" className="bg-card border border-border rounded-2xl p-5 hover:border-primary transition-colors group">
           <div className="flex items-center gap-3">
             <span className="material-icons text-2xl text-primary">add_circle</span>
             <div>
-              <p className="font-semibold text-foreground group-hover:text-primary transition-colors">New Campaign</p>
+              <p className="font-display font-extrabold tracking-[-0.01em] text-foreground group-hover:text-primary transition-colors">New Campaign</p>
               <p className="text-sm text-muted-foreground">Create and send</p>
             </div>
           </div>
         </Link>
-        <Link href="/portal/email/templates" className="bg-card border border-border rounded-lg p-5 hover:border-primary transition-colors group">
+        <Link href="/portal/email/templates" className="bg-card border border-border rounded-2xl p-5 hover:border-primary transition-colors group">
           <div className="flex items-center gap-3">
             <span className="material-icons text-2xl text-primary">dynamic_feed</span>
             <div>
-              <p className="font-semibold text-foreground group-hover:text-primary transition-colors">Templates</p>
+              <p className="font-display font-extrabold tracking-[-0.01em] text-foreground group-hover:text-primary transition-colors">Templates</p>
               <p className="text-sm text-muted-foreground">Reusable email designs</p>
             </div>
           </div>
         </Link>
-        <Link href="/portal/email/segments" className="bg-card border border-border rounded-lg p-5 hover:border-primary transition-colors group">
+        <Link href="/portal/email/segments" className="bg-card border border-border rounded-2xl p-5 hover:border-primary transition-colors group">
           <div className="flex items-center gap-3">
             <span className="material-icons text-2xl text-primary">filter_alt</span>
             <div>
-              <p className="font-semibold text-foreground group-hover:text-primary transition-colors">Segments</p>
+              <p className="font-display font-extrabold tracking-[-0.01em] text-foreground group-hover:text-primary transition-colors">Segments</p>
               <p className="text-sm text-muted-foreground">Target specific audiences</p>
             </div>
           </div>
         </Link>
-        <Link href="/portal/email/analytics" className="bg-card border border-border rounded-lg p-5 hover:border-primary transition-colors group">
+        <Link href="/portal/email/analytics" className="bg-card border border-border rounded-2xl p-5 hover:border-primary transition-colors group">
           <div className="flex items-center gap-3">
             <span className="material-icons text-2xl text-primary">analytics</span>
             <div>
-              <p className="font-semibold text-foreground group-hover:text-primary transition-colors">Analytics</p>
+              <p className="font-display font-extrabold tracking-[-0.01em] text-foreground group-hover:text-primary transition-colors">Analytics</p>
               <p className="text-sm text-muted-foreground">Performance insights</p>
             </div>
           </div>
@@ -136,9 +139,9 @@ export default function PortalEmailPage() {
       </div>
 
       {/* Recent campaigns */}
-      <div className="bg-card border border-border rounded-lg overflow-hidden">
+      <div className="bg-card border border-border rounded-2xl overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-          <h2 className="font-semibold text-foreground">Recent Campaigns</h2>
+          <h2 className="font-display font-extrabold tracking-[-0.01em] text-foreground">Recent Campaigns</h2>
           <Link href="/portal/email/campaigns" className="text-sm text-primary hover:underline">View all</Link>
         </div>
         {loading ? (

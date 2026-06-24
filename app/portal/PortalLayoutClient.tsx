@@ -41,12 +41,17 @@ interface PortalLayoutClientProps {
 
 export default function PortalLayoutClient({ children, apps, entitlements }: PortalLayoutClientProps) {
   const pathname = usePathname();
-  // Pre-auth pages render without portal chrome (no sidebar/topbar).
+  // Pre-auth pages render without portal chrome (no sidebar/topbar). Onboarding
+  // joins them: it renders its own full-bleed split-screen shell (stepper rail
+  // + content), so the portal sidebar/topbar would only fight it.
   const isLoginPage =
     pathname === '/portal/login' ||
     pathname === '/portal/signup' ||
     pathname === '/portal/forgot-password' ||
-    pathname === '/portal/reset-password';
+    pathname === '/portal/reset-password' ||
+    pathname === '/portal/mobile-auth' ||
+    pathname.startsWith('/portal/invite/') ||
+    pathname === '/portal/onboarding';
   const isEditorRoute = /\/portal\/websites\/\d+\/(posts\/|navigation)|\/portal\/tools\/pitch-decks\/\d+/.test(pathname);
   const [previewMode, setPreviewMode] = useState(false);
 

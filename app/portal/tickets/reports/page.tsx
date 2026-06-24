@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pCard, pBtnGhost, pSectionTitle } from '@/components/portal/portal-ui';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -71,11 +73,11 @@ function StatCard({
   sub?: string;
 }) {
   return (
-    <div className="bg-card border border-border rounded-xl p-5 flex items-start gap-4">
+    <div className={`${pCard} p-5 flex items-start gap-4`}>
       <span className="material-icons text-2xl text-primary mt-0.5">{icon}</span>
       <div>
         <p className="text-xs text-muted-foreground uppercase tracking-wide font-medium">{label}</p>
-        <p className="text-2xl font-bold text-foreground mt-0.5">{value}</p>
+        <p className="font-display text-2xl font-extrabold tracking-[-0.02em] text-foreground mt-0.5">{value}</p>
         {sub && <p className="text-xs text-muted-foreground mt-0.5">{sub}</p>}
       </div>
     </div>
@@ -84,7 +86,7 @@ function StatCard({
 
 function EmptyState({ message }: { message: string }) {
   return (
-    <div className="bg-card border border-border rounded-xl p-10 text-center text-sm text-muted-foreground">
+    <div className={`${pCard} p-10 text-center text-sm text-muted-foreground`}>
       {message}
     </div>
   );
@@ -114,7 +116,7 @@ function VolumeTrendChart({ trend }: { trend: TrendDay[] }) {
   );
 
   return (
-    <div className="bg-card border border-border rounded-xl p-4">
+    <div className={`${pCard} p-4`}>
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto" role="img" aria-label="Ticket volume trend">
         {/* Grid lines + y labels */}
         {yTicks.map((t) => (
@@ -207,7 +209,7 @@ function BreakdownBars({
 }) {
   if (entries.length === 0) return <EmptyState message="No data." />;
   return (
-    <div className="bg-card border border-border rounded-xl p-4 space-y-3">
+    <div className={`${pCard} p-4 space-y-3`}>
       {entries.map(({ label, value }) => {
         const pct = total > 0 ? Math.round((value / total) * 100) : 0;
         const color = colorMap?.[label.toLowerCase()] ?? 'hsl(var(--primary, 222 47% 51%))';
@@ -278,23 +280,17 @@ export default function TicketReportsPage() {
   return (
     <div className="space-y-6 max-w-5xl">
       {/* Header + nav */}
-      <div className="flex items-start sm:items-center justify-between gap-3 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Help-Desk Reports</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Response times, resolution stats, and ticket volume for your support queue.
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <Link
-            href="/portal/tickets"
-            className="flex items-center gap-1.5 px-3 py-1.5 border border-border rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-          >
+      <PortalPageHeader
+        eyebrow="Support"
+        title="Help-Desk Reports"
+        subtitle="Response times, resolution stats, and ticket volume for your support queue."
+        actions={
+          <Link href="/portal/tickets" className={pBtnGhost}>
             <span className="material-icons text-base">arrow_back</span>
             All Tickets
           </Link>
-        </div>
-      </div>
+        }
+      />
 
       {/* Tab strip */}
       <nav className="flex gap-1 border-b border-border">
@@ -358,7 +354,7 @@ export default function TicketReportsPage() {
 
           {/* ── Response-time cards ────────────────────────────────────────── */}
           <section>
-            <h2 className="text-lg font-semibold text-foreground mb-1">Response Times</h2>
+            <h2 className={`${pSectionTitle} mb-1`}>Response Times</h2>
             <p className="text-sm text-muted-foreground mb-3">
               Measured from ticket creation to first staff reply / resolution.
               Based on {data.firstResponse.sampleSize} responded and{' '}
@@ -392,7 +388,7 @@ export default function TicketReportsPage() {
           <section>
             <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
               <div>
-                <h2 className="text-lg font-semibold text-foreground">Ticket Volume</h2>
+                <h2 className={`${pSectionTitle}`}>Ticket Volume</h2>
                 <p className="text-sm text-muted-foreground">
                   Tickets opened vs. resolved per day over the last {data.days} days.
                 </p>
@@ -400,7 +396,7 @@ export default function TicketReportsPage() {
               <select
                 value={days}
                 onChange={(e) => setDays(parseInt(e.target.value, 10))}
-                className="px-3 py-1.5 rounded border border-border bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                className="appearance-none rounded-xl border border-border bg-card px-3.5 py-2 pr-10 text-sm text-foreground outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/15 w-auto"
               >
                 <option value={7}>Last 7 days</option>
                 <option value={14}>Last 14 days</option>
@@ -414,7 +410,7 @@ export default function TicketReportsPage() {
 
           {/* ── Status breakdown ──────────────────────────────────────────── */}
           <section>
-            <h2 className="text-lg font-semibold text-foreground mb-1">By Status</h2>
+            <h2 className={`${pSectionTitle} mb-1`}>By Status</h2>
             <p className="text-sm text-muted-foreground mb-3">All-time ticket counts per status.</p>
             <BreakdownBars
               entries={statusEntries}
@@ -424,7 +420,7 @@ export default function TicketReportsPage() {
 
           {/* ── Priority breakdown (open only) ────────────────────────────── */}
           <section>
-            <h2 className="text-lg font-semibold text-foreground mb-1">Open Tickets by Priority</h2>
+            <h2 className={`${pSectionTitle} mb-1`}>Open Tickets by Priority</h2>
             <p className="text-sm text-muted-foreground mb-3">
               Distribution of currently-open tickets across priority levels.
             </p>

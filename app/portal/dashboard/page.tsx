@@ -20,6 +20,8 @@ import { WIDGET_COMPONENTS } from '@/components/portal/dashboard/widgets';
 import WidgetBoard from '@/components/portal/dashboard/WidgetBoard';
 import { WidgetSkeleton } from '@/components/portal/dashboard/skeletons';
 import GetStartedChecklist from '@/components/portal/onboarding/GetStartedChecklist';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnPrimary, pBtnGhost } from '@/components/portal/portal-ui';
 
 const SERVICE_META: Record<string, { icon: string; color: string; bgColor: string; href: string; description: string; cta: string }> = {
   cms: { icon: 'language', color: 'text-blue-600', bgColor: 'bg-blue-50 dark:bg-blue-950/40', href: '/portal/websites', description: 'Drag-and-drop website builder with unlimited pages, blog, and SEO tools.', cta: 'Build your website' },
@@ -121,6 +123,10 @@ export default async function PortalDashboardPage() {
     activeServiceCategories,
     brainEnabled,
   );
+  // True board membership — a widget can be "not hidden" yet not on the board
+  // (default-off + unentitled). The customize toggle must reflect this, not just
+  // the hidden set, or it lies about off-by-default widgets.
+  const visibleIds = new Set(visibleWidgets.map((w) => w.id));
 
   // Get deeper stats for active services
   const siteIds = websiteSites[0]?.count ? (await safe(db.select({ id: clientWebsites.id }).from(clientWebsites)
@@ -188,24 +194,22 @@ export default async function PortalDashboardPage() {
   return (
     <div className="max-w-6xl mx-auto space-y-8">
       {/* Header */}
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+      <PortalPageHeader
+        eyebrow="Workspace"
+        title={
+          <span className="flex items-center gap-2">
             {brainEnabled && <span className="material-icons text-primary">psychology</span>}
             Welcome back{client.company ? `, ${client.company}` : ''}!
-          </h1>
-          <p className="text-muted-foreground mt-1">Here&apos;s what&apos;s happening across your business.</p>
-        </div>
-        {brainEnabled && (
-          <Link
-            href="/portal/brain/settings"
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md border border-border text-foreground hover:bg-accent shrink-0"
-          >
+          </span>
+        }
+        subtitle="Here's what's happening across your business."
+        actions={brainEnabled ? (
+          <Link href="/portal/brain/settings" className={`${pBtnGhost} shrink-0`}>
             <span className="material-icons text-base">settings</span>
             Brain Settings
           </Link>
-        )}
-      </div>
+        ) : undefined}
+      />
 
       {/* Post-onboarding get-started checklist — client component, self-hiding */}
       <GetStartedChecklist />
@@ -229,7 +233,7 @@ export default async function PortalDashboardPage() {
               const stats = getServiceStats(svc.category);
               return (
                 <Link key={svc.id} href={meta.href}
-                  className="bg-card border border-border rounded-xl p-5 hover:border-primary/50 hover:shadow-sm transition-all group"
+                  className="bg-card border border-border rounded-2xl p-5 hover:border-primary/50 hover:shadow-sm transition-all group"
                 >
                   <div className="flex items-center gap-3 mb-4">
                     <div className={`w-10 h-10 rounded-lg ${meta.bgColor} flex items-center justify-center`}>
@@ -245,7 +249,7 @@ export default async function PortalDashboardPage() {
                     <div className="flex gap-6">
                       {stats.map(st => (
                         <div key={st.label}>
-                          <p className="text-lg font-bold text-foreground">{st.value}</p>
+                          <p className="font-display text-lg font-extrabold tracking-[-0.02em] text-foreground">{st.value}</p>
                           <p className="text-xs text-muted-foreground">{st.label}</p>
                         </div>
                       ))}
@@ -270,7 +274,7 @@ export default async function PortalDashboardPage() {
           icon: w.icon,
           href: w.href,
           description: w.description,
-          visible: !dashboardPrefs.hidden?.includes(w.id),
+          visible: visibleIds.has(w.id),
           solution: w.solution,
         }))}
         initialPrefs={dashboardPrefs}
@@ -289,20 +293,18 @@ export default async function PortalDashboardPage() {
 
       {/* Bundle Upsell */}
       {showBundleUpsell && bundleService && (
-        <div className="bg-gradient-to-r from-primary/10 via-purple-500/10 to-pink-500/10 border border-primary/20 rounded-xl p-6">
+        <div className="bg-gradient-to-r from-primary/10 via-emerald-500/10 to-amber-500/10 border border-primary/20 rounded-2xl p-6">
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div>
               <div className="flex items-center gap-2 mb-2">
                 <span className="material-icons text-primary">auto_awesome</span>
-                <h3 className="font-bold text-foreground">Save ${(bundleSavings / 100).toFixed(0)}/mo with All-In-One</h3>
+                <h3 className="font-display text-lg font-extrabold tracking-[-0.02em] text-foreground">Save ${(bundleSavings / 100).toFixed(0)}/mo with All-In-One</h3>
               </div>
               <p className="text-sm text-muted-foreground max-w-lg">
                 You&apos;re using {activeServices.length} services individually. Get all 7 tools for ${(bundleService.price / 100).toFixed(0)}/mo with 900K pooled AI tokens and higher usage limits.
               </p>
             </div>
-            <Link href={`/portal/services/${bundleService.id}/request`}
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors shrink-0"
-            >
+            <Link href={`/portal/services/${bundleService.id}/request`} className={`${pBtnPrimary} shrink-0`}>
               <span className="material-icons text-base">upgrade</span>
               Switch to All-In-One
             </Link>
@@ -321,7 +323,7 @@ export default async function PortalDashboardPage() {
             {availableServices.slice(0, 6).map(svc => {
               const meta = SERVICE_META[svc.category] ?? SERVICE_META.hosting;
               return (
-                <div key={svc.id} className="bg-card border border-border rounded-xl p-5 flex flex-col">
+                <div key={svc.id} className="bg-card border border-border rounded-2xl p-5 flex flex-col">
                   <div className="flex items-center gap-3 mb-3">
                     <div className={`w-10 h-10 rounded-lg ${meta.bgColor} flex items-center justify-center`}>
                       <span className={`material-icons text-xl ${meta.color}`}>{meta.icon}</span>
@@ -348,18 +350,18 @@ export default async function PortalDashboardPage() {
       )}
 
       {/* Quick Actions */}
-      <div className="bg-card border border-border rounded-xl p-6">
-        <h2 className="font-semibold text-foreground mb-4">Quick Actions</h2>
+      <div className="bg-card border border-border rounded-2xl p-6">
+        <h2 className="font-display text-base font-extrabold tracking-[-0.01em] text-foreground mb-4">Quick Actions</h2>
         <div className="flex flex-wrap gap-3">
-          <Link href="/portal/tickets/new" className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors">
+          <Link href="/portal/tickets/new" className={pBtnPrimary}>
             <span className="material-icons text-base">add</span>
             Open Support Ticket
           </Link>
-          <Link href="/portal/projects" className="flex items-center gap-2 px-4 py-2 border border-border rounded-lg text-sm font-medium text-foreground hover:bg-accent transition-colors">
+          <Link href="/portal/projects" className={pBtnGhost}>
             <span className="material-icons text-base">view_kanban</span>
             View Projects
           </Link>
-          <Link href="/portal/services" className="flex items-center gap-2 px-4 py-2 border border-border rounded-lg text-sm font-medium text-foreground hover:bg-accent transition-colors">
+          <Link href="/portal/services" className={pBtnGhost}>
             <span className="material-icons text-base">storefront</span>
             Browse Services
           </Link>

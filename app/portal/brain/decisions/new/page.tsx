@@ -15,12 +15,15 @@
  * `entityType: 'decision', entityId: <newId>, topicIds: [...]`. Redirects to
  * the new decision's detail page on success.
  */
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import DecisionForm, {
   type DecisionFormInitial,
   type DecisionFormSubmitPayload,
 } from '@/components/brain/DecisionForm';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnGhost } from '@/components/portal/portal-ui';
 
 interface DetailResponse {
   success: boolean;
@@ -177,7 +180,7 @@ export default function NewDecisionPage() {
 
   if (isSupersede && loadingInitial) {
     return (
-      <div className="max-w-3xl mx-auto py-12 flex items-center justify-center text-muted-foreground text-sm">
+      <div className="max-w-3xl mx-auto py-12 flex items-center justify-center gap-2 text-muted-foreground text-sm">
         <span className="material-icons animate-spin mr-2">progress_activity</span>
         Loading predecessor…
       </div>
@@ -187,7 +190,7 @@ export default function NewDecisionPage() {
   if (isSupersede && loadError) {
     return (
       <div className="max-w-3xl mx-auto py-12">
-        <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-4 text-sm text-destructive">
+        <div className="bg-destructive/10 border border-destructive/30 rounded-xl p-4 text-sm text-destructive">
           <div className="flex items-center gap-2 font-medium mb-1">
             <span className="material-icons text-base">error_outline</span>
             Couldn&apos;t load the decision being superseded
@@ -199,17 +202,27 @@ export default function NewDecisionPage() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto py-8 px-4 space-y-6">
-      <div>
-        <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
-          <span className="material-icons text-primary">{isSupersede ? 'history' : 'add_circle'}</span>
-          {isSupersede ? 'Supersede decision' : 'Record a decision'}
-        </h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          {isSupersede
+    <div className="max-w-3xl mx-auto py-8 space-y-6">
+      <div className="mb-2">
+        <Link
+          href={isSupersede ? `/portal/brain/decisions/${supersedesId}` : '/portal/brain/decisions'}
+          className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground mb-4"
+        >
+          <span className="material-icons text-sm">chevron_left</span>
+          {isSupersede ? 'Back to decision' : 'Decisions'}
+        </Link>
+        <PortalPageHeader
+          eyebrow="Company Brain"
+          title={
+            <span className="flex items-center gap-2">
+              <span className="material-icons text-primary">{isSupersede ? 'history' : 'add_circle'}</span>
+              {isSupersede ? 'Supersede decision' : 'Record a decision'}
+            </span>
+          }
+          subtitle={isSupersede
             ? 'Create a new decision that replaces the previous one. The predecessor will be marked as superseded.'
             : 'Capture the context, what was decided, why, and what alternatives were considered. Decisions are immutable history — to "change" one later, you supersede it.'}
-        </p>
+        />
       </div>
 
       <DecisionForm

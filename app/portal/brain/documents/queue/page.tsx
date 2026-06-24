@@ -23,6 +23,7 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { RequiredReadForPersonRow, AckForPersonRow } from '@/lib/brain/document-acks';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
 
 interface QueueResponse {
   success: boolean;
@@ -152,15 +153,16 @@ export default function BrainDocumentsQueuePage() {
         <span>My reading queue</span>
       </nav>
 
-      <header>
-        <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
-          <span className="material-icons text-primary">assignment_late</span>
-          My reading queue
-        </h1>
-        <p className="text-xs text-muted-foreground mt-0.5">
-          Documents you&apos;re required to read, plus your recent acknowledgments.
-        </p>
-      </header>
+      <PortalPageHeader
+        eyebrow="Brain"
+        title={
+          <span className="flex items-center gap-2">
+            <span className="material-icons text-primary">assignment_late</span>
+            My reading queue
+          </span>
+        }
+        subtitle="Documents you're required to read, plus your recent acknowledgments."
+      />
 
       {hint && (
         <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-4 text-sm text-amber-900 dark:text-amber-200">
@@ -337,7 +339,7 @@ function QueueSection({
                 type="button"
                 onClick={() => onMarkRead(r)}
                 disabled={disabled || actingId === r.requiredReadId || r.currentVersionToReadId === null}
-                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 shrink-0"
+                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold rounded-xl bg-foreground text-background hover:shadow-sm disabled:opacity-50 shrink-0"
               >
                 {actingId === r.requiredReadId
                   ? <span className="material-icons text-sm animate-spin">progress_activity</span>

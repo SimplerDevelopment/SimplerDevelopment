@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import type { StepProps } from './types';
 import { FEATURE_CATALOG } from '@/lib/onboarding/types';
+import { obPrimaryBtn } from '../ob-styles';
 
 interface Particle {
   id: number;
@@ -39,58 +40,59 @@ export function StepDone({ state, finish }: StepProps) {
   }, [finish]);
 
   return (
-    <div className="relative text-center overflow-hidden">
+    <div className="relative flex flex-col items-center justify-center text-center overflow-hidden py-4">
       {/* Confetti */}
       <div className="pointer-events-none absolute inset-0 -top-4">
         {particles.map((p) => (
           <motion.span
             key={p.id}
-            className="absolute block h-2 w-2 rounded-sm"
+            className="absolute block h-[14px] w-[8px] rounded-sm opacity-[0.85]"
             style={{ left: `${p.left}%`, backgroundColor: p.color }}
-            initial={{ y: -20, opacity: 0, rotate: 0 }}
-            animate={{ y: 400, opacity: [0, 1, 1, 0], rotate: p.rotate }}
-            transition={{ duration: 2.2, delay: p.delay, ease: 'easeOut' }}
+            initial={{ y: -40, opacity: 0, rotate: 0 }}
+            animate={{ y: 420, opacity: [0, 0.9, 0.9, 0], rotate: p.rotate }}
+            transition={{ duration: 3.2, delay: p.delay, ease: 'linear' }}
           />
         ))}
       </div>
 
+      {/* Emerald badge */}
       <motion.div
         initial={{ scale: 0.6, rotate: -10, opacity: 0 }}
         animate={{ scale: 1, rotate: 0, opacity: 1 }}
         transition={{ duration: 0.45, ease: 'backOut' }}
-        className="relative mx-auto mb-6 inline-flex h-24 w-24 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-400 to-emerald-600 text-white shadow-lg shadow-emerald-500/30"
+        className="relative mb-5 grid h-[84px] w-[84px] place-items-center rounded-full bg-emerald-500/[0.14]"
       >
-        <span className="material-icons" style={{ fontSize: 56 }}>auto_awesome</span>
+        <span className="material-icons text-emerald-500" style={{ fontSize: 46 }}>auto_awesome</span>
       </motion.div>
 
-      <h2 className="text-2xl font-bold">Nicely done.</h2>
-      <p className="mt-3 text-sm text-muted-foreground max-w-md mx-auto">
+      <h2 className="text-[2.1rem] font-extrabold tracking-[-0.028em] leading-[1.06]">Nicely done.</h2>
+      <p className="mt-3 text-[15px] text-muted-foreground max-w-[46ch] mx-auto leading-relaxed">
         Your workspace is dialed in.{firstFeature ? ` First stop: ${firstFeature.label}.` : ''} You can change anything from <strong>Settings → Branding</strong>.
       </p>
 
       {pickedMeta.length > 0 && (
-        <div className="mt-6 flex flex-wrap items-center justify-center gap-2 max-w-md mx-auto" data-testid="onboarding-done-picks">
+        <div className="mt-[18px] flex flex-wrap items-center justify-center gap-2 max-w-md mx-auto" data-testid="onboarding-done-picks">
           {pickedMeta.slice(0, 6).map((f) => (
             <span
               key={f.id}
-              className="inline-flex items-center gap-1 rounded-full border border-border bg-background/60 px-3 py-1 text-xs"
+              className="inline-flex items-center gap-1.5 rounded-full bg-muted px-3 py-1.5 text-[12.5px] font-semibold text-foreground"
             >
-              <span className="material-icons text-sm text-primary">{f.icon}</span>
+              <span className="material-icons text-[14px] text-primary">{f.icon}</span>
               {f.label}
             </span>
           ))}
         </div>
       )}
 
-      <div className="mt-8 flex flex-col sm:flex-row gap-2 sm:gap-3 justify-center">
+      <div className="mt-[26px]">
         <button
           type="button"
           onClick={() => void finish()}
           data-testid="onboarding-done-go-dashboard"
-          className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90 transition-colors"
+          className={obPrimaryBtn}
         >
           Take me to my dashboard
-          <span className="material-icons text-base">east</span>
+          <span className="material-icons text-[18px]">arrow_forward</span>
         </button>
       </div>
     </div>

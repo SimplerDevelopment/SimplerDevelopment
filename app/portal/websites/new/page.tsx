@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { slugify } from '@/lib/publishing/slug';
+import { pBtnPrimary, pBtnGhost, pCard, pInput } from '@/components/portal/portal-ui';
 
 const WEBSITE_TYPES = [
   { value: 'business', label: 'Business Website', icon: 'business', description: 'Company homepage, about, services, contact' },
@@ -80,7 +81,7 @@ export default function PortalCmsNewPage() {
       {step === 1 && (
         <div className="space-y-4">
           <div>
-            <h1 className="text-xl font-bold text-foreground">What kind of website are you building?</h1>
+            <h1 className="text-xl font-display font-extrabold tracking-[-0.02em] text-foreground">What kind of website are you building?</h1>
             <p className="text-muted-foreground text-sm mt-1">This helps us set things up for you, but you can change it anytime.</p>
           </div>
           <div className="grid sm:grid-cols-2 gap-3">
@@ -88,7 +89,7 @@ export default function PortalCmsNewPage() {
               <button
                 key={type.value}
                 onClick={() => { setForm(f => ({ ...f, websiteType: type.value })); setStep(2); }}
-                className={`flex items-start gap-3 p-4 rounded-xl border text-left transition-all hover:border-primary/60 hover:bg-primary/5 group ${
+                className={`flex items-start gap-3 p-4 rounded-2xl border text-left transition-all hover:border-primary/60 hover:bg-primary/5 group ${
                   form.websiteType === type.value ? 'border-primary bg-primary/5' : 'border-border bg-card'
                 }`}
               >
@@ -109,10 +110,10 @@ export default function PortalCmsNewPage() {
       {step === 2 && (
         <div className="space-y-5">
           <div>
-            <h1 className="text-xl font-bold text-foreground">Name your website</h1>
+            <h1 className="text-xl font-display font-extrabold tracking-[-0.02em] text-foreground">Name your website</h1>
             <p className="text-muted-foreground text-sm mt-1">This is just an internal label — your visitors won&apos;t see it.</p>
           </div>
-          <div className="bg-card border border-border rounded-xl p-5 space-y-4">
+          <div className={`${pCard} p-5 space-y-4`}>
             <div>
               <label className="block text-sm font-medium text-foreground mb-1.5">Website name *</label>
               <input
@@ -126,7 +127,7 @@ export default function PortalCmsNewPage() {
                   form.websiteType === 'portfolio' ? 'e.g. My Portfolio' :
                   'e.g. My Website'
                 }
-                className="w-full px-3 py-2.5 bg-background border border-border rounded-lg text-foreground outline-none focus:border-primary text-sm"
+                className={`${pInput} w-full`}
               />
             </div>
             <div>
@@ -136,19 +137,19 @@ export default function PortalCmsNewPage() {
                 onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
                 rows={2}
                 placeholder="What is this website for?"
-                className="w-full px-3 py-2.5 bg-background border border-border rounded-lg text-foreground outline-none focus:border-primary text-sm resize-none"
+                className={`${pInput} w-full resize-none`}
               />
             </div>
           </div>
           {error && <p className="text-sm text-red-600">{error}</p>}
           <div className="flex gap-3">
-            <button onClick={() => setStep(1)} className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground border border-border rounded-lg bg-card hover:bg-accent transition-colors">
+            <button onClick={() => setStep(1)} className={pBtnGhost}>
               Back
             </button>
             <button
               onClick={() => { if (!form.name) { setError('Please enter a name.'); return; } setError(''); setStep(3); }}
               disabled={!form.name}
-              className="flex-1 px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors"
+              className={`${pBtnPrimary} flex-1 disabled:opacity-50`}
             >
               Continue
             </button>
@@ -160,12 +161,12 @@ export default function PortalCmsNewPage() {
       {step === 3 && (
         <div className="space-y-5">
           <div>
-            <h1 className="text-xl font-bold text-foreground">Your website address</h1>
+            <h1 className="text-xl font-display font-extrabold tracking-[-0.02em] text-foreground">Your website address</h1>
             <p className="text-muted-foreground text-sm mt-1">Your site will be live at a simplerdevelopment.com subdomain. You can add a custom domain later.</p>
           </div>
 
           {/* Subdomain */}
-          <div className="bg-card border border-border rounded-xl p-5 space-y-4">
+          <div className={`${pCard} p-5 space-y-4`}>
             <div>
               <label className="block text-sm font-medium text-foreground mb-1.5">Subdomain</label>
               <div className="flex items-center gap-0">
@@ -203,7 +204,7 @@ export default function PortalCmsNewPage() {
           </div>
 
           {/* Summary */}
-          <div className="bg-muted/30 border border-border rounded-xl p-4 space-y-2 text-sm">
+          <div className="bg-muted/30 border border-border rounded-2xl p-4 space-y-2 text-sm">
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Summary</p>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Type</span>
@@ -228,13 +229,13 @@ export default function PortalCmsNewPage() {
           {error && <p className="text-sm text-red-600">{error}</p>}
 
           <div className="flex gap-3">
-            <button onClick={() => setStep(2)} className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground border border-border rounded-lg bg-card hover:bg-accent transition-colors">
+            <button onClick={() => setStep(2)} className={pBtnGhost}>
               Back
             </button>
             <button
               onClick={handleCreate}
               disabled={saving}
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors"
+              className={`${pBtnPrimary} flex-1 disabled:opacity-50`}
             >
               {saving && <span className="material-icons text-base animate-spin">refresh</span>}
               {saving ? 'Creating...' : 'Create Website'}
@@ -242,7 +243,7 @@ export default function PortalCmsNewPage() {
           </div>
 
           {/* Request help */}
-          <div className="flex items-center gap-3 p-4 border border-border rounded-xl bg-card">
+          <div className={`${pCard} flex items-center gap-3 p-4`}>
             <span className="material-icons text-muted-foreground">support_agent</span>
             <div className="flex-1 text-sm">
               <p className="font-medium text-foreground">Need a hand?</p>

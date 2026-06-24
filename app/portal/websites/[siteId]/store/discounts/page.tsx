@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { formatMoney } from '@/lib/utils/money';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnPrimary, pBtnGhost, pCard } from '@/components/portal/portal-ui';
 
 interface Discount {
   id: number;
@@ -153,7 +155,7 @@ export default function DiscountsPage() {
   };
 
   const inputClass =
-    'w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40';
+    'w-full px-3 py-2 rounded-xl border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40';
 
   if (loading) {
     return (
@@ -166,19 +168,17 @@ export default function DiscountsPage() {
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Discount Codes</h1>
-          <p className="text-muted-foreground text-sm mt-1">Create and manage discount codes for your store.</p>
-        </div>
-        <button
-          onClick={openCreate}
-          className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
-        >
-          <span className="material-icons text-base">add</span>
-          Add Discount
-        </button>
-      </div>
+      <PortalPageHeader
+        eyebrow="Store"
+        title="Discount Codes"
+        subtitle="Create and manage discount codes for your store."
+        actions={
+          <button onClick={openCreate} className={pBtnPrimary}>
+            <span className="material-icons text-base">add</span>
+            Add Discount
+          </button>
+        }
+      />
 
       {/* Messages */}
       {error && !showModal && (
@@ -197,7 +197,7 @@ export default function DiscountsPage() {
       {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowModal(false)}>
-          <div className="bg-card border border-border rounded-xl shadow-xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-card border border-border rounded-2xl shadow-xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="px-6 py-4 border-b border-border flex items-center justify-between">
               <h2 className="font-semibold text-foreground">{editing ? 'Edit Discount' : 'New Discount'}</h2>
               <button onClick={() => setShowModal(false)} className="p-1 text-muted-foreground hover:text-foreground transition-colors">
@@ -316,14 +316,14 @@ export default function DiscountsPage() {
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="px-4 py-2 text-sm font-medium text-foreground bg-card border border-border rounded-lg hover:bg-accent transition-colors"
+                  className={pBtnGhost}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={saving}
-                  className="flex items-center gap-2 px-5 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+                  className={`${pBtnPrimary} disabled:opacity-50`}
                 >
                   {saving && <span className="material-icons text-base animate-spin">refresh</span>}
                   {editing ? 'Update' : 'Create'} Discount
@@ -336,13 +336,13 @@ export default function DiscountsPage() {
 
       {/* Discounts Table */}
       {discounts.length === 0 ? (
-        <div className="bg-card border border-border rounded-xl p-10 flex flex-col items-center text-center">
+        <div className="bg-card border border-border rounded-2xl p-10 flex flex-col items-center text-center">
           <span className="material-icons text-4xl text-muted-foreground/40 mb-2">sell</span>
           <h2 className="font-semibold text-foreground mb-1">No discount codes</h2>
           <p className="text-sm text-muted-foreground">Create your first discount code to offer promotions.</p>
         </div>
       ) : (
-        <div className="bg-card border border-border rounded-xl overflow-hidden">
+        <div className="bg-card border border-border rounded-2xl overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -359,7 +359,7 @@ export default function DiscountsPage() {
               </thead>
               <tbody className="divide-y divide-border">
                 {discounts.map((d) => (
-                  <tr key={d.id} className="hover:bg-muted/20 transition-colors">
+                  <tr key={d.id} className="hover:bg-accent/50 transition-colors">
                     <td className="px-4 py-3 font-mono font-medium text-foreground">{d.code}</td>
                     <td className="px-4 py-3 text-muted-foreground capitalize">{d.type === 'free_shipping' ? 'Free Ship' : d.type}</td>
                     <td className="px-4 py-3 text-foreground">
@@ -400,7 +400,7 @@ export default function DiscountsPage() {
                         </button>
                         <button
                           onClick={() => handleDelete(d.id)}
-                          className="p-1.5 rounded-md text-muted-foreground hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                          className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
                         >
                           <span className="material-icons text-base">delete</span>
                         </button>

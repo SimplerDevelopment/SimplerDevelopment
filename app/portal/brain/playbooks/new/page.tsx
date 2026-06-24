@@ -14,6 +14,8 @@ import PlaybookForm, {
   valuesToTriggerConfig,
   type PlaybookFormValues,
 } from '@/components/brain/PlaybookForm';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pCardPad } from '@/components/portal/portal-ui';
 
 interface TeamMember {
   userId: number;
@@ -77,18 +79,21 @@ export default function NewPlaybookPage() {
       <div>
         <Link
           href="/portal/brain/playbooks"
-          className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+          className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground mb-2"
         >
           <span className="material-icons text-sm">chevron_left</span>
           Playbooks
         </Link>
-        <h1 className="mt-1 text-2xl font-bold text-foreground flex items-center gap-2">
-          <span className="material-icons text-primary">play_circle</span>
-          New playbook
-        </h1>
-        <p className="text-sm text-muted-foreground mt-0.5">
-          Starts as a draft. Add steps in the next screen, then activate when ready.
-        </p>
+        <PortalPageHeader
+          eyebrow="Company Brain"
+          title={
+            <span className="flex items-center gap-2">
+              <span className="material-icons text-primary">play_circle</span>
+              New playbook
+            </span>
+          }
+          subtitle="Starts as a draft. Add steps in the next screen, then activate when ready."
+        />
       </div>
 
       {error && (
@@ -98,7 +103,7 @@ export default function NewPlaybookPage() {
         </div>
       )}
 
-      <section className="bg-card border border-border rounded-xl p-5">
+      <section className={pCardPad}>
         <PlaybookForm
           mode="create"
           team={team}

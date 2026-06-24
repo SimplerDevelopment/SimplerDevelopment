@@ -9,6 +9,7 @@ import TicketReplyForm from '@/components/portal/TicketReplyForm';
 import TicketStatusControl from '@/components/portal/TicketStatusControl';
 import TicketSlaBadge from '@/components/portal/TicketSlaBadge';
 import { SLA_BY_PRIORITY, type TicketPriority } from '@/lib/tickets/sla';
+import { pCard } from '@/components/portal/portal-ui';
 
 export default async function TicketDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
@@ -78,10 +79,10 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
       </div>
 
       {/* Ticket Header */}
-      <div className="bg-card border border-border rounded-xl p-6 space-y-4">
+      <div className={`${pCard} p-6 space-y-4`}>
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-xl font-bold text-foreground">{ticket.subject}</h1>
+            <h1 className="font-display text-xl font-extrabold tracking-[-0.02em] text-foreground">{ticket.subject}</h1>
             <p className="text-sm text-muted-foreground mt-1">
               Opened {new Date(ticket.createdAt).toLocaleDateString()} &bull; {ticket.category} &bull; #{ticket.number}
               {assigneeName && (
@@ -135,7 +136,7 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
           return (
             <div
               key={msg.id}
-              className={`bg-card border rounded-xl p-5 ${
+              className={`rounded-2xl bg-card border p-5 ${
                 msg.isInternal
                   ? 'border-yellow-200 bg-yellow-50'
                   : isStaffMsg
@@ -190,7 +191,7 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
       )}
 
       {ticket.status === 'closed' && (
-        <div className="bg-muted/50 border border-border rounded-xl p-4 text-center text-sm text-muted-foreground">
+        <div className="bg-muted/50 border border-border rounded-2xl p-4 text-center text-sm text-muted-foreground">
           This ticket is closed. <Link href="/portal/tickets/new" className="text-primary hover:underline">Open a new ticket</Link> if you need further help.
         </div>
       )}

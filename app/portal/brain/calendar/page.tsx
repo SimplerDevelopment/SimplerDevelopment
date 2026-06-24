@@ -2,6 +2,8 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnPrimary, pBtnGhost, pInput } from '@/components/portal/portal-ui';
 
 interface AgendaItem {
   kind: 'event' | 'task_due' | 'meeting' | 'relationship_review';
@@ -204,36 +206,31 @@ export default function BrainCalendarPage() {
 
   return (
     <div className="max-w-6xl mx-auto py-8 space-y-4">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
+      <PortalPageHeader
+        eyebrow="Company Brain"
+        title={
+          <span className="flex items-center gap-2">
             <span className="material-icons text-primary">calendar_month</span>
             Calendar
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Tasks, communications, relationship reviews, and scheduled events — all in one view. Click an empty day to schedule something.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Link
-            href="/portal/brain"
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md border border-border text-foreground hover:bg-accent"
-          >
-            <span className="material-icons text-base">arrow_back</span>
-            Brain
-          </Link>
-          <button
-            onClick={() => setShowCreate({ date: today })}
-            className="inline-flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90"
-          >
-            <span className="material-icons text-base">add</span>
-            New event
-          </button>
-        </div>
-      </div>
+          </span>
+        }
+        subtitle="Tasks, communications, relationship reviews, and scheduled events — all in one view. Click an empty day to schedule something."
+        actions={
+          <div className="flex items-center gap-2">
+            <Link href="/portal/brain" className={pBtnGhost}>
+              <span className="material-icons text-base">arrow_back</span>
+              Brain
+            </Link>
+            <button onClick={() => setShowCreate({ date: today })} className={pBtnPrimary}>
+              <span className="material-icons text-base">add</span>
+              New event
+            </button>
+          </div>
+        }
+      />
 
       {error && (
-        <div className="bg-destructive/10 border border-destructive/30 rounded-md p-3 text-sm text-destructive">
+        <div className="bg-destructive/10 border border-destructive/30 rounded-2xl p-4 text-sm text-destructive">
           {error}
         </div>
       )}
@@ -249,7 +246,7 @@ export default function BrainCalendarPage() {
           </button>
           <button
             onClick={() => setCursor(new Date())}
-            className="px-3 py-1 text-sm rounded-md border border-border hover:bg-accent"
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-card px-3 py-1.5 text-sm font-semibold text-foreground transition hover:border-foreground/25 hover:shadow-sm"
           >
             Today
           </button>
@@ -334,7 +331,7 @@ export default function BrainCalendarPage() {
       </div>
 
       {/* Coming-soon hint about Phase B/C */}
-      <div className="bg-muted/30 border border-border rounded-md p-3 text-xs text-muted-foreground">
+      <div className="bg-card border border-border rounded-2xl p-4 text-xs text-muted-foreground">
         <span className="material-icons text-sm align-text-bottom mr-1">info</span>
         Week and day views, drag-to-reschedule, and Google Calendar sync are coming in follow-up phases.
       </div>
@@ -460,7 +457,7 @@ function NewEventModal({
             onChange={(e) => setTitle(e.target.value)}
             required
             autoFocus
-            className="mt-1 w-full px-3 py-2 rounded-md border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+            className={`mt-1 ${pInput}`}
           />
         </div>
 
@@ -474,7 +471,7 @@ function NewEventModal({
                 const [y, m, d] = e.target.value.split('-').map((s) => parseInt(s, 10));
                 if (y && m && d) setDate(new Date(y, m - 1, d));
               }}
-              className="mt-1 w-full px-3 py-2 rounded-md border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+              className={`mt-1 ${pInput}`}
             />
           </div>
           <div className="sm:col-span-2 flex items-end gap-3">
@@ -490,7 +487,7 @@ function NewEventModal({
                     type="time"
                     value={startTime}
                     onChange={(e) => setStartTime(e.target.value)}
-                    className="w-full px-2 py-1.5 rounded-md border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    className={pInput}
                   />
                 </div>
                 <div>
@@ -499,7 +496,7 @@ function NewEventModal({
                     type="time"
                     value={endTime}
                     onChange={(e) => setEndTime(e.target.value)}
-                    className="w-full px-2 py-1.5 rounded-md border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    className={pInput}
                   />
                 </div>
               </div>
@@ -513,7 +510,7 @@ function NewEventModal({
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={3}
-            className="mt-1 w-full px-3 py-2 rounded-md border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+            className={`mt-1 ${pInput}`}
           />
         </div>
 
@@ -524,7 +521,7 @@ function NewEventModal({
               type="text"
               value={location}
               onChange={(e) => setLocation(e.target.value)}
-              className="mt-1 w-full px-3 py-2 rounded-md border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+              className={`mt-1 ${pInput}`}
             />
           </div>
           <div>
@@ -534,7 +531,7 @@ function NewEventModal({
               value={link}
               onChange={(e) => setLink(e.target.value)}
               placeholder="https://"
-              className="mt-1 w-full px-3 py-2 rounded-md border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+              className={`mt-1 ${pInput}`}
             />
           </div>
         </div>
@@ -543,14 +540,14 @@ function NewEventModal({
           <button
             type="submit"
             disabled={saving || !title.trim()}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 text-sm font-medium disabled:opacity-50"
+            className={pBtnPrimary}
           >
             {saving
               ? <><span className="material-icons text-base animate-spin">progress_activity</span>Creating…</>
               : <><span className="material-icons text-base">check</span>Create event</>
             }
           </button>
-          <button type="button" onClick={onCancel} className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground">
+          <button type="button" onClick={onCancel} className={pBtnGhost}>
             Cancel
           </button>
         </div>

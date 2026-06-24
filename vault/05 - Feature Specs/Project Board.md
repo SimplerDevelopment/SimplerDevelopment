@@ -70,6 +70,7 @@ date: 2026-06-17
 ## Shipped
 
 **Complete**
+- [x] Portal redesign sweep — full portal design system adoption (2026-06-24) — all portal pages adopt `portal-ui.ts` helpers + `PortalPageHeader`; `AuthShell` for pre-auth pages; dashboard widget visibility fix; bare-chrome route allowlist fix; Stripe Checkout email pre-fill — see [[ADR portal-redesign-sweep-design-system]]
 - [x] Ponytail refactor sweep — canonical utils + dead-code removal (2026-06-23) — `lib/publishing/slug`, `lib/utils/{money,bytes,html}`, `lib/mcp/types`, `lib/decks/publish-slide` canonicalized; `content-tools` rename completed; 32 dead files removed; prompt-intake rule added — see [[ADR ponytail-refactor-sweep-canonical-utils]]
 - [x] Repo cleanup + docs consolidation + README rewrite (2026-06-09)
 - [x] In-repo Obsidian vault: scaffold + 50-note knowledge sweep (2026-06-10)

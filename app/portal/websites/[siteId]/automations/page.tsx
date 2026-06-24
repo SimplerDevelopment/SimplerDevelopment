@@ -6,6 +6,8 @@ import { redirect, notFound } from 'next/navigation';
 import { resolvePortalSite } from '@/lib/portal-client';
 import WebsiteAutomationSettings from '@/components/portal/WebsiteAutomationSettings';
 import WebsiteNotificationSettings from '@/components/portal/WebsiteNotificationSettings';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pCard } from '@/components/portal/portal-ui';
 
 export default async function WebsiteAutomationsPage({
   params,
@@ -23,21 +25,19 @@ export default async function WebsiteAutomationsPage({
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      {/* Header — site identity + back lives in WebsiteSubNav. */}
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Automations &amp; Notifications</h1>
-        <p className="text-muted-foreground text-sm mt-1">
-          Configure automated workflows and notification alerts.
-        </p>
-      </div>
+      <PortalPageHeader
+        eyebrow="Website"
+        title="Automations & Notifications"
+        subtitle="Configure automated workflows and notification alerts."
+      />
 
       {/* Notifications */}
-      <div className="bg-card border border-border rounded-xl p-6">
+      <div className={`${pCard} p-6`}>
         <WebsiteNotificationSettings />
       </div>
 
       {/* Automations */}
-      <div className="bg-card border border-border rounded-xl p-6">
+      <div className={`${pCard} p-6`}>
         <WebsiteAutomationSettings />
       </div>
     </div>

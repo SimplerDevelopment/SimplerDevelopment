@@ -11,6 +11,7 @@ import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import { getPortalClient } from '@/lib/portal-client';
 import { loadUserApps } from '@/lib/plugins/load-user-apps';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,19 +27,18 @@ export default async function PortalAppsIndex() {
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-foreground">Apps</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Installed plugins available to your account.
-        </p>
-      </div>
+      <PortalPageHeader
+        eyebrow="Apps"
+        title="Apps"
+        subtitle="Installed plugins available to your account."
+      />
 
       {apps.length === 0 ? (
         <div className="border border-border rounded-2xl p-10 text-center bg-card">
           <span className="material-icons text-5xl text-muted-foreground mb-3 block">
             extension_off
           </span>
-          <h2 className="text-lg font-semibold text-foreground mb-1">
+          <h2 className="text-lg font-display font-extrabold tracking-[-0.01em] text-foreground mb-1">
             No apps installed
           </h2>
           <p className="text-sm text-muted-foreground max-w-md mx-auto">
@@ -52,7 +52,7 @@ export default async function PortalAppsIndex() {
             <Link
               key={app.slug}
               href={`/portal/apps/${app.slug}`}
-              className="group block border border-border rounded-xl p-5 bg-card hover:border-foreground/30 hover:shadow-sm transition"
+              className="group block border border-border rounded-2xl p-5 bg-card hover:border-foreground/30 hover:shadow-sm transition"
             >
               <div className="flex items-start gap-3">
                 <span className="material-icons text-3xl text-foreground/80 group-hover:text-foreground">
@@ -60,7 +60,7 @@ export default async function PortalAppsIndex() {
                 </span>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <h2 className="font-semibold text-foreground truncate">
+                    <h2 className="font-display font-extrabold tracking-[-0.01em] text-foreground truncate">
                       {app.name}
                     </h2>
                     {app.manifestStale && (

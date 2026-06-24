@@ -71,11 +71,11 @@ export default async function EmailPerformanceWidget({
     <div>
       <div className="mb-3 flex gap-6">
         <div>
-          <span className="text-2xl font-bold text-foreground">{activeSubCount.toLocaleString()}</span>
+          <span className="font-display text-2xl font-extrabold tracking-[-0.02em] text-foreground">{activeSubCount.toLocaleString()}</span>
           <p className="text-xs text-muted-foreground">active subscriber{activeSubCount !== 1 ? 's' : ''}</p>
         </div>
         <div>
-          <span className="text-2xl font-bold text-foreground">{sentCampaignCount.toLocaleString()}</span>
+          <span className="font-display text-2xl font-extrabold tracking-[-0.02em] text-foreground">{sentCampaignCount.toLocaleString()}</span>
           <p className="text-xs text-muted-foreground">sent campaign{sentCampaignCount !== 1 ? 's' : ''}</p>
         </div>
       </div>

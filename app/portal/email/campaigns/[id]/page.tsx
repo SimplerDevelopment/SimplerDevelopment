@@ -16,6 +16,8 @@ import {
 import { EmailPresenceBar } from './_components/EmailPresenceBar';
 import { EmailFieldFocusIndicator } from './_components/EmailFieldFocusIndicator';
 import { EmailAbConfig } from './_components/EmailAbConfig';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnPrimary, pBtnGhost, pCard, pCardPad, pInput, pSectionTitle } from '@/components/portal/portal-ui';
 
 interface Campaign {
   id: number;
@@ -59,7 +61,7 @@ interface Send {
 }
 
 const statusColor: Record<string, string> = {
-  draft: 'bg-gray-100 text-gray-700',
+  draft: 'bg-muted text-muted-foreground',
   scheduled: 'bg-blue-100 text-blue-700',
   sending: 'bg-yellow-100 text-yellow-700',
   ab_testing: 'bg-purple-100 text-purple-700',
@@ -276,54 +278,53 @@ function PortalCampaignDetailPageInner({ id }: { id: string }) {
   const clickRate = campaign.totalSent > 0 ? Math.round(campaign.totalClicked / campaign.totalSent * 100) : 0;
   const bounceRate = campaign.totalSent > 0 ? Math.round(campaign.totalBounced / campaign.totalSent * 100) : 0;
 
-  const inputClass = 'w-full border border-border rounded-md px-3 py-2 text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary';
+  const inputClass = 'w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary focus:ring-4 focus:ring-primary/15';
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div className="flex items-center gap-2">
-          <Link href="/portal/email/campaigns" className="text-muted-foreground hover:text-foreground">
-            <span className="material-icons text-base">arrow_back</span>
-          </Link>
-          <div>
+      <div>
+        <Link href="/portal/email/campaigns" className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground mb-3">
+          <span className="material-icons text-base">arrow_back</span>
+          Campaigns
+        </Link>
+        <PortalPageHeader
+          eyebrow="Email"
+          title={
+            <span className="flex items-center gap-2 flex-wrap">
+              {campaign.name}
+              <span className={`text-base font-normal px-2 py-0.5 rounded-full ${statusColor[campaign.status] ?? 'bg-muted text-muted-foreground'}`}>{campaign.status}</span>
+            </span>
+          }
+          subtitle={campaign.subject}
+          actions={
             <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-bold text-foreground">{campaign.name}</h1>
-              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusColor[campaign.status] ?? 'bg-gray-100 text-gray-700'}`}>
-                {campaign.status}
-              </span>
+              <EmailPresenceBar />
+              {campaign.status === 'draft' && !editing && (
+                <button onClick={startEdit} className={pBtnGhost}>
+                  <span className="material-icons text-base">edit</span>Edit
+                </button>
+              )}
+              {campaign.status === 'draft' && (campaign.useBlockEditor || hasBlockContent) && (
+                <button
+                  onClick={sendTestEmail}
+                  disabled={sendingTest}
+                  className={`${pBtnGhost} disabled:opacity-50`}
+                  title="Send the rendered email to your own address"
+                >
+                  <span className="material-icons text-base">science</span>
+                  {sendingTest ? 'Sending…' : 'Send test'}
+                </button>
+              )}
+              {(campaign.status === 'draft' || campaign.status === 'scheduled') && (
+                <button onClick={sendCampaign} disabled={sending} className={`${pBtnPrimary} disabled:opacity-50`}>
+                  <span className="material-icons text-base">{sending ? 'hourglass_empty' : 'send'}</span>
+                  {sending ? 'Sending…' : 'Send Now'}
+                </button>
+              )}
             </div>
-            <p className="text-muted-foreground text-sm mt-0.5">{campaign.subject}</p>
-          </div>
-        </div>
-        <div className="flex gap-2 shrink-0 items-center">
-          <EmailPresenceBar />
-          {campaign.status === 'draft' && !editing && (
-            <button onClick={startEdit}
-              className="flex items-center gap-1.5 px-3 py-2 border border-border rounded-lg text-sm text-foreground hover:bg-accent transition-colors">
-              <span className="material-icons text-base">edit</span>
-              Edit
-            </button>
-          )}
-          {campaign.status === 'draft' && (campaign.useBlockEditor || hasBlockContent) && (
-            <button
-              onClick={sendTestEmail}
-              disabled={sendingTest}
-              className="flex items-center gap-1.5 px-3 py-2 border border-border rounded-lg text-sm text-foreground hover:bg-accent transition-colors disabled:opacity-50"
-              title="Send the rendered email to your own address"
-            >
-              <span className="material-icons text-base">science</span>
-              {sendingTest ? 'Sending…' : 'Send test'}
-            </button>
-          )}
-          {(campaign.status === 'draft' || campaign.status === 'scheduled') && (
-            <button onClick={sendCampaign} disabled={sending}
-              className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors">
-              <span className="material-icons text-base">{sending ? 'hourglass_empty' : 'send'}</span>
-              {sending ? 'Sending…' : 'Send Now'}
-            </button>
-          )}
-        </div>
+          }
+        />
       </div>
 
       {sendResult && (
@@ -350,12 +351,12 @@ function PortalCampaignDetailPageInner({ id }: { id: string }) {
             { label: 'Click Rate', value: `${clickRate}%`, icon: 'touch_app' },
             { label: 'Bounce Rate', value: `${bounceRate}%`, icon: 'error_outline' },
           ].map(stat => (
-            <div key={stat.label} className="bg-card border border-border rounded-lg p-4">
+            <div key={stat.label} className="bg-card border border-border rounded-2xl p-4">
               <div className="flex items-center gap-1.5 text-muted-foreground mb-1">
                 <span className="material-icons text-sm">{stat.icon}</span>
                 <span className="text-xs">{stat.label}</span>
               </div>
-              <p className="text-xl font-bold text-foreground">{stat.value}</p>
+              <p className="text-xl font-display font-extrabold tracking-[-0.02em] text-foreground">{stat.value}</p>
             </div>
           ))}
         </div>
@@ -377,7 +378,7 @@ function PortalCampaignDetailPageInner({ id }: { id: string }) {
           campaign={campaign}
           onChange={(patch) => setCampaign(prev => prev ? { ...prev, ...patch } as Campaign : prev)}
         />
-        <div className="bg-card border border-border rounded-lg divide-y divide-border mt-4">
+        <div className="bg-card border border-border rounded-2xl divide-y divide-border mt-4">
           {[
             { label: 'From', value: `${campaign.fromName} <${campaign.fromEmail}>` },
             { label: 'Reply-To', value: campaign.replyTo ?? '—' },
@@ -400,7 +401,7 @@ function PortalCampaignDetailPageInner({ id }: { id: string }) {
                 </span>
                 <button
                   onClick={toggleUseBlockEditor}
-                  className="ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 border border-border rounded-md text-xs hover:bg-accent"
+                  className="ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 border border-border rounded-xl text-xs hover:bg-accent"
                   title="Toggle between the legacy template flow and the new block builder"
                 >
                   <span className="material-icons text-sm">swap_horiz</span>
@@ -414,12 +415,12 @@ function PortalCampaignDetailPageInner({ id }: { id: string }) {
       )}
 
       {tab === 'content' && (
-        <div className="bg-card border border-border rounded-lg overflow-hidden">
+        <div className="bg-card border border-border rounded-2xl overflow-hidden">
           <div className="px-5 py-4 border-b border-border flex items-center justify-between">
             <h3 className="font-semibold text-foreground">{editing ? 'Edit Content' : 'Email Preview'}</h3>
             {editing && hasBlockContent && (
               <button type="button" onClick={() => setShowPreview(!showPreview)}
-                className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${showPreview ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent'}`}>
+                className={`px-3 py-1 text-xs font-medium rounded-xl transition-colors ${showPreview ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent'}`}>
                 <span className="material-icons text-sm align-middle mr-1">preview</span>
                 Preview
               </button>
@@ -502,18 +503,18 @@ function PortalCampaignDetailPageInner({ id }: { id: string }) {
 
               <div className="flex gap-2 p-5 pt-0">
                 <button type="button" onClick={saveEdit} disabled={editSaving}
-                  className="px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90 disabled:opacity-50">
+                  className={`${pBtnPrimary} disabled:opacity-50`}>
                   {editSaving ? 'Saving...' : 'Save Changes'}
                 </button>
                 <button type="button" onClick={() => setEditing(false)}
-                  className="px-4 py-2 border border-border rounded-md text-sm text-muted-foreground hover:bg-accent">
+                  className={pBtnGhost}>
                   Cancel
                 </button>
               </div>
             </div>
           ) : (
             <div className="p-5">
-              <div className="border border-border rounded-md p-6 bg-white text-sm max-w-2xl mx-auto overflow-auto"
+              <div className="border border-border rounded-xl p-6 bg-white text-sm max-w-2xl mx-auto overflow-auto"
                 dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(campaign.htmlContent) }} />
             </div>
           )}
@@ -521,7 +522,7 @@ function PortalCampaignDetailPageInner({ id }: { id: string }) {
       )}
 
       {tab === 'sends' && (
-        <div className="bg-card border border-border rounded-lg overflow-hidden">
+        <div className="bg-card border border-border rounded-2xl overflow-hidden">
           <div className="px-5 py-4 border-b border-border">
             <h3 className="font-semibold text-foreground">Send Log ({sends.length})</h3>
           </div>

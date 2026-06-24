@@ -32,6 +32,8 @@ import type {
   BrainOrgUnitWithDetails,
   OrgUnitMemberSummary,
 } from '@/lib/brain/org-units';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnPrimary, pBtnGhost, pCard, pInput, pSelect } from '@/components/portal/portal-ui';
 
 // ─── Shared types ────────────────────────────────────────────────────────────
 
@@ -170,7 +172,7 @@ export default function BrainOrgChartPage() {
   if (error && tree.length === 0) {
     return (
       <div className="max-w-3xl mx-auto py-12">
-        <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-4 text-sm text-destructive">
+        <div className="bg-destructive/10 border border-destructive/30 rounded-2xl p-4 text-sm text-destructive">
           <div className="flex items-center gap-2 font-medium mb-1">
             <span className="material-icons text-base">error_outline</span>
             Couldn&apos;t load org chart
@@ -183,50 +185,51 @@ export default function BrainOrgChartPage() {
 
   return (
     <div className="max-w-7xl mx-auto py-6 px-4 space-y-4">
-      <header className="flex items-start justify-between gap-3 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+      <PortalPageHeader
+        eyebrow="Company Brain"
+        title={
+          <span className="flex items-center gap-2">
             <span className="material-icons text-primary">account_tree</span>
             Org Chart
-          </h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            {flatCount} unit{flatCount === 1 ? '' : 's'} · drag rows to reorganize
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="inline-flex border border-border rounded-md overflow-hidden" role="group" aria-label="Density">
+          </span>
+        }
+        subtitle={`${flatCount} unit${flatCount === 1 ? '' : 's'} · drag rows to reorganize`}
+        actions={
+          <div className="flex items-center gap-2">
+            <div className="inline-flex border border-border rounded-xl overflow-hidden" role="group" aria-label="Density">
+              <button
+                type="button"
+                onClick={() => setCompactView(false)}
+                className={`px-3 py-2 text-xs inline-flex items-center gap-1 font-semibold transition ${!compactView ? 'bg-muted text-foreground' : 'text-muted-foreground hover:bg-muted/60'}`}
+                aria-pressed={!compactView}
+              >
+                <span className="material-icons text-sm">density_medium</span>
+                Expanded
+              </button>
+              <button
+                type="button"
+                onClick={() => setCompactView(true)}
+                className={`px-3 py-2 text-xs inline-flex items-center gap-1 font-semibold transition ${compactView ? 'bg-muted text-foreground' : 'text-muted-foreground hover:bg-muted/60'}`}
+                aria-pressed={compactView}
+              >
+                <span className="material-icons text-sm">density_small</span>
+                Compact
+              </button>
+            </div>
             <button
               type="button"
-              onClick={() => setCompactView(false)}
-              className={`px-2.5 py-1.5 text-xs inline-flex items-center gap-1 ${!compactView ? 'bg-muted text-foreground' : 'text-muted-foreground hover:bg-muted/60'}`}
-              aria-pressed={!compactView}
+              onClick={() => setShowNewUnitModal(true)}
+              className={pBtnPrimary}
             >
-              <span className="material-icons text-sm">density_medium</span>
-              Expanded
-            </button>
-            <button
-              type="button"
-              onClick={() => setCompactView(true)}
-              className={`px-2.5 py-1.5 text-xs inline-flex items-center gap-1 ${compactView ? 'bg-muted text-foreground' : 'text-muted-foreground hover:bg-muted/60'}`}
-              aria-pressed={compactView}
-            >
-              <span className="material-icons text-sm">density_small</span>
-              Compact
+              <span className="material-icons text-base">add</span>
+              New unit
             </button>
           </div>
-          <button
-            type="button"
-            onClick={() => setShowNewUnitModal(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90"
-          >
-            <span className="material-icons text-base">add</span>
-            New unit
-          </button>
-        </div>
-      </header>
+        }
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2 bg-card border border-border rounded-lg overflow-hidden">
+        <div className={`lg:col-span-2 overflow-hidden ${pCard}`}>
           <div className={compactView ? 'text-xs [&_.material-icons]:!text-sm' : ''}>
             <OrgUnitTree
               tree={tree}
@@ -275,7 +278,7 @@ export default function BrainOrgChartPage() {
 
 function EmptySidePanel() {
   return (
-    <div className="bg-card border border-border rounded-lg p-6 text-center text-sm text-muted-foreground">
+    <div className={`${pCard} p-6 text-center text-sm text-muted-foreground`}>
       <span className="material-icons text-4xl text-muted-foreground/60 mb-2 block">account_tree</span>
       <p className="font-medium text-foreground">Nothing selected</p>
       <p className="text-xs mt-1">Select an org unit, or drag rows to reorganize.</p>
@@ -389,7 +392,7 @@ function UnitSidePanel({
 
   if (loading && !details) {
     return (
-      <div className="bg-card border border-border rounded-lg p-6 text-center text-sm text-muted-foreground">
+      <div className={`${pCard} p-6 text-center text-sm text-muted-foreground`}>
         <span className="material-icons animate-spin mr-2">progress_activity</span>
         Loading unit…
       </div>
@@ -398,7 +401,7 @@ function UnitSidePanel({
 
   if (error || !details) {
     return (
-      <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-4 text-sm text-destructive">
+      <div className="bg-destructive/10 border border-destructive/30 rounded-2xl p-4 text-sm text-destructive">
         <div className="flex items-center gap-2 font-medium mb-1">
           <span className="material-icons text-base">error_outline</span>
           Couldn&apos;t load unit
@@ -416,7 +419,7 @@ function UnitSidePanel({
   const totalPages = Math.max(1, Math.ceil(members.length / MEMBERS_PAGE_SIZE));
 
   return (
-    <div className="bg-card border border-border rounded-lg p-4 space-y-4">
+    <div className={`${pCard} p-4 space-y-4`}>
       {/* Breadcrumb */}
       <div className="flex items-center flex-wrap gap-1 text-xs text-muted-foreground">
         {ancestors.length === 0 ? (
@@ -447,7 +450,7 @@ function UnitSidePanel({
             else setNameDraft(unit.name);
           }}
           onKeyDown={(e) => { if (e.key === 'Enter') (e.currentTarget as HTMLInputElement).blur(); }}
-          className="w-full bg-background border border-border rounded px-2 py-1.5 text-sm font-medium focus:outline-none focus:ring-1 focus:ring-primary"
+          className={`${pInput} font-medium`}
         />
       </div>
 
@@ -465,7 +468,7 @@ function UnitSidePanel({
           }}
           rows={2}
           placeholder="What does this unit do?"
-          className="w-full bg-background border border-border rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary resize-y"
+          className={`${pInput} resize-y`}
         />
       </div>
 
@@ -582,7 +585,7 @@ function UnitSidePanel({
           <p className="text-xs text-muted-foreground italic">No members yet.</p>
         ) : (
           <>
-            <ul className="space-y-1 border border-border rounded divide-y divide-border">
+            <ul className="space-y-1 border border-border rounded-xl divide-y divide-border">
               {pagedMembers.map((m) => (
                 <MemberRow
                   key={m.personId}
@@ -598,7 +601,7 @@ function UnitSidePanel({
                   type="button"
                   onClick={() => setMemberPage((p) => Math.max(0, p - 1))}
                   disabled={memberPage === 0}
-                  className="inline-flex items-center gap-1 px-2 py-1 rounded text-muted-foreground hover:bg-muted disabled:opacity-40"
+                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-muted-foreground hover:bg-muted disabled:opacity-40"
                 >
                   <span className="material-icons text-sm">chevron_left</span>
                   Prev
@@ -610,7 +613,7 @@ function UnitSidePanel({
                   type="button"
                   onClick={() => setMemberPage((p) => Math.min(totalPages - 1, p + 1))}
                   disabled={memberPage >= totalPages - 1}
-                  className="inline-flex items-center gap-1 px-2 py-1 rounded text-muted-foreground hover:bg-muted disabled:opacity-40"
+                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-muted-foreground hover:bg-muted disabled:opacity-40"
                 >
                   Next
                   <span className="material-icons text-sm">chevron_right</span>
@@ -818,7 +821,7 @@ function NewUnitModal({
             onChange={(e) => setName(e.target.value)}
             autoFocus
             placeholder="Engineering"
-            className="w-full bg-background border border-border rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+            className={pInput}
           />
         </Field>
         <Field label="Parent unit">
@@ -834,7 +837,7 @@ function NewUnitModal({
             onChange={(e) => setDescription(e.target.value)}
             rows={2}
             placeholder="What does this unit do?"
-            className="w-full bg-background border border-border rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary resize-y"
+            className={`${pInput} resize-y`}
           />
         </Field>
         <Field label="Lead person (optional)">
@@ -908,7 +911,7 @@ function NewUnitModal({
           <button
             type="button"
             onClick={onClose}
-            className="px-3 py-1.5 text-sm rounded border border-border hover:bg-muted"
+            className={pBtnGhost}
           >
             Cancel
           </button>
@@ -916,7 +919,7 @@ function NewUnitModal({
             type="button"
             onClick={submit}
             disabled={submitting || !name.trim()}
-            className="px-3 py-1.5 text-sm rounded bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 inline-flex items-center gap-1.5"
+            className={pBtnPrimary}
           >
             {submitting && <span className="material-icons animate-spin text-sm">progress_activity</span>}
             Create
@@ -950,7 +953,7 @@ function ParentUnitPicker({
     <select
       value={value === null ? '' : String(value)}
       onChange={(e) => onChange(e.target.value === '' ? null : parseInt(e.target.value, 10))}
-      className="w-full bg-background border border-border rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+      className={pSelect}
     >
       <option value="">— No parent (root) —</option>
       {items.map((it) => (
@@ -979,7 +982,7 @@ function AddMemberDialog({
       <div className="space-y-3">
         <Field label="Person">
           {selected ? (
-            <div className="flex items-center justify-between gap-2 bg-muted/40 border border-border rounded px-2 py-1.5">
+            <div className="flex items-center justify-between gap-2 bg-muted/40 border border-border rounded-xl px-3 py-2">
               <div className="text-sm">
                 <div>{selected.fullName}</div>
                 {selected.title && <div className="text-[11px] text-muted-foreground">{selected.title}</div>}
@@ -1005,7 +1008,7 @@ function AddMemberDialog({
             value={role}
             onChange={(e) => setRole(e.target.value)}
             placeholder="Tech lead"
-            className="w-full bg-background border border-border rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+            className={pInput}
           />
         </Field>
         <label className="flex items-center gap-2 text-sm cursor-pointer">
@@ -1020,7 +1023,7 @@ function AddMemberDialog({
           <button
             type="button"
             onClick={onClose}
-            className="px-3 py-1.5 text-sm rounded border border-border hover:bg-muted"
+            className={pBtnGhost}
           >
             Cancel
           </button>
@@ -1033,7 +1036,7 @@ function AddMemberDialog({
               try { await onAdd(selected.id, primary, role.trim()); }
               finally { setSubmitting(false); }
             }}
-            className="px-3 py-1.5 text-sm rounded bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 inline-flex items-center gap-1.5"
+            className={pBtnPrimary}
           >
             {submitting && <span className="material-icons animate-spin text-sm">progress_activity</span>}
             Add
@@ -1099,7 +1102,7 @@ function DeleteUnitInlineModal({
         <button
           type="button"
           onClick={onClose}
-          className="px-3 py-1.5 text-sm rounded border border-border hover:bg-muted"
+          className={pBtnGhost}
         >
           Cancel
         </button>
@@ -1107,7 +1110,7 @@ function DeleteUnitInlineModal({
           type="button"
           disabled={needsForce && !force}
           onClick={() => onConfirm(force)}
-          className="px-3 py-1.5 text-sm rounded bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50 inline-flex items-center gap-1.5"
+          className="inline-flex items-center justify-center gap-2 rounded-xl bg-destructive px-4 py-2.5 text-sm font-bold text-destructive-foreground transition hover:-translate-y-px hover:shadow-lg hover:shadow-destructive/20 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0"
         >
           <span className="material-icons text-base">delete</span>
           Delete
@@ -1143,7 +1146,7 @@ function ModalShell({
         aria-modal="true"
         aria-label={title}
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-md bg-card border border-border rounded-lg shadow-xl p-4"
+        className="w-full max-w-md bg-card border border-border rounded-2xl shadow-xl p-5"
       >
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-sm font-semibold text-foreground">{title}</h3>

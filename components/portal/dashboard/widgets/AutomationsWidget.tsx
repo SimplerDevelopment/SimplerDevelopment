@@ -33,7 +33,7 @@ export default async function AutomationsWidget({
   return (
     <div>
       <div className="mb-3">
-        <span className="text-2xl font-bold text-foreground">{enabledCount}</span>
+        <span className="font-display text-2xl font-extrabold tracking-[-0.02em] text-foreground">{enabledCount}</span>
         <span className="ml-2 text-sm text-muted-foreground">
           active automation{enabledCount !== 1 ? 's' : ''}
         </span>

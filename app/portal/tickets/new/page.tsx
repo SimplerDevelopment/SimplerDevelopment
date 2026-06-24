@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pCard, pBtnPrimary, pBtnGhost, pInput, pSelect } from '@/components/portal/portal-ui';
 
 export default function NewTicketPage() {
   const router = useRouter();
@@ -33,19 +35,21 @@ export default function NewTicketPage() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
-      <div>
-        <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
-          <Link href="/portal/tickets" className="hover:text-foreground transition-colors">Support</Link>
-          <span className="material-icons text-sm">chevron_right</span>
-          <span className="text-foreground">New Ticket</span>
-        </div>
-        <h1 className="text-2xl font-bold text-foreground">Open a Support Ticket</h1>
-        <p className="mt-1 text-muted-foreground">We'll get back to you as soon as possible.</p>
-      </div>
+      <PortalPageHeader
+        eyebrow="Support"
+        title="Open a Support Ticket"
+        subtitle="We'll get back to you as soon as possible."
+        actions={
+          <Link href="/portal/tickets" className={pBtnGhost}>
+            <span className="material-icons text-base">arrow_back</span>
+            All Tickets
+          </Link>
+        }
+      />
 
-      <div className="bg-card border border-border rounded-xl p-6">
+      <div className={`${pCard} p-6`}>
         {error && (
-          <div className="mb-4 p-3 bg-destructive/10 border border-destructive/20 rounded-lg flex items-center gap-2 text-sm text-destructive">
+          <div className="mb-4 p-3 bg-destructive/10 border border-destructive/20 rounded-xl flex items-center gap-2 text-sm text-destructive">
             <span className="material-icons text-base">error_outline</span>
             {error}
           </div>
@@ -60,7 +64,7 @@ export default function NewTicketPage() {
               onChange={(e) => setForm({ ...form, subject: e.target.value })}
               required
               placeholder="Briefly describe your issue"
-              className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              className={pInput}
             />
           </div>
 
@@ -70,7 +74,7 @@ export default function NewTicketPage() {
               <select
                 value={form.category}
                 onChange={(e) => setForm({ ...form, category: e.target.value })}
-                className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                className={pSelect}
               >
                 <option value="general">General</option>
                 <option value="billing">Billing</option>
@@ -84,7 +88,7 @@ export default function NewTicketPage() {
               <select
                 value={form.priority}
                 onChange={(e) => setForm({ ...form, priority: e.target.value })}
-                className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                className={pSelect}
               >
                 <option value="low">Low</option>
                 <option value="medium">Medium</option>
@@ -102,18 +106,18 @@ export default function NewTicketPage() {
               required
               rows={6}
               placeholder="Provide as much detail as possible..."
-              className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-y"
+              className={`${pInput} resize-y`}
             />
           </div>
 
           <div className="flex items-center justify-end gap-3">
-            <Link href="/portal/tickets" className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
+            <Link href="/portal/tickets" className={pBtnGhost}>
               Cancel
             </Link>
             <button
               type="submit"
               disabled={loading}
-              className="flex items-center gap-2 px-5 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors"
+              className={pBtnPrimary}
             >
               {loading ? (
                 <><span className="material-icons text-base animate-spin">refresh</span>Submitting...</>
