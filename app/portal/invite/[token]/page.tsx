@@ -3,6 +3,16 @@
 import { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { signIn } from 'next-auth/react';
+import {
+  AuthShell,
+  AuthField,
+  authEyebrow,
+  authHeading,
+  authSubtext,
+  authLabel,
+  authInput,
+  authPrimaryBtn,
+} from '@/components/portal/AuthShell';
 
 export default function AcceptInvitePage() {
   const { token } = useParams<{ token: string }>();
@@ -68,100 +78,104 @@ export default function AcceptInvitePage() {
 
   if (done) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-muted/30">
-        <div className="max-w-md w-full mx-4 text-center">
-          <span className="material-icons text-5xl text-green-500">check_circle</span>
-          <h1 className="mt-4 text-2xl font-bold text-foreground">You're all set!</h1>
-          <p className="mt-2 text-muted-foreground">Redirecting to your portal...</p>
+      <AuthShell panelSubtitle="Welcome to your team's portal.">
+        <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-green-500/20 bg-green-500/10">
+          <span className="material-icons text-3xl text-green-600 dark:text-green-400">check_circle</span>
         </div>
-      </div>
+        <h1 className={`${authHeading} mt-5`}>You&apos;re all set!</h1>
+        <p className={authSubtext}>Redirecting to your portal…</p>
+      </AuthShell>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-muted/30">
-      <div className="max-w-md w-full mx-4">
-        <div className="text-center mb-8">
-          <p className="text-xs text-muted-foreground uppercase tracking-wider">Client Portal</p>
-          <h1 className="text-2xl font-bold text-foreground mt-1">Simpler Development</h1>
-        </div>
+    <AuthShell panelSubtitle="You've been invited to join a team portal — set your password to get started.">
+      <div className={authEyebrow}>{"// You're invited"}</div>
+      <h1 className={authHeading}>Set your password.</h1>
+      <p className={authSubtext}>Create a password to access your team&apos;s portal.</p>
 
-        <div className="bg-card border border-border rounded-lg p-8">
-          <h2 className="text-xl font-semibold text-foreground mb-1">Set your password</h2>
-          <p className="text-sm text-muted-foreground mb-6">
-            Create a password to access your team's portal.
-          </p>
+      <div className="mt-7">
+        {error && (
+          <div className="mb-4 flex items-center gap-2 rounded-xl border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive">
+            <span className="material-icons text-base">error_outline</span>
+            {error}
+          </div>
+        )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-1">Password</label>
-              <div className="relative">
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="At least 8 characters"
-                  className="w-full px-4 py-3 pr-11 rounded-md border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  required
-                  minLength={8}
-                  autoFocus
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-foreground transition-colors"
-                  tabIndex={-1}
-                >
-                  <span className="material-icons text-lg">{showPassword ? 'visibility_off' : 'visibility'}</span>
-                </button>
-              </div>
-            </div>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className={authLabel}>Password</label>
+            <AuthField icon="lock_outline">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="At least 8 characters"
+                className={`${authInput} pr-11`}
+                required
+                minLength={8}
+                autoFocus
+                autoComplete="new-password"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-muted-foreground transition-colors hover:text-foreground"
+                tabIndex={-1}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+              >
+                <span className="material-icons text-lg">{showPassword ? 'visibility_off' : 'visibility'}</span>
+              </button>
+            </AuthField>
+          </div>
 
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-1">Confirm password</label>
-              <div className="relative">
-                <input
-                  type={showConfirmPassword ? 'text' : 'password'}
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="Type your password again"
-                  className="w-full px-4 py-3 pr-11 rounded-md border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  required
-                  minLength={8}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-foreground transition-colors"
-                  tabIndex={-1}
-                >
-                  <span className="material-icons text-lg">{showConfirmPassword ? 'visibility_off' : 'visibility'}</span>
-                </button>
-              </div>
-            </div>
+          <div>
+            <label className={authLabel}>Confirm password</label>
+            <AuthField icon="lock">
+              <input
+                type={showConfirmPassword ? 'text' : 'password'}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="Type your password again"
+                className={`${authInput} pr-11`}
+                required
+                minLength={8}
+                autoComplete="new-password"
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-muted-foreground transition-colors hover:text-foreground"
+                tabIndex={-1}
+                aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+              >
+                <span className="material-icons text-lg">{showConfirmPassword ? 'visibility_off' : 'visibility'}</span>
+              </button>
+            </AuthField>
+          </div>
 
-            {error && (
-              <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 dark:bg-red-950/30 dark:text-red-400 px-3 py-2 rounded-md">
-                <span className="material-icons text-base">error</span>
-                {error}
-              </div>
+          <button type="submit" disabled={loading} className={authPrimaryBtn}>
+            {loading ? (
+              <>
+                <span className="material-icons animate-spin text-base">refresh</span>
+                Setting up…
+              </>
+            ) : (
+              <>
+                Set Password &amp; Sign In
+                <span className="material-icons text-[19px] transition group-hover:translate-x-0.5">arrow_forward</span>
+              </>
             )}
+          </button>
+        </form>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-3 rounded-md bg-primary text-primary-foreground font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
-            >
-              {loading ? 'Setting up...' : 'Set Password & Sign In'}
-            </button>
-          </form>
-        </div>
-
-        <p className="mt-6 text-center text-sm text-muted-foreground">
+        <p className="mt-6 text-sm text-muted-foreground">
           Already have an account?{' '}
-          <a href="/portal/login" className="text-primary hover:underline">Sign in</a>
+          <a href="/portal/login" className="font-bold text-foreground hover:text-primary">
+            Sign in
+          </a>
         </p>
       </div>
-    </div>
+    </AuthShell>
   );
 }
