@@ -98,6 +98,18 @@ export interface CaseResult<I = unknown, O = unknown> {
   passed: boolean;
   /** Weighted mean of non-skipped scores, 0..1. */
   aggregate: number;
+  /**
+   * Number of times this case was executed (from `EvalEnv.runs`).
+   * Present and > 1 only when N>1 variance runs are enabled.
+   * Omitted (or 1) for single runs — byte-identical to previous behaviour.
+   */
+  runs?: number;
+  /**
+   * Population standard deviation of per-run aggregates.
+   * Present when `runs > 1`; 0 for deterministic mocks.
+   * Omitted for single runs.
+   */
+  aggregateStdev?: number;
 }
 
 export interface SuiteResult {

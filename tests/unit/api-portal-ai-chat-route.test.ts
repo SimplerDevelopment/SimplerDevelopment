@@ -658,6 +658,43 @@ describe('POST /api/portal/ai/chat — agentic tool loop', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Security: portal tool results are sanitized before entering model context
+// ---------------------------------------------------------------------------
+
+describe('POST /api/portal/ai/chat — tool result sanitization (N2 fix)', () => {
+  it('redacts an API key in a tool result before it reaches the Anthropic messages array', async () => {
+    // Tool returns a payload that embeds a fake secret (sk- prefix triggers sanitizer)
+    const poisonedResult = { data: 'some notes', apiKey: 'sk-ABCDEF1234567890abcdef' };
+    executePortalToolMock.mockResolvedValueOnce(poisonedResult);
+
+    messagesCreateMock
+      .mockResolvedValueOnce(toolUseResponse('tu_sec', 'list_projects', {}))
+      .mockResolvedValueOnce(textResponse('All done.'));
+
+    const res = await POST(makeRequest({ message: 'show notes' }));
+    expect(res.status).toBe(200);
+
+    // The second messages.create call carries the tool_result user turn.
+    expect(messagesCreateMock).toHaveBeenCalledTimes(2);
+    const secondCall = messagesCreateMock.mock.calls[1]![0] as {
+      messages: Array<{ role: string; content: unknown }>;
+    };
+    // The last user message in the second call is the tool_result turn.
+    const lastUserMsg = secondCall.messages[secondCall.messages.length - 1] as {
+      role: string;
+      content: Array<{ type: string; content?: string }>;
+    };
+    expect(lastUserMsg.role).toBe('user');
+    const toolResultBlock = lastUserMsg.content.find((b) => b.type === 'tool_result');
+    expect(toolResultBlock).toBeDefined();
+    // The raw secret must NOT appear in the content sent to the model.
+    expect(toolResultBlock!.content).not.toContain('sk-ABCDEF1234567890abcdef');
+    // The redaction marker must be present instead.
+    expect(toolResultBlock!.content).toContain('[REDACTED_API_KEY]');
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Top-level catch-all
 // ---------------------------------------------------------------------------
 
