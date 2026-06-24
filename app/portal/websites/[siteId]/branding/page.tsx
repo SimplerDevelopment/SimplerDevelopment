@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
-import Link from 'next/link';
 import MediaPicker from '@/components/admin/MediaPicker';
 import { GoogleFontPicker } from '@/components/blocks/visual/GoogleFontPicker';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnPrimary, pBtnGhost, pBtnSoft, pCard, pCardPad, pInput, pSelect, pSectionTitle } from '@/components/portal/portal-ui';
 
 interface ElementTypography {
   font?: string;
@@ -262,7 +263,7 @@ export default function BrandingPage() {
     );
   }
 
-  const inputClass = 'w-full px-3 py-2 rounded-lg border border-border bg-background text-sm text-foreground focus:border-primary focus:ring-1 focus:ring-primary outline-none';
+  const inputClass = pInput;
   const labelClass = 'block text-xs font-medium text-muted-foreground mb-1.5';
 
   const tabs = [
@@ -275,32 +276,24 @@ export default function BrandingPage() {
   return (
     <div className="max-w-4xl mx-auto py-6 px-6 space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <Link
-            href={`/portal/websites/${siteId}`}
-            className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-2"
+      <PortalPageHeader
+        eyebrow="Website"
+        title="Brand Guidelines"
+        subtitle="Set your brand identity. These styles apply as defaults across your site."
+        actions={
+          <button
+            onClick={save}
+            disabled={!dirty || saving}
+            className={pBtnPrimary}
           >
-            <span className="material-icons text-base">arrow_back</span>
-            Back to Content
-          </Link>
-          <h1 className="text-2xl font-bold text-foreground">Brand Guidelines</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Set your brand identity. These styles apply as defaults across your site.
-          </p>
-        </div>
-        <button
-          onClick={save}
-          disabled={!dirty || saving}
-          className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
-        >
-          <span className="material-icons text-base">{saving ? 'refresh' : 'save'}</span>
-          {saving ? 'Saving...' : 'Save Changes'}
-        </button>
-      </div>
+            <span className="material-icons text-base">{saving ? 'refresh' : 'save'}</span>
+            {saving ? 'Saving...' : 'Save Changes'}
+          </button>
+        }
+      />
 
       {/* AI Brand Generator */}
-      <div className="border border-border rounded-xl overflow-hidden">
+      <div className={`${pCard} overflow-hidden`}>
         <button
           type="button"
           onClick={() => setShowAiPanel(!showAiPanel)}
@@ -324,7 +317,7 @@ export default function BrandingPage() {
                 value={aiPrompt}
                 onChange={(e) => setAiPrompt(e.target.value)}
                 rows={3}
-                className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm text-foreground focus:border-primary focus:ring-1 focus:ring-primary outline-none resize-none"
+                className={`${pInput} resize-none`}
                 placeholder="e.g. We're a modern fintech startup targeting millennials. Bold, energetic, and trustworthy. Our brand should feel premium but approachable, with a tech-forward aesthetic."
               />
             </div>
@@ -349,7 +342,7 @@ export default function BrandingPage() {
                 type="button"
                 onClick={generateBranding}
                 disabled={aiGenerating || !aiPrompt.trim()}
-                className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors"
+                className={pBtnPrimary}
               >
                 {aiGenerating ? (
                   <>
@@ -376,7 +369,7 @@ export default function BrandingPage() {
             onClick={() => setActiveTab(tab.id)}
             className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
               activeTab === tab.id
-                ? 'border-primary text-primary'
+                ? 'border-foreground text-foreground font-semibold'
                 : 'border-transparent text-muted-foreground hover:text-foreground'
             }`}
           >
@@ -389,7 +382,7 @@ export default function BrandingPage() {
       {/* ── Logos ────────────────────────────────── */}
       {activeTab === 'logos' && (
       <div>
-        <h2 className="text-lg font-semibold text-foreground mb-1 flex items-center gap-2">
+        <h2 className={`${pSectionTitle} mb-1 flex items-center gap-2`}>
           <span className="material-icons text-base">image</span>
           Logos
         </h2>
@@ -447,7 +440,7 @@ export default function BrandingPage() {
               placeholder="Your Brand Name"
             />
             {branding.logoText && (
-              <div className="mt-3 p-4 rounded-lg bg-muted/30 border border-border">
+              <div className="mt-3 p-4 rounded-xl bg-muted/30 border border-border">
                 <span className="text-xl font-bold" style={{ fontFamily: branding.headingFont ? `"${branding.headingFont}", sans-serif` : undefined }}>
                   {branding.logoText}
                 </span>
@@ -538,7 +531,7 @@ export default function BrandingPage() {
       {/* ── Colors ───────────────────────────────── */}
       {activeTab === 'colors' && (
       <div>
-        <h2 className="text-lg font-semibold text-foreground mb-1 flex items-center gap-2">
+        <h2 className={`${pSectionTitle} mb-1 flex items-center gap-2`}>
           <span className="material-icons text-base">palette</span>
           Colors
         </h2>
@@ -668,7 +661,7 @@ export default function BrandingPage() {
       {/* ── Typography ───────────────────────────── */}
       {activeTab === 'typography' && (
       <div>
-        <h2 className="text-lg font-semibold text-foreground mb-1 flex items-center gap-2">
+        <h2 className={`${pSectionTitle} mb-1 flex items-center gap-2`}>
           <span className="material-icons text-base">text_fields</span>
           Typography
         </h2>
@@ -710,7 +703,7 @@ export default function BrandingPage() {
                   const t = getTypo(el);
                   const font = resolveFont(el);
                   return (
-                    <div key={el} className="rounded-lg border border-border p-4">
+                    <div key={el} className={`${pCard} p-4`}>
                       <div className="flex items-start gap-4">
                         {/* Preview */}
                         <div className="flex-1 min-w-0">
@@ -805,7 +798,7 @@ export default function BrandingPage() {
       <div className="space-y-8">
         {/* Border Radius */}
         <div>
-          <h2 className="text-lg font-semibold text-foreground mb-1 flex items-center gap-2">
+          <h2 className={`${pSectionTitle} mb-1 flex items-center gap-2`}>
             <span className="material-icons text-base">rounded_corner</span>
             Border Radius
           </h2>
@@ -822,8 +815,8 @@ export default function BrandingPage() {
                 onClick={() => update({ borderRadius: opt.value })}
                 className={`p-3 border text-sm font-medium transition-colors ${
                   branding.borderRadius === opt.value
-                    ? 'border-primary bg-primary/5 text-primary'
-                    : 'border-border text-muted-foreground hover:border-foreground'
+                    ? 'border-foreground bg-foreground text-background'
+                    : 'border-border text-muted-foreground hover:border-foreground hover:text-foreground'
                 }`}
                 style={{ borderRadius: opt.value }}
               >
@@ -849,7 +842,7 @@ export default function BrandingPage() {
 
         {/* Link Colors */}
         <div>
-          <h2 className="text-lg font-semibold text-foreground mb-1 flex items-center gap-2">
+          <h2 className={`${pSectionTitle} mb-1 flex items-center gap-2`}>
             <span className="material-icons text-base">link</span>
             Link Colors
           </h2>
@@ -892,7 +885,7 @@ export default function BrandingPage() {
               </div>
             </div>
           </div>
-          <div className="mt-4 p-4 rounded-lg bg-muted/30 border border-border text-sm">
+          <div className="mt-4 p-4 rounded-xl bg-muted/30 border border-border text-sm">
             <span style={{ color: branding.linkColor || branding.primaryColor, textDecoration: 'underline', cursor: 'pointer' }}>
               This is what a link looks like
             </span>
@@ -902,7 +895,7 @@ export default function BrandingPage() {
 
         {/* Button Style */}
         <div>
-          <h2 className="text-lg font-semibold text-foreground mb-1 flex items-center gap-2">
+          <h2 className={`${pSectionTitle} mb-1 flex items-center gap-2`}>
             <span className="material-icons text-base">smart_button</span>
             Button Style
           </h2>
@@ -917,7 +910,7 @@ export default function BrandingPage() {
                   onClick={() => updateButtonStyle({ variant: v })}
                   className={`px-4 py-2 text-sm font-medium border transition-colors capitalize ${
                     (branding.buttonStyle?.variant || 'filled') === v
-                      ? 'border-primary bg-primary/5 text-primary'
+                      ? 'border-foreground bg-foreground text-background'
                       : 'border-border text-muted-foreground hover:border-foreground'
                   }`}
                   style={{ borderRadius: branding.buttonStyle?.borderRadius || branding.borderRadius }}
@@ -1085,7 +1078,7 @@ export default function BrandingPage() {
 
         {/* Favicon */}
         <div>
-          <h2 className="text-lg font-semibold text-foreground mb-1 flex items-center gap-2">
+          <h2 className={`${pSectionTitle} mb-1 flex items-center gap-2`}>
             <span className="material-icons text-base">tab</span>
             Favicon
           </h2>
@@ -1103,7 +1096,7 @@ export default function BrandingPage() {
 
         {/* OG / Social Image */}
         <div>
-          <h2 className="text-lg font-semibold text-foreground mb-1 flex items-center gap-2">
+          <h2 className={`${pSectionTitle} mb-1 flex items-center gap-2`}>
             <span className="material-icons text-base">share</span>
             Social / OG Image
           </h2>
