@@ -45,7 +45,7 @@ function CardRow({ c, badge }: { c: StandupCard; badge?: string }) {
       // sections; viewport prefetch on every link DDoSes the project detail
       // route. Defer prefetch to hover.
       prefetch={false}
-      className="flex items-start gap-2 px-3 py-2 rounded border border-border bg-card hover:border-primary/50 hover:shadow-sm transition-all"
+      className="flex items-start gap-2 px-3 py-2 rounded-xl border border-border bg-card hover:border-primary/50 hover:shadow-sm transition-all"
     >
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap text-xs">
@@ -81,7 +81,7 @@ function Section({ title, icon, cards, emptyText, badge }: { title: string; icon
     <section className="space-y-2">
       <div className="flex items-center gap-2">
         <span className="material-icons text-base text-primary">{icon}</span>
-        <h2 className="text-sm font-semibold text-foreground uppercase tracking-wider">{title}</h2>
+        <h2 className="text-sm font-display font-extrabold tracking-[-0.01em] text-foreground uppercase">{title}</h2>
         <span className="text-xs text-muted-foreground">({cards.length})</span>
       </div>
       {cards.length === 0 ? (

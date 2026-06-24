@@ -8,7 +8,7 @@ import { ticketStatusColor, priorityColor } from '@/lib/portal';
 import TicketSlaBadge from '@/components/portal/TicketSlaBadge';
 import TicketIndexFilters from '@/components/portal/TicketIndexFilters';
 import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
-import { pBtnPrimary } from '@/components/portal/portal-ui';
+import { pBtnPrimary, pBtnGhost, pCard } from '@/components/portal/portal-ui';
 
 interface SearchParams {
   status?: string | string[];
@@ -129,23 +129,23 @@ export default async function TicketsIndexPage({
       />
 
       {tickets.length === 0 ? (
-        <div className="bg-card border border-border rounded-xl p-12 text-center">
+        <div className={`${pCard} p-12 text-center`}>
           <span className="material-icons text-5xl text-muted-foreground">support_agent</span>
-          <h3 className="mt-4 font-semibold text-foreground">No tickets match these filters</h3>
+          <h3 className="mt-4 font-display font-extrabold tracking-[-0.01em] text-foreground">No tickets match these filters</h3>
           <p className="mt-2 text-sm text-muted-foreground">Try clearing the filters or open a new ticket.</p>
           <div className="mt-4 inline-flex items-center gap-2">
-            <Link href="/portal/tickets" className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground">
+            <Link href="/portal/tickets" className={pBtnGhost}>
               Clear filters
             </Link>
-            <Link href="/portal/tickets/new" className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium">
+            <Link href="/portal/tickets/new" className={pBtnPrimary}>
               <span className="material-icons text-base">add</span>
               Open Ticket
             </Link>
           </div>
         </div>
       ) : (
-        <div className="bg-card border border-border rounded-xl">
-          <div className="overflow-x-auto rounded-xl">
+        <div className={pCard}>
+          <div className="overflow-x-auto rounded-2xl">
           <table className="w-full min-w-[640px] text-sm">
             <thead className="bg-muted/50 border-b border-border">
               <tr>

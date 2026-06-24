@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
-import { pBtnPrimary, pInput } from '@/components/portal/portal-ui';
+import { pBtnPrimary, pBtnGhost, pInput } from '@/components/portal/portal-ui';
 
 interface Profile {
   id: number;
@@ -173,7 +173,7 @@ export default function PortalBrandingPage() {
               </button>
               <button
                 onClick={() => { setShowCreate(false); setNewName(''); }}
-                className="px-4 py-2 text-sm rounded-md border border-border text-foreground hover:bg-accent"
+                className={pBtnGhost}
               >
                 Cancel
               </button>
@@ -205,7 +205,7 @@ export default function PortalBrandingPage() {
                     <div className="p-4 space-y-3">
                       <div className="flex items-start justify-between">
                         <div className="min-w-0">
-                          <h3 className="font-semibold text-foreground truncate">{profile.name}</h3>
+                          <h3 className="font-display font-extrabold tracking-[-0.01em] text-foreground truncate">{profile.name}</h3>
                           {(profile.headingFont || profile.bodyFont) && (
                             <p className="text-[10px] text-muted-foreground truncate mt-0.5">
                               {[profile.headingFont, profile.bodyFont].filter(Boolean).join(' / ')}

@@ -129,9 +129,9 @@ export default function NotificationsPage() {
           <span className="material-icons animate-spin text-primary">refresh</span>
         </div>
       ) : rows.length === 0 ? (
-        <div className="bg-card border border-border rounded-xl p-12 text-center">
+        <div className="bg-card border border-border rounded-2xl p-12 text-center">
           <span className="material-icons text-5xl text-muted-foreground">inbox</span>
-          <h3 className="mt-4 font-semibold text-foreground">{unreadOnly ? 'No unread notifications' : 'Inbox is empty'}</h3>
+          <h3 className="mt-4 font-display font-extrabold tracking-[-0.01em] text-foreground">{unreadOnly ? 'No unread notifications' : 'Inbox is empty'}</h3>
           <p className="mt-2 text-sm text-muted-foreground">
             {unreadOnly
               ? 'You\'re all caught up.'
@@ -139,7 +139,7 @@ export default function NotificationsPage() {
           </p>
         </div>
       ) : (
-        <div className="bg-card border border-border rounded-xl divide-y divide-border overflow-hidden">
+        <div className="bg-card border border-border rounded-2xl divide-y divide-border overflow-hidden">
           {rows.map(n => {
             const icon = kindIcon[n.kind] ?? 'notifications';
             const color = kindColor[n.kind] ?? 'text-muted-foreground';

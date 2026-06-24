@@ -74,9 +74,9 @@ export default async function PortalServicesPage({
       )}
 
       {allServices.length === 0 ? (
-        <div className="bg-card border border-border rounded-xl p-12 text-center">
+        <div className="bg-card border border-border rounded-2xl p-12 text-center">
           <span className="material-icons text-5xl text-muted-foreground">storefront</span>
-          <h3 className="mt-4 font-semibold text-foreground">No services available</h3>
+          <h3 className="mt-4 font-display font-extrabold tracking-[-0.01em] text-foreground">No services available</h3>
           <p className="mt-2 text-sm text-muted-foreground">Check back soon or contact us about custom services.</p>
         </div>
       ) : (
@@ -90,7 +90,7 @@ export default async function PortalServicesPage({
             return (
               <div
                 key={svc.id}
-                className={`bg-card border rounded-xl p-5 transition-colors ${
+                className={`bg-card border rounded-2xl p-5 transition-colors ${
                   owned ? 'border-primary/40 bg-primary/3' : 'border-border hover:border-border/80'
                 }`}
               >
@@ -107,7 +107,7 @@ export default async function PortalServicesPage({
                     <div className="flex items-start justify-between gap-4">
                       <div>
                         <div className="flex items-center gap-2">
-                          <h3 className="font-semibold text-foreground">{svc.name}</h3>
+                          <h3 className="font-display font-extrabold tracking-[-0.01em] text-foreground">{svc.name}</h3>
                           {owned && (
                             <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-medium">
                               <span className="material-icons text-xs">check_circle</span>
@@ -123,7 +123,7 @@ export default async function PortalServicesPage({
                       {/* Price + CTA — desktop */}
                       <div className="hidden sm:flex flex-col items-end gap-2 shrink-0">
                         <div className="text-right">
-                          <span className="text-lg font-bold text-foreground">{formatCents(svc.price)}</span>
+                          <span className="text-lg font-display font-extrabold tracking-[-0.02em] text-foreground">{formatCents(svc.price)}</span>
                           {svc.billingCycle !== 'once' && (
                             <span className="text-xs text-muted-foreground">/{svc.billingCycle}</span>
                           )}
@@ -162,7 +162,7 @@ export default async function PortalServicesPage({
                     {/* Price + CTA — mobile */}
                     <div className="flex sm:hidden items-center justify-between mt-4 pt-3 border-t border-border">
                       <div>
-                        <span className="text-base font-bold text-foreground">{formatCents(svc.price)}</span>
+                        <span className="text-base font-display font-extrabold tracking-[-0.02em] text-foreground">{formatCents(svc.price)}</span>
                         {svc.billingCycle !== 'once' && (
                           <span className="text-xs text-muted-foreground">/{svc.billingCycle}</span>
                         )}
@@ -192,7 +192,7 @@ export default async function PortalServicesPage({
         </div>
       )}
 
-      <div className="flex items-center gap-3 p-4 bg-muted/40 border border-border rounded-xl">
+      <div className="flex items-center gap-3 p-4 bg-muted/40 border border-border rounded-2xl">
         <span className="material-icons text-muted-foreground">help_outline</span>
         <p className="text-sm text-muted-foreground flex-1">Need something not listed here?</p>
         <Link

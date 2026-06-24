@@ -8,7 +8,7 @@ import { hasServiceAccess } from '@/lib/portal-auth';
 import Link from 'next/link';
 import { RelatedModulesStrip } from '@/components/portal/billing/RelatedModulesStrip';
 import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
-import { pBtnPrimary } from '@/components/portal/portal-ui';
+import { pBtnPrimary, pCard } from '@/components/portal/portal-ui';
 
 const statusColors: Record<string, string> = {
   draft: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
@@ -54,20 +54,20 @@ export default async function SurveysListPage() {
       {/* Quick Stats */}
       {list.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <div className="bg-card border border-border rounded-xl p-4">
-            <p className="text-2xl font-bold text-foreground">{list.length}</p>
+          <div className={`${pCard} p-4`}>
+            <p className="font-display text-2xl font-extrabold tracking-[-0.02em] text-foreground">{list.length}</p>
             <p className="text-xs text-muted-foreground">Total Surveys</p>
           </div>
-          <div className="bg-card border border-border rounded-xl p-4">
-            <p className="text-2xl font-bold text-foreground">{list.filter(s => s.status === 'active').length}</p>
+          <div className={`${pCard} p-4`}>
+            <p className="font-display text-2xl font-extrabold tracking-[-0.02em] text-foreground">{list.filter(s => s.status === 'active').length}</p>
             <p className="text-xs text-muted-foreground">Active</p>
           </div>
-          <div className="bg-card border border-border rounded-xl p-4">
-            <p className="text-2xl font-bold text-foreground">{list.reduce((sum, s) => sum + (s.responseCount || 0), 0)}</p>
+          <div className={`${pCard} p-4`}>
+            <p className="font-display text-2xl font-extrabold tracking-[-0.02em] text-foreground">{list.reduce((sum, s) => sum + (s.responseCount || 0), 0)}</p>
             <p className="text-xs text-muted-foreground">Total Responses</p>
           </div>
-          <div className="bg-card border border-border rounded-xl p-4">
-            <p className="text-2xl font-bold text-foreground">{list.filter(s => s.linkedType).length}</p>
+          <div className={`${pCard} p-4`}>
+            <p className="font-display text-2xl font-extrabold tracking-[-0.02em] text-foreground">{list.filter(s => s.linkedType).length}</p>
             <p className="text-xs text-muted-foreground">Integrated</p>
           </div>
         </div>
@@ -75,9 +75,9 @@ export default async function SurveysListPage() {
 
       {/* Survey List */}
       {list.length === 0 ? (
-        <div className="bg-card border border-border rounded-xl p-10 text-center space-y-4">
+        <div className={`${pCard} p-10 text-center space-y-4`}>
           <span className="material-icons text-5xl text-muted-foreground/50">poll</span>
-          <h2 className="text-lg font-semibold text-foreground">No surveys yet</h2>
+          <h2 className="text-lg font-display font-extrabold tracking-[-0.01em] text-foreground">No surveys yet</h2>
           <p className="text-muted-foreground text-sm max-w-md mx-auto">
             Create your first survey to collect feedback, run polls, or gather information
             from customers and leads. Surveys can be shared via link, embedded on websites,
@@ -97,7 +97,7 @@ export default async function SurveysListPage() {
             <Link
               key={survey.id}
               href={`/portal/surveys/${survey.id}`}
-              className="bg-card border border-border rounded-xl p-5 hover:border-primary/50 hover:shadow-sm transition-all group flex items-center gap-4"
+              className={`${pCard} p-5 hover:border-primary/50 hover:shadow-sm transition-all group flex items-center gap-4`}
             >
               <span
                 className="material-icons text-2xl shrink-0"
@@ -146,10 +146,10 @@ export default async function SurveysListPage() {
       )}
 
       {/* Integration Tips */}
-      <div className="bg-card border border-border rounded-xl p-4 flex items-start gap-3">
+      <div className={`${pCard} p-4 flex items-start gap-3`}>
         <span className="material-icons text-primary mt-0.5">tips_and_updates</span>
         <div className="text-sm text-muted-foreground">
-          <p className="font-medium text-foreground">Integration Tips</p>
+          <p className="font-display font-extrabold tracking-[-0.01em] text-foreground">Integration Tips</p>
           <p>
             Surveys can be linked to email campaigns, CRM deals, proposals, pitch decks, booking pages, and websites.
             Share the public link, embed on any page, or attach to an email campaign for maximum reach.

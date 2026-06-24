@@ -113,7 +113,7 @@ export default async function ExperimentsListPage() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto px-6 py-8">
+    <div className="max-w-6xl mx-auto space-y-6">
       <PortalPageHeader
         eyebrow="Experiments"
         title="A/B Experiments"
@@ -124,7 +124,7 @@ export default async function ExperimentsListPage() {
       {experiments.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-gray-300 px-8 py-16 text-center">
           <span className="material-icons text-4xl text-gray-400 mb-2">science</span>
-          <h2 className="text-lg font-medium mb-2">No experiments yet</h2>
+          <h2 className="text-lg font-display font-extrabold tracking-[-0.01em] mb-2">No experiments yet</h2>
           <p className="text-sm text-gray-500 max-w-md mx-auto mb-6">
             Pick a page or pitch deck to test, give it a name, and we&apos;ll spin up a draft experiment with two variants ready to edit.
           </p>

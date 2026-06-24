@@ -73,9 +73,9 @@ export default async function SuggestedProjectsPage() {
       />
 
       {categories.length === 0 ? (
-        <div className="bg-card border border-border rounded-xl p-12 text-center">
+        <div className="bg-card border border-border rounded-2xl p-12 text-center">
           <span className="material-icons text-5xl text-muted-foreground">rocket_launch</span>
-          <h3 className="mt-4 font-semibold text-foreground">No suggestions yet</h3>
+          <h3 className="mt-4 font-display font-extrabold tracking-[-0.01em] text-foreground">No suggestions yet</h3>
           <p className="mt-2 text-sm text-muted-foreground">Check back soon — we&apos;ll add tailored recommendations for you.</p>
         </div>
       ) : (
@@ -83,7 +83,7 @@ export default async function SuggestedProjectsPage() {
           <section key={category}>
             <div className="flex items-center gap-2 mb-4">
               <span className="material-icons text-primary">{categoryIcon[category] ?? 'category'}</span>
-              <h2 className="text-lg font-semibold text-foreground">{categoryLabel[category] ?? category}</h2>
+              <h2 className="text-lg font-display font-extrabold tracking-[-0.01em] text-foreground">{categoryLabel[category] ?? category}</h2>
               <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full ml-1">
                 {grouped[category].length}
               </span>
@@ -96,7 +96,7 @@ export default async function SuggestedProjectsPage() {
                   // Disable viewport prefetch on high-cardinality lists — see
                   // `app/portal/projects/page.tsx` for rationale.
                   prefetch={false}
-                  className="bg-card border border-border rounded-xl p-5 flex flex-col gap-3 hover:border-primary/50 hover:shadow-sm transition-all group"
+                  className="bg-card border border-border rounded-2xl p-5 flex flex-col gap-3 hover:border-primary/50 hover:shadow-sm transition-all group"
                 >
                   <div className="flex items-start justify-between gap-2">
                     <span className="material-icons text-2xl text-primary group-hover:scale-110 transition-transform">{item.icon}</span>
@@ -122,7 +122,7 @@ export default async function SuggestedProjectsPage() {
                   )}
                   <div className="mt-auto pt-2 flex items-center justify-between gap-2 border-t border-border">
                     <div>
-                      <p className="text-base font-bold text-foreground">
+                      <p className="text-base font-display font-extrabold tracking-[-0.02em] text-foreground">
                         {item.estimatedPrice ? `~${formatCents(item.estimatedPrice)}` : 'Quote on request'}
                       </p>
                       <p className="text-xs text-muted-foreground mt-0.5">Estimated · billed hourly</p>

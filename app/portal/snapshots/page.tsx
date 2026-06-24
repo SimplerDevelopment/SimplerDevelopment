@@ -7,7 +7,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
-import { pBtnPrimary } from '@/components/portal/portal-ui';
+import { pBtnPrimary, pBtnGhost, pCard } from '@/components/portal/portal-ui';
 
 type Snapshot = {
   id: number;
@@ -189,8 +189,8 @@ export default function PortalSnapshotsPage() {
       )}
 
       {showCreate && (
-        <div className="bg-card border border-border rounded-lg p-4 space-y-3">
-          <h2 className="text-sm font-semibold text-foreground">Create snapshot from a site</h2>
+        <div className={`${pCard} p-4 space-y-3`}>
+          <h2 className="text-sm font-display font-extrabold tracking-[-0.01em] text-foreground">Create snapshot from a site</h2>
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
               <label className="block text-xs font-medium text-muted-foreground mb-1">Source site</label>
@@ -228,14 +228,14 @@ export default function PortalSnapshotsPage() {
           <div className="flex justify-end gap-2">
             <button
               onClick={() => setShowCreate(false)}
-              className="px-3 py-1.5 text-sm rounded-md border border-border text-foreground hover:bg-accent"
+              className={pBtnGhost}
             >
               Cancel
             </button>
             <button
               onClick={handleCreate}
               disabled={!createSiteId || creating}
-              className="px-3 py-1.5 text-sm rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+              className={pBtnPrimary}
             >
               {creating ? 'Creating…' : 'Create snapshot'}
             </button>
@@ -244,13 +244,13 @@ export default function PortalSnapshotsPage() {
       )}
 
       {snapshots.length === 0 ? (
-        <div className="text-center py-12 bg-card border border-border rounded-lg">
+        <div className={`${pCard} text-center py-12`}>
           <span className="material-icons text-4xl text-muted-foreground mb-2 block">photo_library</span>
           <p className="text-muted-foreground text-sm">No snapshots yet.</p>
           <p className="text-muted-foreground text-xs mt-1">Create your first to clone a site.</p>
         </div>
       ) : (
-        <div className="bg-card border border-border rounded-lg overflow-x-auto -mx-4 sm:mx-0">
+        <div className={`${pCard} overflow-x-auto -mx-4 sm:mx-0`}>
           <table className="w-full text-sm min-w-[640px]">
             <thead className="bg-muted/50 text-muted-foreground">
               <tr>
