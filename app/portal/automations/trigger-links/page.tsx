@@ -6,6 +6,8 @@
 // server-side); we just render and forward.
 
 import { useEffect, useMemo, useState } from 'react';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnPrimary, pCard, pInput } from '@/components/portal/portal-ui';
 
 interface TriggerLink {
   id: number;
@@ -137,20 +139,19 @@ export default function PortalTriggerLinksPage() {
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
-      <header className="flex flex-wrap items-center justify-between gap-3 mb-6">
-        <div>
-          <h1 className="text-2xl font-semibold text-foreground flex items-center gap-2">
-            <span className="material-icons">link</span>
-            Trigger Links
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Tracked shortlinks. Each visit to <code className="px-1 py-0.5 bg-muted rounded text-xs">/go/&lt;slug&gt;</code> is logged
+      <PortalPageHeader
+        eyebrow="Automations"
+        title="Trigger Links"
+        subtitle={
+          <>
+            Tracked shortlinks. Each visit to{' '}
+            <code className="px-1 py-0.5 bg-muted rounded text-xs">/go/&lt;slug&gt;</code> is logged
             and can be used as an automation trigger.
-          </p>
-        </div>
-      </header>
+          </>
+        }
+      />
 
-      <section className="mb-6 rounded-lg border border-border bg-card p-4">
+      <section className={`mb-6 ${pCard} p-5`}>
         <h2 className="text-sm font-medium text-foreground mb-3">Create a new link</h2>
         <form onSubmit={handleCreate} className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-end">
           <div className="flex-1">
@@ -161,7 +162,7 @@ export default function PortalTriggerLinksPage() {
               value={destination}
               onChange={(e) => setDestination(e.target.value)}
               placeholder="https://example.com/landing-page"
-              className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground"
+              className={pInput}
             />
           </div>
           <div className="flex-1">
@@ -171,13 +172,13 @@ export default function PortalTriggerLinksPage() {
               value={label}
               onChange={(e) => setLabel(e.target.value)}
               placeholder="Spring promo"
-              className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground"
+              className={pInput}
             />
           </div>
           <button
             type="submit"
             disabled={creating || !destination}
-            className="px-4 py-2 text-sm font-medium rounded bg-primary text-primary-foreground disabled:opacity-50 hover:bg-primary/90 inline-flex items-center gap-1"
+            className={pBtnPrimary}
           >
             <span className="material-icons text-base">add_link</span>
             {creating ? 'Creating…' : 'Create link'}
@@ -196,7 +197,7 @@ export default function PortalTriggerLinksPage() {
       )}
 
       {!loading && !error && (
-        <div className="rounded-lg border border-border bg-card overflow-hidden">
+        <div className={`${pCard} overflow-hidden`}>
           <div className="overflow-x-auto -mx-4 sm:mx-0">
           <table className="w-full text-sm min-w-[640px]" data-testid="trigger-links-table">
             <thead className="bg-muted/30 text-xs uppercase text-muted-foreground">
@@ -261,7 +262,7 @@ export default function PortalTriggerLinksPage() {
       )}
 
       {selectedId !== null && (
-        <section className="mt-6 rounded-lg border border-border bg-card p-4" data-testid="trigger-link-detail">
+        <section className={`mt-6 ${pCard} p-5`} data-testid="trigger-link-detail">
           <header className="flex flex-wrap items-center justify-between gap-2 mb-3">
             <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
               <span className="material-icons text-base">analytics</span>

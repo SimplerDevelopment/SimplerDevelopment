@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnPrimary, pBtnGhost, pInput } from '@/components/portal/portal-ui';
 
 interface LineItem {
   name: string;
@@ -82,13 +84,16 @@ export default function NewQuotePage() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-foreground">New Quote</h1>
-        <Link href="/portal/tools/booking/quotes" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
-          <span className="material-icons text-lg">close</span>
-          Cancel
-        </Link>
-      </div>
+      <PortalPageHeader
+        eyebrow="Booking"
+        title="New Quote"
+        actions={
+          <Link href="/portal/tools/booking/quotes" className={pBtnGhost}>
+            <span className="material-icons text-base">close</span>
+            Cancel
+          </Link>
+        }
+      />
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {error && (
@@ -99,46 +104,46 @@ export default function NewQuotePage() {
         )}
 
         {/* Quote details */}
-        <div className="bg-card border border-border rounded-xl p-5 space-y-4">
-          <h2 className="text-sm font-semibold text-foreground">Quote Details</h2>
+        <div className="bg-card border border-border rounded-2xl p-5 space-y-4">
+          <h2 className="text-sm font-display font-extrabold tracking-[-0.01em] text-foreground">Quote Details</h2>
           <div>
             <label className="block text-sm font-medium text-foreground mb-1">Title *</label>
             <input type="text" required value={title} onChange={e => setTitle(e.target.value)}
-              placeholder="Private Tour Package" className="w-full text-sm rounded-lg border border-border bg-background px-3 py-2 text-foreground" />
+              placeholder="Private Tour Package" className="w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary focus:ring-4 focus:ring-primary/15" />
           </div>
           <div>
             <label className="block text-sm font-medium text-foreground mb-1">Description</label>
             <textarea value={description} onChange={e => setDescription(e.target.value)} rows={3}
-              placeholder="Custom guided tour for corporate team..." className="w-full text-sm rounded-lg border border-border bg-background px-3 py-2 text-foreground resize-none" />
+              placeholder="Custom guided tour for corporate team..." className="w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary focus:ring-4 focus:ring-primary/15 resize-none" />
           </div>
         </div>
 
         {/* Customer */}
-        <div className="bg-card border border-border rounded-xl p-5 space-y-4">
-          <h2 className="text-sm font-semibold text-foreground">Customer</h2>
+        <div className="bg-card border border-border rounded-2xl p-5 space-y-4">
+          <h2 className="text-sm font-display font-extrabold tracking-[-0.01em] text-foreground">Customer</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-foreground mb-1">Name *</label>
               <input type="text" required value={customerName} onChange={e => setCustomerName(e.target.value)}
-                className="w-full text-sm rounded-lg border border-border bg-background px-3 py-2 text-foreground" />
+                className="w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary focus:ring-4 focus:ring-primary/15" />
             </div>
             <div>
               <label className="block text-sm font-medium text-foreground mb-1">Email *</label>
               <input type="email" required value={customerEmail} onChange={e => setCustomerEmail(e.target.value)}
-                className="w-full text-sm rounded-lg border border-border bg-background px-3 py-2 text-foreground" />
+                className="w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary focus:ring-4 focus:ring-primary/15" />
             </div>
           </div>
           <div>
             <label className="block text-sm font-medium text-foreground mb-1">Phone</label>
             <input type="tel" value={customerPhone} onChange={e => setCustomerPhone(e.target.value)}
-              className="w-full text-sm rounded-lg border border-border bg-background px-3 py-2 text-foreground" />
+              className="w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary focus:ring-4 focus:ring-primary/15" />
           </div>
         </div>
 
         {/* Line items */}
-        <div className="bg-card border border-border rounded-xl p-5 space-y-4">
+        <div className="bg-card border border-border rounded-2xl p-5 space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-foreground">Line Items</h2>
+            <h2 className="text-sm font-display font-extrabold tracking-[-0.01em] text-foreground">Line Items</h2>
             <button type="button" onClick={addLineItem}
               className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
               <span className="material-icons text-sm">add</span> Add item
@@ -149,18 +154,18 @@ export default function NewQuotePage() {
               <div className="flex-1">
                 {i === 0 && <label className="block text-xs text-muted-foreground mb-1">Item</label>}
                 <input type="text" value={item.name} onChange={e => updateLineItem(i, 'name', e.target.value)}
-                  placeholder="Tour name" className="w-full text-sm rounded-lg border border-border bg-background px-3 py-2 text-foreground" />
+                  placeholder="Tour name" className="w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary focus:ring-4 focus:ring-primary/15" />
               </div>
               <div className="w-20">
                 {i === 0 && <label className="block text-xs text-muted-foreground mb-1">Qty</label>}
                 <input type="number" min="1" value={item.quantity} onChange={e => updateLineItem(i, 'quantity', e.target.value)}
-                  className="w-full text-sm rounded-lg border border-border bg-background px-3 py-2 text-foreground" />
+                  className="w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary focus:ring-4 focus:ring-primary/15" />
               </div>
               <div className="w-28">
                 {i === 0 && <label className="block text-xs text-muted-foreground mb-1">Price ($)</label>}
                 <input type="number" min="0" step="0.01" value={(item.unitPrice / 100).toFixed(2)}
                   onChange={e => updateLineItem(i, 'unitPrice', e.target.value)}
-                  className="w-full text-sm rounded-lg border border-border bg-background px-3 py-2 text-foreground" />
+                  className="w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary focus:ring-4 focus:ring-primary/15" />
               </div>
               <button type="button" onClick={() => removeLineItem(i)} disabled={lineItems.length <= 1}
                 className="p-2 text-muted-foreground hover:text-red-500 disabled:opacity-30">
@@ -169,36 +174,36 @@ export default function NewQuotePage() {
             </div>
           ))}
           <div className="flex justify-end pt-2 border-t border-border">
-            <p className="text-lg font-bold text-foreground">
+            <p className="text-lg font-display font-extrabold tracking-[-0.02em] text-foreground">
               Total: ${(totalCents / 100).toFixed(2)}
             </p>
           </div>
         </div>
 
         {/* Optional scheduling */}
-        <div className="bg-card border border-border rounded-xl p-5 space-y-4">
-          <h2 className="text-sm font-semibold text-foreground">Scheduling (optional)</h2>
+        <div className="bg-card border border-border rounded-2xl p-5 space-y-4">
+          <h2 className="text-sm font-display font-extrabold tracking-[-0.01em] text-foreground">Scheduling (optional)</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-foreground mb-1">Start</label>
               <input type="datetime-local" value={startTime} onChange={e => setStartTime(e.target.value)}
-                className="w-full text-sm rounded-lg border border-border bg-background px-3 py-2 text-foreground" />
+                className="w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary focus:ring-4 focus:ring-primary/15" />
             </div>
             <div>
               <label className="block text-sm font-medium text-foreground mb-1">End</label>
               <input type="datetime-local" value={endTime} onChange={e => setEndTime(e.target.value)}
-                className="w-full text-sm rounded-lg border border-border bg-background px-3 py-2 text-foreground" />
+                className="w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary focus:ring-4 focus:ring-primary/15" />
             </div>
           </div>
           <div>
             <label className="block text-sm font-medium text-foreground mb-1">Quote expires on</label>
             <input type="date" value={expiresAt} onChange={e => setExpiresAt(e.target.value)}
-              className="w-full text-sm rounded-lg border border-border bg-background px-3 py-2 text-foreground" />
+              className="w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary focus:ring-4 focus:ring-primary/15" />
           </div>
         </div>
 
         <button type="submit" disabled={saving || !title.trim() || !customerName.trim() || !customerEmail.trim() || totalCents <= 0}
-          className="w-full py-3 bg-primary text-primary-foreground rounded-xl font-medium disabled:opacity-50 hover:opacity-90 transition-opacity">
+          className="inline-flex items-center justify-center gap-2 rounded-xl bg-foreground px-4 py-2.5 text-sm font-bold text-background transition hover:-translate-y-px hover:shadow-lg hover:shadow-foreground/20 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0 w-full">
           {saving ? 'Creating...' : 'Create Quote & Generate Payment Link'}
         </button>
       </form>
