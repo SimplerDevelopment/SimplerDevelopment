@@ -1,17 +1,15 @@
 import { NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { media } from '@/lib/db/schema';
-import { getPortalClient } from '@/lib/portal-client';
+import { authorizePortal, isAuthError } from '@/lib/portal-auth';
 import { eq, and } from 'drizzle-orm';
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const session = await auth();
-  if (!session?.user?.id) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
+  const authz = await authorizePortal({ action: 'write' });
+  if (isAuthError(authz)) return authz.response;
+  const { client } = authz;
 
   const { id } = await params;
-  const client = await getPortalClient(parseInt(session.user.id, 10));
-  if (!client) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
 
   const body = await req.json();
   const { alt, caption } = body;
@@ -31,12 +29,11 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 }
 
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const session = await auth();
-  if (!session?.user?.id) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
+  const authz = await authorizePortal({ action: 'write' });
+  if (isAuthError(authz)) return authz.response;
+  const { client } = authz;
 
   const { id } = await params;
-  const client = await getPortalClient(parseInt(session.user.id, 10));
-  if (!client) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
 
   const [deleted] = await db
     .delete(media)

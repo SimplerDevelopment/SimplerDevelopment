@@ -6,6 +6,7 @@ import {
   productVariants, bulkPricingRules,
 } from '@/lib/db/schema';
 import { and, eq, asc, or } from 'drizzle-orm';
+import { hasServiceAccess } from '@/lib/portal-auth';
 
 type Params = { params: Promise<{ siteId: string; productId: string }> };
 
@@ -111,6 +112,7 @@ export async function PUT(req: Request, { params }: Params) {
   const { siteId, productId } = await params;
   const { site, product } = await resolveProduct(parseInt(session.user.id, 10), siteId, productId);
   if (!product || !site) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
+  if (!(await hasServiceAccess(site.clientId, 'store'))) return NextResponse.json({ success: false, message: 'This feature requires an active store subscription.', requiresService: 'store', upsellUrl: '/portal/services' }, { status: 403 });
 
   const body = await req.json();
 
@@ -208,8 +210,9 @@ export async function DELETE(_req: Request, { params }: Params) {
   if (!session?.user?.id) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
 
   const { siteId, productId } = await params;
-  const { product } = await resolveProduct(parseInt(session.user.id, 10), siteId, productId);
-  if (!product) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
+  const { site, product } = await resolveProduct(parseInt(session.user.id, 10), siteId, productId);
+  if (!product || !site) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
+  if (!(await hasServiceAccess(site.clientId, 'store'))) return NextResponse.json({ success: false, message: 'This feature requires an active store subscription.', requiresService: 'store', upsellUrl: '/portal/services' }, { status: 403 });
 
   await db.delete(products).where(eq(products.id, product.id));
 

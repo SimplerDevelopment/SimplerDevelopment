@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { media, clientWebsites, brandingProfiles } from '@/lib/db/schema';
-import { getPortalClient } from '@/lib/portal-client';
+import { authorizePortal, isAuthError } from '@/lib/portal-auth';
 import { uploadToS3 } from '@/lib/s3/upload';
 import { eq, and } from 'drizzle-orm';
 import sharp from 'sharp';
@@ -11,12 +10,9 @@ const MAX_FILE_SIZE = parseInt(process.env.MAX_FILE_SIZE || '10485760'); // 10MB
 const ALLOWED_TYPES = process.env.ALLOWED_FILE_TYPES?.split(',') || [];
 
 export async function POST(req: Request) {
-  const session = await auth();
-  if (!session?.user?.id) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
-
-  const userId = parseInt(session.user.id, 10);
-  const client = await getPortalClient(userId);
-  if (!client) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
+  const authz = await authorizePortal({ action: 'write' });
+  if (isAuthError(authz)) return authz.response;
+  const { client, userId } = authz;
 
   const formData = await req.formData() as unknown as globalThis.FormData;
   const file = formData.get('file') as File | null;

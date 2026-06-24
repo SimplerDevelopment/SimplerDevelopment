@@ -8,6 +8,7 @@ import { db } from '@/lib/db';
 import { pitchDecks } from '@/lib/db/schema';
 import { and, eq } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
+import { hasServiceAccess } from '@/lib/portal-auth';
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
@@ -16,6 +17,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const userId = parseInt(session.user.id, 10);
   const client = await getPortalClient(userId);
   if (!client) return NextResponse.json({ success: false, message: 'Client not found' }, { status: 404 });
+  if (!(await hasServiceAccess(client.id, 'pitch-decks'))) return NextResponse.json({ success: false, message: 'This feature requires an active pitch-decks subscription.', requiresService: 'pitch-decks', upsellUrl: '/portal/services' }, { status: 403 });
 
   const deckId = parseInt((await params).id, 10);
   if (Number.isNaN(deckId))
