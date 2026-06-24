@@ -50,6 +50,11 @@ vi.mock('@/lib/ai/plan-gate', () => ({
   checkAiPlanGate: (...args: unknown[]) => checkAiPlanGateMock(...args),
 }));
 
+const hasServiceAccessMock = vi.fn().mockResolvedValue(true);
+vi.mock('@/lib/portal-auth', () => ({
+  hasServiceAccess: (...args: unknown[]) => hasServiceAccessMock(...args),
+}));
+
 const buildSlideEditPromptMock = vi.fn();
 vi.mock('@/lib/ai/slide-prompt-builder', () => ({
   buildSlideEditPrompt: (...args: unknown[]) => buildSlideEditPromptMock(...args),
@@ -312,6 +317,7 @@ describe('POST /api/portal/tools/pitch-decks/[id]/slides/batch-edit', () => {
     state.selectQueue.length = 0;
 
     authMock.mockReset();
+    hasServiceAccessMock.mockReset().mockResolvedValue(true);
     getPortalClientMock.mockReset();
     saveVersionSnapshotMock.mockReset().mockResolvedValue(undefined);
     getBrandingByClientIdMock.mockReset();

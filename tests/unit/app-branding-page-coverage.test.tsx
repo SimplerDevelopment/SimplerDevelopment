@@ -185,11 +185,16 @@ describe('BrandingPage — initial render', () => {
     });
   });
 
-  it('renders Back to Content link pointing to /portal/websites/site-99', async () => {
+  it('renders "Website" eyebrow label in the page header (navigation context for the branding page)', async () => {
+    // The redesign (portal-redesign-sweep) removed the inline "Back to Content" Link from
+    // the branding page body and moved back-navigation to the layout-level WebsiteSubNav.
+    // The page now uses PortalPageHeader with eyebrow="Website" to signal navigation context.
     const { container } = renderPage();
     await waitFor(() => {
-      const link = container.querySelector('a[href="/portal/websites/site-99"]');
-      expect(link).toBeTruthy();
+      const eyebrow = Array.from(container.querySelectorAll('div')).find((el) =>
+        el.textContent?.trim() === 'Website',
+      );
+      expect(eyebrow).toBeTruthy();
     });
   });
 

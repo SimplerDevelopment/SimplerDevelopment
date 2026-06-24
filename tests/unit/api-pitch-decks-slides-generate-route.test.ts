@@ -24,6 +24,11 @@ vi.mock('@/lib/portal-client', () => ({
   getPortalClient: (...args: unknown[]) => getPortalClientMock(...args),
 }));
 
+const hasServiceAccessMock = vi.fn();
+vi.mock('@/lib/portal-auth', () => ({
+  hasServiceAccess: (...args: unknown[]) => hasServiceAccessMock(...args),
+}));
+
 const saveVersionSnapshotMock = vi.fn();
 vi.mock('@/lib/pitch-deck-versions', () => ({
   saveVersionSnapshot: (...args: unknown[]) => saveVersionSnapshotMock(...args),
@@ -280,6 +285,7 @@ beforeEach(() => {
 
   authMock.mockReset();
   getPortalClientMock.mockReset();
+  hasServiceAccessMock.mockReset().mockResolvedValue(true);
   saveVersionSnapshotMock.mockReset().mockResolvedValue(undefined);
   getBrandingByClientIdMock.mockReset();
   resolveClientApiKeyMock.mockReset().mockResolvedValue({ source: 'platform', key: 'sk-test' });

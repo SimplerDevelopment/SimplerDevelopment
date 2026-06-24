@@ -45,6 +45,16 @@ vi.mock('sharp', () => ({
   }),
 }));
 
+// portal-auth: authorizePortal + isAuthError
+const authorizePortalMock = vi.fn();
+const isAuthErrorMock = vi.fn((r: unknown) =>
+  Boolean(r && typeof r === 'object' && 'response' in (r as Record<string, unknown>)),
+);
+vi.mock('@/lib/portal-auth', () => ({
+  authorizePortal: (...args: unknown[]) => authorizePortalMock(...args),
+  isAuthError: (r: unknown) => isAuthErrorMock(r),
+}));
+
 // authorizePostForUser + normalizeSplit
 const authorizePostForUserMock = vi.fn();
 vi.mock('@/lib/ab/access', () => ({
@@ -222,6 +232,7 @@ beforeEach(() => {
   getPortalClientsMock.mockReset();
   uploadToS3Mock.mockReset();
   sharpMetadataMock.mockReset();
+  authorizePortalMock.mockReset();
   authorizePostForUserMock.mockReset();
   normalizeSplitMock.mockReset();
 });
@@ -232,7 +243,12 @@ beforeEach(() => {
 
 describe('POST /api/portal/media/upload', () => {
   it('returns 401 when no session', async () => {
-    authMock.mockResolvedValue(null);
+    authorizePortalMock.mockResolvedValue({
+      response: new Response(
+        JSON.stringify({ success: false, message: 'Unauthorized' }),
+        { status: 401, headers: { 'content-type': 'application/json' } },
+      ),
+    });
     const res = await mediaUploadRoute.POST(
       makeFormDataReq({}) as unknown as Request,
     );
@@ -243,18 +259,21 @@ describe('POST /api/portal/media/upload', () => {
   });
 
   it('returns 404 when client cannot be resolved', async () => {
-    authMock.mockResolvedValue(SESSION);
-    getPortalClientMock.mockResolvedValue(null);
+    authorizePortalMock.mockResolvedValue({
+      response: new Response(
+        JSON.stringify({ success: false, message: 'Client not found' }),
+        { status: 404, headers: { 'content-type': 'application/json' } },
+      ),
+    });
     const res = await mediaUploadRoute.POST(
       makeFormDataReq({}) as unknown as Request,
     );
     expect(res.status).toBe(404);
-    expect((await res.json()).message).toBe('Not found');
+    expect((await res.json()).message).toBe('Client not found');
   });
 
   it('returns 400 when no file is provided', async () => {
-    authMock.mockResolvedValue(SESSION);
-    getPortalClientMock.mockResolvedValue({ id: 5 });
+    authorizePortalMock.mockResolvedValue({ client: { id: 5 }, userId: 7, role: 'owner' });
     const res = await mediaUploadRoute.POST(
       makeFormDataReq({}) as unknown as Request,
     );
@@ -270,8 +289,7 @@ describe('POST /api/portal/media/upload', () => {
   // gate is exercised in the happy-path tests below.
 
   it('returns 400 when file exceeds 10MB default size limit', async () => {
-    authMock.mockResolvedValue(SESSION);
-    getPortalClientMock.mockResolvedValue({ id: 5 });
+    authorizePortalMock.mockResolvedValue({ client: { id: 5 }, userId: 7, role: 'owner' });
     // Build a Blob > 10MB without allocating a giant string — use a typed array.
     const huge = new Uint8Array(10 * 1024 * 1024 + 10); // 10MB + 10 bytes
     const big = new File([huge], 'big.txt', { type: 'text/plain' });
@@ -283,8 +301,7 @@ describe('POST /api/portal/media/upload', () => {
   });
 
   it('returns 400 when client has no websites', async () => {
-    authMock.mockResolvedValue(SESSION);
-    getPortalClientMock.mockResolvedValue({ id: 5 });
+    authorizePortalMock.mockResolvedValue({ client: { id: 5 }, userId: 7, role: 'owner' });
     selectQueue.push([]); // firstSite lookup → none
     const file = new File(['hi'], 'a.txt', { type: 'text/plain' });
     const res = await mediaUploadRoute.POST(
@@ -295,8 +312,7 @@ describe('POST /api/portal/media/upload', () => {
   });
 
   it('inserts a media row and returns 201 (text file, no metadata, no brandingProfile)', async () => {
-    authMock.mockResolvedValue(SESSION);
-    getPortalClientMock.mockResolvedValue({ id: 5 });
+    authorizePortalMock.mockResolvedValue({ client: { id: 5 }, userId: 7, role: 'owner' });
     selectQueue.push([{ id: 88 }]); // firstSite
     uploadToS3Mock.mockResolvedValue({
       storedFilename: 'stored-a.txt',
@@ -329,8 +345,7 @@ describe('POST /api/portal/media/upload', () => {
   });
 
   it('extracts width/height from sharp metadata for images', async () => {
-    authMock.mockResolvedValue(SESSION);
-    getPortalClientMock.mockResolvedValue({ id: 5 });
+    authorizePortalMock.mockResolvedValue({ client: { id: 5 }, userId: 7, role: 'owner' });
     selectQueue.push([{ id: 88 }]);
     sharpMetadataMock.mockResolvedValue({ width: 640, height: 480 });
     uploadToS3Mock.mockResolvedValue({
@@ -352,8 +367,7 @@ describe('POST /api/portal/media/upload', () => {
   });
 
   it('swallows sharp errors and inserts with null dimensions', async () => {
-    authMock.mockResolvedValue(SESSION);
-    getPortalClientMock.mockResolvedValue({ id: 5 });
+    authorizePortalMock.mockResolvedValue({ client: { id: 5 }, userId: 7, role: 'owner' });
     selectQueue.push([{ id: 88 }]);
     sharpMetadataMock.mockRejectedValue(new Error('bad pixels'));
     uploadToS3Mock.mockResolvedValue({
@@ -375,8 +389,7 @@ describe('POST /api/portal/media/upload', () => {
   });
 
   it('uses provided brandingProfileId when it belongs to the client', async () => {
-    authMock.mockResolvedValue(SESSION);
-    getPortalClientMock.mockResolvedValue({ id: 5 });
+    authorizePortalMock.mockResolvedValue({ client: { id: 5 }, userId: 7, role: 'owner' });
     selectQueue.push([{ id: 88 }]); // firstSite
     selectQueue.push([{ id: 17 }]); // brandingProfile lookup matches
     uploadToS3Mock.mockResolvedValue({
@@ -397,8 +410,7 @@ describe('POST /api/portal/media/upload', () => {
   });
 
   it('ignores brandingProfileId when it does not belong to the client', async () => {
-    authMock.mockResolvedValue(SESSION);
-    getPortalClientMock.mockResolvedValue({ id: 5 });
+    authorizePortalMock.mockResolvedValue({ client: { id: 5 }, userId: 7, role: 'owner' });
     selectQueue.push([{ id: 88 }]); // firstSite
     selectQueue.push([]); // brandingProfile lookup empty
     uploadToS3Mock.mockResolvedValue({

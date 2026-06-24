@@ -394,7 +394,9 @@ describe('NoteEditorPane — change callbacks', () => {
     const onEditorReady = vi.fn();
     render(<NoteEditorPane noteId={42} onEditorReady={onEditorReady} />);
     await waitFor(() => screen.getByTestId('markdown-editor'));
-    expect(onEditorReady).toHaveBeenCalledWith({ __stub: 'editorView' });
+    // The stub fires onEditorReady inside a useEffect, which runs after the
+    // render paint. waitFor ensures we poll until the effect has actually fired.
+    await waitFor(() => expect(onEditorReady).toHaveBeenCalledWith({ __stub: 'editorView' }));
   });
 });
 

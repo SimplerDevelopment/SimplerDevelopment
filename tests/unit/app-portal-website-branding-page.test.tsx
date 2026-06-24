@@ -197,11 +197,14 @@ describe('BrandingPage — happy-path render', () => {
     });
   });
 
-  it('renders back link to the site root', async () => {
+  it('renders "Website" eyebrow context label (site navigation context from PortalPageHeader)', async () => {
+    // The back-to-site link was moved to the shared WebsiteSubNav layout component
+    // (components/portal/WebsiteSubNav.tsx) during the portal redesign. The page
+    // itself no longer renders an inline anchor; instead it shows a "Website" eyebrow
+    // via PortalPageHeader so users know they are in a per-website context.
     const { container } = render(React.createElement(BrandingPage));
     await waitFor(() => {
-      const link = container.querySelector('a[href="/portal/websites/site-99"]');
-      expect(link).toBeTruthy();
+      expect(container.textContent).toContain('Website');
     });
   });
 

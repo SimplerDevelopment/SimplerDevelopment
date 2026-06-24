@@ -24,6 +24,23 @@ vi.mock('@/lib/portal-client', () => ({
   getPortalClient: (...args: unknown[]) => getPortalClientMock(...args),
 }));
 
+// portal-auth — mock resolveStoreSite (delegates to resolveClientSiteMock),
+// authorizePortal (uses getPortalClientMock, always grants access), and isAuthError.
+vi.mock('@/lib/portal-auth', async () => {
+  return {
+    resolveStoreSite: async (...args: unknown[]) => resolveClientSiteMock(...args),
+    authorizePortal: async () => {
+      const client = await getPortalClientMock();
+      if (!client) {
+        const { NextResponse } = await import('next/server');
+        return { response: NextResponse.json({ success: false, message: 'Client not found' }, { status: 404 }) };
+      }
+      return { client, userId: client.userId ?? 7, role: 'owner' };
+    },
+    isAuthError: (result: unknown) => result != null && typeof result === 'object' && 'response' in (result as object),
+  };
+});
+
 vi.mock('@/lib/mcp-auth', () => ({
   resolvePortalFromCurrentRequest: () => Promise.resolve(null),
 }));
@@ -819,7 +836,6 @@ describe('GET /api/portal/websites/[siteId]/store/settings', () => {
   it('returns 404 when site not resolvable', async () => {
     authMock.mockResolvedValue(SESSION);
     resolveClientSiteMock.mockResolvedValue(null);
-    selectQueue.push([{ category: 'store' }]); // hasServiceAccess
     const res = await settingsRoute.GET(makeBareRequest(URL), makeSiteParams('5'));
     expect(res.status).toBe(404);
   });
@@ -827,7 +843,6 @@ describe('GET /api/portal/websites/[siteId]/store/settings', () => {
   it('returns existing settings when row present', async () => {
     authMock.mockResolvedValue(SESSION);
     resolveClientSiteMock.mockResolvedValue({ id: 5, clientId: 33 });
-    selectQueue.push([{ category: 'store' }]); // hasServiceAccess
     selectQueue.push([{ id: 1, websiteId: 5, storeName: 'My Store', currency: 'USD' }]);
     const res = await settingsRoute.GET(makeBareRequest(URL), makeSiteParams('5'));
     expect(res.status).toBe(200);
@@ -840,7 +855,6 @@ describe('GET /api/portal/websites/[siteId]/store/settings', () => {
   it('creates default row when no settings exist', async () => {
     authMock.mockResolvedValue(SESSION);
     resolveClientSiteMock.mockResolvedValue({ id: 5, clientId: 33 });
-    selectQueue.push([{ category: 'store' }]); // hasServiceAccess
     selectQueue.push([]); // no settings
     insertReturnQueue.push([{ id: 7, websiteId: 5 }]);
     const res = await settingsRoute.GET(makeBareRequest(URL), makeSiteParams('5'));
@@ -869,7 +883,6 @@ describe('PUT /api/portal/websites/[siteId]/store/settings', () => {
   it('returns 404 when site not resolvable', async () => {
     authMock.mockResolvedValue(SESSION);
     resolveClientSiteMock.mockResolvedValue(null);
-    selectQueue.push([{ category: 'store' }]); // hasServiceAccess
     const res = await settingsRoute.PUT(
       makeJsonRequest(URL, 'PUT', { storeName: 'X' }),
       makeSiteParams('5'),
@@ -880,7 +893,6 @@ describe('PUT /api/portal/websites/[siteId]/store/settings', () => {
   it('updates existing settings row with all known fields', async () => {
     authMock.mockResolvedValue(SESSION);
     resolveClientSiteMock.mockResolvedValue({ id: 5, clientId: 33 });
-    selectQueue.push([{ category: 'store' }]); // hasServiceAccess
     selectQueue.push([{ id: 1, websiteId: 5 }]); // existing
     updateReturnQueue.push([
       { id: 1, websiteId: 5, storeName: 'Updated' },
@@ -942,7 +954,6 @@ describe('PUT /api/portal/websites/[siteId]/store/settings', () => {
   it('inserts settings row when none exists (upsert path)', async () => {
     authMock.mockResolvedValue(SESSION);
     resolveClientSiteMock.mockResolvedValue({ id: 5, clientId: 33 });
-    selectQueue.push([{ category: 'store' }]); // hasServiceAccess
     selectQueue.push([]); // no existing
     insertReturnQueue.push([{ id: 99, websiteId: 5, storeName: 'New' }]);
     const res = await settingsRoute.PUT(
@@ -965,7 +976,6 @@ describe('PUT /api/portal/websites/[siteId]/store/settings', () => {
   it('only sets updatedAt when body is empty (and row exists)', async () => {
     authMock.mockResolvedValue(SESSION);
     resolveClientSiteMock.mockResolvedValue({ id: 5, clientId: 33 });
-    selectQueue.push([{ category: 'store' }]); // hasServiceAccess
     selectQueue.push([{ id: 1, websiteId: 5 }]);
     updateReturnQueue.push([{ id: 1, websiteId: 5 }]);
     const res = await settingsRoute.PUT(

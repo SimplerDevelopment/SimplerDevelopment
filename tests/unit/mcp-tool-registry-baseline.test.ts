@@ -562,35 +562,6 @@ const EXPECTED_PROMPTS: readonly string[] = [
   'weekly-digest',
 ];
 
-/**
- * Stable list of every resource URI buildMcpServer() registers under '*'.
- * Resources are read-only context docs (see lib/mcp/tools/resources.ts) and
- * drift the same way tools do — lock the URI set here too.
- *   - blocks://schema, portal://capabilities — unscoped, always registered
- *   - brand://default — gated on branding:read
- *   - catalog://services — gated on services:read
- */
-const EXPECTED_RESOURCES: readonly string[] = [
-  'blocks://schema',
-  'brand://default',
-  'catalog://services',
-  'portal://capabilities',
-];
-
-/**
- * Stable list of every prompt name buildMcpServer() registers under '*'.
- * Prompts are user-triggered guided workflows (see lib/mcp/tools/prompts.ts),
- * each gated on a representative scope. Lock the name set so drift fails red.
- *   - draft-page     — gated on sites:write
- *   - triage-tickets — gated on tickets:read
- *   - weekly-digest  — gated on projects:read
- */
-const EXPECTED_PROMPTS: readonly string[] = [
-  'draft-page',
-  'triage-tickets',
-  'weekly-digest',
-];
-
 /** Build a fake context with a chosen scope set. Doesn't hit the DB. */
 function makeCtx(scopes: string[]): PortalMcpContext {
   return {

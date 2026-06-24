@@ -236,9 +236,10 @@ describe('PortalSnapshotsPage', () => {
     fireEvent.click(btn);
   }
 
-  // Helper: find the panel's submit button (inside the bg-card panel, no icon).
+  // Helper: find the panel's submit button (inside the pCard panel, no icon).
+  // pCard = 'rounded-2xl border border-border bg-card'; create panel adds p-4.
   function getPanelSubmitBtn(container: HTMLElement) {
-    const panel = container.querySelector('.bg-card.border.border-border.rounded-lg.p-4') as HTMLElement;
+    const panel = container.querySelector('.rounded-2xl.border.border-border.bg-card.p-4') as HTMLElement;
     return Array.from(panel.querySelectorAll('button')).find(
       (b) => b.textContent?.trim() === 'Create snapshot',
     ) as HTMLButtonElement;
@@ -286,7 +287,7 @@ describe('PortalSnapshotsPage', () => {
       vi.stubGlobal('fetch', fetchSpy);
       const { container } = await renderAndLoad();
       clickHeaderCreateBtn(container);
-      const panel = container.querySelector('.bg-card.border.border-border.rounded-lg.p-4') as HTMLElement;
+      const panel = container.querySelector('.rounded-2xl.border.border-border.bg-card.p-4') as HTMLElement;
       const siteSelect = panel.querySelector('select') as HTMLSelectElement;
       fireEvent.change(siteSelect, { target: { value: '10' } });
       const nameInput = panel.querySelector(
@@ -311,7 +312,7 @@ describe('PortalSnapshotsPage', () => {
       };
       const { container } = await renderAndLoad();
       clickHeaderCreateBtn(container);
-      const panel = container.querySelector('.bg-card.border.border-border.rounded-lg.p-4') as HTMLElement;
+      const panel = container.querySelector('.rounded-2xl.border.border-border.bg-card.p-4') as HTMLElement;
       const siteSelect = panel.querySelector('select') as HTMLSelectElement;
       fireEvent.change(siteSelect, { target: { value: '10' } });
       await act(async () => { fireEvent.click(getPanelSubmitBtn(container)); });
@@ -329,7 +330,7 @@ describe('PortalSnapshotsPage', () => {
       };
       const { container } = await renderAndLoad();
       clickHeaderCreateBtn(container);
-      const panel = container.querySelector('.bg-card.border.border-border.rounded-lg.p-4') as HTMLElement;
+      const panel = container.querySelector('.rounded-2xl.border.border-border.bg-card.p-4') as HTMLElement;
       const siteSelect = panel.querySelector('select') as HTMLSelectElement;
       fireEvent.change(siteSelect, { target: { value: '10' } });
       await act(async () => { fireEvent.click(getPanelSubmitBtn(container)); });

@@ -172,6 +172,10 @@ vi.mock('@/lib/db', () => {
 });
 
 // ---- modules under test ----
+// Set required env vars BEFORE importing the route modules that read them at
+// module-load time (e.g. `const GOOGLE_FONTS_API_KEY = process.env.GOOGLE_FONTS_API_KEY`).
+// Without this the route short-circuits to 503 ("not configured") before any test logic runs.
+process.env.GOOGLE_FONTS_API_KEY = 'test-key';
 const googleFontsRoute = await import('@/app/api/google-fonts/route');
 const logsIngestRoute = await import('@/app/api/logs/ingest/route');
 const unsubscribeRoute = await import('@/app/api/email/unsubscribe/route');

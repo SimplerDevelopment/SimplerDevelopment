@@ -37,6 +37,11 @@ vi.mock('@/lib/github', () => ({
   addCollaborator: (...args: unknown[]) => addCollaboratorMock(...args),
 }));
 
+const hasServiceAccessMock = vi.fn();
+vi.mock('@/lib/portal-auth', () => ({
+  hasServiceAccess: (...args: unknown[]) => hasServiceAccessMock(...args),
+}));
+
 const convertAllSlidesToV2Mock = vi.fn();
 const isV2SlidesMock = vi.fn();
 vi.mock('@/lib/pitch-deck-migration', () => ({
@@ -256,6 +261,8 @@ beforeEach(() => {
   addCollaboratorMock.mockReset();
   convertAllSlidesToV2Mock.mockReset();
   isV2SlidesMock.mockReset();
+  // default: service access granted (tests that need denial can override)
+  hasServiceAccessMock.mockResolvedValue(true);
 });
 
 // ===========================================================================

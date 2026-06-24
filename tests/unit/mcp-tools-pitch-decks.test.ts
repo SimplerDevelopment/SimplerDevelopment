@@ -277,14 +277,15 @@ beforeEach(() => {
 });
 
 describe('registerPitchDecksTools — registration & scope gating', () => {
-  it('registers all 12 deck tools when scopes=*', () => {
+  it('registers all 13 deck tools when scopes=*', () => {
     const tools = registerAll(['*']);
-    expect(tools.size).toBe(12);
+    expect(tools.size).toBe(13);
     for (const name of [
       'decks_list', 'decks_get', 'decks_create', 'decks_update',
       'decks_fork', 'decks_replace_slides', 'decks_add_slide', 'decks_delete',
       'decks_upload_html', 'decks_upload_html_zip',
       'decks_publish_slide', 'decks_publish_all',
+      'deck_analytics_get',
     ]) {
       expect(tools.has(name), `expected ${name}`).toBe(true);
     }
@@ -316,7 +317,7 @@ describe('registerPitchDecksTools — registration & scope gating', () => {
 
   it('registers the resource-wildcard decks:*', () => {
     const tools = registerAll(['decks:*']);
-    expect(tools.size).toBe(12);
+    expect(tools.size).toBe(13);
   });
 
   it('registers nothing when ctx has no deck scopes', () => {

@@ -145,10 +145,12 @@ describe('PortalEmailListsPage — initial render', () => {
     expect(screen.getByText('New List')).toBeTruthy();
   });
 
-  it('renders the back link to /portal/email', async () => {
+  it('renders the Email section eyebrow (navigation context replacing old back link)', async () => {
+    // The portal redesign replaced the arrow_back <Link href="/portal/email"> with
+    // PortalPageHeader eyebrow="Email" — a mono uppercase category label that
+    // provides the same section context without an explicit back link.
     const { container } = await renderPage();
-    const link = container.querySelector('a[href="/portal/email"]');
-    expect(link).toBeTruthy();
+    expect(container.textContent).toContain('Email');
   });
 
   it('shows loading state before fetch resolves', () => {

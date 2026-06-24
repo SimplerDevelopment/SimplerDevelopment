@@ -276,7 +276,7 @@ describe('PortalCampaignDetailPage — initial render', () => {
     const spans = Array.from(container.querySelectorAll('span'));
     const badge = spans.find(s => s.textContent === 'draft');
     expect(badge).toBeTruthy();
-    expect(badge?.className).toContain('bg-gray-100');
+    expect(badge?.className).toContain('bg-muted');
   });
 
   it('renders back link to /portal/email/campaigns', async () => {
@@ -340,11 +340,11 @@ describe('PortalCampaignDetailPage — statusColor map', () => {
     });
   }
 
-  it('unknown status falls back to bg-gray-100', async () => {
+  it('unknown status falls back to bg-muted', async () => {
     await renderPage({ status: 'unknown_state' });
     const spans = Array.from(document.querySelectorAll('span'));
     const badge = spans.find(s => s.textContent === 'unknown_state');
-    expect(badge?.className).toContain('bg-gray-100');
+    expect(badge?.className).toContain('bg-muted');
   });
 });
 

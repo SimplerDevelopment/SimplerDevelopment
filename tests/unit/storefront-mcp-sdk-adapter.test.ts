@@ -201,6 +201,14 @@ vi.mock('drizzle-orm', () => ({
   inArray: (a: unknown, list: unknown[]) => ({ op: 'inArray', a, list }),
 }));
 
+// Mock portal-auth so hasServiceAccess (called via requireService → requireStore)
+// does not hit the schema mock's missing `services`/`clientServices` exports.
+// These tests exercise storefront adapter logic, not the entitlement gate itself.
+const hasServiceAccessMock = vi.fn();
+vi.mock('@/lib/portal-auth', () => ({
+  hasServiceAccess: (...args: unknown[]) => hasServiceAccessMock(...args),
+}));
+
 // ── helpers ─────────────────────────────────────────────────────────────────
 
 import { registerStoreToolsOnSdk } from '@/lib/storefront/mcp-sdk-adapter';
@@ -272,6 +280,8 @@ beforeEach(() => {
   dbState.insertCalls = 0;
   dbState.updateCalls = 0;
   dbState.deleteCalls = 0;
+  // Default: service access granted so requireStore() passes through to the adapter.
+  hasServiceAccessMock.mockReset().mockResolvedValue(true);
 });
 
 describe('registerStoreToolsOnSdk — tool registration', () => {

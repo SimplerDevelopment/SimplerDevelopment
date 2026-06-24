@@ -498,7 +498,7 @@ beforeEach(() => {
   resolveClientSiteMock.mockReset();
   getPortalClientMock.mockReset();
   authMock.mockResolvedValue({ user: { id: '7' } });
-  resolveClientSiteMock.mockResolvedValue({ id: 10 });
+  resolveClientSiteMock.mockResolvedValue({ id: 10, clientId: 33 });
   // userId: 7 matches session user → resolveRole returns 'owner' without a DB call
   getPortalClientMock.mockResolvedValue({ id: 33, userId: 7 });
   // restore store subscription so hasServiceAccess passes

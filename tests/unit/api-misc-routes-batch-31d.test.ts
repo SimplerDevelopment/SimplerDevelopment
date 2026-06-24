@@ -45,8 +45,12 @@ vi.mock('@/lib/ab/access', () => ({
 }));
 
 const twoProportionZTestMock = vi.fn();
+const sequentialPValueMock = vi.fn();
+const sampleRatioMismatchMock = vi.fn();
 vi.mock('@/lib/ab/stats', () => ({
   twoProportionZTest: (...args: unknown[]) => twoProportionZTestMock(...args),
+  sequentialPValue: (...args: unknown[]) => sequentialPValueMock(...args),
+  sampleRatioMismatch: (...args: unknown[]) => sampleRatioMismatchMock(...args),
 }));
 
 // drizzle-orm — inert operator factories
@@ -259,6 +263,10 @@ beforeEach(() => {
   cookiesMock.mockReset();
   authorizeExperimentForUserMock.mockReset();
   twoProportionZTestMock.mockReset();
+  sequentialPValueMock.mockReset();
+  sequentialPValueMock.mockReturnValue({ pValue: 1 });
+  sampleRatioMismatchMock.mockReset();
+  sampleRatioMismatchMock.mockReturnValue({ chi2: 0, p: 1, mismatch: false });
 });
 
 // ===========================================================================

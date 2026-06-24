@@ -15,6 +15,7 @@
  * session creation can be deterministically driven.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { NextResponse } from 'next/server';
 
 // ---------------------------------------------------------------------------
 // Hoisted mocks — declared before any route is imported.
@@ -28,6 +29,17 @@ vi.mock('@/lib/auth', () => ({
 const getPortalClientMock = vi.fn();
 vi.mock('@/lib/portal-client', () => ({
   getPortalClient: (...args: unknown[]) => getPortalClientMock(...args),
+}));
+
+// portal-auth mock: authorizePortal + isAuthError
+// Used by media/[id]/route.ts (PUT/DELETE) and the restore route.
+const authorizePortalMock = vi.fn();
+const isAuthErrorMock = vi.fn((r: unknown) =>
+  Boolean(r && typeof r === 'object' && 'response' in (r as Record<string, unknown>)),
+);
+vi.mock('@/lib/portal-auth', () => ({
+  authorizePortal: (...args: unknown[]) => authorizePortalMock(...args),
+  isAuthError: (r: unknown) => isAuthErrorMock(r),
 }));
 
 // drizzle-orm operators — inert objects
@@ -266,6 +278,22 @@ const CLIENT_SESSION = { user: { id: '7' } };
 const STAFF_SESSION = { user: { id: '8', role: 'admin' } };
 const EMPLOYEE_SESSION = { user: { id: '9', role: 'employee' } };
 
+/**
+ * Helper: configure authorizePortalMock to return a successful auth result
+ * for routes that use authorizePortal() (media/[id] PUT/DELETE, restore route).
+ */
+function setAuthzOk(client = { id: 5 }, userId = 7) {
+  authorizePortalMock.mockResolvedValue({ client, userId, role: 'owner' });
+}
+
+/**
+ * Helper: configure authorizePortalMock to return an auth error response.
+ */
+function setAuthzFail(status = 401, message = 'Unauthorized') {
+  const response = NextResponse.json({ success: false, message }, { status });
+  authorizePortalMock.mockResolvedValue({ response });
+}
+
 beforeEach(() => {
   selectQueue = [];
   insertReturnQueue = [];
@@ -276,6 +304,7 @@ beforeEach(() => {
   deleteCalls.length = 0;
   authMock.mockReset();
   getPortalClientMock.mockReset();
+  authorizePortalMock.mockReset();
   stripeState.checkoutSessionsCreate.mockReset();
   stripeState.stripeConstructed.length = 0;
   // Ensure a clean env per-test
@@ -486,7 +515,7 @@ describe('POST /api/portal/invoices/[id]/checkout', () => {
 
 describe('PUT /api/portal/media/[id]', () => {
   it('returns 401 when no session', async () => {
-    authMock.mockResolvedValue(null);
+    setAuthzFail(401, 'Unauthorized');
     const res = await mediaIdRoute.PUT(
       makeJsonReq('http://x/api/portal/media/9', 'PUT', { alt: 'a' }),
       { params: Promise.resolve({ id: '9' }) },
@@ -496,7 +525,7 @@ describe('PUT /api/portal/media/[id]', () => {
   });
 
   it('returns 401 when session has no user id', async () => {
-    authMock.mockResolvedValue({ user: {} });
+    setAuthzFail(401, 'Unauthorized');
     const res = await mediaIdRoute.PUT(
       makeJsonReq('http://x/api/portal/media/9', 'PUT', { alt: 'a' }),
       { params: Promise.resolve({ id: '9' }) },
@@ -505,19 +534,17 @@ describe('PUT /api/portal/media/[id]', () => {
   });
 
   it('returns 404 when client cannot be resolved', async () => {
-    authMock.mockResolvedValue(CLIENT_SESSION);
-    getPortalClientMock.mockResolvedValue(null);
+    setAuthzFail(404, 'Client not found');
     const res = await mediaIdRoute.PUT(
       makeJsonReq('http://x/api/portal/media/9', 'PUT', { alt: 'a' }),
       { params: Promise.resolve({ id: '9' }) },
     );
     expect(res.status).toBe(404);
-    expect((await res.json()).message).toBe('Not found');
+    expect((await res.json()).message).toBe('Client not found');
   });
 
   it('returns 404 when media is not found / not owned by client', async () => {
-    authMock.mockResolvedValue(CLIENT_SESSION);
-    getPortalClientMock.mockResolvedValue({ id: 5 });
+    setAuthzOk({ id: 5 });
     // updateReturnQueue empty -> returning() yields []
     const res = await mediaIdRoute.PUT(
       makeJsonReq('http://x/api/portal/media/9', 'PUT', { alt: 'new alt' }),
@@ -528,8 +555,7 @@ describe('PUT /api/portal/media/[id]', () => {
   });
 
   it('updates alt and caption successfully', async () => {
-    authMock.mockResolvedValue(CLIENT_SESSION);
-    getPortalClientMock.mockResolvedValue({ id: 5 });
+    setAuthzOk({ id: 5 });
     updateReturnQueue.push([
       { id: 9, alt: 'new alt', caption: 'new caption', clientId: 5 },
     ]);
@@ -553,8 +579,7 @@ describe('PUT /api/portal/media/[id]', () => {
   });
 
   it('coerces empty alt/caption to null', async () => {
-    authMock.mockResolvedValue(CLIENT_SESSION);
-    getPortalClientMock.mockResolvedValue({ id: 5 });
+    setAuthzOk({ id: 5 });
     updateReturnQueue.push([{ id: 9, alt: null, caption: null }]);
     const res = await mediaIdRoute.PUT(
       makeJsonReq('http://x/api/portal/media/9', 'PUT', {
@@ -569,8 +594,7 @@ describe('PUT /api/portal/media/[id]', () => {
   });
 
   it('omits alt/caption from patch when undefined in body', async () => {
-    authMock.mockResolvedValue(CLIENT_SESSION);
-    getPortalClientMock.mockResolvedValue({ id: 5 });
+    setAuthzOk({ id: 5 });
     updateReturnQueue.push([{ id: 9 }]);
     const res = await mediaIdRoute.PUT(
       makeJsonReq('http://x/api/portal/media/9', 'PUT', {}),
@@ -589,7 +613,7 @@ describe('PUT /api/portal/media/[id]', () => {
 
 describe('DELETE /api/portal/media/[id]', () => {
   it('returns 401 when no session', async () => {
-    authMock.mockResolvedValue(null);
+    setAuthzFail(401, 'Unauthorized');
     const res = await mediaIdRoute.DELETE(
       makeReq('http://x/api/portal/media/9', { method: 'DELETE' }),
       { params: Promise.resolve({ id: '9' }) },
@@ -599,19 +623,17 @@ describe('DELETE /api/portal/media/[id]', () => {
   });
 
   it('returns 404 when client cannot be resolved', async () => {
-    authMock.mockResolvedValue(CLIENT_SESSION);
-    getPortalClientMock.mockResolvedValue(null);
+    setAuthzFail(404, 'Client not found');
     const res = await mediaIdRoute.DELETE(
       makeReq('http://x/api/portal/media/9', { method: 'DELETE' }),
       { params: Promise.resolve({ id: '9' }) },
     );
     expect(res.status).toBe(404);
-    expect((await res.json()).message).toBe('Not found');
+    expect((await res.json()).message).toBe('Client not found');
   });
 
   it('returns 404 when media row not deleted (returning empty)', async () => {
-    authMock.mockResolvedValue(CLIENT_SESSION);
-    getPortalClientMock.mockResolvedValue({ id: 5 });
+    setAuthzOk({ id: 5 });
     // deleteReturnQueue empty
     const res = await mediaIdRoute.DELETE(
       makeReq('http://x/api/portal/media/9', { method: 'DELETE' }),
@@ -622,8 +644,7 @@ describe('DELETE /api/portal/media/[id]', () => {
   });
 
   it('deletes the media and returns success message', async () => {
-    authMock.mockResolvedValue(CLIENT_SESSION);
-    getPortalClientMock.mockResolvedValue({ id: 5 });
+    setAuthzOk({ id: 5 });
     deleteReturnQueue.push([{ id: 9, clientId: 5, filename: 'pic.png' }]);
     const res = await mediaIdRoute.DELETE(
       makeReq('http://x/api/portal/media/9', { method: 'DELETE' }),
@@ -776,7 +797,7 @@ describe('GET /api/portal/media/[id]/versions', () => {
 
 describe('POST /api/portal/media/[id]/versions/[versionId]/restore', () => {
   it('returns 401 when no session', async () => {
-    authMock.mockResolvedValue(null);
+    setAuthzFail(401, 'Unauthorized');
     const res = await mediaVersionRestoreRoute.POST(
       makeReq('http://x/api/portal/media/9/versions/3/restore', { method: 'POST' }),
       { params: Promise.resolve({ id: '9', versionId: '3' }) },
@@ -786,7 +807,7 @@ describe('POST /api/portal/media/[id]/versions/[versionId]/restore', () => {
   });
 
   it('returns 401 when session has no user id', async () => {
-    authMock.mockResolvedValue({ user: {} });
+    setAuthzFail(401, 'Unauthorized');
     const res = await mediaVersionRestoreRoute.POST(
       makeReq('http://x/api/portal/media/9/versions/3/restore', { method: 'POST' }),
       { params: Promise.resolve({ id: '9', versionId: '3' }) },
@@ -795,8 +816,7 @@ describe('POST /api/portal/media/[id]/versions/[versionId]/restore', () => {
   });
 
   it('returns 403 when client cannot be resolved', async () => {
-    authMock.mockResolvedValue(CLIENT_SESSION);
-    getPortalClientMock.mockResolvedValue(null);
+    setAuthzFail(403, 'Client not found');
     const res = await mediaVersionRestoreRoute.POST(
       makeReq('http://x/api/portal/media/9/versions/3/restore', { method: 'POST' }),
       { params: Promise.resolve({ id: '9', versionId: '3' }) },
@@ -806,8 +826,7 @@ describe('POST /api/portal/media/[id]/versions/[versionId]/restore', () => {
   });
 
   it('returns 404 when current media is not found', async () => {
-    authMock.mockResolvedValue(CLIENT_SESSION);
-    getPortalClientMock.mockResolvedValue({ id: 5 });
+    setAuthzOk({ id: 5 });
     selectQueue.push([]); // current media
     const res = await mediaVersionRestoreRoute.POST(
       makeReq('http://x/api/portal/media/9/versions/3/restore', { method: 'POST' }),
@@ -818,8 +837,7 @@ describe('POST /api/portal/media/[id]/versions/[versionId]/restore', () => {
   });
 
   it('returns 404 when target version is not found', async () => {
-    authMock.mockResolvedValue(CLIENT_SESSION);
-    getPortalClientMock.mockResolvedValue({ id: 5 });
+    setAuthzOk({ id: 5 });
     selectQueue.push([
       {
         id: 9,
@@ -843,8 +861,7 @@ describe('POST /api/portal/media/[id]/versions/[versionId]/restore', () => {
   });
 
   it('snapshots current, restores target, bumps version, deletes restored row', async () => {
-    authMock.mockResolvedValue(CLIENT_SESSION);
-    getPortalClientMock.mockResolvedValue({ id: 5 });
+    setAuthzOk({ id: 5 }, 7);
 
     // current media
     selectQueue.push([

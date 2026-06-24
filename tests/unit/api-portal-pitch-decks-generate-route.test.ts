@@ -48,6 +48,11 @@ vi.mock('@/lib/branding', () => ({
   brandingToPitchDeckTheme: (...args: unknown[]) => brandingToPitchDeckThemeMock(...args),
 }));
 
+const hasServiceAccessMock = vi.fn();
+vi.mock('@/lib/portal-auth', () => ({
+  hasServiceAccess: (...args: unknown[]) => hasServiceAccessMock(...args),
+}));
+
 const assertSafeUrlMock = vi.fn();
 vi.mock('@/lib/ssrf-guard', () => ({
   assertSafeUrl: (...args: unknown[]) => assertSafeUrlMock(...args),
@@ -332,6 +337,7 @@ beforeEach(() => {
   getBrandingByClientIdMock.mockReset();
   getBrandingByProfileIdMock.mockReset();
   brandingToPitchDeckThemeMock.mockReset().mockReturnValue(DEFAULT_THEME);
+  hasServiceAccessMock.mockReset().mockResolvedValue(true);
   assertSafeUrlMock.mockReset().mockResolvedValue(undefined);
   resolveClientApiKeyMock.mockReset().mockResolvedValue({ source: 'platform', key: 'sk-test' });
   recordAiUsageMock.mockReset().mockResolvedValue(undefined);

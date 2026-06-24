@@ -31,10 +31,13 @@ vi.mock('@/lib/portal-client', () => ({
 
 // authorizePortal — default: pass (routes now gate on requireService)
 const authorizePortalMock = vi.fn();
+// resolveStoreSite — used by [categoryId]/route.ts to resolve a site via entitlement check
+const resolveStoreSiteMock = vi.fn();
 vi.mock('@/lib/portal-auth', () => ({
   authorizePortal: (...args: unknown[]) => authorizePortalMock(...args),
   isAuthError: (r: unknown) =>
     Boolean(r && typeof r === 'object' && 'response' in (r as Record<string, unknown>)),
+  resolveStoreSite: (...args: unknown[]) => resolveStoreSiteMock(...args),
 }));
 
 // ---------------------------------------------------------------------------
@@ -425,6 +428,7 @@ beforeEach(() => {
   authMock.mockReset();
   resolveClientSiteMock.mockReset();
   authorizePortalMock.mockReset().mockResolvedValue({ client: { id: 5 }, userId: 7, role: 'admin' });
+  resolveStoreSiteMock.mockReset().mockResolvedValue({ id: 10 });
   verifyVisitorTokenMock.mockReset();
   subscribeChannelMock.mockReset();
   conversationChannelMock.mockClear();
@@ -646,7 +650,7 @@ describe('PUT /api/portal/websites/[siteId]/store/categories/[categoryId]', () =
   });
 
   it('returns 404 when client site cannot be resolved', async () => {
-    resolveClientSiteMock.mockResolvedValueOnce(null);
+    resolveStoreSiteMock.mockResolvedValueOnce(null);
     const res = await categoryMod.PUT(
       makeReq('PUT', 'http://x/cat', { name: 'X' }),
       catCtx(),
@@ -803,7 +807,7 @@ describe('DELETE /api/portal/websites/[siteId]/store/categories/[categoryId]', (
   });
 
   it('returns 404 when client site cannot be resolved', async () => {
-    resolveClientSiteMock.mockResolvedValueOnce(null);
+    resolveStoreSiteMock.mockResolvedValueOnce(null);
     const res = await categoryMod.DELETE(
       makeReq('DELETE', 'http://x/cat'),
       catCtx(),

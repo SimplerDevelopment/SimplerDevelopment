@@ -171,11 +171,13 @@ describe('PortalEmailListsPage — initial render', () => {
     });
   });
 
-  it('renders a back link to /portal/email', async () => {
+  it('renders the Email eyebrow label', async () => {
     const { container } = renderPage();
     await waitFor(() => {
-      const link = container.querySelector('a[href="/portal/email"]');
-      expect(link).toBeTruthy();
+      // The portal redesign replaced the inline back-link with a PortalPageHeader
+      // that shows an uppercase "Email" eyebrow for navigation context.
+      // Per-section navigation is now provided by the portal sidebar shell.
+      expect(container.textContent).toContain('Email');
     });
   });
 

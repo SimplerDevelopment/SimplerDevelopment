@@ -30,7 +30,7 @@
  * jsdom dependencies.
  */
 import { describe, it, expect } from 'vitest';
-import { readFileSync, writeFileSync, existsSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { BLOCK_ICONS } from '@/lib/utils/blockIcons';
 import type { BlockType } from '@/types/blocks';
@@ -715,6 +715,10 @@ function writeReport(reports: BlockReport[]): void {
     },
     reports,
   };
+  // .planning/ is gitignored, so the audits dir is absent in a clean checkout
+  // (and excluded from the OSS snapshot). Ensure it exists before writing, else
+  // writeFileSync ENOENT-crashes the whole suite at import time.
+  mkdirSync(join(REPO_ROOT, '.planning', 'audits'), { recursive: true });
   writeFileSync(join(REPO_ROOT, REPORT_PATH), JSON.stringify(summary, null, 2) + '\n');
 }
 
