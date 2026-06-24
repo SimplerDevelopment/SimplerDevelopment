@@ -233,7 +233,6 @@ intake pathway; they use `services:*` scopes, not `projects:*`.
 | Ticket reply form | `components/portal/TicketReplyForm.tsx` |
 | Ticket SLA badge | `components/portal/TicketSlaBadge.tsx` |
 | Ticket status control | `components/portal/TicketStatusControl.tsx` |
-| Suggested projects modal | `components/portal/SuggestedProjectsModal.tsx` |
 | Suggested project request form | `components/portal/SuggestedProjectRequestForm.tsx` |
 | My tasks dashboard widget | `components/portal/dashboard/widgets/MyTasksWidget.tsx` |
 | Active projects metric widget | `components/portal/dashboard/widgets/MetricActiveProjectsWidget.tsx` |

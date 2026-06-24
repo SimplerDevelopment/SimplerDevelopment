@@ -37,7 +37,6 @@ Three related but distinct real-time capabilities: (1) a visitor-facing embeddab
 | `lib/voice/tools.ts` | Curated tool set for the voice assistant (search_brain, CRM, tasks) |
 | `lib/voice/confirm-token.ts` | HMAC-signed two-phase confirm token for voice mutations (5m TTL) |
 | `components/portal/voice/useRealtimeVoice.ts` | Browser WebRTC lifecycle hook — RTCPeerConnection, mic capture, SDP exchange with OpenAI Realtime, `oai-events` data channel, streaming transcripts, function-call relay, meeting-mode tab-audio mixing |
-| `components/portal/voice/VoiceAssistant.tsx` | Floating push-to-talk voice widget (transcript panel, confirm card, save-to-Brain) — built but NOT yet mounted anywhere |
 | `lib/brain/meeting-sources/live-voice.ts` | Meeting-mode adapter: live voice transcript → Company Brain meeting → decisions/tasks extraction pipeline |
 | `packages/realtime-server/src/server.ts` | Standalone Yjs WebSocket server; deployed on Railway |
 | `packages/realtime-server/src/auth.ts` | JWT handshake verification (docKey-bound, 5m TTL) |
@@ -116,13 +115,13 @@ No dedicated MCP tools for chat or voice. The realtime collab domain has an **in
 | Portal inbox list | `app/portal/inbox/page.tsx` | SSE-driven via `/api/portal/chat/inbox-stream` |
 | Portal inbox conversation | `app/portal/inbox/[id]/page.tsx` | Agent reply UI |
 | Portal chat widget settings | `app/portal/inbox/widgets/[id]/page.tsx` | Widget config editor |
-| Voice assistant | dormant — not yet mounted | `components/portal/voice/VoiceAssistant.tsx` is built but is not imported or rendered by any parent. Intended to sit beside `AIChatWidget` in `app/portal/PortalLayoutClient.tsx` (which is itself currently commented out). Browser WebRTC to OpenAI; tools relayed through `/api/portal/voice/tool` |
+| Voice assistant | dormant — not yet mounted | The voice assistant widget is built but is not imported or rendered by any parent. Intended to sit beside `AIChatWidget` in `app/portal/PortalLayoutClient.tsx` (which is itself currently commented out). Browser WebRTC to OpenAI; tools relayed through `/api/portal/voice/tool` |
 
 Document comments UI lives inside the visual editor (`components/portal/visual-editor/`) rather than a standalone page.
 
 ### Meeting mode
 
-`VoiceAssistant` supports an optional meeting-recording mode. When enabled, it calls `getDisplayMedia` to capture shared-tab audio, mixes it with the mic stream through an `AudioContext`, and sends the combined audio to the OpenAI Realtime session. After the session ends, `lib/brain/meeting-sources/live-voice.ts` saves the combined transcript into the Company Brain as a meeting record and runs the existing extraction pipeline — producing decisions and tasks that land in the review queue. This path is wired in the adapter but remains dormant until `VoiceAssistant` is mounted in the portal layout.
+The voice assistant supports an optional meeting-recording mode. When enabled, it calls `getDisplayMedia` to capture shared-tab audio, mixes it with the mic stream through an `AudioContext`, and sends the combined audio to the OpenAI Realtime session. After the session ends, `lib/brain/meeting-sources/live-voice.ts` saves the combined transcript into the Company Brain as a meeting record and runs the existing extraction pipeline — producing decisions and tasks that land in the review queue. This path is wired in the adapter but remains dormant until the voice assistant widget is mounted in the portal layout.
 
 ## Tests & gates
 
@@ -166,7 +165,7 @@ Document comments UI lives inside the visual editor (`components/portal/visual-e
 ## Planning notes
 
 - **Voice assistant is built but not yet shipped — three blockers**:
-  1. `VoiceAssistant` (`components/portal/voice/VoiceAssistant.tsx`) is never imported or mounted. It is intended to sit beside `AIChatWidget` in `app/portal/PortalLayoutClient.tsx`, which is itself currently commented out.
+  1. The voice assistant widget is never imported or mounted. It is intended to sit beside `AIChatWidget` in `app/portal/PortalLayoutClient.tsx`, which is itself currently commented out.
   2. Voice env vars (`OPENAI_REALTIME_MODEL`, `OPENAI_REALTIME_VOICE`) are not documented in `.env.example` or README; operators deploying the portal will not know to set them.
   3. No end-to-end validation exists for the BYOK / plan-gate / credits path through to a real OpenAI WebRTC connection — all current voice tests mock the network layer.
 - `brainEnabled` on `chat_widgets` is schema-only — AI first-line replies (Company Brain answering before a human) are not yet wired.

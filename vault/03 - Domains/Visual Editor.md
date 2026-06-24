@@ -99,7 +99,6 @@ Utilities under `components/portal/visual-editor/_lib/`: `block-elements.ts` (bl
 | `tests/unit/components-selectable-block.test.tsx` | unit | Selection overlay |
 | `tests/e2e/visual-editor-shell-baseline.spec.ts` (135) | e2e | Shell load + iframe handshake |
 | `tests/e2e/visual-editor-blocks.spec.ts` (1871) | e2e | Block CRUD, drag-and-drop, style updates |
-| `tests/e2e/visual-editor-cystrategies.spec.ts` | e2e | Client-specific editor flow |
 | `tests/unit/components-visual-editor-shell.test.tsx` | unit | Shell rendering |
 | `tests/unit/components-visual-editor-columns-overlay.test.tsx` | unit | Columns overlay |
 | `tests/unit/block-content-editor-coverage.test.tsx` | unit | BlockContentEditor coverage |

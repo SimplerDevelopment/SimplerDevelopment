@@ -35,7 +35,6 @@ Company Brain is the per-tenant AI knowledge base. Each tenant gets an isolated 
 | File / Directory | Role |
 |---|---|
 | `lib/brain/` | Data layer: search, notes, decisions, embeddings, meetings, people, playbooks, topics, org-units, glossary, documents, tasks |
-| `lib/brain/index.ts` | Public re-exports: `getBrainProfile`, `getOrCreateBrainProfile`, `updateBrainProfile`, `applyIndustryTemplateDefaults` |
 | `lib/ai/brain-tools/index.ts` | Brain agent tool definitions (`BRAIN_TOOLS`) and `executeBrainTool` dispatcher |
 | `lib/ai/brain-tools/classifier.ts` | Pre-processing: intent classification (Haiku) |
 | `lib/ai/brain-tools/planner.ts` | Multi-step plan synthesis (Haiku) |

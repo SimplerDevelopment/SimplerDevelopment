@@ -37,7 +37,6 @@ Provides a full white-label e-commerce layer that any tenant website can enable.
 | `lib/fulfillment/providers/printful.ts` | Printful REST client |
 | `lib/shipping/providers/easypost.ts` | EasyPost fetch-based client (rates, buy label, webhook HMAC verify) |
 | `lib/shipping/providers/types.ts` | Shared carrier-provider interface |
-| `lib/printing/upscale.ts` | AI image upscaling before print submission |
 
 ## Data model (products, orders, fulfillment, shipping)
 
@@ -162,7 +161,7 @@ E2E specs in `tests/e2e/`:
 - `tests/e2e/product-designer-ui.spec.ts` — product designer UI flows.
 - `tests/e2e/qa-portal-c-store.spec.ts` — QA portal commerce scenarios.
 
-Note: `portal-ecommerce.spec.ts` covers portal management, not the customer-facing add-to-cart → Stripe confirm flow. No dedicated E2E spec for the checkout golden path yet — noted as a coverage gap in `lib/magamommy/README.md`. Run `bun test:tenancy` after any data-access change (all tables are `websiteId`-scoped and must not leak across tenants).
+Note: `portal-ecommerce.spec.ts` covers portal management, not the customer-facing add-to-cart → Stripe confirm flow. No dedicated E2E spec for the checkout golden path yet. Run `bun test:tenancy` after any data-access change (all tables are `websiteId`-scoped and must not leak across tenants).
 
 Entitlement regression tests (added 2026-06-24):
 - `tests/unit/paid-module-entitlement-guard.test.ts` (85) — scans store write surface; asserts all portal write routes use `resolveStoreSite` or `hasServiceAccess`; asserts all MCP write tools call `requireStore()`; allow-lists the three intentionally ungated routes.
@@ -177,25 +176,21 @@ Caveat (as of 2026-06-24): `bun test:tenancy` + portal-auth integration tests ha
 - **`lib/db/schema/auth.ts`** (`users`) — `order_status_history.changedBy` FKs to the portal `users` table.
 - **EasyPost** (`lib/shipping/providers/easypost.ts`) — fetch-based, no SDK; live rate quotes and label purchase wired per-order from the portal orders UI.
 - **Printful** (`lib/fulfillment/providers/printful.ts`) — POD fulfillment; `printfulVariantId` on both `products` and `product_variants` maps to Printful's catalog.
-- **S3 / `lib/printing/upscale.ts`** — design assets and print-ready renders stored in S3; upscale called before Printful submission.
+- **S3** — design assets and print-ready renders stored in S3; AI upscaling is applied before Printful submission.
 
 ## Invariants & gotchas
 
 - **Entitlement gate required on all store write surfaces (2026-06-24).** Portal write routes must use `resolveStoreSite` from `lib/portal-auth.ts` (168) — it wraps `resolveClientSite` + `hasServiceAccess('store')`. MCP write tools must call `requireStore()` in `lib/storefront/mcp-sdk-adapter.ts` (947) at handler entry. Three routes are explicitly ungated: `store/stripe/test`, `store/stripe-connect/*`, `store/easypost/test` (pre-activation diagnostics). See `tests/unit/paid-module-entitlement-guard.test.ts` (85) for the allow-list regression. Media write routes now require `member+` role — verify downstream callers before adding new media write paths. See [[ADR paid-module-entitlement-vs-scope-gating]] and [[Billing & Stripe]].
 
-- **`lib/magamommy/` is a client-specific autonomous pipeline, not a shared utility.** It drives a single tenant site (`magamommy.simplerdevelopment.com`) that drops one politically-themed shirt every Monday via a Vercel cron (`app/api/cron/magamommy-weekly-drop/route.ts`, schedule `0 14 * * 1`). The pipeline (researcher → concept-writer → designer → publisher) writes to `lib/db/schema/magamommy.ts` tables (`magamommy_briefs`, `magamommy_concepts`, `magamommy_drops`) and then publishes into the standard `products` + `designs` tables. This is the one sanctioned exception to the "no client-specific code paths" rule: the pipeline is self-contained in `lib/magamommy/`, its tables are isolated in `lib/db/schema/magamommy.ts`, and it uses shared platform primitives (products, designs, store settings) as its output. Do not replicate this pattern for other clients — any future autonomous-shop need should be extracted into a generic plugin.
 - **Blocks vs. store pages:** The "blocks are universal, never client-specific" rule applies to `lib/blocks/`. Store-rendering pages (`app/sites/[domain]/`) are *not* block-composed — they are purpose-built Next.js pages that call the storefront API. Product detail pages and the cart/checkout are standalone, not block types.
 - **Stripe mode duality:** `store_settings.stripeMode` is `connect` (default, SD platform collects and disburses via Stripe Connect) or `byok` (tenant's own Stripe keys). BYOK is admin-gated (`stripeByokAllowed` flag). The BYOK secret key is AES-256-GCM encrypted in `stripeSecretKeyEncrypted`; never log or echo it.
 - **Design snapshot at checkout:** `order_items.designSnapshot` (JSONB) freezes the full `layersBySurface` + `canvasSize` at checkout time. Deleting a design after purchase does not break fulfillment data — the snapshot is what gets sent to Printful.
 - **Webhook idempotency:** Both `printful_events` and `easypost_events` have unique indexes on `eventId`. Duplicate webhook deliveries are silently no-op'd.
-- **Magamommy schema migration is hand-applied:** `drizzle/0116_magamommy_autoshop.sql` — the platform's migration tracker is out of sync with disk in prod; standard `bun run db:migrate` against prod fails. See `lib/magamommy/README.md`.
-- **No magamommy tests yet:** `lib/magamommy/README.md` explicitly notes zero unit/integration/E2E coverage for the autonomous pipeline. The gap is tracked there as a phase-2 item.
 
 ## Planning notes
 
 - EasyPost and Printful integrations are complete but not yet covered by integration tests — add tenancy regression tests for both webhook ingestion tables.
 - The checkout golden-path E2E (add-to-cart → checkout → Stripe confirm → order created) is missing from `tests/e2e/`. Candidate for `/e2e-writer`.
-- Magamommy phase-2 items: Printful/Gelato wire-up for manual orders, hi-fi mockup photography, email-on-drop announcement, custom domain DNS, full-pipeline E2E with mocked AI providers.
 - `store_settings.settings/page.tsx` is a 1551-line god-file — do not read into the main thread; spawn an `Explore` subagent.
 
 ## Related
@@ -203,5 +198,4 @@ Caveat (as of 2026-06-24): `bun test:tenancy` + portal-auth integration tests ha
 - [[Billing & Stripe]] — Stripe Connect, BYOK, platform fees, entitlement gating
 - [[CMS & Blocks]] — block-rendered pages that surface store CTAs (blocks are universal; store pages are not block-composed)
 - [[Visual Editor]] — portal product-designer page shares design-surface primitives with the block editor infrastructure
-- `lib/magamommy/README.md` — full autonomous-shop runbook and tracing guide
 - ADRs: [[ADR paid-module-entitlement-vs-scope-gating]]

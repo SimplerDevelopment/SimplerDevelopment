@@ -59,7 +59,6 @@ sources:
   - tests/unit/plugins-manifest-schema.test.ts
   - tests/unit/plugins-schedule.test.ts
   - tests/integration/api/plugins/tenancy.test.ts
-  - tests/e2e/plugin-postcaptain-tools.spec.ts
 ---
 
 # Domain: Plugins & Extension
@@ -183,7 +182,6 @@ No dedicated MCP tool registrar for the plugins domain itself. Plugin execution 
 | `tests/unit/plugins-schedule.test.ts` | unit | Job scheduling and `nextRunAt` computation |
 | `tests/unit/plugins-competitor-brain.test.ts` | unit | Competitor research brain handler |
 | `tests/integration/api/plugins/tenancy.test.ts` | integration | Cross-tenant data isolation |
-| `tests/e2e/plugin-postcaptain-tools.spec.ts` | e2e | End-to-end Postcaptain Tools golden path |
 
 Run `bun test:tenancy` after any change to `lib/db/schema/plugins.ts` or the callback/run tables.
 

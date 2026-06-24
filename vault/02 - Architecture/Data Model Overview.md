@@ -47,7 +47,6 @@ All data access flows through Drizzle ORM. The schema is split into per-domain m
 | `lib/db/schema/trigger-links.ts` | `trigger_links`, `trigger_link_clicks` — trackable trigger links |
 | `lib/db/schema/productDesigner.ts` | `product_styles`, `product_sides`, `product_designs`, `philaprints_design_assets` — product customization designer |
 | `lib/db/schema/publishing.ts` | `publishing_campaigns`, `publishing_permissions` — social publishing command center |
-| `lib/db/schema/magamommy.ts` | `magamommy_briefs`, `magamommy_concepts`, `magamommy_drops` — Magamommy-specific content drops |
 
 ---
 
@@ -98,7 +97,6 @@ Seed scripts live in `scripts/`:
 | `scripts/seed-pricing-tiers.ts` | Billing pricing tiers |
 | `scripts/seed-templates.ts` | Block / email templates |
 
-Additional per-client seeds exist for specific tenants (e.g. `scripts/seed-palizzi.ts`, `scripts/seed-peters-outdoor.ts`).
 
 ---
 

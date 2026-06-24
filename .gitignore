@@ -134,3 +134,7 @@ evals-out/
 
 # Guardrail-distillation proposal reports (review artifacts, not source)
 .claude/distill/
+
+# OSS-release sweep state files (contain client-name tokens — never commit)
+/release-ledger.json
+/release-progress.md
