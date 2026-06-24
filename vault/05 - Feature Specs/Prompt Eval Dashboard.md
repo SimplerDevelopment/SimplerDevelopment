@@ -266,9 +266,27 @@ Opus boss + Sonnet sub-agents (seed script, unit tests) + advisory review passes
 - **Phase 2b:** worker/cron to drain queued `eval_runs`; stale-run detection (runs stuck in `running` after a crash); unique guard against duplicate concurrent runs; real per-model cost rates (currently a blended estimate).
 - **`runEvalJob` vitest integration test** was deferred — the integration harness has schema/search-path subtleties; engine is proven via a direct E2E script instead.
 
-### Not yet started (UI phases — need user present for taste decisions)
+### Phase 3 — Dashboard — SLICE SHIPPED (vertical slice, 2026-06-24, branch worktree/mcp-review)
 
-Phase 3 (admin dashboard views: overview/leaderboard, per-prompt timeline, version-compare + drill-down, cost) and Phase 4 (prompt editor, dataset editor, soft-gated promote, rollback, opt-in schedule cron) are unstarted.
+A thin vertical slice of the read-only dashboard, proving the whole UI pipe end-to-end (leaderboard → per-prompt timeline → manual run → watch it complete) before the remaining views fan out.
+
+**Admin API** (`app/api/admin/`, staff-guarded via shared `prompts/_auth.ts` = the existing `requireStaff` admin/employee gate; `{success,data}` envelope):
+- `GET /prompts` — leaderboard: each registry prompt + latest-run summary + pass-rate trend (latest vs prior `done` run) + active version NUMBER.
+- `GET /prompts/[id]` — prompt + version history + full run timeline (asc).
+- `POST /eval-runs` — enqueue a manual run for the active version, then drive `runEvalJob` inline (fire-and-forget; mock|real per-run, default mock). _ponytail:_ production drains via the cron worker; dev kicks the engine from the request so the client can poll. Mock is NOT persisted on the row — passed straight to the executor.
+- `GET /eval-runs/[runId]` — status + rollup + per-case results (polled).
+
+**Admin UI** (`app/admin/prompts/`, Material Icons, inline-SVG sparkline, no chart dep):
+- `page.tsx` — leaderboard table (title/key, active version, pass-rate badge, trend icon, last-run status + age).
+- `[id]/page.tsx` — detail: Run-Eval control (mock/real selector, default mock) that enqueues → polls 1.5s → reloads on done/failed; timeline sparkline + recent-runs table; version list.
+
+**Seed companion:** `scripts/migrations/seed-eval-cases.ts` (wraps `seedCasesFromSuites`; the Phase-1 migration seeds only the registry).
+
+**Verified (2026-06-24):** whole-repo `tsc` clean; provisioned an isolated local Postgres (`simplerdev_evaldash`, pgvector), full `drizzle-kit push`, seeded 4 prompts / 10 datasets / 26 cases + admin user. Browser-confirmed end-to-end on `:3001`: login → leaderboard (branding-messaging shows real run, 100%) → detail → clicked Run eval (mock) → run #2 enqueued, executed, polled to `done 2/2 100%`, timeline reloaded.
+
+**Side-fix:** `next.config.ts` `turbopack.root = import.meta.dirname` — without it Turbopack mis-roots when the repo is a git worktree under a home dir with a stray lockfile, 404-ing all page routes. No-op on Vercel. (Dev note: the tenant middleware's `APP_HOSTNAMES` only whitelists `localhost:3000/3001/3005/3100` — run the eval dev server on one of those ports or pages 404.)
+
+**Phase 3 remaining:** version-compare + per-case drill-down view, dedicated cost/spend view, broader leaderboard polish, real-run confirm-before-expensive UX. **Phase 4** (prompt editor, dataset editor, soft-gated promote, rollback, opt-in schedule cron, audit log) unstarted — needs the audit-table-vs-implicit-trail decision and a stricter super-admin guard on the write ops.
 
 ### To go live
 
