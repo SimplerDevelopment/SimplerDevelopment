@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { promptRegistry, evalDatasets } from '@/lib/db/schema';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { enqueueEvalRun, runEvalJob } from '@/lib/ai/evals/job';
 import { requireStaff } from '../prompts/_auth';
 
@@ -26,7 +26,7 @@ export async function POST(req: Request) {
   const session = await requireStaff();
   if (!session) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
 
-  let body: { promptId?: number; mock?: boolean };
+  let body: { promptId?: number; mock?: boolean; datasetId?: number };
   try {
     body = await req.json();
   } catch {
@@ -45,12 +45,25 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: false, message: 'Prompt has no active version to run' }, { status: 409 });
   }
 
-  // Default dataset for this suite (executor falls back to code fixtures if none).
-  const [dataset] = await db
-    .select({ id: evalDatasets.id })
-    .from(evalDatasets)
-    .where(eq(evalDatasets.suiteId, prompt.key))
-    .limit(1);
+  // Target a specific dataset if asked (must belong to this suite); otherwise
+  // the suite's first dataset. Executor falls back to code fixtures if none.
+  let dataset: { id: number } | undefined;
+  if (Number.isInteger(Number(body.datasetId))) {
+    [dataset] = await db
+      .select({ id: evalDatasets.id })
+      .from(evalDatasets)
+      .where(and(eq(evalDatasets.id, Number(body.datasetId)), eq(evalDatasets.suiteId, prompt.key)))
+      .limit(1);
+    if (!dataset) {
+      return NextResponse.json({ success: false, message: 'datasetId does not belong to this prompt' }, { status: 400 });
+    }
+  } else {
+    [dataset] = await db
+      .select({ id: evalDatasets.id })
+      .from(evalDatasets)
+      .where(eq(evalDatasets.suiteId, prompt.key))
+      .limit(1);
+  }
 
   const createdBy = Number.parseInt(session.user.id as string, 10);
 

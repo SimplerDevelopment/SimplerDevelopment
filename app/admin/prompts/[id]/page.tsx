@@ -97,6 +97,15 @@ interface AuditEntry {
   actor: { id: number; email: string; name: string | null } | null;
 }
 
+interface EvalDataset {
+  id: number;
+  suiteId: string;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+  caseCount: number;
+}
+
 interface PromoteResponseData {
   activeVersionId: number;
   enqueuedRunId: number | null;
@@ -231,6 +240,10 @@ export default function PromptDetailPage() {
   const [liveStatus, setLiveStatus] = useState<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // Dataset picker for Run Eval
+  const [runDatasets, setRunDatasets] = useState<EvalDataset[]>([]);
+  const [selectedRunDatasetId, setSelectedRunDatasetId] = useState<number | null>(null);
+
   // Per-case drill-down state
   const [expandedRunIds, setExpandedRunIds] = useState<Set<number>>(new Set());
   const [runCasesCache, setRunCasesCache] = useState<RunCasesCache>({});
@@ -320,6 +333,19 @@ export default function PromptDetailPage() {
             // Seed editor body from active version
             const activeVer = detail.versions.find((v) => v.id === detail.prompt.activeVersionId);
             if (activeVer) setEditorBody(activeVer.body);
+            // Fetch datasets for the run eval picker
+            fetch(`/api/admin/eval-datasets?suiteId=${encodeURIComponent(detail.prompt.key)}`)
+              .then((r) => r.json())
+              .then((dd) => {
+                if (dd.success) {
+                  const list: EvalDataset[] = Array.isArray(dd.data) ? dd.data : [];
+                  setRunDatasets(list);
+                  setSelectedRunDatasetId((prev) => prev ?? list[0]?.id ?? null);
+                }
+              })
+              .catch(() => {
+                // silently ignore; dataset list is non-critical
+              });
           }
         } else {
           setErr(d.message ?? 'Failed to load');
@@ -356,7 +382,11 @@ export default function PromptDetailPage() {
       const res = await fetch('/api/admin/eval-runs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ promptId, mock }),
+        body: JSON.stringify({
+          promptId,
+          mock,
+          ...(selectedRunDatasetId !== null && { datasetId: selectedRunDatasetId }),
+        }),
       });
       const d = await res.json();
       if (!d.success) {
@@ -601,6 +631,26 @@ export default function PromptDetailPage() {
                   <option value="real">Real (costs tokens)</option>
                 </select>
               </div>
+              {runDatasets.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <label htmlFor="run-dataset-select" className="text-xs text-muted-foreground whitespace-nowrap">
+                    Dataset
+                  </label>
+                  <select
+                    id="run-dataset-select"
+                    value={selectedRunDatasetId ?? ''}
+                    onChange={(e) => setSelectedRunDatasetId(Number(e.target.value) || null)}
+                    disabled={inFlight}
+                    className="flex-1 text-xs border border-border rounded px-2 py-1 bg-background text-foreground disabled:opacity-50"
+                  >
+                    {runDatasets.map((ds) => (
+                      <option key={ds.id} value={ds.id}>
+                        {ds.name} ({ds.caseCount})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
               {confirmingReal ? (
                 <div className="flex flex-col gap-2 bg-yellow-50 border border-yellow-200 rounded px-3 py-2 text-xs">
                   <span className="text-yellow-900">Real run — hits the model and consumes tokens.</span>

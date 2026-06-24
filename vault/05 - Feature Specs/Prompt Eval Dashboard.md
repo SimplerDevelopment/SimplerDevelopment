@@ -314,7 +314,9 @@ Verified: whole-repo `tsc` clean; ESLint clean (fixed a mount-fetch nit + an aud
 
 **`@critical` E2E — SHIPPED (2026-06-24):** `tests/e2e/admin-prompt-evals.spec.ts` (`@admin @prompt-evals @critical`) — API-level: create draft → promote (active moves, prior archived, regression gate) → rollback → audit-log assertions, plus a non-admin 401 guard. Self-seeds the eval schema via `tests/e2e/setup/ensure-eval-schema.ts` (the eval tables aren't in the drizzle chain). Both tests green. Run: `bun test:critical` (or target the spec with `BASE_URL`+`DATABASE_URL` at an eval-seeded server).
 
-**Deferred (Phase 4 follow-ups):** dataset (not just case) management; per-model cost rates (the cost rollup uses a blended estimate). _(scheduleCron wiring + the @critical promote test — done.)_
+**Dataset management — SHIPPED (2026-06-24):** `app/api/admin/eval-datasets` (GET list-by-suite with case counts; POST create — admin) + `eval-datasets/[id]` (PATCH rename, DELETE — refuses a suite's last dataset). The cases editor gained a dataset selector + New/Rename/Delete controls (cases now driven by the selected dataset), and the detail-page Run Eval control gained a Dataset picker; `POST /eval-runs` accepts an optional `datasetId` (validated against the suite). Lets a suite hold multiple case sets (e.g. baseline vs. edge-cases) and run against a chosen one. Browser-verified (create + delete a dataset; run picker renders).
+
+**Deferred (last follow-up):** per-model cost rates — the eval framework doesn't record which model each suite used (cores call models internally; no model column), so accurate per-model costing needs either invasive plumbing through every suite core or a fragile static suite→model map. Low value while runs are mock ($0); left deferred. _(scheduleCron wiring, @critical promote test, dataset management — all done.)_
 
 ### To go live
 

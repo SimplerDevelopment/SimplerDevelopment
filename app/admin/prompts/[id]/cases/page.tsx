@@ -18,6 +18,15 @@ interface PromptInfo {
   updatedAt: string;
 }
 
+interface EvalDataset {
+  id: number;
+  suiteId: string;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+  caseCount: number;
+}
+
 interface EvalCase {
   id: number;
   datasetId: number;
@@ -427,7 +436,7 @@ function AddCasePanel({ datasetId, onCreated }: AddCasePanelProps) {
     }
 
     if (datasetId === null) {
-      setSaveError('No dataset available. Seed a dataset first.');
+      setSaveError('No dataset available. Create a dataset first.');
       return;
     }
 
@@ -470,7 +479,7 @@ function AddCasePanel({ datasetId, onCreated }: AddCasePanelProps) {
       <button
         onClick={() => setOpen(true)}
         disabled={datasetId === null}
-        title={datasetId === null ? 'No dataset seeded yet' : 'Add a new eval case'}
+        title={datasetId === null ? 'No dataset selected' : 'Add a new eval case'}
         className="inline-flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg border border-border bg-background text-foreground hover:bg-accent/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
       >
         <span className="material-icons text-base leading-none">add</span>
@@ -498,7 +507,7 @@ function AddCasePanel({ datasetId, onCreated }: AddCasePanelProps) {
 
       {datasetId === null && (
         <div className="text-xs text-muted-foreground bg-muted/50 border border-border rounded p-3">
-          A dataset must be seeded before adding cases.
+          A dataset must be selected before adding cases.
         </div>
       )}
 
@@ -613,13 +622,26 @@ export default function PromptCasesPage() {
   const [promptLoading, setPromptLoading] = useState(true);
   const [promptErr, setPromptErr] = useState<string | null>(null);
 
+  // Datasets
+  const [datasets, setDatasets] = useState<EvalDataset[]>([]);
+  const [selectedDatasetId, setSelectedDatasetId] = useState<number | null>(null);
+
+  // Dataset CRUD state
+  const [datasetActionBusy, setDatasetActionBusy] = useState(false);
+  const [datasetActionError, setDatasetActionError] = useState<string | null>(null);
+  // New dataset inline form
+  const [newDatasetOpen, setNewDatasetOpen] = useState(false);
+  const [newDatasetName, setNewDatasetName] = useState('');
+  // Rename inline
+  const [renameOpen, setRenameOpen] = useState(false);
+  const [renameName, setRenameName] = useState('');
+  // Delete confirm
+  const [deleteConfirm, setDeleteConfirm] = useState(false);
+
   // Cases
   const [cases, setCases] = useState<EvalCase[]>([]);
   const [casesLoading, setCasesLoading] = useState(false);
   const [casesErr, setCasesErr] = useState<string | null>(null);
-
-  // Derived: datasetId from first case (needed for create)
-  const datasetId = cases[0]?.datasetId ?? null;
 
   // ── Fetch prompt ───────────────────────────────────────────────────────────
 
@@ -646,22 +668,53 @@ export default function PromptCasesPage() {
     loadPrompt();
   }, [loadPrompt]);
 
-  // ── Fetch cases (runs after prompt is loaded) ──────────────────────────────
+  // ── Fetch datasets (runs after prompt is loaded) ───────────────────────────
 
-  const loadCases = useCallback(
-    (suiteKey: string) => {
-      setCasesLoading(true);
-      setCasesErr(null);
-      fetch(`/api/admin/eval-cases?suiteId=${encodeURIComponent(suiteKey)}`)
+  const loadDatasets = useCallback(
+    (suiteKey: string, selectId?: number) => {
+      fetch(`/api/admin/eval-datasets?suiteId=${encodeURIComponent(suiteKey)}`)
         .then((r) => r.json())
         .then((d) => {
           if (d.success) {
+            const list: EvalDataset[] = Array.isArray(d.data) ? d.data : [];
+             
+            setDatasets(list);
+             
+            setSelectedDatasetId(selectId ?? list[0]?.id ?? null);
+          }
+        })
+        .catch(() => {
+          // silently ignore; datasets list is non-critical on error
+        });
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (prompt?.key) {
+       
+      loadDatasets(prompt.key);
+    }
+  }, [prompt?.key, loadDatasets]);
+
+  // ── Fetch cases (driven by selectedDatasetId) ──────────────────────────────
+
+  const loadCases = useCallback(
+    (datasetId: number) => {
+      setCasesLoading(true);
+      setCasesErr(null);
+      fetch(`/api/admin/eval-cases?datasetId=${datasetId}`)
+        .then((r) => r.json())
+        .then((d) => {
+          if (d.success) {
+             
             setCases(Array.isArray(d.data) ? d.data : []);
           } else {
-            // 404 on dataset = no cases yet, not an error worth showing
             if (d.message?.includes('not found')) {
+               
               setCases([]);
             } else {
+               
               setCasesErr(d.message ?? 'Failed to load cases');
             }
           }
@@ -673,13 +726,89 @@ export default function PromptCasesPage() {
   );
 
   useEffect(() => {
-    if (prompt?.key) {
-      // Cases fetch fires once the prompt resolves; the synchronous loading-state
-      // set is the intended mount-style behavior.
+    if (selectedDatasetId !== null) {
+      // Cases fetch fires once the dataset selection resolves.
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      loadCases(prompt.key);
+      loadCases(selectedDatasetId);
+    } else {
+      setCases([]);
     }
-  }, [prompt?.key, loadCases]);
+  }, [selectedDatasetId, loadCases]);
+
+  // ── Dataset CRUD handlers ──────────────────────────────────────────────────
+
+  async function handleCreateDataset() {
+    if (!prompt?.key || !newDatasetName.trim() || datasetActionBusy) return;
+    setDatasetActionBusy(true);
+    setDatasetActionError(null);
+    try {
+      const res = await fetch('/api/admin/eval-datasets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ suiteId: prompt.key, name: newDatasetName.trim() }),
+      });
+      const d = await res.json();
+      if (d.success && d.data) {
+        setNewDatasetName('');
+        setNewDatasetOpen(false);
+        loadDatasets(prompt.key, (d.data as EvalDataset).id);
+      } else {
+        setDatasetActionError(d.message ?? 'Failed to create dataset');
+      }
+    } catch (e) {
+      setDatasetActionError(e instanceof Error ? e.message : 'Failed to create dataset');
+    } finally {
+      setDatasetActionBusy(false);
+    }
+  }
+
+  async function handleRenameDataset() {
+    if (!renameName.trim() || selectedDatasetId === null || datasetActionBusy) return;
+    setDatasetActionBusy(true);
+    setDatasetActionError(null);
+    try {
+      const res = await fetch(`/api/admin/eval-datasets/${selectedDatasetId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: renameName.trim() }),
+      });
+      const d = await res.json();
+      if (d.success) {
+        setRenameOpen(false);
+        setRenameName('');
+        if (prompt?.key) loadDatasets(prompt.key, selectedDatasetId);
+      } else {
+        setDatasetActionError(d.message ?? 'Failed to rename dataset');
+      }
+    } catch (e) {
+      setDatasetActionError(e instanceof Error ? e.message : 'Failed to rename dataset');
+    } finally {
+      setDatasetActionBusy(false);
+    }
+  }
+
+  async function handleDeleteDataset() {
+    if (selectedDatasetId === null || datasetActionBusy) return;
+    setDatasetActionBusy(true);
+    setDatasetActionError(null);
+    try {
+      const res = await fetch(`/api/admin/eval-datasets/${selectedDatasetId}`, {
+        method: 'DELETE',
+      });
+      const d = await res.json();
+      if (res.status === 409 || !d.success) {
+        setDatasetActionError(d.message ?? 'Cannot delete dataset');
+        setDeleteConfirm(false);
+      } else {
+        setDeleteConfirm(false);
+        if (prompt?.key) loadDatasets(prompt.key);
+      }
+    } catch (e) {
+      setDatasetActionError(e instanceof Error ? e.message : 'Failed to delete dataset');
+    } finally {
+      setDatasetActionBusy(false);
+    }
+  }
 
   // ── Toggle enabled ─────────────────────────────────────────────────────────
 
@@ -719,6 +848,8 @@ export default function PromptCasesPage() {
   }
 
   // ── Render ─────────────────────────────────────────────────────────────────
+
+  const selectedDataset = datasets.find((ds) => ds.id === selectedDatasetId) ?? null;
 
   return (
     <div className="p-6 max-w-[1200px] mx-auto space-y-6">
@@ -764,11 +895,192 @@ export default function PromptCasesPage() {
               </div>
               {isAdmin && prompt && (
                 <AddCasePanel
-                  datasetId={datasetId}
-                  onCreated={() => loadCases(prompt.key)}
+                  datasetId={selectedDatasetId}
+                  onCreated={() => { if (selectedDatasetId !== null) loadCases(selectedDatasetId); }}
                 />
               )}
             </div>
+
+            {/* ── Dataset selector row ── */}
+            <div className="flex items-center gap-3 flex-wrap px-4 py-3 border-b border-border bg-muted/20">
+              <label
+                htmlFor="dataset-select"
+                className="text-xs font-medium text-muted-foreground whitespace-nowrap"
+              >
+                Dataset
+              </label>
+              {datasets.length === 0 ? (
+                <span className="text-xs text-muted-foreground italic">No datasets yet</span>
+              ) : (
+                <select
+                  id="dataset-select"
+                  value={selectedDatasetId ?? ''}
+                  onChange={(e) => {
+                    const id = Number(e.target.value);
+                    setSelectedDatasetId(id || null);
+                    // Reset any open dataset action UI on switch
+                    setNewDatasetOpen(false);
+                    setRenameOpen(false);
+                    setDeleteConfirm(false);
+                    setDatasetActionError(null);
+                  }}
+                  className="text-xs border border-border rounded px-2 py-1 bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                >
+                  {datasets.map((ds) => (
+                    <option key={ds.id} value={ds.id}>
+                      {ds.name} ({ds.caseCount})
+                    </option>
+                  ))}
+                </select>
+              )}
+
+              {/* Admin-only dataset controls */}
+              {isAdmin && (
+                <div className="flex items-center gap-2 ml-auto flex-wrap">
+                  {/* New dataset */}
+                  {newDatasetOpen ? (
+                    <div className="flex items-center gap-1.5">
+                      <input
+                        type="text"
+                        value={newDatasetName}
+                        onChange={(e) => setNewDatasetName(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleCreateDataset(); } }}
+                        placeholder="Dataset name"
+                        autoFocus
+                        className="text-xs border border-border rounded px-2 py-1 bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary w-36"
+                      />
+                      <button
+                        onClick={handleCreateDataset}
+                        disabled={datasetActionBusy || !newDatasetName.trim()}
+                        className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+                      >
+                        <span className={`material-icons text-sm leading-none ${datasetActionBusy ? 'animate-spin' : ''}`}>
+                          {datasetActionBusy ? 'refresh' : 'check'}
+                        </span>
+                        Create
+                      </button>
+                      <button
+                        onClick={() => { setNewDatasetOpen(false); setNewDatasetName(''); setDatasetActionError(null); }}
+                        className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        <span className="material-icons text-base leading-none">close</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        setNewDatasetOpen(true);
+                        setRenameOpen(false);
+                        setDeleteConfirm(false);
+                        setDatasetActionError(null);
+                      }}
+                      className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg border border-border bg-background text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
+                    >
+                      <span className="material-icons text-sm leading-none">add</span>
+                      New
+                    </button>
+                  )}
+
+                  {/* Rename selected dataset */}
+                  {selectedDataset && (
+                    renameOpen ? (
+                      <div className="flex items-center gap-1.5">
+                        <input
+                          type="text"
+                          value={renameName}
+                          onChange={(e) => setRenameName(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleRenameDataset(); } }}
+                          placeholder="New name"
+                          autoFocus
+                          className="text-xs border border-border rounded px-2 py-1 bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary w-32"
+                        />
+                        <button
+                          onClick={handleRenameDataset}
+                          disabled={datasetActionBusy || !renameName.trim()}
+                          className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+                        >
+                          <span className={`material-icons text-sm leading-none ${datasetActionBusy ? 'animate-spin' : ''}`}>
+                            {datasetActionBusy ? 'refresh' : 'check'}
+                          </span>
+                          Save
+                        </button>
+                        <button
+                          onClick={() => { setRenameOpen(false); setRenameName(''); setDatasetActionError(null); }}
+                          className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                          <span className="material-icons text-base leading-none">close</span>
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => {
+                          setRenameName(selectedDataset.name);
+                          setRenameOpen(true);
+                          setNewDatasetOpen(false);
+                          setDeleteConfirm(false);
+                          setDatasetActionError(null);
+                        }}
+                        className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg border border-border bg-background text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
+                      >
+                        <span className="material-icons text-sm leading-none">edit</span>
+                        Rename
+                      </button>
+                    )
+                  )}
+
+                  {/* Delete selected dataset */}
+                  {selectedDataset && (
+                    deleteConfirm ? (
+                      <div className="flex items-center gap-1.5 bg-red-50 border border-red-200 rounded px-2 py-1 text-xs">
+                        <span className="text-red-900">Delete &ldquo;{selectedDataset.name}&rdquo;?</span>
+                        <button
+                          onClick={handleDeleteDataset}
+                          disabled={datasetActionBusy}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 transition-colors font-medium"
+                        >
+                          {datasetActionBusy ? (
+                            <span className="material-icons text-sm leading-none animate-spin">refresh</span>
+                          ) : 'Delete'}
+                        </button>
+                        <button
+                          onClick={() => { setDeleteConfirm(false); setDatasetActionError(null); }}
+                          className="px-1.5 py-0.5 text-red-700 hover:text-red-900 transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => {
+                          setDeleteConfirm(true);
+                          setNewDatasetOpen(false);
+                          setRenameOpen(false);
+                          setDatasetActionError(null);
+                        }}
+                        className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg border border-border bg-background text-muted-foreground hover:text-red-700 hover:border-red-300 hover:bg-red-50 transition-colors"
+                      >
+                        <span className="material-icons text-sm leading-none">delete</span>
+                        Delete
+                      </button>
+                    )
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Dataset action error */}
+            {datasetActionError && (
+              <div className="flex items-center gap-2 bg-red-50 border-b border-red-200 px-4 py-2 text-xs text-red-800">
+                <span className="material-icons text-base leading-none flex-shrink-0">error</span>
+                <span>{datasetActionError}</span>
+                <button
+                  onClick={() => setDatasetActionError(null)}
+                  className="ml-auto text-red-600 hover:text-red-900"
+                >
+                  <span className="material-icons text-sm leading-none">close</span>
+                </button>
+              </div>
+            )}
 
             {casesErr && (
               <div className="bg-red-50 border-b border-red-200 px-4 py-3 text-xs text-red-800">
@@ -783,10 +1095,14 @@ export default function PromptCasesPage() {
             ) : cases.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 gap-2 text-center text-muted-foreground">
                 <span className="material-icons text-4xl text-muted-foreground/40">dataset</span>
-                <div className="text-sm">No cases found for this suite.</div>
-                {isAdmin && datasetId === null && (
+                <div className="text-sm">
+                  {selectedDatasetId === null
+                    ? 'No datasets yet. Create one above to get started.'
+                    : 'No cases found for this dataset.'}
+                </div>
+                {isAdmin && selectedDatasetId === null && (
                   <div className="text-xs text-muted-foreground/70 max-w-xs">
-                    A dataset must be seeded first before cases can be added.
+                    A dataset must be created first before cases can be added.
                   </div>
                 )}
               </div>
