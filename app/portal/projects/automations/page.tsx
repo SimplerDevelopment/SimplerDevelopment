@@ -1,6 +1,8 @@
 'use client';
 
 import Link from 'next/link';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnGhost } from '@/components/portal/portal-ui';
 import ProductAutomationSettings from '@/components/portal/ProductAutomationSettings';
 import type { AutomationPreset } from '@/components/portal/ProductAutomationSettings';
 
@@ -50,12 +52,16 @@ const PROJECT_AUTOMATION_PRESETS: AutomationPreset[] = [
 export default function ProjectAutomationsPage() {
   return (
     <div className="max-w-3xl mx-auto">
-      {/* Breadcrumb */}
-      <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
-        <Link href="/portal/projects" className="hover:text-foreground transition-colors">Projects</Link>
-        <span className="material-icons text-xs">chevron_right</span>
-        <span className="text-foreground">Automations</span>
-      </div>
+      <PortalPageHeader
+        eyebrow="Projects"
+        title="Automations"
+        actions={
+          <Link href="/portal/projects" className={pBtnGhost}>
+            <span className="material-icons text-base">arrow_back</span>
+            Back to Projects
+          </Link>
+        }
+      />
 
       <ProductAutomationSettings
         productScope="projects"

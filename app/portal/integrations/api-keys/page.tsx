@@ -15,6 +15,8 @@
  */
 
 import { useEffect, useState } from 'react';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnPrimary, pBtnGhost, pCard, pSectionTitle } from '@/components/portal/portal-ui';
 
 interface ByokKey {
   id: number;
@@ -170,26 +172,20 @@ export default function ByokKeysPage() {
 
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-2xl font-semibold flex items-center gap-2">
-          <span className="material-icons">vpn_key</span>
-          Provider API Keys (BYOK)
-        </h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Bring-your-own keys for Anthropic and OpenAI. When configured, the portal calls these providers
-          directly with your key — usage and billing are between you and the provider. Without a key, AI
-          falls back to bundled platform credits.
-        </p>
-      </header>
+      <PortalPageHeader
+        eyebrow="Integrations"
+        title="Provider API Keys (BYOK)"
+        subtitle="Bring-your-own keys for Anthropic and OpenAI. When configured, the portal calls these providers directly with your key — usage and billing are between you and the provider. Without a key, AI falls back to bundled platform credits."
+      />
 
       {error && (
-        <div className="rounded-md border border-red-500/40 bg-red-500/5 p-3 text-sm text-red-700 flex items-start gap-2">
+        <div className="rounded-xl border border-red-500/40 bg-red-500/5 p-3 text-sm text-red-700 flex items-start gap-2">
           <span className="material-icons text-base">error_outline</span>
           <span>{error}</span>
         </div>
       )}
       {success && (
-        <div className="rounded-md border border-green-500/40 bg-green-500/5 p-3 text-sm text-green-700 flex items-start gap-2">
+        <div className="rounded-xl border border-green-500/40 bg-green-500/5 p-3 text-sm text-green-700 flex items-start gap-2">
           <span className="material-icons text-base">check_circle</span>
           <span>{success}</span>
         </div>
@@ -197,7 +193,7 @@ export default function ByokKeysPage() {
 
       {/* Upgrade notice — shown when not eligible (including while loading) */}
       {!canManageKeys && (
-        <div className="bg-card border border-border rounded-xl p-8 flex flex-col items-center text-center">
+        <div className="bg-card border border-border rounded-2xl p-8 flex flex-col items-center text-center">
           <span className="material-icons text-5xl text-muted-foreground mb-3">workspace_premium</span>
           <h3 className="font-semibold text-foreground mb-1">Bring your own AI key is a Scale feature</h3>
           <p className="text-sm text-muted-foreground max-w-md">
@@ -207,7 +203,7 @@ export default function ByokKeysPage() {
           </p>
           <a
             href="/portal/settings/billing/plans"
-            className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
+            className={`mt-4 ${pBtnPrimary}`}
           >
             <span className="material-icons text-base">workspace_premium</span>
             View plans
@@ -215,15 +211,15 @@ export default function ByokKeysPage() {
         </div>
       )}
 
-      <section className="rounded-md border border-border">
+      <section className={pCard}>
         <div className="p-4 border-b border-border flex items-center justify-between">
-          <h2 className="font-medium">Configured keys</h2>
+          <h2 className={pSectionTitle}>Configured keys</h2>
           {/* Add key button only available on Scale */}
           {canManageKeys && !creating && (
             <button
               type="button"
               onClick={() => { setCreating(true); setSuccess(null); setError(null); }}
-              className="inline-flex items-center gap-1 rounded-md bg-primary text-primary-foreground px-3 py-1.5 text-sm hover:opacity-90"
+              className={pBtnPrimary}
             >
               <span className="material-icons text-base">add</span>
               Add key
@@ -243,7 +239,7 @@ export default function ByokKeysPage() {
                   name="provider"
                   value={provider}
                   onChange={(e) => setProvider(e.target.value as 'anthropic' | 'openai')}
-                  className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                  className="mt-1 w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/15"
                 >
                   {PROVIDERS.map((p) => (
                     <option key={p.value} value={p.value}>{p.label}</option>
@@ -257,7 +253,7 @@ export default function ByokKeysPage() {
                   value={label}
                   onChange={(e) => setLabel(e.target.value)}
                   placeholder="prod, staging, etc."
-                  className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                  className="mt-1 w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary focus:ring-4 focus:ring-primary/15"
                   maxLength={100}
                 />
               </label>
@@ -270,7 +266,7 @@ export default function ByokKeysPage() {
                 autoComplete="off"
                 required
                 placeholder={selectedProvider?.placeholder}
-                className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm font-mono"
+                className="mt-1 w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary focus:ring-4 focus:ring-primary/15 font-mono"
               />
               {selectedProvider && (
                 <span className="text-xs text-muted-foreground mt-1 block">{selectedProvider.helper}</span>
@@ -284,7 +280,7 @@ export default function ByokKeysPage() {
               <button
                 type="submit"
                 disabled={adding}
-                className="inline-flex items-center gap-1 rounded-md bg-primary text-primary-foreground px-3 py-1.5 text-sm hover:opacity-90 disabled:opacity-50"
+                className={pBtnPrimary}
               >
                 <span className="material-icons text-base">save</span>
                 {adding ? 'Saving…' : 'Save key'}
@@ -292,7 +288,7 @@ export default function ByokKeysPage() {
               <button
                 type="button"
                 onClick={() => { setCreating(false); setError(null); }}
-                className="inline-flex items-center gap-1 rounded-md border border-border px-3 py-1.5 text-sm hover:bg-muted"
+                className={pBtnGhost}
               >
                 Cancel
               </button>
@@ -332,7 +328,7 @@ export default function ByokKeysPage() {
                           type="button"
                           onClick={() => handleRename(k.id, k.label)}
                           title="Rename"
-                          className="p-1 rounded hover:bg-muted"
+                          className="p-1 rounded-lg hover:bg-muted"
                         >
                           <span className="material-icons text-base">edit</span>
                         </button>
@@ -355,8 +351,8 @@ export default function ByokKeysPage() {
         )}
       </section>
 
-      <section className="rounded-md border border-border p-4 space-y-2 text-sm">
-        <h3 className="font-medium flex items-center gap-1">
+      <section className={`${pCard} p-5 space-y-2 text-sm`}>
+        <h3 className={`${pSectionTitle} flex items-center gap-1 mb-1`}>
           <span className="material-icons text-base">info</span>
           How BYOK billing works
         </h3>

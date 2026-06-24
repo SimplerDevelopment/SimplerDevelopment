@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { RelatedModulesStrip } from '@/components/portal/billing/RelatedModulesStrip';
 import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
-import { pBtnPrimary, pBtnGhost } from '@/components/portal/portal-ui';
+import { pBtnPrimary, pBtnGhost, pInput, pSelect } from '@/components/portal/portal-ui';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -201,10 +201,10 @@ export default function PortalProjectsPage() {
 
       {/* Filters */}
       <div className="flex items-center gap-4 flex-wrap">
-        <div className="flex items-center gap-2 px-3 py-2 bg-card border border-border rounded-lg flex-1 max-w-sm">
+        <div className="flex items-center gap-2 px-3 py-2 bg-card border border-border rounded-xl flex-1 max-w-sm">
           <span className="material-icons text-muted-foreground text-base">search</span>
           <input
-            className="bg-transparent text-sm outline-none flex-1 text-foreground placeholder:text-muted-foreground"
+            className="bg-transparent text-sm outline-none flex-1 text-foreground placeholder:text-muted-foreground/50"
             placeholder="Search projects..."
             value={search}
             onChange={e => setSearch(e.target.value)}
@@ -215,7 +215,7 @@ export default function PortalProjectsPage() {
             <button
               key={s}
               onClick={() => setStatusFilter(s)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors capitalize ${
+              className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-colors capitalize ${
                 statusFilter === s
                   ? 'bg-primary text-primary-foreground'
                   : 'border border-border text-muted-foreground hover:bg-accent'
@@ -239,7 +239,7 @@ export default function PortalProjectsPage() {
                 onChange={e => setCreateForm(p => ({ ...p, name: e.target.value }))}
                 required
                 placeholder="e.g. Q2 Marketing Campaign"
-                className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                className={pInput}
               />
             </div>
             <div className="space-y-1.5">
@@ -247,7 +247,7 @@ export default function PortalProjectsPage() {
               <select
                 value={createForm.status}
                 onChange={e => setCreateForm(p => ({ ...p, status: e.target.value }))}
-                className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                className={pSelect}
               >
                 <option value="active">Active</option>
                 <option value="paused">Paused</option>
@@ -262,7 +262,7 @@ export default function PortalProjectsPage() {
                 value={createForm.description}
                 onChange={e => setCreateForm(p => ({ ...p, description: e.target.value }))}
                 placeholder="Optional"
-                className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 resize-none"
+                className="w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary focus:ring-4 focus:ring-primary/15 resize-none"
               />
             </div>
             <div className="space-y-1.5">
@@ -271,7 +271,7 @@ export default function PortalProjectsPage() {
                 type="date"
                 value={createForm.startDate}
                 onChange={e => setCreateForm(p => ({ ...p, startDate: e.target.value }))}
-                className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                className={pInput}
               />
             </div>
             <div className="space-y-1.5">
@@ -280,7 +280,7 @@ export default function PortalProjectsPage() {
                 type="date"
                 value={createForm.dueDate}
                 onChange={e => setCreateForm(p => ({ ...p, dueDate: e.target.value }))}
-                className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                className={pInput}
               />
             </div>
             {projects.length > 0 && (
@@ -289,7 +289,7 @@ export default function PortalProjectsPage() {
                 <select
                   value={createForm.cloneFromProjectId}
                   onChange={e => setCreateForm(p => ({ ...p, cloneFromProjectId: e.target.value }))}
-                  className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  className={pSelect}
                 >
                   <option value="">— Start from scratch —</option>
                   {projects.map(p => (

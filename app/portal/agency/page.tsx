@@ -88,7 +88,7 @@ export default function AgencyHubPage() {
 
       {message && (
         <div
-          className={`mb-4 p-3 rounded-lg flex items-center gap-2 text-sm ${
+          className={`mb-4 p-3 rounded-xl flex items-center gap-2 text-sm ${
             message.type === 'success'
               ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20'
               : 'bg-destructive/10 text-destructive border border-destructive/20'

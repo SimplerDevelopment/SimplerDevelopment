@@ -5,6 +5,7 @@ import { eq, isNull, or, and } from 'drizzle-orm';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pChip, pSectionTitle } from '@/components/portal/portal-ui';
 
 const categoryLabel: Record<string, string> = {
   website: 'Website',
@@ -83,8 +84,8 @@ export default async function SuggestedProjectsPage() {
           <section key={category}>
             <div className="flex items-center gap-2 mb-4">
               <span className="material-icons text-primary">{categoryIcon[category] ?? 'category'}</span>
-              <h2 className="text-lg font-display font-extrabold tracking-[-0.01em] text-foreground">{categoryLabel[category] ?? category}</h2>
-              <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full ml-1">
+              <h2 className={pSectionTitle}>{categoryLabel[category] ?? category}</h2>
+              <span className={`${pChip} ml-1`}>
                 {grouped[category].length}
               </span>
             </div>

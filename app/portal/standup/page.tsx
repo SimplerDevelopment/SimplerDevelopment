@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pSectionTitle } from '@/components/portal/portal-ui';
 
 type CardType = 'task' | 'story' | 'epic' | 'bug' | 'spike';
 type WorkflowState = 'todo' | 'in_progress' | 'in_review' | 'done' | 'canceled';
@@ -81,7 +82,7 @@ function Section({ title, icon, cards, emptyText, badge }: { title: string; icon
     <section className="space-y-2">
       <div className="flex items-center gap-2">
         <span className="material-icons text-base text-primary">{icon}</span>
-        <h2 className="text-sm font-display font-extrabold tracking-[-0.01em] text-foreground uppercase">{title}</h2>
+        <h2 className={`${pSectionTitle} uppercase`}>{title}</h2>
         <span className="text-xs text-muted-foreground">({cards.length})</span>
       </div>
       {cards.length === 0 ? (

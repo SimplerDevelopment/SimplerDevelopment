@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { formatBytes } from '@/lib/utils/bytes';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnPrimary, pBtnGhost, pInput, pSelect } from '@/components/portal/portal-ui';
 
 interface MediaItem {
   id: number;
@@ -256,28 +258,29 @@ export default function PortalMediaPage() {
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Media Library</h1>
-          <p className="text-muted-foreground text-sm mt-1">Upload and manage images, videos, and documents across all services.</p>
-        </div>
-        <button
-          onClick={() => setShowUpload(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
-        >
-          <span className="material-icons text-base">cloud_upload</span>
-          Upload
-        </button>
-      </div>
+      <PortalPageHeader
+        eyebrow="Media"
+        title="Media Library"
+        subtitle="Upload and manage images, videos, and documents across all services."
+        actions={
+          <button
+            onClick={() => setShowUpload(true)}
+            className={pBtnPrimary}
+          >
+            <span className="material-icons text-base">cloud_upload</span>
+            Upload
+          </button>
+        }
+      />
 
       {/* Filters */}
-      <div className="bg-card border border-border rounded-xl p-4 space-y-3">
+      <div className="bg-card border border-border rounded-2xl p-4 space-y-3">
         <input
           type="text"
           placeholder="Search by filename, alt text, or caption..."
           value={search}
           onChange={e => { setSearch(e.target.value); setOffset(0); }}
-          className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+          className={pInput}
         />
         <div className="flex gap-2 flex-wrap items-center">
           {['all', 'image', 'video', 'application'].map(type => (
@@ -297,7 +300,7 @@ export default function PortalMediaPage() {
             <select
               value={profileFilter}
               onChange={e => { setProfileFilter(e.target.value); setOffset(0); }}
-              className="ml-auto px-3 py-1.5 text-xs font-medium rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+              className={`ml-auto ${pSelect}`}
             >
               <option value="">All Brands</option>
               {brandingProfiles.map(p => (
@@ -315,7 +318,7 @@ export default function PortalMediaPage() {
           <span className="material-icons animate-spin text-primary text-2xl">refresh</span>
         </div>
       ) : media.length === 0 ? (
-        <div className="bg-card border border-border rounded-xl p-12 text-center">
+        <div className="bg-card border border-border rounded-2xl p-12 text-center">
           <span className="material-icons text-4xl text-muted-foreground/40">perm_media</span>
           <p className="text-sm text-muted-foreground mt-2">
             {search || filter !== 'all' || profileFilter ? 'No media matches your filters.' : 'No media yet. Upload your first file.'}
@@ -327,7 +330,7 @@ export default function PortalMediaPage() {
             <div
               key={item.id}
               onClick={() => openDetail(item)}
-              className="bg-card border border-border rounded-xl overflow-hidden cursor-pointer hover:shadow-lg hover:border-primary/40 transition-all group"
+              className="bg-card border border-border rounded-2xl overflow-hidden cursor-pointer hover:shadow-lg hover:border-primary/40 transition-all group"
             >
               {item.mimeType.startsWith('image/') ? (
                 // eslint-disable-next-line @next/next/no-img-element -- grid thumbnail; we prefer manual <img> + lazy over next/image to avoid layout cost
@@ -371,7 +374,7 @@ export default function PortalMediaPage() {
           <button
             disabled={offset === 0}
             onClick={() => setOffset(Math.max(0, offset - limit))}
-            className="px-3 py-1.5 text-sm border border-border rounded-lg disabled:opacity-40 hover:bg-accent transition-colors"
+            className={`${pBtnGhost} text-sm px-3 py-1.5`}
           >
             Previous
           </button>
@@ -381,7 +384,7 @@ export default function PortalMediaPage() {
           <button
             disabled={offset + limit >= total}
             onClick={() => setOffset(offset + limit)}
-            className="px-3 py-1.5 text-sm border border-border rounded-lg disabled:opacity-40 hover:bg-accent transition-colors"
+            className={`${pBtnGhost} text-sm px-3 py-1.5`}
           >
             Next
           </button>
@@ -432,7 +435,7 @@ export default function PortalMediaPage() {
                       <select
                         value={uploadProfileId}
                         onChange={e => setUploadProfileId(e.target.value)}
-                        className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                        className={pSelect}
                       >
                         <option value="">No brand assigned</option>
                         {brandingProfiles.map(p => (
@@ -447,7 +450,7 @@ export default function PortalMediaPage() {
                       value={uploadAlt}
                       onChange={e => setUploadAlt(e.target.value)}
                       placeholder="Describe the image"
-                      className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                      className={pInput}
                     />
                   </div>
                   <div className="space-y-1.5">
@@ -457,21 +460,21 @@ export default function PortalMediaPage() {
                       onChange={e => setUploadCaption(e.target.value)}
                       rows={2}
                       placeholder="Optional caption"
-                      className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 resize-none"
+                      className={`${pInput} resize-none`}
                     />
                   </div>
                   <div className="flex gap-3">
                     <button
                       onClick={handleUpload}
                       disabled={uploading}
-                      className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors"
+                      className={`flex-1 ${pBtnPrimary}`}
                     >
                       {uploading && <span className="material-icons text-base animate-spin">refresh</span>}
                       {uploading ? 'Uploading...' : 'Upload'}
                     </button>
                     <button
                       onClick={() => setShowUpload(false)}
-                      className="px-4 py-2.5 text-sm font-medium text-foreground border border-border rounded-lg hover:bg-accent transition-colors"
+                      className={pBtnGhost}
                     >
                       Cancel
                     </button>
@@ -521,7 +524,7 @@ export default function PortalMediaPage() {
                     <input
                       value={editAlt}
                       onChange={e => setEditAlt(e.target.value)}
-                      className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                      className={pInput}
                     />
                   </div>
                   <div className="space-y-1.5">
@@ -530,7 +533,7 @@ export default function PortalMediaPage() {
                       value={editCaption}
                       onChange={e => setEditCaption(e.target.value)}
                       rows={2}
-                      className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 resize-none"
+                      className={`${pInput} resize-none`}
                     />
                   </div>
                   <div className="flex gap-2">
@@ -569,7 +572,7 @@ export default function PortalMediaPage() {
                 />
                 <button
                   onClick={() => copyUrl(detail.url)}
-                  className="flex items-center gap-1.5 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
+                  className={pBtnPrimary}
                 >
                   <span className="material-icons text-base">content_copy</span>
                   Copy URL
@@ -577,7 +580,7 @@ export default function PortalMediaPage() {
                 <button
                   onClick={() => replaceInputRef.current?.click()}
                   disabled={replacing}
-                  className="flex items-center gap-1.5 px-4 py-2 text-sm text-foreground border border-border rounded-lg hover:bg-accent disabled:opacity-50 transition-colors"
+                  className={pBtnGhost}
                 >
                   <span className="material-icons text-base">{replacing ? 'refresh' : 'upload_file'}</span>
                   {replacing ? 'Replacing…' : 'Replace File'}
@@ -585,7 +588,7 @@ export default function PortalMediaPage() {
                 {!editMode && (
                   <button
                     onClick={() => setEditMode(true)}
-                    className="px-4 py-2 text-sm text-foreground border border-border rounded-lg hover:bg-accent transition-colors"
+                    className={pBtnGhost}
                   >
                     Edit Metadata
                   </button>
@@ -616,7 +619,7 @@ export default function PortalMediaPage() {
                       <p className="text-xs text-muted-foreground">No prior versions yet. Replace the file to start a history.</p>
                     ) : (
                       versions.map((v) => (
-                        <div key={v.id} className="flex items-center gap-3 px-3 py-2 rounded-lg border border-border bg-background">
+                        <div key={v.id} className="flex items-center gap-3 px-3 py-2 rounded-xl border border-border bg-background">
                           <span className="material-icons text-base text-muted-foreground">history</span>
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium text-foreground truncate">v{v.version} · {v.filename}</p>
@@ -634,7 +637,7 @@ export default function PortalMediaPage() {
                           </a>
                           <button
                             onClick={() => handleRestoreVersion(v.id)}
-                            className="text-xs px-2 py-1 rounded border border-border hover:bg-accent transition-colors"
+                            className={`${pBtnGhost} text-xs px-2 py-1`}
                           >
                             Restore
                           </button>
