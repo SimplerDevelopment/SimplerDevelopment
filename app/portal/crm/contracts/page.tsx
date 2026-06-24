@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnPrimary, pBtnGhost, pCard, pInput } from '@/components/portal/portal-ui';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -46,11 +48,11 @@ interface NewContractForm {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const STATUS_COLOR: Record<string, string> = {
-  draft:    'bg-gray-100 text-gray-600',
+  draft:    'bg-muted text-muted-foreground',
   sent:     'bg-blue-100 text-blue-700',
   signed:   'bg-green-100 text-green-700',
   voided:   'bg-red-100 text-red-700',
-  expired:  'bg-gray-100 text-gray-500',
+  expired:  'bg-muted text-muted-foreground',
   executed: 'bg-emerald-100 text-emerald-700',
 };
 
@@ -64,7 +66,7 @@ const STATUS_ICON: Record<string, string> = {
 };
 
 function StatusChip({ status }: { status: string }) {
-  const color = STATUS_COLOR[status] ?? 'bg-gray-100 text-gray-600';
+  const color = STATUS_COLOR[status] ?? 'bg-muted text-muted-foreground';
   const icon  = STATUS_ICON[status] ?? 'article';
   return (
     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${color}`}>
@@ -223,45 +225,45 @@ function ContractsPage() {
     <div className="space-y-6">
 
       {/* ─── Header ──────────────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div>
-          <p className="text-sm text-muted-foreground">
-            Create and manage client contracts with e-signature support
-          </p>
-        </div>
-        <button
-          onClick={() => { setShowForm(f => !f); if (showForm) resetForm(); }}
-          className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors shrink-0"
-        >
-          <span className="material-icons text-base">{showForm ? 'close' : 'add'}</span>
-          {showForm ? 'Cancel' : 'New Contract'}
-        </button>
-      </div>
+      <PortalPageHeader
+        eyebrow="CRM"
+        title="Contracts"
+        subtitle="Create and manage client contracts with e-signature support"
+        actions={
+          <button
+            onClick={() => { setShowForm(f => !f); if (showForm) resetForm(); }}
+            className={pBtnPrimary}
+          >
+            <span className="material-icons text-base">{showForm ? 'close' : 'add'}</span>
+            {showForm ? 'Cancel' : 'New Contract'}
+          </button>
+        }
+      />
 
       {/* ─── Stats ───────────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div className="bg-card border border-border rounded-xl p-4">
+        <div className="bg-card border border-border rounded-2xl p-4">
           <div className="flex items-center gap-2 text-muted-foreground text-xs font-medium mb-1">
             <span className="material-icons text-base">article</span>
             Total
           </div>
           <p className="text-2xl font-bold text-foreground">{totalCount}</p>
         </div>
-        <div className="bg-card border border-border rounded-xl p-4">
-          <div className="flex items-center gap-2 text-gray-500 text-xs font-medium mb-1">
+        <div className="bg-card border border-border rounded-2xl p-4">
+          <div className="flex items-center gap-2 text-muted-foreground text-xs font-medium mb-1">
             <span className="material-icons text-base">edit_note</span>
             Drafts
           </div>
           <p className="text-2xl font-bold text-foreground">{draftCount}</p>
         </div>
-        <div className="bg-card border border-border rounded-xl p-4">
+        <div className="bg-card border border-border rounded-2xl p-4">
           <div className="flex items-center gap-2 text-blue-600 text-xs font-medium mb-1">
             <span className="material-icons text-base">send</span>
             Sent
           </div>
           <p className="text-2xl font-bold text-foreground">{sentCount}</p>
         </div>
-        <div className="bg-card border border-border rounded-xl p-4">
+        <div className="bg-card border border-border rounded-2xl p-4">
           <div className="flex items-center gap-2 text-green-600 text-xs font-medium mb-1">
             <span className="material-icons text-base">check_circle</span>
             Signed
@@ -272,7 +274,7 @@ function ContractsPage() {
 
       {/* ─── Inline Create Form ──────────────────────────────────────────────── */}
       {showForm && (
-        <form onSubmit={handleSubmit} className="bg-card border border-border rounded-xl p-6 space-y-5">
+        <form onSubmit={handleSubmit} className={`${pCard} p-6 space-y-5`}>
           <h3 className="font-semibold text-foreground flex items-center gap-2">
             <span className="material-icons text-primary">article</span>
             New Contract
@@ -294,7 +296,7 @@ function ContractsPage() {
                 value={form.title}
                 onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
                 placeholder="e.g. Service Agreement — Acme Corp Q3 2026"
-                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                className={pInput}
               />
             </div>
 
@@ -306,7 +308,7 @@ function ContractsPage() {
                 value={form.summary}
                 onChange={e => setForm(f => ({ ...f, summary: e.target.value }))}
                 placeholder="Brief description of what this contract covers"
-                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
+                className={`${pInput} resize-none`}
               />
             </div>
 
@@ -317,7 +319,7 @@ function ContractsPage() {
                 value={form.signerName}
                 onChange={e => setForm(f => ({ ...f, signerName: e.target.value }))}
                 placeholder="Jane Smith"
-                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                className={pInput}
               />
             </div>
 
@@ -329,7 +331,7 @@ function ContractsPage() {
                 value={form.signerEmail}
                 onChange={e => setForm(f => ({ ...f, signerEmail: e.target.value }))}
                 placeholder="jane@acme.com"
-                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                className={pInput}
               />
             </div>
 
@@ -339,7 +341,7 @@ function ContractsPage() {
               <select
                 value={form.contactId}
                 onChange={e => setForm(f => ({ ...f, contactId: e.target.value }))}
-                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                className={pInput}
               >
                 <option value="">Select contact...</option>
                 {contacts.map(c => (
@@ -354,7 +356,7 @@ function ContractsPage() {
               <select
                 value={form.dealId}
                 onChange={e => setForm(f => ({ ...f, dealId: e.target.value }))}
-                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                className={pInput}
               >
                 <option value="">No deal linked</option>
                 {deals.map(d => (
@@ -372,14 +374,14 @@ function ContractsPage() {
             <button
               type="button"
               onClick={handleCancelForm}
-              className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+              className={pBtnGhost}
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={saving}
-              className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+              className={pBtnPrimary}
             >
               {saving ? 'Creating...' : 'Create Contract'}
             </button>
@@ -396,7 +398,7 @@ function ContractsPage() {
             value={searchInput}
             onChange={e => setSearchInput(e.target.value)}
             placeholder="Search contracts by title..."
-            className="w-full pl-10 pr-9 py-2 bg-card border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+            className={`${pInput} pl-10 pr-9`}
           />
           {searchInput && (
             <button
@@ -410,7 +412,7 @@ function ContractsPage() {
         </div>
 
         {/* Status filter pills */}
-        <div className="flex items-center gap-1 bg-card border border-border rounded-lg p-0.5">
+        <div className="flex items-center gap-1 bg-card border border-border rounded-xl p-0.5">
           {(['', 'draft', 'sent', 'signed', 'voided'] as const).map(s => {
             const label = s === '' ? 'All' : s.charAt(0).toUpperCase() + s.slice(1);
             const count = s === ''
@@ -422,7 +424,7 @@ function ContractsPage() {
                 onClick={() => setStatusFilter(s)}
                 className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
                   statusFilter === s
-                    ? 'bg-primary text-primary-foreground'
+                    ? 'bg-foreground text-background font-bold'
                     : 'text-muted-foreground hover:text-foreground hover:bg-accent/40'
                 }`}
               >
@@ -444,7 +446,7 @@ function ContractsPage() {
         </div>
       ) : contracts.length === 0 && !search && !statusFilter ? (
         /* Pristine empty state */
-        <div className="bg-card border border-border rounded-xl p-10 text-center space-y-4">
+        <div className={`${pCard} p-10 text-center space-y-4`}>
           <span className="material-icons text-5xl text-muted-foreground/40">article</span>
           <h2 className="text-lg font-semibold text-foreground">No contracts yet</h2>
           <p className="text-muted-foreground text-sm max-w-md mx-auto">
@@ -453,7 +455,7 @@ function ContractsPage() {
           </p>
           <button
             onClick={() => setShowForm(true)}
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
+            className={pBtnPrimary}
           >
             <span className="material-icons text-lg">add</span>
             Create Your First Contract
@@ -461,7 +463,7 @@ function ContractsPage() {
         </div>
       ) : contracts.length === 0 ? (
         /* Filtered empty state */
-        <div className="bg-card border border-border rounded-xl p-10 text-center space-y-3">
+        <div className={`${pCard} p-10 text-center space-y-3`}>
           <span className="material-icons text-4xl text-muted-foreground/40">search_off</span>
           <h2 className="text-base font-semibold text-foreground">No contracts match your filters</h2>
           <p className="text-muted-foreground text-sm">
@@ -471,14 +473,14 @@ function ContractsPage() {
           </p>
           <button
             onClick={() => { setSearchInput(''); setStatusFilter(''); }}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-accent text-foreground rounded-md text-xs font-medium hover:bg-accent/70 transition-colors"
+            className={pBtnGhost}
           >
             <span className="material-icons text-sm">refresh</span>
             Reset filters
           </button>
         </div>
       ) : (
-        <div className="bg-card border border-border rounded-xl overflow-hidden">
+        <div className={`${pCard} overflow-hidden`}>
           <div className="overflow-x-auto -mx-4 sm:mx-0">
             <table className="w-full text-sm min-w-[700px]">
               <thead>

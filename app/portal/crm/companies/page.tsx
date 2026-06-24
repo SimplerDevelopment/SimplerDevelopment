@@ -6,6 +6,8 @@ import CrmCustomFieldFilters from '@/components/portal/CrmCustomFieldFilters';
 import CompanyMap, { type MapCompany } from '@/components/portal/CompanyMap';
 import MediaPicker from '@/components/admin/MediaPicker';
 import { formatMoney } from '@/lib/utils/money';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnPrimary, pBtnGhost, pCard, pInput, pSelect } from '@/components/portal/portal-ui';
 
 interface Company {
   id: number;
@@ -133,22 +135,24 @@ export default function CrmCompaniesPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <p className="text-sm text-muted-foreground">
-          {loading ? '' : `${total} compan${total !== 1 ? 'ies' : 'y'}`}
-        </p>
-        <button
-          onClick={() => setShowForm(f => !f)}
-          className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors shrink-0"
-        >
-          <span className="material-icons text-base">{showForm ? 'close' : 'domain_add'}</span>
-          {showForm ? 'Cancel' : 'Add Company'}
-        </button>
-      </div>
+      <PortalPageHeader
+        eyebrow="CRM"
+        title="Companies"
+        subtitle={loading ? undefined : `${total} compan${total !== 1 ? 'ies' : 'y'}`}
+        actions={
+          <button
+            onClick={() => setShowForm(f => !f)}
+            className={pBtnPrimary}
+          >
+            <span className="material-icons text-base">{showForm ? 'close' : 'domain_add'}</span>
+            {showForm ? 'Cancel' : 'Add Company'}
+          </button>
+        }
+      />
 
       {/* Inline form */}
       {showForm && (
-        <form onSubmit={handleSubmit} className="bg-card border border-border rounded-xl p-6 space-y-4">
+        <form onSubmit={handleSubmit} className={`${pCard} p-6 space-y-4`}>
           <h3 className="font-semibold text-foreground">New Company</h3>
           {error && (
             <div className="flex items-center gap-2 text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2">
@@ -163,7 +167,7 @@ export default function CrmCompaniesPage() {
                 required
                 value={form.name}
                 onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                className={pInput}
               />
             </div>
             <div>
@@ -172,7 +176,7 @@ export default function CrmCompaniesPage() {
                 value={form.domain}
                 onChange={e => setForm(f => ({ ...f, domain: e.target.value }))}
                 placeholder="example.com"
-                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                className={pInput}
               />
             </div>
             <div>
@@ -180,7 +184,7 @@ export default function CrmCompaniesPage() {
               <input
                 value={form.industry}
                 onChange={e => setForm(f => ({ ...f, industry: e.target.value }))}
-                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                className={pInput}
               />
             </div>
             <div>
@@ -188,7 +192,7 @@ export default function CrmCompaniesPage() {
               <select
                 value={form.size}
                 onChange={e => setForm(f => ({ ...f, size: e.target.value }))}
-                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                className={pInput}
               >
                 <option value="">Select size</option>
                 {sizeOptions.map(s => (
@@ -201,7 +205,7 @@ export default function CrmCompaniesPage() {
               <input
                 value={form.phone}
                 onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
-                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                className={pInput}
               />
             </div>
             <div>
@@ -210,7 +214,7 @@ export default function CrmCompaniesPage() {
                 value={form.website}
                 onChange={e => setForm(f => ({ ...f, website: e.target.value }))}
                 placeholder="https://example.com"
-                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                className={pInput}
               />
             </div>
             <div className="sm:col-span-2 lg:col-span-3">
@@ -220,7 +224,7 @@ export default function CrmCompaniesPage() {
                 onChange={e => setForm(f => ({ ...f, address: e.target.value }))}
                 rows={2}
                 placeholder="123 Main St, City, State"
-                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 resize-y"
+                className={`${pInput} resize-y`}
               />
               <div className="mt-3 grid grid-cols-2 gap-3">
                 <div>
@@ -233,7 +237,7 @@ export default function CrmCompaniesPage() {
                     value={form.latitude}
                     onChange={e => setForm(f => ({ ...f, latitude: e.target.value }))}
                     placeholder="e.g. 40.7128"
-                    className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    className={pInput}
                   />
                 </div>
                 <div>
@@ -246,7 +250,7 @@ export default function CrmCompaniesPage() {
                     value={form.longitude}
                     onChange={e => setForm(f => ({ ...f, longitude: e.target.value }))}
                     placeholder="e.g. -74.0060"
-                    className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    className={pInput}
                   />
                 </div>
               </div>
@@ -266,7 +270,7 @@ export default function CrmCompaniesPage() {
                 value={form.notes}
                 onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
                 rows={2}
-                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 resize-y"
+                className={`${pInput} resize-y`}
               />
             </div>
           </div>
@@ -274,7 +278,7 @@ export default function CrmCompaniesPage() {
             <button
               type="submit"
               disabled={saving}
-              className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+              className={pBtnPrimary}
             >
               {saving && <span className="material-icons animate-spin text-sm">refresh</span>}
               Create Company
@@ -291,7 +295,7 @@ export default function CrmCompaniesPage() {
             placeholder="Search companies..."
             value={searchInput}
             onChange={e => setSearchInput(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+            className={`${pInput} pl-9`}
           />
         </div>
         <CrmCustomFieldFilters
@@ -307,12 +311,12 @@ export default function CrmCompaniesPage() {
           <span className="material-icons animate-spin text-primary text-2xl">refresh</span>
         </div>
       ) : companies.length === 0 ? (
-        <div className="bg-card border border-border rounded-xl p-12 text-center">
+        <div className={`${pCard} p-12 text-center`}>
           <span className="material-icons text-4xl text-muted-foreground mb-3 block">business</span>
           <p className="text-muted-foreground mb-4">No companies found.</p>
           <button
             onClick={() => setShowForm(true)}
-            className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90"
+            className={pBtnPrimary}
           >
             Add First Company
           </button>
@@ -329,7 +333,7 @@ export default function CrmCompaniesPage() {
                 onClick={() => router.push(`/portal/crm/companies/${c.id}`)}
                 onMouseEnter={() => setHoveredId(c.id)}
                 onMouseLeave={() => setHoveredId(prev => (prev === c.id ? null : prev))}
-                className={`bg-card border rounded-xl p-5 transition-all cursor-pointer group ${
+                className={`bg-card border rounded-2xl p-5 transition-all cursor-pointer group ${
                   isHovered
                     ? 'border-primary ring-2 ring-primary/30 shadow-md'
                     : 'border-border hover:border-primary/50'
@@ -378,7 +382,7 @@ export default function CrmCompaniesPage() {
               align-self: stretch, which would balloon this element to the full
               height of the left column and prevent position:sticky from ever
               activating. */}
-          <div className="lg:self-start lg:sticky lg:top-0 h-[28rem] lg:h-[calc(100vh-2rem)] rounded-xl border border-border overflow-hidden bg-card">
+          <div className="lg:self-start lg:sticky lg:top-0 h-[28rem] lg:h-[calc(100vh-2rem)] rounded-2xl border border-border overflow-hidden bg-card">
             <CompanyMap
               companies={companies
                 .map<MapCompany | null>(c => {
@@ -406,7 +410,7 @@ export default function CrmCompaniesPage() {
             <button
               disabled={page <= 1}
               onClick={() => setPage(p => p - 1)}
-              className="px-3 py-1.5 text-sm border border-border rounded-lg hover:bg-accent transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              className="px-3 py-1.5 text-sm border border-border rounded-xl hover:bg-accent transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <span className="material-icons text-base">chevron_left</span>
             </button>
@@ -418,9 +422,9 @@ export default function CrmCompaniesPage() {
                 <button
                   key={p}
                   onClick={() => setPage(p)}
-                  className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
+                  className={`px-3 py-1.5 text-sm rounded-xl transition-colors ${
                     p === page
-                      ? 'bg-primary text-primary-foreground'
+                      ? 'bg-foreground text-background font-bold'
                       : 'border border-border hover:bg-accent'
                   }`}
                 >
@@ -431,7 +435,7 @@ export default function CrmCompaniesPage() {
             <button
               disabled={page >= totalPages}
               onClick={() => setPage(p => p + 1)}
-              className="px-3 py-1.5 text-sm border border-border rounded-lg hover:bg-accent transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              className="px-3 py-1.5 text-sm border border-border rounded-xl hover:bg-accent transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <span className="material-icons text-base">chevron_right</span>
             </button>
