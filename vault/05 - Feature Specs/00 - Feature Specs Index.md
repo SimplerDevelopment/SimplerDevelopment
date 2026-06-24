@@ -51,5 +51,8 @@ SORT date DESC
 - [[Visual-Editor Agent]] — first domain-specialist sub-agent under the hub-and-spoke topology; block authoring via natural-language in the portal chatbot; `domain: visual-editor`
 - [[Spec - MCP Parity]] — chat/notifications/surveys-submit/analytics MCP tools (four build groups); tickets_* already existed — corrected 2026-06-23; closes API+UI-vs-MCP layers gap; `domain: mcp`; board [[MCP Parity Board]]
 
+### Shipped (2026-06-24)
+- [[Spec - Guardrail Distillation Loop]] — nightly multi-agent distillation loop for harness guardrails; `domain: agent-harness`; status: shipped (integration gates pending on worktree/study-guide)
+
 ### Draft / Backlog
 - [[Unify AI Tool Surfaces]] — consolidate MCP 431 / Brain 12 / portal tools into one source of truth; `domain: agent-harness`
