@@ -437,7 +437,7 @@ export default function PortalSidebar({
           the mobile drawer always renders full-width with labels. */}
       <aside
         data-collapsed={collapsed ? 'true' : 'false'}
-        className={`group/sb fixed top-0 left-0 z-40 h-screen w-64 flex flex-col bg-card border-r border-border transition-[transform,width] duration-200 ${
+        className={`portal-chrome-dark group/sb fixed top-0 left-0 z-40 h-screen w-64 flex flex-col bg-card border-r border-border transition-[transform,width] duration-200 ${
           mobileOpen ? 'translate-x-0' : '-translate-x-full'
         } ${persistent ? 'lg:translate-x-0' : ''} ${collapsed ? 'lg:data-[collapsed=true]:w-16' : ''}`}
       >

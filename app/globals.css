@@ -524,3 +524,50 @@ html,body {
 @media (prefers-reduced-motion: reduce) {
   .auth-blob, .auth-dot { animation: none; }
 }
+
+/* ── Portal dark chrome (sidebar) — scoped token override ─────────────────────
+   The persistent sidebar carries the redesign's signature #0e0d0c brand
+   surface (same as the auth panel / onboarding rail). Rather than rewrite the
+   sidebar's ~50 semantic classNames, we re-point the design tokens INSIDE this
+   scope to dark values — so `bg-card`, `text-foreground`, `hover:bg-accent`,
+   `border-border`, `--portal-accent-soft`, `text-primary` etc. all resolve dark
+   automatically. White-label inline color overrides still win (set via style=).
+   Reverting the whole dark sidebar = remove the `portal-chrome-dark` class. */
+.portal-chrome-dark {
+  --card: #0e0d0c;
+  --card-foreground: #f5f5f4;
+  --foreground: #ededed;
+  --muted: #1c1b1a;
+  --muted-foreground: #a8a29e;
+  --accent: rgba(255, 255, 255, 0.06);
+  --accent-foreground: #ffffff;
+  --border: rgba(255, 255, 255, 0.09);
+  --primary: #60a5fa;             /* lighter blue reads on the dark surface */
+  --primary-foreground: #0b1220;
+  --portal-accent-soft: rgba(255, 255, 255, 0.09);
+  --portal-surface-2: #1a1917;
+  --portal-border-strong: rgba(255, 255, 255, 0.18);
+  background-color: #0e0d0c;
+  color: var(--foreground);
+}
+/* Subtle top-edge brand glow echoing the auth mesh — static (this is a work
+   tool, not a landing page; no drifting blobs). */
+.portal-chrome-dark::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 240px;
+  background:
+    radial-gradient(130px 120px at 16% 4%, rgba(37, 99, 235, 0.30), transparent 70%),
+    radial-gradient(150px 130px at 96% 0%, rgba(16, 185, 129, 0.16), transparent 72%);
+  pointer-events: none;
+  z-index: 0;
+}
+.portal-chrome-dark > * { position: relative; z-index: 1; }
+
+/* Portal typography — lift the shell out of the Arial default into the
+   product's Geist sans. Scoped to `.portal-shell` so marketing pages are
+   untouched. Matches the redesigned auth/onboarding body type. */
+.portal-shell {
+  font-family: var(--font-geist-sans), system-ui, -apple-system, "Segoe UI", sans-serif;
+}

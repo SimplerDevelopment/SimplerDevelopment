@@ -106,7 +106,7 @@ export default function PortalTopbar({ collapsed, onToggleCollapse, onOpenMobile
       {/* Search / command palette trigger */}
       <button
         onClick={() => window.dispatchEvent(new CustomEvent('portal:open-cmdk'))}
-        className="ml-auto flex items-center gap-2 h-8 px-2.5 rounded-md border border-border bg-[var(--portal-surface-2)] text-muted-foreground text-[13px] hover:border-[var(--portal-border-strong)] transition-colors min-w-0 sm:min-w-[220px]"
+        className="ml-auto flex items-center gap-2 h-9 px-3 rounded-xl border border-border bg-[var(--portal-surface-2)] text-muted-foreground text-[13px] hover:border-[var(--portal-border-strong)] transition-colors min-w-0 sm:min-w-[240px]"
         title="Search (⌘K)"
       >
         <span className="material-icons text-[17px]">search</span>
@@ -122,7 +122,7 @@ export default function PortalTopbar({ collapsed, onToggleCollapse, onOpenMobile
         <Link
           href="/portal/settings/profile"
           className="w-8 h-8 rounded-full grid place-items-center text-white text-xs font-semibold shrink-0"
-          style={{ background: 'linear-gradient(135deg,#2563eb,#7928ca)' }}
+          style={{ background: 'linear-gradient(135deg,#2563eb,#10b981)' }}
           title="Account"
           aria-label="Account"
         >
