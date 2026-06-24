@@ -340,7 +340,7 @@ export function registerSurveysTools(server: McpServer, ctx: PortalMcpContext): 
       inputSchema: {
         surveyId: z.number().int().positive().optional(),
         slug: z.string().min(1).optional(),
-        answers: z.record(z.unknown()),
+        answers: z.record(z.string(), z.unknown()),
         respondentEmail: z.string().email().optional(),
         respondentName: z.string().optional(),
       },
