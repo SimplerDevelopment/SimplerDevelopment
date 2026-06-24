@@ -7,7 +7,7 @@
  */
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import { and, desc, eq, ilike, inArray, isNull, or, sql, gte, lte } from 'drizzle-orm';
+import { and, count, desc, eq, ilike, inArray, isNull, or, sql, sum, gte, lte } from 'drizzle-orm';
 import crypto from 'crypto';
 import { hash as hashPassword } from 'bcryptjs';
 import { db } from '@/lib/db';
@@ -838,6 +838,55 @@ export function registerEmailTools(server: McpServer, ctx: PortalMcpContext): vo
       if (result.pending) return json({ pending: true, pendingId: result.pendingId, summary: result.summary, status: 'pending' });
       revalidateForWrite('portal');
       return json(result.data);
+    }
+  );
+
+  // ── EMAIL ANALYTICS ───────────────────────────────────────────────────────
+  hasScope(ctx.scopes, 'email:read') && server.registerTool(
+    'email_analytics_get',
+    {
+      title: 'Get email analytics',
+      description:
+        'Return headline campaign performance aggregates for the client: campaigns sent, total recipients, opens, clicks, bounces, unsubscribes, plus open/click rates. Covers all sent campaigns (no date-window filter — totals are lifetime). Use this for a quick health-check of the email programme.',
+      inputSchema: {
+        days: z.number().min(1).max(365).default(30).optional().describe('Unused — included for forward-compat; totals are lifetime across all sent campaigns.'),
+      },
+    },
+    async (_args) => {
+      if (!requireScope(ctx, 'email:read')) return denied('email:read');
+
+      const [stats] = await db
+        .select({
+          totalCampaigns: count(),
+          totalSent: sum(emailCampaigns.totalSent),
+          totalOpened: sum(emailCampaigns.totalOpened),
+          totalClicked: sum(emailCampaigns.totalClicked),
+          totalBounced: sum(emailCampaigns.totalBounced),
+          totalUnsubscribed: sum(emailCampaigns.totalUnsubscribed),
+        })
+        .from(emailCampaigns)
+        .where(and(eq(emailCampaigns.clientId, clientId), eq(emailCampaigns.status, 'sent')));
+
+      const [listStats] = await db
+        .select({ totalLists: count() })
+        .from(emailLists)
+        .where(eq(emailLists.clientId, clientId));
+
+      const sent = Number(stats.totalSent ?? 0);
+      const opened = Number(stats.totalOpened ?? 0);
+      const clicked = Number(stats.totalClicked ?? 0);
+
+      return json({
+        totalCampaigns: stats.totalCampaigns,
+        totalSent: sent,
+        totalOpened: opened,
+        totalClicked: clicked,
+        totalBounced: Number(stats.totalBounced ?? 0),
+        totalUnsubscribed: Number(stats.totalUnsubscribed ?? 0),
+        openRate: sent > 0 ? ((opened / sent) * 100).toFixed(1) : '0.0',
+        clickRate: sent > 0 ? ((clicked / sent) * 100).toFixed(1) : '0.0',
+        totalLists: listStats.totalLists,
+      });
     }
   );
 }

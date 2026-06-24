@@ -5,6 +5,7 @@ import { pitchDecks } from '@/lib/db/schema';
 import { eq, desc } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
 import { authorizePortal, isAuthError } from '@/lib/portal-auth';
+import { slugify } from '@/lib/publishing/slug';
 
 export async function GET() {
   const session = await auth();
@@ -47,7 +48,7 @@ export async function POST(req: Request) {
   // The schema has no DB-level unique constraint on slug so we must do this
   // defensively in application code. Two concurrent creates with the same
   // title will read distinct existing-slug sets and produce distinct suffixes.
-  const baseSlug = title.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+  const baseSlug = slugify(title.trim());
   const existing = await db
     .select({ slug: pitchDecks.slug })
     .from(pitchDecks)

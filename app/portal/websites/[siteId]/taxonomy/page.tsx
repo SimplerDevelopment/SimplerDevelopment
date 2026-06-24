@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
+import { slugify } from '@/lib/publishing/slug';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -25,10 +26,6 @@ interface Term {
   color: string | null;
   parentId: number | null;
   sortOrder: number;
-}
-
-function generateSlug(name: string) {
-  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 }
 
 const ICONS = ['label', 'folder', 'category', 'tag', 'bookmark', 'star', 'flag', 'location_on', 'person', 'work', 'school', 'local_offer'];
@@ -71,15 +68,28 @@ export default function TaxonomyPage() {
     setTermsLoading(false);
   }, [base]);
 
-  useEffect(() => { loadTaxonomies(); }, [loadTaxonomies]);
+  useEffect(() => {
+    fetch(`${base}/taxonomies`)
+      .then(r => r.json())
+      .then(res => { if (res.success) setTaxonomies(res.data); })
+      .finally(() => setLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
-    if (selectedTaxonomy) loadTerms(selectedTaxonomy.id);
-  }, [selectedTaxonomy, loadTerms]);
+    if (selectedTaxonomy) {
+      fetch(`${base}/taxonomies/${selectedTaxonomy.id}/terms`)
+        .then(r => r.json())
+        .then(res => { if (res.success) setTerms(res.data); })
+        .finally(() => setTermsLoading(false));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedTaxonomy]);
 
   // Auto-select first taxonomy
   useEffect(() => {
     if (taxonomies.length > 0 && !selectedTaxonomy) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- derived selection from async data, not a data-fetch setState
       setSelectedTaxonomy(taxonomies[0]);
     }
   }, [taxonomies, selectedTaxonomy]);
@@ -233,7 +243,7 @@ export default function TaxonomyPage() {
                   <label className="text-xs font-medium text-muted-foreground">Name</label>
                   <input
                     value={taxForm.name}
-                    onChange={e => setTaxForm(prev => ({ ...prev, name: e.target.value, slug: generateSlug(e.target.value) }))}
+                    onChange={e => setTaxForm(prev => ({ ...prev, name: e.target.value, slug: slugify(e.target.value) }))}
                     required
                     placeholder="e.g. Genre"
                     className="w-full px-2.5 py-1.5 rounded-md border border-border bg-background text-sm"
@@ -321,7 +331,7 @@ export default function TaxonomyPage() {
                           onChange={e => setTermForm(prev => ({
                             ...prev,
                             name: e.target.value,
-                            slug: !editingTerm ? generateSlug(e.target.value) : prev.slug,
+                            slug: !editingTerm ? slugify(e.target.value) : prev.slug,
                           }))}
                           required
                           className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"

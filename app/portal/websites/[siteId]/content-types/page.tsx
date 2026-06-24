@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
+import { slugify } from '@/lib/publishing/slug';
 
 interface ContentType {
   id: number;
@@ -12,10 +13,6 @@ interface ContentType {
   icon: string;
   active: boolean;
   websiteId: number | null;
-}
-
-function generateSlug(name: string) {
-  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 }
 
 const CONTENT_ICONS = ['article', 'rss_feed', 'web', 'description', 'event', 'photo_library', 'video_library', 'library_books', 'feed', 'campaign'];
@@ -39,7 +36,13 @@ export default function ContentTypesPage() {
     setLoading(false);
   }, [base]);
 
-  useEffect(() => { loadContentTypes(); }, [loadContentTypes]);
+  useEffect(() => {
+    fetch(`${base}/content-types`)
+      .then(r => r.json())
+      .then(res => { if (res.success) setContentTypes(res.data); })
+      .finally(() => setLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const openCreate = () => {
     setEditingType(null);
@@ -124,7 +127,7 @@ export default function ContentTypesPage() {
                 onChange={e => setForm(prev => ({
                   ...prev,
                   name: e.target.value,
-                  slug: !editingType ? generateSlug(e.target.value) : prev.slug,
+                  slug: !editingType ? slugify(e.target.value) : prev.slug,
                 }))}
                 required
                 placeholder="e.g. Case Study"

@@ -1,4 +1,5 @@
 import type { Block, BlockEditorData } from '@/types/blocks';
+import { slugify } from '@/lib/publishing/slug';
 
 /**
  * Generate a URL-safe slug from a free-text title. Used in create mode to
@@ -6,7 +7,7 @@ import type { Block, BlockEditorData } from '@/types/blocks';
  * derive a stable identifier for the new content type.
  */
 export function generateSlug(title: string): string {
-  return title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  return slugify(title);
 }
 
 /**

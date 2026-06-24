@@ -167,7 +167,7 @@ All live in `lib/mcp/approvals.ts` and are re-exported via `lib/mcp/tools/approv
 Supporting helpers:
 - `lib/mcp/approval-links.ts` — `lookupApprovalLink`, `createApprovalLink`, `recordReview`
 - `lib/mcp/pending-changes.ts` — wraps write tools to produce staged rows when `require_cms_approval=true`
-- `lib/mcp/decks-publish.ts` — `applyPublishAllToSlides` (shared by deck approval and `decks_publish_all` tool)
+- `lib/decks/publish-slide.ts` — `applyPublishAllToSlides` (shared by deck approval and `decks_publish_all` tool)
 
 ---
 
@@ -254,7 +254,7 @@ See [[ADR approval-preview-page-scoped-token]] for the full decision rationale a
 - **CRM** — `crm_contracts` table owns the e-sign state; contract PDF renderer imports `ContractClause` from `lib/db/schema/crm.ts`.
 - **MCP / API Keys** — `mcp_pending_changes` and `mcp_approval_links` reference `portalApiKeys`; the `require_cms_approval` flag on a key activates the staged-change path.
 - **CMS & Blocks** — `post`, `block_template` are approvable entity types; approving a post publishes it to `app/sites/`.
-- **Pitch Decks & Product Designer** — `pitch_deck` is an approvable entity type; `lib/mcp/decks-publish.ts` is shared with the decks MCP tool.
+- **Pitch Decks & Product Designer** — `pitch_deck` is an approvable entity type; `lib/decks/publish-slide.ts` is shared with the decks MCP tool.
 - **Bookings & Services** — `booking_page` is an approvable entity type; approval flips `active=true`.
 - **Surveys** — `survey` is an approvable entity type; approval flips `status='active'`.
 - **Email & Campaigns** — `email_campaign` is an approvable entity type (approval recorded; send is separate).

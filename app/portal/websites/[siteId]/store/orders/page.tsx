@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { formatMoney } from '@/lib/utils/money';
 
 interface Order {
   id: number;
@@ -23,10 +24,6 @@ const statusColors: Record<string, string> = {
   cancelled: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
   refunded: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
 };
-
-function formatMoney(cents: number) {
-  return '$' + (cents / 100).toFixed(2);
-}
 
 export default function OrdersListPage() {
   const { siteId } = useParams<{ siteId: string }>();
@@ -61,6 +58,7 @@ export default function OrdersListPage() {
   }, [base, page, statusFilter, search]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- load() is a useCallback reused across dep changes; setLoading(true) is intentional and does not cascade
     load();
   }, [load]);
 

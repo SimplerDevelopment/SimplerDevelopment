@@ -36,6 +36,7 @@ import {
 } from '@/lib/db/schema';
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import { logAudit } from './audit';
+import { slugify } from '@/lib/publishing/slug';
 
 export type BrainPlaybook = typeof brainPlaybooks.$inferSelect;
 export type BrainPlaybookStep = typeof brainPlaybookSteps.$inferSelect;
@@ -56,15 +57,7 @@ export type BrainPlaybookCondition = {
  * column for a numeric collision suffix).
  */
 export function slugifyPlaybookName(name: string): string {
-  const base = name
-    .toLowerCase()
-    .normalize('NFKD')
-    .replace(/[̀-ͯ]/g, '') // strip combining marks
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .replace(/-{2,}/g, '-')
-    .slice(0, 180);
-  return base || 'playbook';
+  return slugify(name, 180) || 'playbook';
 }
 
 /**

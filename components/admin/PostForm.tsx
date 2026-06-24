@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
+import { slugify } from '@/lib/publishing/slug';
 import MediaPicker from './MediaPicker';
 import { BlockEditor } from '@/components/blocks/BlockEditor';
 import { EditorWithPreview } from '@/components/blocks/EditorWithPreview';
@@ -126,23 +127,6 @@ export default function PostForm({ post, mode }: PostFormProps) {
     publishedAt: post?.publishedAt || null,
   });
 
-  useEffect(() => {
-    fetchPostTypes();
-    fetchUsers();
-  }, []);
-
-  useEffect(() => {
-    if (formData.postType && postTypes.length > 0) {
-      fetchCustomFieldsForPostType(formData.postType);
-    }
-  }, [formData.postType, postTypes]);
-
-  useEffect(() => {
-    if (post?.id && customFields.length > 0) {
-      fetchCustomFieldValues(post.id);
-    }
-  }, [post?.id, customFields]);
-
   const fetchPostTypes = async () => {
     try {
       const response = await fetch('/api/post-types');
@@ -197,7 +181,7 @@ export default function PostForm({ post, mode }: PostFormProps) {
       const data = await response.json();
       if (data.success) {
         const values: Record<string, string> = {};
-        data.data.forEach((item: any) => {
+        data.data.forEach((item: { slug: string; value: string }) => {
           values[item.slug] = item.value;
         });
         setCustomFieldValues(values);
@@ -207,12 +191,33 @@ export default function PostForm({ post, mode }: PostFormProps) {
     }
   };
 
-  const generateSlug = (title: string) => {
-    return title
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-|-$/g, '');
-  };
+  useEffect(() => {
+    async function load() {
+      await fetchPostTypes();
+      await fetchUsers();
+    }
+    void load();
+  }, []);
+
+  useEffect(() => {
+    if (!formData.postType || postTypes.length === 0) return;
+    const postTypeSlug = formData.postType;
+    async function load() {
+      await fetchCustomFieldsForPostType(postTypeSlug);
+    }
+    void load();
+  }, [formData.postType, postTypes]);
+
+  useEffect(() => {
+    if (!post?.id || customFields.length === 0) return;
+    const postId = post.id;
+    async function load() {
+      await fetchCustomFieldValues(postId);
+    }
+    void load();
+  }, [post?.id, customFields]);
+
+  const generateSlug = (title: string) => slugify(title);
 
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const title = e.target.value;

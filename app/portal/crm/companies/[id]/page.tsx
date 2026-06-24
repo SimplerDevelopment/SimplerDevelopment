@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import MediaPicker from '@/components/admin/MediaPicker';
+import { formatMoney } from '@/lib/utils/money';
 import CrmCustomFieldsPanel, { type CrmCustomFieldsPanelHandle } from '@/components/portal/CrmCustomFieldsPanel';
 import PositionMultiSelect from '@/components/portal/PositionMultiSelect';
 
@@ -71,10 +72,6 @@ const dealStatusColor: Record<string, string> = {
 const sizeOptions = ['1-10', '11-50', '51-200', '201-500', '501-1000', '1001+'];
 
 const CONTACTS_PAGE_SIZE = 10;
-
-function formatCurrency(cents: number): string {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100);
-}
 
 export default function CrmCompanyDetailPage() {
   const params = useParams();
@@ -148,7 +145,10 @@ export default function CrmCompanyDetailPage() {
   }, [companyId]);
 
   useEffect(() => {
-    fetchCompany().then(() => setLoading(false));
+    (async () => {
+      await fetchCompany();
+      setLoading(false);
+    })();
   }, [fetchCompany]);
 
   // Contacts are driven by the paginated /api/portal/crm/contacts endpoint so
@@ -172,7 +172,7 @@ export default function CrmCompanyDetailPage() {
   }, [companyId, contactPage, contactSearch, titleFilter]);
 
   useEffect(() => {
-    fetchContacts();
+    (async () => { await fetchContacts(); })();
   }, [fetchContacts]);
 
   useEffect(() => {
@@ -979,7 +979,7 @@ export default function CrmCompanyDetailPage() {
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
-                        <span className="text-sm font-semibold text-foreground">{formatCurrency(d.value)}</span>
+                        <span className="text-sm font-semibold text-foreground">{formatMoney(d.value)}</span>
                         <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${dealStatusColor[d.status] ?? 'bg-gray-100 text-gray-700'}`}>
                           {d.status}
                         </span>

@@ -125,3 +125,9 @@ vault/.obsidian/plugins/*/manifest.json
 .sentry-token
 
 evals-out/
+
+# Client/site-migration working data + internal planning archive — never commit
+# (real client content + PII). Top-level scripts/migrations/*.ts stay tracked.
+/scripts/migrations/*/
+/scripts/output/
+/.planning/

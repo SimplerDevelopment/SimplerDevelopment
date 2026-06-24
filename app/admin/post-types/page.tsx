@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import Link from 'next/link';
+import { slugify } from '@/lib/publishing/slug';
 
 interface PostType {
   id: number;
@@ -34,8 +35,31 @@ export default function PostTypesPage() {
     active: true,
   });
 
+  const fetchPostTypes = async () => {
+    const response = await fetch('/api/post-types');
+    const data = await response.json();
+    if (data.success) {
+      setPostTypes(data.data);
+    }
+    setLoading(false);
+  };
+
+  const handleCancel = () => {
+    setShowForm(false);
+    setEditingPostType(null);
+    setFormData({ name: '', slug: '', description: '', icon: 'article', active: true });
+  };
+
   useEffect(() => {
-    fetchPostTypes();
+    async function load() {
+      const response = await fetch('/api/post-types');
+      const data = await response.json();
+      if (data.success) {
+        setPostTypes(data.data);
+      }
+      setLoading(false);
+    }
+    void load();
   }, []);
 
   // Handle escape key and prevent body scroll when modal is open
@@ -55,15 +79,6 @@ export default function PostTypesPage() {
       };
     }
   }, [showForm]);
-
-  const fetchPostTypes = async () => {
-    const response = await fetch('/api/post-types');
-    const data = await response.json();
-    if (data.success) {
-      setPostTypes(data.data);
-    }
-    setLoading(false);
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -105,19 +120,6 @@ export default function PostTypesPage() {
     if (response.ok) {
       fetchPostTypes();
     }
-  };
-
-  const handleCancel = () => {
-    setShowForm(false);
-    setEditingPostType(null);
-    setFormData({ name: '', slug: '', description: '', icon: 'article', active: true });
-  };
-
-  const generateSlug = (name: string) => {
-    return name
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-|-$/g, '');
   };
 
   return (
@@ -171,7 +173,7 @@ export default function PostTypesPage() {
                       onChange={(e) => {
                         setFormData({ ...formData, name: e.target.value });
                         if (!editingPostType) {
-                          setFormData({ ...formData, name: e.target.value, slug: generateSlug(e.target.value) });
+                          setFormData({ ...formData, name: e.target.value, slug: slugify(e.target.value) });
                         }
                       }}
                       className="mt-1 block w-full rounded-md border border-border bg-background px-3 py-2 text-foreground"

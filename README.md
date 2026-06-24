@@ -1,6 +1,6 @@
 # SimplerDevelopment
 
-[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE) [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md) [![Built with Bun](https://img.shields.io/badge/built%20with-Bun-14151a.svg)](https://bun.sh) [![Tenancy gate](https://img.shields.io/badge/tenancy-required-blue)](tests/CI-GATES.md)
+[![CI](https://github.com/DanielPCoyle/simplerdevelopment2026/actions/workflows/ci.yml/badge.svg)](https://github.com/DanielPCoyle/simplerdevelopment2026/actions/workflows/ci.yml) [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE) [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md) [![Built with Bun](https://img.shields.io/badge/built%20with-Bun-14151a.svg)](https://bun.sh) [![Tenancy gate](https://img.shields.io/badge/tenancy-required-blue)](tests/CI-GATES.md)
 
 **An open-source, MCP-native, all-in-one platform for agencies and operators.** Run per-tenant client **websites**, a **CRM**, an AI-powered **Company Brain** (RAG over client knowledge), workflow **automations**, **bookings**, a **storefront**, **email** campaigns, **surveys**, e-signatures, and **Stripe billing** — from one multi-tenant portal. Then drive *all* of it through an AI agent: the platform ships **200+ Model Context Protocol (MCP) tools**, so Claude, Cursor, or any MCP client can build pages, manage the CRM, send campaigns, and operate the whole system programmatically.
 
@@ -50,7 +50,11 @@ AI-powered knowledge base per tenant. Embeddings are generated via OpenAI (`text
 
 ### MCP server
 
-An in-repo Model Context Protocol server exposes platform tools to AI agents (Claude Code, Cursor, etc.). Tools are registered in `lib/mcp/` via a tool registrar pattern with scope guards. Use `simplerdev-mcp-tool` to add a new tool — handler, schema, and scope guard are registered in lockstep.
+An in-repo Model Context Protocol server (`app/api/mcp/route.ts` + `lib/mcp/`) exposes 200+ scoped platform tools to AI agents (Claude Code, Claude Desktop, Cursor, any MCP client). Tools are registered per-domain with a scope guard on every tool.
+
+- **Connect a client:** [`docs/mcp.md`](docs/mcp.md) (Claude.ai OAuth, API key, Claude Desktop/Code config)
+- **Tool catalog:** [`docs/api/mcp/overview.md`](docs/api/mcp/overview.md)
+- **Add a tool (contributors):** [`docs/guides/MCP_TOOLS.md`](docs/guides/MCP_TOOLS.md)
 
 ---
 
@@ -79,38 +83,50 @@ An in-repo Model Context Protocol server exposes platform tools to AI agents (Cl
 
 ## Prerequisites and setup
 
-**Requirements:** Bun 1.3.11+, PostgreSQL 14+, Node.js 20+ (for scripts that use `tsx`).
+**Requirements:** Bun 1.3.11+, **PostgreSQL 14+ with the [`pgvector`](https://github.com/pgvector/pgvector) extension** (the Company Brain / RAG needs it), Node.js 20+ (for scripts that use `tsx`), and optionally Docker.
+
+### Quick start
 
 ```bash
-# 1. Install dependencies
+# 1. Start Postgres + pgvector (Docker — easiest, no local Postgres needed)
+docker compose up -d
+
+# 2. Install dependencies
 bun install
 
-# 2. Copy environment variables and fill in values
+# 3. Configure environment
 cp .env.example .env.local
-```
+#   For the Docker DB above, set in .env.local:
+#   DATABASE_URL=postgresql://postgres:postgres@localhost:5432/simplerdev
+#   Generate the required secrets:
+#   AUTH_SECRET / NEXTAUTH_SECRET / OAUTH_STATE_SECRET → openssl rand -hex 32
+#   WORKSPACE_TENANT_SECRETS_KEY                       → openssl rand -hex 32
+#   PORTAL_KMS_KEY                                     → openssl rand -base64 32
 
-Key environment variables to set in `.env.local`:
-
-| Variable | Purpose |
-|---|---|
-| `DATABASE_URL` | Postgres connection string |
-| `NEXTAUTH_SECRET` | NextAuth session secret |
-| `ANTHROPIC_API_KEY` | Platform-level Anthropic key (BYOK fallback) |
-| `OPENAI_API_KEY` | Brain embeddings fallback |
-| `STRIPE_SECRET_KEY` | Stripe billing |
-| `ENCRYPTION_KEY` | 64 hex chars — encrypts BYOK client API keys. Generate: `openssl rand -hex 32` |
-| `PORTAL_KMS_KEY` | Base64 key for plugin JWT signing. Generate: `openssl rand -base64 32` |
-| `DROPBOX_SIGN_API_KEY` | E-signature contracts |
-
-See `.env.example` for the full list and descriptions.
-
-```bash
-# 3. Run database migrations
+# 4. Create the schema (runs CREATE EXTENSION vector) and seed dev data
 bun run db:migrate
+bun run db:seed:dev      # optional
 
-# 4. (Optional) Seed an admin user
-bun run db:seed
+# 5. Run it
+bun dev                  # http://localhost:3000
 ```
+
+> Not using Docker? Point `DATABASE_URL` at any Postgres that has `pgvector` installed. Reset the Docker DB anytime with `docker compose down -v`.
+
+### Minimum env to boot
+
+Most variables in `.env.example` gate **optional integrations** (Stripe, Google Workspace, S3, Resend, Zoom, etc.) — the app boots without them; those features stay dormant until configured. The minimum to start:
+
+| Variable | Purpose | Generate |
+|---|---|---|
+| `DATABASE_URL` | Postgres (with pgvector) connection string | — |
+| `AUTH_SECRET` / `NEXTAUTH_SECRET` | NextAuth session secret | `openssl rand -hex 32` |
+| `NEXTAUTH_URL` / `NEXT_PUBLIC_APP_URL` | Base URL, e.g. `http://localhost:3000` | — |
+| `WORKSPACE_TENANT_SECRETS_KEY` | 32-byte hex — encrypts per-tenant BYOK secrets | `openssl rand -hex 32` |
+| `PORTAL_KMS_KEY` | Base64 key for plugin JWT signing | `openssl rand -base64 32` |
+| `OAUTH_STATE_SECRET` | OAuth state signing | `openssl rand -hex 32` |
+
+Then add integration keys (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `STRIPE_SECRET_KEY`, …) as you enable each feature. See `.env.example` for the full annotated list.
 
 ---
 
@@ -239,8 +255,7 @@ This repo is built to be worked on by AI agents (primarily Claude Code) alongsid
 
 - [`CLAUDE.md`](CLAUDE.md) — the root agent operating guide: architecture invariants, commands, conventions, don't-touch zones.
 - Nested `CLAUDE.md` files carry per-area invariants and god-file warnings, loaded automatically when an agent works in that subtree: `app/portal/`, `app/admin/`, `lib/blocks/`, `lib/mcp/`, `lib/db/`, `lib/ai/`, `components/portal/visual-editor/`, `tests/`.
-- `.claude/index.md` — the navigation map: "I need to work on X" → the right nested guide, skill, or doc.
-- `graphify-out/` — a generated knowledge graph of the codebase, rebuilt on commit via git hooks, used for broad cross-cutting questions.
+- [`.claude/index.md`](.claude/index.md) — the navigation map: "I need to work on X" → the right nested guide, skill, or doc.
 
 ### Skills (scaffolding workflows)
 
@@ -259,10 +274,6 @@ See `docs/skills/` for the full reference.
 ### Subagents and orchestration
 
 Larger work runs through an orchestration hierarchy: a planning model decomposes work and dispatches well-scoped units to worker agents in parallel (e.g. `block-orchestrator` driving `block-implementer` workers for the CMS-blocks audit). Workers operate under an escalation contract — anything beyond a mechanical change is promoted back to the planner rather than guessed at (see `CLAUDE.md` § Agent operating rules).
-
-### Autonomous dev loop
-
-The `dev-block` skill runs hands-off development sessions driven by an n8n workflow: pick a GitHub issue labeled `claude`, implement, run gates, commit, return structured JSON for the loop to route on. State and retro notes live in `.claude/HANDS_OFF_DEV_PLAN.md` and `.claude/learnings.md`.
 
 ### Guardrails (architecture fitness functions)
 
@@ -285,6 +296,9 @@ Agent- and human-authored changes are held to the same automated invariants, wir
 | [`docs/guides/BLOCK_EDITOR_GUIDE.md`](docs/guides/BLOCK_EDITOR_GUIDE.md) | Block JSON schema, examples, troubleshooting |
 | [`docs/guides/USER_MANAGEMENT.md`](docs/guides/USER_MANAGEMENT.md) | Auth, roles, NextAuth configuration |
 | [`docs/guides/BRAIN.md`](docs/guides/BRAIN.md) | Company Brain architecture, embedding pipeline, RAG patterns |
+| [`docs/mcp.md`](docs/mcp.md) | Connect an AI client to the MCP server (OAuth / API key / Claude config) |
+| [`docs/api/mcp/overview.md`](docs/api/mcp/overview.md) | MCP tool catalog by domain |
+| [`docs/guides/MCP_TOOLS.md`](docs/guides/MCP_TOOLS.md) | Extending the MCP server — adding a tool (handler, schema, scope guard, token budget) |
 | [`docs/guides/AB_TESTING_GUIDE.md`](docs/guides/AB_TESTING_GUIDE.md) | A/B testing setup and usage |
 | [`tests/TESTING_PLAN.md`](tests/TESTING_PLAN.md) | Full test responsibility model, layer targets |
 | [`tests/CI-GATES.md`](tests/CI-GATES.md) | Gate definitions, coverage floors, local git hook setup |

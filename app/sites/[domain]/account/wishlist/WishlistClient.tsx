@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useCustomerAuth } from '@/components/storefront/account/CustomerAuthContext';
 import { RequireAuth } from '@/components/storefront/account/RequireAuth';
 import { AccountLayout } from '@/components/storefront/account/AccountLayout';
+import { formatMoney } from '@/lib/utils/money';
 
 interface WishlistItem {
   id: number;
@@ -14,8 +15,6 @@ interface WishlistItem {
   price: number;
   imageUrl?: string;
 }
-
-const formatCurrency = (cents: number) => `$${(cents / 100).toFixed(2)}`;
 
 export function WishlistClient({ siteId, domain }: { siteId: number; domain: string }) {
   const { token } = useCustomerAuth();
@@ -106,7 +105,7 @@ export function WishlistClient({ siteId, domain }: { siteId: number; domain: str
                   <div className="p-4 space-y-3">
                     <div>
                       <p className="text-sm font-medium text-gray-900 line-clamp-2">{item.productName}</p>
-                      <p className="text-sm font-semibold text-gray-900 mt-1">{formatCurrency(item.price)}</p>
+                      <p className="text-sm font-semibold text-gray-900 mt-1">{formatMoney(item.price)}</p>
                     </div>
                     <Link
                       href={`/shop/${item.productSlug}`}

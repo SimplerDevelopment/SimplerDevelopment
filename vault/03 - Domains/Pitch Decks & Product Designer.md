@@ -8,19 +8,16 @@ sources:
   - lib/db/schema/productDesigner.ts
   - lib/db/schema/cms.ts
   - lib/mcp/tools/pitch-decks.ts
-  - lib/mcp/decks-publish.ts
   - lib/decks/publish-slide.ts
   - lib/designer/canvasStore.ts
   - lib/designer/types.ts
   - lib/designer/layerFactory.ts
   - lib/designer/fillResolver.ts
-  - lib/designer/historyManager.ts
   - lib/designer/aiPromptBuilder.ts
   - lib/designer/fontVirtualizer.ts
   - lib/designer/printAreaCheck.ts
   - lib/designer/printQuality.ts
   - lib/designer/contrastInk.ts
-  - lib/designer/selectionManager.ts
   - lib/designer/aiRateLimit.ts
   - lib/designer/hooks/useAutoSave.ts
   - lib/designer/hooks/useAddImageLayer.ts
@@ -83,13 +80,11 @@ Two distinct tenant-facing creative tools sharing some infrastructure:
 | `lib/db/schema/productDesigner.ts` | `productStyles`, `productSides`, `philaprintsDesignAssets`, `productDesigns` tables |
 | `lib/db/schema/cms.ts` | `brandingProfiles` table (line 292) — theme inheritance source |
 | `lib/mcp/tools/pitch-decks.ts` | MCP tool registrar: 12 tools for deck CRUD, slide authoring, HTML upload, fork, publish |
-| `lib/mcp/decks-publish.ts` | Shared pure-function helpers: `applyPublishToSlides`, `applyPublishAllToSlides`, `publishOneSlide` |
-| `lib/decks/publish-slide.ts` | Single-slide publish helper (same logic, separate entrypoint for REST routes) |
+| `lib/decks/publish-slide.ts` | Shared pure-function publish helpers: `publishOneSlide`, `applyPublishToSlides`, `applyPublishAllToSlides` — single source of truth, consumed by both the MCP tool and REST routes (the old duplicate MCP-side copy was removed). |
 | `lib/designer/canvasStore.ts` | Zustand store for the designer canvas (layers, surfaces, selection, zoom, undo) |
 | `lib/designer/types.ts` | Core types: `LayerData`, `LayerType`, `DesignDoc`, `CanvasSize`, `DesignerSurface` |
 | `lib/designer/layerFactory.ts` | Fabric.js object constructors: `createFabricText`, `createFabricIcon`, `fabricObjectToLayer` |
 | `lib/designer/fillResolver.ts` | Tint/fill resolution: `resolveLayerFill`, `tintKey` |
-| `lib/designer/historyManager.ts` | Generic `HistoryManager<T>` class (undo/redo snapshots) |
 | `lib/pitch-deck-migration.ts` | V1→V2 slide migration helpers (`migratePitchDeck`, etc.) |
 | `lib/pitch-deck-versions.ts` | `saveVersionSnapshot` — persists `pitch_deck_versions` rows before AI edits |
 | `app/portal/tools/pitch-decks/[id]/page.tsx` | Main deck editor page (board + slide list + panels) |
@@ -172,7 +167,7 @@ Registered by `lib/mcp/tools/pitch-decks.ts` — 12 tools total, all gated on `d
 | `decks_publish_slide` | `decks:write` | Promote one `draft.*` to live |
 | `decks_publish_all` | `decks:write` | Promote all `draft.*` to live in one pass |
 
-Write tools pass through `stageOrApply` (approval-workflow primitive) and call `publishSlidesUpdate` via `lib/realtime/internal-publisher.ts` for live editor sync. Publish helpers are shared with REST routes via `lib/mcp/decks-publish.ts`.
+Write tools pass through `stageOrApply` (approval-workflow primitive) and call `publishSlidesUpdate` via `lib/realtime/internal-publisher.ts` for live editor sync. Publish helpers are shared with REST routes via `lib/decks/publish-slide.ts`.
 
 ## UI surfaces
 
@@ -211,7 +206,6 @@ Write tools pass through `stageOrApply` (approval-workflow primitive) and call `
 | `tests/unit/designer-canvas-store-coverage.test.ts` | unit | Canvas store coverage supplement |
 | `tests/unit/lib-designer-print-area-check.test.ts` | unit | Print-area bounds validation |
 | `tests/unit/lib-designer-font-virtualizer.test.ts` | unit | Font virtualizer |
-| `tests/unit/lib-designer-selection-manager.test.ts` | unit | Selection manager |
 | `tests/unit/designer-use-mobile-gestures.test.tsx` | unit | Mobile gesture hook |
 
 ## Cross-domain dependencies

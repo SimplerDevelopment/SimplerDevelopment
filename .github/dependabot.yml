@@ -1,0 +1,21 @@
+version: 2
+updates:
+  # Keep GitHub Actions pinned versions current.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels: ["dependencies", "ci"]
+
+  # npm manifest (package.json). NOTE: this repo uses Bun — Dependabot updates
+  # package.json version ranges but will not regenerate bun.lock. After merging a
+  # bump, run `bun install` to refresh the lockfile.
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    labels: ["dependencies"]
+    groups:
+      minor-and-patch:
+        update-types: ["minor", "patch"]

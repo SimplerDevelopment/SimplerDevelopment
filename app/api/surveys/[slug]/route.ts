@@ -12,6 +12,7 @@ import { computeSurveyScore } from '@/lib/surveys/score';
 import type { SurveyFieldDef } from '@/lib/db/schema/surveys';
 import { assertPipelineInClient, assertStageInClient } from '@/lib/security/assert-owned';
 import { upsertContactByEmail } from '@/lib/crm/contacts';
+import { checkRateLimit, getClientIp } from '@/lib/security/rate-limit';
 
 // CORS — public survey submit needs to accept POST from sandboxed iframes
 // (their effective origin is `null`, so `*` matches). The endpoint is
@@ -127,6 +128,20 @@ export async function GET(_req: Request, { params }: { params: Promise<{ slug: s
 // Public POST — submit a response
 export async function POST(req: Request, { params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
+
+  // Abuse guard: this public, no-auth endpoint has amplifying side effects per
+  // submission (CRM contact+deal on auto-route, webhooks, follow-up emails). Cap
+  // scripted floods per IP+survey. Generous on purpose — a kiosk/booth submitting
+  // one response every couple seconds stays well under the cap; a tight-loop bot
+  // does not. Best-effort (in-memory, per-instance) — same guardrail the auth
+  // routes use; back with Redis for a hard global gate. ponytail: per-instance
+  // cap, swap to Redis-backed limiter if a distributed flood gets through.
+  if (!checkRateLimit(`survey-submit:${getClientIp(req)}:${slug}`, 30, 60_000)) {
+    return corsJson(
+      { success: false, message: 'Too many submissions. Please wait a moment and try again.' },
+      { status: 429 },
+    );
+  }
 
   const [survey] = await db.select().from(surveys).where(eq(surveys.slug, slug));
   if (!survey) return corsJson({ success: false, message: 'Survey not found' }, { status: 404 });

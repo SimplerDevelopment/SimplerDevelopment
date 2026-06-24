@@ -36,6 +36,8 @@ import { registerStorefrontTools } from './storefront';
 import { registerBrainTools } from './brain';
 import { registerPostTypesTools } from './post-types';
 import { registerApprovalsTools } from './approvals';
+import { registerNotificationsTools } from './notifications';
+import { registerChatTools } from './chat';
 
 export {
   registerProjectsTools,
@@ -65,6 +67,8 @@ export {
   registerBrainTools,
   registerPostTypesTools,
   registerApprovalsTools,
+  registerNotificationsTools,
+  registerChatTools,
 };
 
 /**
@@ -101,4 +105,6 @@ export const allToolRegistrars: readonly McpToolRegistrar[] = [
   registerBrainTools,
   registerPostTypesTools,
   registerApprovalsTools,
+  registerNotificationsTools,
+  registerChatTools,
 ];

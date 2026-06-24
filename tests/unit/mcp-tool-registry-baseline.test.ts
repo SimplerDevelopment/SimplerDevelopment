@@ -73,6 +73,7 @@ const EXPECTED_TOOLS: readonly string[] = [
   'booking_pages_list',
   'booking_pages_update',
   // ── bookings ──
+  'booking_analytics_get',
   'bookings_cancel',
   'bookings_get',
   'bookings_list',
@@ -244,6 +245,12 @@ const EXPECTED_TOOLS: readonly string[] = [
   'branding_list_profiles',
   'branding_update_messaging',
   'branding_update_profile',
+  // ── chat ──
+  'chat_conversations_get',
+  'chat_conversations_list',
+  'chat_conversation_reply',
+  'chat_conversation_update',
+  'chat_widgets_list',
   // ── client ──
   'client_get',
   'client_update',
@@ -288,6 +295,7 @@ const EXPECTED_TOOLS: readonly string[] = [
   'crm_saved_views_list',
   'crm_scoring_rules_list',
   // ── decks ──
+  'deck_analytics_get',
   'decks_add_slide',
   'decks_create',
   'decks_delete',
@@ -301,6 +309,7 @@ const EXPECTED_TOOLS: readonly string[] = [
   'decks_upload_html',
   'decks_upload_html_zip',
   // ── email ──
+  'email_analytics_get',
   'email_campaigns_create',
   'email_campaigns_delete',
   'email_campaigns_fork',
@@ -332,6 +341,8 @@ const EXPECTED_TOOLS: readonly string[] = [
   // ── invoices ──
   'invoices_get',
   'invoices_list',
+  // ── usage ──
+  'usage_get',
   // ── kanban ──
   'kanban_card_add_blocker',
   'kanban_card_add_comment',
@@ -387,6 +398,9 @@ const EXPECTED_TOOLS: readonly string[] = [
   'nav_publish',
   'nav_publish_all',
   'nav_update',
+  // ── notifications ──
+  'notifications_list',
+  'notifications_mark_read',
   // ── post ──
   'post_types_create',
   'post_types_delete',
@@ -450,6 +464,7 @@ const EXPECTED_TOOLS: readonly string[] = [
   'sprints_list',
   'sprints_update',
   // ── store ──
+  'store_analytics_get',
   'store_categories_create',
   'store_categories_list',
   'store_customer_messages_list',
@@ -486,6 +501,7 @@ const EXPECTED_TOOLS: readonly string[] = [
   'surveys_get',
   'surveys_list',
   'surveys_list_responses',
+  'surveys_submit_response',
   'surveys_update',
   // ── taxonomies ──
   'taxonomies_create_category',

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { formatMoney } from '@/lib/utils/money';
 
 interface CartItem {
   id: number;
@@ -25,10 +26,6 @@ interface CartItem {
 interface CartPageClientProps {
   siteId: number;
   domain: string;
-}
-
-function formatPrice(cents: number) {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100);
 }
 
 export function CartPageClient({ siteId, domain }: CartPageClientProps) {
@@ -162,7 +159,7 @@ export function CartPageClient({ siteId, domain }: CartPageClientProps) {
                       {item.design.name || 'Custom design'}
                     </p>
                   )}
-                  <p className="text-sm font-semibold mt-1">{formatPrice(item.unitPrice)} each</p>
+                  <p className="text-sm font-semibold mt-1">{formatMoney(item.unitPrice)} each</p>
                 </div>
 
                 <div className="flex items-center gap-2">
@@ -186,7 +183,7 @@ export function CartPageClient({ siteId, domain }: CartPageClientProps) {
                 </div>
 
                 <div className="text-right min-w-[4rem]">
-                  <p className="font-semibold">{formatPrice(item.unitPrice * item.quantity)}</p>
+                  <p className="font-semibold">{formatMoney(item.unitPrice * item.quantity)}</p>
                   <button
                     onClick={() => updateQty(item.id, 0)}
                     disabled={updating === item.id}
@@ -204,7 +201,7 @@ export function CartPageClient({ siteId, domain }: CartPageClientProps) {
           <div className="border border-border rounded-xl bg-card p-4 space-y-3">
             <div className="flex items-center justify-between text-lg">
               <span className="font-semibold">Subtotal</span>
-              <span className="font-bold">{formatPrice(subtotal)}</span>
+              <span className="font-bold">{formatMoney(subtotal)}</span>
             </div>
             <p className="text-xs text-muted-foreground">Shipping and taxes calculated at checkout.</p>
 

@@ -7,6 +7,7 @@ import { surveys, surveyResponses } from '@/lib/db/schema';
 import type { SurveyFieldDef } from '@/lib/db/schema';
 import { eq, and, desc, sql } from 'drizzle-orm';
 import { emitEvent } from '@/lib/automation/event-bus';
+import { slugify } from '@/lib/publishing/slug';
 
 export const surveyTools: Anthropic.Tool[] = [
   {
@@ -84,7 +85,7 @@ export const surveyHandlers: Record<string, SurveyHandler> = {
 
   create_survey: async (input, clientId, userId) => {
     const title = (input.title as string).trim();
-    const baseSlug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    const baseSlug = slugify(title);
     const slug = `${baseSlug}-${Date.now().toString(36)}`;
     let fields: SurveyFieldDef[] = [];
     if (input.fields) { try { fields = JSON.parse(input.fields as string); } catch { return { error: 'Invalid fields JSON' }; } }

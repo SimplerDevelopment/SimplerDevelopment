@@ -7,122 +7,22 @@
  */
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import { and, desc, eq, ilike, inArray, isNull, or, sql, gte, lte } from 'drizzle-orm';
-import crypto from 'crypto';
-import { hash as hashPassword } from 'bcryptjs';
+import { and, desc, eq, isNotNull, lt, notInArray, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import {
-  projects,
-  kanbanCards,
-  kanbanColumns,
-  kanbanLabels,
-  kanbanCardLabels,
-  kanbanCardChecklistItems,
-  kanbanCardAssignees,
-  kanbanCardWatchers,
-  kanbanCardDependencies,
   supportTickets,
   ticketMessages,
-  crmContacts,
-  crmCompanies,
-  crmDeals,
-  crmPipelines,
-  crmPipelineStages,
-  posts,
-  media,
-  clientWebsites,
-  emailLists,
-  emailCampaigns,
-  pitchDecks,
-  brandingProfiles,
-  emailSubscribers,
-  emailCampaignSends,
-  surveys,
-  surveyResponses,
-  bookingPages,
-  bookings,
-  sprints,
-  crmActivities,
-  categories,
-  tags,
-  postCategories,
-  postTags,
-  automationRules,
-  clientMembers,
-  users,
-  crmProposals,
-  crmContracts,
-  crmContractSigners,
-  invoices,
-  invoiceItems,
-  serviceRequests,
-  suggestedProjectRequests,
-  suggestedProjects,
-  services,
-  aiConversations,
-  aiMessages,
-  kanbanCardComments,
-  kanbanCardTimeLogs,
-  kanbanCardFiles,
-  kanbanCardArtifacts,
-  crmDealArtifacts,
-  siteNavigation,
-  postRevisions,
-  blockTemplates,
-  blockTemplateUsages,
-  emailTemplates,
-  emailSegments,
-  giftCertificates,
-  crmCustomFields,
-  crmCustomFieldValues,
-  crmSavedViews,
-  crmScoringRules,
-  websiteDomains,
-  websiteEnvironments,
-  websiteEnvVars,
-  clients,
-  aiCreditBalances,
-  aiCreditLedger,
-  hostedSites,
-  googleWorkspaceUserConnections,
 } from '@/lib/db/schema';
-import type { SurveyFieldDef, ProposalSection, ProposalLineItem, ProposalFee, ContractClause, PitchDeckSlideV2 } from '@/lib/db/schema';
 import type { PortalMcpContext } from '@/lib/mcp-auth';
 import { hasScope } from '@/lib/mcp-auth';
 import { assertSafeUrl } from '@/lib/ssrf-guard';
-import { logCardActivity } from '@/lib/pm-activity';
 import { uploadToS3 } from '@/lib/s3/upload';
-import { cleanEmbedHtml } from '@/lib/html-embed-clean';
-import { importHtmlAssets } from '@/lib/html-asset-import';
-import {
-  renderBlocksToEmailHtml,
-  resend,
-  buildCampaignHtml,
-  buildUnsubscribeUrl,
-  generateUnsubscribeToken,
-} from '@/lib/email';
-import { executeCampaignSend } from '@/lib/email/campaign-send';
-import { revoke as revokeGoogleToken } from '@/lib/google/oauth';
-import { getTenantWorkspaceCredentialsByClientId } from '@/lib/google/tenant-credentials';
-import { stageOrApply } from '../pending-changes';
-import { BLOCKS_SCHEMA_REFERENCE } from '../blocks-schema';
 import {
   json,
-  serializePostContent,
   denied,
-  extractRows,
-  dbErrorEnvelope,
   requireScope,
-  serviceDenied,
-  requireService,
-  assignBlockIds,
   revalidateForWrite,
 } from '../types';
-import {
-  postProjection,
-  deckProjection,
-  campaignProjection,
-} from '../projections';
 
 export function registerTicketsTools(server: McpServer, ctx: PortalMcpContext): void {
   const clientId = ctx.client.id;
@@ -134,17 +34,36 @@ export function registerTicketsTools(server: McpServer, ctx: PortalMcpContext): 
       title: 'List support tickets',
       description: 'List support tickets for the client.',
       inputSchema: {
-        status: z.enum(['open', 'in_progress', 'waiting', 'resolved', 'closed']).optional(),
-        limit: z.number().min(1).max(200).default(50).optional(),
+        status: z.enum(['open', 'in_progress', 'waiting_on_customer', 'resolved', 'closed']).optional(),
+        priority: z.enum(['low', 'medium', 'high', 'urgent']).optional(),
+        assignedTo: z.number().optional(),
+        overdue: z.boolean().optional(),
+        limit: z.number().min(1).max(100).default(25).optional(),
       },
     },
-    async ({ status, limit = 50 }) => {
+    async ({ status, priority, assignedTo, overdue, limit = 25 }) => {
       if (!requireScope(ctx, 'tickets:read')) return denied('tickets:read');
-      const rows = await db.select().from(supportTickets)
-        .where(status
-          ? and(eq(supportTickets.clientId, clientId), eq(supportTickets.status, status))
-          : eq(supportTickets.clientId, clientId))
-        .orderBy(desc(supportTickets.createdAt))
+      const conds = [eq(supportTickets.clientId, clientId)];
+      if (status) conds.push(eq(supportTickets.status, status));
+      if (priority) conds.push(eq(supportTickets.priority, priority));
+      if (assignedTo !== undefined) conds.push(eq(supportTickets.assignedTo, assignedTo));
+      if (overdue) {
+        conds.push(isNotNull(supportTickets.resolutionDueAt));
+        conds.push(lt(supportTickets.resolutionDueAt, new Date()));
+        conds.push(notInArray(supportTickets.status, ['resolved', 'closed']));
+      }
+      const rows = await db.select({
+        id: supportTickets.id,
+        number: supportTickets.number,
+        subject: supportTickets.subject,
+        status: supportTickets.status,
+        priority: supportTickets.priority,
+        assignedTo: supportTickets.assignedTo,
+        category: supportTickets.category,
+        updatedAt: supportTickets.updatedAt,
+      }).from(supportTickets)
+        .where(and(...conds))
+        .orderBy(desc(supportTickets.updatedAt))
         .limit(limit);
       return json(rows);
     }
@@ -159,10 +78,28 @@ export function registerTicketsTools(server: McpServer, ctx: PortalMcpContext): 
     },
     async ({ id }) => {
       if (!requireScope(ctx, 'tickets:read')) return denied('tickets:read');
-      const [ticket] = await db.select().from(supportTickets)
+      const [ticket] = await db.select({
+        id: supportTickets.id,
+        number: supportTickets.number,
+        subject: supportTickets.subject,
+        status: supportTickets.status,
+        priority: supportTickets.priority,
+        category: supportTickets.category,
+        assignedTo: supportTickets.assignedTo,
+        projectId: supportTickets.projectId,
+        createdBy: supportTickets.createdBy,
+        resolvedAt: supportTickets.resolvedAt,
+        createdAt: supportTickets.createdAt,
+        updatedAt: supportTickets.updatedAt,
+      }).from(supportTickets)
         .where(and(eq(supportTickets.id, id), eq(supportTickets.clientId, clientId))).limit(1);
       if (!ticket) return json({ error: 'Ticket not found' });
-      const messages = await db.select().from(ticketMessages)
+      const messages = await db.select({
+        id: ticketMessages.id,
+        authorId: ticketMessages.authorId,
+        body: ticketMessages.body,
+        createdAt: ticketMessages.createdAt,
+      }).from(ticketMessages)
         .where(and(eq(ticketMessages.ticketId, id), eq(ticketMessages.isInternal, false)))
         .orderBy(ticketMessages.createdAt);
       return json({ ticket, messages });
@@ -179,9 +116,10 @@ export function registerTicketsTools(server: McpServer, ctx: PortalMcpContext): 
         body: z.string().min(1),
         priority: z.enum(['low', 'medium', 'high', 'urgent']).optional(),
         category: z.enum(['general', 'billing', 'technical', 'domain', 'hosting']).optional(),
+        projectId: z.number().optional(),
       },
     },
-    async ({ subject, body, priority = 'medium', category = 'general' }) => {
+    async ({ subject, body, priority = 'medium', category = 'general', projectId }) => {
       if (!requireScope(ctx, 'tickets:write')) return denied('tickets:write');
       const [{ maxNum }] = await db
         .select({ maxNum: sql<number>`coalesce(max(${supportTickets.number}), 0)` })
@@ -192,15 +130,17 @@ export function registerTicketsTools(server: McpServer, ctx: PortalMcpContext): 
         subject,
         priority,
         category,
+        projectId: projectId ?? null,
         createdBy: ctx.userId,
       }).returning();
       await db.insert(ticketMessages).values({
         ticketId: ticket.id,
         authorId: ctx.userId,
         body,
+        isInternal: false,
       });
       revalidateForWrite('portal');
-      return json(ticket);
+      return json({ id: ticket.id, number: ticket.number, status: ticket.status });
     }
   );
 
@@ -220,10 +160,11 @@ export function registerTicketsTools(server: McpServer, ctx: PortalMcpContext): 
         ticketId: id,
         authorId: ctx.userId,
         body,
+        isInternal: false,
       }).returning();
       await db.update(supportTickets).set({ updatedAt: new Date() }).where(eq(supportTickets.id, id));
       revalidateForWrite('portal');
-      return json(msg);
+      return json({ id: msg.id, ticketId: id });
     }
   );
 
@@ -234,7 +175,7 @@ export function registerTicketsTools(server: McpServer, ctx: PortalMcpContext): 
       description: 'Change ticket status, priority, category, or assignee. Setting status to "resolved" stamps resolvedAt.',
       inputSchema: {
         id: z.number(),
-        status: z.enum(['open', 'in_progress', 'waiting', 'resolved', 'closed']).optional(),
+        status: z.enum(['open', 'in_progress', 'waiting_on_customer', 'resolved', 'closed']).optional(),
         priority: z.enum(['low', 'medium', 'high', 'urgent']).optional(),
         category: z.enum(['general', 'billing', 'technical', 'domain', 'hosting']).optional(),
         subject: z.string().min(1).optional(),
@@ -250,7 +191,7 @@ export function registerTicketsTools(server: McpServer, ctx: PortalMcpContext): 
       const patch: Record<string, unknown> = { updatedAt: new Date() };
       if (status !== undefined) {
         patch.status = status;
-        if (status === 'resolved' && existing.status !== 'resolved') patch.resolvedAt = new Date();
+        if (status === 'resolved' || status === 'closed') patch.resolvedAt = new Date();
       }
       if (priority !== undefined) patch.priority = priority;
       if (category !== undefined) patch.category = category;
@@ -259,7 +200,7 @@ export function registerTicketsTools(server: McpServer, ctx: PortalMcpContext): 
       const [row] = await db.update(supportTickets).set(patch)
         .where(eq(supportTickets.id, id)).returning();
       revalidateForWrite('portal');
-      return json(row);
+      return json({ id: row.id, status: row.status });
     }
   );
 

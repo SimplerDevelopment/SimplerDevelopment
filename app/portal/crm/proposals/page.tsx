@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import CrmCompanyTypeaheadPicker from '@/components/portal/CrmCompanyTypeaheadPicker';
+import { formatMoney } from '@/lib/utils/money';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -98,10 +99,6 @@ const deckStatusColor: Record<string, string> = {
   published: 'bg-green-100 text-green-700',
   archived: 'bg-yellow-100 text-yellow-700',
 };
-
-function formatCurrency(cents: number): string {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100);
-}
 
 function computeValue(lineItems: LineItem[], fees: Fee[]): number {
   const items = Array.isArray(lineItems) ? lineItems : [];
@@ -204,11 +201,11 @@ function ProposalsAndDecksPage() {
   }, []);
 
   useEffect(() => {
-    fetchProposals();
+    (async () => { await fetchProposals(); })();
   }, [fetchProposals]);
 
   useEffect(() => {
-    fetchDecks();
+    (async () => { await fetchDecks(); })();
   }, [fetchDecks]);
 
   useEffect(() => {
@@ -626,7 +623,7 @@ function ProposalsAndDecksPage() {
                           {p.companyName ?? '-'}
                         </td>
                         <td className="px-4 py-3 text-right font-medium text-foreground">
-                          {formatCurrency(computeValue(p.lineItems, p.fees))}
+                          {formatMoney(computeValue(p.lineItems, p.fees))}
                         </td>
                         <td className="px-4 py-3">
                           <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${proposalStatusColor[p.status] ?? 'bg-gray-100 text-gray-600'}`}>

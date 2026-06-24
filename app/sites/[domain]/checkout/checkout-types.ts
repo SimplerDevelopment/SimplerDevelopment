@@ -1,5 +1,6 @@
 import { loadStripe } from '@stripe/stripe-js/pure';
 import type { Stripe as StripeClient } from '@stripe/stripe-js';
+import { formatMoney } from '@/lib/utils/money';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -56,7 +57,7 @@ export interface CheckoutPageClientProps {
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 export function formatPrice(cents: number, currency = 'USD') {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(cents / 100);
+  return formatMoney(cents, { currency });
 }
 
 // Lazily construct Stripe promise keyed by publishable key so we don't

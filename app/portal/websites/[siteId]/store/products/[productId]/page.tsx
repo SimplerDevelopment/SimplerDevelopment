@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { slugify } from '@/lib/publishing/slug';
 import MediaUploadModal from '@/components/admin/MediaUploadModal';
 import DesignSurfacesEditor from '@/components/portal/store/DesignSurfacesEditor';
 
@@ -76,9 +77,6 @@ interface ProductForm {
   printfulVariantId: number | null;
 }
 
-function generateSlug(name: string) {
-  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-}
 
 function centsToDollars(cents: number) {
   return cents ? (cents / 100).toFixed(2) : '';
@@ -341,7 +339,7 @@ export default function ProductEditPage() {
     setForm((prev) => ({
       ...prev,
       name,
-      slug: isNew && !prev.slug ? generateSlug(name) : prev.slug,
+      slug: isNew && !prev.slug ? slugify(name) : prev.slug,
     }));
     setError('');
     setSuccess('');

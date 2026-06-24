@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { slugify } from '@/lib/publishing/slug';
 
 const WEBSITE_TYPES = [
   { value: 'business', label: 'Business Website', icon: 'business', description: 'Company homepage, about, services, contact' },
@@ -13,10 +14,6 @@ const WEBSITE_TYPES = [
   { value: 'other', label: 'Something Else', icon: 'more_horiz', description: 'Custom setup — we\'ll figure it out together' },
 ];
 
-function toSlug(s: string) {
-  return s.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '').slice(0, 63);
-}
-
 export default function PortalCmsNewPage() {
   const router = useRouter();
   const [step, setStep] = useState<1 | 2 | 3>(1);
@@ -25,7 +22,7 @@ export default function PortalCmsNewPage() {
   const [error, setError] = useState('');
 
   // Auto-generate subdomain from name
-  const effectiveSubdomain = form.subdomain || toSlug(form.name);
+  const effectiveSubdomain = form.subdomain || slugify(form.name, 63);
 
   const handleCreate = async () => {
     if (!form.name) { setError('Please enter a website name.'); return; }
@@ -175,8 +172,8 @@ export default function PortalCmsNewPage() {
                 <div className="flex items-center gap-2 px-3 py-2.5 bg-background border border-border rounded-l-lg flex-1 focus-within:border-primary transition-colors">
                   <input
                     autoFocus
-                    value={form.subdomain || toSlug(form.name)}
-                    onChange={e => setForm(f => ({ ...f, subdomain: toSlug(e.target.value) }))}
+                    value={form.subdomain || slugify(form.name, 63)}
+                    onChange={e => setForm(f => ({ ...f, subdomain: slugify(e.target.value, 63) }))}
                     className="bg-transparent outline-none flex-1 text-sm text-foreground font-mono"
                   />
                 </div>

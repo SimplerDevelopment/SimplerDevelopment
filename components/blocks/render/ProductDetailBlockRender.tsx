@@ -5,6 +5,7 @@ import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { getElementCSS } from '@/lib/utils/elementStyles';
 import { useBranding } from '@/contexts/BrandingContext';
+import { formatMoney } from '@/lib/utils/money';
 
 interface ProductImage {
   id: number;
@@ -39,10 +40,6 @@ interface Product {
 interface ProductDetailBlockRenderProps {
   block: ProductDetailBlock;
   siteId?: number;
-}
-
-function formatPrice(cents: number) {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100);
 }
 
 function getOrCreateSessionId(): string {
@@ -87,7 +84,11 @@ export function ProductDetailBlockRender({ block, siteId }: ProductDetailBlockRe
 
   // Match variant
   useEffect(() => {
-    if (!product || product.variants.length === 0) { setMatchedVariant(null); return; }
+    if (!product || product.variants.length === 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- synchronous derivation from props/state, no async involved
+      setMatchedVariant(null);
+      return;
+    }
     const match = product.variants.find(v =>
       v.optionValues && Object.entries(selectedOptions).every(([k, val]) => v.optionValues?.[k] === val)
     );
@@ -171,7 +172,7 @@ export function ProductDetailBlockRender({ block, siteId }: ProductDetailBlockRe
       <div className="py-16 text-center">
         <span className="material-icons text-5xl text-muted-foreground/30 mb-3 block">error_outline</span>
         <p className="text-lg font-semibold mb-1">Product not found</p>
-        <p className="text-muted-foreground">The product "{block.productSlug}" could not be loaded.</p>
+        <p className="text-muted-foreground">The product &quot;{block.productSlug}&quot; could not be loaded.</p>
       </div>
     );
   }
@@ -240,9 +241,9 @@ export function ProductDetailBlockRender({ block, siteId }: ProductDetailBlockRe
 
             {/* Price */}
             <div className="flex items-baseline gap-3">
-              <span className="text-3xl font-bold" style={getElementCSS(block.elementStyles, 'price')}>{formatPrice(effectivePrice)}</span>
+              <span className="text-3xl font-bold" style={getElementCSS(block.elementStyles, 'price')}>{formatMoney(effectivePrice)}</span>
               {comparePrice && comparePrice > currentPrice && (
-                <span className="text-lg text-muted-foreground line-through" style={getElementCSS(block.elementStyles, 'comparePrice')}>{formatPrice(comparePrice)}</span>
+                <span className="text-lg text-muted-foreground line-through" style={getElementCSS(block.elementStyles, 'comparePrice')}>{formatMoney(comparePrice)}</span>
               )}
               {activeBulkPrice && (
                 <span className="text-sm bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 px-2 py-0.5 rounded-full font-medium">Bulk discount</span>
@@ -313,7 +314,7 @@ export function ProductDetailBlockRender({ block, siteId }: ProductDetailBlockRe
                   {product.bulkPricing.map((rule) => (
                     <div key={rule.id} className={`flex justify-between text-sm py-1 px-2 rounded ${activeBulkPrice?.id === rule.id ? 'bg-primary/10 text-primary font-medium' : ''}`}>
                       <span>{rule.minQuantity}{rule.maxQuantity ? `–${rule.maxQuantity}` : '+'} units</span>
-                      <span>{rule.discountType === 'percent' ? `${rule.discountValue}% off` : rule.discountType === 'fixed_price' ? formatPrice(rule.price) : `${formatPrice(rule.discountValue)} off`}</span>
+                      <span>{rule.discountType === 'percent' ? `${rule.discountValue}% off` : rule.discountType === 'fixed_price' ? formatMoney(rule.price) : `${formatMoney(rule.discountValue)} off`}</span>
                     </div>
                   ))}
                 </div>
@@ -350,7 +351,7 @@ export function ProductDetailBlockRender({ block, siteId }: ProductDetailBlockRe
                     <><span className="material-icons animate-spin text-xl">refresh</span>Adding...</>
                   ) : !inStock ? 'Out of Stock'
                     : product.variants.length > 0 && !matchedVariant ? 'Select Options'
-                      : <><span className="material-icons text-xl">shopping_cart</span>Add to Cart — {formatPrice(effectivePrice * quantity)}</>}
+                      : <><span className="material-icons text-xl">shopping_cart</span>Add to Cart — {formatMoney(effectivePrice * quantity)}</>}
                 </button>
 
                 {cartMessage && (

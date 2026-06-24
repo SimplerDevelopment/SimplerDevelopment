@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState, useCallback } from 'react';
 import { stripQuotedReply } from '@/lib/brain/strip-quoted';
+import { formatBytes } from '@/lib/utils/bytes';
 
 interface MeetingParticipant {
   id: number;
@@ -87,12 +88,6 @@ interface Meeting {
   };
 }
 
-function formatBytes(n: number): string {
-  if (n < 1024) return `${n} B`;
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
-  return `${(n / 1024 / 1024).toFixed(1)} MB`;
-}
-
 const STATUS_LABELS: Record<Meeting['status'], { label: string; tone: string }> = {
   draft: { label: 'Draft', tone: 'bg-muted text-muted-foreground' },
   processing: { label: 'Processing…', tone: 'bg-amber-500/10 text-amber-600 dark:text-amber-400' },
@@ -128,7 +123,7 @@ export default function BrainMeetingDetailPage() {
     }
   }, [meetingId]);
 
-  useEffect(() => { if (!Number.isNaN(meetingId)) load(); }, [meetingId, load]);
+  useEffect(() => { if (!Number.isNaN(meetingId)) { void (async () => { await load(); })(); } }, [meetingId, load]);
 
   const runProcessing = async () => {
     setProcessing(true);
