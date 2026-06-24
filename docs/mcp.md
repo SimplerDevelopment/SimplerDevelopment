@@ -68,65 +68,57 @@ claude mcp add --transport http simplerdevelopment \
 
 ---
 
-## Available tools (Wave 1)
+## Available tools
 
-- **whoami** — confirm authenticated client/user
-- **projects_list / create / update**
-- **sprints_list / create / update**
-- **kanban_list_board / create_column / update_column / delete_column / create_card / update_card / move_card / delete_card**
-- **kanban_card_list_comments / add_comment / log_time**
-- **tickets_list / get / create / reply / update**
-- **crm_contacts_search / create / update**
-- **crm_companies_search / create / update**
-- **crm_deals_list / create / update / move_stage**
-- **crm_pipelines_list / create / update / add_stage / update_stage**
-- **crm_activities_list / create**
-- **crm_custom_fields_list / create**
-- **crm_saved_views_list / crm_scoring_rules_list**
-- **sites_list / update**
-- **website_domains_list / add / remove**
-- **website_env_vars_list / set / delete**
-- **nav_list / create / delete**
-- **posts_list / create / update / delete / set_taxonomies / list_revisions**
-- **taxonomies_list / create_category / create_tag**
-- **block_templates_list / get**
-- **decks_list / get / create / update / replace_slides / add_slide / delete**
-- **media_list / upload_from_url / delete**
-- **email_lists / email_lists_create / update / delete**
-- **email_subscribers_list / add / update / remove**
-- **email_campaigns_list / create / update / delete / send / schedule**
-- **email_templates_list / create**
-- **email_segments_list / create**
-- **surveys_list / get / create / update / list_responses**
-- **booking_pages_list / get**
-- **bookings_list / get / update / cancel**
-- **gift_certificates_list / issue**
-- **automations_list / toggle / create / update / delete**
-- **team_list_members / update_role / remove_member**
-- **client_get / client_update**
-- **kanban_card_attach_file_from_url**
-- **ai_credits_balance / ledger**
-- **branding_list_profiles / get_profile / get_messaging / audit / check_contrast**
-- **branding_create_profile / update_profile / delete_profile / update_messaging**
-- **hosting_list / hosting_get**
-- **my_tasks_list**
-- **approvals_list / get / approve / reject**
-- **proposals_list / get / create / update / send**
-- **contracts_list / get / create / void**
-- **invoices_list / get**
-- **service_catalog_list / service_requests_list / service_requests_create**
-- **suggested_projects_list / suggested_project_requests_create**
-- **ai_conversations_list / get**
-- **store_products_list / get / create / update / delete / adjust_inventory**
-- **store_product_options_create / option_values_create**
-- **store_product_variants_create / update**
-- **store_categories_list / create**
-- **store_orders_list / get / update_status / add_note**
-- **store_customers_list / get**
-- **store_discounts_list / create / toggle / delete**
-- **store_reviews_list / moderate**
-- **store_customer_messages_list / reply**
-- **store_settings_get**
+The server exposes **446 tools across 28 domains**. Rather than listing every tool here, the reference pages below describe each domain in detail:
+
+- [MCP overview](./api/mcp/overview.md) — transport, auth, scopes, approval workflow, `whoami`, `blocks://schema`
+- [Brain tools](./api/mcp/brain-tools.md) — Company knowledge base: notes, meetings, people, documents, tasks, goals, initiatives, playbooks, org units, topics, glossary, decisions
+- [CRM tools](./api/mcp/crm-tools.md) — Contacts, companies, deals, pipelines, activities, custom fields, saved views, scoring rules
+- [Content tools](./api/mcp/content-tools.md) — CMS posts/pages/block templates/post types/taxonomies/media/nav/site settings; storefront products/orders/customers/discounts/reviews; brand profiles and messaging
+- [Marketing tools](./api/mcp/marketing-tools.md) — Email campaigns, lists, subscribers, templates, segments; survey builder and responses; pitch decks; workflow automations
+- [Platform tools](./api/mcp/platform-tools.md) — Bookings and booking pages; third-party integrations; hosting and domain status; billing and invoices; AI conversation history and credits; MCP approval links; live chat; notifications
+- [Project tools](./api/mcp/project-tools.md) — Projects, sprints, kanban boards/columns/cards/labels/checklists/time logging, team members and roles, tickets
+
+---
+
+## Connecting a custom / non-Claude MCP client
+
+If you are building your own agent or integrating a third-party MCP host, use the **OAuth 2.1 + PKCE** flow instead of a static API key. The portal is a fully compliant authorization server.
+
+### Discovery
+
+Fetch the server metadata at:
+
+```
+GET https://www.simplerdevelopment.com/.well-known/oauth-authorization-server
+```
+
+The response contains `authorization_endpoint`, `token_endpoint`, `registration_endpoint`, `jwks_uri`, and the supported `code_challenge_methods` (`S256`). The portal also publishes `/.well-known/oauth-protected-resource` for clients that follow the OAuth 2.0 Protected Resource metadata spec.
+
+### Dynamic Client Registration
+
+If your client does not have a pre-registered `client_id`, register it dynamically via the `registration_endpoint` returned above (RFC 7591). Supply `redirect_uris`, `client_name`, and the scopes your client will request. You'll receive a `client_id` (and optionally a `client_secret` for confidential clients) to use in subsequent flows.
+
+### Authorization code flow with PKCE (S256)
+
+1. **Generate a code verifier** — a cryptographically random string (43–128 chars, URL-safe base64).
+2. **Derive the code challenge** — `BASE64URL(SHA-256(ASCII(code_verifier)))`.
+3. **Redirect the user** to `authorization_endpoint` with:
+   - `response_type=code`
+   - `client_id=<your client id>`
+   - `redirect_uri=<your callback>`
+   - `scope=<space-separated scopes>`
+   - `state=<random CSRF token>`
+   - `code_challenge=<S256 challenge>`
+   - `code_challenge_method=S256`
+4. **Exchange the code** — POST to `token_endpoint` with `grant_type=authorization_code`, `code`, `redirect_uri`, `client_id`, and `code_verifier`. Receive `access_token` (1-hour lifetime), `refresh_token`, and `expires_in`.
+5. **Call the MCP server** — pass `Authorization: Bearer <access_token>` on every request.
+6. **Rotate the refresh token** — when the access token expires, POST to `token_endpoint` with `grant_type=refresh_token` and `refresh_token`. Each rotation issues a new refresh token and invalidates the previous one.
+
+Access tokens carry the scopes the user approved on the consent screen. Tokens can be revoked at any time from the portal's API key settings page.
+
+See [authentication.md](./api/authentication.md) for static API key issuance, scope reference, and token lifecycle details.
 
 ---
 

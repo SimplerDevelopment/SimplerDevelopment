@@ -31,6 +31,8 @@ export const NAV: NavGroup[] = [
       { label: 'Booking & Gift Certificates', slug: 'api/booking' },
       { label: 'Live Chat', slug: 'api/chat' },
       { label: 'Public Content & A/B', slug: 'api/public-content' },
+      { label: 'Storefront', slug: 'api/storefront' },
+      { label: 'Forms & Approvals', slug: 'api/forms' },
     ],
   },
   {
@@ -45,6 +47,10 @@ export const NAV: NavGroup[] = [
       { label: 'Company Brain', slug: 'api/mcp/brain-tools' },
       { label: 'Bookings, Integrations & Billing', slug: 'api/mcp/platform-tools' },
     ],
+  },
+  {
+    label: 'Browser Extension',
+    items: [{ label: 'Extension API', slug: 'api/extension' }],
   },
 ];
 
