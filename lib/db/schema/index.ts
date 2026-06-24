@@ -28,3 +28,4 @@ export * from './cronHealth';
 export * from './agenticOs';
 export * from './plugins';
 export * from './publishing';
+export * from './evals';

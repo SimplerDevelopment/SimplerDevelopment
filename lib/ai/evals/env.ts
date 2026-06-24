@@ -17,8 +17,10 @@ export interface EvalEnv {
   /** Model id for LLM-judge scorers (default Haiku — cheap, good enough). */
   judgeModel?: string;
   /**
-   * How many times to run each case; aggregate mean ± stddev reported.
-   * Default 1 — single run, byte-identical to previous behaviour.
+   * Prompt body to evaluate (a specific registry version). Override-capable
+   * suites forward this to their core's `systemPromptOverride` so an eval can
+   * target ANY version, not the active one. Suites whose cores don't support
+   * overrides ignore it.
    */
-  runs?: number;
+  promptOverride?: string;
 }

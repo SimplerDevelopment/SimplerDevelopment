@@ -23,6 +23,7 @@ The planning home — new feature planning starts here (`.planning/` is frozen; 
 - [[Spec - Auth MFA + Audit Log + Rate Limiting]] — TOTP MFA + audit log + rate limiting (rate-limit quick-win shipped) — proposed (2026-06-17)
 - [[Spec - White-Label SaaS Resell]] — agency cloneable onboarding + tiered entitlements + Stripe rebilling — proposed (2026-06-17)
 - [[Spec - Predictive Scoring Layer]] — shared ML/predictive service for CRM + email + commerce — proposed (2026-06-17)
+- [[Prompt Eval Dashboard]] — domain: company-brain-ai, status: in-progress (Phases 1-4 + review-hardened; merged to dev 2026-06-24)
 
 ## Active
 ```dataview

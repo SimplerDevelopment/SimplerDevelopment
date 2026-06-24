@@ -12,7 +12,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { z } from 'zod';
 import { classifyNoteRow, type NoteRow, type NoteClassification } from '@/lib/brain/classify-notes';
 import type { EvalSuite } from '../types';
-import { zodConformance, requiredFields, predicate, latencyUnder } from '../scorers';
+import { zodConformance, predicate, latencyUnder } from '../scorers';
 
 interface Input {
   title: string;

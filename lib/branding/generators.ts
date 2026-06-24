@@ -7,10 +7,11 @@
  * resolution / usage recording; this owns prompt + call + parse.
  */
 import Anthropic from '@anthropic-ai/sdk';
+import { resolvePrompt } from '@/lib/ai/prompt-registry';
 
 const MODEL = 'claude-sonnet-4-6';
 
-const MESSAGING_SYSTEM = `You are an expert brand strategist and copywriter. Given a description of a company or brand, generate comprehensive company messaging content.
+export const MESSAGING_SYSTEM = `You are an expert brand strategist and copywriter. Given a description of a company or brand, generate comprehensive company messaging content.
 
 You MUST respond with valid JSON only — no markdown, no code fences, no explanation.
 
@@ -50,7 +51,7 @@ Guidelines:
 - For factual fields (yearFounded, companySize, headquarters, websiteUrl), only fill if clearly stated in the description — never fabricate facts
 - For socialProof, keyClients, certifications — only fill if mentioned, otherwise leave empty`;
 
-const THEME_SYSTEM = `You are an expert brand designer. Given a brand description, generate a complete visual identity.
+export const THEME_SYSTEM = `You are an expert brand designer. Given a brand description, generate a complete visual identity.
 
 You MUST respond with valid JSON only — no markdown, no code fences, no explanation.
 
@@ -128,9 +129,11 @@ async function runJsonPrompt(
 export async function generateBrandMessaging(
   description: string,
   apiKey: string,
+  systemPromptOverride?: string,
 ): Promise<{ messaging: Record<string, unknown>; inputTokens: number; outputTokens: number }> {
+  const system = systemPromptOverride ?? await resolvePrompt('branding-messaging', MESSAGING_SYSTEM);
   const { json, inputTokens, outputTokens } = await runJsonPrompt(
-    MESSAGING_SYSTEM,
+    system,
     `Company/brand description: ${description.trim()}`,
     apiKey,
     4096,
@@ -141,9 +144,11 @@ export async function generateBrandMessaging(
 export async function generateBrandTheme(
   description: string,
   apiKey: string,
+  systemPromptOverride?: string,
 ): Promise<{ theme: Record<string, unknown>; inputTokens: number; outputTokens: number }> {
+  const system = systemPromptOverride ?? await resolvePrompt('branding-theme', THEME_SYSTEM);
   const { json, inputTokens, outputTokens } = await runJsonPrompt(
-    THEME_SYSTEM,
+    system,
     `Brand description: ${description.trim()}`,
     apiKey,
     2048,

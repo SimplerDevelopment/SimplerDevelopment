@@ -109,7 +109,7 @@ export const brandingMessagingSuite: EvalSuite<Input, Messaging> = {
   ],
   async run(input, env) {
     if (!env.anthropicApiKey) throw new Error('branding-messaging suite needs an Anthropic key (or run --mock)');
-    const { messaging, inputTokens, outputTokens } = await generateBrandMessaging(input.description, env.anthropicApiKey);
+    const { messaging, inputTokens, outputTokens } = await generateBrandMessaging(input.description, env.anthropicApiKey, env.promptOverride);
     return { output: messaging, inputTokens, outputTokens };
   },
 };

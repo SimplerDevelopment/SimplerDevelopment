@@ -75,42 +75,17 @@ async function runCase<I, O>(suite: EvalSuite<I, O>, c: EvalCase<I, O>, env: Eva
   return { caseId: c.id, input: c.input, output, error, latencyMs, inputTokens, outputTokens, scores, passed, aggregate };
 }
 
-export async function runSuite<I, O>(suite: EvalSuite<I, O>, env: EvalEnv) {
-  const n = env.runs ?? 1;
+export async function runSuite<I, O>(
+  suite: EvalSuite<I, O>,
+  env: EvalEnv,
+  // DB-backed cases (eval_cases) override the suite's in-code fixtures when the
+  // eval worker supplies them; defaults to the code fixtures otherwise.
+  casesOverride?: EvalCase<I, O>[],
+) {
   const cases: CaseResult<I, O>[] = [];
-
-  for (const c of suite.cases) {
-    if (n <= 1) {
-      // Fast path — single run, output is byte-identical to the original shape.
-      cases.push(await runCase(suite, c, env));
-    } else {
-      // N>1 variance runs: collect repeats, then collapse into one CaseResult.
-      const repeats: CaseResult<I, O>[] = [];
-      for (let i = 0; i < n; i++) {
-        repeats.push(await runCase(suite, c, env));
-      }
-      // Display: first run's output/scores/tokens.
-      const first = repeats[0];
-      // Aggregate: mean of per-run aggregates.
-      const aggs = repeats.map((r) => r.aggregate);
-      const mean = aggs.reduce((a, v) => a + v, 0) / n;
-      // Population stddev.
-      const variance = aggs.reduce((a, v) => a + (v - mean) ** 2, 0) / n;
-      const stdev = Math.sqrt(variance);
-      // Pass: majority of runs passed.
-      const passCount = repeats.filter((r) => r.passed).length;
-      const passed = passCount > n / 2;
-
-      cases.push({
-        ...first,
-        aggregate: mean,
-        passed,
-        runs: n,
-        aggregateStdev: stdev,
-      });
-    }
+  for (const c of casesOverride ?? suite.cases) {
+    cases.push(await runCase(suite, c, env));
   }
-
   return summarizeSuite(suite.id, suite.description, cases as CaseResult[]);
 }
 

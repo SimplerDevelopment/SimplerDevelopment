@@ -104,7 +104,7 @@ export const meetingExtractorSuite: EvalSuite<Input, MeetingExtraction> = {
     if (!env.anthropicApiKey) throw new Error('meeting-extractor suite needs an Anthropic key (or run --mock)');
     const anthropic = new Anthropic({ apiKey: env.anthropicApiKey });
     const { extraction, inputTokens, outputTokens } = await extractMeetingTranscript(
-      { transcript: input.transcript, meetingTitle: input.meetingTitle, participants: input.participants },
+      { transcript: input.transcript, meetingTitle: input.meetingTitle, participants: input.participants, systemPromptOverride: env.promptOverride },
       anthropic,
     );
     return { output: extraction, inputTokens, outputTokens };

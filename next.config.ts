@@ -108,7 +108,12 @@ const nextConfig: NextConfig = {
 
   // Turbopack configuration (Next.js 16+)
   turbopack: {
-    // Empty config to acknowledge we're using Turbopack
+    // Pin the workspace root to THIS project. Without it, Turbopack walks up
+    // and can pick a stray parent lockfile (e.g. when the repo is checked out
+    // as a git worktree under a home dir that has its own package-lock.json),
+    // mis-rooting the build so page routes 404. On Vercel this equals the repo
+    // root anyway, so it's a no-op there.
+    root: import.meta.dirname,
     // GLTF/GLB files will be handled by default asset handling
   },
 

@@ -104,55 +104,7 @@ export function latencyUnder(ms: number, name = 'latency'): Scorer {
   };
 }
 
-// ─── 3. Retrieval ────────────────────────────────────────────────────────────
-
-/**
- * Retrieval-recall scorer — measures retrieval quality independently of
- * generation quality (the "fail independently, measure separately" principle).
- *
- * recall = |retrieved ∩ expected| / |expected|
- * score  = recall (0..1)
- * passed = recall >= threshold (default 0.5)
- * skipped when output is null OR expected set is empty — so a suite that
- * doesn't supply expected ids never fakes a retrieval signal.
- *
- * Use this in RAG suites alongside `llmJudge` so retrieval and answer quality
- * are surfaced as separate dimensions in the report.
- */
-export function retrievalRecall<I = unknown, O = unknown>(opts: {
-  name?: string;
-  weight?: number;
-  /** Minimum recall to pass (default 0.5). */
-  threshold?: number;
-  /** Extract the list of retrieved doc/chunk ids from the model output. */
-  getRetrievedIds: (output: O) => string[];
-  /** Extract the list of expected (ground-truth) ids from the score context. */
-  getExpectedIds: (ctx: ScoreContext<I, O>) => string[];
-}): Scorer<I, O> {
-  const name = opts.name ?? 'retrieval-recall';
-  const threshold = opts.threshold ?? 0.5;
-  return {
-    name,
-    weight: opts.weight,
-    score(ctx) {
-      if (ctx.output == null) {
-        return { scorer: name, score: 0, passed: false, skipped: true, detail: 'output is null' };
-      }
-      const expected = opts.getExpectedIds(ctx);
-      if (expected.length === 0) {
-        return { scorer: name, score: 0, passed: false, skipped: true, detail: 'expected set is empty' };
-      }
-      const retrieved = new Set(opts.getRetrievedIds(ctx.output));
-      const hits = expected.filter((id) => retrieved.has(id)).length;
-      const recall = hits / expected.length;
-      const passed = recall >= threshold;
-      const detail = `${hits}/${expected.length} retrieved (threshold ${threshold})`;
-      return result(name, recall, passed, detail);
-    },
-  };
-}
-
-// ─── 4. Judgment ─────────────────────────────────────────────────────────────
+// ─── 3. Judgment ─────────────────────────────────────────────────────────────
 
 /**
  * LLM-as-judge. Calls a (cheap) model to grade the output on `dimensions`,
