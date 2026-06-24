@@ -286,7 +286,17 @@ A thin vertical slice of the read-only dashboard, proving the whole UI pipe end-
 
 **Side-fix:** `next.config.ts` `turbopack.root = import.meta.dirname` — without it Turbopack mis-roots when the repo is a git worktree under a home dir with a stray lockfile, 404-ing all page routes. No-op on Vercel. (Dev note: the tenant middleware's `APP_HOSTNAMES` only whitelists `localhost:3000/3001/3005/3100` — run the eval dev server on one of those ports or pages 404.)
 
-**Phase 3 remaining:** version-compare + per-case drill-down view, dedicated cost/spend view, broader leaderboard polish, real-run confirm-before-expensive UX. **Phase 4** (prompt editor, dataset editor, soft-gated promote, rollback, opt-in schedule cron, audit log) unstarted — needs the audit-table-vs-implicit-trail decision and a stricter super-admin guard on the write ops.
+### Phase 3 — remaining read-only views — SHIPPED (2026-06-24, branch worktree/mcp-review)
+
+Built on the slice; browser-verified end-to-end on the isolated local DB.
+
+- **Per-case drill-down** — run rows in the detail timeline expand (lazy-fetch `GET /api/admin/eval-runs/[runId]`, cached) into a per-case sub-table: pass/fail badge, aggregate, latency, tokens, and collapsible `<details>` for output/scores JSON.
+- **Version Compare** — section on the detail page computing each version's latest-`done`-run pass-rate + aggregate and the Δ vs the prior version, from already-loaded data (no extra fetch); graceful with a single version.
+- **Cost / spend view** — `GET /api/admin/eval-cost` (per-prompt runs/tokens/cost aggregation + grand totals) + `app/admin/prompts/cost/page.tsx` (three summary stat cards + per-prompt spend table). Linked from the leaderboard header (`attach_money` "Cost view") + a leaderboard summary line.
+
+Verified: whole-repo `tsc` clean; ESLint clean on all changed files; browser-confirmed cost page totals, version-compare row, and run drill-down (b2b-saas / artisan-coffee case results with output/scores expanders).
+
+**Phase 3 remaining (polish, deferred):** sortable leaderboard columns, real-run confirm-before-expensive UX (the mock/real selector exists; the cost-confirm dialog does not). **Phase 4** (prompt editor, dataset editor, soft-gated promote, rollback, opt-in schedule cron, audit log) unstarted — needs the audit-table-vs-implicit-trail decision and a stricter super-admin guard on the write ops.
 
 ### To go live
 

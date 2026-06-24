@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 
@@ -68,6 +68,23 @@ interface LiveRun {
   startedAt: string | null;
   finishedAt: string | null;
   createdAt: string;
+}
+
+interface EvalCase {
+  id: number;
+  caseKey: string;
+  passed: boolean;
+  aggregate: number;
+  latencyMs: number;
+  inputTokens: number;
+  outputTokens: number;
+  output: unknown;
+  scores: unknown;
+  error: string | null;
+}
+
+interface RunCasesCache {
+  [runId: number]: { status: 'loading' | 'done' | 'error'; cases?: EvalCase[]; error?: string };
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -192,6 +209,39 @@ export default function PromptDetailPage() {
   const [liveStatus, setLiveStatus] = useState<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // Per-case drill-down state
+  const [expandedRunIds, setExpandedRunIds] = useState<Set<number>>(new Set());
+  const [runCasesCache, setRunCasesCache] = useState<RunCasesCache>({});
+  const fetchedRunIds = useRef<Set<number>>(new Set());
+
+  function toggleRunExpand(runId: number) {
+    setExpandedRunIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(runId)) {
+        next.delete(runId);
+      } else {
+        next.add(runId);
+      }
+      return next;
+    });
+    // Fetch cases only once per run id
+    if (fetchedRunIds.current.has(runId)) return;
+    fetchedRunIds.current.add(runId);
+    setRunCasesCache((prev) => ({ ...prev, [runId]: { status: 'loading' } }));
+    fetch(`/api/admin/eval-runs/${runId}`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success) {
+          setRunCasesCache((c) => ({ ...c, [runId]: { status: 'done', cases: d.data?.cases ?? [] } }));
+        } else {
+          setRunCasesCache((c) => ({ ...c, [runId]: { status: 'error', error: d.message ?? 'Failed to load cases' } }));
+        }
+      })
+      .catch((e) => {
+        setRunCasesCache((c) => ({ ...c, [runId]: { status: 'error', error: e instanceof Error ? e.message : 'Failed to load cases' } }));
+      });
+  }
+
   const load = useCallback(() => {
     setLoading(true);
     setErr(null);
@@ -206,6 +256,9 @@ export default function PromptDetailPage() {
   }, [promptId]);
 
   useEffect(() => {
+    // Mount fetch — load() sets loading state synchronously; the one extra
+    // render is intentional and harmless for a page-load fetch.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
@@ -382,6 +435,7 @@ export default function PromptDetailPage() {
                 <table className="w-full text-sm">
                   <thead className="bg-muted/50 border-b border-border">
                     <tr>
+                      <th className="px-3 py-2 w-6"></th>
                       <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Run ID</th>
                       <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Status</th>
                       <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Pass Rate</th>
@@ -392,40 +446,229 @@ export default function PromptDetailPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
-                    {[...data.runs].reverse().map((run) => (
-                      <tr key={run.id} className="hover:bg-accent/50 transition-colors">
-                        <td className="px-3 py-2 text-xs font-mono text-muted-foreground">
-                          #{run.id}
-                        </td>
-                        <td className="px-3 py-2">
-                          <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium border ${statusBadgeClass(run.status)}`}>
-                            {run.status}
-                          </span>
-                        </td>
-                        <td className="px-3 py-2">
-                          <span className={`inline-flex items-center text-xs px-2 py-0.5 rounded-full font-medium border ${passRateBadgeClass(run.passRate)}`}>
-                            {Math.round(run.passRate * 100)}%
-                          </span>
-                        </td>
-                        <td className="px-3 py-2 text-xs text-foreground">
-                          {run.passed} / {run.total}
-                        </td>
-                        <td className="px-3 py-2 text-xs text-muted-foreground">
-                          {run.totalTokens.toLocaleString()}
-                        </td>
-                        <td className="px-3 py-2 text-xs text-muted-foreground font-mono">
-                          ${run.costUsd.toFixed(4)}
-                        </td>
-                        <td className="px-3 py-2 text-xs text-muted-foreground">
-                          {fmtAge(run.createdAt)}
-                        </td>
-                      </tr>
-                    ))}
+                    {[...data.runs].reverse().map((run) => {
+                      const isExpanded = expandedRunIds.has(run.id);
+                      const cacheEntry = runCasesCache[run.id];
+                      return (
+                        <React.Fragment key={run.id}>
+                          <tr
+                            className="hover:bg-accent/50 transition-colors cursor-pointer"
+                            onClick={() => toggleRunExpand(run.id)}
+                          >
+                            <td className="px-3 py-2 text-xs text-muted-foreground">
+                              <span className={`material-icons text-sm leading-none transition-transform ${isExpanded ? 'rotate-180' : ''}`}>
+                                expand_more
+                              </span>
+                            </td>
+                            <td className="px-3 py-2 text-xs font-mono text-muted-foreground">
+                              #{run.id}
+                            </td>
+                            <td className="px-3 py-2">
+                              <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium border ${statusBadgeClass(run.status)}`}>
+                                {run.status}
+                              </span>
+                            </td>
+                            <td className="px-3 py-2">
+                              <span className={`inline-flex items-center text-xs px-2 py-0.5 rounded-full font-medium border ${passRateBadgeClass(run.passRate)}`}>
+                                {Math.round(run.passRate * 100)}%
+                              </span>
+                            </td>
+                            <td className="px-3 py-2 text-xs text-foreground">
+                              {run.passed} / {run.total}
+                            </td>
+                            <td className="px-3 py-2 text-xs text-muted-foreground">
+                              {run.totalTokens.toLocaleString()}
+                            </td>
+                            <td className="px-3 py-2 text-xs text-muted-foreground font-mono">
+                              ${run.costUsd.toFixed(4)}
+                            </td>
+                            <td className="px-3 py-2 text-xs text-muted-foreground">
+                              {fmtAge(run.createdAt)}
+                            </td>
+                          </tr>
+                          {isExpanded && (
+                            <tr>
+                              <td colSpan={8} className="bg-muted/30 px-6 py-3">
+                                {!cacheEntry || cacheEntry.status === 'loading' ? (
+                                  <div className="flex items-center gap-2 py-2 text-xs text-muted-foreground">
+                                    <span className="material-icons animate-spin text-base leading-none">refresh</span>
+                                    Loading cases…
+                                  </div>
+                                ) : cacheEntry.status === 'error' ? (
+                                  <div className="text-xs text-red-700 py-2">
+                                    Error loading cases: {cacheEntry.error}
+                                  </div>
+                                ) : cacheEntry.cases && cacheEntry.cases.length === 0 ? (
+                                  <div className="text-xs text-muted-foreground py-2">No cases found for this run.</div>
+                                ) : (
+                                  <table className="w-full text-xs">
+                                    <thead>
+                                      <tr className="border-b border-border">
+                                        <th className="pb-1.5 text-left font-medium text-muted-foreground uppercase tracking-wider pr-4">Case</th>
+                                        <th className="pb-1.5 text-left font-medium text-muted-foreground uppercase tracking-wider pr-4">Result</th>
+                                        <th className="pb-1.5 text-left font-medium text-muted-foreground uppercase tracking-wider pr-4">Agg</th>
+                                        <th className="pb-1.5 text-left font-medium text-muted-foreground uppercase tracking-wider pr-4">Latency</th>
+                                        <th className="pb-1.5 text-left font-medium text-muted-foreground uppercase tracking-wider pr-4">Tokens</th>
+                                        <th className="pb-1.5 text-left font-medium text-muted-foreground uppercase tracking-wider">Details</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-border/50">
+                                      {(cacheEntry.cases ?? []).map((c) => (
+                                        <tr key={c.id} className="align-top">
+                                          <td className="py-2 pr-4 font-mono text-foreground">{c.caseKey}</td>
+                                          <td className="py-2 pr-4">
+                                            {c.passed ? (
+                                              <span className="inline-flex items-center gap-0.5 text-xs px-1.5 py-0.5 rounded-full font-medium border bg-green-100 text-green-800 border-green-200">
+                                                <span className="material-icons text-xs leading-none">check_circle</span>
+                                                pass
+                                              </span>
+                                            ) : (
+                                              <span className="inline-flex items-center gap-0.5 text-xs px-1.5 py-0.5 rounded-full font-medium border bg-red-100 text-red-800 border-red-200">
+                                                <span className="material-icons text-xs leading-none">cancel</span>
+                                                fail
+                                              </span>
+                                            )}
+                                          </td>
+                                          <td className="py-2 pr-4 text-foreground">{c.aggregate.toFixed(2)}</td>
+                                          <td className="py-2 pr-4 text-muted-foreground">{c.latencyMs}ms</td>
+                                          <td className="py-2 pr-4 text-muted-foreground">{(c.inputTokens + c.outputTokens).toLocaleString()}</td>
+                                          <td className="py-2 space-y-1">
+                                            {c.error && (
+                                              <div className="text-red-700">Error: {c.error}</div>
+                                            )}
+                                            <details>
+                                              <summary className="cursor-pointer text-muted-foreground hover:text-foreground select-none">Output</summary>
+                                              <pre className="text-[10px] mt-1 bg-background border border-border rounded p-2 overflow-auto max-h-40 whitespace-pre-wrap break-all">
+                                                {JSON.stringify(c.output, null, 2)}
+                                              </pre>
+                                            </details>
+                                            <details>
+                                              <summary className="cursor-pointer text-muted-foreground hover:text-foreground select-none">Scores</summary>
+                                              <pre className="text-[10px] mt-1 bg-background border border-border rounded p-2 overflow-auto max-h-40 whitespace-pre-wrap break-all">
+                                                {JSON.stringify(c.scores, null, 2)}
+                                              </pre>
+                                            </details>
+                                          </td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                )}
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
             )}
           </section>
+
+          {/* ── Version Compare section ── */}
+          {(() => {
+            // Compute per-version latest done run
+            interface VersionStat {
+              version: PromptVersion;
+              passRate: number | null;
+              aggregate: number | null;
+            }
+            const stats: VersionStat[] = data.versions.map((v) => {
+              const doneRuns = data.runs
+                .filter((r) => r.promptVersionId === v.id && r.status === 'done')
+                .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+              const latest = doneRuns[0] ?? null;
+              return {
+                version: v,
+                passRate: latest ? latest.passRate : null,
+                aggregate: latest ? latest.aggregate : null,
+              };
+            });
+
+            return (
+              <section className="bg-card border border-border rounded-xl p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <span className="material-icons text-muted-foreground text-lg">compare_arrows</span>
+                  <h2 className="text-sm font-semibold text-foreground uppercase tracking-wide">
+                    Version Compare
+                  </h2>
+                </div>
+
+                {stats.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">No versions yet.</p>
+                ) : (
+                  <>
+                    {stats.length < 2 && (
+                      <p className="text-xs text-muted-foreground">Add another version to compare.</p>
+                    )}
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead className="bg-muted/50 border-b border-border">
+                          <tr>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Version</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Latest Pass Rate</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Latest Aggregate</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Δ vs Prev Version</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border">
+                          {stats.map((s, i) => {
+                            const isActive = s.version.id === data.prompt.activeVersionId;
+                            const prev = i > 0 ? stats[i - 1] : null;
+                            let delta: number | null = null;
+                            if (prev && prev.passRate !== null && s.passRate !== null) {
+                              delta = s.passRate - prev.passRate;
+                            }
+                            return (
+                              <tr key={s.version.id} className="hover:bg-accent/50 transition-colors">
+                                <td className="px-3 py-2">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span className="text-sm font-semibold text-foreground">v{s.version.version}</span>
+                                    {isActive && (
+                                      <span className="inline-flex items-center gap-0.5 text-xs text-green-700 font-medium">
+                                        <span className="material-icons text-sm leading-none">check_circle</span>
+                                        active
+                                      </span>
+                                    )}
+                                  </div>
+                                </td>
+                                <td className="px-3 py-2">
+                                  {s.passRate !== null ? (
+                                    <span className={`inline-flex items-center text-xs px-2 py-0.5 rounded-full font-medium border ${passRateBadgeClass(s.passRate)}`}>
+                                      {Math.round(s.passRate * 100)}%
+                                    </span>
+                                  ) : (
+                                    <span className="text-xs text-muted-foreground">no run</span>
+                                  )}
+                                </td>
+                                <td className="px-3 py-2 text-xs text-foreground">
+                                  {s.aggregate !== null ? s.aggregate.toFixed(2) : <span className="text-muted-foreground">no run</span>}
+                                </td>
+                                <td className="px-3 py-2 text-xs font-medium">
+                                  {i === 0 ? (
+                                    <span className="text-muted-foreground">—</span>
+                                  ) : delta === null ? (
+                                    <span className="text-muted-foreground">—</span>
+                                  ) : delta > 0 ? (
+                                    <span className="text-green-700">+{Math.round(delta * 100)}%</span>
+                                  ) : delta < 0 ? (
+                                    <span className="text-red-700">{Math.round(delta * 100)}%</span>
+                                  ) : (
+                                    <span className="text-muted-foreground">0%</span>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
+                )}
+              </section>
+            );
+          })()}
 
           {/* ── Versions section ── */}
           <section className="bg-card border border-border rounded-xl p-4 space-y-3">

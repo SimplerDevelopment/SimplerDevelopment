@@ -108,12 +108,27 @@ export default function PromptEvalsPage() {
             Leaderboard of all registered prompts and their latest evaluation results.
           </p>
         </div>
+        <Link
+          href="/admin/prompts/cost"
+          className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg border border-border bg-card text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
+        >
+          <span className="material-icons text-base leading-none">attach_money</span>
+          Cost view
+        </Link>
       </div>
 
       {err && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-sm text-red-800">
           {err}
         </div>
+      )}
+
+      {!loading && prompts.length > 0 && (
+        <p className="text-xs text-muted-foreground">
+          {prompts.length} prompt{prompts.length !== 1 ? 's' : ''} registered
+          {' · '}
+          {prompts.filter((p) => p.latestRun != null).length} with runs
+        </p>
       )}
 
       {loading ? (
