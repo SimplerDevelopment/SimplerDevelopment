@@ -53,7 +53,7 @@ export async function POST(req: Request) {
   // verification token marks an unverified self-serve account (invited and
   // legacy users never carry one).
   const [me] = await db
-    .select({ pendingToken: users.emailVerificationToken })
+    .select({ pendingToken: users.emailVerificationToken, email: users.email })
     .from(users)
     .where(eq(users.id, userId))
     .limit(1);
@@ -135,17 +135,29 @@ export async function POST(req: Request) {
   }
   const stripe = new Stripe(stripeKey);
 
-  // Create or reuse Stripe customer — mirror the credits/purchase pattern.
+  // Create or reuse Stripe customer. Set the customer's email from the signed-in
+  // user so Checkout pre-fills AND locks it — otherwise the already-logged-in
+  // user is asked to retype their email on the Stripe page (unnecessary friction).
   let customerId = client.stripeCustomerId;
   if (!customerId) {
-    const params: Record<string, string> = {};
-    if (client.company) params.name = client.company;
-    const customer = await stripe.customers.create(params);
+    const customer = await stripe.customers.create({
+      ...(me?.email ? { email: me.email } : {}),
+      ...(client.company ? { name: client.company } : {}),
+    });
     customerId = customer.id;
     await db
       .update(clients)
       .set({ stripeCustomerId: customerId })
       .where(eq(clients.id, client.id));
+  } else if (me?.email) {
+    // Existing customer may predate email capture (e.g. created via the credits
+    // purchase flow, which also omitted it). Backfill so Checkout pre-fills the
+    // email rather than asking for it again. Non-fatal — never block checkout.
+    try {
+      await stripe.customers.update(customerId, { email: me.email });
+    } catch {
+      /* ignore — worst case Stripe just asks for the email as before */
+    }
   }
 
   // ── 6. Trial: first self-serve subscription per client only ──────────────
