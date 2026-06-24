@@ -154,6 +154,14 @@
     {
       "path": "/api/cron/ai-credits-monthly-regrant",
       "schedule": "0 6 2 * *"
+    },
+    {
+      "path": "/api/cron/eval-runs",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/eval-schedule",
+      "schedule": "*/5 * * * *"
     }
   ]
 }

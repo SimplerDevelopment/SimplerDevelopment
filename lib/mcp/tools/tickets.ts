@@ -191,7 +191,7 @@ export function registerTicketsTools(server: McpServer, ctx: PortalMcpContext): 
       const patch: Record<string, unknown> = { updatedAt: new Date() };
       if (status !== undefined) {
         patch.status = status;
-        if (status === 'resolved' || status === 'closed') patch.resolvedAt = new Date();
+        if ((status === 'resolved' || status === 'closed') && existing.status !== 'resolved' && existing.status !== 'closed') patch.resolvedAt = new Date();
       }
       if (priority !== undefined) patch.priority = priority;
       if (category !== undefined) patch.category = category;

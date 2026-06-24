@@ -12,6 +12,17 @@ export default defineConfig({
   test: {
     globals: true,
     setupFiles: ['./tests/setup.ts'],
+    server: {
+      deps: {
+        // next-auth (v5 beta) ships ESM that imports the `next/server` exports-map
+        // subpath; vitest's default externalization can't resolve that subpath from
+        // next-auth's own node_modules, so any test that loads the real auth chain
+        // (e.g. the MCP SDK adapters) dies with "Cannot find module 'next/server'".
+        // Force-transform next-auth + @auth/core through vite, which honors the
+        // exports map. Only affects files that actually import next-auth.
+        inline: [/next-auth/, /@auth[\\/]core/],
+      },
+    },
     coverage: {
       provider: 'v8',
       reporter: ['html', 'lcov', 'text-summary', 'json', 'json-summary'],

@@ -104,6 +104,40 @@ export function latencyUnder(ms: number, name = 'latency'): Scorer {
   };
 }
 
+/**
+ * Retrieval recall — the standard RAG metric: of the ground-truth ids that
+ * SHOULD have been retrieved, what fraction actually were
+ * (`|retrieved ∩ expected| / |expected|`). Skipped (excluded from the aggregate,
+ * not a hard fail) when there's no output or no expected ids, so a case with
+ * nothing to measure against doesn't drag the pass-rate.
+ */
+export function retrievalRecall<I = unknown, O = unknown>(opts: {
+  getRetrievedIds: (output: O) => string[];
+  getExpectedIds: (ctx: ScoreContext<I, O>) => string[];
+  threshold?: number;
+  name?: string;
+}): Scorer<I, O> {
+  const name = opts.name ?? 'retrieval-recall';
+  const threshold = opts.threshold ?? 0.5;
+  return {
+    name,
+    score(ctx) {
+      if (ctx.output == null) {
+        return { scorer: name, score: 0, passed: false, skipped: true, detail: ctx.error ?? 'no output' };
+      }
+      const expected = [...new Set(opts.getExpectedIds(ctx))];
+      if (expected.length === 0) {
+        return { scorer: name, score: 0, passed: false, skipped: true, detail: 'no expected ids' };
+      }
+      const retrieved = new Set(opts.getRetrievedIds(ctx.output));
+      const hits = expected.filter((id) => retrieved.has(id)).length;
+      const score = hits / expected.length;
+      const passed = score >= threshold;
+      return result(name, score, passed, passed ? undefined : `recall ${score.toFixed(2)} < ${threshold}`);
+    },
+  };
+}
+
 // ─── 3. Judgment ─────────────────────────────────────────────────────────────
 
 /**
