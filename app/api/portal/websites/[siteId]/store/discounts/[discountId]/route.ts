@@ -3,12 +3,12 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { discountCodes } from '@/lib/db/schema';
 import { and, eq } from 'drizzle-orm';
-import { resolveClientSite } from '@/lib/portal-client';
+import { resolveStoreSite } from '@/lib/portal-auth';
 
 type Params = { params: Promise<{ siteId: string; discountId: string }> };
 
 async function resolveDiscount(userId: number, siteId: string, discountId: string) {
-  const site = await resolveClientSite(userId, parseInt(siteId));
+  const site = await resolveStoreSite(userId, parseInt(siteId));
   if (!site) return null;
 
   const [discount] = await db
@@ -44,7 +44,7 @@ export async function PUT(req: Request, { params }: Params) {
 
   // Check code uniqueness if code is being updated
   if (body.code && body.code.toUpperCase() !== discount.code) {
-    const site = await resolveClientSite(parseInt(session.user.id, 10), parseInt(siteId));
+    const site = await resolveStoreSite(parseInt(session.user.id, 10), parseInt(siteId));
     if (site) {
       const [existing] = await db
         .select({ id: discountCodes.id })

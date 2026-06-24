@@ -3,12 +3,12 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { products, productOptions, productOptionValues } from '@/lib/db/schema';
 import { and, eq, asc, sql } from 'drizzle-orm';
-import { resolveClientSite } from '@/lib/portal-client';
+import { resolveStoreSite } from '@/lib/portal-auth';
 
 type Params = { params: Promise<{ siteId: string; productId: string }> };
 
 async function resolveProduct(userId: number, siteId: string, productId: string) {
-  const site = await resolveClientSite(userId, parseInt(siteId));
+  const site = await resolveStoreSite(userId, parseInt(siteId));
   if (!site) return null;
   const [product] = await db
     .select()
@@ -33,7 +33,7 @@ export async function GET(_req: Request, { params }: Params) {
     .orderBy(asc(productOptions.order));
 
   const optionIds = options.map((o) => o.id);
-  let optionValuesMap: Record<number, typeof productOptionValues.$inferSelect[]> = {};
+  const optionValuesMap: Record<number, typeof productOptionValues.$inferSelect[]> = {};
 
   if (optionIds.length > 0) {
     const allValues = await db

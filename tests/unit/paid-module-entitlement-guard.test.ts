@@ -16,13 +16,12 @@ import { join, resolve } from 'node:path';
  * cron-registry-parity): it catches a NEW ungated write before prod, it does
  * not prove per-line correctness.
  *
- * NOTE: writing this test surfaced that the store REST surface has ~20 further
- * ungated write sub-routes (variants, options, bulk-pricing, shipping zones,
- * categories/[id], discounts/[id], orders label/rates/printful, …) beyond the
- * [productId] route fixed here — plus some likely-intentional ones (stripe
- * onboarding, *test* endpoints). That broader gap needs its own triage; this
- * test deliberately guards only the confirmed-fixed surfaces so it starts green
- * without blessing the untriaged routes.
+ * The broad store sub-resource surface is gated via the `resolveStoreSite`
+ * helper (lib/portal-auth.ts): swapping a route's `resolveClientSite` →
+ * `resolveStoreSite` makes an unsubscribed client fall through to the route's
+ * not-found path. STORE_WRITE_UNGATED below are the routes deliberately left
+ * ungated (store onboarding + integration-test endpoints) — adding a NEW store
+ * write route not on that list, without a gate, fails this test.
  */
 const ROOT = resolve(__dirname, '..', '..');
 
@@ -37,7 +36,16 @@ function walkRouteFiles(dir: string): string[] {
 }
 
 const hasWriteHandler = (src: string) => /export\s+async\s+function\s+(POST|PUT|PATCH|DELETE)/.test(src);
-const hasEntitlementCall = (src: string) => /hasServiceAccess|requireService/.test(src);
+const hasEntitlementCall = (src: string) => /hasServiceAccess|requireService|resolveStoreSite/.test(src);
+
+// Store write routes intentionally NOT entitlement-gated, each with a reason:
+//  - stripe-connect: store *onboarding* — gating on a store sub would be circular
+//  - stripe/test, easypost/test: integration smoke-test endpoints
+const STORE_WRITE_UNGATED = new Set<string>([
+  'app/api/portal/websites/[siteId]/store/stripe-connect/route.ts',
+  'app/api/portal/websites/[siteId]/store/stripe/test/route.ts',
+  'app/api/portal/websites/[siteId]/store/easypost/test/route.ts',
+]);
 
 describe('paid-module entitlement guards', () => {
   it('store MCP adapter: every store:write tool clears an entitlement check', () => {
@@ -59,12 +67,19 @@ describe('paid-module entitlement guards', () => {
     expect(offenders, `ungated pitch-deck write routes:\n${offenders.join('\n')}`).toEqual([]);
   });
 
-  it('store product-detail route entitlement-gates its writes', () => {
-    const src = readFileSync(
-      resolve(ROOT, 'app/api/portal/websites/[siteId]/store/products/[productId]/route.ts'),
-      'utf8',
-    );
-    expect(hasWriteHandler(src)).toBe(true);
-    expect(/hasServiceAccess\([^)]*'store'\)/.test(src), "PUT/DELETE must check hasServiceAccess(..,'store')").toBe(true);
+  it('every store write route is entitlement-gated (or explicitly allow-listed)', () => {
+    const offenders = walkRouteFiles(resolve(ROOT, 'app/api/portal/websites'))
+      .filter((f) => f.replace(ROOT + '/', '').includes('/store/'))
+      .filter((f) => {
+        const rel = f.replace(ROOT + '/', '');
+        if (STORE_WRITE_UNGATED.has(rel)) return false;
+        const src = readFileSync(f, 'utf8');
+        return hasWriteHandler(src) && !hasEntitlementCall(src);
+      })
+      .map((f) => f.replace(ROOT + '/', ''));
+    expect(
+      offenders,
+      `ungated store write routes (gate via resolveStoreSite, or add to STORE_WRITE_UNGATED with a reason):\n${offenders.join('\n')}`,
+    ).toEqual([]);
   });
 });
