@@ -16,6 +16,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { PersonPicker } from '@/components/brain/PersonPicker';
 import type { BrainPersonStatus } from '@/lib/db/schema/brain';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnPrimary, pBtnGhost } from '@/components/portal/portal-ui';
 
 interface MentionableUser {
   id: number;
@@ -107,23 +109,22 @@ export default function NewBrainPersonPage() {
   }, [canSubmit, fullName, email, title, status, notes, userId, managerId, startDate, endDate, profileUrls, router]);
 
   return (
-    <div className="max-w-2xl mx-auto py-6 px-4">
+    <div className="max-w-2xl mx-auto py-6 space-y-6">
       <Link
         href="/portal/brain/people"
-        className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground mb-3"
+        className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground mb-4"
       >
         <span className="material-icons text-sm">chevron_left</span>
         Back to People
       </Link>
 
-      <h1 className="text-2xl font-bold text-foreground flex items-center gap-2 mb-1">
-        <span className="material-icons text-primary">person_add</span>
-        New person
-      </h1>
-      <p className="text-xs text-muted-foreground mb-6">
-        Add someone to your internal team. You can attach expertise tags and org-unit memberships from the profile after creating.
-      </p>
+      <PortalPageHeader
+        eyebrow="Company Brain"
+        title={<><span className="material-icons text-primary">person_add</span> New person</>}
+        subtitle="Add someone to your internal team. You can attach expertise tags and org-unit memberships from the profile after creating."
+      />
 
+      <div className="rounded-2xl border border-border bg-card p-5">
       <form onSubmit={handleSubmit} className="space-y-4">
         <Field label="Full name" required>
           <input
@@ -162,7 +163,7 @@ export default function NewBrainPersonPage() {
           <select
             value={userId !== null ? String(userId) : ''}
             onChange={(e) => setUserId(e.target.value ? parseInt(e.target.value, 10) : null)}
-            className={inputCls}
+            className="w-full appearance-none rounded-xl border border-border bg-card px-3.5 py-2.5 pr-10 text-sm text-foreground outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/15"
           >
             <option value="">— none —</option>
             {users.map((u) => (
@@ -204,7 +205,7 @@ export default function NewBrainPersonPage() {
           <select
             value={status}
             onChange={(e) => setStatus(e.target.value as BrainPersonStatus)}
-            className={inputCls}
+            className="w-full appearance-none rounded-xl border border-border bg-card px-3.5 py-2.5 pr-10 text-sm text-foreground outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/15"
           >
             {STATUS_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>{o.label}</option>
@@ -270,7 +271,7 @@ export default function NewBrainPersonPage() {
         </Field>
 
         {error && (
-          <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-3 text-sm text-destructive flex items-center gap-2">
+          <div className="bg-destructive/10 border border-destructive/30 rounded-xl p-3 text-sm text-destructive flex items-center gap-2">
             <span className="material-icons text-base">error_outline</span>
             {error}
           </div>
@@ -279,14 +280,14 @@ export default function NewBrainPersonPage() {
         <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
           <Link
             href="/portal/brain/people"
-            className="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium rounded-md border border-border text-foreground hover:bg-accent"
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-semibold text-foreground transition hover:border-foreground/25 hover:shadow-sm disabled:opacity-50"
           >
             Cancel
           </Link>
           <button
             type="submit"
             disabled={!canSubmit}
-            className="inline-flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-foreground px-4 py-2.5 text-sm font-bold text-background transition hover:-translate-y-px hover:shadow-lg hover:shadow-foreground/20 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0"
           >
             {submitting ? (
               <>
@@ -302,12 +303,13 @@ export default function NewBrainPersonPage() {
           </button>
         </div>
       </form>
+      </div>
     </div>
   );
 }
 
 const inputCls =
-  'w-full px-3 py-2 border border-border rounded-md bg-card text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary';
+  'w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary focus:ring-4 focus:ring-primary/15';
 
 function Field({
   label,

@@ -20,6 +20,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import TopicPicker from '@/components/brain/TopicPicker';
 import type { BrainDocumentCategory } from '@/lib/brain/documents';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnPrimary, pBtnGhost, pInput, pSelect, pCardPad } from '@/components/portal/portal-ui';
 
 interface UserOption { id: number; name: string | null }
 interface NoteOption { id: number; title: string }
@@ -163,17 +165,18 @@ export default function BrainDocumentNewPage() {
         <span>New</span>
       </nav>
 
-      <header>
-        <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
-          <span className="material-icons text-primary">add</span>
-          New document
-        </h1>
-        <p className="text-xs text-muted-foreground mt-0.5">
-          Start a fresh SOP or promote an existing note into a versioned document.
-        </p>
-      </header>
+      <PortalPageHeader
+        eyebrow="Company Brain"
+        title={
+          <span className="flex items-center gap-2">
+            <span className="material-icons text-primary">add</span>
+            New document
+          </span>
+        }
+        subtitle="Start a fresh SOP or promote an existing note into a versioned document."
+      />
 
-      <form onSubmit={submit} className="bg-card border border-border rounded-xl p-5 space-y-4">
+      <form onSubmit={submit} className="bg-card border border-border rounded-2xl p-5 space-y-4">
         <div>
           <label htmlFor="doc-title" className="block text-xs font-medium text-foreground mb-1">Title</label>
           <input
@@ -182,7 +185,7 @@ export default function BrainDocumentNewPage() {
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder={useNoteSource ? 'Optional — leave blank to use the note title' : 'e.g., Customer onboarding SOP'}
-            className="w-full px-3 py-2 rounded-md border border-border bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+            className={pInput}
           />
         </div>
 
@@ -193,7 +196,7 @@ export default function BrainDocumentNewPage() {
               id="doc-cat"
               value={category}
               onChange={(e) => setCategory(e.target.value as BrainDocumentCategory)}
-              className="w-full px-3 py-2 rounded-md border border-border bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+              className={pSelect}
             >
               {CATEGORIES.map((c) => <option key={c} value={c}>{CATEGORY_LABEL[c]}</option>)}
             </select>
@@ -205,7 +208,7 @@ export default function BrainDocumentNewPage() {
               id="doc-conf"
               value={confidentialityLevel}
               onChange={(e) => setConfidentialityLevel(e.target.value as 'standard' | 'restricted' | 'confidential')}
-              className="w-full px-3 py-2 rounded-md border border-border bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+              className={pSelect}
             >
               <option value="standard">Standard</option>
               <option value="restricted">Restricted</option>
@@ -220,7 +223,7 @@ export default function BrainDocumentNewPage() {
             id="doc-owner"
             value={ownerId ?? ''}
             onChange={(e) => setOwnerId(e.target.value ? parseInt(e.target.value, 10) : null)}
-            className="w-full px-3 py-2 rounded-md border border-border bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+            className={pSelect}
           >
             <option value="">— Unassigned —</option>
             {users.map((u) => <option key={u.id} value={u.id}>{u.name ?? `User #${u.id}`}</option>)}
@@ -260,7 +263,7 @@ export default function BrainDocumentNewPage() {
                 value={noteSearch}
                 onChange={(e) => setNoteSearch(e.target.value)}
                 placeholder="Search notes…"
-                className="w-full px-3 py-2 rounded-md border border-border bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                className={pInput}
               />
               <div className="max-h-48 overflow-y-auto bg-background border border-border rounded-md">
                 {noteSearchLoading ? (
@@ -299,17 +302,10 @@ export default function BrainDocumentNewPage() {
         )}
 
         <div className="flex items-center justify-end gap-2">
-          <Link
-            href="/portal/brain/documents"
-            className="px-3 py-1.5 text-sm rounded-md border border-border text-foreground hover:bg-accent"
-          >
+          <Link href="/portal/brain/documents" className={pBtnGhost}>
             Cancel
           </Link>
-          <button
-            type="submit"
-            disabled={submitting}
-            className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-          >
+          <button type="submit" disabled={submitting} className={pBtnPrimary}>
             {submitting
               ? <><span className="material-icons animate-spin text-base">progress_activity</span>Creating…</>
               : <><span className="material-icons text-base">add</span>Create &amp; open editor</>}
