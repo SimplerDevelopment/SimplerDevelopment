@@ -6,13 +6,29 @@
 
 Think *"open-source, agent-operable alternative to the usual stack of a site builder + CRM + email tool + booking app + knowledge base"* — unbundled into one self-hostable codebase.
 
+<!-- HERO: record this GIF before launch — `vhs docs/launch/demo.tape` (see docs/launch/demo.tape). It is the #1 conversion asset above the fold. -->
+<p align="center">
+  <img src="docs/launch/demo.gif" alt="An MCP client building a page, CRM record, and booking by talking to an agent" width="800" />
+</p>
+
+<p align="center">
+  <a href="#quick-start"><b>⚡ Self-host in 5 minutes</b></a>
+  &nbsp;·&nbsp;
+  <!-- TODO(launch): publish a Railway template (Postgres+pgvector+app) and drop its URL here -->
+  <a href="https://railway.com/deploy"><img src="https://railway.com/button.svg" alt="Deploy on Railway" height="28" /></a>
+  &nbsp;·&nbsp;
+  <a href="https://vercel.com/new/clone?repository-url=https://github.com/DanielPCoyle/simplerdevelopment2026"><img src="https://vercel.com/button" alt="Deploy with Vercel" height="28" /></a>
+</p>
+
+> ℹ️ One-click deploy stands up the app, but the platform needs **Postgres + pgvector** and a few secrets — see [Quick start](#quick-start). The Railway template is the smoothest multi-service path.
+
 ## Why it's different
 
-- **MCP-native, not MCP-bolted-on.** 200+ scoped MCP tools span the entire platform surface (content, CRM, brain, commerce, email, bookings, billing). Build a site or run an outreach campaign by *talking to an agent*.
-- **All-in-one & multi-tenant.** A single Next.js codebase serves an internal admin panel, a per-tenant client portal, and per-tenant public websites.
-- **Block-based CMS + visual editor.** Content is typed JSON blocks edited in an iframe visual page builder.
-- **AI Company Brain.** Per-tenant retrieval-augmented knowledge base over client material.
-- **Self-hostable.** Apache-2.0 licensed. Bring your own Postgres and API keys.
+- [x] **MCP-native, not MCP-bolted-on.** 200+ scoped MCP tools span the entire platform surface (content, CRM, brain, commerce, email, bookings, billing). Build a site or run an outreach campaign by *talking to an agent*. → [`docs/mcp.md`](docs/mcp.md)
+- [x] **All-in-one & multi-tenant.** A single Next.js codebase serves an internal admin panel, a per-tenant client portal, and per-tenant public websites. → [Architecture](#architecture-overview)
+- [x] **Block-based CMS + visual editor.** Content is typed JSON blocks edited in an iframe visual page builder. → [`docs/guides/BLOCK_EDITOR_GUIDE.md`](docs/guides/BLOCK_EDITOR_GUIDE.md)
+- [x] **AI Company Brain.** Per-tenant retrieval-augmented knowledge base over client material. → [`docs/guides/BRAIN.md`](docs/guides/BRAIN.md)
+- [x] **Self-hostable.** Apache-2.0 licensed. Bring your own Postgres and API keys. → [Quick start](#quick-start)
 
 > Open-sourced from a production codebase. See **[CONTRIBUTING.md](CONTRIBUTING.md)** for how the codebase is organized (it has an unusually rich set of contributor/architecture docs) and **[SECURITY.md](SECURITY.md)** to report a vulnerability.
 

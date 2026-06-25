@@ -48,7 +48,12 @@ SORT date DESC
 
 ## Static index (agent-readable)
 
+### In Progress (Validating)
+- [[LinkedIn Posting Integration]] — personal-profile LinkedIn posting via `w_member_social` (Phase A); Phase A committed, typecheck clean, MCP baseline 14/14; pending migration repair + tenancy gate + LinkedIn dev-app creds; `domain: integrations`; status: in-progress (2026-06-25)
+
 ### Planned
+- [[LinkedIn Content Strategy]] — two-property LinkedIn operating system (Dan personal engine + SD company-page satellite); pillars, format mix, weekly cadence, templates, goal ladder; `domain: go-to-market`; tags: marketing, linkedin, content (2026-06-25)
+- [[OSS Launch Playbook]] — cold-start OSS launch playbook (Show HN + MCP registry + mini launch week); `domain: go-to-market`; tags: marketing, oss, launch (2026-06-25)
 - [[Visual-Editor Agent]] — first domain-specialist sub-agent under the hub-and-spoke topology; block authoring via natural-language in the portal chatbot; `domain: visual-editor`
 - [[Spec - MCP Parity]] — chat/notifications/surveys-submit/analytics MCP tools (four build groups); tickets_* already existed — corrected 2026-06-23; closes API+UI-vs-MCP layers gap; `domain: mcp`; board [[MCP Parity Board]]
 
