@@ -83,6 +83,11 @@ const nextConfig: NextConfig = {
   experimental: {
     workerThreads: false,
     cpus: 4,
+    // Next 16 enables Turbopack's persistent on-disk dev cache by default. On a
+    // repo this size it thrashes — "filesystem cache database compaction" runs
+    // for 1-2 min on a loop and freezes dev so the app never loads (vercel/next.js#87796).
+    // Off = no compaction stalls; cost is a slower cold compile after a restart.
+    turbopackFileSystemCacheForDev: false,
   },
   // `isomorphic-dompurify` (used by lib/security/sanitize-html, which several
   // block renderers import) transitively pulls in jsdom → html-encoding-sniffer
