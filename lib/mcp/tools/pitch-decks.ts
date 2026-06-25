@@ -150,6 +150,7 @@ export function registerPitchDecksTools(server: McpServer, ctx: PortalMcpContext
     },
     async ({ status, limit = 50 }) => {
       if (!requireScope(ctx, 'decks:read')) return denied('decks:read');
+      if (!(await requireService(clientId, 'pitch-decks'))) return serviceDenied('pitch-decks');
       const conds = [eq(pitchDecks.clientId, clientId)];
       if (status) conds.push(eq(pitchDecks.status, status));
       const rows = await db.select({
@@ -178,6 +179,7 @@ export function registerPitchDecksTools(server: McpServer, ctx: PortalMcpContext
     },
     async ({ id }) => {
       if (!requireScope(ctx, 'decks:read')) return denied('decks:read');
+      if (!(await requireService(clientId, 'pitch-decks'))) return serviceDenied('pitch-decks');
       const [deck] = await db.select().from(pitchDecks)
         .where(and(eq(pitchDecks.id, id), eq(pitchDecks.clientId, clientId))).limit(1);
       if (!deck) return json({ error: 'Deck not found' });
@@ -966,6 +968,7 @@ export function registerPitchDecksTools(server: McpServer, ctx: PortalMcpContext
     },
     async ({ deckId }) => {
       if (!requireScope(ctx, 'decks:read')) return denied('decks:read');
+      if (!(await requireService(clientId, 'pitch-decks'))) return serviceDenied('pitch-decks');
 
       // Verify ownership
       const [deck] = await db

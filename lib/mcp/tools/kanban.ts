@@ -48,6 +48,7 @@ import { assertSafeUrl } from '@/lib/ssrf-guard';
 import {
   assertColumnInProject,
   assertProjectInClient,
+  assertUserVisibleToClient,
   OwnershipError,
 } from '@/lib/security/assert-owned';
 import {
@@ -719,6 +720,15 @@ export function registerKanbanTools(server: McpServer, ctx: PortalMcpContext): v
     async ({ cardId, userId }) => {
       if (!requireScope(ctx, 'projects:write')) return denied('projects:write');
       if (!(await authCard(cardId))) return json({ error: 'Card not found' });
+      // Tenancy: the assignee must be a member of this client (or staff) — never
+      // an arbitrary cross-tenant user. Mirrors filterUserIdsVisibleToClient on
+      // the REST PATCH path.
+      try {
+        await assertUserVisibleToClient(userId, clientId);
+      } catch (e) {
+        if (e instanceof OwnershipError) return json({ error: 'User not found' });
+        throw e;
+      }
       await db.insert(kanbanCardAssignees).values({ cardId, userId }).onConflictDoNothing();
       // Auto-watch
       const { kanbanCardWatchers } = await import('@/lib/db/schema');

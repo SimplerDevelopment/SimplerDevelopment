@@ -369,6 +369,18 @@ describe('decks_list', () => {
     const res = await tools.get('decks_list')!.handler({});
     expect(res.isError).toBeUndefined();
   });
+
+  // Regression: decks-mcp-read-tools-no-service-gate — read tools must honour
+  // the same pitch-decks entitlement gate as the write tools.
+  it('returns serviceDenied when pitch-decks subscription missing', async () => {
+    const portalAuth = await import('@/lib/portal-auth');
+    (portalAuth.hasServiceAccess as ReturnType<typeof vi.fn>).mockResolvedValueOnce(false);
+    dbState.selectDefault = [{ id: 1, title: 'Secret', slug: 'secret' }];
+    const tools = registerAll(['*']);
+    const res = await tools.get('decks_list')!.handler({});
+    expect(res.isError).toBe(true);
+    expect(res.content[0].text).toMatch(/subscription/i);
+  });
 });
 
 // ── decks_get ──────────────────────────────────────────────────────────────
@@ -386,6 +398,32 @@ describe('decks_get', () => {
     const tools = registerAll(['*']);
     const res = await tools.get('decks_get')!.handler({ id: 999 });
     expect((parseJson(res) as { error: string }).error).toMatch(/not found/i);
+  });
+
+  // Regression: decks-mcp-read-tools-no-service-gate (decks_get).
+  it('returns serviceDenied when pitch-decks subscription missing', async () => {
+    const portalAuth = await import('@/lib/portal-auth');
+    (portalAuth.hasServiceAccess as ReturnType<typeof vi.fn>).mockResolvedValueOnce(false);
+    dbState.selectDefault = [{ id: 42, title: 'Secret', slides: [] }];
+    const tools = registerAll(['*']);
+    const res = await tools.get('decks_get')!.handler({ id: 42 });
+    expect(res.isError).toBe(true);
+    expect(res.content[0].text).toMatch(/subscription/i);
+  });
+});
+
+// ── deck_analytics_get ──────────────────────────────────────────────────────
+
+describe('deck_analytics_get', () => {
+  // Regression: decks-mcp-read-tools-no-service-gate (deck_analytics_get).
+  it('returns serviceDenied when pitch-decks subscription missing', async () => {
+    const portalAuth = await import('@/lib/portal-auth');
+    (portalAuth.hasServiceAccess as ReturnType<typeof vi.fn>).mockResolvedValueOnce(false);
+    dbState.selectDefault = [{ id: 7, title: 'Secret' }];
+    const tools = registerAll(['*']);
+    const res = await tools.get('deck_analytics_get')!.handler({ deckId: 7 });
+    expect(res.isError).toBe(true);
+    expect(res.content[0].text).toMatch(/subscription/i);
   });
 });
 
