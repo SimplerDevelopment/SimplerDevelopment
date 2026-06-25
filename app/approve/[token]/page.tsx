@@ -161,6 +161,19 @@ async function loadPreview(
     case 'post': {
       const [row] = await db.select().from(posts).where(eq(posts.id, entityId)).limit(1);
       if (!row) return { kind: 'missing', message: 'Post not found' };
+      // Tenancy: the posts table carries no clientId column — ownership is via
+      // websiteId → clientWebsites.clientId (mirrors the cms MCP tools). The
+      // [token] is the only credential, so verify the post's site belongs to
+      // the approval link's client before leaking any content. A null
+      // websiteId is an agency/global post with no tenant owner and is never
+      // reachable from a client-scoped approval link.
+      if (!row.websiteId) return { kind: 'missing', message: 'Post not found' };
+      const [ownerSite] = await db
+        .select({ clientId: clientWebsites.clientId })
+        .from(clientWebsites)
+        .where(and(eq(clientWebsites.id, row.websiteId), eq(clientWebsites.clientId, clientId)))
+        .limit(1);
+      if (!ownerSite) return { kind: 'missing', message: 'Post not found' };
       // Faithful preview: render the post through the SAME iframe the visual
       // editor's preview mode uses (the live site renderer at ?_preview=true),
       // rather than a divergent BlockRenderer card. Falls back to null when the
@@ -212,10 +225,13 @@ async function loadPreview(
       };
     }
     case 'email_campaign': {
+      // Tenancy: scope by the approval link's client so a token for client A
+      // can't load client B's campaign by guessing its id (matches the
+      // pitch_deck / survey / booking_page cases below).
       const [row] = await db
         .select()
         .from(emailCampaigns)
-        .where(eq(emailCampaigns.id, entityId))
+        .where(and(eq(emailCampaigns.id, entityId), eq(emailCampaigns.clientId, clientId)))
         .limit(1);
       if (!row) return { kind: 'missing', message: 'Campaign not found' };
       return {
@@ -230,10 +246,14 @@ async function loadPreview(
       };
     }
     case 'block_template': {
+      // Tenancy: scope by the approval link's client. MCP-authored templates
+      // stamp clientId = ctx.client.id; platform-global templates (clientId
+      // null) are admin-curated and never minted an approval link, so a strict
+      // clientId match can't lock out a legitimate reviewer.
       const [row] = await db
         .select()
         .from(blockTemplates)
-        .where(eq(blockTemplates.id, entityId))
+        .where(and(eq(blockTemplates.id, entityId), eq(blockTemplates.clientId, clientId)))
         .limit(1);
       if (!row) return { kind: 'missing', message: 'Template not found' };
       const draft = (row.draft ?? null) as BlockTemplateDraft | null;
