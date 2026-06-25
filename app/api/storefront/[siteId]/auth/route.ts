@@ -13,6 +13,7 @@ import {
 } from '@/lib/storefront/customer-auth';
 import { sendTransactionalEmail } from '@/lib/email/send-transactional';
 import { emitEvent } from '@/lib/automation/event-bus';
+import { checkRateLimit, getClientIp } from '@/lib/security/rate-limit';
 
 async function getSiteId(siteIdParam: string) {
   const id = parseInt(siteIdParam);
@@ -106,6 +107,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ sit
     }
 
     case 'login': {
+      // Throttle credential checks per IP+site to blunt password brute-force.
+      if (!checkRateLimit(`${getClientIp(req)}:storefront-login:${websiteId}`, 5, 15 * 60 * 1000)) {
+        return NextResponse.json({ success: false, message: 'Too many requests. Please try again later.' }, { status: 429 });
+      }
+
       const { email, password } = body;
       if (!email || !password) {
         return NextResponse.json({ success: false, message: 'Email and password are required' }, { status: 400 });
@@ -172,6 +178,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ sit
     }
 
     case 'forgot-password': {
+      // Throttle per IP+site to prevent password-reset email flooding.
+      if (!checkRateLimit(`${getClientIp(req)}:storefront-forgot-password:${websiteId}`, 5, 15 * 60 * 1000)) {
+        return NextResponse.json({ success: false, message: 'Too many requests. Please try again later.' }, { status: 429 });
+      }
+
       const { email } = body;
       if (!email) return NextResponse.json({ success: false, message: 'Email is required' }, { status: 400 });
 
@@ -218,6 +229,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ sit
     }
 
     case 'reset-password': {
+      // Throttle per IP+site to blunt reset-token brute-force.
+      if (!checkRateLimit(`${getClientIp(req)}:storefront-reset-password:${websiteId}`, 5, 15 * 60 * 1000)) {
+        return NextResponse.json({ success: false, message: 'Too many requests. Please try again later.' }, { status: 429 });
+      }
+
       const { token, password } = body;
       if (!token || !password) return NextResponse.json({ success: false, message: 'Token and password are required' }, { status: 400 });
       if (password.length < 8) return NextResponse.json({ success: false, message: 'Password must be at least 8 characters' }, { status: 400 });

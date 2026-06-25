@@ -269,7 +269,10 @@ export async function GET(
             printfulVariantId: productVariants.printfulVariantId,
           })
             .from(productVariants)
-            .where(sql`${productVariants.id} IN ${variantIds}`);
+            // Tenant scope: a public caller can supply arbitrary integer IDs, so
+            // bind the lookup to THIS site or a foreign tenant's printfulVariantId
+            // (POD catalog mapping) would leak.
+            .where(and(sql`${productVariants.id} IN ${variantIds}`, eq(productVariants.websiteId, websiteId)));
 
           for (const row of variantRows) {
             if (row.printfulVariantId != null) {
@@ -289,7 +292,9 @@ export async function GET(
             printfulVariantId: products.printfulVariantId,
           })
             .from(products)
-            .where(sql`${products.id} IN ${productIds}`);
+            // Tenant scope: bind to THIS site so a foreign-tenant productId cannot
+            // surface another store's printfulVariantId mapping.
+            .where(and(sql`${products.id} IN ${productIds}`, eq(products.websiteId, websiteId)));
 
           for (const row of productRows) {
             if (row.printfulVariantId != null) {
