@@ -7,8 +7,35 @@ import { inArray } from 'drizzle-orm';
 import { convertAllSlidesToV2, isV2Slides } from '@/lib/pitch-deck-migration';
 import { getBrandingByProfileId, getBrandingByClientId, getBrandingByWebsiteId, resolveFaviconUrlForClient } from '@/lib/branding';
 import { applyAbToDeckSlides } from '@/lib/ab/render';
+import { auth } from '@/lib/auth';
+import { getPortalClient } from '@/lib/portal-client';
 import type { Metadata } from 'next';
 import PitchDeckPresentation, { type SurveyDataForDeck } from './PitchDeckPresentation';
+
+/**
+ * Resolve the deck for a public request, enforcing that draft preview
+ * (`?preview=1`) is OWNER-ONLY. Published decks resolve for everyone; drafts
+ * resolve only when an authenticated portal session owns the deck — mirroring
+ * the legacy `app/pitch-deck/[slug]/page.tsx` gate. Without this, anyone who
+ * knows a tenant domain + deck slug could append `?preview=1` and read
+ * unpublished slides. Returns null when nothing should be served (the caller
+ * should `notFound()`), and never leaks a draft to a non-owner.
+ */
+async function resolveDeckForRequest(domain: string, slug: string, requestedPreview: boolean) {
+  if (requestedPreview) {
+    const session = await auth();
+    const client = session?.user?.id
+      ? await getPortalClient(parseInt(session.user.id, 10))
+      : null;
+    if (client) {
+      const draft = await getPitchDeckByDomainAndSlug(domain, slug, true);
+      if (draft && draft.clientId === client.id) return draft;
+    }
+    // Authenticated-but-not-owner, or unauthenticated: fall through to the
+    // published-only path below so a draft slug returns 404, not the draft.
+  }
+  return getPitchDeckByDomainAndSlug(domain, slug, false);
+}
 
 interface PageProps {
   params: Promise<{ domain: string; slug: string }>;
@@ -65,7 +92,7 @@ export async function generateMetadata({ params, searchParams }: PageProps): Pro
   const sp = await searchParams;
   const preview = sp.preview === '1' || sp.preview === 'true';
   const [deck, site] = await Promise.all([
-    getPitchDeckByDomainAndSlug(domain, slug, preview),
+    resolveDeckForRequest(domain, slug, preview),
     getClientWebsiteByDomain(domain),
   ]);
   if (!deck) return { title: { absolute: 'Not Found' } };
@@ -130,11 +157,12 @@ export async function generateMetadata({ params, searchParams }: PageProps): Pro
 export default async function PublicPitchDeckPage({ params, searchParams }: PageProps) {
   const { domain, slug } = await params;
   const sp = await searchParams;
-  // `?preview=1` (set by EditorHeader for draft decks) lets the public route
-  // serve drafts in addition to published. Without it, only published decks
-  // resolve — matches the legacy behavior.
+  // `?preview=1` (set by EditorHeader for draft decks) lets the OWNING client
+  // preview drafts in addition to published. resolveDeckForRequest enforces
+  // that draft preview requires an authenticated session whose client owns the
+  // deck — without it, only published decks resolve (and a draft slug 404s).
   const preview = sp.preview === '1' || sp.preview === 'true';
-  const deck = await getPitchDeckByDomainAndSlug(domain, slug, preview);
+  const deck = await resolveDeckForRequest(domain, slug, preview);
 
   if (!deck) {
     notFound();
