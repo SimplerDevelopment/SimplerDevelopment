@@ -40,6 +40,7 @@ date: 2026-06-17
 
 ## Planned
 
+- [ ] LinkedIn posting integration (Phase A: personal-profile API) — see [[LinkedIn Posting Integration]]
 - [ ] OSS public launch (Show HN + MCP registry + mini launch week) — see [[OSS Launch Playbook]]
 - [ ] Self-Serve SaaS GTM Launch (Phase 0 → public) — see [[Go-To-Market — Self-Serve SaaS]] · board [[GTM Launch Board]]
 - [ ] Visual-Editor / Block-Authoring Agent (first hub-and-spoke specialist; prerequisites now met — intent router shadow v1 + real tracing both shipped) — see [[Visual-Editor Agent]]
