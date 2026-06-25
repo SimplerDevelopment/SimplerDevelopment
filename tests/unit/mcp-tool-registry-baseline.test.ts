@@ -338,6 +338,11 @@ const EXPECTED_TOOLS: readonly string[] = [
   // ── integrations ──
   'integrations_list',
   'integrations_revoke',
+  // ── linkedin ──
+  'linkedin_status',
+  'linkedin_post_create',
+  'linkedin_post_update',
+  'linkedin_post_list',
   // ── invoices ──
   'invoices_get',
   'invoices_list',
