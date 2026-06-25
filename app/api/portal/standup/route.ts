@@ -12,24 +12,21 @@ import {
 } from '@/lib/db/schema';
 import { and, desc, eq, gte, inArray, or } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
-import { isPortalStaff } from '@/lib/portal';
 
 export async function GET() {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
 
   const userId = parseInt(session.user.id, 10);
-  const staff = await isPortalStaff();
-  let projectIds: number[];
-  if (staff) {
-    const all = await db.select({ id: projects.id }).from(projects);
-    projectIds = all.map(p => p.id);
-  } else {
-    const client = await getPortalClient(userId);
-    if (!client) return NextResponse.json({ success: false, message: 'Client not found' }, { status: 404 });
-    const all = await db.select({ id: projects.id }).from(projects).where(eq(projects.clientId, client.id));
-    projectIds = all.map(p => p.id);
-  }
+  // Always scope to the caller's ACTIVE client — even for staff. getPortalClient
+  // honors the sd-active-client cookie (and impersonation), so a staff user is
+  // bounded to the tenant they're currently viewing, never the whole DB. This
+  // mirrors app/api/portal/projects/route.ts, which scopes by clientId for staff
+  // and clients alike. (tenant-leak: standup-staff-sees-all-projects)
+  const client = await getPortalClient(userId);
+  if (!client) return NextResponse.json({ success: false, message: 'Client not found' }, { status: 404 });
+  const allProjects = await db.select({ id: projects.id }).from(projects).where(eq(projects.clientId, client.id));
+  const projectIds = allProjects.map(p => p.id);
 
   if (projectIds.length === 0) {
     return NextResponse.json({ success: true, data: { yesterday: [], today: [], blocked: [] } });
