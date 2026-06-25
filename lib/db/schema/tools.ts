@@ -642,7 +642,7 @@ export const linkedinPosts = pgTable('linkedin_posts', {
   userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   // LinkedIn post body cap is 3000 chars.
   text: varchar('text', { length: 3000 }).notNull(),
-  mediaType: varchar('media_type', { length: 16 }).$type<'none' | 'image' | 'video'>().notNull().default('none'),
+  mediaType: varchar('media_type', { length: 16 }).$type<'none' | 'image' | 'document' | 'video'>().notNull().default('none'),
   // Source asset (S3) to upload to LinkedIn at publish time.
   mediaUrl: text('media_url'),
   // LinkedIn asset URN after upload registration.
