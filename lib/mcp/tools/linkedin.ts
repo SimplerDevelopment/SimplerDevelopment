@@ -47,7 +47,7 @@ export function registerLinkedinTools(server: McpServer, ctx: PortalMcpContext):
         'Create a DRAFT LinkedIn post for the authenticated user. Does NOT publish or schedule — the draft is reviewed and scheduled by a human in the Publishing UI. Put any link in `linkInComment`, never in the body (reach hygiene). Echoes { id, status }.',
       inputSchema: {
         text: z.string().min(1).max(MAX_TEXT),
-        mediaType: z.enum(['none', 'image', 'video']).optional(),
+        mediaType: z.enum(['none', 'image', 'document', 'video']).optional(),
         mediaUrl: z.string().url().optional(),
         linkInComment: z.string().url().optional(),
       },
@@ -81,7 +81,7 @@ export function registerLinkedinTools(server: McpServer, ctx: PortalMcpContext):
       inputSchema: {
         id: z.number().int().positive(),
         text: z.string().min(1).max(MAX_TEXT).optional(),
-        mediaType: z.enum(['none', 'image', 'video']).optional(),
+        mediaType: z.enum(['none', 'image', 'document', 'video']).optional(),
         mediaUrl: z.string().url().optional(),
         linkInComment: z.string().url().optional(),
       },
