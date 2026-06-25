@@ -13,7 +13,7 @@ Static list (agents: maintain this when adding maps — Dataview below only rend
 - [[Auth & Security]] · [[Automations & Workflows]] · [[Billing & Stripe]]
 - [[Bookings & Services]] · [[Chat, Realtime & Voice]] · [[CMS & Blocks]]
 - [[Company Brain & AI]] · [[CRM]] · [[E-Sign & Approvals]]
-- [[Email & Campaigns]] · [[Integrations - Google, Microsoft & OAuth]] · [[Pitch Decks & Product Designer]]
+- [[Email & Campaigns]] · [[Integrations - Google, Microsoft & OAuth]] · [[Pitch Decks]] · [[Print Designer]]
 - [[Plugins & Extension]] · [[Projects, Tickets & Kanban]] · [[Sites, Hosting & Publishing]]
 - [[Storefront & Commerce]] · [[Surveys]] · [[Visual Editor]]
 

@@ -254,7 +254,7 @@ See [[ADR approval-preview-page-scoped-token]] for the full decision rationale a
 - **CRM** — `crm_contracts` table owns the e-sign state; contract PDF renderer imports `ContractClause` from `lib/db/schema/crm.ts`.
 - **MCP / API Keys** — `mcp_pending_changes` and `mcp_approval_links` reference `portalApiKeys`; the `require_cms_approval` flag on a key activates the staged-change path.
 - **CMS & Blocks** — `post`, `block_template` are approvable entity types; approving a post publishes it to `app/sites/`.
-- **Pitch Decks & Product Designer** — `pitch_deck` is an approvable entity type; `lib/decks/publish-slide.ts` is shared with the decks MCP tool.
+- **[[Pitch Decks]]** — `pitch_deck` is an approvable entity type; `lib/decks/publish-slide.ts` is shared with the decks MCP tool.
 - **Bookings & Services** — `booking_page` is an approvable entity type; approval flips `active=true`.
 - **Surveys** — `survey` is an approvable entity type; approval flips `status='active'`.
 - **Email & Campaigns** — `email_campaign` is an approvable entity type (approval recorded; send is separate).
@@ -284,7 +284,7 @@ See [[ADR approval-preview-page-scoped-token]] for the full decision rationale a
 ## Related
 
 - [[CRM]]
-- [[Pitch Decks & Product Designer]]
+- [[Pitch Decks]]
 - [[Bookings & Services]]
 - [[CMS & Blocks]]
 - [[Surveys]]
