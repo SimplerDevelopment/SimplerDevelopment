@@ -7,6 +7,7 @@ import { and, eq, desc, sql } from 'drizzle-orm';
 import { buildCustomFieldFilters } from '@/lib/crm-custom-field-filter';
 import { geocodeAddress } from '@/lib/geocode';
 import { validateCrmName } from '@/lib/crm/parse';
+import { hasServiceAccess } from '@/lib/portal-auth';
 
 function parseCoordinate(raw: unknown): number | null {
   if (raw === null || raw === undefined || raw === '') return null;
@@ -130,6 +131,20 @@ export async function POST(req: Request) {
   const client = await getPortalClient(userId);
   if (!client)
     return NextResponse.json({ success: false, message: 'Client not found' }, { status: 404 });
+
+  // Paid-module gate: CRM writes require an active CRM (or bundle) subscription.
+  // Mirrors the MCP layer's requireService(clientId, 'crm').
+  if (!(await hasServiceAccess(client.id, 'crm'))) {
+    return NextResponse.json(
+      {
+        success: false,
+        message: 'This feature requires an active crm subscription.',
+        requiresService: 'crm',
+        upsellUrl: '/portal/services',
+      },
+      { status: 403 }
+    );
+  }
 
   const body = await req.json();
 

@@ -2,8 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { getPortalClient } from '@/lib/portal-client';
 import { db } from '@/lib/db';
-import { crmActivities } from '@/lib/db/schema';
+import { crmActivities, crmDeals } from '@/lib/db/schema';
 import { and, eq, desc, sql } from 'drizzle-orm';
+import { hasServiceAccess } from '@/lib/portal-auth';
+import {
+  assertContactInClient,
+  assertCompanyInClient,
+  OwnershipError,
+} from '@/lib/security/assert-owned';
 
 export async function GET(req: NextRequest) {
   const session = await auth();
@@ -69,6 +75,20 @@ export async function POST(req: Request) {
   if (!client)
     return NextResponse.json({ success: false, message: 'Client not found' }, { status: 404 });
 
+  // Paid-module gate: CRM writes require an active CRM (or bundle) subscription.
+  // Mirrors the MCP layer's requireService(clientId, 'crm').
+  if (!(await hasServiceAccess(client.id, 'crm'))) {
+    return NextResponse.json(
+      {
+        success: false,
+        message: 'This feature requires an active crm subscription.',
+        requiresService: 'crm',
+        upsellUrl: '/portal/services',
+      },
+      { status: 403 }
+    );
+  }
+
   const body = await req.json();
 
   if (!body.type?.trim() || !body.title?.trim()) {
@@ -83,6 +103,28 @@ export async function POST(req: Request) {
       { success: false, message: 'At least one of contactId, dealId, or companyId is required' },
       { status: 400 }
     );
+  }
+
+  // Verify every linked FK belongs to this client before inserting. Without
+  // this an authenticated caller could attach an activity to another tenant's
+  // contact / deal / company via mass-assignment (cross-tenant write).
+  try {
+    if (body.contactId) await assertContactInClient(Number(body.contactId), client.id);
+    if (body.companyId) await assertCompanyInClient(Number(body.companyId), client.id);
+    if (body.dealId) {
+      // No assertDealInClient helper exists; scope the lookup inline.
+      const [deal] = await db
+        .select({ id: crmDeals.id })
+        .from(crmDeals)
+        .where(and(eq(crmDeals.id, Number(body.dealId)), eq(crmDeals.clientId, client.id)))
+        .limit(1);
+      if (!deal) throw new OwnershipError('dealId', Number(body.dealId));
+    }
+  } catch (err) {
+    if (err instanceof OwnershipError) {
+      return NextResponse.json({ success: false, message: err.message }, { status: 403 });
+    }
+    throw err;
   }
 
   const [activity] = await db

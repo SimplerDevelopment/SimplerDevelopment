@@ -8,6 +8,7 @@ import { db } from '@/lib/db';
 import { crmSequences, crmSequenceSteps } from '@/lib/db/schema';
 import { desc, eq } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
+import { hasServiceAccess } from '@/lib/portal-auth';
 
 interface StepInput {
   delayHours?: unknown;
@@ -38,6 +39,20 @@ export async function POST(req: Request) {
   const userId = parseInt(session.user.id, 10);
   const client = await getPortalClient(userId);
   if (!client) return NextResponse.json({ success: false, message: 'Client not found' }, { status: 404 });
+
+  // Paid-module gate: CRM writes require an active CRM (or bundle) subscription.
+  // Mirrors the MCP layer's requireService(clientId, 'crm').
+  if (!(await hasServiceAccess(client.id, 'crm'))) {
+    return NextResponse.json(
+      {
+        success: false,
+        message: 'This feature requires an active crm subscription.',
+        requiresService: 'crm',
+        upsellUrl: '/portal/services',
+      },
+      { status: 403 }
+    );
+  }
 
   const body = await req.json().catch(() => ({}));
   if (typeof body.name !== 'string' || !body.name.trim())

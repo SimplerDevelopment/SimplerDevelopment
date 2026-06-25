@@ -4,6 +4,7 @@ import { getPortalClient } from '@/lib/portal-client';
 import { db } from '@/lib/db';
 import { crmContacts, crmCompanies, crmDeals, crmPipelines, crmPipelineStages } from '@/lib/db/schema';
 import { and, eq, asc } from 'drizzle-orm';
+import { hasServiceAccess } from '@/lib/portal-auth';
 
 function parseCsvLine(line: string): string[] {
   const fields: string[] = [];
@@ -61,6 +62,21 @@ export async function POST(req: Request) {
       { success: false, message: 'Client not found' },
       { status: 404 }
     );
+
+  // Paid-module gate: CRM writes require an active CRM (or bundle) subscription.
+  // Mirrors the MCP layer's requireService(clientId, 'crm'). Checked before we
+  // parse the upload so an unentitled tenant can't trigger CSV processing.
+  if (!(await hasServiceAccess(client.id, 'crm'))) {
+    return NextResponse.json(
+      {
+        success: false,
+        message: 'This feature requires an active crm subscription.',
+        requiresService: 'crm',
+        upsellUrl: '/portal/services',
+      },
+      { status: 403 }
+    );
+  }
 
   let formData: globalThis.FormData;
   try {
