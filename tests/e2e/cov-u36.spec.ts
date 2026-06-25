@@ -14,7 +14,7 @@ import { runCleanups, createTestApiKey, McpTestClient } from './setup/helpers';
 import { execSync } from 'child_process';
 
 const DB_URL =
-  process.env.DATABASE_URL ?? 'postgresql://dancoyle@localhost:5432/simplerdev_test';
+  process.env.DATABASE_URL ?? 'postgresql://postgres@localhost:5432/simplerdev_test';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 

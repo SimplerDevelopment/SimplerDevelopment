@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { lt, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { mcpToolCalls } from '@/lib/db/schema';
+import { isAuthorizedCron } from '@/lib/cron-auth';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -22,12 +23,7 @@ export const runtime = 'nodejs';
  *   ?dryRun=1  — count rows that would be dropped without deleting
  */
 export async function GET(req: Request) {
-  const cronSecret = process.env.CRON_SECRET;
-  const auth = req.headers.get('authorization');
-  const isVercelCron = req.headers.get('x-vercel-cron') === '1';
-
-  const bearerOk = cronSecret && auth === `Bearer ${cronSecret}`;
-  if (!isVercelCron && !bearerOk) {
+  if (!isAuthorizedCron(req)) {
     return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
   }
 

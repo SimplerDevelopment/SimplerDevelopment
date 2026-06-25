@@ -13,7 +13,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { withCronHealth } from '@/lib/cron-health';
 import { drainQueuedRuns } from '@/lib/plugins/handlers/content-tools/runner';
-import { isAuthorizedCron } from '@/lib/plugins/handlers/content-tools/cron-auth';
+import { isAuthorizedCron } from '@/lib/cron-auth';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';

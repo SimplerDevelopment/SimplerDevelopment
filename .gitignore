@@ -139,3 +139,11 @@ evals-out/
 /release-ledger.json
 /release-progress.md
 /release-synthesis-report.md
+
+# Local Obsidian app/plugin state (a plugin data.json contained a live API key
+# + RSA private key — never commit). vault/ content itself stays tracked on dev.
+vault/.obsidian/
+.vscode/
+.idea/
+/dist/
+/fallow-baselines/

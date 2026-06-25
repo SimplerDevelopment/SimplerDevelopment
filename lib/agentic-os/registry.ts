@@ -401,7 +401,7 @@ export const SKILLS: readonly AgenticOsSkill[] = [
     estimatedRuntime: '20-30 min',
     trigger: 'on-demand',
     promptTemplate:
-      'Use draft-blog-post to write a Post Captain draft on "{{topic}}". Angle: {{angle}}. Length: {{length}}. Seed note: {{seedNote}}.',
+      'Use draft-blog-post to write a draft on "{{topic}}". Angle: {{angle}}. Length: {{length}}. Seed note: {{seedNote}}.',
     variables: [
       { key: 'topic', label: 'Topic / headline idea', required: true, placeholder: 'Why most enrollment-marketing dashboards lie' },
       { key: 'angle', label: 'Audience / format / opinion', required: false, placeholder: 'Deep dive for enrollment VPs' },
@@ -461,7 +461,7 @@ export const SKILLS: readonly AgenticOsSkill[] = [
       'Use visual-compare to side-by-side compare "{{leftLabel}}" ({{leftSource}}) against "{{rightLabel}}" ({{rightSource}}). Viewport: {{viewport}}. Report per-section verdicts.',
     variables: [
       { key: 'leftLabel', label: 'Left label', required: true, placeholder: 'Original HTML deck' },
-      { key: 'leftSource', label: 'Left source (URL or path)', required: true, placeholder: '/Users/dan/desks/v3.html' },
+      { key: 'leftSource', label: 'Left source (URL or path)', required: true, placeholder: '/path/to/local-file.html' },
       { key: 'rightLabel', label: 'Right label', required: true, placeholder: 'Portal-rendered deck' },
       { key: 'rightSource', label: 'Right source', required: true, placeholder: 'https://staging.simplerdevelopment.com/p/abc' },
       { key: 'viewport', label: 'Viewport', required: false, placeholder: '1920x1080' },
@@ -615,19 +615,6 @@ export const SKILLS: readonly AgenticOsSkill[] = [
     trigger: 'scheduled',
     cronExpression: '15 7 * * *',
     manualRunPath: '/api/cron/brain-empty-old-trash',
-  },
-  {
-    id: 'cron-brain-12',
-    domain: 'automations-cron',
-    name: 'BRAIN-12 One-Shot Cleanup',
-    description: 'Daily 07:30 UTC, but fires meaningful work on only two dates (2026-05-26 reminder, 2026-06-06 bulk soft-delete) for client 100.',
-    source: { kind: 'cron-route', path: 'app/api/cron/brain-12/route.ts', schedule: '30 7 * * *' },
-    icon: 'event_repeat',
-    estimatedRuntime: '1-3 min',
-    appliesRules: ['cron-auth-pattern'],
-    trigger: 'scheduled',
-    cronExpression: '30 7 * * *',
-    manualRunPath: '/api/cron/brain-12',
   },
   {
     id: 'cron-failing-automations-notify',

@@ -178,7 +178,7 @@ const classificationSchema = z.object({
 // ─── Prompt construction ────────────────────────────────────────────────────
 
 function buildSystemPrompt(): string {
-  return `You are classifying knowledge-base notes for Post Captain Consulting, a Slate-only enrollment consultancy serving higher-education enrollment and advancement teams.
+  return `You are classifying knowledge-base notes for a higher-education enrollment consultancy.
 
 For each note, return STRICT JSON matching this schema — no preamble, no markdown fences:
 
@@ -199,7 +199,7 @@ Slug meanings:
 source — where the note originated:
   - slate-kb: Slate documentation, knowledge base, technolutions references
   - competitor: a competitor's marketing/case study/blog/site
-  - own-marketing: Post Captain's own marketing, blog drafts, service pages
+  - own-marketing: own marketing content, blog drafts, service pages
   - industry-news: third-party industry news, EAB/Forbes/Inside Higher Ed, etc.
   - research-brief: original research, white papers, market analysis
   - meeting-transcript: meeting recordings or AI-summarized transcripts

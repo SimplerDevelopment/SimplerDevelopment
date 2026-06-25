@@ -349,7 +349,7 @@ WHERE client_id = <clientId>;
 Newly written notes / meeting summaries enqueue jobs immediately; the cron
 drains within ~1 minute. To backfill an existing tenant, run a one-shot
 enqueue across their content (an example pattern lives in
-`scripts/migrations/postcaptain/embed-all.ts`).
+`scripts/migrations/example-client/embed-all.ts`).
 
 ### Disabling Brain for a tenant
 

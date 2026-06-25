@@ -27,9 +27,11 @@ import postgres from 'postgres';
 import sharp from 'sharp';
 import { uploadToS3 } from '../../lib/s3/upload';
 
-const PHOTO_DIR =
-  process.env.CATALOG_PHOTO_DIR ||
-  '/Users/dancoyle/Documents/philaprints.com/applications/web/product-photos';
+const PHOTO_DIR = process.env.CATALOG_PHOTO_DIR;
+if (!PHOTO_DIR) {
+  console.error('Error: CATALOG_PHOTO_DIR env var is required. Set it to the directory containing product photos.');
+  process.exit(1);
+}
 const CONCURRENCY = Number(process.env.CATALOG_UPLOAD_CONCURRENCY || 8);
 const limitArg = process.argv.find((a) => a.startsWith('--limit='));
 const LIMIT = limitArg ? Number(limitArg.split('=')[1]) : Infinity;

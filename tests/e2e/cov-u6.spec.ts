@@ -21,7 +21,7 @@ const uniq = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 // ── Helpers ────────────────────────────────────────────────────────────────
 
 const DB_URL =
-  process.env.DATABASE_URL || 'postgresql://dancoyle@localhost:5432/simplerdev_test';
+  process.env.DATABASE_URL || 'postgresql://postgres@localhost:5432/simplerdev_test';
 
 async function psql(sql: string): Promise<string> {
   const { stdout } = await exec(`psql "${DB_URL}" -t -c "${sql.replace(/"/g, '\\"')}"`);

@@ -14,6 +14,7 @@
  */
 import { NextResponse } from 'next/server';
 import { withCronHealth } from '@/lib/cron-health';
+import { isAuthorizedCron } from '@/lib/cron-auth';
 import { db } from '@/lib/db';
 import {
   crmSequences,
@@ -33,13 +34,8 @@ const FROM_NAME = 'Simpler Development';
 const MAX_SENDS_PER_TICK = 100;
 
 async function _GET(req: Request): Promise<Response> {
-  const isVercelCron = req.headers.get('x-vercel-cron') === '1';
-  if (!isVercelCron) {
-    const cronSecret = process.env.CRON_SECRET;
-    const authz = req.headers.get('authorization');
-    if (!cronSecret || authz !== `Bearer ${cronSecret}`) {
-      return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
-    }
+  if (!isAuthorizedCron(req)) {
+    return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
   }
 
   const now = new Date();

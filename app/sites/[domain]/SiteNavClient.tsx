@@ -45,8 +45,7 @@ export function SiteNavClient({
   navTemplate,
   basePath = '',
 }: SiteNavClientProps) {
-  // Resolve font stacks once (matches what the live Post Captain site uses:
-  // Poppins for display/headings, DM Sans for body copy).
+  // Resolve font stacks once (e.g. Poppins for display/headings, DM Sans for body copy).
   const headingFontStack = headingFont ? `"${headingFont}", sans-serif` : 'system-ui, sans-serif';
   const bodyFontStack = bodyFont ? `"${bodyFont}", sans-serif` : 'system-ui, sans-serif';
   // Prepend basePath to internal absolute paths. External URLs, hash-only
@@ -122,8 +121,7 @@ export function SiteNavClient({
   const linkClass = isBoldLayout
     ? 'transition-colors duration-300'
     : 'transition-colors duration-300';
-  // Inline styles for the trigger text — Poppins 500 / 16px / uppercase / 0.16px
-  // tracking — match the live Post Captain top nav.
+  // Inline styles for the trigger text — Poppins 500 / 16px / uppercase / 0.16px tracking.
   const linkInlineStyle = isBoldLayout
     ? {
         fontFamily: headingFontStack,
@@ -458,8 +456,8 @@ export function SiteNavClient({
 
         {/* CTA button items — visible on both desktop and mobile (mobile shows
             a slightly smaller variant). On mobile the first button sits between
-            the logo and the hamburger, matching the live Post Captain header.
-            Inline display avoids the Slate-form `.hidden { display: none }` clash. */}
+            the logo and the hamburger. Inline display avoids the Slate-form
+            `.hidden { display: none }` clash. */}
         <div
           className="items-center"
           style={{

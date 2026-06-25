@@ -687,7 +687,7 @@ describe('POST /api/portal/websites/[siteId]/collaborators', () => {
     authMock.mockResolvedValue(SESSION);
     getPortalClientMock.mockResolvedValue({ id: 5 });
     selectQueue.push([{ id: 1, clientId: 5, githubRepoName: 'org/repo' }]); // site
-    selectQueue.push([{ userId: 7, githubUsername: 'dancoyle' }]);
+    selectQueue.push([{ userId: 7, githubUsername: 'testuser' }]);
     addCollaboratorMock.mockResolvedValue(undefined);
 
     const res = await collaboratorsRoute.POST(
@@ -697,15 +697,15 @@ describe('POST /api/portal/websites/[siteId]/collaborators', () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.success).toBe(true);
-    expect(body.message).toMatch(/added dancoyle/i);
-    expect(addCollaboratorMock).toHaveBeenCalledWith('org/repo', 'dancoyle', 'push');
+    expect(body.message).toMatch(/added testuser/i);
+    expect(addCollaboratorMock).toHaveBeenCalledWith('org/repo', 'testuser', 'push');
   });
 
   it('adds the user as an "admin" collaborator when requested', async () => {
     authMock.mockResolvedValue(SESSION);
     getPortalClientMock.mockResolvedValue({ id: 5 });
     selectQueue.push([{ id: 1, clientId: 5, githubRepoName: 'org/repo' }]);
-    selectQueue.push([{ userId: 7, githubUsername: 'dancoyle' }]);
+    selectQueue.push([{ userId: 7, githubUsername: 'testuser' }]);
     addCollaboratorMock.mockResolvedValue(undefined);
 
     const res = await collaboratorsRoute.POST(
@@ -715,14 +715,14 @@ describe('POST /api/portal/websites/[siteId]/collaborators', () => {
       { params: Promise.resolve({ siteId: '1' }) },
     );
     expect(res.status).toBe(200);
-    expect(addCollaboratorMock).toHaveBeenCalledWith('org/repo', 'dancoyle', 'admin');
+    expect(addCollaboratorMock).toHaveBeenCalledWith('org/repo', 'testuser', 'admin');
   });
 
   it('coerces unknown permission values to "push"', async () => {
     authMock.mockResolvedValue(SESSION);
     getPortalClientMock.mockResolvedValue({ id: 5 });
     selectQueue.push([{ id: 1, clientId: 5, githubRepoName: 'org/repo' }]);
-    selectQueue.push([{ userId: 7, githubUsername: 'dancoyle' }]);
+    selectQueue.push([{ userId: 7, githubUsername: 'testuser' }]);
     addCollaboratorMock.mockResolvedValue(undefined);
 
     const res = await collaboratorsRoute.POST(
@@ -732,14 +732,14 @@ describe('POST /api/portal/websites/[siteId]/collaborators', () => {
       { params: Promise.resolve({ siteId: '1' }) },
     );
     expect(res.status).toBe(200);
-    expect(addCollaboratorMock).toHaveBeenCalledWith('org/repo', 'dancoyle', 'push');
+    expect(addCollaboratorMock).toHaveBeenCalledWith('org/repo', 'testuser', 'push');
   });
 
   it('returns 500 with the error message when addCollaborator throws an Error', async () => {
     authMock.mockResolvedValue(SESSION);
     getPortalClientMock.mockResolvedValue({ id: 5 });
     selectQueue.push([{ id: 1, clientId: 5, githubRepoName: 'org/repo' }]);
-    selectQueue.push([{ userId: 7, githubUsername: 'dancoyle' }]);
+    selectQueue.push([{ userId: 7, githubUsername: 'testuser' }]);
     addCollaboratorMock.mockRejectedValue(new Error('github boom'));
 
     const res = await collaboratorsRoute.POST(
@@ -754,7 +754,7 @@ describe('POST /api/portal/websites/[siteId]/collaborators', () => {
     authMock.mockResolvedValue(SESSION);
     getPortalClientMock.mockResolvedValue({ id: 5 });
     selectQueue.push([{ id: 1, clientId: 5, githubRepoName: 'org/repo' }]);
-    selectQueue.push([{ userId: 7, githubUsername: 'dancoyle' }]);
+    selectQueue.push([{ userId: 7, githubUsername: 'testuser' }]);
     addCollaboratorMock.mockRejectedValue('plain string');
 
     const res = await collaboratorsRoute.POST(

@@ -99,7 +99,7 @@ Each per-slice report (`portal-a.md` through `portal-h.md`) contains a route-by-
 - **Mutation paths > read paths.** Detail-view smoke tests cover loads but rarely cover the full edit + save + reload cycle.
 - **Service-gated areas (booking, decks, surveys, hosting, email)** are systematically under-tested because the seeded portal client owns no `client_services` rows. Folding service grants into `seed-portal-client.ts` would unlock 30–50 more meaningful tests per area.
 - **The visual editor** has the largest absolute coverage gap relative to its surface area (~47 block types × insert/edit/render/postMessage). PORTAL-C verified all 47 block types via API round-trip but the editor UI itself only has happy-path coverage.
-- **MCP-only operations** (server-tool CRUD via Postcaptain MCP) are not under E2E coverage at all. Recommend a dedicated `portal-mcp-roundtrip.spec.ts` that drives the same operations the AI exposes.
+- **MCP-only operations** (server-tool CRUD via the portal MCP) are not under E2E coverage at all. Recommend a dedicated `portal-mcp-roundtrip.spec.ts` that drives the same operations the AI exposes.
 
 ## Files of record
 

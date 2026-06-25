@@ -9,7 +9,7 @@ import { escapeHtml } from '@/lib/utils/html';
 const HONEYPOT_FIELD = 'website';
 
 // Where contact-form submissions are delivered.
-const CONTACT_INBOX = 'info@simplerdevelopment.com';
+const CONTACT_INBOX = process.env.CONTACT_INBOX || 'info@simplerdevelopment.com';
 const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'SimplerDevelopment <noreply@simplerdevelopment.com>';
 
 

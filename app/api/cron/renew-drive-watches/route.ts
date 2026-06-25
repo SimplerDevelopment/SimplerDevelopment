@@ -10,6 +10,7 @@ import {
   stopDriveChanges,
   getDriveStartPageToken,
 } from '@/lib/google/drive-changes';
+import { isAuthorizedCron } from '@/lib/cron-auth';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -40,13 +41,8 @@ function resolveWebhookAddress(req: Request): string {
 }
 
 async function _GET(req: Request) {
-  const isVercelCron = req.headers.get('x-vercel-cron') === '1';
-  if (!isVercelCron) {
-    const cronSecret = process.env.CRON_SECRET;
-    const auth = req.headers.get('authorization');
-    if (!cronSecret || auth !== `Bearer ${cronSecret}`) {
-      return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
-    }
+  if (!isAuthorizedCron(req)) {
+    return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
   }
 
   const webhookAddress = resolveWebhookAddress(req);

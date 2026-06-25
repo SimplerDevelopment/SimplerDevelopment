@@ -471,7 +471,7 @@ export const crmEnrichmentConfig = pgTable('crm_enrichment_config', {
   clientId: integer('client_id').primaryKey().references(() => clients.id, { onDelete: 'cascade' }),
   enabled: boolean('enabled').default(false).notNull(),
   keySource: varchar('key_source', { length: 20 }).default('platform').notNull(), // 'platform' | 'own'
-  ownApiKey: varchar('own_api_key', { length: 500 }), // TODO: encrypt before storing in production
+  ownApiKey: varchar('own_api_key', { length: 500 }), // NOTE: currently unused. Encrypt with lib/crypto/secrets.ts before wiring any read/write.
   platformCreditBalance: integer('platform_credit_balance').default(0).notNull(),
   costPerEnrichment: integer('cost_per_enrichment').default(1).notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),

@@ -140,7 +140,7 @@ export function Footer() {
               </svg>
             </Link>
             <p className="text-sm text-muted-foreground mt-4">
-              info@simplerdevelopment.com
+              {process.env.NEXT_PUBLIC_CONTACT_EMAIL || 'info@simplerdevelopment.com'}
             </p>
           </div>
         </div>
