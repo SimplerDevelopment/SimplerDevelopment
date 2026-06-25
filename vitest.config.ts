@@ -48,11 +48,21 @@ export default defineConfig({
         'app/**/not-found.tsx',
         'app/**/error.tsx',
       ],
+      // Line-coverage floors (per tests/CI-GATES.md). Ratchet model: every floor
+      // here is at or below the CURRENT measured number (2026-06-24 unit run), so
+      // CI fails on a REGRESSION, never on the existing baseline. lib/ai + lib/billing
+      // are intentionally set below their 70% target (measured 61.1% / 27.9%) and
+      // tracked in the OSS backlog to be raised with real tests — enforcing 70%
+      // today would red-CI honest code. Functions/branches/statements stay
+      // unenforced (the documented floors are line-based).
       thresholds: {
-        lines: 0,
-        functions: 0,
-        branches: 0,
-        statements: 0,
+        lines: 60, // project floor — measured 63.7%
+        'lib/crypto/**': { lines: 90 }, // measured 100%
+        'lib/agency/**': { lines: 70 }, // measured 100%
+        'lib/esign/**': { lines: 70 }, // measured 92.9%
+        'lib/chat/**': { lines: 70 }, // measured 93.1%
+        'lib/ai/**': { lines: 60 }, // measured 61.1% — backlog: raise to 70
+        'lib/billing/**': { lines: 25 }, // measured 27.9% — small domain (333 lines), 25 floor avoids CI noise; backlog: raise to 70
       },
     },
     projects: [

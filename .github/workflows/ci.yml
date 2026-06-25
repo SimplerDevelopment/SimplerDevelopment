@@ -40,8 +40,12 @@ jobs:
       - name: Doc drift (cited paths must exist)
         run: bun scripts/check-doc-drift.ts
 
-      - name: Unit tests
-        run: bun run test:unit
+      # Run unit tests WITH coverage so the line-coverage floors in
+      # vitest.config.ts (project 60% + per-domain) are enforced as a real gate,
+      # not just measured. Calibrated to unit-only coverage (~63.7% project as of
+      # 2026-06-24). ~2x slower than --no-coverage but it is the coverage gate.
+      - name: Unit tests + coverage gate
+        run: scripts/test.sh --layer=unit
 
   # ── Multi-tenant leak regression — needs Postgres + pgvector ────────────────
   # Mirrors the local `bun test:tenancy` gate. Uses the pgvector image so the
