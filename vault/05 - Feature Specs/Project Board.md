@@ -49,6 +49,7 @@ date: 2026-06-17
 
 ## Validating
 
+- [ ] Mastra agents (Company Brain example) — Mastra v1 rebuild of the Brain pipeline; `tsc` clean + `mastra build` succeeds; not yet wired into Next runtime — see [[ADR mastra-agents-mcp-client]]
 - [ ] Prompt Eval Dashboard — see [[Prompt Eval Dashboard]] (Phases 1-4 + polish + datasets + per-model cost + review hardening; merged to dev 2026-06-24; pending go-live: apply eval-dashboard.ts migration + seed to staging/prod, register cron routes, flip PROMPT_REGISTRY_ENABLED)
 - [ ] Harness Engineering + Security Hardening (2026-06-24) — distillation loop, entitlement-bypass fix, structural guardrails; `bun test:tenancy` + portal-auth integration NOT yet run on ~40 changed routes; required before merge — see [[Spec - Guardrail Distillation Loop]] · [[ADR paid-module-entitlement-vs-scope-gating]] · [[Storefront & Commerce]] · [[Billing & Stripe]]
 - [ ] `sd-create-short` skill — branded feature shorts (MP4) for LinkedIn + blog — built + pipeline validated locally; first real production run (incl. portal upload) pending — see [[sd-create-short]]
