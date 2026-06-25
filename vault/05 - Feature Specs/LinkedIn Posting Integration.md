@@ -1,7 +1,7 @@
 ---
 type: spec
 domain: integrations
-status: planned
+status: in-progress
 date: 2026-06-25
 tags: [linkedin, integrations, publishing, social]
 sources:
@@ -17,11 +17,46 @@ sources:
   - app/api/cron/process-scheduled-posts/route.ts
   - lib/publishing/channels/email.ts
   - tests/unit/mcp-tool-registry-baseline.test.ts
+  - lib/linkedin/oauth.ts
+  - lib/linkedin/oauth-state.ts
+  - lib/linkedin/connections.ts
+  - lib/linkedin/api.ts
+  - app/api/portal/integrations/linkedin/connect/route.ts
+  - app/api/portal/integrations/linkedin/callback/route.ts
+  - app/api/portal/integrations/linkedin/disconnect/route.ts
+  - app/api/portal/integrations/linkedin/status/route.ts
+  - app/api/cron/process-linkedin-posts/route.ts
+  - app/portal/settings/integrations/page.tsx
 ---
 
 # LinkedIn Posting Integration — Feature Spec
 
-Status: PLANNED. Build deferred until the LinkedIn content strategy research re-runs (blocked on an Anthropic session-limit reset ~4pm ET 2026-06-25), then plan-then-delegate.
+Status: IN PROGRESS. Phase A committed; pending migration repair, tenancy gate, and LinkedIn developer app credentials before end-to-end validation.
+
+## Build status (2026-06-25)
+
+Commits: `44a9c5ec` (foundation), `60792532` (complete Phase A). Typecheck clean project-wide; MCP registry baseline 14/14.
+
+### BUILT
+
+- **Schema:** `linkedin_user_connections` + `linkedin_posts` tables (tokens AES-256-GCM encrypted; cron-time cols `timestamptz`).
+- **`lib/linkedin/oauth.ts`** + **`lib/linkedin/oauth-state.ts`** + **`lib/linkedin/connections.ts`** — OIDC flow, optional-refresh handling, encrypted upsert/refresh/revoke.
+- **`lib/linkedin/api.ts`** — REST Posts API client, TEXT posts only (verified vs `li-lms-2026-06`); image/video/document upload throws an explicit `NotImplemented` (TODO).
+- **OAuth routes:** `app/api/portal/integrations/linkedin/{connect,callback,disconnect,status}` — CSRF-bound.
+- **MCP tools:** `linkedin_status` / `linkedin_post_create` / `linkedin_post_update` / `linkedin_post_list` — DRAFT-ONLY (no publish/schedule via MCP), scope-guarded (`linkedin:read` / `linkedin:write`), tenant-scoped.
+- **Cron:** `app/api/cron/process-linkedin-posts` (`*/5`) with CAS double-fire guard + per-row error isolation; `vercel.json` updated.
+- **UI:** Connect LinkedIn card in `app/portal/settings/integrations/page.tsx`.
+- **`.env.example`:** `LINKEDIN_CLIENT_ID` / `LINKEDIN_CLIENT_SECRET` + optional `LINKEDIN_API_VERSION`.
+- **Skill (separate):** `/linkedin-weekly-drafts` generates the draft batch.
+
+### REMAINING / BLOCKERS
+
+- **Migration NOT generated** — pre-existing drizzle-kit meta snapshot collision (0004/0070/0072); must be hand-authored or generated after the meta journal is repaired (DB-ops task). Schema source-of-truth is in place.
+- **`bun test:tenancy` NOT run locally** (no DB) — REQUIRED before merge (new tenant tables).
+- **End-to-end OAuth/posting UNTESTED** — pends Dan creating the LinkedIn developer app + `LINKEDIN_CLIENT_ID` / `LINKEDIN_CLIENT_SECRET`.
+- **Media upload** (image/video/document) not implemented (text-only MVP).
+- **Publishing-board channel adapter** (`lib/publishing/channels/linkedin.ts`) deferred (Phase 2; not a clean clone of the 276-line email adapter).
+- **Minor:** `disconnect` exists in both the route and a settings server action — reconcile later.
 
 Related: [[OSS Launch Playbook]] (shares the same go-to-market effort).
 
