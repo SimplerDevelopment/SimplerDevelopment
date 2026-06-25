@@ -69,6 +69,7 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@hookform/resolvers": "^5.2.2",
+    "@mastra/core": "^1.46.0",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@next/swc-darwin-x64": "^16.2.0",
     "@octokit/auth-app": "^8.2.0",
