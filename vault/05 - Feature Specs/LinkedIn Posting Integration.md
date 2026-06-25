@@ -41,7 +41,7 @@ Commits: `44a9c5ec` (foundation), `60792532` (complete Phase A). Typecheck clean
 
 - **Schema:** `linkedin_user_connections` + `linkedin_posts` tables (tokens AES-256-GCM encrypted; cron-time cols `timestamptz`).
 - **`lib/linkedin/oauth.ts`** + **`lib/linkedin/oauth-state.ts`** + **`lib/linkedin/connections.ts`** — OIDC flow, optional-refresh handling, encrypted upsert/refresh/revoke.
-- **`lib/linkedin/api.ts`** — REST Posts API client, TEXT posts only (verified vs `li-lms-2026-06`); image/video/document upload throws an explicit `NotImplemented` (TODO).
+- **`lib/linkedin/api.ts`** — REST Posts API client. **Text + image + document(carousel) + video** all implemented (image/doc = 2-step initializeUpload→PUT; video = multi-part init→PUT parts→finalize). Verified vs `li-lms-2026-06`; untested end-to-end pending creds. (commit 5711d6ea + 71b9289b)
 - **OAuth routes:** `app/api/portal/integrations/linkedin/{connect,callback,disconnect,status}` — CSRF-bound.
 - **MCP tools:** `linkedin_status` / `linkedin_post_create` / `linkedin_post_update` / `linkedin_post_list` — DRAFT-ONLY (no publish/schedule via MCP), scope-guarded (`linkedin:read` / `linkedin:write`), tenant-scoped.
 - **Cron:** `app/api/cron/process-linkedin-posts` (`*/5`) with CAS double-fire guard + per-row error isolation; `vercel.json` updated.
@@ -54,7 +54,7 @@ Commits: `44a9c5ec` (foundation), `60792532` (complete Phase A). Typecheck clean
 - **Migration NOT generated** — pre-existing drizzle-kit meta snapshot collision (0004/0070/0072); must be hand-authored or generated after the meta journal is repaired (DB-ops task). Schema source-of-truth is in place.
 - **`bun test:tenancy` NOT run locally** (no DB) — REQUIRED before merge (new tenant tables).
 - **End-to-end OAuth/posting UNTESTED** — pends Dan creating the LinkedIn developer app + `LINKEDIN_CLIENT_ID` / `LINKEDIN_CLIENT_SECRET`.
-- **Media upload** (image/video/document) not implemented (text-only MVP).
+- **Media upload** (image/document/video) now IMPLEMENTED (verified vs docs, untested end-to-end). Migration hand-authored + committed (drizzle/9999_linkedin_posting_manual.sql).
 - **Publishing-board channel adapter** (`lib/publishing/channels/linkedin.ts`) deferred (Phase 2; not a clean clone of the 276-line email adapter).
 - **Minor:** `disconnect` exists in both the route and a settings server action — reconcile later.
 
