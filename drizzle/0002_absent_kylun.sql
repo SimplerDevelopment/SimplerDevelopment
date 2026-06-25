@@ -1,1 +1,0 @@
-CREATE UNIQUE INDEX "crm_custom_field_values_unique_idx" ON "crm_custom_field_values" USING btree ("custom_field_id","entity_id","entity_type");

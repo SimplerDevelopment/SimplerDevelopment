@@ -1,1 +1,0 @@
-ALTER TABLE "survey_responses" ADD COLUMN "form_name" varchar(100) DEFAULT 'main' NOT NULL;

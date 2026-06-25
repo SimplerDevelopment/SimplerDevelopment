@@ -67,10 +67,22 @@ async function run() {
     await sql.unsafe('CREATE SCHEMA public');
     await sql.unsafe('GRANT ALL ON SCHEMA public TO public');
 
+    // Provision the Postgres extensions the schema depends on BEFORE replaying
+    // migrations. The squashed baseline (0000) creates a vector(1536) column and
+    // gin_trgm_ops indexes, which require these extensions to already exist —
+    // drizzle-kit generate never emits CREATE EXTENSION, so they live here (and
+    // are a documented per-DB prerequisite for prod/dev — see CLAUDE.md).
+    console.log('>> provisioning extensions (vector, pg_trgm, pgcrypto)');
+    await sql.unsafe('CREATE EXTENSION IF NOT EXISTS vector');
+    await sql.unsafe('CREATE EXTENSION IF NOT EXISTS pg_trgm');
+    await sql.unsafe('CREATE EXTENSION IF NOT EXISTS pgcrypto');
+
     console.log('>> running migrations');
     const dir = path.resolve(__dirname, '../drizzle');
+    // Match 4-OR-MORE-digit prefixes so 5-digit manual migrations (e.g.
+    // 10008_*) are not silently skipped, as they were under the old /^\d{4}_/.
     const files = fs.readdirSync(dir)
-      .filter(f => /^\d{4}_.+\.sql$/.test(f))
+      .filter(f => /^\d{4,}_.+\.sql$/.test(f))
       .sort();
 
     for (const file of files) {
