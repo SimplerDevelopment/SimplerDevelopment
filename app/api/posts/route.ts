@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { posts, postCategories, postTags, postCustomFieldValues, customFields, postTypes } from '@/lib/db/schema';
-import { eq, desc, asc, sql } from 'drizzle-orm';
+import { posts, postCategories, postTags, postCustomFieldValues, customFields, postTypes, clientWebsites } from '@/lib/db/schema';
+import { eq, desc, asc, and, inArray, type SQL } from 'drizzle-orm';
 import { z } from 'zod';
 import { revalidateBlogPostsCache } from '@/lib/actions/blog';
+import { requireAdminOrEditor, gateResponse } from '@/lib/admin/auth';
+import { getPortalClients } from '@/lib/portal-client';
 
 const createPostSchema = z.object({
   title: z.string().min(1, 'Title is required'),
@@ -20,28 +22,16 @@ const createPostSchema = z.object({
   customFields: z.record(z.string(), z.string()).optional(),
 });
 
-async function requireAdminOrEditor() {
-  const session = await auth();
-  if (!session?.user?.id) return { error: 'unauth' as const };
-  const role = (session.user as { role?: string })?.role;
-  if (role !== 'admin' && role !== 'editor') return { error: 'forbidden' as const };
-  return { session };
-}
-
-function gateResponse(result: Awaited<ReturnType<typeof requireAdminOrEditor>>) {
-  if ('error' in result) {
-    if (result.error === 'unauth') {
-      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
-    }
-    return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
-  }
-  return null;
-}
-
 export async function GET(request: NextRequest) {
-  const gate = await requireAdminOrEditor();
-  const denied = gateResponse(gate);
-  if (denied) return denied;
+  // Dual-audience: staff (admin/editor) manage content across all tenants; a
+  // portal user only sees posts on websites their client(s) own. Previously
+  // this returned every post across every tenant with no scoping.
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+  }
+  const role = (session.user as { role?: string }).role;
+  const isStaff = role === 'admin' || role === 'editor';
 
   try {
     const { searchParams } = new URL(request.url);
@@ -53,20 +43,35 @@ export async function GET(request: NextRequest) {
 
     const orderColumn = sortBy === 'publishedAt' ? posts.publishedAt : posts.createdAt;
 
-    const result = published !== null
-      ? await db
-          .select()
-          .from(posts)
-          .where(eq(posts.published, published === 'true'))
-          .orderBy(sortOrder === 'asc' ? asc(orderColumn) : desc(orderColumn))
-          .limit(limit)
-          .offset(offset)
-      : await db
-          .select()
-          .from(posts)
-          .orderBy(sortOrder === 'asc' ? asc(orderColumn) : desc(orderColumn))
-          .limit(limit)
-          .offset(offset);
+    const conditions: SQL[] = [];
+    if (published !== null) {
+      conditions.push(eq(posts.published, published === 'true'));
+    }
+
+    if (!isStaff) {
+      // Scope to the websites owned by the portal user's client(s).
+      const ownedClients = await getPortalClients(parseInt(session.user.id, 10));
+      const clientIds = ownedClients.map((c) => c.id);
+      const sites = clientIds.length
+        ? await db
+            .select({ id: clientWebsites.id })
+            .from(clientWebsites)
+            .where(inArray(clientWebsites.clientId, clientIds))
+        : [];
+      const siteIds = sites.map((s) => s.id);
+      if (siteIds.length === 0) {
+        return NextResponse.json({ success: true, data: [], pagination: { limit, offset } });
+      }
+      conditions.push(inArray(posts.websiteId, siteIds));
+    }
+
+    const result = await db
+      .select()
+      .from(posts)
+      .where(conditions.length ? and(...conditions) : undefined)
+      .orderBy(sortOrder === 'asc' ? asc(orderColumn) : desc(orderColumn))
+      .limit(limit)
+      .offset(offset);
 
     return NextResponse.json({
       success: true,

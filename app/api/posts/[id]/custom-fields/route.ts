@@ -1,8 +1,42 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { postCustomFieldValues, customFields, posts } from '@/lib/db/schema';
 import { eq, and, inArray } from 'drizzle-orm';
 import { z } from 'zod';
+import { resolvePortalSite } from '@/lib/portal-client';
+
+/**
+ * Dual-audience guard for a single post by id. Custom-field read/write is
+ * exercised by BOTH the admin post form (components/admin/PostForm.tsx) and the
+ * portal post form (components/portal/post-form). Allow admin/editor staff, OR
+ * a portal user who owns the post's website. Returns an error NextResponse to
+ * deny, or null to proceed.
+ */
+async function guardPostAccess(postId: number): Promise<NextResponse | null> {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+  }
+  const role = (session.user as { role?: string }).role;
+  if (role === 'admin' || role === 'editor') return null;
+
+  // Portal user: must own the post's website. A null websiteId is a
+  // global/admin post that no portal tenant owns → deny.
+  const [post] = await db
+    .select({ websiteId: posts.websiteId })
+    .from(posts)
+    .where(eq(posts.id, postId))
+    .limit(1);
+  if (!post?.websiteId) {
+    return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
+  }
+  const site = await resolvePortalSite(parseInt(session.user.id, 10), post.websiteId);
+  if (!site) {
+    return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
+  }
+  return null;
+}
 
 // A 'reference' field value is a referenced post id, stored as a bare id ("5")
 // or a JSON array of ids ("[5,6]"). Parse either into a number[].
@@ -37,6 +71,9 @@ export async function GET(
         { status: 400 }
       );
     }
+
+    const denied = await guardPostAccess(postId);
+    if (denied) return denied;
 
     // Get all custom field values for this post with field details
     const values = await db
@@ -102,6 +139,9 @@ export async function PUT(
         { status: 400 }
       );
     }
+
+    const denied = await guardPostAccess(postId);
+    if (denied) return denied;
 
     const body = await request.json();
     const { customFieldId, value } = upsertSchema.parse(body);
