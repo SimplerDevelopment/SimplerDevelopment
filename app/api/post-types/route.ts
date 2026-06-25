@@ -3,6 +3,7 @@ import { db } from '@/lib/db';
 import { postTypes } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
+import { requireAdminOrEditor, gateResponse } from '@/lib/admin/auth';
 
 const createPostTypeSchema = z.object({
   name: z.string().min(1, 'Name is required'),
@@ -22,6 +23,10 @@ const updatePostTypeSchema = z.object({
 
 // GET /api/post-types - List all post types
 export async function GET() {
+  const gate = await requireAdminOrEditor();
+  const denied = gateResponse(gate);
+  if (denied) return denied;
+
   try {
     const allPostTypes = await db.select().from(postTypes);
     return NextResponse.json({ success: true, data: allPostTypes });
@@ -36,6 +41,10 @@ export async function GET() {
 
 // POST /api/post-types - Create new post type
 export async function POST(request: NextRequest) {
+  const gate = await requireAdminOrEditor();
+  const denied = gateResponse(gate);
+  if (denied) return denied;
+
   try {
     const body = await request.json();
     const validatedData = createPostTypeSchema.parse(body);

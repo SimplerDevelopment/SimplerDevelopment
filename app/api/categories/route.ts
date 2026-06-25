@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { categories } from '@/lib/db/schema';
 import { z } from 'zod';
+import { requireAdminOrEditor, gateResponse } from '@/lib/admin/auth';
 
 const createCategorySchema = z.object({
   name: z.string().min(1, 'Name is required'),
@@ -10,6 +11,10 @@ const createCategorySchema = z.object({
 });
 
 export async function GET() {
+  const gate = await requireAdminOrEditor();
+  const denied = gateResponse(gate);
+  if (denied) return denied;
+
   try {
     const result = await db.select().from(categories);
 
@@ -27,6 +32,10 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  const gate = await requireAdminOrEditor();
+  const denied = gateResponse(gate);
+  if (denied) return denied;
+
   try {
     const body = await request.json();
     const validatedData = createCategorySchema.parse(body);
