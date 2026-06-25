@@ -96,7 +96,7 @@ async function uploadImageOrDocument(
   const putRes = await fetch(uploadUrl, {
     method: 'PUT',
     headers: { Authorization: `Bearer ${opts.accessToken}`, 'Content-Type': 'application/octet-stream' },
-    body: bytes,
+    body: new Uint8Array(bytes),
   });
   if (!putRes.ok && putRes.status !== 201) {
     throw new Error(`LinkedIn ${kind} byte upload failed (${putRes.status}): ${await putRes.text()}`);
@@ -148,7 +148,7 @@ async function uploadVideo(opts: { accessToken: string; memberUrn: string; media
     const putRes = await fetch(part.uploadUrl, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/octet-stream' },
-      body: slice,
+      body: new Uint8Array(slice),
     });
     if (!putRes.ok && putRes.status !== 201) {
       throw new Error(`LinkedIn video part upload failed (${putRes.status}): ${await putRes.text()}`);
