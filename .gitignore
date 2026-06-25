@@ -138,3 +138,4 @@ evals-out/
 # OSS-release sweep state files (contain client-name tokens — never commit)
 /release-ledger.json
 /release-progress.md
+/release-synthesis-report.md
