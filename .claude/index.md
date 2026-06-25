@@ -28,6 +28,7 @@ Pointers from "I need to work on X" → the right CLAUDE.md / guide / skill. Loa
 - **Slim down an MCP tool response** → `simplerdev-mcp-token-budget` skill
 - **New client site from a URL** → `site-migration` skill
 - **Block editor audit** → `block-orchestrator` (drive) + `block-implementer` (atomic units)
+- **Draft a week of LinkedIn posts** → `linkedin-weekly-drafts` skill
 - **Write E2E tests** → `/e2e-writer`
 - **Run E2E tests** → `/e2e-runner`
 - **Visual QA / interactive review** → `/qa`
