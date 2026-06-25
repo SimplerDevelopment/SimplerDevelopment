@@ -59,7 +59,7 @@ vi.mock('@/components/portal/visual-editor/BlockContextMenu', () => ({
     return <div data-testid="context-menu" />;
   },
 }));
-vi.mock('@/components/portal/visual-editor/HtmlRenderEditor', () => ({
+vi.mock('@/components/portal/visual-editor/ImagePickerModal', () => ({
   ImagePickerModal: (props: Record<string, unknown>) => {
     lastImagePickerProps.current = props;
     return <div data-testid="image-picker" />;
