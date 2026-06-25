@@ -597,6 +597,82 @@ export type MicrosoftTeamsUserConnection = typeof microsoftTeamsUserConnections.
 
 export type NewMicrosoftTeamsUserConnection = typeof microsoftTeamsUserConnections.$inferInsert;
 
+// ─── LINKEDIN (Phase A: personal-profile posting) ────────────────────────────
+// Per-user delegated OAuth grant for posting to the connected member's own
+// LinkedIn profile via the `w_member_social` scope ("Share on LinkedIn").
+// Mirrors microsoftTeamsUserConnections in shape, multi-tenant by (clientId,
+// userId). DIVERGENCE from the google/microsoft user tables: the access +
+// refresh tokens are stored ENCRYPTED at rest (AES-256-GCM via
+// lib/crypto/secrets.ts encryptSecret/decryptSecret) — these are long-lived
+// posting tokens, so we don't keep them plaintext. Company-page (organization)
+// posting needs w_organization_social + Community Management API partner
+// approval and is intentionally out of scope here.
+export const linkedinUserConnections = pgTable('linkedin_user_connections', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  // The author URN we post as, e.g. `urn:li:person:<id>` (from OIDC /userinfo `sub`).
+  memberUrn: varchar('member_urn', { length: 128 }).notNull(),
+  linkedinName: varchar('linkedin_name', { length: 320 }),
+  // AES-256-GCM ciphertext (see lib/crypto/secrets.ts). Never store plaintext.
+  accessTokenEncrypted: text('access_token_encrypted').notNull(),
+  refreshTokenEncrypted: text('refresh_token_encrypted'),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  refreshTokenExpiresAt: timestamp('refresh_token_expires_at', { withTimezone: true }),
+  scopes: jsonb('scopes').$type<string[]>().notNull().default([]),
+  revokedAt: timestamp('revoked_at', { withTimezone: true }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => ({
+  clientUserUnique: uniqueIndex('linkedin_user_connections_client_user_unique').on(table.clientId, table.userId),
+}));
+
+export type LinkedinUserConnection = typeof linkedinUserConnections.$inferSelect;
+
+export type NewLinkedinUserConnection = typeof linkedinUserConnections.$inferInsert;
+
+// Draft → scheduled → published pipeline for LinkedIn posts. Mirrors the
+// emailCampaigns draft/scheduled shape. The 5-min `process-linkedin-posts`
+// cron scans (status='scheduled' AND scheduled_at <= now()). scheduled_at /
+// published_at are timestamptz (cron-time columns — see lib/db/CLAUDE.md).
+export const linkedinPosts = pgTable('linkedin_posts', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  // The connected user whose profile this publishes to (resolves the OAuth grant).
+  userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  // LinkedIn post body cap is 3000 chars.
+  text: varchar('text', { length: 3000 }).notNull(),
+  mediaType: varchar('media_type', { length: 16 }).$type<'none' | 'image' | 'video'>().notNull().default('none'),
+  // Source asset (S3) to upload to LinkedIn at publish time.
+  mediaUrl: text('media_url'),
+  // LinkedIn asset URN after upload registration.
+  mediaAssetUrn: text('media_asset_urn'),
+  // Optional link to drop in the first comment (never the body — reach hygiene).
+  linkInComment: text('link_in_comment'),
+  status: varchar('status', { length: 16 })
+    .$type<'draft' | 'scheduled' | 'publishing' | 'published' | 'failed'>()
+    .notNull()
+    .default('draft'),
+  scheduledAt: timestamp('scheduled_at', { withTimezone: true }),
+  publishedAt: timestamp('published_at', { withTimezone: true }),
+  // The URN/id LinkedIn returns for the created post.
+  linkedinPostId: text('linkedin_post_id'),
+  permalink: text('permalink'),
+  error: text('error'),
+  createdByUserId: integer('created_by_user_id').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => ({
+  // Cron scan: due scheduled posts.
+  statusScheduledIdx: index('linkedin_posts_status_scheduled_idx').on(table.status, table.scheduledAt),
+  // Tenant-scoped listing.
+  clientIdx: index('linkedin_posts_client_idx').on(table.clientId),
+}));
+
+export type LinkedinPost = typeof linkedinPosts.$inferSelect;
+
+export type NewLinkedinPost = typeof linkedinPosts.$inferInsert;
+
 export const zoomTokens = pgTable('zoom_tokens', {
   id: serial('id').primaryKey(),
   clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }).unique(),
