@@ -63,38 +63,81 @@ points in 2 hrs, let it die quietly — do not repost.
 
 ---
 
-## r/selfhosted  (same day, a few hours after Show HN)
+## Reddit — sequencing & the one rule that matters
 
-> ⚠️ Verify the sub's current self-promo rules + flair before posting — these
-> are being confirmed in a follow-up research pass. r/selfhosted is strict
-> about "is this an ad."
+HN is the engine (front-page HN ~10K–50K visits vs a strong PH day ~3K–15K;
+Open SaaS saw HN drive >3x PH traffic); Reddit is a same-/next-day amplifier.
+**The dominant risk for an agency-owned repo is looking commercial.** Documented
+failure: a self-hostable OSS project (OpenAlternative) hit **250+ upvotes on
+r/selfhosted, then was *removed* the moment the maker added a Stripe pay link.**
+So on EVERY Reddit post: no pay links, no agency CTA, no "hire us", no upsell.
+Lead as a maker sharing a thing. Disclose you built it. That's the antidote.
 
+> ⚠️ Before posting, open each sub's **rules page / sidebar** — exact self-promo
+> ratios, required flair, and AutoModerator new-account filters remain unverified
+> per sub. The *norms* below are evidence-backed; the *mechanical rules* are not.
+
+### r/selfhosted  (same day, a few hours after Show HN — strongest Reddit room)
 **Title:**
 ```
-I open-sourced our agency's all-in-one platform — self-hostable (Postgres + Docker), Apache-2.0
+I open-sourced our internal all-in-one platform — self-hostable (Docker + Postgres), Apache-2.0
 ```
-
 **Body:** lead with self-hosting (docker-compose, BYO Postgres+pgvector, no
-phone-home), then the feature breadth, then the MCP angle as the kicker.
-Disclose the agency origin in the first line. Link the repo + docker-compose.
+phone-home, your data stays yours), then feature breadth, then the MCP angle as
+the kicker. Disclose "I built this / it's our internal stack" in line one.
+**No pricing, no pay link, no agency mention beyond the honest disclosure.**
+Realistic: a genuine self-host post can reach 250+ upvotes here.
 
----
-
-## r/mcp  (same day — most receptive room)
-
+### r/mcp  (same day — most receptive to the core angle)
 **Title:**
 ```
 A full multi-tenant SaaS exposed as 200+ MCP tools — open-source, self-hostable
 ```
+**Body:** go deep on MCP design (per-domain registration, scope guards, token
+budgeting). This audience wants agent-operability detail, not marketing. Link
+`docs/api/mcp/overview.md`. *(Sub norms unverified — read the sidebar first.)*
 
-**Body:** go deep on the MCP design (per-domain registration, scope guards,
-token budgeting). This audience wants the agent-operability detail, not the
-marketing. Link `docs/api/mcp/overview.md`.
+### r/SideProject + r/coolgithubprojects  (low-risk cross-posts, same/next day)
+Both **explicitly welcome "I built this" OSS posts** — lowest removal risk. Good
+for a credibility signal + a few stars; low raw traffic, don't expect a spike.
+r/coolgithubprojects wants a GitHub link; r/SideProject rewards a personal-story
+title + a demo GIF.
+```
+I built an open-source, MCP-native all-in-one platform (sites + CRM + RAG + email + bookings) [Apache-2.0]
+```
+
+### r/opensource  (optional)
+Tolerant of OSS shares but **its exact rules are unverified** — check the wiki
+first; lead non-commercial, same as above.
 
 ---
 
-## Hold for a separate day — Product Hunt + design channels
+## Product Hunt — DEFER or SKIP for a cold launch
 
-The visual-editor / block-CMS angle suits Product Hunt and design communities,
-not HN. Launch it as its own event later in the mini-launch-week (see playbook
-§5). PH cold-account specifics are being confirmed in the follow-up research.
+PH is the **weakest channel for a no-audience repo**. Even a **#2-of-day finish
+(OpenStatus, 416 upvotes) produced only ~687 visits, ~10 users, 0 paying, and
+negligible stars.** PH front-loads the first ~2–4 hours on vote *velocity*,
+**discounts/zeroes votes from brand-new accounts, and can unfeature you** —
+coordinating new-account upvotes is exactly what triggers removal (the agency
+astroturf trap).
+
+**Recommendation: don't fire a cold same-day PH launch.** Skip it, or run it as
+its own prepared weekday event **only if you can queue ~20–30 real, warm
+supporters**. If you do:
+- **Self-hunt** (don't use an external hunter — 79% of featured posts are self-hunted).
+- Go live **12:01 AM PST, weekday**.
+- **OSS framing is an asset here** — add the GitHub link + tag the listing
+  **"Open Source"** (Papermark credited ~40% of its votes to the OSS community).
+- Expect PH to *feed* GitHub trending alongside HN, not to produce stars alone.
+
+The visual-editor / block-CMS angle is the natural PH/design-channel story if
+you do run it — save it for that event rather than HN.
+
+---
+
+## Timing note (unresolved — your call, kept open)
+
+Two sources disagree on the best HN slot: **Sunday ~7pm ET** (best modeled shot
+at cracking 50 points, but a low-volume weekend) vs the **12–17 UTC weekday
+window (~7am–12pm ET)** for star accrual (~+200 stars vs poor timing). Decision
+deferred — pick when the demo GIF + deploy are ready and you set the date.

@@ -117,10 +117,27 @@ Ongoing 1-2 hrs/wk: answer issues/comments fast, keep demo alive, one build-in-p
 
 ## 8. Evidence gaps (honesty)
 
-- Reddit (r/selfhosted, r/SideProject, r/opensource) + Product Hunt specifics did NOT survive verification — general-norm inference only; needs a focused follow-up.
-- Timing percentages rest on one blog's bucketed analysis — directional.
+- Reddit + Product Hunt CHANNEL strategy is now evidence-backed (see §9, research pass #2). What remains unverified: the *mechanical* sub rules — r/opensource rulebook, r/selfhosted's exact self-promo ratio / required flair / AutoModerator new-account filter, and r/mcp norms. Read each sub's sidebar before posting.
+- Timing percentages rest on one blog's bucketed analysis — directional. The two HN-timing sources actively conflict (Sunday 7pm ET vs 12–17 UTC weekday) — slot DECISION DEFERRED.
 - Supabase "10x overnight / second to Stripe" is self-reported, not audited.
-- No reliable week-one star benchmark exists — metric numbers are derived, not cited.
+- No reliable week-one star benchmark exists — metric numbers are derived, not cited. (The ~289-stars-week and Papermark-250-stars figures were both REFUTED — do not cite.)
+
+---
+
+## 9. Channel addendum — Reddit + Product Hunt (research pass #2, verified)
+
+**Sequencing:** HN is the engine (front-page HN ~10K–50K visits vs strong PH day ~3K–15K; Open SaaS: HN >3x PH traffic) and feeds GitHub trending. Lead HN → same/next-day Reddit → PH deferred. Evidence supports amplification over cannibalization, but the specific "PH-first then HN stagger" ordering was REFUTED — the order below is reasoned synthesis.
+
+**The one rule for an agency-owned repo:** the dominant risk is looking commercial. OpenAlternative hit 250+ upvotes on r/selfhosted then was REMOVED after adding a Stripe pay link. So on every Reddit post: no pay links, no agency CTA, no upsell — lead as a maker, disclose you built it.
+
+- **r/selfhosted** (strongest Reddit room): genuine self-host post can reach 250+ upvotes. Lead with docker-compose / BYO Postgres / no phone-home, then breadth, then MCP. Strictly non-commercial.
+- **r/SideProject + r/coolgithubprojects**: explicitly welcome "I built this" OSS posts — lowest removal risk; good for credibility + a few stars, low raw traffic.
+- **r/mcp** (most receptive to core angle) + **r/opensource** (optional): tolerant, but norms/rules unverified — read sidebar first.
+- **Product Hunt — DEFER or SKIP cold.** Weakest no-audience channel: even #2-of-day (OpenStatus, 416 upvotes) → ~687 visits, ~10 users, 0 paying, negligible stars. PH scores vote velocity in the first ~2–4h, discounts/zeroes brand-new-account votes, and can unfeature (coordinating votes = the astroturf trap). Run only as its own prepared weekday event (self-hunt, 12:01 AM PST) IF ~20–30 warm supporters can be queued. OSS framing is an asset there (GitHub link + "Open Source" tag; ~40% of Papermark's votes came from the OSS community); PH feeds GitHub trending alongside HN, doesn't produce stars alone.
+
+Paste-ready post drafts for all of the above live in `docs/launch/show-hn.md`.
+
+Pass #2 sources: smollaunch (PH vs HN); docs.opensaas.sh; openstatus.dev postmortem; OpenAlternative (IndieHackers + kulpinski.dev); papermark.com; toffu.ai / GummySearch (sub data); producthunt.com guides; fmerian/awesome-product-hunt.
 
 ---
 
