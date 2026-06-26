@@ -136,7 +136,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
   // does not. Best-effort (in-memory, per-instance) — same guardrail the auth
   // routes use; back with Redis for a hard global gate. ponytail: per-instance
   // cap, swap to Redis-backed limiter if a distributed flood gets through.
-  if (!checkRateLimit(`survey-submit:${getClientIp(req)}:${slug}`, 30, 60_000)) {
+  if (!(await checkRateLimit(`survey-submit:${getClientIp(req)}:${slug}`, 30, 60_000))) {
     return corsJson(
       { success: false, message: 'Too many submissions. Please wait a moment and try again.' },
       { status: 429 },

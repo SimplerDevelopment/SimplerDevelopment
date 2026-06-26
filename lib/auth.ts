@@ -53,7 +53,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         // Brute-force guard: throttle credential attempts per IP *before* any DB
         // hit or bcrypt compare. `request` is a standard Request in the
         // credentials flow; guard in case a future flow omits it.
-        if (!AUTH_RATE_LIMIT_DISABLED && request && !checkRateLimit(`${getClientIp(request as Request)}:login`, 10, 15 * 60 * 1000)) {
+        if (!AUTH_RATE_LIMIT_DISABLED && request && !(await checkRateLimit(`${getClientIp(request as Request)}:login`, 10, 15 * 60 * 1000))) {
           throw new Error('Too many sign-in attempts. Please wait a few minutes and try again.');
         }
 

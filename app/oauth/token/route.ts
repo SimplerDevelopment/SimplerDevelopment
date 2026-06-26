@@ -166,7 +166,7 @@ async function handleRefreshGrant(
 export async function POST(req: Request) {
   // Throttle token requests per IP to blunt client-secret / code brute force.
   // 30/15min is generous for legitimate machine clients refreshing tokens.
-  if (!checkRateLimit(`${getClientIp(req)}:oauth-token`, 30, 15 * 60 * 1000)) {
+  if (!(await checkRateLimit(`${getClientIp(req)}:oauth-token`, 30, 15 * 60 * 1000))) {
     return err(429, 'temporarily_unavailable', 'Too many token requests. Please try again later.');
   }
 
