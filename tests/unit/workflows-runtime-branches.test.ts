@@ -390,15 +390,19 @@ describe('executeAction — condition branching', () => {
     expect(nodeIds).toEqual(['trigger', 'cond', 'no']);
   });
 
-  it('defaults to TRUE when there is no override in context', async () => {
+  it('resolves a dotted field path in context — truthy value takes the TRUE branch', async () => {
+    // Phase 3: real evaluator. 'deal.stale' walks context.deal.stale which is true.
     const { runWorkflow } = await import('@/lib/workflows/runtime');
     seedWorkflow(52, conditionGraph('deal.stale'));
-    await runWorkflow(52, { clientId: 1 }, { maxWaitMs: 0 });
+    await runWorkflow(52, { clientId: 1, deal: { stale: true } }, { maxWaitMs: 0 });
     const nodeIds = state.workflowStepLogs.map((l) => l.nodeId);
     expect(nodeIds).toEqual(['trigger', 'cond', 'yes']);
   });
 
-  it('defaults to TRUE when conditions object lacks the expression key', async () => {
+  it('defaults to FALSE (safe default) when field path is absent from context', async () => {
+    // Phase 3: when the field doesn't exist in context AND there's no matching
+    // override, the evaluator returns false (safe / no-branch default) rather
+    // than the old always-true stub behavior.
     const { runWorkflow } = await import('@/lib/workflows/runtime');
     seedWorkflow(53, conditionGraph('deal.stale'));
     await runWorkflow(
@@ -407,7 +411,8 @@ describe('executeAction — condition branching', () => {
       { maxWaitMs: 0 },
     );
     const nodeIds = state.workflowStepLogs.map((l) => l.nodeId);
-    expect(nodeIds).toEqual(['trigger', 'cond', 'yes']);
+    // 'deal.stale' not in context → false → routes to 'no' branch.
+    expect(nodeIds).toEqual(['trigger', 'cond', 'no']);
   });
 
   it('also follows unlabeled edges from a condition node', async () => {
@@ -522,5 +527,250 @@ describe('executeStep — input cloning', () => {
     const log = actionLog();
     expect(log.input).toEqual(action);
     expect(log.input).not.toBe(action);
+  });
+});
+
+// ─── Phase 3: Real condition evaluator ────────────────────────────────────────
+//
+// These tests exercise `evaluateWorkflowExpression()` — the replacement for the
+// always-true stub. Each test uses a condition graph (trigger → condition → true/
+// false branch) and verifies which downstream node was executed.
+
+describe('executeAction — condition: real expression evaluator (Phase 3)', () => {
+  /** Build a trigger → condition → yes/no branch graph using the given expression. */
+  function conditionGraph(expression: string) {
+    return {
+      nodes: [
+        { id: 'trigger', type: 'trigger', position: { x: 0, y: 0 }, data: { kind: 'manual' } },
+        {
+          id: 'cond',
+          type: 'condition',
+          position: { x: 0, y: 100 },
+          data: { kind: 'condition', expression },
+        },
+        {
+          id: 'yes',
+          type: 'action',
+          position: { x: -100, y: 200 },
+          data: { kind: 'wait', ms: 0 },
+        },
+        {
+          id: 'no',
+          type: 'action',
+          position: { x: 100, y: 200 },
+          data: { kind: 'wait', ms: 0 },
+        },
+      ],
+      edges: [
+        { id: 'e1', source: 'trigger', target: 'cond' },
+        { id: 'e2', source: 'cond', target: 'yes', label: 'true' },
+        { id: 'e3', source: 'cond', target: 'no', label: 'false' },
+      ],
+    };
+  }
+
+  // ── Simple path (no operator) — truthy / falsy check ──────────────────────
+
+  it('simple path: truthy field value → TRUE branch', async () => {
+    const { runWorkflow } = await import('@/lib/workflows/runtime');
+    seedWorkflow(100, conditionGraph('contact.premium'));
+    await runWorkflow(100, { clientId: 1, contact: { premium: true } }, { maxWaitMs: 0 });
+    const nodeIds = state.workflowStepLogs.map((l) => l.nodeId);
+    expect(nodeIds).toEqual(['trigger', 'cond', 'yes']);
+  });
+
+  it('simple path: falsy field value (false) → FALSE branch', async () => {
+    const { runWorkflow } = await import('@/lib/workflows/runtime');
+    seedWorkflow(101, conditionGraph('contact.premium'));
+    await runWorkflow(101, { clientId: 1, contact: { premium: false } }, { maxWaitMs: 0 });
+    const nodeIds = state.workflowStepLogs.map((l) => l.nodeId);
+    expect(nodeIds).toEqual(['trigger', 'cond', 'no']);
+  });
+
+  it('simple path: truthy non-empty string → TRUE branch', async () => {
+    const { runWorkflow } = await import('@/lib/workflows/runtime');
+    seedWorkflow(102, conditionGraph('contact.tag'));
+    await runWorkflow(102, { clientId: 1, contact: { tag: 'vip' } }, { maxWaitMs: 0 });
+    const nodeIds = state.workflowStepLogs.map((l) => l.nodeId);
+    expect(nodeIds).toEqual(['trigger', 'cond', 'yes']);
+  });
+
+  it('simple path: truthy non-zero number → TRUE branch', async () => {
+    const { runWorkflow } = await import('@/lib/workflows/runtime');
+    seedWorkflow(103, conditionGraph('deal.amount'));
+    await runWorkflow(103, { clientId: 1, deal: { amount: 500 } }, { maxWaitMs: 0 });
+    const nodeIds = state.workflowStepLogs.map((l) => l.nodeId);
+    expect(nodeIds).toEqual(['trigger', 'cond', 'yes']);
+  });
+
+  it('missing field → FALSE (safe default, not true)', async () => {
+    // Field path does not exist in context at all → safe false, not the old
+    // always-true stub behavior.
+    const { runWorkflow } = await import('@/lib/workflows/runtime');
+    seedWorkflow(104, conditionGraph('deal.nonexistent'));
+    await runWorkflow(104, { clientId: 1, deal: {} }, { maxWaitMs: 0 });
+    const nodeIds = state.workflowStepLogs.map((l) => l.nodeId);
+    expect(nodeIds).toEqual(['trigger', 'cond', 'no']);
+  });
+
+  it('undefined top-level field → FALSE (safe default)', async () => {
+    const { runWorkflow } = await import('@/lib/workflows/runtime');
+    seedWorkflow(105, conditionGraph('deal.amount'));
+    // Context has no 'deal' key at all.
+    await runWorkflow(105, { clientId: 1 }, { maxWaitMs: 0 });
+    const nodeIds = state.workflowStepLogs.map((l) => l.nodeId);
+    expect(nodeIds).toEqual(['trigger', 'cond', 'no']);
+  });
+
+  // ── Operator: eq / neq ─────────────────────────────────────────────────────
+
+  it('operator eq: exact string match → TRUE branch', async () => {
+    const { runWorkflow } = await import('@/lib/workflows/runtime');
+    seedWorkflow(110, conditionGraph('contact.status eq active'));
+    await runWorkflow(110, { clientId: 1, contact: { status: 'active' } }, { maxWaitMs: 0 });
+    const nodeIds = state.workflowStepLogs.map((l) => l.nodeId);
+    expect(nodeIds).toEqual(['trigger', 'cond', 'yes']);
+  });
+
+  it('operator eq: mismatch → FALSE branch', async () => {
+    const { runWorkflow } = await import('@/lib/workflows/runtime');
+    seedWorkflow(111, conditionGraph('contact.status eq active'));
+    await runWorkflow(111, { clientId: 1, contact: { status: 'inactive' } }, { maxWaitMs: 0 });
+    const nodeIds = state.workflowStepLogs.map((l) => l.nodeId);
+    expect(nodeIds).toEqual(['trigger', 'cond', 'no']);
+  });
+
+  it('operator neq: field differs from value → TRUE branch', async () => {
+    const { runWorkflow } = await import('@/lib/workflows/runtime');
+    seedWorkflow(112, conditionGraph('deal.stage neq closed'));
+    await runWorkflow(112, { clientId: 1, deal: { stage: 'open' } }, { maxWaitMs: 0 });
+    const nodeIds = state.workflowStepLogs.map((l) => l.nodeId);
+    expect(nodeIds).toEqual(['trigger', 'cond', 'yes']);
+  });
+
+  // ── Operator: gt / lt (numeric) ────────────────────────────────────────────
+
+  it('operator gt: field > numeric value → TRUE branch', async () => {
+    const { runWorkflow } = await import('@/lib/workflows/runtime');
+    seedWorkflow(120, conditionGraph('deal.amount gt 100'));
+    await runWorkflow(120, { clientId: 1, deal: { amount: 250 } }, { maxWaitMs: 0 });
+    const nodeIds = state.workflowStepLogs.map((l) => l.nodeId);
+    expect(nodeIds).toEqual(['trigger', 'cond', 'yes']);
+  });
+
+  it('operator gt: field <= numeric value → FALSE branch', async () => {
+    const { runWorkflow } = await import('@/lib/workflows/runtime');
+    seedWorkflow(121, conditionGraph('deal.amount gt 100'));
+    await runWorkflow(121, { clientId: 1, deal: { amount: 50 } }, { maxWaitMs: 0 });
+    const nodeIds = state.workflowStepLogs.map((l) => l.nodeId);
+    expect(nodeIds).toEqual(['trigger', 'cond', 'no']);
+  });
+
+  it('operator lt: field < numeric value → TRUE branch', async () => {
+    const { runWorkflow } = await import('@/lib/workflows/runtime');
+    seedWorkflow(122, conditionGraph('deal.score lt 5'));
+    await runWorkflow(122, { clientId: 1, deal: { score: 3 } }, { maxWaitMs: 0 });
+    const nodeIds = state.workflowStepLogs.map((l) => l.nodeId);
+    expect(nodeIds).toEqual(['trigger', 'cond', 'yes']);
+  });
+
+  // ── Operator: contains ─────────────────────────────────────────────────────
+
+  it('operator contains: string includes substring → TRUE branch', async () => {
+    const { runWorkflow } = await import('@/lib/workflows/runtime');
+    seedWorkflow(130, conditionGraph('contact.email contains @example'));
+    await runWorkflow(
+      130,
+      { clientId: 1, contact: { email: 'user@example.com' } },
+      { maxWaitMs: 0 },
+    );
+    const nodeIds = state.workflowStepLogs.map((l) => l.nodeId);
+    expect(nodeIds).toEqual(['trigger', 'cond', 'yes']);
+  });
+
+  it('operator contains: string does not include substring → FALSE branch', async () => {
+    const { runWorkflow } = await import('@/lib/workflows/runtime');
+    seedWorkflow(131, conditionGraph('contact.email contains @example'));
+    await runWorkflow(
+      131,
+      { clientId: 1, contact: { email: 'user@other.com' } },
+      { maxWaitMs: 0 },
+    );
+    const nodeIds = state.workflowStepLogs.map((l) => l.nodeId);
+    expect(nodeIds).toEqual(['trigger', 'cond', 'no']);
+  });
+
+  // ── Operator: exists / not_exists ──────────────────────────────────────────
+
+  it('operator exists: field is present → TRUE branch', async () => {
+    const { runWorkflow } = await import('@/lib/workflows/runtime');
+    seedWorkflow(140, conditionGraph('contact.phone exists'));
+    await runWorkflow(140, { clientId: 1, contact: { phone: '555-0100' } }, { maxWaitMs: 0 });
+    const nodeIds = state.workflowStepLogs.map((l) => l.nodeId);
+    expect(nodeIds).toEqual(['trigger', 'cond', 'yes']);
+  });
+
+  it('operator exists: field is absent → FALSE branch', async () => {
+    const { runWorkflow } = await import('@/lib/workflows/runtime');
+    seedWorkflow(141, conditionGraph('contact.phone exists'));
+    await runWorkflow(141, { clientId: 1, contact: {} }, { maxWaitMs: 0 });
+    const nodeIds = state.workflowStepLogs.map((l) => l.nodeId);
+    expect(nodeIds).toEqual(['trigger', 'cond', 'no']);
+  });
+
+  it('operator not_exists: field is absent → TRUE branch', async () => {
+    const { runWorkflow } = await import('@/lib/workflows/runtime');
+    seedWorkflow(142, conditionGraph('contact.phone not_exists'));
+    await runWorkflow(142, { clientId: 1, contact: {} }, { maxWaitMs: 0 });
+    const nodeIds = state.workflowStepLogs.map((l) => l.nodeId);
+    expect(nodeIds).toEqual(['trigger', 'cond', 'yes']);
+  });
+
+  // ── Nested paths ───────────────────────────────────────────────────────────
+
+  it('three-level dotted path resolves correctly', async () => {
+    const { runWorkflow } = await import('@/lib/workflows/runtime');
+    seedWorkflow(150, conditionGraph('deal.metadata.priority eq high'));
+    await runWorkflow(
+      150,
+      { clientId: 1, deal: { metadata: { priority: 'high' } } },
+      { maxWaitMs: 0 },
+    );
+    const nodeIds = state.workflowStepLogs.map((l) => l.nodeId);
+    expect(nodeIds).toEqual(['trigger', 'cond', 'yes']);
+  });
+
+  it('intermediate segment absent in nested path → FALSE (safe default)', async () => {
+    const { runWorkflow } = await import('@/lib/workflows/runtime');
+    seedWorkflow(151, conditionGraph('deal.metadata.priority eq high'));
+    // 'deal' exists but 'deal.metadata' does not.
+    await runWorkflow(151, { clientId: 1, deal: {} }, { maxWaitMs: 0 });
+    const nodeIds = state.workflowStepLogs.map((l) => l.nodeId);
+    expect(nodeIds).toEqual(['trigger', 'cond', 'no']);
+  });
+
+  // ── context.conditions override still wins over real evaluation ────────────
+
+  it('explicit context.conditions override takes precedence over real field value', async () => {
+    // Field says false, override says true → override wins.
+    const { runWorkflow } = await import('@/lib/workflows/runtime');
+    seedWorkflow(160, conditionGraph('deal.active'));
+    await runWorkflow(
+      160,
+      { clientId: 1, deal: { active: false }, conditions: { 'deal.active': true } },
+      { maxWaitMs: 0 },
+    );
+    const nodeIds = state.workflowStepLogs.map((l) => l.nodeId);
+    expect(nodeIds).toEqual(['trigger', 'cond', 'yes']);
+  });
+
+  // ── output.value is logged correctly ──────────────────────────────────────
+
+  it('logs the resolved boolean in step output.value', async () => {
+    const { runWorkflow } = await import('@/lib/workflows/runtime');
+    seedWorkflow(170, conditionGraph('deal.amount gt 0'));
+    await runWorkflow(170, { clientId: 1, deal: { amount: 99 } }, { maxWaitMs: 0 });
+    const condLog = state.workflowStepLogs.find((l) => l.nodeId === 'cond') as Record<string, unknown>;
+    expect((condLog.output as { value: boolean }).value).toBe(true);
   });
 });
