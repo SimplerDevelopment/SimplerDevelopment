@@ -8,7 +8,7 @@ import { checkRateLimit, getClientIp } from '@/lib/security/rate-limit';
 
 export async function POST(req: Request) {
   // 5 requests per 15 minutes per IP — prevents token-guessing attempts
-  if (!checkRateLimit(`${getClientIp(req)}:reset-password`, 5, 15 * 60 * 1000)) {
+  if (!(await checkRateLimit(`${getClientIp(req)}:reset-password`, 5, 15 * 60 * 1000))) {
     return NextResponse.json(
       { success: false, error: 'Too many requests. Please try again later.' },
       { status: 429 },

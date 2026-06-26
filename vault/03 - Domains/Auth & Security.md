@@ -2,12 +2,13 @@
 type: domain-map
 domain: auth-security
 status: active
-date: 2026-06-10
+date: 2026-06-25
 sources:
   - lib/auth.ts
   - lib/mcp-auth.ts
   - lib/active-client.ts
   - lib/security/assert-owned.ts
+  - lib/security/rate-limit.ts
   - lib/security/token-hash.ts
   - lib/security/sanitize-html.ts
   - lib/security/block-allowlist.ts
@@ -130,11 +131,39 @@ Both resolve to a `PortalMcpContext { userId, client, scopes, keyId }` and are t
 | OAuth consent screen | `app/oauth/authorize/page.tsx` | Public load; session required for the decision POST; shown when a third-party client (e.g. Claude.ai) requests portal access |
 | Admin OAuth clients | `app/admin/oauth-clients/page.tsx` | Admin-only; lists and manages registered OAuth client registrations |
 
+## Rate limiting
+
+`lib/security/rate-limit.ts` (134 lines) exposes two helpers:
+
+- `checkRateLimit(key, limit, windowMs): Promise<boolean>` — returns `false` → caller should return 429. Backed by `@upstash/ratelimit` sliding-window algorithm via `@upstash/redis` (HTTP). A module-level `Map` memoizes one `Ratelimit` instance per distinct `(limit, windowMs)` pair.
+- `getClientIp(req): string` — extracts the real client IP from `X-Forwarded-For` / `X-Real-IP`.
+
+**Endpoints covered** (all `await checkRateLimit(...)` calls):
+
+| Endpoint | Key pattern | Limit |
+|---|---|---|
+| `lib/auth.ts` credentials login | `{ip}:login` | 10 / 15 min |
+| `app/api/auth/signup/route.ts` | `{ip}:signup` | 5 / 1 hour |
+| `app/api/portal/auth/mobile-sign-in/route.ts` | `{ip}:mobile-sign-in` | 10 / 15 min |
+| `app/api/portal/forgot-password/route.ts` | `{ip}:forgot-password` | 5 / 15 min |
+| `app/api/portal/reset-password/route.ts` | `{ip}:reset-password` | 5 / 15 min |
+| `app/api/portal/change-password/route.ts` | `{ip}:change-password` | 5 / 15 min |
+| `app/api/portal/invite/accept/route.ts` | `{ip}:invite-accept` | 10 / 15 min |
+| `app/api/surveys/[slug]/route.ts` | `{ip}:survey-submit` | 20 / 1 min |
+| `app/oauth/token/route.ts` | `{ip}:oauth-token` | 30 / 15 min |
+
+**Fail-open:** a 1-second `Promise.race` wraps the Upstash call. On timeout or error the helper logs `console.warn` and returns `true` (allow). When `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` are absent the client constructor throws and the same fail-open path triggers — no hard availability dependency.
+
+**Bypasses:** `DISABLE_AUTH_RATE_LIMIT=1` env var OR `NODE_ENV=test` skips all checks (used in `tests/unit/lib/rate-limit.test.ts`).
+
+See [[ADR rate-limit-upstash-redis]] for the decision record (Upstash vs Railway Redis, fail-open rationale, no `Retry-After` header, preserved call signature).
+
 ## Tests & gates
 
 | Suite | File / tag | What it covers |
 |---|---|---|
 | Unit — auth | `tests/unit/auth.test.ts` | NextAuth callbacks, JWT re-validation, `safeCallbackUrl` |
+| Unit — rate-limit | `tests/unit/lib/rate-limit.test.ts` | In-memory enforcement + fail-open on Upstash error |
 | Unit — crypto | `tests/unit/crypto/api-key.test.ts` | `encryptApiKey` / `decryptApiKey` / `maskApiKey` round-trips and error branches |
 | Unit — crypto | `tests/unit/crypto/secrets.test.ts` | `encryptSecret` / `decryptSecret` round-trips |
 | Unit — mcp-auth | `tests/unit/lib-mcp-auth-and-microsoft-oauth-state.test.ts` | `resolvePortalApiKey`, `hasScope`, OAuth token resolution |
@@ -160,6 +189,7 @@ Coverage floor: **90% lines / 80% functions** on `lib/crypto/**` (enforced in `t
 - **Password-reset and invite tokens are SHA-256 hashed at rest** (`lib/security/token-hash.ts`). Raw token only travels in the email link; DB stores only the hash.
 - **`client` role users are blocked from `/admin`** in the `authorized` callback — they are redirected to `/portal/dashboard`. Admin routes require `admin` or `editor` role.
 - **MCP CMS writes default to staged approval.** `requireCmsApproval=true` is the safe default on all new `portalApiKeys` rows. Bypassing this is an explicit per-key opt-out by an admin.
+- **Every credential-mutating endpoint must call `await checkRateLimit(...)`** (enforced by `.claude/rules/auth-surface.md`). The limiter is Upstash Redis (HTTP, serverless-safe) with a 1-second fail-open fallback — see [[ADR rate-limit-upstash-redis]]. Adding a new auth/password/token endpoint without wiring the limiter is a security regression.
 - **Host header validation before tenant rewrite** (`isPlausibleTenantHost`). Rejects raw IPs, hostnames without a dot, and labels with invalid characters. A fuller DB-lookup fix is tracked as Wave 3.
 
 ## Planning notes

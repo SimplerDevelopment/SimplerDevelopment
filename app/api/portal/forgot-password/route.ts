@@ -12,7 +12,7 @@ const BASE_URL = process.env.NEXTAUTH_URL || 'https://simplerdevelopment.com';
 
 export async function POST(req: Request) {
   // 5 requests per 15 minutes per IP — prevents automated reset-token harvesting
-  if (!checkRateLimit(`${getClientIp(req)}:forgot-password`, 5, 15 * 60 * 1000)) {
+  if (!(await checkRateLimit(`${getClientIp(req)}:forgot-password`, 5, 15 * 60 * 1000))) {
     return NextResponse.json(
       { success: false, error: 'Too many requests. Please try again later.' },
       { status: 429 },

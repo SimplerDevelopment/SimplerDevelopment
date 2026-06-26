@@ -5,27 +5,12 @@
 import { NextResponse } from 'next/server';
 import { createSelfServeAccount, SignupError } from '@/lib/signup/service';
 import { getResend } from '@/lib/email';
-
-// Per-instance soft rate limit — enough to stop naive form spam; real abuse
-// is gated by email verification + card-required checkout downstream.
-const WINDOW_MS = 60 * 60 * 1000;
-const MAX_PER_WINDOW = 5;
-const hits = new Map<string, { count: number; resetAt: number }>();
-
-function rateLimited(ip: string): boolean {
-  const now = Date.now();
-  const entry = hits.get(ip);
-  if (!entry || entry.resetAt < now) {
-    hits.set(ip, { count: 1, resetAt: now + WINDOW_MS });
-    return false;
-  }
-  entry.count += 1;
-  return entry.count > MAX_PER_WINDOW;
-}
+import { checkRateLimit, getClientIp } from '@/lib/security/rate-limit';
 
 export async function POST(req: Request) {
-  const ip = (req.headers.get('x-forwarded-for') ?? 'unknown').split(',')[0].trim();
-  if (rateLimited(ip)) {
+  // 5 signups per hour per IP — stops naive form spam; real abuse is gated by
+  // email verification + card-required checkout downstream.
+  if (!(await checkRateLimit(`${getClientIp(req)}:signup`, 5, 60 * 60 * 1000))) {
     return NextResponse.json(
       { success: false, message: 'Too many signups from this address — try again later.' },
       { status: 429 },

@@ -91,7 +91,7 @@ async function pickPrimaryClient(userId: number): Promise<PrimaryClient | null> 
 export async function POST(req: Request) {
   try {
     // Brute-force guard — same credential surface as the NextAuth provider.
-    if (!checkRateLimit(`${getClientIp(req)}:mobile-signin`, 10, 15 * 60 * 1000)) {
+    if (!(await checkRateLimit(`${getClientIp(req)}:mobile-signin`, 10, 15 * 60 * 1000))) {
       return NextResponse.json(
         { error: 'rate_limited', message: 'Too many sign-in attempts. Please try again later.' },
         { status: 429 },

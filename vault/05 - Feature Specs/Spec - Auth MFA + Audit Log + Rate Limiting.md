@@ -124,6 +124,6 @@ Out of scope:
 
 - TOTP MFA enroll/challenge/backup-codes — fully greenfield.
 - Platform-wide audit log (`writeAuditEvent` helper + instrumentation + UI) — fully greenfield.
-- Redis-backed distributed rate limiter for production (in-memory state is per-instance, lost on restart).
+- ~~Redis-backed distributed rate limiter for production~~ — **SHIPPED 2026-06-25.** `lib/security/rate-limit.ts` rewritten to Upstash Redis (HTTP, serverless-correct). Sliding-window via `@upstash/ratelimit`. Fail-open fallback. All 9 endpoints covered (signup added). See [[ADR rate-limit-upstash-redis]].
 
-The original scope and effort estimate (**M**, ~2–3 engineer-weeks) holds. Prioritize the three unthrottled endpoint quick-wins as a separate fast-track card (see Project Board).
+The remaining scope and effort estimate (**M**, ~2–3 engineer-weeks) now covers MFA + audit log only. The open question about Redis availability is resolved — Upstash, not Railway Redis (see ADR).
