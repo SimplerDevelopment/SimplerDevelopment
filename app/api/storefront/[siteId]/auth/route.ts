@@ -151,10 +151,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ sit
         return NextResponse.json({ success: false, message: 'Invalid session' }, { status: 401 });
       }
 
-      // Get full customer data
+      // Get full customer data — fence by websiteId (defense-in-depth alongside
+      // the session.websiteId check above).
       const [customer] = await db.select()
         .from(storeCustomers)
-        .where(eq(storeCustomers.id, session.customerId))
+        .where(and(eq(storeCustomers.id, session.customerId), eq(storeCustomers.websiteId, websiteId)))
         .limit(1);
 
       if (!customer) return NextResponse.json({ success: false, message: 'Customer not found' }, { status: 404 });

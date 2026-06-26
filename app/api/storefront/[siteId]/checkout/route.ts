@@ -8,7 +8,7 @@ import {
   giftCertificates, giftCertificateRedemptions,
   clientWebsites,
 } from '@/lib/db/schema';
-import { eq, and, asc, desc, sql } from 'drizzle-orm';
+import { eq, and, asc, desc, sql, inArray } from 'drizzle-orm';
 import { resolveSiteStripe, SiteStripeError, type SiteStripeContext } from '@/lib/stripe/site-stripe';
 import { revalidateAdminDashboard } from '@/lib/admin/dashboard-cache';
 import { emitEvent } from '@/lib/automation/event-bus';
@@ -106,19 +106,22 @@ export async function POST(
       return NextResponse.json({ success: false, message: 'Cart is empty' }, { status: 400 });
     }
 
-    // Load product details for each item
+    // Load product details for each item — fence to THIS store's websiteId so a
+    // cart row referencing a foreign-site product can never flow through the
+    // payment path (defense-in-depth; cart-add already scopes, this re-validates).
     const productIds = [...new Set(items.map(i => i.productId))];
     const productRows = await db.select().from(products)
-      .where(sql`${products.id} IN ${productIds}`);
+      .where(and(inArray(products.id, productIds), eq(products.websiteId, websiteId)));
     const productMap = Object.fromEntries(productRows.map(p => [p.id, p]));
 
-    // Load variant details
+    // Load variant details — variants have no websiteId, so fence them to the
+    // (already site-scoped) product ids.
     const variantIds = items.filter(i => i.variantId).map(i => i.variantId!);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let variantMap: Record<number, any> = {};
     if (variantIds.length > 0) {
       const variantRows = await db.select().from(productVariants)
-        .where(sql`${productVariants.id} IN ${variantIds}`);
+        .where(and(inArray(productVariants.id, variantIds), inArray(productVariants.productId, productIds)));
       variantMap = Object.fromEntries(variantRows.map(v => [v.id, v]));
     }
 

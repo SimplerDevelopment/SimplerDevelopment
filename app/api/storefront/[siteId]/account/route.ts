@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { storeCustomers } from '@/lib/db/schema';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { requireCustomer } from '@/lib/storefront/customer-auth';
 
 /**
@@ -15,7 +15,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ site
 
   const [customer] = await db.select()
     .from(storeCustomers)
-    .where(eq(storeCustomers.id, session.customerId))
+    .where(and(eq(storeCustomers.id, session.customerId), eq(storeCustomers.websiteId, parseInt(siteId))))
     .limit(1);
 
   if (!customer) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
@@ -55,7 +55,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ si
 
   const [updated] = await db.update(storeCustomers)
     .set(updates)
-    .where(eq(storeCustomers.id, session.customerId))
+    .where(and(eq(storeCustomers.id, session.customerId), eq(storeCustomers.websiteId, parseInt(siteId))))
     .returning();
 
   return NextResponse.json({

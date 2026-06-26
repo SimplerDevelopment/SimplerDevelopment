@@ -40,11 +40,12 @@ const hasEntitlementCall = (src: string) => /hasServiceAccess|requireService|res
 
 // Store write routes intentionally NOT entitlement-gated, each with a reason:
 //  - stripe-connect: store *onboarding* — gating on a store sub would be circular
-//  - stripe/test, easypost/test: integration smoke-test endpoints
+//  - stripe/test: integration smoke-test (no external cost/quota burned)
+// (easypost/test is now gated via resolveStoreSite — it fires metered EasyPost
+//  API calls, so it must require the store subscription.)
 const STORE_WRITE_UNGATED = new Set<string>([
   'app/api/portal/websites/[siteId]/store/stripe-connect/route.ts',
   'app/api/portal/websites/[siteId]/store/stripe/test/route.ts',
-  'app/api/portal/websites/[siteId]/store/easypost/test/route.ts',
 ]);
 
 describe('paid-module entitlement guards', () => {

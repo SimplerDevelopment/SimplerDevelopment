@@ -297,28 +297,20 @@ export async function POST(req: Request) {
       }
 
       if (orderId) {
-        await db.update(orders).set({
+        // Scope the mutation by websiteId so a cross-site orderId in PI metadata
+        // (possible when metadata.websiteId is absent) can never flip another
+        // tenant's order to 'failed'. Only proceed if the scoped update matched.
+        const [failedOrder] = await db.update(orders).set({
           paymentStatus: 'failed',
           updatedAt: new Date(),
-        }).where(eq(orders.id, orderId));
-
-        await db.insert(orderStatusHistory).values({
-          orderId,
-          status: 'payment_failed',
-          note: 'Payment failed',
-        });
-
-        // Send payment failed email
-        const [failedOrder] = await db.select().from(orders)
-          .where(eq(orders.id, orderId)).limit(1);
+        }).where(and(eq(orders.id, orderId), eq(orders.websiteId, websiteId))).returning();
 
         if (failedOrder) {
-          if (failedOrder.websiteId !== websiteId) {
-            return NextResponse.json(
-              { success: false, message: 'siteId mismatch', code: 'site_id_mismatch' },
-              { status: 400 },
-            );
-          }
+          await db.insert(orderStatusHistory).values({
+            orderId,
+            status: 'payment_failed',
+            note: 'Payment failed',
+          });
 
           const nameParts = failedOrder.customerName.split(' ');
           const failedUrls = await getWebsiteUrls(failedOrder.websiteId);
@@ -389,7 +381,7 @@ export async function POST(req: Request) {
           await db.update(orders).set({
             paymentStatus: 'refunded',
             updatedAt: new Date(),
-          }).where(eq(orders.id, orderId));
+          }).where(and(eq(orders.id, orderId), eq(orders.websiteId, websiteId)));
 
           await db.insert(orderStatusHistory).values({
             orderId,
