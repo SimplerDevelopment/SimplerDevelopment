@@ -9,9 +9,9 @@
     - complementary [ref=e8]:
       - generic [ref=e9]:
         - generic [ref=e10]:
-          - button "C CY Strategies" [ref=e438]:
+          - button "C Acme Inc" [ref=e438]:
             - text: C
-            - generic: CY Strategies
+            - generic: Acme Inc
           - button "close" [ref=e13]:
             - generic [ref=e14]: close
         - navigation [ref=e15]:
@@ -91,7 +91,7 @@
                 - /url: /portal/tools/pitch-decks
                 - generic [ref=e81]: arrow_back
               - generic [ref=e82]:
-                - heading "CY Strategies - Marketing Strategy Consultant" [level=1] [ref=e83] [cursor=pointer]
+                - heading "Acme Inc - Marketing Consultant" [level=1] [ref=e83] [cursor=pointer]
                 - generic [ref=e84]:
                   - generic [ref=e85]: 8 slides
                   - generic [ref=e86]: ·

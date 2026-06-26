@@ -405,11 +405,11 @@ describe('DecisionSlideRenderer — TwoColumnCover (cover with image)', () => {
   });
 
   it('renders wordmark when provided', () => {
-    const cover: PitchDeckDecisionCover = { image: 'x.jpg', wordmark: 'CY STRATEGIES' };
+    const cover: PitchDeckDecisionCover = { image: 'x.jpg', wordmark: 'ACME INC' };
     render(
       <DecisionSlideRenderer title="T" options={[opt1]} theme={theme} onChoose={vi.fn()} cover={cover} />,
     );
-    expect(screen.getByText('CY STRATEGIES')).toBeInTheDocument();
+    expect(screen.getByText('ACME INC')).toBeInTheDocument();
   });
 
   it('renders eyebrow when provided', () => {

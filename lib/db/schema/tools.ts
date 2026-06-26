@@ -102,7 +102,7 @@ export interface PitchDeckDecisionOption {
 export interface PitchDeckDecisionCover {
   /** Logo image URL — rendered above the wordmark. Optional. */
   logo?: string;
-  /** Small uppercase wordmark text (e.g. "CY STRATEGIES"). Has a bullet dot prefix. */
+  /** Small uppercase wordmark text (e.g. "ACME INC"). Has a bullet dot prefix. */
   wordmark?: string;
   /** Eyebrow line ("MARKETING STRATEGY CONSULTANT") */
   eyebrow?: string;
