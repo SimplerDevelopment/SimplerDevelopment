@@ -8,12 +8,17 @@ import {
   workflows,
   workflowRuns,
   workflowStepLogs,
+  emailTemplates,
+  emailSubscribers,
   kanbanCards,
   kanbanColumns,
   kanbanCardAssignees,
   projects as projectsTable,
 } from '@/lib/db/schema';
-import { eq, asc } from 'drizzle-orm';
+import { eq, asc, and } from 'drizzle-orm';
+import { resolveResendKey } from '@/lib/email/resolve-resend';
+import { Resend } from 'resend';
+import { randomBytes } from 'crypto';
 import type {
   WorkflowAction,
   WorkflowEdge,
@@ -177,7 +182,7 @@ async function executeStep(
   const start = Date.now();
   let result: StepResult;
   try {
-    result = await executeAction(node.data as WorkflowAction, context, opts);
+    result = await executeAction(node.data as WorkflowAction, context, opts, runId, node.id);
     result.durationMs = Date.now() - start;
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -210,6 +215,8 @@ async function executeAction(
   action: WorkflowAction,
   context: WorkflowRunContext,
   opts: RunOptions,
+  runId?: number,
+  nodeId?: string,
 ): Promise<StepResult> {
   switch (action.kind) {
     case 'wait': {
@@ -318,23 +325,139 @@ async function executeAction(
       };
     }
 
-    case 'send_email':
-      // TODO(workflows): wire to lib/email/sender once the visual builder
-      // gets templated send capability.
-      return {
-        status: 'skipped',
-        output: { todo: 'send_email not yet wired', templateId: action.templateId, to: action.to },
-        durationMs: 0,
-      };
+    case 'send_email': {
+      const clientId = typeof context.clientId === 'number' ? context.clientId : null;
+      if (!clientId) {
+        return { status: 'skipped', output: { reason: 'no clientId in context' }, durationMs: 0 };
+      }
 
-    case 'add_to_list':
-      // TODO(workflows): wire to email list subscribers once the visual
-      // builder needs it.
+      // Idempotency: if a prior success log exists for this run+node, skip the send.
+      if (runId != null && nodeId) {
+        const [prior] = await db
+          .select({ id: workflowStepLogs.id })
+          .from(workflowStepLogs)
+          .where(
+            and(
+              eq(workflowStepLogs.runId, runId),
+              eq(workflowStepLogs.nodeId, nodeId),
+              eq(workflowStepLogs.status, 'success'),
+            ),
+          )
+          .limit(1);
+        if (prior) {
+          return {
+            status: 'skipped',
+            output: { idempotency: 'already_sent', priorLogId: prior.id },
+            durationMs: 0,
+          };
+        }
+      }
+
+      // Resolve recipient email from run context.
+      let toEmail: string;
+      if (action.to === 'contact') {
+        const contactEmail = typeof context.contactEmail === 'string' ? context.contactEmail : null;
+        if (!contactEmail) {
+          return { status: 'skipped', output: { reason: 'no contactEmail in context' }, durationMs: 0 };
+        }
+        toEmail = contactEmail;
+      } else if (action.to === 'owner') {
+        const ownerEmail = typeof context.ownerEmail === 'string' ? context.ownerEmail : null;
+        if (!ownerEmail) {
+          return { status: 'skipped', output: { reason: 'no ownerEmail in context' }, durationMs: 0 };
+        }
+        toEmail = ownerEmail;
+      } else {
+        toEmail = action.to;
+      }
+
+      // Look up the email template.
+      const [template] = await db
+        .select()
+        .from(emailTemplates)
+        .where(eq(emailTemplates.id, action.templateId))
+        .limit(1);
+
+      if (!template) {
+        return {
+          status: 'failed',
+          output: { reason: `template ${action.templateId} not found` },
+          durationMs: 0,
+        };
+      }
+
+      // Send via Resend with idempotency header.
+      try {
+        const { key } = await resolveResendKey(clientId);
+        const resend = new Resend(key);
+        const idempotencyKey =
+          runId != null && nodeId ? `wf:${runId}:${nodeId}` : undefined;
+        const fromEmail =
+          process.env.DEFAULT_FROM_EMAIL ?? 'noreply@simplerdevelopment.com';
+
+        const result = await resend.emails.send({
+          from: fromEmail,
+          to: toEmail,
+          subject: template.subject ?? '(no subject)',
+          html: template.htmlContent,
+          ...(idempotencyKey
+            ? { headers: { 'Idempotency-Key': idempotencyKey } }
+            : {}),
+        });
+
+        return {
+          status: 'success',
+          output: {
+            resendId: result.data?.id ?? null,
+            to: toEmail,
+            templateId: action.templateId,
+          },
+          durationMs: 0,
+        };
+      } catch (err) {
+        return {
+          status: 'failed',
+          output: {
+            error: err instanceof Error ? err.message : String(err),
+            to: toEmail,
+            templateId: action.templateId,
+          },
+          durationMs: 0,
+        };
+      }
+    }
+
+    case 'add_to_list': {
+      const contactEmail = typeof context.contactEmail === 'string' ? context.contactEmail : null;
+      if (!contactEmail) {
+        return {
+          status: 'skipped',
+          output: { reason: 'no contactEmail in context', listId: action.listId },
+          durationMs: 0,
+        };
+      }
+
+      // Generate an unsubscribe token — required by emailSubscribers schema.
+      // onConflictDoNothing() makes this idempotent: re-running for the same
+      // (listId, email) pair is a no-op (unique index on list_id + email).
+      const unsubscribeToken = randomBytes(32).toString('hex');
+
+      await db
+        .insert(emailSubscribers)
+        .values({
+          listId: action.listId,
+          email: contactEmail,
+          unsubscribeToken,
+          // status defaults to 'active', subscribedAt defaults to now()
+        })
+        .onConflictDoNothing();
+
       return {
-        status: 'skipped',
-        output: { todo: 'add_to_list not yet wired', listId: action.listId },
+        status: 'success',
+        output: { listId: action.listId, email: contactEmail },
         durationMs: 0,
       };
+    }
 
     default: {
       // Exhaustiveness guard — keeps the switch honest if a new action kind

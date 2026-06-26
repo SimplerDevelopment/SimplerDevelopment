@@ -11,6 +11,8 @@ import type { AutomationCondition, AutomationAction, BrainPlaybookLinkEntityType
 import { eq, and } from 'drizzle-orm';
 import { sql } from 'drizzle-orm';
 import { onEvent, type AutomationEvent } from './event-bus';
+import { enqueueWorkflowRunsForTrigger } from '@/lib/workflows/trigger';
+import type { WorkflowTriggerConfig } from '@/lib/workflows/types';
 import { dispatchSiteWebhooksForEvent } from '@/lib/site-webhooks/dispatcher';
 import { executePortalTool } from '@/lib/ai/portal-tools';
 import { requiredScopeFor } from '@/lib/ai/portal-tools/scopes';
@@ -437,6 +439,35 @@ export async function runRule(
 
 // ─── MAIN ENGINE (EVENT PATH) ──────────────────────────────────────────────
 
+// ─── WORKFLOW TRIGGER MAPPING ─────────────────────────────────────────────────
+
+/**
+ * Map a live automation event to a visual workflow trigger kind.
+ * Returns null for events that don't correspond to a known workflow trigger.
+ */
+function mapEventToWorkflowTrigger(event: AutomationEvent): WorkflowTriggerConfig | null {
+  switch (event.event) {
+    case 'crm.contact.created':
+      return { kind: 'contact.created' };
+    case 'crm.deal.updated': {
+      const stageId = event.payload.stageId;
+      if (typeof stageId === 'number') {
+        return { kind: 'deal.stage_changed', stageId };
+      }
+      return null;
+    }
+    case 'form.submitted': {
+      const formId = event.payload.formId;
+      if (typeof formId === 'number') {
+        return { kind: 'form.submitted', formId };
+      }
+      return { kind: 'form.submitted' };
+    }
+    default:
+      return null;
+  }
+}
+
 async function processEvent(event: AutomationEvent): Promise<void> {
   // Fetch all enabled rules for this client
   const rules = await db.select()
@@ -458,6 +489,22 @@ async function processEvent(event: AutomationEvent): Promise<void> {
     // default label without re-plumbing the trigger event name.
     const payload = { ...event.payload, _userId: event.userId, _event: event.event };
     await runRule(rule, payload, event.event);
+  }
+
+  // Phase 1a: wire live events to the visual workflow canvas.
+  // `enqueueWorkflowRunsForTrigger` finds active workflows whose trigger matches
+  // and fires `runWorkflow` fire-and-forget per matched workflow.
+  try {
+    const workflowTrigger = mapEventToWorkflowTrigger(event);
+    if (workflowTrigger) {
+      await enqueueWorkflowRunsForTrigger(
+        event.clientId,
+        workflowTrigger,
+        { ...event.payload, _userId: event.userId, _event: event.event },
+      );
+    }
+  } catch (err: unknown) {
+    console.error('[automation] workflow trigger enqueue error', err);
   }
 }
 
