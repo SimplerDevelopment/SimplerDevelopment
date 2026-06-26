@@ -1,5 +1,5 @@
 /**
- * Import US 4-year colleges from a CSV file into the PostCaptain (clientId 103) CRM.
+ * Import US 4-year colleges from a CSV file into the target client's CRM.
  *
  * NOTE: us-4yr-colleges-flagged.csv is no longer checked into the repo.
  * Callers must supply the CSV path via --csv <path>.
@@ -15,7 +15,7 @@
  * Flags:
  *   --dry-run         Parse + plan only, no writes
  *   --limit N         Import only the first N rows
- *   --client-id N     Override clientId (default 103 = Post Captain Consulting)
+ *   --client-id N     Target clientId (required — no default)
  *   --csv PATH        Path to the colleges CSV file (required — not bundled in repo)
  */
 
@@ -34,7 +34,13 @@ function argVal(name: string, def?: string): string | undefined {
 }
 const DRY_RUN = args.includes('--dry-run');
 const LIMIT = parseInt(argVal('--limit', '0') ?? '0', 10);
-const CLIENT_ID = parseInt(argVal('--client-id', '100') ?? '100', 10);
+// ponytail: --client-id is required; no default client
+const CLIENT_ID_STR = argVal('--client-id');
+if (!CLIENT_ID_STR) {
+  console.error('Error: --client-id <N> is required. Pass the target client ID.');
+  process.exit(1);
+}
+const CLIENT_ID = parseInt(CLIENT_ID_STR, 10);
 const CSV_PATH = resolve(argVal('--csv', 'us-4yr-colleges-flagged.csv') ?? 'us-4yr-colleges-flagged.csv');
 
 // ── CSV parser (RFC 4180, handles quoted fields + embedded commas + "") ────

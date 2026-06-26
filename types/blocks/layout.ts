@@ -53,7 +53,7 @@ export interface TabsBlock extends BaseBlock {
 /**
  * Sticky Scroll Tabs — full-viewport panels that cross-fade as the user scrolls,
  * with a sticky tab strip that highlights the active panel. Inspired by the
- * "wp-block-postcaptain-scroll-tabs" pattern. Universal — usable for any
+ * "wp-block-acme-scroll-tabs" pattern. Universal — usable for any
  * multi-section "show one panel at a time, scroll-driven" UX.
  */
 export interface StickyScrollTabsBlock extends BaseBlock {

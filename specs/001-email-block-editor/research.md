@@ -30,7 +30,7 @@
 | header | New (email-only) | Logo + optional tagline |
 | footer | New (email-only) | Unsubscribe link, address, branding |
 
-**Rejected from email**: video, youtube, code, tabs, accordion, gallery, all palizzi-*, all product-*, booking, survey, blog-posts, card-grid, stats, testimonial, services-grid, featured-content, hero, cta (complex layout).
+**Rejected from email**: video, youtube, code, tabs, accordion, gallery, all client-specific-*, all product-*, booking, survey, blog-posts, card-grid, stats, testimonial, services-grid, featured-content, hero, cta (complex layout).
 
 ## 3. Storage Strategy -- Block JSON vs. Rendered HTML
 

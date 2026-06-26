@@ -1,5 +1,5 @@
 /**
- * Fetch a batch of postcaptain CRM contacts that still have NULL linkedin_url.
+ * Fetch a batch of CRM contacts that still have NULL linkedin_url.
  * Usage: npx tsx --env-file=.env scripts/li-enrich-fetch-batch.ts <limit> <offset> > .planning/li-enrich/batch.json
  */
 import { db } from '@/lib/db';

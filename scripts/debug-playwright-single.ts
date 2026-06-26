@@ -49,7 +49,7 @@ function stripHtml(html: string): string {
 async function main() {
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, timeout: 60_000 });
   const browser = await chromium.launch({ headless: true });
-  const ctx = await browser.newContext({ userAgent: 'Mozilla/5.0 (compatible; PostCaptainDebug/1.0)' });
+  const ctx = await browser.newContext({ userAgent: 'Mozilla/5.0 (compatible; SDDebug/1.0)' });
   const page = await ctx.newPage();
 
   console.log(`\n── Loading homepage: ${URL_TO_SCRAPE}`);

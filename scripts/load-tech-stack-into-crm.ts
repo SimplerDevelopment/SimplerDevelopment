@@ -1,6 +1,6 @@
 /**
  * One-time loader: take the latest tech-stack CSV and write its results into
- * the postcaptain CRM as company-scoped custom fields.
+ * the client CRM as company-scoped custom fields.
  *
  * Creates (or updates) these custom fields on the company entity:
  *
@@ -19,7 +19,7 @@
  * bulk-inserts the fresh values from the CSV. Idempotent — safe to re-run.
  *
  * Usage:
- *   npx tsx scripts/load-tech-stack-into-crm.ts <csv-path> [--email postcaptain@…] [--client-id N] [--dry-run]
+ *   npx tsx scripts/load-tech-stack-into-crm.ts <csv-path> [--email <email>] [--client-id N] [--dry-run]
  */
 import * as dotenv from 'dotenv';
 dotenv.config({ path: '.env' });
@@ -38,7 +38,8 @@ if (!CSV_PATH) {
   process.exit(1);
 }
 const DRY_RUN = args.includes('--dry-run');
-const EMAIL = argVal('--email', 'postcaptain@simplerdevelopment.com')!;
+// ponytail: set via --email, no client default
+const EMAIL = argVal('--email', 'client@example.com')!;
 const CLIENT_ID_ARG = argVal('--client-id');
 const SCAN_DATE = argVal('--scan-date', new Date().toISOString().slice(0, 10))!;
 

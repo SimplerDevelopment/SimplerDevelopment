@@ -27,9 +27,9 @@ import postgres from 'postgres';
 import sharp from 'sharp';
 import { uploadToS3 } from '../../lib/s3/upload';
 
-const PHOTO_DIR =
-  process.env.CATALOG_PHOTO_DIR ||
-  '/Users/dancoyle/Documents/philaprints.com/applications/web/product-photos';
+// ponytail: set CATALOG_PHOTO_DIR, no hardcoded client path
+const PHOTO_DIR = process.argv[2] || process.env.CATALOG_PHOTO_DIR;
+if (!PHOTO_DIR) throw new Error('Photo directory not set: pass as the first positional arg or set CATALOG_PHOTO_DIR env var');
 const CONCURRENCY = Number(process.env.CATALOG_UPLOAD_CONCURRENCY || 8);
 const limitArg = process.argv.find((a) => a.startsWith('--limit='));
 const LIMIT = limitArg ? Number(limitArg.split('=')[1]) : Infinity;
