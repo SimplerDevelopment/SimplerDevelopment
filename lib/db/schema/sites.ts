@@ -1,6 +1,7 @@
 // Per-tenant clients, services, hosted websites, and infrastructure metadata.
 
 import { pgTable, serial, varchar, text, timestamp, boolean, integer, json, uniqueIndex, index } from 'drizzle-orm/pg-core';
+import { encryptedText } from './columns';
 import { users } from './auth';
 import { SurveyField } from './cms';
 
@@ -354,8 +355,8 @@ export const siteTracking = pgTable('site_tracking', {
 export const googleWebsiteTokens = pgTable('google_website_tokens', {
   id: serial('id').primaryKey(),
   websiteId: integer('website_id').notNull().references(() => clientWebsites.id, { onDelete: 'cascade' }).unique(),
-  accessToken: text('access_token').notNull(),
-  refreshToken: text('refresh_token').notNull(),
+  accessToken: encryptedText('access_token').notNull(),
+  refreshToken: encryptedText('refresh_token').notNull(),
   expiresAt: timestamp('expires_at').notNull(),
   // Search Console
   gscSiteUrl: varchar('gsc_site_url', { length: 500 }), // e.g. "https://example.com/"

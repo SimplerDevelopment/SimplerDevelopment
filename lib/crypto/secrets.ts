@@ -63,3 +63,22 @@ export function decryptSecret(blob: string): string {
   const plaintext = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
   return plaintext.toString('utf8');
 }
+
+/**
+ * Decrypt a GCM blob, or return the input unchanged if it isn't one — i.e. a
+ * legacy plaintext value written before the column was encrypted. This lets the
+ * `encryptedText` column type be adopted over a table that already holds
+ * plaintext rows without a blocking backfill: new/rotated writes encrypt, and
+ * stragglers read back as-is until they're re-written (or backfilled).
+ *
+ * Safe because AES-256-GCM authenticates: a real plaintext token fails the
+ * auth-tag/length check and falls through to the plaintext branch; it cannot be
+ * mistaken for valid ciphertext.
+ */
+export function decryptMaybe(value: string): string {
+  try {
+    return decryptSecret(value);
+  } catch {
+    return value;
+  }
+}

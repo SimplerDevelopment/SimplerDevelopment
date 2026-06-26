@@ -1,6 +1,7 @@
 // Portal tools: pitch decks, booking pages and bookings, gift certificates, and Google Workspace / Zoom integrations.
 
 import { pgTable, serial, varchar, text, timestamp, boolean, integer, bigint, json, jsonb, index, uniqueIndex } from 'drizzle-orm/pg-core';
+import { encryptedText } from './columns';
 import { portalApiKeys, users } from './auth';
 import { clientWebsites, clients } from './sites';
 import { brandingProfiles } from './cms';
@@ -432,8 +433,8 @@ export type NewBookingAttendee = typeof bookingAttendees.$inferInsert;
 export const googleCalendarTokens = pgTable('google_calendar_tokens', {
   id: serial('id').primaryKey(),
   clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }).unique(),
-  accessToken: text('access_token').notNull(),
-  refreshToken: text('refresh_token').notNull(),
+  accessToken: encryptedText('access_token').notNull(),
+  refreshToken: encryptedText('refresh_token').notNull(),
   expiresAt: timestamp('expires_at').notNull(),
   calendarId: varchar('calendar_id', { length: 255 }).default('primary').notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
@@ -449,8 +450,8 @@ export const googleWorkspaceClientConnections = pgTable('google_workspace_client
   clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }).unique(),
   googleAccountEmail: varchar('google_account_email', { length: 320 }).notNull(),
   googleAccountId: varchar('google_account_id', { length: 64 }).notNull(),
-  accessToken: text('access_token').notNull(),
-  refreshToken: text('refresh_token').notNull(),
+  accessToken: encryptedText('access_token').notNull(),
+  refreshToken: encryptedText('refresh_token').notNull(),
   expiresAt: timestamp('expires_at').notNull(),
   scopes: jsonb('scopes').$type<string[]>().notNull().default([]),
   syncSettings: jsonb('sync_settings').$type<{
@@ -473,8 +474,8 @@ export const googleWorkspaceUserConnections = pgTable('google_workspace_user_con
   userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   googleAccountEmail: varchar('google_account_email', { length: 320 }).notNull(),
   googleAccountId: varchar('google_account_id', { length: 64 }).notNull(),
-  accessToken: text('access_token').notNull(),
-  refreshToken: text('refresh_token').notNull(),
+  accessToken: encryptedText('access_token').notNull(),
+  refreshToken: encryptedText('refresh_token').notNull(),
   expiresAt: timestamp('expires_at').notNull(),
   scopes: jsonb('scopes').$type<string[]>().notNull().default([]),
   syncSettings: jsonb('sync_settings').$type<{
@@ -569,8 +570,8 @@ export const microsoftTeamsUserConnections = pgTable('microsoft_teams_user_conne
   // referencing the user across token refreshes and tenant changes.
   microsoftUserId: varchar('microsoft_user_id', { length: 64 }).notNull(),
   microsoftAccountEmail: varchar('microsoft_account_email', { length: 320 }).notNull(),
-  accessToken: text('access_token').notNull(),
-  refreshToken: text('refresh_token').notNull(),
+  accessToken: encryptedText('access_token').notNull(),
+  refreshToken: encryptedText('refresh_token').notNull(),
   expiresAt: timestamp('expires_at').notNull(),
   scopes: jsonb('scopes').$type<string[]>().notNull().default([]),
   // Graph change-notification subscription state. Subscriptions for transcripts
@@ -676,8 +677,8 @@ export type NewLinkedinPost = typeof linkedinPosts.$inferInsert;
 export const zoomTokens = pgTable('zoom_tokens', {
   id: serial('id').primaryKey(),
   clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }).unique(),
-  accessToken: text('access_token').notNull(),
-  refreshToken: text('refresh_token').notNull(),
+  accessToken: encryptedText('access_token').notNull(),
+  refreshToken: encryptedText('refresh_token').notNull(),
   expiresAt: timestamp('expires_at').notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
