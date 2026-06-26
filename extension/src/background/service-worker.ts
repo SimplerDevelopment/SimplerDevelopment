@@ -6,18 +6,26 @@
 //  - Refresh the action badge with a count of related Brain notes for the
 //    current tab whenever the URL changes (cached per-tab to avoid re-fetch)
 
-import { api, ApiAuthError, ApiNotConfiguredError } from '../lib/api';
+import { api, ApiAuthError, ApiNetworkError, ApiNotConfiguredError } from '../lib/api';
 import {
   clearTabCache,
   getConfig,
   getTabCache,
   setTabCache,
 } from '../lib/storage';
+import { enqueue, flushQueue } from '../lib/offline-queue';
 import type { ExtensionMessage, ExtractedPageResponse, SelectionResponse } from '../lib/messages';
 
 const MENU_SAVE_SELECTION = 'sd-brain-save-selection';
 const MENU_SAVE_PAGE = 'sd-brain-save-page';
 const MENU_SEARCH_SELECTION = 'sd-brain-search-selection';
+
+// Drain any captures that were queued while offline: once on worker wake-up,
+// and again whenever the worker observes the connection come back.
+void flushQueue();
+self.addEventListener('online', () => {
+  void flushQueue();
+});
 
 chrome.runtime.onInstalled.addListener(() => {
   // Be defensive — re-creating menus that already exist throws.
@@ -70,42 +78,54 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   if (!tab?.id) return;
 
   if (info.menuItemId === MENU_SAVE_SELECTION) {
+    const sel = (info.selectionText ?? '').trim();
+    if (!sel) {
+      notify('SD Brain', 'No selection to save.');
+      return;
+    }
+    const input = {
+      title: tab.title?.slice(0, 120) || 'Selection',
+      body: `> ${sel}\n\n— from ${tab.url ?? ''}`,
+      sourceUrl: tab.url ?? undefined,
+      tags: ['from-extension', 'selection'],
+    };
     try {
-      const sel = (info.selectionText ?? '').trim();
-      if (!sel) {
-        notify('SD Brain', 'No selection to save.');
-        return;
-      }
-      const note = await api.createNote({
-        title: tab.title?.slice(0, 120) || 'Selection',
-        body: `> ${sel}\n\n— from ${tab.url ?? ''}`,
-        sourceUrl: tab.url ?? undefined,
-        tags: ['from-extension', 'selection'],
-      });
+      const note = await api.createNote(input);
       notify('Saved to Brain', noteSummary(note.title));
       await refreshBadge(tab.id, tab.url);
     } catch (err) {
-      handleErr(err);
+      if (err instanceof ApiNetworkError) {
+        await enqueue('note', input);
+        notify('Saved offline', 'Will sync to Brain when you reconnect.');
+      } else {
+        handleErr(err);
+      }
     }
     return;
   }
 
   if (info.menuItemId === MENU_SAVE_PAGE) {
+    const extracted = await safeExtract(tab.id);
+    const ext = extracted && extracted.ok ? extracted.data : null;
+    const baseTitle = (ext?.title || tab.title || 'Page').slice(0, 200);
+    const baseBody = ext?.text?.slice(0, 4000) ?? '';
+    const input = {
+      title: baseTitle,
+      body: baseBody || `Saved from ${tab.url ?? ''}`,
+      sourceUrl: tab.url ?? undefined,
+      tags: ['from-extension', 'page-save'],
+    };
     try {
-      const extracted = await safeExtract(tab.id);
-      const ext = extracted && extracted.ok ? extracted.data : null;
-      const baseTitle = (ext?.title || tab.title || 'Page').slice(0, 200);
-      const baseBody = ext?.text?.slice(0, 4000) ?? '';
-      const note = await api.createNote({
-        title: baseTitle,
-        body: baseBody || `Saved from ${tab.url ?? ''}`,
-        sourceUrl: tab.url ?? undefined,
-        tags: ['from-extension', 'page-save'],
-      });
+      const note = await api.createNote(input);
       notify('Saved to Brain', noteSummary(note.title));
       await refreshBadge(tab.id, tab.url);
     } catch (err) {
-      handleErr(err);
+      if (err instanceof ApiNetworkError) {
+        await enqueue('note', input);
+        notify('Saved offline', 'Will sync to Brain when you reconnect.');
+      } else {
+        handleErr(err);
+      }
     }
     return;
   }
