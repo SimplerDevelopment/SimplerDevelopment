@@ -8,6 +8,7 @@ import { auth } from '@/lib/auth';
 import { getPortalClient } from '@/lib/portal-client';
 import { convertAllSlidesToV2, isV2Slides } from '@/lib/pitch-deck-migration';
 import { applyAbToDeckSlides } from '@/lib/ab/render';
+import { AbGoalTracker } from '@/components/blocks/AbGoalTracker';
 import { getBrandingByProfileId, getBrandingByClientId } from '@/lib/branding';
 import type { Metadata } from 'next';
 import PitchDeckPresentation from '@/app/sites/[domain]/slides/[slug]/PitchDeckPresentation';
@@ -183,14 +184,27 @@ export default async function PublicPitchDeckPage({ params, searchParams }: Page
   if (isLocal) {
     const theme = (deck.theme || {}) as PitchDeckTheme;
     const rawSlides = resolveSlides(deck.slides, theme);
-    const ab = await applyAbToDeckSlides({ deckId: deck.id, slides: rawSlides });
+    const ab = await applyAbToDeckSlides({ deckId: deck.id, slides: rawSlides, skip: isPreview });
     // Variant payloads may be stored in V1 shape — normalize again (no-op for V2).
     const slides = resolveSlides(ab.slides, theme);
     const surveyData = await fetchSurveyData(slides);
     const branding = deck.brandingProfileId
       ? await getBrandingByProfileId(deck.brandingProfileId)
       : await getBrandingByClientId(deck.clientId);
-    return <PitchDeckPresentation key={deck.id} slides={slides} theme={theme} title={deck.title} surveys={surveyData} branding={branding} />;
+    return (
+      <>
+        <PitchDeckPresentation key={deck.id} slides={slides} theme={theme} title={deck.title} surveys={surveyData} branding={branding} />
+        {ab.ab && ab.visitorId ? (
+          <AbGoalTracker
+            experimentId={ab.ab.experimentId}
+            variantKey={ab.ab.variantKey}
+            goalMetric={ab.ab.goalMetric}
+            goalSelector={ab.ab.goalSelector}
+            visitorId={ab.visitorId}
+          />
+        ) : null}
+      </>
+    );
   }
 
   const host = await getTenantHostForDeck(deck.clientId);

@@ -7,6 +7,7 @@ import { inArray } from 'drizzle-orm';
 import { convertAllSlidesToV2, isV2Slides } from '@/lib/pitch-deck-migration';
 import { getBrandingByProfileId, getBrandingByClientId, getBrandingByWebsiteId, resolveFaviconUrlForClient } from '@/lib/branding';
 import { applyAbToDeckSlides } from '@/lib/ab/render';
+import { AbGoalTracker } from '@/components/blocks/AbGoalTracker';
 import { auth } from '@/lib/auth';
 import { getPortalClient } from '@/lib/portal-client';
 import type { Metadata } from 'next';
@@ -172,7 +173,9 @@ export default async function PublicPitchDeckPage({ params, searchParams }: Page
   const rawSlides = resolveSlides(deck.slides);
 
   // Apply A/B variant selection for this visitor (no-op when no test is running).
-  const ab = await applyAbToDeckSlides({ deckId: deck.id, slides: rawSlides });
+  // skip while previewing so an owner viewing their own draft isn't bucketed or
+  // counted as an impression.
+  const ab = await applyAbToDeckSlides({ deckId: deck.id, slides: rawSlides, skip: preview });
   // Variant payloads may be stored in V1 shape — normalize again (no-op for V2).
   const slides = resolveSlides(ab.slides);
 
@@ -189,5 +192,21 @@ export default async function PublicPitchDeckPage({ params, searchParams }: Page
   // next/link. Without it React reuses the same instance and stale state
   // (current slide index, decisionChoices, surveyAnswers, ...) leaks across
   // decks — manifests as the first decision option silently doing nothing.
-  return <PitchDeckPresentation key={deck.id} slides={slides} theme={theme} title={deck.title} surveys={surveyData} branding={branding} />;
+  return (
+    <>
+      <PitchDeckPresentation key={deck.id} slides={slides} theme={theme} title={deck.title} surveys={surveyData} branding={branding} />
+      {/* Fire impression/goal events for the running experiment so a winner can
+          actually be measured — without this the deck A/B records views but
+          never conversions (the "vaporware" gap). No-op when ab.ab is null. */}
+      {ab.ab && ab.visitorId ? (
+        <AbGoalTracker
+          experimentId={ab.ab.experimentId}
+          variantKey={ab.ab.variantKey}
+          goalMetric={ab.ab.goalMetric}
+          goalSelector={ab.ab.goalSelector}
+          visitorId={ab.visitorId}
+        />
+      ) : null}
+    </>
+  );
 }
