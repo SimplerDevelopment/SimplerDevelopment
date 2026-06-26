@@ -105,6 +105,30 @@ export const automationLogs = pgTable('automation_logs', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
+// Durable journal of emitted automation events. emitEvent() still dispatches
+// in-process for instant execution, but ALSO writes a row here and marks it
+// 'completed' once handlers finish. The process-automation-jobs cron re-runs any
+// row left 'pending' past a grace window — i.e. an event whose in-process
+// dispatch was dropped by a serverless cold-start — giving at-least-once
+// delivery with retries instead of the old fire-and-forget that silently lost
+// events. (resource was previously: in-process, no retries, 5s cap.)
+export const automationJobs = pgTable('automation_jobs', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  event: varchar('event', { length: 100 }).notNull(),
+  userId: integer('user_id').default(0).notNull(),
+  payload: json('payload').$type<Record<string, unknown>>().notNull(),
+  // 'pending' | 'completed' | 'failed' | 'dead_letter'
+  status: varchar('status', { length: 20 }).default('pending').notNull(),
+  attemptCount: integer('attempt_count').default(0).notNull(),
+  nextRetryAt: timestamp('next_retry_at', { withTimezone: true }),
+  error: text('error'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  processedAt: timestamp('processed_at'),
+}, (t) => [
+  index('automation_jobs_pending_idx').on(t.status, t.createdAt),
+]);
+
 // Append-only audit log for every MCP tool call / automation action / assistant
 // tool invocation. One row per call regardless of outcome.
 export const agentActionLog = pgTable('agent_action_log', {

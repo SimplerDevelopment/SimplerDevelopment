@@ -132,6 +132,10 @@
       "schedule": "* * * * *"
     },
     {
+      "path": "/api/cron/process-automation-jobs",
+      "schedule": "* * * * *"
+    },
+    {
       "path": "/api/cron/plugin-runs-drain",
       "schedule": "* * * * *"
     },
