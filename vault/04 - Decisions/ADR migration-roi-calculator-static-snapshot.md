@@ -4,19 +4,19 @@ domain: sites-hosting
 status: proposed
 date: 2026-06-12
 sources:
-  - scripts/migrations/goscribble/WORKER-BRIEF.md
-  - scripts/migrations/goscribble/import-home.ts
+  - scripts/migrations/<client>/WORKER-BRIEF.md
+  - scripts/migrations/<client>/import-home.ts
 ---
 
 # ADR: Client-specific interactive widgets are captured as static snapshots pending a universal block decision
 
 ## Status
 
-Proposed — flagged during Scribble (goscribble.ai) migration, 2026-06-12. Awaiting human decision on universal block strategy.
+Proposed — flagged during a client site migration, 2026-06-12. Awaiting human decision on universal block strategy.
 
 ## Context
 
-The goscribble.ai home page includes an interactive ROI calculator — a dynamic widget that takes user inputs (e.g. number of clinicians, visit volume) and computes savings. The platform's block model requires all block types to be universal (see [[ADR blocks-are-universal]]); a hand-coded client-specific widget in the site renderer would violate this invariant.
+A client's home page included an interactive ROI calculator — a dynamic widget that takes user inputs (e.g. number of clinicians, visit volume) and computes savings. The platform's block model requires all block types to be universal (see [[ADR blocks-are-universal]]); a hand-coded client-specific widget in the site renderer would violate this invariant.
 
 During migration, the calculator was captured as a static stats snapshot: the representative output values are hardcoded into a content block rather than computed at runtime. This unblocks the migration without violating the blocks invariant, but it loses the interactive dimension of the original.
 
@@ -27,7 +27,7 @@ During migration, the calculator was captured as a static stats snapshot: the re
 The three options requiring a decision:
 
 1. **Scaffold a universal `ROICalculator` block type** via `simplerdev-block-type` — available to all tenants, configurable with metric names and multipliers. Highest leverage; the right call if multiple clients will need interactive calculators.
-2. **Hand-code a client-specific embed** — a one-off React component scoped to the Scribble site. Violates [[ADR blocks-are-universal]] and sets a precedent for per-client renderer branches.
+2. **Hand-code a client-specific embed** — a one-off React component scoped to the client's site. Violates [[ADR blocks-are-universal]] and sets a precedent for per-client renderer branches.
 3. **Keep the static snapshot** — simplest; loses interactivity. Acceptable if the client does not prioritize the calculator on the migrated site.
 
 This ADR documents the deferral. A follow-up ADR (or an update to this one) should record the decision once made.
@@ -48,4 +48,3 @@ This ADR documents the deferral. A follow-up ADR (or an update to this one) shou
 - [[ADR blocks-are-universal]]
 - [[CMS & Blocks]]
 - [[Sites, Hosting & Publishing]]
-- [[Scribble Site Migration]]

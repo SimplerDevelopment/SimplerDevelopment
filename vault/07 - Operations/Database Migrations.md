@@ -55,7 +55,7 @@ Opens Drizzle Studio at `localhost:4983` — browse tables and confirm the new c
 
 `scripts/verify-db-target.ts` is run before every `db:migrate` and `db:push`. It reads `DATABASE_URL`, checks for known production proxy hostnames, and exits 1 if it detects prod without an explicit override.
 
-Production indicators: `tramway.proxy.rlwy.net:43167`, `metro.proxy.rlwy.net:25565`, `RAILWAY_ENVIRONMENT_NAME=production`.
+Production indicators: `$PROD_DATABASE_URL` host patterns, `RAILWAY_ENVIRONMENT_NAME=production`.
 
 **To override (intentional prod operation only):**
 

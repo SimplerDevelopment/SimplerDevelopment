@@ -17,7 +17,7 @@ sources:
 
 ## Status
 
-Partially superseded — 2026-06-14 by [[ADR alacarte-volume-discount-replaces-tiers]]. The three-layer BYOK enforcement in code (storage gate in `app/api/portal/integrations/api-keys/route.ts`, inference gate in `lib/ai/resolve-client-key.ts`, UI gate in `app/portal/integrations/api-keys/page.tsx`) is unchanged. What changed: with tiers removed from the self-serve UI, BYOK is no longer a Scale-tier upgrade prompt — it is now a "Contact sales" CTA (mailto:info@danielpcoyle.com) on both the onboarding wizard and the plans page. `byokEligible` still resolves correctly for agency-mode, bundle, and legacy subscription clients.
+Partially superseded — 2026-06-14 by [[ADR alacarte-volume-discount-replaces-tiers]]. The three-layer BYOK enforcement in code (storage gate in `app/api/portal/integrations/api-keys/route.ts`, inference gate in `lib/ai/resolve-client-key.ts`, UI gate in `app/portal/integrations/api-keys/page.tsx`) is unchanged. What changed: with tiers removed from the self-serve UI, BYOK is no longer a Scale-tier upgrade prompt — it is now a "Contact sales" CTA (mailto:sales@simplerdevelopment.com) on both the onboarding wizard and the plans page. `byokEligible` still resolves correctly for agency-mode, bundle, and legacy subscription clients.
 
 Originally accepted — shipped in commit 8669039b on branch `feat/market-ready-makeover`.
 

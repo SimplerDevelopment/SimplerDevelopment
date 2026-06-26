@@ -42,7 +42,7 @@ sources:
 - [ ] No wallet checkout (Apple Pay / Google Pay) — see [[Competitive Gap Analysis 2026-06]]
 - [ ] No E2E coverage for public storefront routes (cart, checkout, customer auth, account) — all existing specs test portal management API only
 - [ ] EasyPost label purchase and Printful submit flows have no integration or E2E tests despite being wired routes
-- [ ] Magamommy autonomous pipeline (lib/magamommy/) has zero unit/integration/E2E coverage — noted in lib/magamommy/README.md
+- [ ] A legacy content client's autonomous pipeline (lib/content-pipeline/) has zero unit/integration/E2E coverage — noted in its README.md
 - [x] RESOLVED: product-designer /designs POST required sessionId in body and wrote legacy designs table — now mints sd_design_session cookie + writes productDesigns table — `app/api/storefront/[siteId]/designs/route.ts`
 - [x] RESOLVED 2026-06-21: Portal review moderation now has REST routes — GET /api/portal/websites/[siteId]/store/reviews + PATCH .../reviews/[reviewId] (approve/reject); tenancy-scoped, cross-site 404 — gap-portal-rest-parity-coverage.spec.ts
 - [x] RESOLVED 2026-06-21: Portal customer messages now have REST routes — GET .../store/customer-messages + POST .../customer-messages/[messageId]/reply (status→replied); cross-site 404 — gap-portal-rest-parity-coverage.spec.ts

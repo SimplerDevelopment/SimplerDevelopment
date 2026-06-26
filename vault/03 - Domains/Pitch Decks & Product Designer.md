@@ -70,14 +70,14 @@ Two distinct tenant-facing creative tools sharing some infrastructure:
 
 **Pitch Decks** — AI-authored, block-editor-based presentation tool. Tenants create, manage, and publicly share slide decks ("pitch decks", investor decks, proposals, sales decks). Slides use the V2 block-editor format (same block types as the CMS visual editor). A draft/live model separates authoring from publication: all MCP writes land in `slide.draft.*`; the public renderer reads only live fields until `decks_publish_slide` or `decks_publish_all` is called. Decks are per-tenant (scoped by `clientId`), not per-site. Theme inherits from branding profiles.
 
-**Product Designer** — canvas-based storefront embellishment tool ported from the philaprints monorepo. Store customers design custom graphics (text, icons, images) on product mockups (T-shirts, mugs, etc.) per-style, per-side. Uses Fabric.js for canvas rendering. Saved designs are keyed to `productDesigns`; the `products.designable` flag enables it per product.
+**Product Designer** — canvas-based storefront embellishment tool ported from an earlier print-designer monorepo. Store customers design custom graphics (text, icons, images) on product mockups (T-shirts, mugs, etc.) per-style, per-side. Uses Fabric.js for canvas rendering. Saved designs are keyed to `productDesigns`; the `products.designable` flag enables it per product.
 
 ## Key entry points
 
 | Path | Role |
 |---|---|
 | `lib/db/schema/tools.ts` | `pitchDecks`, `pitchDeckVersions` tables + `PitchDeckSlideV2`, `PitchDeckTheme` type interfaces |
-| `lib/db/schema/productDesigner.ts` | `productStyles`, `productSides`, `philaprintsDesignAssets`, `productDesigns` tables |
+| `lib/db/schema/productDesigner.ts` | `productStyles`, `productSides`, `designAssets`, `productDesigns` tables |
 | `lib/db/schema/cms.ts` | `brandingProfiles` table (line 292) — theme inheritance source |
 | `lib/mcp/tools/pitch-decks.ts` | MCP tool registrar: 12 tools for deck CRUD, slide authoring, HTML upload, fork, publish |
 | `lib/decks/publish-slide.ts` | Shared pure-function publish helpers: `publishOneSlide`, `applyPublishToSlides`, `applyPublishAllToSlides` — single source of truth, consumed by both the MCP tool and REST routes (the old duplicate MCP-side copy was removed). |
@@ -108,7 +108,7 @@ Two distinct tenant-facing creative tools sharing some infrastructure:
 
 - `product_styles` → `products` (cascade); colorway variants with optional price override.
 - `product_sides` → `product_styles`; per-style mockup images with pixel-level printable-area bounds.
-- `philaprints_design_assets` → `client_websites`; per-website icon/clip-art library (`icon` type uses react-icons refs; `art` type hosts SVG/PNG).
+- `design_assets` → `client_websites`; per-website icon/clip-art library (`icon` type uses react-icons refs; `art` type hosts SVG/PNG).
 - `product_designs` → `products`, `product_styles`, `store_customers`; `layers` JSON holds the canonical layer array; `uuid` is the public share-link key; soft-deleted via `deletedAt`.
 
 ## API surface
@@ -224,13 +224,13 @@ Write tools pass through `stageOrApply` (approval-workflow primitive) and call `
 - **`formatVersion: 2` is the only supported write path.** Legacy V1 slides (typed `PitchDeckSlide`) are read-only; the MCP tools always emit V2. Migration logic lives in `lib/pitch-deck-migration.ts`; covered by `tests/unit/lib-pitch-deck-migration.test.ts`.
 - **Branding profile auto-resolution.** If `brandingProfileId` is omitted on create, the tool looks for `is_default = true` for the client. Passing an explicit profile ID that doesn't belong to the client is a hard error — never trust the caller's ID alone.
 - **`showSlideNumber` auto-override.** Any slide whose entire content is a single `html-embed` block has the slide-counter overlay suppressed, regardless of `theme.showSlideNumber`.
-- **Product Designer is per-website, not per-tenant.** `philaprintsDesignAssets` is keyed by `websiteId`; `productDesigns` by `websiteId` + `customerId` or `sessionId`. Anonymous designs survive session changes via `sessionId`.
+- **Product Designer is per-website, not per-tenant.** `designAssets` is keyed by `websiteId`; `productDesigns` by `websiteId` + `customerId` or `sessionId`. Anonymous designs survive session changes via `sessionId`.
 - **Fabric.js is a client-only dependency.** The `lib/designer/` modules that import Fabric must never be loaded server-side.
 - **`decks_fork` chains via `parentDeckId`.** The field is a forward self-reference on `pitch_decks`; there is no cascading delete — forked decks are independent rows.
 
 ## Planning notes
 
-The V2 slide format with `draft.*` overlay was introduced to support a real-time multi-user workflow similar to the visual editor. Decision slides (`decisionSlide`, `decisionCover`, `decisionOptions`) and path groups (`pathGroup`) are the branching mechanism for interactive sales/proposal decks. The `decisionCover` two-column layout was added to support a specific client use-case (CY Strategies). The Product Designer was ported from `~/monorepo/packages/philaprints` and is not heavily integrated with the main block-editor pipeline.
+The V2 slide format with `draft.*` overlay was introduced to support a real-time multi-user workflow similar to the visual editor. Decision slides (`decisionSlide`, `decisionCover`, `decisionOptions`) and path groups (`pathGroup`) are the branching mechanism for interactive sales/proposal decks. The `decisionCover` two-column layout was added to support a specific client use-case. The Product Designer was ported from `<earlier-monorepo>/print-designer` and is not heavily integrated with the main block-editor pipeline.
 
 ## Related
 

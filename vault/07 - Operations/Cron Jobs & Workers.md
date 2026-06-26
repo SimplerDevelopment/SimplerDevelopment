@@ -38,7 +38,7 @@ Health tracking: every cron handler upserts into the `cron_health` table (schema
 | `/api/cron/ticket-sla-breaches` | :07 every hour | Flag tickets that breached SLA |
 | `/api/cron/surveys-zero-responses` | 10:30 Mon | Alert on surveys with zero responses |
 | `/api/cron/stale-crm-deals` | 11:00 Mon | Flag stale CRM pipeline deals |
-| `/api/cron/magamommy-weekly-drop` | 14:00 Mon | Magamommy weekly content drop |
+| `/api/cron/example-weekly-drop` | 14:00 Mon | Weekly content drop |
 | `/api/cron/failing-automations-notify` | 12:00 daily | Notify on persistently failing automations |
 | `/api/cron/brain-12` | 07:30 daily | Brain daily processing (brain-12 pipeline) |
 | `/api/cron/brain-daily-notes` | 06:05 daily | Generate brain daily summary notes |

@@ -65,7 +65,7 @@ import { test, expect } from './setup/fixtures';
 | `clientApi` | Authenticated `ApiClient` as `client@example.com` |
 | `adminApi` | Authenticated `ApiClient` as `admin@example.com` |
 | `unauthApi` | Unauthenticated `ApiClient` |
-| `loginAsPostcaptain(page)` | Logs `page` in as plugin client 103 — requires `POSTCAPTAIN_USER_EMAIL` / `POSTCAPTAIN_USER_PASSWORD` env vars; skip spec if absent |
+| `loginAsPlugin(page)` | Logs `page` in as the plugin tenant — requires `PLUGIN_USER_EMAIL` / `PLUGIN_USER_PASSWORD` env vars; skip spec if absent |
 | `loginAsOtherClient(page)` | Logs `page` in as `client@example.com` |
 
 Browser-level login: fetch CSRF token from `/api/auth/csrf`, POST to `/api/auth/callback/credentials` — see `loginPage()` in `tests/e2e/setup/fixtures.ts`. Seed credentials: `admin@example.com / admin123`, `client@example.com / client123`.

@@ -13,7 +13,7 @@ sources:
 
 - [ ] Plugin sandboxing (tenant isolation) — needs spec
 - [ ] Plugin callback endpoint rejects replay: second request with same JTI gets 409 — needs spec
-- [ ] draft-blog-post run kind produces a postcaptain_drafts row visible in /drafts UI — needs spec
+- [ ] draft-blog-post run kind produces a content_drafts row visible in /drafts UI — needs spec
 - [ ] Manifest scope-superset rejection: manifest requesting uncovered scope causes portal to refuse plugin load — needs spec
 
 ## Testing
@@ -25,8 +25,8 @@ sources:
 ## Passed
 
 - [ ] Plugin schema + entitlement infrastructure ✓
-- [ ] ✓ verified 2026-06-20 — Plugin entitlement gating (plugin-postcaptain-tools.spec.ts)
-- [ ] ✓ verified 2026-06-20 — Installed apps gallery (/portal/apps) lists active plugins for entitled client (plugin-postcaptain-tools.spec.ts)
+- [ ] ✓ verified 2026-06-20 — Plugin entitlement gating (plugin-content-tools.spec.ts)
+- [ ] ✓ verified 2026-06-20 — Installed apps gallery (/portal/apps) lists active plugins for entitled client (plugin-content-tools.spec.ts)
 - [ ] ✓ verified 2026-06-20 — Plugin with status=draft or status=disabled returns 404 at /portal/apps/<slug> (cov-u57.spec.ts)
 - [ ] ✓ verified 2026-06-20 — Cron plugin-runs-drain transitions queued run to succeeded and persists resultId (cov-u58.spec.ts)
 - [ ] ✓ verified 2026-06-21 — Cron plugin-jobs-tick fires due job, bumps nextRunAt to next slot, and is idempotent on second tick (cron-plugin-jobs-tick.spec.ts) — BUG FIXED: `timestamp without time zone` TZ mismatch in fireDueJobs CAS UPDATE; fix uses `::timestamptz AT TIME ZONE 'UTC'` predicate in both SELECT and UPDATE (fire-due-jobs.ts)

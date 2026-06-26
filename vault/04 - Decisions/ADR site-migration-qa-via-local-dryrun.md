@@ -4,15 +4,15 @@ domain: sites-hosting
 status: accepted
 date: 2026-06-12
 sources:
-  - scripts/migrations/goscribble/run-all.ts
-  - scripts/migrations/goscribble/WORKER-BRIEF.md
+  - scripts/migrations/<client>/run-all.ts
+  - scripts/migrations/<client>/WORKER-BRIEF.md
 ---
 
 # ADR: Visual QA for site migrations runs against a local dryrun DB, not production
 
 ## Status
 
-Accepted — established during Scribble (goscribble.ai) migration, 2026-06-12.
+Accepted — established during a client site migration, 2026-06-12.
 
 ## Context
 
@@ -31,7 +31,7 @@ Procedure:
 4. Prod records remain `publicAccess=false` and `published=false` throughout.
 5. Go-live is a separate, human-approved step: flip `published=true` and `publicAccess=true` on the prod records only after client sign-off.
 
-Migration-side evidence is stored in `scripts/migrations/goscribble/reports/visual/`.
+Migration-side evidence is stored in `scripts/migrations/<client>/reports/visual/`.
 
 ## Consequences
 
@@ -48,4 +48,3 @@ Migration-side evidence is stored in `scripts/migrations/goscribble/reports/visu
 ## Related
 
 - [[Sites, Hosting & Publishing]]
-- [[Scribble Site Migration]]

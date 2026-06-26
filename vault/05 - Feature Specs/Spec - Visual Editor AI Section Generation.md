@@ -70,7 +70,7 @@ Splice returned blocks into the parent's live `blocks` at `afterBlockId` (null =
 - **tool_use over freeform JSON** — guarantees parseable structured output; no fences/prose.
 - **Insertion via BLOCKS_UPDATE, not a new message** — the parent owns the array; the full-array push is the existing pattern; avoids touching the 2000-line iframe `BlockContentEditor`.
 - **Dirty-state, no forced save** — generation reversible until save; avoids autosave races.
-- **Exclude client-specific block types** (`palizzi-*` etc., not in `BUILT_IN_SCHEMAS`) from generation.
+- **Exclude client-specific block types** (not in `BUILT_IN_SCHEMAS`) from generation.
 
 ## Open questions
 

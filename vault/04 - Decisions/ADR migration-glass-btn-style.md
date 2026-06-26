@@ -4,19 +4,19 @@ domain: sites-hosting
 status: accepted
 date: 2026-06-12
 sources:
-  - scripts/migrations/goscribble/_brand.ts
-  - scripts/migrations/goscribble/COLOR-MAP.md
+  - scripts/migrations/<client>/_brand.ts
+  - scripts/migrations/<client>/COLOR-MAP.md
 ---
 
 # ADR: Dark-section secondary buttons require an explicit glass style when branding primaryText equals the section background
 
 ## Status
 
-Accepted — established during Scribble (goscribble.ai) migration, 2026-06-12.
+Accepted — established during a client site migration, 2026-06-12.
 
 ## Context
 
-The Scribble brand uses navy (`#0C1F3F`) as both the primary brand color and `secondaryText`. Several page sections use a navy background. The platform's branding system derives button text from `secondaryText`, which caused secondary buttons on navy sections to render with navy text on a navy background — invisible to users.
+A client brand used the same dark color for both their primary brand color and `secondaryText`. Several page sections used that same dark background. The platform's branding system derives button text from `secondaryText`, which caused secondary buttons on dark sections to render with dark text on a dark background — invisible to users.
 
 This is a class of bug that will recur whenever a client's `secondaryText` matches their dominant background color.
 
@@ -26,7 +26,7 @@ This is a class of bug that will recur whenever a client's `secondaryText` match
 
 The glass style uses white text on a semi-transparent frosted background (e.g. `rgba(255,255,255,0.15)` bg + `#FFFFFF` text + `1px solid rgba(255,255,255,0.3)` border), producing readable contrast against any dark background regardless of branding token values.
 
-For the Scribble migration, `GLASS_BTN_STYLE` is defined in `scripts/migrations/goscribble/_brand.ts` and referenced by all dark-section import scripts.
+`GLASS_BTN_STYLE` is defined in `scripts/migrations/<client>/_brand.ts` and referenced by all dark-section import scripts.
 
 ## Consequences
 
@@ -43,4 +43,3 @@ For the Scribble migration, `GLASS_BTN_STYLE` is defined in `scripts/migrations/
 
 - [[Agency, Onboarding & Branding]]
 - [[Sites, Hosting & Publishing]]
-- [[Scribble Site Migration]]

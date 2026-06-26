@@ -96,7 +96,7 @@ All crons are declared in `vercel.json` and run as Vercel-managed serverless fun
 | `/api/cron/pm-column-snapshots` | `55 23 * * *` (daily 23:55 UTC) | Snapshot kanban column card counts for analytics |
 | `/api/cron/surveys-zero-responses` | `30 10 * * 1` (Mon 10:30 UTC) | Alert on surveys with zero responses |
 | `/api/cron/stale-crm-deals` | `0 11 * * 1` (Mon 11:00 UTC) | Flag CRM deals with no recent activity |
-| `/api/cron/magamommy-weekly-drop` | `0 14 * * 1` (Mon 14:00 UTC) | Publish weekly Magamommy content drop |
+| `/api/cron/example-weekly-drop` | `0 14 * * 1` (Mon 14:00 UTC) | Publish weekly content drop |
 
 ---
 
@@ -104,11 +104,11 @@ All crons are declared in `vercel.json` and run as Vercel-managed serverless fun
 
 ### Staging vs production databases
 
-`scripts/verify-db-target.ts` is prepended to `bun run db:migrate` and `bun run db:push`. It reads `DATABASE_URL` and refuses destructive commands if the URL matches known prod host substrings (`tramway.proxy.rlwy.net:43167` or `metro.proxy.rlwy.net:25565`) or if `RAILWAY_ENVIRONMENT_NAME=production`. The check can be bypassed with `ALLOW_PROD=1`.
+`scripts/verify-db-target.ts` is prepended to `bun run db:migrate` and `bun run db:push`. It reads `DATABASE_URL` and refuses destructive commands if the URL matches known prod host substrings (see `$PROD_DATABASE_URL` patterns) or if `RAILWAY_ENVIRONMENT_NAME=production`. The check can be bypassed with `ALLOW_PROD=1`.
 
-Staging points at `nozomi.proxy.rlwy.net`. `.env.local` must use `override: true` when loading — without it, bun's pre-injected `.env` value silently wins.
+Staging points at `$STAGING_DATABASE_URL`. `.env.local` must use `override: true` when loading — without it, bun's pre-injected `.env` value silently wins.
 
-**Vercel deploy does NOT run migrations.** Before merging staging → main, the new migration SQL must be hand-applied against the metro (prod) Postgres. The Drizzle migration tracker is also currently out of sync with disk in prod.
+**Vercel deploy does NOT run migrations.** Before merging staging → main, the new migration SQL must be hand-applied against the production Postgres. The Drizzle migration tracker is also currently out of sync with disk in prod.
 
 ### Sentry environments
 

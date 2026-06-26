@@ -63,5 +63,5 @@ Harder / new invariants:
 ## Related
 
 - Domain map: [[E-Sign & Approvals]]
-- Implementation: commit `63795a77` on `feat/scribble-migration-roi`
+- Implementation: commit `63795a77` on a client-migration branch
 - Test: `tests/unit/lib-misc-batch-37h.test.ts`

@@ -29,7 +29,7 @@ Domain-map updates are a follow-up pass; this note records raw findings only.
 
 2. **Schema requires `vector` (pgvector), `pgcrypto`, `uuid-ossp` extensions pre-installed.** Neither `migrate` nor `push` creates them. Without `vector` the push aborts mid-run; ~150 tables including `brain_embeddings` silently never get created. Any fresh-provision runbook must `CREATE EXTENSION` before running push.
 
-3. **`scripts/verify-db-target.ts` prod-guard has a missing host.** The committed `.env` points at `switchyard.proxy.rlwy.net:47063`; only `tramway` and `metro` variants are listed in the guard. A destructive command (`reset-e2e-db.ts`) would NOT be blocked against that host. Also: `reset-e2e-db.ts` loads `.env.local` without `override:true`, so `.env` precedence can defeat a local override.
+3. **`scripts/verify-db-target.ts` prod-guard has a missing host.** The committed `.env` points at `$STAGING_DATABASE_URL`; only the prod-host variants are listed in the guard. A destructive command (`reset-e2e-db.ts`) would NOT be blocked against that host. Also: `reset-e2e-db.ts` loads `.env.local` without `override:true`, so `.env` precedence can defeat a local override.
 
 ---
 
@@ -96,7 +96,7 @@ The public approval page fully rendered: pending-change payload, PENDING badge, 
 
 - [ ] Fix entitlement seed: add `category='bundle'` row to `scripts/seed-admin-e2e.ts` — unblocks ~250 failing specs
 - [ ] Harden `app/approve/[token]` endpoint: graceful 410/422 on orphaned dependencies
-- [ ] Fix `verify-db-target.ts`: add `switchyard.proxy.rlwy.net` to blocked-host list
+- [ ] Fix `verify-db-target.ts`: add staging proxy host (`$STAGING_DATABASE_URL`) to blocked-host list
 - [ ] Fix `reset-e2e-db.ts`: load `.env.local` with `override:true`
 - [ ] Triage `clientApi.postText is not a function` in test helpers
 - [ ] Investigate `/portal/brain/ask` console error
