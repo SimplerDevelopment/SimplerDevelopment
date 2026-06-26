@@ -28,14 +28,14 @@ import type {
   WorkflowStepStatus,
 } from './types';
 
-interface RunOptions {
+export interface RunOptions {
   triggeredBy?: string;
   // Wait actions can sleep up to a configurable cap so the demo doesn't hang
   // for an hour. Default: 5s. Tests can pass 0.
   maxWaitMs?: number;
 }
 
-interface StepResult {
+export interface StepResult {
   status: WorkflowStepStatus;
   output: Record<string, unknown> | null;
   durationMs: number;
@@ -154,12 +154,12 @@ async function walk(
   }
 }
 
-interface NextEdge {
+export interface NextEdge {
   node: WorkflowNode;
   label?: WorkflowEdge['label'];
 }
 
-function nextNodes(graph: WorkflowGraph, fromId: string): NextEdge[] {
+export function nextNodes(graph: WorkflowGraph, fromId: string): NextEdge[] {
   const nodeById = new Map(graph.nodes.map((n) => [n.id, n] as const));
   const out: NextEdge[] = [];
   for (const edge of graph.edges) {
@@ -211,7 +211,7 @@ async function executeStep(
   return result;
 }
 
-async function executeAction(
+export async function executeAction(
   action: WorkflowAction,
   context: WorkflowRunContext,
   opts: RunOptions,

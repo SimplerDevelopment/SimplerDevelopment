@@ -29,6 +29,8 @@ const TABLES = {
   workflows: { __table: 'workflows' },
   workflowRuns: { __table: 'workflowRuns' },
   workflowStepLogs: { __table: 'workflowStepLogs' },
+  emailTemplates: { __table: 'emailTemplates' },
+  emailSubscribers: { __table: 'emailSubscribers' },
   kanbanCards: { __table: 'kanbanCards' },
   kanbanColumns: { __table: 'kanbanColumns' },
   kanbanCardAssignees: { __table: 'kanbanCardAssignees' },
@@ -78,6 +80,7 @@ vi.mock('@/lib/db', () => {
         else if (table.__table === 'workflowStepLogs') state.workflowStepLogs.push(augmented);
         return {
           returning: () => Promise.resolve([augmented]),
+          onConflictDoNothing: () => Promise.resolve(undefined),
         };
       },
     };
@@ -436,29 +439,31 @@ describe('executeAction — condition branching', () => {
   });
 });
 
-describe('executeAction — TODO action stubs (skipped status)', () => {
-  it('send_email returns status=skipped with todo marker', async () => {
+describe('executeAction — send_email and add_to_list (Phase 1 wired)', () => {
+  it('send_email returns status=failed when template is not found', async () => {
+    // The branches mock returns [] for all tables except workflows, so the
+    // template lookup fails and send_email returns an error result before
+    // ever reaching Resend (no Resend mock needed here).
     const { runWorkflow } = await import('@/lib/workflows/runtime');
     seedWorkflow(
       60,
       singleActionGraph({ kind: 'send_email', templateId: 5, to: 'a@b.test' }),
     );
     await runWorkflow(60, { clientId: 1 }, { maxWaitMs: 0 });
-    expect(actionLog().status).toBe('skipped');
+    expect(actionLog().status).toBe('failed');
     expect(actionLog().output).toMatchObject({
-      todo: 'send_email not yet wired',
-      templateId: 5,
-      to: 'a@b.test',
+      reason: 'template 5 not found',
     });
   });
 
-  it('add_to_list returns status=skipped with listId echo', async () => {
+  it('add_to_list returns status=skipped when no contactEmail in context', async () => {
+    // Context has clientId but no contactEmail → early-return skipped path.
     const { runWorkflow } = await import('@/lib/workflows/runtime');
     seedWorkflow(61, singleActionGraph({ kind: 'add_to_list', listId: 99 }));
     await runWorkflow(61, { clientId: 1 }, { maxWaitMs: 0 });
     expect(actionLog().status).toBe('skipped');
     expect(actionLog().output).toMatchObject({
-      todo: 'add_to_list not yet wired',
+      reason: 'no contactEmail in context',
       listId: 99,
     });
   });

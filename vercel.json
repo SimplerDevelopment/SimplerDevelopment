@@ -128,6 +128,10 @@
       "schedule": "* * * * *"
     },
     {
+      "path": "/api/cron/process-workflow-runs",
+      "schedule": "* * * * *"
+    },
+    {
       "path": "/api/cron/plugin-runs-drain",
       "schedule": "* * * * *"
     },
