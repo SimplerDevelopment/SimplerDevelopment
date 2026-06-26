@@ -31,7 +31,6 @@ Static list (agents: maintain this when adding ADRs — Dataview below only rend
 - [[ADR paid-module-entitlement-vs-scope-gating]]
 - [[ADR portal-redesign-sweep-design-system]]
 - [[ADR rate-limit-upstash-redis]]
-- [[ADR durable-automation-cron-drainer]]
 
 ```dataview
 TABLE domain, status, date

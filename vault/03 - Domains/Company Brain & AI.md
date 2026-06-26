@@ -216,10 +216,6 @@ All new LLM calls route through `lib/ai/llm.ts` or `lib/ai/agent-loop.ts` instea
 - No real OTEL instrumentation yet; `tracer.ts` is a placeholder.
 - Known gaps listed in `docs/guides/BRAIN.md` section 9.
 
-## Mastra agent rebuild
-
-Both the Company Brain agent and the Portal AI assistant have been rebuilt as Mastra v1 primitives in the sibling package `simplerdevelopment-agents/`. Both connect to the existing MCP server (`app/api/mcp/route.ts`) as MCP clients via a shared `MCPClient` instance rather than re-declaring portal tools. The Brain agent uses a deterministic Workflow; the Portal assistant uses a dynamic Agent whose model and tool subset are resolved per-request from a fast intent classifier. Status: implemented as a teaching example (`tsc` clean, `mastra build` succeeds), not yet wired into the Next runtime. See [[ADR mastra-agents-mcp-client]] and `simplerdevelopment-agents/BRAIN_AGENT_README.md`.
-
 ## Related
 
 [[CRM]], [[Automations & Workflows]]

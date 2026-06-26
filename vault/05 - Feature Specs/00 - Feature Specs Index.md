@@ -56,8 +56,6 @@ SORT date DESC
 - [[OSS Launch Playbook]] — cold-start OSS launch playbook (Show HN + MCP registry + mini launch week); `domain: go-to-market`; tags: marketing, oss, launch (2026-06-25)
 - [[Visual-Editor Agent]] — first domain-specialist sub-agent under the hub-and-spoke topology; block authoring via natural-language in the portal chatbot; `domain: visual-editor`
 - [[Spec - MCP Parity]] — chat/notifications/surveys-submit/analytics MCP tools (four build groups); tickets_* already existed — corrected 2026-06-23; closes API+UI-vs-MCP layers gap; `domain: mcp`; board [[MCP Parity Board]]
-- [[Spec - Visual Editor Decomposition]] — decompose BlockContentEditor.tsx (2018 lines) + HtmlRenderEditor.tsx (1694 lines) into ~20 extracted modules across 5 phases + regression harness; also fixes useSensors rules-of-hooks violation + ImagePickerModal dynamic-import footgun; `domain: visual-editor` (2026-06-25)
-- [[Spec - Pitch Decks Print Designer Unbundle]] — split the bundled "Pitch Decks & Product Designer" vault domain map into two separate notes; zero code coupling confirmed — docs-only, ~2h; `domain: pitch-decks` + `domain: print-designer` (2026-06-25)
 
 ### Shipped (2026-06-24)
 - [[Spec - Guardrail Distillation Loop]] — nightly multi-agent distillation loop for harness guardrails; `domain: agent-harness`; status: shipped (integration gates pending on worktree/study-guide)

@@ -178,6 +178,6 @@ single-file work is exempt. This rule is in `CLAUDE.md` (project root).
 - [[ADR typecheck-committed-head]] — explains why a clean tsc passed silently on the
   broken side-effect import (tsc does not resolve side-effect-only imports).
 - [[Plugins & Extension]] — `content-tools/` handler path and the 99-test fix.
-- [[Pitch Decks]] — `lib/decks/publish-slide.ts` canonical source.
+- [[Pitch Decks & Product Designer]] — `lib/decks/publish-slide.ts` canonical source.
 - [[Sites, Hosting & Publishing]] — `lib/publishing/slug.ts` canonical source.
 - [[CMS & Blocks]] — slug and money utilities used across block and CMS tooling.

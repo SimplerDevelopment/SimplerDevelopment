@@ -35,7 +35,7 @@ Audience: global admin panel only. No portal-tenant surface. No MCP exposure.
 
 ## Domain context
 
-Read first: [[Company Brain & AI]], [[Agency, Onboarding & Branding]], [[Pitch Decks]].
+Read first: [[Company Brain & AI]], [[Agency, Onboarding & Branding]], [[Pitch Decks & Product Designer]].
 
 The execution engine already exists: the eval harness at `lib/ai/evals/` (framework files: `types.ts` (129), `runner.ts` (144), `scorers.ts` (166), `report.ts` (98), `env.ts` (19)) with 10 wired suites under `lib/ai/evals/suites/`:
 
