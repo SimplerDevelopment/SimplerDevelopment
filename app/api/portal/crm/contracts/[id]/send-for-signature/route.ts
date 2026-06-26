@@ -12,12 +12,13 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { crmContracts, crmContractSigningEvents, brandingProfiles } from '@/lib/db/schema';
+import { crmContracts, crmContractSigningEvents, brandingProfiles, usageMeterEvents } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
 import { authorizePortal, isAuthError } from '@/lib/portal-auth';
 import { createSignatureRequest } from '@/lib/esign/dropbox-sign';
 import { renderContractPdf } from '@/lib/esign/contract-pdf';
+import { currentPeriodUtc } from '@/lib/billing/usage-rollup';
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -161,6 +162,23 @@ export async function POST(req: Request, { params }: Params) {
       signatureId: providerResult.signatureId,
     },
   });
+
+  // Pass-through billing: each DropboxSign envelope is metered as one
+  // 'esign_envelopes' usage event (20 included/mo, $1.50 overage per the domain
+  // catalog). The usage-rollup cron settles these into the metered Stripe
+  // subscription item. Swallow failures — telemetry must never fail the send
+  // (the envelope already exists at the provider).
+  try {
+    await db.insert(usageMeterEvents).values({
+      clientId: client.id,
+      resource: 'esign_envelopes',
+      period: currentPeriodUtc(),
+      amount: '1',
+      source: 'dropbox_sign',
+    });
+  } catch (err) {
+    console.warn('[contracts/send-for-signature] esign usage meter insert failed', err);
+  }
 
   return NextResponse.json({
     success: true,

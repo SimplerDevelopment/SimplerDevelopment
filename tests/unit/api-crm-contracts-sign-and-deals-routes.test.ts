@@ -476,8 +476,8 @@ describe('POST /api/portal/crm/contracts/[id]/send-for-signature', () => {
       esignStatus: 'sent',
     });
 
-    // Signing event row was inserted.
-    expect(insertCalls).toHaveLength(1);
+    // Signing event row was inserted, plus the pass-through usage meter event.
+    expect(insertCalls).toHaveLength(2);
     expect(insertCalls[0].table).toBe('crmContractSigningEvents');
     expect(insertCalls[0].values).toMatchObject({
       contractId: 1,
@@ -486,6 +486,18 @@ describe('POST /api/portal/crm/contracts/[id]/send-for-signature', () => {
       actorEmail: 'counter@party.io',
       payload: { signatureRequestId: 'req_abc', signatureId: 'sig_xyz' },
     });
+
+    // Pass-through billing: one 'esign_envelopes' usage event metered to the
+    // sending client (settled into the metered Stripe item by the rollup cron).
+    const meter = insertCalls.find((c) => c.table === 'usageMeterEvents');
+    expect(meter).toBeDefined();
+    expect(meter!.values).toMatchObject({
+      clientId: 10,
+      resource: 'esign_envelopes',
+      amount: '1',
+      source: 'dropbox_sign',
+    });
+    expect(meter!.values.period).toMatch(/^\d{4}-\d{2}$/);
   });
 
   it('falls back to default subject + message when body omits them', async () => {
