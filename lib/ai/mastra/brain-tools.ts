@@ -8,7 +8,7 @@ import { jsonSchemaToZod } from './json-schema-to-zod';
  * Each tool's execute() calls the SAME `executeBrainTool` dispatcher the
  * streaming route uses — so the sanitizer and the lib/brain/* implementations
  * are reused verbatim. No MCP, no HTTP: clientId/userId are closed over per
- * request. This is the in-app counterpart to sd-agents' MCP-based tools.
+ * request. This is the in-app counterpart to simplerdevelopment-agents' MCP-based tools.
  */
 export function buildBrainMastraTools(clientId: number, userId: number) {
   const tools: Record<string, ReturnType<typeof createTool>> = {};

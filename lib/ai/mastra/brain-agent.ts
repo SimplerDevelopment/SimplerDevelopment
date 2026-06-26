@@ -8,7 +8,7 @@ import { buildBrainMastraTools } from './brain-tools';
  * brain tools and a per-tenant Anthropic model (built from the resolved BYOK /
  * platform key). No Mastra memory — the route owns conversation persistence.
  *
- * Mirrors sd-agents' brain agent in spirit, but tenant-keyed + native-tooled
+ * Mirrors simplerdevelopment-agents' brain agent in spirit, but tenant-keyed + native-tooled
  * for in-process use. The classify / plan / ground stages stay as the app's
  * existing functions (already tenant-aware); this only owns the tool loop.
  */

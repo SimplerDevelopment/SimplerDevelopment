@@ -7,7 +7,7 @@ alongside it:
 | Path | What it is | Toolchain |
 |---|---|---|
 | `/` (root) | SimplerDevelopment2026 — the main Next.js app, CRM, Company Brain, portal | Next 16 + Bun |
-| `sd-agents/` | Mastra AI agents (Company Brain + Portal assistant) that talk to the portal over MCP | Mastra v1 + Bun |
+| `simplerdevelopment-agents/` | Mastra AI agents (Company Brain + Portal assistant) that talk to the portal over MCP | Mastra v1 + Bun |
 | `sd-chat-mobile/` | Expo / React Native mobile chat client | Expo + Bun |
 
 ## Independent installs (not hoisted)
@@ -27,8 +27,8 @@ Work in each package from its own directory:
 bun install && bun dev
 
 # Mastra agents
-cd sd-agents && bun install && bun dev      # Mastra Studio on :4111
-# see sd-agents/BRAIN_AGENT_README.md
+cd simplerdevelopment-agents && bun install && bun dev      # Mastra Studio on :4111
+# see simplerdevelopment-agents/BRAIN_AGENT_README.md
 
 # mobile chat
 cd sd-chat-mobile && bun install && bun start
