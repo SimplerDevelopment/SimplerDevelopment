@@ -14,7 +14,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 type Row = Record<string, unknown>;
 
 const selectQueue: Row[][] = [];
-const insertReturns: Row[][] = [];
+// A queued Error makes the next .returning() reject — used to simulate a DB
+// unique-constraint violation (the exclusive-slot double-booking guard).
+const insertReturns: (Row[] | Error)[] = [];
 const insertCalls: { table: unknown; values: unknown }[] = [];
 const updateCalls: { table: unknown; values: unknown }[] = [];
 
@@ -45,7 +47,10 @@ vi.mock('@/lib/db', () => {
         values: (values: unknown) => {
           insertCalls.push({ table, values });
           return {
-            returning: () => Promise.resolve(insertReturns.shift() ?? []),
+            returning: () => {
+              const next = insertReturns.shift() ?? [];
+              return next instanceof Error ? Promise.reject(next) : Promise.resolve(next);
+            },
             // For insertions without .returning() (e.g. attendees, addons, redemptions)
             then: (resolve: (v: unknown) => unknown) => Promise.resolve(undefined).then(resolve),
           };
@@ -356,6 +361,21 @@ describe('POST — 1:1 individual booking (free)', () => {
     selectQueue.push([{ id: 999 }]); // conflict exists
     const res = await POST(
       makeReq({ name: 'Alice', email: 'a@b.com', startTime: futureIso() }),
+      makeParams(),
+    );
+    expect(res.status).toBe(409);
+    expect((await res.json()).message).toMatch(/no longer available/i);
+  });
+
+  it('returns 409 when the exclusive-slot unique index rejects a racing insert (23505)', async () => {
+    // The availability SELECT passes (the racing request has not committed yet),
+    // but the DB partial unique index rejects the second INSERT — the guard that
+    // a SELECT-then-INSERT cannot provide. The route must translate 23505 → 409.
+    selectQueue.push([basePage()]);
+    selectQueue.push([]); // conflict check sees nothing (race window)
+    insertReturns.push(Object.assign(new Error('duplicate key value violates unique constraint'), { code: '23505' }));
+    const res = await POST(
+      makeReq({ name: 'Bob', email: 'bob@example.com', startTime: futureIso() }),
       makeParams(),
     );
     expect(res.status).toBe(409);

@@ -1,6 +1,7 @@
 // Portal tools: pitch decks, booking pages and bookings, gift certificates, and Google Workspace / Zoom integrations.
 
 import { pgTable, serial, varchar, text, timestamp, boolean, integer, bigint, json, jsonb, index, uniqueIndex } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 import { encryptedText } from './columns';
 import { portalApiKeys, users } from './auth';
 import { clientWebsites, clients } from './sites';
@@ -378,6 +379,13 @@ export const bookings = pgTable('bookings', {
   assignedUserId: integer('assigned_user_id').references(() => users.id, { onDelete: 'set null' }),
   // Capacity
   groupSize: integer('group_size').default(1).notNull(),
+  // True only for 1:1 (individual) booking pages: marks this slot as exclusive
+  // so the partial unique index below rejects a second concurrent confirmed
+  // booking at the same (page, start_time). Group/class bookings stay false —
+  // multiple bookings per slot are intentional there (capacity checked
+  // separately). Defaults false so the index can be added to a populated table
+  // without touching existing rows; new 1:1 bookings set it true at insert.
+  slotExclusive: boolean('slot_exclusive').default(false).notNull(),
   // Payment
   subtotal: integer('subtotal').default(0).notNull(), // cents
   discountTotal: integer('discount_total').default(0).notNull(),
@@ -409,6 +417,14 @@ export const bookings = pgTable('bookings', {
   index('bookings_client_idx').on(t.clientId),
   index('bookings_booking_page_idx').on(t.bookingPageId),
   index('bookings_start_status_idx').on(t.startTime, t.status),
+  // Concurrency guard: at most one non-cancelled booking per (page, start_time)
+  // on exclusive (1:1) slots. Closes the check-then-insert double-booking race
+  // that a SELECT-then-INSERT cannot — two simultaneous requests both pass the
+  // availability SELECT, but the DB rejects the second INSERT (23505 → 409).
+  // Group slots (slotExclusive=false) are excluded.
+  uniqueIndex('bookings_exclusive_slot_idx')
+    .on(t.bookingPageId, t.startTime)
+    .where(sql`${t.status} <> 'cancelled' AND ${t.slotExclusive}`),
 ]);
 
 // ─── BOOKING ATTENDEES (group / class bookings) ───────────────────────────
