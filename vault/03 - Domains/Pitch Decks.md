@@ -1,28 +1,15 @@
 ---
 type: domain-map
-domain: decks-designer
+domain: pitch-decks
 status: active
-date: 2026-06-10
+date: 2026-06-25
 sources:
   - lib/db/schema/tools.ts
-  - lib/db/schema/productDesigner.ts
   - lib/db/schema/cms.ts
   - lib/mcp/tools/pitch-decks.ts
   - lib/decks/publish-slide.ts
-  - lib/designer/canvasStore.ts
-  - lib/designer/types.ts
-  - lib/designer/layerFactory.ts
-  - lib/designer/fillResolver.ts
-  - lib/designer/aiPromptBuilder.ts
-  - lib/designer/fontVirtualizer.ts
-  - lib/designer/printAreaCheck.ts
-  - lib/designer/printQuality.ts
-  - lib/designer/contrastInk.ts
-  - lib/designer/aiRateLimit.ts
-  - lib/designer/hooks/useAutoSave.ts
-  - lib/designer/hooks/useAddImageLayer.ts
-  - lib/designer/hooks/useMobileGestures.ts
-  - lib/designer/hooks/useKeyboardShortcuts.ts
+  - lib/pitch-deck-migration.ts
+  - lib/pitch-deck-versions.ts
   - lib/branding/css-vars.ts
   - lib/branding/mcp-tools.ts
   - lib/branding/mcp-schemas.ts
@@ -33,58 +20,49 @@ sources:
   - app/slides/[slug]/page.tsx
   - app/pitch-deck/[slug]/page.tsx
   - app/sites/[domain]/slides/[slug]/page.tsx
-  - app/sites/[domain]/designer/[productSlug]/page.tsx
-  - app/portal/websites/[siteId]/store/products/[productId]/designer/page.tsx
   - app/api/portal/tools/pitch-decks/route.ts
   - app/api/portal/tools/pitch-decks/[id]/route.ts
   - app/api/portal/tools/pitch-decks/[id]/generate/route.ts
   - app/api/portal/tools/pitch-decks/[id]/slides/[slideIndex]/route.ts
+  - app/api/portal/tools/pitch-decks/[id]/slides/batch-edit/route.ts
+  - app/api/portal/tools/pitch-decks/[id]/slides/[slideIndex]/publish/route.ts
   - app/api/portal/tools/pitch-decks/[id]/publish-all/route.ts
   - app/api/portal/tools/pitch-decks/[id]/versions/route.ts
+  - app/api/portal/tools/pitch-decks/[id]/versions/[versionId]/restore/route.ts
+  - app/api/portal/tools/pitch-decks/[id]/slides/[slideIndex]/generate/route.ts
   - app/api/portal/tools/pitch-decks/upload-html/route.ts
   - tests/unit/mcp-tools-pitch-decks.test.ts
   - tests/unit/app-pitch-deck-presentation.test.tsx
   - tests/unit/app-pitch-decks-id-page.test.tsx
+  - tests/unit/lib-pitch-deck-migration.test.ts
+  - tests/unit/api-pitch-decks-slides-generate-route.test.ts
+  - tests/unit/api-pitch-decks-batch-edit-and-booking-slots-routes.test.ts
+  - tests/unit/api-pitch-decks-upload-and-deals-comments-routes.test.ts
   - tests/integration/pitch-decks/BatchEditBar.test.tsx
   - tests/integration/pitch-decks/HistoryPanel.test.tsx
   - tests/integration/pitch-decks/RegenerateModal.test.tsx
-  - lib/pitch-deck-migration.ts
-  - lib/pitch-deck-versions.ts
-  - app/api/portal/tools/pitch-decks/[id]/slides/[slideIndex]/generate/route.ts
-  - app/api/storefront/[siteId]/designs/route.ts
-  - app/api/storefront/[siteId]/designs/[designId]/route.ts
-  - app/api/storefront/[siteId]/designs/[designId]/finalize/route.ts
-  - app/api/storefront/[siteId]/designs/[designId]/share/route.ts
-  - app/api/storefront/[siteId]/designs/[designId]/ai-image/route.ts
-  - app/api/storefront/[siteId]/designs/[designId]/ai-text/route.ts
-  - app/api/storefront/[siteId]/designs/upload-image/route.ts
-  - app/api/storefront/[siteId]/designs/generate-thumbnail/route.ts
-  - app/api/portal/websites/[siteId]/store/design-assets/route.ts
 ---
 
-# Domain: Pitch Decks & Product Designer
+# Domain: Pitch Decks
 
 ## Purpose
 
-Two distinct tenant-facing creative tools sharing some infrastructure:
+AI-authored, block-editor-based presentation tool. Tenants create, manage, and publicly share slide decks (investor decks, proposals, sales decks). Slides use the V2 block-editor format (same block types as the CMS visual editor). A draft/live model separates authoring from publication: all MCP writes land in `slide.draft.*`; the public renderer reads only live fields until `decks_publish_slide` or `decks_publish_all` is called. Decks are per-tenant (scoped by `clientId`), not per-site. Theme inherits from branding profiles.
 
-**Pitch Decks** — AI-authored, block-editor-based presentation tool. Tenants create, manage, and publicly share slide decks ("pitch decks", investor decks, proposals, sales decks). Slides use the V2 block-editor format (same block types as the CMS visual editor). A draft/live model separates authoring from publication: all MCP writes land in `slide.draft.*`; the public renderer reads only live fields until `decks_publish_slide` or `decks_publish_all` is called. Decks are per-tenant (scoped by `clientId`), not per-site. Theme inherits from branding profiles.
+Competitors: Gamma, Tome, Pitch, Beautiful.ai. This is the strategic AI-agent showcase capability — the directive is to keep and invest.
 
-**Product Designer** — canvas-based storefront embellishment tool ported from an earlier print-designer monorepo. Store customers design custom graphics (text, icons, images) on product mockups (T-shirts, mugs, etc.) per-style, per-side. Uses Fabric.js for canvas rendering. Saved designs are keyed to `productDesigns`; the `products.designable` flag enables it per product.
+Service entitlement: `pitch-decks` (checked via `requireService(clientId, 'pitch-decks')` on all MCP write tools). Portal nav: "Pitches & Proposals" under Tools (`lib/portal-nav.ts` line 178, `requiredDomain: 'pitch-decks'`).
+
+---
 
 ## Key entry points
 
 | Path | Role |
 |---|---|
-| `lib/db/schema/tools.ts` | `pitchDecks`, `pitchDeckVersions` tables + `PitchDeckSlideV2`, `PitchDeckTheme` type interfaces |
-| `lib/db/schema/productDesigner.ts` | `productStyles`, `productSides`, `designAssets`, `productDesigns` tables |
+| `lib/db/schema/tools.ts` | `pitchDecks`, `pitchDeckVersions`, `pitchDeckViews` tables + `PitchDeckSlideV2`, `PitchDeckTheme` type interfaces |
 | `lib/db/schema/cms.ts` | `brandingProfiles` table (line 292) — theme inheritance source |
 | `lib/mcp/tools/pitch-decks.ts` | MCP tool registrar: 12 tools for deck CRUD, slide authoring, HTML upload, fork, publish |
-| `lib/decks/publish-slide.ts` | Shared pure-function publish helpers: `publishOneSlide`, `applyPublishToSlides`, `applyPublishAllToSlides` — single source of truth, consumed by both the MCP tool and REST routes (the old duplicate MCP-side copy was removed). |
-| `lib/designer/canvasStore.ts` | Zustand store for the designer canvas (layers, surfaces, selection, zoom, undo) |
-| `lib/designer/types.ts` | Core types: `LayerData`, `LayerType`, `DesignDoc`, `CanvasSize`, `DesignerSurface` |
-| `lib/designer/layerFactory.ts` | Fabric.js object constructors: `createFabricText`, `createFabricIcon`, `fabricObjectToLayer` |
-| `lib/designer/fillResolver.ts` | Tint/fill resolution: `resolveLayerFill`, `tintKey` |
+| `lib/decks/publish-slide.ts` | Shared pure-function publish helpers: `publishOneSlide`, `applyPublishToSlides`, `applyPublishAllToSlides` — canonical source, consumed by both MCP tools and REST routes |
 | `lib/pitch-deck-migration.ts` | V1→V2 slide migration helpers (`migratePitchDeck`, etc.) |
 | `lib/pitch-deck-versions.ts` | `saveVersionSnapshot` — persists `pitch_deck_versions` rows before AI edits |
 | `app/portal/tools/pitch-decks/[id]/page.tsx` | Main deck editor page (board + slide list + panels) |
@@ -92,28 +70,22 @@ Two distinct tenant-facing creative tools sharing some infrastructure:
 | `app/slides/[slug]/page.tsx` | Public deck viewer (global slug — no domain prefix) |
 | `app/pitch-deck/[slug]/page.tsx` | Public presentation viewer (alternate URL scheme) |
 | `app/sites/[domain]/slides/[slug]/page.tsx` | Tenant-site-scoped public deck viewer |
-| `app/sites/[domain]/designer/[productSlug]/page.tsx` | Public-facing product designer (storefront) |
-| `app/portal/websites/[siteId]/store/products/[productId]/designer/page.tsx` | Portal admin preview/configuration of product designer |
+
+---
 
 ## Data model
 
-**Pitch Decks** (all in `lib/db/schema/tools.ts`):
+All tables in `lib/db/schema/tools.ts`:
 
 - `pitch_decks` — one row per deck; `slides` is a JSON column typed as `PitchDeckSlide[] | PitchDeckSlideV2[]`; `formatVersion` discriminates legacy (1) vs. block-editor (2). `brandingProfileId` → `branding_profiles` (nullable; auto-resolves to `is_default` on create). `parentDeckId` is a self-referential FK set by `decks_fork`.
 - `pitch_deck_versions` — version history snapshots; `trigger` labels origin: `manual`, `ai_generate`, `ai_slide_edit`, `ai_regenerate`.
+- `pitch_deck_views` — view analytics rows.
 - `PitchDeckSlideV2.draft` overlay — the key authoring primitive: `pendingCreate`, `pendingDelete`, `blocks`, `customCss`, `pageSettings`, `notes`. Public renderer ignores this field entirely.
 - `PitchDeckTheme` — inline JSON: `primaryColor`, `accentColor`, `backgroundColor`, `textColor`, `headingFont`, `bodyFont`, `logo`, survey-button colors, `customCss`, `showSlideNumber`.
 
-**Product Designer** (all in `lib/db/schema/productDesigner.ts`):
-
-- `product_styles` → `products` (cascade); colorway variants with optional price override.
-- `product_sides` → `product_styles`; per-style mockup images with pixel-level printable-area bounds.
-- `design_assets` → `client_websites`; per-website icon/clip-art library (`icon` type uses react-icons refs; `art` type hosts SVG/PNG).
-- `product_designs` → `products`, `product_styles`, `store_customers`; `layers` JSON holds the canonical layer array; `uuid` is the public share-link key; soft-deleted via `deletedAt`.
+---
 
 ## API surface
-
-**REST (pitch decks):**
 
 | Endpoint | Method | Purpose |
 |---|---|---|
@@ -126,31 +98,16 @@ Two distinct tenant-facing creative tools sharing some infrastructure:
 | `app/api/portal/tools/pitch-decks/[id]/publish-all/route.ts` | POST | Publish all slide drafts |
 | `app/api/portal/tools/pitch-decks/[id]/versions/route.ts` | GET | List version history |
 | `app/api/portal/tools/pitch-decks/[id]/versions/[versionId]/restore/route.ts` | POST | Restore a version |
-| `app/api/portal/tools/pitch-decks/[id]/slides/[slideIndex]/generate/route.ts` | POST | AI regenerate a single slide (uses slide-edit-optimizer patch path) |
+| `app/api/portal/tools/pitch-decks/[id]/slides/[slideIndex]/generate/route.ts` | POST | AI regenerate a single slide |
 | `app/api/portal/tools/pitch-decks/upload-html/route.ts` | POST | Upload HTML file or ZIP (≤1 MB HTML / ≤50 MB ZIP) as single-slide deck |
 
-All portal routes return `{ success, data | error }` envelope per platform convention.
+All routes return `{ success, data | error }` envelope per platform convention.
 
-**REST (product designer):**
-
-| Endpoint | Method | Purpose |
-|---|---|---|
-| `app/api/storefront/[siteId]/designs/route.ts` | GET / POST | List / create designs for a storefront |
-| `app/api/storefront/[siteId]/designs/[designId]/route.ts` | GET / PATCH / DELETE | Single design CRUD |
-| `app/api/storefront/[siteId]/designs/[designId]/finalize/route.ts` | POST | Finalize a design (lock for order) |
-| `app/api/storefront/[siteId]/designs/[designId]/share/route.ts` | POST | Generate public share link |
-| `app/api/storefront/[siteId]/designs/[designId]/ai-image/route.ts` | POST | AI-generate an image layer |
-| `app/api/storefront/[siteId]/designs/[designId]/ai-text/route.ts` | POST | AI-generate a text layer |
-| `app/api/storefront/[siteId]/designs/[designId]/clone/route.ts` | POST | Clone a design |
-| `app/api/storefront/[siteId]/designs/[designId]/save-as-template/route.ts` | POST | Save design as reusable template |
-| `app/api/storefront/[siteId]/designs/upload-image/route.ts` | POST | Upload an image asset for use in a design |
-| `app/api/storefront/[siteId]/designs/generate-thumbnail/route.ts` | POST | Generate a canvas thumbnail |
-| `app/api/storefront/[siteId]/designs/claim/route.ts` | POST | Claim an anonymous design to a customer account |
-| `app/api/portal/websites/[siteId]/store/design-assets/route.ts` | GET / POST / DELETE | Manage per-website icon / clip-art asset library |
+---
 
 ## MCP tools
 
-Registered by `lib/mcp/tools/pitch-decks.ts` — 12 tools total, all gated on `decks:read` or `decks:write` scope, all requiring an active `pitch-decks` service entitlement for write operations:
+Registered in `lib/mcp/tools/pitch-decks.ts` — 12 tools total, all gated on `decks:read` or `decks:write` scope, all requiring an active `pitch-decks` service entitlement for write operations:
 
 | Tool | Scope | Purpose |
 |---|---|---|
@@ -169,6 +126,8 @@ Registered by `lib/mcp/tools/pitch-decks.ts` — 12 tools total, all gated on `d
 
 Write tools pass through `stageOrApply` (approval-workflow primitive) and call `publishSlidesUpdate` via `lib/realtime/internal-publisher.ts` for live editor sync. Publish helpers are shared with REST routes via `lib/decks/publish-slide.ts`.
 
+---
+
 ## UI surfaces
 
 **Portal (authenticated tenant):**
@@ -184,9 +143,7 @@ Write tools pass through `stageOrApply` (approval-workflow primitive) and call `
 - `app/pitch-deck/[slug]/page.tsx` — alternate public presentation viewer
 - `app/sites/[domain]/slides/[slug]/page.tsx` — tenant-domain-scoped viewer
 
-**Product Designer:**
-- `app/sites/[domain]/designer/[productSlug]/page.tsx` — public-facing canvas (storefront customers)
-- `app/portal/websites/[siteId]/store/products/[productId]/designer/page.tsx` — admin preview
+---
 
 ## Tests & gates
 
@@ -202,21 +159,20 @@ Write tools pass through `stageOrApply` (approval-workflow primitive) and call `
 | `tests/integration/pitch-decks/BatchEditBar.test.tsx` | integration | BatchEditBar component |
 | `tests/integration/pitch-decks/HistoryPanel.test.tsx` | integration | HistoryPanel component |
 | `tests/integration/pitch-decks/RegenerateModal.test.tsx` | integration | RegenerateModal component |
-| `tests/unit/designer-canvas-store.test.ts` | unit | Canvas store operations |
-| `tests/unit/designer-canvas-store-coverage.test.ts` | unit | Canvas store coverage supplement |
-| `tests/unit/lib-designer-print-area-check.test.ts` | unit | Print-area bounds validation |
-| `tests/unit/lib-designer-font-virtualizer.test.ts` | unit | Font virtualizer |
-| `tests/unit/designer-use-mobile-gestures.test.tsx` | unit | Mobile gesture hook |
+
+---
 
 ## Cross-domain dependencies
 
 - **[[CMS & Blocks]]** — slides use the same `Block[]` type from `@/types/blocks`; `assignBlockIds`, block-schema resource (`blocks://schema`) are shared. `lib/html-embed-clean.ts`, `lib/html-asset-import.ts`, `lib/html-zip-upload.ts` used by HTML upload.
 - **[[Agency, Onboarding & Branding]]** — `brandingProfiles` from `lib/db/schema/cms.ts` drives theme auto-resolution on `decks_create`. `lib/branding/css-vars.ts`, `lib/branding/block-defaults.ts`, `lib/branding/mcp-schemas.ts` used by deck theme pipeline.
-- **[[Storefront & Commerce]]** — `productDesigns` has FKs to `products`, `productStyles`, `storeCustomers`; `products.designable` flag gates the canvas. `cartItems`/`orderItems` carry a `designId` FK back to `productDesigns`.
 - **[[Surveys]]** — `PitchDeckSlideV2.surveySlide` / `surveyId` fields embed survey flows inside decks; decision slides can branch based on survey response.
 - **[[Visual Editor]]** — slide editor in the portal shares the block-editor paradigm and `postMessage` preview protocol.
 - **[[Auth & Security]]** — MCP tools rely on `PortalMcpContext`, `hasScope`, `requireService`; portal routes use NextAuth session + site-resolver.
 - **[[Chat, Realtime & Voice]]** — `lib/realtime/internal-publisher.ts` (`publishSlidesUpdate`) used by MCP write tools for live multi-user sync.
+- **[[E-Sign & Approvals]]** — `pitch_deck` is an approvable entity type; write tools go through `stageOrApply`.
+
+---
 
 ## Invariants & gotchas
 
@@ -224,20 +180,26 @@ Write tools pass through `stageOrApply` (approval-workflow primitive) and call `
 - **`formatVersion: 2` is the only supported write path.** Legacy V1 slides (typed `PitchDeckSlide`) are read-only; the MCP tools always emit V2. Migration logic lives in `lib/pitch-deck-migration.ts`; covered by `tests/unit/lib-pitch-deck-migration.test.ts`.
 - **Branding profile auto-resolution.** If `brandingProfileId` is omitted on create, the tool looks for `is_default = true` for the client. Passing an explicit profile ID that doesn't belong to the client is a hard error — never trust the caller's ID alone.
 - **`showSlideNumber` auto-override.** Any slide whose entire content is a single `html-embed` block has the slide-counter overlay suppressed, regardless of `theme.showSlideNumber`.
-- **Product Designer is per-website, not per-tenant.** `designAssets` is keyed by `websiteId`; `productDesigns` by `websiteId` + `customerId` or `sessionId`. Anonymous designs survive session changes via `sessionId`.
-- **Fabric.js is a client-only dependency.** The `lib/designer/` modules that import Fabric must never be loaded server-side.
 - **`decks_fork` chains via `parentDeckId`.** The field is a forward self-reference on `pitch_decks`; there is no cascading delete — forked decks are independent rows.
+- **Zero cross-imports with Print Designer.** No file in `lib/decks/`, `app/portal/tools/pitch-decks/`, or `app/api/portal/tools/pitch-decks/` imports anything from `lib/designer/` or `components/product-designer/`. The two domains are fully code-isolated (confirmed by grep 2026-06-25).
+
+---
 
 ## Planning notes
 
-The V2 slide format with `draft.*` overlay was introduced to support a real-time multi-user workflow similar to the visual editor. Decision slides (`decisionSlide`, `decisionCover`, `decisionOptions`) and path groups (`pathGroup`) are the branching mechanism for interactive sales/proposal decks. The `decisionCover` two-column layout was added to support a specific client use-case. The Product Designer was ported from `<earlier-monorepo>/print-designer` and is not heavily integrated with the main block-editor pipeline.
+The V2 slide format with `draft.*` overlay was introduced to support a real-time multi-user workflow similar to the visual editor. Decision slides (`decisionSlide`, `decisionCover`, `decisionOptions`) and path groups (`pathGroup`) are the branching mechanism for interactive sales/proposal decks. The `decisionCover` two-column layout was added to support a specific client use-case (CY Strategies).
+
+Split from the combined "Pitch Decks & Product Designer" domain map on 2026-06-25. See [[Print Designer]] for the Fabric.js storefront canvas tool and [[Spec - Pitch Decks Print Designer Unbundle]] for the full unbundle rationale.
+
+---
 
 ## Related
 
+- [[Print Designer]]
 - [[CMS & Blocks]]
 - [[Agency, Onboarding & Branding]]
-- [[Storefront & Commerce]]
 - [[Visual Editor]]
 - [[Surveys]]
 - [[Auth & Security]]
 - [[Chat, Realtime & Voice]]
+- [[E-Sign & Approvals]]

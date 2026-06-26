@@ -2,10 +2,22 @@
 type: domain-map
 domain: visual-editor
 status: active
-date: 2026-06-10
+date: 2026-06-25
 sources:
   - components/portal/visual-editor/
   - components/portal/visual-editor/CLAUDE.md
+  - components/portal/visual-editor/BlockContentEditor.tsx
+  - components/portal/visual-editor/HtmlRenderEditor.tsx
+  - components/portal/visual-editor/ImagePickerModal.tsx
+  - components/portal/visual-editor/_components/block-panels/ContentPanel.tsx
+  - components/portal/visual-editor/_components/block-panels/MediaPanel.tsx
+  - components/portal/visual-editor/_components/block-panels/HeroPanel.tsx
+  - components/portal/visual-editor/_components/block-panels/LayoutPanel.tsx
+  - components/portal/visual-editor/_components/block-panels/MarketingPanel.tsx
+  - components/portal/visual-editor/_components/block-panels/CommercePanel.tsx
+  - components/portal/visual-editor/_components/block-panels/SpecialPanel.tsx
+  - components/portal/visual-editor/_components/html-render/HtmlRenderTabbedForm.tsx
+  - components/portal/visual-editor/_components/pickers/BookingPagePicker.tsx
   - components/portal/visual-editor/panel-fields.tsx
   - components/portal/visual-editor/_lib/block-elements.ts
   - components/portal/visual-editor/_lib/block-icon-map.ts
@@ -35,8 +47,13 @@ Block-based WYSIWYG page builder embedded in the portal. An authenticated tenant
 | Path | Role |
 |---|---|
 | `app/portal/websites/[siteId]/posts/[postId]/edit/page.tsx` | Server component — resolves session + tenant, fetches post + categories/tags, builds iframe URL, renders `PortalPostForm` |
-| `components/portal/visual-editor/BlockContentEditor.tsx` (2018) | **GOD FILE** — top-level client editor shell; owns selection state, undo stack, save. Do not read into main thread; use `simplerdev-visual-editor` skill or a targeted `limit:`/`offset:` read |
-| `components/portal/visual-editor/HtmlRenderEditor.tsx` (1694) | **GOD FILE** — author-friendly editor for `html-render` blocks. Same caution applies |
+| `components/portal/visual-editor/BlockContentEditor.tsx` (98) | Top-level client editor shell — now a 98-line `PANEL_MAP` dispatcher that routes `block.type` to one of 7 category panels in `_components/block-panels/`. Owns selection state, undo stack, and save. |
+| `components/portal/visual-editor/HtmlRenderEditor.tsx` (488) | Author-friendly editor for `html-render` blocks — 1694 lines decomposed into 488 shell + 11 modules extracted to `_components/html-render/`. |
+| `components/portal/visual-editor/_components/block-panels/` | 7 category panels dispatched by `BlockContentEditor`: `ContentPanel`, `MediaPanel`, `HeroPanel`, `LayoutPanel`, `MarketingPanel`, `CommercePanel`, `SpecialPanel` |
+| `components/portal/visual-editor/_components/html-render/` | 11 modules extracted from `HtmlRenderEditor`: `HtmlRenderTabbedForm`, `HtmlRenderAddFieldMenu`, `HtmlRenderArrayEditor`, `HtmlRenderFieldInput`, `HtmlRenderFullJson`, `HtmlRenderPostPicker`, `HtmlRenderSchemaActions`, `HtmlRenderSubFieldsEditor`, `HtmlRenderUrlAutocomplete`, `SortableSchemaField` + `HtmlRenderAddFieldMenu` |
+| `components/portal/visual-editor/_components/pickers/` | Shared picker components: `BookingPagePicker`, `ProductSlugPicker`, `SurveyPicker` |
+| `components/portal/visual-editor/_components/` | Shared in-panel editors: `ColumnsEditor`, `HeroSlideshowEditor`, `HtmlEmbedEditor`, `ListEditor`, `MarqueeEditor`, `SurveyResultsEditor` |
+| `components/portal/visual-editor/ImagePickerModal.tsx` (62) | Image picker modal — extracted from `HtmlRenderEditor` |
 | `components/portal/visual-editor/IframePreview.tsx` (158) | Renders the sandboxed `<iframe>`; forwards postMessage events to/from the parent hook |
 | `components/portal/visual-editor/LeftPanel.tsx` (282) | Block picker panel |
 | `components/portal/visual-editor/LayersPanel.tsx` (223) | Block tree / selection hierarchy |
@@ -121,7 +138,7 @@ Sourced from `components/portal/visual-editor/CLAUDE.md`:
 
 1. **postMessage protocol is load-bearing.** Editor and iframe communicate only through typed messages. Never bypass with direct DOM access. New event types must be added to BOTH ends (`types/visual-editor.ts` + the iframe handler) in the same commit.
 2. **Selection/resize overlays read from iframe layout.** They will desync if you mutate the iframe DOM outside the editor's update path.
-3. **New behaviour goes in `_hooks/` or `_lib/`**, not into `BlockContentEditor.tsx`. The shell is already 2018 lines — every addition multiplies future agent read cost.
+3. **New behaviour goes in `_hooks/`, `_lib/`, or the appropriate `_components/block-panels/` panel**, not into `BlockContentEditor.tsx`. The shell is intentionally thin (98 lines, PANEL_MAP only) — keep it that way. New block-type editors belong in a new category panel or an extension of an existing one.
 4. **Don't render blocks here.** Production block rendering lives in `app/sites/`. The visual editor produces editing chrome only.
 5. **`coalesce` flag on `BLOCKS_UPDATE`** — only the first coalesce-true update in a drag/slider session pushes an undo history entry. Session ends after 300 ms of quiet or a coalesce-false update. Preserve this when forwarding `onChange` calls through settings panels.
 6. **Panel interface contract** (`components/blocks/visual/CLAUDE.md`): every category settings panel accepts `(block: Block, onChange: (updates, options?) => void, currentViewport: Breakpoint)`. Changing this signature breaks the sidebar.
@@ -129,7 +146,7 @@ Sourced from `components/portal/visual-editor/CLAUDE.md`:
 
 ## Planning notes
 
-The `simplerdev-visual-editor` skill (`.claude/skills/simplerdev-visual-editor/` or equivalent) is the correct entry point for any visual editor research, audit, debug, or feature work. It contains the full protocol map and knows the god-file layout. Do not open `BlockContentEditor.tsx` or `HtmlRenderEditor.tsx` into the main thread — spawn an Explore subagent or use targeted reads with `limit:`/`offset:`.
+The `simplerdev-visual-editor` skill (`.claude/skills/simplerdev-visual-editor/` or equivalent) is the correct entry point for any visual editor research, audit, debug, or feature work. It contains the full protocol map and the decomposed module layout. `BlockContentEditor.tsx` is now a lean 98-line dispatcher; `HtmlRenderEditor.tsx` is 488 lines — both are safe to read directly. For deep dives into a specific category panel or html-render sub-module, read the relevant file in `_components/block-panels/` or `_components/html-render/` directly.
 
 When adding a new block type with an editor-side settings panel, the `simplerdev-block-type` skill handles render component, registry entry, block settings panel, and production renderer in lockstep.
 
