@@ -50,7 +50,7 @@ All tables in `lib/db/schema/store.ts`. Tenancy key: `websiteId` on every table.
 - `product_images`, `bulk_pricing_rules`.
 - `payment_methods` — client-scoped (`clientId`) Stripe card records (`brand`, `last4`, `expMonth`/`Year`, `isDefault`); used for platform billing, not storefront customer checkout.
 
-**Product designer (custom print) — store.ts tables (older / Magamommy-era)**
+**Product designer (custom print) — store.ts tables (older / legacy-era)**
 - `product_design_surfaces` — named print surfaces per product (front/back/sleeve), canvas dimensions, print-area bounds, DPI.
 - `designs` — UUID PK; `layersBySurface` (JSONB keyed by surface slug); owned by a `storeCustomer` or a guest `sessionId`. `isTemplate` flag for site-wide reusable templates.
 - `design_assets` — S3 URLs for user-uploaded art within a design (cleaned up on delete).
@@ -62,7 +62,7 @@ Defined in `lib/db/schema/productDesigner.ts`. These tables back the newer per-p
 - `product_styles` — designable color/colorway variants of a product; each carries an optional price override, swatch hex, and thumbnail URL.
 - `product_sides` — per-style mockup images with printable-area bounds (x/y/width/height in image pixels); supports front/back/sleeve and custom sides.
 - `product_designs` — saved customer designs; `layers` (JSON array), `styleOverrides` (JSON), UUID share key, soft-delete via `deletedAt`. Owned by a `storeCustomer` or a guest `sessionId`.
-- `philaprints_design_assets` — per-website icon/art library; entries are either react-icons references (`type=icon`, `iconName`/`iconPack`) or hosted SVG/PNG assets (`type=art`, `imageUrl`).
+- `design_assets` — per-website icon/art library; entries are either react-icons references (`type=icon`, `iconName`/`iconPack`) or hosted SVG/PNG assets (`type=art`, `imageUrl`).
 
 **Cart & orders**
 - `carts` / `cart_items` — `cartItems.designId` FK deferred at runtime (avoids circular ref).

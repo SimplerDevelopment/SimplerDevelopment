@@ -81,7 +81,7 @@ date: 2026-06-17
 - [x] Ponytail refactor sweep — canonical utils + dead-code removal (2026-06-23) — `lib/publishing/slug`, `lib/utils/{money,bytes,html}`, `lib/mcp/types`, `lib/decks/publish-slide` canonicalized; `content-tools` rename completed; 32 dead files removed; prompt-intake rule added — see [[ADR ponytail-refactor-sweep-canonical-utils]]
 - [x] Repo cleanup + docs consolidation + README rewrite (2026-06-09)
 - [x] In-repo Obsidian vault: scaffold + 50-note knowledge sweep (2026-06-10)
-- [x] Scribble (goscribble.ai) site migration — LIVE at https://scribble.simplerdevelopment.com, all 12 pages 200 (2026-06-12) — see [[Scribble Site Migration]]
+- [x] Client site migration (worked example) — all pages 200, go-live verified (2026-06-12) — see [[Site Migration — Worked Example]]
 - [x] Approval page WYSIWYG preview + page-scoped token (2026-06-16) — live-site iframe in public approval flow; scoped HMAC prevents site-wide token leak — see [[ADR approval-preview-page-scoped-token]] · [[E-Sign & Approvals]]
 - [x] Platform E2E + Competitive Audit (2026-06-17) — 146-spec suite + MCP browser pass + 21-domain gap analysis — see [[Platform E2E + Competitive Audit]] · [[00 - E2E Audit Index]]
 - [x] Rate limiter backend: Upstash Redis (2026-06-25) — swapped in-memory `Map` for `@upstash/ratelimit` sliding-window; serverless-correct (HTTP, no TCP pool exhaustion); fail-open; 9 endpoints covered; signup duplicate limiter removed; `tsc` clean + unit tests green — see [[ADR rate-limit-upstash-redis]] · [[Spec - Auth MFA + Audit Log + Rate Limiting]]

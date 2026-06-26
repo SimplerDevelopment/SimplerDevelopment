@@ -43,9 +43,9 @@ All data access flows through Drizzle ORM. The schema is split into per-domain m
 | `lib/db/schema/snapshots.ts` | `site_snapshots` — periodic site content snapshots |
 | `lib/db/schema/cronHealth.ts` | `cron_health` — cron heartbeat tracking |
 | `lib/db/schema/agenticOs.ts` | `agentic_os_runs` — agentic task run logs |
-| `lib/db/schema/plugins.ts` | `registered_apps`, `registered_app_signing_keys`, `registered_app_runs`, `registered_app_jobs`, `postcaptain_briefs`, `postcaptain_drafts` — third-party plugin registry |
+| `lib/db/schema/plugins.ts` | `registered_apps`, `registered_app_signing_keys`, `registered_app_runs`, `registered_app_jobs`, `content_briefs`, `content_drafts` — third-party plugin registry |
 | `lib/db/schema/trigger-links.ts` | `trigger_links`, `trigger_link_clicks` — trackable trigger links |
-| `lib/db/schema/productDesigner.ts` | `product_styles`, `product_sides`, `product_designs`, `philaprints_design_assets` — product customization designer |
+| `lib/db/schema/productDesigner.ts` | `product_styles`, `product_sides`, `product_designs`, `design_assets` — product customization designer |
 | `lib/db/schema/publishing.ts` | `publishing_campaigns`, `publishing_permissions` — social publishing command center |
 
 ---
@@ -67,13 +67,13 @@ New tables holding tenant data must include `clientId` plus a tenancy test fixtu
 1. Edit `lib/db/schema/<domain>.ts`.
 2. `bun run db:generate` — drizzle-kit reads `drizzle.config.ts` (schema: `lib/db/schema/index.ts`, out: `drizzle/`) and emits a new `drizzle/<NNNN>_*.sql` file. Currently 118 migration files (0000 through 9999).
 3. `bun run db:migrate` — applies the migration locally. This script first runs `bun run db:verify-target` (see below) as a safety gate.
-4. **Before merging staging → main, hand-apply the new SQL against the metro (prod) DB.** Vercel deploy does NOT run migrations automatically. The Drizzle migration tracker is also currently out of sync with disk in prod, so `bun run db:migrate` against prod fails — schema changes are hand-applied.
+4. **Before merging staging → main, hand-apply the new SQL against the production DB.** Vercel deploy does NOT run migrations automatically. The Drizzle migration tracker is also currently out of sync with disk in prod, so `bun run db:migrate` against prod fails — schema changes are hand-applied.
 
 ### db:verify-target safety rail
 
-`scripts/verify-db-target.ts` inspects `DATABASE_URL`. It refuses to proceed if the URL contains the known prod host patterns (`tramway.proxy.rlwy.net:43167`, `metro.proxy.rlwy.net:25565`) or if `RAILWAY_ENVIRONMENT_NAME=production`. The check can be bypassed with `ALLOW_PROD=1`, which should never be done casually.
+`scripts/verify-db-target.ts` inspects `DATABASE_URL`. It refuses to proceed if the URL contains the known prod host patterns (see `$PROD_DATABASE_URL` indicators) or if `RAILWAY_ENVIRONMENT_NAME=production`. The check can be bypassed with `ALLOW_PROD=1`, which should never be done casually.
 
-Staging points at `nozomi.proxy.rlwy.net`. `.env.local` overrides `.env` (the `override: true` flag is required — without it, bun's env injection wins and staging URLs silently beat local overrides).
+Staging points at `$STAGING_DATABASE_URL`. `.env.local` overrides `.env` (the `override: true` flag is required — without it, bun's env injection wins and staging URLs silently beat local overrides).
 
 ### Never hand-edit drizzle/*.sql
 

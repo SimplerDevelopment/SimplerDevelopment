@@ -46,7 +46,7 @@ sources:
 
 ## Purpose
 
-Canvas-based storefront embellishment tool ported from the philaprints monorepo. Store customers design custom graphics (text, icons, images) on product mockups (T-shirts, mugs, etc.) per-style, per-side. Uses Fabric.js for canvas rendering. Saved designs are keyed to `productDesigns`; the `products.designable` flag enables the designer per product.
+Canvas-based storefront embellishment tool ported from an earlier print-designer monorepo. Store customers design custom graphics (text, icons, images) on product mockups (T-shirts, mugs, etc.) per-style, per-side. Uses Fabric.js for canvas rendering. Saved designs are keyed to `productDesigns`; the `products.designable` flag enables the designer per product.
 
 Competitors: Canva, Adobe Express, Printful's built-in designer — commodity storefront embellishment. **Fate (invest / defer / cut) is an open decision** following the unbundle from [[Pitch Decks]]; see [[Spec - Pitch Decks Print Designer Unbundle]] for the decision framework and cut checklist.
 
@@ -58,7 +58,7 @@ Service gate: none — the designer is a feature of `store`/`websites`, always o
 
 | Path | Role |
 |---|---|
-| `lib/db/schema/productDesigner.ts` | `productStyles`, `productSides`, `philaprintsDesignAssets`, `productDesigns` tables |
+| `lib/db/schema/productDesigner.ts` | `productStyles`, `productSides`, `designAssets`, `productDesigns` tables |
 | `lib/designer/canvasStore.ts` | Zustand store for the designer canvas (layers, surfaces, selection, zoom, undo) |
 | `lib/designer/types.ts` | Core types: `LayerData`, `LayerType`, `DesignDoc`, `CanvasSize`, `DesignerSurface` |
 | `lib/designer/layerFactory.ts` | Fabric.js object constructors: `createFabricText`, `createFabricIcon`, `fabricObjectToLayer` |
@@ -78,7 +78,7 @@ All tables in `lib/db/schema/productDesigner.ts`:
 
 - `product_styles` → `products` (cascade); colorway variants with optional price override.
 - `product_sides` → `product_styles`; per-style mockup images with pixel-level printable-area bounds.
-- `philaprints_design_assets` → `client_websites`; per-website icon/clip-art library (`icon` type uses react-icons refs; `art` type hosts SVG/PNG). **Tenancy key: `websiteId`.**
+- `design_assets` → `client_websites`; per-website icon/clip-art library (`icon` type uses react-icons refs; `art` type hosts SVG/PNG). **Tenancy key: `websiteId`.**
 - `product_designs` → `products`, `product_styles`, `store_customers`; `layers` JSON holds the canonical layer array; `uuid` is the public share-link key; soft-deleted via `deletedAt`. **Tenancy key: `websiteId` + `customerId` / `sessionId`.**
 
 ---
@@ -125,7 +125,7 @@ No dedicated MCP tools — the designer is driven entirely by REST from the stor
 
 ## Invariants & gotchas
 
-- **Product Designer is per-website, not per-tenant.** `philaprintsDesignAssets` is keyed by `websiteId`; `productDesigns` by `websiteId` + `customerId` or `sessionId`. Anonymous designs survive session changes via `sessionId`.
+- **Product Designer is per-website, not per-tenant.** `designAssets` is keyed by `websiteId`; `productDesigns` by `websiteId` + `customerId` or `sessionId`. Anonymous designs survive session changes via `sessionId`.
 - **Fabric.js is a client-only dependency.** The `lib/designer/` modules that import Fabric must never be loaded server-side.
 - **No service gate.** The designer has no `requireService` guard — it is always enabled when `products.designable = true`. Phase 3 of the unbundle spec would add a `designer` service slug if the fate decision is "invest." See [[Spec - Pitch Decks Print Designer Unbundle]].
 - **Zero cross-imports with Pitch Decks.** No file in `lib/designer/`, `components/product-designer/`, or `components/storefront/designer/` imports anything from `lib/decks/` or pitch-deck routes. The two domains are fully code-isolated (confirmed by grep 2026-06-25).
@@ -135,7 +135,7 @@ No dedicated MCP tools — the designer is driven entirely by REST from the stor
 
 ## Planning notes
 
-The designer was ported from `~/monorepo/packages/philaprints` and is not heavily integrated with the main block-editor pipeline. Split from the combined "Pitch Decks & Product Designer" domain map on 2026-06-25; see [[Pitch Decks]] for the AI deck authoring tool and [[Spec - Pitch Decks Print Designer Unbundle]] for the full unbundle rationale.
+The designer was ported from `<earlier-monorepo>/print-designer` and is not heavily integrated with the main block-editor pipeline. Split from the combined "Pitch Decks & Product Designer" domain map on 2026-06-25; see [[Pitch Decks]] for the AI deck authoring tool and [[Spec - Pitch Decks Print Designer Unbundle]] for the full unbundle rationale.
 
 Fate options (open decision — make independently now that this is a standalone domain):
 

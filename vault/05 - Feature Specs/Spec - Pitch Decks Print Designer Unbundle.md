@@ -51,7 +51,7 @@ Competitive context:
 
 The two tools were grouped together in the vault domain map because they were
 originally shipped from the same monorepo (the designer was ported from
-`~/monorepo/packages/philaprints`) and share the label "creative tools." That
+`<earlier-monorepo>/print-designer`) and share the label "creative tools." That
 framing creates three problems:
 
 1. **Independent fate decisions are blocked.** Deciding to invest heavily in AI
@@ -80,7 +80,7 @@ framing creates three problems:
 | **Service entitlement** | `pitch-decks` service slug, checked via `requireService(clientId, 'pitch-decks')` in all write tools | No service gate; designer is a feature of `store`/`websites` (always on when `products.designable = true`) |
 | **Portal nav** | Under "Tools" → "Pitches & Proposals" with `requiredDomain: 'pitch-decks'` (`lib/portal-nav.ts` line 178) | Embedded under "Websites" → store product management; not a top-level nav entry |
 | **Auth** | NextAuth portal session + site-resolver | Storefront customer session or anonymous `sd_design_session` cookie (`lib/storefront/designer-auth.ts`) |
-| **Cross-imports** | **Zero** — confirmed by grep. No `lib/designer/` or `components/product-designer/` imports in any deck file | **Zero** — confirmed by grep. No `lib/decks/` or `pitch-deck` imports in any designer file |
+| **Cross-imports** | **Zero** — confirmed by grep. No `lib/designer/` or `components/product-designer/` imports in any deck file | **Zero** — confirmed by grep. No `lib/decks/` or pitch-deck imports in any designer file |
 
 ### The Actual Coupling (all cosmetic — vault + docs only)
 

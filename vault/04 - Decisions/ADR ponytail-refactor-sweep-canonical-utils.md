@@ -37,7 +37,7 @@ accreted as inline or per-file copies — approximately 110 duplicated implement
 in total. Duplicate logic diverges silently: different slug normalizations produce
 different URL shapes for the same input; different currency formatters produce different
 display strings for the same amount. Additionally, a directory rename
-(`postcaptain-tools/` → `content-tools/`) had been completed incompletely: the
+(the plugin handler directory → `content-tools/`) had been completed incompletely: the
 plugin-callback route's side-effect import and several test module paths still pointed
 at the deleted directory. Because `tsc` does not check side-effect imports (no bindings),
 the project typechecked clean while the plugin-handler registry silently failed to
@@ -89,15 +89,15 @@ This is a consistent display improvement. Whole-dollar display uses `fractionDig
 storefront multi-currency display passes `{currency}` to get locale-correct symbols and
 separators.
 
-### 4. Plugin handler rename: `postcaptain-tools` → `content-tools` completed
+### 4. Plugin handler rename: plugin handler directory → `content-tools` completed
 
 The directory rename was completed by repointing all module import paths
 (`lib/plugins/handlers/content-tools/` is now the canonical path for all handler
-modules). The plugin identity slug `'postcaptain-tools'` is preserved in the DB and
-in the runtime registry — it is the public contract with the remote plugin origin.
+modules). The plugin identity slug is preserved in the DB and in the runtime registry under its
+original value — it is the public contract with the remote plugin origin.
 
 **Key lesson:** a clean `tsc --noEmit` does NOT prove side-effect imports resolve.
-`import '@/lib/plugins/handlers/postcaptain-tools/index'` (no binding, just a
+`import '@/lib/plugins/handlers/<old-handler-dir>/index'` (no binding, just a
 registry side-effect) silently vanishes from the type-graph. Directory renames must be
 verified by grepping for module path strings across the whole codebase, not by
 relying on typecheck alone. After this fix, 99 previously-broken plugin unit tests
@@ -121,7 +121,7 @@ Files were deleted only after per-file static reference checks (import, dynamic 
   `components/portal/voice/VoiceAssistant`.
 - `lib/brain/index.ts` — dead barrel; all consumers already imported sub-modules
   directly.
-- `lib/printing/upscale.ts` — orphaned after `scripts/magamommy` removal.
+- `lib/printing/upscale.ts` — orphaned after `scripts/<client>` removal.
 
 Post-deletion: typecheck exit 0, knip reports 0 unused files, no tests reference any
 deleted file.
@@ -143,7 +143,7 @@ single-file work is exempt. This rule is in `CLAUDE.md` (project root).
 - **New invariant:** Deck-publish helpers must be imported from
   `lib/decks/publish-slide.ts`; no per-route re-implementation.
 - **New invariant:** Plugin handler modules live under
-  `lib/plugins/handlers/content-tools/` — `postcaptain-tools/` is gone.
+  `lib/plugins/handlers/content-tools/` — the old handler directory is gone.
 - **Behavioral change (approved):** `Intl.NumberFormat` grouping separators now appear
   in all money-formatted strings. Any UI that previously displayed `$1234.56` now
   displays `$1,234.56`.

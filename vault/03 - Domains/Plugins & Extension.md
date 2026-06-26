@@ -67,7 +67,7 @@ sources:
 
 Two distinct but related extension mechanisms for the SimplerDevelopment platform:
 
-**Plugins (Registered Apps)** — a federation layer that lets independently-deployed Next.js applications ("plugins") embed inside the portal under `/portal/apps/<slug>/*`. The portal proxies requests to the remote plugin origin, injecting a short-lived HMAC-SHA256 JWT (delivered as the `sd-plugin-tenant` cookie for the iframe flow; as an `x-sd-tenant` header for cron dispatch calls) that carries tenant identity and scopes. Plugins call back to `/api/plugin-callback/<appId>/<route>` using the same JWT. The portal remains the source of truth for auth, billing/entitlement, nav, and audit. The first and current canonical plugin is **Postcaptain Tools** (content research briefs + AI blog drafts).
+**Plugins (Registered Apps)** — a federation layer that lets independently-deployed Next.js applications ("plugins") embed inside the portal under `/portal/apps/<slug>/*`. The portal proxies requests to the remote plugin origin, injecting a short-lived HMAC-SHA256 JWT (delivered as the `sd-plugin-tenant` cookie for the iframe flow; as an `x-sd-tenant` header for cron dispatch calls) that carries tenant identity and scopes. Plugins call back to `/api/plugin-callback/<appId>/<route>` using the same JWT. The portal remains the source of truth for auth, billing/entitlement, nav, and audit. The first and current canonical plugin is **Content Tools** (content research briefs + AI blog drafts).
 
 **Browser Extension** — a standalone Vite + React browser extension (MV3) in the `extension/` directory. It is self-contained and intentionally excluded from the main Next.js `tsconfig.json`. The extension lets users capture web page context, create CRM contacts/companies, log activity, and write Brain notes from any browser tab, authenticated via a separate `/api/extension/v1/` REST surface. AI extraction is handled server-side by `lib/extension/extract.ts` using Claude Haiku.
 
@@ -75,7 +75,7 @@ Two distinct but related extension mechanisms for the SimplerDevelopment platfor
 
 | Path | Role |
 |---|---|
-| `lib/db/schema/plugins.ts` | All plugin DB tables: `registeredApps`, `registeredAppSigningKeys`, `registeredAppCallbacksAudit`, `registeredAppRuns`, `registeredAppJobs`, `postcaptainBriefs`, `postcaptainDrafts` |
+| `lib/db/schema/plugins.ts` | All plugin DB tables: `registeredApps`, `registeredAppSigningKeys`, `registeredAppCallbacksAudit`, `registeredAppRuns`, `registeredAppJobs`, `contentBriefs`, `contentDrafts` |
 | `lib/plugins/jwt.ts` | `signPluginJwt` / `verifyPluginJwt` — HS256 JWT mint+verify with in-memory secret cache |
 | `lib/plugins/kms.ts` | AES-256-GCM encrypt/decrypt for HMAC secrets; keyed by `PORTAL_KMS_KEY` env var |
 | `lib/plugins/manifest.ts` | `fetchAndCacheManifest` — fetch+validate `sd-manifest.json`, 60s cache, stale-on-error fallback |
@@ -85,13 +85,13 @@ Two distinct but related extension mechanisms for the SimplerDevelopment platfor
 | `lib/plugins/entitlement.ts` | Entitlement helpers for `visibility` model enforcement |
 | `lib/plugins/load-user-apps.ts` | Per-request loader: which installed apps should appear in portal nav |
 | `lib/plugins/rate-limit.ts` | Per-plugin rate limiting primitives for callback routes |
-| `lib/plugins/handlers/content-tools/dispatch.ts` | Run dispatcher for Postcaptain Tools jobs |
+| `lib/plugins/handlers/content-tools/dispatch.ts` | Run dispatcher for Content Tools jobs |
 | `lib/plugins/handlers/content-tools/runner.ts` | Execution lifecycle: `enqueueRun` / `executeRun` / `drainQueuedRuns` — CAS-based queue management for plugin runs |
-| `lib/plugins/handlers/content-tools/complete.ts` | Worker completion callback; requires `postcaptain:internal:complete` scope; persists results and triggers downstream ingestion |
+| `lib/plugins/handlers/content-tools/complete.ts` | Worker completion callback; requires `content:internal:complete` scope; persists results and triggers downstream ingestion |
 | `lib/plugins/handlers/content-tools/competitor-brain.ts` | Brain ingestion for completed competitor-research runs: writes `brain_notes` + drops `kanban_card_comments` on vulnerability score changes |
-| `lib/plugins/handlers/content-tools/brain.ts` | Callback handler for GET `/brain/scraped-urls` — returns already-ingested source URLs for a competitor domain so the plugin can skip re-scraping (scope: `postcaptain:internal:brain:read`) |
+| `lib/plugins/handlers/content-tools/brain.ts` | Callback handler for GET `/brain/scraped-urls` — returns already-ingested source URLs for a competitor domain so the plugin can skip re-scraping (scope: `content:internal:brain:read`) |
 | `lib/plugins/handlers/content-tools/briefs.ts` | Brief generation and storage handler |
-| `lib/plugins/handlers/content-tools/jobs.ts` | Scheduled job management for Postcaptain |
+| `lib/plugins/handlers/content-tools/jobs.ts` | Scheduled job management for Content Tools |
 | `lib/plugins/handlers/content-tools/scripts.ts` | Handlers for `/scripts/run` POST and `/scripts/runs` GET |
 | `lib/plugins/handlers/content-tools/drafts.ts` | `/drafts` endpoint handlers |
 | `lib/plugins/handlers/content-tools/schedule.ts` | `nextRunAt` computation for scheduled jobs |
@@ -111,10 +111,10 @@ All tables in `lib/db/schema/plugins.ts`:
 - `registered_apps` — one row per installable plugin. `slug` is the unique identifier. `status` (`draft`|`active`|`disabled`) gates JWT minting. `visibility` (`allowlist`|`entitled`|`global`) drives entitlement. `defaultScopes` is the max scope set the plugin can claim. `billingServiceId` → `services` (nullable; used by `entitled` visibility mode).
 - `registered_app_signing_keys` — rotatable HMAC keys per plugin. `secretEncrypted` is AES-GCM ciphertext (keyed by `PORTAL_KMS_KEY`); raw secret is never persisted. `kid` in the JWT header selects the key for verification. `status`: `active` (mint+verify) | `retiring` (verify only) | `revoked` (blocked).
 - `registered_app_callbacks_audit` — every cross-origin callback. `jti` has a `UNIQUE` constraint for replay dedup: a conflict on insert = 409 replay rejection. Uses `bigserial` for high-volume audit logs.
-- `registered_app_runs` — execution log + work queue. `status` lifecycle: `queued` → `running` → `succeeded`|`failed`|`cancelled`. `resultId` cross-references `postcaptain_briefs` or `postcaptain_drafts` via `kind` discriminator. `logTail` capped at 64 KB.
+- `registered_app_runs` — execution log + work queue. `status` lifecycle: `queued` → `running` → `succeeded`|`failed`|`cancelled`. `resultId` cross-references `content_briefs` or `content_drafts` via `kind` discriminator. `logTail` capped at 64 KB.
 - `registered_app_jobs` — recurring schedules. Two modes: weekly (`dayOfWeek` + `timeUtc`) or cron (`cronExpr`, 5-field UTC). `nextRunAt` is bumped by the tick cron after each dispatch.
-- `postcaptain_briefs` — research brief output. `body` is markdown; `sources` are web-search citations. `meta.vulnerability` carries competitor-research scoring (`HIGH`|`MED`|`LOW` + dimension breakdown).
-- `postcaptain_drafts` — AI-generated blog post drafts. `status`: `draft`|`published-elsewhere`.
+- `content_briefs` — research brief output. `body` is markdown; `sources` are web-search citations. `meta.vulnerability` carries competitor-research scoring (`HIGH`|`MED`|`LOW` + dimension breakdown).
+- `content_drafts` — AI-generated blog post drafts. `status`: `draft`|`published-elsewhere`.
 
 ## API surface
 
@@ -150,7 +150,7 @@ All tables in `lib/db/schema/plugins.ts`:
 
 ## MCP tools
 
-No dedicated MCP tool registrar for the plugins domain itself. Plugin execution is triggered via the `registered_app_runs` queue (REST + cron), not via MCP. Postcaptain Tools exposes its own MCP surface from within the plugin's remote origin.
+No dedicated MCP tool registrar for the plugins domain itself. Plugin execution is triggered via the `registered_app_runs` queue (REST + cron), not via MCP. Content Tools exposes its own MCP surface from within the plugin's remote origin.
 
 ## UI surfaces
 
@@ -188,8 +188,8 @@ Run `bun test:tenancy` after any change to `lib/db/schema/plugins.ts` or the cal
 ## Cross-domain dependencies
 
 - **[[Auth & Security]]** — Plugin JWT signing/verification builds on NextAuth session resolution (`lib/extension/with-auth.ts`). `PORTAL_KMS_KEY` is a required production secret alongside `NEXTAUTH_SECRET`. The extension API routes use the same session model as the portal.
-- **[[Company Brain & AI]]** — `lib/extension/extract.ts` calls `searchBrain` and `resolveClientApiKey` (BYOK support). Postcaptain's `competitor-brain.ts` writes ingested competitor-research results into `brain_notes`; `brain.ts` is the read-only dedup helper for that pipeline.
-- **[[CRM]]** — Extension API creates CRM contacts/companies/activity directly. Postcaptain competitor research writes to `postcaptain_briefs` which references `clients`.
+- **[[Company Brain & AI]]** — `lib/extension/extract.ts` calls `searchBrain` and `resolveClientApiKey` (BYOK support). Content Tools' `competitor-brain.ts` writes ingested competitor-research results into `brain_notes`; `brain.ts` is the read-only dedup helper for that pipeline.
+- **[[CRM]]** — Extension API creates CRM contacts/companies/activity directly. Content Tools competitor research writes to `content_briefs` which references `clients`.
 - **[[Billing & Stripe]]** — Plugin entitlement with `visibility: 'entitled'` checks `client_services` → `services`; `billingServiceId` on the plugin row links to the Stripe product gate.
 - **[[Automations & Workflows]]** — `registeredAppJobs` uses `cron-parser` (same library as `lib/automation/schedule.ts`) for cron expression evaluation.
 
@@ -206,7 +206,7 @@ Run `bun test:tenancy` after any change to `lib/db/schema/plugins.ts` or the cal
 
 ## Planning notes
 
-The plugin system was designed to support Postcaptain Tools as the first tenant. The architecture was specified in `.planning/plugin-registry-spec.md` (archive — skim for contract details, not for current status). Iframes were chosen over module federation (build-time coupling) or top-level routing (blast radius). The browser extension was built as a companion tool to the portal's CRM and Company Brain features, not as a plugin host itself. It communicates with a dedicated `/api/extension/v1/` REST surface rather than the portal MCP endpoint.
+The plugin system was designed to support Content Tools as the first plugin tenant. The architecture was specified in `.planning/plugin-registry-spec.md` (archive — skim for contract details, not for current status). Iframes were chosen over module federation (build-time coupling) or top-level routing (blast radius). The browser extension was built as a companion tool to the portal's CRM and Company Brain features, not as a plugin host itself. It communicates with a dedicated `/api/extension/v1/` REST surface rather than the portal MCP endpoint.
 
 ## Related
 

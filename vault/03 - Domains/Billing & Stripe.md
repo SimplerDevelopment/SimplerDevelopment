@@ -220,7 +220,7 @@ Registered in `lib/mcp/tools/billing.ts` via `registerBillingTools(server, ctx)`
 | Path | Audience | Description |
 |---|---|---|
 | `app/portal/settings/billing/page.tsx` | Client | Billing settings, plan info, payment methods |
-| `app/portal/settings/billing/plans/page.tsx` (635) | Client | Pricing page: 12 module cards + bundle upsell + Stripe Checkout button; volume-discount progress strip; Team seats card (shows current seat count and per-seat cost); BYOK contact-sales card (mailto:info@danielpcoyle.com); usage meters section. Repeat-subscribes route through `add-item` (Checkout fallback for first purchase only) so all modules share one subscription and the reconciler re-syncs computed line items. |
+| `app/portal/settings/billing/plans/page.tsx` (635) | Client | Pricing page: 12 module cards + bundle upsell + Stripe Checkout button; volume-discount progress strip; Team seats card (shows current seat count and per-seat cost); BYOK contact-sales card (mailto:sales@simplerdevelopment.com); usage meters section. Repeat-subscribes route through `add-item` (Checkout fallback for first purchase only) so all modules share one subscription and the reconciler re-syncs computed line items. |
 | `components/portal/billing/UsageMeters.tsx` | Client | Per-resource usage bars pulling from `usage_thresholds` + `usage_alert_events` |
 | `app/portal/invoices/[id]/page.tsx` | Client | Invoice detail and payment page |
 | `app/admin/clients/[id]/plan/page.tsx` (723) | Admin | **"Billing & Plan" full management surface.** Active modules list (name, slug, status, cost); seat panel (derived count vs. override, per-seat charge, override input); volume-discount tier + dollar amount; comp % (set/clear); bundle swap action; BYOK override toggle; MRR breakdown via `computeAccountBilling`. All management controls wire to `app/api/admin/portal/clients/[id]/billing/route.ts`. |
@@ -282,7 +282,7 @@ Run: `scripts/test.sh --layer=unit --no-coverage` (fast) or with coverage to ver
 
 5. **Plan gating:** `clients.plan` (`starter` / `pro` / `enterprise`) in `lib/db/schema/sites.ts` controls feature entitlements. `clients.brainTrialUntil` grants temporary Brain access outside the paid tier. `clients.billing_mode` is independent of `plan` — both axes coexist.
 
-6. **BYOK AI keys — contact-sales (not self-serve):** With the tier UI removed, BYOK is no longer a self-serve price point. New clients see a "Contact sales" card (mailto:info@danielpcoyle.com) in place of any BYOK toggle or upgrade prompt — on both the onboarding wizard (`StepChooseModules.tsx`) and the plans page. This supersedes the earlier Scale-only self-serve model from [[ADR byok-inversion-scale-only]]; see [[ADR alacarte-volume-discount-replaces-tiers]] for the full decision.
+6. **BYOK AI keys — contact-sales (not self-serve):** With the tier UI removed, BYOK is no longer a self-serve price point. New clients see a "Contact sales" card (mailto:sales@simplerdevelopment.com) in place of any BYOK toggle or upgrade prompt — on both the onboarding wizard (`StepChooseModules.tsx`) and the plans page. This supersedes the earlier Scale-only self-serve model from [[ADR byok-inversion-scale-only]]; see [[ADR alacarte-volume-discount-replaces-tiers]] for the full decision.
 
    The three-layer code enforcement is unchanged (only the self-serve UI path changed):
    - **Storage** (`app/api/portal/integrations/api-keys/route.ts` (155) POST): returns 403 for non-`byokEligible` clients on `anthropic`/`openai` providers. `resend`/`dropbox_sign` are not gated.
