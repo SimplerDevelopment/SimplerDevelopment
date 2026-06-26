@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { resolveCustomDomain } from '@/lib/agency/custom-domain';
+import { isKnownSiteHost } from '@/lib/sites/host-resolver';
 import { getPortalClient } from '@/lib/portal-client';
 import {
   loadActiveAppBySlug,
@@ -70,9 +71,9 @@ function extractSubdomain(host: string): string | null {
  * smuggling in rewrites) and stops obvious SSRF-via-Host probes
  * ("169.254.169.254", "localhost.attacker.tld" with unusual chars, etc.).
  *
- * NOTE: a fuller fix is to look up the host in clientSites/clientWebsites and
- * 404 unknown ones. Doing that requires moving middleware to the Node runtime
- * (Drizzle/postgres.js are not Edge-safe). Tracked as Wave 3.
+ * This is the cheap first pass (no I/O). The fuller DB-lookup gate that 404s
+ * hosts no tenant has claimed now runs after it — see isKnownSiteHost below,
+ * enabled by the middleware Node runtime (`export const runtime = 'nodejs'`).
  */
 function isPlausibleTenantHost(host: string): boolean {
   const bare = host.split(':')[0].toLowerCase();
@@ -219,6 +220,16 @@ export async function middleware(req: NextRequest) {
       response.headers.set('x-agency-client-id', String(customMatch.clientId));
       response.headers.set('x-custom-portal-domain', bareHost);
       return response;
+    }
+
+    // DB-lookup host gate (replaces the regex-only Wave-3 TODO). The request is
+    // not a portal custom domain (resolveCustomDomain returned null), so it is
+    // destined for the public /sites renderer — only proceed if some tenant has
+    // actually claimed this host (verified custom domain or platform subdomain).
+    // Definitively-unknown hosts 404 at the edge instead of being rewritten into
+    // /sites/<attacker-host>; the lookup fails open on DB trouble.
+    if (!(await isKnownSiteHost(bareHost))) {
+      return new NextResponse('Not Found', { status: 404 });
     }
 
     // Rewrite to internal /sites/[domain]/[...slug] route

@@ -16,11 +16,19 @@ export async function getClientWebsiteByDomain(domain: string) {
 
   // Try the website_domains table, which stores every custom domain attached
   // to a site (including secondary / non-primary ones used by shared hosting).
+  // Only VERIFIED domains may resolve — a pending/failed domain row must not be
+  // able to route traffic (it would let a half-configured domain hijack a site).
   const [via] = await db
     .select({ site: clientWebsites })
     .from(websiteDomains)
     .innerJoin(clientWebsites, eq(websiteDomains.websiteId, clientWebsites.id))
-    .where(and(eq(websiteDomains.domain, domain), eq(clientWebsites.active, true)))
+    .where(
+      and(
+        eq(websiteDomains.domain, domain),
+        eq(websiteDomains.status, 'verified'),
+        eq(clientWebsites.active, true),
+      ),
+    )
     .limit(1);
 
   if (via?.site) return via.site;
