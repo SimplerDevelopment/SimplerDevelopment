@@ -48,6 +48,7 @@ function LoginForm() {
   const verified = searchParams.get('verified') === '1';
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [totpCode, setTotpCode] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -64,13 +65,16 @@ function LoginForm() {
     const result = await signIn('credentials', {
       email,
       password,
+      totpCode,
       redirect: false,
     });
 
     setLoading(false);
 
     if (result?.error) {
-      setError('Invalid email or password.');
+      // We can't tell password-vs-2FA apart (NextAuth hides the reason), so guide
+      // the user to the code if they have 2FA on.
+      setError('Invalid email or password — if you have two-factor enabled, include your authenticator code.');
     } else {
       // Check if the user's client has a subdomain portal
       try {
@@ -244,6 +248,22 @@ function LoginForm() {
                 Forgot your password?
               </a>
             </div>
+          </div>
+          <div>
+            <label className={authLabel}>Two-factor code <span className="font-normal text-muted-foreground">(only if enabled)</span></label>
+            <AuthField icon="pin">
+              <input
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                pattern="[0-9]*"
+                maxLength={6}
+                value={totpCode}
+                onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                className={authInput}
+                placeholder="123456"
+              />
+            </AuthField>
           </div>
           <button type="submit" disabled={loading} className={authPrimaryBtn}>
             {loading ? (

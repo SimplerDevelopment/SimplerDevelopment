@@ -1,6 +1,7 @@
 // Authentication & user identity (users, API keys, OAuth integrations).
 
 import { pgTable, serial, varchar, text, timestamp, boolean, integer, json, jsonb, unique } from 'drizzle-orm/pg-core';
+import { encryptedText } from './columns';
 import { clientWebsites, clients } from './sites';
 
 export const users = pgTable('users', {
@@ -33,6 +34,12 @@ export const users = pgTable('users', {
   // brain_embeddings). App code never inserts duplicates — the index is a
   // race guard on real DBs only.
   googleId: varchar('google_id', { length: 64 }),
+  // ── TOTP MFA (authenticator-app 2FA on the Credentials path) ───────────────
+  // mfaEnabled gates whether a 6-digit code is required at login. The base32
+  // secret is AES-256-GCM-encrypted at rest via encryptedText (same key universe
+  // as githubConnections.accessToken). Null secret = never enrolled.
+  mfaEnabled: boolean('mfa_enabled').default(false).notNull(),
+  totpSecret: encryptedText('totp_secret'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
@@ -42,7 +49,9 @@ export const githubConnections = pgTable('github_connections', {
   userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }).unique(),
   githubUserId: integer('github_user_id').notNull(),
   githubUsername: varchar('github_username', { length: 100 }).notNull(),
-  accessToken: text('access_token').notNull(),
+  // Encrypted at rest (AES-256-GCM via encryptedText) — closes the dual-key-universe
+  // invariant gap where GitHub tokens were the lone plaintext third-party credential.
+  accessToken: encryptedText('access_token').notNull(),
   scope: varchar('scope', { length: 500 }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),

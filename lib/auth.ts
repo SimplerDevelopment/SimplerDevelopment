@@ -7,6 +7,7 @@ import { users } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { findOrCreateGoogleUser } from '@/lib/signup/service';
 import { checkRateLimit, getClientIp } from '@/lib/security/rate-limit';
+import { verifyTOTP } from '@/lib/totp';
 
 // Login-capable Google OAuth app. Reuses the platform Google client unless a
 // dedicated one is configured. The provider only registers when configured so
@@ -44,6 +45,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       credentials: {
         email: { label: 'Email', type: 'email' },
         password: { label: 'Password', type: 'password' },
+        totpCode: { label: 'Authenticator code', type: 'text' },
       },
       async authorize(credentials, request) {
         if (!credentials?.email || !credentials?.password) {
@@ -81,6 +83,17 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
         if (!isValid) {
           return null;
+        }
+
+        // TOTP MFA: if the user enrolled an authenticator, a valid 6-digit code
+        // is mandatory. Fail closed (return null) for a missing or wrong code —
+        // same outcome as a bad password, so login never reveals whether MFA is
+        // on for an account. The login form carries the code in `totpCode`.
+        if (user.mfaEnabled && user.totpSecret) {
+          const totpCode = (credentials.totpCode as string | undefined)?.trim() ?? '';
+          if (!verifyTOTP(user.totpSecret, totpCode)) {
+            return null;
+          }
         }
 
         return {

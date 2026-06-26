@@ -48,6 +48,19 @@ vi.mock('bcryptjs', () => ({
   compare: (...args: unknown[]) => compareMock(...args),
 }));
 
+// lib/totp.verifyTOTP — programmable for the MFA-enforcement cases.
+const verifyTotpMock = vi.fn();
+vi.mock('@/lib/totp', () => ({
+  verifyTOTP: (...args: unknown[]) => verifyTotpMock(...args),
+}));
+
+// Rate-limit module pulls in @upstash (not always installed) — stub it so the
+// authorize() flow under test never touches the limiter or the optional dep.
+vi.mock('@/lib/security/rate-limit', () => ({
+  checkRateLimit: () => Promise.resolve(true),
+  getClientIp: () => '127.0.0.1',
+}));
+
 // Drizzle eq — return a tagged marker so we can sanity-check it's used.
 vi.mock('drizzle-orm', () => ({
   eq: (col: unknown, val: unknown) => ({ __eq: true, col, val }),
@@ -214,6 +227,45 @@ describe('lib/auth — Credentials.authorize', () => {
       name: 'Ok User',
       role: 'admin',
     });
+  });
+
+  // ── TOTP MFA enforcement ────────────────────────────────────────────────
+  const mfaUser = {
+    id: 7,
+    email: 'mfa@test.com',
+    name: 'MFA User',
+    role: 'admin',
+    password: 'hashed',
+    active: true,
+    mfaEnabled: true,
+    totpSecret: 'BASE32SECRET',
+  };
+
+  it('rejects login (null) when MFA is enabled and the code is wrong/missing', async () => {
+    nextDbUser = { ...mfaUser };
+    compareMock.mockResolvedValueOnce(true); // password is correct
+    verifyTotpMock.mockReturnValueOnce(false); // but code fails
+    const result = await authorize()({ email: 'mfa@test.com', password: 'right', totpCode: '' });
+    expect(result).toBeNull();
+    expect(verifyTotpMock).toHaveBeenCalledWith('BASE32SECRET', '');
+  });
+
+  it('allows login when MFA is enabled and the code is valid', async () => {
+    nextDbUser = { ...mfaUser };
+    compareMock.mockResolvedValueOnce(true);
+    verifyTotpMock.mockReturnValueOnce(true);
+    const result = await authorize()({ email: 'mfa@test.com', password: 'right', totpCode: '123456' });
+    expect(result).toMatchObject({ id: '7', email: 'mfa@test.com' });
+    expect(verifyTotpMock).toHaveBeenCalledWith('BASE32SECRET', '123456');
+  });
+
+  it('does not require a code when MFA is disabled (no TOTP check)', async () => {
+    nextDbUser = { ...mfaUser, mfaEnabled: false, totpSecret: null };
+    compareMock.mockResolvedValueOnce(true);
+    verifyTotpMock.mockClear();
+    const result = await authorize()({ email: 'mfa@test.com', password: 'right' });
+    expect(result).toMatchObject({ id: '7' });
+    expect(verifyTotpMock).not.toHaveBeenCalled();
   });
 });
 
