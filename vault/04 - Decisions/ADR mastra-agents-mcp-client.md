@@ -19,6 +19,10 @@ sources:
   - lib/ai/brain-tools/index.ts
   - lib/ai/portal-tools/index.ts
   - lib/ai/portal-tools/classifier.ts
+  - app/api/portal/brain/agent-mastra/route.ts
+  - lib/ai/mastra/brain-agent.ts
+  - lib/ai/mastra/brain-tools.ts
+  - lib/ai/mastra/json-schema-to-zod.ts
 ---
 
 # ADR: Rebuild SimplerDevelopment AI agents on Mastra; connect to the existing MCP server as a client
@@ -108,6 +112,31 @@ This contrasts with the Brain agent, which uses a **deterministic Workflow** (`b
 **Shared MCP connection — "two agents, one MCP":** Both agents consume the same `MCPClient` instance from `simplerdevelopment-agents/src/mastra/mcp/sd-mcp.ts`. The tool filtering happens client-side (prefix matching on the result of `MCPClient.listTools()`) — not by minting separate API keys or MCP sessions per agent.
 
 **Status:** `tsc --noEmit` clean; `mastra build` succeeds. Standalone package, not yet wired into the Next runtime. No change to Project Board lane (still Validating).
+
+## Addendum — Phase 1: Next → Mastra wiring (2026-06-25)
+
+The direction of wiring is now bidirectional. The first phase of integrating Mastra into the Next app itself has been built and committed (`1403cb8c`, branch `feat/brain-mastra-endpoint`).
+
+**New files in the main app:**
+
+- `app/api/portal/brain/agent-mastra/route.ts` — a new non-streaming Brain endpoint that slots a Mastra Agent into the identical auth/entitlement/billing lifecycle as the existing streaming route: `requireBrainEntitlement → checkAiPlanGate → resolveClientApiKey → credits → conversation persistence → deductCredits → recordAiUsage`. Only the inner loop differs — a Mastra Agent replaces the hand-rolled `anthropic.messages` tool loop.
+- `lib/ai/mastra/brain-agent.ts` — the in-app Mastra Agent. Builds a per-tenant `@ai-sdk/anthropic` model instance from the resolved BYOK/platform key (no Mastra memory; context window managed by the route layer). `@mastra/core` added as an app dependency; spike confirmed `@ai-sdk/anthropic@3` is type-compatible with Mastra's Agent.
+- `lib/ai/mastra/brain-tools.ts` — wraps the app's in-process `executeBrainTool` dispatcher (sanitizer included) as native Mastra tools — not MCP-over-HTTP. This is the key tool-sourcing difference from `simplerdevelopment-agents/`.
+- `lib/ai/mastra/json-schema-to-zod.ts` — bridges the `BRAIN_TOOLS` JSON Schemas to zod (required by Mastra's tool registration interface).
+
+**Key decisions (grilled before implementation):**
+
+1. **Non-streaming endpoint first, not the prod SSE route.** A new `agent-mastra` route leaves `brain/agent/route.ts` (the live streaming UI contract) completely untouched. Zero risk to the production portal. Phase 2 (future): per-token SSE parity + replacing the prod route.
+
+2. **Native in-process tools, not MCP-over-HTTP self-call.** The in-app module wraps `executeBrainTool` directly — the same dispatcher the existing route uses. This avoids the round-trip latency and credential ceremony of calling the app's own MCP server over HTTP. Contrast with `simplerdevelopment-agents/`, which has no in-process access and must use `MCPClient`.
+
+3. **Parallel in-app Mastra module — does NOT import `simplerdevelopment-agents/`.** The `lib/ai/mastra/` module is independent: it is not a workspace dependency, it carries different tool wiring (in-process vs. MCP-client), and it is not deployed separately. The two share the design pattern, not the code.
+
+4. **Per-tenant key injected via a dynamic `@ai-sdk/anthropic` model.** `resolveClientApiKey` runs in the route layer (matching the prod route); the resolved key is passed into the Mastra Agent's model constructor so BYOK and platform-key resolution are handled identically to the existing agent.
+
+**Verified:** new files typecheck clean; the endpoint compiles in-app; entitlement gate fires correctly — `402 BRAIN_NOT_ENTITLED` from both an `sd_mcp_` key and a logged-in browser session, matching the prod route's behavior. The full classify → loop → groundedness run end-to-end is NOT yet exercised — blocked by brain entitlement state on the available test clients (remote DB; would not write to prod; local DB stale).
+
+**Status:** committed on `feat/brain-mastra-endpoint`; not merged to `main`; full loop unproven end-to-end. Remains Validating on the Project Board.
 
 ## Related
 
