@@ -44,7 +44,6 @@ date: 2026-06-17
 - [ ] OSS public launch (Show HN + MCP registry + mini launch week) — see [[OSS Launch Playbook]]
 - [ ] Self-Serve SaaS GTM Launch (Phase 0 → public) — see [[Go-To-Market — Self-Serve SaaS]] · board [[GTM Launch Board]]
 - [ ] Visual-Editor / Block-Authoring Agent (first hub-and-spoke specialist; prerequisites now met — intent router shadow v1 + real tracing both shipped) — see [[Visual-Editor Agent]]
-- [ ] Visual Editor Decomposition (~20 extracted modules across 5 phases; also fixes useSensors rules-of-hooks violation + ImagePickerModal dynamic-import footgun) — see [[Spec - Visual Editor Decomposition]]
 
 ## In Progress
 
@@ -76,6 +75,7 @@ date: 2026-06-17
 ## Shipped
 
 **Complete**
+- [x] Visual Editor Decomposition (2026-06-25) — all 5 phases shipped: HtmlRenderEditor 1694→488 lines (11 modules to `_components/html-render/`); BlockContentEditor 2018→98 lines (PANEL_MAP dispatcher over 7 category panels in `_components/block-panels/`); shared editors + pickers extracted to `_components/`; `ImagePickerModal` extracted; 3 rules-of-hooks violations fixed; 478 visual-editor unit tests green — see [[Spec - Visual Editor Decomposition]]
 - [x] Pitch Decks / Print Designer Unbundle (2026-06-25) — domain map split into [[Pitch Decks]] + [[Print Designer]]; zero code change — see [[Spec - Pitch Decks Print Designer Unbundle]]
 - [x] Portal redesign sweep — full portal design system adoption (2026-06-24) — all portal pages adopt `portal-ui.ts` helpers + `PortalPageHeader`; `AuthShell` for pre-auth pages; dashboard widget visibility fix; bare-chrome route allowlist fix; Stripe Checkout email pre-fill — see [[ADR portal-redesign-sweep-design-system]]
 - [x] Ponytail refactor sweep — canonical utils + dead-code removal (2026-06-23) — `lib/publishing/slug`, `lib/utils/{money,bytes,html}`, `lib/mcp/types`, `lib/decks/publish-slide` canonicalized; `content-tools` rename completed; 32 dead files removed; prompt-intake rule added — see [[ADR ponytail-refactor-sweep-canonical-utils]]
