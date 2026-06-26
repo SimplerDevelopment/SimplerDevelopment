@@ -2,7 +2,7 @@
 type: domain-map
 domain: chat-realtime
 status: active
-date: 2026-06-10
+date: 2026-06-25
 sources:
   - lib/chat/
   - lib/realtime/
@@ -10,6 +10,9 @@ sources:
   - components/portal/voice/
   - lib/voice/
   - lib/brain/meeting-sources/live-voice.ts
+  - components/portal/visual-editor/CollaborationProvider.tsx
+  - app/portal/tools/pitch-decks/[id]/_components/DeckCollaborationProvider.tsx
+  - app/portal/email/campaigns/[id]/_components/EmailCollaborationProvider.tsx
 ---
 
 # Domain: Chat, Realtime & Voice
@@ -123,6 +126,66 @@ Document comments UI lives inside the visual editor (`components/portal/visual-e
 
 The voice assistant supports an optional meeting-recording mode. When enabled, it calls `getDisplayMedia` to capture shared-tab audio, mixes it with the mic stream through an `AudioContext`, and sends the combined audio to the OpenAI Realtime session. After the session ends, `lib/brain/meeting-sources/live-voice.ts` saves the combined transcript into the Company Brain as a meeting record and runs the existing extraction pipeline — producing decisions and tasks that land in the review queue. This path is wired in the adapter but remains dormant until the voice assistant widget is mounted in the portal layout.
 
+## Realtime Collaboration (Yjs) — Deployment & Operations
+
+For the full key-file table see [Key entry points](#key-entry-points); for the three-process architecture diagram see the WebSocket topology section under [API surface](#api-surface) above.
+
+**Decision record:** [[ADR realtime-yjs-standalone-railway-service]] — documents why the Yjs/WebSocket layer runs as a standalone Railway service rather than Vercel serverless or a hosted CRDT provider, and the trade-offs accepted.
+
+### Client editor providers
+
+The three CollaborationProvider components mount `useRealtimeDoc` and wire the collab layer into their respective editors:
+
+| Provider | Editor |
+|---|---|
+| `components/portal/visual-editor/CollaborationProvider.tsx` | Post / visual editor |
+| `app/portal/tools/pitch-decks/[id]/_components/DeckCollaborationProvider.tsx` | Pitch deck editor |
+| `app/portal/email/campaigns/[id]/_components/EmailCollaborationProvider.tsx` | Email campaign editor |
+
+Entity-format binding helpers (convert between the Postgres JSON shape and the Y.Array): `lib/realtime/post-binding.ts`, `lib/realtime/deck-binding.ts`, `lib/realtime/email-binding.ts`.
+
+### Env vars
+
+| Var | Side | Role |
+|---|---|---|
+| `REALTIME_JWT_SECRET` | Next app + realtime-server | Shared signing key for 5-min JWTs. If unset in the Next app, `POST /api/realtime/token` returns `503 REALTIME_NOT_CONFIGURED` and clients fall back to non-collaborative mode with no errors. |
+| `REALTIME_INTERNAL_SECRET` | Next app + realtime-server | Authenticates MCP fan-out POSTs to `/internal/apply` via `X-Internal-Secret` header. If unset, MCP writes succeed but do not propagate live to open editor tabs. |
+| `NEXT_PUBLIC_REALTIME_URL` | Next app (browser) | WebSocket base URL — e.g. `wss://realtime-server-dev.up.railway.app`; `ws://localhost:3030` in local dev. |
+| `REALTIME_INTERNAL_URL` | Next app (server) | HTTP base URL for MCP fan-out calls — e.g. `https://realtime-server-dev.up.railway.app`. |
+| `REALTIME_PORT` | realtime-server | Fallback port (default `3030`); see Railway `$PORT` gotcha below. |
+
+Never store secret values in the vault — reference env var names only.
+
+### Dev deployment topology
+
+Railway project **"Simpler Development"**, `dev` environment. Service: **`realtime-server`** (dev-only).
+
+- **Source:** GitHub `DanielPCoyle/simplerdevelopment2026` branch `dev`, root dir `packages/realtime-server`, watch path `packages/realtime-server/**` — only changes under that path trigger a redeploy of this service.
+- **Public domain:** `realtime-server-dev.up.railway.app`
+  - WebSocket: `wss://realtime-server-dev.up.railway.app`
+  - HTTP: `https://realtime-server-dev.up.railway.app` (endpoints: `GET /health`, `POST /internal/apply`)
+- **Railway service env vars:** `DATABASE_URL` (reference to dev Postgres `Postgres-ZyfY`), `REALTIME_JWT_SECRET`, `REALTIME_INTERNAL_SECRET`, `REALTIME_PORT=3030`, `PORT=3030`
+- **Vercel (Next app) dev/Preview env vars:** `NEXT_PUBLIC_REALTIME_URL=wss://realtime-server-dev.up.railway.app`, `REALTIME_INTERNAL_URL=https://realtime-server-dev.up.railway.app`, plus matching `REALTIME_JWT_SECRET` and `REALTIME_INTERNAL_SECRET`
+
+**Staging and production** realtime-server services are not yet provisioned. Each environment requires its own service with matching env vars.
+
+### Operational gotcha — Railway `$PORT` binding (commit `002ee4d2`)
+
+Railway injects the public-facing port as `PORT` at runtime — not a fixed number. The realtime-server originally bound only `REALTIME_PORT` and ignored `PORT`, so Railway's healthcheck probed the wrong port and the first deploy failed as "service unavailable" despite the process listening correctly.
+
+Fixed in `packages/realtime-server/src/server.ts`: the server now reads `process.env.PORT ?? process.env.REALTIME_PORT ?? 3030`. **Rule: any Railway-deployed service must bind `$PORT` first.**
+
+### Validation record (dev, 2026-06-25)
+
+All six smoke-test checks passed against the live dev server:
+
+1. JWT handshake — token issued by `app/api/realtime/token/route.ts`, accepted by `packages/realtime-server/src/auth.ts`
+2. Doc sync (browser → server) — block change reflected in the Postgres snapshot within the 2 s debounce window
+3. Doc sync (server → browser) — external Y update propagated live to a connected client tab
+4. Awareness / presence — cursor positions broadcast via y-websocket awareness protocol
+5. `/internal/apply` auth — POST with correct `X-Internal-Secret` accepted; bad or missing secret returns 401
+6. MCP fan-out end-to-end — MCP post mutation appeared live in an open editor tab without a page refetch
+
 ## Tests & gates
 
 **Coverage floor**: `lib/chat/**/*.ts` — 70% lines/statements/functions, 60% branches (same tier as billing/ai/esign). Defined in `vitest.config.ts`; currently informational (enforcement blocked by vitest 4.0.18 integration-coverage issue — see `tests/CLAUDE.md`).
@@ -175,4 +238,4 @@ The voice assistant supports an optional meeting-recording mode. When enabled, i
 
 ## Related
 
-[[Visual Editor]], [[CRM]], [[Company Brain & AI]], [[CMS & Blocks]]
+[[Visual Editor]], [[CRM]], [[Company Brain & AI]], [[CMS & Blocks]], [[ADR realtime-yjs-standalone-railway-service]]

@@ -169,7 +169,7 @@ Write tools pass through `stageOrApply` (approval-workflow primitive) and call `
 - **[[Surveys]]** — `PitchDeckSlideV2.surveySlide` / `surveyId` fields embed survey flows inside decks; decision slides can branch based on survey response.
 - **[[Visual Editor]]** — slide editor in the portal shares the block-editor paradigm and `postMessage` preview protocol.
 - **[[Auth & Security]]** — MCP tools rely on `PortalMcpContext`, `hasScope`, `requireService`; portal routes use NextAuth session + site-resolver.
-- **[[Chat, Realtime & Voice]]** — `lib/realtime/internal-publisher.ts` (`publishSlidesUpdate`) used by MCP write tools for live multi-user sync.
+- **[[Chat, Realtime & Voice]]** — `lib/realtime/internal-publisher.ts` (`publishSlidesUpdate`) used by MCP write tools for live multi-user sync. Deployment details and Railway ops: [[ADR realtime-yjs-standalone-railway-service]].
 - **[[E-Sign & Approvals]]** — `pitch_deck` is an approvable entity type; write tools go through `stageOrApply`.
 
 ---

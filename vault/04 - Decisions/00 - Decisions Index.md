@@ -31,6 +31,7 @@ Static list (agents: maintain this when adding ADRs — Dataview below only rend
 - [[ADR paid-module-entitlement-vs-scope-gating]]
 - [[ADR portal-redesign-sweep-design-system]]
 - [[ADR mastra-agents-mcp-client]]
+- [[ADR realtime-yjs-standalone-railway-service]]
 
 ```dataview
 TABLE domain, status, date

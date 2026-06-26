@@ -130,7 +130,7 @@ Critical-e2e gate: `bun test:critical` (`scripts/test.sh --layer=e2e --tag=@crit
 - [[CMS & Blocks]] — block types, `types/blocks/` (directory index + sub-modules), `lib/blocks/registry.ts`; production rendering lives in `app/sites/[domain]/[[...slug]]/` not here.
 - [[Portal]] — tenant routing, session, `lib/active-client.ts`, site-resolver middleware.
 - [[MCP]] — `posts_create`/`posts_update` write block content; `blocks://schema` resource consumed by AI clients.
-- [[Collaboration]] — `lib/db/schema/collab.ts`; presence via `CollaborationProvider.tsx`.
+- [[Collaboration]] / [[Chat, Realtime & Voice]] — `lib/db/schema/collab.ts`; live Y.Doc sync and presence via `CollaborationProvider.tsx`. Deployment details and Railway ops: [[ADR realtime-yjs-standalone-railway-service]].
 
 ## Invariants & gotchas
 
