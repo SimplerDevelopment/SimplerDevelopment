@@ -15,7 +15,12 @@ import { verifyHandshake, safeEqual } from './auth.js';
 import { DocRoom, type DocConn } from './handlers.js';
 import { SnapshotPersistence } from './persistence.js';
 
-const PORT = Number.parseInt(process.env.REALTIME_PORT ?? '3030', 10);
+// Bind Railway's injected $PORT first so the platform healthcheck/proxy hit
+// the right port; fall back to REALTIME_PORT, then 3030 for local dev.
+const PORT = Number.parseInt(
+  process.env.PORT ?? process.env.REALTIME_PORT ?? '3030',
+  10
+);
 const INTERNAL_SECRET = process.env.REALTIME_INTERNAL_SECRET ?? '';
 
 const persistence = new SnapshotPersistence(process.env.DATABASE_URL);
