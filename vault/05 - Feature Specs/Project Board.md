@@ -20,7 +20,7 @@ date: 2026-06-17
 - [ ] Wire `chat_widgets.brainEnabled` to actual Brain retrieval — see [[Chat, Realtime & Voice]]
 - [ ] Themed contract PDF renderer (TODO in `lib/esign/contract-pdf.ts`) — see [[E-Sign & Approvals]]
 - [ ] Auth MFA + audit log + rate limiting `[verified: real gap; rate-limit quick-win shipped]` — see [[Spec - Auth MFA + Audit Log + Rate Limiting]]
-- [ ] Durable automation runtime `[verified: partial — finish visual canvas + retries]` — see [[Spec - Durable Automation Runtime]]
+- [ ] Durable automation runtime `[verified: partial — finish visual canvas + retries]` `[2026-06-25: fully specced — durable queue (workflow_run_steps table + cron drainer + retry/backoff/dead-letter + send_email idempotency), 5 phases]` — see [[Spec - Durable Automation Runtime]]
 - [ ] White-label SaaS resell `[verified: partial — entitlement engine exists; rebilling/snapshot/enforcement remain]` — see [[Spec - White-Label SaaS Resell]]
 - [ ] Predictive scoring layer `[verified: absent — greenfield L]` — see [[Spec - Predictive Scoring Layer]]
 - [ ] Audit follow-ups: env-doctor + sharded-coverage + gap-to-backlog agents; fix `verify-db-target` switchyard guard; harden `/approve` (410 on stale pending-change) — see [[ADR proposed-audit-agents-and-workflows]] · [[00 - E2E Audit Index]]
@@ -44,6 +44,7 @@ date: 2026-06-17
 - [ ] OSS public launch (Show HN + MCP registry + mini launch week) — see [[OSS Launch Playbook]]
 - [ ] Self-Serve SaaS GTM Launch (Phase 0 → public) — see [[Go-To-Market — Self-Serve SaaS]] · board [[GTM Launch Board]]
 - [ ] Visual-Editor / Block-Authoring Agent (first hub-and-spoke specialist; prerequisites now met — intent router shadow v1 + real tracing both shipped) — see [[Visual-Editor Agent]]
+- [ ] Visual Editor Decomposition (~20 extracted modules across 5 phases; also fixes useSensors rules-of-hooks violation + ImagePickerModal dynamic-import footgun) — see [[Spec - Visual Editor Decomposition]]
 
 ## In Progress
 
@@ -51,7 +52,7 @@ date: 2026-06-17
 
 ## Validating
 
-- [ ] Mastra agents (Company Brain example) — Mastra v1 rebuild of the Brain pipeline; `tsc` clean + `mastra build` succeeds; not yet wired into Next runtime — see [[ADR mastra-agents-mcp-client]]
+- [ ] Mastra agents (Company Brain example) — Mastra v1 rebuild (Brain Workflow + Portal dynamic Agent) in `simplerdevelopment-agents/`; Phase 1 Next→Mastra in-app wiring committed on `feat/brain-mastra-endpoint` (`1403cb8c`): `app/api/portal/brain/agent-mastra/` + `lib/ai/mastra/`; entitlement gate verified; full loop not yet exercised end-to-end — see [[ADR mastra-agents-mcp-client]]
 - [ ] LinkedIn posting integration (Phase A: personal-profile API) — code complete; pending: drizzle-kit meta repair + migration, `bun test:tenancy`, LinkedIn developer app creds for end-to-end — see [[LinkedIn Posting Integration]]
 - [ ] Prompt Eval Dashboard — see [[Prompt Eval Dashboard]] (Phases 1-4 + polish + datasets + per-model cost + review hardening; merged to dev 2026-06-24; pending go-live: apply eval-dashboard.ts migration + seed to staging/prod, register cron routes, flip PROMPT_REGISTRY_ENABLED)
 - [ ] Harness Engineering + Security Hardening (2026-06-24) — distillation loop, entitlement-bypass fix, structural guardrails; `bun test:tenancy` + portal-auth integration NOT yet run on ~40 changed routes; required before merge — see [[Spec - Guardrail Distillation Loop]] · [[ADR paid-module-entitlement-vs-scope-gating]] · [[Storefront & Commerce]] · [[Billing & Stripe]]
@@ -75,6 +76,7 @@ date: 2026-06-17
 ## Shipped
 
 **Complete**
+- [x] Pitch Decks / Print Designer Unbundle (2026-06-25) — domain map split into [[Pitch Decks]] + [[Print Designer]]; zero code change — see [[Spec - Pitch Decks Print Designer Unbundle]]
 - [x] Portal redesign sweep — full portal design system adoption (2026-06-24) — all portal pages adopt `portal-ui.ts` helpers + `PortalPageHeader`; `AuthShell` for pre-auth pages; dashboard widget visibility fix; bare-chrome route allowlist fix; Stripe Checkout email pre-fill — see [[ADR portal-redesign-sweep-design-system]]
 - [x] Ponytail refactor sweep — canonical utils + dead-code removal (2026-06-23) — `lib/publishing/slug`, `lib/utils/{money,bytes,html}`, `lib/mcp/types`, `lib/decks/publish-slide` canonicalized; `content-tools` rename completed; 32 dead files removed; prompt-intake rule added — see [[ADR ponytail-refactor-sweep-canonical-utils]]
 - [x] Repo cleanup + docs consolidation + README rewrite (2026-06-09)
