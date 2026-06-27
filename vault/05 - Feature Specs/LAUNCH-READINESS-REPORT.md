@@ -19,7 +19,7 @@ done and committed (7 commits). The remaining work is gated on three things:
 (1) the critical-e2e suite going green, (2) a git-history secret sweep before the
 repo can be public, and (3) capturing real product media (screenshots/GIFs).
 
-## What shipped this session (7 commits)
+## What shipped this session (9 commits)
 
 1. **Product audit + feature inventory** (Phase 1+3) — `FEATURE-INVENTORY-domains.md`
    (22 domains, users, routes, screens, MCP tools, honest status flags),
@@ -40,6 +40,9 @@ repo can be public, and (3) capturing real product media (screenshots/GIFs).
    AI-SEO plan, all grounded, dormant features excluded.
 7. **Sales + social** (Phase 18/19) — 9 sales docs + 4 social asset files; no
    invented prices or metrics.
+8. **Blog content factory** (Phase 10) — editorial calendar (31 posts) + 12 post
+   outlines; customer stories/benchmarks deferred (need real data).
+9. **This report** — launch-readiness capstone.
 
 ## Honest readiness scores (0–100)
 
@@ -49,14 +52,15 @@ repo can be public, and (3) capturing real product media (screenshots/GIFs).
 | Hosted SaaS | 70 | ~72 | Critical-e2e green; billing seat-product go-live; a few dormant features |
 | AI discoverability | 45 | ~75 | Live-site structured data/JSON-LD (needs running marketing site) |
 | Developer onboarding | 65 | ~78 | SDK; devcontainer; self-host custom-domain config; demo GIF |
-| Marketing completeness | 20 | ~40 | Pages are specs not live; no screenshots/GIFs; blog not started |
+| Marketing completeness | 20 | ~45 | Specs + SEO/AI-SEO + blog calendar/outlines done; pages/posts not live; no screenshots/GIFs |
 
 ## Blocked / not done (and why)
 
 - **Phases 4–7, 16, 20** (execute app, screenshots, GIFs, marketing-page edits,
   domain audit, conversion) — need a running, green app + media capture; also
   contended with a concurrent e2e session. Deferred.
-- **Phase 10 (blog factory)** — additive/safe, not started.
+- **Phase 10 (blog factory)** — ✅ calendar + outlines done; full drafts + customer
+  stories still pending (drafts need an editorial pass; stories need real customers).
 - **Git-history secret sweep** — the working tree is clean, but past commits still
   contain the scrubbed credential/images/codenames. `open-source-release-prep`
   over full history is the hard blocker before the repo goes public.
