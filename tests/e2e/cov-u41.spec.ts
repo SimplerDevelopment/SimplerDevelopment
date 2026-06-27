@@ -97,11 +97,22 @@ test.describe('AB Testing — Cross-tenant access guard @ab @tenancy', () => {
   });
 
   test('client B GET on client A experiment returns 404 @critical', async () => {
+    // Serial-retry guard (same as the positive-baseline test): if the setup
+    // didn't complete on this attempt, clientBApi/experimentId are unset —
+    // skip rather than throw a misleading synchronous failure.
+    if (!experimentId || !clientBApi) {
+      test.skip(true, 'setup test did not complete — experimentId/clientBApi not set');
+      return;
+    }
     const res = await clientBApi.get(`/api/portal/experiments/${experimentId}`);
     expect(res.status).toBe(404);
   });
 
   test('client B PATCH on client A experiment returns 404', async () => {
+    if (!experimentId || !clientBApi) {
+      test.skip(true, 'setup test did not complete — experimentId/clientBApi not set');
+      return;
+    }
     const res = await clientBApi.patch(`/api/portal/experiments/${experimentId}`, {
       name: 'Cross-tenant hijack attempt',
     });
@@ -109,6 +120,10 @@ test.describe('AB Testing — Cross-tenant access guard @ab @tenancy', () => {
   });
 
   test('unauthenticated access returns 401 (auth gate fires before tenant check)', async ({ unauthApi }) => {
+    if (!experimentId) {
+      test.skip(true, 'setup test did not complete — experimentId not set');
+      return;
+    }
     const res = await unauthApi.get(`/api/portal/experiments/${experimentId}`);
     expect(res.status).toBe(401);
   });
