@@ -161,7 +161,10 @@ test.describe('admin agentic-os @admin @agentic-os @critical', () => {
     // Click the first on-demand "Run" button on a skill card. The drawer
     // mounts a footer with another "Run" button + a "Copy prompt" button,
     // so after the click we expect both to be visible.
-    const firstCardRunButton = page.getByRole('button', { name: /^Run$/ }).first();
+    // Material Icons render the icon name as text ("play_arrow") inside a
+    // <span class="material-icons">, so the computed accessible name becomes
+    // "play_arrow Run" — /^Run$/ fails.  Match the word "Run" anywhere.
+    const firstCardRunButton = page.getByRole('button', { name: /\bRun\b/ }).first();
     await expect(firstCardRunButton).toBeVisible({ timeout: 10_000 });
     await firstCardRunButton.click();
 

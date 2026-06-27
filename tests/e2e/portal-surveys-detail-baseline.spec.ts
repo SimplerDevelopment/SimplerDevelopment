@@ -41,7 +41,17 @@ async function loginAsClient(page: Page) {
  *  the page's authoritative tab order:
  *  overview(0), edit(1), flow(2), recommendation(3), variants(4),
  *  responses(5), analytics(6), share(7), webhooks(8), email-followups(9),
- *  settings(10). */
+ *  settings(10).
+ *
+ *  IMPORTANT: We use `.overflow-x-auto` in the selector to scope the locator
+ *  specifically to the tab strip. The PortalSidebar renders a header div that
+ *  also has `border-b border-border` classes and contains a direct `<button>`
+ *  child (the mobile-only close button). Even though that button is hidden at
+ *  the lg: breakpoint (display:none via `lg:hidden`), Playwright's
+ *  `locator.nth()` counts ALL DOM-matched elements regardless of visibility.
+ *  Without the `.overflow-x-auto` filter, the sidebar button is counted at
+ *  index 0, shifting every tab index by 1 and causing clicks on the wrong tab.
+ *  The tab strip div has `overflow-x-auto`; the sidebar header does not. */
 const TAB_INDEX: Record<string, number> = {
   overview: 0,
   edit: 1,
@@ -58,7 +68,8 @@ const TAB_INDEX: Record<string, number> = {
 
 async function clickTab(page: Page, key: keyof typeof TAB_INDEX) {
   // Wait for the tab strip to render (11 tab buttons — settings is last at index 10).
-  const tabStrip = page.locator('div.border-b.border-border > button');
+  // Use `.overflow-x-auto` to scope to the tab strip only (see comment above TAB_INDEX).
+  const tabStrip = page.locator('div.border-b.border-border.overflow-x-auto > button');
   await expect(tabStrip.nth(TAB_INDEX.settings)).toBeVisible({ timeout: 20_000 });
   await tabStrip.nth(TAB_INDEX[key]).click();
 }

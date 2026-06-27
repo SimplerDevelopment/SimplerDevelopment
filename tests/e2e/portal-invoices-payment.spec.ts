@@ -52,6 +52,24 @@ test.describe('Portal Invoices — Stripe Pay Path @invoices @billing @mutations
       .catch(() => {});
   }
 
+  /**
+   * Resolve the `client@example.com` seed account's portal clientId.
+   * Invoices created via adminApi for this clientId will be visible when
+   * the checkout endpoint is called as clientApi (which authenticates as
+   * client@example.com). The checkout route scopes non-staff reads by clientId,
+   * so using clients.data.data[0] is wrong when other clients exist in the DB.
+   */
+  async function resolveSeededClientId(
+    adminApi: ReturnType<typeof Object.create>,
+  ): Promise<number | null> {
+    const clients = await adminApi.get('/api/admin/portal/clients');
+    if (!clients.data?.data?.length) return null;
+    const seed = clients.data.data.find(
+      (c: { userEmail?: string }) => c.userEmail === 'client@example.com',
+    );
+    return seed?.id ?? null;
+  }
+
   // ── tests ──────────────────────────────────────────────────────────────────
 
   test('POST /admin/portal/invoices creates invoice with correct line-item math', async ({
@@ -269,9 +287,8 @@ test.describe('Portal Invoices — Stripe Pay Path @invoices @billing @mutations
     adminApi,
     clientApi,
   }) => {
-    const clients = await adminApi.get('/api/admin/portal/clients');
-    if (!clients.data.data?.length) { test.skip(); return; }
-    const clientId: number = clients.data.data[0].id;
+    const clientId = await resolveSeededClientId(adminApi);
+    if (clientId === null) { test.skip(); return; }
     const ts = Date.now();
 
     const create = await adminApi.post('/api/admin/portal/invoices', {
@@ -303,9 +320,8 @@ test.describe('Portal Invoices — Stripe Pay Path @invoices @billing @mutations
       return;
     }
 
-    const clients = await adminApi.get('/api/admin/portal/clients');
-    if (!clients.data.data?.length) { test.skip(); return; }
-    const clientId: number = clients.data.data[0].id;
+    const clientId = await resolveSeededClientId(adminApi);
+    if (clientId === null) { test.skip(); return; }
     const ts = Date.now();
 
     // Create a 'sent' invoice so it is immediately payable
@@ -391,9 +407,8 @@ test.describe('Portal Invoices — Stripe Pay Path @invoices @billing @mutations
     adminApi,
     clientApi,
   }) => {
-    const clients = await adminApi.get('/api/admin/portal/clients');
-    if (!clients.data.data?.length) { test.skip(); return; }
-    const clientId: number = clients.data.data[0].id;
+    const clientId = await resolveSeededClientId(adminApi);
+    if (clientId === null) { test.skip(); return; }
     const ts = Date.now();
 
     // Create a 'paid' invoice
@@ -425,9 +440,8 @@ test.describe('Portal Invoices — Stripe Pay Path @invoices @billing @mutations
     adminApi,
     clientApi,
   }) => {
-    const clients = await adminApi.get('/api/admin/portal/clients');
-    if (!clients.data.data?.length) { test.skip(); return; }
-    const clientId: number = clients.data.data[0].id;
+    const clientId = await resolveSeededClientId(adminApi);
+    if (clientId === null) { test.skip(); return; }
     const ts = Date.now();
 
     const create = await adminApi.post('/api/admin/portal/invoices', {

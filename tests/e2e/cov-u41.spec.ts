@@ -83,6 +83,13 @@ test.describe('AB Testing — Cross-tenant access guard @ab @tenancy', () => {
   });
 
   test('clientApi can GET its own experiment (positive baseline) @critical', async ({ clientApi }) => {
+    // In serial-retry mode the whole group re-runs; if setup failed on the
+    // previous attempt experimentId is still undefined — skip rather than
+    // produce a misleading 404 via /api/portal/experiments/undefined.
+    if (!experimentId) {
+      test.skip(true, 'setup test did not complete — experimentId not set');
+      return;
+    }
     const res = await clientApi.get(`/api/portal/experiments/${experimentId}`);
     expect(res.status).toBe(200);
     expect(res.data.success).toBe(true);

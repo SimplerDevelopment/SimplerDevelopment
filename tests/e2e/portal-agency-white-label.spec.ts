@@ -20,6 +20,11 @@ import { runCleanups } from './setup/helpers';
 
 const PREFIX = 'AGENCY-WL-';
 
+// Serial prevents the golden-path test from racing the DELETE test on the same
+// client's customDomain column (fullyParallel: true otherwise runs them in
+// different workers at the same time).
+test.describe.configure({ mode: 'serial' });
+
 test.describe('Portal Agency — white-label platform lifecycle @agency @mutations @critical', () => {
   let cleanups: Array<() => Promise<void>> = [];
   // Multiple sequential round-trips; bump from default 60s.
