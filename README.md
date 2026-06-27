@@ -120,7 +120,7 @@ cp .env.example .env.local
 #   AUTH_SECRET / NEXTAUTH_SECRET / OAUTH_STATE_SECRET → openssl rand -hex 32
 #   WORKSPACE_TENANT_SECRETS_KEY                       → openssl rand -hex 32
 #   PORTAL_KMS_KEY                                     → openssl rand -base64 32
-#   ENCRYPTION_KEY                                     → openssl rand -hex 64
+#   ENCRYPTION_KEY                                     → openssl rand -hex 32
 
 # 4. Create the schema and seed dev data
 #    (pgvector + pg_trgm + pgcrypto are auto-provisioned on first Docker boot)

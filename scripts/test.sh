@@ -124,6 +124,17 @@ if [[ "$LAYER" == "all" || "$LAYER" == "e2e" ]]; then
   # Dev mode auto-trusts localhost; prod does not. Without this every sign-in
   # 500s with UntrustedHost and the whole suite goes red.
   export AUTH_TRUST_HOST=true
+  # NextAuth refuses every sign-in with MissingSecret (→ 500, whole suite red) if
+  # no secret is set. A fresh checkout has no .env.local, so default a throwaway
+  # here. Crypto keys are defaulted too (correct lengths) so the BYOK / Google
+  # integrations / OAuth-state routes don't 500. All `:-` so a dev's real values
+  # win. Never prod secrets.
+  export AUTH_SECRET="${AUTH_SECRET:-e2e-throwaway-auth-secret-not-for-prod}"
+  export NEXTAUTH_SECRET="${NEXTAUTH_SECRET:-$AUTH_SECRET}"
+  export ENCRYPTION_KEY="${ENCRYPTION_KEY:-$(openssl rand -hex 32)}"
+  export WORKSPACE_TENANT_SECRETS_KEY="${WORKSPACE_TENANT_SECRETS_KEY:-$(openssl rand -hex 32)}"
+  export OAUTH_STATE_SECRET="${OAUTH_STATE_SECRET:-$(openssl rand -hex 32)}"
+  export PORTAL_KMS_KEY="${PORTAL_KMS_KEY:-$(openssl rand -base64 32)}"
   export NODE_V8_COVERAGE="$ROOT/coverage/.v8-server"
   if [[ "$NO_COVERAGE" == "1" ]]; then
     export COLLECT_CLIENT_COVERAGE=0
