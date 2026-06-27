@@ -43,5 +43,21 @@ Declare `bun test:critical:local` the QA gate of record; optionally wire a CI jo
 - The dev→main merge (602 commits / 3,349 files): moot — dev is prod.
 - The drizzle baseline rebaseline: separate; the manual `9004` migration already activates the roast deltas and applies cleanly out-of-band.
 
+## Wave 0 + 1 results (2026-06-27) — DONE
+
+- **Race fix** (`tests/helpers/test-bootstrap.ts`, `_p${pid}`): tenancy gate **171 → 19 failed** (396 passed), zero duplicate-key errors.
+- **Local-e2e variants** (`test:critical:local` + `scripts/prepare-e2e-local.sh`): critical e2e **540/32 (remote) → 617 passed / 19 failed / 4 flaky** locally (22.5 min, no 60s timeouts). Confirms the e2e red was overwhelmingly the remote-DB latency artifact.
+- **No roast-work regressions**: every failure in a roast-touched domain (bookings ×3, AB cov-u41) is `Expected 200 / Received 404` — a missing-fixture/seed-gap downstream, not a 500/constraint error.
+
+## True residual (Wave 2) — 19 e2e + 18 tenancy, characterized
+
+**Dominant root cause = seed/test-data completeness, not product bugs:**
+- **Entitlements not granted to test tenants** → 403 then downstream failures. `tests/helpers/session.ts` `sessionForNewClientUser` seeds no `client_services`. Hits the ~40 routes the prior entitlement-hardening effort gated (CRM ×16 tenancy; likely invoices/ecommerce/agency e2e). One central fix (grant standard services in the helper, or per-spec) clears many.
+- **Missing pre-seeded fixtures** → 404. e2e specs assume seeded constants (`SEED_SLUG`/`SEED_PAGE_ID` booking page, etc.) that `seed-admin-e2e.ts` doesn't fully create. Bookings ×3, AB cov-u41 are this.
+- **Integration template missing `brain_embeddings`** (2 tenancy) → trigger references a table the migration-replay template lacks (the push-synced local e2e DB has it; the replay template doesn't).
+- **Resolved this session:** OAuth scrub test (now asserts via `decryptMaybe`).
+
+**Genuine maybe-product items to verify (small):** surveys-detail editing ×5 (`element not found` on Edit affordance — UI regression vs stale selector?), cov-u61 agentic-OS prod-gate, admin-agentic-os run-drawer. These need a look, not assumed seed-gaps.
+
 ## Done when
 `bun test:critical:local` and `bun test:tenancy` both pass (or every residual failure is a documented, accepted skip with a tracking note) against a local Postgres.
