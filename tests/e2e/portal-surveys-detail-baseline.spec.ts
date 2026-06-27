@@ -100,6 +100,14 @@ async function createBaselineSurvey(api: ApiClient) {
 }
 
 test.describe('Portal Surveys Detail — Refactor Baseline @critical @surveys', () => {
+  // Cold dev-server (CI, first access) compiles the client bundle for the
+  // `[id]` route on first request, which takes 15–30 s before hydration can
+  // start. All steps after a cold compile run at normal speed, but the total
+  // wall-time for multi-step tests (reload cycle) easily exceeds the default
+  // 60 s. 120 s gives enough headroom for a cold server while still catching
+  // genuine hangs.
+  test.setTimeout(120_000);
+
   let cleanups: Array<() => Promise<void>> = [];
   let hasAccess = false;
 
@@ -122,11 +130,11 @@ test.describe('Portal Surveys Detail — Refactor Baseline @critical @surveys', 
     await loginAsClient(page);
     await page.goto('/portal/surveys');
     // Survey title should appear in the list
-    await expect(page.getByText(result!.survey.title).first()).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText(result!.survey.title).first()).toBeVisible({ timeout: 45_000 });
 
     // Navigate to detail page directly (link variations vary by row layout).
     await page.goto(`/portal/surveys/${result!.survey.id}`);
-    await expect(surveyHeading(page, result!.survey.title)).toBeVisible({ timeout: 30_000 });
+    await expect(surveyHeading(page, result!.survey.title)).toBeVisible({ timeout: 45_000 });
   });
 
   test('add a text question, save, reload, persists', async ({ page, clientApi }) => {
@@ -137,7 +145,7 @@ test.describe('Portal Surveys Detail — Refactor Baseline @critical @surveys', 
 
     await loginAsClient(page);
     await page.goto(`/portal/surveys/${result!.survey.id}`);
-    await expect(surveyHeading(page, result!.survey.title)).toBeVisible({ timeout: 30_000 });
+    await expect(surveyHeading(page, result!.survey.title)).toBeVisible({ timeout: 45_000 });
 
     // Switch to Edit tab
     await clickTab(page, 'edit');
@@ -173,7 +181,7 @@ test.describe('Portal Surveys Detail — Refactor Baseline @critical @surveys', 
 
     // Reload the page and assert label persists in the DOM
     await page.reload();
-    await expect(surveyHeading(page, result!.survey.title)).toBeVisible({ timeout: 30_000 });
+    await expect(surveyHeading(page, result!.survey.title)).toBeVisible({ timeout: 45_000 });
     await clickTab(page, 'edit');
     await expect(page.getByText('SURVEY-baseline-question-1').first()).toBeVisible({ timeout: 10_000 });
   });
@@ -193,7 +201,7 @@ test.describe('Portal Surveys Detail — Refactor Baseline @critical @surveys', 
 
     await loginAsClient(page);
     await page.goto(`/portal/surveys/${result!.survey.id}`);
-    await expect(surveyHeading(page, result!.survey.title)).toBeVisible({ timeout: 30_000 });
+    await expect(surveyHeading(page, result!.survey.title)).toBeVisible({ timeout: 45_000 });
     await clickTab(page, 'edit');
 
     // Expand the field card via the Edit (pencil) button
@@ -218,7 +226,7 @@ test.describe('Portal Surveys Detail — Refactor Baseline @critical @surveys', 
     expect(verify.data.data.fields[0].label).toBe('SURVEY-edited-label');
 
     await page.reload();
-    await expect(surveyHeading(page, result!.survey.title)).toBeVisible({ timeout: 30_000 });
+    await expect(surveyHeading(page, result!.survey.title)).toBeVisible({ timeout: 45_000 });
     await clickTab(page, 'edit');
     await expect(page.getByText('SURVEY-edited-label').first()).toBeVisible({ timeout: 10_000 });
   });
@@ -238,7 +246,7 @@ test.describe('Portal Surveys Detail — Refactor Baseline @critical @surveys', 
 
     await loginAsClient(page);
     await page.goto(`/portal/surveys/${result!.survey.id}`);
-    await expect(surveyHeading(page, result!.survey.title)).toBeVisible({ timeout: 30_000 });
+    await expect(surveyHeading(page, result!.survey.title)).toBeVisible({ timeout: 45_000 });
     await clickTab(page, 'edit');
 
     await page.locator('button', { hasText: 'Add Field' }).first().click();
@@ -283,7 +291,7 @@ test.describe('Portal Surveys Detail — Refactor Baseline @critical @surveys', 
 
     await loginAsClient(page);
     await page.goto(`/portal/surveys/${result!.survey.id}`);
-    await expect(surveyHeading(page, result!.survey.title)).toBeVisible({ timeout: 30_000 });
+    await expect(surveyHeading(page, result!.survey.title)).toBeVisible({ timeout: 45_000 });
     await clickTab(page, 'edit');
 
     // Click the first "Move down" button (belongs to question A → swaps with B).
@@ -311,7 +319,7 @@ test.describe('Portal Surveys Detail — Refactor Baseline @critical @surveys', 
 
     await loginAsClient(page);
     await page.goto(`/portal/surveys/${result!.survey.id}`);
-    await expect(surveyHeading(page, result!.survey.title)).toBeVisible({ timeout: 30_000 });
+    await expect(surveyHeading(page, result!.survey.title)).toBeVisible({ timeout: 45_000 });
 
     await clickTab(page, 'analytics');
     // Zero-state message
