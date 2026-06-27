@@ -164,7 +164,13 @@ test.describe('admin agentic-os @admin @agentic-os @critical', () => {
     // Material Icons render the icon name as text ("play_arrow") inside a
     // <span class="material-icons">, so the computed accessible name becomes
     // "play_arrow Run" — /^Run$/ fails.  Match the word "Run" anywhere.
-    const firstCardRunButton = page.getByRole('button', { name: /\bRun\b/ }).first();
+    // IMPORTANT: the "Run history" filter tab also matches /\bRun\b/ because
+    // its accessible name is "history Run history". Exclude it with
+    // hasNotText so .first() lands on a skill card button, not the tab.
+    const firstCardRunButton = page
+      .getByRole('button', { name: /\bRun\b/ })
+      .filter({ hasNotText: /history/i })
+      .first();
     await expect(firstCardRunButton).toBeVisible({ timeout: 10_000 });
     await firstCardRunButton.click();
 

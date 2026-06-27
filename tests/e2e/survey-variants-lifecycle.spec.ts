@@ -262,10 +262,23 @@ test.describe('Survey variants lifecycle @ab @critical', () => {
     // edits above are reflected in the dashboard.
     await loginAsClient(page);
     await page.goto(`/portal/surveys/${surveyId}`);
-    // The detail page exposes the variant list under a panel with both names.
-    // `toContainText` is forgiving about surrounding markup (icons, badges, etc).
-    await expect(page.getByText('A', { exact: true }).first()).toBeVisible();
-    await expect(page.getByText('B', { exact: true }).first()).toBeVisible();
+    // Navigate to the Variants tab so the panel loads. Without clicking the tab
+    // first, variant names only exist inside the (not-yet-rendered) tab panel,
+    // while the Overview tab is active — neither "A" nor "B" will be in the DOM.
+    await page.getByRole('button', { name: /\bVariants\b/ }).click();
+    // Variant names are rendered as editable <input type="text"> fields inside
+    // the panel (VariantsPanel.tsx line ~223). `getByText` ignores input values.
+    // Playwright 1.60 has no `getByDisplayValue`; use waitForFunction to poll the
+    // DOM property (not the HTML attribute) until both variant names are present.
+    // Both A and B are rendered even when B is disabled — just with a different icon.
+    await page.waitForFunction(
+      () => {
+        const inputs = Array.from(document.querySelectorAll('main input[type="text"]'));
+        const values = inputs.map((i) => (i as HTMLInputElement).value);
+        return values.includes('A') && values.includes('B');
+      },
+      { timeout: 10_000 },
+    );
   });
 
   test('portal: DELETE variant A; B remains', async ({ clientApi }) => {

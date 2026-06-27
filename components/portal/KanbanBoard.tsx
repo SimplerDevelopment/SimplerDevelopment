@@ -228,7 +228,7 @@ function KanbanCard({
         {card.dueDate && (
           <span className="text-xs text-muted-foreground flex items-center gap-0.5">
             <span className="material-icons text-xs">event</span>
-            {new Date(card.dueDate).toLocaleDateString()}
+            {new Date(card.dueDate).toLocaleDateString('en-US')}
           </span>
         )}
         {card.checklist && card.checklist.total > 0 && (

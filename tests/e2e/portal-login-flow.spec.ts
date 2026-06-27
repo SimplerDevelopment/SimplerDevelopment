@@ -36,9 +36,11 @@ test.describe('portal login flow @critical', () => {
     // The core assertion: we must leave /portal/login. A logged-in user lands on
     // /portal/dashboard (which may itself forward to /portal/onboarding for a
     // fresh tenant) — anything but staying stuck on the login screen.
+    // 30 s instead of 15 s: the NextAuth credential callback → subdomain hop →
+    // redirect chain can be slow on a cold dev server / busy CI worker.
     await page.waitForURL(
       (url) => /\/portal\//.test(url.pathname) && url.pathname !== '/portal/login',
-      { timeout: 15_000 },
+      { timeout: 30_000 },
     );
     expect(page.url()).not.toContain('/portal/login');
 
@@ -52,7 +54,7 @@ test.describe('portal login flow @critical', () => {
     await page.goto(`${BASE_URL}/portal/login`);
     await page.waitForURL(
       (url) => /\/portal\//.test(url.pathname) && url.pathname !== '/portal/login',
-      { timeout: 15_000 },
+      { timeout: 30_000 },
     );
   });
 

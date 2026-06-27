@@ -384,13 +384,13 @@ function ProjectGrid({
             {project.startDate && (
               <span className="flex items-center gap-1">
                 <span className="material-icons text-xs">calendar_today</span>
-                {new Date(project.startDate).toLocaleDateString()}
+                {new Date(project.startDate).toLocaleDateString('en-US')}
               </span>
             )}
             {project.dueDate && (
               <span className="flex items-center gap-1">
                 <span className="material-icons text-xs">event</span>
-                Due {new Date(project.dueDate).toLocaleDateString()}
+                Due {new Date(project.dueDate).toLocaleDateString('en-US')}
               </span>
             )}
           </div>

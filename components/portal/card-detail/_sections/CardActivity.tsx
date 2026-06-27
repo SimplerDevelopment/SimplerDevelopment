@@ -36,7 +36,7 @@ export function CardActivity({ activities, showActivity, setShowActivity }: Prop
                 <span className="material-icons text-sm text-muted-foreground mt-0.5">history</span>
                 <div className="flex-1 min-w-0">
                   <p className="text-foreground">{formatActivity(a)}</p>
-                  <p className="text-muted-foreground">{new Date(a.createdAt).toLocaleString()}</p>
+                  <p className="text-muted-foreground">{new Date(a.createdAt).toLocaleString('en-US')}</p>
                 </div>
               </li>
             ))}

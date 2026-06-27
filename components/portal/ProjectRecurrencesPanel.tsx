@@ -225,7 +225,7 @@ export default function ProjectRecurrencesPanel({ projectId, canEdit }: { projec
               <div className="flex-1 min-w-0">
                 <p className="text-sm text-foreground truncate">{r.titlePattern ?? '(template-driven)'}</p>
                 <p className="text-xs text-muted-foreground">
-                  {describeSchedule(r)} · next: {new Date(r.nextFireAt).toLocaleString()}
+                  {describeSchedule(r)} · next: {new Date(r.nextFireAt).toLocaleString('en-US')}
                 </p>
               </div>
               {canEdit && (
