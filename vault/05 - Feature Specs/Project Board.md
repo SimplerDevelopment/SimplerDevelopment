@@ -46,11 +46,11 @@ date: 2026-06-17
 
 ## In Progress
 
-- [ ] Release Stabilization — Dev (= Prod) Green — **Tenancy gate GREEN (171→0, 415 passed)**; **critical e2e 32→9 failed (651 passed local)**. Fixes: per-worker DB race (`_p<pid>`), CRM `grantBundle` entitlement, pgvector extension on the integration template + e2e prepare, + e2e test-debt (booking/invoice fixture discovery, survey clickTab selector, seed fee-id/brain-profile, NODE_ENV gate, accessible-name regex). No product regressions; none from roast work. **Remaining 9:** survey-detail load (page `<main>` empty — deeper, possibly a real product bug to investigate) + pre-existing flaky (login/approvals/ab-experiment — need retry-config/quarantine, not edits). See [[Release Stabilization — Dev (= Prod) Green]]
 - [ ] Portal Intent Router — shadow v1 shipped (Haiku classifier now routes domains + model in one call); collecting `portal.route` accuracy data, then flip `ROUTER_MODE` to `'active'` — see [[Portal Intent Router]]
 
 ## Validating
 
+- [ ] Release Stabilization — Dev (= Prod) Green — **DONE, gates green locally.** Tenancy 415 passed / 0 failed; critical e2e 696 passed / 0 failed (2 flaky pass-on-retry). 37 residuals → 0. Found + fixed 2 real product bugs (`PortalPageHeader` `<p>`-in-`<p>` hydration error; store-settings null `<input value>`); durable harness wins (per-worker DB race `_p<pid>`, pgvector auto-enabled on integration template + e2e prepare, `test:critical:local` gate). No roast-work regressions. **Pending: push 11 commits to `origin/dev` (deploys to dev=prod) + run the gates in CI.** See [[Release Stabilization — Dev (= Prod) Green]]
 - [ ] LinkedIn posting integration (Phase A: personal-profile API) — code complete; pending: drizzle-kit meta repair + migration, `bun test:tenancy`, LinkedIn developer app creds for end-to-end — see [[LinkedIn Posting Integration]]
 - [ ] Prompt Eval Dashboard — see [[Prompt Eval Dashboard]] (Phases 1-4 + polish + datasets + per-model cost + review hardening; merged to dev 2026-06-24; pending go-live: apply eval-dashboard.ts migration + seed to staging/prod, register cron routes, flip PROMPT_REGISTRY_ENABLED)
 - [ ] Harness Engineering + Security Hardening (2026-06-24) — distillation loop, entitlement-bypass fix, structural guardrails; `bun test:tenancy` + portal-auth integration NOT yet run on ~40 changed routes; required before merge — see [[Spec - Guardrail Distillation Loop]] · [[ADR paid-module-entitlement-vs-scope-gating]] · [[Storefront & Commerce]] · [[Billing & Stripe]]
