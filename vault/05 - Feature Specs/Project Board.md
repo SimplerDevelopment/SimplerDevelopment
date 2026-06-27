@@ -46,6 +46,7 @@ date: 2026-06-17
 
 ## In Progress
 
+- [ ] Release Stabilization — Dev (= Prod) Green — QA gates red, but root-caused to harness/env not product: e2e runs against the remote Railway DB (no `test:critical:local` variant → seed timeouts + 404 cascade) + per-worker `CREATE DATABASE` race (171 tenancy fails) + a few stale tests (approve-token asserts old 404 copy; security is correct). Wave 0 = add local-e2e DB variant + fix the race, then re-run for the true list — see [[Release Stabilization — Dev (= Prod) Green]]
 - [ ] Portal Intent Router — shadow v1 shipped (Haiku classifier now routes domains + model in one call); collecting `portal.route` accuracy data, then flip `ROUTER_MODE` to `'active'` — see [[Portal Intent Router]]
 
 ## Validating
