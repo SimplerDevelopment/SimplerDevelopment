@@ -8,7 +8,7 @@ export type OnboardingHeaderProps = {
   current: number;
   onBack?: () => void;
   onSkip?: () => void;
-  /** Optional left-side identity strip ("daniel@postcaptain.com" + avatar). */
+  /** Optional left-side identity strip ("demo@example.com" + avatar). */
   left?: React.ReactNode;
 };
 

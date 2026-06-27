@@ -15,7 +15,7 @@ The QA gates failed for **two harness root causes** plus **a few genuinely stale
 
 | Symptom | Count | Root cause | Class |
 |---|---|---|---|
-| Critical-e2e hard failures (surveys, dashboard-smoke, bookings, env-var, invoices, singletons) | 32 | **e2e ran against the remote Railway proxy DB** (`bun test:critical` starts `npm run dev` with no local-DB override → reads `.env.local` = acela). High latency → 60s fixture-seed timeouts + cascade 404s. | Harness |
+| Critical-e2e hard failures (surveys, dashboard-smoke, bookings, env-var, invoices, singletons) | 32 | **e2e ran against the remote Railway proxy DB** (`bun test:critical` starts `npm run dev` with no local-DB override → reads `.env.local` = a remote proxy DB). High latency → 60s fixture-seed timeouts + cascade 404s. | Harness |
 | Tenancy/integration "failures" | 171 | **Per-worker `CREATE DATABASE` collision race** in `tests/helpers/test-bootstrap.ts`: `WORKER_ID = VITEST_POOL_ID ?? VITEST_WORKER_ID ?? '0'`; reused pool ids → two workers race the same `test_e2e_<wt>_w<id>` name → `pg_database_datname` duplicate-key. | Harness |
 | `gap-approve-token-tenancy-coverage` ×3 (flagged "security") | 3 | **NOT a leak.** Cross-tenant token correctly returns the styled 404 page ("Page Not Found"); test asserts old copy "Not found". Security behavior is correct. | Stale test |
 | cov-u41 (AB cross-tenant), cov-u61 (prod-gate), misc singletons | few | TBD after a valid run — likely test-data/seed or stale assertions. | TBD |

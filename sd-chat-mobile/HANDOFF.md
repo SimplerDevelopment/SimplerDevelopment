@@ -584,7 +584,7 @@ The user (Dan) directed: **"build out the intended app autonomously without me a
 
 "The intended app" = the SimplerDev Chat mobile client per `README.md` + the six hi-fi mockups in `~/Desktop/sd-chat-*.html`.
 
-Test credentials: `info@danielpcoyle.com` / `Action*(!@`. Portal runs at `http://localhost:3000` (sibling repo `../simplerdevelopment2026`). Mobile dev server runs at `http://localhost:8081` (web target).
+Test credentials: create a local admin with `bun run db:seed` (or sign up), then use those. Portal runs at `http://localhost:3000` (sibling repo `../simplerdevelopment2026`). Mobile dev server runs at `http://localhost:8081` (web target).
 
 ## Where the app is now (end of this session)
 

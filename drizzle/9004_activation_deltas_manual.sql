@@ -1,8 +1,8 @@
 -- Activation deltas for the 21/21-roast feature work — hand-written; tracker is out of sync, db:generate refuses.
 -- Safe to re-run: every statement uses IF NOT EXISTS. No drops, no NOT NULL on existing data without a default.
--- Must be hand-applied to metro (prod) + staging before the staging→main merge, same as 9003/9999.
+-- Must be hand-applied to prod + staging before the staging→main merge, same as 9003/9999.
 -- Mirrors lib/db/schema/tools.ts (bookings.slotExclusive), lib/db/schema/auth.ts (users.mfaEnabled/totpSecret),
--- and lib/db/schema/brain.ts (automationJobs). Already applied to the dev DB (acela) and verified.
+-- and lib/db/schema/brain.ts (automationJobs). Already applied to the dev DB and verified.
 --
 -- Adds:
 --   1. bookings.slot_exclusive + bookings_exclusive_slot_idx — DB-enforced 1:1 double-booking guard (23505 → 409)

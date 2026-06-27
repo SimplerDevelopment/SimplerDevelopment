@@ -8,8 +8,8 @@ export type CurrentUser = {
 
 export const currentUser: CurrentUser = {
   id: 7,
-  name: 'Daniel Coyle',
-  email: 'daniel@postcaptain.com',
+  name: 'Demo User',
+  email: 'demo@example.com',
   avatarId: 7,
-  workspaceId: 'post-captain',
+  workspaceId: 'demo-workspace',
 };

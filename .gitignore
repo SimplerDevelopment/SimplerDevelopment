@@ -89,8 +89,6 @@ audit-verify-*
 scripts/_*
 public/_cmp*
 public/_cmp/
-.planning/postcaptain-replication/_probe-*.mjs
-.planning/postcaptain-replication/probe-*.mjs
 backups/
 
 # sd-init writes per-project bootstrap snapshot here; project-local only.
@@ -131,6 +129,8 @@ evals-out/
 /scripts/migrations/*/
 /scripts/output/
 /.planning/
+# Internal idea-validation / roast strategy docs — not part of the public OSS repo.
+/roast-prompts/
 
 # Guardrail-distillation proposal reports (review artifacts, not source)
 .claude/distill/

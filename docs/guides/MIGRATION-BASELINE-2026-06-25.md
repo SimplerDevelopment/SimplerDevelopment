@@ -35,8 +35,8 @@ files, so the baseline was regenerated.
   - `9003_brain_trigram_indexes.sql`
 - One-time **data backfills were intentionally dropped** (no-ops on a fresh DB;
   existing environments already ran them): e.g. `0099_backfill_project_members`,
-  `10008_api_keys_hash`, the brain data-seed migrations, and the client-specific
-  `0118_postcaptain_tools_bot_user`.
+  `10008_api_keys_hash`, the brain data-seed migrations, and a client-specific
+  bot-user backfill.
 - **Extensions are now provisioned in `scripts/reset-e2e-db.ts`** (`vector`,
   `pg_trgm`, `pgcrypto`) before migrations replay — the baseline's `vector(1536)`
   column and `gin_trgm_ops` indexes require them, and drizzle-kit never emits
