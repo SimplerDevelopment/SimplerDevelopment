@@ -47,7 +47,7 @@ const mockedAuth = auth as unknown as Mock;
 import { callHandler } from '../../../helpers/call-handler';
 import { sessionForNewClientUser, sessionFor, type TenantCtx } from '../../../helpers/session';
 import { getTestSql, TEST_SCHEMA } from '../../../helpers/test-db';
-import { encryptSecret } from '@/lib/crypto/secrets';
+import { encryptSecret, decryptMaybe } from '@/lib/crypto/secrets';
 
 async function asTenant(ctx: TenantCtx | null) {
   mockedAuth.mockResolvedValue(ctx?.session ?? null);
@@ -298,8 +298,11 @@ describe('POST /api/portal/integrations/google/disconnect @integrations @tenancy
       FROM ${sql(TEST_SCHEMA)}.google_workspace_user_connections
       WHERE client_id = ${A.client.id} AND user_id = ${A.user.id}
     `;
-    expect(row.access_token).toBe('');
-    expect(row.refresh_token).toBe('');
+    // Tokens are stored encryptedText (AES-256-GCM at rest), so the scrub
+    // writes encrypt('') — a ciphertext blob, not a literal '' — to the raw
+    // column. Assert the decrypted value is empty (token functionally cleared).
+    expect(decryptMaybe(row.access_token)).toBe('');
+    expect(decryptMaybe(row.refresh_token)).toBe('');
     expect(row.revoked_at).not.toBeNull();
   });
 });
