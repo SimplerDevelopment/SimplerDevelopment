@@ -20,6 +20,7 @@ const mockedAuth = auth as unknown as Mock;
 import { callHandler } from '../../../helpers/call-handler';
 import { sessionForNewClientUser, type TenantCtx } from '../../../helpers/session';
 import { getTestSql, TEST_SCHEMA } from '../../../helpers/test-db';
+import { grantBundle } from '../../../helpers/entitlements';
 
 async function asTenant(ctx: TenantCtx | null) {
   mockedAuth.mockResolvedValue(ctx?.session ?? null);
@@ -34,6 +35,7 @@ describe('POST /api/portal/crm/pipelines @crm @tenancy', () => {
       sessionForNewClientUser('pipe-post-a'),
       sessionForNewClientUser('pipe-post-b'),
     ]);
+    await grantBundle(A.client.id);
   });
 
   it('happy path: creates pipeline + 6 default stages under caller tenant (201)', async () => {

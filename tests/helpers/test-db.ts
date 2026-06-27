@@ -237,6 +237,17 @@ export async function buildTemplateDatabase(opts?: { quiet?: boolean }): Promise
 
   let migrationCount = 0;
   try {
+    // pgvector + pg_trgm MUST exist before the migration replay. The baseline
+    // creates brain_embeddings with a `vector(1536)` column; without the
+    // extension that CREATE TABLE fails with "type vector does not exist",
+    // which the error-tolerant replay below silently swallows (it matches the
+    // /does not exist/ guard). The table then never gets created and the
+    // enqueue_embedding_job() trigger errors at runtime on any CRM delete.
+    // The baseline doesn't CREATE EXTENSION (prod/dev enable it out-of-band),
+    // so the template build must.
+    await tpl.unsafe('CREATE EXTENSION IF NOT EXISTS vector');
+    await tpl.unsafe('CREATE EXTENSION IF NOT EXISTS pg_trgm');
+
     const dir = path.resolve(__dirname, '../../drizzle');
     const files = fs.readdirSync(dir)
       .filter(f => /^\d{4,}_.+\.sql$/.test(f))

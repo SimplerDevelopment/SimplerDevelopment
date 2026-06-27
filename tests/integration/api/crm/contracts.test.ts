@@ -16,6 +16,7 @@ const mockedAuth = auth as unknown as Mock;
 import { callHandler } from '../../../helpers/call-handler';
 import { sessionForNewClientUser, type TenantCtx } from '../../../helpers/session';
 import { getTestSql, TEST_SCHEMA } from '../../../helpers/test-db';
+import { grantBundle } from '../../../helpers/entitlements';
 
 async function asTenant(ctx: TenantCtx | null) {
   mockedAuth.mockResolvedValue(ctx?.session ?? null);
@@ -51,6 +52,7 @@ describe('POST /api/portal/crm/contracts @crm @tenancy', () => {
   beforeEach(async () => {
     A = await sessionForNewClientUser('contracts-post');
     await enableEsignService(A);
+    await grantBundle(A.client.id);
   });
 
   it('happy path: creates contract under caller tenant (201)', async () => {
@@ -96,6 +98,7 @@ describe('PUT /api/portal/crm/contracts/[id] @crm @tenancy', () => {
       sessionForNewClientUser('contracts-put-b'),
     ]);
     await Promise.all([enableEsignService(A), enableEsignService(B)]);
+    await grantBundle(A.client.id);
     contractB = await seedContract(B.client.id, 'B-Contract');
   });
 
@@ -158,6 +161,7 @@ describe('DELETE /api/portal/crm/contracts/[id] @crm @tenancy', () => {
       sessionForNewClientUser('contracts-del-b'),
     ]);
     await Promise.all([enableEsignService(A), enableEsignService(B)]);
+    await grantBundle(A.client.id);
   });
 
   it('happy path: deletes own contract', async () => {

@@ -25,6 +25,7 @@ const mockedAuth = auth as unknown as Mock;
 import { callHandler } from '../../../helpers/call-handler';
 import { sessionForNewClientUser, type TenantCtx } from '../../../helpers/session';
 import { getTestSql, TEST_SCHEMA } from '../../../helpers/test-db';
+import { grantBundle } from '../../../helpers/entitlements';
 
 async function asTenant(ctx: TenantCtx | null) {
   mockedAuth.mockResolvedValue(ctx?.session ?? null);
@@ -49,6 +50,7 @@ describe('POST /api/portal/crm/companies @crm @tenancy', () => {
       sessionForNewClientUser('comp-a'),
       sessionForNewClientUser('comp-b'),
     ]);
+    await grantBundle(A.client.id);
   });
 
   it('creates a company under the caller\'s tenant (201)', async () => {
@@ -104,6 +106,7 @@ describe('PUT /api/portal/crm/companies/[id] @crm @tenancy', () => {
       sessionForNewClientUser('comp-put-a'),
       sessionForNewClientUser('comp-put-b'),
     ]);
+    await grantBundle(A.client.id);
     companyB = await seedCompany(B.client.id, 'B-Owned Co');
   });
 
@@ -176,6 +179,7 @@ describe('DELETE /api/portal/crm/companies/[id] @crm @tenancy', () => {
       sessionForNewClientUser('comp-del-a'),
       sessionForNewClientUser('comp-del-b'),
     ]);
+    await grantBundle(A.client.id);
   });
 
   it('happy path: deletes own company (200)', async () => {

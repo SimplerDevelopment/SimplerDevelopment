@@ -16,6 +16,7 @@ const mockedAuth = auth as unknown as Mock;
 
 import { sessionForNewClientUser, type TenantCtx } from '../../../helpers/session';
 import { getTestSql, TEST_SCHEMA } from '../../../helpers/test-db';
+import { grantBundle } from '../../../helpers/entitlements';
 
 async function asTenant(ctx: TenantCtx | null) {
   mockedAuth.mockResolvedValue(ctx?.session ?? null);
@@ -48,6 +49,7 @@ describe('POST /api/portal/crm/import @crm @tenancy', () => {
 
   beforeEach(async () => {
     A = await sessionForNewClientUser('imp-a');
+    await grantBundle(A.client.id);
   });
 
   it('happy path: imports contacts under caller tenant', async () => {
