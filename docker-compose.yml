@@ -7,7 +7,7 @@
 #   docker compose up -d
 #   # point your .env / .env.local at it:
 #   #   DATABASE_URL=postgresql://postgres:postgres@localhost:5432/simplerdev
-#   bun run db:migrate     # creates the schema (incl. CREATE EXTENSION vector)
+#   bun run db:migrate     # creates the schema (extensions auto-provisioned on first boot)
 #   bun run db:seed:dev    # optional: seed dev data
 #   bun dev                # http://localhost:3000
 #
@@ -26,6 +26,8 @@ services:
       - "5432:5432"
     volumes:
       - simplerdev-pgdata:/var/lib/postgresql/data
+      # Auto-provision required extensions (vector, pg_trgm, pgcrypto) on first init.
+      - ./docker/initdb:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d simplerdev"]
       interval: 5s

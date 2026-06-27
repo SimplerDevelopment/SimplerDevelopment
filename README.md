@@ -118,8 +118,10 @@ cp .env.example .env.local
 #   AUTH_SECRET / NEXTAUTH_SECRET / OAUTH_STATE_SECRET → openssl rand -hex 32
 #   WORKSPACE_TENANT_SECRETS_KEY                       → openssl rand -hex 32
 #   PORTAL_KMS_KEY                                     → openssl rand -base64 32
+#   ENCRYPTION_KEY                                     → openssl rand -hex 64
 
-# 4. Create the schema (runs CREATE EXTENSION vector) and seed dev data
+# 4. Create the schema and seed dev data
+#    (pgvector + pg_trgm + pgcrypto are auto-provisioned on first Docker boot)
 bun run db:migrate
 bun run db:seed:dev      # optional
 
@@ -127,7 +129,13 @@ bun run db:seed:dev      # optional
 bun dev                  # http://localhost:3000
 ```
 
-> Not using Docker? Point `DATABASE_URL` at any Postgres that has `pgvector` installed. Reset the Docker DB anytime with `docker compose down -v`.
+> Not using Docker? Point `DATABASE_URL` at any Postgres that has `pgvector` available, then enable the extensions once before migrating:
+> ```sql
+> CREATE EXTENSION IF NOT EXISTS vector;
+> CREATE EXTENSION IF NOT EXISTS pg_trgm;
+> CREATE EXTENSION IF NOT EXISTS pgcrypto;
+> ```
+> Reset the Docker DB anytime with `docker compose down -v`.
 
 ### Minimum env to boot
 
