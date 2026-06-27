@@ -1,7 +1,7 @@
 # API Index — SimplerDevelopment
 
 > **Audience:** humans and AI agents integrating with the SimplerDevelopment platform.
-> **Sibling docs:** [Architecture](./architecture-for-agents.md) · [AI Overview](./ai-overview.md) · [Repository Map](./repository-map.md) · [Tool Reference](./tool-reference.md) · [Workflow Reference](./workflow-reference.md) · [Glossary](./glossary.md) · [/llms.txt](/llms.txt)
+> **Sibling docs:** [Architecture](./architecture-for-agents.md) · [AI Overview](./ai-overview.md) · [Repository Map](./repository-map.md) · [Tool Reference](./tool-reference.md) · [Workflow Reference](./workflow-reference.md) · [SDK Reference](./sdk.md) · [Glossary](./glossary.md) · [/llms.txt](/llms.txt)
 
 ---
 
@@ -245,7 +245,7 @@ See [Tool Reference → Scopes](./tool-reference.md#scopes) for the full scope l
 
 | Gap | Status |
 |---|---|
-| SDK / client library | **Missing** — no npm package, no generated SDK |
+| SDK / client library | **Available** — `@simplerdevelopment/sdk` v0.1.0 covers all 13 REST v1 endpoints; see [sdk.md](./sdk.md) |
 | API changelog | **Missing** — no versioned change history |
 | OpenAPI coverage | Covers REST v1 only; Public and Portal surfaces are undocumented in the spec |
 | MCP-specific rate limiting | Not documented or confirmed |

@@ -14,13 +14,13 @@ Think *"open-source, agent-operable alternative to the usual stack of a site bui
 <p align="center">
   <a href="#quick-start"><b>⚡ Self-host in 5 minutes</b></a>
   &nbsp;·&nbsp;
-  <!-- TODO(launch): publish a Railway template (Postgres+pgvector+app) and drop its URL here -->
-  <a href="https://railway.com/deploy"><img src="https://railway.com/button.svg" alt="Deploy on Railway" height="28" /></a>
+  <!-- TODO(launch): publish this as a Railway gallery template (dashboard → Settings → Templates → Publish) and update the href to https://railway.com/template/<SLUG> -->
+  <a href="https://railway.com/deploy?template=https://github.com/DanielPCoyle/simplerdevelopment2026"><img src="https://railway.com/button.svg" alt="Deploy on Railway" height="28" /></a>
   &nbsp;·&nbsp;
   <a href="https://vercel.com/new/clone?repository-url=https://github.com/DanielPCoyle/simplerdevelopment2026"><img src="https://vercel.com/button" alt="Deploy with Vercel" height="28" /></a>
 </p>
 
-> ℹ️ One-click deploy stands up the app, but the platform needs **Postgres + pgvector** and a few secrets — see [Quick start](#quick-start). The Railway template is the smoothest multi-service path.
+> ℹ️ One-click deploy stands up the app, but the platform needs **Postgres + pgvector** and a few secrets — see [Quick start](#quick-start) and **[`docs/deploy/railway.md`](docs/deploy/railway.md)** for the full Railway two-service setup (app + Postgres-with-pgvector, required env vars, pgvector extension step). A published Railway gallery template (one true one-click experience) is a **TODO** for the maintainer — see the deploy guide for instructions.
 
 ## Why it's different
 
@@ -102,6 +102,8 @@ An in-repo Model Context Protocol server (`app/api/mcp/route.ts` + `lib/mcp/`) e
 **Requirements:** Bun 1.3.11+, **PostgreSQL 14+ with the [`pgvector`](https://github.com/pgvector/pgvector) extension** (the Company Brain / RAG needs it), Node.js 20+ (for scripts that use `tsx`), and optionally Docker.
 
 ### Quick start
+
+> **Zero-install option:** open in [GitHub Codespaces](https://codespaces.new/DanielPCoyle/simplerdevelopment2026) or any [Dev Container](https://containers.dev)-aware editor — Postgres + Bun start automatically. See [`.devcontainer/README.md`](.devcontainer/README.md) for first-time steps.
 
 ```bash
 # 1. Start Postgres + pgvector (Docker — easiest, no local Postgres needed)

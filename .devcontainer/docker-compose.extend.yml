@@ -1,0 +1,21 @@
+# Extends ../docker-compose.yml with a workspace container for VS Code Dev Containers
+# and GitHub Codespaces. The existing "db" service (pgvector/pgvector:pg16) is
+# reused as-is — this file only adds the "app" service that VS Code attaches to.
+
+services:
+  app:
+    image: oven/bun:1-debian
+    volumes:
+      - ..:/workspace:cached
+    working_dir: /workspace
+    # Keep the container alive so VS Code can exec into it.
+    command: sleep infinity
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      # Reachable as "db" (the Compose service name) inside the container network.
+      # The credentials match those set in ../docker-compose.yml; they are not
+      # production secrets.  Real secrets (AUTH_SECRET, ANTHROPIC_API_KEY, etc.)
+      # go in .env.local — which is gitignored — never commit that file.
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/simplerdev
