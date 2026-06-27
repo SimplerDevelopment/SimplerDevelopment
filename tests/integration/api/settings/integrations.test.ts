@@ -16,6 +16,16 @@
  * disconnect route's best-effort revoke succeeds without network.
  */
 import { describe, it, expect, vi, beforeAll, beforeEach, type Mock } from 'vitest';
+import { randomBytes } from 'node:crypto';
+
+// The status/disconnect routes encrypt/decrypt Google tokens via
+// lib/crypto/secrets.ts, which reads WORKSPACE_TENANT_SECRETS_KEY at call time
+// and throws if unset. Provide a hermetic per-run key so the suite never
+// depends on an injected CI secret — mirrors the ENCRYPTION_KEY pattern in
+// tests/integration/ai/*.test.ts.
+if (!process.env.WORKSPACE_TENANT_SECRETS_KEY) {
+  process.env.WORKSPACE_TENANT_SECRETS_KEY = randomBytes(32).toString('hex');
+}
 
 vi.mock('@/lib/auth', () => ({ auth: vi.fn() }));
 
