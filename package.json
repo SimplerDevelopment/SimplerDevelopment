@@ -27,6 +27,8 @@
     "test:coverage": "scripts/test.sh",
     "test:coverage:prod": "scripts/test.sh --mode=prod",
     "test:critical": "scripts/test.sh --layer=e2e --tag=@critical --no-coverage",
+    "test:e2e:local": "./scripts/prepare-e2e-local.sh && DATABASE_URL='postgresql://'$USER'@localhost:5432/simplerdev_test' scripts/test.sh --layer=e2e --no-coverage",
+    "test:critical:local": "./scripts/prepare-e2e-local.sh && DATABASE_URL='postgresql://'$USER'@localhost:5432/simplerdev_test' scripts/test.sh --layer=e2e --tag=@critical --no-coverage",
     "test:tenancy": "scripts/test.sh --layer=integration --tag=tenancy --no-coverage",
     "smoke:skills": "bun scripts/smoke-sd-skills.ts run",
     "smoke:skills:seed-key": "bun scripts/smoke-sd-skills.ts seed-key",
