@@ -1,0 +1,33 @@
+# SimplerDevelopment
+
+> Multi-tenant agency SaaS platform: per-tenant client websites + CMS/visual editor, CRM, an AI "Company Brain" (RAG knowledge base), automations, commerce, bookings, email campaigns, billing, and a 450-tool MCP server that lets AI agents operate every domain. Built on Next.js (App Router), React, TypeScript, Drizzle ORM + Postgres/pgvector, NextAuth v5, and Bun.
+
+This file is the entry point for AI agents and LLM-based search. The documents below are written to be read, cited, and acted on by autonomous coding agents. Everything is factual and grounded in the actual codebase; features still in progress are marked as such in the docs.
+
+## Start here (agent-readiness docs)
+
+- [AI Overview](docs/agents/ai-overview.md): What the platform is, who it's for, open-source vs hosted value, AI/MCP capabilities, integrations, extensibility, self-host vs hosted.
+- [Architecture for Agents](docs/agents/architecture-for-agents.md): Three route trees (admin/portal/sites), request lifecycle, tenancy model, data layer, auth, AI/RAG pipeline, load-bearing invariants.
+- [Repository Map](docs/agents/repository-map.md): Annotated directory tree — what every significant folder is for, god-file warnings, don't-touch zones.
+- [Project Map](docs/agents/project-map.md): "I need to work on X → go here" — each of the 22 product domains mapped to its routes, lib subsystem, schema module, MCP tool family, and status.
+- [Glossary](docs/agents/glossary.md): ~42 domain terms (tenant, block, Company Brain, scope guard, entitlement, approval link, BYOK, …) defined for fast onboarding.
+
+## Developer & API surface
+
+- [API Index](docs/agents/api-index.md): The four API surfaces (REST v1, public, portal-internal, MCP), auth per surface, and a "which surface do I use?" decision table.
+- [MCP Tool Reference](docs/agents/tool-reference.md): The 450-tool MCP surface by family, credential/scope model, and the approval-link pattern.
+- [Workflow Reference](docs/agents/workflow-reference.md): Run/build/test commands, the test layers and gates, the DB workflow, scaffolding skills, and commit/branch conventions.
+- [OpenAPI 3.1 spec](public/openapi.yaml): Machine-readable schema for the authenticated REST v1 surface (served at `/openapi.yaml`).
+
+## Project docs
+
+- [README](README.md): Human onboarding — value prop, quick start, tech stack, contributing.
+- [Agent operating guide](CLAUDE.md): The canonical agent instructions for working in this repo (invariants, where knowledge lives, gates to run).
+- [Contributing](CONTRIBUTING.md): Local dev setup, test commands, PR conventions.
+- [Security policy](SECURITY.md): Private vulnerability disclosure.
+
+## Notes for AI agents
+
+- Tenancy is load-bearing: data is keyed by `clientId` / `siteId`; run the tenancy regression gate after any data-access change.
+- Never invent features when generating content about this project — the docs above mark which capabilities are shipped, partial, or dormant.
+- Migrations are generated, never hand-edited (`bun run db:generate`); edit `lib/db/schema/` instead.
