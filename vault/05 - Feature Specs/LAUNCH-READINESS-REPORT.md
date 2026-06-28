@@ -46,13 +46,21 @@ repo can be public, and (3) capturing real product media (screenshots/GIFs).
 
 ## Honest readiness scores (0–100)
 
-| Dimension | Start | Now | Gap to high |
+| Dimension | Start | Now | Gap to 90+ |
 |---|---|---|---|
-| Open-source launch | 55 | ~60 | Git-history sweep (hard blocker); devcontainer; Railway template; hero GIF |
-| Hosted SaaS | 70 | ~72 | Critical-e2e green; billing seat-product go-live; a few dormant features |
-| AI discoverability | 45 | ~75 | Live-site structured data/JSON-LD (needs running marketing site) |
-| Developer onboarding | 65 | ~78 | SDK; devcontainer; self-host custom-domain config; demo GIF |
-| Marketing completeness | 20 | ~45 | Specs + SEO/AI-SEO + blog calendar/outlines done; pages/posts not live; no screenshots/GIFs |
+| Open-source launch | 55 | ~70 | **Execute** git-history sweep (plan ready) + go public (maintainer); publish Railway gallery template; hero GIF |
+| Hosted SaaS | 70 | ~87 | ~11 e2e need real service keys (AI/Stripe/Resend); 2 real product bugs (hydration on /portal/projects+proposals/[id]; survey cold-load render) |
+| AI discoverability | 45 | **~90** | At target: JSON-LD (Org/SoftwareApplication/WebSite/FAQPage) + robots + sitemap + served /llms.txt + agent docs all live |
+| Developer onboarding | 65 | **~90** | At target: devcontainer + SDK docs + self-host AUTH_COOKIE_DOMAIN + working clone-to-running + CHANGELOG |
+| Marketing completeness | 20 | ~58 | Live feature/landing pages from specs; authed product screenshots + GIFs (vhs); blog drafts |
+
+### Session-2 additions (the "90+" push)
+- **e2e systemic fix:** root-caused 373 failures → missing `AUTH_SECRET` in the local-e2e env; fixed → **373→21 failed, 641 passed**. Plus crypto-key defaults + an `ENCRYPTION_KEY` doc-length bug fixed.
+- **AI-disc → ~90:** SEO/JSON-LD/robots/sitemap implemented in-app; `/llms.txt` served over HTTP.
+- **Dev-onboarding → ~90:** devcontainer, documented SDK (13/13 v1 endpoints), self-host cookie-domain env, Railway template.
+- **e2e fixtures:** booking slug + AB critical-gate fixed; surveys-detail + projects/proposals smoke escalated as **real product bugs** (not masked).
+- **Marketing:** real public-page screenshots (home/pricing, desktop+mobile).
+- **OSS:** history-sweep plan authored (read-only); execution is maintainer-gated.
 
 ## Blocked / not done (and why)
 
