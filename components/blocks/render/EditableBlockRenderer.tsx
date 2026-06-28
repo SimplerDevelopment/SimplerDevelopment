@@ -473,7 +473,7 @@ function DraggableBlockList({
       const oldIndex = blocks.findIndex((b) => b.id === activeId);
       const newIndex = blocks.findIndex((b) => b.id === overId);
       if (oldIndex !== -1 && newIndex !== -1) {
-        let updated = removeBlock(blocks, activeId);
+        const updated = removeBlock(blocks, activeId);
         updated.splice(newIndex > oldIndex ? newIndex - 1 : newIndex, 0, draggedBlock);
         editor.onBlocksReordered(updated);
       }

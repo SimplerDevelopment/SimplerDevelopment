@@ -1,6 +1,6 @@
 'use client';
 
-import { ElementType, useRef, useEffect, useState, useCallback } from 'react';
+import { useRef, useEffect, useState, useCallback } from 'react';
 
 interface RichTextEditableProps {
   html: string;
@@ -205,7 +205,13 @@ export function RichTextEditable({
       )}
 
       {(() => {
-        const El = tagName as ElementType;
+        const El = tagName as unknown as React.ComponentType<
+          React.HTMLAttributes<HTMLElement> & {
+            ref?: React.RefObject<HTMLElement | null>;
+            'data-placeholder'?: string;
+            suppressContentEditableWarning?: boolean;
+          }
+        >;
         return (
           <El
             ref={contentRef}

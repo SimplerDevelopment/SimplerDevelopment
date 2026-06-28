@@ -27,7 +27,7 @@ const loadFontFace = (fontFamily: string, fontUrl?: string) => {
   }
 };
 
-export const FontSelector = ({ text, onChange }: { text?: string; onChange: (k: string, v: string) => void }) => {
+export const FontSelector = ({ text, onChange }: { text?: any; onChange: (k: string, v: string) => void }) => {
   const limit = 10;
   const { websiteId } = useContext(EditorContext);
   const [selectedFont, setSelectedFont] = useState<FontOption | null>(null);
@@ -51,7 +51,7 @@ export const FontSelector = ({ text, onChange }: { text?: string; onChange: (k: 
       );
       const json = await response.json();
       const data = Array.isArray(json?.data) ? json.data : (Array.isArray(json) ? json : []);
-      const next: FontOption[] = data.map((font: { family: string; files?: { regular?: string }; menu?: string }) => ({
+      const next: FontOption[] = data.map((font: any) => ({
         value: font.family,
         label: font.family,
         fontUrl: font.files?.regular || font.menu,

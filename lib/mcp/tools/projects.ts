@@ -7,8 +7,8 @@
  */
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import { and, desc, eq, type AnyColumn } from 'drizzle-orm';
-import type { AnyPgTable } from 'drizzle-orm/pg-core';
+import { and, desc, eq } from 'drizzle-orm';
+import type { AnyPgTable, AnyPgColumn } from 'drizzle-orm/pg-core';
 import { db } from '@/lib/db';
 import {
   projects,
@@ -332,7 +332,7 @@ export function registerProjectsTools(server: McpServer, ctx: PortalMcpContext):
   // row with a snapshotted display title for cheap renders. Posts are scoped
   // via website (clientWebsites.clientId), so they get their own indirect
   // ownership check rather than a direct artifact.clientId comparison.
-  const PROJECT_ARTIFACT_TABLES: Record<string, { table: AnyPgTable & Record<string, AnyColumn>; titleField: string }> = {
+  const PROJECT_ARTIFACT_TABLES: Record<string, { table: AnyPgTable; titleField: string }> = {
     website: { table: clientWebsites, titleField: 'name' },
     email_campaign: { table: emailCampaigns, titleField: 'name' },
     pitch_deck: { table: pitchDecks, titleField: 'title' },
@@ -401,11 +401,12 @@ export function registerProjectsTools(server: McpServer, ctx: PortalMcpContext):
           : row.title;
       } else {
         const config = PROJECT_ARTIFACT_TABLES[artifactType];
-        const [source] = await db.select({ title: config.table[config.titleField] })
+        const tbl = config.table as AnyPgTable & Record<string, AnyPgColumn>;
+        const [source] = await db.select({ title: tbl[config.titleField] })
           .from(config.table)
-          .where(and(eq(config.table.id, artifactId), eq(config.table.clientId, clientId)));
+          .where(and(eq(tbl.id, artifactId), eq(tbl.clientId, clientId)));
         if (!source) return json({ error: 'Artifact not found or not owned by this client' });
-        title = source.title;
+        title = source.title as string | null;
       }
 
       const [row] = await db.insert(projectArtifacts).values({

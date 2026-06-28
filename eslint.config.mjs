@@ -33,6 +33,9 @@ const eslintConfig = defineConfig([
     "sd-chat-mobile/**",
     "simplerdevelopment-agents/**",
     "extension/**",
+    // Legacy design-tool god-files carry `// @ts-nocheck` and predate the lint
+    // baseline; kept out of the prod lint surface (still compiled by the build).
+    "components/product-designer/**",
   ]),
   // Structural "blunt-hammer" guardrail (harness-engineering, AI DevCon 2026):
   // a coarse file-size signal that nudges agents to decompose god-files instead

@@ -246,10 +246,12 @@ export function BlockEditorProvider({
   const handleBroadcastMessage = useCallback(
     (message: SettingsPanelMessage) => {
       switch (message.type) {
-        case 'BLOCK_UPDATED':
+        case 'BLOCK_UPDATED': {
           // Handle block updates from the popup window
-          updateBlock(message.payload.id, message.payload.updates);
+          const p = message.payload as { id: string; updates: Partial<Block> };
+          updateBlock(p.id, p.updates);
           break;
+        }
         case 'DOCK_REQUESTED':
           // Handle dock requests from the popup window
           dockSettings();

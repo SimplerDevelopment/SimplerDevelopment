@@ -1,11 +1,10 @@
 'use client';
 
 import React, { useCallback, useState, useContext, useMemo } from 'react';
-import { BsCheck2 } from 'react-icons/bs';
+import { BsCheck2, BsX } from 'react-icons/bs';
 import { HTMLEditor } from './components/HTMLEditor';
 import { EditorContext } from './EditorContext';
 import { MainView } from './MainView';
-import type { LayerData, ProductData, ProductSideData, ProductStyleData, StyleOverridesMap } from './designerTypes';
 
 export interface StoreAssignmentSelection {
   storeIds: number[];
@@ -16,15 +15,15 @@ export interface StoreAssignmentSelection {
 }
 
 interface StoreAssignmentTableProps {
-  product: ProductData | null;
+  product: any; // Product with catalog information
   availableStores: Array<{ id: number; name: string }>;
   onAssignToStores: (selection: StoreAssignmentSelection) => Promise<void>;
   onClose: () => void;
   designData?: {
     designId?: number;
     designName?: string;
-    layers?: LayerData[];
-    styleOverrides?: StyleOverridesMap;
+    layers?: any[];
+    styleOverrides?: any;
     styleId?: number;
   };
   productOverview?: {
@@ -73,16 +72,16 @@ const CarouselItemMainView = ({
   setLayerClickFocusedStyleId,
   setSharedTop,
   setSharedLeft
-}: {
-  styleOption: ProductStyleData | null;
-  overRideSide: ProductSideData | null;
+}: { 
+  styleOption: any;
+  overRideSide: any;
   className?: string;
   sharedTop?: number;
   sharedLeft?: number;
   sharedZoom?: number;
-  setLayerControlsStyle?: (style: ProductStyleData | null) => void;
-  setLastClickedCarouselStyle?: (style: ProductStyleData | null) => void;
-  setLayerClickFocusedStyleId?: (id: number | null) => void;
+  setLayerControlsStyle?: (style: any) => void;
+  setLastClickedCarouselStyle?: (style: any) => void;
+  setLayerClickFocusedStyleId?: (id: any) => void;
   setSharedTop?: (top: number) => void;
   setSharedLeft?: (left: number) => void;
 }) => {
@@ -104,7 +103,7 @@ const CarouselItemMainView = ({
     layers: styleOption?.layers || [],
     setLayers: () => {},
     selectedLayer: null,
-    setSelectedLayer: (layer: LayerData | null) => {
+    setSelectedLayer: (layer: any) => {
       if (layer && setLayerControlsStyle && setLastClickedCarouselStyle && setLayerClickFocusedStyleId) {
         setLayerControlsStyle(styleOption);
         setLastClickedCarouselStyle(styleOption);
@@ -201,9 +200,9 @@ export const StoreAssignmentTable: React.FC<StoreAssignmentTableProps> = ({
   const [isLoading, setIsLoading] = useState(false);
 
   // State for layer controls matching ProductDesigner structure
-  const [layerControlsStyle, setLayerControlsStyle] = useState<ProductStyleData | null>(null);
-  const [lastClickedCarouselStyle, setLastClickedCarouselStyle] = useState<ProductStyleData | null>(null);
-  const [layerClickFocusedStyleId, setLayerClickFocusedStyleId] = useState<number | null>(null);
+  const [layerControlsStyle, setLayerControlsStyle] = useState<any>(null);
+  const [lastClickedCarouselStyle, setLastClickedCarouselStyle] = useState<any>(null);
+  const [layerClickFocusedStyleId, setLayerClickFocusedStyleId] = useState<any>(null);
   
   // Shared positioning state for DraggableMainView
   const [sharedTop, setSharedTop] = useState<number>(0);
@@ -287,7 +286,7 @@ export const StoreAssignmentTable: React.FC<StoreAssignmentTableProps> = ({
             <p className="text-sm text-gray-600 dark:text-gray-400">
               Assign {productName} to stores
               {designData?.designName && (
-                <span className="ml-1">with design &quot;{designData.designName}&quot;</span>
+                <span className="ml-1">with design "{designData.designName}"</span>
               )}
             </p>
           </div>

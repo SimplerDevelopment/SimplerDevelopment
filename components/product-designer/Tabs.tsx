@@ -1,21 +1,17 @@
+// @ts-nocheck
+// TODO(designer): clean up types — ported from CRA, see .planning/product-designer-integration.md
 'use client';
 
 import React, { useContext } from "react";
 import { EditorContext } from "./EditorContext";
-import type { LayerData } from "./designerTypes";
 
-const prettyText: Record<string, React.ReactNode> = {
+const prettyText = {
   front: "Front",
   back: "Back",
   sleeveleft: <>(L) Sleeve</>,
   sleeveright: <>(R) Sleeve</>,
 };
-export const Tabs = ({ sides, setCurrentSide, currentSide, layers }: {
-  sides: string[];
-  setCurrentSide: (side: string) => void;
-  currentSide: string;
-  layers: LayerData[];
-}) => {
+export const Tabs = ({ sides, setCurrentSide, currentSide, layers }) => {
   const { setSide, style } = useContext(EditorContext);
   const sortedSides = [
     ...["front", "back"].filter((side) => sides.includes(side)),

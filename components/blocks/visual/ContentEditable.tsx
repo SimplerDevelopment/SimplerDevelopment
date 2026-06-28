@@ -1,6 +1,6 @@
 'use client';
 
-import { ElementType, useRef, useEffect } from 'react';
+import { useRef, useEffect } from 'react';
 
 interface ContentEditableProps {
   html: string;
@@ -44,7 +44,13 @@ export function ContentEditable({
     document.execCommand('insertText', false, text);
   };
 
-  const Tag = tagName as ElementType;
+  const Tag = tagName as unknown as React.ComponentType<
+    React.HTMLAttributes<HTMLElement> & {
+      ref?: React.RefObject<HTMLElement | null>;
+      'data-placeholder'?: string;
+      suppressContentEditableWarning?: boolean;
+    }
+  >;
 
   return (
     <Tag

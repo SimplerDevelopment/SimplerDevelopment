@@ -84,23 +84,31 @@ function SettingsPopupContent() {
   // Handle messages from the main window
   const handleBroadcastMessage = useCallback((message: SettingsPanelMessage) => {
     switch (message.type) {
-      case 'SELECTION_CHANGED':
-        setSelectedBlockId(message.payload.selectedBlockId || null);
+      case 'SELECTION_CHANGED': {
+        const p = message.payload as { selectedBlockId?: string };
+        setSelectedBlockId(p.selectedBlockId || null);
         break;
+      }
 
-      case 'BLOCKS_CHANGED':
-        setAllBlocks(message.payload.blocks || []);
+      case 'BLOCKS_CHANGED': {
+        const p = message.payload as { blocks?: Block[] };
+        setAllBlocks(p.blocks || []);
         break;
+      }
 
-      case 'VIEWPORT_CHANGED':
-        setCurrentViewport(message.payload.viewport);
+      case 'VIEWPORT_CHANGED': {
+        const p = message.payload as { viewport: Breakpoint };
+        setCurrentViewport(p.viewport);
         break;
+      }
 
-      case 'BLOCK_DELETED':
-        if (selectedBlockId === message.payload.blockId) {
+      case 'BLOCK_DELETED': {
+        const p = message.payload as { blockId?: string };
+        if (selectedBlockId === p.blockId) {
           setSelectedBlockId(null);
         }
         break;
+      }
 
       case 'WINDOW_CLOSING':
         window.close();

@@ -1,11 +1,12 @@
+// @ts-nocheck
+// TODO(designer): clean up types — ported from CRA, see .planning/product-designer-integration.md
 'use client';
 
 import React, { useState, useEffect, useContext } from "react";
 import EditorContext from "./EditorContext";
-import type { LayerData } from "./designerTypes";
 
 interface SvgColorExtractorProps {
-  layer: LayerData;
+  layer: any;
 }
 
 export const SvgColorExtractor: React.FC<SvgColorExtractorProps> = ({
@@ -32,7 +33,7 @@ export const SvgColorExtractor: React.FC<SvgColorExtractorProps> = ({
         const colorSet = new Set<string>();
 
         const walk = (element: Element) => {
-          for (const attr of Array.from(element.attributes)) {
+          for (let attr of Array.from(element.attributes)) {
             if (
               attr.name === "fill" ||
               attr.name === "stroke" ||

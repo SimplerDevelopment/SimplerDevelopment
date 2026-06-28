@@ -9,7 +9,7 @@ import { BsX } from "react-icons/bs";
 // Both are out of scope for Wave 1B — when revisited, wire to the sd2026
 // image service.
 // TODO(designer): restore image-edit functionality after Wave 2.
-export const EditPhotoModal = ({ selectedLayer: _selectedLayer }: { selectedLayer?: Record<string, unknown> }) => {
+export const EditPhotoModal = ({ selectedLayer: _selectedLayer }: { selectedLayer?: any }) => {
   const { setShowModal } = useContext(EditorContext);
 
   return (

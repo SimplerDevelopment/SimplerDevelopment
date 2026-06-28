@@ -7,7 +7,6 @@ import { TextAndIconLayerEditor } from "./TextAndIconLayerEditor";
 import { ImageLayerEditor } from "./ImageLayerEditor";
 import { IoDuplicateOutline } from "react-icons/io5";
 import { BsX } from "react-icons/bs";
-import type { ProductSideData } from "./designerTypes";
 
 export const LayerScreen = () => {
   const {
@@ -21,10 +20,10 @@ export const LayerScreen = () => {
     setSelectedLayer,
     style,
   } = useContext(EditorContext);
-  const [view, setView] = React.useState("general");
   if (!selectedLayer) return <WelcomeScreen />;
   const layer = layers.find((layer) => layer.id === selectedLayer.id);
-  const handleInputChange = (field: string, value: unknown) => {
+  const [view, setView] = React.useState("general");
+  const handleInputChange = (field: string, value: any) => {
     updateLayer({ ...layer, [field]: value });
   };
 
@@ -130,7 +129,7 @@ export const LayerScreen = () => {
           onChange={(e) => {
             handleInputChange("side", e.target.value);
             const nSide = style?.sides?.find(
-              (side: ProductSideData) => side.side === e.target.value,
+              (side: any) => side.side === e.target.value,
             );
             if (nSide) {
               setSide(nSide);
@@ -139,8 +138,8 @@ export const LayerScreen = () => {
           className="p-2 border border-gray-300 rounded w-full"
         >
           {style?.sides && Array.isArray(style.sides) && style.sides.length > 0 ? (
-            style.sides.map((side: ProductSideData, idx: number) => (
-              <option key={side?.id ?? idx} value={side?.side || ''}>
+            style.sides.map((side: any) => (
+              <option key={side?.id || Math.random()} value={side?.side || ''}>
                 <b>{side?.side || 'Unknown'}</b>
               </option>
             ))

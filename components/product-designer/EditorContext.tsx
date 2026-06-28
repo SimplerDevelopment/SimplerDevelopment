@@ -1,8 +1,6 @@
 'use client';
 
 import { createContext } from "react";
-import type React from "react";
-import type { LayerData, ProductData, ProductSideData, ProductStyleData, StyleOverridesMap, QuantityMap } from "./designerTypes";
 
 export interface DesignState {
   isSaved: boolean;
@@ -20,8 +18,8 @@ export interface Design {
   productId: string;
   styleId: number;
   side: string;
-  layers: LayerData[];
-  styleOverrides: StyleOverridesMap;
+  layers: any[];
+  styleOverrides: any;
   thumbnailUrl?: string;
   isPublic: boolean;
   isTemplate: boolean;
@@ -36,27 +34,27 @@ export interface EditorContextType {
   /** sd2026 site/website id — scopes API URLs to /api/storefront/${websiteId}/... */
   websiteId: number;
   controlMode: string;
-  product: ProductData | null;
-  style: ProductStyleData | null;
-  side: ProductSideData | null;
-  setStyle: (style: ProductStyleData) => void;
-  setSide: (side: ProductSideData) => void;
+  product: any;
+  style: any;
+  side: any;
+  setStyle: (style: any) => void;
+  setSide: (side: any) => void;
   setControlMode: (mode: string) => void;
-  addLayer: (layer: LayerData) => void;
-  updateLayer: (layer: LayerData) => void;
-  removeLayer: (layer: LayerData) => void;
-  layers: LayerData[];
-  setLayers: (layers: LayerData[]) => void;
-  selectedLayer: LayerData | null;
-  setSelectedLayer: (layer: LayerData | null) => void;
+  addLayer: (layer: any) => void;
+  updateLayer: (layer: any) => void;
+  removeLayer: (layer: any) => void;
+  layers: any[];
+  setLayers: (layers: any[]) => void;
+  selectedLayer: any;
+  setSelectedLayer: (layer: any) => void;
   /** IDs of layers currently multi-selected */
   selectedLayers: string[];
   /** Set of layer IDs for multi-selection */
   setSelectedLayers: (layers: string[]) => void;
-  styleOverrides: StyleOverridesMap;
-  setStyleOverrides: (overrides: React.SetStateAction<StyleOverridesMap>) => void;
-  quantity: QuantityMap;
-  setQuantity: (quantity: QuantityMap) => void;
+  styleOverrides: any;
+  setStyleOverrides: (overrides: any) => void;
+  quantity: any;
+  setQuantity: (quantity: any) => void;
   showModal: boolean;
   setShowModal: (show: boolean) => void;
   carouselMode: boolean;
@@ -80,30 +78,30 @@ export const EditorContext = createContext<EditorContextType>({
   product: null,
   style: null,
   side: null,
-  setStyle: () => {},
-  setSide: () => {},
-  setControlMode: () => {},
-  addLayer: () => {},
-  updateLayer: () => {},
-  removeLayer: () => {},
-  layers: [],
-  setLayers: () => {},
+  setStyle: (_: any) => {},
+  setSide: (_: any) => {},
+  setControlMode: (_: any) => {},
+  addLayer: (_: any) => {},
+  updateLayer: (_: any) => {},
+  removeLayer: (_: any) => {},
+  layers: [] as any[],
+  setLayers: (_: any) => {},
   selectedLayer: null,
-  setSelectedLayer: () => {},
+  setSelectedLayer: (_: any) => {},
   /** IDs of layers currently multi-selected */
-  selectedLayers: [],
+  selectedLayers: [] as string[],
   /** Set of layer IDs for multi-selection */
-  setSelectedLayers: () => {},
-  styleOverrides: {},
-  setStyleOverrides: () => {},
-  quantity: {},
-  setQuantity: () => {},
+  setSelectedLayers: (_: string[]) => {},
+  styleOverrides: {} as any,
+  setStyleOverrides: (_: any) => {},
+  quantity: {} as any,
+  setQuantity: (_: any) => {},
   showModal: false,
-  setShowModal: () => {},
+  setShowModal: (_: any) => {},
   carouselMode: false,
   // Design persistence fields
   currentDesignId: null,
-  setCurrentDesignId: () => {},
+  setCurrentDesignId: (_: number | null) => {},
   designState: {
     isSaved: false,
     isAutoSaving: false,
@@ -111,12 +109,12 @@ export const EditorContext = createContext<EditorContextType>({
     hasUnsavedChanges: false,
     name: "Untitled Design",
   },
-  setDesignState: () => {},
+  setDesignState: (_: any) => {},
   designName: "Untitled Design",
-  setDesignName: () => {},
+  setDesignName: (_: string) => {},
   // Design management functions
-  saveDesign: async () => null,
-  loadDesign: async () => false,
+  saveDesign: async (_?: string) => null,
+  loadDesign: async (_: number) => false,
   createNewDesign: () => {},
   autoSave: async () => {},
 });

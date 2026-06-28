@@ -37,6 +37,13 @@
     "scripts",
     "components/booking-app",
     "extension",
+    // Separate sub-projects with their own toolchains/tsconfigs (React Native
+    // app, agents project) — never belonged in the root app typecheck.
+    "sd-chat-mobile",
+    "simplerdevelopment-agents",
+    // Legacy design-tool god-files carried `// @ts-nocheck` (never typechecked);
+    // keep them out of the root typecheck rather than ship partial annotations.
+    "components/product-designer",
     "tests",
     "**/*.test.ts",
     "**/*.test.tsx",

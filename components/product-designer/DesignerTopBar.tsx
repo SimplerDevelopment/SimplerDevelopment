@@ -6,41 +6,32 @@ import { IoDuplicateOutline } from "react-icons/io5";
 import { ColorPicker } from "./ProductDesigner";
 import { EditorContext } from "./EditorContext";
 import { DesignApi } from "./utils/designApi";
-import type { LayerData, ProductData, ProductSideData, ProductStyleData, StyleOverridesMap } from "./designerTypes";
-
-interface CartContextValue {
-  isAdminMode?: boolean;
-  [key: string]: unknown;
-}
-
-// Module-level fallback so useContext is always called unconditionally
-const _FallbackTopBarCartCtx = React.createContext<CartContextValue | null>(null);
 
 interface DesignerTopBarProps {
-  sortedSizes: React.ReactNode;
-  layers: LayerData[];
-  styleOverrides: StyleOverridesMap;
+  sortedSizes: any;
+  layers: any[];
+  styleOverrides: any;
   designName: string;
   setLoadModalOpen: (open: boolean) => void;
   userId?: string | number;
-  product: ProductData | null;
-  setStyle: (style: ProductStyleData) => void;
-  style: ProductStyleData | null;
+  product: any;
+  setStyle: (style: any) => void;
+  style: any;
   setCarouselMode: (mode: boolean) => void;
   setHoveredStyleId: (id: number | null) => void;
   setHoveredStyleIndex: (index: number) => void;
   carouselMode: boolean;
   hoveredStyleId: number | null;
-  selectedLayer: LayerData | null;
-  updateLayer: (layer: LayerData) => void;
-  removeLayer: (layer: LayerData) => void;
-  addLayer: (layer: LayerData) => void;
-  setSelectedLayer: (layer: LayerData | null) => void;
-  setSide: (side: ProductSideData) => void;
-  lastClickedCarouselStyle: ProductStyleData | null;
+  selectedLayer: any;
+  updateLayer: (layer: any) => void;
+  removeLayer: (layer: any) => void;
+  addLayer: (layer: any) => void;
+  setSelectedLayer: (layer: any) => void;
+  setSide: (side: any) => void;
+  lastClickedCarouselStyle: any;
   cartMode: boolean;
   setCartMode: (mode: boolean) => void;
-  CartContext?: React.Context<CartContextValue | null>;
+  CartContext?: any;
 }
 
 export const DesignerTopBar = ({ 
@@ -75,20 +66,20 @@ export const DesignerTopBar = ({
   const [saveAsModalOpen, setSaveAsModalOpen] = useState(false);
   const [saveAsName, setSaveAsName] = useState("");
   
-  // Get admin context if available (always call useContext unconditionally — rules-of-hooks)
-  const cartContext = useContext(CartContext ?? _FallbackTopBarCartCtx);
-  const isAdminMode = cartContext?.isAdminMode ?? false;
+  // Get admin context if available
+  const cartContext = CartContext ? useContext(CartContext) : null;
+  const isAdminMode = (cartContext as any)?.isAdminMode || false;
   
   // Use lastClickedCarouselStyle when available (from last clicked carousel item), otherwise use the regular style
   const effectiveStyle = lastClickedCarouselStyle || style;
   
   // Use the side from the effective style context when available
-  const effectiveSide = lastClickedCarouselStyle ?
-    (lastClickedCarouselStyle.sides?.find((s: ProductSideData) => s.side === selectedLayer?.side) || lastClickedCarouselStyle.sides?.[0] || side) :
+  const effectiveSide = lastClickedCarouselStyle ? 
+    (lastClickedCarouselStyle.sides?.find((s: any) => s.side === selectedLayer?.side) || lastClickedCarouselStyle.sides?.[0] || side) : 
     side;
-
-  const handleLayerInputChange = (field: string, value: unknown) => {
-    const layer = layers.find((l: LayerData) => l.id === selectedLayer?.id);
+  
+  const handleLayerInputChange = (field: string, value: any) => {
+    const layer = layers.find((l: any) => l.id === selectedLayer.id);
     if (layer) {
       updateLayer({ ...layer, [field]: value });
     }
@@ -302,16 +293,16 @@ export const DesignerTopBar = ({
           value={selectedLayer?.side || ""}
           onChange={(e) => {
           handleLayerInputChange("side", e.target.value);
-          const nSide = effectiveStyle.sides.find((s: ProductSideData) => s.side === e.target.value);
+          const nSide = effectiveStyle.sides.find((side: any) => side.side === e.target.value);
           if (nSide) {
             setSide(nSide);
           }
           }}
           className="input py-2 text-sm dark:bg-gray-900 dark:text-white"
         >
-          {effectiveStyle?.sides?.map((s: ProductSideData) => (
-          <option key={s.id} value={s.side}>
-            {s.side}
+          {effectiveStyle?.sides?.map((side: any) => (
+          <option key={side.id} value={side.side}>
+            {side.side}
           </option>
           ))}
         </select>
@@ -328,7 +319,7 @@ export const DesignerTopBar = ({
             value={styleOverrides?.[effectiveSide?.id]?.[selectedLayer.id]?.color || selectedLayer.color || "#000000"}
             onChange={(e) => {
               const color = e.target.value;
-              setStyleOverrides((prev: StyleOverridesMap) => {
+              setStyleOverrides((prev: any) => {
               const newStyleOverrides = { ...prev };
               if (!newStyleOverrides[effectiveSide?.id]) newStyleOverrides[effectiveSide?.id] = {};
               if (!newStyleOverrides[effectiveSide?.id][selectedLayer.id])
@@ -351,7 +342,7 @@ export const DesignerTopBar = ({
             }
             onChange={(e) => {
             const checked = e.target.checked;
-            setStyleOverrides((prev: StyleOverridesMap) => {
+            setStyleOverrides((prev: any) => {
               const newOverrides = { ...prev };
               if (!newOverrides[effectiveSide?.id]) newOverrides[effectiveSide?.id] = {};
               if (!newOverrides[effectiveSide?.id][selectedLayer.id])
@@ -375,7 +366,7 @@ export const DesignerTopBar = ({
         <div className="flex items-center gap-3 ml-auto">
         <button
           onClick={() => {
-          const layer = layers.find((l: LayerData) => l.id === selectedLayer?.id);
+          const layer = layers.find((l: any) => l.id === selectedLayer.id);
           if (layer) {
             const newLayer = { ...layer, id: Date.now() };
             addLayer(newLayer);

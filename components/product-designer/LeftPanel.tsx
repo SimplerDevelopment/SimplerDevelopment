@@ -45,7 +45,7 @@ export const LeftPanel = () => {
   );
 };
 
-const LeftPanelContent = memo(function LeftPanelContent({ controlMode }: { controlMode: string }) {
+const LeftPanelContent = memo(({ controlMode }: { controlMode: string }) => {
   return (
     <div className="leftPanelContent">
       <Suspense fallback={<div className="p-4 animate-pulse">Loading...</div>}>

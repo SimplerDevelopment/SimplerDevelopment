@@ -9,7 +9,7 @@ import EditorContext from "./EditorContext";
 // past a few hundred entries.
 const PAGE_SIZE = 200;
 
-export const IconList = ({ iconSets, search }: { iconSets: Record<string, React.ComponentType<React.SVGProps<SVGSVGElement>>>; search: string }) => {
+export const IconList = ({ iconSets, search }: { iconSets: Record<string, any>; search: string }) => {
   const { addLayer } = useContext(EditorContext);
   const [shown, setShown] = useState(PAGE_SIZE);
 

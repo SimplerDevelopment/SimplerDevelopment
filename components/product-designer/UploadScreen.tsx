@@ -7,7 +7,7 @@ import { FaImage } from "react-icons/fa";
 // TODO(designer): replace this Supabase-based upload with the sd2026 storefront
 // upload endpoint (Wave 1C will wire it). For now we POST to a placeholder URL
 // that the host page can override later.
-const supabase = null;
+const supabase: any = null;
 
 export const UploadScreen = () => {
   const { addLayer } = useContext(EditorContext);
@@ -76,8 +76,8 @@ export const UploadScreen = () => {
       setFile(null);
       setName("");
       setUploadProgress(100);
-    } catch (error: unknown) {
-      console.error("Error uploading file:", error instanceof Error ? error.message : error);
+    } catch (error: any) {
+      console.error("Error uploading file:", error.message);
       setMessage("Upload failed. Please try again.");
     } finally {
       setUploading(false);
@@ -158,7 +158,7 @@ export const UploadScreen = () => {
       <p className="text-sm mb-2">
         Have a file type not listed above?{" "}
         <span className="text-blue-600 underline">Email it to us</span> and
-        we&apos;ll review it before production.
+        we'll review it before production.
       </p>
     </div>
   );

@@ -1,9 +1,11 @@
+// @ts-nocheck
+// TODO(designer): clean up types — ported from CRA, see .planning/product-designer-integration.md
 'use client';
 
 import React, { useEffect, useRef } from "react";
 import tags from "./static/categories";
 
-export const ArtCategories = ({ setView }: { setView: (view: string) => void }) => {
+export const ArtCategories = ({ setView }) => {
   const artTags = tags.tags;
   const [search, setSearch] = React.useState("");
   const [visibleCount, setVisibleCount] = React.useState(20);

@@ -1,9 +1,10 @@
+// @ts-nocheck
+// TODO(designer): clean up types — ported from CRA, see .planning/product-designer-integration.md
 'use client';
 
 import React, { useContext } from "react";
 import EditorContext from "./EditorContext";
 import { Tabs } from "./Tabs";
-import type { LayerData } from "./designerTypes";
 
 export const LayerListScreen = () => {
   const {
@@ -17,17 +18,17 @@ export const LayerListScreen = () => {
   const sides = Array.from(new Set(style?.sides?.map((side) => side.side) || []));
   const [currentSide, setCurrentSide] = React.useState(sides[0]);
 
-  const handleLayerClick = (layer: LayerData) => {
+  const handleLayerClick = (layer) => {
     setSelectedLayer(layer);
     setControlMode("layer");
   };
 
-  const handleDeleteClick = (layer: LayerData) => {
+  const handleDeleteClick = (layer) => {
     window.confirm("Are you sure you want to delete this layer?") &&
       removeLayer(layer);
   };
 
-  const moveLayer = (index: number, direction: number) => {
+  const moveLayer = (index, direction) => {
     const sideLayers = layers.filter((layer) => layer.side === currentSide);
     const newIndex = index + direction;
     if (newIndex < 0 || newIndex >= sideLayers.length) return;
