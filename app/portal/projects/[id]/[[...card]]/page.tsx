@@ -329,7 +329,7 @@ export default async function ProjectKanbanPage({ params, searchParams }: { para
             {project.dueDate && (
               <span className="text-sm text-muted-foreground flex items-center gap-1">
                 <span className="material-icons text-base">event</span>
-                Due {new Date(project.dueDate).toLocaleDateString()}
+                Due {new Date(project.dueDate).toLocaleDateString('en-US')}
               </span>
             )}
             <Link href="/portal/projects" className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors">

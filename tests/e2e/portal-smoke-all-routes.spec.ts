@@ -36,19 +36,29 @@ const CLIENT_PASSWORD = 'client123';
  *  is shared across every test in this file because we run serial and reuse
  *  the same Playwright `page`. */
 async function loginAsClientInBrowser(page: Page) {
-  const csrfRes = await page.request.get('/api/auth/csrf');
-  const { csrfToken } = (await csrfRes.json()) as { csrfToken: string };
-  const signInRes = await page.request.post('/api/auth/callback/credentials', {
-    form: {
-      email: CLIENT_EMAIL,
-      password: CLIENT_PASSWORD,
-      csrfToken,
-      json: 'true',
-    },
-  });
-  if (signInRes.status() >= 400) {
-    throw new Error(`Browser login failed: ${signInRes.status()}`);
+  // Retry up to 3 times — on a cold dev server the auth endpoints can return
+  // 5xx transiently during the first parallel request batch, which would
+  // throw from beforeAll and fail every smoke test in 0ms.
+  let lastStatus = 0;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const csrfRes = await page.request.get('/api/auth/csrf');
+    if (csrfRes.status() >= 400) {
+      lastStatus = csrfRes.status();
+      continue;
+    }
+    const { csrfToken } = (await csrfRes.json()) as { csrfToken: string };
+    const signInRes = await page.request.post('/api/auth/callback/credentials', {
+      form: {
+        email: CLIENT_EMAIL,
+        password: CLIENT_PASSWORD,
+        csrfToken,
+        json: 'true',
+      },
+    });
+    lastStatus = signInRes.status();
+    if (lastStatus < 400) return;
   }
+  throw new Error(`Browser login failed after 3 attempts: last status ${lastStatus}`);
 }
 
 /** Filter out deprecation / dev-only noise that doesn't actually indicate a

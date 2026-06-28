@@ -46,11 +46,11 @@ date: 2026-06-17
 
 ## In Progress
 
-- [ ] Release Stabilization — Dev (= Prod) Green — **Wave 0+1 done**: race fix took tenancy 171→19 failed; `test:critical:local` took e2e 540/32→617 passed/19 failed locally (remote-DB latency was the bulk of the red). No roast-work regressions (touched-domain fails are 404 seed-gaps, not 500s). **Wave 2 (true residual):** mostly seed-completeness — grant entitlements to test tenants (`sessionForNewClientUser`), seed missing fixtures (`SEED_SLUG` booking page), add `brain_embeddings` to the integration template; plus verify surveys-detail editing ×5 (possible UI regression). See [[Release Stabilization — Dev (= Prod) Green]]
 - [ ] Portal Intent Router — shadow v1 shipped (Haiku classifier now routes domains + model in one call); collecting `portal.route` accuracy data, then flip `ROUTER_MODE` to `'active'` — see [[Portal Intent Router]]
 
 ## Validating
 
+- [ ] Release Stabilization — Dev (= Prod) Green — **DONE, gates green locally.** Tenancy 415 passed / 0 failed; critical e2e 696 passed / 0 failed (2 flaky pass-on-retry). 37 residuals → 0. Found + fixed 2 real product bugs (`PortalPageHeader` `<p>`-in-`<p>` hydration error; store-settings null `<input value>`); durable harness wins (per-worker DB race `_p<pid>`, pgvector auto-enabled on integration template + e2e prepare, `test:critical:local` gate). No roast-work regressions. **Pending: push 11 commits to `origin/dev` (deploys to dev=prod) + run the gates in CI.** See [[Release Stabilization — Dev (= Prod) Green]]
 - [ ] LinkedIn posting integration (Phase A: personal-profile API) — code complete; pending: drizzle-kit meta repair + migration, `bun test:tenancy`, LinkedIn developer app creds for end-to-end — see [[LinkedIn Posting Integration]]
 - [ ] Prompt Eval Dashboard — see [[Prompt Eval Dashboard]] (Phases 1-4 + polish + datasets + per-model cost + review hardening; merged to dev 2026-06-24; pending go-live: apply eval-dashboard.ts migration + seed to staging/prod, register cron routes, flip PROMPT_REGISTRY_ENABLED)
 - [ ] Harness Engineering + Security Hardening (2026-06-24) — distillation loop, entitlement-bypass fix, structural guardrails; `bun test:tenancy` + portal-auth integration NOT yet run on ~40 changed routes; required before merge — see [[Spec - Guardrail Distillation Loop]] · [[ADR paid-module-entitlement-vs-scope-gating]] · [[Storefront & Commerce]] · [[Billing & Stripe]]

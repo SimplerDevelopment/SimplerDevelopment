@@ -41,6 +41,8 @@ async function seedAdminE2E() {
       clientMembers,
       // Onboarding completion (portal redirect gate)
       userOnboarding,
+      // Brain
+      brainProfiles,
     } = await import('../lib/db/schema');
     const { eq, and } = await import('drizzle-orm');
     const { getOrCreatePublishingProject } = await import('../lib/publishing/bootstrap');
@@ -326,7 +328,7 @@ async function seedAdminE2E() {
         { id: 'li-3', description: 'Website Reskin', quantity: 1, unitPrice: 300000 },
       ],
       fees: [
-        { label: 'Returning Client Discount', type: 'percent', amount: 500 }, // 5%
+        { id: 'fee-1', label: 'Returning Client Discount', type: 'percent', amount: 500 }, // 5%
       ],
       clientToken: randomToken(),
     }).returning();
@@ -751,6 +753,12 @@ async function seedAdminE2E() {
     } else {
       console.log('Booking page already exists — skipping booking seed');
     }
+
+    // -- Brain profile (enabled: true so cov-u8 meetings lifecycle test passes) --
+    await db.insert(brainProfiles)
+      .values({ clientId, name: 'Company Brain', enabled: true })
+      .onConflictDoUpdate({ target: brainProfiles.clientId, set: { enabled: true } });
+    console.log('Brain profile enabled: true');
 
     // ═══════════════════════════════════════════════════════════════════════════
 

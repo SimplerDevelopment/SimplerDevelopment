@@ -61,3 +61,15 @@ Declare `bun test:critical:local` the QA gate of record; optionally wire a CI jo
 
 ## Done when
 `bun test:critical:local` and `bun test:tenancy` both pass (or every residual failure is a documented, accepted skip with a tracking note) against a local Postgres.
+
+## DONE (2026-06-27) — both gates green
+
+- **Tenancy:** 415 passed / 0 failed.
+- **Critical e2e:** 696 passed / 0 failed (2 flaky — ab-experiment:109, surveys-detail:140 — cold-compile-sensitive UI waits that pass on retry).
+- **37 residuals → 0.** All were harness/test-debt or seed gaps — **no roast-work regressions.**
+- **2 real product bugs found + fixed:**
+  - `components/portal/PortalPageHeader.tsx` — subtitle wrapper `<p>` → `<div>` (a `ReactNode` subtitle that renders its own `<p>` made invalid `<p><p>` nesting → React 19 pageerror on every page using a project-description subtitle).
+  - `app/portal/websites/[siteId]/store/settings/page.tsx` — null-guarded 4 controlled `<input value>` bindings.
+  - Plus `app/portal/surveys/[id]/loading.tsx` (blank-`<main>` Suspense fix) and 11 components' `toLocaleDateString('en-US')` hydration hardening.
+- **Durable harness wins:** per-worker DB-name race fix (`_p<pid>`); pgvector/pg_trgm auto-enabled on both the integration template (`buildTemplateDatabase`) and the e2e prepare (`prepare-e2e-local.sh`); `test:e2e:local` / `test:critical:local` are now real reproducible local gates; `grantBundle` test helper.
+- **Pending:** push 11 commits to `origin/dev` (deploys to dev = prod) and run the gates in CI.

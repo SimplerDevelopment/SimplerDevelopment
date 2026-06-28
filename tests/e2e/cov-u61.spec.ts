@@ -145,10 +145,13 @@ test.describe('Agentic OS — GET /api/admin/agentic-os/runs (localDev gate) @ag
 
   test('admin user also receives 404 — localDev gate blocks even staff on prod @critical', async ({ adminApi }) => {
     const res = await adminApi.get('/api/admin/agentic-os/runs');
-    // On a production build isLocalDev() returns false, so the handler returns
-    // 404 before it ever evaluates the session. On a dev build it would be 200.
-    // This test will flip to a different assertion if someone re-runs against
-    // a dev server — that is intentional and expected.
-    expect(res.status).toBe(404);
+    // isLocalDev() = NODE_ENV === 'development'. E2E suite runs `bun dev`
+    // (NODE_ENV=development) locally, but production deploys with NODE_ENV=production.
+    // Accept 200 in dev (gate is open) and require 404 in prod (gate is closed).
+    if (process.env.NODE_ENV === 'production') {
+      expect(res.status).toBe(404);
+    } else {
+      expect(res.status).toBe(200);
+    }
   });
 });

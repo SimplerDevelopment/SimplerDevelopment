@@ -114,7 +114,9 @@ test.describe('A/B experiment post lifecycle @ab @critical', () => {
     // the type-label check tight (the page renders multiple <table> rows
     // when other agents have left fixtures behind).
     const row = page.locator('tr', { hasText: 'A/B test — fixture' }).first();
-    await expect(row).toBeVisible();
+    // Cold dev-server bundle compile for /portal/experiments can exceed the
+    // default 5s on the first hit under full-suite load; widen this one wait.
+    await expect(row).toBeVisible({ timeout: 30_000 });
     // Type column shows "Page" for post-targeted experiments and "Pitch deck" for decks.
     await expect(row).toContainText('Page');
     // The row should also link out to the experiment detail page.

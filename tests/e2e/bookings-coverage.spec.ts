@@ -24,25 +24,47 @@
  */
 import { test, expect } from './setup/fixtures';
 import { runCleanups } from './setup/helpers';
+import { ApiClient } from './setup/api-client';
 
-// Seeded booking page — stable slug set in scripts/seed-admin-e2e.ts.
-// SEED_PAGE_ID is resolved dynamically in beforeAll so it survives DB resets
-// where the auto-increment id may differ between runs.
-const SEED_SLUG = 'strategy-call-e2e-seed';
-let SEED_PAGE_ID = -1;
+// Booking page slug/id: discovered at runtime in beforeAll.
+// The seed (scripts/seed-admin-e2e.ts) uses a dynamic slug (strategy-call-${Date.now()})
+// so these cannot be hard-coded — they are resolved via GET /api/portal/tools/booking.
+let SEED_SLUG = '';
+let SEED_PAGE_ID = 0;
 
-// Resolve the seeded booking page id once per worker before any test runs.
-test.beforeAll(async ({ clientApi }) => {
-  const res = await clientApi.get('/api/portal/tools/booking');
-  const pages = ((res.data as { data?: unknown })?.data ?? []) as Array<{ id: number; slug: string }>;
-  const found = pages.find((p) => p.slug === SEED_SLUG);
-  SEED_PAGE_ID = found?.id ?? -1;
+test.beforeAll(async () => {
+  const bootstrap = new ApiClient('client@example.com', 'client123');
+  await bootstrap.ensure();
+  try {
+    const res = await bootstrap.get('/api/portal/tools/booking');
+    const pages = (res.data?.data ?? []) as Array<{ id: number; slug: string; title: string }>;
+    // The seed creates a page titled "Strategy Call"
+    const seedPage = pages.find((p) => p.title === 'Strategy Call') ?? pages[0];
+    if (!seedPage) throw new Error('No booking page found — run seed-admin-e2e.ts first');
+    SEED_SLUG = seedPage.slug;
+    SEED_PAGE_ID = seedPage.id;
+  } finally {
+    await bootstrap.dispose();
+  }
 });
 
-// Future slot — first Monday at least 9 days out (well within maxAdvanceDays:60,
-// beyond minNoticeMins:120). 2026-07-06 is a Monday.
-// 09:00 New York = 13:00 UTC
-const FUTURE_SLOT = '2026-07-06T13:00:00.000Z';
+// Compute next Monday from today (at least 1 day ahead) — the seed page allows
+// Mon–Fri 09:00–17:00 America/New_York; 09:00 EDT (UTC-4) = 13:00 UTC.
+function nextMondayDate(): string {
+  const d = new Date();
+  d.setUTCDate(d.getUTCDate() + 1); // at least tomorrow
+  while (d.getUTCDay() !== 1) {     // 1 = Monday in JS Date
+    d.setUTCDate(d.getUTCDate() + 1);
+  }
+  return d.toISOString().slice(0, 10);
+}
+
+const NEXT_MONDAY     = nextMondayDate();
+const FUTURE_SLOT     = `${NEXT_MONDAY}T13:00:00.000Z`; // 09:00 EDT
+const FUTURE_SLOT_30  = `${NEXT_MONDAY}T13:30:00.000Z`; // 09:30 EDT
+const FUTURE_SLOT_60  = `${NEXT_MONDAY}T14:00:00.000Z`; // 10:00 EDT
+const FUTURE_SLOT_90  = `${NEXT_MONDAY}T14:30:00.000Z`; // 10:30 EDT
+const FUTURE_SLOT_120 = `${NEXT_MONDAY}T15:00:00.000Z`; // 11:00 EDT
 
 // ── Helper: create a real booking via the public API and return it + cleanup ──
 async function createPublicBooking(
@@ -244,7 +266,7 @@ test.describe('Public Cancel by Token @bookings @cancel', () => {
 
   test('POST /public/booking/cancel returns 409 on double-cancel', async ({ unauthApi, clientApi }) => {
     const bookRes = await createPublicBooking(unauthApi, {
-      startTime: '2026-07-06T13:30:00.000Z',
+      startTime: FUTURE_SLOT_30,
     });
     if (bookRes.status === 409) {
       test.skip(true, 'Slot conflict — skipping double-cancel test');
@@ -254,7 +276,7 @@ test.describe('Public Cancel by Token @bookings @cancel', () => {
     const bookingId: number = bookRes.data.data.id;
 
     const listRes = await clientApi.get(`/api/portal/tools/booking/${SEED_PAGE_ID}/bookings`);
-    const found = (listRes.data.data as Array<{ id: number; cancelToken: string }>)
+    const found = (listRes.data.data as Array<{ id: number; cancelToken: string; status: string }>)
       .find(b => b.id === bookingId);
     expect(found).toBeTruthy();
     const cancelToken = found!.cancelToken;
@@ -281,12 +303,12 @@ test.describe('Public Cancel by Token @bookings @cancel', () => {
   });
 
   test('GET /public/booking/cancel?token= looks up booking info', async ({ unauthApi, clientApi }) => {
-    // Use the existing seed booking's token (booking id=1 is future: 2026-06-27)
+    // Use any confirmed booking on the seed page
     const listRes = await clientApi.get(`/api/portal/tools/booking/${SEED_PAGE_ID}/bookings`);
     const seedBooking = (listRes.data.data as Array<{ id: number; cancelToken: string; status: string }>)
-      .find(b => b.id === 1 && b.status === 'confirmed');
+      .find(b => b.status === 'confirmed');
     if (!seedBooking) {
-      test.skip(true, 'Seed booking id=1 not available');
+      test.skip(true, 'No confirmed seed booking available');
       return;
     }
     const res = await unauthApi.get(`/api/public/booking/cancel?token=${seedBooking.cancelToken}`);
@@ -381,7 +403,7 @@ test.describe('Individual Booking Status Update @bookings @booking-update', () =
 
   test('PUT /bookings/[bookingId] cancels a booking @critical', async ({ unauthApi, clientApi }) => {
     const bookRes = await createPublicBooking(unauthApi, {
-      startTime: '2026-07-06T14:00:00.000Z',
+      startTime: FUTURE_SLOT_60,
     });
     if (bookRes.status === 409) {
       test.skip(true, 'Slot conflict — skipping booking-update cancel test');
@@ -401,7 +423,7 @@ test.describe('Individual Booking Status Update @bookings @booking-update', () =
 
   test('PUT /bookings/[bookingId] updates notes', async ({ unauthApi, clientApi }) => {
     const bookRes = await createPublicBooking(unauthApi, {
-      startTime: '2026-07-06T14:30:00.000Z',
+      startTime: FUTURE_SLOT_90,
     });
     if (bookRes.status === 409) {
       test.skip(true, 'Slot conflict — skipping notes-update test');
@@ -446,7 +468,7 @@ test.describe('Individual Booking Status Update @bookings @booking-update', () =
 
 test.describe('Public Available Slots @bookings @slots', () => {
   test('GET /slots returns slot windows for a weekday @critical', async ({ unauthApi }) => {
-    const res = await unauthApi.get(`/api/public/booking/${SEED_SLUG}/slots?date=2026-07-06`);
+    const res = await unauthApi.get(`/api/public/booking/${SEED_SLUG}/slots?date=${NEXT_MONDAY}`);
     expect(res.status).toBe(200);
     expect(res.data.success).toBe(true);
     expect(Array.isArray(res.data.data)).toBe(true);
@@ -460,8 +482,8 @@ test.describe('Public Available Slots @bookings @slots', () => {
   });
 
   test('GET /slots returns empty array for a weekend', async ({ unauthApi }) => {
-    // 2026-07-05 is a Sunday; availability has Sunday disabled
-    const res = await unauthApi.get(`/api/public/booking/${SEED_SLUG}/slots?date=2026-07-05`);
+    // 2026-06-21 is a Sunday; availability has Sunday disabled
+    const res = await unauthApi.get(`/api/public/booking/${SEED_SLUG}/slots?date=2026-06-21`);
     expect(res.status).toBe(200);
     expect(res.data.success).toBe(true);
     expect(res.data.data).toHaveLength(0);
@@ -502,7 +524,7 @@ test.describe('Waiver Sign-on-Book @bookings @waivers', () => {
   test('POST /waiver rejects when waivers not enabled on page', async ({ unauthApi, clientApi }) => {
     // First create a booking on the seed page (waivers disabled)
     const bookRes = await createPublicBooking(unauthApi, {
-      startTime: '2026-07-06T15:00:00.000Z',
+      startTime: FUTURE_SLOT_120,
     });
     if (bookRes.status === 409) {
       test.skip(true, 'Slot conflict — skipping waiver-disabled test');

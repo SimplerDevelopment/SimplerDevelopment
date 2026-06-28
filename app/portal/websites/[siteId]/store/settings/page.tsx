@@ -575,7 +575,7 @@ export default function StoreSettingsPage() {
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-foreground">Store Name</label>
             <input
-              value={settings.storeName}
+              value={settings.storeName ?? ''}
               onChange={(e) => updateField('storeName', e.target.value)}
               placeholder="My Store"
               className={pInput}
@@ -594,7 +594,7 @@ export default function StoreSettingsPage() {
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-foreground">Order Prefix</label>
             <input
-              value={settings.orderPrefix}
+              value={settings.orderPrefix ?? ''}
               onChange={(e) => updateField('orderPrefix', e.target.value)}
               placeholder="ORD-"
               className={pInput}
@@ -605,7 +605,7 @@ export default function StoreSettingsPage() {
             <input
               type="number"
               min="0"
-              value={settings.lowStockThreshold}
+              value={settings.lowStockThreshold ?? 0}
               onChange={(e) => updateField('lowStockThreshold', parseInt(e.target.value) || 0)}
               className={pInput}
             />
@@ -627,7 +627,7 @@ export default function StoreSettingsPage() {
               step="0.01"
               min="0"
               max="100"
-              value={settings.taxRate}
+              value={settings.taxRate ?? 0}
               onChange={(e) => updateField('taxRate', parseFloat(e.target.value) || 0)}
               placeholder="0"
               className={pInput}

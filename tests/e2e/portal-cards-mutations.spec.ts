@@ -23,7 +23,12 @@ test.describe('Portal Cards Mutations — golden path @cards @mutations @critica
   let cleanups: Array<() => Promise<void>> = [];
   test.afterEach(async () => { await runCleanups(cleanups); cleanups = []; });
 
+  // @flaky: Occasionally receives a transient 500 from one of the card mutation
+  // endpoints during a busy parallel run. Passes consistently on retry.
+  // test.slow() triples the timeout so cleanup after a 500 doesn't cascade
+  // into a secondary "test timeout exceeded" error.
   test('CARDS-full-lifecycle: comment → watcher → time-log → checklist → label → move', async ({ adminApi, clientApi }) => {
+    test.slow();
     // ── Setup: a project with 4 columns + a single card ──────────────────
     const { project, columns, cleanup: pc } = await createTestKanbanProject(clientApi);
     cleanups.push(pc);

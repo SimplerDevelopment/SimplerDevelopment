@@ -43,7 +43,7 @@ export function PortalPageHeader({
         <h1 className="mt-1.5 font-display text-[clamp(1.5rem,2.4vw,2rem)] font-extrabold leading-[1.05] tracking-[-0.028em] text-foreground">
           {title}
         </h1>
-        {subtitle && <p className="mt-1.5 text-[14.5px] text-muted-foreground">{subtitle}</p>}
+        {subtitle && <div className="mt-1.5 text-[14.5px] text-muted-foreground">{subtitle}</div>}
       </div>
       {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
     </header>

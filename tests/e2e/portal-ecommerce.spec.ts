@@ -374,6 +374,7 @@ test.describe('Portal Ecommerce @ecommerce @critical', () => {
       name: 'Original',
       price: 1000,
     });
+    expect(create.status).toBe(201);
     const variantId = create.data.data.id;
 
     const res = await clientApi.put(`/api/portal/websites/${siteId}/store/products/${productId}/variants/${variantId}`, {
