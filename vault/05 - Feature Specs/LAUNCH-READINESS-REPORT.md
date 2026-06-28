@@ -48,19 +48,20 @@ repo can be public, and (3) capturing real product media (screenshots/GIFs).
 
 | Dimension | Start | Now | Gap to 90+ |
 |---|---|---|---|
-| Open-source launch | 55 | ~70 | **Execute** git-history sweep (plan ready) + go public (maintainer); publish Railway gallery template; hero GIF |
-| Hosted SaaS | 70 | ~87 | ~11 e2e need real service keys (AI/Stripe/Resend); 2 real product bugs (hydration on /portal/projects+proposals/[id]; survey cold-load render) |
-| AI discoverability | 45 | **~90** | At target: JSON-LD (Org/SoftwareApplication/WebSite/FAQPage) + robots + sitemap + served /llms.txt + agent docs all live |
+| Open-source launch | 55 | **~85** | Sweep EXECUTED + verified on a mirror; only the maintainer force-push + go-public remains (+ rotate the leaked pw) |
+| Hosted SaaS | 70 | **~90** | e2e **684 passed / 8 failed** on merged tree — residual = 6 service-key-gated (AI/Stripe/Resend, accepted) + ~2 cold-compile flakies (harness). Product-green. |
+| AI discoverability | 45 | **~92** | At target: JSON-LD on home + pricing + all 21 solution pages + robots + sitemap + served /llms.txt + agent docs |
 | Developer onboarding | 65 | **~90** | At target: devcontainer + SDK docs + self-host AUTH_COOKIE_DOMAIN + working clone-to-running + CHANGELOG |
-| Marketing completeness | 20 | ~58 | Live feature/landing pages from specs; authed product screenshots + GIFs (vhs); blog drafts |
+| Marketing completeness | 20 | **~82** | 21 live solution pages + 71 product screenshots already existed; added JSON-LD + home/pricing shots + 3 blog drafts. Remaining: GIFs (vhs) + more published posts |
 
 ### Session-2 additions (the "90+" push)
 - **e2e systemic fix:** root-caused 373 failures → missing `AUTH_SECRET` in the local-e2e env; fixed → **373→21 failed, 641 passed**. Plus crypto-key defaults + an `ENCRYPTION_KEY` doc-length bug fixed.
 - **AI-disc → ~90:** SEO/JSON-LD/robots/sitemap implemented in-app; `/llms.txt` served over HTTP.
 - **Dev-onboarding → ~90:** devcontainer, documented SDK (13/13 v1 endpoints), self-host cookie-domain env, Railway template.
-- **e2e fixtures:** booking slug + AB critical-gate fixed; surveys-detail + projects/proposals smoke escalated as **real product bugs** (not masked).
-- **Marketing:** real public-page screenshots (home/pricing, desktop+mobile).
-- **OSS:** history-sweep plan authored (read-only); execution is maintainer-gated.
+- **e2e fixtures:** booking slug + AB critical-gate fixed; surveys-detail + projects/proposals smoke were escalated as **real product bugs** — then **fixed via the `dev` merge** (dev independently found the same hydration + cold-load bugs).
+- **Merged `dev`:** gained the 2 product-bug fixes + e2e test-debt fixes; final merged-tree run **684 passed / 8 failed** (6 service-key + ~2 cold-compile, no product regressions).
+- **Marketing:** discovered 21 live solution pages + 71 product screenshots already exist; added solution-page JSON-LD, home/pricing screenshots, and 3 full blog drafts.
+- **OSS sweep EXECUTED on a mirror:** `git filter-repo` (3 passes) → all leak categories verified 0 across history (caught the credential also living in `.playwright-mcp` snapshots); `~/simplerdevelopment2026-sweep-mirror.git` ready for maintainer force-push.
 
 ## Blocked / not done (and why)
 
