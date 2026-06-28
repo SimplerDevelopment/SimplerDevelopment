@@ -452,7 +452,7 @@ function DraggableBlockList({
         const parts = overId.split(':');
         const containerId = parts[1];
         const slotIndex = parseInt(parts[2]);
-        const updated = removeBlock(blocks, activeId);
+        let updated = removeBlock(blocks, activeId);
         updated = insertIntoContainer(updated, containerId, slotIndex, draggedBlock);
         editor.onBlocksReordered(updated);
         return;
@@ -463,7 +463,7 @@ function DraggableBlockList({
         const parts = overId.split(':');
         const targetId = parts[1];
         const position = parts[2] as 'before' | 'after';
-        const updated = removeBlock(blocks, activeId);
+        let updated = removeBlock(blocks, activeId);
         updated = insertNearBlock(updated, targetId, position, draggedBlock);
         editor.onBlocksReordered(updated);
         return;
@@ -473,7 +473,7 @@ function DraggableBlockList({
       const oldIndex = blocks.findIndex((b) => b.id === activeId);
       const newIndex = blocks.findIndex((b) => b.id === overId);
       if (oldIndex !== -1 && newIndex !== -1) {
-        const updated = removeBlock(blocks, activeId);
+        let updated = removeBlock(blocks, activeId);
         updated.splice(newIndex > oldIndex ? newIndex - 1 : newIndex, 0, draggedBlock);
         editor.onBlocksReordered(updated);
       }
