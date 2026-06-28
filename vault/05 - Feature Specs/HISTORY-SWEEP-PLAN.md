@@ -319,3 +319,28 @@ git push origin --tags --force
 ---
 
 *Plan authored by Claude Code (analysis + read-only investigation). Execution must be performed and verified by a human maintainer with repository write access.*
+
+---
+
+## EXECUTED ON A MIRROR — 2026-06-27 (no force-push performed)
+
+Per maintainer decisions: **surgical** file scrub (not wholesale subdir removal); **full-hostname-only** codename replacement (dropped the bare-word `metro` regex to avoid Metro-bundler false positives).
+
+**Swept mirror:** `~/simplerdevelopment2026-sweep-mirror.git` (139M, 2,851 commits — 75 emptied commits pruned; `origin` removed by filter-repo, safe). Source was a `--mirror` clone of the local repo (includes the `worktree/quiet-valley-34bd` work).
+
+**Passes run** (`git filter-repo`, on the mirror only):
+1. Path removal: `public/mancuso`, `public/uploads/palizzi`, `public/assets/magamommy`, `sd-chat-mobile/HANDOFF.md`, `sd-chat-mobile/lib/mock`, `roast-prompts`, `.planning`.
+2. Text replacement: maintainer email, `acela.proxy.rlwy.net`/`metro.proxy.rlwy.net`, `postcaptain.com` + per-person emails, `Post Captain`→`Acme Agency`, `Daniel Coyle`→`Demo User`.
+3. Path removal: `.playwright-mcp` — **verification caught the credential surviving here** (an old Playwright snapshot captured a filled-in login form; the password was NOT only in HANDOFF.md). Removed.
+
+**Verification (all history) — all ✓ CLEAN:** password, maintainer email, acela/metro hostnames, postcaptain.com → 0 occurrences; mancuso/palizzi/magamommy, HANDOFF.md, sd-chat-mobile/lib/mock, roast-prompts, .planning, .playwright-mcp → 0 commits. Preserved (correctly untouched): the `io.github.danielpcoyle` publish namespace + Metro bundler entries in `bun.lock`.
+
+**REMAINING — maintainer only:**
+```bash
+cd ~/simplerdevelopment2026-sweep-mirror.git
+git log --oneline | head ; git log --all -S 'acela.proxy.rlwy.net' | head   # inspect — expect empty
+# DESTRUCTIVE — rewrites ALL history; every clone/fork must re-clone after:
+git remote add origin https://github.com/DanielPCoyle/simplerdevelopment2026.git
+git push origin --force --all && git push origin --force --tags
+```
+Then per §6: re-enable branch protection, **rotate the leaked credential anyway**, request GitHub CDN purge if ever public, have collaborators re-clone. Consider pushing to a NEW public repo instead of force-pushing the private one if forks exist. Keep the un-swept original until the push is confirmed good.
