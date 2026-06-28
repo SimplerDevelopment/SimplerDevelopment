@@ -335,6 +335,8 @@ Per maintainer decisions: **surgical** file scrub (not wholesale subdir removal)
 
 **Verification (all history) — all ✓ CLEAN:** password, maintainer email, acela/metro hostnames, postcaptain.com → 0 occurrences; mancuso/palizzi/magamommy, HANDOFF.md, sd-chat-mobile/lib/mock, roast-prompts, .planning, .playwright-mcp → 0 commits. Preserved (correctly untouched): the `io.github.danielpcoyle` publish namespace + Metro bundler entries in `bun.lock`.
 
+**Build-verified (2026-06-28):** cloned a working copy from the swept mirror, checked out `worktree/quiet-valley-34bd`, ran `bun install` (3,917 packages) + `tsc --noEmit` → **0 errors**; `bun.lock` Metro bundler entries intact (11 `metro-runtime` refs). The history rewrite did not break the build — safe to push.
+
 **REMAINING — maintainer only:**
 ```bash
 cd ~/simplerdevelopment2026-sweep-mirror.git
