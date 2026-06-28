@@ -4,8 +4,6 @@ import crypto from 'crypto';
 
 dotenv.config({ path: '.env' });
 
-const ts = Date.now();
-
 function randomToken(len = 64): string {
   return crypto.randomBytes(len / 2).toString('hex');
 }
@@ -645,96 +643,114 @@ async function seedAdminE2E() {
     // 5. BOOKING DATA
     // ═══════════════════════════════════════════════════════════════════════════
 
-    const [bookingPage] = await db.insert(bookingPages).values({
-      clientId,
-      title: 'Strategy Call',
-      slug: `strategy-call-${ts}`,
-      description: 'Book a 30-minute strategy session to discuss your project goals and requirements.',
-      duration: 30,
-      bufferBefore: 5,
-      bufferAfter: 10,
-      maxAdvanceDays: 60,
-      minNoticeMins: 120,
-      timezone: 'America/New_York',
-      availability: [
-        { day: 1, startTime: '09:00', endTime: '17:00', enabled: true },
-        { day: 2, startTime: '09:00', endTime: '17:00', enabled: true },
-        { day: 3, startTime: '09:00', endTime: '17:00', enabled: true },
-        { day: 4, startTime: '09:00', endTime: '17:00', enabled: true },
-        { day: 5, startTime: '09:00', endTime: '17:00', enabled: true },
-        { day: 0, startTime: '09:00', endTime: '17:00', enabled: false },
-        { day: 6, startTime: '09:00', endTime: '17:00', enabled: false },
-      ],
-      questions: [
-        { id: 'q1', label: 'What is the main goal for this call?', type: 'textarea', required: true },
-      ],
-      color: '#2563eb',
-      active: true,
-    }).returning();
-    console.log('Booking page created:', bookingPage.id);
+    // Stable slug so bookings-coverage.spec.ts can reference it without timestamp
+    // drift. Idempotent: reuse an existing page to avoid slug uniqueness conflicts
+    // when the DB is not fully reset between runs.
+    const BOOKING_SLUG = 'strategy-call-e2e-seed';
+    const existingBookingPage = await db
+      .select()
+      .from(bookingPages)
+      .where(and(eq(bookingPages.clientId, clientId), eq(bookingPages.slug, BOOKING_SLUG)))
+      .limit(1);
+    const bookingPageIsNew = existingBookingPage.length === 0;
+    const [bookingPage] = bookingPageIsNew
+      ? await db.insert(bookingPages).values({
+          clientId,
+          title: 'Strategy Call',
+          slug: BOOKING_SLUG,
+          description: 'Book a 30-minute strategy session to discuss your project goals and requirements.',
+          duration: 30,
+          bufferBefore: 5,
+          bufferAfter: 10,
+          maxAdvanceDays: 60,
+          minNoticeMins: 120,
+          timezone: 'America/New_York',
+          availability: [
+            { day: 1, startTime: '09:00', endTime: '17:00', enabled: true },
+            { day: 2, startTime: '09:00', endTime: '17:00', enabled: true },
+            { day: 3, startTime: '09:00', endTime: '17:00', enabled: true },
+            { day: 4, startTime: '09:00', endTime: '17:00', enabled: true },
+            { day: 5, startTime: '09:00', endTime: '17:00', enabled: true },
+            { day: 0, startTime: '09:00', endTime: '17:00', enabled: false },
+            { day: 6, startTime: '09:00', endTime: '17:00', enabled: false },
+          ],
+          questions: [
+            { id: 'q1', label: 'What is the main goal for this call?', type: 'textarea', required: true },
+          ],
+          color: '#2563eb',
+          active: true,
+        }).returning()
+      : existingBookingPage;
+    console.log('Booking page', bookingPageIsNew ? 'created' : 'reused', ':', bookingPage.id);
 
-    // Future confirmed booking (+7 days)
-    const futureDate = new Date();
-    futureDate.setDate(futureDate.getDate() + 7);
-    futureDate.setHours(10, 0, 0, 0);
-    const futureEnd = new Date(futureDate);
-    futureEnd.setMinutes(futureEnd.getMinutes() + 30);
+    // Only seed bookings for a freshly created page — avoids duplicating the
+    // confirmed slot, which would cause slot-conflict 409s in the booking tests.
+    if (bookingPageIsNew) {
+      // Future confirmed booking (+9 days — lands on a weekday within the Mon–Fri window)
+      const futureDate = new Date();
+      futureDate.setDate(futureDate.getDate() + 9);
+      futureDate.setHours(10, 0, 0, 0);
+      const futureEnd = new Date(futureDate);
+      futureEnd.setMinutes(futureEnd.getMinutes() + 30);
 
-    // Past completed booking (-7 days)
-    const pastDate = new Date();
-    pastDate.setDate(pastDate.getDate() - 7);
-    pastDate.setHours(14, 0, 0, 0);
-    const pastEnd = new Date(pastDate);
-    pastEnd.setMinutes(pastEnd.getMinutes() + 30);
+      // Past completed booking (-7 days)
+      const pastDate = new Date();
+      pastDate.setDate(pastDate.getDate() - 7);
+      pastDate.setHours(14, 0, 0, 0);
+      const pastEnd = new Date(pastDate);
+      pastEnd.setMinutes(pastEnd.getMinutes() + 30);
 
-    // Cancelled booking (-3 days)
-    const cancelDate = new Date();
-    cancelDate.setDate(cancelDate.getDate() - 3);
-    cancelDate.setHours(11, 0, 0, 0);
-    const cancelEnd = new Date(cancelDate);
-    cancelEnd.setMinutes(cancelEnd.getMinutes() + 30);
+      // Cancelled booking (-3 days)
+      const cancelDate = new Date();
+      cancelDate.setDate(cancelDate.getDate() - 3);
+      cancelDate.setHours(11, 0, 0, 0);
+      const cancelEnd = new Date(cancelDate);
+      cancelEnd.setMinutes(cancelEnd.getMinutes() + 30);
 
-    await db.insert(bookings).values([
-      {
-        bookingPageId: bookingPage.id,
-        clientId,
-        guestName: 'Alice Chen',
-        guestEmail: 'alice@techventures.io',
-        guestPhone: '(555) 200-1001',
-        startTime: futureDate,
-        endTime: futureEnd,
-        timezone: 'America/New_York',
-        status: 'confirmed',
-        answers: { q1: 'Discuss new platform architecture and timeline.' },
-        cancelToken: randomToken(),
-      },
-      {
-        bookingPageId: bookingPage.id,
-        clientId,
-        guestName: 'Carol Davis',
-        guestEmail: 'carol@greenleafstudios.co',
-        startTime: pastDate,
-        endTime: pastEnd,
-        timezone: 'America/New_York',
-        status: 'completed',
-        answers: { q1: 'Review brand refresh deliverables.' },
-        cancelToken: randomToken(),
-      },
-      {
-        bookingPageId: bookingPage.id,
-        clientId,
-        guestName: 'Dave Wilson',
-        guestEmail: 'dave@greenleafstudios.co',
-        startTime: cancelDate,
-        endTime: cancelEnd,
-        timezone: 'America/New_York',
-        status: 'cancelled',
-        cancelledAt: new Date(cancelDate.getTime() - 86400000), // cancelled 1 day before
-        answers: { q1: 'Project kickoff planning.' },
-        cancelToken: randomToken(),
-      },
-    ]);
-    console.log('Bookings created: 3');
+      await db.insert(bookings).values([
+        {
+          bookingPageId: bookingPage.id,
+          clientId,
+          guestName: 'Alice Chen',
+          guestEmail: 'alice@techventures.io',
+          guestPhone: '(555) 200-1001',
+          startTime: futureDate,
+          endTime: futureEnd,
+          timezone: 'America/New_York',
+          status: 'confirmed',
+          answers: { q1: 'Discuss new platform architecture and timeline.' },
+          cancelToken: randomToken(),
+        },
+        {
+          bookingPageId: bookingPage.id,
+          clientId,
+          guestName: 'Carol Davis',
+          guestEmail: 'carol@greenleafstudios.co',
+          startTime: pastDate,
+          endTime: pastEnd,
+          timezone: 'America/New_York',
+          status: 'completed',
+          answers: { q1: 'Review brand refresh deliverables.' },
+          cancelToken: randomToken(),
+        },
+        {
+          bookingPageId: bookingPage.id,
+          clientId,
+          guestName: 'Dave Wilson',
+          guestEmail: 'dave@greenleafstudios.co',
+          startTime: cancelDate,
+          endTime: cancelEnd,
+          timezone: 'America/New_York',
+          status: 'cancelled',
+          cancelledAt: new Date(cancelDate.getTime() - 86400000), // cancelled 1 day before
+          answers: { q1: 'Project kickoff planning.' },
+          cancelToken: randomToken(),
+        },
+      ]);
+      console.log('Bookings created: 3');
+    } else {
+      console.log('Booking page already exists — skipping booking seed');
+    }
 
     // ═══════════════════════════════════════════════════════════════════════════
 

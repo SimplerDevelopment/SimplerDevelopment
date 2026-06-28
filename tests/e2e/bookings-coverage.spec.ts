@@ -25,14 +25,24 @@
 import { test, expect } from './setup/fixtures';
 import { runCleanups } from './setup/helpers';
 
-// Seeded booking page (slug from seed data — page id 1, slug strategy-call-1781968251397)
-// We use this slug for public API calls (slots, discount, waiver, book, cancel).
-const SEED_SLUG = 'strategy-call-1781968251397';
-const SEED_PAGE_ID = 1;
+// Seeded booking page — stable slug set in scripts/seed-admin-e2e.ts.
+// SEED_PAGE_ID is resolved dynamically in beforeAll so it survives DB resets
+// where the auto-increment id may differ between runs.
+const SEED_SLUG = 'strategy-call-e2e-seed';
+let SEED_PAGE_ID = -1;
 
-// Future slot (2026-06-23 is a Monday; availability is Mon–Fri 09:00–17:00 America/New_York)
+// Resolve the seeded booking page id once per worker before any test runs.
+test.beforeAll(async ({ clientApi }) => {
+  const res = await clientApi.get('/api/portal/tools/booking');
+  const pages = ((res.data as { data?: unknown })?.data ?? []) as Array<{ id: number; slug: string }>;
+  const found = pages.find((p) => p.slug === SEED_SLUG);
+  SEED_PAGE_ID = found?.id ?? -1;
+});
+
+// Future slot — first Monday at least 9 days out (well within maxAdvanceDays:60,
+// beyond minNoticeMins:120). 2026-07-06 is a Monday.
 // 09:00 New York = 13:00 UTC
-const FUTURE_SLOT = '2026-06-23T13:00:00.000Z';
+const FUTURE_SLOT = '2026-07-06T13:00:00.000Z';
 
 // ── Helper: create a real booking via the public API and return it + cleanup ──
 async function createPublicBooking(
@@ -234,7 +244,7 @@ test.describe('Public Cancel by Token @bookings @cancel', () => {
 
   test('POST /public/booking/cancel returns 409 on double-cancel', async ({ unauthApi, clientApi }) => {
     const bookRes = await createPublicBooking(unauthApi, {
-      startTime: '2026-06-23T13:30:00.000Z',
+      startTime: '2026-07-06T13:30:00.000Z',
     });
     if (bookRes.status === 409) {
       test.skip(true, 'Slot conflict — skipping double-cancel test');
@@ -371,7 +381,7 @@ test.describe('Individual Booking Status Update @bookings @booking-update', () =
 
   test('PUT /bookings/[bookingId] cancels a booking @critical', async ({ unauthApi, clientApi }) => {
     const bookRes = await createPublicBooking(unauthApi, {
-      startTime: '2026-06-23T14:00:00.000Z',
+      startTime: '2026-07-06T14:00:00.000Z',
     });
     if (bookRes.status === 409) {
       test.skip(true, 'Slot conflict — skipping booking-update cancel test');
@@ -391,7 +401,7 @@ test.describe('Individual Booking Status Update @bookings @booking-update', () =
 
   test('PUT /bookings/[bookingId] updates notes', async ({ unauthApi, clientApi }) => {
     const bookRes = await createPublicBooking(unauthApi, {
-      startTime: '2026-06-23T14:30:00.000Z',
+      startTime: '2026-07-06T14:30:00.000Z',
     });
     if (bookRes.status === 409) {
       test.skip(true, 'Slot conflict — skipping notes-update test');
@@ -436,7 +446,7 @@ test.describe('Individual Booking Status Update @bookings @booking-update', () =
 
 test.describe('Public Available Slots @bookings @slots', () => {
   test('GET /slots returns slot windows for a weekday @critical', async ({ unauthApi }) => {
-    const res = await unauthApi.get(`/api/public/booking/${SEED_SLUG}/slots?date=2026-06-23`);
+    const res = await unauthApi.get(`/api/public/booking/${SEED_SLUG}/slots?date=2026-07-06`);
     expect(res.status).toBe(200);
     expect(res.data.success).toBe(true);
     expect(Array.isArray(res.data.data)).toBe(true);
@@ -450,8 +460,8 @@ test.describe('Public Available Slots @bookings @slots', () => {
   });
 
   test('GET /slots returns empty array for a weekend', async ({ unauthApi }) => {
-    // 2026-06-21 is a Sunday; availability has Sunday disabled
-    const res = await unauthApi.get(`/api/public/booking/${SEED_SLUG}/slots?date=2026-06-21`);
+    // 2026-07-05 is a Sunday; availability has Sunday disabled
+    const res = await unauthApi.get(`/api/public/booking/${SEED_SLUG}/slots?date=2026-07-05`);
     expect(res.status).toBe(200);
     expect(res.data.success).toBe(true);
     expect(res.data.data).toHaveLength(0);
@@ -492,7 +502,7 @@ test.describe('Waiver Sign-on-Book @bookings @waivers', () => {
   test('POST /waiver rejects when waivers not enabled on page', async ({ unauthApi, clientApi }) => {
     // First create a booking on the seed page (waivers disabled)
     const bookRes = await createPublicBooking(unauthApi, {
-      startTime: '2026-06-23T15:00:00.000Z',
+      startTime: '2026-07-06T15:00:00.000Z',
     });
     if (bookRes.status === 409) {
       test.skip(true, 'Slot conflict — skipping waiver-disabled test');
