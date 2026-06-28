@@ -12,8 +12,12 @@ Real captures from the running app (not mockups), for the marketing site, README
 ## solutions/ — product screenshots (pre-existing)
 `solutions/<slug>/*.png` — 71 product screenshots captured against a fake "Northwind Coffee Co." demo tenant (no real PII), surfaced in each `/solutions/[slug]` page gallery via `lib/data/solution-screenshots.ts`.
 
+## product/ — authed portal screens (Phase-4 validation captures)
+Captured live after completing onboarding for the seeded tenant; all loaded clean (no bugs):
+`dashboard.png`, `crm.png`, `websites.png`, `brain-knowledge.png`, `projects.png`, `bookings.png`.
+
 ## Pending (follow-on)
-- **Deeper authed product screens** (CRM, visual editor, brain detail) at desktop+mobile — `client@example.com` is gated to onboarding in the e2e seed; capturing these needs a fully-onboarded seeded tenant (or the existing `solutions/` set already covers most product UI).
+- **Remaining portal/admin screens** (email, store, surveys, visual-editor detail, admin panel) + mobile/dark variants — the captured set + the `solutions/` set already cover the headline product UI.
 - **Tablet + dark-mode variants.**
 - **GIFs** (`public/gifs/`) — DELIBERATELY not auto-generated: the `vhs` hero tape (`docs/launch/demo.tape`) is a *staged/simulated* session and its own comments warn against shipping a faked demo. The honest hero GIF must be recorded against a real running instance + MCP client (maintainer action). Do not ship the staged tape output as-is.
 
