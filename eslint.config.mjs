@@ -1,6 +1,7 @@
 import { defineConfig, globalIgnores } from "eslint/config";
 import nextVitals from "eslint-config-next/core-web-vitals";
 import nextTs from "eslint-config-next/typescript";
+import reactHooks from "eslint-plugin-react-hooks";
 
 const eslintConfig = defineConfig([
   ...nextVitals,
@@ -19,6 +20,19 @@ const eslintConfig = defineConfig([
     "playwright-report/**",
     "test-results/**",
     "coverage/**",
+    // Test suites are not production code, are not linted by `next build`, and
+    // carry pre-existing fixture-style violations (heavy `any`, `@ts` comments).
+    // They remain typechecked (tsc) and executed (vitest/playwright); only the
+    // prod-style lint gate skips them.
+    "tests/**",
+    "**/*.test.{ts,tsx,js,jsx,mjs,cjs}",
+    "**/*.spec.{ts,tsx,js,jsx,mjs,cjs}",
+    // Non-shipped build/dev tooling and separate sub-projects with their own
+    // toolchains — not part of the Next app's production lint surface.
+    "scripts/**",
+    "sd-chat-mobile/**",
+    "simplerdevelopment-agents/**",
+    "extension/**",
   ]),
   // Structural "blunt-hammer" guardrail (harness-engineering, AI DevCon 2026):
   // a coarse file-size signal that nudges agents to decompose god-files instead
@@ -46,6 +60,9 @@ const eslintConfig = defineConfig([
     // Downgraded to `warn` so they stay visible as tech-debt without blocking the
     // production build, mirroring the unconditional `typescript.ignoreBuildErrors`
     // posture already in next.config.ts. See the prod-promotion notes.
+    // The plugin must be registered in the same flat-config object that
+    // references its rules (same instance as eslint-config-next uses).
+    plugins: { "react-hooks": reactHooks },
     rules: {
       "react-hooks/set-state-in-effect": "warn",
       "react-hooks/immutability": "warn",

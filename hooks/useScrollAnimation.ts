@@ -12,7 +12,7 @@ export function useScrollAnimation(options: UseScrollAnimationOptions = {}) {
   const { offset = ['start end', 'end start'], smooth = true } = options;
 
   const { scrollYProgress } = useScroll({
-    offset: offset as any,
+    offset: offset as NonNullable<Parameters<typeof useScroll>[0]>['offset'],
   });
 
   return {

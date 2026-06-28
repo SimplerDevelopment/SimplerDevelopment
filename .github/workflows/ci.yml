@@ -82,7 +82,10 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Apply schema (Drizzle migrations create the pgvector extension)
+      - name: Enable required Postgres extensions (pgvector etc.)
+        run: PGPASSWORD=postgres psql -h localhost -U postgres -d simplerdev_test -c "CREATE EXTENSION IF NOT EXISTS vector; CREATE EXTENSION IF NOT EXISTS pg_trgm; CREATE EXTENSION IF NOT EXISTS pgcrypto;"
+
+      - name: Apply schema (Drizzle migrations)
         run: bun run db:migrate
 
       - name: Tenancy gate

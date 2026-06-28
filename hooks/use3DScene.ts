@@ -22,7 +22,8 @@ export function use3DScene() {
     // Simple performance detection
     // Check for mobile or low-end devices
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-    const hasLowMemory = (navigator as any).deviceMemory && (navigator as any).deviceMemory < 4;
+    const deviceMemory = (navigator as Navigator & { deviceMemory?: number }).deviceMemory;
+    const hasLowMemory = deviceMemory !== undefined && deviceMemory < 4;
 
     setIsLowPerformance(isMobile || hasLowMemory);
   }, []);
