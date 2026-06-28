@@ -9,6 +9,12 @@ import { FadeIn } from '@/components/animations/FadeIn';
 import { SlideIn } from '@/components/animations/SlideIn';
 import { SolutionGallery } from '@/components/solutions/SolutionGallery';
 import { MaintenanceNotice, SOLUTIONS_UNDER_MAINTENANCE } from '@/components/marketing/MaintenanceNotice';
+import { StructuredData } from '@/components/seo/StructuredData';
+import {
+  generateSoftwareApplicationSchema,
+  generateBreadcrumbListSchema,
+} from '@/lib/utils/structured-data';
+import { siteConfig } from '@/config/site';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -47,8 +53,25 @@ export default async function SolutionPage({ params }: PageProps) {
   const otherSolutions = allSolutions.filter((s) => s.slug !== slug);
   const screenshots = getSolutionScreenshots(slug);
 
+  const solutionUrl = `${siteConfig.url}/solutions/${solution.slug}`;
+  const solutionAppSchema = {
+    ...generateSoftwareApplicationSchema(),
+    name: solution.title,
+    description: solution.description,
+    url: solutionUrl,
+    featureList: solution.features,
+    offers: undefined,
+  };
+  const breadcrumbSchema = generateBreadcrumbListSchema([
+    { name: 'Home', item: siteConfig.url },
+    { name: 'Solutions', item: `${siteConfig.url}/solutions` },
+    { name: solution.title, item: solutionUrl },
+  ]);
+
   return (
-    <div className="min-h-screen">
+    <>
+      <StructuredData data={[solutionAppSchema, breadcrumbSchema]} />
+      <div className="min-h-screen">
       {/* Hero */}
       <section className="relative py-24 md:py-32 overflow-hidden">
         <div
@@ -330,5 +353,6 @@ export default async function SolutionPage({ params }: PageProps) {
         </div>
       </section>
     </div>
+    </>
   );
 }

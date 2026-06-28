@@ -263,3 +263,29 @@ export function generateFAQSchema(
   };
 }
 
+export interface BreadcrumbListSchema {
+  '@context': 'https://schema.org';
+  '@type': 'BreadcrumbList';
+  itemListElement: Array<{
+    '@type': 'ListItem';
+    position: number;
+    name: string;
+    item?: string;
+  }>;
+}
+
+export function generateBreadcrumbListSchema(
+  crumbs: Array<{ name: string; item?: string }>
+): BreadcrumbListSchema {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: crumbs.map((crumb, index) => ({
+      '@type': 'ListItem',
+      position: index + 1,
+      name: crumb.name,
+      ...(crumb.item !== undefined ? { item: crumb.item } : {}),
+    })),
+  };
+}
+
