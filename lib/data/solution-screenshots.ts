@@ -40,12 +40,10 @@ export const solutionScreenshots: Record<string, string[]> = {
   ],
   'contracts': [
     '/screenshots/solutions/contracts/01-proposals.png',
-    '/screenshots/solutions/contracts/02-contracts.png',
     '/screenshots/solutions/contracts/03-proposal-detail.png',
     '/screenshots/solutions/contracts/04-contract-detail.png',
   ],
   'crm': [
-    '/screenshots/solutions/crm/01-crm-overview.png',
     '/screenshots/solutions/crm/02-contacts.png',
     '/screenshots/solutions/crm/03-deals-board.png',
     '/screenshots/solutions/crm/04-contact-detail.png',
@@ -78,7 +76,6 @@ export const solutionScreenshots: Record<string, string[]> = {
     '/screenshots/solutions/hosting/02-hosting-detail.png',
   ],
   'invoicing': [
-    '/screenshots/solutions/invoicing/01-billing.png',
     '/screenshots/solutions/invoicing/02-invoice-detail.png',
     '/screenshots/solutions/invoicing/03-settings-billing.png',
   ],
