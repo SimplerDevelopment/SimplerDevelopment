@@ -44,9 +44,10 @@ Favicon ✓ · copyright 2026 ✓ · no lorem/beta/placeholder copy · footer li
 - **Git-history scrub + go public** (see `HISTORY-SWEEP-PLAN.md`) — gates the OSS/launch story.
 
 ### High-impact
-- **Comparison pages** (vs point-tool stacks) — specs exist in `marketing/feature-pages/` + a blog post; build live `/compare/*` pages with FAQPage + comparison schema.
-- **Changelog + FAQ pages** — no `/changelog` or `/faq` route yet; both boost trust + AI-SEO (FAQPage schema). `CHANGELOG.md` exists to seed `/changelog`.
-- **Docs portal** — `docs/` content exists; a polished public `/docs` with search would match Stripe/Supabase bar.
+- ✅ **`/faq`** — DONE: 16 grounded Q&As across 5 categories + FAQPage schema, footer + sitemap.
+- ✅ **`/compare`** — DONE: category-positioning comparison table (7 dimensions) + "when point tools win" + FAQ/Breadcrumb schema, footer + sitemap.
+- ✅ **`/changelog`** — DONE: product-facing release-notes timeline (v1.0 + recent highlights) + Breadcrumb schema, footer + sitemap.
+- **Docs portal** — `docs/` content exists; a polished public `/docs` with search would match Stripe/Supabase bar. (Remaining.)
 
 ### Medium
 - **Tablet/dark screenshot variants** + consistent browser-chrome across all marketing images.
