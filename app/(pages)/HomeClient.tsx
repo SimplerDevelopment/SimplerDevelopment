@@ -10,7 +10,6 @@ import { FadeIn } from '@/components/animations/FadeIn';
 import { SlideIn } from '@/components/animations/SlideIn';
 import { Button } from '@/components/ui/Button';
 import { HeroBackground } from '@/components/sections/HeroBackground';
-import { HeroVisualGate } from '@/components/sections/HeroVisualGate';
 import { FeaturesBackgroundGate } from '@/components/sections/FeaturesBackgroundGate';
 import { AccessCodeForm } from '@/components/marketing/AccessCodeForm';
 import type { BlogPostWithRelations } from '@/lib/actions/blog';
@@ -196,10 +195,9 @@ export function HomeClient({ recentPosts = [] }: { recentPosts?: BlogPostWithRel
             </FadeIn>
 
             <FadeIn delay={0.1}>
-              {/* Framed product visual. TODO(marketing): replace the decorative
-                  HeroVisualGate below with a real screenshot or short looping GIF
-                  of the visual editor / dashboard — the single highest-impact asset
-                  on this page (see launch-assets.md, "60-second success path"). */}
+              {/* Framed product visual — a real portal dashboard screenshot
+                  (public/screenshots/product/dashboard.png). Swap for a short
+                  looping GIF once one is recorded against a live instance. */}
               <div className="rounded-2xl border border-border bg-background shadow-2xl overflow-hidden">
                 <div className="flex items-center gap-1.5 px-4 py-3 border-b border-border bg-muted/30">
                   <span className="w-3 h-3 rounded-full bg-red-400/70" />
@@ -207,11 +205,14 @@ export function HomeClient({ recentPosts = [] }: { recentPosts?: BlogPostWithRel
                   <span className="w-3 h-3 rounded-full bg-green-400/70" />
                   <span className="ml-3 text-xs text-muted-foreground font-mono">app.simplerdevelopment.com/portal</span>
                 </div>
-                <div className="relative min-h-[340px] md:min-h-[460px] bg-dot-grid flex items-center justify-center">
-                  <div className="absolute inset-0 opacity-70 pointer-events-none">
-                    <HeroVisualGate />
-                  </div>
-                  <span className="relative z-10 text-sm text-muted-foreground/70 font-mono">[ product screenshot / demo GIF ]</span>
+                <div className="relative max-h-[360px] md:max-h-[540px] overflow-hidden bg-muted/20">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src="/screenshots/product/dashboard.png"
+                    alt="The SimplerDevelopment client portal dashboard — CRM pipeline, projects, invoices, AI credits, and automation runs in one view"
+                    className="block w-full h-auto"
+                    loading="lazy"
+                  />
                 </div>
               </div>
             </FadeIn>
