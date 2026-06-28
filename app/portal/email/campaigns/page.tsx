@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnPrimary, pCard } from '@/components/portal/portal-ui';
 
 interface Campaign {
   id: number;
@@ -43,31 +45,26 @@ export default function PortalCampaignsPage() {
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-2">
-          <Link href="/portal/email" className="text-muted-foreground hover:text-foreground">
-            <span className="material-icons text-base">arrow_back</span>
+      <PortalPageHeader
+        eyebrow="Email"
+        title="Campaigns"
+        subtitle={loading ? '' : `${campaigns.length} campaign${campaigns.length !== 1 ? 's' : ''}`}
+        actions={
+          <Link href="/portal/email/campaigns/new" className={pBtnPrimary}>
+            <span className="material-icons text-base">add</span>
+            New Campaign
           </Link>
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">Campaigns</h1>
-            <p className="text-muted-foreground text-sm mt-0.5">{loading ? '' : `${campaigns.length} campaign${campaigns.length !== 1 ? 's' : ''}`}</p>
-          </div>
-        </div>
-        <Link href="/portal/email/campaigns/new"
-          className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors">
-          <span className="material-icons text-base">add</span>
-          New Campaign
-        </Link>
-      </div>
+        }
+      />
 
-      <div className="bg-card border border-border rounded-lg overflow-hidden">
+      <div className="bg-card border border-border rounded-2xl overflow-hidden">
         {loading ? (
           <p className="p-6 text-sm text-muted-foreground">Loading…</p>
         ) : campaigns.length === 0 ? (
           <div className="p-12 text-center">
             <span className="material-icons text-4xl text-muted-foreground mb-3 block">campaign</span>
             <p className="text-muted-foreground mb-4">No campaigns yet.</p>
-            <Link href="/portal/email/campaigns/new" className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90">
+            <Link href="/portal/email/campaigns/new" className={pBtnPrimary}>
               Create Campaign
             </Link>
           </div>

@@ -17,6 +17,8 @@ import {
   goalStatusChip,
   type BrainGoalStatus,
 } from '@/components/brain/initiatives-shared';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnSoft } from '@/components/portal/portal-ui';
 
 interface TeamMember {
   userId: number;
@@ -151,30 +153,35 @@ export default function NewInitiativePage() {
     setGoals((prev) => (prev.length === 1 ? prev : prev.filter((g) => g.key !== key)));
 
   return (
-    <div className="max-w-3xl mx-auto py-4 space-y-6">
+    <div className="max-w-3xl mx-auto py-8 space-y-6">
       <div>
         <Link
           href="/portal/brain/initiatives"
-          className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+          className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground mb-4"
         >
           <span className="material-icons text-sm">chevron_left</span>
           Initiatives
         </Link>
-        <h1 className="mt-1 text-2xl font-bold text-foreground flex items-center gap-2">
-          <span className="material-icons text-primary">flag</span>
-          New initiative
-        </h1>
+        <PortalPageHeader
+          eyebrow="Company Brain"
+          title={
+            <span className="flex items-center gap-2">
+              <span className="material-icons text-primary">flag</span>
+              New initiative
+            </span>
+          }
+        />
       </div>
 
       {error && (
-        <div className="bg-amber-100/30 border border-amber-500/30 rounded-md p-3 text-sm text-amber-700 dark:text-amber-300 flex items-center gap-2">
+        <div className="bg-amber-100/30 border border-amber-500/30 rounded-xl p-3 text-sm text-amber-700 dark:text-amber-300 flex items-center gap-2">
           <span className="material-icons text-base">warning</span>
           {error}
         </div>
       )}
 
-      <section className="bg-card border border-border rounded-xl p-5">
-        <h2 className="text-base font-semibold text-foreground mb-3">Initiative details</h2>
+      <section className="rounded-2xl border border-border bg-card p-5">
+        <h2 className="font-display text-[17px] font-extrabold tracking-[-0.02em] text-foreground mb-3">Initiative details</h2>
         <InitiativeForm
           mode="create"
           team={team}
@@ -183,10 +190,10 @@ export default function NewInitiativePage() {
         />
       </section>
 
-      <section className="bg-card border border-border rounded-xl p-5">
+      <section className="rounded-2xl border border-border bg-card p-5">
         <div className="flex items-center justify-between gap-3 mb-3">
           <div>
-            <h2 className="text-base font-semibold text-foreground inline-flex items-center gap-2">
+            <h2 className="font-display text-[17px] font-extrabold tracking-[-0.02em] text-foreground inline-flex items-center gap-2">
               <span className="material-icons text-base text-primary">track_changes</span>
               Initial goals
               <span className="text-xs text-muted-foreground font-normal">(optional)</span>
@@ -198,7 +205,7 @@ export default function NewInitiativePage() {
           <button
             type="button"
             onClick={addGoal}
-            className="inline-flex items-center gap-1 px-2.5 py-1 text-xs rounded-md border border-border text-foreground hover:bg-accent"
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary/10 px-4 py-2.5 text-sm font-semibold text-primary transition hover:bg-primary/15"
           >
             <span className="material-icons text-sm">add</span>
             Add goal
@@ -207,7 +214,7 @@ export default function NewInitiativePage() {
 
         <div className="space-y-3">
           {goals.map((g, idx) => (
-            <div key={g.key} className="bg-muted/30 border border-border rounded-lg p-3 space-y-2">
+            <div key={g.key} className="bg-muted/30 border border-border rounded-xl p-3 space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-medium text-muted-foreground">Goal #{idx + 1}</span>
                 {goals.length > 1 && (
@@ -226,14 +233,14 @@ export default function NewInitiativePage() {
                 value={g.title}
                 onChange={(e) => updateGoal(g.key, { title: e.target.value })}
                 placeholder="Goal title (e.g. Reduce time-to-onboard by 30%)"
-                className="w-full px-2 py-1.5 text-sm rounded-md border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary focus:ring-4 focus:ring-primary/15"
               />
               <textarea
                 value={g.description}
                 onChange={(e) => updateGoal(g.key, { description: e.target.value })}
                 rows={2}
                 placeholder="Description (optional)"
-                className="w-full px-2 py-1.5 text-sm rounded-md border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary focus:ring-4 focus:ring-primary/15"
               />
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 <label className="block">
@@ -241,7 +248,7 @@ export default function NewInitiativePage() {
                   <select
                     value={g.unit}
                     onChange={(e) => updateGoal(g.key, { unit: e.target.value as InlineGoal['unit'] })}
-                    className="mt-1 w-full px-2 py-1.5 text-sm rounded-md border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                    className="mt-1 w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary focus:ring-4 focus:ring-primary/15"
                   >
                     <option value="">none</option>
                     <option value="percent">%</option>
@@ -257,7 +264,7 @@ export default function NewInitiativePage() {
                     step="any"
                     value={g.targetMetric}
                     onChange={(e) => updateGoal(g.key, { targetMetric: e.target.value })}
-                    className="mt-1 w-full px-2 py-1.5 text-sm rounded-md border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                    className="mt-1 w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary focus:ring-4 focus:ring-primary/15"
                   />
                 </label>
                 <label className="block">
@@ -267,7 +274,7 @@ export default function NewInitiativePage() {
                     step="any"
                     value={g.currentMetric}
                     onChange={(e) => updateGoal(g.key, { currentMetric: e.target.value })}
-                    className="mt-1 w-full px-2 py-1.5 text-sm rounded-md border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                    className="mt-1 w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary focus:ring-4 focus:ring-primary/15"
                   />
                 </label>
                 <label className="block">
@@ -276,7 +283,7 @@ export default function NewInitiativePage() {
                     type="date"
                     value={g.targetDate}
                     onChange={(e) => updateGoal(g.key, { targetDate: e.target.value })}
-                    className="mt-1 w-full px-2 py-1.5 text-sm rounded-md border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                    className="mt-1 w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary focus:ring-4 focus:ring-primary/15"
                   />
                 </label>
               </div>
@@ -285,7 +292,7 @@ export default function NewInitiativePage() {
                 <select
                   value={g.status}
                   onChange={(e) => updateGoal(g.key, { status: e.target.value as BrainGoalStatus })}
-                  className="mt-1 w-full px-2 py-1.5 text-sm rounded-md border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                  className="mt-1 w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary focus:ring-4 focus:ring-primary/15"
                 >
                   {GOAL_STATUSES.map((s) => (
                     <option key={s} value={s}>{goalStatusChip(s).label}</option>

@@ -43,9 +43,9 @@ export const RULES: AgenticOsRule[] = [
     body: 'The repo lockfile is bun.lock. Install via bun add / bun remove, run scripts via bun run <script>, and run tests via scripts/test.sh. npm install will desync the lockfile.',
   },
   {
-    id: 'crosscap-email-pattern',
-    title: 'Crosscap migrations: auto-derive client email from domain',
-    body: 'When migrating a site under the Crosscap workflow, derive the client email as {sitename}@simplerdevelopment.com — never prompt the user, never use a generic placeholder.',
+    id: 'migration-email-pattern',
+    title: 'Site migrations: auto-derive client email from domain',
+    body: 'When migrating a site, auto-derive the client email as {sitename}@simplerdevelopment.com — never prompt the user, never use a generic placeholder.',
   },
   {
     id: 'huashu-not-pasteable',

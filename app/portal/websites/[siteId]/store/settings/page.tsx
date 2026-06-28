@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnPrimary, pBtnGhost, pCard, pCardPad, pSectionTitle, pInput, pSelect } from '@/components/portal/portal-ui';
 
 interface ShipFromAddress {
   name?: string | null;
@@ -58,6 +60,11 @@ interface StoreSettings {
   stripeSecretKeyLast4: string | null;
   stripePublishableKey: string | null;
   stripeWebhookSecretConfigured: boolean;
+  // Printful fulfillment
+  fulfillmentProvider: 'manual' | 'printful';
+  printfulApiKeyConfigured: boolean;
+  printfulApiKeyLast4: string | null;
+  printfulStoreId: string | null;
 }
 
 interface StripeTestResultOk {
@@ -124,6 +131,10 @@ export default function StoreSettingsPage() {
   const [stripeTestResult, setStripeTestResult] = useState<StripeTestResult | null>(null);
   const [webhookUrlCopied, setWebhookUrlCopied] = useState(false);
 
+  // Printful state
+  const [printfulApiKeyInput, setPrintfulApiKeyInput] = useState('');
+  const [savingPrintfulApiKey, setSavingPrintfulApiKey] = useState(false);
+
   const load = async () => {
     setLoading(true);
     try {
@@ -138,8 +149,8 @@ export default function StoreSettingsPage() {
   };
 
   useEffect(() => {
-    load();
-  }, []);
+    void load(); // eslint-disable-line react-hooks/set-state-in-effect
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSave = async () => {
     if (!settings) return;
@@ -160,10 +171,13 @@ export default function StoreSettingsPage() {
         stripeSecretKeyConfigured: _ro8,
         stripeSecretKeyLast4: _ro9,
         stripeWebhookSecretConfigured: _ro10,
+        // Printful read-only fields (server-derived)
+        printfulApiKeyConfigured: _ro11,
+        printfulApiKeyLast4: _ro12,
         ...mutable
       } = settings;
       void _ro1; void _ro2; void _ro3; void _ro4; void _ro5; void _ro6;
-      void _ro7; void _ro8; void _ro9; void _ro10;
+      void _ro7; void _ro8; void _ro9; void _ro10; void _ro11; void _ro12;
       const payload = {
         ...mutable,
         taxRate: settings.taxRate / 100, // Convert percentage to decimal for API
@@ -455,6 +469,57 @@ export default function StoreSettingsPage() {
     }
   };
 
+  // Printful API key handlers ─────────────────────────────────────────────
+  const savePrintfulApiKey = async () => {
+    if (!printfulApiKeyInput) return;
+    setSavingPrintfulApiKey(true);
+    setError('');
+    setSuccess('');
+    try {
+      const res = await fetch(`${base}/settings`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ printfulApiKeyPlaintext: printfulApiKeyInput }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setSuccess('Printful API key saved.');
+        setPrintfulApiKeyInput('');
+        await load();
+      } else {
+        setError(data.message || 'Failed to save Printful API key.');
+      }
+    } catch {
+      setError('Something went wrong.');
+    } finally {
+      setSavingPrintfulApiKey(false);
+    }
+  };
+
+  const clearPrintfulApiKey = async () => {
+    setSavingPrintfulApiKey(true);
+    setError('');
+    setSuccess('');
+    try {
+      const res = await fetch(`${base}/settings`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ printfulApiKeyClear: true }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setSuccess('Printful API key cleared.');
+        await load();
+      } else {
+        setError(data.message || 'Failed to clear Printful API key.');
+      }
+    } catch {
+      setError('Something went wrong.');
+    } finally {
+      setSavingPrintfulApiKey(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-16">
@@ -472,27 +537,19 @@ export default function StoreSettingsPage() {
     );
   }
 
-  const inputClass =
-    'w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40';
-  const labelClass = 'text-sm font-medium text-foreground';
-
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Store Settings</h1>
-          <p className="text-muted-foreground text-sm mt-1">Configure your store preferences and payment setup.</p>
-        </div>
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="flex items-center gap-2 px-5 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
-        >
-          {saving && <span className="material-icons text-base animate-spin">refresh</span>}
-          {saving ? 'Saving...' : 'Save Settings'}
-        </button>
-      </div>
+      <PortalPageHeader
+        eyebrow="Store"
+        title="Store Settings"
+        subtitle="Configure your store preferences and payment setup."
+        actions={
+          <button onClick={handleSave} disabled={saving} className={pBtnPrimary}>
+            {saving && <span className="material-icons text-base animate-spin">refresh</span>}
+            {saving ? 'Saving...' : 'Save Settings'}
+          </button>
+        }
+      />
 
       {/* Messages */}
       {error && (
@@ -509,24 +566,24 @@ export default function StoreSettingsPage() {
       )}
 
       {/* General Settings */}
-      <div className="bg-card border border-border rounded-xl p-6 space-y-4">
-        <h2 className="font-semibold text-foreground flex items-center gap-2">
+      <div className={`${pCard} p-6 space-y-4`}>
+        <h2 className={`${pSectionTitle} flex items-center gap-2`}>
           <span className="material-icons text-lg text-muted-foreground">settings</span>
           General
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-1.5">
-            <label className={labelClass}>Store Name</label>
+            <label className="text-sm font-medium text-foreground">Store Name</label>
             <input
-              value={settings.storeName}
+              value={settings.storeName ?? ''}
               onChange={(e) => updateField('storeName', e.target.value)}
               placeholder="My Store"
-              className={inputClass}
+              className={pInput}
             />
           </div>
           <div className="space-y-1.5">
-            <label className={labelClass}>Currency</label>
-            <select value={settings.currency} onChange={(e) => updateField('currency', e.target.value)} className={inputClass}>
+            <label className="text-sm font-medium text-foreground">Currency</label>
+            <select value={settings.currency} onChange={(e) => updateField('currency', e.target.value)} className={pSelect}>
               {currencies.map((c) => (
                 <option key={c.value} value={c.value}>
                   {c.label}
@@ -535,50 +592,50 @@ export default function StoreSettingsPage() {
             </select>
           </div>
           <div className="space-y-1.5">
-            <label className={labelClass}>Order Prefix</label>
+            <label className="text-sm font-medium text-foreground">Order Prefix</label>
             <input
-              value={settings.orderPrefix}
+              value={settings.orderPrefix ?? ''}
               onChange={(e) => updateField('orderPrefix', e.target.value)}
               placeholder="ORD-"
-              className={inputClass}
+              className={pInput}
             />
           </div>
           <div className="space-y-1.5">
-            <label className={labelClass}>Low Stock Threshold</label>
+            <label className="text-sm font-medium text-foreground">Low Stock Threshold</label>
             <input
               type="number"
               min="0"
-              value={settings.lowStockThreshold}
+              value={settings.lowStockThreshold ?? 0}
               onChange={(e) => updateField('lowStockThreshold', parseInt(e.target.value) || 0)}
-              className={inputClass}
+              className={pInput}
             />
           </div>
         </div>
       </div>
 
       {/* Tax Settings */}
-      <div className="bg-card border border-border rounded-xl p-6 space-y-4">
-        <h2 className="font-semibold text-foreground flex items-center gap-2">
+      <div className={`${pCard} p-6 space-y-4`}>
+        <h2 className={`${pSectionTitle} flex items-center gap-2`}>
           <span className="material-icons text-lg text-muted-foreground">receipt</span>
           Tax
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-1.5">
-            <label className={labelClass}>Tax Rate (%)</label>
+            <label className="text-sm font-medium text-foreground">Tax Rate (%)</label>
             <input
               type="number"
               step="0.01"
               min="0"
               max="100"
-              value={settings.taxRate}
+              value={settings.taxRate ?? 0}
               onChange={(e) => updateField('taxRate', parseFloat(e.target.value) || 0)}
               placeholder="0"
-              className={inputClass}
+              className={pInput}
             />
             <p className="text-xs text-muted-foreground">Enter as percentage (e.g. 8.5 for 8.5%)</p>
           </div>
           <div className="space-y-1.5">
-            <label className={labelClass}>Tax Inclusive</label>
+            <label className="text-sm font-medium text-foreground">Tax Inclusive</label>
             <div className="flex items-center gap-3 pt-1.5">
               <button
                 type="button"
@@ -602,14 +659,14 @@ export default function StoreSettingsPage() {
       </div>
 
       {/* Shipping & Reviews Toggles */}
-      <div className="bg-card border border-border rounded-xl p-6 space-y-4">
-        <h2 className="font-semibold text-foreground flex items-center gap-2">
+      <div className={`${pCard} p-6 space-y-4`}>
+        <h2 className={`${pSectionTitle} flex items-center gap-2`}>
           <span className="material-icons text-lg text-muted-foreground">toggle_on</span>
           Features
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
           <div className="space-y-1.5">
-            <label className={labelClass}>Requires Shipping</label>
+            <label className="text-sm font-medium text-foreground">Requires Shipping</label>
             <div className="flex items-center gap-3 pt-1.5">
               <button
                 type="button"
@@ -630,7 +687,7 @@ export default function StoreSettingsPage() {
             </div>
           </div>
           <div className="space-y-1.5">
-            <label className={labelClass}>Enable Reviews</label>
+            <label className="text-sm font-medium text-foreground">Enable Reviews</label>
             <div className="flex items-center gap-3 pt-1.5">
               <button
                 type="button"
@@ -654,8 +711,8 @@ export default function StoreSettingsPage() {
       </div>
 
       {/* Customer Portal */}
-      <div className="bg-card border border-border rounded-xl p-6 space-y-4">
-        <h2 className="font-semibold text-foreground flex items-center gap-2">
+      <div className={`${pCard} p-6 space-y-4`}>
+        <h2 className={`${pSectionTitle} flex items-center gap-2`}>
           <span className="material-icons text-lg text-muted-foreground">person</span>
           Customer Portal
         </h2>
@@ -671,7 +728,7 @@ export default function StoreSettingsPage() {
             { key: 'enableReviews' as const, label: 'Product Reviews', desc: 'Customers can leave product reviews' },
           ] as const).map(toggle => (
             <div key={toggle.key} className="space-y-1.5">
-              <label className={labelClass}>{toggle.label}</label>
+              <label className="text-sm font-medium text-foreground">{toggle.label}</label>
               <div className="flex items-center gap-3 pt-1.5">
                 <button
                   type="button"
@@ -694,41 +751,41 @@ export default function StoreSettingsPage() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
           <div className="space-y-1.5">
-            <label className={labelClass}>Support Email</label>
+            <label className="text-sm font-medium text-foreground">Support Email</label>
             <input
               value={settings.supportEmail ?? ''}
               onChange={(e) => updateField('supportEmail', e.target.value || null)}
               placeholder="support@yourstore.com"
-              className={inputClass}
+              className={pInput}
             />
             <p className="text-xs text-muted-foreground">Where customer support messages are forwarded</p>
           </div>
           <div className="space-y-1.5">
-            <label className={labelClass}>Return Policy URL</label>
+            <label className="text-sm font-medium text-foreground">Return Policy URL</label>
             <input
               value={settings.returnPolicyUrl ?? ''}
               onChange={(e) => updateField('returnPolicyUrl', e.target.value || null)}
               placeholder="https://yourstore.com/returns"
-              className={inputClass}
+              className={pInput}
             />
           </div>
           <div className="space-y-1.5">
-            <label className={labelClass}>Shipping Policy URL</label>
+            <label className="text-sm font-medium text-foreground">Shipping Policy URL</label>
             <input
               value={settings.shippingPolicyUrl ?? ''}
               onChange={(e) => updateField('shippingPolicyUrl', e.target.value || null)}
               placeholder="https://yourstore.com/shipping"
-              className={inputClass}
+              className={pInput}
             />
           </div>
           <div className="space-y-1.5 sm:col-span-2">
-            <label className={labelClass}>Welcome Message</label>
+            <label className="text-sm font-medium text-foreground">Welcome Message</label>
             <textarea
               value={settings.customerPortalWelcomeMessage ?? ''}
               onChange={(e) => updateField('customerPortalWelcomeMessage', e.target.value || null)}
               placeholder="Welcome to your account! Here you can track orders, manage your wishlist, and more."
               rows={3}
-              className={inputClass}
+              className={pInput}
             />
             <p className="text-xs text-muted-foreground">Shown on the customer portal dashboard</p>
           </div>
@@ -736,8 +793,8 @@ export default function StoreSettingsPage() {
       </div>
 
       {/* Stripe Connect */}
-      <div className="bg-card border border-border rounded-xl p-6 space-y-4">
-        <h2 className="font-semibold text-foreground flex items-center gap-2">
+      <div className={`${pCard} p-6 space-y-4`}>
+        <h2 className={`${pSectionTitle} flex items-center gap-2`}>
           <span className="material-icons text-lg text-muted-foreground">credit_card</span>
           Stripe Connect
         </h2>
@@ -787,8 +844,8 @@ export default function StoreSettingsPage() {
       </div>
 
       {/* Shipping Provider */}
-      <div className="bg-card border border-border rounded-xl p-6 space-y-4">
-        <h2 className="font-semibold text-foreground flex items-center gap-2">
+      <div className={`${pCard} p-6 space-y-4`}>
+        <h2 className={`${pSectionTitle} flex items-center gap-2`}>
           <span className="material-icons text-lg text-muted-foreground">local_shipping</span>
           Shipping Provider
         </h2>
@@ -825,7 +882,7 @@ export default function StoreSettingsPage() {
           <div className="space-y-5 pt-2 border-t border-border">
             {/* API key */}
             <div className="space-y-2">
-              <label className={labelClass}>EasyPost API Key</label>
+              <label className="text-sm font-medium text-foreground">EasyPost API Key</label>
               <div className="flex flex-wrap items-center gap-2 text-sm">
                 <span className="material-icons text-base text-muted-foreground">
                   {settings.easypostApiKeyConfigured ? 'lock' : 'lock_open'}
@@ -853,14 +910,14 @@ export default function StoreSettingsPage() {
                   value={apiKeyInput}
                   onChange={(e) => setApiKeyInput(e.target.value)}
                   placeholder="EZAK... or EZTK..."
-                  className={inputClass}
+                  className={pInput}
                   autoComplete="off"
                 />
                 <button
                   type="button"
                   onClick={saveApiKey}
                   disabled={savingApiKey || !apiKeyInput}
-                  className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 whitespace-nowrap"
+                  className={`${pBtnPrimary} whitespace-nowrap`}
                 >
                   {savingApiKey && <span className="material-icons text-base animate-spin">refresh</span>}
                   Save key
@@ -874,11 +931,11 @@ export default function StoreSettingsPage() {
             {/* Mode + Webhook secret */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <label className={labelClass}>Mode</label>
+                <label className="text-sm font-medium text-foreground">Mode</label>
                 <select
                   value={settings.easypostMode ?? 'test'}
                   onChange={(e) => updateField('easypostMode', e.target.value as 'test' | 'production')}
-                  className={inputClass}
+                  className={pSelect}
                 >
                   <option value="test">Test</option>
                   <option value="production">Production</option>
@@ -886,13 +943,13 @@ export default function StoreSettingsPage() {
                 <p className="text-xs text-muted-foreground">Test mode returns fake rates and never bills real money.</p>
               </div>
               <div className="space-y-1.5">
-                <label className={labelClass}>Webhook Secret</label>
+                <label className="text-sm font-medium text-foreground">Webhook Secret</label>
                 <input
                   type="text"
                   value={settings.easypostWebhookSecret ?? ''}
                   onChange={(e) => updateField('easypostWebhookSecret', e.target.value || null)}
                   placeholder="HMAC secret from EasyPost"
-                  className={inputClass}
+                  className={pInput}
                 />
                 <p className="text-xs text-muted-foreground">
                   Set this in EasyPost dashboard → Webhooks → secret. URL to register:{' '}
@@ -906,82 +963,82 @@ export default function StoreSettingsPage() {
 
             {/* Ship-from address */}
             <div className="space-y-3">
-              <h3 className="text-sm font-medium text-foreground flex items-center gap-2">
+              <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
                 <span className="material-icons text-base text-muted-foreground">place</span>
                 Ship-From Address
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className={labelClass}>Name</label>
+                  <label className="text-sm font-medium text-foreground">Name</label>
                   <input
                     value={settings.shipFromAddress?.name ?? ''}
                     onChange={(e) => updateShipFromField('name', e.target.value || null)}
-                    className={inputClass}
+                    className={pInput}
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className={labelClass}>Company</label>
+                  <label className="text-sm font-medium text-foreground">Company</label>
                   <input
                     value={settings.shipFromAddress?.company ?? ''}
                     onChange={(e) => updateShipFromField('company', e.target.value || null)}
-                    className={inputClass}
+                    className={pInput}
                   />
                 </div>
                 <div className="space-y-1.5 sm:col-span-2">
-                  <label className={labelClass}>Address Line 1</label>
+                  <label className="text-sm font-medium text-foreground">Address Line 1</label>
                   <input
                     value={settings.shipFromAddress?.line1 ?? ''}
                     onChange={(e) => updateShipFromField('line1', e.target.value)}
-                    className={inputClass}
+                    className={pInput}
                   />
                 </div>
                 <div className="space-y-1.5 sm:col-span-2">
-                  <label className={labelClass}>Address Line 2</label>
+                  <label className="text-sm font-medium text-foreground">Address Line 2</label>
                   <input
                     value={settings.shipFromAddress?.line2 ?? ''}
                     onChange={(e) => updateShipFromField('line2', e.target.value || null)}
-                    className={inputClass}
+                    className={pInput}
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className={labelClass}>City</label>
+                  <label className="text-sm font-medium text-foreground">City</label>
                   <input
                     value={settings.shipFromAddress?.city ?? ''}
                     onChange={(e) => updateShipFromField('city', e.target.value)}
-                    className={inputClass}
+                    className={pInput}
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className={labelClass}>State / Province</label>
+                  <label className="text-sm font-medium text-foreground">State / Province</label>
                   <input
                     value={settings.shipFromAddress?.state ?? ''}
                     onChange={(e) => updateShipFromField('state', e.target.value)}
-                    className={inputClass}
+                    className={pInput}
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className={labelClass}>Postal Code</label>
+                  <label className="text-sm font-medium text-foreground">Postal Code</label>
                   <input
                     value={settings.shipFromAddress?.postalCode ?? ''}
                     onChange={(e) => updateShipFromField('postalCode', e.target.value)}
-                    className={inputClass}
+                    className={pInput}
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className={labelClass}>Country (2-letter)</label>
+                  <label className="text-sm font-medium text-foreground">Country (2-letter)</label>
                   <input
                     value={settings.shipFromAddress?.country ?? 'US'}
                     onChange={(e) => updateShipFromField('country', (e.target.value || 'US').toUpperCase())}
                     maxLength={2}
-                    className={inputClass}
+                    className={pInput}
                   />
                 </div>
                 <div className="space-y-1.5 sm:col-span-2">
-                  <label className={labelClass}>Phone</label>
+                  <label className="text-sm font-medium text-foreground">Phone</label>
                   <input
                     value={settings.shipFromAddress?.phone ?? ''}
                     onChange={(e) => updateShipFromField('phone', e.target.value || null)}
-                    className={inputClass}
+                    className={pInput}
                   />
                 </div>
               </div>
@@ -989,53 +1046,53 @@ export default function StoreSettingsPage() {
 
             {/* Default parcel */}
             <div className="space-y-3">
-              <h3 className="text-sm font-medium text-foreground flex items-center gap-2">
+              <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
                 <span className="material-icons text-base text-muted-foreground">inventory_2</span>
                 Default Parcel
               </h3>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 <div className="space-y-1.5">
-                  <label className={labelClass}>Length (in)</label>
+                  <label className="text-sm font-medium text-foreground">Length (in)</label>
                   <input
                     type="number"
                     step="0.01"
                     min="0"
                     value={parcelNumber(settings.defaultParcelLengthIn)}
                     onChange={(e) => updateField('defaultParcelLengthIn', e.target.value === '' ? null : e.target.value)}
-                    className={inputClass}
+                    className={pInput}
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className={labelClass}>Width (in)</label>
+                  <label className="text-sm font-medium text-foreground">Width (in)</label>
                   <input
                     type="number"
                     step="0.01"
                     min="0"
                     value={parcelNumber(settings.defaultParcelWidthIn)}
                     onChange={(e) => updateField('defaultParcelWidthIn', e.target.value === '' ? null : e.target.value)}
-                    className={inputClass}
+                    className={pInput}
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className={labelClass}>Height (in)</label>
+                  <label className="text-sm font-medium text-foreground">Height (in)</label>
                   <input
                     type="number"
                     step="0.01"
                     min="0"
                     value={parcelNumber(settings.defaultParcelHeightIn)}
                     onChange={(e) => updateField('defaultParcelHeightIn', e.target.value === '' ? null : e.target.value)}
-                    className={inputClass}
+                    className={pInput}
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className={labelClass}>Weight (oz)</label>
+                  <label className="text-sm font-medium text-foreground">Weight (oz)</label>
                   <input
                     type="number"
                     step="0.01"
                     min="0"
                     value={parcelNumber(settings.defaultParcelWeightOz)}
                     onChange={(e) => updateField('defaultParcelWeightOz', e.target.value === '' ? null : e.target.value)}
-                    className={inputClass}
+                    className={pInput}
                   />
                 </div>
               </div>
@@ -1043,7 +1100,7 @@ export default function StoreSettingsPage() {
 
             {/* Live rates fallback */}
             <div className="space-y-1.5">
-              <label className={labelClass}>Live Rates Fallback</label>
+              <label className="text-sm font-medium text-foreground">Live Rates Fallback</label>
               <div className="flex items-center gap-3 pt-1.5">
                 <button
                   type="button"
@@ -1066,7 +1123,7 @@ export default function StoreSettingsPage() {
             <div className="space-y-3 pt-2 border-t border-border">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <h3 className="text-sm font-medium text-foreground">Test Connection</h3>
+                  <h3 className="text-sm font-semibold text-foreground">Test Connection</h3>
                   <p className="text-xs text-muted-foreground">
                     Sends a synthetic shipment from your ship-from address to San Francisco and quotes rates.
                   </p>
@@ -1075,7 +1132,7 @@ export default function StoreSettingsPage() {
                   type="button"
                   onClick={testConnection}
                   disabled={testingConnection}
-                  className="flex items-center gap-2 px-4 py-2 rounded-lg border border-border text-sm hover:bg-muted/40 transition-colors disabled:opacity-50 whitespace-nowrap"
+                  className={`${pBtnGhost} whitespace-nowrap`}
                 >
                   {testingConnection ? (
                     <span className="material-icons text-base animate-spin">refresh</span>
@@ -1118,9 +1175,112 @@ export default function StoreSettingsPage() {
         )}
       </div>
 
+      {/* Fulfillment Provider */}
+      <div className={`${pCard} p-6 space-y-4`}>
+        <h2 className={`${pSectionTitle} flex items-center gap-2`}>
+          <span className="material-icons text-lg text-muted-foreground">print</span>
+          Fulfillment
+        </h2>
+        <p className="text-sm text-muted-foreground">
+          Choose how orders are fulfilled. Manual means you handle fulfillment yourself; Printful automatically submits print-on-demand orders.
+        </p>
+
+        <div className="flex flex-wrap gap-3">
+          {(['manual', 'printful'] as const).map((opt) => (
+            <label
+              key={opt}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg border cursor-pointer text-sm ${
+                settings.fulfillmentProvider === opt
+                  ? 'border-primary bg-primary/5 text-foreground'
+                  : 'border-border bg-background text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <input
+                type="radio"
+                name="fulfillmentProvider"
+                className="sr-only"
+                checked={settings.fulfillmentProvider === opt}
+                onChange={() => updateField('fulfillmentProvider', opt)}
+              />
+              <span className="material-icons text-base">
+                {opt === 'manual' ? 'tune' : 'print'}
+              </span>
+              {opt === 'manual' ? 'Manual' : 'Printful (Print-on-Demand)'}
+            </label>
+          ))}
+        </div>
+
+        {settings.fulfillmentProvider === 'printful' && (
+          <div className="space-y-5 pt-2 border-t border-border">
+            {/* API key */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">Printful API Key</label>
+              <div className="flex flex-wrap items-center gap-2 text-sm">
+                <span className="material-icons text-base text-muted-foreground">
+                  {settings.printfulApiKeyConfigured ? 'lock' : 'lock_open'}
+                </span>
+                <span className={settings.printfulApiKeyConfigured ? 'text-foreground' : 'text-muted-foreground'}>
+                  {settings.printfulApiKeyConfigured
+                    ? `Key set, ends in …${settings.printfulApiKeyLast4 ?? '????'}`
+                    : 'No key configured'}
+                </span>
+                {settings.printfulApiKeyConfigured && (
+                  <button
+                    type="button"
+                    onClick={clearPrintfulApiKey}
+                    disabled={savingPrintfulApiKey}
+                    className="ml-auto flex items-center gap-1 px-3 py-1.5 rounded-lg border border-border text-xs hover:bg-muted/40 transition-colors disabled:opacity-50"
+                  >
+                    <span className="material-icons text-sm">delete</span>
+                    Clear key
+                  </button>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <input
+                  type="password"
+                  value={printfulApiKeyInput}
+                  onChange={(e) => setPrintfulApiKeyInput(e.target.value)}
+                  placeholder="Printful API key"
+                  className={pInput}
+                  autoComplete="off"
+                />
+                <button
+                  type="button"
+                  onClick={savePrintfulApiKey}
+                  disabled={savingPrintfulApiKey || !printfulApiKeyInput}
+                  className={`${pBtnPrimary} whitespace-nowrap`}
+                >
+                  {savingPrintfulApiKey && <span className="material-icons text-base animate-spin">refresh</span>}
+                  Save key
+                </button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Enter your Printful API key from Printful &rarr; Dashboard &rarr; API &rarr; Keys. Stored encrypted at rest (AES-256-GCM).
+              </p>
+            </div>
+
+            {/* Printful Store ID */}
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-foreground">Printful Store ID</label>
+              <input
+                type="text"
+                value={settings.printfulStoreId ?? ''}
+                onChange={(e) => updateField('printfulStoreId', e.target.value || null)}
+                placeholder="e.g. 12345678"
+                className={pInput}
+              />
+              <p className="text-xs text-muted-foreground">
+                Found in your Printful dashboard URL or under Store Settings. Saved with the main &quot;Save Settings&quot; button.
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Stripe Payment Provider (BYOK) */}
-      <div className="bg-card border border-border rounded-xl p-6 space-y-4">
-        <h2 className="font-semibold text-foreground flex items-center gap-2">
+      <div className={`${pCard} p-6 space-y-4`}>
+        <h2 className={`${pSectionTitle} flex items-center gap-2`}>
           <span className="material-icons text-lg text-muted-foreground">account_balance</span>
           Stripe Payment Provider
         </h2>
@@ -1173,7 +1333,7 @@ export default function StoreSettingsPage() {
               <div className="space-y-5 pt-2 border-t border-border">
                 {/* Secret Key */}
                 <div className="space-y-2">
-                  <label className={labelClass}>Secret Key</label>
+                  <label className="text-sm font-medium text-foreground">Secret Key</label>
                   <div className="flex flex-wrap items-center gap-2 text-sm">
                     <span className="material-icons text-base text-muted-foreground">
                       {settings.stripeSecretKeyConfigured ? 'lock' : 'lock_open'}
@@ -1201,14 +1361,14 @@ export default function StoreSettingsPage() {
                       value={stripeSecretInput}
                       onChange={(e) => setStripeSecretInput(e.target.value)}
                       placeholder="sk_test_… or sk_live_…"
-                      className={inputClass}
+                      className={pInput}
                       autoComplete="off"
                     />
                     <button
                       type="button"
                       onClick={saveStripeSecret}
                       disabled={savingStripeSecret || !stripeSecretInput}
-                      className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 whitespace-nowrap"
+                      className={`${pBtnPrimary} whitespace-nowrap`}
                     >
                       {savingStripeSecret && <span className="material-icons text-base animate-spin">refresh</span>}
                       Save key
@@ -1221,13 +1381,13 @@ export default function StoreSettingsPage() {
 
                 {/* Publishable Key */}
                 <div className="space-y-1.5">
-                  <label className={labelClass}>Publishable Key</label>
+                  <label className="text-sm font-medium text-foreground">Publishable Key</label>
                   <input
                     type="text"
                     value={settings.stripePublishableKey ?? ''}
                     onChange={(e) => updateField('stripePublishableKey', e.target.value || null)}
                     placeholder="pk_test_… or pk_live_…"
-                    className={inputClass}
+                    className={pInput}
                     autoComplete="off"
                   />
                   <p className="text-xs text-muted-foreground">
@@ -1237,7 +1397,7 @@ export default function StoreSettingsPage() {
 
                 {/* Webhook Endpoint Secret */}
                 <div className="space-y-2">
-                  <label className={labelClass}>Webhook Endpoint Secret</label>
+                  <label className="text-sm font-medium text-foreground">Webhook Endpoint Secret</label>
                   <div className="flex flex-wrap items-center gap-2 text-sm">
                     <span className="material-icons text-base text-muted-foreground">
                       {settings.stripeWebhookSecretConfigured ? 'lock' : 'lock_open'}
@@ -1263,14 +1423,14 @@ export default function StoreSettingsPage() {
                       value={stripeWebhookInput}
                       onChange={(e) => setStripeWebhookInput(e.target.value)}
                       placeholder="whsec_…"
-                      className={inputClass}
+                      className={pInput}
                       autoComplete="off"
                     />
                     <button
                       type="button"
                       onClick={saveStripeWebhookSecret}
                       disabled={savingStripeWebhook || !stripeWebhookInput}
-                      className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 whitespace-nowrap"
+                      className={`${pBtnPrimary} whitespace-nowrap`}
                     >
                       {savingStripeWebhook && <span className="material-icons text-base animate-spin">refresh</span>}
                       Save secret
@@ -1283,19 +1443,19 @@ export default function StoreSettingsPage() {
 
                 {/* Webhook URL (read-only / copyable) */}
                 <div className="space-y-1.5">
-                  <label className={labelClass}>Webhook URL</label>
+                  <label className="text-sm font-medium text-foreground">Webhook URL</label>
                   <div className="flex gap-2">
                     <input
                       type="text"
                       readOnly
                       value={stripeWebhookUrl}
-                      className={`${inputClass} font-mono text-xs bg-muted/30`}
+                      className={`${pInput} font-mono text-xs bg-muted/30`}
                       onFocus={(e) => e.currentTarget.select()}
                     />
                     <button
                       type="button"
                       onClick={copyWebhookUrl}
-                      className="flex items-center gap-2 px-4 py-2 rounded-lg border border-border text-sm hover:bg-muted/40 transition-colors whitespace-nowrap"
+                      className={`${pBtnGhost} whitespace-nowrap`}
                     >
                       <span className="material-icons text-base">
                         {webhookUrlCopied ? 'check' : 'content_copy'}
@@ -1315,7 +1475,7 @@ export default function StoreSettingsPage() {
                 <div className="space-y-3 pt-2 border-t border-border">
                   <div className="flex items-center justify-between gap-3">
                     <div>
-                      <h3 className="text-sm font-medium text-foreground">Test Connection</h3>
+                      <h3 className="text-sm font-semibold text-foreground">Test Connection</h3>
                       <p className="text-xs text-muted-foreground">
                         Verifies the secret key by retrieving your Stripe account.
                       </p>
@@ -1324,7 +1484,7 @@ export default function StoreSettingsPage() {
                       type="button"
                       onClick={testStripeConnection}
                       disabled={testingStripe || !settings.stripeSecretKeyConfigured}
-                      className="flex items-center gap-2 px-4 py-2 rounded-lg border border-border text-sm hover:bg-muted/40 transition-colors disabled:opacity-50 whitespace-nowrap"
+                      className={`${pBtnGhost} whitespace-nowrap`}
                     >
                       {testingStripe ? (
                         <span className="material-icons text-base animate-spin">refresh</span>
@@ -1371,11 +1531,7 @@ export default function StoreSettingsPage() {
 
       {/* Bottom save */}
       <div className="flex justify-end">
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="flex items-center gap-2 px-5 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
-        >
+        <button onClick={handleSave} disabled={saving} className={pBtnPrimary}>
           {saving && <span className="material-icons text-base animate-spin">refresh</span>}
           {saving ? 'Saving...' : 'Save Settings'}
         </button>

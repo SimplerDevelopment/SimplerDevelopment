@@ -24,6 +24,7 @@ const mockedAuth = auth as unknown as Mock;
 import { callHandler } from '../../../helpers/call-handler';
 import { sessionForNewClientUser, type TenantCtx } from '../../../helpers/session';
 import { getTestSql, TEST_SCHEMA } from '../../../helpers/test-db';
+import { grantBundle } from '../../../helpers/entitlements';
 
 async function asTenant(ctx: TenantCtx | null) {
   mockedAuth.mockResolvedValue(ctx?.session ?? null);
@@ -44,6 +45,7 @@ describe('POST /api/portal/crm/contacts @crm @tenancy', () => {
 
   beforeEach(async () => {
     A = await sessionForNewClientUser('contacts-post');
+    await grantBundle(A.client.id);
   });
 
   it('happy path: creates contact under caller tenant (201)', async () => {
@@ -89,6 +91,7 @@ describe('PUT /api/portal/crm/contacts/[id] @crm @tenancy', () => {
       sessionForNewClientUser('contacts-put-a'),
       sessionForNewClientUser('contacts-put-b'),
     ]);
+    await grantBundle(A.client.id);
     contactB = await seedContact(B.client.id, 'BobB');
   });
 
@@ -160,6 +163,7 @@ describe('DELETE /api/portal/crm/contacts/[id] @crm @tenancy', () => {
       sessionForNewClientUser('contacts-del-a'),
       sessionForNewClientUser('contacts-del-b'),
     ]);
+    await grantBundle(A.client.id);
   });
 
   it('happy path: deletes own contact (200)', async () => {
@@ -220,6 +224,7 @@ describe('GET /api/portal/crm/contacts/[id]/emails @crm @tenancy', () => {
       sessionForNewClientUser('emails-a'),
       sessionForNewClientUser('emails-b'),
     ]);
+    await grantBundle(A.client.id);
   });
 
   it('rejects unauthenticated (401)', async () => {
@@ -271,6 +276,7 @@ describe('POST /api/portal/crm/contacts/merge @crm @tenancy', () => {
       sessionForNewClientUser('merge-a'),
       sessionForNewClientUser('merge-b'),
     ]);
+    await grantBundle(A.client.id);
   });
 
   it('happy path: merges two same-tenant contacts (200, secondary deleted)', async () => {

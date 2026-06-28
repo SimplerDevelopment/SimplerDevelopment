@@ -11,6 +11,7 @@ import type { BrandDefaultsContext } from '@/lib/branding/block-defaults';
 import { type DragEndEvent } from '@dnd-kit/core';
 import { arrayMove } from '@dnd-kit/sortable';
 
+import { slugify } from '@/lib/publishing/slug';
 import { usePitchDeckState } from './_hooks/usePitchDeckState';
 import {
   loadBrandDefaults,
@@ -108,7 +109,7 @@ function PitchDeckEditorContent({ id }: { id: string }) {
   const {
     deck, setDeck, loading, error, setError,
     hasUnsavedChanges, setHasUnsavedChanges, saving, setSaving, publishing, setPublishing,
-  } = usePitchDeckState(id, { ydoc: collab.ydoc });
+  } = usePitchDeckState(id, { ydoc: collab.ydoc, collabEnabled: collab.enabled });
 
   // Container for the active slide's preview area — DeckSlideCursors uses
   // its bounding rect to normalize cursor coordinates.
@@ -317,7 +318,7 @@ function PitchDeckEditorContent({ id }: { id: string }) {
   function addPathGroup() {
     const name = prompt('Path group name (e.g. "pricing", "case-studies"):');
     if (!name?.trim() || !deck) return;
-    const slug = name.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+    const slug = slugify(name.trim());
     if (!slug) return;
     const initialBlocks: Block[] = [
       { id: `block-${Date.now()}-h`, type: 'heading', order: 1, content: 'New Slide', level: 2 as const, alignment: 'center' as const },
@@ -888,12 +889,7 @@ function PitchDeckEditorContent({ id }: { id: string }) {
   async function saveSlug() {
     if (!deck) return;
     const raw = slugDraft.trim();
-    const normalized = raw
-      .toLowerCase()
-      .replace(/[^a-z0-9\s-]/g, '')
-      .replace(/\s+/g, '-')
-      .replace(/-+/g, '-')
-      .replace(/^-+|-+$/g, '');
+    const normalized = slugify(raw);
     if (!normalized) {
       setSlugError('Slug must contain at least one letter or number.');
       return;

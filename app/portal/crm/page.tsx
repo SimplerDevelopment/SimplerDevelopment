@@ -2,6 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { RelatedModulesStrip } from '@/components/portal/billing/RelatedModulesStrip';
+import { formatMoney } from '@/lib/utils/money';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnPrimary, pBtnGhost } from '@/components/portal/portal-ui';
 
 // --- Types ---
 
@@ -45,10 +49,6 @@ const activityIcons: Record<string, string> = {
   deal_created: 'add_circle', deal_won: 'emoji_events', deal_lost: 'cancel',
   contact_created: 'person_add', stage_change: 'swap_horiz',
 };
-
-function formatCurrency(cents: number): string {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(cents / 100);
-}
 
 function formatCompact(cents: number): string {
   const dollars = cents / 100;
@@ -149,7 +149,7 @@ function FunnelChart({ stages }: { stages: FunnelStage[] }) {
         <div key={stage.stage_name} className="space-y-0.5">
           <div className="flex justify-between text-xs">
             <span className="text-foreground font-medium">{stage.stage_name}</span>
-            <span className="text-muted-foreground">{Number(stage.deal_count)} deals &middot; {formatCurrency(Number(stage.total_value))}</span>
+            <span className="text-muted-foreground">{Number(stage.deal_count)} deals &middot; {formatMoney(Number(stage.total_value), { fractionDigits: 0 })}</span>
           </div>
           <div className="w-full bg-accent rounded-full h-4 overflow-hidden">
             <div className="h-full rounded-full transition-all duration-700" style={{ width: `${Math.max((Number(stage.total_value) / maxValue) * 100, 2)}%`, backgroundColor: stage.color || '#6366f1' }} />
@@ -170,6 +170,7 @@ export default function CrmDashboardPage() {
   const [period, setPeriod] = useState('12m');
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- pre-existing pattern, predates this change
     setLoading(true);
     setError('');
     Promise.all([
@@ -211,19 +212,20 @@ export default function CrmDashboardPage() {
   return (
     <div className="space-y-6">
       {/* Header with period selector */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">CRM Dashboard</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Sales performance and pipeline health</p>
-        </div>
-        <div className="flex items-center gap-1 bg-accent rounded-lg p-1">
-          {periods.map((p) => (
-            <button key={p.value} onClick={() => setPeriod(p.value)} className={`px-3 py-1.5 text-xs rounded-md transition-colors ${period === p.value ? 'bg-primary text-primary-foreground font-medium' : 'text-muted-foreground hover:text-foreground'}`}>
-              {p.label}
-            </button>
-          ))}
-        </div>
-      </div>
+      <PortalPageHeader
+        eyebrow="Sales"
+        title="CRM Dashboard"
+        subtitle="Sales performance and pipeline health"
+        actions={
+          <div className="flex items-center gap-1 bg-accent rounded-lg p-1">
+            {periods.map((p) => (
+              <button key={p.value} onClick={() => setPeriod(p.value)} className={`px-3 py-1.5 text-xs rounded-md transition-colors ${period === p.value ? 'bg-primary text-primary-foreground font-medium' : 'text-muted-foreground hover:text-foreground'}`}>
+                {p.label}
+              </button>
+            ))}
+          </div>
+        }
+      />
 
       {/* Top Metric Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
@@ -231,20 +233,20 @@ export default function CrmDashboardPage() {
           { label: 'Contacts', value: dashboard?.totalContacts ?? 0, icon: 'people', color: 'text-blue-500', href: '/portal/crm/contacts' },
           { label: 'Companies', value: dashboard?.totalCompanies ?? 0, icon: 'business', color: 'text-purple-500', href: '/portal/crm/companies' },
           { label: 'Win Rate', value: winRate === '--' ? '--' : `${winRate}%`, icon: 'emoji_events', color: 'text-green-500' },
-          { label: 'Open Pipeline', value: formatCurrency(openPipelineValue), icon: 'trending_up', color: 'text-orange-500', href: '/portal/crm/deals' },
-          { label: 'MRR', value: formatCurrency(analytics?.mrr ?? 0), subtitle: `ARR: ${formatCurrency(analytics?.arr ?? 0)}`, icon: 'autorenew', color: 'text-emerald-500' },
+          { label: 'Open Pipeline', value: formatMoney(openPipelineValue, { fractionDigits: 0 }), icon: 'trending_up', color: 'text-orange-500', href: '/portal/crm/deals' },
+          { label: 'MRR', value: formatMoney(analytics?.mrr ?? 0, { fractionDigits: 0 }), subtitle: `ARR: ${formatMoney(analytics?.arr ?? 0, { fractionDigits: 0 })}`, icon: 'autorenew', color: 'text-emerald-500' },
           { label: 'Avg Close', value: analytics?.avgDaysToClose != null ? `${analytics.avgDaysToClose}d` : '--', icon: 'schedule', color: 'text-cyan-500' },
         ].map((s) => {
           const content = (
             <>
               <span className={`material-icons text-lg ${s.color}`}>{s.icon}</span>
-              <p className="mt-2 text-xl font-bold text-foreground">{s.value}</p>
+              <p className="mt-2 text-xl font-display font-extrabold tracking-[-0.02em] text-foreground">{s.value}</p>
               <p className="text-xs text-muted-foreground">{s.label}</p>
               {'subtitle' in s && s.subtitle && <p className="text-[10px] text-muted-foreground mt-0.5">{s.subtitle}</p>}
             </>
           );
           return (
-            <div key={s.label} className="bg-card border border-border rounded-xl p-4 group">
+            <div key={s.label} className="bg-card border border-border rounded-2xl p-4 group">
               {'href' in s && s.href ? <Link href={s.href as string} className="block">{content}</Link> : content}
             </div>
           );
@@ -254,12 +256,12 @@ export default function CrmDashboardPage() {
       {/* Charts Row: Revenue Trend + Win/Loss */}
       {analytics && (
         <div className="grid lg:grid-cols-3 gap-4">
-          <div className="lg:col-span-2 bg-card border border-border rounded-xl p-5">
-            <h2 className="font-semibold text-foreground text-sm mb-3">Revenue Trend</h2>
+          <div className="lg:col-span-2 bg-card border border-border rounded-2xl p-5">
+            <h2 className="font-display font-extrabold tracking-[-0.01em] text-foreground text-sm mb-3">Revenue Trend</h2>
             <LineChart data={analytics.revenueByMonth} />
           </div>
-          <div className="bg-card border border-border rounded-xl p-5">
-            <h2 className="font-semibold text-foreground text-sm mb-3">Win / Loss</h2>
+          <div className="bg-card border border-border rounded-2xl p-5">
+            <h2 className="font-display font-extrabold tracking-[-0.01em] text-foreground text-sm mb-3">Win / Loss</h2>
             <DonutChart won={Number(analytics.winLoss.won)} lost={Number(analytics.winLoss.lost)} open={Number(analytics.winLoss.open)} />
           </div>
         </div>
@@ -268,14 +270,14 @@ export default function CrmDashboardPage() {
       {/* Pipeline Funnel + Recent Activity + Quick Actions */}
       <div className="grid lg:grid-cols-3 gap-4">
         {analytics && (
-          <div className="bg-card border border-border rounded-xl p-5">
-            <h2 className="font-semibold text-foreground text-sm mb-3">Pipeline Funnel</h2>
+          <div className="bg-card border border-border rounded-2xl p-5">
+            <h2 className="font-display font-extrabold tracking-[-0.01em] text-foreground text-sm mb-3">Pipeline Funnel</h2>
             <FunnelChart stages={analytics.pipelineFunnel} />
           </div>
         )}
 
-        <div className="bg-card border border-border rounded-xl p-5">
-          <h2 className="font-semibold text-foreground text-sm mb-3">Recent Activity</h2>
+        <div className="bg-card border border-border rounded-2xl p-5">
+          <h2 className="font-display font-extrabold tracking-[-0.01em] text-foreground text-sm mb-3">Recent Activity</h2>
           {(dashboard?.recentActivities ?? []).length === 0 ? (
             <p className="text-xs text-muted-foreground py-4 text-center">No recent activity.</p>
           ) : (
@@ -293,19 +295,19 @@ export default function CrmDashboardPage() {
           )}
         </div>
 
-        <div className="bg-card border border-border rounded-xl p-5">
-          <h2 className="font-semibold text-foreground text-sm mb-3">Quick Actions</h2>
+        <div className="bg-card border border-border rounded-2xl p-5">
+          <h2 className="font-display font-extrabold tracking-[-0.01em] text-foreground text-sm mb-3">Quick Actions</h2>
           <div className="space-y-2">
-            <Link href="/portal/crm/contacts" className="flex items-center gap-2 w-full px-3 py-2.5 bg-primary text-primary-foreground rounded-lg text-xs font-medium hover:bg-primary/90 transition-colors">
+            <Link href="/portal/crm/contacts" className={`${pBtnPrimary} w-full text-xs`}>
               <span className="material-icons text-sm">person_add</span>Add Contact
             </Link>
-            <Link href="/portal/crm/deals" className="flex items-center gap-2 w-full px-3 py-2.5 border border-border rounded-lg text-xs font-medium text-foreground hover:bg-accent transition-colors">
+            <Link href="/portal/crm/deals" className={`${pBtnGhost} w-full text-xs`}>
               <span className="material-icons text-sm">add_circle</span>Create Deal
             </Link>
-            <Link href="/portal/crm/companies" className="flex items-center gap-2 w-full px-3 py-2.5 border border-border rounded-lg text-xs font-medium text-foreground hover:bg-accent transition-colors">
+            <Link href="/portal/crm/companies" className={`${pBtnGhost} w-full text-xs`}>
               <span className="material-icons text-sm">domain_add</span>Add Company
             </Link>
-            <Link href="/portal/crm/proposals" className="flex items-center gap-2 w-full px-3 py-2.5 border border-border rounded-lg text-xs font-medium text-foreground hover:bg-accent transition-colors">
+            <Link href="/portal/crm/proposals" className={`${pBtnGhost} w-full text-xs`}>
               <span className="material-icons text-sm">description</span>New Proposal
             </Link>
           </div>
@@ -314,8 +316,8 @@ export default function CrmDashboardPage() {
 
       {/* Top Deals Table */}
       {analytics && analytics.topDeals.length > 0 && (
-        <div className="bg-card border border-border rounded-xl p-5">
-          <h2 className="font-semibold text-foreground text-sm mb-3">Top Open Deals</h2>
+        <div className="bg-card border border-border rounded-2xl p-5">
+          <h2 className="font-display font-extrabold tracking-[-0.01em] text-foreground text-sm mb-3">Top Open Deals</h2>
           <div className="overflow-x-auto -mx-4 sm:mx-0">
             <table className="w-full text-sm min-w-[640px]">
               <thead>
@@ -329,7 +331,7 @@ export default function CrmDashboardPage() {
                 {analytics.topDeals.map((deal) => (
                   <tr key={deal.id} className="border-b border-border/50 last:border-0">
                     <td className="py-2.5 text-foreground font-medium text-sm">{deal.title}</td>
-                    <td className="py-2.5 text-foreground text-right text-sm">{deal.value != null ? formatCurrency(Number(deal.value)) : '--'}</td>
+                    <td className="py-2.5 text-foreground text-right text-sm">{deal.value != null ? formatMoney(Number(deal.value), { fractionDigits: 0 }) : '--'}</td>
                     <td className="py-2.5 text-right">
                       <Link href={`/portal/crm/deals?deal=${deal.id}`} className="text-primary hover:text-primary/80 text-xs font-medium">View</Link>
                     </td>
@@ -340,6 +342,7 @@ export default function CrmDashboardPage() {
           </div>
         </div>
       )}
+      <RelatedModulesStrip currentDomain="crm" />
     </div>
   );
 }

@@ -17,6 +17,7 @@ const mockedAuth = auth as unknown as Mock;
 import { callHandler } from '../../../helpers/call-handler';
 import { sessionForNewClientUser, type TenantCtx } from '../../../helpers/session';
 import { getTestSql, TEST_SCHEMA } from '../../../helpers/test-db';
+import { grantBundle } from '../../../helpers/entitlements';
 
 async function asTenant(ctx: TenantCtx | null) {
   mockedAuth.mockResolvedValue(ctx?.session ?? null);
@@ -60,6 +61,7 @@ describe('POST /api/portal/crm/deals/[id]/comments @crm @tenancy', () => {
       sessionForNewClientUser('com-post-a'),
       sessionForNewClientUser('com-post-b'),
     ]);
+    await grantBundle(A.client.id);
     [dealA, dealB] = await Promise.all([
       seedDeal(A.client.id),
       seedDeal(B.client.id),
@@ -135,6 +137,7 @@ describe('DELETE /api/portal/crm/deals/[id]/comments @crm @tenancy', () => {
       sessionForNewClientUser('com-del-a'),
       sessionForNewClientUser('com-del-b'),
     ]);
+    await grantBundle(A.client.id);
     [dealA, dealB] = await Promise.all([
       seedDeal(A.client.id),
       seedDeal(B.client.id),

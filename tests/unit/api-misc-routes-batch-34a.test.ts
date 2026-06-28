@@ -33,8 +33,14 @@ vi.mock('@/lib/auth', () => ({
 }));
 
 const resolveClientSiteMock = vi.fn();
+const getPortalClientMock = vi.fn();
 vi.mock('@/lib/portal-client', () => ({
   resolveClientSite: (...args: unknown[]) => resolveClientSiteMock(...args),
+  getPortalClient: (...args: unknown[]) => getPortalClientMock(...args),
+}));
+
+vi.mock('@/lib/mcp-auth', () => ({
+  resolvePortalFromCurrentRequest: () => Promise.resolve(null),
 }));
 
 // ---------------------------------------------------------------------------
@@ -66,6 +72,9 @@ vi.mock('@/lib/db/schema', () => {
     products: wrap('products'),
     productOptions: wrap('productOptions'),
     productOptionValues: wrap('productOptionValues'),
+    oauthAccessTokens: wrap('oauthAccessTokens'),
+    oauthClients: wrap('oauthClients'),
+    portalApiKeys: wrap('portalApiKeys'),
   }, { has: (t, p) => (p in t) || !(p === "then" || p === "__esModule" || p === "default" || typeof p !== "string"), get: (t, p) => (p in t) ? t[p] : ((p === "then" || p === "__esModule" || p === "default" || typeof p !== "string") ? undefined : new Proxy({ __table: String(p) }, { get: (_x, c) => c === "__table" ? String(p) : (typeof c === "string" ? { __col: c, __table: String(p) } : undefined) })) });
 });
 
@@ -110,6 +119,9 @@ interface State {
   products: Array<Record<string, unknown>>;
   productOptions: Array<Record<string, unknown>>;
   productOptionValues: Array<Record<string, unknown>>;
+  // service subscription rows — pre-populated with store access so
+  // authorizePortal({ requireService: 'store' }) passes without a real DB
+  clientServices: Array<Record<string, unknown>>;
   nextDiscountId: number;
   nextOrderId: number;
   nextOrderItemId: number;
@@ -125,6 +137,7 @@ const state: State = {
   products: [],
   productOptions: [],
   productOptionValues: [],
+  clientServices: [{ id: 1, clientId: 33, status: 'active', category: 'store' }],
   nextDiscountId: 1,
   nextOrderId: 1,
   nextOrderItemId: 1,
@@ -147,6 +160,8 @@ function tableArray(name: string): Array<Record<string, unknown>> {
       return state.productOptions;
     case 'productOptionValues':
       return state.productOptionValues;
+    case 'clientServices':
+      return state.clientServices;
     default:
       return [];
   }
@@ -271,6 +286,12 @@ vi.mock('@/lib/db', () => {
     const chain: Record<string, unknown> = {
       from(table: { __table: string }) {
         activeTable = table.__table;
+        return chain;
+      },
+      innerJoin() {
+        return chain;
+      },
+      leftJoin() {
         return chain;
       },
       where(arg: unknown) {
@@ -475,8 +496,14 @@ beforeEach(() => {
 
   authMock.mockReset();
   resolveClientSiteMock.mockReset();
+  getPortalClientMock.mockReset();
   authMock.mockResolvedValue({ user: { id: '7' } });
-  resolveClientSiteMock.mockResolvedValue({ id: 10 });
+  resolveClientSiteMock.mockResolvedValue({ id: 10, clientId: 33 });
+  // userId: 7 matches session user → resolveRole returns 'owner' without a DB call
+  getPortalClientMock.mockResolvedValue({ id: 33, userId: 7 });
+  // restore store subscription so hasServiceAccess passes
+  state.clientServices.length = 0;
+  state.clientServices.push({ id: 1, clientId: 33, status: 'active', category: 'store' });
 });
 
 // ===========================================================================

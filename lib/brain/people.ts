@@ -37,6 +37,7 @@ import {
 } from '@/lib/db/schema';
 import { and, asc, desc, eq, inArray, or, sql } from 'drizzle-orm';
 import { logAudit } from './audit';
+import { slugify } from '@/lib/publishing/slug';
 import { revalidateBrainDashboard, revalidateBrainStaticCounts } from './dashboard';
 
 // ─── EXPORTED TYPES ──────────────────────────────────────────────────────────
@@ -180,15 +181,6 @@ function nonNegOffset(n: number | undefined): number {
   return Math.max(0, Math.floor(n));
 }
 
-function slugify(name: string): string {
-  return name
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9\s-]/g, '')
-    .replace(/[\s_-]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 100) || 'tag';
-}
 
 async function userBelongsToClient(userId: number, clientId: number): Promise<boolean> {
   const [row] = await db
@@ -726,7 +718,7 @@ export async function createExpertiseTag(
 ): Promise<BrainExpertiseTag> {
   const name = (input.name ?? '').trim().slice(0, 100);
   if (!name) throw new Error('name is required');
-  const slug = slugify(name);
+  const slug = slugify(name) || 'tag';
 
   // Disambiguate if a tag with the same slug already exists (per-tenant).
   let finalSlug = slug;

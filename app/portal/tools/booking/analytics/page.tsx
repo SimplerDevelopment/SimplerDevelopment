@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pCardPad, pSectionTitle, pInput } from '@/components/portal/portal-ui';
 
 interface AnalyticsData {
   totalRevenue: number;
@@ -43,25 +45,26 @@ export default function BookingAnalyticsPage() {
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Booking Analytics</h1>
-          <p className="text-sm text-muted-foreground mt-1">Revenue and booking insights</p>
-        </div>
-        <Link href="/portal/tools/booking" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
-          <span className="material-icons text-lg">arrow_back</span>
-          Back to Bookings
-        </Link>
-      </div>
+      <PortalPageHeader
+        eyebrow="Booking"
+        title="Booking Analytics"
+        subtitle="Revenue and booking insights"
+        actions={
+          <Link href="/portal/tools/booking" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
+            <span className="material-icons text-lg">arrow_back</span>
+            Back to Bookings
+          </Link>
+        }
+      />
 
       {/* Date range filter */}
-      <div className="flex items-center gap-3 bg-card border border-border rounded-xl p-4 flex-wrap">
+      <div className={`flex items-center gap-3 flex-wrap ${pCardPad}`}>
         <span className="material-icons text-muted-foreground">date_range</span>
         <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
-          className="text-sm bg-background border border-border rounded-lg px-3 py-1.5" />
+          className="rounded-xl border border-border bg-card px-3 py-1.5 text-sm text-foreground outline-none focus:border-primary focus:ring-4 focus:ring-primary/15" />
         <span className="text-muted-foreground">to</span>
         <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)}
-          className="text-sm bg-background border border-border rounded-lg px-3 py-1.5" />
+          className="rounded-xl border border-border bg-card px-3 py-1.5 text-sm text-foreground outline-none focus:border-primary focus:ring-4 focus:ring-primary/15" />
       </div>
 
       {loading ? (
@@ -80,20 +83,20 @@ export default function BookingAnalyticsPage() {
               { label: 'Total Guests', value: String(data.totalGuests), icon: 'groups' },
               { label: 'Avg. Value', value: formatCents(data.averageBookingValue), icon: 'trending_up' },
             ].map(card => (
-              <div key={card.label} className="bg-card border border-border rounded-xl p-4">
+              <div key={card.label} className="bg-card border border-border rounded-2xl p-4">
                 <div className="flex items-center gap-2 text-muted-foreground mb-1">
                   <span className="material-icons text-base">{card.icon}</span>
                   <span className="text-xs">{card.label}</span>
                 </div>
-                <p className="text-2xl font-bold text-foreground">{card.value}</p>
+                <p className="font-display text-2xl font-extrabold tracking-[-0.02em] text-foreground">{card.value}</p>
               </div>
             ))}
           </div>
 
           {/* Revenue breakdown */}
           {data.addOnRevenue > 0 && (
-            <div className="bg-card border border-border rounded-xl p-4">
-              <h3 className="text-sm font-medium text-foreground mb-3">Revenue Breakdown</h3>
+            <div className="bg-card border border-border rounded-2xl p-4">
+              <h3 className={pSectionTitle + " mb-3"}>Revenue Breakdown</h3>
               <div className="flex gap-6 flex-wrap">
                 <div>
                   <p className="text-xs text-muted-foreground">Booking Revenue</p>
@@ -115,8 +118,8 @@ export default function BookingAnalyticsPage() {
 
           {/* Revenue by day chart */}
           {data.byDay.length > 0 && (
-            <div className="bg-card border border-border rounded-xl p-4">
-              <h3 className="text-sm font-medium text-foreground mb-3">Daily Revenue</h3>
+            <div className="bg-card border border-border rounded-2xl p-4">
+              <h3 className={pSectionTitle + " mb-3"}>Daily Revenue</h3>
               <div className="flex items-end gap-1 h-40">
                 {data.byDay.map(day => (
                   <div key={day.date} className="flex-1 flex flex-col items-center gap-1" title={`${day.date}: ${formatCents(day.revenue)} (${day.bookings} bookings)`}>
@@ -135,8 +138,8 @@ export default function BookingAnalyticsPage() {
 
           {/* Revenue by booking page */}
           {data.byPage.length > 0 && (
-            <div className="bg-card border border-border rounded-xl p-4">
-              <h3 className="text-sm font-medium text-foreground mb-3">By Booking Page</h3>
+            <div className="bg-card border border-border rounded-2xl p-4">
+              <h3 className={pSectionTitle + " mb-3"}>By Booking Page</h3>
               <div className="space-y-2">
                 {data.byPage.map(page => (
                   <div key={page.pageId} className="flex items-center justify-between py-2 border-b border-border last:border-0">
@@ -153,8 +156,8 @@ export default function BookingAnalyticsPage() {
 
           {/* Top add-ons */}
           {data.topAddOns.length > 0 && (
-            <div className="bg-card border border-border rounded-xl p-4">
-              <h3 className="text-sm font-medium text-foreground mb-3">Top Add-ons</h3>
+            <div className="bg-card border border-border rounded-2xl p-4">
+              <h3 className={pSectionTitle + " mb-3"}>Top Add-ons</h3>
               <div className="space-y-2">
                 {data.topAddOns.map(addOn => (
                   <div key={addOn.name} className="flex items-center justify-between py-2 border-b border-border last:border-0">

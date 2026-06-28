@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import type { StepProps } from './types';
+import { obPrimaryBtn, obGhostBtn, obQuietLink, obPanel } from '../ob-styles';
 
 export function StepPowerUp({ state, setAnswers, next, persist }: StepProps) {
   const [generating, setGenerating] = useState(false);
@@ -61,169 +62,168 @@ export function StepPowerUp({ state, setAnswers, next, persist }: StepProps) {
   };
 
   return (
-    <div className="space-y-6">
-      <p className="text-sm text-muted-foreground">
+    <div className="space-y-5">
+      <p className="text-[14px] text-muted-foreground leading-relaxed">
         SimplerDevelopment plays nicely with <strong>Claude Code</strong>, <strong>Claude Desktop</strong>,
         and any MCP-compatible client. Pair both halves below and you can draft pages, decks, emails, surveys,
         and more by chatting.
       </p>
 
-      {/* 1. Skills */}
-      <section
-        data-testid="onboarding-power-skills"
-        className="rounded-xl border border-border bg-background/60 p-5 space-y-3"
-      >
-        <header className="flex items-center gap-3">
-          <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
-            <span className="material-icons text-lg">extension</span>
-          </span>
-          <div className="flex-1">
-            <h3 className="text-sm font-semibold">1. Install the SD Skills</h3>
-            <p className="text-xs text-muted-foreground">10 skills your assistant uses to author content here.</p>
-          </div>
-          {skillsDownloaded && (
-            <span className="inline-flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400">
-              <span className="material-icons text-sm">check_circle</span>
-              Marked done
-            </span>
-          )}
-        </header>
+      {/* Two-column panels */}
+      <div className="grid gap-[18px] sm:grid-cols-2">
 
-        <div className="grid gap-2 sm:grid-cols-2">
-          <a
-            href="/api/skills/install/mac"
-            download
-            onClick={markSkillsDownloaded}
-            data-testid="onboarding-skills-download-mac"
-            className="group flex items-center gap-3 rounded-lg border border-border bg-card px-3 py-2.5 text-sm hover:border-primary transition-colors"
-          >
-            <span className="material-icons text-base text-primary">download</span>
-            <span className="font-medium">macOS installer</span>
-            <span className="ml-auto material-icons text-base text-muted-foreground group-hover:text-primary">arrow_forward</span>
-          </a>
-          <a
-            href="/api/skills/install/windows"
-            download
-            onClick={markSkillsDownloaded}
-            data-testid="onboarding-skills-download-windows"
-            className="group flex items-center gap-3 rounded-lg border border-border bg-card px-3 py-2.5 text-sm hover:border-primary transition-colors"
-          >
-            <span className="material-icons text-base text-primary">download</span>
-            <span className="font-medium">Windows installer</span>
-            <span className="ml-auto material-icons text-base text-muted-foreground group-hover:text-primary">arrow_forward</span>
-          </a>
-        </div>
-
-        <details className="rounded-md bg-muted/40 p-3 text-xs">
-          <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
-            Or paste a one-liner in your terminal
-          </summary>
-          <div className="mt-2 flex items-start gap-2">
-            <pre className="flex-1 overflow-auto rounded bg-background p-2 text-[11px] font-mono whitespace-pre-wrap break-all">{curlInstall}</pre>
-            <button
-              type="button"
-              onClick={() => { copy(curlInstall, 'curl'); markSkillsDownloaded(); }}
-              data-testid="onboarding-skills-copy-curl"
-              className="rounded border border-border bg-background px-2 py-1 text-xs hover:bg-primary/5"
-            >
-              {copied === 'curl' ? 'Copied' : 'Copy'}
-            </button>
-          </div>
-        </details>
-      </section>
-
-      {/* 2. MCP key */}
-      <section
-        data-testid="onboarding-power-mcp"
-        className="rounded-xl border border-border bg-background/60 p-5 space-y-3"
-      >
-        <header className="flex items-center gap-3">
-          <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300">
-            <span className="material-icons text-lg">vpn_key</span>
-          </span>
-          <div className="flex-1">
-            <h3 className="text-sm font-semibold">2. Connect Claude to your portal</h3>
-            <p className="text-xs text-muted-foreground">Generates a personal MCP key with all scopes.</p>
-          </div>
-          {keyCreated && (
-            <span className="inline-flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400">
-              <span className="material-icons text-sm">check_circle</span>
-              Key created
-            </span>
-          )}
-        </header>
-
-        {!generatedKey && (
-          <button
-            type="button"
-            onClick={generateKey}
-            disabled={generating}
-            data-testid="onboarding-mcp-generate"
-            className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
-          >
-            {generating ? (
-              <>
-                <span className="material-icons text-base animate-spin">progress_activity</span>
-                Generating…
-              </>
-            ) : (
-              <>
-                <span className="material-icons text-base">{keyCreated ? 'refresh' : 'add_circle'}</span>
-                {keyCreated ? 'Generate another key' : 'Generate MCP key'}
-              </>
+        {/* 1. Skills panel */}
+        <section
+          data-testid="onboarding-power-skills"
+          className={obPanel + ' space-y-3'}
+        >
+          <header className="flex items-center gap-2">
+            <span className="material-icons text-[18px] text-primary">download</span>
+            <h3 className="text-[14.5px] font-extrabold tracking-[-0.01em] flex-1">Install SD Skills</h3>
+            {skillsDownloaded && (
+              <span className="inline-flex items-center gap-1 text-[12px] text-emerald-600 dark:text-emerald-400 font-semibold">
+                <span className="material-icons text-[14px]">check_circle</span>
+                Done
+              </span>
             )}
-          </button>
-        )}
-        {keyError && <p className="text-xs text-destructive" role="alert">{keyError}</p>}
+          </header>
+          <p className="text-[12.5px] text-muted-foreground leading-[1.45] mt-0">
+            One installer adds every SimplerDevelopment skill to your assistant.
+          </p>
 
-        {generatedKey && (
-          <div className="space-y-3">
-            <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-200">
-              <p className="font-semibold mb-1 flex items-center gap-1">
-                <span className="material-icons text-sm">warning</span> Copy this now — we won&apos;t show it again.
-              </p>
-              <div className="flex items-start gap-2">
-                <code data-testid="onboarding-mcp-key" className="flex-1 rounded bg-background/80 p-2 font-mono text-[11px] break-all">{generatedKey}</code>
-                <button
-                  type="button"
-                  onClick={() => copy(generatedKey, 'key')}
-                  data-testid="onboarding-mcp-copy-key"
-                  className="rounded border border-border bg-background px-2 py-1 text-xs hover:bg-primary/5"
-                >
-                  {copied === 'key' ? 'Copied' : 'Copy'}
-                </button>
-              </div>
-            </div>
+          <div className="flex gap-2.5">
+            <a
+              href="/api/skills/install/mac"
+              download
+              onClick={markSkillsDownloaded}
+              data-testid="onboarding-skills-download-mac"
+              className={obGhostBtn + ' flex-1 justify-center'}
+            >
+              <span className="material-icons text-[18px]">laptop_mac</span>
+              macOS
+            </a>
+            <a
+              href="/api/skills/install/windows"
+              download
+              onClick={markSkillsDownloaded}
+              data-testid="onboarding-skills-download-windows"
+              className={obGhostBtn + ' flex-1 justify-center'}
+            >
+              <span className="material-icons text-[18px]">desktop_windows</span>
+              Windows
+            </a>
           </div>
-        )}
 
-        <details className="rounded-md bg-muted/40 p-3 text-xs">
-          <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
-            Show Claude config snippet
-          </summary>
-          <div className="mt-2 flex items-start gap-2">
-            <pre className="flex-1 overflow-auto rounded bg-background p-2 text-[11px] font-mono">{mcpConfig}</pre>
+          <details className="rounded-xl border border-border bg-muted/30 p-3 text-xs">
+            <summary className="cursor-pointer text-muted-foreground hover:text-foreground font-medium">
+              Or paste a one-liner in your terminal
+            </summary>
+            <div className="mt-2 flex items-start gap-2">
+              <pre className="flex-1 overflow-auto rounded-lg bg-[#0e0d0c] text-[#e7e5e4] p-2.5 text-[11px] font-mono whitespace-pre-wrap break-all leading-relaxed">{curlInstall}</pre>
+              <button
+                type="button"
+                onClick={() => { copy(curlInstall, 'curl'); markSkillsDownloaded(); }}
+                data-testid="onboarding-skills-copy-curl"
+                className="rounded-lg border border-border bg-background px-2 py-1 text-xs font-semibold hover:border-foreground/20"
+              >
+                {copied === 'curl' ? 'Copied' : 'Copy'}
+              </button>
+            </div>
+          </details>
+        </section>
+
+        {/* 2. MCP key panel */}
+        <section
+          data-testid="onboarding-power-mcp"
+          className={obPanel + ' space-y-3'}
+        >
+          <header className="flex items-center gap-2">
+            <span className="material-icons text-[18px] text-primary">vpn_key</span>
+            <h3 className="text-[14.5px] font-extrabold tracking-[-0.01em] flex-1">Connect Claude</h3>
+            {keyCreated && (
+              <span className="inline-flex items-center gap-1 text-[12px] text-emerald-600 dark:text-emerald-400 font-semibold">
+                <span className="material-icons text-[14px]">check_circle</span>
+                Key created
+              </span>
+            )}
+          </header>
+          <p className="text-[12.5px] text-muted-foreground leading-[1.45] mt-0">
+            Generate an MCP key and drop it into your config.
+          </p>
+
+          {!generatedKey && (
             <button
               type="button"
-              onClick={() => copy(mcpConfig, 'mcp')}
-              data-testid="onboarding-mcp-copy-config"
-              className="rounded border border-border bg-background px-2 py-1 text-xs hover:bg-primary/5"
+              onClick={generateKey}
+              disabled={generating}
+              data-testid="onboarding-mcp-generate"
+              className={obPrimaryBtn}
             >
-              {copied === 'mcp' ? 'Copied' : 'Copy'}
+              {generating ? (
+                <>
+                  <span className="material-icons text-[18px] animate-spin">progress_activity</span>
+                  Generating…
+                </>
+              ) : (
+                <>
+                  <span className="material-icons text-[18px]">{keyCreated ? 'refresh' : 'add_circle'}</span>
+                  {keyCreated ? 'Generate another key' : 'Generate MCP key'}
+                </>
+              )}
             </button>
-          </div>
-          <p className="mt-2 text-muted-foreground">
-            Paste into <code>~/.claude/mcp-config.json</code> (Claude Code) or your client&apos;s MCP settings.
-          </p>
-        </details>
-      </section>
+          )}
+          {keyError && <p className="text-xs text-destructive" role="alert">{keyError}</p>}
 
+          {generatedKey && (
+            <div className="flex items-center gap-2.5 rounded-xl border border-dashed border-border bg-[var(--portal-surface-2,hsl(var(--muted)))] px-3.5 py-2.5 font-mono text-[13px]">
+              <span className="material-icons text-[18px] text-emerald-500">check_circle</span>
+              <code data-testid="onboarding-mcp-key" className="flex-1 break-all text-[12px]">{generatedKey}</code>
+              <button
+                type="button"
+                onClick={() => copy(generatedKey, 'key')}
+                data-testid="onboarding-mcp-copy-key"
+                className="ml-auto shrink-0 text-[13px] font-semibold text-primary hover:text-primary/80"
+              >
+                {copied === 'key' ? 'Copied' : 'Copy'}
+              </button>
+            </div>
+          )}
+
+          {!generatedKey && (
+            <div className="rounded-xl border border-amber-300/70 bg-amber-50 px-3.5 py-3 dark:border-amber-700 dark:bg-amber-950/30">
+              <p className="flex items-center gap-1 text-[12px] font-semibold text-amber-900 dark:text-amber-200">
+                <span className="material-icons text-[14px]">warning</span>
+                Copy immediately — we won&apos;t show it again.
+              </p>
+            </div>
+          )}
+        </section>
+      </div>
+
+      {/* Claude config code block */}
+      <div className="relative rounded-[13px] bg-[#0e0d0c] px-4 py-3.5 font-mono text-[12.5px] leading-relaxed text-[#e7e5e4] overflow-auto">
+        <button
+          type="button"
+          onClick={() => copy(mcpConfig, 'mcp')}
+          data-testid="onboarding-mcp-copy-config"
+          className="absolute right-2.5 top-2.5 inline-flex items-center gap-1 rounded-lg bg-white/10 px-2.5 py-1 text-[11px] text-white hover:bg-white/15"
+        >
+          <span className="material-icons text-[13px]">content_copy</span>
+          {copied === 'mcp' ? 'Copied' : 'Copy'}
+        </button>
+        <pre className="whitespace-pre-wrap break-all">{mcpConfig}</pre>
+        <p className="mt-2 text-[11px] text-[#94a3b8]">
+          Paste into <code>~/.claude/mcp-config.json</code> (Claude Code) or your client&apos;s MCP settings.
+        </p>
+      </div>
+
+      {/* Footer actions */}
       <div className="flex items-center justify-between pt-1">
         <button
           type="button"
           onClick={() => next()}
           data-testid="onboarding-power-skip"
-          className="text-xs text-muted-foreground hover:text-foreground"
+          className={obQuietLink}
         >
           I&apos;ll do this later
         </button>
@@ -231,10 +231,10 @@ export function StepPowerUp({ state, setAnswers, next, persist }: StepProps) {
           type="button"
           onClick={() => next()}
           data-testid="onboarding-power-next"
-          className="inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90 transition-colors"
+          className={obPrimaryBtn}
         >
-          {keyCreated || skillsDownloaded ? 'All set' : 'Continue'}
-          <span className="material-icons text-base">arrow_forward</span>
+          {keyCreated || skillsDownloaded ? 'All set' : 'Finish setup'}
+          <span className="material-icons text-[18px]">arrow_forward</span>
         </button>
       </div>
     </div>

@@ -18,7 +18,7 @@
  */
 import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, act, fireEvent } from '@testing-library/react';
+import { render, act, fireEvent, waitFor } from '@testing-library/react';
 
 // ---------------------------------------------------------------------------
 // Mocks — heavy children + iframe bridge hook. Each panel exposes the most
@@ -26,53 +26,53 @@ import { render, act, fireEvent } from '@testing-library/react';
 // what the shell passed in, and (for some panels) invoke callbacks back out.
 // ---------------------------------------------------------------------------
 
-const lastLeftProps: { current: any } = { current: null };
-const lastRightProps: { current: any } = { current: null };
-const lastIframeProps: { current: any } = { current: null };
-const lastContextProps: { current: any } = { current: null };
-const lastImagePickerProps: { current: any } = { current: null };
-const lastSaveTemplateProps: { current: any } = { current: null };
-const lastTemplateLibraryProps: { current: any } = { current: null };
-const lastParentArgs: { current: any } = { current: null };
+const lastLeftProps: { current: Record<string, unknown> | null } = { current: null };
+const lastRightProps: { current: Record<string, unknown> | null } = { current: null };
+const lastIframeProps: { current: Record<string, unknown> | null } = { current: null };
+const lastContextProps: { current: Record<string, unknown> | null } = { current: null };
+const lastImagePickerProps: { current: Record<string, unknown> | null } = { current: null };
+const lastSaveTemplateProps: { current: Record<string, unknown> | null } = { current: null };
+const lastTemplateLibraryProps: { current: Record<string, unknown> | null } = { current: null };
+const lastParentArgs: { current: Record<string, unknown> | null } = { current: null };
 
 vi.mock('@/components/portal/visual-editor/LeftPanel', () => ({
-  LeftPanel: (props: any) => {
+  LeftPanel: (props: Record<string, unknown>) => {
     lastLeftProps.current = props;
     return <div data-testid="left-panel" />;
   },
 }));
 vi.mock('@/components/portal/visual-editor/RightPanel', () => ({
-  RightPanel: (props: any) => {
+  RightPanel: (props: Record<string, unknown>) => {
     lastRightProps.current = props;
     return <div data-testid="right-panel" />;
   },
 }));
 vi.mock('@/components/portal/visual-editor/IframePreview', () => ({
-  IframePreview: (props: any) => {
+  IframePreview: (props: Record<string, unknown>) => {
     lastIframeProps.current = props;
     return <div data-testid="iframe-preview" />;
   },
 }));
 vi.mock('@/components/portal/visual-editor/BlockContextMenu', () => ({
-  BlockContextMenu: (props: any) => {
+  BlockContextMenu: (props: Record<string, unknown>) => {
     lastContextProps.current = props;
     return <div data-testid="context-menu" />;
   },
 }));
-vi.mock('@/components/portal/visual-editor/HtmlRenderEditor', () => ({
-  ImagePickerModal: (props: any) => {
+vi.mock('@/components/portal/visual-editor/ImagePickerModal', () => ({
+  ImagePickerModal: (props: Record<string, unknown>) => {
     lastImagePickerProps.current = props;
     return <div data-testid="image-picker" />;
   },
 }));
 vi.mock('@/components/blocks/SaveAsTemplateModal', () => ({
-  SaveAsTemplateModal: (props: any) => {
+  SaveAsTemplateModal: (props: Record<string, unknown>) => {
     lastSaveTemplateProps.current = props;
     return <div data-testid="save-template" />;
   },
 }));
 vi.mock('@/components/blocks/TemplateLibrary', () => ({
-  TemplateLibrary: (props: any) => {
+  TemplateLibrary: (props: Record<string, unknown>) => {
     lastTemplateLibraryProps.current = props;
     return <div data-testid="template-library" />;
   },
@@ -148,7 +148,7 @@ const sendExternalDragCancelSpy = vi.fn();
 const handleIframeLoadSpy = vi.fn();
 
 vi.mock('@/lib/visual-editor/useVisualEditorParent', () => ({
-  useVisualEditorParent: (args: any) => {
+  useVisualEditorParent: (args: Record<string, unknown>) => {
     lastParentArgs.current = args;
     return {
       iframeRef: { current: {
@@ -181,8 +181,8 @@ vi.mock('@/lib/visual-editor/useVisualEditorParent', () => ({
 import { VisualEditorShell } from '@/components/portal/VisualEditorShell';
 
 // helper: minimal block factory
-const block = (id: string, type: string = 'text', extra: Record<string, unknown> = {}) =>
-  ({ id, type, order: 0, ...extra } as any);
+const block = (id: string, type: string = 'text', extra: Record<string, unknown> = {}): { id: string; type: string; order: number; [key: string]: unknown } =>
+  ({ id, type, order: 0, ...extra });
 
 const baseProps = () => ({
   blocks: [block('a', 'text', { content: 'hello' }), block('b', 'heading', { content: 'World' })],
@@ -270,11 +270,11 @@ describe('VisualEditorShell — render scaffolding', () => {
       <VisualEditorShell
         {...props}
         extraBlockTypes={[
-          { type: 'deck-jump-to' as any, label: 'Jump', icon: 'east', category: 'Deck', description: 'Jump to slide' },
+          { type: 'deck-jump-to' as unknown as 'text', label: 'Jump', icon: 'east', category: 'Deck', description: 'Jump to slide' },
         ]}
       />,
     );
-    const types = lastLeftProps.current.allBlockTypes.map((b: any) => b.type);
+    const types = (lastLeftProps.current.allBlockTypes as Array<Record<string, unknown>>).map((b) => b.type);
     expect(types).toContain('heading');
     expect(types).toContain('text');
     expect(types).toContain('custom-one'); // from mocked customComponents
@@ -356,7 +356,7 @@ describe('VisualEditorShell — selection', () => {
     const props = baseProps();
     render(<VisualEditorShell {...props} />);
     act(() => { lastLeftProps.current.selectBlock('a'); });
-    act(() => { lastLeftProps.current.selectBlock(null as any); });
+    act(() => { (lastLeftProps.current.selectBlock as (id: string | null) => void)(null); });
     expect(lastLeftProps.current.selectedBlockIds).toEqual([]);
   });
 
@@ -493,7 +493,7 @@ describe('VisualEditorShell — iframe callbacks', () => {
           { id: 'c1', width: 50, blocks: [] },
           { id: 'c2', width: 50, blocks: [] },
         ],
-      } as any,
+      } as unknown as ReturnType<typeof block>,
     ];
     render(<VisualEditorShell {...props} />);
     act(() => { lastParentArgs.current.onColumnResized('cols', [70, 30]); });
@@ -527,7 +527,7 @@ describe('VisualEditorShell — iframe callbacks', () => {
 
   it('onBlockContentUpdated — __add_array_item appends a defaulted card', () => {
     const props = baseProps();
-    props.blocks = [{ id: 'a', type: 'cards', order: 0, cards: [{ id: 'x', title: 'old', description: '' }] } as any];
+    props.blocks = [block('a', 'cards', { cards: [{ id: 'x', title: 'old', description: '' }] })];
     render(<VisualEditorShell {...props} />);
     act(() => { lastParentArgs.current.onBlockContentUpdated('a', '__add_array_item', 'cards'); });
     const next = props.onBlocksChange.mock.calls[0][0];
@@ -537,7 +537,7 @@ describe('VisualEditorShell — iframe callbacks', () => {
 
   it('onBlockContentUpdated — __add_array_item creates the array when missing', () => {
     const props = baseProps();
-    props.blocks = [{ id: 'a', type: 'stats', order: 0 } as any];
+    props.blocks = [block('a', 'stats')];
     render(<VisualEditorShell {...props} />);
     act(() => { lastParentArgs.current.onBlockContentUpdated('a', '__add_array_item', 'stats'); });
     const next = props.onBlocksChange.mock.calls[0][0];
@@ -547,7 +547,7 @@ describe('VisualEditorShell — iframe callbacks', () => {
 
   it('onBlockContentUpdated — html-render flat field writes into values map', () => {
     const props = baseProps();
-    props.blocks = [{ id: 'h', type: 'html-render', order: 0, values: { headline: 'old' } } as any];
+    props.blocks = [block('h', 'html-render', { values: { headline: 'old' } })];
     render(<VisualEditorShell {...props} />);
     act(() => { lastParentArgs.current.onBlockContentUpdated('h', 'headline', 'new'); });
     const next = props.onBlocksChange.mock.calls[0][0];
@@ -556,12 +556,9 @@ describe('VisualEditorShell — iframe callbacks', () => {
 
   it('onBlockContentUpdated — html-render dotted 3-part field writes into an indexed array entry', () => {
     const props = baseProps();
-    props.blocks = [{
-      id: 'h',
-      type: 'html-render',
-      order: 0,
+    props.blocks = [block('h', 'html-render', {
       values: { stats: [{ label: 'A', body: 'old' }, { label: 'B', body: 'old' }] },
-    } as any];
+    })];
     render(<VisualEditorShell {...props} />);
     act(() => { lastParentArgs.current.onBlockContentUpdated('h', 'stats.1.body', 'updated'); });
     const next = props.onBlocksChange.mock.calls[0][0];
@@ -571,12 +568,9 @@ describe('VisualEditorShell — iframe callbacks', () => {
 
   it('onBlockContentUpdated — html-render dotted 2-part field writes into a group object', () => {
     const props = baseProps();
-    props.blocks = [{
-      id: 'h',
-      type: 'html-render',
-      order: 0,
+    props.blocks = [block('h', 'html-render', {
       values: { cta: { label: 'Old', href: '#' } },
-    } as any];
+    })];
     render(<VisualEditorShell {...props} />);
     act(() => { lastParentArgs.current.onBlockContentUpdated('h', 'cta.label', 'New'); });
     const next = props.onBlocksChange.mock.calls[0][0];
@@ -586,7 +580,7 @@ describe('VisualEditorShell — iframe callbacks', () => {
 
   it('onBlockContentUpdated — html-render 3-part missing array seeds a new array', () => {
     const props = baseProps();
-    props.blocks = [{ id: 'h', type: 'html-render', order: 0 } as any];
+    props.blocks = [block('h', 'html-render')];
     render(<VisualEditorShell {...props} />);
     act(() => { lastParentArgs.current.onBlockContentUpdated('h', 'items.0.title', 'first'); });
     const next = props.onBlocksChange.mock.calls[0][0];
@@ -614,12 +608,14 @@ describe('VisualEditorShell — iframe callbacks', () => {
     expect(pasteSpy).toHaveBeenCalled();
   });
 
-  it('onRequestImagePicker — opens the ImagePickerModal with the target', () => {
+  it('onRequestImagePicker — opens the ImagePickerModal with the target', async () => {
     const props = baseProps();
     const { queryByTestId, getByTestId } = render(<VisualEditorShell {...props} />);
     expect(queryByTestId('image-picker')).toBeNull();
     act(() => { lastParentArgs.current.onRequestImagePicker('a', 'imageUrl', 'http://x'); });
-    expect(getByTestId('image-picker')).toBeTruthy();
+    // ImagePickerModal is lazy-loaded via next/dynamic — wait for the chunk
+    // (the mocked module) to resolve before asserting.
+    await waitFor(() => expect(getByTestId('image-picker')).toBeTruthy());
     expect(lastImagePickerProps.current.target).toEqual({ blockId: 'a', field: 'imageUrl', currentValue: 'http://x' });
   });
 });
@@ -628,10 +624,14 @@ describe('VisualEditorShell — iframe callbacks', () => {
 // 5. Iframe → parent effects (selection, blocks update, custom code, undo/redo)
 // ---------------------------------------------------------------------------
 describe('VisualEditorShell — outgoing iframe messages', () => {
-  it('forwards blocks/selection on mount via sendBlocksUpdate + sendSelectBlock', () => {
+  it('forwards blocks/selection on mount via sendBlocksUpdate + sendSelectBlock', async () => {
     const props = baseProps();
     render(<VisualEditorShell {...props} selectedBlockId="a" />);
-    expect(sendBlocksUpdateSpy).toHaveBeenCalledWith(props.blocks, { coalesce: false });
+    // sendBlocksUpdate is now debounced (~1 animation frame) to coalesce
+    // keystroke bursts — wait for the timer to flush.
+    await waitFor(() =>
+      expect(sendBlocksUpdateSpy).toHaveBeenCalledWith(props.blocks, { coalesce: false }),
+    );
     expect(sendSelectBlockSpy).toHaveBeenCalledWith('a', []);
   });
 
@@ -752,7 +752,7 @@ describe('VisualEditorShell — modals', () => {
 
   it('ImagePickerModal — selecting a URL on an html-render flat field writes into values', () => {
     const props = baseProps();
-    props.blocks = [{ id: 'h', type: 'html-render', order: 0, values: { hero: 'old.png' } } as any];
+    props.blocks = [block('h', 'html-render', { values: { hero: 'old.png' } })];
     render(<VisualEditorShell {...props} />);
     act(() => { lastParentArgs.current.onRequestImagePicker('h', 'hero', 'old.png'); });
     act(() => { lastImagePickerProps.current.onSelect('new.png'); });
@@ -762,12 +762,9 @@ describe('VisualEditorShell — modals', () => {
 
   it('ImagePickerModal — dotted 3-part field updates an array entry by index', () => {
     const props = baseProps();
-    props.blocks = [{
-      id: 'h',
-      type: 'html-render',
-      order: 0,
+    props.blocks = [block('h', 'html-render', {
       values: { gallery: [{ url: 'a.png' }, { url: 'b.png' }] },
-    } as any];
+    })];
     render(<VisualEditorShell {...props} />);
     act(() => { lastParentArgs.current.onRequestImagePicker('h', 'gallery.1.url', 'b.png'); });
     act(() => { lastImagePickerProps.current.onSelect('c.png'); });
@@ -778,12 +775,9 @@ describe('VisualEditorShell — modals', () => {
 
   it('ImagePickerModal — dotted 2-part field updates a group object', () => {
     const props = baseProps();
-    props.blocks = [{
-      id: 'h',
-      type: 'html-render',
-      order: 0,
+    props.blocks = [block('h', 'html-render', {
       values: { hero: { src: 'old.png', alt: 'x' } },
-    } as any];
+    })];
     render(<VisualEditorShell {...props} />);
     act(() => { lastParentArgs.current.onRequestImagePicker('h', 'hero.src', 'old.png'); });
     act(() => { lastImagePickerProps.current.onSelect('new.png'); });
@@ -844,7 +838,7 @@ describe('VisualEditorShell — modals', () => {
       lastTemplateLibraryProps.current.onInsert([block('t1', 'text', { content: 'tpl' })]);
     });
     const next = props.onBlocksChange.mock.calls[0][0];
-    expect(next.map((b: any) => b.id)).toEqual(['a', 'b', 't1']);
+    expect(next.map((b: Record<string, unknown>) => b.id)).toEqual(['a', 'b', 't1']);
     // order field was re-numbered
     expect(next[0].order).toBe(1);
     expect(next[2].order).toBe(3);
@@ -858,7 +852,7 @@ describe('VisualEditorShell — modals', () => {
       lastTemplateLibraryProps.current.onInsert([block('t1', 'text')]);
     });
     const next = props.onBlocksChange.mock.calls[0][0];
-    expect(next.map((b: any) => b.id)).toEqual(['a', 't1', 'b']);
+    expect(next.map((b: Record<string, unknown>) => b.id)).toEqual(['a', 't1', 'b']);
   });
 });
 
@@ -930,7 +924,7 @@ describe('VisualEditorShell — misc prop forwarding', () => {
 
   it('selectedCustomManifest matches when the selected block type is a custom component', () => {
     const props = baseProps();
-    props.blocks = [{ id: 'cust', type: 'custom-one' as any, order: 0 } as any];
+    props.blocks = [block('cust', 'custom-one')];
     render(<VisualEditorShell {...props} selectedBlockId="cust" />);
     expect(lastRightProps.current.selectedCustomManifest?.type).toBe('custom-one');
   });

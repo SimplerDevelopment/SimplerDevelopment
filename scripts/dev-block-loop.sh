@@ -211,7 +211,10 @@ REMINDER: Output JSON only matching the dev-block schema. No prose, no markdown 
   # regardless of whether claude wraps its response in code fences or adds preamble.
   # The `--` separator is REQUIRED — the prompt begins with the SKILL.md frontmatter (`---\n...`)
   # which argparse otherwise treats as an unknown long-form flag.
-  ITER_OUT=$(HANDS_OFF=1 claude -p --output-format json --model "$MODEL" --dangerously-skip-permissions -- "$PROMPT" 2>&1)
+  # Strict per-iteration QA gate: the Stop hook (stop-qa-gate.sh) runs tsc + lint + unit tests
+  # and BLOCKS the iteration's stop on red, so a regression can't be committed mid-loop.
+  # (Claude force-ends after 8 consecutive blocks — see CLAUDE_CODE_STOP_HOOK_BLOCK_CAP.)
+  ITER_OUT=$(HANDS_OFF=1 SIMPLERDEV_QA_GATE_TESTS=1 SIMPLERDEV_QA_GATE_BLOCK=1 claude -p --output-format json --model "$MODEL" --dangerously-skip-permissions -- "$PROMPT" 2>&1)
   ITER_RC=$?
 
   if [ $ITER_RC -ne 0 ]; then

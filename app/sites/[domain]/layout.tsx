@@ -30,48 +30,8 @@ const SITE_CONTACT_OVERRIDES: Record<string, {
   trustBadges?: Array<{ src: string; alt: string; href?: string; width?: number; height?: number }>;
   theme?: { background?: string; text?: string; heading?: string; border?: string };
 }> = {
-  'noraanger': {
-    contactEmail: 'nora.angerlpc@gmail.com',
-    contactPhone: '610-364-5743',
-    contactAddress: ['200 North Monroe Street', 'Media, PA 19063'],
-  },
-  'crosscap-advisors': {
-    contactEmail: 'info@crosscapadvisors.com',
-    contactPhone: '215.396.5517',
-    contactAddress: ['113b Floral Vale Blvd', 'Yardley, PA 19067'],
-    // SEC RIA disclosure — previously lived in a redundant embedded site-footer
-    // block on the home page only. Surfacing it here renders it site-wide via
-    // the universal footer (and removed the duplicate footer on the home page).
-    complianceNotes: [
-      'Investment advisory services offered through Crossover Capital Brands LLC, a Registered Investment Advisor with the SEC. Testimonials from current, uncompensated clients.',
-    ],
-    // Dark navy/gold footer matching the rest of the site (the default light
-    // footer clashed with the dark brand and hid the white logo).
-    theme: {
-      background: '#0f2140',
-      text: 'rgba(255,255,255,0.58)',
-      heading: 'rgba(255,255,255,0.92)',
-      border: 'rgba(255,255,255,0.12)',
-    },
-  },
-  'cardiff-main': {
-    contactEmail: 'info@cardiff.co',
-    contactPhone: '888-234-0166',
-    contactAddress: ['322 7th Street #2562', 'Del Mar, CA 92014'],
-    legalLinks: [
-      { label: 'Privacy Policy', href: '/privacy-policy' },
-      { label: 'Legal Notices', href: '/legal-notices' },
-      { label: 'Mobile Terms', href: '/mobile-terms-and-conditions' },
-    ],
-    complianceNotes: [
-      'Cardiff is a registered trademark of Cardiff, used under license.',
-      'California Lender License 60DBO-129171',
-    ],
-    trustBadges: [
-      { src: 'https://cardiff.b-cdn.net/img/Seals/BBB-Logo.png', alt: 'BBB Accredited Business', width: 100, height: 37 },
-      { src: 'https://cardiff.b-cdn.net/img/Seals/Secured-SSL-Logo.png', alt: 'Secured by SSL', width: 100, height: 37 },
-    ],
-  },
+  // ponytail: intentionally empty — per-site contact data belongs in the
+  // branding profile, not platform source. Populate via tenant config.
 };
 
 function getSiteContactInfo(subdomain: string | null) {
@@ -270,7 +230,7 @@ export default async function ClientSiteLayout({ children, params }: LayoutProps
   // When the site is being accessed via the main app host (e.g. localhost:3000
   // or the SimplerDevelopment portal domain), Next.js serves it under
   // /sites/{domain}/... so all internal hrefs need that prefix. When the site
-  // is reached via its own host (e.g. postcaptain.simplerdevelopment.com),
+  // is reached via its own host (e.g. tenant.simplerdevelopment.com),
   // middleware rewrites internally and the public URLs are at the root.
   const requestHost = headersList.get('host') || '';
   // Strip port for comparison; domain in DB never includes a port.

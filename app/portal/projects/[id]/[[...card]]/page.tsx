@@ -4,6 +4,7 @@ import { projects, kanbanColumns, kanbanCards, kanbanCardFiles, kanbanCardLabels
 import { eq, and, inArray, isNull, sql } from 'drizzle-orm';
 import { redirect, notFound } from 'next/navigation';
 import Link from 'next/link';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
 import dynamic from 'next/dynamic';
 import ProjectFilesTab from '@/components/portal/ProjectFilesTab';
 import ProjectDescription from '@/components/portal/ProjectDescription';
@@ -305,37 +306,39 @@ export default async function ProjectKanbanPage({ params, searchParams }: { para
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
-            <Link href="/portal/projects" className="hover:text-foreground transition-colors">Projects</Link>
-            <span className="material-icons text-sm">chevron_right</span>
-            <span className="text-foreground">{project.name}</span>
-          </div>
-          <h1 className="text-2xl font-bold text-foreground">{project.name}</h1>
-          {(project.description || canEdit) && (
+      <PortalPageHeader
+        eyebrow="Projects"
+        title={project.name}
+        subtitle={
+          (project.description || canEdit) ? (
             <ProjectDescription
               projectId={projectId}
               title={project.name}
               description={project.description ?? ''}
               canEdit={canEdit}
             />
-          )}
-        </div>
-        <div className="flex items-center gap-3 shrink-0">
-          <ProjectStatusControl
-            projectId={projectId}
-            status={project.status}
-            canEdit={canEdit}
-          />
-          {project.dueDate && (
-            <span className="text-sm text-muted-foreground flex items-center gap-1">
-              <span className="material-icons text-base">event</span>
-              Due {new Date(project.dueDate).toLocaleDateString()}
-            </span>
-          )}
-        </div>
-      </div>
+          ) : undefined
+        }
+        actions={
+          <div className="flex items-center gap-3">
+            <ProjectStatusControl
+              projectId={projectId}
+              status={project.status}
+              canEdit={canEdit}
+            />
+            {project.dueDate && (
+              <span className="text-sm text-muted-foreground flex items-center gap-1">
+                <span className="material-icons text-base">event</span>
+                Due {new Date(project.dueDate).toLocaleDateString('en-US')}
+              </span>
+            )}
+            <Link href="/portal/projects" className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors">
+              <span className="material-icons text-sm">arrow_back</span>
+              Projects
+            </Link>
+          </div>
+        }
+      />
 
       {/* Tabs */}
       <div className="flex gap-1 border-b border-border">
@@ -380,7 +383,7 @@ export default async function ProjectKanbanPage({ params, searchParams }: { para
           <ProjectWebhooksPanel projectId={projectId} canEdit={canEdit} />
         </div>
       ) : columnsWithCards.length === 0 ? (
-        <div className="bg-card border border-border rounded-xl p-12 text-center">
+        <div className="bg-card border border-border rounded-2xl p-12 text-center">
           <span className="material-icons text-5xl text-muted-foreground">view_kanban</span>
           <h3 className="mt-4 font-semibold text-foreground">Board not set up yet</h3>
           <p className="mt-2 text-sm text-muted-foreground">Your team will set up the project board shortly.</p>

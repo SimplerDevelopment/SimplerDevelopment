@@ -29,6 +29,8 @@ import type {
   BrainDocumentCategory,
   DocumentListRow,
 } from '@/lib/brain/documents';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnPrimary, pBtnGhost, pInput, pSelect } from '@/components/portal/portal-ui';
 
 type StatusFilter = 'all' | BrainDocumentStatus;
 
@@ -175,36 +177,28 @@ export default function BrainDocumentsListPage() {
 
   return (
     <div className="max-w-5xl mx-auto py-6 px-4 space-y-5">
-      {/* Sticky header */}
-      <div className="sticky top-[var(--portal-header-height,3.5rem)] z-10 -mx-4 px-4 py-3 bg-background/95 backdrop-blur border-b border-border">
-        <div className="flex items-start justify-between gap-3 flex-wrap">
-          <div>
-            <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
-              <span className="material-icons text-primary">description</span>
-              Documents
-            </h1>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Versioned, required-readable SOPs &amp; policies. The canonical written answer for your team.
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Link
-              href="/portal/brain/documents/queue"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md border border-border text-foreground hover:bg-accent"
-            >
+      <PortalPageHeader
+        eyebrow="Brain"
+        title={
+          <span className="flex items-center gap-2">
+            <span className="material-icons text-primary">description</span>
+            Documents
+          </span>
+        }
+        subtitle="Versioned, required-readable SOPs &amp; policies. The canonical written answer for your team."
+        actions={
+          <>
+            <Link href="/portal/brain/documents/queue" className={pBtnGhost}>
               <span className="material-icons text-base">assignment_late</span>
               My reading queue
             </Link>
-            <Link
-              href="/portal/brain/documents/new"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90"
-            >
+            <Link href="/portal/brain/documents/new" className={pBtnPrimary}>
               <span className="material-icons text-base">add</span>
               New document
             </Link>
-          </div>
-        </div>
-      </div>
+          </>
+        }
+      />
 
       {/* Filters */}
       <div className="grid sm:grid-cols-4 gap-3 items-end">
@@ -236,7 +230,7 @@ export default function BrainDocumentsListPage() {
             id="doc-cat-f"
             value={categoryParam}
             onChange={(e) => updateParams({ category: e.target.value || null, page: null })}
-            className="w-full px-2 py-1.5 bg-background border border-border rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-primary/50"
+            className={pSelect}
           >
             <option value="">All categories</option>
             {CATEGORIES.map((c) => <option key={c} value={c}>{CATEGORY_LABEL[c]}</option>)}
@@ -251,7 +245,7 @@ export default function BrainDocumentsListPage() {
             id="doc-owner-f"
             value={ownerParam}
             onChange={(e) => updateParams({ ownerId: e.target.value || null, page: null })}
-            className="w-full px-2 py-1.5 bg-background border border-border rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-primary/50"
+            className={pSelect}
           >
             <option value="">All owners</option>
             {users.map((u) => <option key={u.id} value={u.id}>{u.name ?? `User #${u.id}`}</option>)}
@@ -270,7 +264,7 @@ export default function BrainDocumentsListPage() {
               value={searchDraft}
               onChange={(e) => handleSearchChange(e.target.value)}
               placeholder="Search title or body…"
-              className="w-full pl-8 pr-2 py-1.5 bg-background border border-border rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-primary/50"
+              className={`${pInput} pl-8`}
             />
           </div>
         </div>
@@ -308,17 +302,11 @@ export default function BrainDocumentsListPage() {
               : 'Promote a note into your first SOP, or write one from scratch.'}
           </p>
           <div className="flex items-center justify-center gap-2 flex-wrap">
-            <Link
-              href="/portal/brain/documents/new"
-              className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90"
-            >
+            <Link href="/portal/brain/documents/new" className={pBtnPrimary}>
               <span className="material-icons text-base">add</span>
               New document
             </Link>
-            <Link
-              href="/portal/brain/documents/new?source=note"
-              className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-md border border-border text-foreground hover:bg-accent"
-            >
+            <Link href="/portal/brain/documents/new?source=note" className={pBtnGhost}>
               <span className="material-icons text-base">file_upload</span>
               Promote from note
             </Link>

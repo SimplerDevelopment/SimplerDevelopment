@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { resolveClientSite } from '@/lib/portal-client';
+import { resolveStoreSite } from '@/lib/portal-auth';
 import { resolveProvider, CarrierProviderError } from '@/lib/shipping/providers';
 import type { Address } from '@/lib/shipping/providers';
 
@@ -23,7 +23,10 @@ export async function POST(
   }
 
   const { siteId } = await params;
-  const site = await resolveClientSite(parseInt(session.user.id, 10), parseInt(siteId));
+  // resolveStoreSite (not resolveClientSite): this fires real, metered EasyPost
+  // API calls, so it must require an active 'store' subscription — tenant
+  // ownership alone let an unsubscribed client burn the tenant's EasyPost quota.
+  const site = await resolveStoreSite(parseInt(session.user.id, 10), parseInt(siteId));
   if (!site) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
 
   const resolved = await resolveProvider(site.id);

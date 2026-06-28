@@ -7,19 +7,13 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // ---- mocks ----------------------------------------------------------------
 
-const messagesCreateMock = vi.fn();
-const anthropicCtorSpy = vi.fn();
+const completeMock = vi.fn();
 
-vi.mock('@anthropic-ai/sdk', () => {
-  class Anthropic {
-    public messages: { create: typeof messagesCreateMock };
-    constructor(opts: { apiKey: string }) {
-      anthropicCtorSpy(opts);
-      this.messages = { create: messagesCreateMock };
-    }
-  }
-  return { default: Anthropic };
-});
+vi.mock('@/lib/ai/llm', () => ({
+  complete: (...args: unknown[]) => completeMock(...args),
+  completeObject: vi.fn(),
+  streamComplete: vi.fn(),
+}));
 
 const assertSafeUrlMock = vi.fn(async (_url: string) => undefined);
 vi.mock('@/lib/ssrf-guard', () => ({
@@ -72,14 +66,10 @@ function makeMockFetchResponse(init: MockFetchInit = {}): Response {
   } as unknown as Response;
 }
 
-function defaultAnthropicResponse(text = 'A concise description of the file.') {
+function defaultSeamResponse(text = 'A concise description of the file.') {
   return {
-    content: [
-      { type: 'text', text },
-      // a non-text block to exercise the type-guard filter
-      { type: 'tool_use', id: 't1', name: 'noop', input: {} },
-    ],
-    usage: { input_tokens: 12, output_tokens: 34 },
+    text,
+    usage: { inputTokens: 12, outputTokens: 34, totalTokens: 46 },
   };
 }
 
@@ -93,8 +83,7 @@ beforeEach(() => {
   process.env.BRAIN_ATTACHMENT_WORKER_URL = 'https://worker.example.com';
   process.env.ANTHROPIC_API_KEY = 'sk-platform';
 
-  messagesCreateMock.mockReset();
-  anthropicCtorSpy.mockReset();
+  completeMock.mockReset();
   assertSafeUrlMock.mockReset().mockResolvedValue(undefined);
   resolveClientApiKeyMock.mockReset();
   recordAiUsageMock.mockReset().mockResolvedValue(undefined);
@@ -121,7 +110,7 @@ describe('analyzeAttachment — unsupported / oversize short-circuits', () => {
     expect(out!.analysis).toMatch(/skipped/);
     expect(out!.analysis).toMatch(/6\.0 MB/);
     expect(fetchSpy).not.toHaveBeenCalled();
-    expect(messagesCreateMock).not.toHaveBeenCalled();
+    expect(completeMock).not.toHaveBeenCalled();
   });
 
   it('returns null for unsupported content-types (e.g. video/mp4)', async () => {
@@ -148,12 +137,12 @@ describe('analyzeAttachment — unsupported / oversize short-circuits', () => {
 });
 
 describe('analyzeAttachment — image branch', () => {
-  it('sends an image block to Anthropic and returns the analysis + tokens', async () => {
+  it('sends an image file part via the seam and returns the analysis + tokens', async () => {
     const imgBytes = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
     const fetchSpy = vi
       .spyOn(globalThis, 'fetch')
       .mockResolvedValue(makeMockFetchResponse({ body: imgBytes }));
-    messagesCreateMock.mockResolvedValue(defaultAnthropicResponse('A red square.'));
+    completeMock.mockResolvedValue(defaultSeamResponse('A red square.'));
 
     const out = await analyzeAttachment({
       key: 'r2/abc',
@@ -177,44 +166,39 @@ describe('analyzeAttachment — image branch', () => {
     // Fetch must not follow redirects
     expect(fetchSpy.mock.calls[0][1]).toMatchObject({ redirect: 'manual' });
 
-    // Anthropic shaped correctly for image input
-    expect(messagesCreateMock).toHaveBeenCalledTimes(1);
-    const req = messagesCreateMock.mock.calls[0][0];
-    expect(req.model).toBe('claude-haiku-4-5-20251001');
-    expect(req.max_tokens).toBe(400);
-    expect(req.system).toMatch(/dense paragraph/);
-    expect(req.messages).toHaveLength(1);
-    const content = req.messages[0].content;
+    // Seam was called with the right task + system + file messages
+    expect(completeMock).toHaveBeenCalledTimes(1);
+    const seam = completeMock.mock.calls[0][0] as {
+      task: string;
+      system: string;
+      messages: Array<{ role: string; content: unknown[] }>;
+      maxTokens: number;
+    };
+    expect(seam.task).toBe('analyzeAttachment');
+    expect(seam.maxTokens).toBe(400);
+    expect(seam.system).toMatch(/dense paragraph/);
+    expect(seam.messages).toHaveLength(1);
+    const content = seam.messages[0].content as Array<Record<string, unknown>>;
     expect(Array.isArray(content)).toBe(true);
     expect(content[0]).toMatchObject({ type: 'text' });
-    expect(content[0].text).toContain('red.png');
-    expect(content[0].text).toContain('image/png');
+    expect(String(content[0].text)).toContain('red.png');
+    expect(String(content[0].text)).toContain('image/png');
+    // AI SDK file part for images — type: 'file', mediaType, data (base64)
     expect(content[1]).toMatchObject({
-      type: 'image',
-      source: {
-        type: 'base64',
-        media_type: 'image/png',
-        data: imgBytes.toString('base64'),
-      },
+      type: 'file',
+      mediaType: 'image/png',
+      data: imgBytes.toString('base64'),
     });
-
-    // Platform key was used (no clientId)
-    expect(resolveClientApiKeyMock).not.toHaveBeenCalled();
-    expect(anthropicCtorSpy).toHaveBeenCalledWith({ apiKey: 'sk-platform' });
 
     // No audit row when clientId is absent
     expect(recordAiUsageMock).not.toHaveBeenCalled();
   });
 
-  it('uses BYOK key + records audit when clientId is supplied', async () => {
+  it('records audit when clientId is supplied', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       makeMockFetchResponse({ body: Buffer.from('jpg-bytes') }),
     );
-    resolveClientApiKeyMock.mockResolvedValue({
-      key: 'sk-byok',
-      source: 'byok',
-    });
-    messagesCreateMock.mockResolvedValue(defaultAnthropicResponse('JPEG description.'));
+    completeMock.mockResolvedValue(defaultSeamResponse('JPEG description.'));
 
     const out = await analyzeAttachment(
       {
@@ -227,26 +211,22 @@ describe('analyzeAttachment — image branch', () => {
     );
 
     expect(out).toEqual({ analysis: 'JPEG description.', tokensUsed: 46 });
-    expect(resolveClientApiKeyMock).toHaveBeenCalledWith({
-      clientId: 42,
-      provider: 'anthropic',
-    });
-    expect(anthropicCtorSpy).toHaveBeenCalledWith({ apiKey: 'sk-byok' });
+    // Source hardcodes source: 'platform' in recordAiUsage (seam owns key routing)
     expect(recordAiUsageMock).toHaveBeenCalledWith({
       clientId: 42,
-      source: 'byok',
+      source: 'platform',
       tokens: 46,
     });
   });
 });
 
 describe('analyzeAttachment — PDF branch', () => {
-  it('sends a document block with application/pdf media_type', async () => {
+  it('sends a PDF file part via the seam', async () => {
     const pdfBytes = Buffer.from('%PDF-1.4 hello');
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       makeMockFetchResponse({ body: pdfBytes }),
     );
-    messagesCreateMock.mockResolvedValue(defaultAnthropicResponse('It is a PDF.'));
+    completeMock.mockResolvedValue(defaultSeamResponse('It is a PDF.'));
 
     const out = await analyzeAttachment({
       key: 'k',
@@ -256,16 +236,18 @@ describe('analyzeAttachment — PDF branch', () => {
     });
 
     expect(out).toEqual({ analysis: 'It is a PDF.', tokensUsed: 46 });
-    const req = messagesCreateMock.mock.calls[0][0];
-    const content = req.messages[0].content;
+    const seam = completeMock.mock.calls[0][0] as {
+      task: string;
+      messages: Array<{ role: string; content: Array<Record<string, unknown>> }>;
+    };
+    expect(seam.task).toBe('analyzeAttachment');
+    const content = seam.messages[0].content;
     expect(content[0]).toMatchObject({ type: 'text' });
+    // AI SDK file part for PDF — type: 'file', mediaType: 'application/pdf'
     expect(content[1]).toMatchObject({
-      type: 'document',
-      source: {
-        type: 'base64',
-        media_type: 'application/pdf',
-        data: pdfBytes.toString('base64'),
-      },
+      type: 'file',
+      mediaType: 'application/pdf',
+      data: pdfBytes.toString('base64'),
     });
   });
 });
@@ -276,7 +258,7 @@ describe('analyzeAttachment — text branch', () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       makeMockFetchResponse({ body: txt }),
     );
-    messagesCreateMock.mockResolvedValue(defaultAnthropicResponse('Two-line text.'));
+    completeMock.mockResolvedValue(defaultSeamResponse('Two-line text.'));
 
     const out = await analyzeAttachment({
       key: 'k',
@@ -286,11 +268,11 @@ describe('analyzeAttachment — text branch', () => {
     });
 
     expect(out).toEqual({ analysis: 'Two-line text.', tokensUsed: 46 });
-    const req = messagesCreateMock.mock.calls[0][0];
-    expect(typeof req.messages[0].content).toBe('string');
-    expect(req.messages[0].content).toContain('notes.txt');
-    expect(req.messages[0].content).toContain('--- file content ---');
-    expect(req.messages[0].content).toContain('Line one');
+    // Text branch uses prompt (string), not messages.
+    const seam = completeMock.mock.calls[0][0] as { prompt: string };
+    expect(seam.prompt).toContain('notes.txt');
+    expect(seam.prompt).toContain('--- file content ---');
+    expect(seam.prompt).toContain('Line one');
   });
 
   it('handles application/json as text', async () => {
@@ -298,7 +280,7 @@ describe('analyzeAttachment — text branch', () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       makeMockFetchResponse({ body }),
     );
-    messagesCreateMock.mockResolvedValue(defaultAnthropicResponse('Some JSON.'));
+    completeMock.mockResolvedValue(defaultSeamResponse('Some JSON.'));
 
     const out = await analyzeAttachment({
       key: 'k',
@@ -308,8 +290,8 @@ describe('analyzeAttachment — text branch', () => {
     });
 
     expect(out).not.toBeNull();
-    const req = messagesCreateMock.mock.calls[0][0];
-    expect(req.messages[0].content).toContain('"hello":"world"');
+    const seam = completeMock.mock.calls[0][0] as { prompt: string };
+    expect(seam.prompt).toContain('"hello":"world"');
   });
 
   it('truncates very long text to 50,000 chars', async () => {
@@ -317,7 +299,7 @@ describe('analyzeAttachment — text branch', () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       makeMockFetchResponse({ body: huge }),
     );
-    messagesCreateMock.mockResolvedValue(defaultAnthropicResponse('Long file.'));
+    completeMock.mockResolvedValue(defaultSeamResponse('Long file.'));
 
     await analyzeAttachment({
       key: 'k',
@@ -327,8 +309,8 @@ describe('analyzeAttachment — text branch', () => {
       size: 120_000,
     });
 
-    const req = messagesCreateMock.mock.calls[0][0];
-    const content = req.messages[0].content as string;
+    const seam = completeMock.mock.calls[0][0] as { prompt: string };
+    const content = seam.prompt;
     // The header + separator + 50k chars. Should be < 120k.
     expect(content.length).toBeLessThan(60_000);
     expect(content).toContain('a'.repeat(50));
@@ -337,13 +319,14 @@ describe('analyzeAttachment — text branch', () => {
 });
 
 describe('analyzeAttachment — error paths', () => {
-  it('returns the fallback string when Anthropic returns no text blocks', async () => {
+  it('returns the fallback string when the seam returns empty text', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       makeMockFetchResponse({ body: 'x' }),
     );
-    messagesCreateMock.mockResolvedValue({
-      content: [{ type: 'tool_use', id: 't', name: 'x', input: {} }],
-      usage: { input_tokens: 1, output_tokens: 0 },
+    // Seam returns empty text (e.g. model returned no usable content).
+    completeMock.mockResolvedValue({
+      text: '',
+      usage: { inputTokens: 1, outputTokens: 0, totalTokens: 1 },
     });
 
     const out = await analyzeAttachment({
@@ -361,9 +344,9 @@ describe('analyzeAttachment — error paths', () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       makeMockFetchResponse({ body: 'x' }),
     );
-    messagesCreateMock.mockResolvedValue({
-      content: [{ type: 'text', text: 'ok' }],
-      usage: {},
+    completeMock.mockResolvedValue({
+      text: 'ok',
+      usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
     });
 
     const out = await analyzeAttachment({
@@ -376,11 +359,11 @@ describe('analyzeAttachment — error paths', () => {
     expect(out).toEqual({ analysis: 'ok', tokensUsed: 0 });
   });
 
-  it('throws when ANTHROPIC_API_KEY is unset and no clientId provided', async () => {
-    delete process.env.ANTHROPIC_API_KEY;
+  it('throws when seam rejects (simulates model/key error)', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       makeMockFetchResponse({ body: 'x' }),
     );
+    completeMock.mockRejectedValue(new Error('API key not configured'));
     await expect(
       analyzeAttachment({
         key: 'k',
@@ -388,7 +371,7 @@ describe('analyzeAttachment — error paths', () => {
         contentType: 'text/plain',
         size: 1,
       }),
-    ).rejects.toThrow(/ANTHROPIC_API_KEY is not set/);
+    ).rejects.toThrow(/API key not configured/);
   });
 
   it('throws when worker returns non-OK status', async () => {
@@ -440,7 +423,7 @@ describe('analyzeAttachment — error paths', () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       makeMockFetchResponse({ body: 'x' }),
     );
-    messagesCreateMock.mockResolvedValue(defaultAnthropicResponse('ok'));
+    completeMock.mockResolvedValue(defaultSeamResponse('ok'));
     const out = await analyzeAttachment({
       key: 'k',
       filename: 'a.txt',
@@ -468,14 +451,14 @@ describe('analyzeMeetingAttachments', () => {
     expect(attachments[0].analysis).toBe('already done');
     expect(totalTokens).toBe(0);
     expect(fetchSpy).not.toHaveBeenCalled();
-    expect(messagesCreateMock).not.toHaveBeenCalled();
+    expect(completeMock).not.toHaveBeenCalled();
   });
 
   it('re-runs analysis for transient failure markers', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       makeMockFetchResponse({ body: 'x' }),
     );
-    messagesCreateMock.mockResolvedValue(defaultAnthropicResponse('Re-analyzed text.'));
+    completeMock.mockResolvedValue(defaultSeamResponse('Re-analyzed text.'));
 
     const { attachments, totalTokens } = await analyzeMeetingAttachments([
       {
@@ -495,7 +478,7 @@ describe('analyzeMeetingAttachments', () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       makeMockFetchResponse({ body: 'x' }),
     );
-    messagesCreateMock.mockResolvedValue(defaultAnthropicResponse('Fresh analysis.'));
+    completeMock.mockResolvedValue(defaultSeamResponse('Fresh analysis.'));
 
     const { attachments, totalTokens } = await analyzeMeetingAttachments(
       [
@@ -533,7 +516,7 @@ describe('analyzeMeetingAttachments', () => {
       .mockResolvedValueOnce(makeMockFetchResponse({ body: 'x' }))
       // Second call rejects to simulate worker outage.
       .mockRejectedValueOnce(new Error('network exploded'));
-    messagesCreateMock.mockResolvedValue(defaultAnthropicResponse('Good one.'));
+    completeMock.mockResolvedValue(defaultSeamResponse('Good one.'));
 
     const { attachments, totalTokens } = await analyzeMeetingAttachments([
       {
@@ -596,15 +579,11 @@ describe('analyzeMeetingAttachments', () => {
     expect(attachments[0].analysis).toBe('[analysis failed: kaboom]');
   });
 
-  it('passes clientId through to analyzeAttachment for BYOK routing', async () => {
+  it('passes clientId through to analyzeAttachment and records audit', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       makeMockFetchResponse({ body: 'x' }),
     );
-    resolveClientApiKeyMock.mockResolvedValue({
-      key: 'sk-tenant',
-      source: 'platform',
-    });
-    messagesCreateMock.mockResolvedValue(defaultAnthropicResponse('Ok.'));
+    completeMock.mockResolvedValue(defaultSeamResponse('Ok.'));
 
     await analyzeMeetingAttachments(
       [
@@ -618,10 +597,6 @@ describe('analyzeMeetingAttachments', () => {
       { clientId: 7 },
     );
 
-    expect(resolveClientApiKeyMock).toHaveBeenCalledWith({
-      clientId: 7,
-      provider: 'anthropic',
-    });
     expect(recordAiUsageMock).toHaveBeenCalledWith({
       clientId: 7,
       source: 'platform',
@@ -658,7 +633,7 @@ describe('analyzeMeetingAttachments', () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       makeMockFetchResponse({ body: 'x' }),
     );
-    messagesCreateMock.mockResolvedValue(defaultAnthropicResponse('Done.'));
+    completeMock.mockResolvedValue(defaultSeamResponse('Done.'));
 
     const { attachments } = await analyzeMeetingAttachments([
       {

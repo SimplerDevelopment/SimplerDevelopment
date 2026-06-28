@@ -275,6 +275,9 @@ export const crmContracts = pgTable('crm_contracts', {
   esignSentAt: timestamp('esign_sent_at'),
   esignSignedAt: timestamp('esign_signed_at'),
   esignDeclinedAt: timestamp('esign_declined_at'),
+  // Signature-reminder tracking (process-contract-signature-reminders cron).
+  esignLastReminderAt: timestamp('esign_last_reminder_at'),
+  esignReminderCount: integer('esign_reminder_count').default(0).notNull(),
   esignAuditFileUrl: text('esign_audit_file_url'), // link to the signed PDF / audit trail
   esignWebhookEvents: json('esign_webhook_events').$type<ContractEsignWebhookEvent[]>().default([]),
   createdAt: timestamp('created_at').defaultNow().notNull(),
@@ -468,7 +471,7 @@ export const crmEnrichmentConfig = pgTable('crm_enrichment_config', {
   clientId: integer('client_id').primaryKey().references(() => clients.id, { onDelete: 'cascade' }),
   enabled: boolean('enabled').default(false).notNull(),
   keySource: varchar('key_source', { length: 20 }).default('platform').notNull(), // 'platform' | 'own'
-  ownApiKey: varchar('own_api_key', { length: 500 }), // TODO: encrypt before storing in production
+  ownApiKey: varchar('own_api_key', { length: 500 }), // NOTE: currently unused. Encrypt with lib/crypto/secrets.ts before wiring any read/write.
   platformCreditBalance: integer('platform_credit_balance').default(0).notNull(),
   costPerEnrichment: integer('cost_per_enrichment').default(1).notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
@@ -485,6 +488,87 @@ export const crmEnrichmentLog = pgTable('crm_enrichment_log', {
   cost: integer('cost').default(0).notNull(), // credits consumed (0 for free scrape)
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
+
+// ─── CRM EMAIL THREADS ──────────────────────────────────────────────────────
+// Unified per-contact/per-deal email thread (inbound Gmail + outbound Resend),
+// stitched by threadKey. Inbound rows are upserted by the Gmail ingest path
+// (lib/brain/ingest-gmail-message.ts) on a contact-email match; outbound rows
+// by the send-email route. See [[Spec - CRM Email Sync + Sequences]] Phase 1.
+export const crmEmailMessages = pgTable('crm_email_messages', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  contactId: integer('contact_id').notNull().references(() => crmContacts.id, { onDelete: 'cascade' }),
+  dealId: integer('deal_id').references(() => crmDeals.id, { onDelete: 'set null' }),
+  direction: varchar('direction', { length: 10 }).notNull(), // 'inbound' | 'outbound'
+  // Gmail message id (inbound) or Resend id (outbound) — idempotency key.
+  providerMessageId: varchar('provider_message_id', { length: 255 }),
+  // Gmail threadId (inbound) or root Message-ID — groups a conversation.
+  threadKey: varchar('thread_key', { length: 255 }),
+  fromEmail: varchar('from_email', { length: 320 }),
+  toEmail: varchar('to_email', { length: 320 }),
+  subject: varchar('subject', { length: 500 }),
+  snippet: text('snippet'),
+  sentAt: timestamp('sent_at').defaultNow().notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => ({
+  // Idempotent ingest: one row per (client, provider message).
+  providerMsgUnique: uniqueIndex('crm_email_messages_client_provider_idx').on(t.clientId, t.providerMessageId),
+  contactIdx: index('crm_email_messages_contact_idx').on(t.contactId, t.sentAt),
+}));
+
+// ─── CRM EMAIL SEQUENCES / CADENCES ─────────────────────────────────────────
+// Multi-step delay-scheduled outbound email series. Mirrors the survey email-
+// sequence tables. A contact is enrolled in a sequence; process-crm-sequences
+// cron advances enrollments step by step. See [[Spec - CRM Email Sync + Sequences]] Phase 2.
+export const crmSequences = pgTable('crm_sequences', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  name: varchar('name', { length: 255 }).notNull(),
+  enabled: boolean('enabled').default(true).notNull(),
+  createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export const crmSequenceSteps = pgTable('crm_sequence_steps', {
+  id: serial('id').primaryKey(),
+  sequenceId: integer('sequence_id').notNull().references(() => crmSequences.id, { onDelete: 'cascade' }),
+  stepOrder: integer('step_order').notNull(),
+  delayHours: integer('delay_hours').notNull().default(0), // delay since enroll / previous send
+  subject: varchar('subject', { length: 500 }).notNull(),
+  bodyHtml: text('body_html').notNull(),
+  enabled: boolean('enabled').default(true).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => ({
+  seqOrderIdx: index('crm_sequence_steps_seq_order_idx').on(t.sequenceId, t.stepOrder),
+}));
+
+export const crmSequenceEnrollments = pgTable('crm_sequence_enrollments', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  sequenceId: integer('sequence_id').notNull().references(() => crmSequences.id, { onDelete: 'cascade' }),
+  contactId: integer('contact_id').notNull().references(() => crmContacts.id, { onDelete: 'cascade' }),
+  status: varchar('status', { length: 20 }).default('active').notNull(), // active | completed | halted | unsubscribed
+  currentStep: integer('current_step').default(0).notNull(), // 0-based index into ordered steps
+  enrolledAt: timestamp('enrolled_at').defaultNow().notNull(),
+  lastSentAt: timestamp('last_sent_at'),
+  haltedReason: varchar('halted_reason', { length: 50 }),
+}, (t) => ({
+  // One active-or-historical enrollment per contact per sequence.
+  enrollUnique: uniqueIndex('crm_sequence_enrollments_seq_contact_idx').on(t.sequenceId, t.contactId),
+}));
+
+export const crmSequenceSends = pgTable('crm_sequence_sends', {
+  id: serial('id').primaryKey(),
+  enrollmentId: integer('enrollment_id').notNull().references(() => crmSequenceEnrollments.id, { onDelete: 'cascade' }),
+  stepId: integer('step_id').notNull().references(() => crmSequenceSteps.id, { onDelete: 'cascade' }),
+  sentAt: timestamp('sent_at').defaultNow().notNull(),
+  resendEmailId: varchar('resend_email_id', { length: 255 }),
+  error: text('error'),
+}, (t) => ({
+  // Idempotency guard — mirrors survey_email_sequence_sends.
+  sendUnique: uniqueIndex('crm_sequence_sends_enrollment_step_idx').on(t.enrollmentId, t.stepId),
+}));
 
 // ─── COMPANY BRAIN ────────────────────────────────────────────────────────────
 // Per-client business intelligence layer. Phase 0 ships the profile/config row

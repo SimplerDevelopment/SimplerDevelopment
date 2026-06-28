@@ -28,6 +28,17 @@ vi.mock('@/lib/portal-client', () => ({
   getPortalRole: (...args: unknown[]) => getPortalRoleMock(...args),
 }));
 
+const authorizePortalMock = vi.fn();
+const isAuthErrorMock = vi.fn((result: unknown) => 'response' in (result as object));
+vi.mock('@/lib/portal-auth', () => ({
+  authorizePortal: (...args: unknown[]) => authorizePortalMock(...args),
+  isAuthError: (result: unknown) => isAuthErrorMock(result),
+}));
+
+vi.mock('@/lib/mcp-auth', () => ({
+  resolvePortalFromCurrentRequest: async () => null,
+}));
+
 const hashMock = vi.fn(async (pw: string) => `HASHED(${pw})`);
 vi.mock('bcryptjs', () => ({
   hash: (...args: unknown[]) => hashMock(...(args as [string, number])),
@@ -278,6 +289,7 @@ beforeEach(() => {
   authMock.mockReset();
   getPortalClientMock.mockReset();
   getPortalRoleMock.mockReset();
+  authorizePortalMock.mockReset();
   hashMock.mockClear();
   hashTokenMock.mockClear();
   revalidatePathMock.mockClear();
@@ -355,7 +367,9 @@ describe('POST /api/portal/invite/accept', () => {
 
 describe('POST /api/portal/approvals/[id]/approve', () => {
   it('returns 401 without a session', async () => {
-    authMock.mockResolvedValue(null);
+    authorizePortalMock.mockResolvedValue({
+      response: new Response(JSON.stringify({ success: false, message: 'Unauthorized' }), { status: 401 }),
+    });
     const res = await approvalsApproveRoute.POST(
       makeReq('http://x', { method: 'POST', body: '{}' }),
       paramsFor('1'),
@@ -364,8 +378,9 @@ describe('POST /api/portal/approvals/[id]/approve', () => {
   });
 
   it('returns 404 when portal client missing', async () => {
-    authMock.mockResolvedValue(SESSION);
-    getPortalClientMock.mockResolvedValue(null);
+    authorizePortalMock.mockResolvedValue({
+      response: new Response(JSON.stringify({ success: false, message: 'Client not found' }), { status: 404 }),
+    });
     const res = await approvalsApproveRoute.POST(
       makeReq('http://x', { method: 'POST', body: '{}' }),
       paramsFor('1'),
@@ -374,22 +389,23 @@ describe('POST /api/portal/approvals/[id]/approve', () => {
   });
 
   it('returns 403 when role is member (not owner/admin)', async () => {
-    authMock.mockResolvedValue(SESSION);
-    getPortalClientMock.mockResolvedValue({ id: 33 });
-    getPortalRoleMock.mockResolvedValue('member');
+    authorizePortalMock.mockResolvedValue({
+      response: new Response(
+        JSON.stringify({ success: false, message: 'Permission denied. Your role (member) cannot manage team or billing settings.' }),
+        { status: 403 },
+      ),
+    });
     const res = await approvalsApproveRoute.POST(
       makeReq('http://x', { method: 'POST', body: '{}' }),
       paramsFor('1'),
     );
     expect(res.status).toBe(403);
     const body = await res.json();
-    expect(body.message).toMatch(/owners and admins/);
+    expect(body.message).toMatch(/Permission denied|manage team or billing/i);
   });
 
   it('returns 404 when change not found for client', async () => {
-    authMock.mockResolvedValue(SESSION);
-    getPortalClientMock.mockResolvedValue({ id: 33 });
-    getPortalRoleMock.mockResolvedValue('owner');
+    authorizePortalMock.mockResolvedValue({ client: { id: 33 }, userId: 7, role: 'owner' });
     selectQueue.push([]); // change lookup empty
     const res = await approvalsApproveRoute.POST(
       makeReq('http://x', { method: 'POST', body: '{}' }),
@@ -399,9 +415,7 @@ describe('POST /api/portal/approvals/[id]/approve', () => {
   });
 
   it('returns 400 when change is not pending', async () => {
-    authMock.mockResolvedValue(SESSION);
-    getPortalClientMock.mockResolvedValue({ id: 33 });
-    getPortalRoleMock.mockResolvedValue('admin');
+    authorizePortalMock.mockResolvedValue({ client: { id: 33 }, userId: 7, role: 'admin' });
     selectQueue.push([{ id: 5, status: 'applied', clientId: 33 }]);
     const res = await approvalsApproveRoute.POST(
       makeReq('http://x', { method: 'POST', body: '{}' }),
@@ -413,9 +427,7 @@ describe('POST /api/portal/approvals/[id]/approve', () => {
   });
 
   it('approves a pending change, applies it, and returns success with note', async () => {
-    authMock.mockResolvedValue(SESSION);
-    getPortalClientMock.mockResolvedValue({ id: 33 });
-    getPortalRoleMock.mockResolvedValue('owner');
+    authorizePortalMock.mockResolvedValue({ client: { id: 33 }, userId: 7, role: 'owner' });
     selectQueue.push([{ id: 5, status: 'pending', clientId: 33 }]);
     applyPendingChangeMock.mockResolvedValue({ ok: true, ref: 'thing-1' });
     updateReturnQueue.push([{ id: 5, status: 'applied', reviewNote: 'lgtm' }]);
@@ -442,9 +454,7 @@ describe('POST /api/portal/approvals/[id]/approve', () => {
   });
 
   it('marks the change as failed and returns 500 when applyPendingChange throws', async () => {
-    authMock.mockResolvedValue(SESSION);
-    getPortalClientMock.mockResolvedValue({ id: 33 });
-    getPortalRoleMock.mockResolvedValue('admin');
+    authorizePortalMock.mockResolvedValue({ client: { id: 33 }, userId: 7, role: 'admin' });
     selectQueue.push([{ id: 5, status: 'pending', clientId: 33 }]);
     applyPendingChangeMock.mockRejectedValue(new Error('database down'));
     const res = await approvalsApproveRoute.POST(
@@ -465,9 +475,7 @@ describe('POST /api/portal/approvals/[id]/approve', () => {
   });
 
   it('coerces non-string note to null', async () => {
-    authMock.mockResolvedValue(SESSION);
-    getPortalClientMock.mockResolvedValue({ id: 33 });
-    getPortalRoleMock.mockResolvedValue('owner');
+    authorizePortalMock.mockResolvedValue({ client: { id: 33 }, userId: 7, role: 'owner' });
     selectQueue.push([{ id: 5, status: 'pending', clientId: 33 }]);
     applyPendingChangeMock.mockResolvedValue({ ok: true });
     updateReturnQueue.push([{ id: 5, status: 'applied' }]);
@@ -483,9 +491,7 @@ describe('POST /api/portal/approvals/[id]/approve', () => {
   });
 
   it('handles invalid JSON body by defaulting note to null', async () => {
-    authMock.mockResolvedValue(SESSION);
-    getPortalClientMock.mockResolvedValue({ id: 33 });
-    getPortalRoleMock.mockResolvedValue('owner');
+    authorizePortalMock.mockResolvedValue({ client: { id: 33 }, userId: 7, role: 'owner' });
     selectQueue.push([{ id: 5, status: 'pending', clientId: 33 }]);
     applyPendingChangeMock.mockResolvedValue({ ok: true });
     updateReturnQueue.push([{ id: 5, status: 'applied' }]);

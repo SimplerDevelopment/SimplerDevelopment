@@ -34,8 +34,8 @@ export function CtaBlockRender({ block }: CtaBlockRenderProps) {
 
   // Authors can override the default gradient via the style sidebar — pass
   // backgroundColor / customCSS / padding through to the wrapping section so
-  // a cta block can render as a full-bleed branded band (matches cardiff.co's
-  // "Ready to borrow better?" pattern). Without this, every cta block on the
+  // a cta block can render as a full-bleed branded band (matches the pattern of
+  // a full-width CTA section). Without this, every cta block on the
   // site would be locked to the tiny `bg-primary/10` strip.
   const wrapperStyle: React.CSSProperties = { ...gradientStyle };
   if (style.backgroundColor) wrapperStyle.backgroundColor = style.backgroundColor;

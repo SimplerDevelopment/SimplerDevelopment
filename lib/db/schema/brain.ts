@@ -67,12 +67,17 @@ export const automationRules = pgTable('automation_rules', {
   enabled: boolean('enabled').default(true).notNull(),
   source: varchar('source', { length: 20 }).default('nlp').notNull(), // 'nlp' | 'settings' | 'manual'
   productScope: varchar('product_scope', { length: 50 }), // null = cross-product, or 'booking', 'email', 'crm', etc.
+  scopes: json('scopes').$type<string[]>().default([]).notNull(),
   // Time-based trigger config. Null = event-driven (current behavior). When
   // set, the scheduler cron drives execution and `next_run_at` is the next
   // firing time. The partial index `automation_rules_next_run_at_idx` keeps
   // the per-minute scan cheap.
   schedule: json('schedule').$type<AutomationSchedule>(),
-  nextRunAt: timestamp('next_run_at'),
+  // timestamptz so reads round-trip to the correct UTC epoch regardless of the
+  // PG session timezone — lets the scheduler's exact-match CAS work (was a
+  // `timestamp without time zone`, which mis-parsed under non-UTC sessions and
+  // caused the claim to match 0 rows so scheduled rules never fired).
+  nextRunAt: timestamp('next_run_at', { withTimezone: true }),
   executionCount: integer('execution_count').default(0).notNull(),
   lastExecutedAt: timestamp('last_executed_at'),
   createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
@@ -100,6 +105,49 @@ export const automationLogs = pgTable('automation_logs', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
+// Durable journal of emitted automation events. emitEvent() still dispatches
+// in-process for instant execution, but ALSO writes a row here and marks it
+// 'completed' once handlers finish. The process-automation-jobs cron re-runs any
+// row left 'pending' past a grace window — i.e. an event whose in-process
+// dispatch was dropped by a serverless cold-start — giving at-least-once
+// delivery with retries instead of the old fire-and-forget that silently lost
+// events. (resource was previously: in-process, no retries, 5s cap.)
+export const automationJobs = pgTable('automation_jobs', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  event: varchar('event', { length: 100 }).notNull(),
+  userId: integer('user_id').default(0).notNull(),
+  payload: json('payload').$type<Record<string, unknown>>().notNull(),
+  // 'pending' | 'completed' | 'failed' | 'dead_letter'
+  status: varchar('status', { length: 20 }).default('pending').notNull(),
+  attemptCount: integer('attempt_count').default(0).notNull(),
+  nextRetryAt: timestamp('next_retry_at', { withTimezone: true }),
+  error: text('error'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  processedAt: timestamp('processed_at'),
+}, (t) => [
+  index('automation_jobs_pending_idx').on(t.status, t.createdAt),
+]);
+
+// Append-only audit log for every MCP tool call / automation action / assistant
+// tool invocation. One row per call regardless of outcome.
+export const agentActionLog = pgTable('agent_action_log', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  userId: integer('user_id').references(() => users.id, { onDelete: 'set null' }),
+  source: varchar('source', { length: 20 }).notNull(), // 'mcp' | 'automation' | 'assistant'
+  tool: varchar('tool', { length: 100 }).notNull(),
+  scopeRequired: varchar('scope_required', { length: 50 }),
+  scopeAllowed: boolean('scope_allowed'),
+  paramsHash: text('params_hash').notNull(),
+  outcome: varchar('outcome', { length: 20 }).notNull(), // 'success' | 'denied' | 'error'
+  errorMessage: text('error_message'),
+  ruleId: integer('rule_id').references(() => automationRules.id, { onDelete: 'set null' }),
+  keyId: integer('key_id'),
+  durationMs: integer('duration_ms'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
 export interface BrainEnabledModules {
   meetings: boolean;
   tasks: boolean;
@@ -109,6 +157,13 @@ export interface BrainEnabledModules {
   automations: boolean;
   calendar: boolean;
 }
+
+// Per-client brain-agent preferences (JSON blob on the brain profile; all keys optional).
+export type AgentPreferences = {
+  preferredFormat?: 'bullets' | 'prose';
+  responseLength?: 'brief' | 'thorough';
+  frequentAreas?: string[];
+};
 
 export const brainProfiles = pgTable('brain_profiles', {
   id: serial('id').primaryKey(),
@@ -129,6 +184,7 @@ export const brainProfiles = pgTable('brain_profiles', {
     calendar: true,
   }).notNull(),
   serviceLines: json('service_lines').$type<string[]>().default([]).notNull(),
+  agentPreferences: json('agent_preferences').$type<AgentPreferences>().default({}).notNull(),
   // Per-tenant token for the inbound email gateway. Inbound mail at
   // `brain+<token>@simplerdevelopment.com` is routed to this profile. Treat
   // as a shared secret — rotate to revoke external sender access.

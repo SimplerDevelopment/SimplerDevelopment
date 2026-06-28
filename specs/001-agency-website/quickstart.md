@@ -26,7 +26,7 @@ This guide will help you set up the SimplerDevelopment.com website development e
 
 ```bash
 # Already in the repository
-cd /Users/dancoyle/simplerdevelopment2026
+cd <repo-root>
 
 # Install dependencies
 npm install
@@ -72,7 +72,7 @@ Open http://localhost:3000 in your browser.
 ### Key Directories
 
 ```
-/Users/dancoyle/simplerdevelopment2026/
+<repo-root>/
 ├── app/                    # Next.js App Router pages and API routes
 │   ├── (pages)/            # Route group for main pages
 │   │   ├── page.tsx        # Home page

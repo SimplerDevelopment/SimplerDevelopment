@@ -7,6 +7,15 @@ import * as dotenv from 'dotenv';
 // from `.env` silently beats the local URL in `.env.local`.
 dotenv.config({ path: '.env.local', override: true });
 
+// Programmatic callers (the integration-test template heal in
+// tests/helpers/test-db.ts) need a channel that CANNOT be overridden by
+// .env.local — passing plain DATABASE_URL gets clobbered by the override
+// above, which once silently redirected the heal at a developer's local DB
+// and left the test template missing schema-only columns.
+if (process.env.DRIZZLE_DATABASE_URL) {
+  process.env.DATABASE_URL = process.env.DRIZZLE_DATABASE_URL;
+}
+
 if (!process.env.DATABASE_URL) {
   throw new Error('DATABASE_URL environment variable is not set');
 }

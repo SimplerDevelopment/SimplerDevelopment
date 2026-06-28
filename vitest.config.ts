@@ -12,6 +12,17 @@ export default defineConfig({
   test: {
     globals: true,
     setupFiles: ['./tests/setup.ts'],
+    server: {
+      deps: {
+        // next-auth (v5 beta) ships ESM that imports the `next/server` exports-map
+        // subpath; vitest's default externalization can't resolve that subpath from
+        // next-auth's own node_modules, so any test that loads the real auth chain
+        // (e.g. the MCP SDK adapters) dies with "Cannot find module 'next/server'".
+        // Force-transform next-auth + @auth/core through vite, which honors the
+        // exports map. Only affects files that actually import next-auth.
+        inline: [/next-auth/, /@auth[\\/]core/],
+      },
+    },
     coverage: {
       provider: 'v8',
       reporter: ['html', 'lcov', 'text-summary', 'json', 'json-summary'],
@@ -37,11 +48,21 @@ export default defineConfig({
         'app/**/not-found.tsx',
         'app/**/error.tsx',
       ],
+      // Line-coverage floors (per tests/CI-GATES.md). Ratchet model: every floor
+      // here is at or below the CURRENT measured number (2026-06-24 unit run), so
+      // CI fails on a REGRESSION, never on the existing baseline. lib/ai + lib/billing
+      // are intentionally set below their 70% target (measured 61.1% / 27.9%) and
+      // tracked in the OSS backlog to be raised with real tests — enforcing 70%
+      // today would red-CI honest code. Functions/branches/statements stay
+      // unenforced (the documented floors are line-based).
       thresholds: {
-        lines: 0,
-        functions: 0,
-        branches: 0,
-        statements: 0,
+        lines: 60, // project floor — measured 63.7%
+        'lib/crypto/**': { lines: 90 }, // measured 100%
+        'lib/agency/**': { lines: 70 }, // measured 100%
+        'lib/esign/**': { lines: 70 }, // measured 92.9%
+        'lib/chat/**': { lines: 70 }, // measured 93.1%
+        'lib/ai/**': { lines: 60 }, // measured 61.1% — backlog: raise to 70
+        'lib/billing/**': { lines: 25 }, // measured 27.9% — small domain (333 lines), 25 floor avoids CI noise; backlog: raise to 70
       },
     },
     projects: [

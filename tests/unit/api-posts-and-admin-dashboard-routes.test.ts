@@ -163,6 +163,9 @@ vi.mock('@/lib/db', () => {
       where(_w: unknown) {
         return chain;
       },
+      groupBy(..._args: unknown[]) {
+        return chain;
+      },
       orderBy(_o: unknown) {
         return chain;
       },

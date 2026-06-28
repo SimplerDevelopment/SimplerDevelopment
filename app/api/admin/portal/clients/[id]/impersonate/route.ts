@@ -1,29 +1,31 @@
 import { NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { clients } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import {
   IMPERSONATE_COOKIE,
   IMPERSONATE_COOKIE_OPTIONS,
-  isStaffRole,
   mintImpersonationToken,
 } from '@/lib/impersonation';
+import { requireStaffSession } from '@/lib/admin/auth';
 
 /**
  * Start an impersonation session as the target client.
  *
  * POST /api/admin/portal/clients/[id]/impersonate
  *
- * Staff-only. Sets an HMAC-signed `sd_impersonate_client_id` cookie and
+ * Admin-panel staff only (role admin|employee, via requireStaffSession) — the
+ * same boundary that gates the admin UI this endpoint is reached from. Editors
+ * are intentionally excluded: they cannot reach the admin client list, so they
+ * must not be able to mint an impersonation cookie by POSTing a guessed
+ * clientId directly. Sets an HMAC-signed `sd_impersonate_client_id` cookie and
  * redirects to /portal/dashboard.
  */
 export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const session = await auth();
+  const session = await requireStaffSession();
   const userId = session?.user?.id;
-  const role = (session?.user as { role?: string } | undefined)?.role;
 
-  if (!userId || !isStaffRole(role)) {
+  if (!userId) {
     return NextResponse.json(
       { success: false, message: 'Unauthorized' },
       { status: 401 },

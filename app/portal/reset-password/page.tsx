@@ -2,6 +2,16 @@
 
 import { Suspense, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
+import {
+  AuthShell,
+  AuthField,
+  authEyebrow,
+  authHeading,
+  authSubtext,
+  authLabel,
+  authInput,
+  authPrimaryBtn,
+} from '@/components/portal/AuthShell';
 
 function ResetPasswordForm() {
   const searchParams = useSearchParams();
@@ -15,18 +25,22 @@ function ResetPasswordForm() {
 
   if (!token) {
     return (
-      <div className="text-center space-y-4">
-        <div className="w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center mx-auto">
-          <span className="material-icons text-2xl text-destructive">link_off</span>
+      <AuthShell panelSubtitle="Set a new password for your account.">
+        <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-destructive/20 bg-destructive/10">
+          <span className="material-icons text-3xl text-destructive">link_off</span>
         </div>
-        <h2 className="text-xl font-semibold text-foreground">Invalid reset link</h2>
-        <p className="text-sm text-muted-foreground">
+        <h1 className={`${authHeading} mt-5`}>Invalid reset link.</h1>
+        <p className={authSubtext}>
           This password reset link is invalid or has expired.
         </p>
-        <a href="/portal/forgot-password" className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline">
+        <a
+          href="/portal/forgot-password"
+          className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:underline"
+        >
+          <span className="material-icons text-sm">refresh</span>
           Request a new link
         </a>
-      </div>
+      </AuthShell>
     );
   }
 
@@ -65,110 +79,117 @@ function ResetPasswordForm() {
 
   if (success) {
     return (
-      <div className="text-center space-y-4">
-        <div className="w-12 h-12 rounded-full bg-green-500/10 flex items-center justify-center mx-auto">
-          <span className="material-icons text-2xl text-green-500">check_circle</span>
+      <AuthShell panelSubtitle="Your account password has been updated.">
+        <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-emerald-500/20 bg-emerald-500/10">
+          <span className="material-icons text-3xl text-emerald-500">check_circle</span>
         </div>
-        <h2 className="text-xl font-semibold text-foreground">Password reset</h2>
-        <p className="text-sm text-muted-foreground">
+        <h1 className={`${authHeading} mt-5`}>Password reset.</h1>
+        <p className={authSubtext}>
           Your password has been updated. You can now sign in with your new password.
         </p>
         <a
           href="/portal/login"
-          className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
+          className={`${authPrimaryBtn} mt-6`}
         >
-          Sign In
+          Sign in
+          <span className="material-icons text-[19px] transition group-hover:translate-x-0.5">arrow_forward</span>
         </a>
-      </div>
+      </AuthShell>
     );
   }
 
   return (
-    <>
-      <h2 className="text-xl font-semibold text-foreground mb-2">Set a new password</h2>
-      <p className="text-sm text-muted-foreground mb-6">
-        Enter your new password below.
-      </p>
+    <AuthShell panelSubtitle="Set a new password — choose something strong and unique.">
+      <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10">
+        <span className="material-icons text-3xl text-primary">lock_reset</span>
+      </div>
+      <div className={authEyebrow}>{'// Account recovery'}</div>
+      <h1 className={authHeading}>Set a new password.</h1>
+      <p className={authSubtext}>Enter your new password below. Must be at least 8 characters.</p>
 
-      {error && (
-        <div className="mb-4 p-3 bg-destructive/10 border border-destructive/20 rounded-lg flex items-center gap-2 text-sm text-destructive">
-          <span className="material-icons text-base">error_outline</span>
-          {error}
-        </div>
-      )}
-
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-foreground mb-1">New Password</label>
-          <div className="relative">
-            <input
-              type={showPassword ? 'text' : 'password'}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              minLength={8}
-              autoComplete="new-password"
-              autoFocus
-              className="w-full px-3 py-2 pr-10 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-              placeholder="At least 8 characters"
-            />
-            <button
-              type="button"
-              onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-foreground transition-colors"
-              tabIndex={-1}
-            >
-              <span className="material-icons text-lg">{showPassword ? 'visibility_off' : 'visibility'}</span>
-            </button>
+      <div className="mt-7">
+        {error && (
+          <div className="mb-4 flex items-center gap-2 rounded-lg border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive">
+            <span className="material-icons text-base">error_outline</span>
+            {error}
           </div>
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-foreground mb-1">Confirm Password</label>
-          <input
-            type={showPassword ? 'text' : 'password'}
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            required
-            minLength={8}
-            autoComplete="new-password"
-            className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-            placeholder="Confirm your password"
-          />
-        </div>
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full py-2.5 px-4 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className={authLabel}>New Password</label>
+            <AuthField icon="lock">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                minLength={8}
+                autoComplete="new-password"
+                autoFocus
+                className={authInput}
+                placeholder="At least 8 characters"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-muted-foreground/70 transition-colors hover:text-foreground"
+                tabIndex={-1}
+              >
+                <span className="material-icons text-[20px]">{showPassword ? 'visibility_off' : 'visibility'}</span>
+              </button>
+            </AuthField>
+          </div>
+          <div>
+            <label className={authLabel}>Confirm Password</label>
+            <AuthField icon="lock_outline">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                required
+                minLength={8}
+                autoComplete="new-password"
+                className={authInput}
+                placeholder="Confirm your password"
+              />
+            </AuthField>
+          </div>
+          <button type="submit" disabled={loading} className={authPrimaryBtn}>
+            {loading ? (
+              <>
+                <span className="material-icons animate-spin text-base">refresh</span>
+                Resetting…
+              </>
+            ) : (
+              <>
+                Reset password
+                <span className="material-icons text-[19px] transition group-hover:translate-x-0.5">lock_open</span>
+              </>
+            )}
+          </button>
+        </form>
+
+        <a
+          href="/portal/login"
+          className="mt-5 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
         >
-          {loading ? (
-            <>
-              <span className="material-icons text-base animate-spin">refresh</span>
-              Resetting...
-            </>
-          ) : (
-            'Reset Password'
-          )}
-        </button>
-      </form>
-    </>
+          <span className="material-icons text-sm">arrow_back</span>
+          Back to sign in
+        </a>
+      </div>
+    </AuthShell>
   );
 }
 
 export default function ResetPasswordPage() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background">
-      <div className="w-full max-w-md px-4">
-        <div className="text-center mb-8">
-          <p className="text-xs text-muted-foreground uppercase tracking-widest mb-1">Client Portal</p>
-          <h1 className="text-2xl font-bold text-foreground">Simpler Development</h1>
-        </div>
-
-        <div className="bg-card border border-border rounded-xl p-8 shadow-sm">
-          <Suspense fallback={<div className="h-40 flex items-center justify-center"><span className="material-icons animate-spin">refresh</span></div>}>
-            <ResetPasswordForm />
-          </Suspense>
-        </div>
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <span className="material-icons animate-spin text-muted-foreground">refresh</span>
       </div>
-    </div>
+    }>
+      <ResetPasswordForm />
+    </Suspense>
   );
 }

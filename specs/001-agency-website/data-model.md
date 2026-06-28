@@ -373,7 +373,7 @@ For each model:
 
 ## TypeScript Type Definitions
 
-**File**: `/Users/dancoyle/simplerdevelopment2026/lib/types/content.ts`
+**File**: `lib/types/content.ts`
 
 ```typescript
 // Base Builder.io content wrapper
@@ -448,7 +448,7 @@ export interface ContactInquiry extends ContactFormData {
 
 ## Data Access Layer
 
-**File**: `/Users/dancoyle/simplerdevelopment2026/lib/builder/api.ts`
+**File**: `lib/builder/api.ts`
 
 ```typescript
 import { fetchOneEntry, fetchEntries } from '@builder.io/sdk-react-nextjs';

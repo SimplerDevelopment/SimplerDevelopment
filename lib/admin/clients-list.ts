@@ -11,9 +11,18 @@
 import { db } from '@/lib/db';
 import {
   clients, users, clientServices, services,
-  clientWebsites, projects, supportTickets, invoices,
+  clientWebsites, projects, supportTickets, invoices, clientMembers,
 } from '@/lib/db/schema';
 import { eq, sql, and, or, inArray, lt, desc } from 'drizzle-orm';
+import {
+  FEATURE_DOMAINS, SEAT_PRICE_CAP_CENTS, computeAccountBilling,
+} from '@/lib/billing/domain-catalog';
+
+// À-la-carte module SKUs are keyed by domain (e.g. 'crm'); tier SKUs ('plan-*')
+// and add-ons (hosting, etc.) are summed at their raw monthly price.
+const MODULE_CATEGORIES = new Set(FEATURE_DOMAINS.map((d) => d.key));
+const monthlyCents = (price: number, cycle: string | null) =>
+  cycle === 'monthly' ? price : cycle === 'annually' ? Math.round(price / 12) : 0;
 
 export const DEFAULT_ADMIN_CLIENTS_PAGE_SIZE = 100;
 export const MAX_ADMIN_CLIENTS_PAGE_SIZE = 200;
@@ -93,7 +102,7 @@ export async function listAdminClients(opts: {
     return { data: [], nextCursor: null };
   }
 
-  const [servicesAgg, websitesAgg, projectsAgg, ticketsAgg, revenueAgg, mrrAgg] = await Promise.all([
+  const [servicesAgg, websitesAgg, projectsAgg, ticketsAgg, revenueAgg, serviceRows, seatRows] = await Promise.all([
     db
       .select({ clientId: clientServices.clientId, count: sql<number>`count(*)::int` })
       .from(clientServices)
@@ -125,16 +134,62 @@ export async function listAdminClients(opts: {
       .from(invoices)
       .where(and(inArray(invoices.clientId, clientIds), eq(invoices.status, 'paid')))
       .groupBy(invoices.clientId),
+    // Active recurring service rows per client — MRR is computed in JS so it can
+    // apply the volume discount (modules) and the per-seat charge, which a flat
+    // SUM(price) cannot. (Returns rows, not an aggregate.)
     db
       .select({
         clientId: clientServices.clientId,
-        mrr: sql<number>`coalesce(sum(case when ${services.billingCycle} = 'monthly' then ${services.price} when ${services.billingCycle} = 'annually' then ${services.price} / 12 else 0 end), 0)::bigint`,
+        category: services.category,
+        price: services.price,
+        billingCycle: services.billingCycle,
       })
       .from(clientServices)
       .innerJoin(services, eq(services.id, clientServices.serviceId))
-      .where(and(inArray(clientServices.clientId, clientIds), eq(clientServices.status, 'active')))
-      .groupBy(clientServices.clientId),
+      .where(and(inArray(clientServices.clientId, clientIds), eq(clientServices.status, 'active'))),
+    // Billable seats per client: the owner (always 1) + accepted members
+    // (invite token cleared), deduped against the owner.
+    db
+      .select({
+        clientId: clients.id,
+        extraAccepted: sql<number>`count(distinct ${clientMembers.userId}) filter (where ${users.inviteToken} is null and ${clientMembers.userId} <> ${clients.userId})::int`,
+      })
+      .from(clients)
+      .leftJoin(clientMembers, eq(clientMembers.clientId, clients.id))
+      .leftJoin(users, eq(users.id, clientMembers.userId))
+      .where(inArray(clients.id, clientIds))
+      .groupBy(clients.id),
   ]);
+
+  // ── MRR per client (modules → volume-discounted + seats; bundle → flat +
+  //    seats; tiers/other → raw monthly) ──────────────────────────────────────
+  const seatsByClient = new Map<number, number>(clientIds.map((id) => [id, 1]));
+  for (const r of seatRows) seatsByClient.set(r.clientId, 1 + Number(r.extraAccepted ?? 0));
+
+  const svcByClient = new Map<number, { category: string; monthly: number }[]>(clientIds.map((id) => [id, []]));
+  for (const r of serviceRows) {
+    svcByClient.get(r.clientId)!.push({ category: r.category, monthly: monthlyCents(r.price ?? 0, r.billingCycle) });
+  }
+
+  const mrrByClient = new Map<number, number>();
+  for (const id of clientIds) {
+    const seats = seatsByClient.get(id) ?? 1;
+    const rows = svcByClient.get(id) ?? [];
+    const modulePrices: number[] = [];
+    let bundleMonthly = 0, tierAndOther = 0;
+    for (const r of rows) {
+      if (r.category === 'bundle') bundleMonthly += r.monthly;
+      else if (MODULE_CATEGORIES.has(r.category)) modulePrices.push(r.monthly);
+      else tierAndOther += r.monthly; // tier SKUs + hosting/other recurring add-ons
+    }
+    let base = 0;
+    if (bundleMonthly > 0) {
+      base = bundleMonthly + Math.min(bundleMonthly, SEAT_PRICE_CAP_CENTS) * Math.max(0, seats - 1);
+    } else if (modulePrices.length > 0) {
+      base = computeAccountBilling(modulePrices, seats).totalCents;
+    }
+    mrrByClient.set(id, base + tierAndOther);
+  }
 
   type Counts = Pick<
     AdminClientRow,
@@ -150,7 +205,7 @@ export async function listAdminClients(opts: {
   for (const row of projectsAgg) byClient.get(row.clientId)!.activeProjects = Number(row.count);
   for (const row of ticketsAgg) byClient.get(row.clientId)!.openTickets = Number(row.count);
   for (const row of revenueAgg) byClient.get(row.clientId)!.totalRevenue = Number(row.total);
-  for (const row of mrrAgg) byClient.get(row.clientId)!.mrr = Number(row.mrr);
+  for (const id of clientIds) byClient.get(id)!.mrr = mrrByClient.get(id) ?? 0;
 
   const data: AdminClientRow[] = pageRows.map(r => ({
     ...r,

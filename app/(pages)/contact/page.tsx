@@ -83,7 +83,7 @@ export default function ContactPage() {
                   </svg>
                 </div>
                 <h3 className="font-semibold mb-2">Email</h3>
-                <p className="text-muted-foreground">info@simplerdevelopment.com</p>
+                <p className="text-muted-foreground">{process.env.NEXT_PUBLIC_CONTACT_EMAIL || 'info@simplerdevelopment.com'}</p>
               </div>
 
               <div className="text-center p-6 rounded-xl bg-muted/30 border border-border">

@@ -3,12 +3,12 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { shippingZones, shippingRates } from '@/lib/db/schema';
 import { and, eq, asc } from 'drizzle-orm';
-import { resolveClientSite } from '@/lib/portal-client';
+import { resolveStoreSite } from '@/lib/portal-auth';
 
 type Params = { params: Promise<{ siteId: string; zoneId: string }> };
 
 async function resolveZone(userId: number, siteId: string, zoneId: string) {
-  const site = await resolveClientSite(userId, parseInt(siteId));
+  const site = await resolveStoreSite(userId, parseInt(siteId));
   if (!site) return null;
 
   const [zone] = await db

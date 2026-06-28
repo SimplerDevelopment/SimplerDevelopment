@@ -33,6 +33,7 @@ import {
 } from '@/lib/db/schema';
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import { logAudit } from './audit';
+import { slugify } from '@/lib/publishing/slug';
 
 export type BrainTopic = typeof brainTopics.$inferSelect;
 
@@ -76,11 +77,7 @@ async function txAudit(conn: DbOrTx, args: {
  * fall back to `topic` so we never produce an empty slug.
  */
 export function deriveSlug(name: string): string {
-  const cleaned = name.trim().toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/(^-+|-+$)/g, '')
-    .slice(0, 150);
-  return cleaned || 'topic';
+  return slugify(name, 150) || 'topic';
 }
 
 /**

@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useEffect, useState, useCallback, useMemo } from 'react';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnGhost } from '@/components/portal/portal-ui';
 
 type ProposedType =
   | 'task' | 'decision' | 'commitment' | 'relationship_update' | 'follow_up' | 'compliance_warning' | 'note'
@@ -153,24 +155,29 @@ export default function MeetingReviewPage() {
 
   return (
     <div className="max-w-4xl mx-auto py-8 space-y-6">
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <Link href={`/portal/brain/communications/${meetingId}`} className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
-            <span className="material-icons text-sm">arrow_back</span>
-            Back to communication
-          </Link>
-          <h1 className="text-2xl font-bold text-foreground mt-2 flex items-center gap-2">
-            <span className="material-icons text-primary">reviews</span>
-            Review queue
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1 truncate">{meeting.title}</p>
-        </div>
-        <div className="text-sm text-muted-foreground flex-shrink-0">
-          {pendingCount === 0
-            ? <span className="text-emerald-600 dark:text-emerald-400 font-medium inline-flex items-center gap-1"><span className="material-icons text-base">check_circle</span> All clear</span>
-            : <span><strong className="text-foreground">{pendingCount}</strong> pending</span>
+      <div>
+        <Link
+          href={`/portal/brain/communications/${meetingId}`}
+          className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground mb-4"
+        >
+          <span className="material-icons text-sm">arrow_back</span>
+          Back to communication
+        </Link>
+        <PortalPageHeader
+          eyebrow="Company Brain"
+          title={
+            <span className="flex items-center gap-2">
+              <span className="material-icons text-primary">reviews</span>
+              Review queue
+            </span>
           }
-        </div>
+          subtitle={meeting.title}
+          actions={
+            pendingCount === 0
+              ? <span className="text-emerald-600 dark:text-emerald-400 font-medium inline-flex items-center gap-1 text-sm"><span className="material-icons text-base">check_circle</span> All clear</span>
+              : <span className="text-sm text-muted-foreground"><strong className="text-foreground">{pendingCount}</strong> pending</span>
+          }
+        />
       </div>
 
       {error && (
@@ -180,8 +187,8 @@ export default function MeetingReviewPage() {
       )}
 
       {meeting.aiSummary && (
-        <section className="bg-card border border-border rounded-lg p-5">
-          <h2 className="text-sm font-semibold text-foreground flex items-center gap-2 mb-2">
+        <section className="bg-card border border-border rounded-2xl p-5">
+          <h2 className="font-display text-[17px] font-extrabold tracking-[-0.02em] text-foreground flex items-center gap-2 mb-2">
             <span className="material-icons text-base text-muted-foreground">auto_awesome</span>
             AI summary
           </h2>
@@ -190,7 +197,7 @@ export default function MeetingReviewPage() {
       )}
 
       {items.length === 0 ? (
-        <div className="text-center py-12 bg-card border border-border rounded-lg">
+        <div className="text-center py-12 bg-card border border-border rounded-2xl">
           <span className="material-icons text-4xl text-muted-foreground mb-2 block">inbox</span>
           <p className="text-sm text-muted-foreground">
             No items in the review queue yet. Run AI processing from the communication page.
@@ -199,7 +206,7 @@ export default function MeetingReviewPage() {
       ) : (
         TYPE_ORDER.filter((t) => (grouped.get(t)?.length ?? 0) > 0).map((type) => (
           <section key={type} className="space-y-2">
-            <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
+            <h2 className="font-display text-[17px] font-extrabold tracking-[-0.02em] text-foreground flex items-center gap-2">
               <span className="material-icons text-base text-muted-foreground">{TYPE_META[type].icon}</span>
               {TYPE_META[type].label}
               <span className="text-xs text-muted-foreground font-normal">
@@ -273,7 +280,7 @@ function ReviewCard({ item, busy, onApprove, onReject }: {
   }
 
   return (
-    <div className={`bg-card border rounded-lg p-4 ${
+    <div className={`bg-card border rounded-2xl p-4 ${
       item.status === 'approved' || item.status === 'edited'
         ? 'border-emerald-500/30 bg-emerald-500/5'
         : item.status === 'rejected'
@@ -295,14 +302,14 @@ function ReviewCard({ item, busy, onApprove, onReject }: {
               <button
                 onClick={() => setEditing(!editing)}
                 disabled={busy}
-                className="px-2 py-1 text-xs rounded-md border border-border text-foreground hover:bg-accent disabled:opacity-50"
+                className="px-3 py-1.5 text-xs rounded-xl border border-border bg-card text-foreground hover:border-foreground/25 disabled:opacity-50 inline-flex items-center"
               >
                 {editing ? 'Cancel edit' : 'Edit'}
               </button>
               <button
                 onClick={onReject}
                 disabled={busy}
-                className="px-2 py-1 text-xs rounded-md border border-border text-foreground hover:bg-destructive/10 hover:text-destructive disabled:opacity-50 inline-flex items-center gap-1"
+                className="px-3 py-1.5 text-xs rounded-xl border border-border bg-card text-foreground hover:bg-destructive/10 hover:text-destructive disabled:opacity-50 inline-flex items-center gap-1"
               >
                 <span className="material-icons text-sm">close</span>
                 Reject
@@ -322,7 +329,7 @@ function ReviewCard({ item, busy, onApprove, onReject }: {
                   }
                 }}
                 disabled={busy}
-                className="px-2 py-1 text-xs rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 inline-flex items-center gap-1"
+                className="px-3 py-1.5 text-xs rounded-xl bg-foreground text-background hover:bg-foreground/90 disabled:opacity-50 inline-flex items-center gap-1 font-semibold"
               >
                 <span className="material-icons text-sm">check</span>
                 Approve
@@ -348,7 +355,7 @@ function ReviewCard({ item, busy, onApprove, onReject }: {
             value={draftJson}
             onChange={(e) => setDraftJson(e.target.value)}
             rows={Math.min(15, draftJson.split('\n').length + 1)}
-            className="w-full px-3 py-2 rounded-md border border-border bg-background text-foreground text-xs font-mono focus:outline-none focus:ring-2 focus:ring-primary"
+            className="w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-xs text-foreground font-mono outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/15"
           />
         </div>
       )}

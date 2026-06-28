@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { media, mediaVersions } from '@/lib/db/schema';
-import { getPortalClient } from '@/lib/portal-client';
+import { authorizePortal, isAuthError } from '@/lib/portal-auth';
 import { and, eq } from 'drizzle-orm';
 
 // Restoring an old version: snapshot the current state into mediaVersions,
@@ -10,15 +9,9 @@ import { and, eq } from 'drizzle-orm';
 // timeline stays monotonic. The chosen historical row is consumed (deleted)
 // because its bytes are now live again on the media row.
 export async function POST(_req: Request, { params }: { params: Promise<{ id: string; versionId: string }> }) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
-  }
-  const userId = parseInt(session.user.id, 10);
-  const client = await getPortalClient(userId);
-  if (!client) {
-    return NextResponse.json({ success: false, message: 'Client not found' }, { status: 403 });
-  }
+  const authz = await authorizePortal({ action: 'write' });
+  if (isAuthError(authz)) return authz.response;
+  const { client, userId } = authz;
 
   const { id, versionId } = await params;
   const mediaId = parseInt(id, 10);

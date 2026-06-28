@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnPrimary, pCardPad, pSectionTitle } from '@/components/portal/portal-ui';
 
 interface BookingItem {
   id: number;
@@ -82,19 +84,20 @@ export default function BookingCheckinPage() {
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Check-in</h1>
-          <p className="text-sm text-muted-foreground mt-1">Scan or enter a booking code</p>
-        </div>
-        <Link href="/portal/tools/booking" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
-          <span className="material-icons text-lg">arrow_back</span>
-          Back
-        </Link>
-      </div>
+      <PortalPageHeader
+        eyebrow="Booking"
+        title="Check-in"
+        subtitle="Scan or enter a booking code"
+        actions={
+          <Link href="/portal/tools/booking" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
+            <span className="material-icons text-lg">arrow_back</span>
+            Back
+          </Link>
+        }
+      />
 
       {/* Check-in input */}
-      <div className="bg-card border border-border rounded-xl p-6">
+      <div className={`${pCardPad}`}>
         <form onSubmit={handleCheckin} className="flex gap-3">
           <div className="flex-1 relative">
             <span className="material-icons absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">qr_code_scanner</span>
@@ -108,7 +111,7 @@ export default function BookingCheckinPage() {
             />
           </div>
           <button type="submit" disabled={!code.trim() || checking}
-            className="px-6 py-3 bg-primary text-primary-foreground rounded-xl font-medium disabled:opacity-50 hover:opacity-90 transition-opacity">
+            className={pBtnPrimary}>
             {checking ? 'Checking...' : 'Check In'}
           </button>
         </form>
@@ -138,25 +141,25 @@ export default function BookingCheckinPage() {
       {/* Today's summary */}
       {summary && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          <div className="bg-card border border-border rounded-xl p-4 text-center">
-            <p className="text-2xl font-bold text-foreground">{summary.checkedIn}/{summary.total}</p>
+          <div className="bg-card border border-border rounded-2xl p-4 text-center">
+            <p className="font-display text-2xl font-extrabold tracking-[-0.02em] text-foreground">{summary.checkedIn}/{summary.total}</p>
             <p className="text-xs text-muted-foreground">Checked In</p>
           </div>
-          <div className="bg-card border border-border rounded-xl p-4 text-center">
-            <p className="text-2xl font-bold text-foreground">{summary.pending}</p>
+          <div className="bg-card border border-border rounded-2xl p-4 text-center">
+            <p className="font-display text-2xl font-extrabold tracking-[-0.02em] text-foreground">{summary.pending}</p>
             <p className="text-xs text-muted-foreground">Pending</p>
           </div>
-          <div className="bg-card border border-border rounded-xl p-4 text-center">
-            <p className="text-2xl font-bold text-foreground">{summary.totalGuests}</p>
+          <div className="bg-card border border-border rounded-2xl p-4 text-center">
+            <p className="font-display text-2xl font-extrabold tracking-[-0.02em] text-foreground">{summary.totalGuests}</p>
             <p className="text-xs text-muted-foreground">Total Guests</p>
           </div>
         </div>
       )}
 
       {/* Today's bookings */}
-      <div className="bg-card border border-border rounded-xl overflow-hidden">
+      <div className="bg-card border border-border rounded-2xl overflow-hidden">
         <div className="px-4 py-3 border-b border-border">
-          <h2 className="text-sm font-medium text-foreground">Today&apos;s Bookings</h2>
+          <h2 className={pSectionTitle}>Today&apos;s Bookings</h2>
         </div>
         {loadingToday ? (
           <div className="p-8 flex justify-center">
@@ -171,7 +174,7 @@ export default function BookingCheckinPage() {
           <div className="divide-y divide-border">
             {bookings.map(b => (
               <div key={b.id} className={`flex items-center gap-3 px-4 py-3 ${b.isCheckedIn ? 'bg-green-50/50 dark:bg-green-900/10' : ''}`}>
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${b.isCheckedIn ? 'bg-green-100 dark:bg-green-900' : 'bg-gray-100 dark:bg-gray-800'}`}>
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${b.isCheckedIn ? 'bg-green-100 dark:bg-green-900' : 'bg-muted'}`}>
                   <span className={`material-icons text-base ${b.isCheckedIn ? 'text-green-600' : 'text-muted-foreground'}`}>
                     {b.isCheckedIn ? 'check' : 'person'}
                   </span>

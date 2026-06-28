@@ -449,7 +449,7 @@ export default function PitchDeckPresentation({ slides, theme, title, isDraft, s
       {/* eslint-disable-next-line @next/next/no-page-custom-font */}
       <link href={fontsUrl} rel="stylesheet" />
 
-      {/* Defensive: legacy decks (e.g. cystrategies) shipped a self-injected
+      {/* Defensive: some legacy decks shipped a self-injected
           mobile-nav overlay (`#cy-mob-nav`) inside their html-render content.
           Now that the deck has its own footer + side chevrons, that overlay
           duplicates the nav. Pre-set the script's idempotency flag so it

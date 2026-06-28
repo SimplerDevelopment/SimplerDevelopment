@@ -7,11 +7,21 @@ export function generateApiKey(): string {
   return `sd_live_${crypto.randomBytes(32).toString('hex')}`;
 }
 
+/** SHA-256 hex of a raw key — the at-rest form stored in api_keys.key_hash. */
+export function hashApiKey(rawKey: string): string {
+  return crypto.createHash('sha256').update(rawKey).digest('hex');
+}
+
+/** Display-safe masked form of a raw key (first 12 + … + last 4). */
+export function previewApiKey(rawKey: string): string {
+  return `${rawKey.slice(0, 12)}...${rawKey.slice(-4)}`;
+}
+
 export async function validateApiKey(key: string, siteId: number) {
   const [record] = await db
     .select()
     .from(apiKeys)
-    .where(and(eq(apiKeys.key, key), eq(apiKeys.websiteId, siteId), eq(apiKeys.active, true)))
+    .where(and(eq(apiKeys.keyHash, hashApiKey(key)), eq(apiKeys.websiteId, siteId), eq(apiKeys.active, true)))
     .limit(1);
 
   if (!record) return null;

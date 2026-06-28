@@ -12,7 +12,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     return NextResponse.json({ success: false, message: 'Invalid note id' }, { status: 400 });
   }
   const note = await getNote(result.client.id, noteId);
-  if (!note) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
+  // A soft-deleted note (deletedAt set) must read as gone — getNote itself stays
+  // trash-inclusive because the restore/hard-delete paths depend on finding it.
+  if (!note || note.deletedAt) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
   return NextResponse.json({ success: true, data: note });
 }
 

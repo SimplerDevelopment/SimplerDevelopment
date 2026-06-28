@@ -1,38 +1,19 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // @vitest-environment jsdom
 /**
- * Batch 39c — unit tests for 4 small admin React components:
- *   - components/admin/AdminNav.tsx
+ * Batch 39c — unit tests for 3 small admin React components:
  *   - components/admin/MediaGrid.tsx
  *   - components/admin/MediaUploadModal.tsx
  *   - components/admin/PostFormInner.tsx
  *
- * Heavy dependencies (next/navigation, next/link, next-auth/react, the visual
- * editor toolbar/viewport selector, and the MediaDetailModal subcomponent) are
- * mocked. These tests focus on rendering, prop handling, and basic interaction
- * wiring.
+ * Heavy dependencies (the visual editor toolbar/viewport selector, and the
+ * MediaDetailModal subcomponent) are mocked. These tests focus on rendering,
+ * prop handling, and basic interaction wiring.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, fireEvent, screen, cleanup, act } from '@testing-library/react';
 import React from 'react';
-
-// ---- next/navigation mock (used by AdminNav) -------------------------------
-let mockPathname = '/admin';
-vi.mock('next/navigation', () => ({
-  usePathname: () => mockPathname,
-}));
-
-// ---- next/link mock (used by AdminNav) -------------------------------------
-vi.mock('next/link', () => ({
-  default: ({ children, href, ...rest }: any) =>
-    React.createElement('a', { href, ...rest }, children),
-}));
-
-// ---- next-auth/react mock (used by AdminNav) -------------------------------
-const signOutMock = vi.fn();
-vi.mock('next-auth/react', () => ({
-  signOut: (...args: any[]) => signOutMock(...args),
-}));
 
 // ---- MediaDetailModal mock (used by MediaGrid) -----------------------------
 vi.mock('@/components/admin/MediaDetailModal', () => ({
@@ -65,7 +46,6 @@ vi.mock('@/components/blocks/ViewportSelector', () => ({
 }));
 
 // Import after mocks are registered.
-import AdminNav from '@/components/admin/AdminNav';
 import MediaGrid from '@/components/admin/MediaGrid';
 import MediaUploadModal from '@/components/admin/MediaUploadModal';
 import { PostFormInnerControls } from '@/components/admin/PostFormInner';
@@ -73,58 +53,6 @@ import { PostFormInnerControls } from '@/components/admin/PostFormInner';
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
-  signOutMock.mockReset();
-  mockPathname = '/admin';
-});
-
-// ============================================================================
-// AdminNav
-// ============================================================================
-describe('AdminNav', () => {
-  it('renders top-level nav items and brand', () => {
-    mockPathname = '/admin';
-    render(<AdminNav user={{ email: 'user@example.com' }} />);
-    expect(screen.getByText('CMS')).toBeTruthy();
-    expect(screen.getByText('Dashboard')).toBeTruthy();
-    expect(screen.getByText('Users')).toBeTruthy();
-    expect(screen.getByText('user@example.com')).toBeTruthy();
-  });
-
-  it('does not render a user email when no user provided', () => {
-    mockPathname = '/admin';
-    const { container } = render(<AdminNav />);
-    // The email span renders empty when user is undefined.
-    expect(container.querySelector('span.text-sm')).toBeTruthy();
-    expect(screen.queryByText(/@/)).toBeNull();
-  });
-
-  it('auto-expands the Posts dropdown when path is in a posts sub-route', () => {
-    mockPathname = '/admin/posts';
-    render(<AdminNav user={{ email: 'a@b.co' }} />);
-    // sub-items should be visible because the menu is auto-expanded
-    expect(screen.getByText('Post Types')).toBeTruthy();
-    expect(screen.getByText('Categories')).toBeTruthy();
-    expect(screen.getByText('Tags')).toBeTruthy();
-  });
-
-  it('toggles the Posts dropdown when the Posts button is clicked', () => {
-    mockPathname = '/admin';
-    render(<AdminNav user={{ email: 'a@b.co' }} />);
-    // initially collapsed (pathname is /admin, not a posts sub-route)
-    expect(screen.queryByText('Post Types')).toBeNull();
-    const postsBtn = screen.getByRole('button', { name: /Posts/i });
-    fireEvent.click(postsBtn);
-    expect(screen.getByText('Post Types')).toBeTruthy();
-    fireEvent.click(postsBtn);
-    expect(screen.queryByText('Post Types')).toBeNull();
-  });
-
-  it('invokes signOut with the admin login callback when Sign Out clicked', () => {
-    mockPathname = '/admin';
-    render(<AdminNav user={{ email: 'a@b.co' }} />);
-    fireEvent.click(screen.getByRole('button', { name: /Sign Out/i }));
-    expect(signOutMock).toHaveBeenCalledWith({ callbackUrl: '/admin/login' });
-  });
 });
 
 // ============================================================================

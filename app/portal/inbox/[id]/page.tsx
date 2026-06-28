@@ -2,6 +2,8 @@
 
 import { use, useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnPrimary, pBtnGhost, pCard } from '@/components/portal/portal-ui';
 
 interface Conversation {
   id: number;
@@ -125,10 +127,12 @@ export default function ConversationPage({ params }: { params: Promise<{ id: str
         </Link>
       </div>
 
+      <PortalPageHeader eyebrow="Inbox" title="Conversation" />
+
       {error && <div className="bg-destructive/10 text-destructive p-3 rounded-md text-sm">{error}</div>}
 
       {conversation && (
-        <header className="flex items-center justify-between border rounded-md p-3 bg-card">
+        <header className={`${pCard} p-4 flex items-center justify-between`}>
           <div>
             <div className="font-semibold flex items-center gap-2">
               <span className="material-icons">person</span>
@@ -145,7 +149,7 @@ export default function ConversationPage({ params }: { params: Promise<{ id: str
                   <button
                     type="button"
                     onClick={() => action('unassign')}
-                    className="inline-flex items-center gap-1 px-2 py-1 text-sm border rounded-md hover:bg-accent"
+                    className={pBtnGhost}
                   >
                     <span className="material-icons text-base">person_remove</span>
                     Unassign
@@ -154,7 +158,7 @@ export default function ConversationPage({ params }: { params: Promise<{ id: str
                   <button
                     type="button"
                     onClick={() => action('assign-self')}
-                    className="inline-flex items-center gap-1 px-2 py-1 text-sm border rounded-md hover:bg-accent"
+                    className={pBtnGhost}
                   >
                     <span className="material-icons text-base">person_add</span>
                     Assign to me
@@ -163,7 +167,7 @@ export default function ConversationPage({ params }: { params: Promise<{ id: str
                 <button
                   type="button"
                   onClick={() => action('close')}
-                  className="inline-flex items-center gap-1 px-2 py-1 text-sm border rounded-md hover:bg-accent"
+                  className={pBtnGhost}
                 >
                   <span className="material-icons text-base">check_circle</span>
                   Close
@@ -174,7 +178,7 @@ export default function ConversationPage({ params }: { params: Promise<{ id: str
               <button
                 type="button"
                 onClick={() => action('reopen')}
-                className="inline-flex items-center gap-1 px-2 py-1 text-sm border rounded-md hover:bg-accent"
+                className={pBtnGhost}
               >
                 <span className="material-icons text-base">refresh</span>
                 Reopen
@@ -184,7 +188,7 @@ export default function ConversationPage({ params }: { params: Promise<{ id: str
         </header>
       )}
 
-      <div className="border rounded-md bg-muted/30 p-3 h-[480px] overflow-y-auto">
+      <div className="rounded-2xl border border-border bg-muted/30 p-3 h-[480px] overflow-y-auto">
         {messages.map((m) => (
           <div
             key={m.id}
@@ -223,13 +227,13 @@ export default function ConversationPage({ params }: { params: Promise<{ id: str
             onChange={(e) => setDraft(e.target.value)}
             placeholder="Reply…"
             maxLength={8000}
-            className="flex-1 border rounded-md px-3 py-2 bg-background"
+            className="flex-1 rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary focus:ring-4 focus:ring-primary/15"
             disabled={sending}
           />
           <button
             type="submit"
             disabled={!draft.trim() || sending}
-            className="inline-flex items-center gap-1 px-3 py-2 bg-primary text-primary-foreground rounded-md disabled:opacity-50"
+            className={pBtnPrimary}
           >
             <span className="material-icons text-base">send</span>
             Send

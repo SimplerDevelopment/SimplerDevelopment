@@ -161,6 +161,14 @@ function nextId(): number {
   return idCounter++;
 }
 
+vi.mock('@/lib/billing/domain-catalog', () => ({
+  TIERS: [
+    { slug: 'plan-starter', name: 'Starter' },
+    { slug: 'plan-growth', name: 'Growth' },
+    { slug: 'plan-scale', name: 'Scale' },
+  ],
+}));
+
 vi.mock('@/lib/db', () => {
   function buildSelect(projection?: Record<string, { __col?: string }>) {
     let activeTable: string | null = null;
@@ -384,7 +392,7 @@ function seedTierCatalog() {
   state.services.push(
     {
       id: 100,
-      slug: 'tier-starter',
+      slug: 'plan-starter',
       name: 'Starter',
       description: 's',
       price: 100,
@@ -395,7 +403,7 @@ function seedTierCatalog() {
     },
     {
       id: 101,
-      slug: 'tier-growth',
+      slug: 'plan-growth',
       name: 'Growth',
       description: 'g',
       price: 200,
@@ -406,7 +414,7 @@ function seedTierCatalog() {
     },
     {
       id: 102,
-      slug: 'tier-scale',
+      slug: 'plan-scale',
       name: 'Scale',
       description: 's',
       price: 400,
@@ -471,9 +479,9 @@ describe('GET /api/admin/portal/clients/[id]/plan', () => {
     expect(body.data.active).toBeNull();
     expect(body.data.catalog).toHaveLength(3);
     expect(body.data.catalog.map((c: { slug: string }) => c.slug).sort()).toEqual([
-      'tier-growth',
-      'tier-scale',
-      'tier-starter',
+      'plan-growth',
+      'plan-scale',
+      'plan-starter',
     ]);
   });
 
@@ -499,7 +507,7 @@ describe('GET /api/admin/portal/clients/[id]/plan', () => {
     const body = await res.json();
     expect(body.data.active).not.toBeNull();
     expect(body.data.active.serviceId).toBe(101);
-    expect(body.data.active.slug).toBe('tier-growth');
+    expect(body.data.active.slug).toBe('plan-growth');
   });
 
   it('returns active=null when tier catalog is empty', async () => {
@@ -599,7 +607,7 @@ describe('POST /api/admin/portal/clients/[id]/plan', () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.success).toBe(true);
-    expect(body.data.tier.slug).toBe('tier-growth');
+    expect(body.data.tier.slug).toBe('plan-growth');
     expect(body.data.assigned).not.toBeNull();
     expect(body.data.assigned.serviceId).toBe(101);
     expect(body.data.assigned.status).toBe('active');

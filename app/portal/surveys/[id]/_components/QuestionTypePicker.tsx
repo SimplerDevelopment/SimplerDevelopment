@@ -31,6 +31,7 @@ export const QUESTION_TYPES: TypeMeta[] = [
   { type: 'toggle', label: 'Yes / No Toggle', icon: 'toggle_on' },
   { type: 'rating', label: 'Star Rating (1-5)', icon: 'star' },
   { type: 'slider', label: 'Range Slider', icon: 'tune' },
+  { type: 'file', label: 'File Upload', icon: 'attach_file' },
   { type: 'heading', label: 'Section Heading', icon: 'title' },
   { type: 'page_break', label: 'Page Break', icon: 'insert_page_break' },
 ];

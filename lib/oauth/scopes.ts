@@ -18,6 +18,9 @@ export const SUPPORTED_SCOPES = [
   'media:write',
   'email:read',
   'email:write',
+  // Sending campaigns is a separate, higher-privilege scope from email:write
+  // (which only drafts/edits). Gated on email_campaigns_send.
+  'email:send',
   'decks:read',
   'decks:write',
   'surveys:read',
@@ -32,9 +35,28 @@ export const SUPPORTED_SCOPES = [
   'integrations:write',
   'services:read',
   'services:write',
+  // Store / commerce (storefront tools use these; now grantable via OAuth)
+  'store:read',
+  'store:write',
   'billing:read',
   'hosting:read',
   'ai:read',
+  // Branding profile (brand colors / fonts / messaging tools use these)
+  'branding:read',
+  'branding:write',
+  // Company Brain
+  'brain:read',
+  'brain:write',
+  'brain:approve',
+  // Approvals workflow
+  'approvals:read',
+  'approvals:manage',
+  // Chat
+  'chat:read',
+  'chat:write',
+  // Notifications
+  'notifications:read',
+  'notifications:write',
 ] as const;
 
 export type SupportedScope = (typeof SUPPORTED_SCOPES)[number];
@@ -58,9 +80,20 @@ export const DEFAULT_GRANTED_SCOPES: string[] = [
   'team:read',
   'integrations:read',
   'services:read',
+  'store:read',
   'billing:read',
   'hosting:read',
   'ai:read',
+  // Branding (read-only by default; branding:write is opt-in)
+  'branding:read',
+  // Company Brain (read-only by default; brain:write and brain:approve are opt-in)
+  'brain:read',
+  // Approvals (read-only by default; approvals:manage is opt-in)
+  'approvals:read',
+  // Notifications (read-only by default)
+  'notifications:read',
+  // Chat (read-only by default)
+  'chat:read',
 ];
 
 /** Parse the OAuth `scope` query/form param (space-separated) and intersect

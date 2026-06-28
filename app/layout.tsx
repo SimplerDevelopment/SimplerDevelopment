@@ -65,10 +65,16 @@ export default async function RootLayout({
 }>) {
   const headersList = await headers();
   const host = headersList.get("host") || "";
-  // Detect client site subdomains — anything that's not the main app hostname
-  const APP_HOSTS = ["localhost", "127.0.0.1", "simplerdevelopment.com", "www.simplerdevelopment.com"];
+  // Detect client site requests — those supply their own nav/footer and skip
+  // the app marketing chrome. On a dedicated client host (e.g. a client's own domain)
+  // the hostname check is enough. But `staging.simplerdevelopment.com` is an app
+  // host that multiplexes BOTH the marketing site (/) and client sites
+  // (/sites/<domain>) on one host, so hostname alone can't tell them apart —
+  // the middleware forwards `x-site-pathname` on /sites/* routes to mark them.
+  const APP_HOSTS = ["localhost", "127.0.0.1", "simplerdevelopment.com", "www.simplerdevelopment.com", "staging.simplerdevelopment.com"];
   const hostname = host.split(":")[0];
-  const isClientSite = !APP_HOSTS.includes(hostname) && !hostname.endsWith(".railway.app");
+  const isSitesRoute = headersList.get("x-site-pathname") !== null;
+  const isClientSite = isSitesRoute || (!APP_HOSTS.includes(hostname) && !hostname.endsWith(".railway.app"));
   return (
     <html lang="en" suppressHydrationWarning>
       <head>

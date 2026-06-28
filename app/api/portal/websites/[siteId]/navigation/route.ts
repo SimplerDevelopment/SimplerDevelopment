@@ -216,7 +216,55 @@ export async function PUT(
   }
 
   // Insert any wholly new items (depth-first so parents land first).
+  // Phase 1: new root items and their new-item descendants (parentTempId = null).
   await insertLevel(null);
+  // Phase 2: new items whose parent is an *existing* DB row (real id in
+  // existingById). These are children being added under an already-persisted
+  // menu item and were skipped by the recursive insertLevel above because
+  // insertLevel only recurses into newly-inserted parents.
+  const newItemsUnderExisting = items.filter((i) => {
+    const noRealId = !i.id || i.id < 0 || !existingById.has(i.id);
+    if (!noRealId) return false;
+    const pid = i.parentId ?? null;
+    return pid !== null && existingById.has(pid) && !tempIdToRealId.has(pid);
+  });
+  for (const item of newItemsUnderExisting) {
+    const resolvedParentId = existingById.has(item.parentId!) ? item.parentId! : null;
+    const draft: SiteNavigationDraft = {
+      pendingCreate: true,
+      label: item.label,
+      href: item.href,
+      parentId: resolvedParentId,
+      sortOrder: item.sortOrder,
+      openInNewTab: item.openInNewTab ?? false,
+      isButton: item.isButton ?? false,
+      description: item.description ?? null,
+      icon: item.icon ?? null,
+      featuredImage: item.featuredImage ?? null,
+      columnGroup: item.columnGroup ?? null,
+      updatedAt: nowIso,
+      updatedBy: userId,
+    };
+    const [inserted] = await db
+      .insert(siteNavigation)
+      .values({
+        websiteId,
+        label: item.label,
+        href: item.href,
+        parentId: resolvedParentId,
+        sortOrder: item.sortOrder,
+        openInNewTab: item.openInNewTab ?? false,
+        isButton: item.isButton ?? false,
+        description: item.description ?? null,
+        icon: item.icon ?? null,
+        featuredImage: item.featuredImage ?? null,
+        columnGroup: item.columnGroup ?? null,
+        draft,
+      })
+      .returning();
+    if (item.id != null) tempIdToRealId.set(item.id, inserted.id);
+    incomingIds.add(inserted.id);
+  }
 
   // Tombstone existing rows that disappeared from the incoming list. Skip
   // anything that's already pendingCreate (draft-only) — the renderer doesn't

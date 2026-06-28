@@ -18,11 +18,15 @@
  *     metadata (subject, attendees, start/end) when ingesting a transcript.
  */
 
-export type MicrosoftSurface = 'identity' | 'transcripts';
+export type MicrosoftSurface = 'identity' | 'transcripts' | 'mail';
 
 export const SCOPES: Record<MicrosoftSurface, readonly string[]> = {
   identity: ['openid', 'profile', 'email', 'offline_access', 'User.Read'],
   transcripts: ['OnlineMeetingTranscript.Read.All', 'OnlineMeetings.Read'],
+  // Phase 3 of [[Spec - CRM Email Sync + Sequences]]: delegated read of the
+  // connected user's mailbox, to sync inbound Outlook messages onto CRM threads.
+  // Must be added to the Azure AD app registration's API permissions to take effect.
+  mail: ['Mail.Read'],
 } as const;
 
 /**

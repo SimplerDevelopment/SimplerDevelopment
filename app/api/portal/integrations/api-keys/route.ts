@@ -20,9 +20,15 @@ import { clientApiKeys } from '@/lib/db/schema';
 import { desc, eq } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
 import { encryptApiKey, maskApiKey } from '@/lib/crypto/api-key';
+import { getClientEntitlements } from '@/lib/billing/entitlements';
 
-type Provider = 'anthropic' | 'openai';
-const ALLOWED_PROVIDERS: Provider[] = ['anthropic', 'openai'];
+type Provider = 'anthropic' | 'openai' | 'resend' | 'dropbox_sign';
+const ALLOWED_PROVIDERS: Provider[] = ['anthropic', 'openai', 'resend', 'dropbox_sign'];
+
+// "Bring your own AI key" (you pay your own tokens) is a Scale-tier unlock —
+// the BYOK inversion. Only the AI providers are gated; `resend`/`dropbox_sign`
+// are ordinary integration credentials available on any tier.
+const BYOK_AI_PROVIDERS: Provider[] = ['anthropic', 'openai'];
 
 export async function GET() {
   const session = await auth();
@@ -80,6 +86,24 @@ export async function POST(req: Request) {
       message: `Unsupported provider. Use one of: ${ALLOWED_PROVIDERS.join(', ')}.`,
     }, { status: 400 });
   }
+
+  // Scale-only gate: a client may only add their own AI provider key when their
+  // tier is BYOK-eligible. Fail closed — a non-eligible client cannot store an
+  // Anthropic/OpenAI key (and so resolveClientApiKey will never use one). The
+  // resolver re-checks eligibility at inference time, so a downgrade also stops
+  // BYOK from being used. Integration keys (resend/dropbox_sign) are not gated.
+  if (BYOK_AI_PROVIDERS.includes(provider)) {
+    const entitlements = await getClientEntitlements(client.id, client);
+    if (!entitlements.byokEligible) {
+      return NextResponse.json({
+        success: false,
+        message:
+          'Bring-your-own AI keys are available on the Scale plan. ' +
+          'Upgrade to Scale to use your own Anthropic or OpenAI key and pay providers directly.',
+      }, { status: 403 });
+    }
+  }
+
   if (!apiKey || apiKey.length < 10) {
     return NextResponse.json({ success: false, message: 'A valid API key is required.' }, { status: 400 });
   }

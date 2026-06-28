@@ -54,43 +54,46 @@ describe('withApiKeyAndCors', () => {
     expect(validateApiKey).not.toHaveBeenCalled();
   });
 
-  it('skips API-key validation when no auth/x-api-key header is present and calls handler', async () => {
-    const handlerResponse = NextResponse.json({ ok: true }, { status: 200 });
-    const handler = vi.fn().mockResolvedValue(handlerResponse);
+  it('returns 401 when no auth/x-api-key header is present (key is now required)', async () => {
+    const handler = vi.fn();
     const wrapped = withApiKeyAndCors(handler);
 
     const res = await wrapped(makeRequest({}), ctx('42'));
 
-    expect(handler).toHaveBeenCalledTimes(1);
+    expect(handler).not.toHaveBeenCalled();
     expect(validateApiKey).not.toHaveBeenCalled();
     expect(checkRateLimit).not.toHaveBeenCalled();
-    expect(res.status).toBe(200);
-    // CORS headers should be merged onto the handler's response.
+    expect(res.status).toBe(401);
+    // CORS headers must still be present so the browser error is readable cross-origin.
     expect(res.headers.get('Access-Control-Allow-Origin')).toBe('*');
-    expect(await res.json()).toEqual({ ok: true });
+    expect(await res.json()).toEqual({ success: false, message: 'API key required' });
   });
 
-  it('ignores Authorization header that does not start with "Bearer sd_live_"', async () => {
-    const handler = vi.fn().mockResolvedValue(NextResponse.json({ ok: true }));
+  it('returns 401 when Authorization header does not start with "Bearer sd_live_" (treated as missing key)', async () => {
+    const handler = vi.fn();
     const wrapped = withApiKeyAndCors(handler);
 
-    await wrapped(
+    const res = await wrapped(
       makeRequest({ headers: { authorization: 'Bearer some-jwt-token' } }),
       ctx('1'),
     );
 
     expect(validateApiKey).not.toHaveBeenCalled();
-    expect(handler).toHaveBeenCalled();
+    expect(handler).not.toHaveBeenCalled();
+    expect(res.status).toBe(401);
+    expect(await res.json()).toEqual({ success: false, message: 'API key required' });
   });
 
-  it('ignores x-api-key header that does not start with "sd_live_"', async () => {
-    const handler = vi.fn().mockResolvedValue(NextResponse.json({ ok: true }));
+  it('returns 401 when x-api-key header does not start with "sd_live_" (treated as missing key)', async () => {
+    const handler = vi.fn();
     const wrapped = withApiKeyAndCors(handler);
 
-    await wrapped(makeRequest({ headers: { 'x-api-key': 'sd_test_abc' } }), ctx('1'));
+    const res = await wrapped(makeRequest({ headers: { 'x-api-key': 'sd_test_abc' } }), ctx('1'));
 
     expect(validateApiKey).not.toHaveBeenCalled();
-    expect(handler).toHaveBeenCalled();
+    expect(handler).not.toHaveBeenCalled();
+    expect(res.status).toBe(401);
+    expect(await res.json()).toEqual({ success: false, message: 'API key required' });
   });
 
   it('extracts the key from "Authorization: Bearer sd_live_..." and validates it', async () => {
@@ -212,6 +215,12 @@ describe('withApiKeyAndCors', () => {
   });
 
   it('merges CORS headers onto the handler response while preserving handler headers + status', async () => {
+    validateApiKey.mockResolvedValueOnce({ id: 88, rateLimitPerMinute: 60, scopes: [] });
+    checkRateLimit.mockReturnValueOnce({
+      allowed: true,
+      remaining: 59,
+      resetAt: new Date(Date.now() + 60_000),
+    });
     const handler = vi.fn().mockResolvedValue(
       NextResponse.json(
         { hello: 'world' },
@@ -220,7 +229,10 @@ describe('withApiKeyAndCors', () => {
     );
     const wrapped = withApiKeyAndCors(handler);
 
-    const res = await wrapped(makeRequest({}), ctx('1'));
+    const res = await wrapped(
+      makeRequest({ headers: { authorization: 'Bearer sd_live_merge_test' } }),
+      ctx('1'),
+    );
 
     expect(res.status).toBe(201);
     expect(res.headers.get('X-Custom')).toBe('kept');

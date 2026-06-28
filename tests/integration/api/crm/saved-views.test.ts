@@ -16,6 +16,7 @@ const mockedAuth = auth as unknown as Mock;
 import { callHandler } from '../../../helpers/call-handler';
 import { sessionForNewClientUser, type TenantCtx } from '../../../helpers/session';
 import { getTestSql, TEST_SCHEMA } from '../../../helpers/test-db';
+import { grantBundle } from '../../../helpers/entitlements';
 
 async function asTenant(ctx: TenantCtx | null) {
   mockedAuth.mockResolvedValue(ctx?.session ?? null);
@@ -36,6 +37,7 @@ describe('POST /api/portal/crm/saved-views @crm @tenancy', () => {
 
   beforeEach(async () => {
     A = await sessionForNewClientUser('sv-post');
+    await grantBundle(A.client.id);
   });
 
   it('happy path: creates view under caller tenant (201)', async () => {
@@ -100,6 +102,7 @@ describe('PUT /api/portal/crm/saved-views/[id] @crm @tenancy', () => {
       sessionForNewClientUser('sv-put-a'),
       sessionForNewClientUser('sv-put-b'),
     ]);
+    await grantBundle(A.client.id);
     viewB = await seedView(B.client.id, 'B-View');
   });
 
@@ -182,6 +185,7 @@ describe('DELETE /api/portal/crm/saved-views/[id] @crm @tenancy', () => {
       sessionForNewClientUser('sv-del-a'),
       sessionForNewClientUser('sv-del-b'),
     ]);
+    await grantBundle(A.client.id);
   });
 
   it('happy path: deletes own view (200)', async () => {

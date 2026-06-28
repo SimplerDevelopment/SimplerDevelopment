@@ -4,6 +4,7 @@ import { posts } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { getAllSolutions } from '@/lib/data/solutions';
 import { siteConfig } from '@/config/site';
+import { ALL_SLUGS } from '@/app/docs/_lib/nav';
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = siteConfig.url;
@@ -25,7 +26,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       url: `${baseUrl}/about`,
       lastModified: new Date(),
       changeFrequency: 'monthly' as const,
-      priority: 0.8,
+      priority: 0.70,
     },
     {
       url: `${baseUrl}/pricing`,
@@ -43,7 +44,25 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       url: `${baseUrl}/contact`,
       lastModified: new Date(),
       changeFrequency: 'monthly' as const,
+      priority: 0.65,
+    },
+    {
+      url: `${baseUrl}/faq`,
+      lastModified: new Date(),
+      changeFrequency: 'monthly' as const,
       priority: 0.7,
+    },
+    {
+      url: `${baseUrl}/compare`,
+      lastModified: new Date(),
+      changeFrequency: 'monthly' as const,
+      priority: 0.75,
+    },
+    {
+      url: `${baseUrl}/changelog`,
+      lastModified: new Date(),
+      changeFrequency: 'weekly' as const,
+      priority: 0.6,
     },
   ];
 
@@ -51,7 +70,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     url: `${baseUrl}/solutions/${solution.slug}`,
     lastModified: new Date(),
     changeFrequency: 'weekly' as const,
-    priority: 0.8,
+    priority: 0.85,
   }));
 
   let blogPages: MetadataRoute.Sitemap = [];
@@ -66,12 +85,19 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       .map((post) => ({
         url: `${baseUrl}/blog/${post.slug}`,
         lastModified: post.updatedAt,
-        changeFrequency: 'monthly' as const,
+        changeFrequency: 'weekly' as const,
         priority: 0.7,
       }));
   } catch (error) {
     console.error('Failed to fetch blog posts for sitemap:', error);
   }
 
-  return [...staticPages, ...solutionPages, ...blogPages];
+  const docPages: MetadataRoute.Sitemap = ALL_SLUGS.map((slug) => ({
+    url: slug === '' ? `${baseUrl}/docs` : `${baseUrl}/docs/${slug}`,
+    lastModified: new Date(),
+    changeFrequency: 'weekly' as const,
+    priority: 0.75,
+  }));
+
+  return [...staticPages, ...solutionPages, ...blogPages, ...docPages];
 }

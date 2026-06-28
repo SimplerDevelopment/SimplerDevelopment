@@ -3,13 +3,13 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { orders, orderStatusHistory } from '@/lib/db/schema';
 import { and, eq } from 'drizzle-orm';
-import { resolveClientSite } from '@/lib/portal-client';
+import { resolveStoreSite } from '@/lib/portal-auth';
 import { resolveProvider, CarrierProviderError } from '@/lib/shipping/providers';
 
 type Params = { params: Promise<{ siteId: string; orderId: string }> };
 
 async function loadOrder(userId: number, siteId: string, orderId: string) {
-  const site = await resolveClientSite(userId, parseInt(siteId, 10));
+  const site = await resolveStoreSite(userId, parseInt(siteId, 10));
   if (!site) return null;
   const [order] = await db
     .select()

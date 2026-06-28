@@ -7,9 +7,9 @@
  * registrar with a full-access context, and asserts the registrar's tool
  * count plus a handful of representative names.
  *
- * Goal: catch accidental loss of tools when a domain file is reorganised,
- * without paying the integration-DB cost. The end-to-end contract still
- * lives in tests/integration/api/mcp-tool-registry-baseline.test.ts.
+ * Goal: catch accidental loss of tools when a domain file is reorganised.
+ * The exhaustive registered-set contract lives in
+ * tests/unit/mcp-tool-registry-baseline.test.ts (also unit-layer, DB-mocked).
  */
 import { describe, it, expect, vi } from 'vitest';
 import type { PortalMcpContext } from '@/lib/mcp-auth';
@@ -67,6 +67,7 @@ import {
   registerAutomationsTools,
   registerHostingTools,
   registerMetaTools,
+  registerResourceDocs,
   registerBrandingTools,
   registerStorefrontTools,
   registerBrainTools,
@@ -270,10 +271,10 @@ describe.each(DOMAIN_CASES)('registers %s tools', ({ name, fn, minTools, expecte
   });
 });
 
-describe('meta registrar also registers the blocks-schema resource', () => {
+describe('resource registrar registers the blocks-schema resource', () => {
   it('exposes the visual editor block schema as a resource', () => {
     const { stub, resources } = fakeServer();
-    registerMetaTools(stub, fullCtx());
+    registerResourceDocs(stub, fullCtx());
     expect(resources).toContain('blocks-schema');
   });
 });

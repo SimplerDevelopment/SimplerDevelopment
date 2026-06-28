@@ -24,18 +24,24 @@
  *
  * Response: `text/event-stream` with these event types, one per SSE frame:
  *   { type: 'token', text: string }            — text delta
- *   { type: 'tool_call', tool, args, id }      — (Phase 4 — currently never emitted; tools disabled in stream path)
- *   { type: 'tool_result', id, output }        — (Phase 4)
+ *   { type: 'tool_call', tool, args, id }      — a tool is about to run (args complete)
+ *   { type: 'tool_result', id, output }        — that tool's result
  *   { type: 'done', conversationId, tokensUsed, creditsRemaining? }
  *   { type: 'error', message }                 — terminal error frame
  *
  * Each frame: `data: <json>\n\n`. The `done` frame is always last.
  *
- * Phase 3 deliberately ships text-only streaming. The agentic tool loop in
- * the non-streaming sibling is intentionally NOT replicated here — adding
- * tool execution to a streaming endpoint requires multi-turn fan-out
- * handling that's out of scope. Phase 4 will wire `PORTAL_TOOLS` +
- * `executePortalTool` and emit `tool_call` / `tool_result` frames.
+ * Tool-calling (Phase 4) is gated by `AI_STREAM_TOOLS_ENABLED=1`. When on,
+ * this route runs the same agentic loop as the non-streaming sibling
+ * (`PORTAL_TOOLS` + `executePortalTool`), relaying text deltas live and
+ * emitting `tool_call` / `tool_result` frames between reasoning turns. When
+ * off, it falls back to the original text-only single-pass stream (the loop
+ * simply never sees a `tool_use` stop reason, so it runs exactly one turn).
+ *
+ * NOTE: `executePortalTool` commits writes directly — the only safeguard is
+ * the prompt-level confirm-before-write rule in the shared system prompt.
+ * Routing AI-authored writes through the human approval queue
+ * (`lib/mcp/pending-changes.ts`) is tracked separately as P0.3.
  */
 
 import { eq, asc, sql } from 'drizzle-orm';
@@ -48,14 +54,45 @@ import { hasCredits, deductCredits, getBalance } from '@/lib/ai-credits';
 import { resolveClientApiKey } from '@/lib/ai/resolve-client-key';
 import { recordAiUsage } from '@/lib/ai/audit';
 import { checkAiPlanGate } from '@/lib/ai/plan-gate';
+import { PORTAL_TOOLS, executePortalTool } from '@/lib/ai/portal-tools';
+import { classifyPortalRequest } from '@/lib/ai/portal-tools/classifier';
+import { toolsForDomains } from '@/lib/ai/portal-tools/domains';
+import { PORTAL_CHAT_SYSTEM_PROMPT } from '@/lib/ai/portal-chat-prompt';
+import { sanitizeToolResult } from '@/lib/ai/brain-tools/sanitizer';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const SYSTEM_PROMPT = `You are the SimplerDevelopment portal AI assistant for this user's client. Be concise, professional, and helpful. Format currency as dollars (e.g. $1,200.00). Format dates human-friendly (e.g. "March 15, 2026"). Use markdown sparingly — bullet lists are fine for multiple items, but skip bold/headers for one-line answers. If a request is outside your scope, suggest the user contact the team directly.`;
+// Shared with the non-streaming agentic route so tool behavior (linking +
+// confirmation rules) can't drift between the two surfaces.
+const SYSTEM_PROMPT = PORTAL_CHAT_SYSTEM_PROMPT;
 
-const MODEL = 'claude-opus-4-7';
+// Phase 4: when enabled, the streaming path mirrors the non-streaming agentic
+// loop — emitting `tool_call` / `tool_result` SSE frames the mobile client
+// renders. Gated by env so the proven text-only path remains the fallback.
+// The agentic loop uses sonnet-4-6 (fast, tool-reliable, matches the
+// non-streaming route); text-only mode keeps the prior model.
+const STREAM_TOOLS_ENABLED = process.env.AI_STREAM_TOOLS_ENABLED === '1';
+const MODEL = STREAM_TOOLS_ENABLED ? 'claude-sonnet-4-6' : 'claude-opus-4-7';
 const MAX_TOKENS = 2048;
+
+// Guardrails mirrored from the non-streaming agentic loop — prevent runaway
+// reasoning / tool-call storms.
+const MAX_LOOPS = 8;
+const MAX_TOOL_CALLS = 20;
+
+// Domain-based tool routing, mirroring the non-streaming route. 'shadow' keeps
+// the full tool surface (no behavior change); 'active' classifies the request
+// and routes to the predicted domains' tools. Unlike the non-streaming route,
+// we DON'T run the classifier in 'shadow' mode here — a blocking Haiku call
+// before the stream would delay time-to-first-token for telemetry-only value,
+// so streaming opts into the cost only when routing actually applies ('active').
+const ROUTER_MODE: 'shadow' | 'active' = 'shadow';
+
+// P0.3: when enabled, AI-authored writes are routed through the human approval
+// queue (gated per the caller key's `require_cms_approval` flag — see
+// executePortalTool). Off → writes commit directly (prior behavior).
+const AI_TOOL_APPROVALS_ENABLED = process.env.AI_TOOL_APPROVALS_ENABLED === '1';
 
 interface IncomingMessage {
   role: 'user' | 'assistant';
@@ -181,8 +218,10 @@ export async function POST(req: Request) {
       let inputTokens = 0;
       let outputTokens = 0;
       let finalized = false;
-      const userId_ = userId; // closure capture (referenced in finalize)
-      void userId_;
+      // Tool calls executed across the agentic loop — persisted on the
+      // assistant row (same shape as the non-streaming route) so history +
+      // the admin conversation viewer render identically.
+      const allToolCalls: { name: string; input: Record<string, unknown>; result: unknown }[] = [];
 
       const finalize = async (errMessage?: string) => {
         if (finalized) return;
@@ -190,11 +229,12 @@ export async function POST(req: Request) {
 
         // Persist assistant turn (best-effort).
         try {
-          if (assistantText.length > 0) {
+          if (assistantText.length > 0 || allToolCalls.length > 0) {
             await db.insert(aiMessages).values({
               conversationId: convId,
               role: 'assistant',
               content: assistantText,
+              toolCalls: allToolCalls.length > 0 ? allToolCalls : null,
               inputTokens,
               outputTokens,
             });
@@ -272,36 +312,157 @@ export async function POST(req: Request) {
           },
         ];
 
-        // `anthropic.messages.stream` returns a MessageStream with both an
-        // EventEmitter API and an async iterator. Using the iterator keeps
-        // back-pressure clean and avoids relying on EventEmitter timing.
-        const sdkStream = anthropic.messages.stream({
-          model: MODEL,
-          max_tokens: MAX_TOKENS,
-          system: sysParam,
-          messages: anthropicMessages,
-        });
+        // Agentic loop. With tools disabled (text-only mode) the model never
+        // returns stop_reason 'tool_use', so this runs exactly one pass and
+        // behaves identically to the prior Phase-3 implementation — we don't
+        // even call `finalMessage()` in that case. With tools enabled we stream
+        // each turn's text deltas live, then use the SDK's assembled
+        // `finalMessage()` (parsed tool_use blocks + stop_reason) to decide
+        // whether to run tools and loop, or finalize. Token usage is read from
+        // the streamed `message_start` / `message_delta` events either way and
+        // accumulated across turns.
+        const currentMessages: Anthropic.MessageParam[] = [...anthropicMessages];
+        let loopCount = 0;
+        let toolCallCount = 0;
 
-        for await (const event of sdkStream) {
-          if (event.type === 'content_block_delta') {
-            const delta = event.delta;
-            if (delta.type === 'text_delta' && delta.text) {
-              assistantText += delta.text;
+        // Resolve the tool surface for this exchange. In 'active' router mode we
+        // classify the request (cheap Haiku call) and route to just the
+        // predicted domains' tools; 'shadow' keeps the full set with no extra
+        // call (protecting time-to-first-token). Classifier failures fail open
+        // to the full surface. Used for every turn of the loop.
+        let loopTools = PORTAL_TOOLS;
+        if (STREAM_TOOLS_ENABLED && ROUTER_MODE === 'active') {
+          try {
+            const classification = await classifyPortalRequest(lastTurn.content.trim(), anthropic);
+            loopTools = toolsForDomains(classification.domains, PORTAL_TOOLS);
+            inputTokens += classification.inputTokens;
+            outputTokens += classification.outputTokens;
+          } catch {
+            loopTools = PORTAL_TOOLS;
+          }
+        }
+
+        while (loopCount < MAX_LOOPS) {
+          loopCount++;
+
+          const sdkStream = anthropic.messages.stream({
+            model: MODEL,
+            max_tokens: MAX_TOKENS,
+            system: sysParam,
+            messages: currentMessages,
+            ...(STREAM_TOOLS_ENABLED ? { tools: loopTools } : {}),
+          });
+
+          // Relay this turn's text deltas live. Only the FINAL turn's text is
+          // persisted as the reply (reset per turn) so a tool-use turn's
+          // preamble doesn't get double-counted into the saved content.
+          let turnText = '';
+          let turnInput = 0;
+          let turnOutput = 0;
+          for await (const event of sdkStream) {
+            if (
+              event.type === 'content_block_delta' &&
+              event.delta.type === 'text_delta' &&
+              event.delta.text
+            ) {
+              turnText += event.delta.text;
               controller.enqueue(
-                encoder.encode(sseFrame({ type: 'token', text: delta.text })),
+                encoder.encode(sseFrame({ type: 'token', text: event.delta.text })),
               );
+            } else if (event.type === 'message_start') {
+              turnInput = event.message.usage.input_tokens ?? 0;
+              turnOutput = event.message.usage.output_tokens ?? 0;
+            } else if (event.type === 'message_delta') {
+              // output_tokens is cumulative-for-this-message by spec.
+              if (event.usage?.output_tokens) turnOutput = event.usage.output_tokens;
             }
-            // input_json_delta (tool args) is ignored in Phase 3 — tools
-            // aren't enabled on this stream call so this branch is dead today.
-          } else if (event.type === 'message_delta') {
-            // usage is cumulative output_tokens by spec
-            if (event.usage?.output_tokens) {
-              outputTokens = event.usage.output_tokens;
+          }
+          // Accumulate per-turn usage across the whole agentic exchange.
+          inputTokens += turnInput;
+          outputTokens += turnOutput;
+
+          // Text-only mode: there is never a tool-use turn, so this is the only
+          // pass. Skip `finalMessage()` entirely (keeps behavior — and the test
+          // mocks that only implement the async iterator — identical to before).
+          if (!STREAM_TOOLS_ENABLED) {
+            assistantText = turnText;
+            break;
+          }
+
+          const msg = await sdkStream.finalMessage();
+          if (msg.stop_reason !== 'tool_use') {
+            // end_turn / max_tokens — this turn's text is the final reply.
+            assistantText = turnText;
+            break;
+          }
+
+          // stop_reason === 'tool_use' → execute each tool, feed results back.
+          const toolUseBlocks = msg.content.filter(
+            (b): b is Anthropic.ToolUseBlock => b.type === 'tool_use',
+          );
+
+          toolCallCount += toolUseBlocks.length;
+          if (toolCallCount > MAX_TOOL_CALLS) {
+            assistantText = turnText;
+            await finalize(
+              'Reached the tool-call limit for this turn. Please refine your request.',
+            );
+            return;
+          }
+
+          const toolResults: Anthropic.ToolResultBlockParam[] = [];
+          for (const block of toolUseBlocks) {
+            const input = block.input as Record<string, unknown>;
+            // Tell the client a tool is running. Args are complete here —
+            // parsed from the finalized message, not the partial
+            // input_json_delta stream.
+            controller.enqueue(
+              encoder.encode(
+                sseFrame({ type: 'tool_call', tool: block.name, args: input, id: block.id }),
+              ),
+            );
+
+            let result: unknown;
+            try {
+              result = await executePortalTool(
+                block.name,
+                input,
+                client.id,
+                userId,
+                { source: 'assistant', gate: AI_TOOL_APPROVALS_ENABLED ? ctx : undefined },
+              );
+            } catch (toolErr) {
+              // Serialize the failure into the tool_result so the model can
+              // recover/retry rather than aborting the whole stream.
+              result = {
+                error:
+                  toolErr instanceof Error ? toolErr.message : 'Tool execution failed',
+              };
             }
-          } else if (event.type === 'message_start') {
-            inputTokens = event.message.usage.input_tokens ?? 0;
-            // initial output_tokens (usually 1) — overwritten by message_delta
-            outputTokens = event.message.usage.output_tokens ?? 0;
+
+            allToolCalls.push({ name: block.name, input, result });
+            controller.enqueue(
+              encoder.encode(sseFrame({ type: 'tool_result', id: block.id, output: result })),
+            );
+            toolResults.push({
+              type: 'tool_result',
+              tool_use_id: block.id,
+              content: sanitizeToolResult(JSON.stringify(result)),
+            });
+          }
+
+          currentMessages.push(
+            { role: 'assistant', content: msg.content },
+            { role: 'user', content: toolResults },
+          );
+
+          if (loopCount >= MAX_LOOPS) {
+            // Hit the reasoning-step cap mid-tool-use; surface what we have.
+            assistantText = turnText;
+            await finalize(
+              'Reached the reasoning-step limit for this turn. The task may be incomplete.',
+            );
+            return;
           }
         }
 

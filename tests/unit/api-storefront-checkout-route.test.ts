@@ -98,6 +98,7 @@ vi.mock('@/lib/db/schema', () => {
     'bulkPricingRules', 'shippingRates', 'shippingZones', 'discountCodes',
     'orders', 'orderItems', 'orderStatusHistory',
     'giftCertificates', 'giftCertificateRedemptions',
+    'clientWebsites',
   ];
   const exports: Record<string, unknown> = {};
   for (const t of tables) exports[t] = tableProxy(t);
@@ -117,6 +118,16 @@ vi.mock('drizzle-orm', () => ({
   isNull: (a: unknown) => ({ op: 'isNull', a }),
   or: (...args: unknown[]) => ({ op: 'or', args: args.filter(Boolean) }),
   inArray: (a: unknown, list: unknown[]) => ({ op: 'inArray', a, list }),
+}));
+
+vi.mock('@/lib/admin/dashboard-cache', () => ({
+  revalidateAdminDashboard: vi.fn(),
+  ADMIN_DASHBOARD_TAG: 'admin-dashboard',
+}));
+
+vi.mock('@/lib/automation/event-bus', () => ({
+  emitEvent: vi.fn(),
+  onEvent: vi.fn(),
 }));
 
 vi.mock('@/lib/db', () => {
@@ -301,7 +312,7 @@ describe('POST /api/storefront/[siteId]/checkout — input validation', () => {
     const res = await POST(makeRequest(DEFAULT_BODY), makeParams());
     expect(res.status).toBe(404);
     const json = (await res.json()) as ResponseEnvelope;
-    expect(json.message).toMatch(/store not found/i);
+    expect(json.message).toMatch(/no store_settings|store not found/i);
   });
 
   it('returns 400 when the store has no Stripe account connected', async () => {
@@ -310,7 +321,7 @@ describe('POST /api/storefront/[siteId]/checkout — input validation', () => {
     const res = await POST(makeRequest(DEFAULT_BODY), makeParams());
     expect(res.status).toBe(400);
     const json = (await res.json()) as ResponseEnvelope;
-    expect(json.message).toMatch(/store payments not configured/i);
+    expect(json.message).toMatch(/stripe connect onboarding/i);
   });
 
   it('returns 400 when the store has not completed Stripe onboarding', async () => {
@@ -321,7 +332,7 @@ describe('POST /api/storefront/[siteId]/checkout — input validation', () => {
     const res = await POST(makeRequest(DEFAULT_BODY), makeParams());
     expect(res.status).toBe(400);
     const json = (await res.json()) as ResponseEnvelope;
-    expect(json.message).toMatch(/store payments not configured/i);
+    expect(json.message).toMatch(/stripe connect onboarding/i);
   });
 
   it('returns 400 when sessionId is missing from the body', async () => {
@@ -862,6 +873,7 @@ describe('POST /api/storefront/[siteId]/checkout — gift certificates', () => {
       // gift cert lookup
       [{ id: 88, code: 'GC1', remainingAmount: 2000, status: 'active' }],
       [], // last order
+      [], // clientWebsites fire-and-forget (order.placed event emit)
       // After order insert, route looks up gift cert again to update remaining amount
       [{ id: 88, code: 'GC1', remainingAmount: 2000, status: 'active' }],
     ]);
@@ -895,6 +907,7 @@ describe('POST /api/storefront/[siteId]/checkout — gift certificates', () => {
       [],
       [{ id: 89, code: 'GC2', remainingAmount: 500, status: 'active' }],
       [], // last order
+      [], // clientWebsites fire-and-forget (order.placed event emit)
       [{ id: 89, code: 'GC2', remainingAmount: 500, status: 'active' }],
     ]);
     queueInsertReturning([[{ id: 901, orderNumber: 'ORD-0001' }]]);

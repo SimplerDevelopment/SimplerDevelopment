@@ -1,10 +1,9 @@
 import { NextResponse } from 'next/server';
 import { unstable_cache } from 'next/cache';
-import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { mcpPendingChanges, portalApiKeys, users } from '@/lib/db/schema';
 import { and, desc, eq, sql } from 'drizzle-orm';
-import { getPortalClient, getPortalRole } from '@/lib/portal-client';
+import { authorizePortal, isAuthError } from '@/lib/portal-auth';
 
 // Per-client cached count for the layout-shell approvals bell. 30s TTL
 // absorbs the per-nav fan-out; the approve / reject / bulk-* routes call
@@ -33,16 +32,10 @@ async function getApprovalCount(clientId: number, status: string): Promise<numbe
 }
 
 export async function GET(req: Request) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
-  }
-
-  const userId = parseInt(session.user.id, 10);
-  const client = await getPortalClient(userId);
-  if (!client) {
-    return NextResponse.json({ success: false, message: 'Client not found' }, { status: 404 });
-  }
+  // Bearer-aware (mobile) + NextAuth (web). Read access = any member.
+  const authResult = await authorizePortal({ action: 'read' });
+  if (isAuthError(authResult)) return authResult.response;
+  const { client, role } = authResult;
 
   const url = new URL(req.url);
   const status = url.searchParams.get('status') ?? undefined;
@@ -86,7 +79,6 @@ export async function GET(req: Request) {
     .orderBy(desc(mcpPendingChanges.createdAt))
     .limit(100);
 
-  const role = await getPortalRole(userId, client.id);
   const canManage = role === 'owner' || role === 'admin';
 
   return NextResponse.json({ success: true, data: rows, meta: { role, canManage } });

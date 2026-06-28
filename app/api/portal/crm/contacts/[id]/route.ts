@@ -13,6 +13,25 @@ import {
 } from '@/lib/db/schema';
 import { and, eq, desc, inArray } from 'drizzle-orm';
 import { validateCrmName } from '@/lib/crm/parse';
+import { hasServiceAccess } from '@/lib/portal-auth';
+
+/**
+ * Paid-module gate: CRM writes require an active CRM (or bundle) subscription.
+ * Mirrors the MCP layer's requireService(clientId, 'crm'). Returns the 403
+ * response when the client is not entitled, or null when access is allowed.
+ */
+async function crmEntitlementError(clientId: number): Promise<NextResponse | null> {
+  if (await hasServiceAccess(clientId, 'crm')) return null;
+  return NextResponse.json(
+    {
+      success: false,
+      message: 'This feature requires an active crm subscription.',
+      requiresService: 'crm',
+      upsellUrl: '/portal/services',
+    },
+    { status: 403 }
+  );
+}
 
 async function getAuthedClient() {
   const session = await auth();
@@ -135,6 +154,9 @@ export async function PUT(
   if ('error' in result) return result.error;
   const { client } = result;
 
+  const entitlementError = await crmEntitlementError(client.id);
+  if (entitlementError) return entitlementError;
+
   const contactId = parseInt(id, 10);
   if (isNaN(contactId))
     return NextResponse.json({ success: false, message: 'Invalid ID' }, { status: 400 });
@@ -162,6 +184,32 @@ export async function PUT(
       }
       // Replace on body so the downstream assignment uses the cleaned value.
       body[field] = v.value;
+    }
+  }
+
+  // Validate tag ownership BEFORE mutating the contact. Every supplied tagId
+  // must belong to this client — otherwise a caller could attach another
+  // tenant's tag and read its name/color back via GET (cross-tenant exposure).
+  let requestedTagIds: number[] | null = null;
+  if (body.tagIds !== undefined && Array.isArray(body.tagIds)) {
+    requestedTagIds = [
+      ...new Set(
+        body.tagIds
+          .map((t: unknown) => Number(t))
+          .filter((n: number) => Number.isInteger(n))
+      ),
+    ] as number[];
+    if (requestedTagIds.length > 0) {
+      const ownedTags = await db
+        .select({ id: crmTags.id })
+        .from(crmTags)
+        .where(and(inArray(crmTags.id, requestedTagIds), eq(crmTags.clientId, client.id)));
+      if (ownedTags.length !== requestedTagIds.length) {
+        return NextResponse.json(
+          { success: false, message: 'One or more tags do not belong to this client' },
+          { status: 400 }
+        );
+      }
     }
   }
 
@@ -196,12 +244,12 @@ export async function PUT(
     .where(eq(crmContacts.id, contactId))
     .returning();
 
-  // Update tags if provided
-  if (body.tagIds !== undefined && Array.isArray(body.tagIds)) {
+  // Apply tag changes (ownership already validated above).
+  if (requestedTagIds !== null) {
     await db.delete(crmContactTags).where(eq(crmContactTags.contactId, contactId));
-    if (body.tagIds.length > 0) {
+    if (requestedTagIds.length > 0) {
       await db.insert(crmContactTags).values(
-        body.tagIds.map((tagId: number) => ({
+        requestedTagIds.map((tagId) => ({
           contactId,
           tagId,
         }))
@@ -220,6 +268,9 @@ export async function DELETE(
   const result = await getAuthedClient();
   if ('error' in result) return result.error;
   const { client } = result;
+
+  const entitlementError = await crmEntitlementError(client.id);
+  if (entitlementError) return entitlementError;
 
   const contactId = parseInt(id, 10);
   if (isNaN(contactId))

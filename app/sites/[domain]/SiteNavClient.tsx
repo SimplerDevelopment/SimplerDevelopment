@@ -45,8 +45,7 @@ export function SiteNavClient({
   navTemplate,
   basePath = '',
 }: SiteNavClientProps) {
-  // Resolve font stacks once (matches what the live Post Captain site uses:
-  // Poppins for display/headings, DM Sans for body copy).
+  // Resolve font stacks once (e.g. Poppins for display/headings, DM Sans for body copy).
   const headingFontStack = headingFont ? `"${headingFont}", sans-serif` : 'system-ui, sans-serif';
   const bodyFontStack = bodyFont ? `"${bodyFont}", sans-serif` : 'system-ui, sans-serif';
   // Prepend basePath to internal absolute paths. External URLs, hash-only
@@ -122,8 +121,7 @@ export function SiteNavClient({
   const linkClass = isBoldLayout
     ? 'transition-colors duration-300'
     : 'transition-colors duration-300';
-  // Inline styles for the trigger text — Poppins 500 / 16px / uppercase / 0.16px
-  // tracking — match the live Post Captain top nav.
+  // Inline styles for the trigger text — Poppins 500 / 16px / uppercase / 0.16px tracking.
   const linkInlineStyle = isBoldLayout
     ? {
         fontFamily: headingFontStack,
@@ -134,8 +132,8 @@ export function SiteNavClient({
       }
     : { fontSize: '14px', fontWeight: 500, letterSpacing: '0.02em' };
   // Classic template: bump muted link color from b3 (70%) → e6 (90%) so links
-  // stay legible against dark nav backgrounds (e.g. Cardiff's #1c3370). The
-  // previous 70% alpha was borderline-AA on dark blues. Hex `e6` ≈ 0.9 alpha.
+  // stay legible against dark nav backgrounds (e.g. a dark-branded site's deep navy).
+  // The previous 70% alpha was borderline-AA on dark blues. Hex `e6` ≈ 0.9 alpha.
   const linkColor = isBoldLayout ? currentText : `${currentText}e6`;
   const containerClass = isBoldLayout
     ? 'mx-auto flex items-center'
@@ -201,8 +199,8 @@ export function SiteNavClient({
       }
     : {
         // Classic CTA: bump prominence so the button reads as a real call to
-        // action and not just another nav link. Matches Cardiff/Slate-style
-        // chunky pill buttons (~16px / 700 / 12-15px vertical padding).
+        // action and not just another nav link. Uses chunky pill buttons
+        // (~16px / 700 / 12-15px vertical padding).
         paddingLeft: '26px',
         paddingRight: '26px',
         paddingTop: '12px',
@@ -458,8 +456,8 @@ export function SiteNavClient({
 
         {/* CTA button items — visible on both desktop and mobile (mobile shows
             a slightly smaller variant). On mobile the first button sits between
-            the logo and the hamburger, matching the live Post Captain header.
-            Inline display avoids the Slate-form `.hidden { display: none }` clash. */}
+            the logo and the hamburger. Inline display avoids the Slate-form
+            `.hidden { display: none }` clash. */}
         <div
           className="items-center"
           style={{
@@ -592,7 +590,7 @@ export function SiteNavClient({
       )}
 
       {/* Mobile menu — full-screen white panel with accordion top-level items
-          and column cards inside, mirroring the postcaptain.com mobile pattern.
+          and column cards inside, using a full-screen overlay mobile pattern.
           Visibility driven by inline display so external CSS (e.g. Slate forms)
           can't override it. */}
       <div

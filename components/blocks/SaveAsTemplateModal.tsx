@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import { Block } from '@/types/blocks';
+import { BaseBlock } from '@/types/blocks/base';
+import { slugify } from '@/lib/publishing/slug';
 
 interface SaveAsTemplateModalProps {
   blocks: Block[];
@@ -23,12 +25,7 @@ export function SaveAsTemplateModal({ blocks, onClose, onSaved, endpoint = '/api
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
-  const generateSlug = (value: string) => {
-    return value
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/(^-|-$)/g, '');
-  };
+  const generateSlug = (value: string) => slugify(value);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,7 +34,7 @@ export function SaveAsTemplateModal({ blocks, onClose, onSaved, endpoint = '/api
 
     // Strip IDs from blocks so they get new ones when inserted
     const sanitizedBlocks = blocks.map((block) => {
-      const { id, order, ...rest } = block as any;
+      const { id: _id, order: _order, ...rest } = block as BaseBlock & Record<string, unknown>;
       return rest;
     });
 

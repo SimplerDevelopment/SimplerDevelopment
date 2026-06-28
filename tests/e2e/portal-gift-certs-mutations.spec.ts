@@ -41,9 +41,11 @@ test.describe('Portal Gift Certs — Issue → Redeem → Double-redeem preventi
     test.skip(!hasAccess, 'No booking subscription on test seed');
     const ts = Date.now();
 
-    // ── 1. Issue a $50 gift cert ────────────────────────────────────────────
+    // ── 1. Issue a $40 gift cert (= 2 × the $20 booking price) ───────────────
+    // Each booking redeems the booking price (2000), so a $40 cert is drained
+    // to $0 by exactly two bookings — which is what the double-redeem step needs.
     const issueRes = await clientApi.post('/api/portal/tools/gift-certificates', {
-      amount: 5000, // 50.00
+      amount: 4000, // 40.00
       purchaserName: `${PREFIX}Purchaser ${ts}`,
       purchaserEmail: `${PREFIX.toLowerCase()}p-${ts}@example.com`,
       recipientName: `${PREFIX}Recipient`,
@@ -56,8 +58,8 @@ test.describe('Portal Gift Certs — Issue → Redeem → Double-redeem preventi
     const certId: number = issueRes.data.data.id;
     const certCode: string = issueRes.data.data.code;
     expect(certCode).toMatch(/^CERT-/);
-    expect(issueRes.data.data.initialAmount).toBe(5000);
-    expect(issueRes.data.data.remainingAmount).toBe(5000);
+    expect(issueRes.data.data.initialAmount).toBe(4000);
+    expect(issueRes.data.data.remainingAmount).toBe(4000);
     expect(issueRes.data.data.status).toBe('active');
 
     // No DELETE on gift certs — soft-cancel via PUT during cleanup.
@@ -87,6 +89,9 @@ test.describe('Portal Gift Certs — Issue → Redeem → Double-redeem preventi
     expect([200, 201]).toContain(pageRes.status);
     test.skip(!pageRes.data?.success, `Booking page create failed: ${pageRes.data?.message}`);
     const pageId: number = pageRes.data.data.id;
+    // The create handler derives its own slug from the title and ignores the
+    // slug we sent, so book against the server-assigned slug, not the local one.
+    const pageSlug: string = pageRes.data.data.slug ?? slug;
     cleanups.push(async () => {
       await clientApi.delete(`/api/portal/tools/booking/${pageId}`).catch(() => {});
     });
@@ -99,8 +104,8 @@ test.describe('Portal Gift Certs — Issue → Redeem → Double-redeem preventi
       return d.toISOString();
     };
 
-    // ── 3a. First booking — partial redemption (5000 → 3000) ───────────────
-    const r1 = await unauthApi.post(`/api/public/booking/${slug}/book`, {
+    // ── 3a. First booking — partial redemption (4000 → 2000) ───────────────
+    const r1 = await unauthApi.post(`/api/public/booking/${pageSlug}/book`, {
       name: `${PREFIX}Alice`,
       email: `${PREFIX.toLowerCase()}alice-${ts}@example.com`,
       startTime: startTimeFor(3),
@@ -111,15 +116,15 @@ test.describe('Portal Gift Certs — Issue → Redeem → Double-redeem preventi
 
     const afterFirst = await clientApi.get(`/api/portal/tools/gift-certificates/${certId}`);
     expect(afterFirst.status).toBe(200);
-    expect(afterFirst.data.data.remainingAmount).toBe(3000);
+    expect(afterFirst.data.data.remainingAmount).toBe(2000);
     expect(afterFirst.data.data.status).toBe('active');
     expect(Array.isArray(afterFirst.data.data.redemptions)).toBe(true);
     expect(afterFirst.data.data.redemptions.length).toBe(1);
     expect(afterFirst.data.data.redemptions[0].amount).toBe(2000);
 
-    // ── 3b. Second booking — drains the cert (3000 → 0, fully_redeemed) ─────
+    // ── 3b. Second booking — drains the cert (2000 → 0, fully_redeemed) ─────
     // Use a different time slot so we don't conflict with the first booking.
-    const r2 = await unauthApi.post(`/api/public/booking/${slug}/book`, {
+    const r2 = await unauthApi.post(`/api/public/booking/${pageSlug}/book`, {
       name: `${PREFIX}Bob`,
       email: `${PREFIX.toLowerCase()}bob-${ts}@example.com`,
       startTime: startTimeFor(4),

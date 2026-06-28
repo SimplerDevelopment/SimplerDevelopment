@@ -8,11 +8,14 @@ Goal: **measurable, reproducible coverage across three test layers** — unit, i
 
 | Layer | Runner | Specs | Coverage wired? |
 |---|---|---|---|
-| Unit | Vitest + jsdom | 13 files in `tests/unit/` (blocks, brand, survey) | `vitest --coverage` script exists, not in CI |
-| Integration | Vitest + jsdom | 6 files in `tests/integration/` (visual-editor UI flows — drag, keyboard, undo/redo, preview) | no |
-| E2E | Playwright (chromium only) | 65 files in `tests/e2e/` | no server-side coverage |
+| Unit | Vitest + jsdom / node | ~776 files in `tests/unit/` | `vitest --coverage` script exists; thresholds currently 0 (unenforced) |
+| Integration API | Vitest + node + real DB | ~187 files in `tests/integration/api/` | no |
+| Integration UI | Vitest + jsdom | ~24 files in `tests/integration/` (visual-editor, drag, keyboard, branding, surveys, etc.) | no |
+| E2E | Playwright (chromium only) | ~243 files in `tests/e2e/` | no server-side coverage |
 
-Key gap: nothing measures **server code** coverage. Existing "integration" tests are UI-integration, not API-integration — there are zero direct route-handler tests.
+Note: these counts are indicative of current scale (as of 2026-06-24), not a frozen target. Run `find tests -name '*.test.{ts,tsx}' -path '*unit*' | wc -l` etc. for live figures.
+
+Key gap: server code coverage is not yet collected in any automated run. The integration-API layer (`tests/integration/api/`) has extensive route-handler tests but they require a real DB.
 
 ## 2. Targets
 
@@ -59,7 +62,7 @@ Picking the right layer matters — it's the difference between a fast, determin
 - Block-editor registry, block-prop serialisers
 - All of `lib/branding/*` pure-logic helpers
 
-**Sizing:** ~80 unit tests today ideal, growing to ~200. Each < 50 ms.
+**Sizing:** ~776 unit test files today (as of 2026-06-24), already well past the original ~200 target. Each < 50 ms.
 
 ### Layer 2 — Integration
 
@@ -71,7 +74,7 @@ Split cleanly into two sublayers.
 
 **Rule:** mock network calls (MSW or per-test `vi.mock('@/lib/api-client')`). No real DB. Render the smallest component subtree that exercises the behaviour.
 
-**What lives here already:** the 6 existing visual-editor tests — good reference template.
+**What lives here already:** ~24 UI-integration test files covering visual-editor, drag/drop, keyboard shortcuts, branding, surveys, CRM modals, pitch-deck panels, navigation, etc. — good reference template.
 
 **To add:**
 - Card detail modal — assign/unassign, comment submit with @ mentions, checklist toggle optimism, watcher state

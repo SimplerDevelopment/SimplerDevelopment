@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getResend } from '@/lib/email';
+import { escapeHtml } from '@/lib/utils/html';
 
 // Hidden form field — bots fill it; humans don't. Drop silently with a 200
 // so the bot doesn't learn it's been detected. Pair with a CAPTCHA if abuse
@@ -8,18 +9,9 @@ import { getResend } from '@/lib/email';
 const HONEYPOT_FIELD = 'website';
 
 // Where contact-form submissions are delivered.
-const CONTACT_INBOX = 'info@simplerdevelopment.com';
+const CONTACT_INBOX = process.env.CONTACT_INBOX || 'info@simplerdevelopment.com';
 const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'SimplerDevelopment <noreply@simplerdevelopment.com>';
 
-/** Escape user-supplied text before interpolating into the email HTML. */
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
 
 const contactSchema = z.object({
   name: z.string().min(2).max(200),

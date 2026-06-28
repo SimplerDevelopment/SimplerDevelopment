@@ -4,8 +4,6 @@ import crypto from 'crypto';
 
 dotenv.config({ path: '.env' });
 
-const ts = Date.now();
-
 function randomToken(len = 64): string {
   return crypto.randomBytes(len / 2).toString('hex');
 }
@@ -39,8 +37,15 @@ async function seedAdminE2E() {
       // Bookings
       bookingPages,
       bookings,
+      // Membership (portal active-client resolution)
+      clientMembers,
+      // Onboarding completion (portal redirect gate)
+      userOnboarding,
+      // Brain
+      brainProfiles,
     } = await import('../lib/db/schema');
-    const { eq } = await import('drizzle-orm');
+    const { eq, and } = await import('drizzle-orm');
+    const { getOrCreatePublishingProject } = await import('../lib/publishing/bootstrap');
 
     // ── Find or create client ──────────────────────────────────────────────────
 
@@ -73,6 +78,67 @@ async function seedAdminE2E() {
     console.log('Client ready:', client.id);
 
     const clientId = client.id;
+
+    // ── Admin user + portal client context ──────────────────────────────────────
+    // The e2e fixtures' `adminApi` signs in as admin@example.com and hits
+    // /api/portal/* routes, which resolve the active client via team membership
+    // or ownership (lib/portal-client.ts → getPortalClients). A bare admin user
+    // has neither, so every adminApi portal call 404s ("Client not found").
+    // Provision the admin user here (test.sh only runs THIS seed for e2e) and
+    // make it an admin member of the demo client so the active-client resolver
+    // returns clientId for adminApi without needing the sd-active-client cookie.
+    const adminEmail = process.env.ADMIN_EMAIL || 'admin@example.com';
+    const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
+    const existingAdmin = await db.select().from(users).where(eq(users.email, adminEmail)).limit(1);
+    const [adminUser] = existingAdmin.length > 0
+      ? existingAdmin
+      : await db.insert(users).values({
+          name: 'Admin User',
+          email: adminEmail,
+          password: await hash(adminPassword, 10),
+          role: 'admin',
+          active: true,
+        }).returning();
+    console.log('Admin user ready:', adminUser.id);
+
+    // Idempotent membership wiring (unique index on clientId+userId).
+    const existingMembership = await db
+      .select()
+      .from(clientMembers)
+      .where(and(eq(clientMembers.clientId, clientId), eq(clientMembers.userId, adminUser.id)))
+      .limit(1);
+    if (existingMembership.length === 0) {
+      await db.insert(clientMembers).values({
+        clientId,
+        userId: adminUser.id,
+        // 'owner' so adminApi can exercise owner-gated flows (team invites,
+        // publishing manage_campaigns) — the demo client's underlying owner is
+        // the client user, but e2e drives these as the admin/owner persona.
+        role: 'owner',
+      });
+    }
+
+    // Bootstrap the Publishing project (+ Idea/Draft/In Review/Scheduled/Published
+    // columns) for the demo client. Idempotent (find-or-create). Unblocks the
+    // publishing calendar/campaign specs and gives the kanban-card specs a
+    // project with columns to resolve via getFirstColumnId.
+    const publishingProject = await getOrCreatePublishingProject(clientId, adminUser.id);
+    console.log('Publishing project ready:', publishingProject.id, `(${publishingProject.columns.length} columns)`);
+
+    // Mark onboarding complete for the demo client so the portal behaves like a
+    // settled tenant — an incomplete-onboarding user is redirected from
+    // /portal/login (and most routes) to /portal/onboarding, which breaks the
+    // route-smoke spec and anything asserting it lands on the dashboard.
+    for (const onboardUserId of [user.id, adminUser.id]) {
+      await db
+        .insert(userOnboarding)
+        .values({ userId: onboardUserId, clientId, step: 'done', completedAt: new Date() })
+        .onConflictDoUpdate({
+          target: userOnboarding.userId,
+          set: { step: 'done', completedAt: new Date(), clientId },
+        });
+    }
+    console.log('Onboarding marked complete for client + admin users');
 
     // ═══════════════════════════════════════════════════════════════════════════
     // 1. CRM DATA
@@ -262,7 +328,7 @@ async function seedAdminE2E() {
         { id: 'li-3', description: 'Website Reskin', quantity: 1, unitPrice: 300000 },
       ],
       fees: [
-        { label: 'Returning Client Discount', type: 'percent', amount: 500 }, // 5%
+        { id: 'fee-1', label: 'Returning Client Discount', type: 'percent', amount: 500 }, // 5%
       ],
       clientToken: randomToken(),
     }).returning();
@@ -299,8 +365,8 @@ async function seedAdminE2E() {
         },
         {
           contractId: contract.id,
-          name: 'Dan Coyle',
-          email: 'dan@simplerdevelopment.com',
+          name: 'Admin User',
+          email: 'admin@example.com',
           role: 'signer',
           order: 2,
           token: randomToken(),
@@ -381,8 +447,36 @@ async function seedAdminE2E() {
       console.log('Created White Label Domain service');
     }
 
+    // All-features bundle so the E2E tenant is fully entitled. `hasServiceAccess`
+    // (lib/portal-auth.ts) and the brain/MCP guards treat an active service whose
+    // category is `bundle` as access to EVERY feature category — without this the
+    // full suite fails ~250 specs with 402/403 (only @critical avoids the gated
+    // domains). Entitlement-*gate* tests use their own unentitled tenants, so
+    // granting the bundle to the shared e2e client is safe.
+    let bundleSvc = (await db.select().from(services).where(eq(services.slug, 'e2e-all-access-bundle')).limit(1))[0];
+    if (!bundleSvc) {
+      [bundleSvc] = await db.insert(services).values({
+        name: 'E2E All-Access Bundle',
+        slug: 'e2e-all-access-bundle',
+        description: 'Grants every feature category to the E2E test tenant.',
+        category: 'bundle',
+        price: 0,
+        billingCycle: 'monthly',
+        active: true,
+        includedAiCredits: 1000000,
+      }).returning();
+      console.log('Created E2E All-Access Bundle service');
+    }
+
     // Client subscriptions
     await db.insert(clientServices).values([
+      {
+        clientId,
+        serviceId: bundleSvc.id,
+        status: 'active',
+        startDate: new Date('2026-01-01'),
+        notes: 'All-access bundle — full feature entitlement for E2E',
+      },
       {
         clientId,
         serviceId: maintenanceSvc.id,
@@ -551,96 +645,120 @@ async function seedAdminE2E() {
     // 5. BOOKING DATA
     // ═══════════════════════════════════════════════════════════════════════════
 
-    const [bookingPage] = await db.insert(bookingPages).values({
-      clientId,
-      title: 'Strategy Call',
-      slug: `strategy-call-${ts}`,
-      description: 'Book a 30-minute strategy session to discuss your project goals and requirements.',
-      duration: 30,
-      bufferBefore: 5,
-      bufferAfter: 10,
-      maxAdvanceDays: 60,
-      minNoticeMins: 120,
-      timezone: 'America/New_York',
-      availability: [
-        { day: 1, startTime: '09:00', endTime: '17:00', enabled: true },
-        { day: 2, startTime: '09:00', endTime: '17:00', enabled: true },
-        { day: 3, startTime: '09:00', endTime: '17:00', enabled: true },
-        { day: 4, startTime: '09:00', endTime: '17:00', enabled: true },
-        { day: 5, startTime: '09:00', endTime: '17:00', enabled: true },
-        { day: 0, startTime: '09:00', endTime: '17:00', enabled: false },
-        { day: 6, startTime: '09:00', endTime: '17:00', enabled: false },
-      ],
-      questions: [
-        { id: 'q1', label: 'What is the main goal for this call?', type: 'textarea', required: true },
-      ],
-      color: '#2563eb',
-      active: true,
-    }).returning();
-    console.log('Booking page created:', bookingPage.id);
+    // Stable slug so bookings-coverage.spec.ts can reference it without timestamp
+    // drift. Idempotent: reuse an existing page to avoid slug uniqueness conflicts
+    // when the DB is not fully reset between runs.
+    const BOOKING_SLUG = 'strategy-call-e2e-seed';
+    const existingBookingPage = await db
+      .select()
+      .from(bookingPages)
+      .where(and(eq(bookingPages.clientId, clientId), eq(bookingPages.slug, BOOKING_SLUG)))
+      .limit(1);
+    const bookingPageIsNew = existingBookingPage.length === 0;
+    const [bookingPage] = bookingPageIsNew
+      ? await db.insert(bookingPages).values({
+          clientId,
+          title: 'Strategy Call',
+          slug: BOOKING_SLUG,
+          description: 'Book a 30-minute strategy session to discuss your project goals and requirements.',
+          duration: 30,
+          bufferBefore: 5,
+          bufferAfter: 10,
+          maxAdvanceDays: 60,
+          minNoticeMins: 120,
+          timezone: 'America/New_York',
+          availability: [
+            { day: 1, startTime: '09:00', endTime: '17:00', enabled: true },
+            { day: 2, startTime: '09:00', endTime: '17:00', enabled: true },
+            { day: 3, startTime: '09:00', endTime: '17:00', enabled: true },
+            { day: 4, startTime: '09:00', endTime: '17:00', enabled: true },
+            { day: 5, startTime: '09:00', endTime: '17:00', enabled: true },
+            { day: 0, startTime: '09:00', endTime: '17:00', enabled: false },
+            { day: 6, startTime: '09:00', endTime: '17:00', enabled: false },
+          ],
+          questions: [
+            { id: 'q1', label: 'What is the main goal for this call?', type: 'textarea', required: true },
+          ],
+          color: '#2563eb',
+          active: true,
+        }).returning()
+      : existingBookingPage;
+    console.log('Booking page', bookingPageIsNew ? 'created' : 'reused', ':', bookingPage.id);
 
-    // Future confirmed booking (+7 days)
-    const futureDate = new Date();
-    futureDate.setDate(futureDate.getDate() + 7);
-    futureDate.setHours(10, 0, 0, 0);
-    const futureEnd = new Date(futureDate);
-    futureEnd.setMinutes(futureEnd.getMinutes() + 30);
+    // Only seed bookings for a freshly created page — avoids duplicating the
+    // confirmed slot, which would cause slot-conflict 409s in the booking tests.
+    if (bookingPageIsNew) {
+      // Future confirmed booking (+9 days — lands on a weekday within the Mon–Fri window)
+      const futureDate = new Date();
+      futureDate.setDate(futureDate.getDate() + 9);
+      futureDate.setHours(10, 0, 0, 0);
+      const futureEnd = new Date(futureDate);
+      futureEnd.setMinutes(futureEnd.getMinutes() + 30);
 
-    // Past completed booking (-7 days)
-    const pastDate = new Date();
-    pastDate.setDate(pastDate.getDate() - 7);
-    pastDate.setHours(14, 0, 0, 0);
-    const pastEnd = new Date(pastDate);
-    pastEnd.setMinutes(pastEnd.getMinutes() + 30);
+      // Past completed booking (-7 days)
+      const pastDate = new Date();
+      pastDate.setDate(pastDate.getDate() - 7);
+      pastDate.setHours(14, 0, 0, 0);
+      const pastEnd = new Date(pastDate);
+      pastEnd.setMinutes(pastEnd.getMinutes() + 30);
 
-    // Cancelled booking (-3 days)
-    const cancelDate = new Date();
-    cancelDate.setDate(cancelDate.getDate() - 3);
-    cancelDate.setHours(11, 0, 0, 0);
-    const cancelEnd = new Date(cancelDate);
-    cancelEnd.setMinutes(cancelEnd.getMinutes() + 30);
+      // Cancelled booking (-3 days)
+      const cancelDate = new Date();
+      cancelDate.setDate(cancelDate.getDate() - 3);
+      cancelDate.setHours(11, 0, 0, 0);
+      const cancelEnd = new Date(cancelDate);
+      cancelEnd.setMinutes(cancelEnd.getMinutes() + 30);
 
-    await db.insert(bookings).values([
-      {
-        bookingPageId: bookingPage.id,
-        clientId,
-        guestName: 'Alice Chen',
-        guestEmail: 'alice@techventures.io',
-        guestPhone: '(555) 200-1001',
-        startTime: futureDate,
-        endTime: futureEnd,
-        timezone: 'America/New_York',
-        status: 'confirmed',
-        answers: { q1: 'Discuss new platform architecture and timeline.' },
-        cancelToken: randomToken(),
-      },
-      {
-        bookingPageId: bookingPage.id,
-        clientId,
-        guestName: 'Carol Davis',
-        guestEmail: 'carol@greenleafstudios.co',
-        startTime: pastDate,
-        endTime: pastEnd,
-        timezone: 'America/New_York',
-        status: 'completed',
-        answers: { q1: 'Review brand refresh deliverables.' },
-        cancelToken: randomToken(),
-      },
-      {
-        bookingPageId: bookingPage.id,
-        clientId,
-        guestName: 'Dave Wilson',
-        guestEmail: 'dave@greenleafstudios.co',
-        startTime: cancelDate,
-        endTime: cancelEnd,
-        timezone: 'America/New_York',
-        status: 'cancelled',
-        cancelledAt: new Date(cancelDate.getTime() - 86400000), // cancelled 1 day before
-        answers: { q1: 'Project kickoff planning.' },
-        cancelToken: randomToken(),
-      },
-    ]);
-    console.log('Bookings created: 3');
+      await db.insert(bookings).values([
+        {
+          bookingPageId: bookingPage.id,
+          clientId,
+          guestName: 'Alice Chen',
+          guestEmail: 'alice@techventures.io',
+          guestPhone: '(555) 200-1001',
+          startTime: futureDate,
+          endTime: futureEnd,
+          timezone: 'America/New_York',
+          status: 'confirmed',
+          answers: { q1: 'Discuss new platform architecture and timeline.' },
+          cancelToken: randomToken(),
+        },
+        {
+          bookingPageId: bookingPage.id,
+          clientId,
+          guestName: 'Carol Davis',
+          guestEmail: 'carol@greenleafstudios.co',
+          startTime: pastDate,
+          endTime: pastEnd,
+          timezone: 'America/New_York',
+          status: 'completed',
+          answers: { q1: 'Review brand refresh deliverables.' },
+          cancelToken: randomToken(),
+        },
+        {
+          bookingPageId: bookingPage.id,
+          clientId,
+          guestName: 'Dave Wilson',
+          guestEmail: 'dave@greenleafstudios.co',
+          startTime: cancelDate,
+          endTime: cancelEnd,
+          timezone: 'America/New_York',
+          status: 'cancelled',
+          cancelledAt: new Date(cancelDate.getTime() - 86400000), // cancelled 1 day before
+          answers: { q1: 'Project kickoff planning.' },
+          cancelToken: randomToken(),
+        },
+      ]);
+      console.log('Bookings created: 3');
+    } else {
+      console.log('Booking page already exists — skipping booking seed');
+    }
+
+    // -- Brain profile (enabled: true so cov-u8 meetings lifecycle test passes) --
+    await db.insert(brainProfiles)
+      .values({ clientId, name: 'Company Brain', enabled: true })
+      .onConflictDoUpdate({ target: brainProfiles.clientId, set: { enabled: true } });
+    console.log('Brain profile enabled: true');
 
     // ═══════════════════════════════════════════════════════════════════════════
 

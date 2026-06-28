@@ -3,6 +3,7 @@ import { posts } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { notFound } from 'next/navigation';
 import { Block, BlockEditorData } from '@/types/blocks';
+import { verifyPreviewToken } from '@/lib/preview-token';
 import { PreviewRenderer } from './PreviewRenderer';
 
 interface PreviewPageProps {
@@ -25,6 +26,16 @@ export default async function PreviewPage({ params, searchParams }: PreviewPageP
     .where(eq(posts.id, postId));
 
   if (!post) {
+    notFound();
+  }
+
+  // Auth gate: require a valid site-scoped preview token. Without this, anyone
+  // could read any tenant's (incl. unpublished) post by enumerating /preview/<id>.
+  // The token is keyed to the post's websiteId — the editor mints site-wide
+  // tokens; global/admin posts (websiteId=null) aren't previewable via this route.
+  // notFound() (not 401) so failures don't confirm the post exists.
+  const token = typeof query.token === 'string' ? query.token : '';
+  if (post.websiteId == null || !token || !verifyPreviewToken(post.websiteId, token)) {
     notFound();
   }
 

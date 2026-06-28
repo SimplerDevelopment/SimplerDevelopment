@@ -22,6 +22,13 @@ vi.mock('@/lib/portal-client', () => ({
   getPortalClient: (...args: unknown[]) => getPortalClientMock(...args),
 }));
 
+const authorizePortalMock = vi.fn();
+const isAuthErrorMock = vi.fn((r: unknown) => Boolean(r && typeof r === 'object' && 'response' in (r as Record<string, unknown>)));
+vi.mock('@/lib/portal-auth', () => ({
+  authorizePortal: (...args: unknown[]) => authorizePortalMock(...args),
+  isAuthError: (r: unknown) => isAuthErrorMock(r),
+}));
+
 const headersMock = vi.fn();
 vi.mock('next/headers', () => ({
   headers: () => headersMock(),
@@ -151,6 +158,7 @@ beforeEach(() => {
   selectQueue = [];
   authMock.mockReset();
   getPortalClientMock.mockReset();
+  authorizePortalMock.mockReset();
   headersMock.mockReset();
   auditBrandingMock.mockReset();
   messagingRowToContextMock.mockReset();
@@ -165,21 +173,23 @@ beforeEach(() => {
 
 describe('GET /api/portal/media', () => {
   it('returns 401 without a session', async () => {
-    authMock.mockResolvedValue(null);
+    authorizePortalMock.mockResolvedValue({
+      response: new Response(JSON.stringify({ success: false, message: 'Unauthorized' }), { status: 401 }),
+    });
     const res = await mediaRoute.GET(makeReq('http://x/api/portal/media'));
     expect(res.status).toBe(401);
   });
 
   it('returns 404 when portal client cannot be resolved', async () => {
-    authMock.mockResolvedValue(SESSION);
-    getPortalClientMock.mockResolvedValue(null);
+    authorizePortalMock.mockResolvedValue({
+      response: new Response(JSON.stringify({ success: false, message: 'Client not found' }), { status: 404 }),
+    });
     const res = await mediaRoute.GET(makeReq('http://x/api/portal/media'));
     expect(res.status).toBe(404);
   });
 
   it('returns media + branding profiles + pagination total', async () => {
-    authMock.mockResolvedValue(SESSION);
-    getPortalClientMock.mockResolvedValue({ id: 33 });
+    authorizePortalMock.mockResolvedValue({ client: { id: 33 }, userId: 7, role: 'admin' });
     // 1: branding profiles, 2: media rows, 3: count
     selectQueue.push([{ id: 1, name: 'Default' }]);
     selectQueue.push([
@@ -197,8 +207,7 @@ describe('GET /api/portal/media', () => {
   });
 
   it('honors search + mimeType + brandingProfileId=unassigned filters', async () => {
-    authMock.mockResolvedValue(SESSION);
-    getPortalClientMock.mockResolvedValue({ id: 33 });
+    authorizePortalMock.mockResolvedValue({ client: { id: 33 }, userId: 7, role: 'admin' });
     selectQueue.push([]); // profiles
     selectQueue.push([]); // media
     selectQueue.push([{ count: 0 }]); // count
@@ -213,8 +222,7 @@ describe('GET /api/portal/media', () => {
   });
 
   it('honors a specific brandingProfileId filter', async () => {
-    authMock.mockResolvedValue(SESSION);
-    getPortalClientMock.mockResolvedValue({ id: 33 });
+    authorizePortalMock.mockResolvedValue({ client: { id: 33 }, userId: 7, role: 'admin' });
     selectQueue.push([]);
     selectQueue.push([]);
     selectQueue.push([{ count: 0 }]);

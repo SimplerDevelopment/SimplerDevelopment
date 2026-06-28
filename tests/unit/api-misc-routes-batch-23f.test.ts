@@ -31,6 +31,17 @@ vi.mock('@/lib/portal-client', () => ({
   getPortalRole: (...args: unknown[]) => getPortalRoleMock(...args),
 }));
 
+const authorizePortalMock = vi.fn();
+const isAuthErrorMock = vi.fn((result: unknown) => 'response' in (result as object));
+vi.mock('@/lib/portal-auth', () => ({
+  authorizePortal: (...args: unknown[]) => authorizePortalMock(...args),
+  isAuthError: (result: unknown) => isAuthErrorMock(result),
+}));
+
+vi.mock('@/lib/mcp-auth', () => ({
+  resolvePortalFromCurrentRequest: async () => null,
+}));
+
 vi.mock('drizzle-orm', () => ({
   eq: (a: unknown, b: unknown) => ({ op: 'eq', a, b }),
   and: (...args: unknown[]) => ({ op: 'and', args }),
@@ -196,6 +207,7 @@ beforeEach(() => {
   getPortalClientMock.mockReset();
   getPortalClientsMock.mockReset();
   getPortalRoleMock.mockReset();
+  authorizePortalMock.mockReset();
 });
 
 // ===========================================================================
@@ -450,7 +462,9 @@ describe('GET /api/portal/projects/[id]/cards', () => {
 
 describe('POST /api/portal/approvals/[id]/reject', () => {
   it('returns 401 without a session', async () => {
-    authMock.mockResolvedValue(null);
+    authorizePortalMock.mockResolvedValue({
+      response: new Response(JSON.stringify({ success: false, message: 'Unauthorized' }), { status: 401 }),
+    });
     const res = await approvalsRejectRoute.POST(
       makeReq('http://x', { method: 'POST', body: '{}' }),
       paramsFor('1'),
@@ -459,8 +473,9 @@ describe('POST /api/portal/approvals/[id]/reject', () => {
   });
 
   it('returns 404 when portal client missing', async () => {
-    authMock.mockResolvedValue(SESSION);
-    getPortalClientMock.mockResolvedValue(null);
+    authorizePortalMock.mockResolvedValue({
+      response: new Response(JSON.stringify({ success: false, message: 'Client not found' }), { status: 404 }),
+    });
     const res = await approvalsRejectRoute.POST(
       makeReq('http://x', { method: 'POST', body: '{}' }),
       paramsFor('1'),
@@ -469,9 +484,12 @@ describe('POST /api/portal/approvals/[id]/reject', () => {
   });
 
   it('returns 403 when role is member', async () => {
-    authMock.mockResolvedValue(SESSION);
-    getPortalClientMock.mockResolvedValue({ id: 33 });
-    getPortalRoleMock.mockResolvedValue('member');
+    authorizePortalMock.mockResolvedValue({
+      response: new Response(
+        JSON.stringify({ success: false, message: 'Permission denied. Your role (member) cannot manage team or billing settings.' }),
+        { status: 403 },
+      ),
+    });
     const res = await approvalsRejectRoute.POST(
       makeReq('http://x', { method: 'POST', body: '{}' }),
       paramsFor('1'),
@@ -480,9 +498,7 @@ describe('POST /api/portal/approvals/[id]/reject', () => {
   });
 
   it('returns 404 when change not found for client', async () => {
-    authMock.mockResolvedValue(SESSION);
-    getPortalClientMock.mockResolvedValue({ id: 33 });
-    getPortalRoleMock.mockResolvedValue('owner');
+    authorizePortalMock.mockResolvedValue({ client: { id: 33 }, userId: 7, role: 'owner' });
     selectQueue.push([]); // change lookup empty
     const res = await approvalsRejectRoute.POST(
       makeReq('http://x', { method: 'POST', body: '{}' }),
@@ -492,9 +508,7 @@ describe('POST /api/portal/approvals/[id]/reject', () => {
   });
 
   it('returns 400 when change is not pending', async () => {
-    authMock.mockResolvedValue(SESSION);
-    getPortalClientMock.mockResolvedValue({ id: 33 });
-    getPortalRoleMock.mockResolvedValue('admin');
+    authorizePortalMock.mockResolvedValue({ client: { id: 33 }, userId: 7, role: 'admin' });
     selectQueue.push([{ id: 5, status: 'approved' }]);
     const res = await approvalsRejectRoute.POST(
       makeReq('http://x', { method: 'POST', body: '{}' }),
@@ -506,9 +520,7 @@ describe('POST /api/portal/approvals/[id]/reject', () => {
   });
 
   it('rejects a pending change with note and returns the updated row', async () => {
-    authMock.mockResolvedValue(SESSION);
-    getPortalClientMock.mockResolvedValue({ id: 33 });
-    getPortalRoleMock.mockResolvedValue('owner');
+    authorizePortalMock.mockResolvedValue({ client: { id: 33 }, userId: 7, role: 'owner' });
     selectQueue.push([{ id: 5, status: 'pending' }]);
     updateReturnQueue.push([{ id: 5, status: 'rejected', reviewNote: 'no thanks' }]);
     const res = await approvalsRejectRoute.POST(
@@ -531,9 +543,7 @@ describe('POST /api/portal/approvals/[id]/reject', () => {
   });
 
   it('handles invalid JSON body by defaulting note to null', async () => {
-    authMock.mockResolvedValue(SESSION);
-    getPortalClientMock.mockResolvedValue({ id: 33 });
-    getPortalRoleMock.mockResolvedValue('admin');
+    authorizePortalMock.mockResolvedValue({ client: { id: 33 }, userId: 7, role: 'admin' });
     selectQueue.push([{ id: 5, status: 'pending' }]);
     updateReturnQueue.push([{ id: 5, status: 'rejected' }]);
     const res = await approvalsRejectRoute.POST(
@@ -545,9 +555,7 @@ describe('POST /api/portal/approvals/[id]/reject', () => {
   });
 
   it('coerces non-string note to null', async () => {
-    authMock.mockResolvedValue(SESSION);
-    getPortalClientMock.mockResolvedValue({ id: 33 });
-    getPortalRoleMock.mockResolvedValue('owner');
+    authorizePortalMock.mockResolvedValue({ client: { id: 33 }, userId: 7, role: 'owner' });
     selectQueue.push([{ id: 5, status: 'pending' }]);
     updateReturnQueue.push([{ id: 5, status: 'rejected' }]);
     const res = await approvalsRejectRoute.POST(

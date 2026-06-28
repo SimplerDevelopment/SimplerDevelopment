@@ -83,7 +83,7 @@ async function recordFailure(name: string, err: unknown): Promise<void> {
   }
 }
 
-export type CronArea = 'api-cron' | 'routine' | 'brain-12';
+export type CronArea = 'api-cron' | 'routine';
 
 /**
  * Wrap a cron route handler with start/end health tracking. The wrapped

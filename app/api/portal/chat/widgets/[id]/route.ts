@@ -51,7 +51,14 @@ export async function PATCH(req: Request, { params }: Ctx) {
   if (typeof body.primaryColor === 'string') patch.primaryColor = body.primaryColor;
   if (typeof body.awayMessage === 'string' || body.awayMessage === null) patch.awayMessage = body.awayMessage;
 
-  const [updated] = await db.update(chatWidgets).set(patch).where(eq(chatWidgets.id, widgetId)).returning();
+  // Scope the mutation itself by clientId — not just the preceding loadWidget()
+  // read — so the authorization check is atomic with the write (no TOCTOU, and
+  // no unscoped UPDATE reachable if a future caller skips loadWidget).
+  const [updated] = await db
+    .update(chatWidgets)
+    .set(patch)
+    .where(and(eq(chatWidgets.id, widgetId), eq(chatWidgets.clientId, result.client.id)))
+    .returning();
   return NextResponse.json({ success: true, data: updated });
 }
 
@@ -62,6 +69,7 @@ export async function DELETE(_req: Request, { params }: Ctx) {
   const widgetId = Number.parseInt(id, 10);
   const result = await loadWidget(parseInt(session.user.id, 10), widgetId);
   if ('error' in result) return NextResponse.json({ success: false, message: result.error }, { status: result.status });
-  await db.delete(chatWidgets).where(eq(chatWidgets.id, widgetId));
+  // clientId in the DELETE WHERE keeps the authorization atomic with the write.
+  await db.delete(chatWidgets).where(and(eq(chatWidgets.id, widgetId), eq(chatWidgets.clientId, result.client.id)));
   return NextResponse.json({ success: true, data: { id: widgetId } });
 }

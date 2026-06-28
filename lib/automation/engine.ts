@@ -11,7 +11,13 @@ import type { AutomationCondition, AutomationAction, BrainPlaybookLinkEntityType
 import { eq, and } from 'drizzle-orm';
 import { sql } from 'drizzle-orm';
 import { onEvent, type AutomationEvent } from './event-bus';
+import { enqueueWorkflowRunsForTrigger } from '@/lib/workflows/trigger';
+import type { WorkflowTriggerConfig } from '@/lib/workflows/types';
+import { dispatchSiteWebhooksForEvent } from '@/lib/site-webhooks/dispatcher';
 import { executePortalTool } from '@/lib/ai/portal-tools';
+import { requiredScopeFor } from '@/lib/ai/portal-tools/scopes';
+import { hasScope } from '@/lib/mcp-auth';
+import { logAgentAction, hashParams } from '@/lib/audit/agent-action-log';
 import { startRun } from '@/lib/brain/playbook-runs';
 
 // AutomationRule type as returned by drizzle SELECT * (kept loose since
@@ -94,6 +100,34 @@ function matchesTrigger(
   return true;
 }
 
+// ─── SCOPE GATE ────────────────────────────────────────────────────────────
+
+/**
+ * Pure helper: decides whether a rule is allowed to invoke a given tool.
+ * Exported for unit-testing; not part of the public API.
+ *
+ * Returns `{ allowed: true }` when:
+ *   - the tool has no registered required scope (unknown tools pass through), OR
+ *   - the rule's granted scopes satisfy the required scope (exact, wildcard, or resource:*)
+ *
+ * Returns `{ allowed: false, requiredScope }` when the tool needs a scope the
+ * rule doesn't hold.
+ */
+export function isActionAllowed(
+  ruleScopes: string[],
+  toolName: string,
+): { allowed: true; requiredScope: string | null } | { allowed: false; requiredScope: string } {
+  const requiredScope = requiredScopeFor(toolName);
+  if (requiredScope === null) {
+    // Tool not in registry — pass through (don't block unknown tools).
+    return { allowed: true, requiredScope: null };
+  }
+  if (hasScope(ruleScopes, requiredScope)) {
+    return { allowed: true, requiredScope };
+  }
+  return { allowed: false, requiredScope };
+}
+
 // ─── ACTION EXECUTION ──────────────────────────────────────────────────────
 
 async function executeAction(
@@ -102,12 +136,76 @@ async function executeAction(
   userId: number,
   payload: Record<string, unknown>,
   ruleCreatedBy: number | null,
+  ruleId?: number,
+  ruleScopes?: string[],
 ): Promise<{ tool: string; params: Record<string, unknown>; result: unknown; error?: string }> {
   const resolvedParams = resolveTemplate(action.params, payload) as Record<string, unknown>;
 
   // Handle delayed actions
   if (action.delay && action.delay > 0) {
     await new Promise((resolve) => setTimeout(resolve, action.delay! * 1000));
+  }
+
+  // ── Scope gate (applies to ALL actions, including the special-case bridges
+  //    below) ──────────────────────────────────────────────────────────────
+  // Check the rule's granted scopes BEFORE dispatching. fire_webhook,
+  // start_playbook and run_plugin_script are mapped in AUTOMATION_ACTION_SCOPES
+  // so they're gated too (run_plugin_script keeps its own entitlement check as a
+  // second layer). Unknown tools (requiredScope=null) pass through unchanged
+  // (they no-op at executePortalTool).
+  const scopeCheck = isActionAllowed(ruleScopes ?? [], action.tool);
+  if (!scopeCheck.allowed) {
+    const errorMsg = `scope_denied: ${scopeCheck.requiredScope}`;
+    // Best-effort audit — must not throw.
+    void logAgentAction({
+      clientId,
+      userId,
+      source: 'automation',
+      tool: action.tool,
+      scopeRequired: scopeCheck.requiredScope,
+      scopeAllowed: false,
+      paramsHash: hashParams(resolvedParams),
+      outcome: 'denied',
+      ruleId,
+      durationMs: 0,
+    });
+    return { tool: action.tool, params: resolvedParams, result: null, error: errorMsg };
+  }
+
+  // ─── fire_webhook ────────────────────────────────────────────────────────
+  // POST the event payload to a caller-configured URL. Params:
+  //   { url: string, headers?: Record<string, string> }
+  // Failures are swallowed (logged to console only) — a failing webhook must
+  // never break the automation run. The raw URL is not logged to prevent
+  // secrets embedded in query-string tokens from leaking to automation_logs.
+  if (action.tool === 'fire_webhook') {
+    const url = typeof resolvedParams.url === 'string' ? resolvedParams.url.trim() : '';
+    if (!url) {
+      return { tool: action.tool, params: { url: '[missing]' }, result: null, error: 'fire_webhook: params.url is required' };
+    }
+    const extraHeaders: Record<string, string> =
+      resolvedParams.headers && typeof resolvedParams.headers === 'object' && !Array.isArray(resolvedParams.headers)
+        ? Object.fromEntries(
+            Object.entries(resolvedParams.headers as Record<string, unknown>)
+              .filter(([, v]) => typeof v === 'string')
+              .map(([k, v]) => [k, v as string]),
+          )
+        : {};
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 10_000);
+      const resp = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...extraHeaders },
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      }).finally(() => clearTimeout(timer));
+      return { tool: action.tool, params: { url: '[redacted]' }, result: { status: resp.status, ok: resp.ok } };
+    } catch (err) {
+      const error = err instanceof Error ? err.message : String(err);
+      console.error('[automation] fire_webhook error (swallowed)', { error });
+      return { tool: action.tool, params: { url: '[redacted]' }, result: null, error };
+    }
   }
 
   // ─── start_playbook bridge ───────────────────────────────────────────────
@@ -198,7 +296,10 @@ async function executeAction(
   }
 
   try {
-    const result = await executePortalTool(action.tool, resolvedParams, clientId, userId);
+    const result = await executePortalTool(action.tool, resolvedParams, clientId, userId, {
+      source: 'automation',
+      ruleId,
+    });
     return { tool: action.tool, params: resolvedParams, result };
   } catch (err) {
     const error = err instanceof Error ? err.message : String(err);
@@ -232,7 +333,7 @@ async function runPluginScriptAction(
 
   // Dynamic import keeps the automation engine module-load surface narrow.
   const { findActivePluginBySlug, isClientEntitledToApp } = await import('@/lib/plugins/entitlement');
-  const { enqueueRun } = await import('@/lib/plugins/handlers/postcaptain-tools/runner');
+  const { enqueueRun } = await import('@/lib/plugins/handlers/content-tools/runner');
 
   const app = await findActivePluginBySlug(pluginSlug);
   if (!app) {
@@ -307,7 +408,7 @@ export async function runRule(
   let errorMessage: string | undefined;
 
   for (const action of actions) {
-    const result = await executeAction(action, rule.clientId, userId, payload, rule.createdBy ?? null);
+    const result = await executeAction(action, rule.clientId, userId, payload, rule.createdBy ?? null, rule.id, (rule.scopes ?? []) as string[]);
     results.push(result);
     if (result.error) {
       status = results.some((r) => !r.error) ? 'partial' : 'failed';
@@ -338,6 +439,35 @@ export async function runRule(
 
 // ─── MAIN ENGINE (EVENT PATH) ──────────────────────────────────────────────
 
+// ─── WORKFLOW TRIGGER MAPPING ─────────────────────────────────────────────────
+
+/**
+ * Map a live automation event to a visual workflow trigger kind.
+ * Returns null for events that don't correspond to a known workflow trigger.
+ */
+function mapEventToWorkflowTrigger(event: AutomationEvent): WorkflowTriggerConfig | null {
+  switch (event.event) {
+    case 'crm.contact.created':
+      return { kind: 'contact.created' };
+    case 'crm.deal.updated': {
+      const stageId = event.payload.stageId;
+      if (typeof stageId === 'number') {
+        return { kind: 'deal.stage_changed', stageId };
+      }
+      return null;
+    }
+    case 'form.submitted': {
+      const formId = event.payload.formId;
+      if (typeof formId === 'number') {
+        return { kind: 'form.submitted', formId };
+      }
+      return { kind: 'form.submitted' };
+    }
+    default:
+      return null;
+  }
+}
+
 async function processEvent(event: AutomationEvent): Promise<void> {
   // Fetch all enabled rules for this client
   const rules = await db.select()
@@ -359,6 +489,22 @@ async function processEvent(event: AutomationEvent): Promise<void> {
     // default label without re-plumbing the trigger event name.
     const payload = { ...event.payload, _userId: event.userId, _event: event.event };
     await runRule(rule, payload, event.event);
+  }
+
+  // Phase 1a: wire live events to the visual workflow canvas.
+  // `enqueueWorkflowRunsForTrigger` finds active workflows whose trigger matches
+  // and fires `runWorkflow` fire-and-forget per matched workflow.
+  try {
+    const workflowTrigger = mapEventToWorkflowTrigger(event);
+    if (workflowTrigger) {
+      await enqueueWorkflowRunsForTrigger(
+        event.clientId,
+        workflowTrigger,
+        { ...event.payload, _userId: event.userId, _event: event.event },
+      );
+    }
+  } catch (err: unknown) {
+    console.error('[automation] workflow trigger enqueue error', err);
   }
 }
 
@@ -473,6 +619,7 @@ export function initAutomationEngine(): void {
   initialized = true;
   onEvent(processEvent);
   onEvent(processEventForPlaybookAutoStart);
+  onEvent(dispatchSiteWebhooksForEvent);
   console.log('[automation] Engine initialized');
 }
 

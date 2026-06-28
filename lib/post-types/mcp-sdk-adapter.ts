@@ -22,17 +22,7 @@ import { and, asc, eq, isNull, or } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { clientWebsites, postTypes, customFields } from '@/lib/db/schema';
 import { hasScope, type PortalMcpContext } from '@/lib/mcp-auth';
-
-function json(payload: unknown) {
-  return { content: [{ type: 'text' as const, text: JSON.stringify(payload, null, 2) }] };
-}
-
-function denied(scope: string) {
-  return {
-    content: [{ type: 'text' as const, text: `Permission denied: this API key lacks the "${scope}" scope.` }],
-    isError: true,
-  };
-}
+import { json, denied } from '@/lib/mcp/types';
 
 function revalidate() {
   try {
@@ -149,7 +139,7 @@ async function findEditableType(siteId: number, typeId: number, clientId: number
   return type ? { site, type } : null;
 }
 
-const FIELD_TYPE_ENUM = ['text', 'textarea', 'number', 'date', 'select', 'checkbox', 'url', 'email', 'image', 'user_select', 'repeater', 'group'] as const;
+const FIELD_TYPE_ENUM = ['text', 'textarea', 'number', 'date', 'select', 'checkbox', 'url', 'email', 'image', 'user_select', 'repeater', 'group', 'reference'] as const;
 
 export function registerPostTypeToolsOnSdk(server: McpServer, ctx: PortalMcpContext) {
   const clientId = ctx.client.id;

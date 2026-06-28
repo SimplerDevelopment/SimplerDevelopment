@@ -7,13 +7,13 @@ const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
 const CLIENT_EMAIL = 'client@example.com';
 const CLIENT_PASSWORD = 'client123';
 
-// Plugin / multi-client e2e credentials. The "postcaptain" user belongs to
-// client 103 (Post Captain Consulting) — the only client that is allowlisted
-// onto the `postcaptain-tools` plugin. No seed script creates this user, so
+// Plugin / multi-client e2e credentials. The "content" user belongs to
+// client 103 (the plugin test tenant) — the only client that is allowlisted
+// onto the `content-tools` plugin. No seed script creates this user, so
 // the env vars must point at an account provisioned out-of-band (or specs
 // that rely on this fixture must skip themselves when the env is missing).
-const POSTCAPTAIN_EMAIL = process.env.POSTCAPTAIN_USER_EMAIL || '';
-const POSTCAPTAIN_PASSWORD = process.env.POSTCAPTAIN_USER_PASSWORD || '';
+const CONTENT_PLUGIN_EMAIL = process.env.CONTENT_PLUGIN_EMAIL || '';
+const CONTENT_PASSWORD = process.env.CONTENT_USER_PASSWORD || '';
 
 /** Page-scoped login helper. Authenticates the given Playwright `Page`'s
  *  request context via NextAuth credentials. Mirrors the inline pattern used
@@ -34,12 +34,12 @@ type Fixtures = {
   clientApi: ApiClient;
   adminApi: ApiClient;
   unauthApi: ApiClient;
-  /** Log the current `page` in as the postcaptain (client 103) test user.
-   *  Throws if POSTCAPTAIN_USER_EMAIL / POSTCAPTAIN_USER_PASSWORD env vars
+  /** Log the current `page` in as the content (client 103) test user.
+   *  Throws if CONTENT_PLUGIN_EMAIL / CONTENT_USER_PASSWORD env vars
    *  are not set — specs using this fixture should `test.skip` upstream when
    *  those vars are missing. */
-  loginAsPostcaptain: (page: Page) => Promise<void>;
-  /** Log the current `page` in as a non-postcaptain client (Acme Corp /
+  loginAsContent: (page: Page) => Promise<void>;
+  /** Log the current `page` in as a non-content client (Acme Corp /
    *  `client@example.com` from the standard portal seed). */
   loginAsOtherClient: (page: Page) => Promise<void>;
 };
@@ -63,16 +63,16 @@ export const test = base.extend<Fixtures>({
     await use(api);
     await api.dispose();
   },
-  loginAsPostcaptain: async ({}, use) => {
+  loginAsContent: async ({}, use) => {
     await use(async (page: Page) => {
-      if (!POSTCAPTAIN_EMAIL || !POSTCAPTAIN_PASSWORD) {
+      if (!CONTENT_PLUGIN_EMAIL || !CONTENT_PASSWORD) {
         throw new Error(
-          'POSTCAPTAIN_USER_EMAIL / POSTCAPTAIN_USER_PASSWORD env vars not set. ' +
+          'CONTENT_PLUGIN_EMAIL / CONTENT_USER_PASSWORD env vars not set. ' +
             'Provision a user for client 103 and export these before running ' +
-            'plugin-postcaptain-tools specs.',
+            'plugin-content-tools specs.',
         );
       }
-      await loginPage(page, POSTCAPTAIN_EMAIL, POSTCAPTAIN_PASSWORD);
+      await loginPage(page, CONTENT_PLUGIN_EMAIL, CONTENT_PASSWORD);
     });
   },
   loginAsOtherClient: async ({}, use) => {
@@ -82,4 +82,4 @@ export const test = base.extend<Fixtures>({
   },
 });
 
-export { expect } from '@playwright/test';
+export { expect, request } from '@playwright/test';

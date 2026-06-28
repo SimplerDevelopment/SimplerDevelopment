@@ -4,17 +4,24 @@ import { db } from '@/lib/db';
 import { clients, crmContacts, crmCompanies, clientWebsites } from '@/lib/db/schema';
 import { eq, and, isNull, or, ilike, sql } from 'drizzle-orm';
 
+const DOMAIN_PATTERN = process.env.DOMAIN_PATTERN;
+if (!DOMAIN_PATTERN) {
+  console.error('Error: DOMAIN_PATTERN env var is required (e.g. DOMAIN_PATTERN=mysite).');
+  process.exit(1);
+}
+
 async function main() {
+  const pattern = `%${DOMAIN_PATTERN}%`;
   const sites = await db.select().from(clientWebsites).where(
     or(
-      ilike(clientWebsites.domain, '%postcaptain%'),
-      ilike(clientWebsites.subdomain, '%postcaptain%'),
-      ilike(clientWebsites.name, '%post%captain%'),
+      ilike(clientWebsites.domain, pattern),
+      ilike(clientWebsites.subdomain, pattern),
+      ilike(clientWebsites.name, pattern),
     )!
   );
 
   const clientIds = Array.from(new Set(sites.map(s => s.clientId)));
-  console.log('postcaptain site -> clientId mapping:');
+  console.log(`site (domain ~= ${DOMAIN_PATTERN}) -> clientId mapping:`);
   for (const cid of clientIds) {
     const [c] = await db.select().from(clients).where(eq(clients.id, cid));
     const [{ total }] = await db.select({ total: sql<number>`count(*)::int` })
@@ -33,7 +40,7 @@ async function main() {
       .from(crmContacts).where(eq(crmContacts.clientId, cid));
     if (total > bestCount) { bestCount = total; best = cid; }
   }
-  console.log(`\nChosen clientId for postcaptain: ${best} (${bestCount} contacts)`);
+  console.log(`\nChosen clientId for ${DOMAIN_PATTERN}: ${best} (${bestCount} contacts)`);
 
   // Sample 10 contacts to eyeball shape
   const sample = await db.select({

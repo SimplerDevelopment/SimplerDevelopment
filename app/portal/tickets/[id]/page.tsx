@@ -9,6 +9,7 @@ import TicketReplyForm from '@/components/portal/TicketReplyForm';
 import TicketStatusControl from '@/components/portal/TicketStatusControl';
 import TicketSlaBadge from '@/components/portal/TicketSlaBadge';
 import { SLA_BY_PRIORITY, type TicketPriority } from '@/lib/tickets/sla';
+import { pCard } from '@/components/portal/portal-ui';
 
 export default async function TicketDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
@@ -58,6 +59,7 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
       id: ticketMessages.id,
       body: ticketMessages.body,
       isInternal: ticketMessages.isInternal,
+      attachments: ticketMessages.attachments,
       createdAt: ticketMessages.createdAt,
       authorName: users.name,
       authorRole: users.role,
@@ -77,10 +79,10 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
       </div>
 
       {/* Ticket Header */}
-      <div className="bg-card border border-border rounded-xl p-6 space-y-4">
+      <div className={`${pCard} p-6 space-y-4`}>
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-xl font-bold text-foreground">{ticket.subject}</h1>
+            <h1 className="font-display text-xl font-extrabold tracking-[-0.02em] text-foreground">{ticket.subject}</h1>
             <p className="text-sm text-muted-foreground mt-1">
               Opened {new Date(ticket.createdAt).toLocaleDateString()} &bull; {ticket.category} &bull; #{ticket.number}
               {assigneeName && (
@@ -134,7 +136,7 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
           return (
             <div
               key={msg.id}
-              className={`bg-card border rounded-xl p-5 ${
+              className={`rounded-2xl bg-card border p-5 ${
                 msg.isInternal
                   ? 'border-yellow-200 bg-yellow-50'
                   : isStaffMsg
@@ -162,6 +164,22 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
                 </div>
               </div>
               <div className="text-sm text-foreground whitespace-pre-wrap">{msg.body}</div>
+              {Array.isArray(msg.attachments) && msg.attachments.length > 0 && (
+                <div className="mt-3 pt-3 border-t border-border/50 flex flex-wrap gap-2">
+                  {(msg.attachments as { url: string; filename: string; mimeType: string; fileSize: number }[]).map((att, i) => (
+                    <a
+                      key={i}
+                      href={att.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-muted text-xs text-foreground hover:bg-accent transition-colors"
+                    >
+                      <span className="material-icons text-sm">attach_file</span>
+                      {att.filename}
+                    </a>
+                  ))}
+                </div>
+              )}
             </div>
           );
         })}
@@ -173,7 +191,7 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
       )}
 
       {ticket.status === 'closed' && (
-        <div className="bg-muted/50 border border-border rounded-xl p-4 text-center text-sm text-muted-foreground">
+        <div className="bg-muted/50 border border-border rounded-2xl p-4 text-center text-sm text-muted-foreground">
           This ticket is closed. <Link href="/portal/tickets/new" className="text-primary hover:underline">Open a new ticket</Link> if you need further help.
         </div>
       )}

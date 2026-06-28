@@ -10,7 +10,6 @@
  *      all of which land in brain_ai_review_items for human approval.
  */
 
-import Anthropic from '@anthropic-ai/sdk';
 import { db } from '@/lib/db';
 import { eq, and, or, desc, sql } from 'drizzle-orm';
 import {
@@ -19,7 +18,6 @@ import {
   brainMeetings,
   brainMeetingParticipants,
   crmContacts,
-  crmCompanies,
   crmDeals,
   crmActivities,
   type BrainAiJobStatus,
@@ -40,9 +38,10 @@ import { logAudit } from '@/lib/brain/audit';
 import { hasCredits, deductCredits } from '@/lib/ai-credits';
 import { resolveClientApiKey } from '@/lib/ai/resolve-client-key';
 import { recordAiUsage } from '@/lib/ai/audit';
+import { complete } from '@/lib/ai/llm';
 import type { MeetingExtraction } from '@/lib/ai/meeting-processor';
 
-const MODEL = 'claude-sonnet-4-5';
+// Model is resolved by the registry (task: 'classifyCrm'); defaults to claude-sonnet-4-6.
 const MAX_TOKENS = 2048;
 const ESTIMATED_CREDITS = 600;
 
@@ -146,9 +145,8 @@ export async function classifyAndLinkCrm(args: ClassifyAndLinkCrmArgs): Promise<
     return { jobId: -1, reviewItemIds: [], appliedLinks: {}, skipped: 'no_sender_email' };
   }
 
-  // Resolve BYOK vs platform; only require credits when on platform.
+  // Resolve BYOK vs platform for credit gating; LLM call uses the seam.
   const resolved = await resolveClientApiKey({ clientId: args.clientId, provider: 'anthropic' });
-  const anthropic = new Anthropic({ apiKey: resolved.key });
 
   if (resolved.source === 'platform' && !(await hasCredits(args.clientId, ESTIMATED_CREDITS))) {
     return { jobId: -1, reviewItemIds: [], appliedLinks: {}, skipped: 'no_credits' };
@@ -279,19 +277,20 @@ export async function classifyAndLinkCrm(args: ClassifyAndLinkCrmArgs): Promise<
       })),
     });
 
-    const response = await anthropic.messages.create({
-      model: MODEL,
-      max_tokens: MAX_TOKENS,
+    const result = await complete({
+      task: 'classifyCrm',
+      clientId: args.clientId,
+      maxTokens: MAX_TOKENS,
       system: SYSTEM_PROMPT,
-      messages: [{ role: 'user', content: userPrompt }],
+      prompt: userPrompt,
     });
 
-    inputTokens = response.usage?.input_tokens ?? 0;
-    outputTokens = response.usage?.output_tokens ?? 0;
+    inputTokens = result.usage?.inputTokens ?? 0;
+    outputTokens = result.usage?.outputTokens ?? 0;
 
-    const textBlock = response.content.find((b): b is Anthropic.TextBlock => b.type === 'text');
-    if (textBlock) {
-      claudeOutput = parseClassifyOutput(textBlock.text);
+    const text = result.text;
+    if (text) {
+      claudeOutput = parseClassifyOutput(text);
     }
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown classify error';

@@ -7,6 +7,8 @@ import CrmImportExport from '@/components/portal/CrmImportExport';
 import CrmCustomFieldFilters from '@/components/portal/CrmCustomFieldFilters';
 import PositionMultiSelect from '@/components/portal/PositionMultiSelect';
 import CrmCompanyTypeaheadPicker from '@/components/portal/CrmCompanyTypeaheadPicker';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnPrimary, pBtnGhost } from '@/components/portal/portal-ui';
 
 interface Contact {
   id: number;
@@ -260,27 +262,27 @@ export default function CrmContactsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div>
-          <p className="text-sm text-muted-foreground">
-            {loading ? '' : `${total} contact${total !== 1 ? 's' : ''}`}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <CrmImportExport entityType="contact" currentFilters={{ search, status: statusFilter, companyId: companyFilter, title: titleFilter.join(',') }} onImportComplete={fetchContacts} />
-          <button
-            onClick={() => setShowForm(f => !f)}
-            className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors shrink-0"
-          >
-            <span className="material-icons text-base">{showForm ? 'close' : 'person_add'}</span>
-            {showForm ? 'Cancel' : 'Add Contact'}
-          </button>
-        </div>
-      </div>
+      <PortalPageHeader
+        eyebrow="CRM"
+        title="Contacts"
+        subtitle={loading ? '' : `${total} contact${total !== 1 ? 's' : ''}`}
+        actions={
+          <div className="flex items-center gap-2">
+            <CrmImportExport entityType="contact" currentFilters={{ search, status: statusFilter, companyId: companyFilter, title: titleFilter.join(',') }} onImportComplete={fetchContacts} />
+            <button
+              onClick={() => setShowForm(f => !f)}
+              className={pBtnPrimary}
+            >
+              <span className="material-icons text-base">{showForm ? 'close' : 'person_add'}</span>
+              {showForm ? 'Cancel' : 'Add Contact'}
+            </button>
+          </div>
+        }
+      />
 
       {/* Inline form */}
       {showForm && (
-        <form onSubmit={handleSubmit} className="bg-card border border-border rounded-xl p-6 space-y-4">
+        <form onSubmit={handleSubmit} className="bg-card border border-border rounded-2xl p-6 space-y-4">
           <h3 className="font-semibold text-foreground">New Contact</h3>
           <CrmDuplicateWarning email={form.email} phone={form.phone} firstName={form.firstName} lastName={form.lastName} />
           {error && (
@@ -296,7 +298,7 @@ export default function CrmContactsPage() {
                 required
                 value={form.firstName}
                 onChange={e => setForm(f => ({ ...f, firstName: e.target.value }))}
-                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                className="w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary focus:ring-4 focus:ring-primary/15"
               />
             </div>
             <div>
@@ -305,7 +307,7 @@ export default function CrmContactsPage() {
                 required
                 value={form.lastName}
                 onChange={e => setForm(f => ({ ...f, lastName: e.target.value }))}
-                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                className="w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary focus:ring-4 focus:ring-primary/15"
               />
             </div>
             <div>
@@ -314,7 +316,7 @@ export default function CrmContactsPage() {
                 type="email"
                 value={form.email}
                 onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
-                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                className="w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary focus:ring-4 focus:ring-primary/15"
               />
             </div>
             <div>
@@ -322,7 +324,7 @@ export default function CrmContactsPage() {
               <input
                 value={form.phone}
                 onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
-                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                className="w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary focus:ring-4 focus:ring-primary/15"
               />
             </div>
             <div>
@@ -332,7 +334,7 @@ export default function CrmContactsPage() {
                 value={form.linkedinUrl}
                 onChange={e => setForm(f => ({ ...f, linkedinUrl: e.target.value }))}
                 placeholder="https://linkedin.com/in/..."
-                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                className="w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary focus:ring-4 focus:ring-primary/15"
               />
             </div>
             <div>
@@ -340,7 +342,7 @@ export default function CrmContactsPage() {
               <input
                 value={form.title}
                 onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
-                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                className="w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary focus:ring-4 focus:ring-primary/15"
               />
             </div>
             <div>
@@ -360,7 +362,7 @@ export default function CrmContactsPage() {
               <select
                 value={form.source}
                 onChange={e => setForm(f => ({ ...f, source: e.target.value }))}
-                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                className="w-full appearance-none rounded-xl border border-border bg-card px-3.5 py-2.5 pr-10 text-sm text-foreground outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/15"
               >
                 <option value="">Select source</option>
                 {sourceOptions.map(s => (
@@ -373,7 +375,7 @@ export default function CrmContactsPage() {
               <select
                 value={form.status}
                 onChange={e => setForm(f => ({ ...f, status: e.target.value }))}
-                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                className="w-full appearance-none rounded-xl border border-border bg-card px-3.5 py-2.5 pr-10 text-sm text-foreground outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/15"
               >
                 <option value="lead">Lead</option>
                 <option value="active">Active</option>
@@ -387,7 +389,7 @@ export default function CrmContactsPage() {
                 value={form.notes}
                 onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
                 rows={1}
-                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
+                className="w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary focus:ring-4 focus:ring-primary/15 resize-none"
               />
             </div>
           </div>
@@ -395,7 +397,7 @@ export default function CrmContactsPage() {
             <button
               type="submit"
               disabled={saving}
-              className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+              className={pBtnPrimary}
             >
               {saving && <span className="material-icons animate-spin text-sm">refresh</span>}
               Create Contact
@@ -416,7 +418,7 @@ export default function CrmContactsPage() {
                 const view = savedViews.find(v => v.id === id) ?? null;
                 applyView(view);
               }}
-              className="px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+              className="rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/15"
             >
               <option value="">All Contacts</option>
               {savedViews.map(v => (
@@ -436,7 +438,7 @@ export default function CrmContactsPage() {
           {hasActiveFilters && !showSaveViewForm && (
             <button
               onClick={() => setShowSaveViewForm(true)}
-              className="flex items-center gap-1.5 px-3 py-2 border border-border rounded-lg text-sm text-muted-foreground hover:bg-accent transition-colors"
+              className={pBtnGhost}
             >
               <span className="material-icons text-base">save</span>
               Save View
@@ -449,12 +451,12 @@ export default function CrmContactsPage() {
                 placeholder="View name..."
                 value={viewName}
                 onChange={e => setViewName(e.target.value)}
-                className="px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 w-40"
+                className="rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary focus:ring-4 focus:ring-primary/15 w-40"
               />
               <button
                 type="submit"
                 disabled={savingView || !viewName.trim()}
-                className="flex items-center gap-1.5 px-3 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+              className={pBtnPrimary}
               >
                 {savingView ? <span className="material-icons animate-spin text-sm">refresh</span> : <span className="material-icons text-sm">check</span>}
                 Save
@@ -476,13 +478,13 @@ export default function CrmContactsPage() {
               placeholder="Search contacts..."
               value={searchInput}
               onChange={e => setSearchInput(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+              className="w-full pl-9 pr-3 rounded-xl border border-border bg-card py-2.5 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary focus:ring-4 focus:ring-primary/15"
             />
           </div>
           <select
             value={statusFilter}
             onChange={e => { setStatusFilter(e.target.value); setPage(1); }}
-            className="px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+            className="appearance-none rounded-xl border border-border bg-card px-3.5 py-2.5 pr-10 text-sm text-foreground outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/15"
           >
             {statusOptions.map(o => (
               <option key={o.value} value={o.value}>{o.label}</option>
@@ -515,7 +517,7 @@ export default function CrmContactsPage() {
       </div>
 
       {/* Table */}
-      <div className="bg-card border border-border rounded-xl overflow-hidden">
+      <div className="bg-card border border-border rounded-2xl overflow-hidden">
         {loading ? (
           <div className="flex items-center justify-center py-12">
             <span className="material-icons animate-spin text-primary text-2xl">refresh</span>
@@ -526,7 +528,7 @@ export default function CrmContactsPage() {
             <p className="text-muted-foreground mb-4">No contacts found.</p>
             <button
               onClick={() => setShowForm(true)}
-              className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90"
+              className={pBtnPrimary}
             >
               Add First Contact
             </button>
@@ -594,7 +596,7 @@ export default function CrmContactsPage() {
             <button
               disabled={page <= 1}
               onClick={() => setPage(p => p - 1)}
-              className="px-3 py-1.5 text-sm border border-border rounded-lg hover:bg-accent transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              className="px-3 py-1.5 text-sm border border-border rounded-xl hover:bg-accent transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <span className="material-icons text-base">chevron_left</span>
             </button>
@@ -606,9 +608,9 @@ export default function CrmContactsPage() {
                 <button
                   key={p}
                   onClick={() => setPage(p)}
-                  className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
+                  className={`px-3 py-1.5 text-sm rounded-xl transition-colors ${
                     p === page
-                      ? 'bg-primary text-primary-foreground'
+                      ? 'bg-foreground text-background'
                       : 'border border-border hover:bg-accent'
                   }`}
                 >
@@ -619,7 +621,7 @@ export default function CrmContactsPage() {
             <button
               disabled={page >= totalPages}
               onClick={() => setPage(p => p + 1)}
-              className="px-3 py-1.5 text-sm border border-border rounded-lg hover:bg-accent transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              className="px-3 py-1.5 text-sm border border-border rounded-xl hover:bg-accent transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <span className="material-icons text-base">chevron_right</span>
             </button>

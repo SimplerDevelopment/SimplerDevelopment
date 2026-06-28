@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { publishingCampaigns, kanbanCards } from '@/lib/db/schema';
 import { and, eq, sql } from 'drizzle-orm';
-import { getPublishingSession } from '@/lib/publishing/active-client';
+import { getPublishingSession, isRedirectError } from '@/lib/publishing/active-client';
 import { checkPublishingPermission } from '@/lib/publishing/permissions';
 import { slugify } from '@/lib/publishing/slug';
 
@@ -37,6 +37,7 @@ export async function GET() {
       .orderBy(publishingCampaigns.createdAt);
     return NextResponse.json({ success: true, data: rows });
   } catch (error) {
+    if (isRedirectError(error)) throw error; // let next emit the 307 (no session / no client)
     console.error('publishing campaigns GET failed:', error);
     return NextResponse.json(
       { success: false, message: 'Failed to load campaigns' },
@@ -106,6 +107,7 @@ export async function POST(request: NextRequest) {
       .returning();
     return NextResponse.json({ success: true, data: row }, { status: 201 });
   } catch (error) {
+    if (isRedirectError(error)) throw error; // let next emit the 307 (no session / no client)
     console.error('publishing campaigns POST failed:', error);
     return NextResponse.json(
       { success: false, message: 'Failed to create campaign' },

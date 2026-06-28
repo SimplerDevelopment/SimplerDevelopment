@@ -1,6 +1,6 @@
 // @vitest-environment node
 /**
- * Unit tests for the postcaptain-tools execution backbone (Wave 2):
+ * Unit tests for the content-tools execution backbone (Wave 2):
  *
  *   - redactLog: strips JWTs, sk-ant-* keys, Bearer tokens, env-var-looking
  *     KEY=value secrets. We don't assert on every false-positive case; the
@@ -15,7 +15,7 @@
  *     `plugins-schedule.test.ts`.
  *
  * The actual research-brief and draft-blog-post handlers now live in the
- * postcaptain-tools repo and are exercised there, not here.
+ * content-tools repo and are exercised there, not here.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
@@ -36,16 +36,16 @@ vi.mock('@/lib/db/schema', () => ({
   registeredAppRuns: { _t: 'registeredAppRuns' },
   registeredAppJobs: { _t: 'registeredAppJobs' },
   registeredApps: { _t: 'registeredApps' },
-  postcaptainBriefs: { _t: 'postcaptainBriefs' },
-  postcaptainDrafts: { _t: 'postcaptainDrafts' },
+  contentBriefs: { _t: 'contentBriefs' },
+  contentDrafts: { _t: 'contentDrafts' },
 }));
 
 // Mock dispatchRun so executeRun can be tested without an actual HTTP
 // round-trip to the worker.
 const dispatchRunMock = vi.fn();
-vi.mock('@/lib/plugins/handlers/postcaptain-tools/dispatch', () => ({
+vi.mock('@/lib/plugins/handlers/content-tools/dispatch', () => ({
   dispatchRun: dispatchRunMock,
-  DISPATCH_SCOPE: 'postcaptain:internal:execute',
+  DISPATCH_SCOPE: 'content:internal:execute',
 }));
 
 const {
@@ -53,17 +53,17 @@ const {
   enqueueRun,
   executeRun,
   drainQueuedRuns,
-} = await import('@/lib/plugins/handlers/postcaptain-tools/runner');
+} = await import('@/lib/plugins/handlers/content-tools/runner');
 
 const { computeNextWeeklyRun } = await import(
-  '@/lib/plugins/handlers/postcaptain-tools/jobs'
+  '@/lib/plugins/handlers/content-tools/jobs'
 );
 
 // Minimal RegisteredApp stub.
 const fakeApp = {
   id: 42,
-  slug: 'postcaptain-tools',
-  name: 'Postcaptain Tools',
+  slug: 'content-tools',
+  name: 'Content Tools',
   icon: 'science',
   hostUrl: 'https://example.test',
   manifestUrl: 'https://example.test/sd-manifest.json',
@@ -260,7 +260,7 @@ describe('executeRun', () => {
     expect(result).toEqual({ status: 'dispatched' });
     expect(dispatchRunMock).toHaveBeenCalledTimes(1);
     expect(dispatchRunMock).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 42, slug: 'postcaptain-tools' }),
+      expect.objectContaining({ id: 42, slug: 'content-tools' }),
       expect.objectContaining({ runId: 5, kind: 'research-brief', clientId: 100 }),
     );
   });

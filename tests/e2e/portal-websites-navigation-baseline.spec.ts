@@ -130,22 +130,26 @@ test.describe('Portal Websites Navigation Page — refactor baseline @navigation
     expect(putEdit.status).toBe(200);
 
     const afterEdit = await clientApi.get(`/api/portal/websites/${siteId}/navigation`);
-    const editedHome = (afterEdit.data.data as Array<{ id: number; label: string }>).find(
-      (i) => i.label === editedHomeLabel,
+    // The PUT stages edits as drafts — the effective label is draft.label when a
+    // draft is present, falling back to the live label column otherwise.
+    type NavRow = { id: number; label: string; parentId: number | null; draft?: { label?: string } | null };
+    const effectiveLabel = (row: NavRow) => row.draft?.label ?? row.label;
+    const editedHome = (afterEdit.data.data as NavRow[]).find(
+      (i) => effectiveLabel(i) === editedHomeLabel,
     );
     expect(editedHome).toBeTruthy();
-    // Old label is gone
+    // Old label is gone (neither live nor draft reflects the original label)
     expect(
-      (afterEdit.data.data as Array<{ id: number; label: string }>).find(
-        (i) => i.label === homeLabel,
+      (afterEdit.data.data as NavRow[]).find(
+        (i) => effectiveLabel(i) === homeLabel,
       ),
     ).toBeUndefined();
 
     // ── Add a sub-item nested under the first (parentId)
     const subLabel = `${PREFIX}Sub-${ts}`;
     const newHomeId = editedHome!.id;
-    const newAboutId = (afterEdit.data.data as Array<{ id: number; label: string }>).find(
-      (i) => i.label === aboutLabel,
+    const newAboutId = (afterEdit.data.data as NavRow[]).find(
+      (i) => effectiveLabel(i) === aboutLabel,
     )!.id;
 
     const putNest = await clientApi.put(`/api/portal/websites/${siteId}/navigation`, {
@@ -165,15 +169,12 @@ test.describe('Portal Websites Navigation Page — refactor baseline @navigation
     expect(putNest.status).toBe(200);
 
     const afterNest = await clientApi.get(`/api/portal/websites/${siteId}/navigation`);
-    const items = afterNest.data.data as Array<{
-      id: number;
-      label: string;
-      parentId: number | null;
-    }>;
+    const items = afterNest.data.data as NavRow[];
+    // New sub-item is an INSERT so its live label is set immediately.
     const sub = items.find((i) => i.label === subLabel);
     expect(sub).toBeTruthy();
-    // parent of the sub-item is the edited Home item
-    const editedHomeAfterNest = items.find((i) => i.label === editedHomeLabel);
+    // parent of the sub-item is the edited Home item (may still be in draft.label)
+    const editedHomeAfterNest = items.find((i) => effectiveLabel(i) === editedHomeLabel);
     expect(editedHomeAfterNest).toBeTruthy();
     expect(sub!.parentId).toBe(editedHomeAfterNest!.id);
   });

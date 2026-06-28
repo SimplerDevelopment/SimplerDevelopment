@@ -245,7 +245,7 @@ export class DesignApi {
 
   /**
    * Claim (i.e. transfer ownership of) anonymous designs after the customer
-   * signs up / signs in. Unlike the legacy philaprints endpoint, sd2026 does
+   * signs up / signs in. Unlike a legacy endpoint, sd2026 does
    * NOT create the account here — sd2026 has its own signup flow. This just
    * re-points existing anonymous designs at the now-known customerId.
    *

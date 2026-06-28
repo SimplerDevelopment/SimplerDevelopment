@@ -2,6 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import UsageMeters from '@/components/portal/billing/UsageMeters';
+import { useRouter } from 'next/navigation';
+import { pBtnPrimary, pBtnGhost } from '@/components/portal/portal-ui';
 
 interface Invoice {
   id: number;
@@ -40,12 +43,14 @@ const invoiceStatusStyles: Record<string, string> = {
 };
 
 export default function SettingsBillingPage() {
+  const router = useRouter();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [methods, setMethods] = useState<PaymentMethod[]>([]);
   const [loadingInvoices, setLoadingInvoices] = useState(true);
   const [loadingMethods, setLoadingMethods] = useState(true);
   const [removingId, setRemovingId] = useState<number | null>(null);
   const [section, setSection] = useState<'invoices' | 'payment-methods'>('invoices');
+  const [openingPortal, setOpeningPortal] = useState(false);
 
   useEffect(() => {
     fetch('/api/portal/settings/billing')
@@ -62,6 +67,19 @@ export default function SettingsBillingPage() {
   const totalDue = invoices
     .filter(i => i.status === 'sent' || i.status === 'overdue')
     .reduce((sum, i) => sum + i.total, 0);
+
+  const handleManageBilling = async () => {
+    setOpeningPortal(true);
+    try {
+      const res = await fetch('/api/portal/billing/customer-portal', { method: 'POST' });
+      const data = await res.json();
+      if (data.success && data.data?.url) {
+        router.push(data.data.url);
+      }
+    } finally {
+      setOpeningPortal(false);
+    }
+  };
 
   const handleRemoveMethod = async (id: number) => {
     if (!confirm('Remove this payment method?')) return;
@@ -81,6 +99,43 @@ export default function SettingsBillingPage() {
 
   return (
     <div className="space-y-6">
+      {/* Usage meters */}
+      <UsageMeters />
+
+      {/* Plans & modules CTA */}
+      <div className="flex items-center justify-between bg-card border border-border rounded-2xl px-6 py-4">
+        <div>
+          <p className="text-sm font-display font-extrabold tracking-[-0.01em] text-foreground">Plans &amp; modules</p>
+          <p className="text-xs text-muted-foreground mt-0.5">Add or remove feature modules from your subscription.</p>
+        </div>
+        <Link
+          href="/portal/settings/billing/plans"
+          className={`${pBtnPrimary} flex-shrink-0`}
+        >
+          <span className="material-icons text-base">explore</span>
+          Plans &amp; modules
+        </Link>
+      </div>
+
+      {/* Stripe Billing Portal CTA */}
+      <div className="flex items-center justify-between bg-card border border-border rounded-2xl px-6 py-4">
+        <div>
+          <p className="text-sm font-display font-extrabold tracking-[-0.01em] text-foreground">Manage billing</p>
+          <p className="text-xs text-muted-foreground mt-0.5">Update payment methods, download receipts, and manage subscriptions on Stripe.</p>
+        </div>
+        <button
+          onClick={handleManageBilling}
+          disabled={openingPortal}
+          className={`${pBtnGhost} flex-shrink-0`}
+        >
+          {openingPortal
+            ? <span className="material-icons text-base animate-spin">refresh</span>
+            : <span className="material-icons text-base">open_in_new</span>
+          }
+          Manage billing
+        </button>
+      </div>
+
       {/* Outstanding balance */}
       {totalDue > 0 && (
         <div className="bg-orange-50 border border-orange-200 rounded-xl p-4 flex items-center gap-3 dark:bg-orange-900/20 dark:border-orange-800">
@@ -118,13 +173,13 @@ export default function SettingsBillingPage() {
             <span className="material-icons animate-spin text-primary text-2xl">refresh</span>
           </div>
         ) : invoices.length === 0 ? (
-          <div className="bg-card border border-border rounded-xl p-12 text-center">
+          <div className="bg-card border border-border rounded-2xl p-12 text-center">
             <span className="material-icons text-5xl text-muted-foreground/40">receipt_long</span>
-            <h3 className="mt-4 font-semibold text-foreground">No invoices yet</h3>
+            <h3 className="mt-4 font-display font-extrabold tracking-[-0.01em] text-foreground">No invoices yet</h3>
             <p className="mt-2 text-sm text-muted-foreground">Invoices will appear here when created.</p>
           </div>
         ) : (
-          <div className="bg-card border border-border rounded-xl overflow-hidden">
+          <div className="bg-card border border-border rounded-2xl overflow-hidden">
             <div className="overflow-x-auto -mx-4 sm:mx-0">
               <table className="w-full min-w-[640px] text-sm">
               <thead className="bg-muted/50 border-b border-border">
@@ -144,7 +199,7 @@ export default function SettingsBillingPage() {
                         {inv.number}
                       </Link>
                     </td>
-                    <td className="px-4 py-3 font-medium text-foreground">{formatCents(inv.total)}</td>
+                    <td className="px-4 py-3 font-display font-extrabold tracking-[-0.02em] text-foreground">{formatCents(inv.total)}</td>
                     <td className="px-4 py-3">
                       <span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${invoiceStatusStyles[inv.status] ?? invoiceStatusStyles.draft}`}>
                         {inv.status}
@@ -157,7 +212,7 @@ export default function SettingsBillingPage() {
                       {(inv.status === 'sent' || inv.status === 'overdue') && (
                         <Link
                           href={`/portal/invoices/${inv.id}`}
-                          className="flex items-center gap-1 text-xs px-3 py-1 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors w-fit"
+                          className={`${pBtnPrimary} text-xs px-3 py-1 w-fit`}
                         >
                           <span className="material-icons text-xs">credit_card</span>
                           Pay Now
@@ -179,13 +234,13 @@ export default function SettingsBillingPage() {
             <span className="material-icons animate-spin text-primary text-2xl">refresh</span>
           </div>
         ) : methods.length === 0 ? (
-          <div className="bg-card border border-border rounded-xl p-12 text-center">
+          <div className="bg-card border border-border rounded-2xl p-12 text-center">
             <span className="material-icons text-5xl text-muted-foreground/40">credit_card_off</span>
-            <h3 className="mt-4 font-semibold text-foreground">No payment methods</h3>
+            <h3 className="mt-4 font-display font-extrabold tracking-[-0.01em] text-foreground">No payment methods</h3>
             <p className="mt-2 text-sm text-muted-foreground">Payment methods are saved when you pay an invoice via Stripe.</p>
           </div>
         ) : (
-          <div className="bg-card border border-border rounded-xl overflow-hidden">
+          <div className="bg-card border border-border rounded-2xl overflow-hidden">
             <ul className="divide-y divide-border">
               {methods.map(m => (
                 <li key={m.id} className="flex items-center gap-4 px-6 py-4">

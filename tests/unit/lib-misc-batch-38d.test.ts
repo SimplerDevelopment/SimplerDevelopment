@@ -1,17 +1,15 @@
 // @vitest-environment jsdom
 /**
- * Unit tests for 4 React hook files (batch 38d):
+ * Unit tests for 3 React hook files (batch 38d):
  *   - lib/hooks/useContentTypes.ts        — fetch content types, de-dupe by slug
  *   - lib/hooks/useKeyboardShortcuts.ts   — Mousetrap bind/unbind shortcuts
  *   - lib/hooks/useSettingsPanelSync.ts   — BroadcastChannel sync between panels
- *   - lib/hooks/useBlockDragDrop.ts       — @dnd-kit drag state management
  *
  * Strategy:
  *   - useContentTypes: stub global.fetch, assert dedupe + active-filter + sort
  *   - useKeyboardShortcuts: spy on Mousetrap.bind/unbind, simulate handler call
  *   - useSettingsPanelSync: rely on jsdom's BroadcastChannel polyfill — if
  *     absent, shim it; verify onMessage routing + sendMessage roundtrip.
- *   - useBlockDragDrop: drive state transitions through handlers directly.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -448,116 +446,5 @@ describe('useSettingsPanelSync', () => {
         expect((inst as any).closed).toBe(true);
       }
     }
-  });
-});
-
-// ─── useBlockDragDrop ────────────────────────────────────────────────────────
-import { useBlockDragDrop } from '@/lib/hooks/useBlockDragDrop';
-
-describe('useBlockDragDrop', () => {
-  it('initializes with null drag state', () => {
-    const { result } = renderHook(() => useBlockDragDrop(vi.fn()));
-    expect(result.current.dragState).toEqual({ activeId: null, overId: null });
-  });
-
-  it('exposes DnD-kit re-exports', () => {
-    const { result } = renderHook(() => useBlockDragDrop(vi.fn()));
-    expect(result.current.DndContext).toBeDefined();
-    expect(result.current.SortableContext).toBeDefined();
-    expect(typeof result.current.arrayMove).toBe('function');
-    expect(result.current.sensors).toBeDefined();
-    expect(Array.isArray(result.current.sensors)).toBe(true);
-  });
-
-  it('handleDragStart sets activeId from event.active.id', () => {
-    const { result } = renderHook(() => useBlockDragDrop(vi.fn()));
-    act(() => {
-      result.current.handleDragStart({ active: { id: 'block-1' } } as any);
-    });
-    expect(result.current.dragState.activeId).toBe('block-1');
-    expect(result.current.dragState.overId).toBeNull();
-  });
-
-  it('handleDragOver updates overId while preserving activeId', () => {
-    const { result } = renderHook(() => useBlockDragDrop(vi.fn()));
-    act(() => {
-      result.current.handleDragStart({ active: { id: 'block-1' } } as any);
-    });
-    act(() => {
-      result.current.handleDragOver({ over: { id: 'block-2' } } as any);
-    });
-    expect(result.current.dragState.activeId).toBe('block-1');
-    expect(result.current.dragState.overId).toBe('block-2');
-  });
-
-  it('handleDragOver handles null over target', () => {
-    const { result } = renderHook(() => useBlockDragDrop(vi.fn()));
-    act(() => {
-      result.current.handleDragStart({ active: { id: 'block-1' } } as any);
-    });
-    act(() => {
-      result.current.handleDragOver({ over: null } as any);
-    });
-    // event.over?.id is `undefined` when over is null; hook stores it as-is
-    expect(result.current.dragState.overId).toBeFalsy();
-  });
-
-  it('handleDragEnd calls onReorder when active and over differ', () => {
-    const onReorder = vi.fn();
-    const { result } = renderHook(() => useBlockDragDrop(onReorder));
-    act(() => {
-      result.current.handleDragEnd({
-        active: { id: 'a' },
-        over: { id: 'b' },
-      } as any);
-    });
-    expect(onReorder).toHaveBeenCalledWith('a', 'b');
-    expect(result.current.dragState).toEqual({ activeId: null, overId: null });
-  });
-
-  it('handleDragEnd does NOT call onReorder when over is null', () => {
-    const onReorder = vi.fn();
-    const { result } = renderHook(() => useBlockDragDrop(onReorder));
-    act(() => {
-      result.current.handleDragEnd({
-        active: { id: 'a' },
-        over: null,
-      } as any);
-    });
-    expect(onReorder).not.toHaveBeenCalled();
-    expect(result.current.dragState).toEqual({ activeId: null, overId: null });
-  });
-
-  it('handleDragEnd does NOT call onReorder when active.id === over.id', () => {
-    const onReorder = vi.fn();
-    const { result } = renderHook(() => useBlockDragDrop(onReorder));
-    act(() => {
-      result.current.handleDragEnd({
-        active: { id: 'same' },
-        over: { id: 'same' },
-      } as any);
-    });
-    expect(onReorder).not.toHaveBeenCalled();
-  });
-
-  it('handleDragCancel resets state to null/null', () => {
-    const { result } = renderHook(() => useBlockDragDrop(vi.fn()));
-    act(() => {
-      result.current.handleDragStart({ active: { id: 'x' } } as any);
-    });
-    act(() => {
-      result.current.handleDragOver({ over: { id: 'y' } } as any);
-    });
-    expect(result.current.dragState.activeId).toBe('x');
-    act(() => {
-      result.current.handleDragCancel();
-    });
-    expect(result.current.dragState).toEqual({ activeId: null, overId: null });
-  });
-
-  it('arrayMove utility re-export reorders items correctly', () => {
-    const { result } = renderHook(() => useBlockDragDrop(vi.fn()));
-    const reordered = result.current.arrayMove(['a', 'b', 'c', 'd'], 0, 2);
-    expect(reordered).toEqual(['b', 'c', 'a', 'd']);
   });
 });

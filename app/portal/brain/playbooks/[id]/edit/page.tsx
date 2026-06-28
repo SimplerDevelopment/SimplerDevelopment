@@ -16,6 +16,8 @@
 
 import { useCallback, useEffect, useMemo, useState, use as reactUse } from 'react';
 import Link from 'next/link';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pCardPad, pSectionTitle } from '@/components/portal/portal-ui';
 import PlaybookForm, {
   valuesToTriggerConfig,
   type PlaybookFormValues,
@@ -371,21 +373,24 @@ export default function PlaybookEditPage({
         Back to playbook
       </Link>
 
-      <div>
-        <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-          <span className="material-icons text-primary">edit_note</span>
-          Edit playbook
-        </h1>
-        <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-          <span
-            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full ${statusChip.className}`}
-          >
-            <span className="material-icons text-[14px]">{statusChip.icon}</span>
-            {statusChip.label}
+      <PortalPageHeader
+        eyebrow="Company Brain"
+        title={
+          <span className="flex items-center gap-2">
+            <span className="material-icons text-primary">edit_note</span>
+            Edit playbook
           </span>
-          <span className="font-mono">{playbook.slug}</span>
-        </div>
-      </div>
+        }
+        subtitle={
+          <span className="flex items-center gap-2">
+            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full ${statusChip.className}`}>
+              <span className="material-icons text-[14px]">{statusChip.icon}</span>
+              {statusChip.label}
+            </span>
+            <span className="font-mono text-xs">{playbook.slug}</span>
+          </span>
+        }
+      />
 
       {error && (
         <div className="bg-destructive/10 border border-destructive/30 rounded-md p-3 text-sm text-destructive flex items-center gap-2">
@@ -395,8 +400,8 @@ export default function PlaybookEditPage({
       )}
 
       {/* Metadata */}
-      <section className="bg-card border border-border rounded-xl p-5">
-        <h2 className="text-base font-semibold text-foreground mb-3">Details</h2>
+      <section className={pCardPad}>
+        <h2 className={`${pSectionTitle} mb-3`}>Details</h2>
         <PlaybookForm
           key={playbook.id}
           mode="edit"
@@ -408,9 +413,9 @@ export default function PlaybookEditPage({
       </section>
 
       {/* Steps */}
-      <section className="bg-card border border-border rounded-xl p-5">
+      <section className={pCardPad}>
         <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
-          <h2 className="text-base font-semibold text-foreground inline-flex items-center gap-2">
+          <h2 className={`${pSectionTitle} inline-flex items-center gap-2`}>
             <span className="material-icons text-base text-primary">account_tree</span>
             Steps
             <span className="text-xs text-muted-foreground font-normal">

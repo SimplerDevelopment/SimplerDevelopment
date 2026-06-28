@@ -5,13 +5,19 @@
 // each one re-resolving identity.
 
 import { auth } from '@/lib/auth';
-import { db } from '@/lib/db';
-import { clients } from '@/lib/db/schema';
-import { eq } from 'drizzle-orm';
 import { redirect } from 'next/navigation';
-import { getActiveClientId } from '@/lib/active-client';
+import { getPortalClient } from '@/lib/portal-client';
 import { getOrCreatePublishingProject, type PublishingProject } from './bootstrap';
 import { resolveClientRole } from './permissions';
+
+/** True when `error` is the control-flow error thrown by next/navigation's
+ *  `redirect()`. Route handlers that wrap getPublishingSession() in try/catch
+ *  must re-throw these so Next emits the intended 307 instead of swallowing it
+ *  into a 500. */
+export function isRedirectError(error: unknown): boolean {
+  const digest = (error as { digest?: unknown })?.digest;
+  return typeof digest === 'string' && digest.startsWith('NEXT_REDIRECT');
+}
 
 export interface PublishingSession {
   userId: number;
@@ -31,17 +37,13 @@ export async function getPublishingSession(): Promise<PublishingSession> {
   const role = (session.user as { role?: string }).role;
   const isStaff = role === 'admin' || role === 'employee';
 
-  let clientId: number | null = null;
-  if (isStaff) {
-    clientId = await getActiveClientId();
-  } else {
-    const [client] = await db
-      .select({ id: clients.id })
-      .from(clients)
-      .where(eq(clients.userId, userId))
-      .limit(1);
-    if (client) clientId = client.id;
-  }
+  // Resolve the active client the same way the rest of the portal does —
+  // staff active-client cookie, then team membership, then ownership (see
+  // getPortalClient). This lets a client *member* (not only the owner) reach
+  // the publishing surface and hit the permission gate, instead of being hard
+  // redirected because a narrow cookie/ownership-only lookup found nothing.
+  const activeClient = await getPortalClient(userId);
+  const clientId = activeClient?.id ?? null;
   if (clientId === null) redirect('/portal/dashboard');
 
   const project = await getOrCreatePublishingProject(clientId, userId);

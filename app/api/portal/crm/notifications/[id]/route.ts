@@ -17,6 +17,38 @@ async function getAuthedClient() {
   return { client, userId };
 }
 
+// GET /api/portal/crm/notifications/[id]
+// Fetch a single notification. Tenant-scoped by clientId + userId.
+export async function GET(
+  _req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+  const result = await getAuthedClient();
+  if ('error' in result) return result.error;
+  const { client, userId } = result;
+
+  const notificationId = parseInt(id, 10);
+  if (isNaN(notificationId))
+    return NextResponse.json({ success: false, message: 'Invalid ID' }, { status: 400 });
+
+  const [notification] = await db
+    .select()
+    .from(crmNotifications)
+    .where(
+      and(
+        eq(crmNotifications.id, notificationId),
+        eq(crmNotifications.clientId, client.id),
+        eq(crmNotifications.userId, userId)
+      )
+    );
+
+  if (!notification)
+    return NextResponse.json({ success: false, message: 'Notification not found' }, { status: 404 });
+
+  return NextResponse.json({ success: true, data: notification });
+}
+
 // PATCH /api/portal/crm/notifications/[id]
 // Marks a single notification as read (or unread if `{ read: false }` is sent).
 // Tenant-scoped — only updates rows owned by the active client + signed-in user.
@@ -59,4 +91,39 @@ export async function PATCH(
   try { revalidateTag(`notifications:${userId}`, 'max'); } catch { /* ignore */ }
 
   return NextResponse.json({ success: true, data: updated });
+}
+
+// DELETE /api/portal/crm/notifications/[id]
+// Permanently dismisses (deletes) a single notification.
+// Tenant-scoped by clientId + userId — cannot delete another user's notification.
+export async function DELETE(
+  _req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+  const result = await getAuthedClient();
+  if ('error' in result) return result.error;
+  const { client, userId } = result;
+
+  const notificationId = parseInt(id, 10);
+  if (isNaN(notificationId))
+    return NextResponse.json({ success: false, message: 'Invalid ID' }, { status: 400 });
+
+  const [deleted] = await db
+    .delete(crmNotifications)
+    .where(
+      and(
+        eq(crmNotifications.id, notificationId),
+        eq(crmNotifications.clientId, client.id),
+        eq(crmNotifications.userId, userId)
+      )
+    )
+    .returning();
+
+  if (!deleted)
+    return NextResponse.json({ success: false, message: 'Notification not found' }, { status: 404 });
+
+  try { revalidateTag(`notifications:${userId}`, 'max'); } catch { /* ignore */ }
+
+  return NextResponse.json({ success: true, data: deleted });
 }

@@ -1,11 +1,21 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { users } from '@/lib/db/schema';
+import { users, clientMembers } from '@/lib/db/schema';
 import { eq, and, gt } from 'drizzle-orm';
 import { hash } from 'bcryptjs';
 import { hashToken } from '@/lib/security/token-hash';
+import { checkRateLimit, getClientIp } from '@/lib/security/rate-limit';
+import { syncSeatBillingSafe } from '@/lib/billing/recompute-subscription';
 
 export async function POST(req: Request) {
+  // 5 requests per 15 minutes per IP — prevents invite-token guessing
+  if (!(await checkRateLimit(`${getClientIp(req)}:invite-accept`, 5, 15 * 60 * 1000))) {
+    return NextResponse.json(
+      { success: false, error: 'Too many requests. Please try again later.' },
+      { status: 429 },
+    );
+  }
+
   const { token, password } = await req.json();
 
   if (!token || !password) {
@@ -46,6 +56,16 @@ export async function POST(req: Request) {
       updatedAt: new Date(),
     })
     .where(eq(users.id, user.id));
+
+  // Now an accepted seat → re-sync the seat charge on every client this user
+  // belongs to (best-effort; never blocks accepting the invite).
+  const memberships = await db
+    .select({ clientId: clientMembers.clientId })
+    .from(clientMembers)
+    .where(eq(clientMembers.userId, user.id));
+  for (const { clientId } of memberships) {
+    await syncSeatBillingSafe(clientId);
+  }
 
   return NextResponse.json({ success: true, email: user.email });
 }

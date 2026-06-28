@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef, use } from 'react';
 import Link from 'next/link';
 import { EMAIL_EVENTS } from '@/lib/email/website-email-events';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnGhost, pCard } from '@/components/portal/portal-ui';
 
 interface Template {
   id: number;
@@ -90,22 +92,21 @@ export default function WebsiteEmailPage({ params }: { params: Promise<{ siteId:
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Email Templates</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Transactional emails triggered by website events. Customize the content and branding for each.
-        </p>
-      </div>
+      <PortalPageHeader
+        eyebrow="Website"
+        title="Email Templates"
+        subtitle="Transactional emails triggered by website events. Customize the content and branding for each."
+      />
 
       {/* Stats */}
       <div className="grid grid-cols-2 gap-4">
-        <div className="bg-card border border-border rounded-xl p-4">
+        <div className="bg-card border border-border rounded-2xl p-4">
           <p className="text-xs text-muted-foreground mb-1">Total Templates</p>
-          <p className="text-2xl font-bold text-foreground">{templates.length}</p>
+          <p className="text-2xl font-display font-extrabold tracking-[-0.02em] text-foreground">{templates.length}</p>
         </div>
-        <div className="bg-card border border-border rounded-xl p-4">
+        <div className="bg-card border border-border rounded-2xl p-4">
           <p className="text-xs text-muted-foreground mb-1">Active</p>
-          <p className="text-2xl font-bold text-green-600">{templates.filter(t => t.enabled).length}</p>
+          <p className="text-2xl font-display font-extrabold tracking-[-0.02em] text-green-600">{templates.filter(t => t.enabled).length}</p>
         </div>
       </div>
 
@@ -131,9 +132,9 @@ export default function WebsiteEmailPage({ params }: { params: Promise<{ siteId:
 
       {/* Tab content */}
       {activeTab === 'variables' ? (
-        <div className="bg-card border border-border rounded-xl overflow-hidden">
+        <div className={`${pCard} overflow-hidden`}>
           <div className="px-5 py-4 border-b border-border">
-            <h2 className="font-semibold text-foreground">Variable Reference</h2>
+            <h2 className="font-display font-extrabold tracking-[-0.01em] text-foreground text-sm">Variable Reference</h2>
             <p className="text-xs text-muted-foreground mt-0.5">
               Use <code className="bg-muted px-1 py-0.5 rounded text-xs font-mono">%%variableName%%</code> in your email content and subject lines. Variables are replaced with real data when the email is sent.
             </p>
@@ -161,7 +162,7 @@ export default function WebsiteEmailPage({ params }: { params: Promise<{ siteId:
           </div>
         </div>
       ) : (
-        <div className="bg-card border border-border rounded-xl overflow-hidden">
+        <div className={`${pCard} overflow-hidden`}>
           <div className="divide-y divide-border">
             {activeCatEvents.map(eventDef => {
               const template = templatesByEvent.get(eventDef.event);
@@ -169,7 +170,7 @@ export default function WebsiteEmailPage({ params }: { params: Promise<{ siteId:
               return (
                 <div key={eventDef.event} className="flex items-center gap-4 px-5 py-4">
                   <div className={`w-2 h-2 rounded-full shrink-0 ${
-                    template?.enabled ? 'bg-green-500' : 'bg-gray-400'
+                    template?.enabled ? 'bg-green-500' : 'bg-muted-foreground/40'
                   }`} />
 
                   <div className="flex-1 min-w-0">
@@ -179,7 +180,7 @@ export default function WebsiteEmailPage({ params }: { params: Promise<{ siteId:
                         <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 font-medium">Required</span>
                       )}
                       {template && !template.enabled && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 font-medium">Disabled</span>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground font-medium">Disabled</span>
                       )}
                     </div>
                     <p className="text-xs text-muted-foreground mt-0.5 truncate">{eventDef.description}</p>
@@ -202,7 +203,7 @@ export default function WebsiteEmailPage({ params }: { params: Promise<{ siteId:
                         </button>
                         <Link
                           href={`/portal/websites/${siteId}/email/${template.id}`}
-                          className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-border rounded-lg text-foreground hover:bg-accent transition-colors"
+                          className={pBtnGhost}
                         >
                           <span className="material-icons text-sm">edit</span>
                           Edit

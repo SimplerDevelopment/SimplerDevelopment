@@ -24,6 +24,13 @@ vi.mock('@/lib/portal-client', () => ({
   getPortalRole: (...args: unknown[]) => getPortalRoleMock(...args),
 }));
 
+const authorizePortalMock = vi.fn();
+const isAuthErrorMock = vi.fn((r: unknown) => Boolean(r && typeof r === 'object' && 'response' in (r as Record<string, unknown>)));
+vi.mock('@/lib/portal-auth', () => ({
+  authorizePortal: (...args: unknown[]) => authorizePortalMock(...args),
+  isAuthError: (r: unknown) => isAuthErrorMock(r),
+}));
+
 const uploadToS3Mock = vi.fn();
 vi.mock('@/lib/s3/upload', () => ({
   uploadToS3: (...args: unknown[]) => uploadToS3Mock(...args),
@@ -236,6 +243,7 @@ beforeEach(() => {
   authMock.mockReset();
   getPortalClientMock.mockReset();
   getPortalRoleMock.mockReset();
+  authorizePortalMock.mockReset();
   uploadToS3Mock.mockReset();
   verifyDomainOwnershipMock.mockReset();
   clearCustomDomainCacheMock.mockReset();
@@ -536,7 +544,9 @@ describe('GET /api/portal/ai/conversations/[id]', () => {
   });
 
   it('returns 401 without a session', async () => {
-    authMock.mockResolvedValue(null);
+    authorizePortalMock.mockResolvedValue({
+      response: new Response(JSON.stringify({ success: false, message: 'Unauthorized' }), { status: 401 }),
+    });
     const res = await aiConvByIdRoute.GET(new Request('http://x'), buildArgs());
     expect(res.status).toBe(401);
     const body = await res.json();
@@ -544,14 +554,17 @@ describe('GET /api/portal/ai/conversations/[id]', () => {
   });
 
   it('returns 401 when session has no user id', async () => {
-    authMock.mockResolvedValue({ user: {} });
+    authorizePortalMock.mockResolvedValue({
+      response: new Response(JSON.stringify({ success: false, message: 'Unauthorized' }), { status: 401 }),
+    });
     const res = await aiConvByIdRoute.GET(new Request('http://x'), buildArgs());
     expect(res.status).toBe(401);
   });
 
   it('returns 404 when no portal client', async () => {
-    authMock.mockResolvedValue(ADMIN_SESSION);
-    getPortalClientMock.mockResolvedValue(null);
+    authorizePortalMock.mockResolvedValue({
+      response: new Response(JSON.stringify({ success: false, message: 'Not found' }), { status: 404 }),
+    });
     const res = await aiConvByIdRoute.GET(new Request('http://x'), buildArgs());
     expect(res.status).toBe(404);
     const body = await res.json();
@@ -559,8 +572,7 @@ describe('GET /api/portal/ai/conversations/[id]', () => {
   });
 
   it('returns 404 when conversation does not exist', async () => {
-    authMock.mockResolvedValue(ADMIN_SESSION);
-    getPortalClientMock.mockResolvedValue({ id: 11 });
+    authorizePortalMock.mockResolvedValue({ client: { id: 11 }, userId: 7, role: 'admin' });
     selectQueue.push([]); // conversation lookup
     const res = await aiConvByIdRoute.GET(new Request('http://x'), buildArgs('99'));
     expect(res.status).toBe(404);
@@ -569,16 +581,14 @@ describe('GET /api/portal/ai/conversations/[id]', () => {
   });
 
   it('returns 404 when conversation belongs to another client', async () => {
-    authMock.mockResolvedValue(ADMIN_SESSION);
-    getPortalClientMock.mockResolvedValue({ id: 11 });
+    authorizePortalMock.mockResolvedValue({ client: { id: 11 }, userId: 7, role: 'admin' });
     selectQueue.push([{ id: 5, clientId: 999, title: 'other' }]);
     const res = await aiConvByIdRoute.GET(new Request('http://x'), buildArgs('5'));
     expect(res.status).toBe(404);
   });
 
   it('returns conversation and messages on success', async () => {
-    authMock.mockResolvedValue(ADMIN_SESSION);
-    getPortalClientMock.mockResolvedValue({ id: 11 });
+    authorizePortalMock.mockResolvedValue({ client: { id: 11 }, userId: 7, role: 'admin' });
     selectQueue.push([{ id: 5, clientId: 11, title: 'My convo' }]);
     selectQueue.push([
       { id: 100, conversationId: 5, role: 'user', content: 'hi' },
@@ -595,8 +605,7 @@ describe('GET /api/portal/ai/conversations/[id]', () => {
   });
 
   it('returns 500 on unexpected error', async () => {
-    authMock.mockResolvedValue(ADMIN_SESSION);
-    getPortalClientMock.mockRejectedValue(new Error('boom'));
+    authorizePortalMock.mockRejectedValue(new Error('boom'));
     const res = await aiConvByIdRoute.GET(new Request('http://x'), buildArgs('5'));
     expect(res.status).toBe(500);
     const body = await res.json();
@@ -610,7 +619,9 @@ describe('GET /api/portal/ai/conversations/[id]', () => {
 
 describe('GET /api/portal/ai/conversations', () => {
   it('returns 401 without a session', async () => {
-    authMock.mockResolvedValue(null);
+    authorizePortalMock.mockResolvedValue({
+      response: new Response(JSON.stringify({ success: false, message: 'Unauthorized' }), { status: 401 }),
+    });
     const res = await aiConvListRoute.GET();
     expect(res.status).toBe(401);
     const body = await res.json();
@@ -618,14 +629,17 @@ describe('GET /api/portal/ai/conversations', () => {
   });
 
   it('returns 401 when session has no user id', async () => {
-    authMock.mockResolvedValue({ user: {} });
+    authorizePortalMock.mockResolvedValue({
+      response: new Response(JSON.stringify({ success: false, message: 'Unauthorized' }), { status: 401 }),
+    });
     const res = await aiConvListRoute.GET();
     expect(res.status).toBe(401);
   });
 
   it('returns 404 when no portal client', async () => {
-    authMock.mockResolvedValue(ADMIN_SESSION);
-    getPortalClientMock.mockResolvedValue(null);
+    authorizePortalMock.mockResolvedValue({
+      response: new Response(JSON.stringify({ success: false, message: 'Not found' }), { status: 404 }),
+    });
     const res = await aiConvListRoute.GET();
     expect(res.status).toBe(404);
     const body = await res.json();
@@ -633,8 +647,7 @@ describe('GET /api/portal/ai/conversations', () => {
   });
 
   it('returns conversations list for client', async () => {
-    authMock.mockResolvedValue(ADMIN_SESSION);
-    getPortalClientMock.mockResolvedValue({ id: 11 });
+    authorizePortalMock.mockResolvedValue({ client: { id: 11 }, userId: 7, role: 'admin' });
     selectQueue.push([
       { id: 1, clientId: 11, title: 'A', updatedAt: new Date('2026-05-01') },
       { id: 2, clientId: 11, title: 'B', updatedAt: new Date('2026-04-01') },
@@ -648,8 +661,7 @@ describe('GET /api/portal/ai/conversations', () => {
   });
 
   it('returns empty list when none exist', async () => {
-    authMock.mockResolvedValue(ADMIN_SESSION);
-    getPortalClientMock.mockResolvedValue({ id: 11 });
+    authorizePortalMock.mockResolvedValue({ client: { id: 11 }, userId: 7, role: 'admin' });
     selectQueue.push([]);
     const res = await aiConvListRoute.GET();
     expect(res.status).toBe(200);
@@ -658,8 +670,7 @@ describe('GET /api/portal/ai/conversations', () => {
   });
 
   it('returns 500 on unexpected error', async () => {
-    authMock.mockResolvedValue(ADMIN_SESSION);
-    getPortalClientMock.mockRejectedValue(new Error('db down'));
+    authorizePortalMock.mockRejectedValue(new Error('db down'));
     const res = await aiConvListRoute.GET();
     expect(res.status).toBe(500);
     const body = await res.json();

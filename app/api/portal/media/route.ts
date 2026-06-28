@@ -1,17 +1,14 @@
 import { NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { media, brandingProfiles } from '@/lib/db/schema';
-import { getPortalClient } from '@/lib/portal-client';
+import { authorizePortal, isAuthError } from '@/lib/portal-auth';
 import { eq, and, like, or, desc, sql, isNull } from 'drizzle-orm';
 
 export async function GET(req: Request) {
-  const session = await auth();
-  if (!session?.user?.id) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
-
-  const userId = parseInt(session.user.id, 10);
-  const client = await getPortalClient(userId);
-  if (!client) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
+  // Bearer-aware (mobile) + NextAuth (web). Read access = any member.
+  const authResult = await authorizePortal({ action: 'read' });
+  if (isAuthError(authResult)) return authResult.response;
+  const { client } = authResult;
 
   // Get all branding profiles for this client
   const profiles = await db

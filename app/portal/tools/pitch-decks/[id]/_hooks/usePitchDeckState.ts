@@ -39,6 +39,17 @@ export interface UsePitchDeckStateOptions {
    * `null` (or omit) to use the legacy non-collaborative state path.
    */
   ydoc?: Y.Doc | null;
+  /**
+   * True only when the realtime WebSocket is actually connected and the
+   * server-side snapshot persister is actively managing durable saves.
+   * Used to decide whether to suppress the manual dirty flag.
+   *
+   * NOTE: do NOT derive this from `ydoc !== null` — the Y.Doc is
+   * instantiated immediately in the RealtimeClient constructor, so it is
+   * non-null even before the socket connects. The caller must pass the
+   * explicit connection status from `collab.enabled`.
+   */
+  collabEnabled?: boolean;
 }
 
 /** Loads the deck on mount, exposes save/error state, and a refetch helper. */
@@ -47,6 +58,12 @@ export function usePitchDeckState(
   opts: UsePitchDeckStateOptions = {}
 ): PitchDeckState {
   const ydoc = opts.ydoc ?? null;
+  // collabActive: true only when the WS is actually connected and the server-
+  // side persister is durably saving slides. Y.Doc is always non-null (created
+  // in the RealtimeClient constructor before the socket connects), so we must
+  // NOT derive this from `ydoc !== null` — instead we rely on the explicit
+  // connection flag passed by the caller.
+  const collabActive = opts.collabEnabled === true;
 
   const [deck, setDeckRaw] = useState<DeckPayload | null>(null);
   const [loading, setLoading] = useState(true);
@@ -60,9 +77,6 @@ export function usePitchDeckState(
   // Track which deck id the current binding belongs to so we rebind when the
   // doc/deck flips. DeckPayload.id is a number.
   const boundDeckIdRef = useRef<number | null>(null);
-
-  // Track whether collab is "live" so we can skip dirty-flag noise.
-  const collabActive = ydoc !== null;
 
   const refetch = useCallback(async () => {
     try {

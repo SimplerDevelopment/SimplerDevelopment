@@ -48,8 +48,26 @@ export default function OAuthClientsManager({
     try {
       const res = await fetch('/api/portal/oauth-clients');
       const json = await res.json();
-      if (json.success) setClients(json.data);
-      else setError(json.message ?? 'Failed to load OAuth apps');
+      if (json.success) {
+        // API speaks snake_case (OAuth RFC vocabulary); map once at the edge.
+        type ApiRow = {
+          id: number; client_id: string; client_name: string; redirect_uris: string[];
+          token_endpoint_auth_method: string; client_secret_preview: string | null;
+          client_secret_created_at: string | null; client_secret_rotated_at: string | null;
+          created_at: string;
+        };
+        setClients((json.data as ApiRow[]).map((c) => ({
+          id: c.id,
+          clientId: c.client_id,
+          clientName: c.client_name,
+          redirectUris: c.redirect_uris,
+          tokenEndpointAuthMethod: c.token_endpoint_auth_method,
+          clientSecretPreview: c.client_secret_preview,
+          clientSecretCreatedAt: c.client_secret_created_at,
+          clientSecretRotatedAt: c.client_secret_rotated_at,
+          createdAt: c.created_at,
+        })));
+      } else setError(json.message ?? 'Failed to load OAuth apps');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load OAuth apps');
     } finally {

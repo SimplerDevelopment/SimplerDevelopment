@@ -24,14 +24,14 @@ import { render, fireEvent } from '@testing-library/react';
 
 vi.mock('@/components/portal/comments/AnchorPin', () => ({
   __esModule: true,
-  AnchorPin: ({ thread }: any) =>
+  AnchorPin: ({ thread }: { thread?: { threadId?: string; root?: { anchor?: { x?: number; y?: number } } } }) =>
     React.createElement('div', {
       'data-testid': 'anchor-pin',
       'data-thread-id': thread?.threadId ?? '',
       'data-x': String(thread?.root?.anchor?.x ?? ''),
       'data-y': String(thread?.root?.anchor?.y ?? ''),
     }),
-  default: ({ thread }: any) =>
+  default: ({ thread }: { thread?: { threadId?: string; root?: { anchor?: { x?: number; y?: number } } } }) =>
     React.createElement('div', {
       'data-testid': 'anchor-pin',
       'data-thread-id': thread?.threadId ?? '',
@@ -40,7 +40,7 @@ vi.mock('@/components/portal/comments/AnchorPin', () => ({
 
 vi.mock('@/lib/utils/responsive', () => ({
   __esModule: true,
-  combineResponsiveClasses: (...parts: any[]) =>
+  combineResponsiveClasses: (...parts: unknown[]) =>
     parts.filter(Boolean).join(' '),
 }));
 
@@ -56,13 +56,14 @@ import {
 } from '@/components/portal/comments/MentionPill';
 import { AnchorPinLayer } from '@/components/portal/comments/AnchorPinLayer';
 import { HtmlEmbedBlockRender } from '@/components/blocks/render/HtmlEmbedBlockRender';
+import type { HtmlEmbedBlock } from '@/types/blocks';
 
 // ---------------------------------------------------------------------------
 // CardChecklist
 // ---------------------------------------------------------------------------
 describe('CardChecklist', () => {
   const baseProps = {
-    checklist: [] as any[],
+    checklist: [] as Array<{ id: number; text: string; completed: boolean }>,
     canEdit: true,
     newChecklistText: '',
     setNewChecklistText: vi.fn(),
@@ -332,9 +333,9 @@ describe('AnchorPinLayer', () => {
 
   function makeThread(
     threadId: string,
-    anchor: any,
-    extras: Partial<any> = {},
-  ): any {
+    anchor: { x?: number; y?: number; slideIndex?: number } | null,
+    extras: Record<string, unknown> = {},
+  ) {
     return {
       threadId,
       resolved: false,
@@ -344,8 +345,8 @@ describe('AnchorPinLayer', () => {
   }
 
   const baseProps = {
-    threads: [] as any[],
-    members: [] as any[],
+    threads: [] as Array<ReturnType<typeof makeThread>>,
+    members: [] as unknown[],
     currentUserId: 1,
     onReply: noop,
     onResolve: noop,
@@ -389,7 +390,7 @@ describe('AnchorPinLayer', () => {
     const threads = [
       makeThread('t1', { x: 10 }), // missing y
       makeThread('t2', { y: 5 }), // missing x
-      makeThread('t3', { x: 'bad' as any, y: 5 }), // non-number
+      makeThread('t3', { x: 'bad' as unknown as number, y: 5 }), // non-number
     ];
     const { queryAllByTestId } = render(
       <AnchorPinLayer {...baseProps} threads={threads} />,
@@ -450,7 +451,7 @@ describe('AnchorPinLayer', () => {
       <AnchorPinLayer
         {...baseProps}
         threads={threads}
-        activeAnchorFilter={(a: any) => a.slideIndex === 1}
+        activeAnchorFilter={(a: { slideIndex?: number }) => a.slideIndex === 1}
       />,
     );
     const ids = queryAllByTestId('anchor-pin')
@@ -475,7 +476,7 @@ describe('AnchorPinLayer', () => {
 // ---------------------------------------------------------------------------
 describe('HtmlEmbedBlockRender', () => {
   it('renders the empty-state placeholder when neither inlineHtml nor url is set', () => {
-    const block: any = { type: 'html-embed' };
+    const block = { type: 'html-embed' } as unknown as HtmlEmbedBlock;
     const { container } = render(<HtmlEmbedBlockRender block={block} />);
     expect(container.textContent).toContain('No HTML file uploaded yet');
     // Material icon hint
@@ -487,10 +488,10 @@ describe('HtmlEmbedBlockRender', () => {
   });
 
   it('inlines server-prefetched HTML when inlineHtml is present', () => {
-    const block: any = {
+    const block = {
       type: 'html-embed',
       inlineHtml: '<p data-inline="yes">Inline body</p>',
-    };
+    } as unknown as HtmlEmbedBlock;
     const { container } = render(<HtmlEmbedBlockRender block={block} />);
     const p = container.querySelector('p[data-inline="yes"]') as HTMLElement;
     expect(p).toBeTruthy();
@@ -500,21 +501,21 @@ describe('HtmlEmbedBlockRender', () => {
   });
 
   it('renders the caption alongside inline HTML when provided', () => {
-    const block: any = {
+    const block = {
       type: 'html-embed',
       inlineHtml: '<span>x</span>',
       caption: 'Figure 1',
-    };
+    } as unknown as HtmlEmbedBlock;
     const { container } = render(<HtmlEmbedBlockRender block={block} />);
     expect(container.textContent).toContain('Figure 1');
   });
 
   it('replaces inert <script> tags inside inline HTML with fresh executable nodes after mount', () => {
-    const block: any = {
+    const block = {
       type: 'html-embed',
       inlineHtml:
         '<div><script id="my-inline-script" data-foo="bar">window.__hot = 1;</script></div>',
-    };
+    } as unknown as HtmlEmbedBlock;
     const { container } = render(<HtmlEmbedBlockRender block={block} />);
     const script = container.querySelector(
       'script[id="my-inline-script"]',
@@ -526,57 +527,60 @@ describe('HtmlEmbedBlockRender', () => {
   });
 
   it('renders an iframe pointing at block.url when only url is set', () => {
-    const block: any = {
+    const block = {
       type: 'html-embed',
       url: 'https://example.com/embed.html',
       iframeTitle: 'Demo widget',
-    };
+    } as unknown as HtmlEmbedBlock;
     const { container } = render(<HtmlEmbedBlockRender block={block} />);
     const iframe = container.querySelector('iframe') as HTMLIFrameElement;
     expect(iframe).toBeTruthy();
-    expect(iframe.getAttribute('src')).toBe('https://example.com/embed.html');
+    // `?embed=1` is appended as a cache-key buster for the media-proxy fix.
+    expect(iframe.getAttribute('src')).toBe('https://example.com/embed.html?embed=1');
     expect(iframe.getAttribute('title')).toBe('Demo widget');
     expect(iframe.getAttribute('referrerpolicy')).toBe('no-referrer');
     expect(iframe.getAttribute('loading')).toBe('lazy');
   });
 
   it('uses the default sandbox preset (scripts) when block.sandbox is not provided', () => {
-    const block: any = { type: 'html-embed', url: 'https://a.test/' };
+    const block = { type: 'html-embed', url: 'https://a.test/' } as unknown as HtmlEmbedBlock;
     const { container } = render(<HtmlEmbedBlockRender block={block} />);
     const iframe = container.querySelector('iframe') as HTMLIFrameElement;
-    expect(iframe.getAttribute('sandbox')).toBe('allow-scripts');
+    expect(iframe.getAttribute('sandbox')).toBe(
+      'allow-scripts allow-popups allow-popups-to-escape-sandbox',
+    );
   });
 
   it('honors strict sandbox preset (empty sandbox attribute)', () => {
-    const block: any = {
+    const block = {
       type: 'html-embed',
       url: 'https://a.test/',
       sandbox: 'strict',
-    };
+    } as unknown as HtmlEmbedBlock;
     const { container } = render(<HtmlEmbedBlockRender block={block} />);
     const iframe = container.querySelector('iframe') as HTMLIFrameElement;
     expect(iframe.getAttribute('sandbox')).toBe('');
   });
 
   it('honors scripts-forms sandbox preset', () => {
-    const block: any = {
+    const block = {
       type: 'html-embed',
       url: 'https://a.test/',
       sandbox: 'scripts-forms',
-    };
+    } as unknown as HtmlEmbedBlock;
     const { container } = render(<HtmlEmbedBlockRender block={block} />);
     const iframe = container.querySelector('iframe') as HTMLIFrameElement;
     expect(iframe.getAttribute('sandbox')).toBe(
-      'allow-scripts allow-forms allow-popups',
+      'allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox',
     );
   });
 
   it('respects a custom height and falls back to 600px by default', () => {
-    const block: any = {
+    const block = {
       type: 'html-embed',
       url: 'https://a.test/',
       height: '420px',
-    };
+    } as unknown as HtmlEmbedBlock;
     const { container, rerender } = render(
       <HtmlEmbedBlockRender block={block} />,
     );
@@ -584,18 +588,18 @@ describe('HtmlEmbedBlockRender', () => {
     expect(iframe.style.height).toBe('420px');
 
     rerender(
-      <HtmlEmbedBlockRender block={{ type: 'html-embed', url: 'https://a.test/' } as any} />,
+      <HtmlEmbedBlockRender block={{ type: 'html-embed', url: 'https://a.test/' } as unknown as HtmlEmbedBlock} />,
     );
     iframe = container.querySelector('iframe') as HTMLIFrameElement;
     expect(iframe.style.height).toBe('600px');
   });
 
   it('uses the contained max-width wrapper for width="contained" and full-width otherwise', () => {
-    const containedBlock: any = {
+    const containedBlock = {
       type: 'html-embed',
       url: 'https://a.test/',
       width: 'contained',
-    };
+    } as unknown as HtmlEmbedBlock;
     const { container: c1 } = render(
       <HtmlEmbedBlockRender block={containedBlock} />,
     );
@@ -603,18 +607,18 @@ describe('HtmlEmbedBlockRender', () => {
     const containedWrap = c1.querySelector('iframe')?.parentElement as HTMLElement;
     expect(containedWrap.className).toContain('max-w-5xl');
 
-    const fullBlock: any = { type: 'html-embed', url: 'https://a.test/' };
+    const fullBlock = { type: 'html-embed', url: 'https://a.test/' } as unknown as HtmlEmbedBlock;
     const { container: c2 } = render(<HtmlEmbedBlockRender block={fullBlock} />);
     const fullWrap = c2.querySelector('iframe')?.parentElement as HTMLElement;
     expect(fullWrap.className).toContain('w-full');
   });
 
   it('renders an iframe caption when block.caption is provided', () => {
-    const block: any = {
+    const block = {
       type: 'html-embed',
       url: 'https://a.test/',
       caption: 'Live preview',
-    };
+    } as unknown as HtmlEmbedBlock;
     const { container } = render(<HtmlEmbedBlockRender block={block} />);
     expect(container.textContent).toContain('Live preview');
   });

@@ -76,7 +76,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   };
 
   // Home page (no slug) — surface the SEO from the post flagged as the
-  // home page so cystrategies.co/ uses the same metadata as cystrategies.co/home.
+  // home page so a client's root URL uses the same metadata as /home.
   if (!pageSlug || pageSlug === '') {
     const homePage = await getClientHomePage(site.id);
     if (homePage) return buildFromPage(homePage as SeoPage);
@@ -142,8 +142,11 @@ export default async function ClientSitePage({ params, searchParams }: PageProps
   const isPreviewMode = _preview === 'true';
   let preview = false;
   if (isEditMode || isPreviewMode) {
-    // Check for preview token first (works cross-origin)
-    if (typeof _token === 'string' && verifyPreviewToken(site.id, _token)) {
+    // Check for preview token first (works cross-origin). Pass the page path
+    // as the token scope so a page-scoped token (minted by the public approval
+    // page) only authorizes this one page; the editor's site-wide token still
+    // validates here because verifyPreviewToken accepts the unscoped variant.
+    if (typeof _token === 'string' && verifyPreviewToken(site.id, _token, pageSlug)) {
       preview = true;
     } else {
       // Fall back to session auth (same-origin only)

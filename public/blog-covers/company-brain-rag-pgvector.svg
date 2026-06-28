@@ -1,0 +1,14 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Building a Company Brain: RAG with pgvector and Claude">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6d28d9"/><stop offset="1" stop-color="#2563eb"/></linearGradient>
+    <pattern id="dots" width="32" height="32" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="1.5" fill="#ffffff" opacity="0.07"/></pattern>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <rect width="1200" height="630" fill="url(#dots)"/>
+  <rect x="72" y="120" width="56" height="6" rx="3" fill="#ffffff" opacity="0.9"/>
+  <text x="72" y="104" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="24" letter-spacing="4" fill="#ffffff" opacity="0.85">COMPANY BRAIN</text>
+  <text x="72" y="224" font-family="Inter, Segoe UI, system-ui, sans-serif" font-size="62" font-weight="800" fill="#ffffff">Building a Company</text>
+  <text x="72" y="300" font-family="Inter, Segoe UI, system-ui, sans-serif" font-size="62" font-weight="800" fill="#ffffff">Brain: RAG with</text>
+  <text x="72" y="376" font-family="Inter, Segoe UI, system-ui, sans-serif" font-size="62" font-weight="800" fill="#ffffff">pgvector and Claude</text>
+  <text x="72" y="560" font-family="Inter, Segoe UI, system-ui, sans-serif" font-size="26" font-weight="700" fill="#ffffff" opacity="0.92">&lt;/&gt; Simpler Development</text>
+</svg>

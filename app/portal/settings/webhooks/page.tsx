@@ -102,7 +102,7 @@ export default async function WebhooksSettingsPage() {
   return (
     <div className="space-y-5">
       <div>
-        <h2 className="text-lg font-semibold text-foreground">Webhooks</h2>
+        <h2 className="text-lg font-display font-extrabold tracking-[-0.01em] text-foreground">Webhooks</h2>
         <p className="text-sm text-muted-foreground mt-1">
           Outbound webhooks across every project, survey, and site you own. Configure new endpoints
           inside each source — this view aggregates them so you can audit delivery health and rotate

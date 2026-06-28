@@ -12,11 +12,13 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { crmContracts, crmContractSigningEvents } from '@/lib/db/schema';
+import { crmContracts, crmContractSigningEvents, brandingProfiles, usageMeterEvents } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
+import { authorizePortal, isAuthError } from '@/lib/portal-auth';
 import { createSignatureRequest } from '@/lib/esign/dropbox-sign';
 import { renderContractPdf } from '@/lib/esign/contract-pdf';
+import { currentPeriodUtc } from '@/lib/billing/usage-rollup';
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -25,6 +27,10 @@ export async function POST(req: Request, { params }: Params) {
   if (!session?.user?.id) {
     return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
   }
+
+  const authResult = await authorizePortal({ action: 'write', requireService: 'esign' });
+  if (isAuthError(authResult)) return authResult.response;
+
   const client = await getPortalClient(parseInt(session.user.id, 10));
   if (!client) {
     return NextResponse.json({ success: false, error: 'Client not found' }, { status: 404 });
@@ -72,6 +78,18 @@ export async function POST(req: Request, { params }: Params) {
     );
   }
 
+  // Fetch default branding for the client — best-effort; PDF renders fine without it.
+  const [defaultBranding] = await db
+    .select({
+      logoUrl: brandingProfiles.logoUrl,
+      primaryColor: brandingProfiles.primaryColor,
+      accentColor: brandingProfiles.accentColor,
+      logoText: brandingProfiles.logoText,
+    })
+    .from(brandingProfiles)
+    .where(and(eq(brandingProfiles.clientId, client.id), eq(brandingProfiles.isDefault, true)))
+    .limit(1);
+
   // Render the PDF.
   let pdfBuffer: Buffer;
   try {
@@ -85,6 +103,10 @@ export async function POST(req: Request, { params }: Params) {
       signerName,
       signerEmail,
       footerText: contract.footerText,
+      // Contract-level overrides take precedence; fall back to client branding.
+      accentColor: contract.accentColor ?? defaultBranding?.primaryColor ?? undefined,
+      logoUrl: contract.logoUrl ?? defaultBranding?.logoUrl ?? undefined,
+      brandName: client.company ?? defaultBranding?.logoText ?? undefined,
     });
   } catch (err) {
     console.error('[contracts/send-for-signature] PDF render failed', err);
@@ -140,6 +162,23 @@ export async function POST(req: Request, { params }: Params) {
       signatureId: providerResult.signatureId,
     },
   });
+
+  // Pass-through billing: each DropboxSign envelope is metered as one
+  // 'esign_envelopes' usage event (20 included/mo, $1.50 overage per the domain
+  // catalog). The usage-rollup cron settles these into the metered Stripe
+  // subscription item. Swallow failures — telemetry must never fail the send
+  // (the envelope already exists at the provider).
+  try {
+    await db.insert(usageMeterEvents).values({
+      clientId: client.id,
+      resource: 'esign_envelopes',
+      period: currentPeriodUtc(),
+      amount: '1',
+      source: 'dropbox_sign',
+    });
+  } catch (err) {
+    console.warn('[contracts/send-for-signature] esign usage meter insert failed', err);
+  }
 
   return NextResponse.json({
     success: true,

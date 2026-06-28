@@ -4,6 +4,10 @@ import { useState, useEffect } from 'react';
 import ProductAutomationSettings from '@/components/portal/ProductAutomationSettings';
 import type { AutomationPreset } from '@/components/portal/ProductAutomationSettings';
 import CrmCustomFieldsAdmin from '@/components/portal/CrmCustomFieldsAdmin';
+import LeadScoringTab from './_components/LeadScoringTab';
+import NotificationsTab from './_components/NotificationsTab';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnPrimary } from '@/components/portal/portal-ui';
 
 const CRM_AUTOMATION_PRESETS: AutomationPreset[] = [
   {
@@ -88,13 +92,15 @@ const defaultColors = [
   '#ef4444', '#ec4899', '#6366f1', '#14b8a6', '#f97316',
 ];
 
-type SettingsTab = 'pipelines' | 'tags' | 'custom-fields' | 'automations';
+type SettingsTab = 'pipelines' | 'tags' | 'custom-fields' | 'automations' | 'lead-scoring' | 'notifications';
 
 const SETTINGS_TABS: { value: SettingsTab; label: string; icon: string }[] = [
   { value: 'pipelines', label: 'Pipelines', icon: 'view_column' },
   { value: 'tags', label: 'Tags', icon: 'sell' },
   { value: 'custom-fields', label: 'Custom Fields', icon: 'tune' },
   { value: 'automations', label: 'Automations', icon: 'bolt' },
+  { value: 'lead-scoring', label: 'Lead Scoring', icon: 'leaderboard' },
+  { value: 'notifications', label: 'Notifications', icon: 'notifications' },
 ];
 
 export default function CrmSettingsPage() {
@@ -230,7 +236,7 @@ export default function CrmSettingsPage() {
     );
 
     // Persist
-    await fetch(`/api/portal/crm/pipelines/${pipelineId}/stages/reorder`, {
+    await fetch(`/api/portal/crm/pipelines/${pipelineId}/stages`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -273,6 +279,7 @@ export default function CrmSettingsPage() {
 
   return (
     <div className="space-y-6 max-w-4xl">
+      <PortalPageHeader eyebrow="CRM" title="CRM Settings" subtitle="Manage pipelines, tags, fields, and automations" />
       {/* Tab nav */}
       <div className="flex border-b border-border overflow-x-auto">
         {SETTINGS_TABS.map(tab => (
@@ -293,9 +300,9 @@ export default function CrmSettingsPage() {
 
       {/* Pipelines */}
       {activeTab === 'pipelines' && (
-      <div className="bg-card border border-border rounded-xl p-6 space-y-6">
+      <div className="bg-card border border-border rounded-2xl p-6 space-y-6">
         <div>
-          <h3 className="font-semibold text-foreground text-lg">Pipelines</h3>
+          <h3 className="font-display text-[17px] font-extrabold tracking-[-0.02em] text-foreground">Pipelines</h3>
           <p className="text-sm text-muted-foreground mt-1">Manage your deal pipelines and stages.</p>
         </div>
 
@@ -305,7 +312,7 @@ export default function CrmSettingsPage() {
             <p className="text-sm text-muted-foreground py-4 text-center">No pipelines yet. Create one to get started.</p>
           )}
           {pipelines.map(pipeline => (
-            <div key={pipeline.id} className="border border-border rounded-lg overflow-hidden">
+            <div key={pipeline.id} className="border border-border rounded-xl overflow-hidden">
               {/* Pipeline header */}
               <div className="flex items-center justify-between px-4 py-3 bg-muted/30">
                 {editingPipelineId === pipeline.id ? (
@@ -318,7 +325,7 @@ export default function CrmSettingsPage() {
                         if (e.key === 'Escape') setEditingPipelineId(null);
                       }}
                       autoFocus
-                      className="flex-1 px-2 py-1 bg-background border border-border rounded text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                      className="flex-1 rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary focus:ring-4 focus:ring-primary/15"
                     />
                     <button
                       onClick={() => updatePipelineName(pipeline.id)}
@@ -373,7 +380,7 @@ export default function CrmSettingsPage() {
                 <div className="p-4 space-y-3">
                   {/* Stage list */}
                   {(pipeline.stages ?? []).sort((a, b) => a.order - b.order).map((stage, i) => (
-                    <div key={stage.id} className="flex items-center gap-3 py-2 px-3 rounded-lg hover:bg-accent/50 transition-colors">
+                    <div key={stage.id} className="flex items-center gap-3 py-2 px-3 rounded-xl hover:bg-accent/50 transition-colors">
                       <div
                         className="w-3 h-3 rounded-full shrink-0"
                         style={{ backgroundColor: stage.color || '#6b7280' }}
@@ -413,7 +420,7 @@ export default function CrmSettingsPage() {
                         value={newStageName}
                         onChange={e => setNewStageName(e.target.value)}
                         placeholder="e.g. Proposal"
-                        className="w-full px-3 py-1.5 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                        className="w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary focus:ring-4 focus:ring-primary/15"
                       />
                     </div>
                     <div className="w-20">
@@ -435,13 +442,13 @@ export default function CrmSettingsPage() {
                         max="100"
                         value={newStageProbability}
                         onChange={e => setNewStageProbability(e.target.value)}
-                        className="w-full px-2 py-1.5 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                        className="w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary focus:ring-4 focus:ring-primary/15"
                       />
                     </div>
                     <button
                       type="submit"
                       disabled={stageSaving || !newStageName.trim()}
-                      className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 shrink-0"
+                      className={`${pBtnPrimary} shrink-0`}
                     >
                       {stageSaving && <span className="material-icons animate-spin text-xs">refresh</span>}
                       <span className="material-icons text-sm">add</span>
@@ -460,12 +467,12 @@ export default function CrmSettingsPage() {
             value={newPipelineName}
             onChange={e => setNewPipelineName(e.target.value)}
             placeholder="New pipeline name..."
-            className="flex-1 px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+            className="flex-1 rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary focus:ring-4 focus:ring-primary/15"
           />
           <button
             type="submit"
             disabled={pipelineSaving || !newPipelineName.trim()}
-            className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+            className={pBtnPrimary}
           >
             {pipelineSaving && <span className="material-icons animate-spin text-sm">refresh</span>}
             Create Pipeline
@@ -476,9 +483,9 @@ export default function CrmSettingsPage() {
 
       {/* Tags */}
       {activeTab === 'tags' && (
-      <div className="bg-card border border-border rounded-xl p-6 space-y-6">
+      <div className="bg-card border border-border rounded-2xl p-6 space-y-6">
         <div>
-          <h3 className="font-semibold text-foreground text-lg">Tags</h3>
+          <h3 className="font-display text-[17px] font-extrabold tracking-[-0.02em] text-foreground">Tags</h3>
           <p className="text-sm text-muted-foreground mt-1">Manage tags for organizing contacts.</p>
         </div>
 
@@ -515,7 +522,7 @@ export default function CrmSettingsPage() {
               value={newTagName}
               onChange={e => setNewTagName(e.target.value)}
               placeholder="e.g. VIP"
-              className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+              className="w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary focus:ring-4 focus:ring-primary/15"
             />
           </div>
           <div>
@@ -545,7 +552,7 @@ export default function CrmSettingsPage() {
           <button
             type="submit"
             disabled={tagSaving || !newTagName.trim()}
-            className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+            className={pBtnPrimary}
           >
             {tagSaving && <span className="material-icons animate-spin text-sm">refresh</span>}
             Add Tag
@@ -556,14 +563,14 @@ export default function CrmSettingsPage() {
 
       {/* Custom Fields */}
       {activeTab === 'custom-fields' && (
-      <div className="bg-card border border-border rounded-xl p-6">
+      <div className="bg-card border border-border rounded-2xl p-6">
         <CrmCustomFieldsAdmin />
       </div>
       )}
 
       {/* ─── Automations ───────────────────────────────────────────────── */}
       {activeTab === 'automations' && (
-      <div className="bg-card border border-border rounded-xl p-6">
+      <div className="bg-card border border-border rounded-2xl p-6">
         <ProductAutomationSettings
           productScope="crm"
           presets={CRM_AUTOMATION_PRESETS}
@@ -572,6 +579,12 @@ export default function CrmSettingsPage() {
         />
       </div>
       )}
+
+      {/* ─── Lead Scoring ──────────────────────────────────────────────── */}
+      {activeTab === 'lead-scoring' && <LeadScoringTab />}
+
+      {/* ─── Notification Preferences ──────────────────────────────────── */}
+      {activeTab === 'notifications' && <NotificationsTab />}
     </div>
   );
 }

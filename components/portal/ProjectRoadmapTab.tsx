@@ -191,7 +191,7 @@ export default function ProjectRoadmapTab({ projectId, projectKey }: { projectId
             href={`/portal/projects/${projectId}?tab=sprints#${s.id}`}
             className="text-xs px-3 py-1.5 rounded border border-border text-muted-foreground hover:bg-accent hover:text-foreground"
           >
-            {s.name} · {new Date(s.startDate!).toLocaleDateString()} → {new Date(s.endDate!).toLocaleDateString()}
+            {s.name} · {new Date(s.startDate!).toLocaleDateString('en-US')} → {new Date(s.endDate!).toLocaleDateString('en-US')}
           </Link>
         ))}
       </div>

@@ -21,7 +21,9 @@ export default function NewInvoicePage() {
   }, []);
 
   const subtotal = items.reduce((s, i) => s + i.unitPrice * i.quantity, 0);
-  const tax = parseInt(form.tax, 10) || 0;
+  // tax is entered in dollars (matching the line-item price inputs); convert to cents for the API.
+  const taxDollars = parseFloat(form.tax) || 0;
+  const tax = Math.round(taxDollars * 100);
   const total = subtotal + tax;
 
   function addItem() {
@@ -105,10 +107,10 @@ export default function NewInvoicePage() {
                 className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1">Tax (cents)</label>
-              <input type="number" min="0" value={form.tax} onChange={e => setForm({ ...form, tax: e.target.value })}
+              <label className="block text-sm font-medium text-foreground mb-1">Tax ($)</label>
+              <input type="number" min="0" step="0.01" placeholder="0.00" value={form.tax} onChange={e => setForm({ ...form, tax: e.target.value })}
                 className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
-              <p className="text-xs text-muted-foreground mt-0.5">Enter in cents (e.g. 500 = $5.00)</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Enter in dollars (e.g. 5.00 = $5.00)</p>
             </div>
           </div>
 

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { formatMoney } from '@/lib/utils/money';
 
 import { useCanvasStore } from '@/lib/designer/canvasStore';
 import { useAutoSave } from '@/lib/designer/hooks/useAutoSave';
@@ -29,20 +30,6 @@ import SnapshotsDropdown from './SnapshotsDropdown';
 import SurfaceSelector from './SurfaceSelector';
 
 type SidebarTab = 'add' | 'layers' | 'properties';
-
-// Format an integer-cent amount as a localized currency string. Falls back to
-// a plain "$N.NN" if the supplied currency code isn't recognized by Intl.
-function formatMoney(cents: number, currency: string): string {
-  try {
-    return new Intl.NumberFormat(undefined, {
-      style: 'currency',
-      currency,
-      maximumFractionDigits: 2,
-    }).format(cents / 100);
-  } catch {
-    return `$${(cents / 100).toFixed(2)}`;
-  }
-}
 
 // Short relative time ("just now", "2 min ago", "1 hr ago") used by the save
 // indicator. Returns null when we have no timestamp yet.
@@ -585,9 +572,9 @@ export function DesignerShell({
           <div
             className="text-sm font-semibold text-foreground tabular-nums"
             aria-live="polite"
-            aria-label={`Total ${formatMoney(productPriceCents * quantity, currency)}`}
+            aria-label={`Total ${formatMoney(productPriceCents * quantity, { currency })}`}
           >
-            {formatMoney(productPriceCents * quantity, currency)}
+            {formatMoney(productPriceCents * quantity, { currency })}
           </div>
         )}
         {staffMode && (
@@ -785,7 +772,7 @@ export function DesignerShell({
         quantity={quantity}
         totalLabel={
           typeof productPriceCents === 'number' && productPriceCents > 0
-            ? formatMoney(productPriceCents * quantity, currency)
+            ? formatMoney(productPriceCents * quantity, { currency })
             : null
         }
         onConfirm={() => void handleAddToCart()}

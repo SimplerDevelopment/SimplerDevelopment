@@ -12,6 +12,7 @@ import { setMeetingAiSummary, updateMeetingStatus } from '@/lib/brain/meetings';
 import { logAudit } from '@/lib/brain/audit';
 import { hasCredits, deductCredits } from '@/lib/ai-credits';
 import { resolveClientApiKey } from '@/lib/ai/resolve-client-key';
+import { resolvePrompt } from '@/lib/ai/prompt-registry';
 import { recordAiUsage } from '@/lib/ai/audit';
 
 const MODEL = 'claude-sonnet-4-5';
@@ -52,7 +53,7 @@ export interface MeetingExtraction {
   complianceWarnings: { message: string; severity?: 'low' | 'medium' | 'high' }[];
 }
 
-const SYSTEM_PROMPT = `You analyze meeting transcripts for a business intelligence system called Company Brain.
+export const SYSTEM_PROMPT = `You analyze meeting transcripts for a business intelligence system called Company Brain.
 
 Your job: extract STRUCTURED business outputs from a transcript so a human can review and approve them. You never make assumptions about people, companies, or commitments that aren't explicit in the transcript.
 
@@ -82,6 +83,55 @@ Rules:
 - If something is ambiguous, add it to missingContext rather than inventing a value.
 - Never fabricate names, emails, dates, or dollar amounts that aren't in the transcript.
 - Empty arrays are valid. Don't pad output.`;
+
+/**
+ * Pure, DB-free transcript extraction: builds the prompt, calls the model,
+ * parses. No persistence, no credit check, no tenant resolution — the caller
+ * supplies the (pre-sliced) transcript + Anthropic client. `processMeetingTranscript`
+ * and the eval harness both call this so they exercise the identical prompt
+ * path. `onUsage` fires with token usage BEFORE the no-text-block check, matching
+ * the orchestrator's original accounting (a failed parse still records tokens).
+ */
+export async function extractMeetingTranscript(
+  args: {
+    transcript: string;
+    meetingTitle: string;
+    meetingDate?: Date | null;
+    participants?: { name: string; email?: string }[];
+    truncated?: boolean;
+    /** Override the system prompt (eval harness targets a specific version);
+     *  prod omits it → resolvePrompt returns the active version or the constant. */
+    systemPromptOverride?: string;
+  },
+  anthropic: Anthropic,
+  onUsage?: (usage: { inputTokens: number; outputTokens: number }) => void,
+): Promise<{ extraction: MeetingExtraction; inputTokens: number; outputTokens: number; rawText: string }> {
+  const userPrompt = buildUserPrompt({
+    transcript: args.transcript,
+    title: args.meetingTitle,
+    meetingDate: args.meetingDate ?? null,
+    participants: args.participants ?? [],
+    truncated: args.truncated ?? false,
+  });
+
+  const system = args.systemPromptOverride ?? await resolvePrompt('meeting-extractor', SYSTEM_PROMPT);
+  const response = await anthropic.messages.create({
+    model: MODEL,
+    max_tokens: 4096,
+    system,
+    messages: [{ role: 'user', content: userPrompt }],
+  });
+
+  const inputTokens = response.usage?.input_tokens ?? 0;
+  const outputTokens = response.usage?.output_tokens ?? 0;
+  onUsage?.({ inputTokens, outputTokens });
+
+  const textBlock = response.content.find((b): b is Anthropic.TextBlock => b.type === 'text');
+  if (!textBlock) throw new Error('AI returned no text content.');
+
+  const extraction = parseExtraction(textBlock.text);
+  return { extraction, inputTokens, outputTokens, rawText: textBlock.text };
+}
 
 export async function processMeetingTranscript(args: ProcessMeetingArgs): Promise<{
   jobId: number;
@@ -137,31 +187,22 @@ export async function processMeetingTranscript(args: ProcessMeetingArgs): Promis
   let outputTokens = 0;
 
   try {
-    const userPrompt = buildUserPrompt({
-      transcript,
-      title: args.meetingTitle,
-      meetingDate: args.meetingDate ?? null,
-      participants: args.participants ?? [],
-      truncated,
-    });
-
     console.log(`[brain.process] meeting=${args.meetingId} AI request: transcript=${transcript.length}c title="${args.meetingTitle}" participants=${args.participants?.length ?? 0}`);
-    const response = await anthropic.messages.create({
-      model: MODEL,
-      max_tokens: 4096,
-      system: SYSTEM_PROMPT,
-      messages: [{ role: 'user', content: userPrompt }],
-    });
+    const { extraction: ex, rawText } = await extractMeetingTranscript(
+      {
+        transcript,
+        meetingTitle: args.meetingTitle,
+        meetingDate: args.meetingDate ?? null,
+        participants: args.participants ?? [],
+        truncated,
+      },
+      anthropic,
+      (u) => { inputTokens = u.inputTokens; outputTokens = u.outputTokens; },
+    );
 
-    inputTokens = response.usage?.input_tokens ?? 0;
-    outputTokens = response.usage?.output_tokens ?? 0;
+    console.log(`[brain.process] meeting=${args.meetingId} AI raw response (${rawText.length}c): ${rawText.slice(0, 800)}`);
 
-    const textBlock = response.content.find((b): b is Anthropic.TextBlock => b.type === 'text');
-    if (!textBlock) throw new Error('AI returned no text content.');
-
-    console.log(`[brain.process] meeting=${args.meetingId} AI raw response (${textBlock.text.length}c): ${textBlock.text.slice(0, 800)}`);
-
-    extraction = parseExtraction(textBlock.text);
+    extraction = ex;
     console.log(`[brain.process] meeting=${args.meetingId} parsed: tasks=${extraction.tasks.length} decisions=${extraction.decisions.length} commitments=${extraction.commitments.length} compliance=${extraction.complianceWarnings.length}`);
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown AI processing error';

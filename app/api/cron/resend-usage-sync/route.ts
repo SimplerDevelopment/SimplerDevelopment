@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
 import { withCronHealth } from '@/lib/cron-health';
+import { isAuthorizedCron } from '@/lib/cron-auth';
 import { and, eq, gte, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { emailCampaigns, emailCampaignSends, usageMeterEvents } from '@/lib/db/schema';
+import { emailCampaigns, emailCampaignSends, usageMeterEvents, clientApiKeys } from '@/lib/db/schema';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -29,14 +30,8 @@ export const runtime = 'nodejs';
  * close enough to drive the admin tier picker / overage UI.
  */
 async function _GET(req: Request) {
-  const cronSecret = process.env.CRON_SECRET;
-  const auth = req.headers.get('authorization');
-  const isVercelCron = req.headers.get('x-vercel-cron') === '1';
-  if (!isVercelCron && cronSecret && auth !== `Bearer ${cronSecret}`) {
-    return NextResponse.json(
-      { success: false, message: 'Unauthorized' },
-      { status: 401 },
-    );
+  if (!isAuthorizedCron(req)) {
+    return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
   }
 
   const t0 = Date.now();
@@ -60,9 +55,21 @@ async function _GET(req: Request) {
     ))
     .groupBy(emailCampaigns.clientId);
 
+  // BYOK clients send through their OWN Resend account (resolveResendKey prefers
+  // a connected 'resend' key) and pay Resend directly — so the email_send meter
+  // is waivedForByok. Bill them 0 here (and zero out any stale row) so SD never
+  // double-charges a tenant for sends they already paid Resend for. This makes
+  // "BYOK is the release valve" true in the billing layer, not just the routing.
+  const byokRows = await db
+    .select({ clientId: clientApiKeys.clientId })
+    .from(clientApiKeys)
+    .where(eq(clientApiKeys.provider, 'resend'));
+  const byokResendClients = new Set(byokRows.map((r) => r.clientId));
+
   let upserted = 0;
   for (const row of rows) {
     if (row.clientId == null) continue;
+    const billableCount = byokResendClients.has(row.clientId) ? 0 : row.sendCount;
     // Upsert: write the absolute count for this period. Schema doesn't have
     // a composite unique index (events are append-only by design), so we do
     // the find-or-update in two steps. This keeps the upsert idempotent on
@@ -80,14 +87,14 @@ async function _GET(req: Request) {
 
     if (existing) {
       await db.update(usageMeterEvents)
-        .set({ amount: row.sendCount.toString(), recordedAt: new Date() })
+        .set({ amount: billableCount.toString(), recordedAt: new Date() })
         .where(eq(usageMeterEvents.id, existing.id));
     } else {
       await db.insert(usageMeterEvents).values({
         clientId: row.clientId,
         resource: 'email_send',
         period,
-        amount: row.sendCount.toString(),
+        amount: billableCount.toString(),
         source: 'resend',
       });
     }

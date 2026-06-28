@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { BlockRenderer } from '@/components/blocks/render/BlockRenderer';
+import { PostPreview } from './PostPreview';
 
 export type ApprovalEntityPreview =
   | {
@@ -11,6 +12,7 @@ export type ApprovalEntityPreview =
       published: boolean;
       content: string;
       siteId: number | null;
+      iframeSrc?: string | null;
       customCss?: string | null;
       customJs?: string | null;
     }
@@ -291,30 +293,7 @@ function PreviewBody({ preview }: { preview: ApprovalEntityPreview }) {
         </div>
       );
     case 'post':
-      return (
-        <div className="rounded-xl bg-white border border-gray-200 overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
-            <div className="text-xs text-gray-500">
-              Slug <code className="text-gray-700">{preview.slug}</code> ·{' '}
-              {preview.published ? 'Currently published' : 'Currently a draft'}
-              {preview.customJs && (
-                <span className="ml-2 text-amber-700">
-                  · Page has custom JS (not executed in preview)
-                </span>
-              )}
-            </div>
-          </div>
-          {/* Mirror the published renderer by injecting the post's customCss
-              into the preview card. Same pattern the slide preview uses below;
-              without this, html-render blocks render unstyled and look broken. */}
-          {preview.customCss && (
-            <style dangerouslySetInnerHTML={{ __html: preview.customCss }} />
-          )}
-          <div className="p-2 sm:p-4">
-            <BlockRenderer content={preview.content} siteId={preview.siteId ?? undefined} />
-          </div>
-        </div>
-      );
+      return <PostPreview preview={preview} />;
     case 'block_template':
       return (
         <div className="rounded-xl bg-white border border-gray-200 overflow-hidden">

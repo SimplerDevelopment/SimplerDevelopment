@@ -28,6 +28,7 @@ import type {
   BrainDocumentVersion,
   BrainDocumentCategory,
 } from '@/lib/brain/documents';
+import { pBtnPrimary, pBtnGhost, pCardPad, pInput, pSelect, pSectionTitle } from '@/components/portal/portal-ui';
 
 interface LoadedData {
   document: BrainDocument;
@@ -267,7 +268,7 @@ export default function BrainDocumentEditPage({
 
       <header className="flex items-start justify-between gap-3 flex-wrap">
         <div className="min-w-0">
-          <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
+          <h1 className={`${pSectionTitle} flex items-center gap-2`}>
             <span className="material-icons text-primary">edit_note</span>
             Edit draft
           </h1>
@@ -278,7 +279,7 @@ export default function BrainDocumentEditPage({
         <div className="flex items-center gap-2 shrink-0">
           <Link
             href={`/portal/brain/documents/${documentId}`}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md border border-border text-foreground hover:bg-accent"
+            className={pBtnGhost}
           >
             <span className="material-icons text-base">visibility</span>
             View
@@ -287,7 +288,7 @@ export default function BrainDocumentEditPage({
             type="button"
             onClick={publish}
             disabled={publishing || !body.trim()}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+            className={pBtnPrimary}
           >
             {publishing
               ? <><span className="material-icons text-base animate-spin">progress_activity</span>Publishing…</>
@@ -303,7 +304,7 @@ export default function BrainDocumentEditPage({
       )}
 
       {/* Metadata row */}
-      <div className="bg-card border border-border rounded-xl p-4 space-y-3">
+      <div className={`${pCardPad} space-y-3`}>
         <div className="grid sm:grid-cols-[1fr_220px] gap-3">
           <div>
             <div className="flex items-center justify-between mb-1">
@@ -320,7 +321,7 @@ export default function BrainDocumentEditPage({
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="w-full px-3 py-2 rounded-md border border-border bg-background text-base font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+              className={`${pInput} text-base font-semibold`}
             />
           </div>
           <div>
@@ -329,7 +330,7 @@ export default function BrainDocumentEditPage({
               id="doc-edit-cat"
               value={category}
               onChange={(e) => setCategory(e.target.value as BrainDocumentCategory)}
-              className="w-full px-3 py-2 rounded-md border border-border bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+              className={pSelect}
             >
               {CATEGORIES.map((c) => <option key={c} value={c}>{CATEGORY_LABEL[c]}</option>)}
             </select>
@@ -344,7 +345,7 @@ export default function BrainDocumentEditPage({
             value={summary}
             onChange={(e) => setSummary(e.target.value)}
             placeholder="One-line description that shows above the body."
-            className="w-full px-3 py-2 rounded-md border border-border bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+            className={pInput}
           />
         </div>
 
@@ -356,13 +357,13 @@ export default function BrainDocumentEditPage({
             onChange={(e) => setChangeNotes(e.target.value)}
             placeholder="What changed in this draft? Shown in version history."
             rows={2}
-            className="w-full px-3 py-2 rounded-md border border-border bg-background text-sm text-foreground resize-y focus:outline-none focus:ring-2 focus:ring-primary"
+            className={`${pInput} resize-y`}
           />
         </div>
       </div>
 
       {/* Body editor */}
-      <div className="bg-card border border-border rounded-xl p-4">
+      <div className={pCardPad}>
         <DocumentMarkdownEditor
           value={body}
           onChange={setBody}

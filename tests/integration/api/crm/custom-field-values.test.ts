@@ -15,6 +15,7 @@ const mockedAuth = auth as unknown as Mock;
 import { callHandler } from '../../../helpers/call-handler';
 import { sessionForNewClientUser, type TenantCtx } from '../../../helpers/session';
 import { getTestSql, TEST_SCHEMA } from '../../../helpers/test-db';
+import { grantBundle } from '../../../helpers/entitlements';
 
 async function asTenant(ctx: TenantCtx | null) {
   mockedAuth.mockResolvedValue(ctx?.session ?? null);
@@ -49,6 +50,7 @@ describe('GET /api/portal/crm/custom-fields/values @crm @tenancy', () => {
       sessionForNewClientUser('cfv-get-a'),
       sessionForNewClientUser('cfv-get-b'),
     ]);
+    await grantBundle(A.client.id);
   });
 
   it('happy path: returns own values', async () => {
@@ -122,6 +124,7 @@ describe('PUT /api/portal/crm/custom-fields/values @crm @tenancy', () => {
       sessionForNewClientUser('cfv-put-a'),
       sessionForNewClientUser('cfv-put-b'),
     ]);
+    await grantBundle(A.client.id);
   });
 
   it('happy path: writes own values for an empty values map (no-op success)', async () => {

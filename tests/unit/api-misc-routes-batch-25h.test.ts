@@ -145,6 +145,13 @@ vi.mock('@/lib/db', () => {
   };
 });
 
+// Rate-limit — always allow in unit tests (the real module uses an in-memory
+// Map that accumulates hits across tests and trips the 5-req bucket).
+vi.mock('@/lib/security/rate-limit', () => ({
+  checkRateLimit: () => true,
+  getClientIp: () => 'test-ip',
+}));
+
 // ---- modules under test ----
 const signOutRoute = await import('@/app/api/portal/sign-out/route');
 const brandingDefaultsRoute = await import('@/app/api/portal/branding/defaults/route');

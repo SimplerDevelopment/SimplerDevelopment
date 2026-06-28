@@ -6,6 +6,8 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnPrimary, pInput } from '@/components/portal/portal-ui';
 
 interface BrandingState {
   agencyName: string | null;
@@ -75,17 +77,15 @@ export default function AgencyBrandingPage() {
         Agency settings
       </Link>
 
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-foreground">Agency Branding</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          These overrides appear in the portal chrome — sidebar header, login wordmark, document
-          title — when white-label mode is on.
-        </p>
-      </div>
+      <PortalPageHeader
+        eyebrow="Agency"
+        title="Agency Branding"
+        subtitle="These overrides appear in the portal chrome — sidebar header, login wordmark, document title — when white-label mode is on."
+      />
 
       {message && (
         <div
-          className={`mb-4 p-3 rounded-lg flex items-center gap-2 text-sm ${
+          className={`mb-4 p-3 rounded-xl flex items-center gap-2 text-sm ${
             message.type === 'success'
               ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20'
               : 'bg-destructive/10 text-destructive border border-destructive/20'
@@ -103,7 +103,7 @@ export default function AgencyBrandingPage() {
           <span className="material-icons animate-spin text-primary text-2xl">refresh</span>
         </div>
       ) : (
-        <form onSubmit={save} className="bg-card border border-border rounded-xl p-6 space-y-4">
+        <form onSubmit={save} className="bg-card border border-border rounded-2xl p-6 space-y-4">
           <label className="block">
             <span className="text-sm font-medium text-foreground">Agency name</span>
             <input
@@ -112,7 +112,7 @@ export default function AgencyBrandingPage() {
               onChange={e => setState(s => ({ ...s, agencyName: e.target.value }))}
               placeholder="Acme Digital Agency"
               maxLength={255}
-              className="mt-1 block w-full px-3 py-2 rounded-md border border-border bg-background text-foreground"
+              className={`mt-1 ${pInput}`}
             />
             <span className="text-xs text-muted-foreground mt-1 block">
               Replaces &quot;Simpler Development&quot; in the sidebar and login page.
@@ -127,7 +127,7 @@ export default function AgencyBrandingPage() {
               onChange={e => setState(s => ({ ...s, agencyLogoUrl: e.target.value }))}
               placeholder="https://cdn.your-agency.com/logo.png"
               maxLength={500}
-              className="mt-1 block w-full px-3 py-2 rounded-md border border-border bg-background text-foreground"
+              className={`mt-1 ${pInput}`}
             />
             <span className="text-xs text-muted-foreground mt-1 block">
               Square or rectangular logo. Replaces the platform icon in portal chrome.
@@ -135,7 +135,7 @@ export default function AgencyBrandingPage() {
           </label>
 
           {state.agencyLogoUrl && (
-            <div className="rounded-md border border-border bg-muted/30 p-3 flex items-center gap-3">
+            <div className="rounded-xl border border-border bg-muted/30 p-3 flex items-center gap-3">
               <span className="text-xs text-muted-foreground uppercase tracking-wider">Preview</span>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={state.agencyLogoUrl} alt="Agency logo preview" className="h-8 w-auto object-contain" />
@@ -157,7 +157,7 @@ export default function AgencyBrandingPage() {
                 onChange={e => setState(s => ({ ...s, agencyPrimaryColor: e.target.value }))}
                 placeholder="#2563eb"
                 pattern="^#(?:[0-9a-fA-F]{3}){1,2}$"
-                className="flex-1 px-3 py-2 rounded-md border border-border bg-background text-foreground font-mono"
+                className={`flex-1 font-mono ${pInput}`}
               />
               {state.agencyPrimaryColor && (
                 <button
@@ -174,7 +174,7 @@ export default function AgencyBrandingPage() {
           <button
             type="submit"
             disabled={saving}
-            className="px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 disabled:opacity-50 inline-flex items-center gap-1"
+            className={pBtnPrimary}
           >
             {saving && <span className="material-icons animate-spin text-base">refresh</span>}
             Save

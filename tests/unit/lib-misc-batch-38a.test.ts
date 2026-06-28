@@ -60,14 +60,6 @@ vi.mock('@/components/blocks/render/SurveyBlockRender', () => ({ SurveyBlockRend
 vi.mock('@/components/blocks/render/SocialLinksBlockRender', () => ({ SocialLinksBlockRender: stubComp('SocialLinksBlockRender') }));
 vi.mock('@/components/blocks/render/EmailHeaderBlockRender', () => ({ EmailHeaderBlockRender: stubComp('EmailHeaderBlockRender') }));
 vi.mock('@/components/blocks/render/EmailFooterBlockRender', () => ({ EmailFooterBlockRender: stubComp('EmailFooterBlockRender') }));
-vi.mock('@/components/blocks/render/PalizziNavBlockRender', () => ({ PalizziNavBlockRender: stubComp('PalizziNavBlockRender') }));
-vi.mock('@/components/blocks/render/PalizziHeroBlockRender', () => ({ PalizziHeroBlockRender: stubComp('PalizziHeroBlockRender') }));
-vi.mock('@/components/blocks/render/PalizziWelcomeBlockRender', () => ({ PalizziWelcomeBlockRender: stubComp('PalizziWelcomeBlockRender') }));
-vi.mock('@/components/blocks/render/PalizziHistoryBlockRender', () => ({ PalizziHistoryBlockRender: stubComp('PalizziHistoryBlockRender') }));
-vi.mock('@/components/blocks/render/PalizziMenuBlockRender', () => ({ PalizziMenuBlockRender: stubComp('PalizziMenuBlockRender') }));
-vi.mock('@/components/blocks/render/PalizziRulesBlockRender', () => ({ PalizziRulesBlockRender: stubComp('PalizziRulesBlockRender') }));
-vi.mock('@/components/blocks/render/PalizziMembershipBlockRender', () => ({ PalizziMembershipBlockRender: stubComp('PalizziMembershipBlockRender') }));
-vi.mock('@/components/blocks/render/PalizziFooterBlockRender', () => ({ PalizziFooterBlockRender: stubComp('PalizziFooterBlockRender') }));
 vi.mock('@/components/blocks/render/ProductDetailBlockRender', () => ({ ProductDetailBlockRender: stubComp('ProductDetailBlockRender') }));
 vi.mock('@/components/blocks/render/SurveyResultsBlockRender', () => ({ SurveyResultsBlockRender: stubComp('SurveyResultsBlockRender') }));
 vi.mock('@/components/blocks/render/TimelineBlockRender', () => ({ TimelineBlockRender: stubComp('TimelineBlockRender') }));
@@ -215,9 +207,7 @@ describe('lib/visual-editor/registry', () => {
       'stats', 'blog-posts', 'featured-content', 'card-grid', 'section',
       'gallery', 'product-grid', 'featured-products', 'product-categories',
       'shopping-cart', 'store-banner', 'booking', 'booking-menu', 'survey',
-      'social-links', 'email-header', 'email-footer', 'palizzi-nav',
-      'palizzi-hero', 'palizzi-welcome', 'palizzi-history', 'palizzi-menu',
-      'palizzi-rules', 'palizzi-membership', 'palizzi-footer',
+      'social-links', 'email-header', 'email-footer',
       'product-detail', 'survey-results', 'timeline', 'team-showcase',
       'team-flip-grid', 'bento-grid', 'flip-card-grid', 'metric-cards',
       'logo-strip', 'site-footer', 'deck-next-slide', 'deck-jump-to',

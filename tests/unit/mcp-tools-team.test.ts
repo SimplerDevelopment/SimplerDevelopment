@@ -380,6 +380,34 @@ describe('team_update_role', () => {
     expect(out.error).toMatch(/not found/i);
   });
 
+  // Regression: mcp-team-role-escalation-no-e2e — sole-owner orphan guard.
+  // Demoting the last remaining owner out of 'owner' must be rejected so the
+  // client is never left with zero owners (account lock-out).
+  it('refuses to demote the last owner and does not update', async () => {
+    dbState.selectQueue = [
+      [{ id: 5, role: 'owner' }], // existing member lookup → is the owner
+      [{ ownerCount: 1 }],        // owner-count query → only one owner
+    ];
+    const tools = registerAll();
+    const res = await tools.get('team_update_role')!.handler({ memberId: 5, role: 'member' });
+    const out = parseJson(res) as { error: string };
+    expect(out.error).toMatch(/last owner/i);
+    expect(dbState.capturedUpdatePatch).toBeNull();
+  });
+
+  it('allows demoting an owner when another owner remains', async () => {
+    dbState.selectQueue = [
+      [{ id: 5, role: 'owner' }], // existing member lookup
+      [{ ownerCount: 2 }],        // owner-count query → two owners
+    ];
+    dbState.updateReturning = [{ id: 5, role: 'member' }];
+    const tools = registerAll();
+    const res = await tools.get('team_update_role')!.handler({ memberId: 5, role: 'member' });
+    const out = parseJson(res) as Row;
+    expect(out.role).toBe('member');
+    expect(dbState.capturedUpdatePatch).toEqual({ role: 'member' });
+  });
+
   it('denies when scope missing at handler time', async () => {
     const { stub, tools } = makeServer();
     const ctx = ctxFor(['*']);

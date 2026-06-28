@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import BrandingProfileSelector from '@/components/portal/BrandingProfileSelector';
 import UploadHtmlDeckButton from '@/components/portal/UploadHtmlDeckButton';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnPrimary, pCard, pInput } from '@/components/portal/portal-ui';
 
 export default function NewPitchDeckPage() {
   const router = useRouter();
@@ -109,22 +111,20 @@ export default function NewPitchDeckPage() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
-      <div>
-        <Link
-          href="/portal/tools/pitch-decks"
-          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
-        >
-          <span className="material-icons text-lg">arrow_back</span>
+      <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+        <Link href="/portal/tools/pitch-decks" className="hover:text-foreground inline-flex items-center gap-1 transition-colors">
+          <span className="material-icons text-base">arrow_back</span>
           Back to Pitch Decks
         </Link>
-        <h1 className="text-2xl font-bold text-foreground">Create Pitch Deck</h1>
-        <p className="text-muted-foreground mt-1 text-sm">
-          Describe what you need and let AI generate a professional pitch deck
-        </p>
       </div>
+      <PortalPageHeader
+        eyebrow="Pitch Decks"
+        title="Create Pitch Deck"
+        subtitle="Describe what you need and let AI generate a professional pitch deck"
+      />
 
       <div className="grid sm:grid-cols-2 gap-4">
-        <div className="bg-card border border-border rounded-xl p-5 flex flex-col gap-3">
+        <div className={`${pCard} p-5 flex flex-col gap-3`}>
           <div>
             <h2 className="text-sm font-semibold text-foreground flex items-center gap-1.5">
               <span className="material-icons text-primary text-base">add_box</span>
@@ -138,7 +138,7 @@ export default function NewPitchDeckPage() {
             type="button"
             onClick={handleStartBlank}
             disabled={creatingBlank || loading}
-            className="inline-flex items-center justify-center gap-2 px-3 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed self-start"
+            className={`${pBtnPrimary} self-start`}
           >
             {creatingBlank ? (
               <>
@@ -153,7 +153,7 @@ export default function NewPitchDeckPage() {
             )}
           </button>
         </div>
-        <div className="bg-card border border-border rounded-xl p-5 flex flex-col gap-3">
+        <div className={`${pCard} p-5 flex flex-col gap-3`}>
           <div>
             <h2 className="text-sm font-semibold text-foreground flex items-center gap-1.5">
               <span className="material-icons text-primary text-base">upload_file</span>
@@ -177,7 +177,7 @@ export default function NewPitchDeckPage() {
           </div>
         )}
 
-        <div className="bg-card border border-border rounded-xl p-5 space-y-4">
+        <div className={`${pCard} p-5 space-y-4`}>
           <div>
             <label className="block text-sm font-medium text-foreground mb-1.5">Deck Title</label>
             <input
@@ -186,7 +186,7 @@ export default function NewPitchDeckPage() {
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="e.g. Q1 2026 Investor Pitch"
-              className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
+              className={pInput}
               required
               disabled={loading || creatingBlank}
             />
@@ -217,7 +217,7 @@ export default function NewPitchDeckPage() {
                 value={websiteUrl}
                 onChange={(e) => setWebsiteUrl(e.target.value)}
                 placeholder="https://yourcompany.com"
-                className="w-full pl-10 pr-3 py-2 bg-background border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
+                className="w-full rounded-xl border border-border bg-card pl-10 pr-3.5 py-2.5 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary focus:ring-4 focus:ring-primary/15"
                 disabled={loading}
               />
             </div>
@@ -237,7 +237,7 @@ export default function NewPitchDeckPage() {
               onChange={(e) => setPrompt(e.target.value)}
               placeholder={"e.g. Create a pitch deck for our financial advisory firm that highlights our AI-powered investment strategies, team expertise, track record, and why clients should choose us over traditional advisors."}
               rows={5}
-              className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary resize-none"
+              className={`${pInput} resize-none`}
               required
               disabled={loading}
             />
@@ -250,7 +250,7 @@ export default function NewPitchDeckPage() {
         <button
           type="submit"
           disabled={loading || !title.trim() || !prompt.trim()}
-          className="w-full flex items-center justify-center gap-2 px-5 py-3 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className={`${pBtnPrimary} w-full py-3`}
         >
           {loading ? (
             <>

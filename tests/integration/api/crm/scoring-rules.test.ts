@@ -16,6 +16,7 @@ const mockedAuth = auth as unknown as Mock;
 import { callHandler } from '../../../helpers/call-handler';
 import { sessionForNewClientUser, type TenantCtx } from '../../../helpers/session';
 import { getTestSql, TEST_SCHEMA } from '../../../helpers/test-db';
+import { grantBundle } from '../../../helpers/entitlements';
 
 async function asTenant(ctx: TenantCtx | null) {
   mockedAuth.mockResolvedValue(ctx?.session ?? null);
@@ -36,6 +37,7 @@ describe('POST /api/portal/crm/scoring-rules @crm @tenancy', () => {
 
   beforeEach(async () => {
     A = await sessionForNewClientUser('rules-post');
+    await grantBundle(A.client.id);
   });
 
   it('happy path: creates rule under caller tenant (201)', async () => {
@@ -90,6 +92,7 @@ describe('PUT /api/portal/crm/scoring-rules/[id] @crm @tenancy', () => {
       sessionForNewClientUser('rules-put-a'),
       sessionForNewClientUser('rules-put-b'),
     ]);
+    await grantBundle(A.client.id);
     ruleB = await seedRule(B.client.id, 'B_event', 7);
   });
 
@@ -172,6 +175,7 @@ describe('DELETE /api/portal/crm/scoring-rules/[id] @crm @tenancy', () => {
       sessionForNewClientUser('rules-del-a'),
       sessionForNewClientUser('rules-del-b'),
     ]);
+    await grantBundle(A.client.id);
   });
 
   it('happy path: deletes own rule (200)', async () => {

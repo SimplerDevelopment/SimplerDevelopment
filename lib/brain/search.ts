@@ -9,6 +9,7 @@ import {
 } from '@/lib/db/schema';
 import { eq, and, or, desc, sql, ilike, inArray } from 'drizzle-orm';
 import { searchSemantic } from './embeddings';
+import { reciprocalRankFusion, rescale } from './rerank';
 
 export type BrainSearchEntityType =
   | 'meeting'
@@ -661,19 +662,49 @@ function trimChunk(content: string): string {
  * content as the snippet.
  */
 function mergeNoteHits(lexical: BrainSearchHit[], semantic: BrainSearchHit[]): BrainSearchHit[] {
+  // Pick the representative hit per id (keep the lexical snippet/title when a
+  // note matched both signals — it shows the keyword in context). Track the
+  // original combined score separately; it defines the 0..1 *band* the notes
+  // must stay within so they remain comparable to other entity types in the
+  // caller's shared global sort.
   const byId = new Map<number, BrainSearchHit>();
-  for (const h of lexical) byId.set(h.id, h);
+  const origScore = new Map<number, number>();
+  for (const h of lexical) {
+    byId.set(h.id, h);
+    origScore.set(h.id, h.score);
+  }
   for (const sem of semantic) {
     const lex = byId.get(sem.id);
     if (!lex) {
       byId.set(sem.id, sem);
-      continue;
+      origScore.set(sem.id, sem.score);
+    } else {
+      origScore.set(sem.id, Math.min(1, lex.score + sem.score * 0.5));
     }
-    // Combine: keep lexical snippet/title, but boost the score.
-    byId.set(sem.id, {
-      ...lex,
-      score: Math.min(1, lex.score + sem.score * 0.5),
-    });
   }
-  return [...byId.values()];
+
+  const ids = [...byId.keys()];
+  if (ids.length <= 1) {
+    return ids.map((id) => ({ ...byId.get(id)!, score: origScore.get(id)! }));
+  }
+
+  // Rerank intra-note ordering by Reciprocal Rank Fusion over the two signals'
+  // own rank orders — principled fusion instead of the old additive heuristic.
+  const lexIds = [...lexical].sort((a, b) => b.score - a.score).map((h) => h.id);
+  const semIds = [...semantic].sort((a, b) => b.score - a.score).map((h) => h.id);
+  const rrf = reciprocalRankFusion([lexIds, semIds]);
+
+  // Map RRF scores back into the original score band so cross-entity ranking
+  // in the global sort is preserved (RRF's raw scale is ~1/k, not 0..1).
+  const origs = ids.map((id) => origScore.get(id)!);
+  const oMin = Math.min(...origs);
+  const oMax = Math.max(...origs);
+  const rrfs = ids.map((id) => rrf.get(id) ?? 0);
+  const rMin = Math.min(...rrfs);
+  const rMax = Math.max(...rrfs);
+
+  return ids.map((id) => ({
+    ...byId.get(id)!,
+    score: rescale(rrf.get(id) ?? 0, rMin, rMax, oMin, oMax),
+  }));
 }

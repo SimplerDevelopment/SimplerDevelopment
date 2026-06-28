@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { formatBytes } from '@/lib/utils/bytes';
 import MediaDetailModal from './MediaDetailModal';
 
 interface MediaItem {
@@ -23,12 +24,6 @@ interface MediaGridProps {
 
 export default function MediaGrid({ media, onUpdate }: MediaGridProps) {
   const [selectedMedia, setSelectedMedia] = useState<MediaItem | null>(null);
-
-  const formatFileSize = (bytes: number) => {
-    if (bytes < 1024) return bytes + ' B';
-    if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
-    return (bytes / 1048576).toFixed(1) + ' MB';
-  };
 
   const renderThumbnail = (item: MediaItem) => {
     if (item.mimeType.startsWith('image/')) {
@@ -67,7 +62,7 @@ export default function MediaGrid({ media, onUpdate }: MediaGridProps) {
                 {item.filename}
               </p>
               <p className="text-xs text-muted-foreground mt-1">
-                {formatFileSize(item.fileSize)}
+                {formatBytes(item.fileSize)}
               </p>
               {item.width && item.height && (
                 <p className="text-xs text-muted-foreground">

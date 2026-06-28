@@ -13,7 +13,7 @@
  * whole corpus — keeps single-call cost bounded.
  */
 
-import Anthropic from '@anthropic-ai/sdk';
+import { complete } from '@/lib/ai/llm';
 import { stripPiiFromText } from './pii-strip';
 import type { SurveyFieldDef } from '@/lib/db/schema';
 
@@ -96,9 +96,7 @@ Rules:
 export interface GenerateSurveySummaryInput {
   fields: SurveyFieldDef[];
   responses: { answers: unknown }[];
-  apiKey: string;
-  /** Anthropic model id. Defaults to Sonnet for cost/quality balance. */
-  model?: string;
+  clientId: number;
 }
 
 export async function generateSurveySummary(
@@ -119,18 +117,15 @@ export async function generateSurveySummary(
     );
   }
 
-  const anthropic = new Anthropic({ apiKey: input.apiKey });
-  const response = await anthropic.messages.create({
-    model: input.model ?? 'claude-sonnet-4-6',
-    max_tokens: 2048,
+  const response = await complete({
+    task: 'surveySummary',
+    clientId: input.clientId,
+    maxTokens: 2048,
     system: SYSTEM_PROMPT,
-    messages: [{ role: 'user', content: userParts.join('\n') }],
+    prompt: userParts.join('\n'),
   });
 
-  const raw = response.content
-    .filter((b): b is Anthropic.TextBlock => b.type === 'text')
-    .map((b) => b.text)
-    .join('')
+  const raw = response.text
     .replace(/^```(?:json)?\s*\n?/i, '')
     .replace(/\n?```\s*$/i, '')
     .trim();
@@ -153,7 +148,7 @@ export async function generateSurveySummary(
   }));
 
   const tokens =
-    (response.usage?.input_tokens ?? 0) + (response.usage?.output_tokens ?? 0);
+    (response.usage?.inputTokens ?? 0) + (response.usage?.outputTokens ?? 0);
 
   return {
     summary: parsed.summary,

@@ -1,6 +1,7 @@
 // Authentication & user identity (users, API keys, OAuth integrations).
 
-import { pgTable, serial, varchar, text, timestamp, boolean, integer, json } from 'drizzle-orm/pg-core';
+import { pgTable, serial, varchar, text, timestamp, boolean, integer, json, jsonb, unique } from 'drizzle-orm/pg-core';
+import { encryptedText } from './columns';
 import { clientWebsites, clients } from './sites';
 
 export const users = pgTable('users', {
@@ -15,6 +16,30 @@ export const users = pgTable('users', {
   passwordResetToken: varchar('password_reset_token', { length: 255 }),
   passwordResetExpires: timestamp('password_reset_expires'),
   defaultClientId: integer('default_client_id'), // preferred portal for multi-client users
+  // ── Self-serve signup (public /portal/signup funnel) ───────────────────────
+  // Null = legacy/invited user (implicitly trusted) OR self-serve signup that
+  // hasn't clicked the verification link yet. The signup API blocks login-time
+  // checkout until verified; a cron purges never-verified accounts after 7 days.
+  emailVerifiedAt: timestamp('email_verified_at'),
+  emailVerificationToken: varchar('email_verification_token', { length: 64 }),
+  emailVerificationExpires: timestamp('email_verification_expires'),
+  // Google OAuth subject (sub claim) — set on first "Continue with Google";
+  // links the Google identity to this row so email+password and Google both
+  // resolve to the same user.
+  // NOTE: uniqueness is enforced by a hand-applied index
+  // (scripts/billing/002_signup_funnel.sql), intentionally NOT declared here:
+  // drizzle-kit push hits an interactive "truncate users?" prompt when adding
+  // a unique constraint to a populated table, which crashes the no-TTY
+  // integration-test template heal (same class of issue as the HNSW index on
+  // brain_embeddings). App code never inserts duplicates — the index is a
+  // race guard on real DBs only.
+  googleId: varchar('google_id', { length: 64 }),
+  // ── TOTP MFA (authenticator-app 2FA on the Credentials path) ───────────────
+  // mfaEnabled gates whether a 6-digit code is required at login. The base32
+  // secret is AES-256-GCM-encrypted at rest via encryptedText (same key universe
+  // as githubConnections.accessToken). Null secret = never enrolled.
+  mfaEnabled: boolean('mfa_enabled').default(false).notNull(),
+  totpSecret: encryptedText('totp_secret'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
@@ -24,7 +49,9 @@ export const githubConnections = pgTable('github_connections', {
   userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }).unique(),
   githubUserId: integer('github_user_id').notNull(),
   githubUsername: varchar('github_username', { length: 100 }).notNull(),
-  accessToken: text('access_token').notNull(),
+  // Encrypted at rest (AES-256-GCM via encryptedText) — closes the dual-key-universe
+  // invariant gap where GitHub tokens were the lone plaintext third-party credential.
+  accessToken: encryptedText('access_token').notNull(),
   scope: varchar('scope', { length: 500 }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
@@ -34,7 +61,11 @@ export const apiKeys = pgTable('api_keys', {
   id: serial('id').primaryKey(),
   clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
   websiteId: integer('website_id').notNull().references(() => clientWebsites.id, { onDelete: 'cascade' }),
-  key: varchar('key', { length: 64 }).notNull().unique(),
+  // Keys are stored hashed at rest (SHA-256 hex of the raw `sd_live_…` token),
+  // never in plaintext. keyPreview is a display-safe masked form (first 12 + …
+  // + last 4). The raw key is shown to the caller exactly once at creation.
+  keyHash: varchar('key_hash', { length: 64 }).notNull().unique(),
+  keyPreview: varchar('key_preview', { length: 32 }).notNull(),
   name: varchar('name', { length: 100 }).notNull(),
   scopes: json('scopes').$type<string[]>().default([]),
   rateLimitPerMinute: integer('rate_limit_per_minute').default(60),
@@ -108,4 +139,25 @@ export const userOnboarding = pgTable('user_onboarding', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
+
+// ─── DASHBOARD WIDGET PREFERENCES ────────────────────────────────────────────
+
+/**
+ * Per-user, per-client dashboard widget layout preferences.
+ * Stores which widgets are visible, their order, and collapsed state.
+ * One row per (userId, clientId) pair — upserted on change, never deleted.
+ */
+export const userDashboardPreferences = pgTable(
+  'user_dashboard_preferences',
+  {
+    id: serial('id').primaryKey(),
+    userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+    /** Shape: { order?: string[]; hidden?: string[]; collapsed?: string[] } */
+    prefs: jsonb('prefs').notNull().default({}),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (t) => [unique().on(t.userId, t.clientId)],
+);
 

@@ -22,21 +22,21 @@ type FakeApp = {
 
 const baseApp: FakeApp = {
   id: 1,
-  slug: 'postcaptain-tools',
-  manifestUrl: 'https://postcaptain-tools.simplerdevelopment.com/sd-manifest.json',
-  defaultScopes: ['postcaptain:research:read', 'postcaptain:research:write'],
+  slug: 'content-tools',
+  manifestUrl: 'https://content-tools.simplerdevelopment.com/sd-manifest.json',
+  defaultScopes: ['content:research:read', 'content:research:write'],
 };
 
 const validManifestJson = {
-  id: 'postcaptain-tools',
+  id: 'content-tools',
   version: '0.1.0',
   nav: [{ label: 'Dashboard', href: '/', icon: 'dashboard' }],
-  requiredScopes: ['postcaptain:research:read'],
+  requiredScopes: ['content:research:read'],
   callbacks: [
     {
       method: 'POST',
       path: '/scripts/run',
-      scope: 'postcaptain:research:write',
+      scope: 'content:research:write',
     },
   ],
   publishedAt: '2026-05-15T00:00:00Z',
@@ -75,7 +75,7 @@ describe('fetchAndCacheManifest — happy path + caching', () => {
     expect(result.ok).toBe(true);
     if (!result.ok) throw new Error('expected ok');
     expect(result.stale).toBe(false);
-    expect(result.manifest.id).toBe('postcaptain-tools');
+    expect(result.manifest.id).toBe('content-tools');
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
@@ -132,7 +132,7 @@ describe('fetchAndCacheManifest — fetch failures', () => {
     expect(result.stale).toBe(true);
     if (!result.stale) throw new Error('expected stale');
     expect(result.reason).toMatch(/500/);
-    expect(result.manifest.id).toBe('postcaptain-tools');
+    expect(result.manifest.id).toBe('content-tools');
   });
 
   it('HTTP 500 with no cache returns ok=false fetch-failed', async () => {
@@ -189,7 +189,7 @@ describe('fetchAndCacheManifest — cross-checks', () => {
       'fetch',
       mockFetchOk({
         ...validManifestJson,
-        requiredScopes: ['postcaptain:research:read', 'admin:everything:write'],
+        requiredScopes: ['content:research:read', 'admin:everything:write'],
       }),
     );
     const result = await fetchAndCacheManifest(baseApp);
@@ -215,12 +215,12 @@ describe('fetchAndCacheManifest — cross-checks', () => {
       'fetch',
       mockFetchOk({
         ...validManifestJson,
-        requiredScopes: ['postcaptain:research:read', 'postcaptain:research:write'],
+        requiredScopes: ['content:research:read', 'content:research:write'],
       }),
     );
     const wildcardApp: FakeApp = {
       ...baseApp,
-      defaultScopes: ['postcaptain:*'],
+      defaultScopes: ['content:*'],
     };
     const result = await fetchAndCacheManifest(wildcardApp);
     expect(result.ok).toBe(true);

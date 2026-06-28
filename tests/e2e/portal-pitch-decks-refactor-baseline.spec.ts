@@ -115,9 +115,11 @@ test.describe('Pitch Deck Editor Page — refactor baseline @pitch-decks @critic
 
     // Header title visible (h1 element)
     await expect(page.getByRole('heading', { name: title, level: 1 })).toBeVisible();
-    // Slide list shows both seeded slides
-    await expect(page.locator('text=Cover').first()).toBeVisible();
-    await expect(page.locator('text=Features').first()).toBeVisible();
+    // Slide list shows both seeded slides.
+    // Use exact-text match (quotes) to avoid matching the phone-only breadcrumb
+    // which prepends the slide index ("1. Cover") and is md:hidden on desktop.
+    await expect(page.locator('text="Cover"').first()).toBeVisible();
+    await expect(page.locator('text="Features"').first()).toBeVisible();
     // Slide count appears in header
     await expect(page.locator('text=/\\b2 slides\\b/')).toBeVisible();
   });

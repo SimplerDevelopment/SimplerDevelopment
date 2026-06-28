@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnSoft, pBtnGhost } from '@/components/portal/portal-ui';
 
 interface CalendarBooking {
   id: number;
@@ -131,30 +133,26 @@ export default function CombinedCalendarPage() {
 
   return (
     <div className="max-w-7xl mx-auto space-y-4">
-      {/* Header */}
-      <div className="flex items-start justify-between">
-        <div>
-          <Link
-            href="/portal/tools/booking"
-            className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors mb-3"
-          >
-            <span className="material-icons text-lg">arrow_back</span>
-            Back to Booking Pages
-          </Link>
-          <h1 className="text-2xl font-bold text-foreground">Combined Calendar</h1>
-          <p className="text-muted-foreground mt-1 text-sm">
-            View all bookings across staff members
-          </p>
-        </div>
-      </div>
+      <Link
+        href="/portal/tools/booking"
+        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+      >
+        <span className="material-icons text-lg">arrow_back</span>
+        Back to Booking Pages
+      </Link>
+      <PortalPageHeader
+        eyebrow="Booking"
+        title="Combined Calendar"
+        subtitle="View all bookings across staff members"
+      />
 
       {/* Controls */}
-      <div className="flex items-center justify-between bg-card border border-border rounded-xl p-3 flex-wrap gap-3">
+      <div className="flex items-center justify-between bg-card border border-border rounded-2xl p-3 flex-wrap gap-3">
         <div className="flex items-center gap-2">
           <button onClick={() => navigate(-1)} className="p-1.5 hover:bg-muted rounded-lg transition-colors">
             <span className="material-icons">chevron_left</span>
           </button>
-          <button onClick={goToday} className="px-3 py-1.5 text-sm font-medium bg-primary/10 text-primary rounded-lg hover:bg-primary/20 transition-colors">
+          <button onClick={goToday} className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary/10 px-3 py-1.5 text-sm font-semibold text-primary transition hover:bg-primary/15">
             Today
           </button>
           <button onClick={() => navigate(1)} className="p-1.5 hover:bg-muted rounded-lg transition-colors">
@@ -174,7 +172,7 @@ export default function CombinedCalendarPage() {
             <select
               value={selectedMember || ''}
               onChange={e => setSelectedMember(e.target.value ? parseInt(e.target.value) : null)}
-              className="px-3 py-1.5 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+              className="appearance-none rounded-xl border border-border bg-card px-3.5 py-2 pr-10 text-sm text-foreground outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/15"
             >
               <option value="">All Members</option>
               {members.map(m => (
@@ -184,7 +182,7 @@ export default function CombinedCalendarPage() {
           )}
 
           {/* View toggle */}
-          <div className="flex bg-muted rounded-lg p-0.5">
+          <div className="flex bg-muted rounded-xl p-0.5">
             {(['week', 'day'] as ViewMode[]).map(mode => (
               <button
                 key={mode}
@@ -237,7 +235,7 @@ export default function CombinedCalendarPage() {
           <span className="material-icons animate-spin text-3xl text-muted-foreground">autorenew</span>
         </div>
       ) : (
-        <div className="bg-card border border-border rounded-xl overflow-hidden -mx-4 sm:mx-0">
+        <div className="bg-card border border-border rounded-2xl overflow-hidden -mx-4 sm:mx-0">
           <div className="overflow-x-auto">
           {/* Day headers */}
           <div className="grid border-b border-border min-w-[640px]" style={{ gridTemplateColumns: `60px repeat(${displayDays.length}, 1fr)` }}>
@@ -341,7 +339,7 @@ export default function CombinedCalendarPage() {
           <div className="p-5 space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold text-foreground">Booking Details</h2>
-              <button onClick={() => setSelectedBooking(null)} className="p-1 hover:bg-muted rounded-lg">
+              <button onClick={() => setSelectedBooking(null)} className="p-1 hover:bg-muted rounded-xl">
                 <span className="material-icons">close</span>
               </button>
             </div>
@@ -404,7 +402,7 @@ export default function CombinedCalendarPage() {
 
               <Link
                 href={`/portal/tools/booking/${selectedBooking.bookingPageId}`}
-                className="inline-flex items-center gap-2 px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground hover:bg-muted transition-colors w-full justify-center"
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-semibold text-foreground transition hover:border-foreground/25 hover:shadow-sm disabled:opacity-50 w-full"
               >
                 <span className="material-icons text-lg">open_in_new</span>
                 View Booking Page

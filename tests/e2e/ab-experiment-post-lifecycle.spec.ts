@@ -57,6 +57,12 @@ test.describe('A/B experiment post lifecycle @ab @critical', () => {
     siteDomain = website.domain;
     expect(siteDomain).toBeTruthy();
 
+    // Websites default to publicAccess=false which blocks the public SSR
+    // render path entirely (the gate returns a "private site" overlay before
+    // the A/B resolver runs). Enable public access so SSR view events fire.
+    // Note: the route only exports PUT (not PATCH).
+    await clientApi.put(`/api/portal/cms/websites/${siteId}`, { publicAccess: true });
+
     postSlug = `ab-post-${Date.now()}`;
     postTitle = `AB Post ${Date.now()}`;
     const { post, cleanup } = await createTestPost(clientApi, siteId, {
@@ -108,7 +114,9 @@ test.describe('A/B experiment post lifecycle @ab @critical', () => {
     // the type-label check tight (the page renders multiple <table> rows
     // when other agents have left fixtures behind).
     const row = page.locator('tr', { hasText: 'A/B test — fixture' }).first();
-    await expect(row).toBeVisible();
+    // Cold dev-server bundle compile for /portal/experiments can exceed the
+    // default 5s on the first hit under full-suite load; widen this one wait.
+    await expect(row).toBeVisible({ timeout: 30_000 });
     // Type column shows "Page" for post-targeted experiments and "Pitch deck" for decks.
     await expect(row).toContainText('Page');
     // The row should also link out to the experiment detail page.
@@ -218,12 +226,25 @@ test.describe('A/B experiment post lifecycle @ab @critical', () => {
   });
 
   test('portal: results panel shows views >= 1, goals >= 1', async ({ clientApi }) => {
-    const res = await clientApi.get(`/api/portal/experiments/${experimentId}/results`);
-    expect(res.status).toBe(200);
-    expect(res.data.success).toBe(true);
-    const stats = res.data.data.stats as Array<{ key: string; views: number; goals: number }>;
-    const totalViews = stats.reduce((acc, s) => acc + s.views, 0);
-    const totalGoals = stats.reduce((acc, s) => acc + s.goals, 0);
+    // The SSR view event is recorded fire-and-forget (detached promise in
+    // resolve.ts) so it may not have committed by the time we read results.
+    // Poll until both counters are non-zero or we hit the 10 s deadline.
+    const deadline = Date.now() + 10_000;
+    let totalViews = 0;
+    let totalGoals = 0;
+    let lastStatus = 0;
+    while (Date.now() < deadline) {
+      const res = await clientApi.get(`/api/portal/experiments/${experimentId}/results`);
+      lastStatus = res.status;
+      if (res.status === 200 && res.data.success) {
+        const stats = res.data.data.stats as Array<{ key: string; views: number; goals: number }>;
+        totalViews = stats.reduce((acc, s) => acc + s.views, 0);
+        totalGoals = stats.reduce((acc, s) => acc + s.goals, 0);
+        if (totalViews >= 1 && totalGoals >= 1) break;
+      }
+      await new Promise(r => setTimeout(r, 500));
+    }
+    expect(lastStatus).toBe(200);
     expect(totalViews).toBeGreaterThanOrEqual(1);
     expect(totalGoals).toBeGreaterThanOrEqual(1);
   });

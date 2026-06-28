@@ -21,10 +21,22 @@ const CSP_REPORT_ONLY = [
   "form-action 'self'",
 ].join('; ');
 
-const SECURITY_HEADERS = [
-  { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' },
+// Base security headers applied to all routes. X-Frame-Options is intentionally
+// absent here — it is applied only to portal/admin/API routes below so that
+// /sites/** pages remain embeddable cross-origin in the visual editor iframe.
+const SECURITY_HEADERS_BASE = [
+  // Per-host HSTS only — intentionally NO `includeSubDomains` / `preload`.
+  // Tenant sites live on *.simplerdevelopment.com with per-subdomain TLS certs that
+  // Vercel provisions lazily (when a subdomain is created). We deliberately keep HSTS
+  // scoped to each host: a single bare `max-age` per host hard-enforces HTTPS on that
+  // host only. We avoid `includeSubDomains` + `preload` because, if the apex ever began
+  // emitting them and was submitted to the preload list, browsers would pre-enforce
+  // valid-cert HTTPS on EVERY *.simplerdevelopment.com — including a brand-new tenant
+  // whose cert hasn't finished provisioning — making it unreachable with no bypass.
+  // `preload` is also a one-way door (removal takes months to roll through browsers).
+  // The apex 307 already only emits bare `max-age`; this keeps the app header consistent.
+  { key: 'Strict-Transport-Security', value: 'max-age=63072000' },
   { key: 'X-Content-Type-Options', value: 'nosniff' },
-  { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
   { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
   // microphone=(self) enables the portal's WebRTC voice assistant (getUserMedia)
   // on same-origin pages. Camera stays disabled. If we later want mic limited to
@@ -33,8 +45,31 @@ const SECURITY_HEADERS = [
   { key: 'Content-Security-Policy-Report-Only', value: CSP_REPORT_ONLY },
 ];
 
+// X-Frame-Options applied only to routes that must never be framed externally.
+// /sites/:path* is intentionally excluded — the visual editor embeds it in an
+// iframe from a different origin (tenant subdomain → site domain).
+const FRAME_DENY_HEADERS = [{ key: 'X-Frame-Options', value: 'SAMEORIGIN' }];
+
+// The `dev` branch is a throwaway, deploy-on-every-push environment: its Vercel
+// build is intentionally relaxed so a lint error never blocks a dev deploy.
+// Gated on Vercel's branch ref, so `main` (production) and `staging` keep
+// strict lint builds. Mirrors the relaxed git hooks for the same branch.
+// (TypeScript is already skipped in-build for ALL branches below.)
+const isDevDeploy = process.env.VERCEL_GIT_COMMIT_REF === 'dev';
+
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // Expose Google-auth availability to the client bundle so the login/signup
+  // pages can conditionally render the "Continue with Google" button.
+  // Computed at build time — matches the runtime provider-registration check in
+  // lib/auth.ts so they can never diverge.
+  env: {
+    NEXT_PUBLIC_GOOGLE_AUTH_ENABLED: String(
+      !!(process.env.AUTH_GOOGLE_ID ?? process.env.GOOGLE_CLIENT_ID) &&
+      !!(process.env.AUTH_GOOGLE_SECRET ?? process.env.GOOGLE_CLIENT_SECRET),
+    ),
+  },
+  ...(isDevDeploy ? { eslint: { ignoreDuringBuilds: true } } : {}),
   // The in-build `next build` TypeScript recheck re-type-checks the whole
   // ~357k-line app in a single worker and exhausts the heap (OOM/SIGABRT) on
   // both local and the Vercel build container (made worse by the Sentry plugin).
@@ -48,6 +83,11 @@ const nextConfig: NextConfig = {
   experimental: {
     workerThreads: false,
     cpus: 4,
+    // Next 16 enables Turbopack's persistent on-disk dev cache by default. On a
+    // repo this size it thrashes — "filesystem cache database compaction" runs
+    // for 1-2 min on a loop and freezes dev so the app never loads (vercel/next.js#87796).
+    // Off = no compaction stalls; cost is a slower cold compile after a restart.
+    turbopackFileSystemCacheForDev: false,
   },
   // `isomorphic-dompurify` (used by lib/security/sanitize-html, which several
   // block renderers import) transitively pulls in jsdom → html-encoding-sniffer
@@ -73,7 +113,12 @@ const nextConfig: NextConfig = {
 
   // Turbopack configuration (Next.js 16+)
   turbopack: {
-    // Empty config to acknowledge we're using Turbopack
+    // Pin the workspace root to THIS project. Without it, Turbopack walks up
+    // and can pick a stray parent lockfile (e.g. when the repo is checked out
+    // as a git worktree under a home dir that has its own package-lock.json),
+    // mis-rooting the build so page routes 404. On Vercel this equals the repo
+    // root anyway, so it's a no-op there.
+    root: import.meta.dirname,
     // GLTF/GLB files will be handled by default asset handling
   },
 
@@ -101,7 +146,11 @@ const nextConfig: NextConfig = {
 
   async headers() {
     return [
-      { source: '/:path*', headers: SECURITY_HEADERS },
+      { source: '/:path*', headers: SECURITY_HEADERS_BASE },
+      { source: '/portal/:path*', headers: FRAME_DENY_HEADERS },
+      { source: '/admin/:path*', headers: FRAME_DENY_HEADERS },
+      { source: '/api/:path*', headers: FRAME_DENY_HEADERS },
+      // /sites/:path* intentionally has no X-Frame-Options — visual editor must embed it
     ];
   },
 };

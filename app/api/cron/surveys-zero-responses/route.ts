@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { withCronHealth } from '@/lib/cron-health';
+import { isAuthorizedCron } from '@/lib/cron-auth';
 import { and, eq, gte, lte, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { surveys, surveyResponses } from '@/lib/db/schema/surveys';
@@ -25,10 +26,7 @@ export const runtime = 'nodejs';
  * Auth: Vercel cron header OR `Authorization: Bearer ${CRON_SECRET}`.
  */
 async function _GET(req: Request) {
-  const cronSecret = process.env.CRON_SECRET;
-  const auth = req.headers.get('authorization');
-  const isVercelCron = req.headers.get('x-vercel-cron') === '1';
-  if (!isVercelCron && cronSecret && auth !== `Bearer ${cronSecret}`) {
+  if (!isAuthorizedCron(req)) {
     return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
   }
 

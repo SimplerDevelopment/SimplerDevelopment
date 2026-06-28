@@ -153,7 +153,7 @@ const {
 
 // ─── Fixture helpers ───────────────────────────────────────────────────────
 
-const APP_SLUG = 'postcaptain-tools';
+const APP_SLUG = 'content-tools';
 const APP_ID = 42;
 const KID = 'k1';
 const SECRET = randomBytes(32).toString('base64');
@@ -164,7 +164,7 @@ function baseClaims(overrides: Record<string, unknown> = {}) {
     sub: '7',
     clientId: 103,
     siteId: null as number | null,
-    scopes: ['postcaptain:research:read', 'postcaptain:research:write'],
+    scopes: ['content:research:read', 'content:research:write'],
     ...overrides,
   };
 }
@@ -191,8 +191,8 @@ describe('verifyPluginJwt — happy path', () => {
       expect(result.claims.clientId).toBe(103);
       expect(result.claims.siteId).toBeNull();
       expect(result.claims.scopes).toEqual([
-        'postcaptain:research:read',
-        'postcaptain:research:write',
+        'content:research:read',
+        'content:research:write',
       ]);
       expect(typeof result.claims.jti).toBe('string');
       expect(result.claims.jti.length).toBeGreaterThan(0);
@@ -259,7 +259,7 @@ describe('verifyPluginJwt — rejections', () => {
         sub: '7',
         clientId: 103,
         siteId: null,
-        scopes: ['postcaptain:research:read'],
+        scopes: ['content:research:read'],
         jti: randomUUID(),
         iat: now,
         exp: now + 60,

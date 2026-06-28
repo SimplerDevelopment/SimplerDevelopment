@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
+import { formatMoney } from '@/lib/utils/money';
 
 interface ProductImage {
   id: number;
@@ -78,10 +79,6 @@ interface ProductPageProps {
   productSlug: string;
 }
 
-function formatPrice(cents: number) {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100);
-}
-
 function getOrCreateSessionId(): string {
   if (typeof window === 'undefined') return '';
   let sessionId = localStorage.getItem('cart_session_id');
@@ -136,6 +133,7 @@ export function ProductPage({ siteId, productSlug }: ProductPageProps) {
   // Match variant when options change
   useEffect(() => {
     if (!product || product.variants.length === 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- synchronous derivation from props/state, no async involved
       setMatchedVariant(null);
       return;
     }
@@ -331,9 +329,9 @@ export function ProductPage({ siteId, productSlug }: ProductPageProps) {
 
           {/* Price */}
           <div className="flex items-baseline gap-3">
-            <span className="text-3xl font-bold">{formatPrice(effectivePrice)}</span>
+            <span className="text-3xl font-bold">{formatMoney(effectivePrice)}</span>
             {comparePrice && comparePrice > currentPrice && (
-              <span className="text-lg text-muted-foreground line-through">{formatPrice(comparePrice)}</span>
+              <span className="text-lg text-muted-foreground line-through">{formatMoney(comparePrice)}</span>
             )}
             {activeBulkPrice && (
               <span className="text-sm bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 px-2 py-0.5 rounded-full font-medium">
@@ -439,8 +437,8 @@ export function ProductPage({ siteId, productSlug }: ProductPageProps) {
                       {rule.discountType === 'percent'
                         ? `${rule.discountValue}% off`
                         : rule.discountType === 'fixed_price'
-                          ? formatPrice(rule.price)
-                          : `${formatPrice(rule.discountValue)} off`}
+                          ? formatMoney(rule.price)
+                          : `${formatMoney(rule.discountValue)} off`}
                     </span>
                   </div>
                 ))}
@@ -512,7 +510,7 @@ export function ProductPage({ siteId, productSlug }: ProductPageProps) {
               ) : (
                 <>
                   <span className="material-icons text-xl">shopping_cart</span>
-                  {product.designable ? 'Buy as-is' : 'Add to Cart'} — {formatPrice(effectivePrice * quantity)}
+                  {product.designable ? 'Buy as-is' : 'Add to Cart'} — {formatMoney(effectivePrice * quantity)}
                 </>
               )}
             </button>

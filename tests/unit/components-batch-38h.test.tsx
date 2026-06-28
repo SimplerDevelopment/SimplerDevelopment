@@ -29,9 +29,6 @@ import { StructuredData } from '@/components/seo/StructuredData';
 // Portal CopyableSiteId component (default export)
 import CopyableSiteId from '@/components/portal/CopyableSiteId';
 
-// Peters Outdoor CTA component
-import { PetersFooterCTA } from '@/components/peters-outdoor/PetersFooterCTA';
-
 // ---------------------------------------------------------------------------
 // SessionProvider
 // ---------------------------------------------------------------------------
@@ -144,26 +141,3 @@ describe('CopyableSiteId', () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// PetersFooterCTA
-// ---------------------------------------------------------------------------
-
-describe('PetersFooterCTA', () => {
-  it('renders the headline copy', () => {
-    render(<PetersFooterCTA />);
-    expect(screen.getByText('Ready for Your Next Adventure?')).toBeTruthy();
-  });
-
-  it('renders supporting body copy', () => {
-    render(<PetersFooterCTA />);
-    expect(
-      screen.getByText(/Book a guided kayak eco-tour/i),
-    ).toBeTruthy();
-  });
-
-  it('renders a link to /p/booking with the CTA label', () => {
-    render(<PetersFooterCTA />);
-    const link = screen.getByRole('link', { name: /book your tour today/i }) as HTMLAnchorElement;
-    expect(link.getAttribute('href')).toBe('/p/booking');
-  });
-});

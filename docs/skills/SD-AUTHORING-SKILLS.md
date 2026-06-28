@@ -47,7 +47,7 @@ Every `sd-create-*` skill reads `.sd/config.json` and applies the active brand p
 
 **Trigger phrases.** `draft a page about X`, `create a CMS page for Y`, `make a landing page for Z`, `new blog post on W`, `write a marketing page`.
 
-**Sourcing.** Optional. Skill prompts for material if unclear: `postcaptain-kb`, external URL, pasted brief, or just the user's prompt.
+**Sourcing.** Optional. Skill prompts for material if unclear: a knowledge base path, external URL, pasted brief, or just the user's prompt.
 
 **Output.** Draft (`published: false`) post + approval URL. Author hands URL to stakeholder; approval flips publish flag.
 

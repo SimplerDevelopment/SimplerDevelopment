@@ -12,6 +12,7 @@ import {
 import { and, eq, desc, asc, sql } from 'drizzle-orm';
 import { emitEvent } from '@/lib/automation';
 import { buildCustomFieldFilters } from '@/lib/crm-custom-field-filter';
+import { hasServiceAccess } from '@/lib/portal-auth';
 
 export async function GET(req: NextRequest) {
   const session = await auth();
@@ -117,6 +118,20 @@ export async function POST(req: Request) {
   const client = await getPortalClient(userId);
   if (!client)
     return NextResponse.json({ success: false, message: 'Client not found' }, { status: 404 });
+
+  // Paid-module gate: CRM writes require an active CRM (or bundle) subscription.
+  // Mirrors the MCP layer's requireService(clientId, 'crm').
+  if (!(await hasServiceAccess(client.id, 'crm'))) {
+    return NextResponse.json(
+      {
+        success: false,
+        message: 'This feature requires an active crm subscription.',
+        requiresService: 'crm',
+        upsellUrl: '/portal/services',
+      },
+      { status: 403 }
+    );
+  }
 
   const body = await req.json();
 

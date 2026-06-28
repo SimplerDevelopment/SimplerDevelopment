@@ -6,6 +6,7 @@ import { googleWorkspaceUserConnections } from '@/lib/db/schema';
 import { refreshIfExpired } from '@/lib/google/oauth';
 import { startGmailWatch } from '@/lib/google/gmail-watch';
 import { getTenantWorkspaceCredentialsByClientId } from '@/lib/google/tenant-credentials';
+import { isAuthorizedCron } from '@/lib/cron-auth';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -37,13 +38,8 @@ export const runtime = 'nodejs';
 const RENEWAL_HORIZON_MS = 48 * 60 * 60 * 1000; // 48h
 
 async function _GET(req: Request) {
-  const isVercelCron = req.headers.get('x-vercel-cron') === '1';
-  if (!isVercelCron) {
-    const cronSecret = process.env.CRON_SECRET;
-    const auth = req.headers.get('authorization');
-    if (!cronSecret || auth !== `Bearer ${cronSecret}`) {
-      return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
-    }
+  if (!isAuthorizedCron(req)) {
+    return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
   }
 
   const now = Date.now();

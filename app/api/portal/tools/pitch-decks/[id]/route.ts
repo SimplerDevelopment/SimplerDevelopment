@@ -5,19 +5,10 @@ import { pitchDecks } from '@/lib/db/schema';
 import type { PitchDeckSlide } from '@/lib/db/schema';
 import { eq, and, ne } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
+import { authorizePortal, isAuthError } from '@/lib/portal-auth';
 import { convertAllSlidesToV2, isV2Slides } from '@/lib/pitch-deck-migration';
 import { assertBlocksAllowedForRole, BlockGateError } from '@/lib/security/block-allowlist';
-
-/** Normalize a user-entered slug to a URL-safe form. */
-function slugify(input: string): string {
-  return input
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9\s-]/g, '')
-    .replace(/\s+/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-+|-+$/g, '');
-}
+import { slugify } from '@/lib/publishing/slug';
 
 async function resolveDecks(deckId: number, userId: number) {
   const client = await getPortalClient(userId);
@@ -51,6 +42,10 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
+
+  // Service access check — consistent with the pitch-decks list/create routes
+  const authResult = await authorizePortal({ action: 'write', requireService: 'pitch-decks' });
+  if (isAuthError(authResult)) return authResult.response;
 
   const { id } = await params;
   const deck = await resolveDecks(parseInt(id), parseInt(session.user.id, 10));
@@ -124,6 +119,10 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
+
+  // Service access check — consistent with the pitch-decks list/create routes
+  const authResult = await authorizePortal({ action: 'write', requireService: 'pitch-decks' });
+  if (isAuthError(authResult)) return authResult.response;
 
   const { id } = await params;
   const deck = await resolveDecks(parseInt(id), parseInt(session.user.id, 10));

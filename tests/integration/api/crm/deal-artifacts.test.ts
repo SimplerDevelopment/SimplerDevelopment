@@ -18,6 +18,7 @@ const mockedAuth = auth as unknown as Mock;
 import { callHandler } from '../../../helpers/call-handler';
 import { sessionForNewClientUser, type TenantCtx } from '../../../helpers/session';
 import { getTestSql, TEST_SCHEMA } from '../../../helpers/test-db';
+import { grantBundle } from '../../../helpers/entitlements';
 
 async function asTenant(ctx: TenantCtx | null) {
   mockedAuth.mockResolvedValue(ctx?.session ?? null);
@@ -73,6 +74,7 @@ describe('POST /api/portal/crm/deals/[id]/artifacts @crm @tenancy', () => {
       sessionForNewClientUser('art-a'),
       sessionForNewClientUser('art-b'),
     ]);
+    await grantBundle(A.client.id);
     [dealA, dealB] = await Promise.all([
       seedDeal(A.client.id, 'A-deal'),
       seedDeal(B.client.id, 'B-deal'),
@@ -154,6 +156,7 @@ describe('PUT /api/portal/crm/deals/[id]/artifacts @crm @tenancy', () => {
       sessionForNewClientUser('art-put-a'),
       sessionForNewClientUser('art-put-b'),
     ]);
+    await grantBundle(A.client.id);
     [dealA, dealB] = await Promise.all([
       seedDeal(A.client.id),
       seedDeal(B.client.id),
@@ -224,6 +227,7 @@ describe('DELETE /api/portal/crm/deals/[id]/artifacts @crm @tenancy', () => {
       sessionForNewClientUser('art-del-a'),
       sessionForNewClientUser('art-del-b'),
     ]);
+    await grantBundle(A.client.id);
     [dealA, dealB] = await Promise.all([
       seedDeal(A.client.id),
       seedDeal(B.client.id),

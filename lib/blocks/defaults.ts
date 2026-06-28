@@ -287,23 +287,6 @@ export function createDefaultBlock(
       return { ...base, type: 'deck-next-slide', text: 'Next' };
     case 'deck-jump-to':
       return { ...base, type: 'deck-jump-to', text: 'Go', targetSlide: 1 };
-    case 'palizzi-nav':
-      return { ...base, type: 'palizzi-nav', logoUrl: '', brandName: '', links: [] };
-    case 'palizzi-hero':
-      return { ...base, type: 'palizzi-hero', address: '', crestUrl: '', neonUrl: '', tagline: '', established: '', scrollTarget: '' };
-    case 'palizzi-welcome':
-      return { ...base, type: 'palizzi-welcome', overline: '', title: '', titleAccent: '', paragraphs: [], bookImage: '', bookTitle: '', bookSubtitle: '', bookAuthors: '', bookLabel: '' };
-    case 'palizzi-history':
-      return { ...base, type: 'palizzi-history', overline: '', title: '', titleAccent: '', backgroundImage: '', marqueeImage: '', paragraphs: [] };
-    case 'palizzi-menu':
-      return { ...base, type: 'palizzi-menu', overline: '', title: '', subtitle: '', foodSections: [], cocktails: [] };
-    case 'palizzi-rules':
-      return { ...base, type: 'palizzi-rules', overline: '', title: '', titleAccent: '', hoursTitle: '', hoursSubtitle: '', badges: [], rules: [], disclaimer: '' };
-    case 'palizzi-membership':
-      return { ...base, type: 'palizzi-membership', overline: '', title: '', titleAccent: '', paragraphs: [], highlight: '', closingNote: '', signature: '', footnote: '' };
-    case 'palizzi-footer':
-      return { ...base, type: 'palizzi-footer', marqueeImage: '', columns: [], bottomText: '' };
-
     // ── HTML embed ────────────────────────────────────────────────────────────
     case 'html-embed':
       return {
@@ -328,6 +311,32 @@ export function createDefaultBlock(
         ctaLabel: 'Sign me up',
         ctaUrl: '#',
         dismissable: true,
+      };
+
+    // ── ROI Calculator ────────────────────────────────────────────────────────
+    case 'roi-calculator':
+      return {
+        ...base, type: 'roi-calculator',
+        title: 'Calculate Your ROI',
+        description: 'See how much time and revenue you can recover.',
+        unitLabel: 'FTE clinicians completing SOC',
+        unitDefault: 100,
+        unitMin: 10,
+        unitMax: 1000,
+        unitStep: 10,
+        minutesLabel: 'Minutes saved per visit',
+        minutesDefault: 45,
+        minutesMin: 15,
+        minutesMax: 90,
+        minutesStep: 5,
+        visitsPerUnitPerWeek: 25,
+        weeksPerYear: 46,
+        captureRate: 0.06,
+        hoursPerAdmission: 5,
+        revenuePerAdmission: 2500,
+        ctaText: 'Get Started',
+        ctaLink: '#',
+        ctaNewTab: false,
       };
 
     default: {

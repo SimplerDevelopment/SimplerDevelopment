@@ -20,7 +20,14 @@ import { cookies } from 'next/headers';
 import { auth } from '@/lib/auth';
 import { getPortalClient } from '@/lib/portal-client';
 import { loadUserApps, type UserAppNavMeta } from '@/lib/plugins/load-user-apps';
+import { getClientEntitlements } from '@/lib/billing/entitlements';
 import PortalLayoutClient from './PortalLayoutClient';
+
+/** Serializable entitlements passed across the server→client boundary. */
+export interface SerializableEntitlements {
+  domains: string[];
+  gatingBypassed: boolean;
+}
 
 // The Apps group in the sidebar must reflect the CURRENT active client. The
 // active client is selected via the `sd-active-client` cookie; if this layout
@@ -36,6 +43,7 @@ export default async function PortalShell({ children }: { children: React.ReactN
   // render as dynamic even if a future refactor drops the auth() call.
   await cookies();
   let apps: UserAppNavMeta[] = [];
+  let entitlements: SerializableEntitlements = { domains: [], gatingBypassed: true };
 
   try {
     const session = await auth();
@@ -46,14 +54,22 @@ export default async function PortalShell({ children }: { children: React.ReactN
         const client = await getPortalClient(userId);
         if (client) {
           apps = await loadUserApps(client.id);
+          const ent = await getClientEntitlements(client.id, client);
+          entitlements = {
+            domains: [...ent.domains],
+            gatingBypassed: ent.gatingBypassed,
+          };
         }
       }
     }
   } catch {
-    // Plugin registry failure must never knock out the portal. Fall through
-    // with an empty apps list — the user still gets the base nav tree.
+    // Entitlement / plugin registry failure must never knock out the portal.
+    // Fail CLOSED (bypass=false): a DB/plugin error must not silently grant
+    // access to every feature — it is safer to hide nav items than to expose
+    // ungated UI to a client who may not be entitled.
     apps = [];
+    entitlements = { domains: [], gatingBypassed: false };
   }
 
-  return <PortalLayoutClient apps={apps}>{children}</PortalLayoutClient>;
+  return <PortalLayoutClient apps={apps} entitlements={entitlements}>{children}</PortalLayoutClient>;
 }

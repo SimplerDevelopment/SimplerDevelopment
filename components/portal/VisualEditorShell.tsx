@@ -10,11 +10,10 @@ import {
 } from '@/lib/utils/blockHelpers';
 import type { Block, BlockType, ColumnsBlock } from '@/types/blocks';
 import type { Breakpoint } from '@/types/responsive';
-// Lazy-load ImagePickerModal — the modal lives in HtmlRenderEditor.tsx (~1700
-// LoC + @codemirror), only mounts when the iframe requests a swap, and would
-// otherwise re-anchor the entire HtmlRenderEditor chunk to this shell.
+// Lazy-load ImagePickerModal — extracted to its own file so it doesn't pull
+// the entire HtmlRenderEditor chunk (~1700 LoC + @codemirror) into this shell.
 const ImagePickerModal = dynamic(
-  () => import('./visual-editor/HtmlRenderEditor').then((m) => ({ default: m.ImagePickerModal })),
+  () => import('./visual-editor/ImagePickerModal').then((m) => ({ default: m.ImagePickerModal })),
   { ssr: false },
 );
 import { SaveAsTemplateModal } from '@/components/blocks/SaveAsTemplateModal';

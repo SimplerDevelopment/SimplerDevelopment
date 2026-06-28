@@ -4,8 +4,11 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import MediaPicker from '@/components/admin/MediaPicker';
+import { formatMoney } from '@/lib/utils/money';
 import CrmCustomFieldsPanel, { type CrmCustomFieldsPanelHandle } from '@/components/portal/CrmCustomFieldsPanel';
 import PositionMultiSelect from '@/components/portal/PositionMultiSelect';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnPrimary, pBtnGhost, pInput, pSelect, pSectionTitle } from '@/components/portal/portal-ui';
 
 interface Company {
   id: number;
@@ -71,10 +74,6 @@ const dealStatusColor: Record<string, string> = {
 const sizeOptions = ['1-10', '11-50', '51-200', '201-500', '501-1000', '1001+'];
 
 const CONTACTS_PAGE_SIZE = 10;
-
-function formatCurrency(cents: number): string {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100);
-}
 
 export default function CrmCompanyDetailPage() {
   const params = useParams();
@@ -148,7 +147,10 @@ export default function CrmCompanyDetailPage() {
   }, [companyId]);
 
   useEffect(() => {
-    fetchCompany().then(() => setLoading(false));
+    (async () => {
+      await fetchCompany();
+      setLoading(false);
+    })();
   }, [fetchCompany]);
 
   // Contacts are driven by the paginated /api/portal/crm/contacts endpoint so
@@ -172,7 +174,7 @@ export default function CrmCompanyDetailPage() {
   }, [companyId, contactPage, contactSearch, titleFilter]);
 
   useEffect(() => {
-    fetchContacts();
+    (async () => { await fetchContacts(); })();
   }, [fetchContacts]);
 
   useEffect(() => {
@@ -352,73 +354,54 @@ export default function CrmCompanyDetailPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div className="flex items-center gap-3">
-          <Link href="/portal/crm/companies" className="text-muted-foreground hover:text-foreground">
-            <span className="material-icons text-base">arrow_back</span>
-          </Link>
-          {company.logoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={company.logoUrl}
-              alt={`${company.name} logo`}
-              className="w-12 h-12 rounded-lg object-contain bg-background border border-border"
-            />
-          ) : (
-            <div className="w-12 h-12 rounded-lg bg-background border border-border flex items-center justify-center">
-              <span className="material-icons text-muted-foreground">business</span>
-            </div>
-          )}
-          <div>
-            <div className="flex items-center gap-3">
-              <h2 className="text-xl font-bold text-foreground">{company.name}</h2>
-              {company.size && (
-                <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-accent text-foreground">
-                  {company.size}
-                </span>
-              )}
-            </div>
-            <div className="flex items-center gap-3 text-sm text-muted-foreground mt-0.5">
-              {company.domain && (
-                <a href={`https://${company.domain}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline flex items-center gap-1">
-                  <span className="material-icons text-sm">language</span>
-                  {company.domain}
-                </a>
-              )}
-              {company.industry && (
-                <span className="flex items-center gap-1">
-                  <span className="material-icons text-sm">category</span>
-                  {company.industry}
-                </span>
-              )}
-            </div>
+      {/* Back link */}
+      <Link href="/portal/crm/companies" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-2">
+        <span className="material-icons text-base">arrow_back</span>
+        Companies
+      </Link>
+
+      {/* Logo + header */}
+      <div className="flex items-start gap-4">
+        {company.logoUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={company.logoUrl}
+            alt={`${company.name} logo`}
+            className="w-12 h-12 rounded-xl object-contain bg-background border border-border"
+          />
+        ) : (
+          <div className="w-12 h-12 rounded-xl bg-background border border-border flex items-center justify-center">
+            <span className="material-icons text-muted-foreground">business</span>
           </div>
-        </div>
-        <div className="flex gap-2">
-          {!editing && (
-            <button
-              onClick={startEditing}
-              className="flex items-center gap-2 px-3 py-1.5 border border-border rounded-lg text-sm font-medium text-foreground hover:bg-accent transition-colors"
-            >
-              <span className="material-icons text-base">edit</span>
-              Edit
-            </button>
-          )}
-          <button
-            onClick={deleteCompany}
-            className="flex items-center gap-2 px-3 py-1.5 border border-border rounded-lg text-sm font-medium text-destructive hover:bg-destructive/10 transition-colors"
-          >
-            <span className="material-icons text-base">delete</span>
-            Delete
-          </button>
-        </div>
+        )}
+        <PortalPageHeader
+          eyebrow="CRM"
+          title={company.name}
+          subtitle={[company.domain, company.industry].filter(Boolean).join(' · ') || undefined}
+          actions={
+            <div className="flex gap-2">
+              {!editing && (
+                <button onClick={startEditing} className={pBtnGhost}>
+                  <span className="material-icons text-base">edit</span>
+                  Edit
+                </button>
+              )}
+              <button
+                onClick={deleteCompany}
+                className="inline-flex items-center gap-2 rounded-xl border border-border px-4 py-2.5 text-sm font-semibold text-destructive hover:bg-destructive/10 transition-colors"
+              >
+                <span className="material-icons text-base">delete</span>
+                Delete
+              </button>
+            </div>
+          }
+        />
       </div>
 
       {/* Edit form */}
       {editing && (
-        <form onSubmit={saveEdit} className="bg-card border border-border rounded-xl p-6 space-y-4">
-          <h3 className="font-semibold text-foreground">Edit Company</h3>
+        <form onSubmit={saveEdit} className="bg-card border border-border rounded-2xl p-6 space-y-4">
+          <h3 className={pSectionTitle}>Edit Company</h3>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <div>
               <label className="block text-xs font-medium text-muted-foreground mb-1">Name *</label>
@@ -426,7 +409,7 @@ export default function CrmCompanyDetailPage() {
                 required
                 value={editForm.name}
                 onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))}
-                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                className={pInput}
               />
             </div>
             <div>
@@ -434,7 +417,7 @@ export default function CrmCompanyDetailPage() {
               <input
                 value={editForm.domain}
                 onChange={e => setEditForm(f => ({ ...f, domain: e.target.value }))}
-                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                className={pInput}
               />
             </div>
             <div>
@@ -442,7 +425,7 @@ export default function CrmCompanyDetailPage() {
               <input
                 value={editForm.industry}
                 onChange={e => setEditForm(f => ({ ...f, industry: e.target.value }))}
-                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                className={pInput}
               />
             </div>
             <div>
@@ -450,7 +433,7 @@ export default function CrmCompanyDetailPage() {
               <select
                 value={editForm.size}
                 onChange={e => setEditForm(f => ({ ...f, size: e.target.value }))}
-                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                className={pSelect}
               >
                 <option value="">Select size</option>
                 {sizeOptions.map(s => (
@@ -463,7 +446,7 @@ export default function CrmCompanyDetailPage() {
               <input
                 value={editForm.phone}
                 onChange={e => setEditForm(f => ({ ...f, phone: e.target.value }))}
-                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                className={pInput}
               />
             </div>
             <div>
@@ -471,7 +454,7 @@ export default function CrmCompanyDetailPage() {
               <input
                 value={editForm.website}
                 onChange={e => setEditForm(f => ({ ...f, website: e.target.value }))}
-                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                className={pInput}
               />
             </div>
             <div className="sm:col-span-2 lg:col-span-3">
@@ -481,7 +464,7 @@ export default function CrmCompanyDetailPage() {
                 onChange={e => setEditForm(f => ({ ...f, address: e.target.value }))}
                 rows={2}
                 placeholder="123 Main St, City, State"
-                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 resize-y"
+                className="w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/15 resize-y"
               />
               <div className="mt-3 grid grid-cols-2 gap-3">
                 <div>
@@ -494,7 +477,7 @@ export default function CrmCompanyDetailPage() {
                     value={editForm.latitude}
                     onChange={e => setEditForm(f => ({ ...f, latitude: e.target.value }))}
                     placeholder="e.g. 40.7128"
-                    className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    className={pInput}
                   />
                 </div>
                 <div>
@@ -507,7 +490,7 @@ export default function CrmCompanyDetailPage() {
                     value={editForm.longitude}
                     onChange={e => setEditForm(f => ({ ...f, longitude: e.target.value }))}
                     placeholder="e.g. -74.0060"
-                    className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    className={pInput}
                   />
                 </div>
               </div>
@@ -535,7 +518,7 @@ export default function CrmCompanyDetailPage() {
                 value={editForm.notes}
                 onChange={e => setEditForm(f => ({ ...f, notes: e.target.value }))}
                 rows={3}
-                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 resize-y"
+                className="w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/15 resize-y"
               />
             </div>
           </div>
@@ -543,14 +526,14 @@ export default function CrmCompanyDetailPage() {
             <button
               type="button"
               onClick={cancelEdit}
-              className="px-4 py-2 border border-border rounded-lg text-sm font-medium text-foreground hover:bg-accent transition-colors"
+              className={pBtnGhost}
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={saving}
-              className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+              className={pBtnPrimary}
             >
               {saving && <span className="material-icons animate-spin text-sm">refresh</span>}
               Save Changes
@@ -560,7 +543,7 @@ export default function CrmCompanyDetailPage() {
       )}
 
       {/* Tabs: Info / Contacts / Deals */}
-      <div className="bg-card border border-border rounded-xl overflow-hidden">
+      <div className="bg-card border border-border rounded-2xl overflow-hidden">
         <div className="flex border-b border-border">
           <button
             onClick={() => setActiveTab('info')}
@@ -601,7 +584,7 @@ export default function CrmCompanyDetailPage() {
           {activeTab === 'info' && (
             <div className="space-y-6">
               <div>
-                <h3 className="font-semibold text-foreground mb-4">Company Information</h3>
+                <h3 className={pSectionTitle + ' mb-4'}>Company Information</h3>
                 <div className="grid sm:grid-cols-2 gap-4">
                   <div className="flex items-center gap-3">
                     <span className="material-icons text-base text-muted-foreground">phone</span>
@@ -656,7 +639,7 @@ export default function CrmCompanyDetailPage() {
                     placeholder="Search contacts..."
                     value={contactSearchInput}
                     onChange={e => setContactSearchInput(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    className={`${pInput} pl-9 pr-3`}
                   />
                 </div>
                 <PositionMultiSelect
@@ -666,7 +649,7 @@ export default function CrmCompanyDetailPage() {
                 />
                 <button
                   onClick={() => setShowContactForm(v => !v)}
-                  className="flex items-center gap-2 px-3 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors shrink-0"
+                  className={`${pBtnPrimary} shrink-0`}
                 >
                   <span className="material-icons text-base">{showContactForm ? 'close' : 'person_add'}</span>
                   {showContactForm ? 'Cancel' : 'Add Contact'}
@@ -674,9 +657,9 @@ export default function CrmCompanyDetailPage() {
               </div>
 
               {showContactForm && (
-                <form onSubmit={createContact} className="bg-background border border-border rounded-lg p-4 space-y-3">
+                <form onSubmit={createContact} className="bg-card border border-border rounded-2xl p-4 space-y-3">
                   {contactError && (
-                    <div className="flex items-center gap-2 text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2">
+                    <div className="flex items-center gap-2 text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-xl px-3 py-2">
                       <span className="material-icons text-base">error</span>
                       {contactError}
                     </div>
@@ -688,7 +671,7 @@ export default function CrmCompanyDetailPage() {
                         required
                         value={newContact.firstName}
                         onChange={e => setNewContact(f => ({ ...f, firstName: e.target.value }))}
-                        className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                        className={pInput}
                       />
                     </div>
                     <div>
@@ -696,7 +679,7 @@ export default function CrmCompanyDetailPage() {
                       <input
                         value={newContact.lastName}
                         onChange={e => setNewContact(f => ({ ...f, lastName: e.target.value }))}
-                        className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                        className={pInput}
                       />
                     </div>
                     <div>
@@ -705,7 +688,7 @@ export default function CrmCompanyDetailPage() {
                         type="email"
                         value={newContact.email}
                         onChange={e => setNewContact(f => ({ ...f, email: e.target.value }))}
-                        className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                        className={pInput}
                       />
                     </div>
                     <div>
@@ -713,7 +696,7 @@ export default function CrmCompanyDetailPage() {
                       <input
                         value={newContact.phone}
                         onChange={e => setNewContact(f => ({ ...f, phone: e.target.value }))}
-                        className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                        className={pInput}
                       />
                     </div>
                     <div>
@@ -721,7 +704,7 @@ export default function CrmCompanyDetailPage() {
                       <input
                         value={newContact.title}
                         onChange={e => setNewContact(f => ({ ...f, title: e.target.value }))}
-                        className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                        className={pInput}
                       />
                     </div>
                     <div>
@@ -729,7 +712,7 @@ export default function CrmCompanyDetailPage() {
                       <select
                         value={newContact.status}
                         onChange={e => setNewContact(f => ({ ...f, status: e.target.value }))}
-                        className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                        className={pSelect}
                       >
                         <option value="active">Active</option>
                         <option value="lead">Lead</option>
@@ -742,7 +725,7 @@ export default function CrmCompanyDetailPage() {
                     <button
                       type="submit"
                       disabled={savingContact}
-                      className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+                      className={pBtnPrimary}
                     >
                       {savingContact && <span className="material-icons animate-spin text-sm">refresh</span>}
                       Create Contact
@@ -793,7 +776,7 @@ export default function CrmCompanyDetailPage() {
                     <button
                       disabled={contactPage <= 1}
                       onClick={() => setContactPage(p => p - 1)}
-                      className="px-3 py-1.5 text-sm border border-border rounded-lg hover:bg-accent transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                      className="px-3 py-1.5 text-sm border border-border rounded-xl hover:bg-accent transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                       <span className="material-icons text-base">chevron_left</span>
                     </button>
@@ -805,9 +788,9 @@ export default function CrmCompanyDetailPage() {
                         <button
                           key={p}
                           onClick={() => setContactPage(p)}
-                          className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
+                          className={`px-3 py-1.5 text-sm rounded-xl transition-colors ${
                             p === contactPage
-                              ? 'bg-primary text-primary-foreground'
+                              ? 'bg-foreground text-background'
                               : 'border border-border hover:bg-accent'
                           }`}
                         >
@@ -818,7 +801,7 @@ export default function CrmCompanyDetailPage() {
                     <button
                       disabled={contactPage >= totalPages}
                       onClick={() => setContactPage(p => p + 1)}
-                      className="px-3 py-1.5 text-sm border border-border rounded-lg hover:bg-accent transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                      className="px-3 py-1.5 text-sm border border-border rounded-xl hover:bg-accent transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                       <span className="material-icons text-base">chevron_right</span>
                     </button>
@@ -837,7 +820,7 @@ export default function CrmCompanyDetailPage() {
               <div className="flex justify-end">
                 <button
                   onClick={() => { if (showDealForm) setShowDealForm(false); else openDealForm(); }}
-                  className="flex items-center gap-2 px-3 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
+                  className={pBtnPrimary}
                 >
                   <span className="material-icons text-base">{showDealForm ? 'close' : 'add'}</span>
                   {showDealForm ? 'Cancel' : 'Add Deal'}
@@ -845,9 +828,9 @@ export default function CrmCompanyDetailPage() {
               </div>
 
               {showDealForm && (
-                <form onSubmit={createDeal} className="bg-background border border-border rounded-lg p-4 space-y-3">
+                <form onSubmit={createDeal} className="bg-card border border-border rounded-2xl p-4 space-y-3">
                   {dealError && (
-                    <div className="flex items-center gap-2 text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2">
+                    <div className="flex items-center gap-2 text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-xl px-3 py-2">
                       <span className="material-icons text-base">error</span>
                       {dealError}
                     </div>
@@ -865,7 +848,7 @@ export default function CrmCompanyDetailPage() {
                             required
                             value={newDeal.title}
                             onChange={e => setNewDeal(f => ({ ...f, title: e.target.value }))}
-                            className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                            className={pInput}
                           />
                         </div>
                         <div>
@@ -876,7 +859,7 @@ export default function CrmCompanyDetailPage() {
                             step="0.01"
                             value={newDeal.value}
                             onChange={e => setNewDeal(f => ({ ...f, value: e.target.value }))}
-                            className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                            className={pInput}
                           />
                         </div>
                         <div>
@@ -885,7 +868,7 @@ export default function CrmCompanyDetailPage() {
                             type="date"
                             value={newDeal.expectedCloseDate}
                             onChange={e => setNewDeal(f => ({ ...f, expectedCloseDate: e.target.value }))}
-                            className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                            className={pInput}
                           />
                         </div>
                         <div>
@@ -898,7 +881,7 @@ export default function CrmCompanyDetailPage() {
                                 ?.slice().sort((a, b) => a.order - b.order)[0];
                               setNewDeal(f => ({ ...f, pipelineId: pid, stageId: firstStage ? String(firstStage.id) : '' }));
                             }}
-                            className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                            className={pSelect}
                           >
                             {pipelines.map(p => (
                               <option key={p.id} value={p.id}>{p.name}</option>
@@ -910,7 +893,7 @@ export default function CrmCompanyDetailPage() {
                           <select
                             value={newDeal.stageId}
                             onChange={e => setNewDeal(f => ({ ...f, stageId: e.target.value }))}
-                            className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                            className={pSelect}
                           >
                             {dealStages.map(s => (
                               <option key={s.id} value={s.id}>{s.name}</option>
@@ -922,7 +905,7 @@ export default function CrmCompanyDetailPage() {
                           <select
                             value={newDeal.priority}
                             onChange={e => setNewDeal(f => ({ ...f, priority: e.target.value }))}
-                            className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                            className={pSelect}
                           >
                             <option value="low">Low</option>
                             <option value="medium">Medium</option>
@@ -935,7 +918,7 @@ export default function CrmCompanyDetailPage() {
                             value={newDeal.notes}
                             onChange={e => setNewDeal(f => ({ ...f, notes: e.target.value }))}
                             rows={2}
-                            className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 resize-y"
+                            className="w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/15 resize-y"
                           />
                         </div>
                       </div>
@@ -943,7 +926,7 @@ export default function CrmCompanyDetailPage() {
                         <button
                           type="submit"
                           disabled={savingDeal || !newDeal.pipelineId || !newDeal.stageId}
-                          className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+                          className={pBtnPrimary}
                         >
                           {savingDeal && <span className="material-icons animate-spin text-sm">refresh</span>}
                           Create Deal
@@ -979,7 +962,7 @@ export default function CrmCompanyDetailPage() {
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
-                        <span className="text-sm font-semibold text-foreground">{formatCurrency(d.value)}</span>
+                        <span className="text-sm font-semibold text-foreground">{formatMoney(d.value)}</span>
                         <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${dealStatusColor[d.status] ?? 'bg-gray-100 text-gray-700'}`}>
                           {d.status}
                         </span>

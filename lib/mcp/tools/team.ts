@@ -158,7 +158,7 @@ export function registerTeamTools(server: McpServer, ctx: PortalMcpContext): voi
     {
       title: 'Change team member role',
       description:
-        'Change a team member\'s role (owner/admin/member/viewer). Requires team:write. The caller is responsible for not demoting the last owner — no server-side guard here.',
+        'Change a team member\'s role (owner/admin/member/viewer). Requires team:write. Demoting the last remaining owner is rejected server-side to avoid orphaning the account.',
       inputSchema: {
         memberId: z.number(),
         role: z.enum(['owner', 'admin', 'member', 'viewer']),
@@ -166,9 +166,21 @@ export function registerTeamTools(server: McpServer, ctx: PortalMcpContext): voi
     },
     async ({ memberId, role }) => {
       if (!requireScope(ctx, 'team:write')) return denied('team:write');
-      const [existing] = await db.select({ id: clientMembers.id }).from(clientMembers)
+      const [existing] = await db.select({ id: clientMembers.id, role: clientMembers.role }).from(clientMembers)
         .where(and(eq(clientMembers.id, memberId), eq(clientMembers.clientId, clientId))).limit(1);
       if (!existing) return json({ error: 'Member not found' });
+      // Sole-owner orphan guard: don't let the last owner be demoted out of
+      // 'owner', which would leave the client with no one able to perform
+      // owner-only operations (lock-out).
+      if (existing.role === 'owner' && role !== 'owner') {
+        const [{ ownerCount }] = await db
+          .select({ ownerCount: sql<number>`count(*)::int` })
+          .from(clientMembers)
+          .where(and(eq(clientMembers.clientId, clientId), eq(clientMembers.role, 'owner')));
+        if (ownerCount <= 1) {
+          return json({ error: 'Cannot demote the last owner — assign another owner first' });
+        }
+      }
       const [row] = await db.update(clientMembers).set({ role })
         .where(eq(clientMembers.id, memberId)).returning();
       revalidateForWrite('portal');

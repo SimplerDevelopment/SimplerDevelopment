@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import { orders, orderItems } from '@/lib/db/schema';
 import { and, eq, ilike, or, count, desc, asc, sql } from 'drizzle-orm';
 import { resolveClientSite } from '@/lib/portal-client';
+import { authorizePortal, isAuthError } from '@/lib/portal-auth';
 
 export async function GET(
   req: Request,
@@ -11,6 +12,9 @@ export async function GET(
 ) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
+
+  const authResult = await authorizePortal({ action: 'read', requireService: 'store' });
+  if (isAuthError(authResult)) return authResult.response;
 
   const { siteId } = await params;
   const site = await resolveClientSite(parseInt(session.user.id, 10), parseInt(siteId));
@@ -55,7 +59,7 @@ export async function GET(
 
   // Fetch items for all orders
   const orderIds = orderRows.map((o) => o.id);
-  let itemsMap: Record<number, typeof orderItems.$inferSelect[]> = {};
+  const itemsMap: Record<number, typeof orderItems.$inferSelect[]> = {};
 
   if (orderIds.length > 0) {
     const allItems = await db
@@ -69,10 +73,21 @@ export async function GET(
     }
   }
 
-  const data = orderRows.map((o) => ({
-    ...o,
-    items: itemsMap[o.id] || [],
-  }));
+  const data = orderRows.map((o) => {
+    const items = itemsMap[o.id] || [];
+    return {
+      ...o,
+      items,
+      // Cents-suffixed aliases + itemCount — the dashboard / orders-list UI
+      // read `*Cents` and `itemCount` (raw columns are already in cents).
+      subtotalCents: o.subtotal,
+      shippingCents: o.shippingTotal,
+      taxCents: o.taxTotal,
+      discountCents: o.discountTotal,
+      totalCents: o.total,
+      itemCount: items.reduce((n, it) => n + (it.quantity ?? 0), 0),
+    };
+  });
 
   return NextResponse.json({
     success: true,

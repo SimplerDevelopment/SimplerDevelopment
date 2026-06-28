@@ -123,7 +123,7 @@ export function DecisionSlideEditor({
                 value={slide.decisionCover?.wordmark || ''}
                 onChange={(e) => onUpdateCover({ wordmark: e.target.value })}
                 className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
-                placeholder="CY STRATEGIES"
+                placeholder="ACME INC"
               />
             </div>
             <div>

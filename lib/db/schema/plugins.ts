@@ -6,7 +6,7 @@
 // (registered_app_callbacks_audit, jti UNIQUE for replay dedup), and queues
 // work through registered_app_runs (one row per execution) and
 // registered_app_jobs (weekly schedules). Plugin-specific result tables
-// (postcaptain_briefs, postcaptain_drafts) are cross-referenced from
+// (content_briefs, content_drafts) are cross-referenced from
 // registered_app_runs.resultId via the kind discriminator.
 
 import {
@@ -31,10 +31,10 @@ import { clients, services } from './sites';
 
 export const registeredApps = pgTable('registered_apps', {
   id: serial('id').primaryKey(),
-  slug: varchar('slug', { length: 64 }).notNull().unique(), // 'postcaptain-tools'
+  slug: varchar('slug', { length: 64 }).notNull().unique(), // 'content-tools'
   name: varchar('name', { length: 255 }).notNull(),
   icon: varchar('icon', { length: 64 }), // material icon name, e.g. 'science'
-  hostUrl: varchar('host_url', { length: 500 }).notNull(), // https://postcaptain-tools.simplerdevelopment.com
+  hostUrl: varchar('host_url', { length: 500 }).notNull(), // https://content-tools.simplerdevelopment.com
   manifestUrl: varchar('manifest_url', { length: 500 }).notNull(), // <hostUrl>/sd-manifest.json
   navLabel: varchar('nav_label', { length: 64 }), // optional sidebar override
   navPosition: integer('nav_position').default(50).notNull(),
@@ -94,7 +94,7 @@ export const registeredAppCallbacksAudit = pgTable('registered_app_callbacks_aud
 // Execution log. Doubles as the work queue: rows start `status='queued'`,
 // the per-minute drain cron CAS-claims to `running`, then transitions to
 // `succeeded`/`failed`/`cancelled`. `resultId` cross-references the
-// kind-specific result table (postcaptain_briefs / postcaptain_drafts) via
+// kind-specific result table (content_briefs / content_drafts) via
 // the `kind` discriminator. `logTail` is capped at 64 KB by the runner and
 // redacted before persist.
 
@@ -143,7 +143,9 @@ export const registeredAppJobs = pgTable('registered_app_jobs', {
   // Cron mode (nullable when weekly mode is set).
   cronExpr: varchar('cron_expr', { length: 64 }), // 5-field cron, UTC
   enabled: boolean('enabled').default(true).notNull(),
-  nextRunAt: timestamp('next_run_at').notNull(),
+  // timestamptz so reads round-trip to the correct UTC epoch regardless of PG
+  // session timezone — lets fire-due-jobs' exact-match CAS claim work reliably.
+  nextRunAt: timestamp('next_run_at', { withTimezone: true }).notNull(),
   lastRunAt: timestamp('last_run_at'),
   createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
@@ -154,7 +156,7 @@ export const registeredAppJobs = pgTable('registered_app_jobs', {
   index('registered_app_jobs_enabled_next_run_at_idx').on(t.enabled, t.nextRunAt),
 ]);
 
-// ─── postcaptain_briefs ─────────────────────────────────────────────────────
+// ─── content_briefs ─────────────────────────────────────────────────────
 // Research brief output — produced by `research-brief` and
 // `competitor-research` runs. `body` is markdown; `sources` are citations
 // returned by Anthropic's web_search_20250305 tool. `meta` is a free-form
@@ -174,7 +176,7 @@ export type CompetitorVulnerability = {
   rationale?: string;
 };
 
-export type PostcaptainBriefMeta = {
+export type ContentBriefMeta = {
   competitorSlug?: string;
   depth?: 'news' | 'deep';
   lookbackDays?: number;
@@ -184,7 +186,7 @@ export type PostcaptainBriefMeta = {
   [key: string]: unknown;
 };
 
-export const postcaptainBriefs = pgTable('postcaptain_briefs', {
+export const contentBriefs = pgTable('content_briefs', {
   id: serial('id').primaryKey(),
   clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
   runId: integer('run_id').notNull().references(() => registeredAppRuns.id, { onDelete: 'cascade' }),
@@ -192,30 +194,30 @@ export const postcaptainBriefs = pgTable('postcaptain_briefs', {
   focus: text('focus'),
   body: text('body').notNull(),
   sources: jsonb('sources').$type<{ url: string; title: string }[]>().default([]).notNull(),
-  meta: jsonb('meta').$type<PostcaptainBriefMeta>().default({}).notNull(),
+  meta: jsonb('meta').$type<ContentBriefMeta>().default({}).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 }, (t) => [
-  index('postcaptain_briefs_client_idx').on(t.clientId),
-  index('postcaptain_briefs_run_idx').on(t.runId),
+  index('content_briefs_client_idx').on(t.clientId),
+  index('content_briefs_run_idx').on(t.runId),
 ]);
 
-// ─── postcaptain_drafts ─────────────────────────────────────────────────────
+// ─── content_drafts ─────────────────────────────────────────────────────
 // Blog post draft — the result row produced by a 'draft-blog-post' run.
 // Optionally references the brief that seeded it.
 
-export const postcaptainDrafts = pgTable('postcaptain_drafts', {
+export const contentDrafts = pgTable('content_drafts', {
   id: serial('id').primaryKey(),
   clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
   runId: integer('run_id').notNull().references(() => registeredAppRuns.id, { onDelete: 'cascade' }),
-  briefId: integer('brief_id').references(() => postcaptainBriefs.id, { onDelete: 'set null' }),
+  briefId: integer('brief_id').references(() => contentBriefs.id, { onDelete: 'set null' }),
   title: varchar('title', { length: 255 }).notNull(),
   body: text('body').notNull(),
   status: varchar('status', { length: 20 }).default('draft').notNull(), // 'draft' | 'published-elsewhere'
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (t) => [
-  index('postcaptain_drafts_client_idx').on(t.clientId),
-  index('postcaptain_drafts_run_idx').on(t.runId),
+  index('content_drafts_client_idx').on(t.clientId),
+  index('content_drafts_run_idx').on(t.runId),
 ]);
 
 // ─── Inferred types ─────────────────────────────────────────────────────────
@@ -235,8 +237,8 @@ export type NewRegisteredAppRun = typeof registeredAppRuns.$inferInsert;
 export type RegisteredAppJob = typeof registeredAppJobs.$inferSelect;
 export type NewRegisteredAppJob = typeof registeredAppJobs.$inferInsert;
 
-export type PostcaptainBrief = typeof postcaptainBriefs.$inferSelect;
-export type NewPostcaptainBrief = typeof postcaptainBriefs.$inferInsert;
+export type ContentBrief = typeof contentBriefs.$inferSelect;
+export type NewContentBrief = typeof contentBriefs.$inferInsert;
 
-export type PostcaptainDraft = typeof postcaptainDrafts.$inferSelect;
-export type NewPostcaptainDraft = typeof postcaptainDrafts.$inferInsert;
+export type ContentDraft = typeof contentDrafts.$inferSelect;
+export type NewContentDraft = typeof contentDrafts.$inferInsert;

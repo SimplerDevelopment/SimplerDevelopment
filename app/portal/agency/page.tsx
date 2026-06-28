@@ -7,6 +7,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
 
 interface AgencyStatus {
   customDomain: string | null;
@@ -79,17 +80,15 @@ export default function AgencyHubPage() {
 
   return (
     <div className="max-w-3xl">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-foreground">Agency / White-Label</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Configure your agency&apos;s portal. Map a custom domain, override the brand chrome, and resell the
-          platform under your own identity.
-        </p>
-      </div>
+      <PortalPageHeader
+        eyebrow="White-label"
+        title="Agency / White-Label"
+        subtitle="Configure your agency's portal. Map a custom domain, override the brand chrome, and resell the platform under your own identity."
+      />
 
       {message && (
         <div
-          className={`mb-4 p-3 rounded-lg flex items-center gap-2 text-sm ${
+          className={`mb-4 p-3 rounded-xl flex items-center gap-2 text-sm ${
             message.type === 'success'
               ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20'
               : 'bg-destructive/10 text-destructive border border-destructive/20'
@@ -109,10 +108,10 @@ export default function AgencyHubPage() {
       ) : (
         <div className="space-y-4">
           {/* White-label toggle card */}
-          <section className="bg-card border border-border rounded-xl p-6">
+          <section className="bg-card border border-border rounded-2xl p-6">
             <div className="flex items-start justify-between gap-4 flex-wrap">
               <div>
-                <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                <h2 className="text-lg font-display font-extrabold tracking-[-0.01em] text-foreground flex items-center gap-2">
                   <span className="material-icons text-primary">campaign</span>
                   White-Label Mode
                 </h2>
@@ -150,12 +149,12 @@ export default function AgencyHubPage() {
           {/* Custom domain card */}
           <Link
             href="/portal/agency/custom-domain"
-            className="block bg-card border border-border rounded-xl p-6 hover:border-primary/50 transition-colors"
+            className="block bg-card border border-border rounded-2xl p-6 hover:border-primary/50 transition-colors"
           >
             <div className="flex items-start gap-4">
               <span className="material-icons text-primary text-3xl">dns</span>
               <div className="flex-1">
-                <h3 className="text-lg font-semibold text-foreground">Custom Portal Domain</h3>
+                <h3 className="text-lg font-display font-extrabold tracking-[-0.01em] text-foreground">Custom Portal Domain</h3>
                 <p className="text-sm text-muted-foreground mt-1">
                   Map your own domain (e.g. portal.your-agency.com) to this portal.
                 </p>
@@ -187,12 +186,12 @@ export default function AgencyHubPage() {
           {/* Agency branding card */}
           <Link
             href="/portal/agency/branding"
-            className="block bg-card border border-border rounded-xl p-6 hover:border-primary/50 transition-colors"
+            className="block bg-card border border-border rounded-2xl p-6 hover:border-primary/50 transition-colors"
           >
             <div className="flex items-start gap-4">
               <span className="material-icons text-primary text-3xl">palette</span>
               <div className="flex-1">
-                <h3 className="text-lg font-semibold text-foreground">Agency Branding</h3>
+                <h3 className="text-lg font-display font-extrabold tracking-[-0.01em] text-foreground">Agency Branding</h3>
                 <p className="text-sm text-muted-foreground mt-1">
                   Override the portal chrome with your own name, logo, and accent color.
                 </p>

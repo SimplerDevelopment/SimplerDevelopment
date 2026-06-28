@@ -34,6 +34,7 @@ import { ServicesGridBlockRender } from './ServicesGridBlockRender';
 import { CtaBlockRender } from './CtaBlockRender';
 import { TestimonialBlockRender } from './TestimonialBlockRender';
 import { StatsBlockRender } from './StatsBlockRender';
+import { RoiCalculatorBlockRender } from './RoiCalculatorBlockRender';
 import { BlogPostsBlockRender } from './BlogPostsBlockRender';
 import { FeaturedContentBlockRender } from './FeaturedContentBlockRender';
 import { CardGridBlockRender } from './CardGridBlockRender';
@@ -176,6 +177,7 @@ function renderNestedBlock(block: Block) {
     case 'cta': return <CtaBlockRender block={block} />;
     case 'testimonial': return <TestimonialBlockRender block={block} />;
     case 'stats': return <StatsBlockRender block={block} />;
+    case 'roi-calculator': return <RoiCalculatorBlockRender block={block} />;
     case 'blog-posts': return <BlogPostsBlockRender block={block} />;
     case 'featured-content': return <FeaturedContentBlockRender block={block} />;
     case 'card-grid': return <CardGridBlockRender block={block} />;

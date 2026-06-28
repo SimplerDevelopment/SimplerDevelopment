@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { sanitizeRichHtml } from '@/lib/security/sanitize-html';
 import CrmCompanyTypeaheadPicker from '@/components/portal/CrmCompanyTypeaheadPicker';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnPrimary, pBtnGhost, pBtnSoft, pCard, pCardPad, pInput, pSelect, pSectionTitle } from '@/components/portal/portal-ui';
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -387,71 +389,76 @@ export default function ProposalEditorPage() {
 
   return (
     <div className="space-y-4">
-      {/* Top Action Bar */}
-      <div className="flex items-center justify-between gap-3 flex-wrap bg-card border border-border rounded-xl px-4 py-3">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => router.push('/portal/crm/proposals')}
-            className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
-            title="Back"
-          >
-            <span className="material-icons text-base">arrow_back</span>
-          </button>
-          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColor[proposal.status] ?? 'bg-gray-100 text-gray-600'}`}>
-            {proposal.status}
+      {/* Back + status row above the header */}
+      <div className="flex items-center gap-3 mb-1">
+        <button
+          onClick={() => router.push('/portal/crm/proposals')}
+          className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+          title="Back"
+        >
+          <span className="material-icons text-base">arrow_back</span>
+        </button>
+        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColor[proposal.status] ?? 'bg-gray-100 text-gray-600'}`}>
+          {proposal.status}
+        </span>
+        {success && (
+          <span className="text-xs text-green-600 flex items-center gap-1">
+            <span className="material-icons text-sm">check</span>
+            {success}
           </span>
-          {success && (
-            <span className="text-xs text-green-600 flex items-center gap-1">
-              <span className="material-icons text-sm">check</span>
-              {success}
-            </span>
-          )}
-          {error && (
-            <span className="text-xs text-destructive flex items-center gap-1">
-              <span className="material-icons text-sm">error</span>
-              {error}
-            </span>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setShowTemplateDialog(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border border-border hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <span className="material-icons text-sm">bookmark_add</span>
-            Save as Template
-          </button>
-          <button
-            onClick={() => setShowSendDialog(true)}
-            disabled={proposal.status === 'accepted' || proposal.status === 'declined' || proposal.status === 'expired'}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <span className="material-icons text-sm">send</span>
-            Send
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
-          >
-            <span className="material-icons text-sm">save</span>
-            {saving ? 'Saving...' : 'Save'}
-          </button>
-          <button
-            onClick={() => setShowDeleteDialog(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg text-destructive hover:bg-destructive/10 transition-colors"
-          >
-            <span className="material-icons text-sm">delete</span>
-          </button>
-        </div>
+        )}
+        {error && (
+          <span className="text-xs text-destructive flex items-center gap-1">
+            <span className="material-icons text-sm">error</span>
+            {error}
+          </span>
+        )}
       </div>
+      <PortalPageHeader
+        eyebrow="CRM"
+        title={title || 'Untitled Proposal'}
+        subtitle="Proposal editor"
+        actions={
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowTemplateDialog(true)}
+              className={pBtnGhost}
+            >
+              <span className="material-icons text-sm">bookmark_add</span>
+              Save as Template
+            </button>
+            <button
+              onClick={() => setShowSendDialog(true)}
+              disabled={proposal.status === 'accepted' || proposal.status === 'declined' || proposal.status === 'expired'}
+              className={pBtnSoft}
+            >
+              <span className="material-icons text-sm">send</span>
+              Send
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className={pBtnPrimary}
+            >
+              <span className="material-icons text-sm">save</span>
+              {saving ? 'Saving...' : 'Save'}
+            </button>
+            <button
+              onClick={() => setShowDeleteDialog(true)}
+              className="inline-flex items-center justify-center rounded-xl border border-destructive/30 bg-card px-3 py-2.5 text-sm text-destructive transition hover:bg-destructive/10"
+            >
+              <span className="material-icons text-sm">delete</span>
+            </button>
+          </div>
+        }
+      />
 
       {/* Two-column layout */}
       <div className="grid lg:grid-cols-5 gap-4">
         {/* Left Panel - Editor (60%) */}
         <div className="lg:col-span-3 space-y-4">
           {/* Title */}
-          <div className="bg-card border border-border rounded-xl p-4">
+          <div className="bg-card border border-border rounded-2xl p-5">
             <input
               value={title}
               onChange={e => setTitle(e.target.value)}
@@ -461,27 +468,27 @@ export default function ProposalEditorPage() {
           </div>
 
           {/* Summary */}
-          <div className="bg-card border border-border rounded-xl p-4">
+          <div className="bg-card border border-border rounded-2xl p-5">
             <label className="block text-xs font-medium text-muted-foreground mb-2">Summary</label>
             <textarea
               value={summary}
               onChange={e => setSummary(e.target.value)}
               rows={3}
               placeholder="Brief summary of this proposal..."
-              className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
+              className={`${pInput} resize-none`}
             />
           </div>
 
           {/* Recipient & Branding */}
-          <div className="bg-card border border-border rounded-xl p-4 space-y-4">
-            <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+          <div className="bg-card border border-border rounded-2xl p-5 space-y-4">
+            <h3 className={`${pSectionTitle} flex items-center gap-2`}>
               <span className="material-icons text-base text-muted-foreground">settings</span>
               Details &amp; Branding
             </h3>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
               <div>
                 <label className="block text-xs font-medium text-muted-foreground mb-1">Contact</label>
-                <select value={contactId} onChange={e => setContactId(e.target.value)} className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50">
+                <select value={contactId} onChange={e => setContactId(e.target.value)} className={pSelect}>
                   <option value="">None</option>
                   {contacts.map(c => <option key={c.id} value={c.id}>{c.firstName} {c.lastName}</option>)}
                 </select>
@@ -500,7 +507,7 @@ export default function ProposalEditorPage() {
               </div>
               <div>
                 <label className="block text-xs font-medium text-muted-foreground mb-1">Deal</label>
-                <select value={dealId} onChange={e => setDealId(e.target.value)} className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50">
+                <select value={dealId} onChange={e => setDealId(e.target.value)} className={pSelect}>
                   <option value="">None</option>
                   {deals.map(d => <option key={d.id} value={d.id}>{d.title}</option>)}
                 </select>
@@ -509,31 +516,31 @@ export default function ProposalEditorPage() {
                 <label className="block text-xs font-medium text-muted-foreground mb-1">Accent Color</label>
                 <div className="flex items-center gap-2">
                   <input type="color" value={accentColor} onChange={e => setAccentColor(e.target.value)} className="w-8 h-8 rounded border border-border cursor-pointer" />
-                  <input value={accentColor} onChange={e => setAccentColor(e.target.value)} className="flex-1 px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                  <input value={accentColor} onChange={e => setAccentColor(e.target.value)} className="flex-1 rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/15" />
                 </div>
               </div>
               <div>
                 <label className="block text-xs font-medium text-muted-foreground mb-1">Logo URL</label>
-                <input value={logoUrl} onChange={e => setLogoUrl(e.target.value)} placeholder="https://..." className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                <input value={logoUrl} onChange={e => setLogoUrl(e.target.value)} placeholder="https://..." className={pInput} />
               </div>
               <div>
                 <label className="block text-xs font-medium text-muted-foreground mb-1">Cover Image URL</label>
-                <input value={coverImageUrl} onChange={e => setCoverImageUrl(e.target.value)} placeholder="https://..." className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                <input value={coverImageUrl} onChange={e => setCoverImageUrl(e.target.value)} placeholder="https://..." className={pInput} />
               </div>
               <div>
                 <label className="block text-xs font-medium text-muted-foreground mb-1">Valid Until</label>
-                <input type="date" value={validUntil} onChange={e => setValidUntil(e.target.value)} className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                <input type="date" value={validUntil} onChange={e => setValidUntil(e.target.value)} className={pInput} />
               </div>
               <div className="sm:col-span-2">
                 <label className="block text-xs font-medium text-muted-foreground mb-1">Footer Text</label>
-                <input value={footerText} onChange={e => setFooterText(e.target.value)} placeholder="Thank you for your consideration." className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                <input value={footerText} onChange={e => setFooterText(e.target.value)} placeholder="Thank you for your consideration." className={pInput} />
               </div>
             </div>
           </div>
 
           {/* Content Sections */}
-          <div className="bg-card border border-border rounded-xl p-4 space-y-4">
-            <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+          <div className="bg-card border border-border rounded-2xl p-5 space-y-4">
+            <h3 className={`${pSectionTitle} flex items-center gap-2`}>
               <span className="material-icons text-base text-muted-foreground">view_list</span>
               Content Sections
             </h3>
@@ -567,7 +574,7 @@ export default function ProposalEditorPage() {
                     value={section.content}
                     onChange={e => updateSection(section.id, e.target.value)}
                     placeholder="Heading text..."
-                    className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    className={`${pInput} font-semibold`}
                   />
                 )}
                 {section.type === 'text' && (
@@ -576,7 +583,7 @@ export default function ProposalEditorPage() {
                     onChange={e => updateSection(section.id, e.target.value)}
                     rows={4}
                     placeholder="Enter text content (HTML supported)..."
-                    className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 resize-y"
+                    className={`${pInput} resize-y`}
                   />
                 )}
                 {section.type === 'image' && (
@@ -585,7 +592,7 @@ export default function ProposalEditorPage() {
                       value={section.content}
                       onChange={e => updateSection(section.id, e.target.value)}
                       placeholder="Image URL..."
-                      className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                      className={pInput}
                     />
                     {section.content && (
                       <img src={section.content} alt="Section image" className="max-h-40 rounded-lg border border-border object-contain" />
@@ -604,7 +611,7 @@ export default function ProposalEditorPage() {
                     onChange={e => updateSection(section.id, e.target.value)}
                     rows={4}
                     placeholder="Terms and conditions..."
-                    className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 resize-y"
+                    className={`${pInput} resize-y`}
                   />
                 )}
                 {section.type === 'signature' && (
@@ -619,7 +626,7 @@ export default function ProposalEditorPage() {
                 <button
                   key={type}
                   onClick={() => addSection(type)}
-                  className="flex items-center gap-1 px-3 py-1.5 text-xs rounded-lg border border-border hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-card px-3 py-1.5 text-xs font-semibold text-muted-foreground transition hover:border-foreground/25 hover:text-foreground hover:shadow-sm"
                 >
                   <span className="material-icons text-sm">{sectionTypeIcon[type]}</span>
                   {sectionTypeLabel[type]}
@@ -629,8 +636,8 @@ export default function ProposalEditorPage() {
           </div>
 
           {/* Line Items */}
-          <div className="bg-card border border-border rounded-xl p-4 space-y-4">
-            <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+          <div className="bg-card border border-border rounded-2xl p-5 space-y-4">
+            <h3 className={`${pSectionTitle} flex items-center gap-2`}>
               <span className="material-icons text-base text-muted-foreground">receipt_long</span>
               Line Items
             </h3>
@@ -657,7 +664,7 @@ export default function ProposalEditorPage() {
                             value={li.description}
                             onChange={e => updateLineItem(li.id, 'description', e.target.value)}
                             placeholder="Item description"
-                            className="w-full px-2 py-1 bg-background border border-border rounded text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
+                            className="w-full rounded-lg border border-border bg-card px-2.5 py-1.5 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
                           />
                         </td>
                         <td className="py-2 pr-2">
@@ -665,7 +672,7 @@ export default function ProposalEditorPage() {
                             value={li.details}
                             onChange={e => updateLineItem(li.id, 'details', e.target.value)}
                             placeholder="Details"
-                            className="w-full px-2 py-1 bg-background border border-border rounded text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
+                            className="w-full rounded-lg border border-border bg-card px-2.5 py-1.5 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
                           />
                         </td>
                         <td className="py-2 pr-2">
@@ -674,7 +681,7 @@ export default function ProposalEditorPage() {
                             min="0"
                             value={li.qty}
                             onChange={e => updateLineItem(li.id, 'qty', Number(e.target.value))}
-                            className="w-full px-2 py-1 bg-background border border-border rounded text-sm text-foreground text-right focus:outline-none focus:ring-1 focus:ring-primary/50"
+                            className="w-full rounded-lg border border-border bg-card px-2.5 py-1.5 text-sm text-foreground text-right outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
                           />
                         </td>
                         <td className="py-2 pr-2">
@@ -684,7 +691,7 @@ export default function ProposalEditorPage() {
                             step="1"
                             value={li.unitPrice}
                             onChange={e => updateLineItem(li.id, 'unitPrice', Number(e.target.value))}
-                            className="w-full px-2 py-1 bg-background border border-border rounded text-sm text-foreground text-right focus:outline-none focus:ring-1 focus:ring-primary/50"
+                            className="w-full rounded-lg border border-border bg-card px-2.5 py-1.5 text-sm text-foreground text-right outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
                           />
                         </td>
                         <td className="py-2 pr-2 text-right font-medium text-foreground">
@@ -737,8 +744,8 @@ export default function ProposalEditorPage() {
           </div>
 
           {/* Fees Editor */}
-          <div className="bg-card border border-border rounded-xl p-4 space-y-4">
-            <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+          <div className="bg-card border border-border rounded-2xl p-5 space-y-4">
+            <h3 className={`${pSectionTitle} flex items-center gap-2`}>
               <span className="material-icons text-base text-muted-foreground">percent</span>
               Fees
             </h3>
@@ -749,12 +756,12 @@ export default function ProposalEditorPage() {
                   value={f.label}
                   onChange={e => updateFee(f.id, 'label', e.target.value)}
                   placeholder="Fee label"
-                  className="flex-1 px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  className="flex-1 rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary focus:ring-4 focus:ring-primary/15"
                 />
                 <select
                   value={f.type}
                   onChange={e => updateFee(f.id, 'type', e.target.value)}
-                  className="px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  className="appearance-none rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/15"
                 >
                   <option value="flat">Flat ($)</option>
                   <option value="percent">Percent (%)</option>
@@ -765,7 +772,7 @@ export default function ProposalEditorPage() {
                   step={f.type === 'percent' ? '0.01' : '1'}
                   value={f.amount}
                   onChange={e => updateFee(f.id, 'amount', Number(e.target.value))}
-                  className="w-24 px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground text-right focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  className="w-24 rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground text-right outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/15"
                 />
                 <button onClick={() => removeFee(f.id)} className="p-1.5 rounded hover:bg-destructive/10 text-destructive transition-colors">
                   <span className="material-icons text-sm">close</span>
@@ -783,7 +790,7 @@ export default function ProposalEditorPage() {
         {/* Right Panel - Live Preview (40%) */}
         <div className="lg:col-span-2">
           <div className="sticky top-4">
-            <div className="bg-card border border-border rounded-xl overflow-hidden">
+            <div className="bg-card border border-border rounded-2xl overflow-hidden">
               <div className="px-4 py-2 border-b border-border bg-accent/30 flex items-center gap-2">
                 <span className="material-icons text-sm text-muted-foreground">visibility</span>
                 <span className="text-xs font-medium text-muted-foreground">Live Preview</span>
@@ -916,7 +923,7 @@ export default function ProposalEditorPage() {
       {/* Send Dialog */}
       {showSendDialog && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-card border border-border rounded-xl p-6 max-w-md w-full space-y-4">
+          <div className="bg-card border border-border rounded-2xl p-6 max-w-md w-full space-y-4">
             {sendingUrl ? (
               <>
                 <div className="flex items-center gap-2 text-green-600">
@@ -925,7 +932,7 @@ export default function ProposalEditorPage() {
                 </div>
                 <p className="text-sm text-muted-foreground">Share this link with your client:</p>
                 <div className="flex items-center gap-2">
-                  <input readOnly value={sendingUrl} className="flex-1 px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground" />
+                  <input readOnly value={sendingUrl} className="flex-1 rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground outline-none" />
                   <button
                     onClick={() => { navigator.clipboard.writeText(sendingUrl); }}
                     className="p-2 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
@@ -935,7 +942,7 @@ export default function ProposalEditorPage() {
                   </button>
                 </div>
                 <div className="flex justify-end">
-                  <button onClick={() => { setShowSendDialog(false); setSendingUrl(''); }} className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors">
+                  <button onClick={() => { setShowSendDialog(false); setSendingUrl(''); }} className={pBtnPrimary}>
                     Done
                   </button>
                 </div>
@@ -955,7 +962,7 @@ export default function ProposalEditorPage() {
                   <button onClick={() => setShowSendDialog(false)} className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
                     Cancel
                   </button>
-                  <button onClick={handleSend} disabled={sending} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-50">
+                  <button onClick={handleSend} disabled={sending} className={`${pBtnPrimary} disabled:opacity-50`}>
                     {sending ? 'Sending...' : 'Send Now'}
                   </button>
                 </div>
@@ -968,7 +975,7 @@ export default function ProposalEditorPage() {
       {/* Delete Dialog */}
       {showDeleteDialog && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-card border border-border rounded-xl p-6 max-w-md w-full space-y-4">
+          <div className="bg-card border border-border rounded-2xl p-6 max-w-md w-full space-y-4">
             <h3 className="font-semibold text-foreground">Delete Proposal</h3>
             <p className="text-sm text-muted-foreground">
               Are you sure you want to delete &quot;{title}&quot;? This action cannot be undone.
@@ -977,7 +984,7 @@ export default function ProposalEditorPage() {
               <button onClick={() => setShowDeleteDialog(false)} className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
                 Cancel
               </button>
-              <button onClick={handleDelete} disabled={deleting} className="px-4 py-2 bg-destructive text-white rounded-lg text-sm font-medium hover:bg-destructive/90 transition-colors disabled:opacity-50">
+              <button onClick={handleDelete} disabled={deleting} className="inline-flex items-center justify-center gap-2 rounded-xl bg-destructive px-4 py-2.5 text-sm font-bold text-white transition hover:-translate-y-px hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed">
                 {deleting ? 'Deleting...' : 'Delete'}
               </button>
             </div>
@@ -988,7 +995,7 @@ export default function ProposalEditorPage() {
       {/* Save as Template Dialog */}
       {showTemplateDialog && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-card border border-border rounded-xl p-6 max-w-md w-full space-y-4">
+          <div className="bg-card border border-border rounded-2xl p-6 max-w-md w-full space-y-4">
             <h3 className="font-semibold text-foreground">Save as Template</h3>
             <p className="text-sm text-muted-foreground">
               Save the current sections, line items, and fees as a reusable template.
@@ -1001,14 +1008,14 @@ export default function ProposalEditorPage() {
                   value={templateName}
                   onChange={e => setTemplateName(e.target.value)}
                   placeholder="e.g. Standard Web Design Proposal"
-                  className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  className={pInput}
                 />
               </div>
               <div className="flex justify-end gap-2">
                 <button type="button" onClick={() => setShowTemplateDialog(false)} className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
                   Cancel
                 </button>
-                <button type="submit" disabled={savingTemplate} className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50">
+                <button type="submit" disabled={savingTemplate} className={pBtnPrimary}>
                   {savingTemplate ? 'Saving...' : 'Save Template'}
                 </button>
               </div>

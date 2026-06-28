@@ -81,8 +81,6 @@ vi.mock('@/components/sections/Hero', () => ({
 // ---------------------------------------------------------------------------
 
 import { ParallaxSection } from '@/components/animations/ParallaxSection';
-import { PetersFooter } from '@/components/peters-outdoor/PetersFooter';
-import { PetersNavigation } from '@/components/peters-outdoor/PetersNavigation';
 import { AppsHeroWith3D } from '@/components/sections/AppsHeroWith3D';
 
 // ---------------------------------------------------------------------------
@@ -139,119 +137,6 @@ describe('ParallaxSection', () => {
         </ParallaxSection>,
       ),
     ).not.toThrow();
-  });
-});
-
-// ---------------------------------------------------------------------------
-// PetersFooter
-// ---------------------------------------------------------------------------
-
-describe('PetersFooter', () => {
-  it('renders the brand name and tagline', () => {
-    render(<PetersFooter />);
-    expect(screen.getAllByText('W.H. Peters').length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/Outdoor Adventures/i).length).toBeGreaterThan(0);
-  });
-
-  it('renders the Explore section heading', () => {
-    render(<PetersFooter />);
-    expect(screen.getByText('Explore')).toBeTruthy();
-  });
-
-  it('renders all five Explore links pointing to /p/* routes', () => {
-    render(<PetersFooter />);
-    const labels = ['About', 'Tours', 'Reviews', 'Gallery', 'Book a Tour'];
-    for (const label of labels) {
-      const link = screen.getByRole('link', { name: label }) as HTMLAnchorElement;
-      expect(link.getAttribute('href')).toMatch(/^\/p\//);
-    }
-  }, 15_000);
-
-  it('renders contact items (phone, email, location)', () => {
-    render(<PetersFooter />);
-    expect(screen.getByText('410-507-1025')).toBeTruthy();
-    expect(screen.getByText('info@petersoutdoor.com')).toBeTruthy();
-    expect(screen.getByText('Ocean Pines, MD')).toBeTruthy();
-  });
-
-  it('renders the copyright with the current year', () => {
-    render(<PetersFooter />);
-    const year = new Date().getFullYear();
-    expect(screen.getByText(new RegExp(`© ${year} W\\.H\\. Peters`))).toBeTruthy();
-  });
-
-  it('renders Privacy Policy and Terms links in the bottom bar', () => {
-    render(<PetersFooter />);
-    expect(screen.getByText('Privacy Policy')).toBeTruthy();
-    expect(screen.getByText(/Terms.*Conditions/)).toBeTruthy();
-  });
-});
-
-// ---------------------------------------------------------------------------
-// PetersNavigation
-// ---------------------------------------------------------------------------
-
-describe('PetersNavigation', () => {
-  beforeEach(() => {
-    mockPathname = '/p/home';
-  });
-
-  afterEach(() => {
-    mockPathname = '/';
-  });
-
-  it('renders the brand mark linking to /p/home', () => {
-    render(<PetersNavigation />);
-    const links = screen.getAllByRole('link', { name: /W\.H\. Peters/ });
-    // Logo link should point to /p/home
-    const logoLink = links.find((l) => (l as HTMLAnchorElement).getAttribute('href') === '/p/home');
-    expect(logoLink).toBeTruthy();
-  });
-
-  it('renders the desktop nav links and the Book a Tour CTA', () => {
-    render(<PetersNavigation />);
-    const labels = ['Home', 'About', 'Tours', 'Reviews', 'Gallery'];
-    for (const label of labels) {
-      // Each appears once in desktop set (mobile menu closed by default)
-      expect(screen.getAllByRole('link', { name: label }).length).toBeGreaterThan(0);
-    }
-    const cta = screen.getAllByRole('link', { name: /Book a Tour/i });
-    expect(cta.length).toBeGreaterThan(0);
-    expect((cta[0] as HTMLAnchorElement).getAttribute('href')).toBe('/p/booking');
-  });
-
-  it('marks the active link based on pathname', () => {
-    mockPathname = '/p/tours';
-    render(<PetersNavigation />);
-    const toursLinks = screen.getAllByRole('link', { name: 'Tours' });
-    // The active desktop link gets the bg-[var(--po-forest)] class
-    const active = toursLinks.find((l) => l.className.includes('bg-[var(--po-forest)]'));
-    expect(active).toBeTruthy();
-  });
-
-  it('toggles the mobile menu when the menu button is clicked', () => {
-    render(<PetersNavigation />);
-    // Mobile menu starts closed — extra mobile links not yet rendered.
-    // After clicking the toggle button, mobile menu opens (links duplicated).
-    const homeBefore = screen.getAllByRole('link', { name: 'Home' }).length;
-    const buttons = screen.getAllByRole('button');
-    fireEvent.click(buttons[0]);
-    const homeAfter = screen.getAllByRole('link', { name: 'Home' }).length;
-    expect(homeAfter).toBeGreaterThan(homeBefore);
-  });
-
-  it('closes the mobile menu when a mobile link is clicked', () => {
-    render(<PetersNavigation />);
-    const buttons = screen.getAllByRole('button');
-    // Open the mobile menu
-    fireEvent.click(buttons[0]);
-    const aboutLinks = screen.getAllByRole('link', { name: 'About' });
-    // The duplicate from the mobile menu is the last one
-    const mobileAbout = aboutLinks[aboutLinks.length - 1];
-    fireEvent.click(mobileAbout);
-    // After clicking, mobile menu should collapse back
-    const aboutAfter = screen.getAllByRole('link', { name: 'About' });
-    expect(aboutAfter.length).toBeLessThan(aboutLinks.length);
   });
 });
 

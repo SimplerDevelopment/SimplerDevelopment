@@ -2,6 +2,9 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
+import { RelatedModulesStrip } from '@/components/portal/billing/RelatedModulesStrip';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnPrimary, pBtnGhost, pInput, pSelect } from '@/components/portal/portal-ui';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -77,6 +80,7 @@ export default function PortalProjectsPage() {
       .finally(() => setLoading(false));
   };
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- pre-existing pattern, predates this change
   useEffect(() => { load(); }, []);
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -132,74 +136,75 @@ export default function PortalProjectsPage() {
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Projects</h1>
-          <p className="text-muted-foreground mt-1">All projects you have access to — agency-managed and your own.</p>
-        </div>
-        <div className="flex gap-2 flex-wrap">
-          <Link
-            href="/portal/projects/automations"
-            className="flex items-center gap-2 px-4 py-2 rounded-lg border border-border text-muted-foreground text-sm font-medium hover:bg-accent hover:text-foreground transition-colors"
-          >
-            <span className="material-icons text-base">bolt</span>
-            Automations
-          </Link>
-          <Link
-            href="/portal/suggested-projects"
-            className="flex items-center gap-2 px-4 py-2 rounded-lg border border-border text-muted-foreground text-sm font-medium hover:bg-accent hover:text-foreground transition-colors"
-          >
-            <span className="material-icons text-base">rocket_launch</span>
-            Suggested Projects
-          </Link>
-          <button
-            onClick={() => setShowCreateForm(!showCreateForm)}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
-          >
-            <span className="material-icons text-base">{showCreateForm ? 'close' : 'add'}</span>
-            {showCreateForm ? 'Cancel' : 'New Project'}
-          </button>
-        </div>
-      </div>
+      <PortalPageHeader
+        eyebrow="Delivery"
+        title="Projects"
+        subtitle="All projects you have access to — agency-managed and your own."
+        actions={
+          <div className="flex gap-2 flex-wrap">
+            <Link
+              href="/portal/projects/automations"
+              className={pBtnGhost}
+            >
+              <span className="material-icons text-base">bolt</span>
+              Automations
+            </Link>
+            <Link
+              href="/portal/suggested-projects"
+              className={pBtnGhost}
+            >
+              <span className="material-icons text-base">rocket_launch</span>
+              Suggested Projects
+            </Link>
+            <button
+              onClick={() => setShowCreateForm(!showCreateForm)}
+              className={pBtnPrimary}
+            >
+              <span className="material-icons text-base">{showCreateForm ? 'close' : 'add'}</span>
+              {showCreateForm ? 'Cancel' : 'New Project'}
+            </button>
+          </div>
+        }
+      />
 
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <div className="bg-card border border-border rounded-xl p-4">
+        <div className="bg-card border border-border rounded-2xl p-4">
           <div className="flex items-center gap-2 mb-1">
             <span className="material-icons text-base text-green-600">play_circle</span>
             <span className="text-xs text-muted-foreground font-medium">Active</span>
           </div>
-          <p className="text-2xl font-bold text-foreground">{counts.active}</p>
+          <p className="text-2xl font-display font-extrabold tracking-[-0.02em] text-foreground">{counts.active}</p>
         </div>
-        <div className="bg-card border border-border rounded-xl p-4">
+        <div className="bg-card border border-border rounded-2xl p-4">
           <div className="flex items-center gap-2 mb-1">
             <span className="material-icons text-base text-yellow-600">pause_circle</span>
             <span className="text-xs text-muted-foreground font-medium">Paused</span>
           </div>
-          <p className="text-2xl font-bold text-foreground">{counts.paused}</p>
+          <p className="text-2xl font-display font-extrabold tracking-[-0.02em] text-foreground">{counts.paused}</p>
         </div>
-        <div className="bg-card border border-border rounded-xl p-4">
+        <div className="bg-card border border-border rounded-2xl p-4">
           <div className="flex items-center gap-2 mb-1">
             <span className="material-icons text-base text-blue-600">check_circle</span>
             <span className="text-xs text-muted-foreground font-medium">Completed</span>
           </div>
-          <p className="text-2xl font-bold text-foreground">{counts.completed}</p>
+          <p className="text-2xl font-display font-extrabold tracking-[-0.02em] text-foreground">{counts.completed}</p>
         </div>
-        <div className="bg-card border border-border rounded-xl p-4">
+        <div className="bg-card border border-border rounded-2xl p-4">
           <div className="flex items-center gap-2 mb-1">
             <span className="material-icons text-base text-muted-foreground">folder</span>
             <span className="text-xs text-muted-foreground font-medium">Total</span>
           </div>
-          <p className="text-2xl font-bold text-foreground">{counts.total}</p>
+          <p className="text-2xl font-display font-extrabold tracking-[-0.02em] text-foreground">{counts.total}</p>
         </div>
       </div>
 
       {/* Filters */}
       <div className="flex items-center gap-4 flex-wrap">
-        <div className="flex items-center gap-2 px-3 py-2 bg-card border border-border rounded-lg flex-1 max-w-sm">
+        <div className="flex items-center gap-2 px-3 py-2 bg-card border border-border rounded-xl flex-1 max-w-sm">
           <span className="material-icons text-muted-foreground text-base">search</span>
           <input
-            className="bg-transparent text-sm outline-none flex-1 text-foreground placeholder:text-muted-foreground"
+            className="bg-transparent text-sm outline-none flex-1 text-foreground placeholder:text-muted-foreground/50"
             placeholder="Search projects..."
             value={search}
             onChange={e => setSearch(e.target.value)}
@@ -210,7 +215,7 @@ export default function PortalProjectsPage() {
             <button
               key={s}
               onClick={() => setStatusFilter(s)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors capitalize ${
+              className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-colors capitalize ${
                 statusFilter === s
                   ? 'bg-primary text-primary-foreground'
                   : 'border border-border text-muted-foreground hover:bg-accent'
@@ -224,8 +229,8 @@ export default function PortalProjectsPage() {
 
       {/* Create form */}
       {showCreateForm && (
-        <form onSubmit={handleCreate} className="bg-card border border-border rounded-xl p-5 space-y-4">
-          <h3 className="text-sm font-semibold text-foreground">Create Project</h3>
+        <form onSubmit={handleCreate} className="bg-card border border-border rounded-2xl p-5 space-y-4">
+          <h3 className="text-sm font-display font-extrabold tracking-[-0.01em] text-foreground">Create Project</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-foreground">Project Name <span className="text-destructive">*</span></label>
@@ -234,7 +239,7 @@ export default function PortalProjectsPage() {
                 onChange={e => setCreateForm(p => ({ ...p, name: e.target.value }))}
                 required
                 placeholder="e.g. Q2 Marketing Campaign"
-                className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                className={pInput}
               />
             </div>
             <div className="space-y-1.5">
@@ -242,7 +247,7 @@ export default function PortalProjectsPage() {
               <select
                 value={createForm.status}
                 onChange={e => setCreateForm(p => ({ ...p, status: e.target.value }))}
-                className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                className={pSelect}
               >
                 <option value="active">Active</option>
                 <option value="paused">Paused</option>
@@ -257,7 +262,7 @@ export default function PortalProjectsPage() {
                 value={createForm.description}
                 onChange={e => setCreateForm(p => ({ ...p, description: e.target.value }))}
                 placeholder="Optional"
-                className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 resize-none"
+                className="w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary focus:ring-4 focus:ring-primary/15 resize-none"
               />
             </div>
             <div className="space-y-1.5">
@@ -266,7 +271,7 @@ export default function PortalProjectsPage() {
                 type="date"
                 value={createForm.startDate}
                 onChange={e => setCreateForm(p => ({ ...p, startDate: e.target.value }))}
-                className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                className={pInput}
               />
             </div>
             <div className="space-y-1.5">
@@ -275,7 +280,7 @@ export default function PortalProjectsPage() {
                 type="date"
                 value={createForm.dueDate}
                 onChange={e => setCreateForm(p => ({ ...p, dueDate: e.target.value }))}
-                className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                className={pInput}
               />
             </div>
             {projects.length > 0 && (
@@ -284,7 +289,7 @@ export default function PortalProjectsPage() {
                 <select
                   value={createForm.cloneFromProjectId}
                   onChange={e => setCreateForm(p => ({ ...p, cloneFromProjectId: e.target.value }))}
-                  className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  className={pSelect}
                 >
                   <option value="">— Start from scratch —</option>
                   {projects.map(p => (
@@ -299,7 +304,7 @@ export default function PortalProjectsPage() {
             <button
               type="submit"
               disabled={creating}
-              className="flex items-center gap-2 px-5 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors"
+              className={pBtnPrimary}
             >
               {creating && <span className="material-icons text-base animate-spin">refresh</span>}
               Create Project
@@ -338,9 +343,9 @@ function ProjectGrid({
 }) {
   if (projects.length === 0) {
     return (
-      <div className="bg-card border border-border rounded-xl p-12 text-center">
+      <div className="bg-card border border-border rounded-2xl p-12 text-center">
         <span className="material-icons text-5xl text-muted-foreground">view_kanban</span>
-        <h3 className="mt-4 font-semibold text-foreground">No projects yet</h3>
+        <h3 className="mt-4 font-display font-extrabold tracking-[-0.01em] text-foreground">No projects yet</h3>
         <p className="mt-2 text-sm text-muted-foreground max-w-md mx-auto">{emptyMessage}</p>
       </div>
     );
@@ -356,7 +361,7 @@ function ProjectGrid({
           // prefetch on render storms the server with concurrent RSC payload
           // requests. Hover still triggers prefetch in Next/Link by default.
           prefetch={false}
-          className="bg-card border border-border rounded-xl p-5 hover:border-primary/50 hover:shadow-sm transition-all group min-w-0"
+          className="bg-card border border-border rounded-2xl p-5 hover:border-primary/50 hover:shadow-sm transition-all group min-w-0"
         >
           <div className="flex items-start justify-between gap-2 mb-3">
             <span className="material-icons text-2xl text-primary group-hover:scale-110 transition-transform">view_kanban</span>
@@ -365,7 +370,7 @@ function ProjectGrid({
               {project.status}
             </span>
           </div>
-          <h3 className="font-semibold text-foreground truncate">{project.name}</h3>
+          <h3 className="font-display font-extrabold tracking-[-0.01em] text-foreground truncate">{project.name}</h3>
           {project.description && (
             <p className="mt-1 text-sm text-muted-foreground line-clamp-2">{project.description}</p>
           )}
@@ -379,18 +384,19 @@ function ProjectGrid({
             {project.startDate && (
               <span className="flex items-center gap-1">
                 <span className="material-icons text-xs">calendar_today</span>
-                {new Date(project.startDate).toLocaleDateString()}
+                {new Date(project.startDate).toLocaleDateString('en-US')}
               </span>
             )}
             {project.dueDate && (
               <span className="flex items-center gap-1">
                 <span className="material-icons text-xs">event</span>
-                Due {new Date(project.dueDate).toLocaleDateString()}
+                Due {new Date(project.dueDate).toLocaleDateString('en-US')}
               </span>
             )}
           </div>
         </Link>
       ))}
+      <RelatedModulesStrip currentDomain="projects" />
     </div>
   );
 }

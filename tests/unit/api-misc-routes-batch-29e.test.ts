@@ -44,19 +44,13 @@ vi.mock('@/lib/ai/audit', () => ({
   recordAiUsage: (...args: unknown[]) => recordAiUsageMock(...args),
 }));
 
-// Anthropic SDK — never let it touch the network
-const messagesCreateMock = vi.fn();
-const anthropicCtorSpy = vi.fn();
-vi.mock('@anthropic-ai/sdk', () => {
-  class Anthropic {
-    public messages: { create: typeof messagesCreateMock };
-    constructor(opts: { apiKey: string }) {
-      anthropicCtorSpy(opts);
-      this.messages = { create: messagesCreateMock };
-    }
-  }
-  return { default: Anthropic };
-});
+// LLM seam — never let it touch the network
+const completeMock = vi.fn();
+vi.mock('@/lib/ai/llm', () => ({
+  complete: (...args: unknown[]) => completeMock(...args),
+  completeObject: vi.fn(),
+  streamComplete: vi.fn(),
+}));
 
 // drizzle-orm — operators reduce to plain object descriptors.
 vi.mock('drizzle-orm', () => ({
@@ -260,8 +254,7 @@ beforeEach(() => {
   resolveClientApiKeyMock.mockReset();
   checkAiPlanGateMock.mockReset();
   recordAiUsageMock.mockReset();
-  messagesCreateMock.mockReset();
-  anthropicCtorSpy.mockReset();
+  completeMock.mockReset();
 });
 
 // ===========================================================================
@@ -675,14 +668,14 @@ describe('POST /api/portal/cms/websites/[siteId]/branding/generate', () => {
     expect(body.reason).toBe('no_plan');
   });
 
-  it('returns 500 when Anthropic response contains no JSON', async () => {
+  it('returns 500 when complete() response contains no JSON', async () => {
     authMock.mockResolvedValue(SESSION);
     resolveClientSiteMock.mockResolvedValue({ id: 5, clientId: 33 });
     checkAiPlanGateMock.mockResolvedValue({ allowed: true });
     resolveClientApiKeyMock.mockResolvedValue({ key: 'sk-test', source: 'client' });
-    messagesCreateMock.mockResolvedValue({
-      content: [{ type: 'text', text: 'no json here at all' }],
-      usage: { input_tokens: 10, output_tokens: 5 },
+    completeMock.mockResolvedValue({
+      text: 'no json here at all',
+      usage: { inputTokens: 10, outputTokens: 5, totalTokens: 15 },
     });
     const res = await brandingGenerateRoute.POST(
       makeJsonRequest('http://x/api/portal/cms/websites/5/branding/generate', 'POST', {
@@ -694,12 +687,12 @@ describe('POST /api/portal/cms/websites/[siteId]/branding/generate', () => {
     expect((await res.json()).message).toMatch(/failed to generate valid branding/i);
   });
 
-  it('returns 500 with generic message when Anthropic call throws', async () => {
+  it('returns 500 with generic message when complete() throws', async () => {
     authMock.mockResolvedValue(SESSION);
     resolveClientSiteMock.mockResolvedValue({ id: 5, clientId: 33 });
     checkAiPlanGateMock.mockResolvedValue({ allowed: true });
     resolveClientApiKeyMock.mockResolvedValue({ key: 'sk-test', source: 'client' });
-    messagesCreateMock.mockRejectedValue(new Error('boom'));
+    completeMock.mockRejectedValue(new Error('boom'));
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const res = await brandingGenerateRoute.POST(
       makeJsonRequest('http://x/api/portal/cms/websites/5/branding/generate', 'POST', {
@@ -726,14 +719,9 @@ describe('POST /api/portal/cms/websites/[siteId]/branding/generate', () => {
       bodyFont: 'Inter',
       tone: 'modern & energetic',
     };
-    messagesCreateMock.mockResolvedValue({
-      content: [
-        {
-          type: 'text',
-          text: `Here is the brand:\n\`\`\`json\n${JSON.stringify(generated)}\n\`\`\``,
-        },
-      ],
-      usage: { input_tokens: 100, output_tokens: 200 },
+    completeMock.mockResolvedValue({
+      text: `Here is the brand:\n\`\`\`json\n${JSON.stringify(generated)}\n\`\`\``,
+      usage: { inputTokens: 100, outputTokens: 200, totalTokens: 300 },
     });
     const res = await brandingGenerateRoute.POST(
       makeJsonRequest('http://x/api/portal/cms/websites/5/branding/generate', 'POST', {
@@ -746,7 +734,6 @@ describe('POST /api/portal/cms/websites/[siteId]/branding/generate', () => {
     expect(body.success).toBe(true);
     expect(body.data.primaryColor).toBe('#112233');
     expect(body.data.tone).toBe('modern & energetic');
-    expect(anthropicCtorSpy).toHaveBeenCalledWith({ apiKey: 'sk-test' });
     expect(recordAiUsageMock).toHaveBeenCalledWith({
       clientId: 33,
       source: 'client',
@@ -759,9 +746,9 @@ describe('POST /api/portal/cms/websites/[siteId]/branding/generate', () => {
     resolveClientSiteMock.mockResolvedValue({ id: 5, clientId: 33 });
     checkAiPlanGateMock.mockResolvedValue({ allowed: true });
     resolveClientApiKeyMock.mockResolvedValue({ key: 'sk-test', source: 'client' });
-    messagesCreateMock.mockResolvedValue({
-      content: [{ type: 'tool_use', text: 'never read' }],
-      usage: { input_tokens: 1, output_tokens: 1 },
+    completeMock.mockResolvedValue({
+      text: '',
+      usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
     });
     const res = await brandingGenerateRoute.POST(
       makeJsonRequest('http://x/api/portal/cms/websites/5/branding/generate', 'POST', {

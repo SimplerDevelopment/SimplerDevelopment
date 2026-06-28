@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import { shippingZones, shippingRates } from '@/lib/db/schema';
 import { eq, sql, asc } from 'drizzle-orm';
 import { resolveClientSite } from '@/lib/portal-client';
+import { authorizePortal, isAuthError } from '@/lib/portal-auth';
 
 export async function GET(
   _req: Request,
@@ -11,6 +12,9 @@ export async function GET(
 ) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
+
+  const authResult = await authorizePortal({ action: 'read', requireService: 'store' });
+  if (isAuthError(authResult)) return authResult.response;
 
   const { siteId } = await params;
   const site = await resolveClientSite(parseInt(session.user.id, 10), parseInt(siteId));
@@ -24,7 +28,7 @@ export async function GET(
 
   // Fetch rates for all zones
   const zoneIds = zones.map((z) => z.id);
-  let ratesMap: Record<number, typeof shippingRates.$inferSelect[]> = {};
+  const ratesMap: Record<number, typeof shippingRates.$inferSelect[]> = {};
 
   if (zoneIds.length > 0) {
     const allRates = await db
@@ -53,6 +57,9 @@ export async function POST(
 ) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
+
+  const authResult = await authorizePortal({ action: 'write', requireService: 'store' });
+  if (isAuthError(authResult)) return authResult.response;
 
   const { siteId } = await params;
   const site = await resolveClientSite(parseInt(session.user.id, 10), parseInt(siteId));

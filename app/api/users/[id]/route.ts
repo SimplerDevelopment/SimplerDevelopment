@@ -22,6 +22,18 @@ async function requireAdminOrEditor() {
   return { session };
 }
 
+/**
+ * Auth gate for MUTATING a user (update/delete + role assignment): admin only.
+ * Prevents an editor from promoting any account (incl. itself) to admin.
+ */
+async function requireAdmin() {
+  const session = await auth();
+  if (!session?.user?.id) return { error: 'unauth' as const };
+  const role = (session.user as { role?: string })?.role;
+  if (role !== 'admin') return { error: 'forbidden' as const };
+  return { session };
+}
+
 function gateResponse(result: Awaited<ReturnType<typeof requireAdminOrEditor>>) {
   if ('error' in result) {
     if (result.error === 'unauth') {
@@ -86,7 +98,7 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const gate = await requireAdminOrEditor();
+  const gate = await requireAdmin();
   const denied = gateResponse(gate);
   if (denied) return denied;
 
@@ -153,7 +165,7 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const gate = await requireAdminOrEditor();
+  const gate = await requireAdmin();
   const denied = gateResponse(gate);
   if (denied) return denied;
 

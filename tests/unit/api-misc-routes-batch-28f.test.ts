@@ -69,6 +69,13 @@ vi.mock('@anthropic-ai/sdk', () => {
   return { default: Anthropic };
 });
 
+// ---- LLM provider seam — for routes that use complete() instead of the SDK directly ----
+vi.mock('@/lib/ai/llm', () => ({
+  complete: vi.fn(),
+  completeObject: vi.fn(),
+  streamComplete: vi.fn(),
+}));
+
 // ---- schema mock ----
 vi.mock('@/lib/db/schema', () => {
   const wrap = (tableName: string) =>
@@ -247,6 +254,13 @@ vi.mock('@/lib/db', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Seam mock handle — import after vi.mock hoisting
+// ---------------------------------------------------------------------------
+
+import { complete as _complete } from '@/lib/ai/llm';
+const completeMock = vi.mocked(_complete);
+
+// ---------------------------------------------------------------------------
 // Modules under test
 // ---------------------------------------------------------------------------
 
@@ -304,6 +318,7 @@ beforeEach(() => {
   checkAiPlanGateMock.mockReset().mockResolvedValue({ allowed: true });
   messagesCreateMock.mockReset();
   anthropicCtorSpy.mockReset();
+  completeMock.mockReset();
 
   // sane defaults
   authMock.mockResolvedValue({ user: { id: '7' } });
@@ -317,6 +332,14 @@ beforeEach(() => {
 
 describe('POST /api/portal/branding/generate-block-copy', () => {
   const url = 'http://x/api/portal/branding/generate-block-copy';
+
+  // Helper: seam-shaped response from complete()
+  function seamResp(text: string, inputTokens = 50, outputTokens = 100) {
+    return {
+      text,
+      usage: { inputTokens, outputTokens, totalTokens: inputTokens + outputTokens },
+    };
+  }
 
   it('returns 401 when there is no session', async () => {
     authMock.mockResolvedValueOnce(null);
@@ -376,12 +399,12 @@ describe('POST /api/portal/branding/generate-block-copy', () => {
       message: 'Upgrade plan',
       reason: 'limit',
     });
-    expect(messagesCreateMock).not.toHaveBeenCalled();
+    expect(completeMock).not.toHaveBeenCalled();
   });
 
   it('returns 200 with parsed JSON on the happy path', async () => {
-    messagesCreateMock.mockResolvedValueOnce(
-      aiResp('{"headline":"Hello","sub":"World"}'),
+    completeMock.mockResolvedValueOnce(
+      seamResp('{"headline":"Hello","sub":"World"}'),
     );
     const res = await generateBlockCopyMod.POST(
       makeJsonReq(url, { blockType: 'hero', context: 'home' }),
@@ -394,20 +417,25 @@ describe('POST /api/portal/branding/generate-block-copy', () => {
     });
   });
 
-  it('passes the resolved Anthropic key into the SDK ctor', async () => {
+  it('resolves the client API key and passes task + clientId to complete()', async () => {
     resolveClientApiKeyMock.mockResolvedValueOnce({
       source: 'byok',
       key: 'sk-byok-abc',
     });
-    messagesCreateMock.mockResolvedValueOnce(aiResp('{"headline":"hi"}'));
+    completeMock.mockResolvedValueOnce(seamResp('{"headline":"hi"}'));
     await generateBlockCopyMod.POST(
       makeJsonReq(url, { blockType: 'hero' }),
     );
-    expect(anthropicCtorSpy).toHaveBeenCalledWith({ apiKey: 'sk-byok-abc' });
+    // resolveClientApiKey is still called (its source drives recordAiUsage)
+    expect(resolveClientApiKeyMock).toHaveBeenCalled();
+    // complete() is invoked with the expected task and clientId
+    expect(completeMock).toHaveBeenCalledWith(
+      expect.objectContaining({ task: 'brandingBlockCopy', clientId: 10 }),
+    );
   });
 
   it('forwards profileId and variants into getBrandMessaging + user prompt', async () => {
-    messagesCreateMock.mockResolvedValueOnce(aiResp('{"variants":[]}'));
+    completeMock.mockResolvedValueOnce(seamResp('{"variants":[]}'));
     await generateBlockCopyMod.POST(
       makeJsonReq(url, {
         blockType: 'hero',
@@ -428,7 +456,7 @@ describe('POST /api/portal/branding/generate-block-copy', () => {
   });
 
   it('defaults variants to 1 when not a number and profileId to null', async () => {
-    messagesCreateMock.mockResolvedValueOnce(aiResp('{"x":1}'));
+    completeMock.mockResolvedValueOnce(seamResp('{"x":1}'));
     await generateBlockCopyMod.POST(
       makeJsonReq(url, { blockType: 'hero', profileId: 'nope', variants: 'x' }),
     );
@@ -440,10 +468,7 @@ describe('POST /api/portal/branding/generate-block-copy', () => {
   });
 
   it('records AI usage with combined input+output tokens', async () => {
-    messagesCreateMock.mockResolvedValueOnce({
-      content: [{ type: 'text', text: '{"a":1}' }],
-      usage: { input_tokens: 7, output_tokens: 13 },
-    });
+    completeMock.mockResolvedValueOnce(seamResp('{"a":1}', 7, 13));
     await generateBlockCopyMod.POST(
       makeJsonReq(url, { blockType: 'hero' }),
     );
@@ -457,8 +482,8 @@ describe('POST /api/portal/branding/generate-block-copy', () => {
   });
 
   it('strips ```json fences before parsing', async () => {
-    messagesCreateMock.mockResolvedValueOnce(
-      aiResp('```json\n{"headline":"Hi"}\n```'),
+    completeMock.mockResolvedValueOnce(
+      seamResp('```json\n{"headline":"Hi"}\n```'),
     );
     const res = await generateBlockCopyMod.POST(
       makeJsonReq(url, { blockType: 'hero' }),
@@ -469,7 +494,7 @@ describe('POST /api/portal/branding/generate-block-copy', () => {
   });
 
   it('returns 502 when the model returns non-JSON', async () => {
-    messagesCreateMock.mockResolvedValueOnce(aiResp('totally not json'));
+    completeMock.mockResolvedValueOnce(seamResp('totally not json'));
     const res = await generateBlockCopyMod.POST(
       makeJsonReq(url, { blockType: 'hero' }),
     );
@@ -479,14 +504,8 @@ describe('POST /api/portal/branding/generate-block-copy', () => {
     expect(body.raw).toBe('totally not json');
   });
 
-  it('filters non-text content blocks before parsing', async () => {
-    messagesCreateMock.mockResolvedValueOnce({
-      content: [
-        { type: 'tool_use', name: 'whatever' },
-        { type: 'text', text: '{"ok":true}' },
-      ],
-      usage: { input_tokens: 1, output_tokens: 1 },
-    });
+  it('parses text returned by complete() directly (seam returns flat text, not content blocks)', async () => {
+    completeMock.mockResolvedValueOnce(seamResp('{"ok":true}'));
     const res = await generateBlockCopyMod.POST(
       makeJsonReq(url, { blockType: 'hero' }),
     );
@@ -496,9 +515,7 @@ describe('POST /api/portal/branding/generate-block-copy', () => {
   });
 
   it('handles missing usage object — tokens default to 0', async () => {
-    messagesCreateMock.mockResolvedValueOnce({
-      content: [{ type: 'text', text: '{"ok":true}' }],
-    });
+    completeMock.mockResolvedValueOnce({ text: '{"ok":true}' });
     const res = await generateBlockCopyMod.POST(
       makeJsonReq(url, { blockType: 'hero' }),
     );
@@ -508,8 +525,8 @@ describe('POST /api/portal/branding/generate-block-copy', () => {
     );
   });
 
-  it('returns 500 with the error message when Anthropic rejects', async () => {
-    messagesCreateMock.mockRejectedValueOnce(new Error('boom'));
+  it('returns 500 with the error message when complete() rejects with an Error', async () => {
+    completeMock.mockRejectedValueOnce(new Error('boom'));
     const res = await generateBlockCopyMod.POST(
       makeJsonReq(url, { blockType: 'hero' }),
     );
@@ -519,7 +536,7 @@ describe('POST /api/portal/branding/generate-block-copy', () => {
   });
 
   it('returns 500 with generic message when a non-Error is thrown', async () => {
-    messagesCreateMock.mockRejectedValueOnce('oh no');
+    completeMock.mockRejectedValueOnce('oh no');
     const res = await generateBlockCopyMod.POST(
       makeJsonReq(url, { blockType: 'hero' }),
     );

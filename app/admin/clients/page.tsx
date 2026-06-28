@@ -4,18 +4,10 @@
 // interactive bits (search/filter state + the create form) live in the child
 // client component AdminClientsView.
 
-import { auth } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { listAdminClients } from '@/lib/admin/clients-list';
 import { AdminClientsView } from './AdminClientsView';
-
-async function requireStaffSession() {
-  const session = await auth();
-  if (!session?.user?.id) return null;
-  const role = (session.user as { role?: string })?.role;
-  if (role !== 'admin' && role !== 'employee') return null;
-  return session;
-}
+import { requireStaffSession } from '@/lib/admin/auth';
 
 export default async function AdminClientsPage() {
   const session = await requireStaffSession();

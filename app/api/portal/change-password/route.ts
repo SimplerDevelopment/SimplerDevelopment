@@ -4,8 +4,17 @@ import { db } from '@/lib/db';
 import { users } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { compare, hash } from 'bcryptjs';
+import { checkRateLimit, getClientIp } from '@/lib/security/rate-limit';
 
 export async function POST(req: Request) {
+  // 5 requests per 15 minutes per IP — brute-force guardrail on password change
+  if (!(await checkRateLimit(`${getClientIp(req)}:change-password`, 5, 15 * 60 * 1000))) {
+    return NextResponse.json(
+      { success: false, error: 'Too many requests. Please try again later.' },
+      { status: 429 },
+    );
+  }
+
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

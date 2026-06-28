@@ -12,7 +12,7 @@
  *   - form.ts       — buttons, booking, survey, deck navigation
  *   - commerce.ts   — product grids, cart, store banner, etc.
  *   - components.ts — hero, cta, team, metric cards, footer, etc.
- *   - dynamic.ts    — blog feed + Palizzi client-specific blocks
+ *   - dynamic.ts    — blog feed
  *   - editor.ts     — editor state (history, drag, paste, page settings)
  *
  * Adding a new block: pick the category, declare the interface there,
@@ -81,6 +81,7 @@ import type {
   CtaBlock,
   TestimonialBlock,
   StatsBlock,
+  RoiCalculatorBlock,
   FeaturedContentBlock,
   CardGridBlock,
   ServicesGridBlock,
@@ -99,14 +100,6 @@ import type {
 } from './components';
 import type {
   BlogPostsBlock,
-  PalizziNavBlock,
-  PalizziHeroBlock,
-  PalizziWelcomeBlock,
-  PalizziHistoryBlock,
-  PalizziMenuBlock,
-  PalizziRulesBlock,
-  PalizziMembershipBlock,
-  PalizziFooterBlock,
 } from './dynamic';
 
 // Union type of all blocks
@@ -130,6 +123,7 @@ export type Block =
   | CtaBlock
   | TestimonialBlock
   | StatsBlock
+  | RoiCalculatorBlock
   | BlogPostsBlock
   | FeaturedContentBlock
   | AccordionBlock
@@ -138,14 +132,6 @@ export type Block =
   | CardGridBlock
   | SectionBlock
   | GalleryBlock
-  | PalizziNavBlock
-  | PalizziHeroBlock
-  | PalizziWelcomeBlock
-  | PalizziHistoryBlock
-  | PalizziMenuBlock
-  | PalizziRulesBlock
-  | PalizziMembershipBlock
-  | PalizziFooterBlock
   | ProductGridBlock
   | FeaturedProductsBlock
   | ProductCategoriesBlock

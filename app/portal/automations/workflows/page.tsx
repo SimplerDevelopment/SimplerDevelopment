@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnPrimary, pBtnGhost, pCard } from '@/components/portal/portal-ui';
 
 interface WorkflowRow {
   id: number;
@@ -23,7 +25,7 @@ interface TemplateOption {
 }
 
 const STATUS_BADGE: Record<string, string> = {
-  draft: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
+  draft: 'bg-muted text-muted-foreground',
   active: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
   paused: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
 };
@@ -81,36 +83,45 @@ export default function WorkflowsListPage() {
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Workflows</h1>
-          <p className="text-muted-foreground mt-1 text-sm">
-            Visual trigger to action automations. Build a graph, test it, then activate.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setShowTemplatePicker((v) => !v)}
-            className="inline-flex items-center gap-2 px-4 py-2 border border-border rounded-lg text-sm font-medium hover:bg-muted transition-colors"
-          >
-            <span className="material-icons text-lg">auto_awesome</span>
-            New from template
-          </button>
-          <button
-            type="button"
-            onClick={createBlank}
-            disabled={creatingBlank}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-60"
-          >
-            <span className="material-icons text-lg">add</span>
-            New blank
-          </button>
+      {/* Beta notice — workflow execution is not yet implemented */}
+      <div className="flex items-start gap-3 px-4 py-3 rounded-lg border border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-200">
+        <span className="material-icons text-xl mt-0.5 shrink-0">science</span>
+        <div className="text-sm">
+          <span className="font-semibold">Beta — workflows do not execute yet.</span>{' '}
+          You can build and save workflow graphs, but activating a workflow has no runtime effect.
+          Use <strong>Automations</strong> (Rules) for live trigger-to-action rules today.
         </div>
       </div>
 
+      <PortalPageHeader
+        eyebrow="Automations"
+        title="Workflows"
+        subtitle="Visual trigger to action automations. Build a graph, test it, then activate."
+        actions={
+          <>
+            <button
+              type="button"
+              onClick={() => setShowTemplatePicker((v) => !v)}
+              className={pBtnGhost}
+            >
+              <span className="material-icons text-lg">auto_awesome</span>
+              New from template
+            </button>
+            <button
+              type="button"
+              onClick={createBlank}
+              disabled={creatingBlank}
+              className={pBtnPrimary}
+            >
+              <span className="material-icons text-lg">add</span>
+              New blank
+            </button>
+          </>
+        }
+      />
+
       {showTemplatePicker && (
-        <div className="bg-card border border-border rounded-xl p-4 space-y-3">
+        <div className={`${pCard} p-5 space-y-3`}>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-sm font-semibold text-foreground">Pick a template</h2>
             <button
@@ -128,7 +139,7 @@ export default function WorkflowsListPage() {
                 type="button"
                 onClick={() => createFromTemplate(t.id)}
                 disabled={creatingTemplateId === t.id}
-                className="text-left p-3 border border-border rounded-lg hover:border-primary hover:bg-muted/50 transition-colors disabled:opacity-60"
+                className="text-left p-3 rounded-2xl border border-border bg-card hover:border-primary hover:bg-muted/50 transition-colors disabled:opacity-60"
               >
                 <div className="flex items-start gap-3">
                   <span className="material-icons text-primary">{t.icon}</span>
@@ -150,12 +161,12 @@ export default function WorkflowsListPage() {
       )}
 
       {loading ? (
-        <div className="bg-card border border-border rounded-xl p-10 text-center">
+        <div className={`${pCard} p-10 text-center`}>
           <span className="material-icons text-3xl text-muted-foreground animate-spin">progress_activity</span>
           <p className="text-sm text-muted-foreground mt-2">Loading workflows...</p>
         </div>
       ) : rows.length === 0 ? (
-        <div className="bg-card border border-border rounded-xl p-10 text-center space-y-4">
+        <div className={`${pCard} p-10 text-center space-y-4`}>
           <span className="material-icons text-5xl text-muted-foreground/50">account_tree</span>
           <h2 className="text-lg font-semibold text-foreground">No workflows yet</h2>
           <p className="text-muted-foreground text-sm max-w-md mx-auto">
@@ -164,7 +175,7 @@ export default function WorkflowsListPage() {
           </p>
         </div>
       ) : (
-        <div className="bg-card border border-border rounded-xl overflow-hidden">
+        <div className={`${pCard} overflow-hidden`}>
           <div className="overflow-x-auto -mx-4 sm:mx-0">
           <table className="w-full text-sm min-w-[640px]">
             <thead className="bg-muted/50">

@@ -7,6 +7,7 @@ import { getPortalClient } from '@/lib/portal-client';
 import { authorizePortal, isAuthError } from '@/lib/portal-auth';
 import { uploadToS3 } from '@/lib/s3/upload';
 import { unpackAndUploadZip, isHttpError, MAX_ZIP_TOTAL_BYTES } from '@/lib/html-zip-upload';
+import { slugify } from '@/lib/publishing/slug';
 
 const MAX_HTML_SIZE = 1_000_000; // 1 MB
 const ALLOWED_HTML_MIME = new Set(['text/html', 'application/xhtml+xml']);
@@ -20,16 +21,6 @@ const ALLOWED_ZIP_MIME = new Set([
 const ALLOWED_ZIP_EXT = /\.zip$/i;
 
 export const maxDuration = 120;
-
-function slugify(input: string): string {
-  return input
-    .trim()
-    .toLowerCase()
-    .replace(/\.[^.]+$/, '')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/(^-|-$)/g, '')
-    .slice(0, 80) || 'deck';
-}
 
 export async function POST(request: NextRequest) {
   const session = await auth();
@@ -138,7 +129,7 @@ export async function POST(request: NextRequest) {
 
   const filenameNoExt = filename.replace(/\.[^.]+$/, '');
   const title = filenameNoExt || 'Uploaded HTML Deck';
-  const slug = `${slugify(filename)}-${Date.now().toString(36)}`;
+  const slug = `${slugify(filenameNoExt, 80) || 'deck'}-${Date.now().toString(36)}`;
   const ts = Date.now();
 
   const slide: PitchDeckSlideV2 = {

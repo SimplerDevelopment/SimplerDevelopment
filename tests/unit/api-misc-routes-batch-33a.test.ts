@@ -261,7 +261,9 @@ describe('GET /api/portal/tools/booking/calendar', () => {
   it('returns 200 with enriched bookings + members map', async () => {
     authMock.mockResolvedValue(SESSION);
     getPortalClientMock.mockResolvedValue({ id: 33 });
-    // 1. bookings + pages join
+    // 1. pages for this client (fetched first by route)
+    selectQueue.push([{ id: 10 }]);
+    // 2. bookings + pages join
     selectQueue.push([
       {
         id: 1,
@@ -294,8 +296,6 @@ describe('GET /api/portal/tools/booking/calendar', () => {
         pageColor: '#abc',
       },
     ]);
-    // 2. pages for this client
-    selectQueue.push([{ id: 10 }]);
     // 3. members + users join
     selectQueue.push([
       {
@@ -321,6 +321,7 @@ describe('GET /api/portal/tools/booking/calendar', () => {
   it('filters bookings by memberId query param', async () => {
     authMock.mockResolvedValue(SESSION);
     getPortalClientMock.mockResolvedValue({ id: 33 });
+    selectQueue.push([{ id: 10 }]); // pages (fetched first by route)
     selectQueue.push([
       {
         id: 1,
@@ -353,7 +354,6 @@ describe('GET /api/portal/tools/booking/calendar', () => {
         pageColor: '#abc',
       },
     ]);
-    selectQueue.push([{ id: 10 }]); // pages
     selectQueue.push([]); // no members
     const res = await calendarGET(makeReq('start=2026-01-01&end=2026-01-04&memberId=8'));
     expect(res.status).toBe(200);
@@ -365,6 +365,7 @@ describe('GET /api/portal/tools/booking/calendar', () => {
   it('falls back to userName when displayName is empty', async () => {
     authMock.mockResolvedValue(SESSION);
     getPortalClientMock.mockResolvedValue({ id: 33 });
+    selectQueue.push([{ id: 10 }]); // pages (fetched first by route)
     selectQueue.push([
       {
         id: 1,
@@ -382,7 +383,6 @@ describe('GET /api/portal/tools/booking/calendar', () => {
         pageColor: '#abc',
       },
     ]);
-    selectQueue.push([{ id: 10 }]);
     selectQueue.push([
       {
         id: 500,
@@ -403,9 +403,8 @@ describe('GET /api/portal/tools/booking/calendar', () => {
   it('skips members query entirely when no pages exist for the client', async () => {
     authMock.mockResolvedValue(SESSION);
     getPortalClientMock.mockResolvedValue({ id: 33 });
-    selectQueue.push([]); // no bookings
-    selectQueue.push([]); // no pages
-    // No third selectQueue entry consumed since pageIds is empty.
+    selectQueue.push([]); // no pages (fetched first by route) → early return
+    // No further selectQueue entries consumed since pageIds is empty.
     const res = await calendarGET(makeReq('start=2026-01-01&end=2026-01-04'));
     expect(res.status).toBe(200);
     const body = await res.json();

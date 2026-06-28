@@ -1,7 +1,7 @@
 import { auth } from '@/lib/auth';
 import { redirect, notFound } from 'next/navigation';
 import { db } from '@/lib/db';
-import { clientWebsites, postTypes } from '@/lib/db/schema';
+import { postTypes } from '@/lib/db/schema';
 import { and, eq } from 'drizzle-orm';
 import { resolvePortalSite } from '@/lib/portal-client';
 import { generatePreviewToken } from '@/lib/preview-token';
@@ -37,21 +37,15 @@ export default async function ContentTypeTemplatePage({ params }: PageProps) {
     .limit(1);
   if (!type) notFound();
 
-  // Build the iframe source — same pattern as the post edit page. Managed
-  // sites (no Vercel project of their own) load through the main app's
-  // /sites/<domain> route; standalone sites load through their own domain.
-  const isManaged = !site.vercelProjectId;
+  // Build the iframe source — always use internal /sites/ route to avoid
+  // X-Frame-Options SAMEORIGIN block when the portal is accessed from a
+  // tenant subdomain (different origin to site domain).
   const subdomain = site.subdomain;
   const fullDomain = site.vercelDomain || (subdomain ? `${subdomain}.simplerdevelopment.com` : null);
   const appUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://simplerdevelopment.com';
   const previewToken = generatePreviewToken(site.id);
-  const siteUrl = isManaged && fullDomain
-    ? `${appUrl}/sites/${fullDomain}`
-    : site.domain
-      ? `https://${site.domain}`
-      : fullDomain
-        ? `https://${fullDomain}`
-        : null;
+  const siteIdentifier = fullDomain || site.domain || null;
+  const siteUrl = siteIdentifier ? `${appUrl}/sites/${siteIdentifier}` : null;
 
   return (
     <TemplateEditor

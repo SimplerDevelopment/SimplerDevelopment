@@ -16,6 +16,16 @@
  * disconnect route's best-effort revoke succeeds without network.
  */
 import { describe, it, expect, vi, beforeAll, beforeEach, type Mock } from 'vitest';
+import { randomBytes } from 'node:crypto';
+
+// The status/disconnect routes encrypt/decrypt Google tokens via
+// lib/crypto/secrets.ts, which reads WORKSPACE_TENANT_SECRETS_KEY at call time
+// and throws if unset. Provide a hermetic per-run key so the suite never
+// depends on an injected CI secret — mirrors the ENCRYPTION_KEY pattern in
+// tests/integration/ai/*.test.ts.
+if (!process.env.WORKSPACE_TENANT_SECRETS_KEY) {
+  process.env.WORKSPACE_TENANT_SECRETS_KEY = randomBytes(32).toString('hex');
+}
 
 vi.mock('@/lib/auth', () => ({ auth: vi.fn() }));
 
@@ -47,7 +57,7 @@ const mockedAuth = auth as unknown as Mock;
 import { callHandler } from '../../../helpers/call-handler';
 import { sessionForNewClientUser, sessionFor, type TenantCtx } from '../../../helpers/session';
 import { getTestSql, TEST_SCHEMA } from '../../../helpers/test-db';
-import { encryptSecret } from '@/lib/crypto/secrets';
+import { encryptSecret, decryptMaybe } from '@/lib/crypto/secrets';
 
 async function asTenant(ctx: TenantCtx | null) {
   mockedAuth.mockResolvedValue(ctx?.session ?? null);
@@ -298,8 +308,11 @@ describe('POST /api/portal/integrations/google/disconnect @integrations @tenancy
       FROM ${sql(TEST_SCHEMA)}.google_workspace_user_connections
       WHERE client_id = ${A.client.id} AND user_id = ${A.user.id}
     `;
-    expect(row.access_token).toBe('');
-    expect(row.refresh_token).toBe('');
+    // Tokens are stored encryptedText (AES-256-GCM at rest), so the scrub
+    // writes encrypt('') — a ciphertext blob, not a literal '' — to the raw
+    // column. Assert the decrypted value is empty (token functionally cleared).
+    expect(decryptMaybe(row.access_token)).toBe('');
+    expect(decryptMaybe(row.refresh_token)).toBe('');
     expect(row.revoked_at).not.toBeNull();
   });
 });

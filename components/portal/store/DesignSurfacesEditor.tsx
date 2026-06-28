@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import MediaPicker from '@/components/admin/MediaPicker';
+import { slugify } from '@/lib/publishing/slug';
 
 interface DesignSurface {
   id: number;
@@ -39,13 +40,6 @@ interface NewSurfaceDraft {
 interface DesignSurfacesEditorProps {
   productId: number;
   siteId: string;
-}
-
-function slugify(name: string) {
-  return name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '');
 }
 
 const DEFAULT_DRAFT: NewSurfaceDraft = {
@@ -96,6 +90,7 @@ export default function DesignSurfacesEditor({ productId, siteId }: DesignSurfac
   }, [base]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- fetchSurfaces resets loading/error before its async fetch; synchronous setState in the callback is load-bearing for re-fetch UX
     fetchSurfaces();
   }, [fetchSurfaces]);
 

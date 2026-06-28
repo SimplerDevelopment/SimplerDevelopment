@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import ProductAutomationSettings from '@/components/portal/ProductAutomationSettings';
 import type { AutomationPreset } from '@/components/portal/ProductAutomationSettings';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pCard, pInput } from '@/components/portal/portal-ui';
 
 const EMAIL_AUTOMATION_PRESETS: AutomationPreset[] = [
   {
@@ -82,13 +84,14 @@ export default function EmailSettingsPage() {
 
   return (
     <div className="max-w-3xl mx-auto space-y-8">
-      <div>
-        <h1 className="text-2xl font-bold">Email Settings</h1>
-        <p className="text-sm text-muted-foreground mt-1">Configure defaults and automations for your email marketing</p>
-      </div>
+      <PortalPageHeader
+        eyebrow="Email"
+        title="Settings"
+        subtitle="Configure defaults and automations for your email marketing"
+      />
 
       {/* Sender Defaults */}
-      <div className="bg-card border border-border rounded-xl p-6 space-y-4">
+      <div className={`${pCard} p-6 space-y-4`}>
         <h3 className="font-semibold flex items-center gap-2">
           <span className="material-icons text-lg text-primary">alternate_email</span>
           Default Sender
@@ -97,16 +100,16 @@ export default function EmailSettingsPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="text-xs font-medium text-muted-foreground">From Name</label>
-            <input value={defaultFromName} onChange={e => setDefaultFromName(e.target.value)} placeholder="Your Company Name" className="w-full mt-1 text-sm bg-background border border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/50" />
+            <input value={defaultFromName} onChange={e => setDefaultFromName(e.target.value)} placeholder="Your Company Name" className={`mt-1 ${pInput}`} />
           </div>
           <div>
             <label className="text-xs font-medium text-muted-foreground">From Email</label>
-            <input value={defaultFromEmail} onChange={e => setDefaultFromEmail(e.target.value)} placeholder="hello@yourdomain.com" className="w-full mt-1 text-sm bg-background border border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/50" />
+            <input value={defaultFromEmail} onChange={e => setDefaultFromEmail(e.target.value)} placeholder="hello@yourdomain.com" className={`mt-1 ${pInput}`} />
           </div>
         </div>
         <div>
           <label className="text-xs font-medium text-muted-foreground">Reply-To Email</label>
-          <input value={defaultReplyTo} onChange={e => setDefaultReplyTo(e.target.value)} placeholder="replies@yourdomain.com" className="w-full mt-1 text-sm bg-background border border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/50" />
+          <input value={defaultReplyTo} onChange={e => setDefaultReplyTo(e.target.value)} placeholder="replies@yourdomain.com" className={`mt-1 ${pInput}`} />
         </div>
         <p className="text-xs text-muted-foreground flex items-center gap-1">
           <span className="material-icons text-xs">info</span>
@@ -115,7 +118,7 @@ export default function EmailSettingsPage() {
       </div>
 
       {/* Automations */}
-      <div className="bg-card border border-border rounded-xl p-6">
+      <div className={`${pCard} p-6`}>
         <ProductAutomationSettings
           productScope="email"
           presets={EMAIL_AUTOMATION_PRESETS}

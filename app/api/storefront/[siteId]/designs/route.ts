@@ -1,9 +1,14 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { db } from '@/lib/db';
-import { storeSettings, products, designs } from '@/lib/db/schema';
-import { and, desc, eq } from 'drizzle-orm';
-import { validateSession } from '@/lib/storefront/customer-auth';
+import { storeSettings, products, designs, productDesigns } from '@/lib/db/schema';
+import { and, desc, eq, isNull } from 'drizzle-orm';
 import { isPortalStaffWithSiteAccess } from '@/lib/storefront/portal-staff-auth';
+import {
+  resolveDesignerCaller,
+  newDesignSessionId,
+  designSessionCookieOptions,
+  DESIGN_SESSION_COOKIE,
+} from '@/lib/storefront/designer-auth';
 
 async function verifyStore(websiteId: number) {
   const [store] = await db.select().from(storeSettings)
@@ -12,10 +17,13 @@ async function verifyStore(websiteId: number) {
   return store;
 }
 
-// Look up existing designs for a session / customer + optional filters. Used
-// by DesignerClient to restore an in-progress draft when a customer returns
-// to the designer page. Returns [] (not 404) when no match — the client
-// expects { success: true, data: [...] } and handles an empty list.
+// Look up existing designs for a session / customer + optional filters. Uses
+// the productDesigns table (new designer) keyed off the sd_design_session cookie
+// or Bearer token. Returns [] (not 404) when no match — the client expects
+// { success: true, data: [...] } and handles an empty list.
+//
+// Legacy path: ?templates=1 still reads from the `designs` table (site-wide
+// reusable templates seeded by staff).
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ siteId: string }> }
@@ -33,13 +41,10 @@ export async function GET(
     }
 
     const url = new URL(req.url);
-    const qSessionId = url.searchParams.get('sessionId');
-    const qCustomerToken = url.searchParams.get('customerToken');
     const qProductId = url.searchParams.get('productId');
-    const qStatus = url.searchParams.get('status'); // draft|finalized|rendered
-    const qTemplates = url.searchParams.get('templates'); // "1" → site-wide templates
+    const qTemplates = url.searchParams.get('templates'); // "1" → site-wide templates (legacy)
 
-    // Templates are site-wide reusable designs — no session/customer scoping.
+    // Templates are site-wide reusable designs — served from legacy `designs` table.
     if (qTemplates === '1') {
       const templateConditions = [
         eq(designs.websiteId, websiteId),
@@ -57,35 +62,33 @@ export async function GET(
       return NextResponse.json({ success: true, data: rows });
     }
 
-    // Ownership filter: either sessionId or customerToken must scope the
-    // query — we never return another visitor's designs.
-    const conditions = [eq(designs.websiteId, websiteId)];
-    if (qCustomerToken) {
-      const customerSession = await validateSession(qCustomerToken);
-      if (!customerSession || customerSession.websiteId !== websiteId) {
-        return NextResponse.json({ success: false, message: 'Invalid customer token' }, { status: 401 });
-      }
-      conditions.push(eq(designs.customerId, customerSession.customerId));
-    } else if (qSessionId) {
-      conditions.push(eq(designs.sessionId, qSessionId));
+    // New designer path — resolve caller from cookie or Bearer token.
+    const caller = await resolveDesignerCaller(req, websiteId);
+
+    // Build ownership filter for productDesigns.
+    const conditions = [
+      eq(productDesigns.websiteId, websiteId),
+      isNull(productDesigns.deletedAt),
+    ];
+
+    if (caller.customerId) {
+      conditions.push(eq(productDesigns.customerId, caller.customerId));
+    } else if (caller.sessionId) {
+      conditions.push(eq(productDesigns.sessionId, caller.sessionId));
     } else {
-      return NextResponse.json(
-        { success: false, message: 'sessionId or customerToken is required' },
-        { status: 400 },
-      );
+      // No session or customer token — return empty list (anonymous, no cookie yet).
+      return NextResponse.json({ success: true, data: [] });
     }
+
     if (qProductId) {
       const pid = parseInt(qProductId, 10);
-      if (!isNaN(pid)) conditions.push(eq(designs.productId, pid));
-    }
-    if (qStatus && ['draft', 'finalized', 'rendered'].includes(qStatus)) {
-      conditions.push(eq(designs.status, qStatus));
+      if (!isNaN(pid)) conditions.push(eq(productDesigns.productId, pid));
     }
 
     const rows = await db.select()
-      .from(designs)
+      .from(productDesigns)
       .where(and(...conditions))
-      .orderBy(desc(designs.updatedAt))
+      .orderBy(desc(productDesigns.updatedAt))
       .limit(20);
 
     return NextResponse.json({ success: true, data: rows });
@@ -96,7 +99,7 @@ export async function GET(
 }
 
 export async function POST(
-  req: Request,
+  req: NextRequest,
   { params }: { params: Promise<{ siteId: string }> }
 ) {
   try {
@@ -112,13 +115,13 @@ export async function POST(
     }
 
     const body = await req.json();
-    const { productId, name, sessionId, customerToken } = body || {};
+    const { productId, name, layers } = body || {};
 
     if (!productId || typeof productId !== 'number') {
       return NextResponse.json({ success: false, message: 'productId is required' }, { status: 400 });
     }
 
-    // Verify product belongs to this site and is designable
+    // Verify product belongs to this site and is designable (either column).
     const [product] = await db.select().from(products)
       .where(and(
         eq(products.id, productId),
@@ -128,51 +131,58 @@ export async function POST(
     if (!product) {
       return NextResponse.json({ success: false, message: 'Product not found' }, { status: 404 });
     }
-    if (!product.isDesignable) {
+    if (!product.isDesignable && !product.designable) {
       return NextResponse.json({ success: false, message: 'Product is not designable' }, { status: 400 });
     }
 
-    // Resolve ownership. Three paths:
-    //   - portal staff (header + auth() session + site access) — leaves
-    //     customerId + sessionId null; design is server-authored
-    //   - customerToken (logged-in storefront customer)
-    //   - sessionId (guest cart session)
-    let customerId: number | null = null;
-    let resolvedSessionId: string | null = null;
+    // Resolve caller. Three paths:
+    //   - portal staff — no customer/session linkage; design is server-authored
+    //   - Bearer token → customerId from customer session
+    //   - sd_design_session cookie → anonymous sessionId (minted here if absent)
     const isStaff = await isPortalStaffWithSiteAccess(req, websiteId);
+    let caller = { customerId: null as number | null, sessionId: null as string | null };
+    let mintedSessionId: string | null = null;
 
-    if (isStaff) {
-      // Staff-authored design — no customer or session linkage.
-    } else if (customerToken && typeof customerToken === 'string') {
-      const customerSession = await validateSession(customerToken);
-      if (!customerSession || customerSession.websiteId !== websiteId) {
-        return NextResponse.json({ success: false, message: 'Invalid customer token' }, { status: 401 });
+    if (!isStaff) {
+      caller = await resolveDesignerCaller(req, websiteId);
+      if (!caller.customerId && !caller.sessionId) {
+        // Anonymous first visit — mint a session id that we'll set as a cookie.
+        mintedSessionId = newDesignSessionId();
+        caller = { customerId: null, sessionId: mintedSessionId };
       }
-      customerId = customerSession.customerId;
-    } else if (sessionId && typeof sessionId === 'string') {
-      resolvedSessionId = sessionId;
-    } else {
-      return NextResponse.json(
-        { success: false, message: 'sessionId or customerToken is required' },
-        { status: 400 },
-      );
     }
 
-    const [design] = await db.insert(designs).values({
+    const designUuid = crypto.randomUUID();
+
+    const [design] = await db.insert(productDesigns).values({
+      uuid: designUuid,
       websiteId,
       productId,
-      customerId,
-      sessionId: resolvedSessionId,
-      name: (typeof name === 'string' && name.trim()) ? name.trim() : 'Untitled design',
-      layersBySurface: {},
+      customerId: caller.customerId,
+      sessionId: caller.sessionId,
+      name: (typeof name === 'string' && name.trim()) ? name.trim() : 'Untitled Design',
+      layers: Array.isArray(layers) ? layers : [],
     }).returning({
-      id: designs.id,
-      name: designs.name,
-      status: designs.status,
-      createdAt: designs.createdAt,
+      id: productDesigns.id,
+      uuid: productDesigns.uuid,
+      websiteId: productDesigns.websiteId,
+      productId: productDesigns.productId,
+      name: productDesigns.name,
+      lastAccessedAt: productDesigns.lastAccessedAt,
+      isPublic: productDesigns.isPublic,
+      createdAt: productDesigns.createdAt,
+      updatedAt: productDesigns.updatedAt,
     });
 
-    return NextResponse.json({ success: true, data: design }, { status: 201 });
+    const response = NextResponse.json({ success: true, data: design }, { status: 201 });
+
+    // Set the design-session cookie when we minted a new anonymous session.
+    if (mintedSessionId) {
+      const opts = designSessionCookieOptions();
+      response.cookies.set(DESIGN_SESSION_COOKIE, mintedSessionId, opts);
+    }
+
+    return response;
   } catch (err) {
     console.error('Storefront designs POST error:', err);
     return NextResponse.json({ success: false, message: 'Internal server error' }, { status: 500 });

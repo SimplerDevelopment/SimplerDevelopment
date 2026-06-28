@@ -34,6 +34,7 @@ import {
 import { and, asc, eq, ne, sql } from 'drizzle-orm';
 import { logAudit } from './audit';
 import { revalidateBrainStaticCounts } from './dashboard';
+import { slugify } from '@/lib/publishing/slug';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -98,13 +99,7 @@ export interface AddMemberArgs {
  * back to `'unit'` so we always return a non-empty token.
  */
 export function slugifyName(name: string): string {
-  const base = name
-    .toLowerCase()
-    .normalize('NFKD')
-    .replace(/[̀-ͯ]/g, '') // strip diacritics
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-  return base.length > 0 ? base.slice(0, 140) : 'unit';
+  return slugify(name, 140) || 'unit';
 }
 
 /**

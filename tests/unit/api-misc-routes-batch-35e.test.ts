@@ -79,15 +79,29 @@ vi.mock('@/lib/db/schema', () => {
   }, { has: (t, p) => (p in t) || !(p === "then" || p === "__esModule" || p === "default" || typeof p !== "string"), get: (t, p) => (p in t) ? t[p] : ((p === "then" || p === "__esModule" || p === "default" || typeof p !== "string") ? undefined : wrap(p)) });
 });
 
-// api-keys mock — so the middleware never hits the real db even if a key
-// is supplied.
+// api-keys mock — validateApiKey returns a valid record so the middleware
+// passes through to the inner handler (the security gate now requires a key).
 vi.mock('@/lib/api-keys', () => ({
-  validateApiKey: vi.fn(async () => null),
+  validateApiKey: vi.fn(async () => ({
+    id: 1,
+    websiteId: 42,
+    scopes: [], // empty = unrestricted (legacy full-access)
+    rateLimitPerMinute: 60,
+    active: true,
+    expiresAt: null,
+    lastUsedAt: null,
+  })),
   checkRateLimit: vi.fn(() => ({
     allowed: true,
     remaining: 60,
     resetAt: new Date(Date.now() + 60_000),
   })),
+}));
+
+// mcp-auth mock — hasScope is called for scoped keys; returns true so we
+// never hit a 403 in unit tests.
+vi.mock('@/lib/mcp-auth', () => ({
+  hasScope: vi.fn(() => true),
 }));
 
 // ---------------------------------------------------------------------------
@@ -152,7 +166,13 @@ const pagesRoute = await import('@/app/api/v1/sites/[siteId]/pages/route');
 // ---------------------------------------------------------------------------
 
 function makeReq(url: string, init?: RequestInit): Request {
-  return new Request(url, init);
+  // The middleware now requires an API key — include a test key so requests
+  // reach the inner handler. OPTIONS preflight skips auth already.
+  const headers = new Headers((init?.headers as HeadersInit | undefined) ?? {});
+  if (!headers.has('x-api-key') && !headers.has('authorization')) {
+    headers.set('x-api-key', 'sd_live_testkey');
+  }
+  return new Request(url, { ...init, headers });
 }
 
 function ctx(siteId: string) {

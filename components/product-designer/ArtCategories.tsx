@@ -3,7 +3,7 @@
 'use client';
 
 import React, { useEffect, useRef } from "react";
-import tags from "./static/categories.json";
+import tags from "./static/categories";
 
 export const ArtCategories = ({ setView }) => {
   const artTags = tags.tags;

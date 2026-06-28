@@ -1,23 +1,26 @@
 // Server Component. The homepage is almost entirely static presentation, so it
 // renders on the server with ZERO hydration — the only interactive pieces are
-// three tiny client islands for the decorative WebGL (HeroBackground,
-// HeroVisualGate, FeaturesBackgroundGate) plus the AccessCodeForm/Button
-// components. This is what keeps mobile TBT low and the hero LCP from waiting
-// behind a full-page hydration. (Previously this whole file was 'use client',
-// which hydrated ~760 DOM nodes and pushed mobile LCP render-delay to ~5s.)
+// small client islands for the decorative WebGL (HeroBackground, HeroVisualGate,
+// FeaturesBackgroundGate) plus the Button component. This is what keeps mobile
+// TBT low and the hero LCP from waiting behind a full-page hydration. (Previously
+// this whole file was 'use client', which hydrated ~760 DOM nodes and pushed
+// mobile LCP render-delay to ~5s.)
 
 import { FadeIn } from '@/components/animations/FadeIn';
 import { SlideIn } from '@/components/animations/SlideIn';
 import { Button } from '@/components/ui/Button';
 import { HeroBackground } from '@/components/sections/HeroBackground';
-import { HeroVisualGate } from '@/components/sections/HeroVisualGate';
 import { FeaturesBackgroundGate } from '@/components/sections/FeaturesBackgroundGate';
 import { AccessCodeForm } from '@/components/marketing/AccessCodeForm';
 import type { BlogPostWithRelations } from '@/lib/actions/blog';
 import Link from 'next/link';
 
+// Public source of truth for the self-host path. Swap if the public repo moves.
+const GITHUB_URL = 'https://github.com/DanielPCoyle/simplerdevelopment2026';
+
+// The 18 platform modules — these are the real, shipping modules of the platform.
 const portalFeatures = [
-  { title: 'AI Connect', description: 'Connect Claude, ChatGPT, and AI tools to your portal via MCP', icon: 'cable', href: '/solutions/ai-connect', color: '#0891b2' },
+  { title: 'AI Connect (MCP)', description: 'Connect Claude, Cursor, or any MCP client and operate the whole platform via 200+ scoped tools', icon: 'cable', href: '/solutions/ai-connect', color: '#0891b2' },
   { title: 'Website Builder', description: 'Drag-and-drop editor with unlimited pages, blog, SEO, and ecommerce', icon: 'language', href: '/solutions/websites', color: '#3b82f6' },
   { title: 'Online Store', description: 'Sell products with variants, discounts, shipping, and print-on-demand designs', icon: 'storefront', href: '/solutions/ecommerce', color: '#16a34a' },
   { title: 'Content Calendar', description: 'Editorial kanban and calendar to plan, schedule, and ship content across channels', icon: 'rocket_launch', href: '/solutions/publishing', color: '#0d9488' },
@@ -29,86 +32,195 @@ const portalFeatures = [
   { title: 'A/B Experiments', description: 'Split-test pages and pitch deck slides with built-in significance testing', icon: 'science', href: '/solutions/experiments', color: '#65a30d' },
   { title: 'Project Management', description: 'Kanban boards, sprint planning, and team collaboration', icon: 'view_kanban', href: '/solutions/project-management', color: '#4f46e5' },
   { title: 'Help Desk', description: 'Embeddable live chat plus a shared inbox and SLA-tracked support tickets', icon: 'support_agent', href: '/solutions/help-desk', color: '#ea580c' },
-  { title: 'Company Brain', description: 'AI knowledge base that answers questions about your business with citations', icon: 'psychology', href: '/solutions/company-brain', color: '#7c3aed' },
+  { title: 'Company Brain', description: 'AI knowledge base (RAG over pgvector) that answers questions about your business with citations', icon: 'psychology', href: '/solutions/company-brain', color: '#7c3aed' },
   { title: 'AI Chatbot', description: 'Trained on your content for 24/7 support and lead capture', icon: 'smart_toy', href: '/solutions/ai-chatbot', color: '#a855f7' },
   { title: 'Automations', description: 'Visual no-code workflows that connect every tool automatically', icon: 'account_tree', href: '/solutions/automations', color: '#db2777' },
   { title: 'Pitch Decks', description: 'AI-generated, branded pitch decks with shareable links and PDF export', icon: 'slideshow', href: '/solutions/pitch-decks', color: '#f59e0b' },
-  { title: 'Agency & White-Label', description: 'Run the platform under your own brand with a custom domain and logo', icon: 'storefront', href: '/solutions/agency', color: '#c026d3' },
-  { title: 'Managed Hosting', description: 'SSL, CDN, daily backups, and 99.9% uptime included', icon: 'cloud', href: '/solutions/hosting', color: '#64748b' },
+  { title: 'Agency & White-Label', description: 'Run the platform under your own brand with a custom domain and logo', icon: 'badge', href: '/solutions/agency', color: '#c026d3' },
+  { title: 'Managed Hosting', description: 'SSL, CDN, daily backups, and 99.9% uptime — or self-host it yourself', icon: 'cloud', href: '/solutions/hosting', color: '#64748b' },
 ];
 
-const valuePillars = [
-  { title: 'One Dashboard', description: 'Website, email, CRM, booking, projects — everything in one login. No more juggling a dozen SaaS subscriptions.', icon: 'dashboard' },
-  { title: 'Built to Work Together', description: 'Every tool shares data. A new website lead flows into your CRM, triggers an email sequence, and books a call — automatically.', icon: 'sync_alt' },
-  { title: 'Agency-Backed Platform', description: 'Not just software. We design, build, and optimize alongside you. Get expert help whenever you need it.', icon: 'support_agent' },
+// Honest product-truth metrics for the hero strip (no fabricated social proof).
+const heroMetrics = [
+  { value: '200+', label: 'MCP tools' },
+  { value: '18', label: 'modules in one' },
+  { value: 'Apache-2.0', label: 'licensed' },
+  { value: 'Self-host', label: 'or cloud' },
+];
+
+const ossPillars = [
+  { title: 'Apache-2.0 licensed', description: 'Use it commercially, fork it, run it for clients. No seat caps, no feature gates, no rug-pull.', icon: 'gavel' },
+  { title: 'Self-host anywhere', description: 'One Postgres + pgvector and any Next.js host. docker compose up, run the migrations, go.', icon: 'dns' },
+  { title: 'AI-operable by design', description: '200+ scoped MCP tools span the whole platform — build a site or run a campaign by talking to an agent.', icon: 'smart_toy' },
+  { title: 'Yours to extend', description: 'Every block, MCP tool, and integration is a documented extension point. Read the code, change it, ship it.', icon: 'extension' },
+];
+
+const deploymentTiers = [
+  {
+    name: 'Self-host',
+    price: 'Free',
+    priceNote: 'open source, forever',
+    blurb: 'For teams who want full control of their infrastructure and data.',
+    points: ['Every one of the 18 modules', 'Apache-2.0 — no limits', 'docker compose + your own host', 'Community support'],
+    cta: { label: 'Deploy from GitHub', href: GITHUB_URL, external: true },
+    highlight: false,
+  },
+  {
+    name: 'Managed',
+    price: 'from $19',
+    priceNote: 'per seat / mo · 14-day free trial',
+    blurb: 'We host, update, scale, and back it up — so you never touch a server.',
+    points: ['Everything in self-host', 'SSL, CDN & daily backups', '99.9% uptime, auto-updates', 'Run by the team that builds it'],
+    cta: { label: 'Start free — no card', href: '/portal/signup', external: false },
+    highlight: true,
+  },
+  {
+    name: 'Enterprise',
+    price: 'Custom',
+    priceNote: 'done-for-you + SLA',
+    blurb: 'White-label, SSO, and our agency building alongside your team.',
+    points: ['Everything in Managed', 'White-label + custom domain', 'SSO & priority SLA', 'We design & build with you'],
+    cta: { label: 'Talk to us', href: '/contact', external: false },
+    highlight: false,
+  },
 ];
 
 export function HomeClient({ recentPosts = [] }: { recentPosts?: BlogPostWithRelations[] }) {
   return (
     <>
-      {/* ─── HERO ─── */}
-      <section className="relative min-h-[75vh] md:min-h-[85vh] w-full overflow-hidden flex items-center py-6 md:py-20">
+      {/* ─── HERO — two doors: self-host vs managed ─── */}
+      <section className="relative min-h-[80vh] w-full overflow-hidden flex items-center py-16 md:py-24">
         <div className="absolute inset-0 z-0">
           <HeroBackground />
         </div>
-        <div className="absolute inset-0 z-10 bg-gradient-to-r from-background/90 via-background/60 to-transparent pointer-events-none" />
-        <div className="absolute inset-0 z-10 bg-gradient-to-b from-background/40 via-transparent to-background/60 pointer-events-none" />
+        <div className="absolute inset-0 z-10 bg-gradient-to-b from-background/70 via-background/40 to-background/80 pointer-events-none" />
 
         <div className="relative z-20 w-full">
           <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="max-w-7xl mx-auto">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center">
-                {/* Left — text */}
-                <div>
-                  <FadeIn delay={0.1} immediate>
-                    <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 mb-6">
-                      <span className="material-icons text-primary text-sm">hub</span>
-                      <span className="text-primary font-semibold text-sm">All-in-One Business Platform</span>
-                    </div>
-                  </FadeIn>
-                  <FadeIn delay={0.2} immediate>
-                    <h1 className="font-display text-4xl sm:text-5xl md:text-6xl lg:text-6xl xl:text-7xl font-bold mb-6 leading-[1.1]">
-                      Everything Your Business Needs.{' '}
-                      <span className="text-primary">One Platform.</span>
-                    </h1>
-                  </FadeIn>
-                  <FadeIn delay={0.3} immediate>
-                    <p className="text-lg md:text-xl text-muted-foreground mb-10 max-w-xl leading-relaxed">
-                      Websites, online stores, email, CRM, booking, surveys, projects, an AI Company Brain, and more — eighteen connected tools in one place. Built and backed by a full-service agency.
-                    </p>
-                  </FadeIn>
-                  <FadeIn delay={0.4} immediate>
-                    <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
-                      <Button href="/contact" size="lg" className="w-full sm:w-auto justify-center">
-                        Start Free Consultation
-                        <span className="material-icons text-lg ml-1">arrow_forward</span>
-                      </Button>
-                      <Button href="/solutions" variant="outline" size="lg" className="w-full sm:w-auto justify-center bg-background/80">
-                        See All Features
-                      </Button>
-                    </div>
-                  </FadeIn>
+            <div className="max-w-4xl mx-auto text-center">
+              <FadeIn delay={0.1} immediate>
+                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 mb-6">
+                  <span className="material-icons text-primary text-sm">lock_open</span>
+                  <span className="text-primary font-semibold text-sm">Open source · MCP-native · Apache-2.0</span>
                 </div>
+              </FadeIn>
+              <FadeIn delay={0.2} immediate>
+                <h1 className="font-display text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold mb-6 leading-[1.1]">
+                  Run your whole agency on{' '}
+                  <span className="text-primary">one open-source platform.</span>
+                </h1>
+              </FadeIn>
+              <FadeIn delay={0.3} immediate>
+                <p className="text-lg md:text-xl text-muted-foreground mb-10 max-w-2xl mx-auto leading-relaxed">
+                  Websites, CRM, an AI brain, email, bookings &amp; billing — eighteen connected
+                  modules, multi-tenant and MCP-native. Self-host it free, or let the team that
+                  builds it run it for you.
+                </p>
+              </FadeIn>
 
-                {/* Right — access-code centerpiece, layered over HeroVisual + particle network */}
-                <div className="relative mt-10 lg:mt-0">
-                  <div className="hidden lg:block absolute inset-0 opacity-60 pointer-events-none">
-                    <HeroVisualGate />
+              {/* Two doors */}
+              <FadeIn delay={0.4} immediate>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-3xl mx-auto text-left">
+                  {/* Door 1 — Self-host */}
+                  <div className="rounded-2xl border border-border bg-background/80 backdrop-blur p-6 flex flex-col">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="material-icons text-primary">terminal</span>
+                      <h2 className="font-heading font-bold text-lg">Self-host</h2>
+                    </div>
+                    <p className="text-sm text-muted-foreground mb-5 flex-1">
+                      Deploy it on your own infrastructure. Free and open, no limits.
+                    </p>
+                    <a
+                      href={GITHUB_URL}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center justify-center gap-2 rounded-lg px-5 py-3 font-medium bg-foreground text-background hover:opacity-90 transition-opacity"
+                    >
+                      <span className="material-icons text-lg">code</span>
+                      Deploy free
+                    </a>
+                    <Link href="/docs" className="mt-2 text-sm text-center text-muted-foreground hover:text-primary transition-colors">
+                      Read the self-host docs →
+                    </Link>
                   </div>
-                  <div className="hidden lg:block absolute inset-0 bg-gradient-to-br from-background/40 via-transparent to-background/30 pointer-events-none" />
-                  <div className="relative z-10 flex items-center justify-center lg:min-h-[520px]">
-                    <FadeIn delay={0.5} immediate>
-                      <AccessCodeForm variant="hero" />
-                    </FadeIn>
+
+                  {/* Door 2 — Managed (emphasized) */}
+                  <div className="rounded-2xl border-2 border-primary bg-background/90 backdrop-blur p-6 flex flex-col shadow-lg shadow-primary/10">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="material-icons text-primary">cloud</span>
+                      <h2 className="font-heading font-bold text-lg">Managed by us</h2>
+                    </div>
+                    <p className="text-sm text-muted-foreground mb-5 flex-1">
+                      Hosted, updated, and backed up by the team that builds it.
+                    </p>
+                    <Button href="/portal/signup" size="lg" className="w-full justify-center">
+                      Start free — no card
+                      <span className="material-icons text-lg ml-1">arrow_forward</span>
+                    </Button>
+                    <Link href="/pricing" className="mt-2 text-sm text-center text-muted-foreground hover:text-primary transition-colors">
+                      from $19/seat/mo · see pricing →
+                    </Link>
                   </div>
                 </div>
-              </div>
+              </FadeIn>
+
+              {/* Product-truth metric strip */}
+              <FadeIn delay={0.5} immediate>
+                <div className="mt-10 flex flex-wrap items-center justify-center gap-x-8 gap-y-3">
+                  {heroMetrics.map((m) => (
+                    <div key={m.label} className="flex items-baseline gap-1.5">
+                      <span className="font-display font-bold text-lg text-foreground">{m.value}</span>
+                      <span className="text-sm text-muted-foreground">{m.label}</span>
+                    </div>
+                  ))}
+                </div>
+              </FadeIn>
             </div>
           </div>
         </div>
       </section>
 
-      {/* ─── PORTAL FEATURES GRID ─── */}
+      {/* ─── PRODUCT DEMO MOMENT — show, don't tell ─── */}
+      <section className="relative py-20 overflow-hidden">
+        <div className="container mx-auto px-4">
+          <div className="max-w-6xl mx-auto">
+            <FadeIn>
+              <p className="text-primary font-mono text-sm font-semibold mb-3 tracking-wider text-center">{'// SEE IT'}</p>
+              <h2 className="font-display text-3xl md:text-4xl font-bold mb-3 text-center">
+                Your whole agency stack, in one tab.
+              </h2>
+              <p className="text-lg text-muted-foreground text-center max-w-2xl mx-auto mb-10">
+                One login, one database. Every module shares data — and an AI agent can drive all of it.
+              </p>
+            </FadeIn>
+
+            <FadeIn delay={0.1}>
+              {/* Framed product visual — a real portal dashboard screenshot
+                  (public/screenshots/product/dashboard.png). Swap for a short
+                  looping GIF once one is recorded against a live instance. */}
+              <div className="rounded-2xl border border-border bg-background shadow-2xl overflow-hidden">
+                <div className="flex items-center gap-1.5 px-4 py-3 border-b border-border bg-muted/30">
+                  <span className="w-3 h-3 rounded-full bg-red-400/70" />
+                  <span className="w-3 h-3 rounded-full bg-yellow-400/70" />
+                  <span className="w-3 h-3 rounded-full bg-green-400/70" />
+                  <span className="ml-3 text-xs text-muted-foreground font-mono">app.simplerdevelopment.com/portal</span>
+                </div>
+                <div className="relative max-h-[360px] md:max-h-[540px] overflow-hidden bg-muted/20">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src="/screenshots/product/dashboard.png"
+                    alt="The SimplerDevelopment client portal dashboard — CRM pipeline, projects, invoices, AI credits, and automation runs in one view"
+                    className="block w-full h-auto"
+                    loading="lazy"
+                  />
+                </div>
+              </div>
+            </FadeIn>
+          </div>
+        </div>
+      </section>
+
+      {/* ─── MODULES GRID ─── */}
       <section className="relative py-20 bg-dot-grid overflow-hidden">
         <FeaturesBackgroundGate />
         <div className="container mx-auto px-4 relative z-10">
@@ -116,10 +228,11 @@ export function HomeClient({ recentPosts = [] }: { recentPosts?: BlogPostWithRel
             <FadeIn>
               <p className="text-primary font-mono text-sm font-semibold mb-3 tracking-wider text-center">{'// THE PLATFORM'}</p>
               <h2 className="font-display text-3xl md:text-4xl font-bold mb-4 text-center">
-                Eighteen tools. One platform.
+                One platform. Eighteen modules.
               </h2>
               <p className="text-lg text-muted-foreground text-center max-w-2xl mx-auto mb-12">
-                Stop paying for a dozen subscriptions that don&apos;t talk to each other. Everything you need is here.
+                Stop renting a dozen SaaS tools that don&apos;t talk to each other. Every module
+                shares one database, one login — and an MCP toolset any AI agent can drive.
               </p>
             </FadeIn>
 
@@ -153,24 +266,24 @@ export function HomeClient({ recentPosts = [] }: { recentPosts?: BlogPostWithRel
         </div>
       </section>
 
-      {/* ─── VALUE PROPOSITION ─── */}
+      {/* ─── OPEN SOURCE TRUST ─── */}
       <section className="relative py-28 overflow-hidden">
         <div className="container mx-auto px-4">
           <div className="max-w-6xl mx-auto">
             <div className="grid grid-cols-1 lg:grid-cols-[1fr_2fr] gap-16 items-start">
               <FadeIn>
                 <div className="lg:sticky lg:top-32">
-                  <p className="text-primary font-mono text-sm font-semibold mb-3 tracking-wider">{'// WHY ONE PLATFORM'}</p>
+                  <p className="text-primary font-mono text-sm font-semibold mb-3 tracking-wider">{'// OPEN SOURCE'}</p>
                   <h2 className="font-display text-4xl md:text-5xl font-bold leading-tight">
-                    Stop duct-taping{' '}
-                    <span className="text-primary">your tech stack.</span>
+                    Open source.{' '}
+                    <span className="text-primary">No lock-in.</span>
                   </h2>
                   <div className="mt-6 w-16 h-1 bg-gradient-to-r from-primary to-accent-warm rounded-full" />
                 </div>
               </FadeIn>
 
               <div className="space-y-8">
-                {valuePillars.map((pillar, i) => (
+                {ossPillars.map((pillar, i) => (
                   <SlideIn key={pillar.title} direction="right" delay={(i + 1) * 0.1}>
                     <div className="accent-stripe pl-8">
                       <div className="flex items-start gap-4">
@@ -189,13 +302,22 @@ export function HomeClient({ recentPosts = [] }: { recentPosts?: BlogPostWithRel
                 <SlideIn direction="right" delay={0.4}>
                   <div className="p-8 rounded-2xl bg-foreground text-background">
                     <p className="text-lg md:text-xl leading-relaxed">
-                      <span className="font-semibold" style={{ color: '#60a5fa' }}>Simpler Development</span> is
-                      the platform and the team behind it. We don&apos;t just hand you software — we
-                      design your site, set up your workflows, and grow with you as a strategic partner.
+                      This isn&apos;t an open-core teaser. The{' '}
+                      <span className="font-semibold" style={{ color: '#60a5fa' }}>entire platform</span> is
+                      open source — the managed cloud just saves you the ops. Read every line, fork it, or run it for your own clients.
                     </p>
-                    <div className="mt-6">
-                      <Button href="/about" size="md" variant="outline" className="border-background/30 text-background hover:bg-background/10 hover:text-background">
-                        Learn About Our Approach
+                    <div className="mt-6 flex flex-col sm:flex-row gap-3">
+                      <a
+                        href={GITHUB_URL}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center justify-center gap-2 rounded-lg px-6 py-3 font-medium bg-background text-foreground hover:opacity-90 transition-opacity"
+                      >
+                        <span className="material-icons text-lg">star</span>
+                        Star on GitHub
+                      </a>
+                      <Button href="/docs" size="md" variant="outline" className="border-background/30 text-background hover:bg-background/10 hover:text-background">
+                        Read the docs
                         <span className="material-icons text-lg ml-1">arrow_forward</span>
                       </Button>
                     </div>
@@ -207,40 +329,76 @@ export function HomeClient({ recentPosts = [] }: { recentPosts?: BlogPostWithRel
         </div>
       </section>
 
-      {/* ─── HOW IT WORKS ─── */}
+      {/* ─── DEPLOY YOUR WAY — self-host / managed / enterprise ─── */}
       <section className="section-dark py-24 relative overflow-hidden">
         <div className="absolute inset-0 bg-dot-grid opacity-5" />
         <div className="container mx-auto px-4 relative z-10">
-          <div className="max-w-5xl mx-auto">
+          <div className="max-w-6xl mx-auto">
             <FadeIn>
               <div className="text-center mb-16">
-                <p className="font-mono text-sm font-semibold mb-3 tracking-wider opacity-50">{'// HOW IT WORKS'}</p>
+                <p className="font-mono text-sm font-semibold mb-3 tracking-wider opacity-50">{'// DEPLOY YOUR WAY'}</p>
                 <h2 className="font-display text-3xl md:text-4xl font-bold mb-4">
-                  From sign-up to launch in days, not months
+                  Same platform. Run it your way.
                 </h2>
                 <p className="text-lg opacity-70 max-w-2xl mx-auto">
-                  We handle the heavy lifting so you can focus on your business
+                  Self-host it free, let us run it, or have us build alongside you.
                 </p>
               </div>
             </FadeIn>
 
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-px bg-white/10 rounded-2xl overflow-hidden">
-              {[
-                { step: '01', title: 'Consult', description: 'Tell us about your business and what you need. We listen, ask questions, and map out the right tools.', icon: 'forum' },
-                { step: '02', title: 'Configure', description: 'We set up your portal — website, email, CRM, booking — customized to your brand and workflow.', icon: 'tune' },
-                { step: '03', title: 'Launch', description: 'Go live with a fully integrated platform. Your tools are connected, your data flows, and everything works.', icon: 'rocket_launch' },
-                { step: '04', title: 'Grow', description: 'Add features, run campaigns, track results. We are here as your ongoing partner to help you scale.', icon: 'trending_up' },
-              ].map((item, i) => (
-                <SlideIn key={item.step} direction="up" delay={i * 0.1}>
-                  <div className="p-8 bg-foreground text-background h-full">
-                    <span className="material-icons text-3xl mb-4 block" style={{ color: '#60a5fa' }}>{item.icon}</span>
-                    <div className="font-mono text-xs font-bold mb-2" style={{ color: '#60a5fa' }}>{item.step}</div>
-                    <h3 className="font-heading text-xl font-bold mb-2">{item.title}</h3>
-                    <p className="text-sm opacity-60">{item.description}</p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {deploymentTiers.map((tier, i) => (
+                <SlideIn key={tier.name} direction="up" delay={i * 0.1}>
+                  <div className={`h-full flex flex-col p-8 rounded-2xl bg-foreground text-background ${tier.highlight ? 'ring-2 ring-blue-400' : 'border border-white/10'}`}>
+                    {tier.highlight && (
+                      <span className="self-start mb-3 text-xs font-bold uppercase tracking-wider px-2.5 py-1 rounded-full" style={{ backgroundColor: '#60a5fa', color: '#0b1120' }}>
+                        Most popular
+                      </span>
+                    )}
+                    <h3 className="font-heading text-xl font-bold mb-1">{tier.name}</h3>
+                    <div className="flex items-baseline gap-2 mb-1">
+                      <span className="font-display text-3xl font-bold" style={{ color: '#60a5fa' }}>{tier.price}</span>
+                    </div>
+                    <p className="text-xs opacity-50 mb-4">{tier.priceNote}</p>
+                    <p className="text-sm opacity-70 mb-6">{tier.blurb}</p>
+                    <ul className="space-y-2.5 mb-8 flex-1">
+                      {tier.points.map((pt) => (
+                        <li key={pt} className="flex items-start gap-2 text-sm opacity-80">
+                          <span className="material-icons text-base mt-0.5" style={{ color: '#34d399' }}>check</span>
+                          {pt}
+                        </li>
+                      ))}
+                    </ul>
+                    {tier.cta.external ? (
+                      <a
+                        href={tier.cta.href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center justify-center gap-2 rounded-lg px-6 py-3 font-medium bg-background text-foreground hover:opacity-90 transition-opacity"
+                      >
+                        {tier.cta.label}
+                      </a>
+                    ) : (
+                      <Link
+                        href={tier.cta.href}
+                        className={`inline-flex items-center justify-center gap-2 rounded-lg px-6 py-3 font-medium transition-colors ${tier.highlight ? 'bg-blue-500 text-white hover:bg-blue-600' : 'bg-background text-foreground hover:opacity-90'}`}
+                      >
+                        {tier.cta.label}
+                      </Link>
+                    )}
                   </div>
                 </SlideIn>
               ))}
             </div>
+
+            <FadeIn delay={0.3}>
+              <div className="text-center mt-10">
+                <Link href="/pricing" className="inline-flex items-center gap-1.5 text-sm font-medium opacity-70 hover:opacity-100 transition-opacity">
+                  See full pricing &amp; plans
+                  <span className="material-icons text-lg">arrow_forward</span>
+                </Link>
+              </div>
+            </FadeIn>
           </div>
         </div>
       </section>
@@ -314,7 +472,27 @@ export function HomeClient({ recentPosts = [] }: { recentPosts?: BlogPostWithRel
         </div>
       </section>
 
-      {/* ─── CTA ─── */}
+      {/* ─── ACCESS CODE — preview a private site ─── */}
+      <section className="relative py-16 border-t border-border/60 overflow-hidden">
+        <div className="container mx-auto px-4">
+          <div className="max-w-md mx-auto">
+            <FadeIn>
+              <div className="text-center mb-6">
+                <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-primary/10 border border-primary/20 mb-4">
+                  <span className="material-icons text-primary text-2xl">vpn_key</span>
+                </div>
+                <h2 className="font-heading font-bold text-2xl mb-2">Previewing a private site?</h2>
+                <p className="text-muted-foreground">
+                  Enter the access code your team shared to view an unpublished site.
+                </p>
+              </div>
+              <AccessCodeForm variant="inline" />
+            </FadeIn>
+          </div>
+        </div>
+      </section>
+
+      {/* ─── FINAL CTA — the two doors again ─── */}
       <section className="section-dark py-28 relative overflow-hidden">
         <div className="absolute inset-0 bg-dot-grid opacity-[0.04]" />
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[600px] rounded-full bg-primary/10 blur-[120px] pointer-events-none" />
@@ -326,26 +504,29 @@ export function HomeClient({ recentPosts = [] }: { recentPosts?: BlogPostWithRel
                 <FadeIn>
                   <p className="font-mono text-sm font-semibold mb-4 tracking-wider opacity-40 dark:opacity-70">{'// GET STARTED'}</p>
                   <h2 className="font-display text-4xl md:text-5xl lg:text-6xl font-bold mb-6 leading-tight">
-                    Ready to simplify<br />
-                    <span style={{ color: '#60a5fa' }}>your business?</span>
+                    Run your whole agency,<br />
+                    <span style={{ color: '#60a5fa' }}>your way.</span>
                   </h2>
                   <p className="text-lg md:text-xl mb-10 max-w-xl opacity-60 dark:opacity-85 leading-relaxed">
-                    Book a free consultation and we&apos;ll show you how the platform
-                    works for your specific business. No commitment, no pressure.
+                    Open source and free to self-host. Or let us run it for you —
+                    start free, no credit card.
                   </p>
                   <div className="flex flex-col sm:flex-row gap-4">
+                    <a
+                      href={GITHUB_URL}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center justify-center gap-2 rounded-lg px-8 py-4 text-lg font-medium bg-white text-black hover:bg-white/90 dark:bg-black dark:text-white dark:hover:bg-black/90 transition-colors"
+                    >
+                      <span className="material-icons text-lg">code</span>
+                      Self-host free
+                    </a>
                     <Link
-                      href="/contact"
+                      href="/portal/signup"
                       className="inline-flex items-center justify-center gap-2 rounded-lg px-8 py-4 text-lg font-medium bg-blue-500 text-white hover:bg-blue-600 transition-colors"
                     >
-                      Book a Free Consultation
+                      Start free
                       <span className="material-icons text-lg">arrow_forward</span>
-                    </Link>
-                    <Link
-                      href="/solutions"
-                      className="inline-flex items-center justify-center gap-2 rounded-lg px-8 py-4 text-lg font-medium bg-transparent text-white border-2 border-white hover:bg-white/10 dark:text-black dark:border-black dark:hover:bg-black/10 transition-colors"
-                    >
-                      Explore Features
                     </Link>
                   </div>
                 </FadeIn>
@@ -355,10 +536,10 @@ export function HomeClient({ recentPosts = [] }: { recentPosts?: BlogPostWithRel
                 <div className="hidden lg:flex flex-col gap-4 w-[280px]">
                   <div className="rounded-xl border border-white/10 bg-white/5 dark:border-black/15 dark:bg-black/5 p-5">
                     <div className="flex items-center gap-3 mb-3">
-                      <span className="material-icons text-2xl" style={{ color: '#60a5fa' }}>flash_on</span>
-                      <span className="font-heading font-bold">Launch in Days</span>
+                      <span className="material-icons text-2xl" style={{ color: '#60a5fa' }}>lock_open</span>
+                      <span className="font-heading font-bold">Apache-2.0</span>
                     </div>
-                    <p className="text-sm opacity-50 dark:opacity-75">Most clients go live within a week of their first call.</p>
+                    <p className="text-sm opacity-50 dark:opacity-75">No lock-in. Fork it, extend it, run it for your own clients.</p>
                   </div>
                   <div className="rounded-xl border border-white/10 bg-white/5 dark:border-black/15 dark:bg-black/5 p-5">
                     <div className="flex items-center gap-3 mb-3">
@@ -369,10 +550,10 @@ export function HomeClient({ recentPosts = [] }: { recentPosts?: BlogPostWithRel
                   </div>
                   <div className="rounded-xl border border-white/10 bg-white/5 dark:border-black/15 dark:bg-black/5 p-5">
                     <div className="flex items-center gap-3 mb-3">
-                      <span className="material-icons text-2xl" style={{ color: '#fbbf24' }}>support_agent</span>
-                      <span className="font-heading font-bold">Agency Support</span>
+                      <span className="material-icons text-2xl" style={{ color: '#fbbf24' }}>smart_toy</span>
+                      <span className="font-heading font-bold">AI-operable</span>
                     </div>
-                    <p className="text-sm opacity-50 dark:opacity-75">Not just software — a team of designers and developers in your corner.</p>
+                    <p className="text-sm opacity-50 dark:opacity-75">200+ MCP tools — drive the whole platform from Claude, Cursor, or any agent.</p>
                   </div>
                 </div>
               </FadeIn>

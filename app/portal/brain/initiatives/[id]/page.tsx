@@ -23,6 +23,8 @@
 import { useEffect, useState, useCallback, useMemo, use as reactUse } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnPrimary, pBtnGhost, pCardPad, pInput, pSelect, pSectionTitle } from '@/components/portal/portal-ui';
 import InitiativeForm, {
   type InitiativeFormValues,
   type InitiativeCloseValues,
@@ -298,106 +300,107 @@ export default function InitiativeDetailPage({ params }: { params: Promise<{ id:
       </Link>
 
       {/* Header */}
-      <div className="bg-card border border-border rounded-xl p-5">
-        <div className="flex items-start justify-between gap-3 flex-wrap">
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-2xl font-bold text-foreground">{initiative.name}</h1>
-              <span
-                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${status.className}`}
+      <PortalPageHeader
+        eyebrow="Company Brain"
+        title={initiative.name}
+        actions={!editing && !closing ? (
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {!isTerminal && (
+              <button
+                type="button"
+                onClick={() => setEditing(true)}
+                disabled={busy}
+                className={pBtnGhost}
               >
-                <span className="material-icons text-[14px]">{status.icon}</span>
-                {status.label}
-              </span>
-              <span
-                className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${priority.className}`}
+                <span className="material-icons text-sm">edit</span>
+                Edit
+              </button>
+            )}
+            {!isTerminal && (
+              <button
+                type="button"
+                onClick={() => setClosing(true)}
+                disabled={busy}
+                className={pBtnGhost}
               >
-                {priority.label}
-              </span>
-            </div>
-            <div className="mt-2 flex items-center gap-4 flex-wrap text-xs text-muted-foreground">
-              {ownerName && (
-                <span className="inline-flex items-center gap-1">
-                  <span className="material-icons text-base">person</span>
-                  {ownerName}
-                </span>
-              )}
-              {initiative.targetDate && (
-                <span className={`inline-flex items-center gap-1 ${overdue ? 'text-red-600 dark:text-red-400 font-medium' : ''}`}>
-                  <span className="material-icons text-base">
-                    {overdue ? 'event_busy' : 'event'}
-                  </span>
-                  target {new Date(initiative.targetDate).toLocaleDateString()}
-                  {days !== null && !isTerminal && (
-                    <span className="ml-1 opacity-70">
-                      ({days < 0 ? `${Math.abs(days)}d overdue` : `${days}d left`})
-                    </span>
-                  )}
-                </span>
-              )}
-              {initiative.startDate && (
-                <span className="inline-flex items-center gap-1">
-                  <span className="material-icons text-base">play_circle</span>
-                  started {new Date(initiative.startDate).toLocaleDateString()}
-                </span>
-              )}
-              {initiative.closedAt && (
-                <span className="inline-flex items-center gap-1">
-                  <span className="material-icons text-base">archive</span>
-                  closed {relativeTime(initiative.closedAt)} ago
-                </span>
-              )}
-            </div>
+                <span className="material-icons text-sm">archive</span>
+                Close
+              </button>
+            )}
+            {isTerminal && (
+              <button
+                type="button"
+                onClick={onReopen}
+                disabled={busy}
+                className={pBtnGhost}
+              >
+                <span className="material-icons text-sm">restart_alt</span>
+                Reopen
+              </button>
+            )}
+            {!isTerminal && (
+              <button
+                type="button"
+                onClick={onCancel}
+                disabled={busy}
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-destructive/30 bg-card px-4 py-2.5 text-sm font-semibold text-destructive transition hover:border-destructive/60 hover:bg-destructive/5 disabled:opacity-50"
+              >
+                <span className="material-icons text-sm">delete</span>
+                Cancel
+              </button>
+            )}
           </div>
+        ) : undefined}
+      />
 
-          {/* Action buttons */}
-          {!editing && !closing && (
-            <div className="flex items-center gap-1 flex-shrink-0">
-              {!isTerminal && (
-                <button
-                  type="button"
-                  onClick={() => setEditing(true)}
-                  disabled={busy}
-                  className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs rounded-md border border-border text-foreground hover:bg-accent disabled:opacity-50"
-                >
-                  <span className="material-icons text-sm">edit</span>
-                  Edit
-                </button>
+      <div className={pCardPad}>
+        {/* Status + priority chips */}
+        <div className="flex items-center gap-2 flex-wrap mb-4">
+          <span
+            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${status.className}`}
+          >
+            <span className="material-icons text-[14px]">{status.icon}</span>
+            {status.label}
+          </span>
+          <span
+            className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${priority.className}`}
+          >
+            {priority.label}
+          </span>
+        </div>
+
+        {/* Meta row */}
+        <div className="mt-2 flex items-center gap-4 flex-wrap text-xs text-muted-foreground">
+          {ownerName && (
+            <span className="inline-flex items-center gap-1">
+              <span className="material-icons text-base">person</span>
+              {ownerName}
+            </span>
+          )}
+          {initiative.targetDate && (
+            <span className={`inline-flex items-center gap-1 ${overdue ? 'text-red-600 dark:text-red-400 font-medium' : ''}`}>
+              <span className="material-icons text-base">
+                {overdue ? 'event_busy' : 'event'}
+              </span>
+              target {new Date(initiative.targetDate).toLocaleDateString()}
+              {days !== null && !isTerminal && (
+                <span className="ml-1 opacity-70">
+                  ({days < 0 ? `${Math.abs(days)}d overdue` : `${days}d left`})
+                </span>
               )}
-              {!isTerminal && (
-                <button
-                  type="button"
-                  onClick={() => setClosing(true)}
-                  disabled={busy}
-                  className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs rounded-md border border-border text-foreground hover:bg-accent disabled:opacity-50"
-                >
-                  <span className="material-icons text-sm">archive</span>
-                  Close
-                </button>
-              )}
-              {isTerminal && (
-                <button
-                  type="button"
-                  onClick={onReopen}
-                  disabled={busy}
-                  className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs rounded-md border border-border text-foreground hover:bg-accent disabled:opacity-50"
-                >
-                  <span className="material-icons text-sm">restart_alt</span>
-                  Reopen
-                </button>
-              )}
-              {!isTerminal && (
-                <button
-                  type="button"
-                  onClick={onCancel}
-                  disabled={busy}
-                  className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 disabled:opacity-50"
-                >
-                  <span className="material-icons text-sm">delete</span>
-                  Cancel
-                </button>
-              )}
-            </div>
+            </span>
+          )}
+          {initiative.startDate && (
+            <span className="inline-flex items-center gap-1">
+              <span className="material-icons text-base">play_circle</span>
+              started {new Date(initiative.startDate).toLocaleDateString()}
+            </span>
+          )}
+          {initiative.closedAt && (
+            <span className="inline-flex items-center gap-1">
+              <span className="material-icons text-base">archive</span>
+              closed {relativeTime(initiative.closedAt)} ago
+            </span>
           )}
         </div>
 
@@ -435,7 +438,7 @@ export default function InitiativeDetailPage({ params }: { params: Promise<{ id:
         {/* Inline edit form */}
         {editing && (
           <div className="mt-4 pt-4 border-t border-border">
-            <h2 className="text-sm font-semibold text-foreground mb-3">Edit initiative</h2>
+            <h2 className={`${pSectionTitle} mb-3`}>Edit initiative</h2>
             <InitiativeForm
               mode="edit"
               team={team}
@@ -458,7 +461,7 @@ export default function InitiativeDetailPage({ params }: { params: Promise<{ id:
         {/* Inline close form */}
         {closing && (
           <div className="mt-4 pt-4 border-t border-border">
-            <h2 className="text-sm font-semibold text-foreground mb-3 inline-flex items-center gap-1.5">
+            <h2 className={`${pSectionTitle} mb-3 inline-flex items-center gap-1.5`}>
               <span className="material-icons text-base">archive</span>
               Close initiative
             </h2>
@@ -472,9 +475,9 @@ export default function InitiativeDetailPage({ params }: { params: Promise<{ id:
       </div>
 
       {/* Goals section */}
-      <section className="bg-card border border-border rounded-xl p-5">
+      <section className={pCardPad}>
         <div className="flex items-center justify-between gap-3 flex-wrap">
-          <h2 className="text-base font-semibold text-foreground inline-flex items-center gap-2">
+          <h2 className={`${pSectionTitle} inline-flex items-center gap-2`}>
             <span className="material-icons text-base text-primary">track_changes</span>
             Goals
             <span className="text-xs text-muted-foreground font-normal">({goals.length})</span>
@@ -482,7 +485,7 @@ export default function InitiativeDetailPage({ params }: { params: Promise<{ id:
           <button
             type="button"
             onClick={() => setAddGoalOpen((v) => !v)}
-            className="inline-flex items-center gap-1 px-2.5 py-1 text-xs rounded-md border border-border text-foreground hover:bg-accent"
+            className={pBtnGhost}
           >
             <span className="material-icons text-sm">{addGoalOpen ? 'close' : 'add'}</span>
             {addGoalOpen ? 'Cancel' : 'Add goal'}
@@ -545,8 +548,8 @@ export default function InitiativeDetailPage({ params }: { params: Promise<{ id:
 
       {/* Lessons learned (terminal only) */}
       {isTerminal && initiative.lessonsLearned && (
-        <section className="bg-card border border-border rounded-xl p-5">
-          <h2 className="text-base font-semibold text-foreground inline-flex items-center gap-2">
+        <section className={pCardPad}>
+          <h2 className={`${pSectionTitle} inline-flex items-center gap-2`}>
             <span className="material-icons text-base text-primary">menu_book</span>
             Lessons learned
           </h2>
@@ -624,7 +627,7 @@ function AddGoalForm({
   };
 
   return (
-    <form onSubmit={submit} className="mt-3 bg-muted/30 border border-border rounded-md p-3 space-y-2">
+    <form onSubmit={submit} className="mt-3 rounded-2xl border border-border bg-card p-4 space-y-3">
       <input
         type="text"
         value={title}
@@ -632,14 +635,14 @@ function AddGoalForm({
         placeholder="Goal title"
         required
         autoFocus
-        className="w-full px-2 py-1.5 text-sm rounded-md border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+        className={pInput}
       />
       <textarea
         value={description}
         onChange={(e) => setDescription(e.target.value)}
         rows={2}
         placeholder="Description (optional)"
-        className="w-full px-2 py-1.5 text-sm rounded-md border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+        className={pInput}
       />
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
         <label className="block">
@@ -647,7 +650,7 @@ function AddGoalForm({
           <select
             value={unit}
             onChange={(e) => setUnit(e.target.value as typeof unit)}
-            className="mt-1 w-full px-2 py-1.5 text-sm rounded-md border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+            className={`mt-1 ${pSelect}`}
           >
             <option value="">none</option>
             <option value="percent">%</option>
@@ -663,7 +666,7 @@ function AddGoalForm({
             step="any"
             value={targetMetric}
             onChange={(e) => setTargetMetric(e.target.value)}
-            className="mt-1 w-full px-2 py-1.5 text-sm rounded-md border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+            className={`mt-1 ${pInput}`}
           />
         </label>
         <label className="block">
@@ -673,7 +676,7 @@ function AddGoalForm({
             step="any"
             value={currentMetric}
             onChange={(e) => setCurrentMetric(e.target.value)}
-            className="mt-1 w-full px-2 py-1.5 text-sm rounded-md border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+            className={`mt-1 ${pInput}`}
           />
         </label>
         <label className="block">
@@ -682,7 +685,7 @@ function AddGoalForm({
             type="date"
             value={targetDate}
             onChange={(e) => setTargetDate(e.target.value)}
-            className="mt-1 w-full px-2 py-1.5 text-sm rounded-md border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+            className={`mt-1 ${pInput}`}
           />
         </label>
         <label className="block">
@@ -690,7 +693,7 @@ function AddGoalForm({
           <select
             value={status}
             onChange={(e) => setStatus(e.target.value as BrainGoalStatus)}
-            className="mt-1 w-full px-2 py-1.5 text-sm rounded-md border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+            className={`mt-1 ${pSelect}`}
           >
             {GOAL_STATUSES.map((s) => (
               <option key={s} value={s}>{goalStatusChip(s).label}</option>
@@ -708,14 +711,14 @@ function AddGoalForm({
           type="button"
           onClick={onCancel}
           disabled={submitting}
-          className="px-2.5 py-1 text-xs rounded-md border border-border text-foreground hover:bg-accent disabled:opacity-50"
+          className={pBtnGhost}
         >
           Cancel
         </button>
         <button
           type="submit"
           disabled={submitting}
-          className="px-2.5 py-1 text-xs rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 inline-flex items-center gap-1"
+          className={pBtnPrimary}
         >
           {submitting
             ? <><span className="material-icons animate-spin text-sm">progress_activity</span>Adding…</>

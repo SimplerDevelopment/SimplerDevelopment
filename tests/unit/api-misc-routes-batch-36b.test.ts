@@ -28,6 +28,13 @@ vi.mock('@/lib/portal-client', () => ({
   getPortalClient: (...args: unknown[]) => getPortalClientMock(...args),
 }));
 
+const authorizePortalMock = vi.fn();
+vi.mock('@/lib/portal-auth', () => ({
+  authorizePortal: (...args: unknown[]) => authorizePortalMock(...args),
+  isAuthError: (r: unknown) =>
+    Boolean(r && typeof r === 'object' && 'response' in (r as Record<string, unknown>)),
+}));
+
 const validateSubdomainMock = vi.fn();
 const isSubdomainAvailableMock = vi.fn();
 vi.mock('@/lib/subdomain', () => ({
@@ -98,6 +105,8 @@ vi.mock('@/lib/db/schema', () => {
     projects: wrap('projects'),
     projectWebhooks: wrap('projectWebhooks'),
     bookings: wrap('bookings'),
+    brainNotes: wrap('brainNotes'),
+    posts: wrap('posts'),
   }, { has: (t, p) => (p in t) || !(p === "then" || p === "__esModule" || p === "default" || typeof p !== "string"), get: (t, p) => (p in t) ? t[p] : ((p === "then" || p === "__esModule" || p === "default" || typeof p !== "string") ? undefined : wrap(p)) });
 });
 
@@ -225,6 +234,8 @@ beforeEach(() => {
   writeCalls.length = 0;
   validateSubdomainMock.mockReturnValue(null);
   isSubdomainAvailableMock.mockResolvedValue(true);
+  // Default: authorizePortal passes (routes gate on requireService)
+  authorizePortalMock.mockResolvedValue({ client: { id: 9 }, userId: 5, role: 'admin' });
 });
 
 // ===========================================================================

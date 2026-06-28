@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useParams } from 'next/navigation';
+import { pBtnPrimary } from '@/components/portal/portal-ui';
 import { MenuTree } from './_components/MenuTree';
 import { MenuSettings } from './_components/MenuSettings';
 import { NavigationPreview } from './_components/NavigationPreview';
@@ -66,7 +67,7 @@ export default function NavigationEditorPage() {
           <button
             onClick={save}
             disabled={!dirty || saving}
-            className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+            className={pBtnPrimary}
           >
             <span className="material-icons text-base">{saving ? 'refresh' : 'save'}</span>
             {saving ? 'Saving...' : 'Save Changes'}

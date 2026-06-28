@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import type { Block } from '@/types/blocks';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnPrimary, pBtnGhost } from '@/components/portal/portal-ui';
 
 const EmailBlockEditor = dynamic(() => import('@/components/email/EmailBlockEditor').then(m => ({ default: m.EmailBlockEditor })), { ssr: false });
 
@@ -102,16 +104,17 @@ export default function EmailTemplatesPage() {
 
   return (
     <div className="max-w-5xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold">Email Templates</h1>
-          <p className="text-sm text-muted-foreground mt-1">Reusable email designs for your campaigns</p>
-        </div>
-        <button onClick={() => setShowCreate(!showCreate)} className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 text-sm font-medium">
-          <span className="material-icons text-lg">add</span>
-          New Template
-        </button>
-      </div>
+      <PortalPageHeader
+        eyebrow="Email"
+        title="Email Templates"
+        subtitle="Reusable email designs for your campaigns"
+        actions={
+          <button onClick={() => setShowCreate(!showCreate)} className={pBtnPrimary}>
+            <span className="material-icons text-lg">add</span>
+            New Template
+          </button>
+        }
+      />
 
       {/* Create form */}
       {showCreate && (
@@ -160,10 +163,10 @@ export default function EmailTemplatesPage() {
             )}
           </div>
           <div className="flex gap-3">
-            <button type="submit" disabled={saving} className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-50">
+            <button type="submit" disabled={saving} className={pBtnPrimary}>
               {saving ? 'Saving...' : 'Create Template'}
             </button>
-            <button type="button" onClick={() => setShowCreate(false)} className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground">Cancel</button>
+            <button type="button" onClick={() => setShowCreate(false)} className={pBtnGhost}>Cancel</button>
           </div>
         </form>
       )}

@@ -5,6 +5,8 @@ import { useEffect, useState, useCallback } from 'react';
 import type { BrainEnabledModules } from '@/lib/db/schema';
 import type { BrainProfile } from '@/lib/brain/profiles';
 import type { IndustryTemplate } from '@/lib/brain/industry-templates';
+import PortalPageHeader from '@/components/portal/PortalPageHeader';
+import { pBtnGhost, pBtnPrimary, pSectionTitle } from '@/components/portal/portal-ui';
 
 interface SettingsResponse {
   success: boolean;
@@ -110,29 +112,25 @@ export default function BrainSettingsPage() {
 
   return (
     <div className="max-w-3xl mx-auto py-8 space-y-6">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Company Brain Settings</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Configure how Company Brain behaves for your team.
-          </p>
-        </div>
-        <Link
-          href="/portal/brain"
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md border border-border text-foreground hover:bg-accent"
-        >
-          <span className="material-icons text-base">arrow_back</span>
-          Back
-        </Link>
-      </div>
+      <PortalPageHeader
+        eyebrow="Company Brain"
+        title="Brain Settings"
+        subtitle="Configure how Company Brain behaves for your team."
+        actions={
+          <Link href="/portal/brain" className={pBtnGhost}>
+            <span className="material-icons text-base">arrow_back</span>
+            Back
+          </Link>
+        }
+      />
 
       {error && (
-        <div className="bg-destructive/10 border border-destructive/30 rounded-md p-3 text-sm text-destructive">
+        <div className="bg-destructive/10 border border-destructive/30 rounded-xl p-3 text-sm text-destructive">
           {error}
         </div>
       )}
       {savedAt && !error && (
-        <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-md p-3 text-sm text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5">
+        <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-3 text-sm text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5">
           <span className="material-icons text-base">check_circle</span>
           Saved.
         </div>
@@ -209,10 +207,10 @@ export default function BrainSettingsPage() {
               key={t.id}
               onClick={() => save({ industryTemplate: t.id })}
               disabled={saving || profile.industryTemplate === t.id}
-              className={`text-left rounded-md border p-3 transition-colors ${
+              className={`text-left rounded-xl border p-3 transition-colors ${
                 profile.industryTemplate === t.id
                   ? 'border-primary bg-primary/5'
-                  : 'border-border hover:bg-accent'
+                  : 'border-border hover:bg-muted/50'
               }`}
             >
               <div className="flex items-center justify-between">
@@ -243,10 +241,10 @@ export default function BrainSettingsPage() {
               key={opt.id}
               onClick={() => save({ defaultConfidentiality: opt.id })}
               disabled={saving || profile.defaultConfidentiality === opt.id}
-              className={`text-left rounded-md border p-3 transition-colors ${
+              className={`text-left rounded-xl border p-3 transition-colors ${
                 profile.defaultConfidentiality === opt.id
                   ? 'border-primary bg-primary/5'
-                  : 'border-border hover:bg-accent'
+                  : 'border-border hover:bg-muted/50'
               }`}
             >
               <div className="flex items-center justify-between">
@@ -331,8 +329,8 @@ export default function BrainSettingsPage() {
 
 function Section({ title, icon, children }: { title: string; icon: string; children: React.ReactNode }) {
   return (
-    <section className="bg-card border border-border rounded-lg p-5">
-      <h2 className="text-sm font-semibold text-foreground flex items-center gap-2 mb-4">
+    <section className="bg-card border border-border rounded-2xl p-5">
+      <h2 className="font-display text-[17px] font-extrabold tracking-[-0.02em] text-foreground flex items-center gap-2 mb-4">
         <span className="material-icons text-base text-muted-foreground">{icon}</span>
         {title}
       </h2>
@@ -385,12 +383,12 @@ function NameField({ value, onSave, disabled }: { value: string; onSave: (v: str
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
         disabled={disabled}
-        className="px-3 py-1.5 rounded-md border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50"
+        className="w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary focus:ring-4 focus:ring-primary/15 disabled:opacity-50"
       />
       <button
         onClick={() => dirty && onSave(draft.trim())}
         disabled={disabled || !dirty}
-        className="px-3 py-1.5 text-sm rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+        className={pBtnPrimary}
       >
         Save
       </button>
@@ -420,7 +418,7 @@ function EmailIngestField({ token }: { token: string }) {
       <button
         type="button"
         onClick={copy}
-        className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs rounded-md border border-border text-foreground hover:bg-accent shrink-0"
+        className={`${pBtnGhost} shrink-0`}
       >
         <span className="material-icons text-sm">{copied ? 'check' : 'content_copy'}</span>
         {copied ? 'Copied' : 'Copy'}
@@ -441,13 +439,13 @@ function ServiceLinesField({ value, onSave, disabled }: { value: string[]; onSav
         onChange={(e) => setDraft(e.target.value)}
         disabled={disabled}
         rows={Math.max(4, parsed.length + 1)}
-        className="w-full px-3 py-2 rounded-md border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50"
+        className="w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary focus:ring-4 focus:ring-primary/15 disabled:opacity-50"
         placeholder="e.g. Investments &amp; Planning"
       />
       <button
         onClick={() => dirty && onSave(parsed)}
         disabled={disabled || !dirty}
-        className="px-3 py-1.5 text-sm rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+        className={pBtnPrimary}
       >
         Save service lines
       </button>

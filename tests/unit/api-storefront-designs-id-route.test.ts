@@ -191,7 +191,7 @@ vi.mock('@/lib/s3/client', () => ({
   getBucketName: vi.fn(() => 'bucket'),
 }));
 vi.mock('@/lib/s3/upload', () => ({ uploadToS3: vi.fn().mockResolvedValue({ url: 'https://s3/new.png' }) }));
-vi.mock('@/lib/magamommy/composite', () => ({ compositeArtworkOnShirt: vi.fn().mockResolvedValue(Buffer.from('')) }));
+vi.mock('@/lib/printing/composite', () => ({ compositeArtworkOnShirt: vi.fn().mockResolvedValue(Buffer.from('')) }));
 
 // ── import route AFTER mocks ─────────────────────────────────────────────────
 

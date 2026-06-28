@@ -47,6 +47,10 @@ vi.mock('@/lib/portal-auth', () => ({
   isAuthError: (...args: unknown[]) => isAuthErrorMock(...args),
 }));
 
+vi.mock('@/lib/admin/dashboard-cache', () => ({
+  revalidateAdminDashboard: () => undefined,
+}));
+
 // drizzle-orm operators — inert objects
 vi.mock('drizzle-orm', () => ({
   eq: (a: unknown, b: unknown) => ({ op: 'eq', a, b }),
@@ -55,6 +59,7 @@ vi.mock('drizzle-orm', () => ({
   desc: (a: unknown) => ({ op: 'desc', a }),
   asc: (a: unknown) => ({ op: 'asc', a }),
   count: () => ({ op: 'count' }),
+  max: (a: unknown) => ({ op: 'max', a }),
   sql: Object.assign(
     (strings: TemplateStringsArray, ...values: unknown[]) => ({
       op: 'sql',
@@ -91,6 +96,7 @@ vi.mock('@/lib/db/schema', () => {
     users: wrap('users'),
     bookingPages: wrap('bookingPages'),
     bookingAddOns: wrap('bookingAddOns'),
+    crmProposals: wrap('crmProposals'),
   }, { has: (t, p) => (p in t) || !(p === "then" || p === "__esModule" || p === "default" || typeof p !== "string"), get: (t, p) => (p in t) ? t[p] : ((p === "then" || p === "__esModule" || p === "default" || typeof p !== "string") ? undefined : wrap(p)) });
 });
 
@@ -189,6 +195,15 @@ vi.mock('@/lib/db', () => {
     };
   }
 
+  const tx = {
+    select(_columns?: unknown) {
+      return buildSelect();
+    },
+    insert(table: { __table: string }) {
+      return buildInsert(table);
+    },
+  };
+
   return {
     db: {
       select() {
@@ -202,6 +217,9 @@ vi.mock('@/lib/db', () => {
       },
       delete(table: { __table: string }) {
         return buildDelete(table);
+      },
+      async transaction(callback: (tx: typeof tx) => Promise<unknown>) {
+        return callback(tx);
       },
     },
   };
@@ -596,7 +614,7 @@ describe('POST /api/portal/tickets', () => {
   it('creates a ticket with defaults and emits ticket.created', async () => {
     authMock.mockResolvedValue(PORTAL_SESSION);
     getPortalClientMock.mockResolvedValue({ id: 5 });
-    selectQueue.push([{ count: 4 }]); // ticket-number lookup
+    selectQueue.push([{ maxNumber: 1004 }]); // ticket-number lookup: max+1 = 1005
     computeSlaDeadlinesMock.mockReturnValue({
       firstResponseDueAt: new Date('2026-01-01T00:00:00Z'),
       resolutionDueAt: new Date('2026-01-02T00:00:00Z'),
@@ -645,7 +663,7 @@ describe('POST /api/portal/tickets', () => {
   it('honors provided category and priority and starts numbering at 1001 when no rows exist', async () => {
     authMock.mockResolvedValue(PORTAL_SESSION);
     getPortalClientMock.mockResolvedValue({ id: 5 });
-    selectQueue.push([{ count: 0 }]); // first-ever ticket
+    selectQueue.push([{ maxNumber: null }]); // first-ever ticket: max()=null → 1000+1=1001
     computeSlaDeadlinesMock.mockReturnValue({
       firstResponseDueAt: null,
       resolutionDueAt: null,
@@ -673,7 +691,7 @@ describe('POST /api/portal/tickets', () => {
   it('handles missing count result gracefully', async () => {
     authMock.mockResolvedValue(PORTAL_SESSION);
     getPortalClientMock.mockResolvedValue({ id: 5 });
-    selectQueue.push([]); // no rows at all (undefined result)
+    selectQueue.push([{ maxNumber: null }]); // max() always returns one row; null when no tickets exist
     computeSlaDeadlinesMock.mockReturnValue({
       firstResponseDueAt: null,
       resolutionDueAt: null,

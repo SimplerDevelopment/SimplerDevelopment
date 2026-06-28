@@ -19,8 +19,8 @@ interface HeroBlockRenderProps {
 export function HeroBlockRender({ block }: HeroBlockRenderProps) {
   const branding = useBranding();
 
-  // Compatibility aliases — some LLM-authored decks (notably the PostCaptain
-  // MCP template output) write { eyebrow, headline, subheadline } instead of
+  // Compatibility aliases — some LLM-authored decks (notably older MCP
+  // template output) write { eyebrow, headline, subheadline } instead of
   // { subtitle, title, description }. Accept both shapes so historical decks
   // still render; canonical fields always win when present.
   const raw = block as unknown as {

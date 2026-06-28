@@ -254,6 +254,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
   // ─── CREATE BOOKING ────────────────────────────────────────────────────────
 
   const cancelToken = crypto.randomUUID();
+  const rescheduleToken = crypto.randomBytes(32).toString('hex');
   const checkinCode = page.checkinEnabled ? generateCheckinCode() : null;
   const needsPayment = total > 0;
 
@@ -296,30 +297,50 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
     }
   }
 
-  const [booking] = await db.insert(bookings).values({
-    bookingPageId: page.id,
-    clientId: page.clientId,
-    guestName: name.trim(),
-    guestEmail: email.trim(),
-    guestPhone: phone?.trim() || null,
-    startTime: slotStart,
-    endTime: slotEnd,
-    timezone: timezone || page.timezone,
-    answers: answers || null,
-    cancelToken,
-    groupSize: isGroupBooking ? seats : groupSize,
-    subtotal,
-    discountTotal,
-    total,
-    discountCode: appliedDiscountCode,
-    giftCertificateCode: appliedGiftCertCode,
-    giftCertificateAmount: giftCertAmount,
-    checkinCode,
-    assignedTo,
-    assignedUserId: autoAssignedUserId,
-    paymentStatus: needsPayment ? 'pending' : 'free',
-    status: needsPayment ? 'confirmed' : 'confirmed', // confirmed even while pending payment — cancelled if payment fails
-  }).returning();
+  // slotExclusive=true only for true 1:1 slots (not group, not maxGuests
+  // capacity mode) — those allow multiple bookings per slot. The DB partial
+  // unique index then makes the second of two concurrent 1:1 bookings fail with
+  // 23505, which we surface as 409 (the availability SELECT above can't win the
+  // race on its own).
+  const slotExclusive = !isGroupBooking && !page.maxGuests;
+  let booking: typeof bookings.$inferSelect;
+  try {
+    const inserted = await db.insert(bookings).values({
+      bookingPageId: page.id,
+      clientId: page.clientId,
+      guestName: name.trim(),
+      guestEmail: email.trim(),
+      guestPhone: phone?.trim() || null,
+      startTime: slotStart,
+      endTime: slotEnd,
+      timezone: timezone || page.timezone,
+      answers: answers || null,
+      cancelToken,
+      rescheduleToken,
+      groupSize: isGroupBooking ? seats : groupSize,
+      slotExclusive,
+      subtotal,
+      discountTotal,
+      total,
+      discountCode: appliedDiscountCode,
+      giftCertificateCode: appliedGiftCertCode,
+      giftCertificateAmount: giftCertAmount,
+      checkinCode,
+      assignedTo,
+      assignedUserId: autoAssignedUserId,
+      paymentStatus: needsPayment ? 'pending' : 'free',
+      status: needsPayment ? 'confirmed' : 'confirmed', // confirmed even while pending payment — cancelled if payment fails
+    }).returning();
+    booking = inserted[0];
+  } catch (err) {
+    if ((err as { code?: string })?.code === '23505') {
+      return NextResponse.json(
+        { success: false, message: 'This time slot is no longer available' },
+        { status: 409 },
+      );
+    }
+    throw err;
+  }
 
   // For group bookings, persist each attendee. When the request didn't pass
   // an explicit attendees[] (legacy widget), fall back to creating a single

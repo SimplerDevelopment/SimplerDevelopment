@@ -6,10 +6,12 @@ import {
   bulkPricingRules, shippingRates, shippingZones, discountCodes,
   orders, orderItems, orderStatusHistory,
   giftCertificates, giftCertificateRedemptions,
+  clientWebsites,
 } from '@/lib/db/schema';
-import { eq, and, asc, desc, sql } from 'drizzle-orm';
+import { eq, and, asc, desc, sql, inArray } from 'drizzle-orm';
 import { resolveSiteStripe, SiteStripeError, type SiteStripeContext } from '@/lib/stripe/site-stripe';
 import { revalidateAdminDashboard } from '@/lib/admin/dashboard-cache';
+import { emitEvent } from '@/lib/automation/event-bus';
 
 function generateOrderNumber(prefix: string, lastNumber: string | null): string {
   if (!lastNumber) {
@@ -104,19 +106,22 @@ export async function POST(
       return NextResponse.json({ success: false, message: 'Cart is empty' }, { status: 400 });
     }
 
-    // Load product details for each item
+    // Load product details for each item — fence to THIS store's websiteId so a
+    // cart row referencing a foreign-site product can never flow through the
+    // payment path (defense-in-depth; cart-add already scopes, this re-validates).
     const productIds = [...new Set(items.map(i => i.productId))];
     const productRows = await db.select().from(products)
-      .where(sql`${products.id} IN ${productIds}`);
+      .where(and(inArray(products.id, productIds), eq(products.websiteId, websiteId)));
     const productMap = Object.fromEntries(productRows.map(p => [p.id, p]));
 
-    // Load variant details
+    // Load variant details — variants have no websiteId, so fence them to the
+    // (already site-scoped) product ids.
     const variantIds = items.filter(i => i.variantId).map(i => i.variantId!);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let variantMap: Record<number, any> = {};
     if (variantIds.length > 0) {
       const variantRows = await db.select().from(productVariants)
-        .where(sql`${productVariants.id} IN ${variantIds}`);
+        .where(and(inArray(productVariants.id, variantIds), inArray(productVariants.productId, productIds)));
       variantMap = Object.fromEntries(variantRows.map(v => [v.id, v]));
     }
 
@@ -408,6 +413,25 @@ export async function POST(
       note: 'Order created, awaiting payment',
     });
 
+    // Emit order.placed at order-row creation (before payment confirmation).
+    // Resolving clientId from clientWebsites so automation rules can filter
+    // by tenant. Fire-and-forget — the response is not blocked.
+    db.select({ clientId: clientWebsites.clientId })
+      .from(clientWebsites)
+      .where(eq(clientWebsites.id, websiteId))
+      .limit(1)
+      .then(([website]) => {
+        emitEvent('order.placed', website?.clientId ?? 0, 0, {
+          orderId: order.id,
+          orderNumber,
+          customerEmail,
+          customerName,
+          total,
+          websiteId,
+        });
+      })
+      .catch((err) => console.error('[checkout] order.placed emit failed:', err));
+
     // Redeem gift certificate if used
     if (appliedGiftCertId && appliedGiftCertCode && giftCertAmount > 0) {
       const [cert] = await db.select().from(giftCertificates)
@@ -442,10 +466,23 @@ export async function POST(
       },
     });
 
+    // Provide the publishable key so the client can initialise Stripe.js
+    // without hard-coding a key in the browser bundle.
+    // Connect mode → platform NEXT_PUBLIC key (callers confirm against the
+    //   platform account which then splits to the connected account).
+    // BYOK mode → the tenant's own pk_… stored plaintext in store_settings;
+    //   null falls back to the platform key (e.g. before the merchant saves
+    //   their publishable key during BYOK setup).
+    const publishableKey =
+      ctx.mode === 'byok'
+        ? (store.stripePublishableKey || process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || null)
+        : (process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || null);
+
     return NextResponse.json({
       success: true,
       data: {
         clientSecret: paymentIntent.client_secret,
+        publishableKey,
         orderId: order.id,
         orderNumber,
         total,

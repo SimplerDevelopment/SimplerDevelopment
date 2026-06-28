@@ -7,6 +7,8 @@ import DealKanban from './_components/DealKanban';
 import NewDealModal from './_components/NewDealModal';
 import { useDeals } from './_hooks/useDeals';
 import type { Company, Contact, Deal, DealFormState } from './_lib/types';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnPrimary, pCard } from '@/components/portal/portal-ui';
 
 const EMPTY_FORM: DealFormState = {
   title: '',
@@ -77,13 +79,13 @@ export default function CrmDealsPage() {
 
   if (pipelines.length === 0) {
     return (
-      <div className="bg-card border border-border rounded-xl p-12 text-center">
+      <div className={`${pCard} p-12 text-center`}>
         <span className="material-icons text-4xl text-muted-foreground mb-3 block">view_column</span>
         <p className="text-muted-foreground mb-2">No pipelines set up yet.</p>
         <p className="text-sm text-muted-foreground mb-4">Create a pipeline in CRM Settings to get started.</p>
         <a
           href="/portal/crm/settings"
-          className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90"
+          className={pBtnPrimary}
         >
           <span className="material-icons text-base">settings</span>
           Go to Settings
@@ -94,6 +96,11 @@ export default function CrmDealsPage() {
 
   return (
     <div className="space-y-6">
+      <PortalPageHeader
+        eyebrow="CRM"
+        title="Deals"
+        subtitle="Manage your sales pipeline"
+      />
       <DealFilters
         pipelines={pipelines}
         selectedPipelineId={selectedPipelineId}

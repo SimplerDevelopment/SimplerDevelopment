@@ -230,7 +230,7 @@ export default function ProjectMembersTab({ projectId, canManage }: { projectId:
                     )}
                   </td>
                   <td className="px-4 py-3 text-xs text-muted-foreground">
-                    {new Date(m.addedAt).toLocaleDateString()}
+                    {new Date(m.addedAt).toLocaleDateString('en-US')}
                   </td>
                   {canManage && (
                     <td className="px-4 py-3 text-right">

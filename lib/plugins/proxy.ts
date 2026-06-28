@@ -239,7 +239,7 @@ export function invalidateEntitlementCache(
  * Build a proxied URL for the plugin origin.
  *
  *  - `hostUrl` is the registered `registered_apps.host_url`, e.g.
- *    `https://postcaptain-tools.simplerdevelopment.com` (no trailing slash).
+ *    `https://content-tools.simplerdevelopment.com` (no trailing slash).
  *  - `pathSuffix` is the portion after `/portal/apps/<slug>` — e.g.
  *    `/briefs/42` or `''` for the dashboard root.
  *  - `search` is `request.nextUrl.search` (e.g. `?page=2`), forwarded as-is.
