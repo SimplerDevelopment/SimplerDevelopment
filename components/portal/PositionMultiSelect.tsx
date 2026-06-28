@@ -29,10 +29,6 @@ export default function PositionMultiSelect({
   }, [options, selected, query]);
 
   useEffect(() => {
-    setActiveIndex(0);
-  }, [query, open]);
-
-  useEffect(() => {
     function onDocClick(e: MouseEvent) {
       if (!containerRef.current) return;
       if (!containerRef.current.contains(e.target as Node)) setOpen(false);
@@ -76,6 +72,7 @@ export default function PositionMultiSelect({
       <div
         onClick={() => {
           setOpen(true);
+          setActiveIndex(0);
           inputRef.current?.focus();
         }}
         className="flex flex-wrap items-center gap-1.5 min-h-[38px] px-2 py-1 bg-background border border-border rounded-lg focus-within:ring-2 focus-within:ring-primary/50 cursor-text"
@@ -105,9 +102,10 @@ export default function PositionMultiSelect({
           value={query}
           onChange={(e) => {
             setQuery(e.target.value);
+            setActiveIndex(0);
             setOpen(true);
           }}
-          onFocus={() => setOpen(true)}
+          onFocus={() => { setOpen(true); setActiveIndex(0); }}
           onKeyDown={onKeyDown}
           placeholder={selected.length === 0 ? placeholder : ''}
           className="flex-1 min-w-[80px] bg-transparent border-0 outline-none text-sm text-foreground px-1 py-1"

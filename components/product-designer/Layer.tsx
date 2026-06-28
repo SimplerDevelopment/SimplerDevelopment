@@ -1,5 +1,3 @@
-// @ts-nocheck
-// TODO(designer): clean up types — ported from CRA, see .planning/product-designer-integration.md
 'use client';
 
 import React, { useContext, memo, useMemo, useCallback } from "react";
@@ -11,8 +9,9 @@ import { BsX } from "react-icons/bs";
 import { ArtLayer } from "./ArtLayer";
 import { SimpleEnhancedTextLayer } from "./SimpleEnhancedTextLayer";
 import { resolveIcon } from "./utils/iconResolver";
+import type { LayerData, ProductSideData } from "./designerTypes";
 
-export const Layer = memo(function Layer({ layer, side }: { layer: any; side: any }) {
+export const Layer = memo(function Layer({ layer, side }: { layer: LayerData; side: ProductSideData | null }) {
   const {
     layers,
     updateLayer,

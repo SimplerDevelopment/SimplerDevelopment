@@ -54,7 +54,7 @@ export function extractUrlsFromText(text: string): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
   for (const match of text.matchAll(URL_REGEX)) {
-    let url = match[0].replace(TRAILING_TRIM, '');
+    const url = match[0].replace(TRAILING_TRIM, '');
     // Skip mailto, tel, etc — the regex already filters but being explicit.
     if (!/^https?:\/\//i.test(url)) continue;
     // Normalize for dedup — lowercase host, strip fragment.

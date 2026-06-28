@@ -164,14 +164,16 @@ export default function NoteListPane({ selectedId, onSelect, onCreate, onTemplat
   // Load persisted prefs once.
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    try {
-      const raw = window.localStorage.getItem(COLLAPSED_KEY);
-      if (raw) setCollapsed(JSON.parse(raw));
-    } catch { /* non-fatal */ }
-    const sf = window.localStorage.getItem(SORT_KEY);
-    if (sf === 'updated' || sf === 'created' || sf === 'title') setSortField(sf);
-    const so = window.localStorage.getItem(ORDER_KEY);
-    if (so === 'asc' || so === 'desc') setSortOrder(so);
+    queueMicrotask(() => {
+      try {
+        const raw = window.localStorage.getItem(COLLAPSED_KEY);
+        if (raw) setCollapsed(JSON.parse(raw));
+      } catch { /* non-fatal */ }
+      const sf = window.localStorage.getItem(SORT_KEY);
+      if (sf === 'updated' || sf === 'created' || sf === 'title') setSortField(sf);
+      const so = window.localStorage.getItem(ORDER_KEY);
+      if (so === 'asc' || so === 'desc') setSortOrder(so);
+    });
   }, []);
 
   useEffect(() => {
@@ -264,7 +266,7 @@ export default function NoteListPane({ selectedId, onSelect, onCreate, onTemplat
 
   // Initial + filter-change reload.
   useEffect(() => {
-    load(0, true);
+    queueMicrotask(() => load(0, true));
   }, [load, refreshTick, internalRefresh]);
 
   // Tag inventory for the chip drawer.
@@ -282,7 +284,7 @@ export default function NoteListPane({ selectedId, onSelect, onCreate, onTemplat
   // the user moves notes between tags.
   useEffect(() => {
     let cancelled = false;
-    setTagCountsLoading(true);
+    queueMicrotask(() => setTagCountsLoading(true));
     fetch('/api/portal/brain/knowledge?tags=counts')
       .then(r => r.json())
       .then(j => {
@@ -332,7 +334,7 @@ export default function NoteListPane({ selectedId, onSelect, onCreate, onTemplat
   useEffect(() => {
     if (groupingMode !== 'topics') return;
     let cancelled = false;
-    setTopicTreeLoading(true);
+    queueMicrotask(() => setTopicTreeLoading(true));
     fetch('/api/portal/brain/topics?as=tree')
       .then(r => r.json())
       .then(j => {
@@ -354,7 +356,7 @@ export default function NoteListPane({ selectedId, onSelect, onCreate, onTemplat
   //   and replace this fetch with a server-side filter.
   useEffect(() => {
     if (selectedTopicId == null) {
-      setTopicNoteIds(null);
+      queueMicrotask(() => setTopicNoteIds(null));
       return;
     }
     let cancelled = false;
@@ -388,15 +390,17 @@ export default function NoteListPane({ selectedId, onSelect, onCreate, onTemplat
       return;
     }
     didDrillRef.current = true;
-    if (tagParam) setActiveTags([tagParam]);
-    if (orphansParam) setOrphansOnly(true);
-    if (untaggedParam) setUntaggedOnly(true);
-    const next = new URLSearchParams(searchParams.toString());
-    next.delete('tag');
-    next.delete('orphans');
-    next.delete('untagged');
-    const qs = next.toString();
-    router.replace(`/portal/brain/knowledge${qs ? `?${qs}` : ''}`, { scroll: false });
+    queueMicrotask(() => {
+      if (tagParam) setActiveTags([tagParam]);
+      if (orphansParam) setOrphansOnly(true);
+      if (untaggedParam) setUntaggedOnly(true);
+      const next = new URLSearchParams(searchParams.toString());
+      next.delete('tag');
+      next.delete('orphans');
+      next.delete('untagged');
+      const qs = next.toString();
+      router.replace(`/portal/brain/knowledge${qs ? `?${qs}` : ''}`, { scroll: false });
+    });
   }, [searchParams, router]);
 
   // Saved searches inventory.
@@ -409,18 +413,20 @@ export default function NoteListPane({ selectedId, onSelect, onCreate, onTemplat
   }, []);
 
   useEffect(() => {
-    loadSavedSearches();
+    queueMicrotask(() => loadSavedSearches());
   }, [loadSavedSearches]);
 
   // Clear selection when leaving select mode or when filter context changes.
   useEffect(() => {
     if (!selectMode) {
-      setSelectedIds(new Set());
-      setBulkPopover(null);
+      queueMicrotask(() => {
+        setSelectedIds(new Set());
+        setBulkPopover(null);
+      });
     }
   }, [selectMode]);
   useEffect(() => {
-    setSelectedIds(new Set());
+    queueMicrotask(() => setSelectedIds(new Set()));
   }, [trashed]);
 
   const pinnedIdsSet = useMemo(() => {

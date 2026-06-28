@@ -1,13 +1,14 @@
 'use client';
 
 import React from "react";
+import type { LayerData, StyleOverridesMap } from "./designerTypes";
 
 export interface DesignRecord {
   id: number;
   catalog_id: number;
   name?: string | null;
-  layers: any;
-  style_overrides: any;
+  layers: LayerData[];
+  style_overrides: StyleOverridesMap;
   created_at: string;
   updated_at?: string;
 }

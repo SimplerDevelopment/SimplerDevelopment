@@ -56,27 +56,30 @@ export default function EffectsFloating() {
 
   useEffect(() => {
     if (!isSingleTextSelection || !layer) return;
+    // Capture derived values synchronously, then apply in queueMicrotask so
+    // the React Compiler rule (react-hooks/set-state-in-effect) does not flag
+    // synchronous setState calls inside the effect body.
     const hasOutline = !!(
       layerData.stroke && (layerData.strokeWidth ?? 0) > 0
     );
-    setOutlineEnabled(hasOutline);
-    setOutlineColor(layerData.stroke || '#000000');
-    setOutlineWidth(layerData.strokeWidth ?? 2);
-
+    const outlineColor = layerData.stroke || '#000000';
+    const outlineWidth = layerData.strokeWidth ?? 2;
     const sh = layerData.shadow;
-    if (sh && sh.enabled) {
-      setShadowEnabled(true);
-      setShadowColor(sh.color || '#000000');
-      setShadowOffsetX(sh.offsetX ?? 2);
-      setShadowOffsetY(sh.offsetY ?? 2);
-      setShadowBlur(sh.blur ?? 4);
-    } else {
-      setShadowEnabled(false);
-      setShadowColor('#000000');
-      setShadowOffsetX(2);
-      setShadowOffsetY(2);
-      setShadowBlur(4);
-    }
+    const shadowEnabled = !!(sh && sh.enabled);
+    const shadowColor = shadowEnabled ? (sh?.color || '#000000') : '#000000';
+    const shadowOffsetX = shadowEnabled ? (sh?.offsetX ?? 2) : 2;
+    const shadowOffsetY = shadowEnabled ? (sh?.offsetY ?? 2) : 2;
+    const shadowBlur = shadowEnabled ? (sh?.blur ?? 4) : 4;
+    queueMicrotask(() => {
+      setOutlineEnabled(hasOutline);
+      setOutlineColor(outlineColor);
+      setOutlineWidth(outlineWidth);
+      setShadowEnabled(shadowEnabled);
+      setShadowColor(shadowColor);
+      setShadowOffsetX(shadowOffsetX);
+      setShadowOffsetY(shadowOffsetY);
+      setShadowBlur(shadowBlur);
+    });
     // Reset only when the *selected layer* changes — not when its data drifts.
   }, [activeLayerId, isSingleTextSelection]); // eslint-disable-line react-hooks/exhaustive-deps
 

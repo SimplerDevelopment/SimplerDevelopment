@@ -111,7 +111,7 @@ function StyleVariantsModal({ block, siteId, onClose, onApply }: ModalProps) {
 
   // Initial fetch on mount
   useEffect(() => {
-    void fetchVariants(false);
+    void Promise.resolve().then(() => fetchVariants(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

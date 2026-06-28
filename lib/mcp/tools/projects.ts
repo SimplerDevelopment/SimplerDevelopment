@@ -7,7 +7,8 @@
  */
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, type AnyColumn } from 'drizzle-orm';
+import type { AnyPgTable } from 'drizzle-orm/pg-core';
 import { db } from '@/lib/db';
 import {
   projects,
@@ -331,7 +332,7 @@ export function registerProjectsTools(server: McpServer, ctx: PortalMcpContext):
   // row with a snapshotted display title for cheap renders. Posts are scoped
   // via website (clientWebsites.clientId), so they get their own indirect
   // ownership check rather than a direct artifact.clientId comparison.
-  const PROJECT_ARTIFACT_TABLES: Record<string, { table: any; titleField: string }> = {
+  const PROJECT_ARTIFACT_TABLES: Record<string, { table: AnyPgTable & Record<string, AnyColumn>; titleField: string }> = {
     website: { table: clientWebsites, titleField: 'name' },
     email_campaign: { table: emailCampaigns, titleField: 'name' },
     pitch_deck: { table: pitchDecks, titleField: 'title' },

@@ -64,15 +64,15 @@ export async function POST(request: NextRequest) {
         fileBuffer = file;
       } else {
         // Return detailed error for debugging
-        const fileAny = file as any;
+        const unknownFile: unknown = file;
         return NextResponse.json(
           {
             success: false,
             error: 'Invalid file format',
             debug: {
-              type: typeof fileAny,
-              constructor: fileAny?.constructor?.name,
-              isBlob: fileAny instanceof Blob
+              type: typeof unknownFile,
+              constructor: (unknownFile as { constructor?: { name?: string } } | null)?.constructor?.name,
+              isBlob: unknownFile instanceof Blob
             }
           },
           { status: 400 }

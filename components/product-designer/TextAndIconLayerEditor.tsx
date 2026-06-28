@@ -1,13 +1,16 @@
-// @ts-nocheck
-// TODO(designer): clean up types — ported from CRA, see .planning/product-designer-integration.md
 'use client';
 
 import React, { useContext } from "react";
 import { EditorContext } from "./EditorContext";
 import { FontSelector } from "./FontSelector";
 import { UserFriendlyTextEditor } from "./UserFriendlyTextEditor";
+import type { LayerData } from "./designerTypes";
 
-export const TextAndIconLayerEditor = ({ view, layer, handleInputChange }) => {
+export const TextAndIconLayerEditor = ({ view, layer, handleInputChange }: {
+  view: string;
+  layer: LayerData;
+  handleInputChange: (field: string, value: unknown) => void;
+}) => {
   const { setStyleOverrides, styleOverrides, side, style } =
     useContext(EditorContext);
 

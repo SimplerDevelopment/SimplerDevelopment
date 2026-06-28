@@ -6,11 +6,10 @@ export function BookingPagePicker({ value, onChange }: { value: string; onChange
   const [pages, setPages] = useState<Array<{ id: number; slug: string; title: string; duration: number; active: boolean }>>([]);
   const [search, setSearch] = useState('');
   const [open, setOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    setLoading(true);
     fetch('/api/portal/tools/booking')
       .then(r => r.json())
       .then(json => { if (json.success) setPages(json.data || []); })

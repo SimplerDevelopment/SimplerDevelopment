@@ -226,7 +226,7 @@ export default function WebhooksPanel({ surveyId }: Props) {
               onClick={() => setSavedSecret(null)}
               className="text-xs underline"
             >
-              I've saved it
+              I&apos;ve saved it
             </button>
           </div>
         )}

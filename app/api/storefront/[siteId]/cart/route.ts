@@ -76,7 +76,7 @@ export async function GET(
 
     // Fetch first image per product
     const productIds = [...new Set(items.map(i => i.productId))];
-    let imagesMap: Record<number, string> = {};
+    const imagesMap: Record<number, string> = {};
 
     if (productIds.length > 0) {
       const images = await db.select({
@@ -96,7 +96,7 @@ export async function GET(
 
     // Fetch variant names
     const variantIds = items.filter(i => i.variantId).map(i => i.variantId!);
-    let variantsMap: Record<number, string> = {};
+    const variantsMap: Record<number, string> = {};
 
     if (variantIds.length > 0) {
       const variants = await db.select({

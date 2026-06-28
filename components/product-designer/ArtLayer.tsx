@@ -1,23 +1,27 @@
-// @ts-nocheck
-// TODO(designer): clean up types — ported from CRA, see .planning/product-designer-integration.md
 'use client';
 
 import React, { useContext, useEffect, useState } from "react";
 import EditorContext from "./EditorContext";
+import type { LayerData } from "./designerTypes";
 
-export const ArtLayer = ({ layer, key }) => {
+export const ArtLayer = ({ layer }: { layer: LayerData }) => {
   const { styleOverrides, side } = useContext(EditorContext);
-  if (!styleOverrides[side?.id] || !styleOverrides[side?.id]?.[layer?.id]) {
-    return <img src={layer.url} alt="Layer" draggable={false} />;
-  }
-  const { colors } = styleOverrides[side?.id][layer?.id];
-
   const [svgContent, setSvgContent] = useState<string | null>(null);
 
+  const overrideEntry = styleOverrides[side?.id]?.[layer?.id] as
+    | { colors?: Record<string, string> }
+    | undefined;
+  const colors = overrideEntry?.colors;
+
   useEffect(() => {
-    const fetchAndReplaceSVG = async () => {
+    void (async () => {
+      await Promise.resolve(); // Yield to avoid synchronous setState in effect
+      if (!colors) {
+        setSvgContent(null);
+        return;
+      }
       try {
-        const res = await fetch(layer.url);
+        const res = await fetch(layer.url as string);
         let svgText = await res.text();
 
         // Inject width into the <svg> tag
@@ -41,17 +45,18 @@ export const ArtLayer = ({ layer, key }) => {
       } catch (err) {
         console.error("Failed to load or modify SVG:", err);
       }
-    };
-
-    fetchAndReplaceSVG();
+    })();
   }, [layer.url, colors, layer.width]);
+
+  if (!overrideEntry) {
+    return <img src={layer.url as string} alt="Layer" draggable={false} />;
+  }
 
   if (!svgContent) return null;
 
   return (
     <>
       <div
-        key={key}
         dangerouslySetInnerHTML={{ __html: svgContent }}
         draggable={false}
       />

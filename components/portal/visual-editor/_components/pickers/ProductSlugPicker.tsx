@@ -6,12 +6,11 @@ export function ProductSlugPicker({ siteId, value, onChange }: { siteId?: number
   const [products, setProducts] = useState<Array<{ slug: string; name: string; image: string | null; price: number }>>([]);
   const [search, setSearch] = useState('');
   const [open, setOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!siteId) return;
-    setLoading(true);
     fetch(`/api/portal/websites/${siteId}/store/products?limit=100`)
       .then(r => r.json())
       .then(json => { if (json.success) setProducts(json.data || []); })

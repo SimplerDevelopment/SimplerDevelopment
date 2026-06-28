@@ -131,7 +131,22 @@ export default function CrmNotificationBell() {
 
   // Initial fetch + polling for the badge count
   useEffect(() => {
-    fetchNotifications(filterUnread);
+    void (async () => {
+      try {
+        const params = new URLSearchParams();
+        params.set('limit', String(LIST_LIMIT));
+        if (filterUnread) params.set('unreadOnly', 'true');
+        const res = await fetch(`/api/portal/crm/notifications?${params.toString()}`);
+        if (!res.ok) return;
+        const json = await res.json();
+        if (json.success) {
+          setNotifications(json.data ?? []);
+          setUnreadCount(json.unreadCount ?? 0);
+        }
+      } catch {
+        // silently ignore fetch errors for polling
+      }
+    })();
     const interval = setInterval(() => fetchNotifications(filterUnread), POLL_INTERVAL_MS);
     return () => clearInterval(interval);
   }, [fetchNotifications, filterUnread]);
@@ -139,7 +154,23 @@ export default function CrmNotificationBell() {
   // Refresh when the dropdown opens — gives users an immediate up-to-date view
   // even if they're between poll ticks.
   useEffect(() => {
-    if (open) fetchNotifications(filterUnread);
+    if (!open) return;
+    void (async () => {
+      try {
+        const params = new URLSearchParams();
+        params.set('limit', String(LIST_LIMIT));
+        if (filterUnread) params.set('unreadOnly', 'true');
+        const res = await fetch(`/api/portal/crm/notifications?${params.toString()}`);
+        if (!res.ok) return;
+        const json = await res.json();
+        if (json.success) {
+          setNotifications(json.data ?? []);
+          setUnreadCount(json.unreadCount ?? 0);
+        }
+      } catch {
+        // silently ignore fetch errors for polling
+      }
+    })();
   }, [open, filterUnread, fetchNotifications]);
 
   // Close dropdown when clicking outside

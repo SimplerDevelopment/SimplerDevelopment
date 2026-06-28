@@ -1,12 +1,42 @@
 'use client';
 
-import { useRef, useMemo, useEffect, useState } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
+
+interface CircleData {
+  size: number;
+  position: [number, number, number];
+  speed: number;
+  floatAmplitude: number;
+  floatSpeed: number;
+  opacity: number;
+}
+
+function generateCircleData(count: number): CircleData[] {
+  const circleData: CircleData[] = [];
+  for (let i = 0; i < count; i++) {
+    circleData.push({
+      size: Math.random() * 0.4 + 0.15, // 0.15 to 0.55
+      position: [
+        Math.random() * 50 - 25, // x: -25 to 25
+        (Math.random() - 0.5) * 20, // y: -10 to 10
+        -Math.random() * 15 - 5, // z: -20 to -5
+      ],
+      speed: Math.random() * 0.3 + 0.3,
+      floatAmplitude: Math.random() * 0.3 + 0.15,
+      floatSpeed: Math.random() * 0.3 + 0.3,
+      opacity: Math.random() * 0.3 + 0.25,
+    });
+  }
+  return circleData;
+}
 
 interface FloatingCirclesProps {
   color?: string;
 }
+
+const FALLBACK_COLOR = '#666666';
 
 export function FloatingCircles({ color }: FloatingCirclesProps = {}) {
   const groupRef = useRef<THREE.Group>(null);
@@ -14,24 +44,20 @@ export function FloatingCircles({ color }: FloatingCirclesProps = {}) {
   const [isMobile, setIsMobile] = useState(false);
   const currentColors = useRef<THREE.Color[]>([]);
   const targetColors = useRef<THREE.Color[]>([]);
+  // Lazy init: start with desktop count; effect regenerates when isMobile known
+  const [circles, setCircles] = useState<CircleData[]>(() => generateCircleData(14));
 
   // Detect theme changes
   useEffect(() => {
     const checkTheme = () => {
-      const htmlElement = document.documentElement;
-      setIsDark(htmlElement.classList.contains('dark'));
+      setIsDark(document.documentElement.classList.contains('dark'));
     };
-
-    // Initial check
     checkTheme();
-
-    // Watch for theme changes
     const observer = new MutationObserver(checkTheme);
     observer.observe(document.documentElement, {
       attributes: true,
       attributeFilter: ['class'],
     });
-
     return () => observer.disconnect();
   }, []);
 
@@ -40,34 +66,27 @@ export function FloatingCircles({ color }: FloatingCirclesProps = {}) {
     const checkScreenSize = () => {
       setIsMobile(window.innerWidth < 768);
     };
-
     checkScreenSize();
     window.addEventListener('resize', checkScreenSize);
     return () => window.removeEventListener('resize', checkScreenSize);
   }, []);
 
-  // Update target colors when color prop or theme changes
+  // Regenerate circle data when screen size changes
+  useEffect(() => {
+    void Promise.resolve().then(() => setCircles(generateCircleData(isMobile ? 24 : 14)));
+  }, [isMobile]);
+
+  // Update target colors when color prop, theme, or circles change
   useEffect(() => {
     const lightModeColors = [
-      '#000000', // black
-      '#1a1a1a', // very dark gray
-      '#333333', // dark gray
-      '#4d4d4d', // medium gray
-      '#666666', // gray
+      '#000000', '#1a1a1a', '#333333', '#4d4d4d', '#666666',
     ];
-
     const darkModeColors = [
-      '#d4d4d4', // light gray
-      '#c0c0c0', // lighter gray
-      '#afafaf', // light gray
-      '#9a9a9a', // medium light gray
-      '#808080', // medium gray
+      '#d4d4d4', '#c0c0c0', '#afafaf', '#9a9a9a', '#808080',
     ];
 
-    // On mobile with a color prop, use the color; otherwise use theme colors
-    let circleColors;
+    let circleColors: string[];
     if (isMobile && color) {
-      // Create variations of the provided color
       const baseColor = new THREE.Color(color);
       circleColors = [
         color,
@@ -80,48 +99,18 @@ export function FloatingCircles({ color }: FloatingCirclesProps = {}) {
       circleColors = isDark ? darkModeColors : lightModeColors;
     }
 
-    // Update target colors for each circle
-    circles.forEach((circle, i) => {
+    circles.forEach((_circle, i) => {
       const colorIndex = i % circleColors.length;
+      if (!currentColors.current[i]) {
+        currentColors.current[i] = new THREE.Color(circleColors[colorIndex]);
+      }
       if (!targetColors.current[i]) {
         targetColors.current[i] = new THREE.Color(circleColors[colorIndex]);
       } else {
         targetColors.current[i].set(circleColors[colorIndex]);
       }
     });
-  }, [isDark, color, isMobile]);
-
-  // Create random circles with various sizes and positions (created once)
-  const circles = useMemo(() => {
-    // More circles on mobile (where cluster is hidden), fewer on desktop
-    const count = isMobile ? 24 : 14;
-    const circleData = [];
-
-    for (let i = 0; i < count; i++) {
-      // Initialize colors on first render
-      if (!currentColors.current[i]) {
-        currentColors.current[i] = new THREE.Color('#666666');
-      }
-      if (!targetColors.current[i]) {
-        targetColors.current[i] = new THREE.Color('#666666');
-      }
-
-      circleData.push({
-        size: Math.random() * 0.4 + 0.15, // 0.15 to 0.55
-        position: [
-          Math.random() * 50 - 25, // x: -25 to 25 (spread across screen)
-          (Math.random() - 0.5) * 20, // y: -10 to 10
-          -Math.random() * 15 - 5, // z: -20 to -5 (behind the cluster)
-        ] as [number, number, number],
-        speed: Math.random() * 0.3 + 0.3, // 0.3 to 0.6 (consistent speed range)
-        floatAmplitude: Math.random() * 0.3 + 0.15, // 0.15 to 0.45
-        floatSpeed: Math.random() * 0.3 + 0.3, // Different float speeds
-        opacity: Math.random() * 0.3 + 0.25, // 0.25 to 0.55
-      });
-    }
-
-    return circleData;
-  }, [isMobile]); // Recreate when screen size changes
+  }, [isDark, color, isMobile, circles]);
 
   // Animate circles with continuous right-to-left motion
   useFrame((state, delta) => {
@@ -131,6 +120,7 @@ export function FloatingCircles({ color }: FloatingCirclesProps = {}) {
 
     groupRef.current.children.forEach((child, i) => {
       const circle = circles[i];
+      if (!circle) return;
       const mesh = child as THREE.Mesh;
       const material = mesh.material as THREE.MeshStandardMaterial;
 
@@ -143,18 +133,12 @@ export function FloatingCircles({ color }: FloatingCirclesProps = {}) {
 
       // Continuous right-to-left motion
       mesh.position.x -= circle.speed * delta;
-
-      // Wrap around when circle exits left side
       if (mesh.position.x < -30) {
         mesh.position.x = 30;
       }
 
-      // Floating motion: gentle up and down
-      const floatOffset = time * circle.floatSpeed;
-      const yPos = circle.position[1] + Math.sin(floatOffset) * circle.floatAmplitude;
-      mesh.position.y = yPos;
-
-      // Keep Z position constant (behind the cluster)
+      // Floating motion
+      mesh.position.y = circle.position[1] + Math.sin(time * circle.floatSpeed) * circle.floatAmplitude;
       mesh.position.z = circle.position[2];
 
       // Gentle rotation
@@ -169,8 +153,8 @@ export function FloatingCircles({ color }: FloatingCirclesProps = {}) {
         <mesh key={i} position={circle.position}>
           <sphereGeometry args={[circle.size, 8, 8]} />
           <meshStandardMaterial
-            color={currentColors.current[i] || '#666666'}
-            emissive={currentColors.current[i] || '#666666'}
+            color={FALLBACK_COLOR}
+            emissive={FALLBACK_COLOR}
             emissiveIntensity={0.1}
             transparent
             opacity={circle.opacity}

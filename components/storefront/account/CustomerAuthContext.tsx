@@ -75,7 +75,7 @@ export function CustomerAuthProvider({ siteId, children }: { siteId: number; chi
     setLoading(false);
   }, [siteId]);
 
-  useEffect(() => { refreshCustomer(); }, [refreshCustomer]);
+  useEffect(() => { queueMicrotask(() => refreshCustomer()); }, [refreshCustomer]);
 
   const login = async (email: string, password: string) => {
     const data = await api('login', { email, password });

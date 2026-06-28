@@ -176,7 +176,7 @@ function LogoSection({ branding }: { branding: ResolvedBranding }) {
     return (
       <section>
         <SectionHeader number="01" label="Logo" title="Logo" />
-        <p className="text-gray-600">No logo assets uploaded yet. Add them on the profile's Logos tab.</p>
+        <p className="text-gray-600">No logo assets uploaded yet. Add them on the profile&apos;s Logos tab.</p>
       </section>
     );
   }
@@ -399,7 +399,7 @@ function VoiceSection({ messaging }: { messaging?: BrandMessagingContext }) {
     return (
       <section>
         <SectionHeader number="05" label="Voice" title="Voice & tone" />
-        <p className="text-gray-600">No messaging defined. Add tagline, mission, tone axes, and voice samples on the profile's Messaging tab.</p>
+        <p className="text-gray-600">No messaging defined. Add tagline, mission, tone axes, and voice samples on the profile&apos;s Messaging tab.</p>
       </section>
     );
   }

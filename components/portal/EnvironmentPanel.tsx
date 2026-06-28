@@ -71,9 +71,19 @@ export default function EnvironmentPanel({
   }, [siteId, activeEnv.id]);
 
   useEffect(() => {
-    loadData();
-    setVisibleIds(new Set());
-    setEditingId(null);
+    void (async () => {
+      setLoading(true);
+      const [varsRes, backupsRes] = await Promise.all([
+        fetch(`/api/portal/websites/${siteId}/environments/${activeEnv.id}/vars`),
+        fetch(`/api/portal/websites/${siteId}/environments/${activeEnv.id}/backup`),
+      ]);
+      const [varsJson, backupsJson] = await Promise.all([varsRes.json(), backupsRes.json()]);
+      if (varsJson.success) setVars(varsJson.data);
+      if (backupsJson.success) setBackups(backupsJson.data);
+      setLoading(false);
+      setVisibleIds(new Set());
+      setEditingId(null);
+    })();
   }, [loadData]);
 
   const clearMessages = () => { setError(''); setSuccess(''); };

@@ -2,6 +2,7 @@
 
 import React, { useContext, useMemo } from "react";
 import EditorContext from "./EditorContext";
+import type { LayerData, ProductSideData } from "./designerTypes";
 
 // Simplified text segment interface
 export interface TextSegment {
@@ -20,8 +21,8 @@ export interface EnhancedTextLayerData {
 }
 
 interface SimpleEnhancedTextLayerProps {
-  layer: any;
-  side: any;
+  layer: LayerData;
+  side: ProductSideData | null;
   isSelected?: boolean;
 }
 

@@ -148,7 +148,7 @@ export default function AIChatWidget() {
   const [conversationId, setConversationId] = useState<number | null>(null);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [loadingHistory, setLoadingHistory] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -160,22 +160,6 @@ export default function AIChatWidget() {
   useEffect(() => {
     if (open && messages.length > 0) scrollToBottom();
   }, [messages, open, scrollToBottom]);
-
-  useEffect(() => {
-    if (open && view === 'history') loadConversations();
-  }, [open, view]);
-
-  // Poll for injected messages when chat is open
-  useEffect(() => {
-    if (open && conversationId) {
-      pollRef.current = setInterval(() => {
-        pollMessages(conversationId);
-      }, 8000);
-    }
-    return () => {
-      if (pollRef.current) clearInterval(pollRef.current);
-    };
-  }, [open, conversationId]);
 
   async function pollMessages(convId: number) {
     const res = await fetch(`/api/portal/ai/conversations/${convId}`);
@@ -190,12 +174,33 @@ export default function AIChatWidget() {
   }
 
   async function loadConversations() {
-    setLoadingHistory(true);
     const res = await fetch('/api/portal/ai/conversations');
     const data = await res.json();
     if (data.success) setConversations(data.data);
     setLoadingHistory(false);
   }
+
+  useEffect(() => {
+    if (!(open && view === 'history')) return;
+    void (async () => {
+      const res = await fetch('/api/portal/ai/conversations');
+      const data = await res.json();
+      if (data.success) setConversations(data.data);
+      setLoadingHistory(false);
+    })();
+  }, [open, view]);
+
+  // Poll for injected messages when chat is open
+  useEffect(() => {
+    if (open && conversationId) {
+      pollRef.current = setInterval(() => {
+        pollMessages(conversationId);
+      }, 8000);
+    }
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, [open, conversationId]);
 
   async function loadConversation(convId: number) {
     const res = await fetch(`/api/portal/ai/conversations/${convId}`);

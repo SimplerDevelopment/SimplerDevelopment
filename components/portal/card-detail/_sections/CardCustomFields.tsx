@@ -29,7 +29,6 @@ export function CardCustomFields({ cardId, canEdit, initialFields }: { cardId: n
   const dirtyRef = useRef<Map<number, unknown>>(new Map());
 
   const load = async () => {
-    setLoading(true);
     try {
       const res = await fetch(`/api/portal/cards/${cardId}/custom-fields`);
       const json = await res.json();
@@ -38,7 +37,7 @@ export function CardCustomFields({ cardId, canEdit, initialFields }: { cardId: n
   };
 
   useEffect(() => {
-    if (initialFields != null) { setFields(initialFields); setLoading(false); return; }
+    if (initialFields != null) return;
     load();
     /* eslint-disable-next-line react-hooks/exhaustive-deps */
   }, [cardId, initialFields]);

@@ -36,7 +36,13 @@ export default function SavedViewsPicker<T extends Record<string, unknown>>({ pr
     if (data.success) setViews(data.data);
   };
 
-  useEffect(() => { load(); }, [projectId, scope]);
+  useEffect(() => {
+    void (async () => {
+      const res = await fetch(`/api/portal/projects/${projectId}/saved-views?scope=${scope}`);
+      const data = await res.json();
+      if (data.success) setViews(data.data);
+    })();
+  }, [projectId, scope]);
 
   const onSave = async (e: React.FormEvent) => {
     e.preventDefault();

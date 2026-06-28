@@ -31,14 +31,13 @@ export function HtmlRenderSchemaActions({
   fields: HtmlRenderField[];
   onApply: (updates: Partial<HtmlRenderBlock>) => void;
 }) {
-  const [clipboard, setClipboard] = useState<HtmlRenderSchema | null>(null);
+  const [clipboard, setClipboard] = useState<HtmlRenderSchema | null>(() => readSchemaClipboard());
   const [importError, setImportError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Read clipboard once on mount + listen for storage events so a copy in
-  // another tab/window updates this UI's "paste" enabled state.
+  // Listen for storage events so a copy in another tab/window updates this
+  // UI's "paste" enabled state. Initial value is loaded in the useState above.
   useEffect(() => {
-    setClipboard(readSchemaClipboard());
     const onStorage = (e: StorageEvent) => {
       if (e.key === 'sd-html-render-schema-clipboard') setClipboard(readSchemaClipboard());
     };
@@ -94,8 +93,11 @@ export function HtmlRenderSchemaActions({
     reader.readAsText(file);
   };
 
+  // Snapshot render time once via useState so Date.now() isn't called on every
+  // render (the rule disallows impure calls in the render body).
+  const [now] = useState(() => Date.now());
   const formatRelative = (ts: number): string => {
-    const diff = Date.now() - ts;
+    const diff = now - ts;
     const m = Math.round(diff / 60000);
     if (m < 1) return 'just now';
     if (m < 60) return `${m}m ago`;

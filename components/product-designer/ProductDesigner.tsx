@@ -1,5 +1,3 @@
-// @ts-nocheck
-// TODO(designer): clean up types — ported from CRA, see .planning/product-designer-integration.md
 'use client';
 
 import React, { useEffect, useContext, useState, useCallback, useMemo, memo, lazy, Suspense, startTransition, useRef } from "react";
@@ -17,6 +15,18 @@ import { AiOutlineZoomIn, AiOutlineZoomOut } from "react-icons/ai";
 import { DesignApi, designUtils, type Design } from "./utils/designApi";
 import { SessionManager } from "./utils/sessionManager";
 import { loadDesignFonts } from "./utils/fontLoader";
+import type { LayerData, ProductData, ProductSideData, ProductStyleData, ProductSizeData, StyleOverridesMap } from "./designerTypes";
+
+// Module-level fallback context so useContext is never called conditionally
+interface CartContextValue { isAdminMode?: boolean; [key: string]: unknown; }
+const _FallbackPDCartCtx = React.createContext<CartContextValue | null>(null);
+
+// Local quantity-item shape (value + price per size bucket)
+interface QuantityItem { value: number; price: number; }
+type QuantityState = Record<string, QuantityItem>;
+
+// Design objects from the API sometimes arrive in snake_case (list endpoint)
+type DesignRecord = Design & { style_overrides?: StyleOverridesMap };
 
 // Lazy load heavy components
 const CenterPanel = lazy(() => import("./CenterPanel").then(m => ({ default: m.CenterPanel })));
@@ -26,7 +36,15 @@ const EditPhotoModal = lazy(() => import("./EditPhotoModal").then(m => ({ defaul
 const LoadDesignModal = lazy(() => import("./LoadDesignModal"));
 
 // Component to add drag functionality to MainView within carousel items
-const DraggableMainView = ({ children, sharedTop, sharedLeft, setSharedTop, setSharedLeft, sharedZoom }) => {
+interface DraggableMainViewProps {
+  children: React.ReactNode;
+  sharedTop: number;
+  sharedLeft: number;
+  setSharedTop: (v: number) => void;
+  setSharedLeft: (v: number) => void;
+  sharedZoom: number;
+}
+const DraggableMainView = ({ children, sharedTop, sharedLeft, setSharedTop, setSharedLeft, sharedZoom }: DraggableMainViewProps) => {
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0, left: 0, top: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
@@ -98,13 +116,25 @@ const DraggableMainView = ({ children, sharedTop, sharedLeft, setSharedTop, setS
 };
 
 // Component to wrap MainView for carousel items with custom layer selection behavior
-const CarouselItemMainView = ({ styleOption, overRideSide, setLayerControlsStyle, setLastClickedCarouselStyle, setLayerClickFocusedStyleId, sharedTop, sharedLeft, setSharedTop, setSharedLeft, sharedZoom }) => {
+interface CarouselItemMainViewProps {
+  styleOption: ProductStyleData;
+  overRideSide: ProductSideData | undefined;
+  setLayerControlsStyle: (s: ProductStyleData | null) => void;
+  setLastClickedCarouselStyle: (s: ProductStyleData | null) => void;
+  setLayerClickFocusedStyleId: (id: number | null) => void;
+  sharedTop: number;
+  sharedLeft: number;
+  setSharedTop: (v: number) => void;
+  setSharedLeft: (v: number) => void;
+  sharedZoom: number;
+}
+const CarouselItemMainView = ({ styleOption, overRideSide, setLayerControlsStyle, setLastClickedCarouselStyle, setLayerClickFocusedStyleId, sharedTop, sharedLeft, setSharedTop, setSharedLeft, sharedZoom }: CarouselItemMainViewProps) => {
   const originalContext = useContext(EditorContext);
   
   // Create a modified context that sets the layerControlsStyle when a layer is selected
   const modifiedContext = useMemo(() => ({
     ...originalContext,
-    setSelectedLayer: (layer) => {
+    setSelectedLayer: (layer: LayerData | null) => {
       // Set the layer controls to use this carousel item's style
       if (layer) {
         setLayerControlsStyle(styleOption);
@@ -146,7 +176,7 @@ export interface ProductDesignerProps {
   apiBaseUrl?: string;
   /** sd2026 customer id (replaces legacy userId semantics) */
   customerId?: number | null;
-  CartContext?: React.Context<any>;
+  CartContext?: React.Context<CartContextValue | null>;
   /**
    * Optional callback invoked with saved or updated design data.
    * Receives id when updating an existing design.
@@ -155,8 +185,8 @@ export interface ProductDesignerProps {
     id?: number;
     name: string;
     styleId: number;
-    layers: any[];
-    styleOverrides: any;
+    layers: LayerData[];
+    styleOverrides: StyleOverridesMap;
   }) => void;
   /** List of stores to which this design can be saved */
   stores?: Array<{ id: number; name: string }>;
@@ -166,7 +196,7 @@ export interface ProductDesignerProps {
    */
   userId?: number | null;
   /** Custom cart handler function - overrides default API call */
-  onAddToCart?: (selections: CartSelection[]) => Promise<any>;
+  onAddToCart?: (selections: CartSelection[]) => Promise<unknown>;
   /** Optional saved-design id to preload when the editor mounts. The
    *  storefront design route uses this to hand `?designId=...` from the URL
    *  to the editor without going through the legacy `loadDesignOnInit`
@@ -199,20 +229,20 @@ export const ProductDesigner: React.FC<ProductDesignerProps> = ({
     }
   }, [apiBaseUrl, websiteId]);
 
-  // Get admin context if available
-  const cartContext = CartContext ? useContext(CartContext) : null;
+  // Get admin context if available — always call useContext (no conditional hook calls)
+  const cartContext = useContext(CartContext ?? _FallbackPDCartCtx);
   const isAdminMode = cartContext?.isAdminMode || false;
-  const [product, setProduct] = React.useState(null);
-  const [style, setStyle] = React.useState(null);
-  const [side, setSide] = React.useState(null);
-  const [layers, setLayers] = React.useState([]);
-  const [selectedLayer, setSelectedLayer] = React.useState(null);
+  const [product, setProduct] = React.useState<ProductData | null>(null);
+  const [style, setStyle] = React.useState<ProductStyleData | null>(null);
+  const [side, setSide] = React.useState<ProductSideData | null>(null);
+  const [layers, setLayers] = React.useState<LayerData[]>([]);
+  const [selectedLayer, setSelectedLayer] = React.useState<LayerData | null>(null);
   const [selectedLayers, setSelectedLayers] = React.useState<string[]>([]);
   const [controlMode, setControlMode] = React.useState("welcome");
   const [showModal, setShowModal] = React.useState(false);
-  const [styleOverrides, setStyleOverrides] = React.useState({});
-  const [quantity, setQuantity] = React.useState({});
-  const [savedDesigns, setSavedDesigns] = React.useState<any[]>([]);
+  const [styleOverrides, setStyleOverrides] = React.useState<StyleOverridesMap>({});
+  const [quantity, setQuantity] = React.useState<QuantityState>({});
+  const [savedDesigns, setSavedDesigns] = React.useState<Design[]>([]);
   const [nameModalOpen, setNameModalOpen] = React.useState(false);
   const [loadModalOpen, setLoadModalOpen] = React.useState(false);
   const [designName, setDesignName] = React.useState("");
@@ -224,11 +254,11 @@ export const ProductDesigner: React.FC<ProductDesignerProps> = ({
   const [carouselMode, setCarouselMode] = useState(false);
   const [hoveredStyleId, setHoveredStyleId] = useState<number | null>(null);
   const [hoveredStyleIndex, setHoveredStyleIndex] = useState<number>(0);
-  const [layerControlsStyle, setLayerControlsStyle] = useState<any>(null);
-  const [lastClickedCarouselStyle, setLastClickedCarouselStyle] = useState<any>(null);
+  const [layerControlsStyle, setLayerControlsStyle] = useState<ProductStyleData | null>(null);
+  const [lastClickedCarouselStyle, setLastClickedCarouselStyle] = useState<ProductStyleData | null>(null);
   const [layerClickFocusedStyleId, setLayerClickFocusedStyleId] = useState<number | null>(null);
   const [cartMode, setCartMode] = useState(false);
-  const [persistedCartSelections, setPersistedCartSelections] = useState<Map<string, any>>(new Map());
+  const [persistedCartSelections, setPersistedCartSelections] = useState<Map<string, CartSelection>>(new Map());
   
   // Separate zoom/position states for regular editor and carousel modes
   const [regularViewZoom, setRegularViewZoom] = useState(0.85);
@@ -385,8 +415,8 @@ export const ProductDesigner: React.FC<ProductDesignerProps> = ({
       // which hits /api/storefront/${websiteId}/designs with the customer's
       // bearer token / anonymous session cookie. The storefront route
       // returns an envelope; unwrap it.
-      const result: any = await DesignApi.getDesigns();
-      const data = Array.isArray(result?.data) ? result.data : Array.isArray(result) ? result : [];
+      const result = await DesignApi.getDesigns();
+      const data: Design[] = Array.isArray((result as { data?: Design[] }).data) ? (result as { data: Design[] }).data : Array.isArray(result) ? result as Design[] : [];
       startTransition(() => {
         setSavedDesigns(data);
       });
@@ -450,18 +480,26 @@ export const ProductDesigner: React.FC<ProductDesignerProps> = ({
   const { totalQuantity, totalPrice } = useMemo(() => {
     const values = Object.values(quantity);
     const totalQuantity = values
-      .map((item: any) => item.value)
+      .map((item: QuantityItem) => item.value)
       .reduce((acc: number, curr: number) => acc + curr, 0);
     const totalPrice = values
-      .map((item: any) => item.value * item.price)
+      .map((item: QuantityItem) => item.value * item.price)
       .reduce((acc: number, curr: number) => acc + curr, 0);
     return { totalQuantity, totalPrice };
   }, [quantity]);
 
   // Create EditorContext value before any early returns to ensure hooks are called consistently
-  // Design state management
+  // Design state management — must be declared BEFORE the auto-load effect that calls setDesignState
   const [currentDesignId, setCurrentDesignId] = useState<number | null>(null);
-  
+
+  const [designState, setDesignState] = useState({
+    isSaved: false,
+    isAutoSaving: false,
+    lastSavedAt: null as Date | null,
+    hasUnsavedChanges: false,
+    name: designName || "Untitled Design",
+  });
+
   // Check for design to auto-load from URL navigation
   useEffect(() => {
     const checkForDesignToLoad = () => {
@@ -507,7 +545,7 @@ export const ProductDesigner: React.FC<ProductDesignerProps> = ({
 
         // Find and set the matching style if available
         if (product?.styles && designData.styleId) {
-          const matchingStyle = product.styles.find((s: any) => s.id === designData.styleId);
+          const matchingStyle = product.styles.find((s: ProductStyleData) => s.id === designData.styleId);
           if (matchingStyle) {
             setStyle(matchingStyle);
           }
@@ -528,21 +566,17 @@ export const ProductDesigner: React.FC<ProductDesignerProps> = ({
     }
   }, [product, currentDesignId]);
 
-  const [designState, setDesignState] = useState({
-    isSaved: false,
-    isAutoSaving: false,
-    lastSavedAt: null as Date | null,
-    hasUnsavedChanges: false,
-    name: designName || "Untitled Design",
-  });
+  // (designState useState moved above — declared before the auto-load effect)
 
   // Track changes to mark design as having unsaved changes
   useEffect(() => {
     if (currentDesignId && (layers.length > 0 || Object.keys(styleOverrides).length > 0)) {
-      setDesignState(prev => ({
-        ...prev,
-        hasUnsavedChanges: true,
-      }));
+      startTransition(() => {
+        setDesignState(prev => ({
+          ...prev,
+          hasUnsavedChanges: true,
+        }));
+      });
     }
   }, [layers, styleOverrides, currentDesignId]);
 
@@ -634,7 +668,7 @@ export const ProductDesigner: React.FC<ProductDesignerProps> = ({
 
       // Find and set the style that matches the design
       if (product?.styles) {
-        const matchingStyle = product.styles.find((s: any) => s.id === design.styleId);
+        const matchingStyle = product.styles.find((s: ProductStyleData) => s.id === design.styleId);
         if (matchingStyle) {
           setStyle(matchingStyle);
         }
@@ -647,14 +681,16 @@ export const ProductDesigner: React.FC<ProductDesignerProps> = ({
     }
   }, [product, setLayers, setStyleOverrides, setDesignName, setStyle]);
 
-  const createNewDesign = useCallback(() => {
+  // React Compiler handles memoisation — plain function avoids "existing
+  // memoisation could not be preserved" compiler warning.
+  const createNewDesign = () => {
     setCurrentDesignId(null);
     setLayers([]);
     setStyleOverrides({});
     setDesignName("Untitled Design");
     setSelectedLayer(null);
     setControlMode("welcome");
-    
+
     setDesignState({
       isSaved: false,
       isAutoSaving: false,
@@ -662,7 +698,7 @@ export const ProductDesigner: React.FC<ProductDesignerProps> = ({
       hasUnsavedChanges: false,
       name: "Untitled Design",
     });
-  }, [setLayers, setStyleOverrides, setDesignName, setSelectedLayer, setControlMode]);
+  };
 
   const autoSave = useCallback(async () => {
     if (currentDesignId && designState.hasUnsavedChanges && !designState.isAutoSaving) {
@@ -768,7 +804,7 @@ export const ProductDesigner: React.FC<ProductDesignerProps> = ({
           }
           return acc;
         },
-        [] as typeof style.sizes,
+        [] as ProductSizeData[],
       )
       .sort((a, b) => {
         return (
@@ -823,8 +859,8 @@ export const ProductDesigner: React.FC<ProductDesignerProps> = ({
         }
 
         // Refresh and navigate
-        const result: any = await DesignApi.getDesigns();
-        const data = Array.isArray(result?.data) ? result.data : Array.isArray(result) ? result : [];
+        const result = await DesignApi.getDesigns();
+        const data: Design[] = Array.isArray((result as { data?: Design[] }).data) ? (result as { data: Design[] }).data : Array.isArray(result) ? result as Design[] : [];
         startTransition(() => {
           setSavedDesigns(data);
           setPage("designs");
@@ -866,8 +902,8 @@ export const ProductDesigner: React.FC<ProductDesignerProps> = ({
         }, userId ?? undefined);
       }
 
-      const result: any = await DesignApi.getDesigns();
-      const data = Array.isArray(result?.data) ? result.data : Array.isArray(result) ? result : [];
+      const result = await DesignApi.getDesigns();
+      const data: Design[] = Array.isArray((result as { data?: Design[] }).data) ? (result as { data: Design[] }).data : Array.isArray(result) ? result as Design[] : [];
       startTransition(() => {
         setSavedDesigns(data);
         setPage("designs");
@@ -879,7 +915,7 @@ export const ProductDesigner: React.FC<ProductDesignerProps> = ({
   };
 
   // handlers for editing or cloning designs
-  const handleEdit = async (d: any) => {
+  const handleEdit = async (d: DesignRecord) => {
     const layersToSet = d.layers || [];
 
     // Load fonts before setting layers
@@ -899,7 +935,7 @@ export const ProductDesigner: React.FC<ProductDesignerProps> = ({
       setPage("editor");
     });
   };
-  const handleClone = async (d: any) => {
+  const handleClone = async (d: DesignRecord) => {
     const layersToSet = d.layers || [];
 
     // Load fonts before setting layers
@@ -987,7 +1023,7 @@ export const ProductDesigner: React.FC<ProductDesignerProps> = ({
       }
 
       // Show success message with detailed results
-      const successCount = result.summary?.successful || result.assignments?.filter((a: any) => a.success).length || 0;
+      const successCount = (result.summary?.successful as number | undefined) || (result.assignments?.filter((a: { success?: boolean }) => a.success).length) || 0;
       const totalStores = storeConfigurations.length;
       
       alert(`Successfully assigned "${designData.name}" to ${successCount}/${totalStores} store${totalStores !== 1 ? 's' : ''}!`);
@@ -1076,7 +1112,7 @@ export const ProductDesigner: React.FC<ProductDesignerProps> = ({
 
         const failures = responses
           .map((r, i) => (r.status === 'rejected' ? { i, reason: (r as PromiseRejectedResult).reason } : null))
-          .filter(Boolean) as { i: number; reason: any }[];
+          .filter((x): x is { i: number; reason: PromiseRejectedResult['reason'] } => x !== null);
         const successes = responses.filter(r => r.status === 'fulfilled').length;
 
         const totalItems = enrichedSelections
@@ -1190,7 +1226,7 @@ export const ProductDesigner: React.FC<ProductDesignerProps> = ({
         <Suspense fallback={<div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50"><div className="bg-white p-4 rounded">Loading...</div></div>}>
           <LoadDesignModal
             designs={savedDesigns}
-            onSelect={async (d: any) => {
+            onSelect={async (d: DesignRecord) => {
               setLoadModalOpen(false);
 
               const layersToSet = d.layers || [];
@@ -1223,7 +1259,7 @@ export const ProductDesigner: React.FC<ProductDesignerProps> = ({
 
                 // Find and set the matching style if available
                 if (product?.styles && d.styleId) {
-                  const matchingStyle = product.styles.find((s: any) => s.id === d.styleId);
+                  const matchingStyle = product.styles.find((s: ProductStyleData) => s.id === d.styleId);
                   if (matchingStyle) {
                     setStyle(matchingStyle);
                   }
@@ -1406,7 +1442,17 @@ setControlMode,
 };
 
 
-export const ColorPicker = ({product,setStyle,style,setCarouselMode,setHoveredStyleId,setHoveredStyleIndex,carouselMode,hoveredStyleId}) => {
+interface ColorPickerProps {
+  product: ProductData | null;
+  setStyle: (s: ProductStyleData) => void;
+  style: ProductStyleData | null;
+  setCarouselMode: (v: boolean) => void;
+  setHoveredStyleId: (id: number | null) => void;
+  setHoveredStyleIndex: (i: number) => void;
+  carouselMode: boolean;
+  hoveredStyleId: number | null;
+}
+export const ColorPicker = ({product,setStyle,style,setCarouselMode,setHoveredStyleId,setHoveredStyleIndex,carouselMode,hoveredStyleId}: ColorPickerProps) => {
   const [carouselDismissedByClick, setCarouselDismissedByClick] = useState(false);
   
 
@@ -1437,7 +1483,7 @@ export const ColorPicker = ({product,setStyle,style,setCarouselMode,setHoveredSt
     setHoveredStyleIndex(styleIndex);
   };
 
-  const handleStyleClick = (s: any) => {
+  const handleStyleClick = (s: ProductStyleData) => {
     setStyle(s);
     
     // Dismiss carousel when a style is clicked
@@ -1467,7 +1513,7 @@ export const ColorPicker = ({product,setStyle,style,setCarouselMode,setHoveredSt
     </button>
 
     {/* Color Style Buttons */}
-    {product?.styles?.filter(s => s && s.id).map((s: any, idx: number) => (
+    {product?.styles?.filter(s => s && s.id).map((s: ProductStyleData, idx: number) => (
       <button
         key={s.id}
         onClick={() => s && handleStyleClick(s)}
@@ -1494,7 +1540,30 @@ export const ColorPicker = ({product,setStyle,style,setCarouselMode,setHoveredSt
   </div>
 }
 
-const StyleCarousel = ({ product, hoveredStyleId, style, onClose, setHoveredStyleId, setStyle, selectedLayer, setLayerControlsStyle, setLastClickedCarouselStyle, layerClickFocusedStyleId, setLayerClickFocusedStyleId, sharedZoom, setSharedZoom, sharedTop, setSharedTop, sharedLeft, setSharedLeft, designState, setDesignState, designName, setDesignName }) => {
+interface StyleCarouselProps {
+  product: ProductData | null;
+  hoveredStyleId: number | null;
+  style: ProductStyleData | null;
+  onClose: () => void;
+  setHoveredStyleId: (id: number | null) => void;
+  setStyle: (s: ProductStyleData) => void;
+  selectedLayer: LayerData | null;
+  setLayerControlsStyle: (s: ProductStyleData | null) => void;
+  setLastClickedCarouselStyle: (s: ProductStyleData | null) => void;
+  layerClickFocusedStyleId: number | null;
+  setLayerClickFocusedStyleId: (id: number | null) => void;
+  sharedZoom: number;
+  setSharedZoom: (v: number | ((prev: number) => number)) => void;
+  sharedTop: number;
+  setSharedTop: (v: number) => void;
+  sharedLeft: number;
+  setSharedLeft: (v: number) => void;
+  designState: { name: string; isSaved: boolean; isAutoSaving: boolean; lastSavedAt: Date | null; hasUnsavedChanges: boolean };
+  setDesignState: React.Dispatch<React.SetStateAction<{ name: string; isSaved: boolean; isAutoSaving: boolean; lastSavedAt: Date | null; hasUnsavedChanges: boolean }>>;
+  designName: string;
+  setDesignName: (v: string) => void;
+}
+const StyleCarousel = ({ product, hoveredStyleId, style, onClose, setHoveredStyleId, setStyle, selectedLayer, setLayerControlsStyle, setLastClickedCarouselStyle, layerClickFocusedStyleId, setLayerClickFocusedStyleId, sharedZoom, setSharedZoom, sharedTop, setSharedTop, sharedLeft, setSharedLeft, designState, setDesignState, designName, setDesignName }: StyleCarouselProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [carouselScale, setCarouselScale] = useState(0.75);
   const [previewDimensions, setPreviewDimensions] = useState({ width: 350, height: 466 });
@@ -1528,7 +1597,7 @@ const StyleCarousel = ({ product, hoveredStyleId, style, onClose, setHoveredStyl
   // Set default side when component mounts
   useEffect(() => {
     if (availableSides.length > 0 && !availableSides.includes(selectedSide)) {
-      setSelectedSide(availableSides[0]);
+      startTransition(() => { setSelectedSide(availableSides[0]); });
     }
   }, [availableSides, selectedSide]);
   
@@ -1537,7 +1606,7 @@ const StyleCarousel = ({ product, hoveredStyleId, style, onClose, setHoveredStyl
     ? (layerClickFocusedStyleId || localHoveredStyleId || hoveredStyleId || style?.id)
     : (localHoveredStyleId || hoveredStyleId || style?.id);
   
-  const handleStyleSelect = (styleOption: any) => {
+  const handleStyleSelect = (styleOption: ProductStyleData) => {
     setStyle(styleOption);
     setHoveredStyleId(null);
     setLocalHoveredStyleId(null);
@@ -1748,7 +1817,7 @@ const StyleCarousel = ({ product, hoveredStyleId, style, onClose, setHoveredStyl
             msOverflowStyle: 'none'
           }}
         >
-          {product.styles.map((styleOption: any) => {
+          {product.styles.map((styleOption: ProductStyleData) => {
             const isFocused = styleOption.id === effectiveFocusedStyleId;
             
             // Find the side that matches the selected side name

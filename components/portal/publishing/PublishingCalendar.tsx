@@ -297,8 +297,39 @@ export default function PublishingCalendar(_props: PublishingCalendarProps) {
   }, [currentDate, view]);
 
   useEffect(() => {
-    fetchEntries();
-  }, [fetchEntries]);
+    void (async () => {
+      setLoading(true);
+      const start =
+        view === 'month'
+          ? new Date(currentDate.getFullYear(), currentDate.getMonth(), -6)
+          : startOfWeek(currentDate);
+      const end =
+        view === 'month'
+          ? new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 7)
+          : endOfWeek(currentDate);
+
+      const params = new URLSearchParams({
+        start: start.toISOString(),
+        end: end.toISOString(),
+      });
+
+      try {
+        const res = await fetch(`/api/portal/publishing/calendar?${params}`);
+        const json = (await res.json()) as
+          | { success: true; data: PublishingCalendarEntry[] }
+          | { success: false; message?: string };
+        if (json.success) {
+          setEntries(json.data);
+        } else {
+          setEntries([]);
+        }
+      } catch {
+        setEntries([]);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [currentDate, view]);
 
   const navigate = (dir: -1 | 1) => {
     setCurrentDate((prev) => {

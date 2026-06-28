@@ -1,7 +1,7 @@
 'use client';
 
 import { Breakpoint, BREAKPOINTS } from '@/types/responsive';
-import { useBlockEditor } from '@/contexts/BlockEditorContext';
+import { useBlockEditorOptional } from '@/contexts/BlockEditorContext';
 
 interface ViewportSelectorProps {
   currentViewport?: Breakpoint;
@@ -12,24 +12,19 @@ interface ViewportSelectorProps {
 export function ViewportSelector({
   currentViewport: propViewport,
   onViewportChange: propOnChange,
-  useContext = true
+  useContext: useEditorContext = true
 }: ViewportSelectorProps = {}) {
   const viewports: Breakpoint[] = ['mobile', 'tablet', 'desktop'];
 
-  // Try to use context if available and allowed
+  // Always call hook unconditionally at top level
+  const editorContext = useBlockEditorOptional();
+
   let currentViewport: Breakpoint;
   let onViewportChange: (viewport: Breakpoint) => void;
 
-  if (useContext) {
-    try {
-      const context = useBlockEditor();
-      currentViewport = context.currentViewport;
-      onViewportChange = context.setCurrentViewport;
-    } catch (e) {
-      // Context not available, fall back to props
-      currentViewport = propViewport || 'desktop';
-      onViewportChange = propOnChange || (() => {});
-    }
+  if (useEditorContext && editorContext) {
+    currentViewport = editorContext.currentViewport;
+    onViewportChange = editorContext.setCurrentViewport;
   } else {
     currentViewport = propViewport || 'desktop';
     onViewportChange = propOnChange || (() => {});

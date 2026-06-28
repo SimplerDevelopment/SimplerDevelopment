@@ -14,8 +14,9 @@ export function HtmlRenderFullJson({
   block: HtmlRenderBlock;
   onApply: (updates: Partial<HtmlRenderBlock>) => void;
 }) {
-  const exported = useRef('');
-  exported.current = JSON.stringify(
+  // Compute the serialised block as a plain const so it's a stable render
+  // value — no ref read/write during render (satisfies react-hooks/refs).
+  const exported = JSON.stringify(
     {
       version: 1,
       type: 'html-render',
@@ -29,27 +30,27 @@ export function HtmlRenderFullJson({
     2,
   );
 
-  const [draft, setDraft] = useState(exported.current);
+  const [draft, setDraft] = useState(exported);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Keep the textarea in sync when the block changes externally (e.g. another
   // edit in the iframe). Comparing against the last-rendered exported value
   // avoids clobbering an in-progress paste the author hasn't applied yet.
-  const lastSeenRef = useRef(exported.current);
+  const lastSeenRef = useRef(exported);
   useEffect(() => {
     if (draft === lastSeenRef.current) {
-      setDraft(exported.current);
+      setDraft(exported);
     }
-    lastSeenRef.current = exported.current;
+    lastSeenRef.current = exported;
   }, [block.html, block.fields, block.values, block.loop, block.width]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const dirty = draft !== exported.current;
+  const dirty = draft !== exported;
 
   const handleCopy = async () => {
     setError(null);
     try {
-      await navigator.clipboard.writeText(exported.current);
+      await navigator.clipboard.writeText(exported);
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch {
@@ -111,7 +112,7 @@ export function HtmlRenderFullJson({
           </button>
           <button
             type="button"
-            onClick={() => { setDraft(exported.current); setError(null); }}
+            onClick={() => { setDraft(exported); setError(null); }}
             disabled={!dirty}
             className="inline-flex items-center gap-1.5 rounded border border-border px-2.5 py-1 text-xs hover:bg-accent disabled:opacity-50"
           >

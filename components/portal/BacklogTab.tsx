@@ -44,7 +44,6 @@ export default function BacklogTab({ projectId, projectKey, canEdit }: Props) {
   const [showOnlyEstimated, setShowOnlyEstimated] = useState(false);
 
   const load = async () => {
-    setLoading(true);
     try {
       const res = await fetch(`/api/portal/projects/${projectId}/sprints`);
       const data = await res.json();
@@ -92,7 +91,7 @@ export default function BacklogTab({ projectId, projectKey, canEdit }: Props) {
         <div>
           <h2 className="text-lg font-semibold text-foreground">Backlog</h2>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Cards that haven't been pulled into a sprint yet. {totalPoints} pts total
+            Cards that haven&apos;t been pulled into a sprint yet. {totalPoints} pts total
             {unsizedCount > 0 && <span className="text-amber-600"> · {unsizedCount} unsized</span>}.
           </p>
         </div>

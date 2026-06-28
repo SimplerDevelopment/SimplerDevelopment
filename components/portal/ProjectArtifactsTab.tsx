@@ -91,7 +91,6 @@ export default function ProjectArtifactsTab({ projectId, canEdit }: Props) {
   // Initial list load.
   useEffect(() => {
     let alive = true;
-    setLoading(true);
     fetch(`/api/portal/projects/${projectId}/artifacts`)
       .then(r => (r.ok ? r.json() : null))
       .then(data => {
@@ -112,7 +111,6 @@ export default function ProjectArtifactsTab({ projectId, canEdit }: Props) {
   useEffect(() => {
     if (!showPicker) return;
     let alive = true;
-    setAvailableLoaded(false);
     const params = new URLSearchParams();
     params.set('type', typeFilter || 'all');
     const q = search.trim();

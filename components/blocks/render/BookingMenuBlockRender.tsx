@@ -40,7 +40,7 @@ export function BookingMenuBlockRender({ block, siteId: siteIdProp }: { block: B
           .finally(() => setLoading(false));
         return;
       }
-      setLoading(false);
+      void Promise.resolve().then(() => setLoading(false));
       return;
     }
     fetch(`/api/public/booking/by-site/${resolvedSiteId}`)

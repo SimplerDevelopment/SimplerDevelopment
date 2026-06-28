@@ -118,7 +118,7 @@ export function getShortcutsByCategory(): Record<ShortcutCategory, KeyboardShort
 export function formatShortcutKeys(keys: string): string {
   const isMac = typeof navigator !== 'undefined' && navigator.platform.toUpperCase().indexOf('MAC') >= 0;
 
-  let formatted = keys
+  const formatted = keys
     .split('+')
     .map((key) => {
       switch (key.toLowerCase()) {

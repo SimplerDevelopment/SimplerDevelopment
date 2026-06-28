@@ -33,7 +33,7 @@ const HOVER_STYLES = `
 .btn-icon { font-family: 'Material Icons'; font-size: 1.15em; line-height: 1; vertical-align: middle; }
 `;
 
-let stylesInjected = false;
+const stylesInjected = false;
 
 export function ButtonBlockRender({ block }: ButtonBlockRenderProps) {
   const branding = useBranding();

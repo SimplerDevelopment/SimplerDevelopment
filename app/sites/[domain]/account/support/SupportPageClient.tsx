@@ -38,11 +38,6 @@ export function SupportPageClient({ siteId, domain }: { siteId: number; domain: 
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState({ subject: '', category: 'order', body: '' });
 
-  useEffect(() => {
-    if (!token) return;
-    fetchMessages();
-  }, [siteId, token]);
-
   const fetchMessages = () => {
     if (!token) return;
     fetch(`/api/storefront/${siteId}/account/support`, {
@@ -53,6 +48,11 @@ export function SupportPageClient({ siteId, domain }: { siteId: number; domain: 
       .catch(() => {})
       .finally(() => setLoading(false));
   };
+
+  useEffect(() => {
+    if (!token) return;
+    fetchMessages();
+  }, [siteId, token]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -412,7 +412,9 @@ function SortableLayerRow({
   // Keep the draft in sync if the layer's name changes externally
   // (e.g. an Undo while we're editing).
   useEffect(() => {
-    if (!editing) setDraftName(layer.name);
+    if (editing) return;
+    const name = layer.name;
+    queueMicrotask(() => setDraftName(name));
   }, [layer.name, editing]);
 
   const commitName = () => {

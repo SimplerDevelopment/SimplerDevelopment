@@ -11,7 +11,7 @@ export type MessageType =
 
 export interface SettingsPanelMessage {
   type: MessageType;
-  payload: any;
+  payload: unknown;
   tabId: string;
   timestamp: number;
 }
@@ -45,7 +45,7 @@ export function useSettingsPanelSync({
     try {
       const channel = new BroadcastChannel(channelName);
       channelRef.current = channel;
-      setIsConnected(true);
+      queueMicrotask(() => setIsConnected(true));
 
       // Handle incoming messages
       channel.onmessage = (event: MessageEvent<SettingsPanelMessage>) => {
@@ -72,7 +72,7 @@ export function useSettingsPanelSync({
       };
     } catch (error) {
       console.error('Failed to create BroadcastChannel:', error);
-      setIsConnected(false);
+      queueMicrotask(() => setIsConnected(false));
     }
 
     // Cleanup
@@ -86,7 +86,7 @@ export function useSettingsPanelSync({
   }, [tabId]);
 
   // Send message function
-  const sendMessage = useCallback((type: MessageType, payload: any) => {
+  const sendMessage = useCallback((type: MessageType, payload: unknown) => {
     if (!channelRef.current) {
       console.warn('BroadcastChannel not initialized');
       return;

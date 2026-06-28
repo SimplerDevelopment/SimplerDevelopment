@@ -49,7 +49,6 @@ export default function ProjectRecurrencesPanel({ projectId, canEdit }: { projec
   const [saving, setSaving] = useState(false);
 
   const load = async () => {
-    setLoading(true);
     try {
       const [recRes, projRes] = await Promise.all([
         fetch(`/api/portal/projects/${projectId}/recurrences`).then(r => r.json()),
@@ -119,7 +118,7 @@ export default function ProjectRecurrencesPanel({ projectId, canEdit }: { projec
         <div>
           <h3 className="text-sm font-semibold text-foreground">Recurring tasks</h3>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Auto-create cards on a schedule. {`{{date}}`} in the title becomes the firing date (e.g. "Standup 2026-06-10").
+            Auto-create cards on a schedule. {`{{date}}`} in the title becomes the firing date (e.g. &quot;Standup 2026-06-10&quot;).
           </p>
         </div>
         {canEdit && (

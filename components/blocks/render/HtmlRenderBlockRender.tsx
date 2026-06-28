@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { HtmlRenderBlock } from '@/types/blocks';
 import { combineResponsiveClasses } from '@/lib/utils/responsive';
 import { renderHtmlTemplate } from '@/lib/blocks/html-render-template';
@@ -90,7 +90,7 @@ function InlineHtml({ html, blockId }: { html: string; blockId: string }) {
   // innerHTML exactly once (SSR + hydration adopt it) and never re-manages it,
   // leaving all subsequent updates to the imperative path below — which
   // preserves the editor's contenteditable caret handling.
-  const initialHtmlRef = useRef(html);
+  const [initialHtml] = useState(html);
 
   useEffect(() => {
     const el = ref.current;
@@ -278,7 +278,7 @@ function InlineHtml({ html, blockId }: { html: string; blockId: string }) {
   // Server-render the initial content (stable ref → React writes it once, then
   // the imperative useEffect above owns all updates). This makes html-render
   // blocks paint at first paint (huge for LCP/CLS) instead of after hydration.
-  return <div ref={ref} dangerouslySetInnerHTML={{ __html: initialHtmlRef.current }} />;
+  return <div ref={ref} dangerouslySetInnerHTML={{ __html: initialHtml }} />;
 }
 
 // Strip everything except a small allow-list of formatting tags so pasted

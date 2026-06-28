@@ -24,11 +24,10 @@ export function HtmlRenderPostPicker({
   siteId?: number;
 }) {
   const [options, setOptions] = useState<PickerPostOption[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(!siteId ? 'No site context — picker disabled' : null);
 
   useEffect(() => {
     if (!siteId) {
-      setError('No site context — picker disabled');
       return;
     }
     let cancelled = false;

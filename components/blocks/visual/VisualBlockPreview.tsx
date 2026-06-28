@@ -266,7 +266,7 @@ export function VisualBlockPreview({ block, isSelected, onChange, selectedBlockI
     default:
       return (
         <div className="p-4 bg-muted/30 border border-border rounded text-muted-foreground text-sm">
-          Block type "{(block as Block).type}" preview not yet implemented.
+          Block type &quot;{(block as Block).type}&quot; preview not yet implemented.
           <br />
           <span className="text-xs">Select to edit using the settings panel.</span>
         </div>

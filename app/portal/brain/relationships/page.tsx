@@ -293,7 +293,9 @@ function RelationshipCard({ row }: { row: RelationshipListRow }) {
 
 function RelationshipRow({ row }: { row: RelationshipListRow }) {
   const lastTouch = row.overlay.lastTouchAt ? new Date(row.overlay.lastTouchAt) : null;
-  const days = lastTouch ? Math.floor((Date.now() - lastTouch.getTime()) / 86400000) : null;
+  const [days] = useState<number | null>(() =>
+    lastTouch ? Math.floor((Date.now() - lastTouch.getTime()) / 86400000) : null
+  );
   return (
     <Link
       href={`/portal/brain/relationships/${row.overlay.id}`}

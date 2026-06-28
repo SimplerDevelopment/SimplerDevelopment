@@ -1,7 +1,7 @@
-// @ts-nocheck
 // TODO(designer): clean up types — ported from CRA, see .planning/product-designer-integration.md
 // Design API client for managing designs
 import { SessionManager } from './sessionManager';
+import type { LayerData, StyleOverridesMap } from '../designerTypes';
 
 export interface Design {
   id: number;
@@ -11,8 +11,8 @@ export interface Design {
   productId: string;
   styleId: number;
   side: string;
-  layers: any[];
-  styleOverrides: any;
+  layers: LayerData[];
+  styleOverrides: StyleOverridesMap;
   thumbnailUrl?: string;
   isPublic: boolean;
   isTemplate: boolean;
@@ -30,15 +30,15 @@ export interface CreateDesignRequest {
   productId: string;
   styleId: number;
   side?: string;
-  layers?: any[];
-  styleOverrides?: any;
+  layers?: LayerData[];
+  styleOverrides?: StyleOverridesMap;
 }
 
 export interface UpdateDesignRequest {
   name?: string;
   description?: string;
-  layers?: any[];
-  styleOverrides?: any;
+  layers?: LayerData[];
+  styleOverrides?: StyleOverridesMap;
   side?: string;
   isPublic?: boolean;
   thumbnailUrl?: string;
@@ -371,7 +371,7 @@ export const designUtils = {
    * URL for legacy preview/<img> consumers — those callers should migrate
    * to POST. TODO(designer): remove once all callers POST.
    */
-  generateThumbnailUrl(layers: any[], styleId: number): string {
+  generateThumbnailUrl(layers: LayerData[], styleId: number): string {
     const base = DesignApi.siteId
       ? `/api/storefront/${DesignApi.siteId}/designs/generate-thumbnail`
       : '/api/generate-image';

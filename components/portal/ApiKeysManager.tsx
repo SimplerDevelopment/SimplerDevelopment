@@ -30,7 +30,14 @@ export default function ApiKeysManager({ siteId }: { siteId: number }) {
     setLoading(false);
   };
 
-  useEffect(() => { fetchKeys(); }, [siteId]);
+  useEffect(() => {
+    void (async () => {
+      const res = await fetch(`/api/portal/websites/${siteId}/api-keys`);
+      const json = await res.json();
+      if (json.success) setKeys(json.data);
+      setLoading(false);
+    })();
+  }, [siteId]);
 
   const createKey = async () => {
     if (!newKeyName.trim()) return;
@@ -101,7 +108,7 @@ export default function ApiKeysManager({ siteId }: { siteId: number }) {
         <div className="p-4 bg-green-50 border border-green-200 rounded-xl dark:bg-green-900/20 dark:border-green-800">
           <p className="text-sm font-medium text-green-800 dark:text-green-300 mb-2">
             <span className="material-icons text-base align-middle mr-1">key</span>
-            API key created! Copy it now -- it won't be shown again.
+            API key created! Copy it now -- it won&apos;t be shown again.
           </p>
           <div className="flex items-center gap-2">
             <code className="flex-1 text-xs bg-white dark:bg-black/20 p-2 rounded border font-mono break-all">

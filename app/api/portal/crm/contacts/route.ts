@@ -137,7 +137,7 @@ export async function GET(req: NextRequest) {
 
   // Fetch tags for these contacts
   const contactIds = contacts.map((c) => c.id);
-  let contactTagsMap: Record<number, { id: number; name: string; color: string | null }[]> = {};
+  const contactTagsMap: Record<number, { id: number; name: string; color: string | null }[]> = {};
   if (contactIds.length > 0) {
     const tagRows = await db
       .select({

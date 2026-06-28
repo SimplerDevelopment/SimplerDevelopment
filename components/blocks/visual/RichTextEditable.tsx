@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useEffect, useState, useCallback } from 'react';
+import { ElementType, useRef, useEffect, useState, useCallback } from 'react';
 
 interface RichTextEditableProps {
   html: string;
@@ -204,9 +204,8 @@ export function RichTextEditable({
         </div>
       )}
 
-      {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
       {(() => {
-        const El = tagName as any;
+        const El = tagName as ElementType;
         return (
           <El
             ref={contentRef}

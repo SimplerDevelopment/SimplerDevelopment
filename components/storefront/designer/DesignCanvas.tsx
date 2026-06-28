@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Point, filters as fabricFilters } from 'fabric';
 import type { Canvas, FabricImage, FabricObject } from 'fabric';
 
@@ -73,9 +73,17 @@ export default function DesignCanvas({
   const [isReady, setIsReady] = useState(false);
   const isSyncingRef = useRef(false);
   const productIdRef = useRef(productId);
-  productIdRef.current = productId;
+  // Keep the ref in sync inside useLayoutEffect so we don't mutate it during
+  // render (react-hooks/refs: "Cannot access refs during render").
+  useLayoutEffect(() => {
+    productIdRef.current = productId;
+  });
 
   const setStoreCanvas = useCanvasStore((s) => s.setCanvas);
+  // Read the live canvas from the Zustand store so useMobileGestures receives
+  // a non-ref value (reading fabricRef.current during render is flagged by
+  // react-hooks/refs; the store value is set at the same time as setIsReady).
+  const storeCanvas = useCanvasStore((s) => s.canvas);
   const setSelectedLayers = useCanvasStore((s) => s.setSelectedLayers);
   const updateLayer = useCanvasStore((s) => s.updateLayer);
   const zoom = useCanvasStore((s) => s.zoom);
@@ -159,9 +167,10 @@ export default function DesignCanvas({
     if (changed) c.requestRenderAll();
   }, [mockupTint, isReady, layers, surface.slug]);
 
-  // Mobile gesture wiring.
+  // Mobile gesture wiring. Use storeCanvas (from Zustand) rather than
+  // fabricRef.current so we don't read a ref value during render.
   useMobileGestures({
-    canvas: fabricRef.current,
+    canvas: storeCanvas,
     enabled: true,
     onZoom: setZoom,
     onPan: setPan,
@@ -257,8 +266,8 @@ export default function DesignCanvas({
         } catch {
           // ignore disposal errors
         }
-        const storeCanvas = useCanvasStore.getState().canvas;
-        if (storeCanvas === c) setStoreCanvas(null);
+        const currentStoreCanvas = useCanvasStore.getState().canvas;
+        if (currentStoreCanvas === c) setStoreCanvas(null);
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -23,7 +23,13 @@ export default function GoogleConnectionCard({
   const [status, setStatus] = useState<GoogleStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [disconnecting, setDisconnecting] = useState(false);
-  const [message, setMessage] = useState('');
+  const [message, setMessage] = useState(() => {
+    if (typeof window === 'undefined') return '';
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('google') === 'connected') return 'Google account connected successfully.';
+    if (params.get('google') === 'error') return 'Failed to connect Google account.';
+    return '';
+  });
 
   const fetchStatus = useCallback(async () => {
     try {
@@ -38,11 +44,18 @@ export default function GoogleConnectionCard({
   }, [siteId]);
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('google') === 'connected') setMessage('Google account connected successfully.');
-    if (params.get('google') === 'error') setMessage('Failed to connect Google account.');
-    fetchStatus();
-  }, [fetchStatus]);
+    void (async () => {
+      try {
+        const res = await fetch(`/api/portal/websites/${siteId}/google/status`);
+        const json = await res.json();
+        if (json.success) setStatus(json.data);
+      } catch {
+        // silent
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [siteId]);
 
   const handleDisconnect = async () => {
     setDisconnecting(true);

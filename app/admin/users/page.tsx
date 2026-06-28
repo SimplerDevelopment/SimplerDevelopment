@@ -26,10 +26,6 @@ export default function UsersPage() {
     active: true,
   });
 
-  useEffect(() => {
-    fetchUsers();
-  }, []);
-
   const fetchUsers = async () => {
     const response = await fetch('/api/users');
     const data = await response.json();
@@ -39,15 +35,20 @@ export default function UsersPage() {
     setLoading(false);
   };
 
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const url = editingUser ? `/api/users/${editingUser.id}` : '/api/users';
     const method = editingUser ? 'PUT' : 'POST';
 
     // Don't send password if editing and password is empty
-    const submitData: any = editingUser && !formData.password
-      ? { name: formData.name, email: formData.email, role: formData.role, active: formData.active }
-      : { ...formData };
+    const submitData: { name: string; email: string; role: string; active: boolean; password?: string } =
+      editingUser && !formData.password
+        ? { name: formData.name, email: formData.email, role: formData.role, active: formData.active }
+        : { ...formData };
 
     const response = await fetch(url, {
       method,

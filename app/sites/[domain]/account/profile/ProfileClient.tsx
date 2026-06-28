@@ -45,11 +45,6 @@ export function ProfileClient({ siteId, domain }: { siteId: number; domain: stri
   const [addressForm, setAddressForm] = useState(emptyAddress);
   const [savingAddress, setSavingAddress] = useState(false);
 
-  useEffect(() => {
-    if (!token) return;
-    fetchProfile();
-  }, [siteId, token]);
-
   const fetchProfile = () => {
     if (!token) return;
     fetch(`/api/storefront/${siteId}/account`, {
@@ -68,6 +63,11 @@ export function ProfileClient({ siteId, domain }: { siteId: number; domain: stri
       .catch(() => {})
       .finally(() => setLoading(false));
   };
+
+  useEffect(() => {
+    if (!token) return;
+    fetchProfile();
+  }, [siteId, token]);
 
   const handleProfileSave = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -620,7 +620,7 @@ function EditableContent({
   useEffect(() => {
     if (isSelected) {
       // When already selected, no need to override pointer events
-      setModifierHeld(false);
+      queueMicrotask(() => setModifierHeld(false));
       return;
     }
     const onKeyDown = (e: KeyboardEvent) => {

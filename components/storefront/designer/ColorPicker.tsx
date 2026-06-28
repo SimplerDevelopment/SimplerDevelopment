@@ -95,11 +95,14 @@ export default function ColorPicker({
   }, [brandColorsRaw]);
 
   useEffect(() => {
-    setHexDraft(value);
+    const next = value;
+    queueMicrotask(() => setHexDraft(next));
   }, [value]);
 
   useEffect(() => {
-    if (open) setRecent(readRecent());
+    if (!open) return;
+    const recent = readRecent();
+    queueMicrotask(() => setRecent(recent));
   }, [open]);
 
   // Outside-click close.

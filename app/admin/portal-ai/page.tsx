@@ -315,7 +315,7 @@ export default function AdminAIConversationsPage() {
               </button>
             </div>
             <p className="text-sm text-muted-foreground">
-              This message will appear in the client's chat as a reply from the Simpler Development team.
+              This message will appear in the client&apos;s chat as a reply from the Simpler Development team.
             </p>
             <textarea
               autoFocus

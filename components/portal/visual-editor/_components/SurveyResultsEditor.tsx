@@ -18,11 +18,10 @@ export function SurveyResultsEditor({ block, onUpdate }: { block: Block; onUpdat
   const [surveys, setSurveys] = useState<SurveyMeta[]>([]);
   const [search, setSearch] = useState('');
   const [open, setOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    setLoading(true);
     fetch('/api/portal/surveys')
       .then(r => r.json())
       .then(json => { if (json.success) setSurveys(json.data || []); })

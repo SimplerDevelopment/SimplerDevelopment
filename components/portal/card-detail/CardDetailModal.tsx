@@ -119,7 +119,7 @@ export default function CardDetailModal({
                   addBlocker={s.addBlocker} removeBlocker={s.removeBlocker}
                 />
 
-                <CardChildren children={children} />
+                <CardChildren>{children}</CardChildren>
 
                 <CardCustomFields cardId={cardId} canEdit={canEdit} initialFields={s.customFields} />
 

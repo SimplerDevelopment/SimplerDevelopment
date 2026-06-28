@@ -15,7 +15,7 @@ function FloatingGlobe({ mousePosition }: { mousePosition: { x: number; y: numbe
   const particlesRef = useRef<THREE.Points>(null);
   const glowRef = useRef<THREE.Mesh>(null);
 
-  const particles = useMemo(() => {
+  const [particles] = useState(() => {
     const count = 200;
     const positions = new Float32Array(count * 3);
 
@@ -30,7 +30,7 @@ function FloatingGlobe({ mousePosition }: { mousePosition: { x: number; y: numbe
     }
 
     return positions;
-  }, []);
+  });
 
   const geometry = useMemo(() => {
     const geo = new THREE.BufferGeometry();
@@ -161,7 +161,7 @@ function FloatingLightning({ mousePosition }: { mousePosition: { x: number; y: n
   const boltsRef = useRef<THREE.Group>(null);
   const coreRef = useRef<THREE.Mesh>(null);
 
-  const bolts = useMemo(() => {
+  const [bolts] = useState(() => {
     return Array.from({ length: 6 }, (_, i) => {
       const angle = (i / 6) * Math.PI * 2;
       const points = [];
@@ -179,7 +179,7 @@ function FloatingLightning({ mousePosition }: { mousePosition: { x: number; y: n
 
       return new THREE.BufferGeometry().setFromPoints(points);
     });
-  }, []);
+  });
 
   useFrame((state) => {
     if (!groupRef.current || !boltsRef.current || !coreRef.current) return;

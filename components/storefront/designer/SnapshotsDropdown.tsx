@@ -132,10 +132,13 @@ export default function SnapshotsDropdown() {
   // Re-hydrate when the dropdown opens or the design changes.
   useEffect(() => {
     if (!open) return;
-    setSnapshots(loadSnapshots(designId));
-    setNaming(false);
-    setConfirmId(null);
-    setStatusMsg(null);
+    const snapshots = loadSnapshots(designId);
+    queueMicrotask(() => {
+      setSnapshots(snapshots);
+      setNaming(false);
+      setConfirmId(null);
+      setStatusMsg(null);
+    });
   }, [open, designId]);
 
   // Outside-click + Escape to close.

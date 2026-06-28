@@ -1,5 +1,3 @@
-// @ts-nocheck
-// TODO(designer): clean up types — ported from CRA, see .planning/product-designer-integration.md
 'use client';
 
 import React, { useState, useContext, memo, useCallback, useRef } from "react";

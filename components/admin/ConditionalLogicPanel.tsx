@@ -117,7 +117,7 @@ export default function ConditionalLogicPanel({ field, allFields, onChange }: Pr
 
   // Re-parse when field.showIf changes from outside (e.g. clear all from parent)
   useEffect(() => {
-    setRules(parseShowIf(field.showIf, allFields));
+    queueMicrotask(() => setRules(parseShowIf(field.showIf, allFields)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [field.id]);
 

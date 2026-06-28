@@ -633,7 +633,7 @@ export function EditorInner({
     if (brandDefaults) {
       newBlock = applyBrandDefaults(newBlock, brandDefaults);
     }
-    let tempBlocks = [...state.blocks];
+    const tempBlocks = [...state.blocks];
 
     if (afterBlockId) {
       const index = tempBlocks.findIndex((b) => b.id === afterBlockId);

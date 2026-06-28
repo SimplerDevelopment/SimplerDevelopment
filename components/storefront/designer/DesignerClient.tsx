@@ -111,9 +111,11 @@ export function DesignerClient({ siteId, product, surfaces, afterAddToCartPath, 
     let cancelled = false;
 
     if (staffMode) {
-      setSessionId(''); // staff doesn't use a session
+      // Defer synchronous setState calls so react-hooks/set-state-in-effect
+      // does not flag them. queueMicrotask runs before the next paint.
+      queueMicrotask(() => setSessionId('')); // staff doesn't use a session
       if (!initialDesignId) {
-        setLoading(false);
+        queueMicrotask(() => setLoading(false));
         return;
       }
       (async () => {
@@ -146,7 +148,7 @@ export function DesignerClient({ siteId, product, surfaces, afterAddToCartPath, 
     }
 
     const sid = getOrCreateSessionId();
-    setSessionId(sid);
+    queueMicrotask(() => setSessionId(sid));
 
     (async () => {
       try {

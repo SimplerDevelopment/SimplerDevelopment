@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
 interface GitHubConnection {
   githubUsername: string;
@@ -8,19 +8,13 @@ interface GitHubConnection {
 
 export default function GitHubConnectButton({ siteId }: { siteId: number }) {
   const [connection, setConnection] = useState<GitHubConnection | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading] = useState(false);
   const [requesting, setRequesting] = useState(false);
-  const [message, setMessage] = useState('');
-
-  useEffect(() => {
-    // Check if user has a GitHub connection by trying the collaborators endpoint
-    // We'll use a simpler approach: check URL params for github=connected
+  const [message, setMessage] = useState(() => {
+    if (typeof window === 'undefined') return '';
     const params = new URLSearchParams(window.location.search);
-    if (params.get('github') === 'connected') {
-      setMessage('GitHub connected successfully!');
-    }
-    setLoading(false);
-  }, []);
+    return params.get('github') === 'connected' ? 'GitHub connected successfully!' : '';
+  });
 
   const handleRequestAccess = async () => {
     setRequesting(true);

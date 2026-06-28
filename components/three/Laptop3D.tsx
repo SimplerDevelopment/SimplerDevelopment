@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useEffect, useState } from 'react';
+import { useRef, useMemo } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
@@ -21,17 +21,9 @@ export function Laptop3D({
   floatAmplitude = 0.3,
 }: Laptop3DProps) {
   const groupRef = useRef<THREE.Group>(null);
-  const { scene } = useGLTF('/3d/laptop.glb') as any;
-  const [clonedScene, setClonedScene] = useState<THREE.Object3D | null>(null);
+  const { scene } = useGLTF('/3d/laptop.glb') as { scene: THREE.Group };
+  const clonedScene = useMemo(() => scene ? scene.clone() : null, [scene]);
   const initialRotation = useRef(rotation);
-
-  // Clone the scene to make it reusable
-  useEffect(() => {
-    if (scene) {
-      const cloned = scene.clone();
-      setClonedScene(cloned);
-    }
-  }, [scene]);
 
   // Floating animation (no rotation)
   useFrame((state) => {

@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { db } from '@/lib/db';
 import { googleWorkspaceUserConnections, microsoftTeamsUserConnections, linkedinUserConnections } from '@/lib/db/schema';
 import { eq, and, isNull } from 'drizzle-orm';
@@ -296,13 +297,13 @@ export default async function SettingsIntegrationsPage({ searchParams }: PagePro
             full Workspace ingestion (sent mail, calendar, Drive, contacts), upgrade and we&apos;ll provision
             the integration with your Google Workspace.
           </p>
-          <a
+          <Link
             href="/portal/tickets/new?subject=Workspace+integration+upgrade"
             className={`mt-4 ${pBtnPrimary}`}
           >
             <span className="material-icons text-base">support_agent</span>
             Request upgrade
-          </a>
+          </Link>
         </div>
       )}
 

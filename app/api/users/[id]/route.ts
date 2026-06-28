@@ -116,7 +116,10 @@ export async function PUT(
     const body = await request.json();
     const validatedData = updateUserSchema.parse(body);
 
-    const updateData: any = { ...validatedData, updatedAt: new Date() };
+    const updateData: z.infer<typeof updateUserSchema> & { updatedAt: Date } = {
+      ...validatedData,
+      updatedAt: new Date(),
+    };
 
     // Hash password if provided
     if (validatedData.password) {

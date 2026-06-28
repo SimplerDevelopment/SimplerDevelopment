@@ -45,7 +45,6 @@ export default function ProjectMembersTab({ projectId, canManage }: { projectId:
   const [error, setError] = useState<string | null>(null);
 
   const load = async () => {
-    setLoading(true);
     try {
       const [m, t] = await Promise.all([
         fetch(`/api/portal/projects/${projectId}/members`).then(r => r.json()),

@@ -40,8 +40,8 @@ function LayerItemComponent({
   onContextMenu?: (id: string, x: number, y: number) => void;
   showDropIndicator?: boolean;
 }) {
-  const sortable = useSortable({ id: block.id, transition: null });
-  const style = { opacity: sortable.isDragging ? 0.3 : 1, transition: 'opacity 200ms' } as React.CSSProperties;
+  const { setNodeRef, attributes, listeners, isDragging } = useSortable({ id: block.id, transition: null });
+  const style = { opacity: isDragging ? 0.3 : 1, transition: 'opacity 200ms' } as React.CSSProperties;
   // Require a truthy block.id before matching — otherwise `undefined ===
   // undefined` would cause every id-less block to appear selected together.
   const isSelected = !!block.id && (selectedBlockIds.length > 1 ? selectedBlockIds.includes(block.id) : selectedBlockId === block.id);
@@ -73,7 +73,7 @@ function LayerItemComponent({
       : '';
 
   return (
-    <div ref={sortable.setNodeRef} style={style}>
+    <div ref={setNodeRef} style={style}>
       {showDropIndicator && (
         <div className="relative z-20 mx-1" style={{ height: 0 }}>
           <div className="absolute inset-x-0 top-0 -translate-y-1/2 h-0.5 bg-primary rounded-full" />
@@ -93,7 +93,7 @@ function LayerItemComponent({
         }}
       >
         {/* Drag handle */}
-        <span {...sortable.attributes} {...sortable.listeners} className="material-icons text-xs shrink-0 text-muted-foreground/50 cursor-grab">drag_indicator</span>
+        <span {...attributes} {...listeners} className="material-icons text-xs shrink-0 text-muted-foreground/50 cursor-grab">drag_indicator</span>
 
         {/* Expand toggle for containers */}
         {isContainer ? (

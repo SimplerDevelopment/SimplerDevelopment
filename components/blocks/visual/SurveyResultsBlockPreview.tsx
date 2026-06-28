@@ -44,22 +44,21 @@ function MockBarChart({ accentColor }: { accentColor?: string }) {
 
 function MockDonutChart({ accentColor }: { accentColor?: string }) {
   const total = MOCK_PIE_SEGMENTS.reduce((a, s) => a + s.pct, 0);
-  let offset = 0;
+  const dashes = MOCK_PIE_SEGMENTS.map((s) => (s.pct / total) * 100);
+  const offsets = dashes.reduce<number[]>(
+    (acc, _, i) => [...acc, i === 0 ? 0 : acc[i - 1] + dashes[i - 1]],
+    []
+  );
   return (
     <div className="flex items-center gap-6">
       <svg viewBox="0 0 36 36" className="w-28 h-28 shrink-0">
-        {MOCK_PIE_SEGMENTS.map((s) => {
-          const dash = (s.pct / total) * 100;
-          const thisOffset = offset;
-          offset += dash;
-          return (
-            <circle key={s.label} r="15.915" cx="18" cy="18" fill="none"
-              stroke={accentColor || s.color} strokeWidth="5"
-              strokeDasharray={`${dash} ${100 - dash}`}
-              strokeDashoffset={`${-thisOffset}`}
-              className="transition-all" />
-          );
-        })}
+        {MOCK_PIE_SEGMENTS.map((s, i) => (
+          <circle key={s.label} r="15.915" cx="18" cy="18" fill="none"
+            stroke={accentColor || s.color} strokeWidth="5"
+            strokeDasharray={`${dashes[i]} ${100 - dashes[i]}`}
+            strokeDashoffset={`${-offsets[i]}`}
+            className="transition-all" />
+        ))}
       </svg>
       <div className="space-y-1.5">
         {MOCK_PIE_SEGMENTS.map((s) => (

@@ -17,14 +17,6 @@ export function CustomCodeModal({ open, initialCss, initialJs, onClose, onApply 
   const dialogRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    if (open) {
-      setCss(initialCss);
-      setJs(initialJs);
-      setTab('css');
-    }
-  }, [open, initialCss, initialJs]);
-
-  useEffect(() => {
     if (!open) return;
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();

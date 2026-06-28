@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, useLayoutEffect } from 'react';
 import { Block, HistoryAction, PageSettings } from '@/types/blocks';
 import { BlockHistory } from '@/lib/utils/blockHistory';
 
@@ -64,16 +64,22 @@ export function useBlockHistory(
 
   // Keep a ref to current pageSettings for use in setBlocks callback
   const pageSettingsRef = useRef(pageSettings);
-  pageSettingsRef.current = pageSettings;
+  useLayoutEffect(() => {
+    pageSettingsRef.current = pageSettings;
+  });
 
-  // Initialize history with the starting state on first render
-  if (!initializedRef.current && initialBlocks.length > 0) {
-    historyRef.current.push(initialBlocks, {
-      type: 'modify',
-      description: 'Initial state',
-    }, undefined, initialPageSettings);
-    initializedRef.current = true;
-  }
+  // Initialize history with the starting state on first render.
+  // Use an effect so we don't access refs during render.
+  useEffect(() => {
+    if (!initializedRef.current && initialBlocks.length > 0) {
+      historyRef.current.push(initialBlocks, {
+        type: 'modify',
+        description: 'Initial state',
+      }, undefined, initialPageSettings);
+      initializedRef.current = true;
+    }
+  // intentional: initialBlocks/initialPageSettings are only consumed once at mount
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Note: initialBlocks is consumed via lazy useState initialization above.
   // We intentionally do NOT sync on subsequent changes — the hook owns

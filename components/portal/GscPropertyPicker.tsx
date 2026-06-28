@@ -19,13 +19,12 @@ export default function GscPropertyPicker({
   onConnected: () => void;
 }) {
   const [sites, setSites] = useState<GscSite[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!currentSiteUrl);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
     if (currentSiteUrl) {
-      setLoading(false);
       return;
     }
     fetch(`/api/portal/websites/${siteId}/google/search-console`)

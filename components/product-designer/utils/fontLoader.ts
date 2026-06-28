@@ -63,7 +63,8 @@ export const loadFont = async (fontFamily: string, fontUrl?: string): Promise<vo
 /**
  * Load all fonts used in design layers
  */
-export const loadDesignFonts = async (layers: any[]): Promise<void> => {
+import type { LayerData } from "../designerTypes";
+export const loadDesignFonts = async (layers: LayerData[]): Promise<void> => {
   if (!layers || !Array.isArray(layers)) {
     return;
   }

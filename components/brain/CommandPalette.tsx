@@ -77,10 +77,12 @@ export default function CommandPalette({
   // Reset state every time the palette opens; autofocus the input.
   useEffect(() => {
     if (!open) return;
-    setQuery('');
-    setDebouncedQuery('');
-    setSearchResults([]);
-    setActiveIndex(0);
+    queueMicrotask(() => {
+      setQuery('');
+      setDebouncedQuery('');
+      setSearchResults([]);
+      setActiveIndex(0);
+    });
     const t = window.setTimeout(() => inputRef.current?.focus(), 0);
     return () => window.clearTimeout(t);
   }, [open]);
@@ -91,7 +93,7 @@ export default function CommandPalette({
     if (!open) return;
     const ids = getRecentNoteIds();
     if (ids.length === 0) {
-      setRecentNotes([]);
+      queueMicrotask(() => setRecentNotes([]));
       return;
     }
     let cancelled = false;
@@ -130,12 +132,14 @@ export default function CommandPalette({
   useEffect(() => {
     const trimmed = debouncedQuery.trim();
     if (!open || !trimmed || trimmed.startsWith('>')) {
-      setSearchResults([]);
-      setLoading(false);
+      queueMicrotask(() => {
+        setSearchResults([]);
+        setLoading(false);
+      });
       return;
     }
     const myReq = ++reqIdRef.current;
-    setLoading(true);
+    queueMicrotask(() => setLoading(true));
     (async () => {
       try {
         const r = await fetch(
@@ -256,11 +260,11 @@ export default function CommandPalette({
   // Clamp activeIndex when the row set changes so the highlight stays valid.
   useEffect(() => {
     if (selectableIndices.length === 0) {
-      setActiveIndex(0);
+      queueMicrotask(() => setActiveIndex(0));
       return;
     }
     if (!selectableIndices.includes(activeIndex)) {
-      setActiveIndex(selectableIndices[0]);
+      queueMicrotask(() => setActiveIndex(selectableIndices[0]));
     }
   }, [selectableIndices, activeIndex]);
 

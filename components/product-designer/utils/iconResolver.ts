@@ -13,7 +13,8 @@ import * as Io5 from "react-icons/io5";
 import * as Rx from "react-icons/rx";
 import * as Md from "react-icons/md";
 
-type IconModule = Record<string, React.ComponentType<any>>;
+import type React from "react";
+type IconModule = Record<string, React.ComponentType<React.SVGProps<SVGSVGElement>>>;
 
 export const ICON_PACKS: Record<string, IconModule> = {
   fa6: Fa6 as IconModule,

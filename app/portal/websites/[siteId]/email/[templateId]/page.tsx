@@ -296,7 +296,7 @@ export default function WebsiteEmailTemplatePage({ params }: { params: Promise<{
                   </button>
                   <div>
                     <span className="text-sm font-medium text-foreground">Enabled</span>
-                    <p className="text-xs text-muted-foreground">When disabled, this email won't be sent even when the event fires.</p>
+                    <p className="text-xs text-muted-foreground">When disabled, this email won&apos;t be sent even when the event fires.</p>
                   </div>
                 </label>
               </div>

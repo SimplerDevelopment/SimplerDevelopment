@@ -82,7 +82,7 @@ export function ColumnsBlockSettings({ block, onChange, currentViewport }: { blo
                       <label className="block text-xs font-medium text-muted-foreground mb-1">Padding</label>
                       <select
                         value={column.padding || 'none'}
-                        onChange={(e) => updateColumn(column.id, { padding: e.target.value as any })}
+                        onChange={(e) => updateColumn(column.id, { padding: e.target.value as 'none' | 'sm' | 'md' | 'lg' })}
                         className="w-full text-sm rounded border border-border bg-background px-2 py-1 text-foreground"
                       >
                         <option value="none">None</option>
@@ -95,7 +95,7 @@ export function ColumnsBlockSettings({ block, onChange, currentViewport }: { blo
                       <label className="block text-xs font-medium text-muted-foreground mb-1">V. Align</label>
                       <select
                         value={column.verticalAlign || 'top'}
-                        onChange={(e) => updateColumn(column.id, { verticalAlign: e.target.value as any })}
+                        onChange={(e) => updateColumn(column.id, { verticalAlign: e.target.value as 'top' | 'center' | 'bottom' })}
                         className="w-full text-sm rounded border border-border bg-background px-2 py-1 text-foreground"
                       >
                         <option value="top">Top</option>

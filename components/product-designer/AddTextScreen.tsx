@@ -1,5 +1,3 @@
-// @ts-nocheck
-// TODO(designer): clean up types — ported from CRA, see .planning/product-designer-integration.md
 'use client';
 
 import React, { useContext } from "react";
@@ -13,8 +11,8 @@ export const AddTextScreen = () => {
   const color = "#000000";
   const position = { x: 300, y: -500 };
   const rotation = 0;
-  const handleTextChange = (e) => {
-    setText(e.target.value);
+  const handleTextChange = (e: React.FormEvent<HTMLInputElement>) => {
+    setText((e.target as HTMLInputElement).value);
   };
   const handleAddText = () => {
     if (text.trim() === "") return;

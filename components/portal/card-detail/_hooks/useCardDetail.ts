@@ -11,7 +11,7 @@
  */
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import * as api from '../_lib/api';
 import type {
   Activity,
@@ -296,7 +296,9 @@ export function useCardDetail({
   /* ─── Esc to close (when not editing) ─────────────────────────────── */
 
   const escStateRef = useRef({ onClose, editingTitle, editingDesc });
-  escStateRef.current = { onClose, editingTitle, editingDesc };
+  useLayoutEffect(() => {
+    escStateRef.current = { onClose, editingTitle, editingDesc };
+  });
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       const s = escStateRef.current;

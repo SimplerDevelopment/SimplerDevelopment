@@ -639,3 +639,12 @@ export function useBlockEditor() {
   }
   return context;
 }
+
+/**
+ * Hook to optionally access BlockEditor context.
+ * Returns the context value if within a BlockEditorProvider, undefined otherwise.
+ * Safe to call from components that may or may not be rendered inside the provider.
+ */
+export function useBlockEditorOptional() {
+  return useContext(BlockEditorContext);
+}

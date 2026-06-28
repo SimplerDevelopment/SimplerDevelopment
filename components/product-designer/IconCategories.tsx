@@ -1,10 +1,8 @@
-// @ts-nocheck
-// TODO(designer): clean up types — ported from CRA, see .planning/product-designer-integration.md
 'use client';
 
 import React from "react";
 
-export const IconCategories = ({ setView }) => {
+export const IconCategories = ({ setView }: { setView: (view: string) => void }) => {
   return (
     <div>
       <h1 className="text-xl font-semibold mb-4">Artwork Categories</h1>

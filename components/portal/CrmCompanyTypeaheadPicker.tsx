@@ -68,14 +68,10 @@ export default function CrmCompanyTypeaheadPicker({
   // user is mid-type or hasn't started typing.
   useEffect(() => {
     if (!open) return;
-    if (query.trim().length < MIN_QUERY) {
-      setResults([]);
-      setLoading(false);
-      return;
-    }
+    if (query.trim().length < MIN_QUERY) return;
     const ctrl = new AbortController();
-    setLoading(true);
     const t = setTimeout(() => {
+      setLoading(true);
       fetch(`/api/portal/crm/companies?q=${encodeURIComponent(query.trim())}`, {
         signal: ctrl.signal,
       })
@@ -120,6 +116,8 @@ export default function CrmCompanyTypeaheadPicker({
     setOpen(false);
     setQuery('');
   }
+
+  const displayResults = query.trim().length < MIN_QUERY ? [] : results;
 
   const baseClass =
     'w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50';
@@ -172,12 +170,12 @@ export default function CrmCompanyTypeaheadPicker({
                 <span className="material-icons animate-spin text-sm">refresh</span>
                 Searching…
               </p>
-            ) : results.length === 0 ? (
+            ) : displayResults.length === 0 ? (
               <p className="px-3 py-3 text-xs text-muted-foreground">
                 No companies match &ldquo;{query}&rdquo;.
               </p>
             ) : (
-              results.map(c => (
+              displayResults.map(c => (
                 <button
                   key={c.id}
                   type="button"

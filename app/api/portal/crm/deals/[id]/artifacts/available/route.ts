@@ -13,6 +13,7 @@ import {
   brainNotes,
 } from '@/lib/db/schema';
 import { and, eq, isNull } from 'drizzle-orm';
+import type { AnyPgColumn, AnyPgTable } from 'drizzle-orm/pg-core';
 
 export async function GET(
   req: NextRequest,
@@ -32,9 +33,14 @@ export async function GET(
 
   const results: { type: string; id: number; title: string }[] = [];
 
-  async function fetchType(type: string, table: any, titleField: string) {
+  async function fetchType(type: string, table: AnyPgTable, titleField: string) {
     if (typeFilter && typeFilter !== type) return;
-    const rows = await db.select({ id: table.id, title: table[titleField] }).from(table).where(eq(table.clientId, client!.id));
+    const cols = table as unknown as Record<string, AnyPgColumn>;
+    const queryResult = await db
+      .select({ id: cols.id, title: cols[titleField] })
+      .from(table)
+      .where(eq(cols.clientId, client!.id));
+    const rows = queryResult as { id: number; title: string | null }[];
     for (const r of rows) {
       results.push({ type, id: r.id, title: r.title ?? 'Untitled' });
     }

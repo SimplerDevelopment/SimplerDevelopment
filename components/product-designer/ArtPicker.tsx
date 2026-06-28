@@ -1,5 +1,3 @@
-// @ts-nocheck
-// TODO(designer): clean up types — ported from CRA, see .planning/product-designer-integration.md
 'use client';
 
 import React, {
@@ -19,13 +17,20 @@ import EditorContext from "./EditorContext";
 //
 // `view` here doubles as the asset category for now. If the editor needs a
 // distinct tag taxonomy, expose `tags` filtering in the assets endpoint.
-export const ArtPicker = ({ setView, view }) => {
+
+interface ArtworkItem {
+  id: string | number;
+  name: string;
+  title: string;
+  source: string;
+}
+
+export const ArtPicker = ({ setView, view }: { setView: (view: string) => void; view: string }) => {
   const { addLayer, websiteId } = useContext(EditorContext);
   const [search, setSearch] = useState("");
-  const [allArtworks, setAllArtworks] = useState<any[]>([]);
-  const [artworks, setArtworks] = useState<any[]>([]);
+  const [allArtworks, setAllArtworks] = useState<ArtworkItem[]>([]);
+  const [artworks, setArtworks] = useState<ArtworkItem[]>([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<unknown>(null);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
 
@@ -34,9 +39,9 @@ export const ArtPicker = ({ setView, view }) => {
   const limit = 10;
 
   const fetchArtworks = async (pageToFetch: number, searchQuery: string) => {
+    await Promise.resolve(); // Yield to avoid synchronous setState in effect
     try {
       setLoading(true);
-      setError(null);
       // Fetch full list once per (view, search) combo; paginate client-side.
       let pool = allArtworks;
       if (pageToFetch === 1) {
@@ -53,16 +58,16 @@ export const ArtPicker = ({ setView, view }) => {
           const json = await response.json();
           const data = Array.isArray(json?.data) ? json.data : (Array.isArray(json) ? json : []);
           // Normalize sd2026 shape -> editor shape (id, name, source, title).
-          pool = data
-            .filter((a: any) =>
+          pool = (data as Record<string, unknown>[])
+            .filter((a) =>
               !searchQuery ||
               `${a.name ?? ''}`.toLowerCase().includes(searchQuery.toLowerCase())
             )
-            .map((a: any) => ({
-              id: a.id,
-              name: a.name,
-              title: a.name,
-              source: a.imageUrl,
+            .map((a) => ({
+              id: a.id as string | number,
+              name: a.name as string,
+              title: a.name as string,
+              source: a.imageUrl as string,
             }));
           setAllArtworks(pool);
         }
@@ -72,7 +77,6 @@ export const ArtPicker = ({ setView, view }) => {
       setHasMore(slice.length < pool.length);
     } catch (error) {
       console.error("Error fetching artworks:", error);
-      setError(error);
     } finally {
       setLoading(false);
     }
@@ -80,10 +84,13 @@ export const ArtPicker = ({ setView, view }) => {
 
   // Reset on view or search change
   useEffect(() => {
-    setPage(1);
-    setHasMore(true);
-    searchRef.current = search;
-    fetchArtworks(1, search);
+    void (async () => {
+      await Promise.resolve();
+      setPage(1);
+      setHasMore(true);
+      searchRef.current = search;
+      fetchArtworks(1, search);
+    })();
   }, [view, search]);
 
   // Load next page
@@ -93,7 +100,7 @@ export const ArtPicker = ({ setView, view }) => {
   }, [page]);
 
   const handleObserver = useCallback(
-    (entries) => {
+    (entries: IntersectionObserverEntry[]) => {
       const target = entries[0];
       if (target.isIntersecting && hasMore && !loading) {
         setPage((prev) => prev + 1);

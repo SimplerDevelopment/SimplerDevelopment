@@ -4,7 +4,7 @@ import React, { useContext, useState, useRef, useEffect, useMemo, memo } from "r
 import EditorContext from "./EditorContext";
 import { Layer } from "./Layer";
 
-export const MainView = memo(function MainView({ overRideSide = null }: { overRideSide?: any }) {
+export const MainView = memo(function MainView({ overRideSide = null }: { overRideSide?: import("./designerTypes").ProductSideData | null }) {
   const { side, layers, selectedLayers, setSelectedLayers, setSelectedLayer } =
     useContext(EditorContext);
   const [selecting, setSelecting] = useState(false);

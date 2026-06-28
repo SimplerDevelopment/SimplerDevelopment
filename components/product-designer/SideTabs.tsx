@@ -1,5 +1,3 @@
-// @ts-nocheck
-// TODO(designer): clean up types — ported from CRA, see .planning/product-designer-integration.md
 'use client';
 
 import React, { useContext, memo, useMemo, useCallback } from "react";
@@ -12,7 +10,11 @@ import {
   BsArrowDownCircleFill,
 } from "react-icons/bs";
 
-export const SideTabs = memo(function SideTabs({ setZoom, setTop, setLeft }: { setZoom: any; setTop: any; setLeft: any }) {
+export const SideTabs = memo(function SideTabs({ setZoom, setTop, setLeft }: {
+  setZoom: (updater: (prev: number) => number) => void;
+  setTop: (updater: (prev: number) => number) => void;
+  setLeft: (updater: (prev: number) => number) => void;
+}) {
   const { side, style, setSide, layers, setSelectedLayer, controlMode } =
     useContext(EditorContext);
 

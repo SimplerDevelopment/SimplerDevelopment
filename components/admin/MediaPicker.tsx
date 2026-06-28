@@ -47,17 +47,6 @@ export default function MediaPicker({
   const [offset, setOffset] = useState(0);
   const [total, setTotal] = useState(0);
 
-  useEffect(() => {
-    if (showPicker) fetchMedia();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showPicker, search, offset]);
-
-  // Reset to first page when the search term changes.
-  useEffect(() => {
-    if (showPicker) setOffset(0);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search]);
-
   const fetchMedia = async () => {
     setLoading(true);
     const params = new URLSearchParams({
@@ -80,6 +69,18 @@ export default function MediaPicker({
     }
     setLoading(false);
   };
+
+  useEffect(() => {
+    if (showPicker) queueMicrotask(() => { void fetchMedia(); });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showPicker, search, offset]);
+
+  // Reset to first page when the search term changes.
+  useEffect(() => {
+    if (showPicker) queueMicrotask(() => setOffset(0));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search]);
+
 
   const handleSelect = (url: string) => {
     onChange(url);

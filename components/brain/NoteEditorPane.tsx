@@ -72,18 +72,22 @@ export default function NoteEditorPane({
   // Reset when noteId changes (including to null).
   useEffect(() => {
     if (noteId === null) {
-      setNote(null);
-      setTitle('');
-      setBody('');
-      setError(null);
-      setLoading(false);
-      setTopicIds([]);
+      queueMicrotask(() => {
+        setNote(null);
+        setTitle('');
+        setBody('');
+        setError(null);
+        setLoading(false);
+        setTopicIds([]);
+      });
       return;
     }
     let cancelled = false;
-    setLoading(true);
-    setError(null);
-    setTopicIds([]);
+    queueMicrotask(() => {
+      setLoading(true);
+      setError(null);
+      setTopicIds([]);
+    });
     fetch(`/api/portal/brain/knowledge/${noteId}`)
       .then(r => r.json().catch(() => ({})))
       .then(json => {

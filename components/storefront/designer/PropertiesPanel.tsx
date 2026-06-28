@@ -405,7 +405,7 @@ function GeneralProperties({
   useEffect(() => {
     if (!primaryObject) return;
     const bounds = primaryObject.getBoundingRect();
-    setProps({
+    const next: GeneralPropertiesState = {
       left: Math.round(primaryObject.left ?? 0),
       top: Math.round(primaryObject.top ?? 0),
       width: Math.round(bounds.width),
@@ -416,7 +416,8 @@ function GeneralProperties({
       opacity: primaryObject.opacity ?? 1,
       visible: primaryObject.visible !== false,
       locked: !primaryObject.selectable,
-    });
+    };
+    queueMicrotask(() => setProps(next));
   }, [primaryObject]);
 
   const handleChange = (key: keyof GeneralPropertiesState, value: number | boolean) => {
@@ -1011,7 +1012,8 @@ function ImageProperties({
   );
 
   useEffect(() => {
-    setVals(data.filters ?? DEFAULT_IMAGE_FILTERS);
+    const next = data.filters ?? DEFAULT_IMAGE_FILTERS;
+    queueMicrotask(() => setVals(next));
     // We only want to reset when switching to a different layer.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [layer.id]);

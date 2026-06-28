@@ -1,5 +1,3 @@
-// @ts-nocheck
-// TODO(designer): clean up types — ported from CRA, see .planning/product-designer-integration.md
 'use client';
 
 import React, { useContext, useState, useMemo, useCallback } from "react";
@@ -7,11 +5,12 @@ import { EditorContext } from "./EditorContext";
 import { FontSelector } from "./FontSelector";
 import { TextSegment, EnhancedTextLayerData } from "./SimpleEnhancedTextLayer";
 import "./UserFriendlyTextEditor.css";
+import type { LayerData } from "./designerTypes";
 
 interface UserFriendlyTextEditorProps {
   view: string;
-  layer: any;
-  handleInputChange: (field: string, value: any) => void;
+  layer: LayerData;
+  handleInputChange: (field: string, value: unknown) => void;
 }
 
 export const UserFriendlyTextEditor: React.FC<UserFriendlyTextEditorProps> = ({
@@ -82,7 +81,7 @@ export const UserFriendlyTextEditor: React.FC<UserFriendlyTextEditorProps> = ({
     if (selectedWordIndices.length === 0) return;
 
     const newSegments: TextSegment[] = [];
-    let currentIndex = 0;
+    const currentIndex = 0;
 
     words.forEach((word, wordIndex) => {
       const shouldChangeColor = selectedWordIndices.includes(wordIndex);

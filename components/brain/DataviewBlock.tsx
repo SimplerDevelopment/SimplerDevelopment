@@ -150,7 +150,7 @@ export function DataviewBlock({ source, endpoint = '/api/portal/brain/dataview' 
 
   // Initial fetch (and re-fetch when the user hits the badge — reloadKey changes).
   useEffect(() => {
-    if (parsed.ok) void run();
+    if (parsed.ok) queueMicrotask(() => { void run(); });
   }, [parsed, run, reloadKey]);
 
   // Tick every 30s so the relative timestamp stays accurate.
