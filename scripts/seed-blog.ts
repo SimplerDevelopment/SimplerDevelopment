@@ -1,0 +1,135 @@
+/**
+ * Seeds SimplerDevelopment's own marketing blog — global published posts
+ * (posts.website_id IS NULL, post_type='blog', published=true) so the homepage
+ * "From the Blog" section and /blog stop showing the empty "coming soon" state.
+ *
+ * Source of truth: the drafted markdown in content/blog/posts/*.md. This converts
+ * each draft (frontmatter + markdown body) into the block-JSON shape BlockRenderer
+ * expects ({ blocks:[...], version:'1.0' } with heading/text/code blocks) and
+ * upserts by slug — idempotent and safe to re-run.
+ *
+ * Refuses to run against a production DB (mirrors verify-db-target).
+ * Run: DATABASE_URL=... npx tsx scripts/seed-blog.ts
+ */
+import * as dotenv from 'dotenv';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import postgres from 'postgres';
+
+dotenv.config({ path: '.env' });
+dotenv.config({ path: '.env.local' });
+
+const URL_STR = process.env.DATABASE_URL;
+if (!URL_STR) throw new Error('DATABASE_URL is not set');
+const PROD = (process.env.PROD_DB_HOSTS ?? '').split(',').map((s) => s.trim()).filter(Boolean);
+if ((PROD.some((p) => URL_STR.includes(p)) || process.env.RAILWAY_ENVIRONMENT_NAME === 'production') && process.env.ALLOW_PROD !== '1') {
+  console.error('REFUSING: DATABASE_URL looks like production. Set ALLOW_PROD=1 to override.');
+  process.exit(1);
+}
+
+type Block = Record<string, unknown>;
+
+// Map a post to a relevant cover image from the captured screenshot library.
+function coverFor(slug: string): string | null {
+  // Only reference screenshots confirmed to exist under public/screenshots/.
+  if (slug.includes('mcp') || slug.includes('ai-') || slug.includes('oauth')) return '/screenshots/product/dashboard.png';
+  if (slug.includes('website') || slug.includes('visual') || slug.includes('migrate')) return '/screenshots/product/websites.png';
+  if (slug.includes('crm')) return '/screenshots/product/crm.png';
+  if (slug.includes('brain') || slug.includes('rag')) return '/screenshots/product/brain-knowledge.png';
+  if (slug.includes('automation') || slug.includes('queue') || slug.includes('white-label') || slug.includes('multi-tenant')) return '/screenshots/product/projects.png';
+  if (slug.includes('booking')) return '/screenshots/product/bookings.png';
+  return '/screenshots/marketing/solutions-index-desktop.png';
+}
+
+function parseFrontmatter(raw: string): { fm: Record<string, string>; body: string } {
+  const m = raw.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
+  if (!m) return { fm: {}, body: raw };
+  const fm: Record<string, string> = {};
+  for (const line of m[1].split('\n')) {
+    const i = line.indexOf(':');
+    if (i > 0) fm[line.slice(0, i).trim()] = line.slice(i + 1).trim().replace(/^["']|["']$/g, '');
+  }
+  return { fm, body: m[2] };
+}
+
+let bid = 0;
+const mkId = () => `b-${++bid}`;
+
+// Minimal, robust markdown -> block JSON. Headings -> heading blocks, fenced
+// code -> code blocks, everything else grouped into paragraph text blocks.
+// (Lists/tables degrade to readable text — acceptable for marketing prose.)
+function toBlocks(body: string): Block[] {
+  const blocks: Block[] = [];
+  const lines = body.split('\n');
+  let para: string[] = [];
+  const flush = () => {
+    if (para.length) {
+      const text = para.join(' ').replace(/\s+/g, ' ').trim();
+      if (text) blocks.push({ id: mkId(), type: 'text', content: text, alignment: 'left', size: 'base' });
+      para = [];
+    }
+  };
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const h = line.match(/^(#{1,4})\s+(.*)$/);
+    if (h) {
+      flush();
+      if (h[1].length === 1) continue; // skip H1 (post title)
+      blocks.push({ id: mkId(), type: 'heading', content: h[2].trim(), level: Math.min(h[1].length, 4), alignment: 'left' });
+      continue;
+    }
+    if (line.startsWith('```')) {
+      flush();
+      const lang = line.slice(3).trim() || 'text';
+      const code: string[] = [];
+      for (i++; i < lines.length && !lines[i].startsWith('```'); i++) code.push(lines[i]);
+      blocks.push({ id: mkId(), type: 'code', code: code.join('\n'), language: lang });
+      continue;
+    }
+    if (line.startsWith('<!--')) continue; // strip HTML comments (SEO blocks)
+    if (line.trim() === '') { flush(); continue; }
+    // strip md emphasis/link syntax for plain text blocks
+    const clean = line
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+      .replace(/[*_`]/g, '')
+      .replace(/^>\s?/, '')
+      .replace(/^[-*]\s+/, '• ');
+    para.push(clean);
+  }
+  flush();
+  return blocks;
+}
+
+async function run() {
+  const sql = postgres(URL_STR!, { max: 1, onnotice: () => {} });
+  const dir = path.resolve('content/blog/posts');
+  const files = fs.existsSync(dir) ? fs.readdirSync(dir).filter((f) => f.endsWith('.md')) : [];
+  if (!files.length) { console.error('no drafts in content/blog/posts/'); process.exit(1); }
+  let n = 0;
+  for (const f of files) {
+    const raw = fs.readFileSync(path.join(dir, f), 'utf8');
+    const { fm, body } = parseFrontmatter(raw);
+    const slug = fm.slug || f.replace(/\.md$/, '');
+    const title = fm.title || slug;
+    const excerpt = (fm.description || '').slice(0, 280) || null;
+    const content = JSON.stringify({ blocks: toBlocks(body), version: '1.0' });
+    const cover = coverFor(slug);
+    bid = 0;
+    const [existing] = await sql<{ id: number }[]>`
+      SELECT id FROM posts WHERE slug = ${slug} AND post_type = 'blog' AND website_id IS NULL LIMIT 1`;
+    if (existing) {
+      await sql`UPDATE posts SET title=${title}, excerpt=${excerpt}, content=${content},
+        cover_image=${cover}, published=true, published_at=COALESCE(published_at, now()), updated_at=now()
+        WHERE id=${existing.id}`;
+    } else {
+      await sql`INSERT INTO posts (title, slug, post_type, content, excerpt, cover_image, published, published_at, website_id)
+        VALUES (${title}, ${slug}, 'blog', ${content}, ${excerpt}, ${cover}, true, now(), NULL)`;
+    }
+    n++;
+    console.log(`  ✓ ${slug}`);
+  }
+  await sql.end();
+  console.log(`>> seeded ${n} global blog posts (published)`);
+}
+
+run().catch((e) => { console.error(e); process.exit(1); });
