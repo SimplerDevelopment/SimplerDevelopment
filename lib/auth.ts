@@ -123,14 +123,19 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         sameSite: 'lax',
         path: '/',
         secure: process.env.NODE_ENV === 'production',
-        // Share session across all *.simplerdevelopment.com subdomains — but ONLY
-        // on the real production deployment. Pinning the cookie `domain` to
-        // `.simplerdevelopment.com` on any other host (e.g. a `*.vercel.app`
-        // preview) makes the browser reject the cookie outright, so the session
-        // never sets and the user is bounced back to /portal/login after a
-        // "successful" sign-in. VERCEL_ENV is 'production' only for the main →
-        // simplerdevelopment.com deploy; previews get 'preview', local is unset.
-        domain: process.env.VERCEL_ENV === 'production' ? '.simplerdevelopment.com' : undefined,
+        // Share the session cookie across subdomains by pinning its `domain`.
+        // SELF-HOSTERS: set AUTH_COOKIE_DOMAIN to your apex (e.g. `.example.com`)
+        // so sessions work on your domain — without it, a custom-domain deploy
+        // would inherit the operator default below and the browser would reject
+        // the cookie, bouncing users back to /portal/login after a "successful"
+        // sign-in. When AUTH_COOKIE_DOMAIN is unset we fall back to the operator's
+        // own behavior: pin `.simplerdevelopment.com` ONLY on the real production
+        // deploy (VERCEL_ENV==='production'); previews/local stay host-only
+        // (undefined), since pinning a domain on a `*.vercel.app` preview or
+        // localhost makes the browser reject the cookie outright.
+        domain:
+          process.env.AUTH_COOKIE_DOMAIN ??
+          (process.env.VERCEL_ENV === 'production' ? '.simplerdevelopment.com' : undefined),
       },
     },
   },
