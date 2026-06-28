@@ -52,7 +52,7 @@ repo can be public, and (3) capturing real product media (screenshots/GIFs).
 | Hosted SaaS | 70 | **~90** | e2e **684 passed / 8 failed** on merged tree — residual = 6 service-key-gated (AI/Stripe/Resend, accepted) + ~2 cold-compile flakies (harness). Product-green. |
 | AI discoverability | 45 | **~92** | At target: JSON-LD on home + pricing + all 21 solution pages + robots + sitemap + served /llms.txt + agent docs |
 | Developer onboarding | 65 | **~90** | At target: devcontainer + SDK docs + self-host AUTH_COOKIE_DOMAIN + working clone-to-running + CHANGELOG |
-| Marketing completeness | 20 | **~88** | 21 live solution pages + 71 product screenshots + 10 marketing shots (incl. tablet + dark) + JSON-LD + 6 blog drafts + SEO/sales/social. **Only honest gap to 90: GIFs** — require a real-instance recording (the vhs tape is staged; won't fake) |
+| Marketing completeness | 20 | **~89** | 21 live solution pages + 71 product screenshots + 10 marketing shots (incl. tablet + dark) + JSON-LD + 6 blog drafts + SEO/sales/social. **Only honest gap to 90: GIFs** — require a real-instance recording (the vhs tape is staged; won't fake) |
 
 ### Session-2 additions (the "90+" push)
 - **e2e systemic fix:** root-caused 373 failures → missing `AUTH_SECRET` in the local-e2e env; fixed → **373→21 failed, 641 passed**. Plus crypto-key defaults + an `ENCRYPTION_KEY` doc-length bug fixed.
