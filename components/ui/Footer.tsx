@@ -122,6 +122,11 @@ export function Footer() {
                 </Link>
               </li>
               <li>
+                <Link href="/changelog" className="text-muted-foreground hover:text-primary transition-colors">
+                  Changelog
+                </Link>
+              </li>
+              <li>
                 <Link href="/faq" className="text-muted-foreground hover:text-primary transition-colors">
                   FAQ
                 </Link>
