@@ -10,9 +10,19 @@ export const metadata = generateSEO({
   path: '/blog',
 });
 
-export default async function BlogPage() {
+const PAGE_SIZE = 9;
+
+export default async function BlogPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>;
+}) {
   const posts = await getAllBlogPosts();
   const categories = await getAllCategories();
+  const totalPages = Math.max(1, Math.ceil(posts.length / PAGE_SIZE));
+  const sp = await searchParams;
+  const currentPage = Math.min(Math.max(1, parseInt(sp?.page ?? '1', 10) || 1), totalPages);
+  const pagePosts = posts.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   return (
     <div className="container mx-auto px-4 py-20">
@@ -52,8 +62,9 @@ export default async function BlogPage() {
 
         {/* Blog Posts Grid */}
         {posts && posts.length > 0 ? (
+          <>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {posts.map((post, index) => {
+            {pagePosts.map((post, index) => {
               return (
                 <SlideIn key={post.id} direction="up" delay={index * 0.1}>
                   <Link href={`/blog/${post.slug}`}>
@@ -119,6 +130,42 @@ export default async function BlogPage() {
               );
             })}
           </div>
+
+          {totalPages > 1 && (
+            <nav className="mt-16 flex items-center justify-center gap-2" aria-label="Blog pagination">
+              {currentPage > 1 && (
+                <Link
+                  href={`/blog?page=${currentPage - 1}`}
+                  className="px-4 py-2 rounded-lg border border-border text-sm font-medium hover:border-primary/50 transition-colors"
+                >
+                  ← Previous
+                </Link>
+              )}
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+                <Link
+                  key={p}
+                  href={`/blog?page=${p}`}
+                  aria-current={p === currentPage ? 'page' : undefined}
+                  className={`min-w-10 px-3 py-2 rounded-lg border text-sm font-medium text-center transition-colors ${
+                    p === currentPage
+                      ? 'border-primary bg-primary text-primary-foreground'
+                      : 'border-border hover:border-primary/50'
+                  }`}
+                >
+                  {p}
+                </Link>
+              ))}
+              {currentPage < totalPages && (
+                <Link
+                  href={`/blog?page=${currentPage + 1}`}
+                  className="px-4 py-2 rounded-lg border border-border text-sm font-medium hover:border-primary/50 transition-colors"
+                >
+                  Next →
+                </Link>
+              )}
+            </nav>
+          )}
+          </>
         ) : (
           <div className="text-center py-12">
             <FadeIn>
