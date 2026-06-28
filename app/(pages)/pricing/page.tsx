@@ -4,6 +4,8 @@ import { Button } from '@/components/ui/Button';
 import { FadeIn } from '@/components/animations/FadeIn';
 import { SlideIn } from '@/components/animations/SlideIn';
 import { TIERS } from '@/lib/billing/domain-catalog';
+import { StructuredData } from '@/components/seo/StructuredData';
+import { generateFAQSchema } from '@/lib/utils/structured-data';
 
 export const metadata = generateSEO({
   title: 'Pricing',
@@ -36,8 +38,11 @@ const faqs = [
 
 
 export default function PricingPage() {
+  const faqSchema = generateFAQSchema(faqs);
   return (
-    <div className="min-h-screen">
+    <>
+      <StructuredData data={faqSchema} />
+      <div className="min-h-screen">
       {/* Hero */}
       <section className="relative py-24 md:py-32 overflow-hidden bg-dot-grid">
         <div className="absolute inset-0 bg-gradient-to-b from-background via-background/95 to-background" />
@@ -245,5 +250,6 @@ export default function PricingPage() {
         </div>
       </section>
     </div>
+    </>
   );
 }

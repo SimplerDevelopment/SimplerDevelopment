@@ -1,6 +1,8 @@
 import { generateSEO } from '@/lib/utils/seo';
 import { getFeaturedBlogPosts } from '@/lib/actions/blog';
 import { HomeClient } from './(pages)/HomeClient';
+import { StructuredData } from '@/components/seo/StructuredData';
+import { generateSoftwareApplicationSchema, generateWebSiteWithSearchActionSchema } from '@/lib/utils/structured-data';
 
 export const metadata = generateSEO({
   title: 'Open-Source All-in-One Agency Platform',
@@ -13,6 +15,14 @@ export default async function HomePage() {
   // cards link to live slugs. (Previously HomeClient read a stale static file
   // whose slugs 404'd.)
   const recentPosts = await getFeaturedBlogPosts();
-
-  return <HomeClient recentPosts={recentPosts} />;
+  const homepageJsonLd = [
+    generateSoftwareApplicationSchema(),
+    generateWebSiteWithSearchActionSchema(),
+  ];
+  return (
+    <>
+      <StructuredData data={homepageJsonLd} />
+      <HomeClient recentPosts={recentPosts} />
+    </>
+  );
 }
