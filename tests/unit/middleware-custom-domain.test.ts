@@ -6,8 +6,12 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 // Mock DB + auth before importing middleware so the imports don't try to
 // reach a real Postgres connection or NextAuth setup.
 vi.mock('@/lib/db', () => ({ db: {} }));
+
+// When used as NextAuth middleware, auth() returns a NextResponse (never null).
+// Return a passthrough response so middleware can read .headers on it.
+import { NextResponse } from 'next/server';
 vi.mock('@/lib/auth', () => ({
-  auth: vi.fn(async () => null),
+  auth: vi.fn(async () => NextResponse.next()),
 }));
 
 const resolveCustomDomain = vi.fn();

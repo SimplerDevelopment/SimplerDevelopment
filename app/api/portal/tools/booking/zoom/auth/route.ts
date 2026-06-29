@@ -2,6 +2,11 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { getPortalClient } from '@/lib/portal-client';
 import { headers } from 'next/headers';
+import { randomBytes } from 'crypto';
+
+// CSRF state cookie settings (mirrors the GitHub OAuth connect route)
+const STATE_COOKIE = 'booking_zoom_oauth_state';
+const STATE_TTL_SECONDS = 600; // 10 minutes — enough to complete the OAuth round-trip
 
 export async function GET() {
   const session = await auth();
@@ -17,10 +22,26 @@ export async function GET() {
   const origin = `${protocol}://${host}`;
   const redirectUri = `${origin}/api/portal/tools/booking/zoom/callback`;
 
+  // Generate a cryptographically random CSRF state nonce, stored in an
+  // httpOnly, Secure, SameSite=Lax cookie so only the originating browser
+  // can present it back in the callback. The callback validates it before
+  // exchanging the code (per .claude/rules/auth-surface.md).
+  const stateNonce = randomBytes(32).toString('hex');
+
   const authUrl = new URL('https://zoom.us/oauth/authorize');
   authUrl.searchParams.set('response_type', 'code');
   authUrl.searchParams.set('client_id', process.env.ZOOM_CLIENT_ID!);
   authUrl.searchParams.set('redirect_uri', redirectUri);
+  authUrl.searchParams.set('state', stateNonce);
 
-  return NextResponse.redirect(authUrl.toString());
+  const response = NextResponse.redirect(authUrl.toString());
+  response.cookies.set(STATE_COOKIE, stateNonce, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    maxAge: STATE_TTL_SECONDS,
+    path: '/api/portal/tools/booking/zoom',
+  });
+
+  return response;
 }

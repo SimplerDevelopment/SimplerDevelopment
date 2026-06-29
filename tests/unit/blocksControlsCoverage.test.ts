@@ -30,7 +30,7 @@
  * jsdom dependencies.
  */
 import { describe, it, expect } from 'vitest';
-import { readFileSync, writeFileSync, existsSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { BLOCK_ICONS } from '@/lib/utils/blockIcons';
 import type { BlockType } from '@/types/blocks';
@@ -54,15 +54,6 @@ const NOT_USER_PICKABLE: ReadonlySet<BlockType> = new Set<BlockType>([
   // Template-only placeholder (only surfaced via extraBlockTypes when
   // editing post-type templates; not part of the universal picker).
   'post-content',
-  // Site-specific (Palizzi tenant only)
-  'palizzi-nav',
-  'palizzi-hero',
-  'palizzi-welcome',
-  'palizzi-history',
-  'palizzi-menu',
-  'palizzi-rules',
-  'palizzi-membership',
-  'palizzi-footer',
 ]);
 
 const ALL_BLOCK_TYPES = Object.keys(BLOCK_ICONS) as BlockType[];
@@ -120,6 +111,7 @@ const TYPE_TO_INTERFACE: Record<string, string> = {
   'site-footer': 'SiteFooterBlock',
   'sticky-scroll-tabs': 'StickyScrollTabsBlock',
   'popup': 'PopupBlock',
+  'roi-calculator': 'RoiCalculatorBlock',
 };
 
 // Type -> renderer file path (relative to repo root).
@@ -172,6 +164,7 @@ const TYPE_TO_RENDERER: Record<string, string> = {
   'site-footer': 'components/blocks/render/SiteFooterBlockRender.tsx',
   'sticky-scroll-tabs': 'components/blocks/render/StickyScrollTabsBlockRender.tsx',
   'popup': 'components/blocks/render/PopupBlockRender.tsx',
+  'roi-calculator': 'components/blocks/render/RoiCalculatorBlockRender.tsx',
 };
 
 // Fields that come from BaseBlock or are auto-derived (id, type, style,
@@ -722,6 +715,10 @@ function writeReport(reports: BlockReport[]): void {
     },
     reports,
   };
+  // .planning/ is gitignored, so the audits dir is absent in a clean checkout
+  // (and excluded from the OSS snapshot). Ensure it exists before writing, else
+  // writeFileSync ENOENT-crashes the whole suite at import time.
+  mkdirSync(join(REPO_ROOT, '.planning', 'audits'), { recursive: true });
   writeFileSync(join(REPO_ROOT, REPORT_PATH), JSON.stringify(summary, null, 2) + '\n');
 }
 

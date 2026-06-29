@@ -35,17 +35,20 @@ export async function GET() {
   const ctx = await requirePortalTenant();
   if (!ctx) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
 
+  // snake_case keys — matches the POST/201 response shape, the OAuth RFC
+  // vocabulary, and the projection the integration tests assert on. (The
+  // list used to emit camelCase, which silently diverged from create.)
   const rows = await db
     .select({
       id: oauthClients.id,
-      clientId: oauthClients.clientId,
-      clientName: oauthClients.clientName,
-      redirectUris: oauthClients.redirectUris,
-      tokenEndpointAuthMethod: oauthClients.tokenEndpointAuthMethod,
-      clientSecretPreview: oauthClients.clientSecretPreview,
-      clientSecretCreatedAt: oauthClients.clientSecretCreatedAt,
-      clientSecretRotatedAt: oauthClients.clientSecretRotatedAt,
-      createdAt: oauthClients.createdAt,
+      client_id: oauthClients.clientId,
+      client_name: oauthClients.clientName,
+      redirect_uris: oauthClients.redirectUris,
+      token_endpoint_auth_method: oauthClients.tokenEndpointAuthMethod,
+      client_secret_preview: oauthClients.clientSecretPreview,
+      client_secret_created_at: oauthClients.clientSecretCreatedAt,
+      client_secret_rotated_at: oauthClients.clientSecretRotatedAt,
+      created_at: oauthClients.createdAt,
     })
     .from(oauthClients)
     .where(eq(oauthClients.ownerClientId, ctx.clientId))

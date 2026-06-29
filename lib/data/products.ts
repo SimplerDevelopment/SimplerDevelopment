@@ -76,8 +76,8 @@ export async function listProducts(siteId: number, filters: ListProductsFilters 
     .offset(offset);
 
   const productIds = rows.map(r => r.id);
-  let imagesMap: Record<number, string> = {};
-  let categoriesMap: Record<number, string> = {};
+  const imagesMap: Record<number, string> = {};
+  const categoriesMap: Record<number, string> = {};
 
   if (productIds.length > 0) {
     const images = await db.select({ productId: productImages.productId, url: productImages.url })

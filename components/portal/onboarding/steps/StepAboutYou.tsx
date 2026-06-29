@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import type { StepProps } from './types';
 import { ROLE_PRESETS } from '@/lib/onboarding/types';
+import { obTile, obTileSel, obChip, obChipOn, obHint } from '../ob-styles';
 
 export function StepAboutYou({ state, setAnswers, next }: StepProps) {
   const [role, setRole] = useState<string>(state.answers.role ?? '');
@@ -16,7 +17,6 @@ export function StepAboutYou({ state, setAnswers, next }: StepProps) {
 
   return (
     <div>
-      <p className="mb-4 text-sm text-muted-foreground">What best describes your role?</p>
       <div className="grid gap-3 sm:grid-cols-2">
         {ROLE_PRESETS.map((opt) => {
           const active = role === opt.id;
@@ -26,20 +26,12 @@ export function StepAboutYou({ state, setAnswers, next }: StepProps) {
               type="button"
               onClick={() => choose(opt.id)}
               data-testid={`onboarding-role-${opt.id}`}
-              className={`flex items-center gap-3 rounded-xl border p-4 text-left transition-all ${
-                active
-                  ? 'border-primary bg-primary/5 ring-2 ring-primary/30'
-                  : 'border-border bg-background/60 hover:border-primary/40 hover:bg-primary/5'
-              }`}
+              className={`${obTile} ${active ? obTileSel : ''}`}
             >
-              <span
-                className={`inline-flex h-10 w-10 items-center justify-center rounded-lg ${
-                  active ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground'
-                }`}
-              >
+              <span className={`${obChip} ${active ? obChipOn : ''}`}>
                 <span className="material-icons text-xl">{opt.icon}</span>
               </span>
-              <span className="text-sm font-medium">{opt.label}</span>
+              <span className="text-sm font-semibold">{opt.label}</span>
               {active && (
                 <span className="material-icons ml-auto text-primary text-lg">check_circle</span>
               )}
@@ -47,6 +39,10 @@ export function StepAboutYou({ state, setAnswers, next }: StepProps) {
           );
         })}
       </div>
+      <p className={obHint}>
+        <span className="material-icons text-[16px]">bolt</span>
+        Tap a role to continue automatically
+      </p>
     </div>
   );
 }

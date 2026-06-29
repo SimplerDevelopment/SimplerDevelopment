@@ -14,7 +14,7 @@ const createUserSchema = z.object({
 });
 
 /**
- * Auth gate for users CRUD: admin or editor role required.
+ * Auth gate for reading users: admin or editor role required.
  * Returns null on unauthenticated, false on insufficient role, session otherwise.
  */
 async function requireAdminOrEditor() {
@@ -22,6 +22,20 @@ async function requireAdminOrEditor() {
   if (!session?.user?.id) return { error: 'unauth' as const };
   const role = (session.user as { role?: string })?.role;
   if (role !== 'admin' && role !== 'editor') return { error: 'forbidden' as const };
+  return { session };
+}
+
+/**
+ * Auth gate for MUTATING users (create/update/delete + role assignment):
+ * admin role only. Editors must not be able to create or promote accounts to
+ * the admin role (privilege escalation) — they cannot reach the admin user-
+ * management UI either (it is gated by requireStaffSession = admin|employee).
+ */
+async function requireAdmin() {
+  const session = await auth();
+  if (!session?.user?.id) return { error: 'unauth' as const };
+  const role = (session.user as { role?: string })?.role;
+  if (role !== 'admin') return { error: 'forbidden' as const };
   return { session };
 }
 
@@ -65,7 +79,7 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  const gate = await requireAdminOrEditor();
+  const gate = await requireAdmin();
   const denied = gateResponse(gate);
   if (denied) return denied;
 

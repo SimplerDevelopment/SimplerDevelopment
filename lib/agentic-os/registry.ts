@@ -229,7 +229,7 @@ export const SKILLS: readonly AgenticOsSkill[] = [
     source: { kind: 'repo-skill', path: '.claude/skills/site-migration/SKILL.md' },
     icon: 'cloud_upload',
     estimatedRuntime: '30+ min',
-    appliesRules: ['blocks-universal', 'tenancy-test', 'crosscap-email-pattern'],
+    appliesRules: ['blocks-universal', 'tenancy-test', 'migration-email-pattern'],
     trigger: 'on-demand',
     promptTemplate:
       'Use site-migration to migrate "{{sourceUrl}}" into a SimplerDevelopment tenant. Client name: {{clientName}}. Subdomain: {{subdomain}}. Use the domain-derived email pattern ({{sitename}}@simplerdevelopment.com). Map sections to universal blocks; flag anything client-specific with the placeholder pattern.',
@@ -378,13 +378,13 @@ export const SKILLS: readonly AgenticOsSkill[] = [
     domain: 'content-research',
     name: 'Research Competitor',
     description:
-      'Combine vault material with WebSearch to produce a competitor synthesis brief, written into the postcaptain-kb discoveries/ directory.',
+      'Combine vault material with WebSearch to produce a competitor synthesis brief, written into the knowledge-base discoveries/ directory.',
     source: { kind: 'user-skill', path: '~/.claude/skills/research-competitor/SKILL.md' },
     icon: 'search',
     estimatedRuntime: '10-20 min',
     trigger: 'on-demand',
     promptTemplate:
-      'Use research-competitor on "{{competitor}}". Focus: {{focus}}. Write the brief to discoveries/YYYY-MM-DD-competitor-<slug>.md in the postcaptain-kb vault.',
+      'Use research-competitor on "{{competitor}}". Focus: {{focus}}. Write the brief to discoveries/YYYY-MM-DD-competitor-<slug>.md in the knowledge-base vault.',
     variables: [
       { key: 'competitor', label: 'Competitor name or slug', required: true, placeholder: 'waybettermarketing' },
       { key: 'focus', label: 'Optional angle', required: false, placeholder: 'How they price their AI features' },
@@ -395,13 +395,13 @@ export const SKILLS: readonly AgenticOsSkill[] = [
     domain: 'content-research',
     name: 'Draft Blog Post',
     description:
-      'Mine the postcaptain-kb vault + external sources, draft a single blog post into drafts/YYYY-MM-DD-<slug>.md. Not publish-ready — meant for review and edit.',
+      'Mine the knowledge-base vault + external sources, draft a single blog post into drafts/YYYY-MM-DD-<slug>.md. Not publish-ready — meant for review and edit.',
     source: { kind: 'user-skill', path: '~/.claude/skills/draft-blog-post/SKILL.md' },
     icon: 'article',
     estimatedRuntime: '20-30 min',
     trigger: 'on-demand',
     promptTemplate:
-      'Use draft-blog-post to write a Post Captain draft on "{{topic}}". Angle: {{angle}}. Length: {{length}}. Seed note: {{seedNote}}.',
+      'Use draft-blog-post to write a draft on "{{topic}}". Angle: {{angle}}. Length: {{length}}. Seed note: {{seedNote}}.',
     variables: [
       { key: 'topic', label: 'Topic / headline idea', required: true, placeholder: 'Why most enrollment-marketing dashboards lie' },
       { key: 'angle', label: 'Audience / format / opinion', required: false, placeholder: 'Deep dive for enrollment VPs' },
@@ -461,7 +461,7 @@ export const SKILLS: readonly AgenticOsSkill[] = [
       'Use visual-compare to side-by-side compare "{{leftLabel}}" ({{leftSource}}) against "{{rightLabel}}" ({{rightSource}}). Viewport: {{viewport}}. Report per-section verdicts.',
     variables: [
       { key: 'leftLabel', label: 'Left label', required: true, placeholder: 'Original HTML deck' },
-      { key: 'leftSource', label: 'Left source (URL or path)', required: true, placeholder: '/Users/dan/desks/v3.html' },
+      { key: 'leftSource', label: 'Left source (URL or path)', required: true, placeholder: '/path/to/local-file.html' },
       { key: 'rightLabel', label: 'Right label', required: true, placeholder: 'Portal-rendered deck' },
       { key: 'rightSource', label: 'Right source', required: true, placeholder: 'https://staging.simplerdevelopment.com/p/abc' },
       { key: 'viewport', label: 'Viewport', required: false, placeholder: '1920x1080' },
@@ -480,7 +480,7 @@ export const SKILLS: readonly AgenticOsSkill[] = [
     estimatedRuntime: '1-3 min',
     trigger: 'on-demand',
     promptTemplate:
-      "Use connect-kb to wire up the postcaptain-kb Obsidian vault via the Local REST API MCP server. If it's already connected, verify and report; otherwise walk me through the API key step.",
+      "Use connect-kb to wire up the knowledge-base Obsidian vault via the Local REST API MCP server. If it's already connected, verify and report; otherwise walk me through the API key step.",
     variables: [],
   },
   {
@@ -488,13 +488,13 @@ export const SKILLS: readonly AgenticOsSkill[] = [
     domain: 'kb-vault',
     name: 'Sync KB',
     description:
-      "Stage, commit, and push pending changes in the postcaptain-kb vault with conventional-commit messages matching the repo's style.",
+      "Stage, commit, and push pending changes in the knowledge-base vault with conventional-commit messages matching the repo's style.",
     source: { kind: 'user-skill', path: '~/.claude/skills/sync-kb/SKILL.md' },
     icon: 'cloud_sync',
     estimatedRuntime: '1-3 min',
     trigger: 'on-demand',
     promptTemplate:
-      "Use sync-kb to commit and push pending changes in the postcaptain-kb vault. Infer commit type and scope from the changed paths. Don't amend, don't force-push.",
+      "Use sync-kb to commit and push pending changes in the knowledge-base vault. Infer commit type and scope from the changed paths. Don't amend, don't force-push.",
     variables: [],
   },
 
@@ -615,19 +615,6 @@ export const SKILLS: readonly AgenticOsSkill[] = [
     trigger: 'scheduled',
     cronExpression: '15 7 * * *',
     manualRunPath: '/api/cron/brain-empty-old-trash',
-  },
-  {
-    id: 'cron-brain-12',
-    domain: 'automations-cron',
-    name: 'BRAIN-12 One-Shot Cleanup',
-    description: 'Daily 07:30 UTC, but fires meaningful work on only two dates (2026-05-26 reminder, 2026-06-06 bulk soft-delete) for client 100.',
-    source: { kind: 'cron-route', path: 'app/api/cron/brain-12/route.ts', schedule: '30 7 * * *' },
-    icon: 'event_repeat',
-    estimatedRuntime: '1-3 min',
-    appliesRules: ['cron-auth-pattern'],
-    trigger: 'scheduled',
-    cronExpression: '30 7 * * *',
-    manualRunPath: '/api/cron/brain-12',
   },
   {
     id: 'cron-failing-automations-notify',

@@ -129,10 +129,8 @@ export function ComposeBox(props: ComposeBoxProps): JSX.Element {
       .slice(0, 8);
   }, [members, mentionStart, mentionQuery]);
 
-  // Keep highlight in range when the filter list changes.
-  useEffect(() => {
-    if (highlight >= filteredMembers.length) setHighlight(0);
-  }, [filteredMembers.length, highlight]);
+  // Keep highlight in range when the filter list shrinks — derived, no effect needed.
+  const safeHighlight = Math.min(highlight, Math.max(0, filteredMembers.length - 1));
 
   const updateMentionContext = useCallback(
     (text: string, caret: number) => {
@@ -225,7 +223,7 @@ export function ComposeBox(props: ComposeBoxProps): JSX.Element {
         }
         if (e.key === 'Enter' || e.key === 'Tab') {
           // Only intercept if we have a candidate to insert.
-          const candidate = filteredMembers[highlight];
+          const candidate = filteredMembers[safeHighlight];
           if (candidate) {
             e.preventDefault();
             insertMention(candidate);
@@ -247,7 +245,7 @@ export function ComposeBox(props: ComposeBoxProps): JSX.Element {
         return;
       }
     },
-    [filteredMembers, highlight, insertMention, mentionStart, submit]
+    [filteredMembers, safeHighlight, insertMention, mentionStart, submit]
   );
 
   const isCompact = variant === 'compact';
@@ -334,7 +332,7 @@ export function ComposeBox(props: ComposeBoxProps): JSX.Element {
               key={m.id}
               type="button"
               role="option"
-              aria-selected={i === highlight}
+              aria-selected={i === safeHighlight}
               onMouseDown={(e) => {
                 // mousedown so blur of textarea doesn't beat us to it
                 e.preventDefault();
@@ -342,7 +340,7 @@ export function ComposeBox(props: ComposeBoxProps): JSX.Element {
               }}
               onMouseEnter={() => setHighlight(i)}
               className={`flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-sm transition-colors ${
-                i === highlight ? 'bg-muted' : 'hover:bg-muted/50'
+                i === safeHighlight ? 'bg-muted' : 'hover:bg-muted/50'
               }`}
             >
               {m.avatar ? (

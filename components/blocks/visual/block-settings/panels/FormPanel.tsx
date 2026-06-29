@@ -309,11 +309,10 @@ function SurveyBlockSettings({ block, onChange }: { block: SurveyBlock; onChange
   const [surveys, setSurveys] = useState<Array<{ id: number; slug: string; title: string; status: string; responseCount: number }>>([]);
   const [search, setSearch] = useState('');
   const [open, setOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    setLoading(true);
     fetch('/api/portal/surveys')
       .then(r => r.json())
       .then(json => { if (json.success) setSurveys(json.data || []); })
@@ -760,7 +759,7 @@ function EmailFooterBlockSettings({ block, onChange }: { block: EmailFooterBlock
             onChange={(e) => onChange({ showViewInBrowser: e.target.checked })}
             className="rounded border-border"
           />
-          Show "View in browser" link
+          Show &quot;View in browser&quot; link
         </label>
       </div>
       <div className="border-t border-border pt-4 space-y-2">
@@ -839,7 +838,7 @@ function BookingMenuBlockSettings({ block, onChange }: { block: BookingMenuBlock
         </select>
       </div>
       <p className="text-xs text-muted-foreground">
-        Booking pages are pulled live from this site's published bookings. Add booking pages from the Bookings admin to populate the grid.
+        Booking pages are pulled live from this site&apos;s published bookings. Add booking pages from the Bookings admin to populate the grid.
       </p>
     </div>
   );

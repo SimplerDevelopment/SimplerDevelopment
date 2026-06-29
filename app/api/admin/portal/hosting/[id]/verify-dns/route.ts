@@ -39,7 +39,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
   const expectedTarget = site.railwayDomain.replace(/\.$/, ''); // strip trailing dot
 
   let verified = false;
-  let dnsResults: { type: string; records: string[] }[] = [];
+  const dnsResults: { type: string; records: string[] }[] = [];
 
   // Check CNAME
   try {

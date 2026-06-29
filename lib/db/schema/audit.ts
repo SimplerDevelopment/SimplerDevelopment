@@ -84,3 +84,30 @@ export const oauthAccessTokens = pgTable('oauth_access_tokens', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
+/** Refresh tokens issued alongside short-lived access tokens (OAuth 2.1 §4.3 /
+ *  RFC 9700 BCP). Token strings are `sd_oart_…`; only the SHA-256 hash is stored.
+ *  Rotated on every use: redeeming one sets `consumedAt` and issues a fresh
+ *  token carrying the same `familyId`. Presenting an already-consumed token
+ *  (replay / theft) revokes the whole `familyId` lineage — OAuth 2.1 mandatory
+ *  refresh-token-rotation reuse detection for public clients. */
+
+export const oauthRefreshTokens = pgTable('oauth_refresh_tokens', {
+  id: serial('id').primaryKey(),
+  tokenHash: varchar('token_hash', { length: 128 }).notNull().unique(),
+  tokenPreview: varchar('token_preview', { length: 24 }).notNull(),
+  oauthClientId: integer('oauth_client_id').notNull().references(() => oauthClients.id, { onDelete: 'cascade' }),
+  userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  scopes: json('scopes').$type<string[]>().notNull(),
+  resource: varchar('resource', { length: 500 }),
+  /** Rotation lineage. All tokens descended from one authorization share an id;
+   *  reuse of a consumed token revokes every row with the same value. */
+  familyId: varchar('family_id', { length: 64 }).notNull(),
+  expiresAt: timestamp('expires_at').notNull(),
+  /** Set when this token is redeemed at /oauth/token (single-use). */
+  consumedAt: timestamp('consumed_at'),
+  /** Set when the lineage is force-revoked (reuse detected, or user logout). */
+  revokedAt: timestamp('revoked_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+

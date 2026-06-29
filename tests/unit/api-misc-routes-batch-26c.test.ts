@@ -67,6 +67,11 @@ vi.mock('drizzle-orm', () => ({
     },
   ),
   isNull: (a: unknown) => ({ op: 'isNull', a }),
+  gt: (a: unknown, b: unknown) => ({ op: 'gt', a, b }),
+  lt: (a: unknown, b: unknown) => ({ op: 'lt', a, b }),
+  gte: (a: unknown, b: unknown) => ({ op: 'gte', a, b }),
+  lte: (a: unknown, b: unknown) => ({ op: 'lte', a, b }),
+  not: (a: unknown) => ({ op: 'not', a }),
 }));
 
 vi.mock('@/lib/db/schema', () => {

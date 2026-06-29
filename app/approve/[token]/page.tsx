@@ -25,7 +25,9 @@ import {
   mcpPendingChanges,
   surveys,
   bookingPages,
+  clientWebsites,
 } from '@/lib/db/schema';
+import { generatePreviewToken } from '@/lib/preview-token';
 import type {
   BlockTemplateDraft,
   PitchDeckSlideV2,
@@ -82,6 +84,51 @@ async function loadCurrentUser(): Promise<{ name: string; email: string } | null
   return { name: row.name, email: row.email };
 }
 
+/**
+ * Build the live-site preview iframe URL for a post, mirroring the visual
+ * editor's preview-mode iframe so the approval reviewer sees exactly what the
+ * editor renders. Mints a PAGE-SCOPED preview token (narrowed to this one
+ * page path) so the public approval page never hands an external reviewer a
+ * site-wide token. Returns null when the site/domain can't be resolved.
+ */
+async function buildPostPreviewIframeSrc(
+  clientId: number,
+  websiteId: number | null,
+  postType: string,
+  slug: string,
+): Promise<string | null> {
+  if (!websiteId) return null;
+  // Tenancy cross-check: the post's site must belong to the same client the
+  // approval link is scoped to before we mint a preview token for it. The
+  // [token] is the only credential, so we never trust entityId's site blindly.
+  const [site] = await db
+    .select({
+      clientId: clientWebsites.clientId,
+      domain: clientWebsites.domain,
+      subdomain: clientWebsites.subdomain,
+      vercelDomain: clientWebsites.vercelDomain,
+    })
+    .from(clientWebsites)
+    .where(eq(clientWebsites.id, websiteId))
+    .limit(1);
+  if (!site || site.clientId !== clientId) return null;
+
+  const fullDomain =
+    site.vercelDomain || (site.subdomain ? `${site.subdomain}.simplerdevelopment.com` : null);
+  const identifier = fullDomain || site.domain || null;
+  if (!identifier) return null;
+
+  const appUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://simplerdevelopment.com';
+  // Mirror the editor's page-vs-blog path convention so the preview resolves
+  // to the same public route the editor previews.
+  const basePath = postType === 'page' ? `/${slug}` : `/blog/${slug}`;
+  // The site route's pageSlug is the path minus the leading slash — scope the
+  // token to that exact value so it authorizes only this page.
+  const scope = basePath.slice(1);
+  const token = generatePreviewToken(websiteId, scope);
+  return `${appUrl}/sites/${identifier}${basePath}?_preview=true&_token=${token}`;
+}
+
 async function loadPreview(
   clientId: number,
   linkType: 'entity' | 'pending_change',
@@ -114,6 +161,30 @@ async function loadPreview(
     case 'post': {
       const [row] = await db.select().from(posts).where(eq(posts.id, entityId)).limit(1);
       if (!row) return { kind: 'missing', message: 'Post not found' };
+      // Tenancy: the posts table carries no clientId column — ownership is via
+      // websiteId → clientWebsites.clientId (mirrors the cms MCP tools). The
+      // [token] is the only credential, so verify the post's site belongs to
+      // the approval link's client before leaking any content. A null
+      // websiteId is an agency/global post with no tenant owner and is never
+      // reachable from a client-scoped approval link.
+      if (!row.websiteId) return { kind: 'missing', message: 'Post not found' };
+      const [ownerSite] = await db
+        .select({ clientId: clientWebsites.clientId })
+        .from(clientWebsites)
+        .where(and(eq(clientWebsites.id, row.websiteId), eq(clientWebsites.clientId, clientId)))
+        .limit(1);
+      if (!ownerSite) return { kind: 'missing', message: 'Post not found' };
+      // Faithful preview: render the post through the SAME iframe the visual
+      // editor's preview mode uses (the live site renderer at ?_preview=true),
+      // rather than a divergent BlockRenderer card. Falls back to null when the
+      // site has no resolvable domain, in which case the reviewer UI uses the
+      // BlockRenderer fallback.
+      const iframeSrc = await buildPostPreviewIframeSrc(
+        clientId,
+        row.websiteId,
+        row.postType,
+        row.slug,
+      );
       return {
         kind: 'post',
         title: row.title,
@@ -123,6 +194,7 @@ async function loadPreview(
         siteId: row.websiteId,
         customCss: row.customCss ?? null,
         customJs: row.customJs ?? null,
+        iframeSrc,
       };
     }
     case 'pitch_deck': {
@@ -153,10 +225,13 @@ async function loadPreview(
       };
     }
     case 'email_campaign': {
+      // Tenancy: scope by the approval link's client so a token for client A
+      // can't load client B's campaign by guessing its id (matches the
+      // pitch_deck / survey / booking_page cases below).
       const [row] = await db
         .select()
         .from(emailCampaigns)
-        .where(eq(emailCampaigns.id, entityId))
+        .where(and(eq(emailCampaigns.id, entityId), eq(emailCampaigns.clientId, clientId)))
         .limit(1);
       if (!row) return { kind: 'missing', message: 'Campaign not found' };
       return {
@@ -171,10 +246,14 @@ async function loadPreview(
       };
     }
     case 'block_template': {
+      // Tenancy: scope by the approval link's client. MCP-authored templates
+      // stamp clientId = ctx.client.id; platform-global templates (clientId
+      // null) are admin-curated and never minted an approval link, so a strict
+      // clientId match can't lock out a legitimate reviewer.
       const [row] = await db
         .select()
         .from(blockTemplates)
-        .where(eq(blockTemplates.id, entityId))
+        .where(and(eq(blockTemplates.id, entityId), eq(blockTemplates.clientId, clientId)))
         .limit(1);
       if (!row) return { kind: 'missing', message: 'Template not found' };
       const draft = (row.draft ?? null) as BlockTemplateDraft | null;

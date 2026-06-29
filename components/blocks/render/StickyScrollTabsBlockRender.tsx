@@ -47,7 +47,7 @@ export function StickyScrollTabsBlockRender({ block }: StickyScrollTabsBlockRend
   const inactiveBg = block.inactiveTabBackground ?? '#EAF3EC';
   const inactiveFg = block.inactiveTabColor ?? '#0A3A5C';
   // Mobile pill colors fall back to desktop colors when not explicitly set,
-  // so existing instances don't change behavior. Postcaptain's home overrides
+  // so existing instances don't change behavior. Some tenant sites override
   // these to mint-green even though desktop uses white.
   const mobileActiveBg = block.mobileActiveTabBackground ?? activeBg;
   const mobileActiveFg = block.mobileActiveTabColor ?? activeFg;

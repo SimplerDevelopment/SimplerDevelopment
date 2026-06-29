@@ -35,6 +35,15 @@ vi.mock('drizzle-orm', () => ({
   inArray: (a: unknown, list: unknown[]) => ({ op: 'inArray', a, list }),
 }));
 
+// Mock svix so Webhook.verify() doesn't actually verify — just parse the raw body as JSON.
+vi.mock('svix', () => ({
+  Webhook: class {
+    verify(rawBody: string, _headers: Record<string, string>) {
+      try { return JSON.parse(rawBody); } catch { return {}; }
+    }
+  },
+}));
+
 vi.mock('@/lib/db/schema', () => {
   const wrap = (tableName: string) =>
     new Proxy(
@@ -50,6 +59,7 @@ vi.mock('@/lib/db/schema', () => {
   return new Proxy({
     emailCampaigns: wrap('emailCampaigns'),
     emailCampaignSends: wrap('emailCampaignSends'),
+    emailSubscribers: wrap('emailSubscribers'),
     crmSavedViews: wrap('crmSavedViews'),
     crmScoringRules: wrap('crmScoringRules'),
     sprints: wrap('sprints'),
@@ -247,7 +257,7 @@ describe('POST /api/email/webhooks', () => {
     const res = await emailWebhooksRoute.POST(
       makeReq('http://x/api/email/webhooks', {
         method: 'POST',
-        headers: { 'svix-signature': 'sig', 'content-type': 'application/json' },
+        headers: { 'svix-id': 'msg_1', 'svix-timestamp': '1234567890', 'svix-signature': 'v1,sig', 'content-type': 'application/json' },
         body: JSON.stringify({}),
       }),
     );
@@ -261,7 +271,7 @@ describe('POST /api/email/webhooks', () => {
     const res = await emailWebhooksRoute.POST(
       makeReq('http://x/api/email/webhooks', {
         method: 'POST',
-        headers: { 'svix-signature': 'sig', 'content-type': 'application/json' },
+        headers: { 'svix-id': 'msg_1', 'svix-timestamp': '1234567890', 'svix-signature': 'v1,sig', 'content-type': 'application/json' },
         body: JSON.stringify({ type: 'email.opened', data: { email_id: 'em_1' } }),
       }),
     );
@@ -278,7 +288,7 @@ describe('POST /api/email/webhooks', () => {
     const res = await emailWebhooksRoute.POST(
       makeReq('http://x/api/email/webhooks', {
         method: 'POST',
-        headers: { 'svix-signature': 'sig', 'content-type': 'application/json' },
+        headers: { 'svix-id': 'msg_1', 'svix-timestamp': '1234567890', 'svix-signature': 'v1,sig', 'content-type': 'application/json' },
         body: JSON.stringify({ type: 'email.opened', data: { email_id: 'em_op' } }),
       }),
     );
@@ -296,7 +306,7 @@ describe('POST /api/email/webhooks', () => {
     const res = await emailWebhooksRoute.POST(
       makeReq('http://x/api/email/webhooks', {
         method: 'POST',
-        headers: { 'svix-signature': 'sig', 'content-type': 'application/json' },
+        headers: { 'svix-id': 'msg_1', 'svix-timestamp': '1234567890', 'svix-signature': 'v1,sig', 'content-type': 'application/json' },
         body: JSON.stringify({ type: 'email.clicked', data: { email_id: 'em_cl' } }),
       }),
     );
@@ -312,7 +322,7 @@ describe('POST /api/email/webhooks', () => {
     const res = await emailWebhooksRoute.POST(
       makeReq('http://x/api/email/webhooks', {
         method: 'POST',
-        headers: { 'svix-signature': 'sig', 'content-type': 'application/json' },
+        headers: { 'svix-id': 'msg_1', 'svix-timestamp': '1234567890', 'svix-signature': 'v1,sig', 'content-type': 'application/json' },
         body: JSON.stringify({ type: 'email.bounced', data: { email_id: 'em_bo' } }),
       }),
     );
@@ -328,7 +338,7 @@ describe('POST /api/email/webhooks', () => {
     const res = await emailWebhooksRoute.POST(
       makeReq('http://x/api/email/webhooks', {
         method: 'POST',
-        headers: { 'svix-signature': 'sig', 'content-type': 'application/json' },
+        headers: { 'svix-id': 'msg_1', 'svix-timestamp': '1234567890', 'svix-signature': 'v1,sig', 'content-type': 'application/json' },
         body: JSON.stringify({ type: 'email.complained', data: { email_id: 'em_co' } }),
       }),
     );

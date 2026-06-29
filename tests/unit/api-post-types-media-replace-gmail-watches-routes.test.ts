@@ -425,19 +425,19 @@ describe('POST /api/portal/media/[id]/replace', () => {
     expect(res.status).toBe(401);
   });
 
-  it('returns 403 when portal client cannot be resolved', async () => {
+  it('returns 404 when portal client cannot be resolved', async () => {
     authMock.mockResolvedValue({ user: { id: '42' } });
     getPortalClientMock.mockResolvedValue(null);
     const { POST } = await import('@/app/api/portal/media/[id]/replace/route');
     const res = await POST(buildMultipartReq([{ name: 'file', value: new Blob(['x']), filename: 'a.bin' }]) as never, {
       params: Promise.resolve({ id: '1' }),
     });
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(404);
   });
 
   it('returns 400 for non-numeric id', async () => {
     authMock.mockResolvedValue({ user: { id: '42' } });
-    getPortalClientMock.mockResolvedValue({ id: 7 });
+    getPortalClientMock.mockResolvedValue({ id: 7, userId: 42 });
     const { POST } = await import('@/app/api/portal/media/[id]/replace/route');
     const res = await POST(buildMultipartReq([{ name: 'file', value: new Blob(['x']), filename: 'a.bin' }]) as never, {
       params: Promise.resolve({ id: 'NaN' }),
@@ -447,7 +447,7 @@ describe('POST /api/portal/media/[id]/replace', () => {
 
   it('returns 404 when media row not found for client', async () => {
     authMock.mockResolvedValue({ user: { id: '42' } });
-    getPortalClientMock.mockResolvedValue({ id: 7 });
+    getPortalClientMock.mockResolvedValue({ id: 7, userId: 42 });
     dbHandlers.selectHandler = () => [];
     const { POST } = await import('@/app/api/portal/media/[id]/replace/route');
     const res = await POST(buildMultipartReq([{ name: 'file', value: new Blob(['x']), filename: 'a.bin' }]) as never, {
@@ -458,7 +458,7 @@ describe('POST /api/portal/media/[id]/replace', () => {
 
   it('returns 400 when body is not multipart', async () => {
     authMock.mockResolvedValue({ user: { id: '42' } });
-    getPortalClientMock.mockResolvedValue({ id: 7 });
+    getPortalClientMock.mockResolvedValue({ id: 7, userId: 42 });
     dbHandlers.selectHandler = () => [
       {
         id: 1,
@@ -485,7 +485,7 @@ describe('POST /api/portal/media/[id]/replace', () => {
 
   it('returns 400 when no file in form data', async () => {
     authMock.mockResolvedValue({ user: { id: '42' } });
-    getPortalClientMock.mockResolvedValue({ id: 7 });
+    getPortalClientMock.mockResolvedValue({ id: 7, userId: 42 });
     dbHandlers.selectHandler = () => [
       {
         id: 1,
@@ -511,7 +511,7 @@ describe('POST /api/portal/media/[id]/replace', () => {
 
   it('rejects HTML files exceeding the size cap', async () => {
     authMock.mockResolvedValue({ user: { id: '42' } });
-    getPortalClientMock.mockResolvedValue({ id: 7 });
+    getPortalClientMock.mockResolvedValue({ id: 7, userId: 42 });
     dbHandlers.selectHandler = () => [
       {
         id: 1,
@@ -539,7 +539,7 @@ describe('POST /api/portal/media/[id]/replace', () => {
 
   it('replaces a binary file successfully and snapshots prior version', async () => {
     authMock.mockResolvedValue({ user: { id: '42' } });
-    getPortalClientMock.mockResolvedValue({ id: 7 });
+    getPortalClientMock.mockResolvedValue({ id: 7, userId: 42 });
     dbHandlers.selectHandler = () => [
       {
         id: 1,
@@ -589,7 +589,7 @@ describe('POST /api/portal/media/[id]/replace', () => {
 
   it('cleans and rewrites HTML when websiteId is set', async () => {
     authMock.mockResolvedValue({ user: { id: '42' } });
-    getPortalClientMock.mockResolvedValue({ id: 7 });
+    getPortalClientMock.mockResolvedValue({ id: 7, userId: 42 });
     dbHandlers.selectHandler = () => [
       {
         id: 2,
@@ -645,7 +645,7 @@ describe('POST /api/portal/media/[id]/replace', () => {
 
   it('detects HTML by extension when mime type is generic', async () => {
     authMock.mockResolvedValue({ user: { id: '42' } });
-    getPortalClientMock.mockResolvedValue({ id: 7 });
+    getPortalClientMock.mockResolvedValue({ id: 7, userId: 42 });
     dbHandlers.selectHandler = () => [
       {
         id: 3,
@@ -683,7 +683,7 @@ describe('POST /api/portal/media/[id]/replace', () => {
 
   it('returns 500 envelope when upload throws unexpectedly', async () => {
     authMock.mockResolvedValue({ user: { id: '42' } });
-    getPortalClientMock.mockResolvedValue({ id: 7 });
+    getPortalClientMock.mockResolvedValue({ id: 7, userId: 42 });
     dbHandlers.selectHandler = () => [
       {
         id: 1,

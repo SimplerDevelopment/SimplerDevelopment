@@ -6,6 +6,7 @@ import {
   productVariants, bulkPricingRules,
 } from '@/lib/db/schema';
 import { and, eq, asc, or } from 'drizzle-orm';
+import { hasServiceAccess } from '@/lib/portal-auth';
 
 type Params = { params: Promise<{ siteId: string; productId: string }> };
 
@@ -111,6 +112,7 @@ export async function PUT(req: Request, { params }: Params) {
   const { siteId, productId } = await params;
   const { site, product } = await resolveProduct(parseInt(session.user.id, 10), siteId, productId);
   if (!product || !site) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
+  if (!(await hasServiceAccess(site.clientId, 'store'))) return NextResponse.json({ success: false, message: 'This feature requires an active store subscription.', requiresService: 'store', upsellUrl: '/portal/services' }, { status: 403 });
 
   const body = await req.json();
 
@@ -137,7 +139,7 @@ export async function PUT(req: Request, { params }: Params) {
     if (body[f] !== undefined) updateData[f] = body[f];
   }
 
-  const intFields = ['price', 'compareAtPrice', 'costPrice', 'quantity', 'categoryId'];
+  const intFields = ['price', 'compareAtPrice', 'costPrice', 'quantity', 'categoryId', 'printfulVariantId'];
   for (const f of intFields) {
     if (body[f] !== undefined) updateData[f] = body[f] != null ? parseInt(String(body[f])) : null;
   }
@@ -160,6 +162,22 @@ export async function PUT(req: Request, { params }: Params) {
       .limit(1);
     if (existing) {
       return NextResponse.json({ success: false, message: 'A product with this slug already exists' }, { status: 409 });
+    }
+  }
+
+  // Update printfulVariantId per variant if provided
+  if (body.variants && Array.isArray(body.variants)) {
+    for (const v of body.variants as Array<{ id?: unknown; printfulVariantId?: unknown }>) {
+      if (v.id == null) continue;
+      const variantId = parseInt(String(v.id));
+      if (!Number.isFinite(variantId)) continue;
+      if (v.printfulVariantId !== undefined) {
+        const pvid = v.printfulVariantId == null ? null : parseInt(String(v.printfulVariantId));
+        await db
+          .update(productVariants)
+          .set({ printfulVariantId: pvid })
+          .where(and(eq(productVariants.id, variantId), eq(productVariants.productId, product.id)));
+      }
     }
   }
 
@@ -192,8 +210,9 @@ export async function DELETE(_req: Request, { params }: Params) {
   if (!session?.user?.id) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
 
   const { siteId, productId } = await params;
-  const { product } = await resolveProduct(parseInt(session.user.id, 10), siteId, productId);
-  if (!product) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
+  const { site, product } = await resolveProduct(parseInt(session.user.id, 10), siteId, productId);
+  if (!product || !site) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
+  if (!(await hasServiceAccess(site.clientId, 'store'))) return NextResponse.json({ success: false, message: 'This feature requires an active store subscription.', requiresService: 'store', upsellUrl: '/portal/services' }, { status: 403 });
 
   await db.delete(products).where(eq(products.id, product.id));
 

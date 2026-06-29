@@ -27,6 +27,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import GlossaryTermCard, { type GlossaryTermCardData } from '@/components/brain/GlossaryTermCard';
 import GlossaryBulkImportModal from '@/components/brain/GlossaryBulkImportModal';
 import type { BrainGlossaryStatus } from '@/lib/db/schema';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnPrimary, pBtnGhost, pInput, pSelect } from '@/components/portal/portal-ui';
 
 interface ListResponse {
   success: boolean;
@@ -191,37 +193,28 @@ export default function BrainGlossaryListPage() {
 
   return (
     <div className="max-w-5xl mx-auto py-6 px-4 space-y-5">
-      {/* Sticky header */}
-      <div className="sticky top-[var(--portal-header-height,3.5rem)] z-10 -mx-4 px-4 py-3 bg-background/95 backdrop-blur border-b border-border">
-        <div className="flex items-start justify-between gap-3 flex-wrap">
-          <div>
-            <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
-              <span className="material-icons text-primary">menu_book</span>
-              Glossary
-            </h1>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Tenant-specific terminology. Used by Ask, AI suggestions, and inline references.
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setBulkOpen(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md border border-border text-foreground hover:bg-accent"
-            >
+      <PortalPageHeader
+        eyebrow="Brain"
+        title={
+          <span className="flex items-center gap-2">
+            <span className="material-icons text-primary">menu_book</span>
+            Glossary
+          </span>
+        }
+        subtitle="Tenant-specific terminology. Used by Ask, AI suggestions, and inline references."
+        actions={
+          <>
+            <button type="button" onClick={() => setBulkOpen(true)} className={pBtnGhost}>
               <span className="material-icons text-base">upload</span>
               Bulk import
             </button>
-            <Link
-              href="/portal/brain/glossary/new"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90"
-            >
+            <Link href="/portal/brain/glossary/new" className={pBtnPrimary}>
               <span className="material-icons text-base">add</span>
               New term
             </Link>
-          </div>
-        </div>
-      </div>
+          </>
+        }
+      />
 
       {/* Filters */}
       <div className="grid sm:grid-cols-4 gap-3 items-end">
@@ -253,7 +246,7 @@ export default function BrainGlossaryListPage() {
             id="gl-cat-f"
             value={categoryParam}
             onChange={e => updateParams({ category: e.target.value || null, page: null })}
-            className="w-full px-2 py-1.5 bg-background border border-border rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-primary/50"
+            className={pSelect}
           >
             <option value="">All categories</option>
             {categories.map(c => <option key={c} value={c}>{c}</option>)}
@@ -268,7 +261,7 @@ export default function BrainGlossaryListPage() {
             id="gl-owner-f"
             value={ownerParam}
             onChange={e => updateParams({ ownerId: e.target.value || null, page: null })}
-            className="w-full px-2 py-1.5 bg-background border border-border rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-primary/50"
+            className={pSelect}
           >
             <option value="">All owners</option>
             {users.map(u => <option key={u.id} value={u.id}>{u.name ?? `User #${u.id}`}</option>)}
@@ -287,7 +280,7 @@ export default function BrainGlossaryListPage() {
               value={searchDraft}
               onChange={e => handleSearchChange(e.target.value)}
               placeholder="Search term, alias, definition…"
-              className="w-full pl-8 pr-2 py-1.5 bg-background border border-border rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-primary/50"
+              className={`${pInput} pl-8`}
             />
           </div>
         </div>
@@ -324,10 +317,7 @@ export default function BrainGlossaryListPage() {
               ? 'Try clearing filters.'
               : 'Start by adding your most-confused acronym.'}
           </p>
-          <Link
-            href="/portal/brain/glossary/new"
-            className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90"
-          >
+          <Link href="/portal/brain/glossary/new" className={pBtnPrimary}>
             <span className="material-icons text-base">add</span>
             New term
           </Link>

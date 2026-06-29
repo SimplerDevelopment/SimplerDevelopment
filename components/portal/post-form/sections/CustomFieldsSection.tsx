@@ -43,17 +43,7 @@ export function CustomFieldsSection({
   setCustomFieldsLoaded,
 }: CustomFieldsSectionProps) {
   const [collapsedGroups, setCollapsedGroups] = useState<Set<number>>(new Set());
-  const [repeaterRows, setRepeaterRows] = useState<Record<number, Array<Record<string, string>>>>({});
-  const debounceTimers = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
-
-  const topLevelDefs = customFieldDefs.filter((f) => !f.parentId);
-  const childDefsOf = useCallback(
-    (parentId: number) => customFieldDefs.filter((f) => f.parentId === parentId),
-    [customFieldDefs]
-  );
-
-  // Parse repeater JSON values on load
-  useEffect(() => {
+  const [repeaterRows, setRepeaterRows] = useState<Record<number, Array<Record<string, string>>>>(() => {
     const repeaters = customFieldDefs.filter((f) => f.fieldType === 'repeater' && !f.parentId);
     const parsed: Record<number, Array<Record<string, string>>> = {};
     for (const r of repeaters) {
@@ -69,8 +59,15 @@ export function CustomFieldsSection({
       }
       parsed[r.id] = [];
     }
-    setRepeaterRows(parsed);
-  }, [customFieldDefs, customFieldValues]);
+    return parsed;
+  });
+  const debounceTimers = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
+
+  const topLevelDefs = customFieldDefs.filter((f) => !f.parentId);
+  const childDefsOf = useCallback(
+    (parentId: number) => customFieldDefs.filter((f) => f.parentId === parentId),
+    [customFieldDefs]
+  );
 
   const toggleGroup = (id: number) => {
     setCollapsedGroups((prev) => {

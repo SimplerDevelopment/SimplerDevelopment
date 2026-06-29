@@ -506,8 +506,8 @@ below is rendered by the real frontend — no speculative shapes.
       "blocks": [
         { "id": "hero-cover", "type": "hero", "order": 0,
           "title": "A New Way Forward with Slate",
-          "subtitle": "A PROPOSAL FROM POST CAPTAIN",
-          "description": "Built by former Slate Captains — your guide to everything Slate can be.",
+          "subtitle": "A PROPOSAL FROM ACME CONSULTING",
+          "description": "Built by experienced practitioners — your guide to everything the platform can be.",
           "ctaText": "Explore the proposal", "ctaLink": "#why",
           "elementStyles": {
             "subtitle": { "letterSpacing": "3px", "textTransform": "uppercase",
@@ -563,15 +563,15 @@ below is rendered by the real frontend — no speculative shapes.
                      "letterSpacing": "-0.4px", "margin": "0 0 28px" } },
         { "id": "t-cards", "type": "card-grid", "order": 2, "columns": 3,
           "cards": [
-            { "id": "c1", "title": "Jake Daly",
+            { "id": "c1", "title": "Alex Johnson",
               "subtitle": "President & CEO",
-              "description": "Slate Captain, Bowdoin College. Founded Post Captain in 2018." },
-            { "id": "c2", "title": "Paula Schaefer-Riley",
-              "subtitle": "Director, Slate Strategy",
-              "description": "Slate Captain, Allegheny College. Former Technolutions PM." },
-            { "id": "c3", "title": "Danielle Buczek",
-              "subtitle": "Sr. Director, Enrollment Solutions",
-              "description": "Slate Captain, Tufts & Brandeis." }
+              "description": "10+ years in higher-ed enrollment strategy." },
+            { "id": "c2", "title": "Morgan Smith",
+              "subtitle": "Director, Platform Strategy",
+              "description": "Former enrollment technology PM." },
+            { "id": "c3", "title": "Jordan Lee",
+              "subtitle": "Sr. Director, Solutions",
+              "description": "Enrollment operations specialist." }
           ] }
       ]
     },

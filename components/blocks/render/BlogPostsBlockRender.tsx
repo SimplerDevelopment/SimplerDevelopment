@@ -2,7 +2,7 @@
 
 import { BlogPostsBlock } from '@/types/blocks';
 import { useEffect, useState } from 'react';
-import { getAllBlogPosts, getBlogPostsByCategory } from '@/lib/actions/blog';
+import { getAllBlogPosts, getBlogPostsByCategory, BlogPostWithRelations } from '@/lib/actions/blog';
 import { combineResponsiveClasses } from '@/lib/utils/responsive';
 import { getElementCSS } from '@/lib/utils/elementStyles';
 import Link from 'next/link';
@@ -12,7 +12,7 @@ interface BlogPostsBlockRenderProps {
 }
 
 export function BlogPostsBlockRender({ block }: BlogPostsBlockRenderProps) {
-  const [posts, setPosts] = useState<any[]>([]);
+  const [posts, setPosts] = useState<BlogPostWithRelations[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -127,7 +127,7 @@ export function BlogPostsBlockRender({ block }: BlogPostsBlockRenderProps) {
 
                     <div className="flex items-center justify-between text-sm text-muted-foreground">
                       {post.publishedAt && (
-                        <time dateTime={post.publishedAt.toISOString()}>
+                        <time dateTime={new Date(post.publishedAt).toISOString()}>
                           {new Date(post.publishedAt).toLocaleDateString('en-US', {
                             month: 'short',
                             day: 'numeric',
@@ -139,7 +139,7 @@ export function BlogPostsBlockRender({ block }: BlogPostsBlockRenderProps) {
 
                     {post.tags && post.tags.length > 0 && (
                       <div className="flex flex-wrap gap-2 mt-4">
-                        {post.tags.slice(0, 3).map((tag: any) => (
+                        {post.tags.slice(0, 3).map((tag) => (
                           <span
                             key={tag.id}
                             className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary"

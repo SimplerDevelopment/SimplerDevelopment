@@ -51,12 +51,15 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 export default async function CategoryPage({ params }: PageProps) {
   const { slug } = await params;
   const category = await getCategoryBySlug(slug);
-  const posts = await getBlogPostsByCategory(slug);
-  const allCategories = await getAllCategories();
 
   if (!category) {
     notFound();
   }
+
+  const [posts, allCategories] = await Promise.all([
+    getBlogPostsByCategory(slug),
+    getAllCategories(),
+  ]);
 
   return (
     <div className="container mx-auto px-4 py-20">
@@ -157,7 +160,7 @@ export default async function CategoryPage({ params }: PageProps) {
 
                       <div className="flex items-center justify-between text-sm text-muted-foreground">
                         {post.publishedAt && (
-                          <time dateTime={post.publishedAt.toISOString()}>
+                          <time dateTime={new Date(post.publishedAt).toISOString()}>
                             {new Date(post.publishedAt).toLocaleDateString('en-US', {
                               month: 'short',
                               day: 'numeric',

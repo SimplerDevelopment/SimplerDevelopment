@@ -233,8 +233,10 @@ export default function NoteGraphView() {
   // Graph fetch — refetch when tagFilter, orphansOnly, or includeCrm change.
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
-    setError(null);
+    queueMicrotask(() => {
+      setLoading(true);
+      setError(null);
+    });
     const params = new URLSearchParams();
     if (tagFilter) params.set('tag', tagFilter);
     if (orphansOnly) params.set('orphansOnly', 'true');

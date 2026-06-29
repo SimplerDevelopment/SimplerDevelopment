@@ -57,8 +57,23 @@ export default function HttpLogViewer({ siteId }: { siteId: number }) {
   }, [siteId]);
 
   useEffect(() => {
-    fetchLogs();
-  }, [fetchLogs]);
+    void (async () => {
+      try {
+        const res = await fetch(`/api/portal/websites/${siteId}/logs?limit=100`);
+        const json = await res.json();
+        if (json.success) {
+          setLogs(json.data);
+          setError('');
+        } else {
+          setError(json.message);
+        }
+      } catch {
+        setError('Failed to fetch logs');
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [siteId]);
 
   useEffect(() => {
     if (!autoRefresh) return;

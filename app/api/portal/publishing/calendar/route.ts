@@ -28,7 +28,7 @@ import {
   publishingCampaigns,
 } from '@/lib/db/schema';
 import { and, eq, gte, lte, isNotNull, inArray, desc } from 'drizzle-orm';
-import { getPublishingSession } from '@/lib/publishing/active-client';
+import { getPublishingSession, isRedirectError } from '@/lib/publishing/active-client';
 
 export const dynamic = 'force-dynamic';
 
@@ -161,6 +161,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ success: true, data });
   } catch (error) {
+    if (isRedirectError(error)) throw error; // let next emit the 307 (no session / no client)
     console.error('Error fetching publishing calendar:', error);
     return NextResponse.json(
       { success: false, message: 'Failed to fetch publishing calendar' },

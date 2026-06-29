@@ -760,7 +760,7 @@ function TabsBlockSettings({ block, onChange }: { block: TabsBlock; onChange: (u
   return (
     <div className="space-y-4">
       <p className="text-xs text-muted-foreground">
-        Edit each tab's contents by selecting it in the canvas and using the inline editor. Add or remove tabs here.
+        Edit each tab&apos;s contents by selecting it in the canvas and using the inline editor. Add or remove tabs here.
       </p>
       <div className="border-t border-border pt-4 space-y-2">
         <label className="block text-sm font-medium text-foreground">Tabs</label>

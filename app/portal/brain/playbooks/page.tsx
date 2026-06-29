@@ -18,6 +18,8 @@ import { useEffect, useState, useCallback, useMemo, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import PlaybookCard from '@/components/brain/PlaybookCard';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnPrimary, pBtnGhost } from '@/components/portal/portal-ui';
 import {
   PLAYBOOK_TRIGGER_KINDS,
   playbookStatusChip,
@@ -171,34 +173,24 @@ function PlaybooksListContent() {
   return (
     <div className="space-y-4">
       <div className="sticky top-[var(--portal-header-height,3.5rem)] z-10 bg-background -mx-4 sm:mx-0 px-4 sm:px-0 pt-1 pb-3 border-b border-border">
-        <div className="flex items-start justify-between gap-3 flex-wrap">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-              <span className="material-icons text-primary">play_circle</span>
-              Playbooks
-            </h1>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              Repeatable, multi-step processes. Onboarding, renewals, incident response — define
-              once, run many times.
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Link
-              href="/portal/brain/playbook-runs"
-              className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-md border border-border text-foreground hover:bg-accent"
-            >
-              <span className="material-icons text-base">playlist_play</span>
-              View runs
-            </Link>
-            <Link
-              href="/portal/brain/playbooks/new"
-              className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90"
-            >
-              <span className="material-icons text-base">add</span>
-              New playbook
-            </Link>
-          </div>
-        </div>
+        <PortalPageHeader
+          eyebrow="Brain"
+          title={<span className="flex items-center gap-2"><span className="material-icons text-primary">play_circle</span>Playbooks</span>}
+          subtitle="Repeatable, multi-step processes. Onboarding, renewals, incident response — define once, run many times."
+          actions={
+            <div className="flex items-center gap-2">
+              <Link href="/portal/brain/playbook-runs" className={pBtnGhost}>
+                <span className="material-icons text-base">playlist_play</span>
+                View runs
+              </Link>
+              <Link href="/portal/brain/playbooks/new" className={pBtnPrimary}>
+                <span className="material-icons text-base">add</span>
+                New playbook
+              </Link>
+            </div>
+          }
+          className="mb-3"
+        />
 
         {/* Status pills */}
         <div className="mt-3 flex items-center gap-1 overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0">
@@ -249,7 +241,7 @@ function PlaybooksListContent() {
           <select
             value={categoryParam}
             onChange={(e) => setParam({ category: e.target.value || null })}
-            className="px-2 py-1 rounded-md border border-border bg-background text-foreground"
+            className="px-2 py-1 rounded-xl border border-border bg-card text-foreground text-xs focus:outline-none focus:ring-2 focus:ring-primary/15 focus:border-primary"
           >
             <option value="">All categories</option>
             {categories.map((c) => (
@@ -260,7 +252,7 @@ function PlaybooksListContent() {
           <select
             value={ownerIdParam ?? ''}
             onChange={(e) => setParam({ ownerId: e.target.value || null })}
-            className="px-2 py-1 rounded-md border border-border bg-background text-foreground"
+            className="px-2 py-1 rounded-xl border border-border bg-card text-foreground text-xs focus:outline-none focus:ring-2 focus:ring-primary/15 focus:border-primary"
           >
             <option value="">Any owner</option>
             {team.map((m) => (
@@ -303,7 +295,7 @@ function PlaybooksListContent() {
           </p>
           <Link
             href="/portal/brain/playbooks/new"
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90"
+            className={pBtnPrimary}
           >
             <span className="material-icons text-base">add</span>
             New playbook
@@ -323,7 +315,7 @@ function PlaybooksListContent() {
             type="button"
             disabled={offset === 0}
             onClick={() => setParam({ offset: String(Math.max(0, offset - PAGE_SIZE)) })}
-            className="inline-flex items-center gap-1 px-3 py-1.5 text-sm rounded-md border border-border text-foreground hover:bg-accent disabled:opacity-30 disabled:pointer-events-none"
+            className={`${pBtnGhost} disabled:opacity-30 disabled:pointer-events-none`}
           >
             <span className="material-icons text-base">chevron_left</span>
             Previous
@@ -335,7 +327,7 @@ function PlaybooksListContent() {
             type="button"
             disabled={!hasMore}
             onClick={() => setParam({ offset: String(offset + PAGE_SIZE) })}
-            className="inline-flex items-center gap-1 px-3 py-1.5 text-sm rounded-md border border-border text-foreground hover:bg-accent disabled:opacity-30 disabled:pointer-events-none"
+            className={`${pBtnGhost} disabled:opacity-30 disabled:pointer-events-none`}
           >
             Next
             <span className="material-icons text-base">chevron_right</span>

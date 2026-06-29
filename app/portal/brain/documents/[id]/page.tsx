@@ -22,6 +22,8 @@ import Link from 'next/link';
 import { use, useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import MarkdownView from '@/components/portal/MarkdownView';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnPrimary, pBtnGhost, pCardPad, pSectionTitle } from '@/components/portal/portal-ui';
 import DocumentVersionHistory from '@/components/brain/DocumentVersionHistory';
 import DocumentLinksPanel from '@/components/brain/DocumentLinksPanel';
 import DocumentRequiredReadsPanel from '@/components/brain/DocumentRequiredReadsPanel';
@@ -290,10 +292,11 @@ export default function BrainDocumentDetailPage({
       </nav>
 
       {/* Header */}
-      <header className="flex items-start justify-between gap-4 flex-wrap">
-        <div className="min-w-0">
-          <h1 className="text-2xl font-bold text-foreground break-words">{document.title}</h1>
-          <div className="flex items-center gap-2 flex-wrap mt-1.5">
+      <PortalPageHeader
+        eyebrow="Company Brain"
+        title={document.title}
+        subtitle={
+          <div className="flex items-center gap-2 flex-wrap">
             <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide rounded border ${STATUS_STYLES[document.status]}`}>
               <span className="material-icons text-[12px]">{STATUS_ICONS[document.status]}</span>
               {document.status}
@@ -316,74 +319,76 @@ export default function BrainDocumentDetailPage({
               /{document.slug}
             </span>
           </div>
-        </div>
-        <div className="flex items-center gap-2 shrink-0 flex-wrap">
-          <Link
-            href={`/portal/brain/documents/${document.id}/edit`}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md border border-border text-foreground hover:bg-accent"
-          >
-            <span className="material-icons text-base">edit</span>
-            Edit draft
-          </Link>
-          {canPublish && (
+        }
+        actions={
+          <div className="flex items-center gap-2 flex-wrap">
+            <Link
+              href={`/portal/brain/documents/${document.id}/edit`}
+              className={pBtnGhost}
+            >
+              <span className="material-icons text-base">edit</span>
+              Edit draft
+            </Link>
+            {canPublish && (
+              <button
+                type="button"
+                onClick={handlePublish}
+                disabled={busyAction !== null}
+                className={`${pBtnPrimary} disabled:opacity-50`}
+              >
+                {busyAction === 'publish'
+                  ? <span className="material-icons text-base animate-spin">progress_activity</span>
+                  : <span className="material-icons text-base">publish</span>}
+                Publish
+              </button>
+            )}
+            {document.status === 'published' && (
+              <button
+                type="button"
+                onClick={handleArchive}
+                disabled={busyAction !== null}
+                className={`${pBtnGhost} disabled:opacity-50`}
+              >
+                <span className="material-icons text-base">archive</span>
+                Archive
+              </button>
+            )}
+            {document.status === 'archived' && (
+              <button
+                type="button"
+                onClick={handleUnarchive}
+                disabled={busyAction !== null}
+                className={`${pBtnGhost} disabled:opacity-50`}
+              >
+                <span className="material-icons text-base">unarchive</span>
+                Unarchive
+              </button>
+            )}
             <button
               type="button"
-              onClick={handlePublish}
+              onClick={() => handleDelete()}
               disabled={busyAction !== null}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-xl border border-destructive/40 text-destructive hover:bg-destructive/10 disabled:opacity-50"
             >
-              {busyAction === 'publish'
+              {busyAction === 'delete'
                 ? <span className="material-icons text-base animate-spin">progress_activity</span>
-                : <span className="material-icons text-base">publish</span>}
-              Publish
+                : <span className="material-icons text-base">delete</span>}
+              Delete
             </button>
-          )}
-          {document.status === 'published' && (
-            <button
-              type="button"
-              onClick={handleArchive}
-              disabled={busyAction !== null}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md border border-border text-foreground hover:bg-accent disabled:opacity-50"
-            >
-              <span className="material-icons text-base">archive</span>
-              Archive
-            </button>
-          )}
-          {document.status === 'archived' && (
-            <button
-              type="button"
-              onClick={handleUnarchive}
-              disabled={busyAction !== null}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md border border-border text-foreground hover:bg-accent disabled:opacity-50"
-            >
-              <span className="material-icons text-base">unarchive</span>
-              Unarchive
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={() => handleDelete()}
-            disabled={busyAction !== null}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md border border-destructive/40 text-destructive hover:bg-destructive/10 disabled:opacity-50"
-          >
-            {busyAction === 'delete'
-              ? <span className="material-icons text-base animate-spin">progress_activity</span>
-              : <span className="material-icons text-base">delete</span>}
-            Delete
-          </button>
-        </div>
-      </header>
+          </div>
+        }
+      />
 
       {/* Summary / description */}
       {(displayedVersion?.summary ?? '').trim() && (
-        <section className="bg-card border border-border rounded-xl p-5">
+        <section className={pCardPad}>
           <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Summary</h2>
           <p className="text-sm text-foreground whitespace-pre-wrap">{displayedVersion?.summary}</p>
         </section>
       )}
 
       {/* Current / selected version body */}
-      <section className="bg-card border border-border rounded-xl p-5">
+      <section className={pCardPad}>
         <div className="flex items-center justify-between gap-2 flex-wrap mb-3">
           <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             {selectedVersionId !== null && displayedVersion
@@ -421,8 +426,8 @@ export default function BrainDocumentDetailPage({
       </section>
 
       {/* Version history */}
-      <section className="bg-card border border-border rounded-xl p-5">
-        <h2 className="text-base font-semibold text-foreground mb-3 inline-flex items-center gap-2">
+      <section className={pCardPad}>
+        <h2 className={`${pSectionTitle} mb-3 inline-flex items-center gap-2`}>
           <span className="material-icons text-base text-primary">history</span>
           Version history
           <span className="text-xs text-muted-foreground font-normal">({versions.length})</span>

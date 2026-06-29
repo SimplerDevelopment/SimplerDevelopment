@@ -2,7 +2,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type * as Y from 'yjs';
 import type { Block } from '@/types/blocks';
 import { bindPostToYjs, type BoundPost } from '@/lib/realtime/post-binding';
@@ -65,7 +65,9 @@ export function usePostForm({ siteId, post, mode, editorMode, ydoc }: UsePostFor
   // remote updates back into React state.
   const bindingRef = useRef<BoundPost | null>(null);
   const blocksStateRef = useRef<Block[]>(blocks);
-  blocksStateRef.current = blocks;
+  useLayoutEffect(() => {
+    blocksStateRef.current = blocks;
+  });
   const localUpdateInFlightRef = useRef(false);
 
   // setBlocks wrapper: when ydoc is connected, the canonical write is into
@@ -184,8 +186,10 @@ export function usePostForm({ siteId, post, mode, editorMode, ydoc }: UsePostFor
   const blocksRef = useRef(blocks);
   const formDataRef = useRef(formData);
   const isSavingRef = useRef(false);
-  blocksRef.current = blocks;
-  formDataRef.current = formData;
+  useLayoutEffect(() => {
+    blocksRef.current = blocks;
+    formDataRef.current = formData;
+  });
 
   const savePost = useCallback(async (trigger: 'autosave' | 'manual' | 'publish' = 'manual') => {
     if (mode !== 'edit' || !post?.id || isSavingRef.current) return;
@@ -220,7 +224,7 @@ export function usePostForm({ siteId, post, mode, editorMode, ydoc }: UsePostFor
       isSavingRef.current = false;
       setLoading(false);
     }
-  }, [mode, post?.id, siteId, editorMode, router]);
+  }, [mode, post, siteId, editorMode, router]);
 
   // When the author switches the post type from the Page Details panel, save
   // immediately and bump the iframe so the new type's template wraps the

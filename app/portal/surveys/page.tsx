@@ -4,7 +4,11 @@ import { db } from '@/lib/db';
 import { surveys } from '@/lib/db/schema';
 import { eq, desc } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
+import { hasServiceAccess } from '@/lib/portal-auth';
 import Link from 'next/link';
+import { RelatedModulesStrip } from '@/components/portal/billing/RelatedModulesStrip';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnPrimary, pCard } from '@/components/portal/portal-ui';
 
 const statusColors: Record<string, string> = {
   draft: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
@@ -20,6 +24,9 @@ export default async function SurveysListPage() {
   const client = await getPortalClient(userId);
   if (!client) redirect('/portal/dashboard');
 
+  const entitled = await hasServiceAccess(client.id, 'surveys');
+  if (!entitled) redirect('/portal/services');
+
   const list = await db
     .select()
     .from(surveys)
@@ -29,39 +36,38 @@ export default async function SurveysListPage() {
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Surveys</h1>
-          <p className="text-muted-foreground mt-1 text-sm">
-            Create surveys and collect responses from customers, leads, and visitors
-          </p>
-        </div>
-        <Link
-          href="/portal/surveys/new"
-          className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
-        >
-          <span className="material-icons text-lg">add</span>
-          New Survey
-        </Link>
-      </div>
+      <PortalPageHeader
+        eyebrow="Forms"
+        title="Surveys"
+        subtitle="Create surveys and collect responses from customers, leads, and visitors"
+        actions={
+          <Link
+            href="/portal/surveys/new"
+            className={pBtnPrimary}
+          >
+            <span className="material-icons text-lg">add</span>
+            New Survey
+          </Link>
+        }
+      />
 
       {/* Quick Stats */}
       {list.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <div className="bg-card border border-border rounded-xl p-4">
-            <p className="text-2xl font-bold text-foreground">{list.length}</p>
+          <div className={`${pCard} p-4`}>
+            <p className="font-display text-2xl font-extrabold tracking-[-0.02em] text-foreground">{list.length}</p>
             <p className="text-xs text-muted-foreground">Total Surveys</p>
           </div>
-          <div className="bg-card border border-border rounded-xl p-4">
-            <p className="text-2xl font-bold text-foreground">{list.filter(s => s.status === 'active').length}</p>
+          <div className={`${pCard} p-4`}>
+            <p className="font-display text-2xl font-extrabold tracking-[-0.02em] text-foreground">{list.filter(s => s.status === 'active').length}</p>
             <p className="text-xs text-muted-foreground">Active</p>
           </div>
-          <div className="bg-card border border-border rounded-xl p-4">
-            <p className="text-2xl font-bold text-foreground">{list.reduce((sum, s) => sum + (s.responseCount || 0), 0)}</p>
+          <div className={`${pCard} p-4`}>
+            <p className="font-display text-2xl font-extrabold tracking-[-0.02em] text-foreground">{list.reduce((sum, s) => sum + (s.responseCount || 0), 0)}</p>
             <p className="text-xs text-muted-foreground">Total Responses</p>
           </div>
-          <div className="bg-card border border-border rounded-xl p-4">
-            <p className="text-2xl font-bold text-foreground">{list.filter(s => s.linkedType).length}</p>
+          <div className={`${pCard} p-4`}>
+            <p className="font-display text-2xl font-extrabold tracking-[-0.02em] text-foreground">{list.filter(s => s.linkedType).length}</p>
             <p className="text-xs text-muted-foreground">Integrated</p>
           </div>
         </div>
@@ -69,9 +75,9 @@ export default async function SurveysListPage() {
 
       {/* Survey List */}
       {list.length === 0 ? (
-        <div className="bg-card border border-border rounded-xl p-10 text-center space-y-4">
+        <div className={`${pCard} p-10 text-center space-y-4`}>
           <span className="material-icons text-5xl text-muted-foreground/50">poll</span>
-          <h2 className="text-lg font-semibold text-foreground">No surveys yet</h2>
+          <h2 className="text-lg font-display font-extrabold tracking-[-0.01em] text-foreground">No surveys yet</h2>
           <p className="text-muted-foreground text-sm max-w-md mx-auto">
             Create your first survey to collect feedback, run polls, or gather information
             from customers and leads. Surveys can be shared via link, embedded on websites,
@@ -79,7 +85,7 @@ export default async function SurveysListPage() {
           </p>
           <Link
             href="/portal/surveys/new"
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
+            className={pBtnPrimary}
           >
             <span className="material-icons text-lg">add_circle</span>
             Create Your First Survey
@@ -91,7 +97,7 @@ export default async function SurveysListPage() {
             <Link
               key={survey.id}
               href={`/portal/surveys/${survey.id}`}
-              className="bg-card border border-border rounded-xl p-5 hover:border-primary/50 hover:shadow-sm transition-all group flex items-center gap-4"
+              className={`${pCard} p-5 hover:border-primary/50 hover:shadow-sm transition-all group flex items-center gap-4`}
             >
               <span
                 className="material-icons text-2xl shrink-0"
@@ -140,16 +146,17 @@ export default async function SurveysListPage() {
       )}
 
       {/* Integration Tips */}
-      <div className="bg-card border border-border rounded-xl p-4 flex items-start gap-3">
+      <div className={`${pCard} p-4 flex items-start gap-3`}>
         <span className="material-icons text-primary mt-0.5">tips_and_updates</span>
         <div className="text-sm text-muted-foreground">
-          <p className="font-medium text-foreground">Integration Tips</p>
+          <p className="font-display font-extrabold tracking-[-0.01em] text-foreground">Integration Tips</p>
           <p>
             Surveys can be linked to email campaigns, CRM deals, proposals, pitch decks, booking pages, and websites.
             Share the public link, embed on any page, or attach to an email campaign for maximum reach.
           </p>
         </div>
       </div>
+      <RelatedModulesStrip currentDomain="surveys" />
     </div>
   );
 }

@@ -28,11 +28,17 @@ import { registerAiTools } from './ai';
 import { registerAutomationsTools } from './automations';
 import { registerHostingTools } from './hosting';
 import { registerMetaTools } from './meta';
+import { registerResourceDocs } from './resources';
+import { registerPromptTemplates } from './prompts';
+import { registerWorkflowTools } from './workflows';
 import { registerBrandingTools } from './branding';
 import { registerStorefrontTools } from './storefront';
 import { registerBrainTools } from './brain';
 import { registerPostTypesTools } from './post-types';
 import { registerApprovalsTools } from './approvals';
+import { registerNotificationsTools } from './notifications';
+import { registerChatTools } from './chat';
+import { registerLinkedinTools } from './linkedin';
 
 export {
   registerProjectsTools,
@@ -54,11 +60,17 @@ export {
   registerAutomationsTools,
   registerHostingTools,
   registerMetaTools,
+  registerResourceDocs,
+  registerPromptTemplates,
+  registerWorkflowTools,
   registerBrandingTools,
   registerStorefrontTools,
   registerBrainTools,
   registerPostTypesTools,
   registerApprovalsTools,
+  registerNotificationsTools,
+  registerChatTools,
+  registerLinkedinTools,
 };
 
 /**
@@ -69,6 +81,9 @@ export {
  */
 export const allToolRegistrars: readonly McpToolRegistrar[] = [
   registerMetaTools,
+  registerResourceDocs,
+  registerPromptTemplates,
+  registerWorkflowTools,
   registerProjectsTools,
   registerKanbanTools,
   registerTicketsTools,
@@ -92,4 +107,7 @@ export const allToolRegistrars: readonly McpToolRegistrar[] = [
   registerBrainTools,
   registerPostTypesTools,
   registerApprovalsTools,
+  registerNotificationsTools,
+  registerChatTools,
+  registerLinkedinTools,
 ];

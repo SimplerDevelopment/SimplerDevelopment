@@ -207,6 +207,23 @@ export async function cancelSignatureRequest(signatureRequestId: string): Promis
 }
 
 /**
+ * Re-send the signature-request email to a pending signer (DropboxSign "remind").
+ * Used by the signature-reminder cron. No-ops on missing ids; tolerates 404/410.
+ */
+export async function remindSignatureRequest(signatureRequestId: string, signerEmail: string): Promise<void> {
+  if (!signatureRequestId || !signerEmail) return;
+  const res = await fetch(`${API_BASE}/signature_request/remind/${encodeURIComponent(signatureRequestId)}`, {
+    method: 'POST',
+    headers: { Authorization: authHeader(), 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ email_address: signerEmail }),
+  });
+  if (!res.ok && res.status !== 404 && res.status !== 410) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`DropboxSign remind failed (${res.status}): ${text}`);
+  }
+}
+
+/**
  * Returns a pre-signed URL to download the fully-signed PDF (with audit trail).
  * Returns null if the request hasn't been signed yet or the file isn't ready.
  */

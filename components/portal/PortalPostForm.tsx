@@ -104,17 +104,25 @@ function PortalPostFormInner({
   const [previewMode, setPreviewMode] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [codeModalOpen, setCodeModalOpen] = useState(false);
-  const [useLocalhost, setUseLocalhost] = useState(false);
-  const [localPort, setLocalPort] = useState('3003');
-  const [hydrated, setHydrated] = useState(false);
+  const [useLocalhost, setUseLocalhost] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem('editor-use-localhost') === 'true';
+  });
+  const [localPort, setLocalPort] = useState<string>(() => {
+    if (typeof window === 'undefined') return '3003';
+    return localStorage.getItem('editor-local-port') || '3003';
+  });
   const [abError, setAbError] = useState<string | null>(null);
   // When the server-built siteUrl/publicUrl point at localhost (managed sites in
   // dev), substitute the actual browser origin. NEXT_PUBLIC_SITE_URL defaults to
   // http://localhost:3000, but the dev server may be running on another port
   // (e.g. 3001 if 3000 is held by another worktree). Without this swap, the
   // editor iframe loads nothing → blank canvas. window.location.origin is the
-  // source of truth at runtime.
-  const [originRewrite, setOriginRewrite] = useState<string | null>(null);
+  // source of truth at runtime. Captured via lazy init — safe because this
+  // component is client-only ('use client') and always renders in a browser.
+  const [originRewrite] = useState<string | null>(() =>
+    typeof window !== 'undefined' ? window.location.origin : null
+  );
 
   const contentTypes = useContentTypes(siteId);
 
@@ -139,29 +147,18 @@ function PortalPostFormInner({
     handleSubmit,
     savePost,
     formDataRef,
-    autosaveTimer,
+    autosaveTimer: autosaveTimerRef,
   } = usePostForm({ siteId, post, mode, editorMode, ydoc });
 
-  // Hydrate localhost-toggle from localStorage after mount to avoid SSR mismatch
+  // Persist localhost toggle to localStorage whenever it changes.
+  // Effects are client-only so no SSR guard needed.
   useEffect(() => {
-    setUseLocalhost(localStorage.getItem('editor-use-localhost') === 'true');
-    setLocalPort(localStorage.getItem('editor-local-port') || '3003');
-    // Capture the browser's real origin once mounted. We only ever rewrite when
-    // the server-built URL is a localhost URL — production / preview deployments
-    // keep their canonical siteUrl untouched.
-    setOriginRewrite(window.location.origin);
-    setHydrated(true);
-  }, []);
-
-  useEffect(() => {
-    if (!hydrated) return;
     localStorage.setItem('editor-use-localhost', String(useLocalhost));
-  }, [useLocalhost, hydrated]);
+  }, [useLocalhost]);
 
   useEffect(() => {
-    if (!hydrated) return;
     localStorage.setItem('editor-local-port', localPort);
-  }, [localPort, hydrated]);
+  }, [localPort]);
 
   // Notify layout to hide/show sidebar when preview mode changes
   useEffect(() => {
@@ -425,8 +422,8 @@ function PortalPostFormInner({
                   // sendCustomCodeUpdate effect — no manual save needed.
                   // Autosave persists the change without reloading the iframe
                   // (which would reset scroll + selection).
-                  if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
-                  autosaveTimer.current = setTimeout(() => { savePost('autosave'); }, 100);
+                  if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
+                  autosaveTimerRef.current = setTimeout(() => { savePost('autosave'); }, 100);
                 }}
               />
 

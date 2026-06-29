@@ -480,9 +480,22 @@ describe('GET /api/portal/settings/webhooks/[source]/[id]/deliveries', () => {
     expect(body.data).toEqual([]);
   });
 
-  it('site: returns empty data array (not implemented)', async () => {
+  it('site: returns 404 when webhook not found', async () => {
     authMock.mockResolvedValue(SESSION);
     getPortalClientMock.mockResolvedValue({ id: 5 });
+    selectQueue.push([]); // hook lookup empty
+    const res = await deliveriesRoute.GET(
+      makeReq('http://x/api/portal/settings/webhooks/site/3/deliveries'),
+      { params: Promise.resolve({ source: 'site', id: '3' }) },
+    );
+    expect(res.status).toBe(404);
+  });
+
+  it('site: returns empty delivery list when no deliveries exist', async () => {
+    authMock.mockResolvedValue(SESSION);
+    getPortalClientMock.mockResolvedValue({ id: 5 });
+    selectQueue.push([{ id: 3, clientId: 5 }]); // siteWebhooks row found
+    selectQueue.push([]); // siteWebhookDeliveries — no rows
     const res = await deliveriesRoute.GET(
       makeReq('http://x/api/portal/settings/webhooks/site/3/deliveries'),
       { params: Promise.resolve({ source: 'site', id: '3' }) },
@@ -629,16 +642,34 @@ describe('POST /api/portal/settings/webhooks/[source]/[id]/rotate', () => {
     expect(updateCalls[0].table).toBe('surveyWebhooks');
   });
 
-  it('site: returns 501 (not implemented)', async () => {
+  it('site: returns 404 when webhook not found', async () => {
     authMock.mockResolvedValue(SESSION);
     getPortalClientMock.mockResolvedValue({ id: 5 });
-    generateWebhookSecretMock.mockReturnValue('whsec_cccc');
+    generateWebhookSecretMock.mockReturnValue('whsec_ccccXXXX');
+    selectQueue.push([]); // hook not found
     const res = await rotateRoute.POST(
       makeReq('http://x/api/portal/settings/webhooks/site/3/rotate', { method: 'POST' }),
       { params: Promise.resolve({ source: 'site', id: '3' }) },
     );
-    expect(res.status).toBe(501);
-    expect((await res.json()).message).toMatch(/not implemented/i);
+    expect(res.status).toBe(404);
+  });
+
+  it('site: rotates secret and returns plaintext + last4', async () => {
+    authMock.mockResolvedValue(SESSION);
+    getPortalClientMock.mockResolvedValue({ id: 5 });
+    generateWebhookSecretMock.mockReturnValue('whsec_ccccccccMNOP');
+    selectQueue.push([{ id: 3, clientId: 5 }]); // siteWebhooks row found
+    const res = await rotateRoute.POST(
+      makeReq('http://x/api/portal/settings/webhooks/site/3/rotate', { method: 'POST' }),
+      { params: Promise.resolve({ source: 'site', id: '3' }) },
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.success).toBe(true);
+    expect(body.data.secret).toBe('whsec_ccccccccMNOP');
+    expect(body.data.secretLast4).toBe('MNOP');
+    expect(updateCalls).toHaveLength(1);
+    expect(updateCalls[0].table).toBe('siteWebhooks');
   });
 });
 

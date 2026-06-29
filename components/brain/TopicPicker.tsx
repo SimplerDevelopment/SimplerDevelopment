@@ -57,8 +57,10 @@ export default function TopicPicker({
   useEffect(() => {
     if (!open || topics !== null || loading) return;
     let cancelled = false;
-    setLoading(true);
-    setError(null);
+    queueMicrotask(() => {
+      setLoading(true);
+      setError(null);
+    });
     fetch('/api/portal/brain/topics?as=flat')
       .then((r) => r.json().catch(() => ({})))
       .then((json) => {

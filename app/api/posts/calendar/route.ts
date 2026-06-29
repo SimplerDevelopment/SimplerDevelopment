@@ -1,14 +1,50 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { posts } from '@/lib/db/schema';
 import { and, eq, sql } from 'drizzle-orm';
+import { resolvePortalSite } from '@/lib/portal-client';
 
 export async function GET(request: NextRequest) {
   try {
+    // Dual-audience: the ContentCalendar component calls this from BOTH the
+    // global admin panel and the per-tenant portal. Staff (admin/editor) may
+    // read across tenants; a portal user must scope to a website they own.
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 },
+      );
+    }
+    const role = (session.user as { role?: string }).role;
+    const isStaff = role === 'admin' || role === 'editor';
+
     const { searchParams } = new URL(request.url);
     const start = searchParams.get('start');
     const end = searchParams.get('end');
     const websiteId = searchParams.get('websiteId');
+
+    // A portal user cannot list across all tenants — they must request a
+    // specific website and must own it.
+    if (!isStaff) {
+      if (!websiteId) {
+        return NextResponse.json(
+          { success: false, error: 'Forbidden' },
+          { status: 403 },
+        );
+      }
+      const site = await resolvePortalSite(
+        parseInt(session.user.id, 10),
+        parseInt(websiteId),
+      );
+      if (!site) {
+        return NextResponse.json(
+          { success: false, error: 'Forbidden' },
+          { status: 403 },
+        );
+      }
+    }
 
     if (!start || !end) {
       return NextResponse.json(

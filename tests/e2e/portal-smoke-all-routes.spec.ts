@@ -36,19 +36,29 @@ const CLIENT_PASSWORD = 'client123';
  *  is shared across every test in this file because we run serial and reuse
  *  the same Playwright `page`. */
 async function loginAsClientInBrowser(page: Page) {
-  const csrfRes = await page.request.get('/api/auth/csrf');
-  const { csrfToken } = (await csrfRes.json()) as { csrfToken: string };
-  const signInRes = await page.request.post('/api/auth/callback/credentials', {
-    form: {
-      email: CLIENT_EMAIL,
-      password: CLIENT_PASSWORD,
-      csrfToken,
-      json: 'true',
-    },
-  });
-  if (signInRes.status() >= 400) {
-    throw new Error(`Browser login failed: ${signInRes.status()}`);
+  // Retry up to 3 times — on a cold dev server the auth endpoints can return
+  // 5xx transiently during the first parallel request batch, which would
+  // throw from beforeAll and fail every smoke test in 0ms.
+  let lastStatus = 0;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const csrfRes = await page.request.get('/api/auth/csrf');
+    if (csrfRes.status() >= 400) {
+      lastStatus = csrfRes.status();
+      continue;
+    }
+    const { csrfToken } = (await csrfRes.json()) as { csrfToken: string };
+    const signInRes = await page.request.post('/api/auth/callback/credentials', {
+      form: {
+        email: CLIENT_EMAIL,
+        password: CLIENT_PASSWORD,
+        csrfToken,
+        json: 'true',
+      },
+    });
+    lastStatus = signInRes.status();
+    if (lastStatus < 400) return;
   }
+  throw new Error(`Browser login failed after 3 attempts: last status ${lastStatus}`);
 }
 
 /** Filter out deprecation / dev-only noise that doesn't actually indicate a
@@ -81,6 +91,15 @@ function isIgnorableConsoleMsg(text: string): boolean {
   // narrow string match so any non-fetch ClientFetchError still trips the
   // smoke. Tracked in `.planning/qa-staging-2026-05-08.md` (B-AGENCY).
   if (lower.includes('clientfetcherror') && lower.includes('failed to fetch')) {
+    return true;
+  }
+  // Realtime-collab WebSocket connection failures. The live collab server
+  // (NEXT_PUBLIC_REALTIME_URL, default ws://localhost:3030) is a separate
+  // process that is NOT part of the e2e harness, so the deck/editor pages log
+  // a browser-level "WebSocket connection to ... failed: ERR_CONNECTION_REFUSED"
+  // on mount. That is an environmental gap, not an app bug — collab degrades
+  // gracefully without it. Narrow match so any other WS error still trips.
+  if (lower.includes('websocket connection to') && lower.includes('failed')) {
     return true;
   }
   return false;
@@ -188,8 +207,16 @@ async function smokeRoute(
     if (opts.allowDashboardRedirect) {
       const currentUrl = new URL(page.url());
       const path = currentUrl.pathname;
-      const validPath = path === route || path === '/portal/dashboard' || path.startsWith(route);
-      expect(validPath, `expected ${route} or /portal/dashboard, got ${path}`).toBe(true);
+      // An authenticated user hitting /portal/login is bounced to the portal —
+      // to the dashboard when onboarded, or to /portal/onboarding when not (the
+      // onboarding specs can leave client@example.com mid-wizard). All three are
+      // valid clean-load outcomes.
+      const validPath =
+        path === route ||
+        path === '/portal/dashboard' ||
+        path === '/portal/onboarding' ||
+        path.startsWith(route);
+      expect(validPath, `expected ${route}, /portal/dashboard or /portal/onboarding, got ${path}`).toBe(true);
     }
 
     await assertNoNextOverlay(page);

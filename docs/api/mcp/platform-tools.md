@@ -871,3 +871,301 @@ Mark a pending change as rejected. The staged mutation is **not** applied.
 |---|---|
 | Not found | `{ "error": "Pending change not found" }` |
 | Status is not `"pending"` | `{ "error": "Cannot reject — status is <status>" }` |
+
+---
+
+## Live Chat
+
+Tools in this section require the `chat:read` or `chat:write` scope. They manage the embeddable web chat widget: listing configured widgets, browsing conversation threads, reading message history, and replying as an agent. All data is scoped to your client account; individual conversation reads and writes verify ownership to prevent cross-tenant access.
+
+---
+
+### `chat_widgets_list`
+
+List all chat widgets configured for this client.
+
+- **Auth:** `chat:read`
+
+**Input fields:** None.
+
+**Response:**
+
+```json
+[
+  {
+    "id": 1,
+    "siteId": 7,
+    "enabled": true,
+    "greetingMessage": "Hi! How can we help?",
+    "position": "bottom-right",
+    "primaryColor": "#2563eb",
+    "createdAt": "2026-01-10T12:00:00.000Z"
+  }
+]
+```
+
+---
+
+### `chat_conversations_list`
+
+List chat conversations for this client, ordered by most recent message first.
+
+- **Auth:** `chat:read`
+
+**Input fields:**
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `widgetId` | number | No | Filter to a specific widget. |
+| `status` | `"open"` \| `"assigned"` \| `"closed"` | No | Filter by conversation status. |
+| `limit` | number | No | 1–100. Default `25`. |
+
+**Response:**
+
+```json
+[
+  {
+    "id": 55,
+    "widgetId": 1,
+    "visitorName": "Jane Smith",
+    "visitorEmail": "jane@example.com",
+    "status": "open",
+    "lastMessageAt": "2026-06-04T14:22:00.000Z"
+  }
+]
+```
+
+---
+
+### `chat_conversations_get`
+
+Fetch a single chat conversation and its full message history. Verifies the conversation belongs to the authenticated client.
+
+- **Auth:** `chat:read`
+
+**Input fields:**
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `id` | number | Yes | Conversation ID. |
+
+**Response:**
+
+```json
+{
+  "id": 55,
+  "widgetId": 1,
+  "visitorName": "Jane Smith",
+  "visitorEmail": "jane@example.com",
+  "status": "open",
+  "messages": [
+    {
+      "id": 101,
+      "authorKind": "visitor",
+      "authorName": "Jane Smith",
+      "body": "Hi, I need help with my order.",
+      "occurredAt": "2026-06-04T14:20:00.000Z"
+    },
+    {
+      "id": 102,
+      "authorKind": "agent",
+      "authorName": null,
+      "body": "Happy to help! What's your order number?",
+      "occurredAt": "2026-06-04T14:21:00.000Z"
+    }
+  ]
+}
+```
+
+**Errors:**
+
+| Condition | Response |
+|---|---|
+| Not found or wrong tenant | `{ "error": "Conversation not found or access denied." }` |
+
+---
+
+### `chat_conversation_reply`
+
+Send an agent reply into a visitor chat conversation. Verifies ownership before inserting. Updates `lastMessageAt` on the conversation.
+
+- **Auth:** `chat:write`
+
+**Input fields:**
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `conversationId` | number | Yes | ID of the conversation to reply to. |
+| `body` | string | Yes | Message body text (min 1 character). |
+
+**Response:**
+
+```json
+{ "messageId": 103 }
+```
+
+**Errors:**
+
+| Condition | Response |
+|---|---|
+| Conversation not found or wrong tenant | `{ "error": "Conversation not found or access denied." }` |
+
+---
+
+### `chat_conversation_update`
+
+Update the status and/or assigned user of a conversation. Closing a conversation stamps `closedAt`. Verifies ownership before updating.
+
+- **Auth:** `chat:write`
+
+**Input fields:**
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `id` | number | Yes | Conversation ID. |
+| `status` | `"open"` \| `"assigned"` \| `"closed"` | No | New status. Setting `"closed"` stamps `closedAt`. |
+| `assignedUserId` | number \| null | No | User ID to assign, or `null` to unassign. |
+
+**Response:**
+
+```json
+{ "id": 55, "status": "closed" }
+```
+
+**Errors:**
+
+| Condition | Response |
+|---|---|
+| Conversation not found or wrong tenant | `{ "error": "Conversation not found or access denied." }` |
+
+---
+
+## Notifications
+
+Tools in this section manage the in-app notification inbox for the **authenticated portal user**. Unlike most other tools, notifications are keyed by `userId` (not `clientId`) — every query is scoped to the user who owns the API key, not the broader client account.
+
+---
+
+### `notifications_list`
+
+List in-app notifications for the authenticated user, ordered newest first.
+
+- **Auth:** `notifications:read`
+
+**Input fields:**
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `unreadOnly` | boolean | No | When `true`, return only unread notifications. |
+| `limit` | number | No | 1–100. Default `25`. |
+
+**Response:**
+
+```json
+[
+  {
+    "id": 201,
+    "kind": "booking_confirmed",
+    "title": "New booking confirmed",
+    "body": "Jane Smith booked a 30-min Consultation for June 10.",
+    "readAt": null,
+    "createdAt": "2026-06-04T09:00:00.000Z"
+  }
+]
+```
+
+---
+
+### `notifications_mark_read`
+
+Mark a single notification (by `id`) or all unread notifications as read. Exactly one of `id` or `all: true` must be provided.
+
+- **Auth:** `notifications:write`
+
+**Input fields:**
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `id` | number | No | ID of a specific notification to mark read. |
+| `all` | boolean | No | When `true`, mark ALL unread notifications read. |
+
+> Provide exactly one of `id` or `all: true`. Providing neither or both returns an error.
+
+**Response:**
+
+```json
+{ "updated": 1 }
+```
+
+**Errors:**
+
+| Condition | Response |
+|---|---|
+| Neither or both params provided | `{ "error": "Provide exactly one of id or all:true." }` |
+
+---
+
+## Usage
+
+The usage tool surfaces your own MCP tool-call and token-spend history. It requires `billing:read` and is scoped to the authenticated client — you cannot view another tenant's usage.
+
+---
+
+### `usage_get`
+
+Return this client's MCP tool-call and token-spend summary for the past N days. Covers total calls, errors, error rate, token consumption, and estimated cost.
+
+- **Auth:** `billing:read`
+
+**Input fields:**
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `days` | number | No | Look-back window in days. 1–90. Default `7`. |
+
+**Response:**
+
+```json
+{
+  "days": 7,
+  "totalCalls": 342,
+  "totalErrors": 4,
+  "errorRate": 0.0117,
+  "totalTokens": 28400,
+  "estCostUsd": 0.14
+}
+```
+
+---
+
+## Booking Analytics
+
+### `booking_analytics_get`
+
+Return booking performance aggregates for the client over a look-back window: paid booking count, cancelled count, revenue (broken down into base booking revenue and add-on revenue), total guests, and average booking value. All figures are client-scoped.
+
+- **Auth:** `bookings:read`
+
+**Input fields:**
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `days` | number | No | Look-back window in days. 1–365. Default `30`. |
+
+**Response:**
+
+```json
+{
+  "days": 30,
+  "bookingCount": 48,
+  "cancelledCount": 3,
+  "totalRevenue": 720000,
+  "bookingRevenue": 660000,
+  "addOnRevenue": 60000,
+  "totalGuests": 52,
+  "averageBookingValue": 15000,
+  "totalInWindow": 51
+}
+```
+
+> All monetary values are in **cents**. `bookingCount` counts only paid or free bookings; `totalInWindow` counts every booking (including cancelled) created in the window.

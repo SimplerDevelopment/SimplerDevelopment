@@ -1,9 +1,9 @@
 /**
  * Unit coverage for the AI plan-gate. Mocks DB queries to drive the three
  * tiers (Starter / Growth / Scale) plus the BYOK presence check, then asserts
- * the verdict matches the brief:
+ * the verdict matches the brief (post "BYOK inversion"):
  *
- *   - Starter without BYOK → blocked
+ *   - Starter without BYOK → allowed (platform AI; BYOK is Scale-only option)
  *   - Starter with BYOK    → allowed
  *   - Growth, Scale        → allowed regardless
  *   - Unknown tier         → allowed (legacy fallthrough)
@@ -60,33 +60,32 @@ describe('checkAiPlanGate', () => {
     queue.length = 0;
   });
 
-  it('blocks Starter tier without BYOK', async () => {
+  it('allows Starter tier without BYOK (platform AI covers all paid tiers)', async () => {
     pushQueue(
       // tier query
       [{ slug: 'tier-starter', usageLimits: { tier: 'starter' } }],
       // hasAnyByok
       [],
-      // hasByokForProvider (anthropic)
-      [],
     );
 
     const verdict = await checkAiPlanGate({ clientId: 1, provider: 'anthropic' });
-    expect(verdict.allowed).toBe(false);
+    expect(verdict.allowed).toBe(true);
     expect(verdict.tier).toBe('starter');
-    expect(verdict.reason).toBe('starter_requires_byok');
-    expect(verdict.message).toMatch(/Starter tier/);
+    // Post-inversion: no blocking reason is ever set
+    expect(verdict.reason).toBeUndefined();
+    expect(verdict.message).toBeUndefined();
   });
 
   it('allows Starter tier when BYOK key for the provider exists', async () => {
     pushQueue(
       [{ slug: 'tier-starter', usageLimits: { tier: 'starter' } }],
       [{ id: 1 }], // has any
-      [{ id: 1 }], // has provider
     );
 
     const verdict = await checkAiPlanGate({ clientId: 1, provider: 'anthropic' });
     expect(verdict.allowed).toBe(true);
     expect(verdict.tier).toBe('starter');
+    expect(verdict.hasAnyByok).toBe(true);
   });
 
   it('allows Growth tier even without BYOK', async () => {

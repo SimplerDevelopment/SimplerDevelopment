@@ -14,21 +14,101 @@
  *     are first-class citizens of the same registry
  *
  * The list of expected tool names is locked in by
- * `tests/integration/api/mcp-tool-registry-baseline.test.ts` — that test
+ * `tests/unit/mcp-tool-registry-baseline.test.ts` — that test
  * fails if any registration drifts.
  */
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { PortalMcpContext } from '@/lib/mcp-auth';
 import { allToolRegistrars } from './tools';
+import { logAgentAction, hashParams } from '@/lib/audit/agent-action-log';
 
 export function buildMcpServer(ctx: PortalMcpContext): McpServer {
   const server = new McpServer(
     { name: 'simplerdevelopment-portal', version: '0.1.0' },
     {
-      capabilities: { tools: {}, resources: {} },
+      capabilities: { tools: {}, resources: {}, prompts: {} },
       instructions: `You are connected to the SimplerDevelopment portal for client "${ctx.client.company ?? `#${ctx.client.id}`}" (id ${ctx.client.id}). Use these tools to manage projects, tickets, CRM, content, media, websites, and email campaigns. All operations are automatically scoped to this client.`,
     },
   );
+
+  // ── Audit-log wrapper ────────────────────────────────────────────────────
+  // Shadow server.registerTool on this instance so every handler registered
+  // by the per-domain registrars is automatically timed and audit-logged.
+  // We intercept only the callback (third argument); name and config pass
+  // through untouched so the MCP SDK sees exactly what it expects.
+  //
+  // Uses `unknown[]` rest args + a cast to avoid fighting the SDK's overloaded
+  // generic registerTool signature while still being type-safe at the seam we
+  // own (name: string, cb: the last arg).
+  const originalRegisterTool = server.registerTool.bind(server);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (server as any).registerTool = (...args: unknown[]) => {
+    const toolName = args[0] as string;
+    // The callback is always the last argument.
+    const origCb = args[args.length - 1] as (...cbArgs: unknown[]) => Promise<unknown>;
+
+    const wrappedCb = async (...cbArgs: unknown[]): Promise<unknown> => {
+      const start = Date.now();
+      // First arg to the callback is the validated input object.
+      const inputArg = cbArgs[0] ?? {};
+      let outcome: 'success' | 'denied' | 'error' = 'success';
+      let errorMessage: string | null = null;
+      let callResult: unknown;
+
+      try {
+        callResult = await origCb(...cbArgs);
+        // Treat a result carrying `isError: true` (MCP SDK error envelope) as error.
+        if (
+          callResult !== null &&
+          typeof callResult === 'object' &&
+          (callResult as Record<string, unknown>).isError === true
+        ) {
+          outcome = 'error';
+          const content = (callResult as Record<string, unknown>).content;
+          if (Array.isArray(content) && content.length > 0) {
+            errorMessage = String((content[0] as Record<string, unknown>).text ?? '');
+          }
+        }
+      } catch (err) {
+        outcome = 'error';
+        errorMessage = err instanceof Error ? err.message : String(err);
+        void logAgentAction({
+          clientId: ctx.client.id,
+          userId: ctx.userId ?? null,
+          source: 'mcp',
+          tool: toolName,
+          paramsHash: hashParams(inputArg),
+          outcome,
+          errorMessage,
+          keyId: ctx.keyId ?? null,
+          durationMs: Date.now() - start,
+        });
+        throw err;
+      }
+
+      void logAgentAction({
+        clientId: ctx.client.id,
+        userId: ctx.userId ?? null,
+        source: 'mcp',
+        tool: toolName,
+        paramsHash: hashParams(inputArg),
+        outcome,
+        errorMessage,
+        keyId: ctx.keyId ?? null,
+        durationMs: Date.now() - start,
+      });
+
+      return callResult;
+    };
+
+    const wrappedArgs = [...args.slice(0, args.length - 1), wrappedCb];
+    // Cast to a rest-param fn: `Parameters<typeof originalRegisterTool>` collapses
+    // to a non-tuple for the SDK's overloaded registerTool signature, which makes
+    // the spread itself a type error. A `(...a: unknown[])` shape accepts the
+    // spread cleanly while preserving the return type.
+    const register = originalRegisterTool as (...a: unknown[]) => ReturnType<typeof originalRegisterTool>;
+    return register(...wrappedArgs);
+  };
 
   // Walk the per-domain registrars in the order declared by the barrel.
   // Each registrar applies its own `hasScope(ctx.scopes, ...)` gate, so a

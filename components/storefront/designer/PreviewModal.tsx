@@ -197,7 +197,7 @@ export default function PreviewModal({
   // re-appears instead of showing the prior tint's image.
   useEffect(() => {
     if (!open) return;
-    setPreviews({});
+    queueMicrotask(() => setPreviews({}));
   }, [open, mockupTint]);
 
   // "All colours" capture pass — runs once when the customer first flips

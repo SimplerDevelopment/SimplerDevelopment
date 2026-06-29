@@ -13,6 +13,7 @@ import { emitEvent } from '@/lib/automation';
 import { notifyAllClientUsers } from '@/lib/crm/notifications';
 import { buildCustomFieldFilters } from '@/lib/crm-custom-field-filter';
 import { validateCrmName } from '@/lib/crm/parse';
+import { hasServiceAccess } from '@/lib/portal-auth';
 
 export async function GET(req: NextRequest) {
   const session = await auth();
@@ -136,7 +137,7 @@ export async function GET(req: NextRequest) {
 
   // Fetch tags for these contacts
   const contactIds = contacts.map((c) => c.id);
-  let contactTagsMap: Record<number, { id: number; name: string; color: string | null }[]> = {};
+  const contactTagsMap: Record<number, { id: number; name: string; color: string | null }[]> = {};
   if (contactIds.length > 0) {
     const tagRows = await db
       .select({
@@ -186,6 +187,21 @@ export async function POST(req: Request) {
       { status: 404 }
     );
 
+  // Paid-module gate: CRM writes require an active CRM (or bundle) subscription.
+  // Mirrors the MCP layer's requireService(clientId, 'crm') so the REST surface
+  // can't be used to sidestep entitlement.
+  if (!(await hasServiceAccess(client.id, 'crm'))) {
+    return NextResponse.json(
+      {
+        success: false,
+        message: 'This feature requires an active crm subscription.',
+        requiresService: 'crm',
+        upsellUrl: '/portal/services',
+      },
+      { status: 403 }
+    );
+  }
+
   const body = await req.json();
 
   if (!body.firstName?.trim()) {
@@ -225,6 +241,32 @@ export async function POST(req: Request) {
     );
   }
 
+  // Validate tag ownership BEFORE inserting the contact so a foreign tag can't
+  // be linked (cross-tenant pollution) and we don't leave an orphan contact on
+  // rejection. Every supplied tagId must belong to this client.
+  let requestedTagIds: number[] = [];
+  if (body.tagIds && Array.isArray(body.tagIds) && body.tagIds.length > 0) {
+    requestedTagIds = [
+      ...new Set(
+        body.tagIds
+          .map((t: unknown) => Number(t))
+          .filter((n: number) => Number.isInteger(n))
+      ),
+    ] as number[];
+    if (requestedTagIds.length > 0) {
+      const ownedTags = await db
+        .select({ id: crmTags.id })
+        .from(crmTags)
+        .where(and(inArray(crmTags.id, requestedTagIds), eq(crmTags.clientId, client.id)));
+      if (ownedTags.length !== requestedTagIds.length) {
+        return NextResponse.json(
+          { success: false, message: 'One or more tags do not belong to this client' },
+          { status: 400 }
+        );
+      }
+    }
+  }
+
   const [contact] = await db
     .insert(crmContacts)
     .values({
@@ -245,10 +287,10 @@ export async function POST(req: Request) {
     })
     .returning();
 
-  // Attach tags if provided
-  if (body.tagIds && Array.isArray(body.tagIds) && body.tagIds.length > 0) {
+  // Attach tags if provided (ownership already validated above).
+  if (requestedTagIds.length > 0) {
     await db.insert(crmContactTags).values(
-      body.tagIds.map((tagId: number) => ({
+      requestedTagIds.map((tagId) => ({
         contactId: contact.id,
         tagId,
       }))

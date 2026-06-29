@@ -24,6 +24,16 @@ vi.mock('@/lib/portal-client', () => ({
   getPortalRole: (...args: unknown[]) => getPortalRoleMock(...args),
 }));
 
+const authorizePortalMock = vi.fn();
+vi.mock('@/lib/portal-auth', () => ({
+  authorizePortal: (...args: unknown[]) => authorizePortalMock(...args),
+  isAuthError: (r: unknown) => 'response' in (r as Record<string, unknown>),
+}));
+
+vi.mock('@/lib/mcp-auth', () => ({
+  resolvePortalFromCurrentRequest: async () => null,
+}));
+
 const applyPendingChangeMock = vi.fn();
 vi.mock('@/lib/mcp/approvals', () => ({
   applyPendingChange: (...args: unknown[]) => applyPendingChangeMock(...args),
@@ -174,6 +184,7 @@ beforeEach(() => {
   authMock.mockReset();
   getPortalClientMock.mockReset();
   getPortalRoleMock.mockReset();
+  authorizePortalMock.mockReset();
   applyPendingChangeMock.mockReset();
   revalidatePathMock.mockReset();
   vi.restoreAllMocks();
@@ -185,7 +196,12 @@ beforeEach(() => {
 
 describe('GET /api/portal/approvals', () => {
   it('returns 401 without a session', async () => {
-    authMock.mockResolvedValue(null);
+    authorizePortalMock.mockResolvedValue({
+      response: new Response(JSON.stringify({ success: false, message: 'Unauthorized' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    });
     const res = await approvalsRoute.GET(makeReq('http://x/api/portal/approvals'));
     expect(res.status).toBe(401);
     const body = await res.json();
@@ -194,14 +210,23 @@ describe('GET /api/portal/approvals', () => {
   });
 
   it('returns 401 when session user has no id', async () => {
-    authMock.mockResolvedValue({ user: {} });
+    authorizePortalMock.mockResolvedValue({
+      response: new Response(JSON.stringify({ success: false, message: 'Unauthorized' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    });
     const res = await approvalsRoute.GET(makeReq('http://x/api/portal/approvals'));
     expect(res.status).toBe(401);
   });
 
   it('returns 404 when portal client missing', async () => {
-    authMock.mockResolvedValue(SESSION);
-    getPortalClientMock.mockResolvedValue(null);
+    authorizePortalMock.mockResolvedValue({
+      response: new Response(JSON.stringify({ success: false, message: 'Client not found' }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    });
     const res = await approvalsRoute.GET(makeReq('http://x/api/portal/approvals'));
     expect(res.status).toBe(404);
     const body = await res.json();
@@ -209,8 +234,7 @@ describe('GET /api/portal/approvals', () => {
   });
 
   it('returns count only when count=true and default status pending', async () => {
-    authMock.mockResolvedValue(SESSION);
-    getPortalClientMock.mockResolvedValue({ id: 11 });
+    authorizePortalMock.mockResolvedValue({ client: { id: 11 }, userId: 7, role: 'viewer' });
     selectQueue.push([{ count: 3 }]);
     const res = await approvalsRoute.GET(
       makeReq('http://x/api/portal/approvals?count=true'),
@@ -219,13 +243,10 @@ describe('GET /api/portal/approvals', () => {
     const body = await res.json();
     expect(body.success).toBe(true);
     expect(body.data).toEqual({ count: 3 });
-    // getPortalRole shouldn't be called in count mode
-    expect(getPortalRoleMock).not.toHaveBeenCalled();
   });
 
   it('returns count for a custom status when count=true&status=applied', async () => {
-    authMock.mockResolvedValue(SESSION);
-    getPortalClientMock.mockResolvedValue({ id: 11 });
+    authorizePortalMock.mockResolvedValue({ client: { id: 11 }, userId: 7, role: 'viewer' });
     selectQueue.push([{ count: 7 }]);
     const res = await approvalsRoute.GET(
       makeReq('http://x/api/portal/approvals?count=true&status=applied'),
@@ -236,8 +257,7 @@ describe('GET /api/portal/approvals', () => {
   });
 
   it('returns rows + meta when not count mode', async () => {
-    authMock.mockResolvedValue(SESSION);
-    getPortalClientMock.mockResolvedValue({ id: 22 });
+    authorizePortalMock.mockResolvedValue({ client: { id: 22 }, userId: 7, role: 'owner' });
     selectQueue.push([
       {
         id: 1,
@@ -257,7 +277,6 @@ describe('GET /api/portal/approvals', () => {
         createdAt: '2026-01-01T00:00:00Z',
       },
     ]);
-    getPortalRoleMock.mockResolvedValue('owner');
     const res = await approvalsRoute.GET(
       makeReq('http://x/api/portal/approvals?status=pending&entityType=page'),
     );
@@ -269,10 +288,8 @@ describe('GET /api/portal/approvals', () => {
   });
 
   it('sets canManage=false when role is viewer', async () => {
-    authMock.mockResolvedValue(SESSION);
-    getPortalClientMock.mockResolvedValue({ id: 22 });
+    authorizePortalMock.mockResolvedValue({ client: { id: 22 }, userId: 7, role: 'viewer' });
     selectQueue.push([]);
-    getPortalRoleMock.mockResolvedValue('viewer');
     const res = await approvalsRoute.GET(makeReq('http://x/api/portal/approvals'));
     expect(res.status).toBe(200);
     const body = await res.json();
@@ -280,10 +297,8 @@ describe('GET /api/portal/approvals', () => {
   });
 
   it('sets canManage=true when role is admin', async () => {
-    authMock.mockResolvedValue(SESSION);
-    getPortalClientMock.mockResolvedValue({ id: 22 });
+    authorizePortalMock.mockResolvedValue({ client: { id: 22 }, userId: 7, role: 'admin' });
     selectQueue.push([]);
-    getPortalRoleMock.mockResolvedValue('admin');
     const res = await approvalsRoute.GET(makeReq('http://x/api/portal/approvals'));
     expect(res.status).toBe(200);
     const body = await res.json();
@@ -297,7 +312,12 @@ describe('GET /api/portal/approvals', () => {
 
 describe('GET /api/portal/approvals/[id]', () => {
   it('returns 401 without a session', async () => {
-    authMock.mockResolvedValue(null);
+    authorizePortalMock.mockResolvedValue({
+      response: new Response(JSON.stringify({ success: false, message: 'Unauthorized' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    });
     const res = await approvalsIdRoute.GET(makeReq('http://x/api/portal/approvals/5'), {
       params: Promise.resolve({ id: '5' }),
     });
@@ -305,8 +325,12 @@ describe('GET /api/portal/approvals/[id]', () => {
   });
 
   it('returns 404 when portal client missing', async () => {
-    authMock.mockResolvedValue(SESSION);
-    getPortalClientMock.mockResolvedValue(null);
+    authorizePortalMock.mockResolvedValue({
+      response: new Response(JSON.stringify({ success: false, message: 'Client not found' }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    });
     const res = await approvalsIdRoute.GET(makeReq('http://x/api/portal/approvals/5'), {
       params: Promise.resolve({ id: '5' }),
     });
@@ -316,8 +340,7 @@ describe('GET /api/portal/approvals/[id]', () => {
   });
 
   it('returns 404 when no row found', async () => {
-    authMock.mockResolvedValue(SESSION);
-    getPortalClientMock.mockResolvedValue({ id: 3 });
+    authorizePortalMock.mockResolvedValue({ client: { id: 3 }, userId: 7, role: 'viewer' });
     selectQueue.push([]); // no rows
     const res = await approvalsIdRoute.GET(makeReq('http://x/api/portal/approvals/77'), {
       params: Promise.resolve({ id: '77' }),
@@ -328,8 +351,7 @@ describe('GET /api/portal/approvals/[id]', () => {
   });
 
   it('returns the row joined with key + user when found', async () => {
-    authMock.mockResolvedValue(SESSION);
-    getPortalClientMock.mockResolvedValue({ id: 3 });
+    authorizePortalMock.mockResolvedValue({ client: { id: 3 }, userId: 7, role: 'viewer' });
     selectQueue.push([
       {
         change: { id: 77, clientId: 3, entityType: 'page', status: 'pending' },
@@ -356,7 +378,12 @@ describe('GET /api/portal/approvals/[id]', () => {
 
 describe('POST /api/portal/approvals/bulk-approve', () => {
   it('returns 401 without a session', async () => {
-    authMock.mockResolvedValue(null);
+    authorizePortalMock.mockResolvedValue({
+      response: new Response(JSON.stringify({ success: false, message: 'Unauthorized' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    });
     const res = await bulkApproveRoute.POST(
       makePostReq('http://x/api/portal/approvals/bulk-approve', { ids: [1] }),
     );
@@ -364,8 +391,12 @@ describe('POST /api/portal/approvals/bulk-approve', () => {
   });
 
   it('returns 404 when portal client missing', async () => {
-    authMock.mockResolvedValue(SESSION);
-    getPortalClientMock.mockResolvedValue(null);
+    authorizePortalMock.mockResolvedValue({
+      response: new Response(JSON.stringify({ success: false, message: 'Client not found' }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    });
     const res = await bulkApproveRoute.POST(
       makePostReq('http://x/api/portal/approvals/bulk-approve', { ids: [1] }),
     );
@@ -373,21 +404,25 @@ describe('POST /api/portal/approvals/bulk-approve', () => {
   });
 
   it('returns 403 when role is viewer', async () => {
-    authMock.mockResolvedValue(SESSION);
-    getPortalClientMock.mockResolvedValue({ id: 9 });
-    getPortalRoleMock.mockResolvedValue('viewer');
+    authorizePortalMock.mockResolvedValue({
+      response: new Response(
+        JSON.stringify({
+          success: false,
+          message: 'Permission denied. Your role (viewer) cannot manage team or billing settings.',
+        }),
+        { status: 403, headers: { 'Content-Type': 'application/json' } },
+      ),
+    });
     const res = await bulkApproveRoute.POST(
       makePostReq('http://x/api/portal/approvals/bulk-approve', { ids: [1] }),
     );
     expect(res.status).toBe(403);
     const body = await res.json();
-    expect(body.message).toMatch(/owners and admins/i);
+    expect(body.message).toMatch(/Permission denied|manage team or billing/i);
   });
 
   it('returns 400 when ids is empty or missing', async () => {
-    authMock.mockResolvedValue(SESSION);
-    getPortalClientMock.mockResolvedValue({ id: 9 });
-    getPortalRoleMock.mockResolvedValue('owner');
+    authorizePortalMock.mockResolvedValue({ client: { id: 9 }, userId: 7, role: 'owner' });
     const res = await bulkApproveRoute.POST(
       makePostReq('http://x/api/portal/approvals/bulk-approve', { ids: [] }),
     );
@@ -397,9 +432,7 @@ describe('POST /api/portal/approvals/bulk-approve', () => {
   });
 
   it('returns 400 when ids exceeds MAX_BATCH (25)', async () => {
-    authMock.mockResolvedValue(SESSION);
-    getPortalClientMock.mockResolvedValue({ id: 9 });
-    getPortalRoleMock.mockResolvedValue('owner');
+    authorizePortalMock.mockResolvedValue({ client: { id: 9 }, userId: 7, role: 'owner' });
     const ids = Array.from({ length: 26 }, (_, i) => i + 1);
     const res = await bulkApproveRoute.POST(
       makePostReq('http://x/api/portal/approvals/bulk-approve', { ids }),
@@ -410,9 +443,7 @@ describe('POST /api/portal/approvals/bulk-approve', () => {
   });
 
   it('handles malformed JSON body as empty ids -> 400', async () => {
-    authMock.mockResolvedValue(SESSION);
-    getPortalClientMock.mockResolvedValue({ id: 9 });
-    getPortalRoleMock.mockResolvedValue('owner');
+    authorizePortalMock.mockResolvedValue({ client: { id: 9 }, userId: 7, role: 'owner' });
     const res = await bulkApproveRoute.POST(
       makePostReq('http://x/api/portal/approvals/bulk-approve', '{not-json'),
     );
@@ -420,9 +451,7 @@ describe('POST /api/portal/approvals/bulk-approve', () => {
   });
 
   it('applies pending changes, skips not-found and non-pending', async () => {
-    authMock.mockResolvedValue(SESSION);
-    getPortalClientMock.mockResolvedValue({ id: 9 });
-    getPortalRoleMock.mockResolvedValue('admin');
+    authorizePortalMock.mockResolvedValue({ client: { id: 9 }, userId: 7, role: 'admin' });
     // Two changes found, id=1 pending (apply OK), id=2 already applied (skipped).
     // id=3 will be "not found".
     selectQueue.push([
@@ -458,9 +487,7 @@ describe('POST /api/portal/approvals/bulk-approve', () => {
   });
 
   it('marks an item as failed and updates with errorMessage when applyPendingChange throws', async () => {
-    authMock.mockResolvedValue(SESSION);
-    getPortalClientMock.mockResolvedValue({ id: 9 });
-    getPortalRoleMock.mockResolvedValue('owner');
+    authorizePortalMock.mockResolvedValue({ client: { id: 9 }, userId: 7, role: 'owner' });
     selectQueue.push([{ id: 1, clientId: 9, status: 'pending', payload: {} }]);
     applyPendingChangeMock.mockRejectedValue(new Error('boom'));
     const res = await bulkApproveRoute.POST(
@@ -480,9 +507,7 @@ describe('POST /api/portal/approvals/bulk-approve', () => {
   });
 
   it('filters non-number ids out (e.g. strings)', async () => {
-    authMock.mockResolvedValue(SESSION);
-    getPortalClientMock.mockResolvedValue({ id: 9 });
-    getPortalRoleMock.mockResolvedValue('owner');
+    authorizePortalMock.mockResolvedValue({ client: { id: 9 }, userId: 7, role: 'owner' });
     const res = await bulkApproveRoute.POST(
       makePostReq('http://x/api/portal/approvals/bulk-approve', { ids: ['1', '2'] }),
     );
@@ -492,9 +517,7 @@ describe('POST /api/portal/approvals/bulk-approve', () => {
   });
 
   it('still returns 200 even if revalidatePath throws', async () => {
-    authMock.mockResolvedValue(SESSION);
-    getPortalClientMock.mockResolvedValue({ id: 9 });
-    getPortalRoleMock.mockResolvedValue('owner');
+    authorizePortalMock.mockResolvedValue({ client: { id: 9 }, userId: 7, role: 'owner' });
     selectQueue.push([{ id: 1, clientId: 9, status: 'pending', payload: {} }]);
     applyPendingChangeMock.mockResolvedValue(undefined);
     revalidatePathMock.mockImplementation(() => {
@@ -515,7 +538,12 @@ describe('POST /api/portal/approvals/bulk-approve', () => {
 
 describe('POST /api/portal/approvals/bulk-reject', () => {
   it('returns 401 without a session', async () => {
-    authMock.mockResolvedValue(null);
+    authorizePortalMock.mockResolvedValue({
+      response: new Response(JSON.stringify({ success: false, message: 'Unauthorized' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    });
     const res = await bulkRejectRoute.POST(
       makePostReq('http://x/api/portal/approvals/bulk-reject', { ids: [1] }),
     );
@@ -523,8 +551,12 @@ describe('POST /api/portal/approvals/bulk-reject', () => {
   });
 
   it('returns 404 when portal client missing', async () => {
-    authMock.mockResolvedValue(SESSION);
-    getPortalClientMock.mockResolvedValue(null);
+    authorizePortalMock.mockResolvedValue({
+      response: new Response(JSON.stringify({ success: false, message: 'Client not found' }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    });
     const res = await bulkRejectRoute.POST(
       makePostReq('http://x/api/portal/approvals/bulk-reject', { ids: [1] }),
     );
@@ -532,9 +564,15 @@ describe('POST /api/portal/approvals/bulk-reject', () => {
   });
 
   it('returns 403 when role is viewer', async () => {
-    authMock.mockResolvedValue(SESSION);
-    getPortalClientMock.mockResolvedValue({ id: 12 });
-    getPortalRoleMock.mockResolvedValue('viewer');
+    authorizePortalMock.mockResolvedValue({
+      response: new Response(
+        JSON.stringify({
+          success: false,
+          message: 'Permission denied. Your role (viewer) cannot manage team or billing settings.',
+        }),
+        { status: 403, headers: { 'Content-Type': 'application/json' } },
+      ),
+    });
     const res = await bulkRejectRoute.POST(
       makePostReq('http://x/api/portal/approvals/bulk-reject', { ids: [1] }),
     );
@@ -542,9 +580,7 @@ describe('POST /api/portal/approvals/bulk-reject', () => {
   });
 
   it('returns 400 when ids is empty', async () => {
-    authMock.mockResolvedValue(SESSION);
-    getPortalClientMock.mockResolvedValue({ id: 12 });
-    getPortalRoleMock.mockResolvedValue('owner');
+    authorizePortalMock.mockResolvedValue({ client: { id: 12 }, userId: 7, role: 'owner' });
     const res = await bulkRejectRoute.POST(
       makePostReq('http://x/api/portal/approvals/bulk-reject', { ids: [] }),
     );
@@ -552,9 +588,7 @@ describe('POST /api/portal/approvals/bulk-reject', () => {
   });
 
   it('returns 400 when ids exceeds MAX_BATCH', async () => {
-    authMock.mockResolvedValue(SESSION);
-    getPortalClientMock.mockResolvedValue({ id: 12 });
-    getPortalRoleMock.mockResolvedValue('owner');
+    authorizePortalMock.mockResolvedValue({ client: { id: 12 }, userId: 7, role: 'owner' });
     const ids = Array.from({ length: 100 }, (_, i) => i + 1);
     const res = await bulkRejectRoute.POST(
       makePostReq('http://x/api/portal/approvals/bulk-reject', { ids }),
@@ -565,9 +599,7 @@ describe('POST /api/portal/approvals/bulk-reject', () => {
   });
 
   it('handles malformed JSON as empty ids -> 400', async () => {
-    authMock.mockResolvedValue(SESSION);
-    getPortalClientMock.mockResolvedValue({ id: 12 });
-    getPortalRoleMock.mockResolvedValue('owner');
+    authorizePortalMock.mockResolvedValue({ client: { id: 12 }, userId: 7, role: 'owner' });
     const res = await bulkRejectRoute.POST(
       makePostReq('http://x/api/portal/approvals/bulk-reject', '{not-json'),
     );
@@ -575,9 +607,7 @@ describe('POST /api/portal/approvals/bulk-reject', () => {
   });
 
   it('rejects pending changes and skips non-pending / not-found', async () => {
-    authMock.mockResolvedValue(SESSION);
-    getPortalClientMock.mockResolvedValue({ id: 12 });
-    getPortalRoleMock.mockResolvedValue('admin');
+    authorizePortalMock.mockResolvedValue({ client: { id: 12 }, userId: 7, role: 'admin' });
     selectQueue.push([
       { id: 1, status: 'pending' },
       { id: 2, status: 'applied' },
@@ -608,9 +638,7 @@ describe('POST /api/portal/approvals/bulk-reject', () => {
   });
 
   it('skips the bulk update when no items are eligible', async () => {
-    authMock.mockResolvedValue(SESSION);
-    getPortalClientMock.mockResolvedValue({ id: 12 });
-    getPortalRoleMock.mockResolvedValue('owner');
+    authorizePortalMock.mockResolvedValue({ client: { id: 12 }, userId: 7, role: 'owner' });
     // All not-found or non-pending -> nothing to reject
     selectQueue.push([{ id: 2, status: 'rejected' }]);
     const res = await bulkRejectRoute.POST(
@@ -625,9 +653,7 @@ describe('POST /api/portal/approvals/bulk-reject', () => {
   });
 
   it('uses note=null when no note provided', async () => {
-    authMock.mockResolvedValue(SESSION);
-    getPortalClientMock.mockResolvedValue({ id: 12 });
-    getPortalRoleMock.mockResolvedValue('owner');
+    authorizePortalMock.mockResolvedValue({ client: { id: 12 }, userId: 7, role: 'owner' });
     selectQueue.push([{ id: 1, status: 'pending' }]);
     const res = await bulkRejectRoute.POST(
       makePostReq('http://x/api/portal/approvals/bulk-reject', { ids: [1] }),

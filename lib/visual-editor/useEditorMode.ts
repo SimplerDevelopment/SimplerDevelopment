@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { isValidOrigin, isVisualEditorMessage, sendToParent } from './protocol';
 import { PARENT_MESSAGES, IFRAME_MESSAGES } from '@/types/visual-editor';
 import type { Block, PageSettings } from '@/types/blocks';
@@ -32,14 +32,18 @@ interface EditorState {
 const MAX_HISTORY = 50;
 
 export function useEditorMode() {
-  const [state, setState] = useState<EditorState>({
-    active: false,
-    blocks: [],
-    selectedBlockId: null,
-    selectedBlockIds: [],
-    hoveredBlockId: null,
-    externalDrag: { active: false, blockType: null, x: 0, y: 0 },
-    typeTemplate: null,
+  const [state, setState] = useState<EditorState>(() => {
+    const active = typeof window !== 'undefined' &&
+      new URLSearchParams(window.location.search).get('_edit') === 'true';
+    return {
+      active,
+      blocks: [],
+      selectedBlockId: null,
+      selectedBlockIds: [],
+      hoveredBlockId: null,
+      externalDrag: { active: false, blockType: null, x: 0, y: 0 },
+      typeTemplate: null,
+    };
   });
 
   // Undo/redo history
@@ -47,7 +51,9 @@ export function useEditorMode() {
   const futureRef = useRef<Block[][]>([]);
   // Ref to current blocks so the stable message handler can access them
   const blocksRef = useRef<Block[]>(state.blocks);
-  blocksRef.current = state.blocks;
+  useLayoutEffect(() => {
+    blocksRef.current = state.blocks;
+  });
   // Track drag/slider sessions so only one history entry is created per
   // continuous interaction. Used by both iframe-originated drag handlers
   // (resize, margin/padding handles) and parent-originated coalesced updates
@@ -63,19 +69,23 @@ export function useEditorMode() {
     dragSessionRef.current = null;
   }, []);
 
+  const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
+
   const pushHistory = useCallback((blocks: Block[]) => {
     historyRef.current = [...historyRef.current.slice(-MAX_HISTORY), blocks];
     futureRef.current = [];
+    setCanUndo(true);
+    setCanRedo(false);
   }, []);
-
-  const canUndo = historyRef.current.length > 0;
-  const canRedo = futureRef.current.length > 0;
 
   const undo = useCallback(() => {
     if (historyRef.current.length === 0) return;
     const prev = historyRef.current[historyRef.current.length - 1];
     historyRef.current = historyRef.current.slice(0, -1);
     futureRef.current = [...futureRef.current, state.blocks];
+    setCanUndo(historyRef.current.length > 0);
+    setCanRedo(true);
     // Close any in-flight drag session so the next user edit starts a fresh
     // history entry rather than collapsing into the just-undone batch.
     endDragSession();
@@ -88,6 +98,8 @@ export function useEditorMode() {
     const next = futureRef.current[futureRef.current.length - 1];
     futureRef.current = futureRef.current.slice(0, -1);
     historyRef.current = [...historyRef.current, state.blocks];
+    setCanUndo(true);
+    setCanRedo(futureRef.current.length > 0);
     endDragSession();
     setState((s) => ({ ...s, blocks: next }));
     sendToParent(IFRAME_MESSAGES.BLOCKS_REORDERED, { blocks: next });
@@ -96,8 +108,10 @@ export function useEditorMode() {
   // Store undo/redo in refs so the message handler can call them
   const undoRef = useRef(undo);
   const redoRef = useRef(redo);
-  undoRef.current = undo;
-  redoRef.current = redo;
+  useLayoutEffect(() => {
+    undoRef.current = undo;
+    redoRef.current = redo;
+  });
 
   // Broadcast undo/redo availability to parent
   const prevCanUndo = useRef(false);
@@ -118,9 +132,7 @@ export function useEditorMode() {
     const params = new URLSearchParams(window.location.search);
     if (params.get('_edit') !== 'true') return;
 
-    // We're in edit mode inside an iframe
-    setState((s) => ({ ...s, active: true }));
-
+    // We're in edit mode inside an iframe — active is set via lazy useState init
     function handleMessage(event: MessageEvent) {
       if (!isValidOrigin(event.origin)) return;
       if (!isVisualEditorMessage(event.data)) return;
@@ -153,6 +165,8 @@ export function useEditorMode() {
                 dragSessionRef.current = currentBlocks;
                 historyRef.current = [...historyRef.current.slice(-MAX_HISTORY), currentBlocks];
                 futureRef.current = [];
+                setCanUndo(true);
+                setCanRedo(false);
               }
               if (dragTimerRef.current) clearTimeout(dragTimerRef.current);
               dragTimerRef.current = setTimeout(() => {
@@ -171,6 +185,8 @@ export function useEditorMode() {
               dragSessionRef.current = null;
               historyRef.current = [...historyRef.current.slice(-MAX_HISTORY), currentBlocks];
               futureRef.current = [];
+              setCanUndo(true);
+              setCanRedo(false);
             }
           }
           setState((s) => ({ ...s, blocks }));

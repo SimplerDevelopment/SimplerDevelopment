@@ -84,8 +84,12 @@ export default function CrmCustomFieldsAdmin() {
   }
 
   useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    void (async () => {
+      const res = await fetch(`/api/portal/crm/custom-fields?entityType=${entityType}`);
+      const d = await res.json();
+      setFields(d.data ?? []);
+      setLoading(false);
+    })();
   }, [entityType]);
 
   function resetCreateForm() {

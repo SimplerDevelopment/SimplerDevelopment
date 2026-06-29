@@ -325,5 +325,5 @@ test.describe('Brain Decisions — browser flow @brain @brain-decisions-ui', () 
   // transitions; the visual layer is covered by Wave 3a's UI tests.
   // TODO(brain-restructure-phase2): add data-testid hooks + a browser
   // fixture and light this up.
-  test.skip('record → list → detail → edit → reject in the portal UI', () => {});
+  test.skip('record → list → detail → edit → reject in the portal UI', 'TODO(brain-restructure-phase2): placeholder pending data-testid hooks on decisions list/detail/edit components and a fixture to dismiss the window.confirm "Reject decision" dialog; API-level coverage above exercises the same state transitions in the interim', () => {});
 });

@@ -1,6 +1,8 @@
 // Portal tools: pitch decks, booking pages and bookings, gift certificates, and Google Workspace / Zoom integrations.
 
-import { pgTable, serial, varchar, text, timestamp, boolean, integer, json, jsonb, index, uniqueIndex } from 'drizzle-orm/pg-core';
+import { pgTable, serial, varchar, text, timestamp, boolean, integer, bigint, json, jsonb, index, uniqueIndex } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
+import { encryptedText } from './columns';
 import { portalApiKeys, users } from './auth';
 import { clientWebsites, clients } from './sites';
 import { brandingProfiles } from './cms';
@@ -102,7 +104,7 @@ export interface PitchDeckDecisionOption {
 export interface PitchDeckDecisionCover {
   /** Logo image URL — rendered above the wordmark. Optional. */
   logo?: string;
-  /** Small uppercase wordmark text (e.g. "CY STRATEGIES"). Has a bullet dot prefix. */
+  /** Small uppercase wordmark text (e.g. "ACME INC"). Has a bullet dot prefix. */
   wordmark?: string;
   /** Eyebrow line ("MARKETING STRATEGY CONSULTANT") */
   eyebrow?: string;
@@ -207,6 +209,19 @@ export const pitchDecks = pgTable('pitch_decks', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
+// Viewer analytics on shared decks — one row per tracked event from the public
+// presenter. slideIndex=null is a deck-open; non-null is a per-slide dwell.
+export const pitchDeckViews = pgTable('pitch_deck_views', {
+  id: serial('id').primaryKey(),
+  deckId: integer('deck_id').notNull().references(() => pitchDecks.id, { onDelete: 'cascade' }),
+  sessionId: varchar('session_id', { length: 100 }), // anonymous viewer session
+  slideIndex: integer('slide_index'), // null = deck open/view
+  dwellMs: integer('dwell_ms'), // time-on-slide, when reported
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => ({
+  deckIdx: index('pitch_deck_views_deck_idx').on(t.deckId, t.createdAt),
+}));
+
 export const pitchDeckVersions = pgTable('pitch_deck_versions', {
   id: serial('id').primaryKey(),
   deckId: integer('deck_id').notNull().references(() => pitchDecks.id, { onDelete: 'cascade' }),
@@ -310,6 +325,9 @@ export const bookingPages = pgTable('booking_pages', {
   // 'group' — one slot accepts multiple attendees (capped by groupCapacity).
   bookingType: varchar('booking_type', { length: 20 }).default('individual').notNull(),
   groupCapacity: integer('group_capacity'), // null when bookingType = 'individual'
+  // Reschedule settings (Phase 1)
+  rescheduleEnabled: boolean('reschedule_enabled').default(true).notNull(),
+  rescheduleWindowHours: integer('reschedule_window_hours').default(24).notNull(),
   createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
@@ -361,6 +379,13 @@ export const bookings = pgTable('bookings', {
   assignedUserId: integer('assigned_user_id').references(() => users.id, { onDelete: 'set null' }),
   // Capacity
   groupSize: integer('group_size').default(1).notNull(),
+  // True only for 1:1 (individual) booking pages: marks this slot as exclusive
+  // so the partial unique index below rejects a second concurrent confirmed
+  // booking at the same (page, start_time). Group/class bookings stay false —
+  // multiple bookings per slot are intentional there (capacity checked
+  // separately). Defaults false so the index can be added to a populated table
+  // without touching existing rows; new 1:1 bookings set it true at insert.
+  slotExclusive: boolean('slot_exclusive').default(false).notNull(),
   // Payment
   subtotal: integer('subtotal').default(0).notNull(), // cents
   discountTotal: integer('discount_total').default(0).notNull(),
@@ -379,6 +404,11 @@ export const bookings = pgTable('bookings', {
   // pre-booking nudge to the guest. NULL = no reminder sent yet. The cron
   // is idempotent: it only picks rows where this column is NULL.
   reminderSentAt: timestamp('reminder_sent_at'),
+  // Reschedule support (Phase 1)
+  rescheduleToken: varchar('reschedule_token', { length: 64 }).unique(),
+  previousStartTime: timestamp('previous_start_time'),
+  previousEndTime: timestamp('previous_end_time'),
+  rescheduleCount: integer('reschedule_count').default(0).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (t) => [
@@ -387,6 +417,14 @@ export const bookings = pgTable('bookings', {
   index('bookings_client_idx').on(t.clientId),
   index('bookings_booking_page_idx').on(t.bookingPageId),
   index('bookings_start_status_idx').on(t.startTime, t.status),
+  // Concurrency guard: at most one non-cancelled booking per (page, start_time)
+  // on exclusive (1:1) slots. Closes the check-then-insert double-booking race
+  // that a SELECT-then-INSERT cannot — two simultaneous requests both pass the
+  // availability SELECT, but the DB rejects the second INSERT (23505 → 409).
+  // Group slots (slotExclusive=false) are excluded.
+  uniqueIndex('bookings_exclusive_slot_idx')
+    .on(t.bookingPageId, t.startTime)
+    .where(sql`${t.status} <> 'cancelled' AND ${t.slotExclusive}`),
 ]);
 
 // ─── BOOKING ATTENDEES (group / class bookings) ───────────────────────────
@@ -411,8 +449,8 @@ export type NewBookingAttendee = typeof bookingAttendees.$inferInsert;
 export const googleCalendarTokens = pgTable('google_calendar_tokens', {
   id: serial('id').primaryKey(),
   clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }).unique(),
-  accessToken: text('access_token').notNull(),
-  refreshToken: text('refresh_token').notNull(),
+  accessToken: encryptedText('access_token').notNull(),
+  refreshToken: encryptedText('refresh_token').notNull(),
   expiresAt: timestamp('expires_at').notNull(),
   calendarId: varchar('calendar_id', { length: 255 }).default('primary').notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
@@ -428,8 +466,8 @@ export const googleWorkspaceClientConnections = pgTable('google_workspace_client
   clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }).unique(),
   googleAccountEmail: varchar('google_account_email', { length: 320 }).notNull(),
   googleAccountId: varchar('google_account_id', { length: 64 }).notNull(),
-  accessToken: text('access_token').notNull(),
-  refreshToken: text('refresh_token').notNull(),
+  accessToken: encryptedText('access_token').notNull(),
+  refreshToken: encryptedText('refresh_token').notNull(),
   expiresAt: timestamp('expires_at').notNull(),
   scopes: jsonb('scopes').$type<string[]>().notNull().default([]),
   syncSettings: jsonb('sync_settings').$type<{
@@ -452,8 +490,8 @@ export const googleWorkspaceUserConnections = pgTable('google_workspace_user_con
   userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   googleAccountEmail: varchar('google_account_email', { length: 320 }).notNull(),
   googleAccountId: varchar('google_account_id', { length: 64 }).notNull(),
-  accessToken: text('access_token').notNull(),
-  refreshToken: text('refresh_token').notNull(),
+  accessToken: encryptedText('access_token').notNull(),
+  refreshToken: encryptedText('refresh_token').notNull(),
   expiresAt: timestamp('expires_at').notNull(),
   scopes: jsonb('scopes').$type<string[]>().notNull().default([]),
   syncSettings: jsonb('sync_settings').$type<{
@@ -548,8 +586,8 @@ export const microsoftTeamsUserConnections = pgTable('microsoft_teams_user_conne
   // referencing the user across token refreshes and tenant changes.
   microsoftUserId: varchar('microsoft_user_id', { length: 64 }).notNull(),
   microsoftAccountEmail: varchar('microsoft_account_email', { length: 320 }).notNull(),
-  accessToken: text('access_token').notNull(),
-  refreshToken: text('refresh_token').notNull(),
+  accessToken: encryptedText('access_token').notNull(),
+  refreshToken: encryptedText('refresh_token').notNull(),
   expiresAt: timestamp('expires_at').notNull(),
   scopes: jsonb('scopes').$type<string[]>().notNull().default([]),
   // Graph change-notification subscription state. Subscriptions for transcripts
@@ -576,11 +614,87 @@ export type MicrosoftTeamsUserConnection = typeof microsoftTeamsUserConnections.
 
 export type NewMicrosoftTeamsUserConnection = typeof microsoftTeamsUserConnections.$inferInsert;
 
+// ─── LINKEDIN (Phase A: personal-profile posting) ────────────────────────────
+// Per-user delegated OAuth grant for posting to the connected member's own
+// LinkedIn profile via the `w_member_social` scope ("Share on LinkedIn").
+// Mirrors microsoftTeamsUserConnections in shape, multi-tenant by (clientId,
+// userId). DIVERGENCE from the google/microsoft user tables: the access +
+// refresh tokens are stored ENCRYPTED at rest (AES-256-GCM via
+// lib/crypto/secrets.ts encryptSecret/decryptSecret) — these are long-lived
+// posting tokens, so we don't keep them plaintext. Company-page (organization)
+// posting needs w_organization_social + Community Management API partner
+// approval and is intentionally out of scope here.
+export const linkedinUserConnections = pgTable('linkedin_user_connections', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  // The author URN we post as, e.g. `urn:li:person:<id>` (from OIDC /userinfo `sub`).
+  memberUrn: varchar('member_urn', { length: 128 }).notNull(),
+  linkedinName: varchar('linkedin_name', { length: 320 }),
+  // AES-256-GCM ciphertext (see lib/crypto/secrets.ts). Never store plaintext.
+  accessTokenEncrypted: text('access_token_encrypted').notNull(),
+  refreshTokenEncrypted: text('refresh_token_encrypted'),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  refreshTokenExpiresAt: timestamp('refresh_token_expires_at', { withTimezone: true }),
+  scopes: jsonb('scopes').$type<string[]>().notNull().default([]),
+  revokedAt: timestamp('revoked_at', { withTimezone: true }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => ({
+  clientUserUnique: uniqueIndex('linkedin_user_connections_client_user_unique').on(table.clientId, table.userId),
+}));
+
+export type LinkedinUserConnection = typeof linkedinUserConnections.$inferSelect;
+
+export type NewLinkedinUserConnection = typeof linkedinUserConnections.$inferInsert;
+
+// Draft → scheduled → published pipeline for LinkedIn posts. Mirrors the
+// emailCampaigns draft/scheduled shape. The 5-min `process-linkedin-posts`
+// cron scans (status='scheduled' AND scheduled_at <= now()). scheduled_at /
+// published_at are timestamptz (cron-time columns — see lib/db/CLAUDE.md).
+export const linkedinPosts = pgTable('linkedin_posts', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  // The connected user whose profile this publishes to (resolves the OAuth grant).
+  userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  // LinkedIn post body cap is 3000 chars.
+  text: varchar('text', { length: 3000 }).notNull(),
+  mediaType: varchar('media_type', { length: 16 }).$type<'none' | 'image' | 'document' | 'video'>().notNull().default('none'),
+  // Source asset (S3) to upload to LinkedIn at publish time.
+  mediaUrl: text('media_url'),
+  // LinkedIn asset URN after upload registration.
+  mediaAssetUrn: text('media_asset_urn'),
+  // Optional link to drop in the first comment (never the body — reach hygiene).
+  linkInComment: text('link_in_comment'),
+  status: varchar('status', { length: 16 })
+    .$type<'draft' | 'scheduled' | 'publishing' | 'published' | 'failed'>()
+    .notNull()
+    .default('draft'),
+  scheduledAt: timestamp('scheduled_at', { withTimezone: true }),
+  publishedAt: timestamp('published_at', { withTimezone: true }),
+  // The URN/id LinkedIn returns for the created post.
+  linkedinPostId: text('linkedin_post_id'),
+  permalink: text('permalink'),
+  error: text('error'),
+  createdByUserId: integer('created_by_user_id').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => ({
+  // Cron scan: due scheduled posts.
+  statusScheduledIdx: index('linkedin_posts_status_scheduled_idx').on(table.status, table.scheduledAt),
+  // Tenant-scoped listing.
+  clientIdx: index('linkedin_posts_client_idx').on(table.clientId),
+}));
+
+export type LinkedinPost = typeof linkedinPosts.$inferSelect;
+
+export type NewLinkedinPost = typeof linkedinPosts.$inferInsert;
+
 export const zoomTokens = pgTable('zoom_tokens', {
   id: serial('id').primaryKey(),
   clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }).unique(),
-  accessToken: text('access_token').notNull(),
-  refreshToken: text('refresh_token').notNull(),
+  accessToken: encryptedText('access_token').notNull(),
+  refreshToken: encryptedText('refresh_token').notNull(),
   expiresAt: timestamp('expires_at').notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
@@ -743,10 +857,13 @@ export const mcpToolCallDailyRollups = pgTable('mcp_tool_call_daily_rollups', {
   callCount: integer('call_count').default(0).notNull(),
   successCount: integer('success_count').default(0).notNull(),
   errorCount: integer('error_count').default(0).notNull(),
-  totalRequestBytes: integer('total_request_bytes').default(0).notNull(),
-  totalResponseBytes: integer('total_response_bytes').default(0).notNull(),
-  totalEstimatedTokens: integer('total_estimated_tokens').default(0).notNull(),
-  totalDurationMs: integer('total_duration_ms').default(0).notNull(),
+  // bigint: per-day accumulators sum across every call for a (client, tool);
+  // a busy tool overflows int4 (~2.1B) over long windows. mode:'number' keeps
+  // the JS surface a number (safe < 2^53) so rollup/usage-stats need no change.
+  totalRequestBytes: bigint('total_request_bytes', { mode: 'number' }).default(0).notNull(),
+  totalResponseBytes: bigint('total_response_bytes', { mode: 'number' }).default(0).notNull(),
+  totalEstimatedTokens: bigint('total_estimated_tokens', { mode: 'number' }).default(0).notNull(),
+  totalDurationMs: bigint('total_duration_ms', { mode: 'number' }).default(0).notNull(),
   p95ResponseBytes: integer('p95_response_bytes').default(0).notNull(),
   p95EstimatedTokens: integer('p95_estimated_tokens').default(0).notNull(),
   p95DurationMs: integer('p95_duration_ms').default(0).notNull(),

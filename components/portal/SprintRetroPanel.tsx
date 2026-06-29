@@ -35,7 +35,6 @@ export default function SprintRetroPanel({ sprintId, sprintName }: { sprintId: n
   const [creatingRetro, setCreatingRetro] = useState(false);
 
   const load = async () => {
-    setLoading(true);
     try {
       const res = await fetch(`/api/portal/sprints/${sprintId}/retro`);
       const json = await res.json();

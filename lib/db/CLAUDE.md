@@ -2,12 +2,12 @@
 
 Drizzle ORM schema + DB client. **All data access flows through here.**
 
-> Token budget: keep this file <80 lines. Body in `@DATABASE.md`.
+> Token budget: keep this file <80 lines. Body in `@docs/guides/DATABASE.md`.
 
 ## Layout
 
 - `index.ts` — DB client (singleton; Postgres + Drizzle).
-- `schema/` — domain modules (one file per area: `auth`, `sites`, `cms`, `crm`, `pm`, `brain`, `store`, `email`, `surveys`, `tools`, `billing`, `approvals`, `audit`, `collab`, `trigger-links`, `ab`, `snapshots`, `workflows`, `chat`, `cronHealth`, `agenticOs`, `plugins`, `magamommy`).
+- `schema/` — domain modules (one file per area: `auth`, `sites`, `cms`, `crm`, `pm`, `brain`, `store`, `email`, `surveys`, `tools`, `billing`, `approvals`, `audit`, `collab`, `trigger-links`, `ab`, `snapshots`, `workflows`, `chat`, `cronHealth`, `agenticOs`, `plugins`).
 - `schema/index.ts` — public barrel. **Import from `@/lib/db/schema`, never from a specific module.**
 
 ## Migration workflow (load-bearing — break and prod 500s)
@@ -28,9 +28,10 @@ Drizzle ORM schema + DB client. **All data access flows through here.**
 - In `sql\`\`` correlated subqueries, **hard-code `table.column` for outer refs**. `${table.col}` interpolation emits unqualified column names and silently returns 0. (See memory `feedback_drizzle_correlated_subqueries`.)
 - `brain_embeddings`: the TABLE is declared in `lib/db/schema/brain.ts` (added so push won't drop it — we lost it once and recovered from a prod dump). But its pgvector **HNSW index** is NOT in schema (managed via `drizzle/0061_brain_embeddings.sql`) — drizzle-kit can't reconcile HNSW indexes, so `drizzle-kit push --force` silently drops the index. Never run `--force` against a DB with real brain data; use journaled `bun run db:migrate`.
 - The Drizzle migration tracker is currently out-of-sync with disk in prod. `bun run db:migrate` against prod fails; schema changes are hand-applied. (See memory `project_sd2026_drizzle_tracker_drift`.)
+- **Never hand-`ALTER TABLE` or add a runtime TZ workaround without first editing `schema/<domain>.ts` + running `bun run db:generate`.** DDL the schema file doesn't describe is invisible to drizzle-kit and has shipped real drift (`api_keys.key` 64 vs 255 in PG; `next_run_at` left as `timestamp` not `timestamptz`). Tenant-time / cron columns must be `timestamptz`. If you must hot-patch prod DDL, open the matching schema edit + generated migration in the SAME PR.
 
 ## Pointers
 
-- `@DATABASE.md` — schema docs + posts/categories/tags REST API
+- `@docs/guides/DATABASE.md` — schema docs + posts/categories/tags REST API
 - `drizzle.config.ts` — driver config
 - `tests/integration/` — tenancy + integration tests

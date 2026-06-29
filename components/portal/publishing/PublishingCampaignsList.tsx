@@ -45,8 +45,16 @@ export default function PublishingCampaignsList({
   useEffect(() => {
     // On mount, re-fetch to ensure the page mirrors any change made on a
     // different tab. Cheap; the server-rendered list is the initial state.
-    refresh();
-  }, [refresh]);
+    void (async () => {
+      try {
+        const r = await fetch('/api/portal/publishing/campaigns');
+        const json = await r.json();
+        if (r.ok && json.success) setCampaigns(json.data);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to refresh');
+      }
+    })();
+  }, []);
 
   const onSaved = useCallback(async () => {
     setEditing(null);

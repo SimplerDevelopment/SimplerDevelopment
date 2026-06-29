@@ -14,6 +14,9 @@ export const posts = pgTable('posts', {
   coverImage: varchar('cover_image', { length: 500 }),
   published: boolean('published').default(false).notNull(),
   publishedAt: timestamp('published_at'),
+  // Scheduled auto-publish: when set + in the past, process-scheduled-posts cron
+  // flips published=true and clears this. Null = not scheduled.
+  scheduledPublishAt: timestamp('scheduled_publish_at'),
   // SEO fields
   seoTitle: varchar('seo_title', { length: 255 }),
   seoDescription: text('seo_description'),

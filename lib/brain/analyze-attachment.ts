@@ -9,21 +9,23 @@
  *
  * Bytes are pulled from R2 via the email-inbound Worker's signed-URL
  * endpoint, so this module needs no R2 credentials of its own.
+ *
+ * Uses the provider-agnostic `complete` seam (task: 'analyzeAttachment'),
+ * so the model can be swapped via the registry / `AI_MODEL__analyzeAttachment`
+ * env without touching this file.
  */
 
-import Anthropic from '@anthropic-ai/sdk';
 import { createHmac } from 'crypto';
+import type { ModelMessage } from 'ai';
 import { assertSafeUrl } from '@/lib/ssrf-guard';
-import { resolveClientApiKey } from '@/lib/ai/resolve-client-key';
 import { recordAiUsage } from '@/lib/ai/audit';
+import { complete } from '@/lib/ai/llm';
 
 const ATTACHMENT_WORKER_URL = process.env.BRAIN_ATTACHMENT_WORKER_URL
   || 'https://sd-email-inbound.lingering-bush-dcd7.workers.dev';
 const INBOUND_SECRET = process.env.INBOUND_EMAIL_SECRET || '';
 const SIGNED_URL_TTL_SECONDS = 120;
 const MAX_BYTES = 5 * 1024 * 1024; // Claude's per-file input cap is ~5MB
-
-const ANALYZER_MODEL = 'claude-haiku-4-5-20251001';
 
 export interface AttachmentLike {
   key: string;
@@ -85,79 +87,62 @@ export async function analyzeAttachment(att: AttachmentLike, clientId?: number):
     return null;
   }
 
+  // Fall back to a sentinel clientId (0) when none provided; the seam's
+  // resolveClientApiKey will use the platform key for clientId=0.
+  const effectiveClientId = typeof clientId === 'number' ? clientId : 0;
+
   const bytes = await fetchBytes(signedUrl(att.key));
 
   const systemPrompt = 'You analyze files attached to business meetings. Respond with a single dense paragraph (3–5 sentences max) describing what the file is, what it contains, and why it might be relevant in a business context. Do not include preamble like "this file is" — just describe it directly. Do not use markdown.';
 
   const userText = `Filename: ${att.filename}\nContent-Type: ${att.contentType}\nSize: ${(att.size / 1024).toFixed(0)} KB`;
 
-  let content: Anthropic.MessageParam['content'];
+  // Build a provider-agnostic ModelMessage using AI SDK's FilePart for
+  // binary content (images/PDFs) or a plain text prompt for text files.
+  let messages: ModelMessage[] | undefined;
+  let prompt: string | undefined;
 
-  if (isImage(att.contentType)) {
-    content = [
-      { type: 'text', text: userText },
-      {
-        type: 'image',
-        source: {
-          type: 'base64',
-          media_type: att.contentType as 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp',
-          data: bytes.toString('base64'),
-        },
-      },
-    ];
-  } else if (isPdf(att.contentType)) {
-    content = [
-      { type: 'text', text: userText },
-      {
-        type: 'document',
-        source: {
-          type: 'base64',
-          media_type: 'application/pdf',
-          data: bytes.toString('base64'),
-        },
-      },
-    ];
-  } else {
+  if (isText(att.contentType)) {
     // Text-like — decode and inline. Trim aggressively so the prompt isn't
     // dominated by the file body (Claude can summarize long text fine, but
     // we don't want to spend tokens on huge logs/CSVs).
     const text = bytes.toString('utf8').slice(0, 50_000);
-    content = `${userText}\n\n--- file content ---\n${text}`;
-  }
-
-  // Resolve which key to use. If no clientId is provided (legacy callers /
-  // system jobs), fall through to the platform key with a synthetic resolver
-  // call that lets the audit table still record `source='platform'`.
-  let apiKey: string;
-  let source: 'byok' | 'platform' = 'platform';
-  if (typeof clientId === 'number') {
-    const resolved = await resolveClientApiKey({ clientId, provider: 'anthropic' });
-    apiKey = resolved.key;
-    source = resolved.source;
+    prompt = `${userText}\n\n--- file content ---\n${text}`;
   } else {
-    if (!process.env.ANTHROPIC_API_KEY) {
-      throw new Error('ANTHROPIC_API_KEY is not set and no clientId was provided.');
-    }
-    apiKey = process.env.ANTHROPIC_API_KEY;
+    // Image or PDF — send as a file part so the provider can use native
+    // vision / document understanding. The AI SDK's @ai-sdk/anthropic adapter
+    // converts file parts with image/* mediaType to Anthropic image blocks and
+    // application/pdf to document blocks automatically.
+    messages = [
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: userText },
+          {
+            type: 'file',
+            mediaType: att.contentType as `image/${string}` | 'application/pdf',
+            // AI SDK accepts Uint8Array or base64 string for DataContent
+            data: bytes.toString('base64'),
+            filename: att.filename,
+          },
+        ],
+      },
+    ];
   }
-  const anthropic = new Anthropic({ apiKey });
 
-  const response = await anthropic.messages.create({
-    model: ANALYZER_MODEL,
-    max_tokens: 400,
+  const result = await complete({
+    task: 'analyzeAttachment',
+    clientId: effectiveClientId,
+    maxTokens: 400,
     system: systemPrompt,
-    messages: [{ role: 'user', content }],
+    ...(messages !== undefined ? { messages } : { prompt: prompt ?? '' }),
   });
 
-  const text = response.content
-    .filter((b): b is Anthropic.TextBlock => b.type === 'text')
-    .map(b => b.text)
-    .join('\n')
-    .trim();
+  const text = result.text.trim();
+  const tokensUsed = (result.usage?.inputTokens ?? 0) + (result.usage?.outputTokens ?? 0);
 
-  const tokensUsed = (response.usage.input_tokens ?? 0) + (response.usage.output_tokens ?? 0);
   if (typeof clientId === 'number') {
-    void recordAiUsage({ clientId, source, tokens: tokensUsed });
+    void recordAiUsage({ clientId, source: 'platform', tokens: tokensUsed });
   }
 
   return {

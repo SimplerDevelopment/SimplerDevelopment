@@ -273,7 +273,7 @@ function applyStylePatches(slide: PitchDeckSlideV2, patches: StylePatch[]): Pitc
     const b = block as unknown as Record<string, unknown>;
     const patch = patchMap.get(b.id as string);
 
-    let updated = { ...b };
+    const updated = { ...b };
     if (patch) {
       if (patch.style) {
         updated.style = { ...(b.style as Record<string, unknown> || {}), ...patch.style };
@@ -323,7 +323,7 @@ function applyContentPatches(
     const b = block as unknown as Record<string, unknown>;
     const patch = patchMap.get(b.id as string);
 
-    let updated = { ...b };
+    const updated = { ...b };
     if (patch) {
       // Merge all content fields from the patch (excluding id)
       for (const [key, val] of Object.entries(patch)) {

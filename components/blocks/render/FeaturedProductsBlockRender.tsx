@@ -4,6 +4,7 @@ import { FeaturedProductsBlock } from '@/types/blocks';
 import { useEffect, useState } from 'react';
 import { getElementCSS } from '@/lib/utils/elementStyles';
 import { useBranding } from '@/contexts/BrandingContext';
+import { formatMoney } from '@/lib/utils/money';
 
 interface Product {
   id: number;
@@ -59,10 +60,6 @@ export function FeaturedProductsBlockRender({ block, siteId }: FeaturedProductsB
     3: 'md:grid-cols-2 lg:grid-cols-3',
     4: 'md:grid-cols-2 lg:grid-cols-4',
   };
-
-  function formatPrice(cents: number) {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100);
-  }
 
   return (
     <section>
@@ -130,10 +127,10 @@ export function FeaturedProductsBlockRender({ block, siteId }: FeaturedProductsB
                     </h3>
                     {block.showPrice !== false && (
                       <div className="flex items-center gap-2">
-                        <span className="font-bold text-xl">{formatPrice(product.price)}</span>
+                        <span className="font-bold text-xl">{formatMoney(product.price)}</span>
                         {product.compareAtPrice && product.compareAtPrice > product.price && (
                           <span className="text-sm text-muted-foreground line-through">
-                            {formatPrice(product.compareAtPrice)}
+                            {formatMoney(product.compareAtPrice)}
                           </span>
                         )}
                       </div>

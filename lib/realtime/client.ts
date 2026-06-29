@@ -230,7 +230,11 @@ export function useRealtimeDoc(
 
   const [status, setStatus] = useState<RealtimeStatus>('disconnected');
   const [peers, setPeers] = useState<PeerSnapshot[]>([]);
-  const [, forceTick] = useState(0);
+  const [docSnapshot, setDocSnapshot] = useState<{
+    ydoc: Y.Doc | null;
+    provider: WebsocketProvider | null;
+    awareness: Awareness | null;
+  }>({ ydoc: null, provider: null, awareness: null });
 
   // Track entity changes — recreate the client when entity flips.
   useEffect(() => {
@@ -241,12 +245,19 @@ export function useRealtimeDoc(
     const offStatus = c.onStatus(setStatus);
     void c.connect().catch(() => {});
 
-    forceTick((n) => n + 1); // surface the new doc/provider to consumers
+    // Surface the new doc/provider/awareness to consumers via state so
+    // useMemo below doesn't need to read the ref during render.
+    queueMicrotask(() => {
+      setDocSnapshot({ ydoc: c.doc, provider: c.wsProvider, awareness: c.awareness });
+    });
 
     return () => {
       offStatus();
       c.destroy();
       if (clientRef.current === c) clientRef.current = null;
+      queueMicrotask(() => {
+        setDocSnapshot({ ydoc: null, provider: null, awareness: null });
+      });
     };
   }, [opts.entityType, opts.entityId, enabled]);
 
@@ -282,13 +293,13 @@ export function useRealtimeDoc(
 
   return useMemo(
     () => ({
-      ydoc: clientRef.current?.doc ?? null,
-      provider: clientRef.current?.wsProvider ?? null,
-      awareness: clientRef.current?.awareness ?? null,
+      ydoc: docSnapshot.ydoc,
+      provider: docSnapshot.provider,
+      awareness: docSnapshot.awareness,
       status,
       peers,
     }),
-    [status, peers]
+    [docSnapshot, status, peers]
   );
 }
 

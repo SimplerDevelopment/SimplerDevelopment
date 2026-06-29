@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { formatBytes } from '@/lib/utils/bytes';
 
 interface MediaItem {
   id: number;
@@ -73,12 +74,6 @@ export default function MediaDetailModal({
     alert('URL copied to clipboard');
   };
 
-  const formatFileSize = (bytes: number) => {
-    if (bytes < 1024) return bytes + ' B';
-    if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
-    return (bytes / 1048576).toFixed(1) + ' MB';
-  };
-
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-card rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
@@ -119,7 +114,7 @@ export default function MediaDetailModal({
               <span className="font-medium">Type:</span> {media.mimeType}
             </div>
             <div>
-              <span className="font-medium">Size:</span> {formatFileSize(media.fileSize)}
+              <span className="font-medium">Size:</span> {formatBytes(media.fileSize)}
             </div>
             {media.width && media.height && (
               <div>

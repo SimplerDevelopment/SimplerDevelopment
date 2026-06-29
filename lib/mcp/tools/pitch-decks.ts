@@ -7,7 +7,7 @@
  */
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import { and, desc, eq, ilike, inArray, isNull, or, sql, gte, lte } from 'drizzle-orm';
+import { and, avg, count, countDistinct, desc, eq, ilike, inArray, isNotNull, isNull, or, sql, gte, lte } from 'drizzle-orm';
 import crypto from 'crypto';
 import { hash as hashPassword } from 'bcryptjs';
 import { db } from '@/lib/db';
@@ -34,6 +34,7 @@ import {
   emailLists,
   emailCampaigns,
   pitchDecks,
+  pitchDeckViews,
   brandingProfiles,
   emailSubscribers,
   emailCampaignSends,
@@ -149,6 +150,7 @@ export function registerPitchDecksTools(server: McpServer, ctx: PortalMcpContext
     },
     async ({ status, limit = 50 }) => {
       if (!requireScope(ctx, 'decks:read')) return denied('decks:read');
+      if (!(await requireService(clientId, 'pitch-decks'))) return serviceDenied('pitch-decks');
       const conds = [eq(pitchDecks.clientId, clientId)];
       if (status) conds.push(eq(pitchDecks.status, status));
       const rows = await db.select({
@@ -177,6 +179,7 @@ export function registerPitchDecksTools(server: McpServer, ctx: PortalMcpContext
     },
     async ({ id }) => {
       if (!requireScope(ctx, 'decks:read')) return denied('decks:read');
+      if (!(await requireService(clientId, 'pitch-decks'))) return serviceDenied('pitch-decks');
       const [deck] = await db.select().from(pitchDecks)
         .where(and(eq(pitchDecks.id, id), eq(pitchDecks.clientId, clientId))).limit(1);
       if (!deck) return json({ error: 'Deck not found' });
@@ -236,7 +239,7 @@ export function registerPitchDecksTools(server: McpServer, ctx: PortalMcpContext
         summary: `Create pitch deck "${args.title}"`,
         payload: args,
         apply: async () => {
-          const baseSlug = args.title.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+          const baseSlug = slugify(args.title.trim());
           const slug = `${baseSlug}-${Date.now().toString(36)}`;
           // Precedence: explicit args.theme > branding profile > defaults.
           const themeFromProfile = profile ? {
@@ -365,6 +368,7 @@ export function registerPitchDecksTools(server: McpServer, ctx: PortalMcpContext
     },
     async ({ id, titleSuffix = ' (fork)' }) => {
       if (!requireScope(ctx, 'decks:write')) return denied('decks:write');
+      if (!(await requireService(clientId, 'pitch-decks'))) return serviceDenied('pitch-decks');
       const [source] = await db.select().from(pitchDecks)
         .where(and(eq(pitchDecks.id, id), eq(pitchDecks.clientId, clientId))).limit(1);
       if (!source) return json({ error: 'Source deck not found' });
@@ -672,11 +676,7 @@ export function registerPitchDecksTools(server: McpServer, ctx: PortalMcpContext
 
           const filenameNoExt = filename.replace(/\.[^.]+$/, '');
           const deckTitle = title?.trim() || filenameNoExt || 'Uploaded HTML Deck';
-          const baseSlug = (filename.trim().toLowerCase()
-            .replace(/\.[^.]+$/, '')
-            .replace(/[^a-z0-9]+/g, '-')
-            .replace(/(^-|-$)/g, '')
-            .slice(0, 80)) || 'deck';
+          const baseSlug = slugify(filename.trim().replace(/\.[^.]+$/, ''), 80) || 'deck';
           const slug = `${baseSlug}-${Date.now().toString(36)}`;
           const ts = Date.now();
 
@@ -787,11 +787,7 @@ export function registerPitchDecksTools(server: McpServer, ctx: PortalMcpContext
       }));
       await db.insert(media).values(mediaRows);
 
-      const baseSlug = (filename.trim().toLowerCase()
-        .replace(/\.zip$/i, '')
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/(^-|-$)/g, '')
-        .slice(0, 80)) || 'deck';
+      const baseSlug = slugify(filename.trim().replace(/\.zip$/i, ''), 80) || 'deck';
       const slug = `${baseSlug}-${Date.now().toString(36)}`;
       const titleNorm = title?.trim() || baseSlug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) || 'Uploaded HTML Deck';
 
@@ -958,9 +954,66 @@ export function registerPitchDecksTools(server: McpServer, ctx: PortalMcpContext
       return json(result.data);
     }
   );
+
+  // ── DECK ANALYTICS ────────────────────────────────────────────────────────
+  hasScope(ctx.scopes, 'decks:read') && server.registerTool(
+    'deck_analytics_get',
+    {
+      title: 'Get deck analytics',
+      description:
+        'Return viewer analytics for a single pitch deck: total view events, unique sessions, and per-slide view counts with average dwell time in milliseconds. The deck must belong to the authenticated client.',
+      inputSchema: {
+        deckId: z.number().describe('ID of the pitch deck to analyse.'),
+      },
+    },
+    async ({ deckId }) => {
+      if (!requireScope(ctx, 'decks:read')) return denied('decks:read');
+      if (!(await requireService(clientId, 'pitch-decks'))) return serviceDenied('pitch-decks');
+
+      // Verify ownership
+      const [deck] = await db
+        .select({ id: pitchDecks.id, title: pitchDecks.title })
+        .from(pitchDecks)
+        .where(and(eq(pitchDecks.id, deckId), eq(pitchDecks.clientId, clientId)))
+        .limit(1);
+      if (!deck) return json({ error: 'Deck not found' });
+
+      const [totals] = await db
+        .select({
+          totalEvents: count(),
+          uniqueSessions: countDistinct(pitchDeckViews.sessionId),
+        })
+        .from(pitchDeckViews)
+        .where(eq(pitchDeckViews.deckId, deckId));
+
+      const perSlideRows = await db
+        .select({
+          slideIndex: pitchDeckViews.slideIndex,
+          views: count(),
+          avgDwellMs: avg(pitchDeckViews.dwellMs),
+        })
+        .from(pitchDeckViews)
+        .where(and(eq(pitchDeckViews.deckId, deckId), isNotNull(pitchDeckViews.slideIndex)))
+        .groupBy(pitchDeckViews.slideIndex)
+        .orderBy(pitchDeckViews.slideIndex);
+
+      return json({
+        deckId,
+        title: deck.title,
+        totalEvents: Number(totals?.totalEvents ?? 0),
+        uniqueSessions: Number(totals?.uniqueSessions ?? 0),
+        perSlide: perSlideRows.map((r) => ({
+          slideIndex: r.slideIndex,
+          views: Number(r.views),
+          avgDwellMs: r.avgDwellMs != null ? Math.round(Number(r.avgDwellMs)) : null,
+        })),
+      });
+    }
+  );
 }
 
 // ─── Slide-draft publish helpers ─────────────────────────────────────────────
-// Pure functions live in `lib/mcp/decks-publish.ts` so the public approval
+// Pure functions live in `lib/decks/publish-slide.ts` so the public approval
 // route can reuse them without dragging in the whole MCP SDK.
-import { applyPublishToSlides, applyPublishAllToSlides } from '@/lib/mcp/decks-publish';
+import { applyPublishToSlides, applyPublishAllToSlides } from '@/lib/decks/publish-slide';
+import { slugify } from '@/lib/publishing/slug';

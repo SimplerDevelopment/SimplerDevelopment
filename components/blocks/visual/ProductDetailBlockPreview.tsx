@@ -169,7 +169,7 @@ export function ProductDetailBlockPreview({ block, isSelected, onChange }: Produ
         )}
 
         <p className="text-center text-xs text-muted-foreground mt-8 italic">
-          Preview: Showing placeholder for product "{block.productSlug || '(none)'}". Live data loads from store.
+          Preview: Showing placeholder for product &quot;{block.productSlug || '(none)'}&quot;. Live data loads from store.
         </p>
       </div>
     </section>

@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { getPortalClient } from '@/lib/portal-client';
 import { db } from '@/lib/db';
-import { crmContacts, crmActivities } from '@/lib/db/schema';
+import { crmContacts, crmActivities, crmEmailMessages } from '@/lib/db/schema';
 import { and, eq } from 'drizzle-orm';
 import { resend } from '@/lib/email';
 
@@ -93,6 +93,26 @@ export async function POST(
         createdBy: userId,
       })
       .returning();
+
+    // Thread row (Phase 1 — Spec: CRM Email Sync + Sequences). Outbound leg of
+    // the unified contact email thread. Best-effort: a thread-log failure must
+    // not fail the send that already succeeded.
+    try {
+      await db.insert(crmEmailMessages).values({
+        clientId: client.id,
+        contactId: contact.id,
+        direction: 'outbound',
+        providerMessageId: result.data?.id ?? null,
+        threadKey: result.data?.id ?? null,
+        fromEmail,
+        toEmail: contact.email,
+        subject: subject.trim(),
+        snippet: descriptionSnippet,
+        sentAt: new Date(),
+      });
+    } catch (threadErr) {
+      console.error(`[crm/send-email] thread-row insert failed for contact ${contactId}:`, threadErr);
+    }
 
     // Update lastContactedAt
     await db

@@ -45,7 +45,7 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
       </div>
 
       {/* Invoice Card */}
-      <div className="bg-card border border-border rounded-xl overflow-hidden">
+      <div className="bg-card border border-border rounded-2xl overflow-hidden">
         {/* Header */}
         <div className="p-6 border-b border-border flex items-start justify-between">
           <div>
@@ -97,13 +97,13 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
             )}
             <div className="flex justify-between text-base font-bold text-foreground pt-1 border-t border-border mt-2">
               <span>Total</span>
-              <span>{formatCents(invoice.total)}</span>
+              <span className="font-display font-extrabold tracking-[-0.02em]">{formatCents(invoice.total)}</span>
             </div>
           </div>
 
           {/* Notes */}
           {invoice.notes && (
-            <div className="mt-4 p-3 bg-muted/50 rounded-lg text-sm text-muted-foreground">
+            <div className="mt-4 p-3 bg-muted/50 rounded-xl text-sm text-muted-foreground">
               <strong className="text-foreground">Notes:</strong> {invoice.notes}
             </div>
           )}

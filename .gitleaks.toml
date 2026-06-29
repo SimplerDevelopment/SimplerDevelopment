@@ -1,0 +1,21 @@
+# gitleaks config for the public repo.
+# Extends the default ruleset, then allowlists the known false positives
+# surfaced during the open-source prep scan: API-doc placeholders and test
+# fixtures (no real secrets). Verified with `trufflehog filesystem` → 0 live.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "OSS false positives — doc placeholders + test fixtures"
+paths = [
+  '''docs/api/.*\.md''',     # curl examples use YOUR_API_KEY / sd_live_yourkey
+  '''tests/.*''',            # fake fixture keys: sk_test_*, re_test_*, EZTK_test_*, dummy JWTs
+]
+regexes = [
+  '''YOUR_API_KEY''',
+  '''sd_live_yourkey''',
+  '''sk_(test|live)_[a-z0-9]*''',
+  '''re_test_[a-z0-9]*''',
+  '''EZTK_test_[a-z0-9]*''',
+  '''newpass-12345''',
+]

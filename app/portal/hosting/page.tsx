@@ -5,6 +5,8 @@ import { auth } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { getPortalClient } from '@/lib/portal-client';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnPrimary, pCard } from '@/components/portal/portal-ui';
 
 const statusColor: Record<string, string> = {
   provisioning: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
@@ -45,23 +47,22 @@ export default async function PortalHostingPage() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Hosting</h1>
-        <p className="text-muted-foreground mt-1 text-sm">
-          Your managed hosting environments, powered by Railway and managed by Simpler Development.
-        </p>
-      </div>
+      <PortalPageHeader
+        eyebrow="Infrastructure"
+        title="Hosting"
+        subtitle="Your managed hosting environments, powered by Railway and managed by Simpler Development."
+      />
 
       {sites.length === 0 ? (
-        <div className="bg-card border border-border rounded-xl p-12 flex flex-col items-center text-center">
+        <div className={`${pCard} p-12 flex flex-col items-center text-center`}>
           <span className="material-icons text-5xl text-muted-foreground mb-3">cloud_off</span>
-          <h2 className="font-semibold text-foreground mb-1">No hosted sites yet</h2>
+          <h2 className="font-display font-extrabold tracking-[-0.01em] text-foreground mb-1">No hosted sites yet</h2>
           <p className="text-sm text-muted-foreground max-w-sm">
             When Simpler Development provisions a hosting environment for you, it will appear here with status, domain info, and DNS setup instructions.
           </p>
           <Link
             href="/portal/tickets/new"
-            className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
+            className={`mt-4 ${pBtnPrimary}`}
           >
             <span className="material-icons text-base">support_agent</span>
             Request Hosting
@@ -73,11 +74,11 @@ export default async function PortalHostingPage() {
             <Link
               key={site.id}
               href={`/portal/hosting/${site.id}`}
-              className="group bg-card border border-border rounded-xl p-5 hover:border-primary/50 hover:shadow-sm transition-all space-y-4"
+              className={`group ${pCard} rounded-2xl p-5 hover:border-primary/50 hover:shadow-sm transition-all space-y-4`}
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1 min-w-0">
-                  <h2 className="font-semibold text-foreground group-hover:text-primary transition-colors truncate">
+                  <h2 className="font-display font-extrabold tracking-[-0.01em] text-foreground group-hover:text-primary transition-colors truncate">
                     {site.name}
                   </h2>
                   {site.customDomain ? (
@@ -117,10 +118,10 @@ export default async function PortalHostingPage() {
       )}
 
       {sites.length > 0 && (
-        <div className="bg-card border border-border rounded-xl p-4 flex items-start gap-3">
+        <div className={`${pCard} rounded-2xl p-4 flex items-start gap-3`}>
           <span className="material-icons text-primary mt-0.5">info</span>
           <div className="text-sm">
-            <p className="font-medium text-foreground">Need help with your hosting?</p>
+            <p className="font-display font-extrabold tracking-[-0.01em] text-foreground">Need help with your hosting?</p>
             <p className="text-muted-foreground mt-0.5">
               Open a{' '}
               <Link href="/portal/tickets/new" className="text-primary hover:underline">support ticket</Link>

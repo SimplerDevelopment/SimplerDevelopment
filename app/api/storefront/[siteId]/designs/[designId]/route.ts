@@ -206,11 +206,6 @@ export async function PUT(
  *
  * Best-effort: any failure here is logged and swallowed by the caller. The
  * design data is already saved; this just refreshes the cosmetic artifacts.
- *
- * Why only the flat composite (no lifestyle photo): re-running gpt-image-1
- * for the woman/baby model shot is expensive (~$0.08) and slow (~30s). The
- * flat composite is cheap and instant. Staff can manually trigger a lifestyle
- * regen via scripts/magamommy/regenerate-lifestyle-hero.ts when needed.
  */
 async function regenerateMockupForStaffSave(
   design: typeof designs.$inferSelect,
@@ -223,7 +218,7 @@ async function regenerateMockupForStaffSave(
   const { GetObjectCommand } = await import('@aws-sdk/client-s3');
   const { getS3Client, getBucketName } = await import('@/lib/s3/client');
   const { uploadToS3 } = await import('@/lib/s3/upload');
-  const { compositeArtworkOnShirt } = await import('@/lib/magamommy/composite');
+  const { compositeArtworkOnShirt } = await import('@/lib/printing/composite');
 
   type Layer = {
     type?: string;
@@ -234,9 +229,7 @@ async function regenerateMockupForStaffSave(
   };
   const layersBySurface = (design.layersBySurface ?? {}) as Record<string, Layer[]>;
 
-  // Pick the first surface that has an image layer to composite. Most
-  // magamommy products are front-only; back-only is rare. The publisher
-  // creates a front-surface design row.
+  // Pick the first surface that has an image layer to composite.
   let surfaceSlug: string | null = null;
   let artworkUrl: string | null = null;
   for (const slug of Object.keys(layersBySurface)) {
@@ -285,8 +278,7 @@ async function regenerateMockupForStaffSave(
   const artworkBuf = Buffer.from(artworkBytes);
 
   // Fetch the base mockup. Same /api/media/proxy/<key> shape, OR a relative
-  // /assets/... path (the magamommy seed uses /assets/magamommy/blank-tee-...)
-  // OR an absolute external URL. Handle each.
+  // /assets/... path, OR an absolute external URL. Handle each.
   let baseMockupBuf: Buffer;
   const mockupUrl = surface.mockupImage;
   const mockupS3Match = mockupUrl.match(/\/api\/media\/proxy\/(.+)$/);
@@ -324,7 +316,7 @@ async function regenerateMockupForStaffSave(
 
   // Upload the new composite.
   const ts = Date.now();
-  const outKey = `media/magamommy/mockups/regen-${design.id}-${surfaceSlug}-${ts}.png`;
+  const outKey = `media/mockups/regen-${design.id}-${surfaceSlug}-${ts}.png`;
   const upload = await uploadToS3(compositePng, `mockup-${surfaceSlug}.png`, 'image/png', { key: outKey });
 
   // Update designs.renderedUrl + thumbnailUrl so the next read sees the fresh

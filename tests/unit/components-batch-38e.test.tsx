@@ -11,37 +11,11 @@ vi.mock('next/link', () => ({
     React.createElement('a', { href, ...rest }, children),
 }));
 
-import { PetersFooterCTA } from '@/components/peters-outdoor/PetersFooterCTA';
 import { FadeIn } from '@/components/animations/FadeIn';
 import { SlideIn } from '@/components/animations/SlideIn';
 import NoteActionButtons from '@/components/brain/NoteActionButtons';
 
 describe('components-batch-38e', () => {
-  // -------------------------------------------------------------------------
-  // PetersFooterCTA — pure presentation
-  // -------------------------------------------------------------------------
-  describe('PetersFooterCTA', () => {
-    it('renders the headline and CTA copy', () => {
-      render(<PetersFooterCTA />);
-      expect(screen.getByText(/Ready for Your Next Adventure/i)).toBeInTheDocument();
-      expect(screen.getByText(/Book a guided kayak eco-tour/i)).toBeInTheDocument();
-    });
-
-    it('renders a CTA link pointing at /p/booking', () => {
-      render(<PetersFooterCTA />);
-      const link = screen.getByRole('link', { name: /Book Your Tour Today/i });
-      expect(link).toBeInTheDocument();
-      expect(link).toHaveAttribute('href', '/p/booking');
-    });
-
-    it('uses the Peters brand background color class', () => {
-      const { container } = render(<PetersFooterCTA />);
-      const section = container.querySelector('section');
-      expect(section).not.toBeNull();
-      expect(section?.className).toMatch(/bg-\[#3D5A3D\]/);
-    });
-  });
-
   // -------------------------------------------------------------------------
   // FadeIn — wraps children in a plain div, forwards className
   // Pure CSS component — no framer-motion.

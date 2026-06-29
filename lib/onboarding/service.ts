@@ -2,10 +2,11 @@
 // they just authenticate, parse, and delegate here.
 
 import { db } from '@/lib/db';
-import { users, clients, userOnboarding, brandingProfiles, brandingMessaging } from '@/lib/db/schema';
+import { users, clients, userOnboarding, brandingProfiles, brandingMessaging, clientServices } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
 import type { OnboardingAnswers, OnboardingStep, OnboardingState } from './types';
 import { ONBOARDING_STEPS } from './types';
+import { fetchBrandData } from '@/lib/branding/brandfetch';
 
 function isStep(s: unknown): s is OnboardingStep {
   return typeof s === 'string' && (ONBOARDING_STEPS as string[]).includes(s);
@@ -19,7 +20,15 @@ export async function loadOnboarding(userId: number, clientId: number | null): P
     .where(eq(userOnboarding.userId, userId))
     .limit(1);
 
-  if (!existing) {
+  // Fetch user first — validates existence before any insert to prevent FK violations
+  // from stale JWT sessions referencing deleted/deactivated users (user_onboarding_user_id_users_id_fk).
+  const [user] = await db
+    .select({ name: users.name, email: users.email })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+
+  if (!existing && user) {
     await db.insert(userOnboarding).values({
       userId,
       clientId: clientId ?? null,
@@ -34,22 +43,27 @@ export async function loadOnboarding(userId: number, clientId: number | null): P
     .where(eq(userOnboarding.userId, userId))
     .limit(1);
 
-  const [user] = await db
-    .select({ name: users.name, email: users.email })
-    .from(users)
-    .where(eq(users.id, userId))
-    .limit(1);
-
   let company = '';
   let website = '';
+  let showBillingSteps = false;
   if (clientId) {
     const [c] = await db
-      .select({ company: clients.company, website: clients.website })
+      .select({ company: clients.company, website: clients.website, billingMode: clients.billingMode })
       .from(clients)
       .where(eq(clients.id, clientId))
       .limit(1);
     company = c?.company ?? '';
     website = c?.website ?? '';
+
+    if (c?.billingMode === 'saas') {
+      // Show billing steps only while the client has no active module subscription.
+      const [activeService] = await db
+        .select({ id: clientServices.id })
+        .from(clientServices)
+        .where(and(eq(clientServices.clientId, clientId), eq(clientServices.status, 'active')))
+        .limit(1);
+      showBillingSteps = !activeService;
+    }
   }
 
   return {
@@ -62,6 +76,7 @@ export async function loadOnboarding(userId: number, clientId: number | null): P
       company,
       website,
     },
+    showBillingSteps,
   };
 }
 
@@ -74,13 +89,16 @@ export async function saveOnboardingStep(args: {
 }): Promise<OnboardingState> {
   const { userId, clientId, step, patch } = args;
 
-  // Ensure row exists.
-  await db.insert(userOnboarding).values({
-    userId,
-    clientId: clientId ?? null,
-    step: 'welcome',
-    answers: {},
-  }).onConflictDoNothing();
+  // Ensure row exists — guard against stale sessions for deleted users.
+  const [userExists] = await db.select({ id: users.id }).from(users).where(eq(users.id, userId)).limit(1);
+  if (userExists) {
+    await db.insert(userOnboarding).values({
+      userId,
+      clientId: clientId ?? null,
+      step: 'welcome',
+      answers: {},
+    }).onConflictDoNothing();
+  }
 
   const [current] = await db
     .select()
@@ -122,6 +140,11 @@ export async function completeOnboarding(userId: number, clientId: number | null
     .set({ step: 'done', completedAt: new Date(), updatedAt: new Date() })
     .where(eq(userOnboarding.userId, userId));
 
+  // Best-effort: auto-enrich the brand profile from the client's domain so
+  // downstream AI features (copy, email, decks, Brain context) never run against
+  // a blank brand profile. Never blocks completion; no-op without a Brandfetch key.
+  if (clientId) void enrichBrandingFromDomain(clientId).catch(() => {});
+
   return loadOnboarding(userId, clientId);
 }
 
@@ -131,6 +154,53 @@ export async function reopenOnboarding(userId: number, clientId: number | null):
     .set({ completedAt: null, step: 'welcome', updatedAt: new Date() })
     .where(eq(userOnboarding.userId, userId));
   return loadOnboarding(userId, clientId);
+}
+
+/**
+ * Populate the client's default brand profile from their website domain via
+ * Brandfetch. Create-or-fill and non-destructive: if no default profile exists
+ * it creates one from the fetched brand (name/colors/logo); if one exists it
+ * only fills an empty logo (never overwrites colors/name the user may have set).
+ * Best-effort — silently returns on no domain, no API key, or any failure.
+ * Exported so signup / a backfill can call it too.
+ */
+export async function enrichBrandingFromDomain(clientId: number): Promise<void> {
+  const [c] = await db
+    .select({ website: clients.website, company: clients.company })
+    .from(clients)
+    .where(eq(clients.id, clientId))
+    .limit(1);
+  if (!c?.website) return;
+
+  const data = await fetchBrandData(c.website);
+  if (!data) return;
+
+  const [existing] = await db
+    .select({ id: brandingProfiles.id, logoUrl: brandingProfiles.logoUrl })
+    .from(brandingProfiles)
+    .where(and(eq(brandingProfiles.clientId, clientId), eq(brandingProfiles.isDefault, true)))
+    .limit(1);
+
+  if (!existing) {
+    await db.insert(brandingProfiles).values({
+      clientId,
+      name: data.name ?? c.company ?? 'Default',
+      isDefault: true,
+      ...(data.primaryColor ? { primaryColor: data.primaryColor } : {}),
+      ...(data.secondaryColor ? { secondaryColor: data.secondaryColor } : {}),
+      ...(data.accentColor ? { accentColor: data.accentColor } : {}),
+      ...(data.logoUrl ? { logoUrl: data.logoUrl } : {}),
+    });
+    return;
+  }
+
+  // Fill only an empty logo — never clobber user-set branding.
+  if (!existing.logoUrl && data.logoUrl) {
+    await db
+      .update(brandingProfiles)
+      .set({ logoUrl: data.logoUrl, updatedAt: new Date() })
+      .where(eq(brandingProfiles.id, existing.id));
+  }
 }
 
 async function mirrorBrandAnswers(clientId: number, patch: Partial<OnboardingAnswers>): Promise<void> {

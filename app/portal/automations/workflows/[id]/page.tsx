@@ -43,6 +43,17 @@ interface RunRow {
   error: string | null;
 }
 
+interface RunStepRow {
+  id: number;
+  nodeId: string;
+  action: string;
+  status: string;
+  attemptCount: number;
+  nextRetryAt: string | null;
+  result: Record<string, unknown> | null;
+  error: string | null;
+}
+
 // Sidebar palette — click these to add a node to the canvas.
 interface PaletteEntry {
   type: 'trigger' | 'action' | 'condition';
@@ -160,6 +171,10 @@ export default function WorkflowEditorPage() {
   const [testing, setTesting] = useState(false);
   const [runs, setRuns] = useState<RunRow[]>([]);
   const [rfInstance, setRfInstance] = useState<ReactFlowInstance | null>(null);
+  const [selectedRunId, setSelectedRunId] = useState<number | null>(null);
+  const [runSteps, setRunSteps] = useState<RunStepRow[]>([]);
+  const [stepsLoading, setStepsLoading] = useState(false);
+  const [retrying, setRetrying] = useState(false);
 
   useEffect(() => {
     if (!Number.isFinite(id)) return;
@@ -248,6 +263,43 @@ export default function WorkflowEditorPage() {
     router.push('/portal/automations/workflows');
   }, [wf, router]);
 
+  const handleSelectRun = useCallback(async (runId: number) => {
+    if (selectedRunId === runId) {
+      // Toggle: collapse if already open.
+      setSelectedRunId(null);
+      setRunSteps([]);
+      return;
+    }
+    setSelectedRunId(runId);
+    setRunSteps([]);
+    setStepsLoading(true);
+    try {
+      const res = await fetch(`/api/portal/workflows/runs/${runId}`).then((r) => r.json());
+      if (res?.success) setRunSteps(res.data?.steps ?? []);
+    } finally {
+      setStepsLoading(false);
+    }
+  }, [selectedRunId]);
+
+  const handleRetry = useCallback(async (runId: number) => {
+    setRetrying(true);
+    try {
+      await fetch(`/api/portal/workflows/runs/${runId}/retry`, { method: 'POST' });
+      // Refresh runs list so the new pending status is reflected.
+      if (wf) {
+        const runsRes = await fetch(`/api/portal/workflows/${wf.id}/runs?limit=10`).then((r) => r.json());
+        if (runsRes?.success) setRuns(runsRes.data ?? []);
+      }
+      // Refresh steps if this run is currently expanded.
+      if (selectedRunId === runId) {
+        const stepsRes = await fetch(`/api/portal/workflows/runs/${runId}`).then((r) => r.json());
+        if (stepsRes?.success) setRunSteps(stepsRes.data?.steps ?? []);
+      }
+    } finally {
+      setRetrying(false);
+    }
+  }, [wf, selectedRunId]);
+
   const triggerKindLabel = useMemo(() => wf?.trigger?.kind ?? '-', [wf]);
 
   if (loading) {
@@ -269,6 +321,15 @@ export default function WorkflowEditorPage() {
 
   return (
     <div className="h-[calc(100vh-100px)] flex flex-col gap-3 p-3">
+      {/* Beta notice — workflow execution is not yet implemented */}
+      <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-200 text-xs">
+        <span className="material-icons text-base shrink-0">science</span>
+        <span>
+          <span className="font-semibold">Beta — workflows do not execute yet.</span>{' '}
+          Activating this workflow has no runtime effect. Use <strong>Automations</strong> (Rules) for live trigger-to-action rules today.
+        </span>
+      </div>
+
       {/* Header */}
       <div className="flex items-center gap-3 flex-wrap">
         <Link href="/portal/automations/workflows" className="text-muted-foreground hover:text-foreground">
@@ -361,22 +422,96 @@ export default function WorkflowEditorPage() {
         </div>
 
         {/* Runs panel */}
-        <div className="w-64 bg-card border border-border rounded-xl p-3 overflow-y-auto">
+        <div className="w-72 bg-card border border-border rounded-xl p-3 overflow-y-auto">
           <h3 className="text-xs font-semibold text-foreground mb-2 uppercase tracking-wide">Recent runs</h3>
           {runs.length === 0 ? (
             <div className="text-xs text-muted-foreground">No runs yet. Click Test run to fire one.</div>
           ) : (
             <ul className="space-y-2">
               {runs.map((r) => (
-                <li key={r.id} className="text-xs border border-border rounded p-2">
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium">#{r.id}</span>
+                <li key={r.id} className="text-xs border border-border rounded">
+                  {/* Run header row — click to expand step drill-down */}
+                  <button
+                    type="button"
+                    onClick={() => void handleSelectRun(r.id)}
+                    className="w-full flex items-center justify-between gap-1 p-2 text-left hover:bg-muted/50 rounded-t transition-colors"
+                  >
+                    <span className="flex items-center gap-1 font-medium">
+                      <span className="material-icons text-sm text-muted-foreground">
+                        {selectedRunId === r.id ? 'expand_less' : 'expand_more'}
+                      </span>
+                      #{r.id}
+                    </span>
                     <RunStatusBadge status={r.status} />
-                  </div>
-                  <div className="text-muted-foreground mt-1">
+                  </button>
+                  <div className="px-2 pb-1 text-muted-foreground">
                     {r.triggeredBy} · {new Date(r.startedAt).toLocaleTimeString()}
+                    {r.completedAt && (
+                      <span> → {new Date(r.completedAt).toLocaleTimeString()}</span>
+                    )}
                   </div>
-                  {r.error && <div className="text-red-600 mt-1 line-clamp-3">{r.error}</div>}
+                  {r.error && (
+                    <div className="px-2 pb-1 text-red-600 line-clamp-3">{r.error}</div>
+                  )}
+
+                  {/* Retry button — only shown for failed runs (dead-lettered) */}
+                  {r.status === 'failed' && (
+                    <div className="px-2 pb-2">
+                      <button
+                        type="button"
+                        onClick={() => void handleRetry(r.id)}
+                        disabled={retrying}
+                        className="inline-flex items-center gap-1 px-2 py-1 rounded border border-border hover:bg-muted disabled:opacity-60 text-xs"
+                      >
+                        <span className="material-icons text-sm">replay</span>
+                        {retrying ? 'Retrying…' : 'Retry'}
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Step drill-down — expanded when this run is selected */}
+                  {selectedRunId === r.id && (
+                    <div className="border-t border-border px-2 py-2">
+                      {stepsLoading ? (
+                        <div className="flex items-center gap-1 text-muted-foreground py-1">
+                          <span className="material-icons text-sm animate-spin">progress_activity</span>
+                          Loading steps…
+                        </div>
+                      ) : runSteps.length === 0 ? (
+                        <div className="text-muted-foreground py-1">No step records yet.</div>
+                      ) : (
+                        <ul className="space-y-1.5">
+                          {runSteps.map((s) => (
+                            <li key={s.id} className="rounded bg-muted/40 p-1.5">
+                              <div className="flex items-center justify-between gap-1 mb-0.5">
+                                <span className="font-mono truncate max-w-[100px]" title={s.nodeId}>
+                                  {s.nodeId}
+                                </span>
+                                <StepStatusBadge status={s.status} />
+                              </div>
+                              <div className="text-muted-foreground">
+                                <span className="font-medium">{s.action}</span>
+                                {s.attemptCount > 0 && (
+                                  <span className="ml-1">· {s.attemptCount} attempt{s.attemptCount !== 1 ? 's' : ''}</span>
+                                )}
+                              </div>
+                              {s.nextRetryAt && (
+                                <div className="text-amber-600 dark:text-amber-400 mt-0.5">
+                                  <span className="material-icons text-xs align-middle mr-0.5">schedule</span>
+                                  Retry at {new Date(s.nextRetryAt).toLocaleTimeString()}
+                                </div>
+                              )}
+                              {s.error && (
+                                <div className="text-red-600 mt-0.5 line-clamp-2" title={s.error}>
+                                  {s.error}
+                                </div>
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  )}
                 </li>
               ))}
             </ul>
@@ -415,5 +550,20 @@ function RunStatusBadge({ status }: { status: string }) {
   };
   return (
     <span className={`px-1.5 py-0.5 rounded ${styles[status] ?? styles.pending}`}>{status}</span>
+  );
+}
+
+function StepStatusBadge({ status }: { status: string }) {
+  const styles: Record<string, string> = {
+    completed: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+    running: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+    pending: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400',
+    failed: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
+    dead_letter: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+  };
+  return (
+    <span className={`px-1 py-0.5 rounded text-[10px] font-medium whitespace-nowrap ${styles[status] ?? styles.pending}`}>
+      {status}
+    </span>
   );
 }

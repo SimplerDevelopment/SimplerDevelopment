@@ -17,6 +17,8 @@
 import { useCallback, useEffect, useMemo, useState, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnGhost } from '@/components/portal/portal-ui';
 import {
   playbookRunStatusChip,
   relativeTime,
@@ -159,24 +161,21 @@ function PlaybookRunsContent() {
   return (
     <div className="space-y-4">
       <div className="sticky top-[var(--portal-header-height,3.5rem)] z-10 bg-background -mx-4 sm:mx-0 px-4 sm:px-0 pt-1 pb-3 border-b border-border">
-        <div className="flex items-start justify-between gap-3 flex-wrap">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-              <span className="material-icons text-primary">playlist_play</span>
-              Playbook runs
-            </h1>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              In-flight and historical runs. Click a row to see its step-by-step state.
-            </p>
-          </div>
-          <Link
-            href="/portal/brain/playbooks"
-            className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-md border border-border text-foreground hover:bg-accent"
-          >
-            <span className="material-icons text-base">play_circle</span>
-            Playbooks
-          </Link>
-        </div>
+        <PortalPageHeader
+          eyebrow="Brain"
+          title={<span className="flex items-center gap-2"><span className="material-icons text-primary">playlist_play</span>Playbook runs</span>}
+          subtitle="In-flight and historical runs. Click a row to see its step-by-step state."
+          actions={
+            <Link
+              href="/portal/brain/playbooks"
+              className={pBtnGhost}
+            >
+              <span className="material-icons text-base">play_circle</span>
+              Playbooks
+            </Link>
+          }
+          className="mb-3"
+        />
 
         <div className="mt-3 flex items-center gap-1 overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0">
           {STATUS_FILTERS.map((s) => {
@@ -203,7 +202,7 @@ function PlaybookRunsContent() {
           <select
             value={playbookIdParam ?? ''}
             onChange={(e) => setParam({ playbookId: e.target.value || null })}
-            className="px-2 py-1 rounded-md border border-border bg-background text-foreground"
+            className="px-2 py-1 rounded-xl border border-border bg-card text-foreground text-xs focus:outline-none focus:ring-2 focus:ring-primary/15 focus:border-primary"
           >
             <option value="">Any playbook</option>
             {playbooks.map((p) => (
@@ -217,7 +216,7 @@ function PlaybookRunsContent() {
               type="date"
               value={startedAfterParam}
               onChange={(e) => setParam({ startedAfter: e.target.value || null })}
-              className="px-2 py-0.5 rounded-md border border-border bg-background text-foreground"
+              className="px-2 py-0.5 rounded-xl border border-border bg-card text-foreground text-xs focus:outline-none focus:ring-2 focus:ring-primary/15 focus:border-primary"
             />
           </label>
 
@@ -227,7 +226,7 @@ function PlaybookRunsContent() {
               type="date"
               value={startedBeforeParam}
               onChange={(e) => setParam({ startedBefore: e.target.value || null })}
-              className="px-2 py-0.5 rounded-md border border-border bg-background text-foreground"
+              className="px-2 py-0.5 rounded-xl border border-border bg-card text-foreground text-xs focus:outline-none focus:ring-2 focus:ring-primary/15 focus:border-primary"
             />
           </label>
 
@@ -283,7 +282,7 @@ function PlaybookRunsContent() {
             type="button"
             disabled={offset === 0}
             onClick={() => setParam({ offset: String(Math.max(0, offset - PAGE_SIZE)) })}
-            className="inline-flex items-center gap-1 px-3 py-1.5 text-sm rounded-md border border-border text-foreground hover:bg-accent disabled:opacity-30 disabled:pointer-events-none"
+            className={`${pBtnGhost} disabled:opacity-30 disabled:pointer-events-none`}
           >
             <span className="material-icons text-base">chevron_left</span>
             Previous
@@ -295,7 +294,7 @@ function PlaybookRunsContent() {
             type="button"
             disabled={!hasMore}
             onClick={() => setParam({ offset: String(offset + PAGE_SIZE) })}
-            className="inline-flex items-center gap-1 px-3 py-1.5 text-sm rounded-md border border-border text-foreground hover:bg-accent disabled:opacity-30 disabled:pointer-events-none"
+            className={`${pBtnGhost} disabled:opacity-30 disabled:pointer-events-none`}
           >
             Next
             <span className="material-icons text-base">chevron_right</span>

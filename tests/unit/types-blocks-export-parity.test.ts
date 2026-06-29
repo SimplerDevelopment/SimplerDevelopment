@@ -100,16 +100,8 @@ type _PublicSurface = Pick<
   | 'EmailHeaderBlock'
   | 'EmailFooterBlock'
   | 'PopupBlock'
-  // —— dynamic / palizzi (client-specific composites) ——
+  // —— dynamic ——
   | 'BlogPostsBlock'
-  | 'PalizziNavBlock'
-  | 'PalizziHeroBlock'
-  | 'PalizziWelcomeBlock'
-  | 'PalizziHistoryBlock'
-  | 'PalizziMenuBlock'
-  | 'PalizziRulesBlock'
-  | 'PalizziMembershipBlock'
-  | 'PalizziFooterBlock'
   // —— root union + page settings ——
   | 'Block'
   | 'BlockType'
@@ -168,10 +160,8 @@ const EXPECTED_EXPORTS = [
   'MetricCardsBlock', 'MetricCard', 'LogoStripBlock', 'LogoStripLogo',
   'SiteFooterBlock', 'FooterLinkGroup', 'SocialLinksBlock',
   'EmailHeaderBlock', 'EmailFooterBlock', 'PopupBlock',
-  // dynamic / palizzi
-  'BlogPostsBlock', 'PalizziNavBlock', 'PalizziHeroBlock', 'PalizziWelcomeBlock',
-  'PalizziHistoryBlock', 'PalizziMenuBlock', 'PalizziRulesBlock',
-  'PalizziMembershipBlock', 'PalizziFooterBlock',
+  // dynamic
+  'BlogPostsBlock',
   // root
   'Block', 'BlockType', 'PageSettings', 'BlockEditorData',
   // editor state
@@ -181,8 +171,8 @@ const EXPECTED_EXPORTS = [
 ] as const;
 
 describe('@/types/blocks export parity', () => {
-  it('records the canonical export list (size = 96)', () => {
-    expect(EXPECTED_EXPORTS.length).toBe(96);
+  it('records the canonical export list (size = 88)', () => {
+    expect(EXPECTED_EXPORTS.length).toBe(88);
     // No duplicates
     expect(new Set(EXPECTED_EXPORTS).size).toBe(EXPECTED_EXPORTS.length);
   });

@@ -839,7 +839,9 @@ describe('PUT /api/posts/[id]/custom-fields', () => {
   });
 
   it('updates an existing row when one exists', async () => {
-    // existing row lookup returns one match
+    // First query: customFields field-type lookup (added by route to validate the field exists)
+    selectQueue.push([{ fieldType: 'text' }]);
+    // Second query: existing postCustomFieldValues row lookup
     selectQueue.push([{ id: 999 }]);
 
     const res = await customFieldsRoute.PUT(
@@ -857,6 +859,9 @@ describe('PUT /api/posts/[id]/custom-fields', () => {
   });
 
   it('inserts a new row when none exists', async () => {
+    // First query: customFields field-type lookup
+    selectQueue.push([{ fieldType: 'text' }]);
+    // Second query: existing postCustomFieldValues row lookup (empty = no existing)
     selectQueue.push([]); // no existing row
     insertReturnQueue.push([{ id: 1 }]);
 

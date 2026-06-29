@@ -1,6 +1,6 @@
 'use client';
 
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, createElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Block, BlockEditorData } from '@/types/blocks';
 import { BlockStyleWrapper } from './BlockStyleWrapper';
 import { BlockRenderer } from './BlockRenderer';
@@ -256,7 +256,7 @@ function DraggableBlockList({
   // External drag from parent block picker
   useEffect(() => {
     if (!editor.externalDrag.active) {
-      setExternalDropIndex(null);
+      void Promise.resolve().then(() => setExternalDropIndex(null));
       return;
     }
 
@@ -473,7 +473,7 @@ function DraggableBlockList({
       const oldIndex = blocks.findIndex((b) => b.id === activeId);
       const newIndex = blocks.findIndex((b) => b.id === overId);
       if (oldIndex !== -1 && newIndex !== -1) {
-        let updated = removeBlock(blocks, activeId);
+        const updated = removeBlock(blocks, activeId);
         updated.splice(newIndex > oldIndex ? newIndex - 1 : newIndex, 0, draggedBlock);
         editor.onBlocksReordered(updated);
       }
@@ -660,7 +660,7 @@ function SortableBlock({
           <ContainerBlockRenderer block={liveBlock} registry={registry} draggingId={draggingId} editor={editor} />
         ) : (
           <BlockStyleWrapper block={liveBlock}>
-            <Component block={liveBlock} />
+            {createElement(Component, { block: liveBlock })}
           </BlockStyleWrapper>
         )}
       </SelectableBlock>
@@ -729,7 +729,7 @@ function NestedSortableBlock({
           <ContainerBlockRenderer block={liveBlock} registry={registry} draggingId={draggingId} editor={editor} />
         ) : (
           <BlockStyleWrapper block={liveBlock}>
-            <Component block={liveBlock} />
+            {createElement(Component, { block: liveBlock })}
           </BlockStyleWrapper>
         )}
       </SelectableBlock>
@@ -886,7 +886,7 @@ function ContainerBlockRenderer({
   if (!Component) return null;
   return (
     <BlockStyleWrapper block={block}>
-      <Component block={block} />
+      {createElement(Component, { block })}
     </BlockStyleWrapper>
   );
 }

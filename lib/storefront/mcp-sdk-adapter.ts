@@ -15,7 +15,7 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
-import { and, desc, eq, gte, ilike, or, sql } from 'drizzle-orm';
+import { and, count, desc, eq, gte, ilike, or, sql, sum } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import {
   clientWebsites,
@@ -35,17 +35,8 @@ import {
   storeProductReviews,
 } from '@/lib/db/schema';
 import { hasScope, type PortalMcpContext } from '@/lib/mcp-auth';
-
-function json(payload: unknown) {
-  return { content: [{ type: 'text' as const, text: JSON.stringify(payload, null, 2) }] };
-}
-
-function denied(scope: string) {
-  return {
-    content: [{ type: 'text' as const, text: `Permission denied: this API key lacks the "${scope}" scope.` }],
-    isError: true,
-  };
-}
+import { json, denied, requireService, serviceDenied } from '@/lib/mcp/types';
+import { slugify } from '@/lib/publishing/slug';
 
 function revalidatePortal() {
   try { revalidatePath('/portal', 'layout'); } catch { /* ignore */ }
@@ -53,6 +44,14 @@ function revalidatePortal() {
 
 export function registerStoreToolsOnSdk(server: McpServer, ctx: PortalMcpContext) {
   const clientId = ctx.client.id;
+
+  // Entitlement gate: the store is a paid module. `hasScope` alone is not
+  // enough — a key may carry store:write while the client has no active store
+  // subscription. Every write handler must clear this before mutating, mirroring
+  // the REST surface's `authorizePortal({ requireService: 'store' })`.
+  async function requireStore(): Promise<ReturnType<typeof serviceDenied> | null> {
+    return (await requireService(clientId, 'store')) ? null : serviceDenied('store');
+  }
 
   // Helper: assert a website belongs to this client and return its id.
   async function requireSite(websiteId: number): Promise<number | null> {
@@ -141,9 +140,9 @@ export function registerStoreToolsOnSdk(server: McpServer, ctx: PortalMcpContext
     },
     async (args) => {
       if (!hasScope(ctx.scopes, 'store:write')) return denied('store:write');
+      const svcGate = await requireStore(); if (svcGate) return svcGate;
       if (!(await requireSite(args.websiteId))) return json({ error: 'Site not found' });
-      const finalSlug = (args.slug ?? args.name)
-        .toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+      const finalSlug = slugify(args.slug ?? args.name);
       try {
         const [row] = await db.insert(products).values({
           websiteId: args.websiteId,
@@ -195,6 +194,7 @@ export function registerStoreToolsOnSdk(server: McpServer, ctx: PortalMcpContext
     },
     async ({ id, ...rest }) => {
       if (!hasScope(ctx.scopes, 'store:write')) return denied('store:write');
+      const svcGate = await requireStore(); if (svcGate) return svcGate;
       const [existing] = await db.select({ websiteId: products.websiteId })
         .from(products).where(eq(products.id, id)).limit(1);
       if (!existing) return json({ error: 'Product not found' });
@@ -217,6 +217,7 @@ export function registerStoreToolsOnSdk(server: McpServer, ctx: PortalMcpContext
     },
     async ({ id }) => {
       if (!hasScope(ctx.scopes, 'store:write')) return denied('store:write');
+      const svcGate = await requireStore(); if (svcGate) return svcGate;
       const [existing] = await db.select({ websiteId: products.websiteId })
         .from(products).where(eq(products.id, id)).limit(1);
       if (!existing) return json({ error: 'Product not found' });
@@ -240,6 +241,7 @@ export function registerStoreToolsOnSdk(server: McpServer, ctx: PortalMcpContext
     },
     async ({ id, delta }) => {
       if (!hasScope(ctx.scopes, 'store:write')) return denied('store:write');
+      const svcGate = await requireStore(); if (svcGate) return svcGate;
       const [existing] = await db.select({ websiteId: products.websiteId, quantity: products.quantity })
         .from(products).where(eq(products.id, id)).limit(1);
       if (!existing) return json({ error: 'Product not found' });
@@ -277,6 +279,7 @@ export function registerStoreToolsOnSdk(server: McpServer, ctx: PortalMcpContext
     },
     async ({ productId, name, order }) => {
       if (!hasScope(ctx.scopes, 'store:write')) return denied('store:write');
+      const svcGate = await requireStore(); if (svcGate) return svcGate;
       if (!(await requireProductSite(productId))) return json({ error: 'Product not found or not yours' });
       const existing = await db.select({ id: productOptions.id }).from(productOptions)
         .where(eq(productOptions.productId, productId));
@@ -304,6 +307,7 @@ export function registerStoreToolsOnSdk(server: McpServer, ctx: PortalMcpContext
     },
     async ({ optionId, value, label, order }) => {
       if (!hasScope(ctx.scopes, 'store:write')) return denied('store:write');
+      const svcGate = await requireStore(); if (svcGate) return svcGate;
       const [option] = await db
         .select({ productId: productOptions.productId })
         .from(productOptions)
@@ -345,6 +349,7 @@ export function registerStoreToolsOnSdk(server: McpServer, ctx: PortalMcpContext
     },
     async (args) => {
       if (!hasScope(ctx.scopes, 'store:write')) return denied('store:write');
+      const svcGate = await requireStore(); if (svcGate) return svcGate;
       if (!(await requireProductSite(args.productId))) return json({ error: 'Product not found or not yours' });
       const [row] = await db.insert(productVariants).values({
         productId: args.productId,
@@ -379,6 +384,7 @@ export function registerStoreToolsOnSdk(server: McpServer, ctx: PortalMcpContext
     },
     async ({ id, ...rest }) => {
       if (!hasScope(ctx.scopes, 'store:write')) return denied('store:write');
+      const svcGate = await requireStore(); if (svcGate) return svcGate;
       const [variant] = await db
         .select({ productId: productVariants.productId })
         .from(productVariants)
@@ -428,9 +434,9 @@ export function registerStoreToolsOnSdk(server: McpServer, ctx: PortalMcpContext
     },
     async ({ websiteId, name, slug, description, parentId, image }) => {
       if (!hasScope(ctx.scopes, 'store:write')) return denied('store:write');
+      const svcGate = await requireStore(); if (svcGate) return svcGate;
       if (!(await requireSite(websiteId))) return json({ error: 'Site not found' });
-      const finalSlug = (slug ?? name)
-        .toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+      const finalSlug = slugify(slug ?? name);
       try {
         const [row] = await db.insert(productCategories).values({
           websiteId,
@@ -515,6 +521,7 @@ export function registerStoreToolsOnSdk(server: McpServer, ctx: PortalMcpContext
     },
     async ({ id, status, note, trackingNumber, trackingUrl, shippingMethod }) => {
       if (!hasScope(ctx.scopes, 'store:write')) return denied('store:write');
+      const svcGate = await requireStore(); if (svcGate) return svcGate;
       const [order] = await db.select().from(orders).where(eq(orders.id, id)).limit(1);
       if (!order) return json({ error: 'Order not found' });
       if (!(await requireSite(order.websiteId))) return json({ error: 'Permission denied' });
@@ -549,6 +556,7 @@ export function registerStoreToolsOnSdk(server: McpServer, ctx: PortalMcpContext
     },
     async ({ id, note, mode = 'append' }) => {
       if (!hasScope(ctx.scopes, 'store:write')) return denied('store:write');
+      const svcGate = await requireStore(); if (svcGate) return svcGate;
       const [order] = await db.select({ websiteId: orders.websiteId, internalNote: orders.internalNote })
         .from(orders).where(eq(orders.id, id)).limit(1);
       if (!order) return json({ error: 'Order not found' });
@@ -693,6 +701,7 @@ export function registerStoreToolsOnSdk(server: McpServer, ctx: PortalMcpContext
     },
     async (args) => {
       if (!hasScope(ctx.scopes, 'store:write')) return denied('store:write');
+      const svcGate = await requireStore(); if (svcGate) return svcGate;
       if (!(await requireSite(args.websiteId))) return json({ error: 'Site not found' });
       try {
         const [row] = await db.insert(discountCodes).values({
@@ -727,6 +736,7 @@ export function registerStoreToolsOnSdk(server: McpServer, ctx: PortalMcpContext
     },
     async ({ id, active }) => {
       if (!hasScope(ctx.scopes, 'store:write')) return denied('store:write');
+      const svcGate = await requireStore(); if (svcGate) return svcGate;
       const [existing] = await db.select({ websiteId: discountCodes.websiteId }).from(discountCodes)
         .where(eq(discountCodes.id, id)).limit(1);
       if (!existing) return json({ error: 'Discount not found' });
@@ -748,6 +758,7 @@ export function registerStoreToolsOnSdk(server: McpServer, ctx: PortalMcpContext
     },
     async ({ id }) => {
       if (!hasScope(ctx.scopes, 'store:write')) return denied('store:write');
+      const svcGate = await requireStore(); if (svcGate) return svcGate;
       const [existing] = await db.select({ websiteId: discountCodes.websiteId }).from(discountCodes)
         .where(eq(discountCodes.id, id)).limit(1);
       if (!existing) return json({ error: 'Discount not found' });
@@ -796,6 +807,7 @@ export function registerStoreToolsOnSdk(server: McpServer, ctx: PortalMcpContext
     },
     async ({ id, action }) => {
       if (!hasScope(ctx.scopes, 'store:write')) return denied('store:write');
+      const svcGate = await requireStore(); if (svcGate) return svcGate;
       const [review] = await db.select({ id: storeProductReviews.id, websiteId: storeProductReviews.websiteId })
         .from(storeProductReviews).where(eq(storeProductReviews.id, id)).limit(1);
       if (!review) return json({ error: 'Review not found' });
@@ -844,6 +856,7 @@ export function registerStoreToolsOnSdk(server: McpServer, ctx: PortalMcpContext
     },
     async ({ messageId, body }) => {
       if (!hasScope(ctx.scopes, 'store:write')) return denied('store:write');
+      const svcGate = await requireStore(); if (svcGate) return svcGate;
       const [msg] = await db.select({ id: storeCustomerMessages.id, websiteId: storeCustomerMessages.websiteId })
         .from(storeCustomerMessages).where(eq(storeCustomerMessages.id, messageId)).limit(1);
       if (!msg) return json({ error: 'Message not found' });
@@ -875,6 +888,58 @@ export function registerStoreToolsOnSdk(server: McpServer, ctx: PortalMcpContext
       if (!(await requireSite(websiteId))) return json({ error: 'Site not found' });
       const rows = await db.execute(sql`SELECT * FROM store_settings WHERE website_id = ${websiteId} LIMIT 1`);
       return json(rows[0] ?? { error: 'Store not yet configured' });
+    }
+  );
+
+  // ── STORE ANALYTICS ───────────────────────────────────────────────────────
+  hasScope(ctx.scopes, 'store:read') && server.registerTool(
+    'store_analytics_get',
+    {
+      title: 'Get store analytics',
+      description:
+        'Return order and revenue aggregates for a client storefront over a time window: total revenue, order count, average order value, and order counts by status. The siteId must belong to the authenticated client.',
+      inputSchema: {
+        siteId: z.number().describe('ID of the client website whose store to analyse.'),
+        days: z.number().min(1).max(365).default(30).optional().describe('Look-back window in days (default 30).'),
+      },
+    },
+    async ({ siteId, days = 30 }) => {
+      if (!hasScope(ctx.scopes, 'store:read')) return denied('store:read');
+      if (!(await requireSite(siteId))) return json({ error: 'Site not found' });
+
+      const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+      const paidConditions = and(
+        eq(orders.websiteId, siteId),
+        eq(orders.paymentStatus, 'paid'),
+        gte(orders.createdAt, startDate),
+      );
+
+      const [revenueResult] = await db
+        .select({ totalRevenue: sum(orders.total), totalOrders: count() })
+        .from(orders)
+        .where(paidConditions);
+
+      const totalRevenue = parseInt(revenueResult.totalRevenue ?? '0');
+      const totalOrders = revenueResult.totalOrders;
+
+      const ordersByStatus = await db
+        .select({ status: orders.status, cnt: count() })
+        .from(orders)
+        .where(and(eq(orders.websiteId, siteId), gte(orders.createdAt, startDate)))
+        .groupBy(orders.status);
+
+      const statusCounts: Record<string, number> = {};
+      for (const row of ordersByStatus) statusCounts[row.status] = row.cnt;
+
+      return json({
+        siteId,
+        days,
+        totalRevenue,
+        totalOrders,
+        averageOrderValue: totalOrders > 0 ? Math.round(totalRevenue / totalOrders) : 0,
+        ordersByStatus: statusCounts,
+      });
     }
   );
 

@@ -5,6 +5,7 @@ import { pitchDecks, pitchDeckVersions } from '@/lib/db/schema';
 import type { PitchDeckSlide, PitchDeckTheme } from '@/lib/db/schema';
 import { eq, and, desc } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
+import { hasServiceAccess } from '@/lib/portal-auth';
 
 async function resolveDeck(deckId: number, userId: number) {
   const client = await getPortalClient(userId);
@@ -55,6 +56,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (!session?.user?.id) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
 
   const userId = parseInt(session.user.id, 10);
+  const svcClient = await getPortalClient(userId);
+  if (!svcClient || !(await hasServiceAccess(svcClient.id, 'pitch-decks'))) return NextResponse.json({ success: false, message: 'This feature requires an active pitch-decks subscription.', requiresService: 'pitch-decks', upsellUrl: '/portal/services' }, { status: 403 });
   const { id } = await params;
   const deck = await resolveDeck(parseInt(id), userId);
   if (!deck) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });

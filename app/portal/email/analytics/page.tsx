@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pCard } from '@/components/portal/portal-ui';
 
 interface AnalyticsData {
   overview: {
@@ -33,7 +35,7 @@ interface AnalyticsData {
 
 function StatCard({ icon, label, value, sub, color }: { icon: string; label: string; value: string | number; sub?: string; color?: string }) {
   return (
-    <div className="bg-card border border-border rounded-xl p-4">
+    <div className={`${pCard} p-4`}>
       <div className="flex items-center gap-2 mb-2">
         <span className={`material-icons text-lg ${color || 'text-primary'}`}>{icon}</span>
         <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{label}</span>
@@ -67,10 +69,11 @@ export default function EmailAnalyticsPage() {
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Email Analytics</h1>
-        <p className="text-sm text-muted-foreground mt-1">Campaign performance and subscriber insights</p>
-      </div>
+      <PortalPageHeader
+        eyebrow="Email"
+        title="Analytics"
+        subtitle="Campaign performance and subscriber insights"
+      />
 
       {/* Overview stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -89,7 +92,7 @@ export default function EmailAnalyticsPage() {
 
       {/* List breakdown */}
       {subscribers.listBreakdown.length > 0 && (
-        <div className="bg-card border border-border rounded-xl overflow-hidden">
+        <div className={`${pCard} overflow-hidden`}>
           <div className="px-5 py-4 border-b border-border">
             <h2 className="font-semibold">Subscriber Lists</h2>
           </div>

@@ -108,13 +108,17 @@ function SpacingInput({
     return 'px';
   });
 
-  // Sync custom fields when value changes externally
+  // Sync custom fields when value changes externally (e.g. switching breakpoints)
   useEffect(() => {
     if (isCustomValue(value, sizes)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setCustomMode(true);
       const match = value.match(/^(-?[\d.]+)/);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       if (match) setCustomNum(match[1]);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       if (value?.includes('%')) setCustomUnit('%');
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       else setCustomUnit('px');
     }
   }, [value, sizes]);
@@ -233,7 +237,7 @@ export function StyleSettings({ block, onChange, currentViewport }: StyleSetting
   const [perSideBorderOpen, setPerSideBorderOpen] = useState(false);
   const [perCornerRadiusOpen, setPerCornerRadiusOpen] = useState(false);
 
-  const updateStyle = (property: string, value: any) => {
+  const updateStyle = (property: string, value: string | number | boolean | null | undefined) => {
     const existingStyle = typeof block.style === 'object' ? block.style : {};
     onChange({
       style: {
@@ -246,7 +250,7 @@ export function StyleSettings({ block, onChange, currentViewport }: StyleSetting
   const updateResponsiveSetting = (
     property: keyof ResponsiveSettingsType,
     breakpoint: Breakpoint,
-    value: any
+    value: string | number | boolean | null | undefined
   ) => {
     const currentProperty = responsive[property] || {};
     onChange({
@@ -259,6 +263,42 @@ export function StyleSettings({ block, onChange, currentViewport }: StyleSetting
       },
     });
   };
+
+  // Write a layout property scoped to the active breakpoint (desktop-first).
+  // Reads from block.responsiveStyle[currentViewport], falling back to block.style.
+  const updateResponsiveStyle = (property: string, value: string | number | boolean | null | undefined) => {
+    const existing = block.responsiveStyle || {};
+    const existingBp = existing[currentViewport] || {};
+
+    // When writing a flex or grid sub-property and display isn't yet stored for
+    // this viewport (neither in responsiveStyle nor in block.style), anchor the
+    // effective display value so the generated CSS class has the right context.
+    // Without this, flex-direction/justify-content etc. have no effect because
+    // the element has no explicit display and the browser defaults to block.
+    const FLEX_SUBPROPS = ['flexDirection', 'justifyContent', 'alignItems', 'flexWrap', 'gap'];
+    const GRID_SUBPROPS = ['gridTemplateColumns', 'gridTemplateRows', 'gridGap'];
+    const coWrite: Partial<typeof existingBp> = {};
+    if (!existingBp.display && !style.display) {
+      if (FLEX_SUBPROPS.includes(property)) coWrite.display = 'flex';
+      if (GRID_SUBPROPS.includes(property)) coWrite.display = 'grid';
+    }
+
+    onChange({
+      responsiveStyle: {
+        ...existing,
+        [currentViewport]: {
+          ...existingBp,
+          ...coWrite,
+          [property]: value,
+        },
+      },
+    });
+  };
+
+  // Effective layout style: flat block.style is the baseline, breakpoint-specific
+  // responsiveStyle[currentViewport] overrides for the currently active breakpoint.
+  const responsiveStyleForViewport = block.responsiveStyle?.[currentViewport] || {};
+  const effectiveStyle = { ...style, ...responsiveStyleForViewport };
 
   const spacingSizes: SpacingSize[] = ['none', 'xs', 'sm', 'md', 'lg', 'xl', '2xl'];
   const fontSizes = ['xs', 'sm', 'base', 'lg', 'xl', '2xl', '3xl', '4xl', '5xl', '6xl'];
@@ -280,9 +320,13 @@ export function StyleSettings({ block, onChange, currentViewport }: StyleSetting
     <div className="-mx-4">
       {/* ── Layout ──────────────────────────────────────────────── */}
       <StyleSection title="Layout" defaultOpen>
+        <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
+          <span className="material-icons text-sm">{BREAKPOINTS[currentViewport].icon}</span>
+          <span>Editing for {BREAKPOINTS[currentViewport].label}</span>
+        </div>
         <div>
           <label className="block text-xs text-muted-foreground mb-1.5">Display</label>
-          <select value={style.display || 'flex'} onChange={(e) => updateStyle('display', e.target.value)} className={selectClass}>
+          <select value={effectiveStyle.display || 'flex'} onChange={(e) => updateResponsiveStyle('display', e.target.value)} className={selectClass}>
             <option value="">Block</option>
             <option value="flex">Flex</option>
             <option value="inline-flex">Inline Flex</option>
@@ -292,7 +336,7 @@ export function StyleSettings({ block, onChange, currentViewport }: StyleSetting
           </select>
         </div>
 
-        {(!style.display || style.display === 'flex' || style.display === 'inline-flex') && (
+        {(!effectiveStyle.display || effectiveStyle.display === 'flex' || effectiveStyle.display === 'inline-flex') && (
           <>
             <div>
               <label className="block text-xs text-muted-foreground mb-1.5">Direction</label>
@@ -303,7 +347,7 @@ export function StyleSettings({ block, onChange, currentViewport }: StyleSetting
                   { value: 'row-reverse', label: 'Row Rev', icon: 'arrow_back' },
                   { value: 'column-reverse', label: 'Col Rev', icon: 'arrow_upward' },
                 ] as const).map(({ value, label, icon }) => (
-                  <button key={value} type="button" onClick={() => updateStyle('flexDirection', value)} className={`${toggleBtn((style.flexDirection || 'row') === value)} text-center`} title={label}>
+                  <button key={value} type="button" onClick={() => updateResponsiveStyle('flexDirection', value)} className={`${toggleBtn((effectiveStyle.flexDirection || 'row') === value)} text-center`} title={label}>
                     <span className="material-icons text-sm block">{icon}</span>
                   </button>
                 ))}
@@ -313,7 +357,7 @@ export function StyleSettings({ block, onChange, currentViewport }: StyleSetting
               <label className="block text-xs text-muted-foreground mb-1.5">Justify Content</label>
               <div className="grid grid-cols-3 gap-1">
                 {(['flex-start', 'center', 'flex-end', 'space-between', 'space-around', 'space-evenly'] as const).map((v) => (
-                  <button key={v} type="button" onClick={() => updateStyle('justifyContent', v)} className={toggleBtn((style.justifyContent || 'flex-start') === v)}>
+                  <button key={v} type="button" onClick={() => updateResponsiveStyle('justifyContent', v)} className={toggleBtn((effectiveStyle.justifyContent || 'flex-start') === v)}>
                     {v.replace('flex-', '').replace('space-', '')}
                   </button>
                 ))}
@@ -323,7 +367,7 @@ export function StyleSettings({ block, onChange, currentViewport }: StyleSetting
               <label className="block text-xs text-muted-foreground mb-1.5">Align Items</label>
               <div className="grid grid-cols-5 gap-1">
                 {(['flex-start', 'center', 'flex-end', 'stretch', 'baseline'] as const).map((v) => (
-                  <button key={v} type="button" onClick={() => updateStyle('alignItems', v)} className={toggleBtn((style.alignItems || 'stretch') === v)}>
+                  <button key={v} type="button" onClick={() => updateResponsiveStyle('alignItems', v)} className={toggleBtn((effectiveStyle.alignItems || 'stretch') === v)}>
                     {v.replace('flex-', '').slice(0, 6)}
                   </button>
                 ))}
@@ -333,7 +377,7 @@ export function StyleSettings({ block, onChange, currentViewport }: StyleSetting
               <label className="block text-xs text-muted-foreground mb-1.5">Wrap</label>
               <div className="grid grid-cols-3 gap-1">
                 {(['nowrap', 'wrap', 'wrap-reverse'] as const).map((v) => (
-                  <button key={v} type="button" onClick={() => updateStyle('flexWrap', v)} className={toggleBtn((style.flexWrap || 'nowrap') === v)}>
+                  <button key={v} type="button" onClick={() => updateResponsiveStyle('flexWrap', v)} className={toggleBtn((effectiveStyle.flexWrap || 'nowrap') === v)}>
                     {v === 'nowrap' ? 'No Wrap' : v === 'wrap' ? 'Wrap' : 'Reverse'}
                   </button>
                 ))}
@@ -341,7 +385,7 @@ export function StyleSettings({ block, onChange, currentViewport }: StyleSetting
             </div>
             <div>
               <label className="block text-xs text-muted-foreground mb-1.5">Gap</label>
-              <select value={style.gap || ''} onChange={(e) => updateStyle('gap', e.target.value)} className={selectClass}>
+              <select value={effectiveStyle.gap || ''} onChange={(e) => updateResponsiveStyle('gap', e.target.value)} className={selectClass}>
                 <option value="">None</option>
                 <option value="0.25rem">4px</option><option value="0.5rem">8px</option><option value="0.75rem">12px</option>
                 <option value="1rem">16px</option><option value="1.5rem">24px</option><option value="2rem">32px</option>
@@ -351,26 +395,26 @@ export function StyleSettings({ block, onChange, currentViewport }: StyleSetting
           </>
         )}
 
-        {style.display === 'grid' && (
+        {effectiveStyle.display === 'grid' && (
           <>
             <div>
               <label className="block text-xs text-muted-foreground mb-1">Columns</label>
-              <input type="text" value={style.gridTemplateColumns || ''} onChange={(e) => updateStyle('gridTemplateColumns', e.target.value)} placeholder="1fr 1fr 1fr" className={inputClass} />
+              <input type="text" value={effectiveStyle.gridTemplateColumns || ''} onChange={(e) => updateResponsiveStyle('gridTemplateColumns', e.target.value)} placeholder="1fr 1fr 1fr" className={inputClass} />
             </div>
             <div>
               <label className="block text-xs text-muted-foreground mb-1">Rows</label>
-              <input type="text" value={style.gridTemplateRows || ''} onChange={(e) => updateStyle('gridTemplateRows', e.target.value)} placeholder="auto" className={inputClass} />
+              <input type="text" value={effectiveStyle.gridTemplateRows || ''} onChange={(e) => updateResponsiveStyle('gridTemplateRows', e.target.value)} placeholder="auto" className={inputClass} />
             </div>
             <div>
               <label className="block text-xs text-muted-foreground mb-1">Gap</label>
-              <input type="text" value={style.gridGap || ''} onChange={(e) => updateStyle('gridGap', e.target.value)} placeholder="16px" className={inputClass} />
+              <input type="text" value={effectiveStyle.gridGap || ''} onChange={(e) => updateResponsiveStyle('gridGap', e.target.value)} placeholder="16px" className={inputClass} />
             </div>
           </>
         )}
 
         <div>
           <label className="block text-xs text-muted-foreground mb-1.5">Align Self</label>
-          <select value={style.alignSelf || ''} onChange={(e) => updateStyle('alignSelf', e.target.value)} className={selectClass}>
+          <select value={effectiveStyle.alignSelf || ''} onChange={(e) => updateResponsiveStyle('alignSelf', e.target.value)} className={selectClass}>
             <option value="">Auto</option><option value="flex-start">Start</option><option value="center">Center</option>
             <option value="flex-end">End</option><option value="stretch">Stretch</option><option value="baseline">Baseline</option>
           </select>
@@ -378,17 +422,17 @@ export function StyleSettings({ block, onChange, currentViewport }: StyleSetting
 
         {/* Size */}
         <div className="grid grid-cols-2 gap-2">
-          <div><label className="block text-xs text-muted-foreground mb-1">Width</label><input type="text" value={style.width || ''} onChange={(e) => updateStyle('width', e.target.value)} placeholder="auto" className={inputClass} /></div>
-          <div><label className="block text-xs text-muted-foreground mb-1">Height</label><input type="text" value={style.height || ''} onChange={(e) => updateStyle('height', e.target.value)} placeholder="auto" className={inputClass} /></div>
+          <div><label className="block text-xs text-muted-foreground mb-1">Width</label><input type="text" value={effectiveStyle.width || ''} onChange={(e) => updateResponsiveStyle('width', e.target.value)} placeholder="auto" className={inputClass} /></div>
+          <div><label className="block text-xs text-muted-foreground mb-1">Height</label><input type="text" value={effectiveStyle.height || ''} onChange={(e) => updateResponsiveStyle('height', e.target.value)} placeholder="auto" className={inputClass} /></div>
         </div>
         <div className="grid grid-cols-2 gap-2">
-          <div><label className="block text-xs text-muted-foreground mb-1">Max Width</label><input type="text" value={style.maxWidth || ''} onChange={(e) => updateStyle('maxWidth', e.target.value)} placeholder="none" className={inputClass} /></div>
-          <div><label className="block text-xs text-muted-foreground mb-1">Min Height</label><input type="text" value={style.minHeight || ''} onChange={(e) => updateStyle('minHeight', e.target.value)} placeholder="0" className={inputClass} /></div>
+          <div><label className="block text-xs text-muted-foreground mb-1">Max Width</label><input type="text" value={effectiveStyle.maxWidth || ''} onChange={(e) => updateResponsiveStyle('maxWidth', e.target.value)} placeholder="none" className={inputClass} /></div>
+          <div><label className="block text-xs text-muted-foreground mb-1">Min Height</label><input type="text" value={effectiveStyle.minHeight || ''} onChange={(e) => updateResponsiveStyle('minHeight', e.target.value)} placeholder="0" className={inputClass} /></div>
         </div>
 
         <div>
           <label className="block text-xs text-muted-foreground mb-1">Overflow</label>
-          <select value={style.overflow || ''} onChange={(e) => updateStyle('overflow', e.target.value)} className={selectClass}>
+          <select value={effectiveStyle.overflow || ''} onChange={(e) => updateResponsiveStyle('overflow', e.target.value)} className={selectClass}>
             <option value="">Visible</option><option value="hidden">Hidden</option><option value="scroll">Scroll</option><option value="auto">Auto</option>
           </select>
         </div>
@@ -396,22 +440,22 @@ export function StyleSettings({ block, onChange, currentViewport }: StyleSetting
         {/* Position */}
         <div>
           <label className="block text-xs text-muted-foreground mb-1">Position</label>
-          <select value={style.position || ''} onChange={(e) => updateStyle('position', e.target.value)} className={selectClass}>
+          <select value={effectiveStyle.position || ''} onChange={(e) => updateResponsiveStyle('position', e.target.value)} className={selectClass}>
             <option value="">Static</option><option value="relative">Relative</option><option value="absolute">Absolute</option>
             <option value="fixed">Fixed</option><option value="sticky">Sticky</option>
           </select>
         </div>
-        {style.position && style.position !== 'static' && (
+        {effectiveStyle.position && effectiveStyle.position !== 'static' && (
           <>
             <div className="grid grid-cols-2 gap-2">
-              <div><label className="block text-xs text-muted-foreground mb-1">Top</label><input type="text" value={style.top || ''} onChange={(e) => updateStyle('top', e.target.value)} placeholder="auto" className={inputClass} /></div>
-              <div><label className="block text-xs text-muted-foreground mb-1">Right</label><input type="text" value={style.right || ''} onChange={(e) => updateStyle('right', e.target.value)} placeholder="auto" className={inputClass} /></div>
+              <div><label className="block text-xs text-muted-foreground mb-1">Top</label><input type="text" value={effectiveStyle.top || ''} onChange={(e) => updateResponsiveStyle('top', e.target.value)} placeholder="auto" className={inputClass} /></div>
+              <div><label className="block text-xs text-muted-foreground mb-1">Right</label><input type="text" value={effectiveStyle.right || ''} onChange={(e) => updateResponsiveStyle('right', e.target.value)} placeholder="auto" className={inputClass} /></div>
             </div>
             <div className="grid grid-cols-2 gap-2">
-              <div><label className="block text-xs text-muted-foreground mb-1">Bottom</label><input type="text" value={style.bottom || ''} onChange={(e) => updateStyle('bottom', e.target.value)} placeholder="auto" className={inputClass} /></div>
-              <div><label className="block text-xs text-muted-foreground mb-1">Left</label><input type="text" value={style.left || ''} onChange={(e) => updateStyle('left', e.target.value)} placeholder="auto" className={inputClass} /></div>
+              <div><label className="block text-xs text-muted-foreground mb-1">Bottom</label><input type="text" value={effectiveStyle.bottom || ''} onChange={(e) => updateResponsiveStyle('bottom', e.target.value)} placeholder="auto" className={inputClass} /></div>
+              <div><label className="block text-xs text-muted-foreground mb-1">Left</label><input type="text" value={effectiveStyle.left || ''} onChange={(e) => updateResponsiveStyle('left', e.target.value)} placeholder="auto" className={inputClass} /></div>
             </div>
-            <div><label className="block text-xs text-muted-foreground mb-1">Z-Index</label><input type="text" value={style.zIndex || ''} onChange={(e) => updateStyle('zIndex', e.target.value)} placeholder="auto" className={inputClass} /></div>
+            <div><label className="block text-xs text-muted-foreground mb-1">Z-Index</label><input type="text" value={effectiveStyle.zIndex || ''} onChange={(e) => updateResponsiveStyle('zIndex', e.target.value)} placeholder="auto" className={inputClass} /></div>
           </>
         )}
       </StyleSection>

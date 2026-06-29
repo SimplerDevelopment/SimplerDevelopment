@@ -104,8 +104,8 @@ export async function GET(
     // Fetch first image + category name for each product
     const productIds = rows.map(r => r.id);
 
-    let imagesMap: Record<number, string> = {};
-    let categoriesMap: Record<number, string> = {};
+    const imagesMap: Record<number, string> = {};
+    const categoriesMap: Record<number, string> = {};
 
     if (productIds.length > 0) {
       const images = await db.select({

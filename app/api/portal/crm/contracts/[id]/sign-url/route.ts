@@ -16,6 +16,7 @@ import { db } from '@/lib/db';
 import { crmContracts, crmContractSigningEvents, users } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
+import { authorizePortal, isAuthError } from '@/lib/portal-auth';
 import { getEmbeddedSignUrl } from '@/lib/esign/dropbox-sign';
 
 type Params = { params: Promise<{ id: string }> };
@@ -25,6 +26,9 @@ export async function GET(_req: Request, { params }: Params) {
   if (!session?.user?.id) {
     return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
   }
+
+  const authResult = await authorizePortal({ action: 'read', requireService: 'esign' });
+  if (isAuthError(authResult)) return authResult.response;
 
   const { id } = await params;
   const contractId = parseInt(id, 10);

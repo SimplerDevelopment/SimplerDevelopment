@@ -58,7 +58,7 @@ describe('Drag and Drop Integration', () => {
   // Undo/redo are keyboard-only now (Cmd+Z / Cmd+Shift+Z registered via
   // useKeyboardShortcuts) — the enhanced editor no longer exposes toolbar
   // buttons for them. Coverage lives in keyboardShortcutsEnhanced.test.tsx.
-  it.skip('has undo/redo buttons in toolbar', () => {
+  it.skip('has undo/redo buttons in toolbar', 'undo/redo are keyboard-only (Cmd+Z / Cmd+Shift+Z via useKeyboardShortcuts); toolbar buttons were removed — coverage lives in keyboardShortcutsEnhanced.test.tsx', () => {
     const onChange = vi.fn();
 
     render(<VisualBlockEditorEnhanced blocks={initialBlocks} onChange={onChange} />);

@@ -24,6 +24,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { PersonCard, type PersonCardData } from '@/components/brain/PersonCard';
 import type { BrainPersonStatus } from '@/lib/db/schema/brain';
 import type { BrainOrgUnitTreeNode } from '@/lib/brain/org-units';
+import PortalPageHeader from '@/components/portal/PortalPageHeader';
+import { pBtnPrimary, pBtnGhost } from '@/components/portal/portal-ui';
 
 type StatusFilter = 'all' | BrainPersonStatus;
 
@@ -176,26 +178,20 @@ export default function BrainPeoplePage() {
   }, [params, router]);
 
   return (
-    <div className="max-w-5xl mx-auto py-6 px-4">
+    <div className="max-w-5xl mx-auto py-6 px-4 space-y-4">
       <div className="sticky top-0 z-10 -mx-4 px-4 pb-3 pt-2 bg-background/95 backdrop-blur border-b border-border">
-        <div className="flex items-center justify-between gap-3 flex-wrap">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-              <span className="material-icons text-primary">groups</span>
-              People
-            </h1>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Your internal team — employees, advisors, and contractors. Distinct from CRM contacts.
-            </p>
-          </div>
-          <Link
-            href="/portal/brain/people/new"
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90"
-          >
-            <span className="material-icons text-base">person_add</span>
-            New person
-          </Link>
-        </div>
+        <PortalPageHeader
+          eyebrow="Company Brain"
+          title={<span className="flex items-center gap-2"><span className="material-icons text-primary">groups</span>People</span>}
+          subtitle="Your internal team — employees, advisors, and contractors. Distinct from CRM contacts."
+          actions={
+            <Link href="/portal/brain/people/new" className={pBtnPrimary}>
+              <span className="material-icons text-base">person_add</span>
+              New person
+            </Link>
+          }
+          className="mb-0 pb-3"
+        />
 
         <div className="mt-3 flex items-center gap-2 flex-wrap">
           <div className="inline-flex rounded-md border border-border overflow-hidden text-sm">
@@ -218,7 +214,7 @@ export default function BrainPeoplePage() {
           <select
             value={orgUnitId !== null ? String(orgUnitId) : ''}
             onChange={(e) => setParam({ orgUnitId: e.target.value || null })}
-            className="px-2 py-1.5 text-sm border border-border rounded-md bg-card focus:outline-none focus:ring-2 focus:ring-primary"
+            className="appearance-none rounded-xl border border-border bg-card px-3.5 py-2 pr-10 text-sm text-foreground outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/15"
           >
             <option value="">All org units</option>
             {orgUnits.map((u) => (
@@ -237,7 +233,7 @@ export default function BrainPeoplePage() {
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
               placeholder="Search by name, email, or title"
-              className="w-full pl-8 pr-3 py-1.5 text-sm border border-border rounded-md bg-card focus:outline-none focus:ring-2 focus:ring-primary"
+              className="w-full pl-8 pr-3 py-2 text-sm rounded-xl border border-border bg-card text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary focus:ring-4 focus:ring-primary/15"
             />
           </div>
         </div>
@@ -297,7 +293,7 @@ export default function BrainPeoplePage() {
             </p>
             <Link
               href="/portal/brain/people/new"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90"
+              className={pBtnPrimary}
             >
               <span className="material-icons text-base">person_add</span>
               Add person
@@ -317,7 +313,7 @@ export default function BrainPeoplePage() {
               type="button"
               disabled={page <= 1}
               onClick={() => setParam({ page: page > 2 ? String(page - 1) : null })}
-              className="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium rounded-md border border-border text-foreground hover:bg-accent disabled:opacity-40 disabled:cursor-not-allowed"
+              className={pBtnGhost + " disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none"}
             >
               <span className="material-icons text-base">chevron_left</span>
               Prev
@@ -327,7 +323,7 @@ export default function BrainPeoplePage() {
               type="button"
               disabled={!hasNextPage}
               onClick={() => setParam({ page: String(page + 1) })}
-              className="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium rounded-md border border-border text-foreground hover:bg-accent disabled:opacity-40 disabled:cursor-not-allowed"
+              className={pBtnGhost + " disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none"}
             >
               Next
               <span className="material-icons text-base">chevron_right</span>

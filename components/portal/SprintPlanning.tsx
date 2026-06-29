@@ -537,7 +537,7 @@ export default function SprintPlanning({ projectId, canEdit }: Props) {
                     </p>
                   )}
                   {sprint.goal && (
-                    <p className="text-xs text-muted-foreground mt-0.5 italic">"{sprint.goal}"</p>
+                    <p className="text-xs text-muted-foreground mt-0.5 italic">&quot;{sprint.goal}&quot;</p>
                   )}
                 </div>
               </button>

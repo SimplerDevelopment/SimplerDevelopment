@@ -54,7 +54,7 @@ export function SiteFooterBlockRender({ block }: SiteFooterBlockRenderProps) {
           <div className="md:col-span-1">
             {(block.logoUrl || block.wordmark) && (
               <div className="mb-4">
-                <a href="/" className="flex items-center gap-3 flex-wrap">
+                <Link href="/" className="flex items-center gap-3 flex-wrap">
                   {block.logoUrl && (
                     <img
                       src={block.logoUrl}
@@ -75,7 +75,7 @@ export function SiteFooterBlockRender({ block }: SiteFooterBlockRenderProps) {
                       ))}
                     </span>
                   )}
-                </a>
+                </Link>
               </div>
             )}
             {block.tagline && (

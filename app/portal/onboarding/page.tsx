@@ -14,9 +14,7 @@ export default async function OnboardingPage() {
   const client = await getPortalClient(userId);
   const state = await loadOnboarding(userId, client?.id ?? null);
 
-  return (
-    <div className="min-h-[calc(100vh-4rem)] -mx-4 -my-6 sm:-mx-6 sm:-my-8 bg-gradient-to-br from-background via-background to-primary/5">
-      <OnboardingWizard initialState={state} />
-    </div>
-  );
+  // The wizard renders its own full-bleed split-screen shell; `PortalLayoutClient`
+  // strips the portal sidebar/topbar for `/portal/onboarding` (see isOnboarding).
+  return <OnboardingWizard initialState={state} />;
 }

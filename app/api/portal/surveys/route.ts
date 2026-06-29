@@ -6,6 +6,7 @@ import { eq, desc } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
 import { authorizePortal, isAuthError } from '@/lib/portal-auth';
 import { emitEvent } from '@/lib/automation';
+import { slugify } from '@/lib/publishing/slug';
 
 export async function GET() {
   const session = await auth();
@@ -41,7 +42,7 @@ export async function POST(req: Request) {
   const { title, description, fields, linkedType, linkedId } = await req.json();
   if (!title?.trim()) return NextResponse.json({ success: false, message: 'Title is required' }, { status: 400 });
 
-  const baseSlug = title.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+  const baseSlug = slugify(title.trim());
   const slug = `${baseSlug}-${Date.now().toString(36)}`;
 
   const [survey] = await db.insert(surveys).values({

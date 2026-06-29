@@ -3,6 +3,7 @@
 import dynamic from 'next/dynamic';
 import { useCallback, useEffect, useState } from 'react';
 import type { UserAppNavMeta } from '@/lib/plugins/load-user-apps';
+import type { SerializableEntitlements } from '@/app/portal/PortalShell';
 
 // The actual ~532-LoC palette ships as its own chunk. It only loads once the
 // user has either pressed Cmd+K or hovered the keyboard such that we know
@@ -14,6 +15,7 @@ const CmdKPalette = dynamic(() => import('./CmdKPalette'), {
 
 interface CmdKLauncherProps {
   apps?: UserAppNavMeta[];
+  entitlements?: SerializableEntitlements;
 }
 
 /**
@@ -25,7 +27,7 @@ interface CmdKLauncherProps {
  * Once the user opens the palette once, the chunk is cached and subsequent
  * opens are instant.
  */
-export default function CmdKLauncher({ apps }: CmdKLauncherProps) {
+export default function CmdKLauncher({ apps, entitlements }: CmdKLauncherProps) {
   const [open, setOpen] = useState(false);
   // Once true we've ever mounted the palette — keep it mounted afterwards so
   // re-opens are instant and any internal state (recent searches, etc.) is
@@ -41,12 +43,19 @@ export default function CmdKLauncher({ apps }: CmdKLauncherProps) {
         setHasMounted(true);
       }
     };
+    // Lets non-keyboard surfaces (e.g. the topbar search button) open the
+    // palette without synthesizing a keystroke.
+    const openHandler = () => { setOpen(true); setHasMounted(true); };
     window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
+    window.addEventListener('portal:open-cmdk', openHandler);
+    return () => {
+      window.removeEventListener('keydown', handler);
+      window.removeEventListener('portal:open-cmdk', openHandler);
+    };
   }, []);
 
   const handleClose = useCallback(() => setOpen(false), []);
 
   if (!hasMounted) return null;
-  return <CmdKPalette apps={apps} open={open} onClose={handleClose} />;
+  return <CmdKPalette apps={apps} entitlements={entitlements} open={open} onClose={handleClose} />;
 }

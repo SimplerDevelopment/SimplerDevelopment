@@ -81,6 +81,11 @@ export default function SurveyDetailPage() {
   }, [pathname, router, searchParams]);
 
   const [tab, setTab] = useState<Tab>('overview');
+  // Resolve origin after mount — reading window.location during render makes the
+  // share URL text differ SSR vs client (React #418). Default '' so both render a
+  // relative URL, then fill in the origin client-side.
+  const [origin, setOrigin] = useState('');
+  useEffect(() => setOrigin(window.location.origin), []);
 
   // Editable fields hydrated from the loaded survey.
   const [editTitle, setEditTitle] = useState('');
@@ -198,8 +203,7 @@ export default function SurveyDetailPage() {
     );
   }
 
-  const publicUrl =
-    typeof window !== 'undefined' ? `${window.location.origin}/s/${survey.slug}` : `/s/${survey.slug}`;
+  const publicUrl = `${origin}/s/${survey.slug}`;
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
@@ -207,7 +211,7 @@ export default function SurveyDetailPage() {
 
       {/* Messages */}
       {error && (
-        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3 text-sm text-red-700 dark:text-red-400 flex items-center gap-2">
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-3 text-sm text-red-700 dark:text-red-400 flex items-center gap-2">
           <span className="material-icons text-lg">error</span>
           {error}
           <button onClick={() => setError('')} className="ml-auto">
@@ -216,7 +220,7 @@ export default function SurveyDetailPage() {
         </div>
       )}
       {successMsg && (
-        <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-3 text-sm text-green-700 dark:text-green-400 flex items-center gap-2">
+        <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl p-3 text-sm text-green-700 dark:text-green-400 flex items-center gap-2">
           <span className="material-icons text-lg">check_circle</span>
           {successMsg}
         </div>

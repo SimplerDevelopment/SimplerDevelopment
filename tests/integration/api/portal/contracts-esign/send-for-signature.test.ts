@@ -45,6 +45,19 @@ import { callHandler } from '../../../../helpers/call-handler';
 import { sessionForNewClientUser, type TenantCtx } from '../../../../helpers/session';
 import { getTestSql, TEST_SCHEMA } from '../../../../helpers/test-db';
 
+async function enableEsignService(ctx: TenantCtx): Promise<void> {
+  const sql = getTestSql();
+  const slug = `esign-${Date.now()}-${Math.floor(Math.random() * 1e9)}`;
+  const [svc] = await sql<{ id: number }[]>`
+    INSERT INTO ${sql(TEST_SCHEMA)}.services (name, slug, category, price, billing_cycle)
+    VALUES ('eSign', ${slug}, 'esign', 0, 'monthly') RETURNING id
+  `;
+  await sql`
+    INSERT INTO ${sql(TEST_SCHEMA)}.client_services (client_id, service_id, status)
+    VALUES (${ctx.client.id}, ${svc.id}, 'active')
+  `;
+}
+
 async function asTenant(ctx: TenantCtx | null) {
   mockedAuth.mockResolvedValue(ctx?.session ?? null);
 }
@@ -73,6 +86,7 @@ describe('POST /api/portal/crm/contracts/[id]/send-for-signature @esign', () => 
 
   beforeEach(async () => {
     A = await sessionForNewClientUser('contracts-send');
+    await enableEsignService(A);
     mockedCreateSig.mockClear();
     mockedCreateSig.mockResolvedValue({
       signatureRequestId: 'mock_sr_id_123',
@@ -214,6 +228,7 @@ describe('POST /api/portal/crm/contracts/[id]/send-for-signature @esign', () => 
 
   it('@tenancy: A cannot send for B\'s contract — 404, B contract untouched, mock NOT called', async () => {
     const B = await sessionForNewClientUser('contracts-send-b');
+    await enableEsignService(B);
     const idB = await seedContract({ clientId: B.client.id });
     await asTenant(A);
 

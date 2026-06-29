@@ -27,6 +27,14 @@ import type {
   PersonRelationSummary,
 } from '@/lib/brain/people';
 import type { BrainPersonStatus } from '@/lib/db/schema/brain';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import {
+  pBtnPrimary,
+  pBtnGhost,
+  pCard,
+  pInput,
+  pSectionTitle,
+} from '@/components/portal/portal-ui';
 
 interface PersonBundle {
   person: BrainPerson;
@@ -187,12 +195,12 @@ export default function BrainPersonProfilePage({
       <div className="max-w-3xl mx-auto py-8 px-4">
         <Link
           href="/portal/brain/people"
-          className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground mb-3"
+          className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground mb-4"
         >
           <span className="material-icons text-sm">chevron_left</span>
           Back to People
         </Link>
-        <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-4 text-sm text-destructive">
+        <div className="bg-destructive/10 border border-destructive/30 rounded-2xl p-4 text-sm text-destructive">
           <div className="flex items-center gap-2 font-medium mb-1">
             <span className="material-icons text-base">error_outline</span>
             Couldn&apos;t load person
@@ -210,30 +218,33 @@ export default function BrainPersonProfilePage({
   const profileUrls = Array.isArray(person.profileUrls) ? person.profileUrls : [];
 
   return (
-    <div className="max-w-5xl mx-auto py-6 px-4">
+    <div className="max-w-5xl mx-auto py-8 space-y-6">
       <Link
         href="/portal/brain/people"
-        className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground mb-3"
+        className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
       >
         <span className="material-icons text-sm">chevron_left</span>
         Back to People
       </Link>
 
-      <header className="flex items-start gap-4 flex-wrap mb-6">
-        <div className="shrink-0 w-16 h-16 rounded-full bg-primary/10 text-primary flex items-center justify-center text-lg font-semibold">
-          {initialsOf(person.fullName)}
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <h1 className="text-2xl font-bold text-foreground">{person.fullName}</h1>
-            <span className={`text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded ${STATUS_TONE[person.status]}`}>
-              {person.status}
+      <PortalPageHeader
+        eyebrow="Company Brain"
+        title={
+          <span className="flex items-center gap-3">
+            <span className="shrink-0 w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center text-base font-bold">
+              {initialsOf(person.fullName)}
             </span>
-          </div>
-          {person.title && (
-            <div className="text-sm text-muted-foreground mt-0.5">{person.title}</div>
-          )}
-          <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground flex-wrap">
+            <span className="flex items-center gap-2 flex-wrap">
+              {person.fullName}
+              <span className={`text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded-lg font-semibold ${STATUS_TONE[person.status]}`}>
+                {person.status}
+              </span>
+            </span>
+          </span>
+        }
+        subtitle={
+          <span className="flex items-center gap-3 flex-wrap text-[14.5px]">
+            {person.title && <span>{person.title}</span>}
             {primaryUnit && (
               <span className="inline-flex items-center gap-1">
                 <span className="material-icons text-[14px]">account_tree</span>
@@ -255,15 +266,15 @@ export default function BrainPersonProfilePage({
                 {person.email}
               </a>
             )}
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          {!editing ? (
+          </span>
+        }
+        actions={
+          !editing ? (
             <>
               <button
                 type="button"
                 onClick={startEdit}
-                className="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium rounded-md border border-border text-foreground hover:bg-accent"
+                className={pBtnGhost}
               >
                 <span className="material-icons text-base">edit</span>
                 Edit
@@ -271,7 +282,7 @@ export default function BrainPersonProfilePage({
               <button
                 type="button"
                 onClick={() => setConfirmingDelete(true)}
-                className="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium rounded-md border border-rose-500/30 text-rose-600 dark:text-rose-400 hover:bg-rose-500/10"
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-rose-500/30 bg-card px-4 py-2.5 text-sm font-semibold text-rose-600 dark:text-rose-400 transition hover:border-rose-500/50 hover:bg-rose-500/5"
               >
                 <span className="material-icons text-base">delete</span>
                 Delete
@@ -283,7 +294,7 @@ export default function BrainPersonProfilePage({
                 type="button"
                 onClick={() => setEditing(false)}
                 disabled={saving}
-                className="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium rounded-md border border-border text-foreground hover:bg-accent"
+                className={pBtnGhost}
               >
                 Cancel
               </button>
@@ -291,7 +302,7 @@ export default function BrainPersonProfilePage({
                 type="button"
                 onClick={saveEdit}
                 disabled={saving || !formName.trim()}
-                className="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                className={pBtnPrimary}
               >
                 {saving ? (
                   <>
@@ -306,12 +317,12 @@ export default function BrainPersonProfilePage({
                 )}
               </button>
             </>
-          )}
-        </div>
-      </header>
+          )
+        }
+      />
 
       {error && bundle && (
-        <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-3 text-sm text-destructive flex items-center gap-2 mb-4">
+        <div className="bg-destructive/10 border border-destructive/30 rounded-2xl p-3 text-sm text-destructive flex items-center gap-2">
           <span className="material-icons text-base">error_outline</span>
           {error}
         </div>
@@ -320,19 +331,19 @@ export default function BrainPersonProfilePage({
       <div className="grid lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
           {/* Profile */}
-          <section className="bg-card border border-border rounded-lg p-4">
-            <h2 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-1.5">
+          <section className={`${pCard} p-5`}>
+            <h2 className={`${pSectionTitle} mb-4 flex items-center gap-1.5`}>
               <span className="material-icons text-base text-primary">badge</span>
               Profile
             </h2>
             {editing ? (
-              <div className="space-y-3">
+              <div className="space-y-4">
                 <FormRow label="Full name">
                   <input
                     type="text"
                     value={formName}
                     onChange={(e) => setFormName(e.target.value)}
-                    className={inputCls}
+                    className={pInput}
                   />
                 </FormRow>
                 <FormRow label="Title">
@@ -340,7 +351,7 @@ export default function BrainPersonProfilePage({
                     type="text"
                     value={formTitle}
                     onChange={(e) => setFormTitle(e.target.value)}
-                    className={inputCls}
+                    className={pInput}
                   />
                 </FormRow>
                 <FormRow label="Email">
@@ -348,14 +359,14 @@ export default function BrainPersonProfilePage({
                     type="email"
                     value={formEmail}
                     onChange={(e) => setFormEmail(e.target.value)}
-                    className={inputCls}
+                    className={pInput}
                   />
                 </FormRow>
                 <FormRow label="Status">
                   <select
                     value={formStatus}
                     onChange={(e) => setFormStatus(e.target.value as BrainPersonStatus)}
-                    className={inputCls}
+                    className={pInput}
                   >
                     {STATUS_OPTIONS.map((o) => (
                       <option key={o.value} value={o.value}>{o.label}</option>
@@ -367,12 +378,12 @@ export default function BrainPersonProfilePage({
                     value={formNotes}
                     onChange={(e) => setFormNotes(e.target.value)}
                     rows={4}
-                    className={`${inputCls} resize-y`}
+                    className={`${pInput} resize-y`}
                   />
                 </FormRow>
               </div>
             ) : (
-              <dl className="text-sm space-y-2">
+              <dl className="text-sm space-y-2.5">
                 <Detail label="Email">{person.email ?? <Muted />}</Detail>
                 <Detail label="Title">{person.title ?? <Muted />}</Detail>
                 <Detail label="Start date">{fmtDate(person.startDate) ?? <Muted />}</Detail>
@@ -394,7 +405,7 @@ export default function BrainPersonProfilePage({
                           href={row.url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-muted text-xs text-foreground hover:bg-accent"
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-muted text-xs font-semibold text-foreground hover:bg-accent transition"
                         >
                           <span className="material-icons text-[13px]">link</span>
                           {row.label || row.url}
@@ -408,8 +419,8 @@ export default function BrainPersonProfilePage({
           </section>
 
           {/* Expertise */}
-          <section className="bg-card border border-border rounded-lg p-4">
-            <h2 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-1.5">
+          <section className={`${pCard} p-5`}>
+            <h2 className={`${pSectionTitle} mb-4 flex items-center gap-1.5`}>
               <span className="material-icons text-base text-primary">workspace_premium</span>
               Expertise
             </h2>
@@ -421,15 +432,15 @@ export default function BrainPersonProfilePage({
           </section>
 
           {/* Org membership */}
-          <section className="bg-card border border-border rounded-lg p-4">
-            <h2 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-1.5">
+          <section className={`${pCard} p-5`}>
+            <h2 className={`${pSectionTitle} mb-4 flex items-center gap-1.5`}>
               <span className="material-icons text-base text-primary">account_tree</span>
               Org membership
             </h2>
             {orgUnits.length === 0 ? (
-              <p className="text-xs text-muted-foreground">Not assigned to any org units yet.</p>
+              <p className="text-sm text-muted-foreground">Not assigned to any org units yet.</p>
             ) : (
-              <ul className="space-y-1.5">
+              <ul className="space-y-2">
                 {orgUnits.map((u) => (
                   <li key={u.id} className="flex items-center justify-between gap-2 text-sm">
                     <Link
@@ -443,7 +454,7 @@ export default function BrainPersonProfilePage({
                         <span className="text-xs text-muted-foreground">{u.roleInUnit}</span>
                       )}
                       {u.primary && (
-                        <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-primary/10 text-primary">
+                        <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded-lg font-semibold bg-primary/10 text-primary">
                           Primary
                         </span>
                       )}
@@ -455,14 +466,14 @@ export default function BrainPersonProfilePage({
           </section>
 
           {/* Reports / Direct reports */}
-          <section className="bg-card border border-border rounded-lg p-4">
-            <h2 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-1.5">
+          <section className={`${pCard} p-5`}>
+            <h2 className={`${pSectionTitle} mb-4 flex items-center gap-1.5`}>
               <span className="material-icons text-base text-primary">supervisor_account</span>
               Reporting
             </h2>
             <div className="grid sm:grid-cols-2 gap-4">
               <div>
-                <h3 className="text-[11px] uppercase tracking-wide text-muted-foreground mb-1">
+                <h3 className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground mb-2">
                   Reports to
                 </h3>
                 {manager ? (
@@ -474,17 +485,17 @@ export default function BrainPersonProfilePage({
                     {manager.fullName}
                   </Link>
                 ) : (
-                  <p className="text-xs text-muted-foreground">No manager set.</p>
+                  <p className="text-sm text-muted-foreground">No manager set.</p>
                 )}
               </div>
               <div>
-                <h3 className="text-[11px] uppercase tracking-wide text-muted-foreground mb-1">
+                <h3 className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground mb-2">
                   Direct reports
                 </h3>
                 {directReports.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">No direct reports.</p>
+                  <p className="text-sm text-muted-foreground">No direct reports.</p>
                 ) : (
-                  <ul className="space-y-1">
+                  <ul className="space-y-1.5">
                     {directReports.map((r) => (
                       <li key={r.id}>
                         <Link
@@ -516,8 +527,8 @@ export default function BrainPersonProfilePage({
           role="dialog"
           aria-modal="true"
         >
-          <div className="bg-card border border-border rounded-lg p-5 max-w-md w-full">
-            <h3 className="text-base font-semibold text-foreground flex items-center gap-1.5">
+          <div className={`${pCard} p-6 max-w-md w-full`}>
+            <h3 className="text-base font-bold text-foreground flex items-center gap-1.5">
               <span className="material-icons text-rose-500">warning</span>
               Delete this person?
             </h3>
@@ -527,12 +538,12 @@ export default function BrainPersonProfilePage({
               Direct reports will be unassigned (their <em>reports-to</em> will be cleared).
               This cannot be undone.
             </p>
-            <div className="flex items-center justify-end gap-2 mt-4">
+            <div className="flex items-center justify-end gap-2 mt-5">
               <button
                 type="button"
                 onClick={() => setConfirmingDelete(false)}
                 disabled={deleting}
-                className="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium rounded-md border border-border text-foreground hover:bg-accent"
+                className={pBtnGhost}
               >
                 Cancel
               </button>
@@ -540,7 +551,7 @@ export default function BrainPersonProfilePage({
                 type="button"
                 onClick={doDelete}
                 disabled={deleting}
-                className="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium rounded-md bg-rose-600 text-white hover:bg-rose-700 disabled:opacity-50"
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-rose-700 disabled:opacity-50"
               >
                 {deleting ? (
                   <>
@@ -562,13 +573,10 @@ export default function BrainPersonProfilePage({
   );
 }
 
-const inputCls =
-  'w-full px-3 py-2 border border-border rounded-md bg-card text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary';
-
 function FormRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="block">
-      <span className="block text-xs font-medium text-foreground mb-1">{label}</span>
+      <span className="block font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground mb-1.5">{label}</span>
       {children}
     </label>
   );
@@ -577,7 +585,7 @@ function FormRow({ label, children }: { label: string; children: React.ReactNode
 function Detail({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="grid grid-cols-[8rem_1fr] gap-2 items-baseline">
-      <dt className="text-xs uppercase tracking-wide text-muted-foreground">{label}</dt>
+      <dt className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">{label}</dt>
       <dd className="text-sm text-foreground min-w-0">{children}</dd>
     </div>
   );

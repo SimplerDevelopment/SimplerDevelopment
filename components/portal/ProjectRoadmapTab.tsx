@@ -30,6 +30,9 @@ export default function ProjectRoadmapTab({ projectId, projectKey }: { projectId
   const [sprints, setSprints] = useState<SprintRow[]>([]);
   const [backlogDueCount, setBacklogDueCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  // Captured once on mount — stable for the "today" marker.
+  // useState lazy initializer satisfies react-hooks/purity.
+  const [now] = useState(() => Date.now());
 
   useEffect(() => {
     let cancelled = false;
@@ -125,10 +128,10 @@ export default function ProjectRoadmapTab({ projectId, projectKey }: { projectId
             </g>
           ))}
           {/* Today */}
-          {range && Date.now() >= range.min && Date.now() <= range.max && (
+          {range && now >= range.min && now <= range.max && (
             <g>
-              <line x1={xAt(Date.now())} x2={xAt(Date.now())} y1={20} y2={totalH - 20} stroke="hsl(var(--primary, 222 47% 51%))" strokeOpacity="0.5" strokeDasharray="3 3" />
-              <text x={xAt(Date.now())} y={totalH - 6} fontSize="10" textAnchor="middle" fill="hsl(var(--primary, 222 47% 51%))" fillOpacity="0.85">today</text>
+              <line x1={xAt(now)} x2={xAt(now)} y1={20} y2={totalH - 20} stroke="hsl(var(--primary, 222 47% 51%))" strokeOpacity="0.5" strokeDasharray="3 3" />
+              <text x={xAt(now)} y={totalH - 6} fontSize="10" textAnchor="middle" fill="hsl(var(--primary, 222 47% 51%))" fillOpacity="0.85">today</text>
             </g>
           )}
           {/* Sprint rows */}
@@ -191,7 +194,7 @@ export default function ProjectRoadmapTab({ projectId, projectKey }: { projectId
             href={`/portal/projects/${projectId}?tab=sprints#${s.id}`}
             className="text-xs px-3 py-1.5 rounded border border-border text-muted-foreground hover:bg-accent hover:text-foreground"
           >
-            {s.name} · {new Date(s.startDate!).toLocaleDateString()} → {new Date(s.endDate!).toLocaleDateString()}
+            {s.name} · {new Date(s.startDate!).toLocaleDateString('en-US')} → {new Date(s.endDate!).toLocaleDateString('en-US')}
           </Link>
         ))}
       </div>

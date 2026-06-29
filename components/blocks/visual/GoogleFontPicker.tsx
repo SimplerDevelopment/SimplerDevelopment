@@ -62,7 +62,7 @@ export function GoogleFontPicker({ value, onChange }: GoogleFontPickerProps) {
   // Initial load when opened
   useEffect(() => {
     if (open && fonts.length === 0) {
-      fetchFonts('', 0, false);
+      void Promise.resolve().then(() => fetchFonts('', 0, false));
     }
     if (open) {
       setTimeout(() => inputRef.current?.focus(), 50);

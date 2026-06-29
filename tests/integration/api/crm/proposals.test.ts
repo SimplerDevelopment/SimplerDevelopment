@@ -21,6 +21,7 @@ const mockedAuth = auth as unknown as Mock;
 import { callHandler } from '../../../helpers/call-handler';
 import { sessionForNewClientUser, type TenantCtx } from '../../../helpers/session';
 import { getTestSql, TEST_SCHEMA } from '../../../helpers/test-db';
+import { grantBundle } from '../../../helpers/entitlements';
 
 async function asTenant(ctx: TenantCtx | null) {
   mockedAuth.mockResolvedValue(ctx?.session ?? null);
@@ -42,6 +43,7 @@ describe('POST /api/portal/crm/proposals @crm @tenancy', () => {
 
   beforeEach(async () => {
     A = await sessionForNewClientUser('prop-post');
+    await grantBundle(A.client.id);
   });
 
   it('happy path: creates proposal under caller tenant (201)', async () => {
@@ -87,6 +89,7 @@ describe('PUT /api/portal/crm/proposals/[id] @crm @tenancy', () => {
       sessionForNewClientUser('prop-put-a'),
       sessionForNewClientUser('prop-put-b'),
     ]);
+    await grantBundle(A.client.id);
     propB = await seedProposal(B.client.id, 'B-Owned');
   });
 
@@ -158,6 +161,7 @@ describe('DELETE /api/portal/crm/proposals/[id] @crm @tenancy', () => {
       sessionForNewClientUser('prop-del-a'),
       sessionForNewClientUser('prop-del-b'),
     ]);
+    await grantBundle(A.client.id);
   });
 
   it('happy path: deletes own proposal (200)', async () => {

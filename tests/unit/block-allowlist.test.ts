@@ -15,9 +15,7 @@
  *   - `assertBlocksAllowedForUserId` consults the DB only when the content
  *     could trip the gate, and honours the user's role from the DB result.
  */
-import { describe as _describeRaw, it, expect, vi, beforeEach } from 'vitest';
-// Gate was removed — assertions are no-ops. Suite kept for reference; skipped.
-const describe = _describeRaw.skip;
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
   assertBlocksAllowedForRole,
   assertBlocksAllowedForUserId,
@@ -116,6 +114,29 @@ describe('assertBlocksAllowedForRole', () => {
         'client',
       ),
     ).not.toThrow();
+  });
+});
+
+// REGRESSION (finding: html-render-embed-gate-disabled). This block is a
+// canary: if either gate function is ever reverted to a no-op `return;` again,
+// these assertions fail loudly. Raw-HTML/JS authorship MUST stay staff-only.
+describe('regression: gate must not be a no-op', () => {
+  it('assertBlocksAllowedForRole rejects a non-staff client authoring html-render', () => {
+    expect(() =>
+      assertBlocksAllowedForRole([{ type: 'html-render', html: '<script>alert(1)</script>' }], 'client'),
+    ).toThrow(BlockGateError);
+  });
+
+  it('assertBlocksAllowedForRole rejects html-embed for a missing role', () => {
+    expect(() => assertBlocksAllowedForRole([{ type: 'html-embed' }], undefined)).toThrow(BlockGateError);
+  });
+
+  it('assertBlocksAllowedForUserId rejects a non-staff user authoring html-embed', async () => {
+    userRows = [{ role: 'client' }];
+    await expect(
+      assertBlocksAllowedForUserId([{ type: 'html-embed', html: '<script>x</script>' }], 99),
+    ).rejects.toThrow(BlockGateError);
+    expect(dbSelectMock).toHaveBeenCalledTimes(1);
   });
 });
 

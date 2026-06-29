@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnPrimary, pBtnGhost, pInput } from '@/components/portal/portal-ui';
 
 interface Profile {
   id: number;
@@ -113,12 +115,20 @@ export default function PortalBrandingPage() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Branding & Messaging</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Create and manage brand profiles with visual identity and company messaging. Assign them to websites, pitch decks, and proposals.
-        </p>
-      </div>
+      <PortalPageHeader
+        eyebrow="Brand"
+        title="Branding & Messaging"
+        subtitle="Create and manage brand profiles with visual identity and company messaging. Assign them to websites, pitch decks, and proposals."
+        actions={
+          <button
+            onClick={() => setShowCreate(!showCreate)}
+            className={pBtnPrimary}
+          >
+            <span className="material-icons text-base">add</span>
+            New Profile
+          </button>
+        }
+      />
 
       {/* Tabs */}
       <div className="flex gap-1 border-b border-border">
@@ -141,18 +151,8 @@ export default function PortalBrandingPage() {
       {/* Profiles Tab */}
       {activeTab === 'profiles' && (
         <section className="space-y-4">
-          <div className="flex items-center justify-end">
-            <button
-              onClick={() => setShowCreate(!showCreate)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-primary-foreground bg-primary rounded-md hover:bg-primary/90"
-            >
-              <span className="material-icons text-base">add</span>
-              New Profile
-            </button>
-          </div>
-
           {showCreate && (
-            <div className="bg-card border border-border rounded-lg p-4 flex items-end gap-3">
+            <div className="bg-card border border-border rounded-2xl p-4 flex items-end gap-3">
               <div className="flex-1">
                 <label className="block text-xs font-medium text-muted-foreground mb-1">Profile Name</label>
                 <input
@@ -160,20 +160,20 @@ export default function PortalBrandingPage() {
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
                   placeholder="e.g. Main Brand, Dark Variant, Event Theme"
-                  className="w-full px-3 py-2 rounded-md border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  className={pInput}
                   onKeyDown={(e) => e.key === 'Enter' && createProfile()}
                 />
               </div>
               <button
                 onClick={createProfile}
                 disabled={creating || !newName.trim()}
-                className="px-4 py-2 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                className={pBtnPrimary}
               >
                 {creating ? 'Creating...' : 'Create'}
               </button>
               <button
                 onClick={() => { setShowCreate(false); setNewName(''); }}
-                className="px-4 py-2 text-sm rounded-md border border-border text-foreground hover:bg-accent"
+                className={pBtnGhost}
               >
                 Cancel
               </button>
@@ -181,7 +181,7 @@ export default function PortalBrandingPage() {
           )}
 
           {profiles.length === 0 ? (
-            <div className="text-center py-12 bg-card border border-border rounded-lg">
+            <div className="text-center py-12 bg-card border border-border rounded-2xl">
               <span className="material-icons text-4xl text-muted-foreground mb-2 block">palette</span>
               <p className="text-muted-foreground text-sm">No brand profiles yet.</p>
               <p className="text-muted-foreground text-xs mt-1">Create your first profile to get started.</p>
@@ -195,7 +195,7 @@ export default function PortalBrandingPage() {
                 return (
                   <div
                     key={profile.id}
-                    className="bg-card border border-border rounded-lg overflow-hidden hover:border-primary/50 transition-colors"
+                    className="bg-card border border-border rounded-2xl overflow-hidden hover:border-primary/50 transition-colors"
                   >
                     <div className="h-2 flex">
                       <div className="flex-1" style={{ backgroundColor: primary }} />
@@ -205,7 +205,7 @@ export default function PortalBrandingPage() {
                     <div className="p-4 space-y-3">
                       <div className="flex items-start justify-between">
                         <div className="min-w-0">
-                          <h3 className="font-semibold text-foreground truncate">{profile.name}</h3>
+                          <h3 className="font-display font-extrabold tracking-[-0.01em] text-foreground truncate">{profile.name}</h3>
                           {(profile.headingFont || profile.bodyFont) && (
                             <p className="text-[10px] text-muted-foreground truncate mt-0.5">
                               {[profile.headingFont, profile.bodyFont].filter(Boolean).join(' / ')}
@@ -284,7 +284,7 @@ export default function PortalBrandingPage() {
             Assign a brand profile to each website. This determines the default styling for CMS blocks.
           </p>
           {websites.length === 0 || profiles.length === 0 ? (
-            <div className="text-center py-12 bg-card border border-border rounded-lg">
+            <div className="text-center py-12 bg-card border border-border rounded-2xl">
               <span className="material-icons text-4xl text-muted-foreground mb-2 block">language</span>
               <p className="text-muted-foreground text-sm">
                 {profiles.length === 0
@@ -293,7 +293,7 @@ export default function PortalBrandingPage() {
               </p>
             </div>
           ) : (
-            <div className="bg-card border border-border rounded-lg divide-y divide-border">
+            <div className="bg-card border border-border rounded-2xl divide-y divide-border">
               {websites.map((site) => (
                 <div key={site.id} className="flex flex-wrap items-center justify-between px-4 py-3 gap-3">
                   <div className="min-w-0">

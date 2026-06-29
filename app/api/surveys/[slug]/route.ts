@@ -11,6 +11,8 @@ import { assignSurveyVariant } from '@/lib/surveys/variant-assign';
 import { computeSurveyScore } from '@/lib/surveys/score';
 import type { SurveyFieldDef } from '@/lib/db/schema/surveys';
 import { assertPipelineInClient, assertStageInClient } from '@/lib/security/assert-owned';
+import { upsertContactByEmail } from '@/lib/crm/contacts';
+import { checkRateLimit, getClientIp } from '@/lib/security/rate-limit';
 
 // CORS — public survey submit needs to accept POST from sandboxed iframes
 // (their effective origin is `null`, so `*` matches). The endpoint is
@@ -127,6 +129,20 @@ export async function GET(_req: Request, { params }: { params: Promise<{ slug: s
 export async function POST(req: Request, { params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
 
+  // Abuse guard: this public, no-auth endpoint has amplifying side effects per
+  // submission (CRM contact+deal on auto-route, webhooks, follow-up emails). Cap
+  // scripted floods per IP+survey. Generous on purpose — a kiosk/booth submitting
+  // one response every couple seconds stays well under the cap; a tight-loop bot
+  // does not. Best-effort (in-memory, per-instance) — same guardrail the auth
+  // routes use; back with Redis for a hard global gate. ponytail: per-instance
+  // cap, swap to Redis-backed limiter if a distributed flood gets through.
+  if (!(await checkRateLimit(`survey-submit:${getClientIp(req)}:${slug}`, 30, 60_000))) {
+    return corsJson(
+      { success: false, message: 'Too many submissions. Please wait a moment and try again.' },
+      { status: 429 },
+    );
+  }
+
   const [survey] = await db.select().from(surveys).where(eq(surveys.slug, slug));
   if (!survey) return corsJson({ success: false, message: 'Survey not found' }, { status: 404 });
   if (survey.status !== 'active') return corsJson({ success: false, message: 'Survey is not active' }, { status: 403 });
@@ -241,6 +257,29 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
     answerVal('name') ||
     answerVal('full_name');
 
+  // MULTI-01: when allowMultiple=false, block a second submission from the
+  // same email address. Only active when derivedEmail is non-empty — anonymous
+  // submissions (no email at all) still go through so as not to block
+  // respondents who legitimately have no email to provide.
+  if (!survey.allowMultiple && derivedEmail) {
+    const [existing] = await db
+      .select({ id: surveyResponses.id })
+      .from(surveyResponses)
+      .where(
+        and(
+          eq(surveyResponses.surveyId, survey.id),
+          eq(surveyResponses.respondentEmail, derivedEmail),
+        ),
+      )
+      .limit(1);
+    if (existing) {
+      return corsJson(
+        { success: false, message: 'You have already submitted a response to this survey' },
+        { status: 403 },
+      );
+    }
+  }
+
   // KNOWN LIMITATION: maxResponses gate at line 69 reads from initial SELECT, not inside
   // the transaction. Under extreme concurrency at exactly max capacity, two requests could
   // both pass the gate. The transaction prevents count desync but not the gate race.
@@ -335,6 +374,14 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
         .replace(/\{respondentEmail\}/g, respondentEmail)
         .replace(/\{score\}/g, String(computedScore));
 
+      // Upsert a CRM contact so the deal is never orphaned.
+      const { contactId } = await upsertContactByEmail({
+        clientId: survey.clientId,
+        email: respondentEmail,
+        displayName: response.respondentName ?? undefined,
+        source: 'survey',
+      });
+
       await db.insert(crmDeals).values({
         clientId: survey.clientId,
         pipelineId: autoRoute.pipelineId,
@@ -342,6 +389,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
         title: title.slice(0, 255),
         notes: `Auto-created from survey response #${response.id}`,
         ownerId: null,
+        contactId,
       });
     }
   } catch (err) {

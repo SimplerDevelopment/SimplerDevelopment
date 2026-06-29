@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnPrimary, pBtnGhost, pCard, pSelect } from '@/components/portal/portal-ui';
 import {
   DndContext,
   DragEndEvent,
@@ -149,24 +151,27 @@ export default function BrainTasksAndReviewPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-          <span className="material-icons text-primary">{tab === 'review' ? 'reviews' : 'checklist'}</span>
-          {tab === 'review' ? 'Review queue' : 'Brain Tasks'}
-        </h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          {tab === 'review'
+      <PortalPageHeader
+        eyebrow="Company Brain"
+        title={
+          <span className="flex items-center gap-2">
+            <span className="material-icons text-primary">{tab === 'review' ? 'reviews' : 'checklist'}</span>
+            {tab === 'review' ? 'Review queue' : 'Brain Tasks'}
+          </span>
+        }
+        subtitle={
+          tab === 'review'
             ? 'Tasks, decisions, commitments, and CRM links extracted by AI from your communications. Approve to commit them, edit and approve, or reject.'
-            : 'Tasks captured from communications and AI-generated suggestions, after human approval.'}
-        </p>
-      </div>
+            : 'Tasks captured from communications and AI-generated suggestions, after human approval.'
+        }
+      />
 
       <div className="flex items-center gap-1 border-b border-border overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0">
         <button
           onClick={() => setTab('tasks')}
           className={`px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-colors inline-flex items-center gap-1.5 whitespace-nowrap ${
             tab === 'tasks'
-              ? 'border-primary text-foreground'
+              ? 'border-foreground text-foreground'
               : 'border-transparent text-muted-foreground hover:text-foreground'
           }`}
         >
@@ -177,7 +182,7 @@ export default function BrainTasksAndReviewPage() {
           onClick={() => setTab('review')}
           className={`px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-colors inline-flex items-center gap-1.5 whitespace-nowrap ${
             tab === 'review'
-              ? 'border-primary text-foreground'
+              ? 'border-foreground text-foreground'
               : 'border-transparent text-muted-foreground hover:text-foreground'
           }`}
         >
@@ -446,7 +451,7 @@ function TaskCard({
       style={style}
       {...attributes}
       {...listeners}
-      className="bg-card border border-border rounded-lg p-3 shadow-sm cursor-grab active:cursor-grabbing hover:border-primary/50 hover:shadow-md transition-all"
+      className="bg-card border border-border rounded-2xl p-3 shadow-sm cursor-grab active:cursor-grabbing hover:border-primary/50 hover:shadow-md transition-all"
     >
       <div className="flex items-start gap-2">
         <p className="text-sm font-medium text-foreground flex-1">
@@ -505,7 +510,7 @@ function TaskCard({
             type="button"
             onClick={(e) => { e.stopPropagation(); onPromote(task); }}
             onPointerDown={(e) => e.stopPropagation()}
-            className="text-xs px-2 py-1 rounded-md border border-border text-foreground hover:bg-accent inline-flex items-center gap-1"
+            className={`${pBtnGhost} !py-1 !px-2 !text-xs`}
             title="Promote to project board"
           >
             <span className="material-icons text-sm">view_kanban</span>
@@ -589,7 +594,7 @@ function PromoteModal({
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-card border border-border rounded-lg shadow-xl max-w-md w-full p-5 space-y-4">
+      <div className="bg-card border border-border rounded-2xl shadow-xl max-w-md w-full p-5 space-y-4">
         <div>
           <h3 className="text-base font-semibold text-foreground">Promote to project board</h3>
           <p className="text-xs text-muted-foreground mt-0.5 truncate">{task.title}</p>
@@ -607,7 +612,7 @@ function PromoteModal({
             Loading projects…
           </div>
         ) : targets.length === 0 ? (
-          <div className="bg-muted/30 border border-border rounded-md p-3 text-xs text-muted-foreground">
+          <div className="bg-muted/30 border border-border rounded-xl p-3 text-xs text-muted-foreground">
             No active projects to promote into. <Link href="/portal/projects" className="text-primary hover:underline">Create a project first</Link>.
           </div>
         ) : (
@@ -617,7 +622,7 @@ function PromoteModal({
               <select
                 value={projectId ?? ''}
                 onChange={(e) => setProjectId(parseInt(e.target.value, 10))}
-                className="w-full px-3 py-2 rounded-md border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                className={pSelect}
               >
                 {targets.map((p) => (
                   <option key={p.id} value={p.id}>{p.name}{p.projectKey ? ` [${p.projectKey}]` : ''}</option>
@@ -630,7 +635,7 @@ function PromoteModal({
                 <select
                   value={columnId ?? ''}
                   onChange={(e) => setColumnId(parseInt(e.target.value, 10))}
-                  className="w-full px-3 py-2 rounded-md border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  className={pSelect}
                 >
                   {project.columns.map((c) => (
                     <option key={c.id} value={c.id}>{c.name}{c.isDone ? ' (done)' : ''}</option>
@@ -645,14 +650,14 @@ function PromoteModal({
           <button
             onClick={onClose}
             disabled={submitting}
-            className="px-3 py-1.5 text-sm rounded-md border border-border text-foreground hover:bg-accent disabled:opacity-50"
+            className={pBtnGhost}
           >
             Cancel
           </button>
           <button
             onClick={submit}
             disabled={submitting || !projectId || !targets || targets.length === 0}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+            className={pBtnPrimary}
           >
             {submitting
               ? <><span className="material-icons animate-spin text-base">progress_activity</span>Promoting…</>
@@ -848,10 +853,10 @@ function ReviewTab({ onPendingChange }: { onPendingChange: (n: number) => void }
             <button
               key={t.key}
               onClick={() => setStatusFilter(t.key)}
-              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap ${
+              className={`px-3 py-1.5 text-xs font-medium rounded-xl transition-colors whitespace-nowrap ${
                 statusFilter === t.key
-                  ? 'bg-primary/10 text-primary'
-                  : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+                  ? 'bg-foreground text-background'
+                  : 'text-muted-foreground hover:bg-muted hover:text-foreground'
               }`}
             >
               {t.label}
@@ -878,7 +883,7 @@ function ReviewTab({ onPendingChange }: { onPendingChange: (n: number) => void }
       </div>
 
       {pendingIds.length > 0 && (
-        <div className="flex items-center justify-between gap-4 bg-muted/40 border border-border rounded-md px-3 py-2 flex-wrap">
+        <div className={`flex items-center justify-between gap-4 ${pCard} px-3 py-2 flex-wrap`}>
           <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer select-none">
             <input
               type="checkbox"
@@ -900,7 +905,7 @@ function ReviewTab({ onPendingChange }: { onPendingChange: (n: number) => void }
               <button
                 onClick={() => bulkAction('reject')}
                 disabled={bulkBusy}
-                className="px-3 py-1 text-xs rounded-md border border-border text-foreground hover:bg-destructive/10 hover:text-destructive disabled:opacity-50 inline-flex items-center gap-1"
+                className={`${pBtnGhost} !py-1 !px-3 !text-xs hover:border-destructive/50 hover:text-destructive`}
               >
                 <span className="material-icons text-sm">close</span>
                 Reject {selected.size}
@@ -908,7 +913,7 @@ function ReviewTab({ onPendingChange }: { onPendingChange: (n: number) => void }
               <button
                 onClick={() => bulkAction('approve')}
                 disabled={bulkBusy}
-                className="px-3 py-1 text-xs rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 inline-flex items-center gap-1"
+                className={`${pBtnPrimary} !py-1 !px-3 !text-xs`}
               >
                 {bulkBusy
                   ? <><span className="material-icons animate-spin text-sm">progress_activity</span>Working…</>
@@ -931,7 +936,7 @@ function ReviewTab({ onPendingChange }: { onPendingChange: (n: number) => void }
           Loading…
         </div>
       ) : items.length === 0 ? (
-        <div className="text-center py-12 bg-card border border-border rounded-lg">
+        <div className="text-center py-12 bg-card border border-border rounded-2xl">
           <span className="material-icons text-4xl text-muted-foreground mb-2 block">inbox</span>
           <p className="text-foreground text-sm font-medium">
             {statusFilter === 'pending' ? 'Nothing pending review.' : 'Nothing here yet.'}
@@ -1027,7 +1032,7 @@ function ReviewCard({ item, busy, onApprove, onReject, meetingHref, selectable, 
   const summary = describeProposal(item);
 
   return (
-    <div className={`bg-card border rounded-lg p-4 ${
+    <div className={`bg-card border rounded-2xl p-4 ${
       selected
         ? 'border-primary/60 bg-primary/5'
         : item.status === 'approved' || item.status === 'edited'
@@ -1062,7 +1067,7 @@ function ReviewCard({ item, busy, onApprove, onReject, meetingHref, selectable, 
               {meetingHref && (
                 <Link
                   href={meetingHref}
-                  className="px-2 py-1 text-xs rounded-md border border-border text-foreground hover:bg-accent inline-flex items-center gap-1"
+                  className={`${pBtnGhost} !py-1 !px-2 !text-xs`}
                   title="Edit in detail review"
                 >
                   <span className="material-icons text-sm">edit</span>
@@ -1071,7 +1076,7 @@ function ReviewCard({ item, busy, onApprove, onReject, meetingHref, selectable, 
               <button
                 onClick={onReject}
                 disabled={busy}
-                className="px-2 py-1 text-xs rounded-md border border-border text-foreground hover:bg-destructive/10 hover:text-destructive disabled:opacity-50 inline-flex items-center gap-1"
+                className={`${pBtnGhost} !py-1 !px-2 !text-xs hover:border-destructive/50 hover:text-destructive`}
               >
                 <span className="material-icons text-sm">close</span>
                 Reject
@@ -1079,7 +1084,7 @@ function ReviewCard({ item, busy, onApprove, onReject, meetingHref, selectable, 
               <button
                 onClick={onApprove}
                 disabled={busy}
-                className="px-2 py-1 text-xs rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 inline-flex items-center gap-1"
+                className={`${pBtnPrimary} !py-1 !px-2 !text-xs`}
               >
                 <span className="material-icons text-sm">check</span>
                 Approve

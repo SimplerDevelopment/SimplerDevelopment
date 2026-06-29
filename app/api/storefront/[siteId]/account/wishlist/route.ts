@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { storeWishlists, storeWishlistItems, products, productImages } from '@/lib/db/schema';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { requireCustomer } from '@/lib/storefront/customer-auth';
 
 /**
@@ -44,14 +44,19 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ site
   })
     .from(storeWishlistItems)
     .innerJoin(products, eq(storeWishlistItems.productId, products.id))
-    .where(eq(storeWishlistItems.wishlistId, wishlist.id));
+    // Tenant scope: only surface products that belong to THIS site. Without this,
+    // a wishlist item poisoned with a foreign productId would leak another
+    // tenant's product data (name/price/etc.) on read.
+    .where(and(eq(storeWishlistItems.wishlistId, wishlist.id), eq(products.websiteId, websiteId)));
 
-  // Get first image for each product
+  // Get first image for each product. productImages has no websiteId column, so
+  // scope the lookup to the (now site-scoped) productIds above — never query the
+  // whole table, which would return every tenant's first image.
   const productIds = [...new Set(items.map(i => i.productId))];
   const images = productIds.length > 0
     ? await db.select({ productId: productImages.productId, url: productImages.url, alt: productImages.alt })
         .from(productImages)
-        .where(eq(productImages.order, 0))
+        .where(and(inArray(productImages.productId, productIds), eq(productImages.order, 0)))
     : [];
   const imageMap = new Map(images.map(i => [i.productId, i]));
 
@@ -71,6 +76,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ sit
 
   const { productId, variantId } = await req.json();
   if (!productId) return NextResponse.json({ success: false, message: 'productId is required' }, { status: 400 });
+
+  // Tenant scope: the product must belong to THIS site. Without this check a
+  // caller could add a foreign-tenant productId to their wishlist and read back
+  // that tenant's product data on GET.
+  const [product] = await db.select({ id: products.id })
+    .from(products)
+    .where(and(eq(products.id, productId), eq(products.websiteId, websiteId)))
+    .limit(1);
+  if (!product) return NextResponse.json({ success: false, message: 'Product not found' }, { status: 404 });
 
   // Get or create default wishlist
   let [wishlist] = await db.select()

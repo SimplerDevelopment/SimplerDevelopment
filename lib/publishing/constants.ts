@@ -52,7 +52,7 @@ export type PublishingPermissionKey = typeof PUBLISHING_PERMISSION_KEYS[number];
  *  in `lib/publishing/channels/`. `linkedin_draft` lands in Phase 2 alongside
  *  the LinkedIn OAuth + posting worker. */
 export const PUBLISHING_ARTIFACT_TYPES = [
-  'cms_post',
+  'post',
   'email_campaign',
   'linkedin_draft',
   'pitch_deck',

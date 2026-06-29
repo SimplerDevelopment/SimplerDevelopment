@@ -111,29 +111,45 @@ export function BlockStyleWrapper({ block, children }: BlockStyleWrapperProps) {
     }
   }
 
-  if (style.display) customStyles.display = style.display;
-  if (style.flexDirection) customStyles.flexDirection = style.flexDirection;
-  if (style.justifyContent) customStyles.justifyContent = style.justifyContent;
-  if (style.alignItems) customStyles.alignItems = style.alignItems;
-  if (style.flexWrap) customStyles.flexWrap = style.flexWrap;
-  if (style.gap) customStyles.gap = style.gap;
-  if (style.alignSelf) customStyles.alignSelf = style.alignSelf;
+  // Build a set of layout property keys that have a responsive override on any
+  // breakpoint. Inline styles have higher CSS specificity than class rules, so
+  // we must omit a property from the inline object whenever the responsive CSS
+  // class (emitted by generateResponsiveStyles) needs to override it.
+  const rsOverridden = new Set<string>();
+  if (block.responsiveStyle) {
+    for (const bpStyle of Object.values(block.responsiveStyle)) {
+      if (bpStyle) {
+        for (const key of Object.keys(bpStyle)) {
+          rsOverridden.add(key);
+        }
+      }
+    }
+  }
+  const rs = (key: string) => !rsOverridden.has(key);
 
-  if (style.width) customStyles.width = style.width;
-  if (style.height) customStyles.height = style.height;
-  if (style.minWidth) customStyles.minWidth = style.minWidth;
-  if (style.minHeight) customStyles.minHeight = style.minHeight;
-  if (style.maxWidth) customStyles.maxWidth = style.maxWidth;
-  if (style.maxHeight) customStyles.maxHeight = style.maxHeight;
+  if (style.display && rs('display')) customStyles.display = style.display;
+  if (style.flexDirection && rs('flexDirection')) customStyles.flexDirection = style.flexDirection;
+  if (style.justifyContent && rs('justifyContent')) customStyles.justifyContent = style.justifyContent;
+  if (style.alignItems && rs('alignItems')) customStyles.alignItems = style.alignItems;
+  if (style.flexWrap && rs('flexWrap')) customStyles.flexWrap = style.flexWrap;
+  if (style.gap && rs('gap')) customStyles.gap = style.gap;
+  if (style.alignSelf && rs('alignSelf')) customStyles.alignSelf = style.alignSelf;
 
-  if (style.overflow) customStyles.overflow = style.overflow;
+  if (style.width && rs('width')) customStyles.width = style.width;
+  if (style.height && rs('height')) customStyles.height = style.height;
+  if (style.minWidth && rs('minWidth')) customStyles.minWidth = style.minWidth;
+  if (style.minHeight && rs('minHeight')) customStyles.minHeight = style.minHeight;
+  if (style.maxWidth && rs('maxWidth')) customStyles.maxWidth = style.maxWidth;
+  if (style.maxHeight && rs('maxHeight')) customStyles.maxHeight = style.maxHeight;
 
-  if (style.position) customStyles.position = style.position;
-  if (style.top) customStyles.top = style.top;
-  if (style.right) customStyles.right = style.right;
-  if (style.bottom) customStyles.bottom = style.bottom;
-  if (style.left) customStyles.left = style.left;
-  if (style.zIndex) customStyles.zIndex = style.zIndex;
+  if (style.overflow && rs('overflow')) customStyles.overflow = style.overflow;
+
+  if (style.position && rs('position')) customStyles.position = style.position;
+  if (style.top && rs('top')) customStyles.top = style.top;
+  if (style.right && rs('right')) customStyles.right = style.right;
+  if (style.bottom && rs('bottom')) customStyles.bottom = style.bottom;
+  if (style.left && rs('left')) customStyles.left = style.left;
+  if (style.zIndex && rs('zIndex')) customStyles.zIndex = style.zIndex;
 
   if (style.textAlign) customStyles.textAlign = style.textAlign;
   if (style.textDecoration) customStyles.textDecoration = style.textDecoration;
@@ -152,9 +168,9 @@ export function BlockStyleWrapper({ block, children }: BlockStyleWrapperProps) {
 
   if (style.transition) customStyles.transition = style.transition;
 
-  if (style.gridTemplateColumns) customStyles.gridTemplateColumns = style.gridTemplateColumns;
-  if (style.gridTemplateRows) customStyles.gridTemplateRows = style.gridTemplateRows;
-  if (style.gridGap) customStyles.gap = style.gridGap;
+  if (style.gridTemplateColumns && rs('gridTemplateColumns')) customStyles.gridTemplateColumns = style.gridTemplateColumns;
+  if (style.gridTemplateRows && rs('gridTemplateRows')) customStyles.gridTemplateRows = style.gridTemplateRows;
+  if (style.gridGap && rs('gridGap')) customStyles.gap = style.gridGap;
 
   if (style.cursor) customStyles.cursor = style.cursor;
 

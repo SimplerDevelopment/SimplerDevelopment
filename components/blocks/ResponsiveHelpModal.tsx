@@ -124,7 +124,7 @@ export function ResponsiveHelpModal({ isOpen, onClose }: ResponsiveHelpModalProp
               <div>
                 <h4 className="font-medium text-foreground mb-2">Column Stacking</h4>
                 <p className="text-sm text-muted-foreground">
-                  Configure how columns behave on different devices. Enable "Stack on Mobile" to
+                  Configure how columns behave on different devices. Enable &quot;Stack on Mobile&quot; to
                   display columns vertically on phones for better mobile experience.
                 </p>
               </div>
@@ -139,7 +139,7 @@ export function ResponsiveHelpModal({ isOpen, onClose }: ResponsiveHelpModalProp
                 Select a block in the editor to open the settings panel on the right
               </li>
               <li>
-                Scroll to the "Responsive Settings" section at the bottom of the panel
+                Scroll to the &quot;Responsive Settings&quot; section at the bottom of the panel
               </li>
               <li>
                 Click on the breakpoint tabs (Mobile, Tablet, Desktop) to switch between devices
@@ -151,7 +151,7 @@ export function ResponsiveHelpModal({ isOpen, onClose }: ResponsiveHelpModalProp
                 Use the viewport selector in the toolbar to preview your changes
               </li>
               <li>
-                Blocks with responsive settings will show a blue "Responsive" badge
+                Blocks with responsive settings will show a blue &quot;Responsive&quot; badge
               </li>
             </ol>
           </section>
@@ -169,8 +169,8 @@ export function ResponsiveHelpModal({ isOpen, onClose }: ResponsiveHelpModalProp
                 at all breakpoints to ensure it looks good everywhere.
               </li>
               <li>
-                <strong className="text-foreground">Use column stacking:</strong> Enable "Stack on
-                Mobile" for columns to create mobile-friendly layouts automatically.
+                <strong className="text-foreground">Use column stacking:</strong> Enable &quot;Stack on
+                Mobile&quot; for columns to create mobile-friendly layouts automatically.
               </li>
               <li>
                 <strong className="text-foreground">Optimize spacing:</strong> Reduce padding on

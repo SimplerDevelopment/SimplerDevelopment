@@ -12,12 +12,12 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { abExperiments, abVariants } from '@/lib/db/schema';
+import { abExperiments, abVariants, posts, clientWebsites, pitchDecks } from '@/lib/db/schema';
 import type { AbTargetType } from '@/lib/db/schema';
 import { AB_TARGET_TYPES } from '@/lib/db/schema';
 import { authorizeTargetForUser } from '@/lib/ab/access';
 import { normalizeSplit } from '@/lib/ab/assign';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
 
 // GET /api/portal/experiments — list all experiments accessible to the caller's client.
@@ -29,16 +29,29 @@ export async function GET() {
   const client = await getPortalClient(userId);
   if (!client) return NextResponse.json({ success: false, error: 'client_not_found' }, { status: 404 });
 
-  // abExperiments tracks createdBy (user). For portal clients the authoritative
-  // filter is the target resource's clientId via authorizeTargetForUser, but that
-  // requires per-row access checks. Instead scope by createdBy users belonging to
-  // the client — a lightweight proxy that avoids N+1 joins.
-  // TODO: add clientId column to abExperiments to make this join-free.
-  const rows = await db
-    .select()
+  // abExperiments has no clientId column, so scope by the experiment's TARGET
+  // ownership — exactly the model lib/ab/access.ts uses: a post target resolves
+  // to its site's clientId, a deck target carries clientId directly. Filtering by
+  // createdBy (the previous behavior) both hid teammates' experiments AND leaked
+  // an agency user's experiments across every client they belong to. Scoping by
+  // the ACTIVE client's owned targets fixes both.
+  // (tenant-leak: experiment-list-user-scoped-not-client-scoped)
+  const postExperiments = await db
+    .select({ exp: abExperiments })
     .from(abExperiments)
-    .where(eq(abExperiments.createdBy, userId))
-    .orderBy(abExperiments.createdAt);
+    .innerJoin(posts, eq(posts.id, abExperiments.targetId))
+    .innerJoin(clientWebsites, eq(clientWebsites.id, posts.websiteId))
+    .where(and(eq(abExperiments.targetType, 'post'), eq(clientWebsites.clientId, client.id)));
+
+  const deckExperiments = await db
+    .select({ exp: abExperiments })
+    .from(abExperiments)
+    .innerJoin(pitchDecks, eq(pitchDecks.id, abExperiments.targetId))
+    .where(and(eq(abExperiments.targetType, 'deck'), eq(pitchDecks.clientId, client.id)));
+
+  const rows = [...postExperiments, ...deckExperiments]
+    .map(r => r.exp)
+    .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 
   return NextResponse.json({ success: true, data: rows });
 }

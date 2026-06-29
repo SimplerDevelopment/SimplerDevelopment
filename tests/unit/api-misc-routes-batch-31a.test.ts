@@ -75,6 +75,7 @@ vi.mock('@/lib/db/schema', () => {
     emailCampaignSends: wrap('emailCampaignSends'),
     emailSubscribers: wrap('emailSubscribers'),
     emailLists: wrap('emailLists'),
+    clientApiKeys: wrap('clientApiKeys'),
   }, { has: (t, p) => (p in t) || !(p === "then" || p === "__esModule" || p === "default" || typeof p !== "string"), get: (t, p) => (p in t) ? t[p] : ((p === "then" || p === "__esModule" || p === "default" || typeof p !== "string") ? undefined : wrap(p)) });
 });
 
@@ -121,6 +122,20 @@ vi.mock('@/lib/email', () => ({
     emails: {
       send: (args: unknown) => resendSendMock(args),
     },
+  },
+}));
+
+// resolveResendKey — per-client Resend key resolution (new: replaces global resend client)
+const resolveResendKeyMock = vi.fn();
+vi.mock('@/lib/email/resolve-resend', () => ({
+  resolveResendKey: (...args: unknown[]) => resolveResendKeyMock(...args),
+}));
+
+// Mock the Resend class so new Resend(key).emails.send() hits resendSendMock
+vi.mock('resend', () => ({
+  Resend: class {
+    emails = { send: (args: unknown) => resendSendMock(args) };
+    constructor(_key: string) {}
   },
 }));
 
@@ -308,6 +323,7 @@ beforeEach(() => {
     .mockReset()
     .mockImplementation((tok: string) => `https://example.test/u/${tok}`);
   resendSendMock.mockReset().mockResolvedValue({ data: { id: 'resend-id' } });
+  resolveResendKeyMock.mockReset().mockResolvedValue({ key: 're_test_FAKEKEY' });
   getOrRenderCampaignHtmlMock.mockReset();
   htmlToTextMock.mockReset().mockImplementation((h: string) => `text:${h}`);
   emitEventMock.mockReset();

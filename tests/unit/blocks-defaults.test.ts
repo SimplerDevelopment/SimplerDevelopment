@@ -456,7 +456,7 @@ describe('createDefaultBlock', () => {
     });
   });
 
-  describe('deck/survey/palizzi-specific blocks', () => {
+  describe('deck/survey-specific blocks', () => {
     it('survey-input defaults to text fieldType', () => {
       const b = createDefaultBlock('survey-input') as any;
       expect(b.type).toBe('survey-input');
@@ -475,52 +475,6 @@ describe('createDefaultBlock', () => {
       expect(b.type).toBe('deck-jump-to');
       expect(b.text).toBe('Go');
       expect(b.targetSlide).toBe(1);
-    });
-
-    const palizziTypes: BlockType[] = [
-      'palizzi-nav',
-      'palizzi-hero',
-      'palizzi-welcome',
-      'palizzi-history',
-      'palizzi-menu',
-      'palizzi-rules',
-      'palizzi-membership',
-      'palizzi-footer',
-    ];
-
-    it.each(palizziTypes)('%s returns the matching type tag', (t) => {
-      const b = createDefaultBlock(t) as any;
-      expect(b.type).toBe(t);
-      expect(b.id).toBeTruthy();
-      expect(b.order).toBe(0);
-    });
-
-    it('palizzi-nav has empty links array', () => {
-      const b = createDefaultBlock('palizzi-nav') as any;
-      expect(Array.isArray(b.links)).toBe(true);
-      expect(b.links).toEqual([]);
-    });
-
-    it('palizzi-welcome has paragraphs array', () => {
-      const b = createDefaultBlock('palizzi-welcome') as any;
-      expect(Array.isArray(b.paragraphs)).toBe(true);
-    });
-
-    it('palizzi-menu has foodSections + cocktails arrays', () => {
-      const b = createDefaultBlock('palizzi-menu') as any;
-      expect(Array.isArray(b.foodSections)).toBe(true);
-      expect(Array.isArray(b.cocktails)).toBe(true);
-    });
-
-    it('palizzi-rules has badges + rules arrays', () => {
-      const b = createDefaultBlock('palizzi-rules') as any;
-      expect(Array.isArray(b.badges)).toBe(true);
-      expect(Array.isArray(b.rules)).toBe(true);
-    });
-
-    it('palizzi-footer has columns array', () => {
-      const b = createDefaultBlock('palizzi-footer') as any;
-      expect(Array.isArray(b.columns)).toBe(true);
     });
   });
 
@@ -594,8 +548,6 @@ describe('createDefaultBlock', () => {
       'booking', 'booking-menu', 'survey', 'survey-results',
       'email-header', 'email-footer',
       'survey-input', 'deck-next-slide', 'deck-jump-to',
-      'palizzi-nav', 'palizzi-hero', 'palizzi-welcome', 'palizzi-history',
-      'palizzi-menu', 'palizzi-rules', 'palizzi-membership', 'palizzi-footer',
       'html-embed', 'popup',
     ];
 

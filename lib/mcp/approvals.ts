@@ -47,32 +47,11 @@ import { uploadToS3 } from '@/lib/s3/upload';
 import { cleanEmbedHtml } from '@/lib/html-embed-clean';
 import { importHtmlAssets } from '@/lib/html-asset-import';
 import { hasScope, type PortalMcpContext } from '@/lib/mcp-auth';
+import { json, denied, serializePostContent } from '@/lib/mcp/types';
 import { renderBlocksToEmailHtml } from '@/lib/email';
 import { executeCampaignSend } from '@/lib/email/campaign-send';
 import { publishEntityFromDb } from '@/lib/realtime/internal-publisher';
-
-function json(payload: unknown) {
-  return { content: [{ type: 'text' as const, text: JSON.stringify(payload, null, 2) }] };
-}
-
-function denied(scope: string) {
-  return {
-    content: [{ type: 'text' as const, text: `Permission denied: this API key lacks the "${scope}" scope.` }],
-    isError: true,
-  };
-}
-
-function serializePostContent(args: { blocks?: unknown; content?: string }): string {
-  if (Array.isArray(args.blocks) && args.blocks.length > 0) {
-    return JSON.stringify({ blocks: args.blocks, version: '1.0' });
-  }
-  const raw = args.content ?? '';
-  if (!raw.trim()) return JSON.stringify({ blocks: [], version: '1.0' });
-  return JSON.stringify({
-    blocks: [{ id: `block-${Date.now()}`, type: 'text', order: 0, content: raw }],
-    version: '1.0',
-  });
-}
+import { slugify } from '@/lib/publishing/slug';
 
 /**
  * Per-slide publish helper. Mirrors `publishOneSlide` in
@@ -158,10 +137,23 @@ export async function applyPendingChange(change: typeof mcpPendingChanges.$infer
       return { success: true, id };
     }
 
+    // ── AI TOOL CALLS ────────────────────────────────────────────────────
+    // A deferred AI-chat write. The payload carries the tool name + its args;
+    // we replay by re-running the same tool WITHOUT a gate ctx so it executes
+    // for real this time. Dynamic import avoids a static cycle (portal-tools
+    // imports pending-changes; approvals imports portal-tools).
+    case 'ai_tool_call:execute': {
+      const tool = payload.tool as string | undefined;
+      if (!tool) throw new Error('ai_tool_call payload missing tool name');
+      const toolInput = (payload.input ?? {}) as Record<string, unknown>;
+      const { executePortalTool } = await import('@/lib/ai/portal-tools');
+      return executePortalTool(tool, toolInput, clientId, applierUserId);
+    }
+
     // ── PITCH DECKS ──────────────────────────────────────────────────────
     case 'pitch_deck:create': {
       const title = payload.title as string;
-      const baseSlug = title.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+      const baseSlug = slugify(title.trim());
       const slug = `${baseSlug}-${Date.now().toString(36)}`;
       const theme = payload.theme as Record<string, string> | undefined;
       const [row] = await db.insert(pitchDecks).values({
@@ -351,11 +343,7 @@ export async function applyPendingChange(change: typeof mcpPendingChanges.$infer
       const filenameNoExt = filename.replace(/\.[^.]+$/, '');
       const titleArg = payload.title as string | undefined;
       const deckTitle = titleArg?.trim() || filenameNoExt || 'Uploaded HTML Deck';
-      const baseSlug = (filename.trim().toLowerCase()
-        .replace(/\.[^.]+$/, '')
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/(^-|-$)/g, '')
-        .slice(0, 80)) || 'deck';
+      const baseSlug = slugify(filename.trim().replace(/\.[^.]+$/, ''), 80) || 'deck';
       const slug = `${baseSlug}-${Date.now().toString(36)}`;
       const ts = Date.now();
       const slide: PitchDeckSlideV2 = {
@@ -853,11 +841,7 @@ export async function applyPendingChange(change: typeof mcpPendingChanges.$infer
         clientId,
         websiteId: site.id,
       });
-      const baseSlug = (filename.trim().toLowerCase()
-        .replace(/\.[^.]+$/, '')
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/(^-|-$)/g, '')
-        .slice(0, 80)) || 'page';
+      const baseSlug = slugify(filename.trim().replace(/\.[^.]+$/, ''), 80) || 'page';
       let slug = baseSlug;
       for (let i = 2; i < 100; i++) {
         const [collision] = await db.select({ id: posts.id }).from(posts)

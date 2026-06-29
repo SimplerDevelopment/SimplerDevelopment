@@ -256,6 +256,11 @@ vi.mock('@/lib/security/assert-owned', () => {
     assertProjectInClient: vi.fn(async (projectId: number) => {
       if (projectId === 7777) throw new OwnershipError('projectId', projectId);
     }),
+    // Cross-tenant assignee guard: userId 6666 is treated as belonging to
+    // another tenant (not visible to the active client).
+    assertUserVisibleToClient: vi.fn(async (userId: number) => {
+      if (userId === 6666) throw new OwnershipError('userId', userId);
+    }),
   };
 });
 
@@ -1068,6 +1073,20 @@ describe('kanban_card_assignees', () => {
     const tools = registerAll();
     const res = await tools.get('kanban_card_assign')!.handler({ cardId: 1, userId: 11 });
     expect(parseJson(res)).toEqual({ assigned: true });
+  });
+
+  // Regression: mcp-kanban-assign-no-tenant-filter — a cross-tenant userId must
+  // NOT be assignable. The card belongs to the caller's client (authCard ok),
+  // but the assignee belongs to another tenant and must be rejected before any
+  // insert into kanban_card_assignees.
+  it('assign: rejects a cross-tenant userId and does not insert', async () => {
+    dbState.selectQueue = [
+      [{ projectId: 1 }], // authCard passes — card is ours
+    ];
+    const tools = registerAll();
+    const res = await tools.get('kanban_card_assign')!.handler({ cardId: 1, userId: 6666 });
+    expect(parseJson(res)).toEqual({ error: 'User not found' });
+    expect(dbState.insertCalls.length).toBe(0);
   });
 
   it('unassign: rejects unknown card', async () => {

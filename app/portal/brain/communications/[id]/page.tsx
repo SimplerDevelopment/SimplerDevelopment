@@ -4,6 +4,9 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState, useCallback } from 'react';
 import { stripQuotedReply } from '@/lib/brain/strip-quoted';
+import { formatBytes } from '@/lib/utils/bytes';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnPrimary, pBtnGhost, pChip, pSectionTitle } from '@/components/portal/portal-ui';
 
 interface MeetingParticipant {
   id: number;
@@ -87,12 +90,6 @@ interface Meeting {
   };
 }
 
-function formatBytes(n: number): string {
-  if (n < 1024) return `${n} B`;
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
-  return `${(n / 1024 / 1024).toFixed(1)} MB`;
-}
-
 const STATUS_LABELS: Record<Meeting['status'], { label: string; tone: string }> = {
   draft: { label: 'Draft', tone: 'bg-muted text-muted-foreground' },
   processing: { label: 'Processing…', tone: 'bg-amber-500/10 text-amber-600 dark:text-amber-400' },
@@ -128,7 +125,7 @@ export default function BrainMeetingDetailPage() {
     }
   }, [meetingId]);
 
-  useEffect(() => { if (!Number.isNaN(meetingId)) load(); }, [meetingId, load]);
+  useEffect(() => { if (!Number.isNaN(meetingId)) { void (async () => { await load(); })(); } }, [meetingId, load]);
 
   const runProcessing = async () => {
     setProcessing(true);
@@ -184,14 +181,16 @@ export default function BrainMeetingDetailPage() {
 
   return (
     <div className="max-w-4xl mx-auto py-8 space-y-6">
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <Link href="/portal/brain/communications" className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
-            <span className="material-icons text-sm">arrow_back</span>
-            All communications
-          </Link>
-          <h1 className="text-2xl font-bold text-foreground mt-2 break-words">{meeting.title}</h1>
-          <div className="text-sm text-muted-foreground mt-1 flex items-center gap-2 flex-wrap">
+      <Link href="/portal/brain/communications" className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
+        <span className="material-icons text-sm">arrow_back</span>
+        All communications
+      </Link>
+
+      <PortalPageHeader
+        eyebrow="Company Brain"
+        title={meeting.title}
+        subtitle={
+          <span className="inline-flex items-center gap-2 flex-wrap">
             <span>{date.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}</span>
             <span>·</span>
             <span>via {meeting.source.replace(/_/g, ' ')}</span>
@@ -217,39 +216,41 @@ export default function BrainMeetingDetailPage() {
                 </Link>
               </>
             )}
-          </div>
-        </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
-          {meeting.status !== 'processing' && (
+          </span>
+        }
+        actions={
+          <>
+            {meeting.status !== 'processing' && (
+              <button
+                onClick={runProcessing}
+                disabled={processing}
+                className={pBtnPrimary}
+              >
+                {processing
+                  ? <><span className="material-icons animate-spin text-base">progress_activity</span>Processing…</>
+                  : <><span className="material-icons text-base">auto_awesome</span>{meeting.aiSummary ? 'Re-process with AI' : 'Process with AI'}</>
+                }
+              </button>
+            )}
+            {(meeting.status === 'needs_review' || meeting.status === 'approved') && (
+              <Link
+                href={`/portal/brain/communications/${meetingId}/review`}
+                className={pBtnGhost}
+              >
+                <span className="material-icons text-base">reviews</span>
+                Review queue
+              </Link>
+            )}
             <button
-              onClick={runProcessing}
-              disabled={processing}
-              className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+              onClick={deleteMeeting}
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-card px-3 py-2.5 text-sm font-semibold text-foreground transition hover:border-destructive/40 hover:bg-destructive/10 hover:text-destructive"
+              aria-label="Delete communication"
             >
-              {processing
-                ? <><span className="material-icons animate-spin text-base">progress_activity</span>Processing…</>
-                : <><span className="material-icons text-base">auto_awesome</span>{meeting.aiSummary ? 'Re-process with AI' : 'Process with AI'}</>
-              }
+              <span className="material-icons text-base">delete</span>
             </button>
-          )}
-          {(meeting.status === 'needs_review' || meeting.status === 'approved') && (
-            <Link
-              href={`/portal/brain/communications/${meetingId}/review`}
-              className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90"
-            >
-              <span className="material-icons text-base">reviews</span>
-              Review queue
-            </Link>
-          )}
-          <button
-            onClick={deleteMeeting}
-            className="inline-flex items-center gap-1.5 px-3 py-2 text-sm rounded-md border border-border text-foreground hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30"
-            aria-label="Delete communication"
-          >
-            <span className="material-icons text-base">delete</span>
-          </button>
-        </div>
-      </div>
+          </>
+        }
+      />
 
       {error && (
         <div className="bg-destructive/10 border border-destructive/30 rounded-md p-3 text-sm text-destructive">
@@ -309,7 +310,7 @@ export default function BrainMeetingDetailPage() {
         <Section title="Participants" icon="group">
           <div className="flex flex-wrap gap-2">
             {meeting.participants.map((p) => (
-              <span key={p.id} className="inline-flex items-center gap-1 text-xs bg-muted text-foreground rounded-full px-2.5 py-1">
+              <span key={p.id} className={pChip}>
                 <span className="material-icons text-sm">person</span>
                 {p.name}{p.email ? ` <${p.email}>` : ''}
               </span>
@@ -335,7 +336,7 @@ export default function BrainMeetingDetailPage() {
               return (
                 <article
                   key={seg.id}
-                  className={`rounded-md border p-4 ${isCurrent ? 'border-primary/40 bg-primary/5' : 'border-border bg-muted/20'}`}
+                  className={`rounded-2xl border p-4 ${isCurrent ? 'border-primary/40 bg-primary/5' : 'border-border bg-card'}`}
                 >
                   <header className="flex items-start justify-between gap-3 mb-3">
                     <div className="min-w-0">
@@ -359,7 +360,7 @@ export default function BrainMeetingDetailPage() {
                   </header>
 
                   {body ? (
-                    <pre className="text-xs text-foreground whitespace-pre-wrap font-mono bg-background/60 border border-border rounded-md p-3 overflow-auto max-h-[400px]">{body}</pre>
+                    <pre className="text-xs text-foreground whitespace-pre-wrap font-mono bg-background/60 border border-border rounded-xl p-3 overflow-auto max-h-[400px]">{body}</pre>
                   ) : (
                     <p className="text-xs text-muted-foreground italic">No body content.</p>
                   )}
@@ -370,7 +371,7 @@ export default function BrainMeetingDetailPage() {
                         <span className="material-icons text-sm">format_quote</span>
                         Quoted reply
                       </summary>
-                      <pre className="text-xs text-muted-foreground/80 whitespace-pre-wrap font-mono bg-muted/30 border border-border rounded-md p-3 mt-2 overflow-auto max-h-[200px]">{quoted}</pre>
+                      <pre className="text-xs text-muted-foreground/80 whitespace-pre-wrap font-mono bg-muted/30 border border-border rounded-xl p-3 mt-2 overflow-auto max-h-[200px]">{quoted}</pre>
                     </details>
                   )}
 
@@ -382,7 +383,7 @@ export default function BrainMeetingDetailPage() {
                       </p>
                       <div className="space-y-1.5">
                         {attachments.map((a, idx) => (
-                          <div key={a.key} className="border border-border rounded-md overflow-hidden bg-background/40">
+                          <div key={a.key} className="border border-border rounded-xl overflow-hidden bg-background/40">
                             <a
                               href={`/api/portal/brain/communications/${seg.id}/attachments/${idx}`}
                               target="_blank"
@@ -445,7 +446,7 @@ export default function BrainMeetingDetailPage() {
             <Section title={`Attachments (${meeting.sourceMetadata!.attachments!.length})`} icon="attach_file">
               <div className="space-y-2">
                 {meeting.sourceMetadata!.attachments!.map((a, idx) => (
-                  <div key={a.key} className="border border-border rounded-md overflow-hidden">
+                  <div key={a.key} className="border border-border rounded-xl overflow-hidden bg-card">
                     <a
                       href={`/api/portal/brain/communications/${meeting.id}/attachments/${idx}`}
                       target="_blank"
@@ -487,18 +488,18 @@ export default function BrainMeetingDetailPage() {
                     href={l.finalUrl || l.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex gap-3 p-3 rounded-md border border-border hover:bg-accent transition-colors group"
+                    className="flex gap-3 p-3 rounded-xl border border-border bg-card hover:bg-accent transition-colors group"
                   >
                     {l.image ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
                         src={l.image}
                         alt=""
-                        className="w-20 h-20 object-cover rounded shrink-0 bg-muted"
+                        className="w-20 h-20 object-cover rounded-xl shrink-0 bg-muted"
                         onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
                       />
                     ) : (
-                      <div className="w-20 h-20 rounded bg-muted flex items-center justify-center shrink-0">
+                      <div className="w-20 h-20 rounded-xl bg-muted flex items-center justify-center shrink-0">
                         <span className="material-icons text-muted-foreground">link</span>
                       </div>
                     )}
@@ -528,7 +529,7 @@ export default function BrainMeetingDetailPage() {
 
           <Section title="Transcript" icon="description">
             {meeting.transcript ? (
-              <pre className="text-xs text-foreground whitespace-pre-wrap font-mono bg-muted/30 border border-border rounded-md p-3 max-h-[600px] overflow-auto">{meeting.transcript}</pre>
+              <pre className="text-xs text-foreground whitespace-pre-wrap font-mono bg-muted/30 border border-border rounded-xl p-3 max-h-[600px] overflow-auto">{meeting.transcript}</pre>
             ) : (
               <p className="text-sm text-muted-foreground italic">No transcript captured.</p>
             )}
@@ -541,8 +542,8 @@ export default function BrainMeetingDetailPage() {
 
 function Section({ title, icon, children }: { title: string; icon: string; children: React.ReactNode }) {
   return (
-    <section className="bg-card border border-border rounded-lg p-5">
-      <h2 className="text-sm font-semibold text-foreground flex items-center gap-2 mb-3">
+    <section className="bg-card border border-border rounded-2xl p-5">
+      <h2 className={`${pSectionTitle} flex items-center gap-2 mb-3`}>
         <span className="material-icons text-base text-muted-foreground">{icon}</span>
         {title}
       </h2>

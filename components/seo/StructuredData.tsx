@@ -1,5 +1,5 @@
 interface StructuredDataProps {
-  data: object;
+  data: object | readonly object[];
 }
 
 export function StructuredData({ data }: StructuredDataProps) {

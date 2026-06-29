@@ -26,10 +26,14 @@ if (!URL_STR) throw new Error('DATABASE_URL is not set');
 // two guards never disagree. Substring matching on substring-of-name (e.g. the
 // old `/prod/i` regex) false-positives on local DBs like
 // `simplerdev_realprod_dryrun` even though they're on 127.0.0.1.
-const PROD_INDICATORS = [
-  'tramway.proxy.rlwy.net:43167',
-  'metro.proxy.rlwy.net:25565',
-];
+//
+// PROD_DB_HOSTS: optional comma-separated list of hostname[:port] fragments
+// that identify production database proxies. See scripts/verify-db-target.ts
+// for full documentation. When unset, only RAILWAY_ENVIRONMENT_NAME is used.
+const PROD_INDICATORS: string[] = (process.env.PROD_DB_HOSTS ?? '')
+  .split(',')
+  .map((h) => h.trim())
+  .filter(Boolean);
 const hitProd =
   PROD_INDICATORS.some((p) => URL_STR.includes(p)) ||
   process.env.RAILWAY_ENVIRONMENT_NAME === 'production';
@@ -63,10 +67,22 @@ async function run() {
     await sql.unsafe('CREATE SCHEMA public');
     await sql.unsafe('GRANT ALL ON SCHEMA public TO public');
 
+    // Provision the Postgres extensions the schema depends on BEFORE replaying
+    // migrations. The squashed baseline (0000) creates a vector(1536) column and
+    // gin_trgm_ops indexes, which require these extensions to already exist —
+    // drizzle-kit generate never emits CREATE EXTENSION, so they live here (and
+    // are a documented per-DB prerequisite for prod/dev — see CLAUDE.md).
+    console.log('>> provisioning extensions (vector, pg_trgm, pgcrypto)');
+    await sql.unsafe('CREATE EXTENSION IF NOT EXISTS vector');
+    await sql.unsafe('CREATE EXTENSION IF NOT EXISTS pg_trgm');
+    await sql.unsafe('CREATE EXTENSION IF NOT EXISTS pgcrypto');
+
     console.log('>> running migrations');
     const dir = path.resolve(__dirname, '../drizzle');
+    // Match 4-OR-MORE-digit prefixes so 5-digit manual migrations (e.g.
+    // 10008_*) are not silently skipped, as they were under the old /^\d{4}_/.
     const files = fs.readdirSync(dir)
-      .filter(f => /^\d{4}_.+\.sql$/.test(f))
+      .filter(f => /^\d{4,}_.+\.sql$/.test(f))
       .sort();
 
     for (const file of files) {
@@ -79,6 +95,12 @@ async function run() {
         } catch (err) {
           const msg = (err as Error).message;
           if (/already exists|does not exist/i.test(msg)) continue;
+          // Hand-written perf-index migrations (e.g. 9996) bundle multiple
+          // `CREATE INDEX CONCURRENTLY` statements without `--> statement-breakpoint`
+          // markers, so they run as one implicit-transaction batch and fail with
+          // "cannot run inside a transaction block". These indexes are pure perf
+          // and irrelevant to a throwaway e2e DB — skip them.
+          if (/cannot run inside a transaction block/i.test(msg)) continue;
           throw new Error(`Migration ${file} failed: ${msg}\nStatement: ${stmt.slice(0, 200)}`);
         }
       }

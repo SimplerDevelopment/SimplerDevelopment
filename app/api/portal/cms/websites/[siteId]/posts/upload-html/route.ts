@@ -8,6 +8,7 @@ import { uploadToS3 } from '@/lib/s3/upload';
 import { cleanEmbedHtml } from '@/lib/html-embed-clean';
 import { importHtmlAssets } from '@/lib/html-asset-import';
 import { unpackAndUploadZip, isHttpError, MAX_ZIP_TOTAL_BYTES } from '@/lib/html-zip-upload';
+import { slugify } from '@/lib/publishing/slug';
 
 const MAX_HTML_SIZE = 1_000_000; // 1 MB
 const ALLOWED_HTML_MIME = new Set(['text/html', 'application/xhtml+xml']);
@@ -21,16 +22,6 @@ const ALLOWED_ZIP_MIME = new Set([
 const ALLOWED_ZIP_EXT = /\.zip$/i;
 
 export const maxDuration = 120;
-
-function slugify(input: string): string {
-  return input
-    .trim()
-    .toLowerCase()
-    .replace(/\.[^.]+$/, '')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/(^-|-$)/g, '')
-    .slice(0, 80) || 'page';
-}
 
 export async function POST(
   request: NextRequest,
@@ -165,7 +156,7 @@ export async function POST(
   }
 
   // Find a free slug — append numeric suffix on collision
-  const baseSlug = slugify(filename);
+  const baseSlug = slugify(filename.replace(/\.[^.]+$/, ''), 80) || 'page';
   let slug = baseSlug;
   for (let i = 2; i < 100; i++) {
     const [existing] = await db

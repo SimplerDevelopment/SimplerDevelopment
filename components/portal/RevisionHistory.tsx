@@ -19,12 +19,11 @@ interface RevisionHistoryProps {
 
 export default function RevisionHistory({ siteId, postId, open, onClose, onRevert }: RevisionHistoryProps) {
   const [revisions, setRevisions] = useState<Revision[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [reverting, setReverting] = useState<number | null>(null);
 
   useEffect(() => {
     if (!open) return;
-    setLoading(true);
     fetch(`/api/portal/cms/websites/${siteId}/posts/${postId}/revisions`)
       .then(r => r.json())
       .then(res => { if (res.success) setRevisions(res.data); })

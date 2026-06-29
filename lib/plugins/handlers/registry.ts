@@ -1,7 +1,7 @@
 // Plugin callback handler registry.
 //
 // Maps `(appSlug, method, pathSuffix)` → `CallbackHandler` + extracted params.
-// Self-populating: each plugin's index file (e.g. `postcaptain-tools/index.ts`)
+// Self-populating: each plugin's index file (e.g. `content-tools/index.ts`)
 // calls `registerAppHandlers(slug, [...])` at module-import time. The
 // dispatcher in `app/api/plugin-callback/[appId]/[...path]/route.ts` does a
 // side-effect import of every known plugin index so the registry is hot

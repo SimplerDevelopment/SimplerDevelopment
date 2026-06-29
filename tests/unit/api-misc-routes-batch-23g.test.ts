@@ -209,16 +209,20 @@ beforeEach(() => {
 
 describe('GET /api/google-fonts', () => {
   const originalFetch = globalThis.fetch;
+  const originalApiKey = process.env.GOOGLE_FONTS_API_KEY;
   let fetchMock: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
     fetchMock = vi.fn();
     // @ts-expect-error replace global fetch
     globalThis.fetch = fetchMock;
+    // Ensure the API key is set so the route doesn't short-circuit with 503
+    process.env.GOOGLE_FONTS_API_KEY = 'test-key-stub';
   });
 
   afterEach(() => {
     globalThis.fetch = originalFetch;
+    process.env.GOOGLE_FONTS_API_KEY = originalApiKey;
     // Reset module-level font cache between tests via fresh module import
     vi.resetModules();
   });

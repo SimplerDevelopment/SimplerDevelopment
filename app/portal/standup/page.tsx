@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pSectionTitle } from '@/components/portal/portal-ui';
 
 type CardType = 'task' | 'story' | 'epic' | 'bug' | 'spike';
 type WorkflowState = 'todo' | 'in_progress' | 'in_review' | 'done' | 'canceled';
@@ -44,7 +46,7 @@ function CardRow({ c, badge }: { c: StandupCard; badge?: string }) {
       // sections; viewport prefetch on every link DDoSes the project detail
       // route. Defer prefetch to hover.
       prefetch={false}
-      className="flex items-start gap-2 px-3 py-2 rounded border border-border bg-card hover:border-primary/50 hover:shadow-sm transition-all"
+      className="flex items-start gap-2 px-3 py-2 rounded-xl border border-border bg-card hover:border-primary/50 hover:shadow-sm transition-all"
     >
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap text-xs">
@@ -80,7 +82,7 @@ function Section({ title, icon, cards, emptyText, badge }: { title: string; icon
     <section className="space-y-2">
       <div className="flex items-center gap-2">
         <span className="material-icons text-base text-primary">{icon}</span>
-        <h2 className="text-sm font-semibold text-foreground uppercase tracking-wider">{title}</h2>
+        <h2 className={`${pSectionTitle} uppercase`}>{title}</h2>
         <span className="text-xs text-muted-foreground">({cards.length})</span>
       </div>
       {cards.length === 0 ? (
@@ -111,15 +113,11 @@ export default function StandupPage() {
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-          <span className="material-icons text-primary">groups</span>
-          Standup
-        </h1>
-        <p className="text-muted-foreground mt-1 text-sm">
-          What you did, what you're doing, and what's blocking you. Use this on the daily.
-        </p>
-      </div>
+      <PortalPageHeader
+        eyebrow="Team"
+        title="Standup"
+        subtitle="What you did, what you're doing, and what's blocking you. Use this on the daily."
+      />
 
       {loading || !data ? (
         <div className="flex items-center justify-center py-16">

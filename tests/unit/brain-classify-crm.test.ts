@@ -14,19 +14,13 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 // Mocks
 // ---------------------------------------------------------------------------
 
-const messagesCreateMock = vi.fn();
-const anthropicCtorSpy = vi.fn();
+const completeMock = vi.fn();
 
-vi.mock('@anthropic-ai/sdk', () => {
-  class Anthropic {
-    public messages: { create: typeof messagesCreateMock };
-    constructor(opts: { apiKey: string }) {
-      anthropicCtorSpy(opts);
-      this.messages = { create: messagesCreateMock };
-    }
-  }
-  return { default: Anthropic };
-});
+vi.mock('@/lib/ai/llm', () => ({
+  complete: (...args: unknown[]) => completeMock(...args),
+  completeObject: vi.fn(),
+  streamComplete: vi.fn(),
+}));
 
 vi.mock('@/lib/db/schema', () => {
   const wrap = (tableName: string) =>
@@ -293,10 +287,8 @@ const { classifyAndLinkCrm } = await import('@/lib/brain/classify-crm');
 
 function defaultClaudeResponse(overrides: Record<string, unknown> = {}) {
   return {
-    content: [
-      { type: 'text', text: JSON.stringify(overrides) },
-    ],
-    usage: { input_tokens: 100, output_tokens: 200 },
+    text: JSON.stringify(overrides),
+    usage: { inputTokens: 100, outputTokens: 200, totalTokens: 300 },
   };
 }
 
@@ -325,8 +317,7 @@ beforeEach(() => {
   auditCalls.length = 0;
   idCounter = 1000;
 
-  messagesCreateMock.mockReset();
-  anthropicCtorSpy.mockReset();
+  completeMock.mockReset();
   searchBrainMock.mockReset().mockResolvedValue({ hits: [] });
   upsertContactByEmailMock.mockReset().mockImplementation(async ({ email }: { email: string }) => {
     const id = nextId();
@@ -376,12 +367,13 @@ describe('classifyAndLinkCrm — early exits', () => {
   it('does NOT require credits when BYOK key is in use', async () => {
     resolveClientApiKeyMock.mockResolvedValueOnce({ source: 'byok', key: 'sk-byok' });
     hasCreditsMock.mockResolvedValueOnce(false); // would normally skip, but BYOK bypasses
-    messagesCreateMock.mockResolvedValueOnce(defaultClaudeResponse());
+    completeMock.mockResolvedValueOnce(defaultClaudeResponse());
 
     const res = await classifyAndLinkCrm(baseArgs());
     expect(res.skipped).toBeUndefined();
     expect(hasCreditsMock).not.toHaveBeenCalled();
-    expect(anthropicCtorSpy).toHaveBeenCalledWith({ apiKey: 'sk-byok' });
+    // Seam owns key routing; verify resolveClientApiKey was called for credit gating.
+    expect(resolveClientApiKeyMock).toHaveBeenCalledWith({ clientId: 1, provider: 'anthropic' });
     // BYOK shouldn't trigger credit deduction.
     expect(deductCreditsMock).not.toHaveBeenCalled();
   });
@@ -393,7 +385,7 @@ describe('classifyAndLinkCrm — early exits', () => {
 
 describe('classifyAndLinkCrm — basic auto-link', () => {
   it('upserts the sender contact and inserts a sender participant row', async () => {
-    messagesCreateMock.mockResolvedValueOnce(defaultClaudeResponse());
+    completeMock.mockResolvedValueOnce(defaultClaudeResponse());
     const res = await classifyAndLinkCrm(baseArgs());
 
     expect(upsertContactByEmailMock).toHaveBeenCalledWith(expect.objectContaining({
@@ -415,7 +407,7 @@ describe('classifyAndLinkCrm — basic auto-link', () => {
       { id: 1, name: 'Acme NA', domain: 'acme.test' },
       { id: 2, name: 'Acme EU', domain: 'acme.test' },
     ]);
-    messagesCreateMock.mockResolvedValueOnce(defaultClaudeResponse());
+    completeMock.mockResolvedValueOnce(defaultClaudeResponse());
 
     const res = await classifyAndLinkCrm(baseArgs());
     expect(res.appliedLinks.companyId).toBeUndefined();
@@ -427,7 +419,7 @@ describe('classifyAndLinkCrm — basic auto-link', () => {
   it('auto-links company on unambiguous domain match and updates the meeting + contact', async () => {
     findCompanyByDomainMock.mockResolvedValueOnce([{ id: 55, name: 'Acme', domain: 'acme.test' }]);
     state.brainMeetings.push({ id: 42, clientId: 1, companyId: null });
-    messagesCreateMock.mockResolvedValueOnce(defaultClaudeResponse());
+    completeMock.mockResolvedValueOnce(defaultClaudeResponse());
 
     const res = await classifyAndLinkCrm(baseArgs());
     expect(res.appliedLinks.companyId).toBe(55);
@@ -448,7 +440,7 @@ describe('classifyAndLinkCrm — basic auto-link', () => {
     });
     findCompanyByDomainMock.mockResolvedValueOnce([{ id: 55, name: 'Acme', domain: 'acme.test' }]);
     state.brainMeetings.push({ id: 42, clientId: 1, companyId: null });
-    messagesCreateMock.mockResolvedValueOnce(defaultClaudeResponse());
+    completeMock.mockResolvedValueOnce(defaultClaudeResponse());
 
     await classifyAndLinkCrm(baseArgs());
     // contact.companyId stays at 88 — not overwritten
@@ -466,7 +458,7 @@ describe('classifyAndLinkCrm — participant handling', () => {
       id: 500, meetingId: 42, contactId: null, email: 'jane@acme.test',
       name: 'Jane (manual)', roleInMeeting: 'attendee',
     });
-    messagesCreateMock.mockResolvedValueOnce(defaultClaudeResponse());
+    completeMock.mockResolvedValueOnce(defaultClaudeResponse());
     await classifyAndLinkCrm(baseArgs());
 
     expect(state.brainMeetingParticipants).toHaveLength(1);
@@ -483,7 +475,7 @@ describe('classifyAndLinkCrm — participant handling', () => {
 
 describe('classifyAndLinkCrm — Claude review items', () => {
   it('emits crm_contact_classify when a non-default proposal is returned', async () => {
-    messagesCreateMock.mockResolvedValueOnce(defaultClaudeResponse({
+    completeMock.mockResolvedValueOnce(defaultClaudeResponse({
       contactClassification: {
         proposedStatus: 'lead',
         proposedTitle: 'VP Engineering',
@@ -499,7 +491,7 @@ describe('classifyAndLinkCrm — Claude review items', () => {
   });
 
   it('does NOT emit crm_contact_classify when no fields are proposed', async () => {
-    messagesCreateMock.mockResolvedValueOnce(defaultClaudeResponse({
+    completeMock.mockResolvedValueOnce(defaultClaudeResponse({
       contactClassification: { confidence: 'low', rationale: 'no signal' },
     }));
     await classifyAndLinkCrm(baseArgs());
@@ -507,7 +499,7 @@ describe('classifyAndLinkCrm — Claude review items', () => {
   });
 
   it('falls back to "low" confidence + default rationale when classification fields omitted', async () => {
-    messagesCreateMock.mockResolvedValueOnce(defaultClaudeResponse({
+    completeMock.mockResolvedValueOnce(defaultClaudeResponse({
       contactClassification: { proposedTitle: 'CTO' },
     }));
     await classifyAndLinkCrm(baseArgs());
@@ -527,7 +519,7 @@ describe('classifyAndLinkCrm — Claude review items', () => {
       state.crmContacts.push({ id: 1000, clientId: 1, email, firstName: 'Jane', lastName: null, companyId: null });
       return { contactId: 1000, created: true };
     });
-    messagesCreateMock.mockResolvedValueOnce(defaultClaudeResponse({
+    completeMock.mockResolvedValueOnce(defaultClaudeResponse({
       dealLinks: [
         { action: 'link', dealId: 200, rationale: 'Mentions Pilot' },
         { action: 'link', dealId: 9999, rationale: 'Hallucinated id, should be filtered' },
@@ -540,7 +532,7 @@ describe('classifyAndLinkCrm — Claude review items', () => {
   });
 
   it('emits crm_deal_create with default rationale and value when AI omits them', async () => {
-    messagesCreateMock.mockResolvedValueOnce(defaultClaudeResponse({
+    completeMock.mockResolvedValueOnce(defaultClaudeResponse({
       dealLinks: [
         { action: 'create', proposedTitle: 'New SOW' },
         { action: 'create', proposedTitle: 'Capped Value', proposedValue: -1 }, // invalid → undefined
@@ -558,7 +550,7 @@ describe('classifyAndLinkCrm — Claude review items', () => {
   });
 
   it('emits task review items for brainAwareTasks (and skips entries with no title)', async () => {
-    messagesCreateMock.mockResolvedValueOnce(defaultClaudeResponse({
+    completeMock.mockResolvedValueOnce(defaultClaudeResponse({
       brainAwareTasks: [
         { title: 'Follow up on Q1 commitment', priority: 'high', relatesToBrainHit: 'meeting:99' },
         { description: 'no title here' },
@@ -574,7 +566,7 @@ describe('classifyAndLinkCrm — Claude review items', () => {
 
   it('proposes crm_company_create when domain has no match and is non-personal', async () => {
     findCompanyByDomainMock.mockResolvedValueOnce([]);
-    messagesCreateMock.mockResolvedValueOnce(defaultClaudeResponse());
+    completeMock.mockResolvedValueOnce(defaultClaudeResponse());
     await classifyAndLinkCrm(baseArgs());
     const createReview = state.brainAiReviewItems.find((r) => r.proposedType === 'crm_company_create');
     expect(createReview).toBeDefined();
@@ -585,7 +577,7 @@ describe('classifyAndLinkCrm — Claude review items', () => {
 
   it('does NOT propose crm_company_create when the sender is on a personal domain', async () => {
     findCompanyByDomainMock.mockResolvedValueOnce([]);
-    messagesCreateMock.mockResolvedValueOnce(defaultClaudeResponse());
+    completeMock.mockResolvedValueOnce(defaultClaudeResponse());
     await classifyAndLinkCrm(baseArgs({
       sourceMetadata: { senderEmail: 'jane@gmail.com', from: 'Jane <jane@gmail.com>' },
     }));
@@ -601,7 +593,7 @@ describe('classifyAndLinkCrm — Claude failure', () => {
   it('marks job failed but keeps the auto-applied links', async () => {
     findCompanyByDomainMock.mockResolvedValueOnce([{ id: 77, name: 'Acme', domain: 'acme.test' }]);
     state.brainMeetings.push({ id: 42, clientId: 1, companyId: null });
-    messagesCreateMock.mockRejectedValueOnce(new Error('rate limit'));
+    completeMock.mockRejectedValueOnce(new Error('rate limit'));
 
     const res = await classifyAndLinkCrm(baseArgs());
     expect(res.reviewItemIds).toEqual([]);
@@ -616,7 +608,7 @@ describe('classifyAndLinkCrm — Claude failure', () => {
   });
 
   it('records "Unknown classify error" message when error is not an Error instance', async () => {
-    messagesCreateMock.mockRejectedValueOnce('string thrown directly');
+    completeMock.mockRejectedValueOnce('string thrown directly');
     const res = await classifyAndLinkCrm(baseArgs());
     expect(res.reviewItemIds).toEqual([]);
     const job = state.brainAiJobs.find((j) => j.status === 'failed');
@@ -630,21 +622,18 @@ describe('classifyAndLinkCrm — Claude failure', () => {
 
 describe('classifyAndLinkCrm — Claude output parsing', () => {
   it('handles bare JSON output', async () => {
-    messagesCreateMock.mockResolvedValueOnce({
-      content: [{ type: 'text', text: '{"brainAwareTasks":[{"title":"X"}]}' }],
-      usage: { input_tokens: 1, output_tokens: 1 },
+    completeMock.mockResolvedValueOnce({
+      text: '{"brainAwareTasks":[{"title":"X"}]}',
+      usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
     });
     await classifyAndLinkCrm(baseArgs());
     expect(state.brainAiReviewItems.find((r) => r.proposedType === 'task')).toBeDefined();
   });
 
   it('strips ```json fences from Claude output', async () => {
-    messagesCreateMock.mockResolvedValueOnce({
-      content: [{
-        type: 'text',
-        text: '```json\n{"brainAwareTasks":[{"title":"Fenced task"}]}\n```',
-      }],
-      usage: { input_tokens: 1, output_tokens: 1 },
+    completeMock.mockResolvedValueOnce({
+      text: '```json\n{"brainAwareTasks":[{"title":"Fenced task"}]}\n```',
+      usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
     });
     await classifyAndLinkCrm(baseArgs());
     const task = state.brainAiReviewItems.find((r) => r.proposedType === 'task');
@@ -652,12 +641,9 @@ describe('classifyAndLinkCrm — Claude output parsing', () => {
   });
 
   it('strips bare ``` fences (no language) from Claude output', async () => {
-    messagesCreateMock.mockResolvedValueOnce({
-      content: [{
-        type: 'text',
-        text: '```\n{"brainAwareTasks":[{"title":"Plain fence"}]}\n```',
-      }],
-      usage: { input_tokens: 1, output_tokens: 1 },
+    completeMock.mockResolvedValueOnce({
+      text: '```\n{"brainAwareTasks":[{"title":"Plain fence"}]}\n```',
+      usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
     });
     await classifyAndLinkCrm(baseArgs());
     const task = state.brainAiReviewItems.find((r) => r.proposedType === 'task');
@@ -665,9 +651,9 @@ describe('classifyAndLinkCrm — Claude output parsing', () => {
   });
 
   it('returns empty output (no review items) when JSON is malformed', async () => {
-    messagesCreateMock.mockResolvedValueOnce({
-      content: [{ type: 'text', text: 'not json {{{' }],
-      usage: { input_tokens: 1, output_tokens: 1 },
+    completeMock.mockResolvedValueOnce({
+      text: 'not json {{{',
+      usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
     });
     // Use a personal domain so the source doesn't emit a company-create review item.
     const res = await classifyAndLinkCrm(baseArgs({
@@ -679,9 +665,10 @@ describe('classifyAndLinkCrm — Claude output parsing', () => {
   });
 
   it('handles a response without a text block (claudeOutput stays {})', async () => {
-    messagesCreateMock.mockResolvedValueOnce({
-      content: [{ type: 'tool_use', id: 't', name: 'noop', input: {} }],
-      usage: { input_tokens: 1, output_tokens: 1 },
+    // The seam returns text: '' when the model returns no text content.
+    completeMock.mockResolvedValueOnce({
+      text: '',
+      usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
     });
     const res = await classifyAndLinkCrm(baseArgs({
       sourceMetadata: { senderEmail: 'jane@gmail.com', from: 'Jane <jane@gmail.com>' },
@@ -690,9 +677,9 @@ describe('classifyAndLinkCrm — Claude output parsing', () => {
   });
 
   it('handles missing usage on the response', async () => {
-    messagesCreateMock.mockResolvedValueOnce({
-      content: [{ type: 'text', text: '{}' }],
-      // no usage field
+    completeMock.mockResolvedValueOnce({
+      text: '{}',
+      // no usage field — source reads result.usage?.inputTokens ?? 0
     });
     const res = await classifyAndLinkCrm(baseArgs({
       sourceMetadata: { senderEmail: 'jane@gmail.com', from: 'Jane <jane@gmail.com>' },
@@ -704,9 +691,9 @@ describe('classifyAndLinkCrm — Claude output parsing', () => {
   });
 
   it('treats a JSON array (non-object root) as empty output', async () => {
-    messagesCreateMock.mockResolvedValueOnce({
-      content: [{ type: 'text', text: '[1,2,3]' }],
-      usage: { input_tokens: 1, output_tokens: 1 },
+    completeMock.mockResolvedValueOnce({
+      text: '[1,2,3]',
+      usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
     });
     // arrays are typeof 'object' & truthy, so the source DOES accept them as
     // ClassifyClaudeOutput — but no fields will match, so no review items.
@@ -729,7 +716,7 @@ describe('classifyAndLinkCrm — brain search integration', () => {
         { type: 'meeting', id: 99, title: 'other', snippet: 'o' },
       ],
     });
-    messagesCreateMock.mockResolvedValueOnce(defaultClaudeResponse());
+    completeMock.mockResolvedValueOnce(defaultClaudeResponse());
 
     await classifyAndLinkCrm(baseArgs());
 
@@ -757,9 +744,9 @@ describe('classifyAndLinkCrm — brain search integration', () => {
 
 describe('classifyAndLinkCrm — credits + final audit', () => {
   it('charges credits on platform after a successful classify', async () => {
-    messagesCreateMock.mockResolvedValueOnce({
-      content: [{ type: 'text', text: '{}' }],
-      usage: { input_tokens: 3000, output_tokens: 500 }, // 3 + 2 = 5
+    completeMock.mockResolvedValueOnce({
+      text: '{}',
+      usage: { inputTokens: 3000, outputTokens: 500, totalTokens: 3500 }, // 3 + 2 = 5
     });
     await classifyAndLinkCrm(baseArgs());
     expect(deductCreditsMock).toHaveBeenCalledWith(
@@ -772,9 +759,9 @@ describe('classifyAndLinkCrm — credits + final audit', () => {
   });
 
   it('floors credits at 1 even when token counts are zero', async () => {
-    messagesCreateMock.mockResolvedValueOnce({
-      content: [{ type: 'text', text: '{}' }],
-      usage: { input_tokens: 0, output_tokens: 0 },
+    completeMock.mockResolvedValueOnce({
+      text: '{}',
+      usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
     });
     await classifyAndLinkCrm(baseArgs());
     expect(deductCreditsMock).toHaveBeenCalledWith(1, 1, expect.anything(), expect.anything(), expect.anything());
@@ -782,14 +769,14 @@ describe('classifyAndLinkCrm — credits + final audit', () => {
 
   it('does NOT charge credits when BYOK key is in use', async () => {
     resolveClientApiKeyMock.mockResolvedValueOnce({ source: 'byok', key: 'sk-byok' });
-    messagesCreateMock.mockResolvedValueOnce(defaultClaudeResponse());
+    completeMock.mockResolvedValueOnce(defaultClaudeResponse());
     await classifyAndLinkCrm(baseArgs());
     expect(deductCreditsMock).not.toHaveBeenCalled();
     expect(recordAiUsageMock).toHaveBeenCalledWith(expect.objectContaining({ source: 'byok' }));
   });
 
   it('logs brain.crm_classified audit entry on success', async () => {
-    messagesCreateMock.mockResolvedValueOnce(defaultClaudeResponse());
+    completeMock.mockResolvedValueOnce(defaultClaudeResponse());
     await classifyAndLinkCrm(baseArgs());
     const audit = auditCalls.find((a) => a.action === 'brain.crm_classified');
     expect(audit).toBeDefined();
@@ -800,7 +787,7 @@ describe('classifyAndLinkCrm — credits + final audit', () => {
   it('completes the job row with output summary on success', async () => {
     findCompanyByDomainMock.mockResolvedValueOnce([{ id: 77, name: 'Acme', domain: 'acme.test' }]);
     state.brainMeetings.push({ id: 42, clientId: 1, companyId: null });
-    messagesCreateMock.mockResolvedValueOnce(defaultClaudeResponse({
+    completeMock.mockResolvedValueOnce(defaultClaudeResponse({
       brainAwareTasks: [{ title: 'follow up' }],
     }));
     await classifyAndLinkCrm(baseArgs());

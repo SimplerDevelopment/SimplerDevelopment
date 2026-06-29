@@ -61,27 +61,55 @@ Scopes follow the pattern `resource:action`. A key's scope list is fixed at issu
 
 **Available scopes by domain:**
 
-| Domain | Read scope | Write scope | Notes |
-|--------|-----------|-------------|-------|
-| Projects | `projects:read` | `projects:write` | |
-| Kanban / boards | `projects:read` | `projects:write` | Shares projects scopes |
-| Tickets | `tickets:read` | `tickets:write` | |
-| CRM | `crm:read` | `crm:write` | |
-| CMS / content | `sites:read` | `sites:write` | Posts, pages, block templates |
-| Media | `media:read` | `media:write` | |
-| Email campaigns | `email:read` | `email:write` / `email:send` | `email:send` required to trigger sends |
-| Pitch decks | `decks:read` | `decks:write` | |
-| Surveys | `surveys:read` | `surveys:write` | |
-| Bookings | `bookings:read` | `bookings:write` | |
-| Billing | `billing:read` | — | No write scope exposed |
-| Services | `services:read` | `services:write` | |
-| Integrations | `integrations:read` | `integrations:write` | |
-| Automations | `automations:read` | `automations:write` | |
-| Hosting | `hosting:read` | — | |
-| Team | `team:read` | `team:write` | |
-| Profile | `profile:read` | `profile:write` | |
-| AI / Brain | `ai:read` | `brain:write` | |
-| Meta / whoami | _(unscoped)_ | — | Always available |
+| Scope | What it gates |
+|-------|--------------|
+| `*` | Full portal access — all tools across all domains |
+| `profile:read` | Read your portal user profile |
+| `profile:write` | Update your portal user profile |
+| `projects:read` | List/get projects, kanban boards, columns, cards, sprints, labels |
+| `projects:write` | Create/update/delete projects, boards, cards, sprints; log time; manage recurrences |
+| `tickets:read` | List/get support and task tickets |
+| `tickets:write` | Create tickets, post replies, update status |
+| `crm:read` | Search contacts, companies, deals, pipelines, activities, saved views, scoring rules |
+| `crm:write` | Create/update contacts, companies, deals; move deal stage; manage pipelines and custom fields |
+| `sites:read` | List sites, domains, env vars, nav, posts, post types, block templates, taxonomies, media |
+| `sites:write` | Create/update/delete posts, post types, block templates, nav, domains, env vars |
+| `media:read` | List media assets |
+| `media:write` | Upload, register, and delete media assets |
+| `email:read` | List campaigns, lists, subscribers, templates, segments |
+| `email:write` | Create/update/delete campaigns, lists, subscribers, templates, segments |
+| `email:send` | Trigger campaign sends and schedules (required in addition to `email:write`) |
+| `decks:read` | List/get pitch decks |
+| `decks:write` | Create/update/delete/publish pitch decks and slides |
+| `surveys:read` | List surveys and responses |
+| `surveys:write` | Create/update surveys; fork surveys |
+| `bookings:read` | List booking pages, bookings, and availability |
+| `bookings:write` | Create/update booking pages; update and cancel bookings |
+| `automations:read` | List automations |
+| `automations:write` | Create/update/delete/toggle automations |
+| `team:read` | List team members and roles |
+| `team:write` | Invite members, update roles, remove members |
+| `integrations:read` | List connected third-party integrations |
+| `integrations:write` | Revoke integrations |
+| `services:read` | List the agency service catalogue and service requests |
+| `services:write` | Submit new service requests |
+| `store:read` | List products, orders, customers, discounts, reviews, messages, settings |
+| `store:write` | Create/update/delete products, orders, discounts; moderate reviews; reply to customer messages |
+| `billing:read` | Read invoices and subscription data (no write scope exposed) |
+| `hosting:read` | Read hosting and domain status (no write scope exposed) |
+| `ai:read` | Read AI conversation history (`ai_conversations_*`) and credit balance/ledger (`ai_credits_*`) |
+| `brain:read` | Query the Company Brain knowledge base — notes, meetings, contacts, deals, tasks, relationships, search |
+| `brain:write` | Create/update/delete Brain records — notes, tasks, meetings, people, documents, topics, glossary, goals, initiatives, playbooks, org units |
+| `brain:approve` | Approve Brain review items and pending changes |
+| `approvals:read` | List and inspect pending MCP approval links |
+| `approvals:manage` | Approve or reject pending MCP approval links (includes `approvals:read`) |
+| `chat:read` | List/get live chat conversations and messages |
+| `chat:write` | Send messages and manage live chat conversations |
+| `notifications:read` | List notifications |
+| `notifications:write` | Create and manage notifications |
+| `branding:read` | Read brand profiles, messaging, and run contrast/audit checks |
+| `branding:write` | Create/update/delete brand profiles and messaging |
+| _(unscoped)_ | `whoami` and the `blocks://schema` resource — always available regardless of scopes |
 
 ---
 
@@ -225,31 +253,14 @@ An MCP resource (not a tool) that returns the full block-type reference in Markd
 
 ## Tool domains
 
-The server registers tools from 24 per-domain registrars. Each domain has its own reference page:
+The server registers **446 tools** across 28 domains. Domains are grouped into six reference pages:
 
-| Domain | Tools cover | Reference |
-|--------|-------------|-----------|
+| Domain(s) | Tools cover | Reference |
+|-----------|-------------|-----------|
 | Meta | `whoami`, `blocks://schema` resource | This page |
-| Projects | Projects CRUD, milestones | [projects-tools.md](./projects-tools.md) |
-| Kanban | Boards, columns, cards | [kanban-tools.md](./kanban-tools.md) |
-| Sprints | Sprint planning, velocity | [sprints-tools.md](./sprints-tools.md) |
-| Tickets | Support/task tickets | [tickets-tools.md](./tickets-tools.md) |
-| CRM | Contacts, companies, deals, pipelines | [crm-tools.md](./crm-tools.md) |
-| CMS | Posts, pages, block templates, media | [cms-tools.md](./cms-tools.md) |
-| Email | Campaigns, lists, sends | [email-tools.md](./email-tools.md) |
-| Pitch Decks | Deck create/update/publish | [pitch-decks-tools.md](./pitch-decks-tools.md) |
-| Surveys | Survey builder, responses | [surveys-tools.md](./surveys-tools.md) |
-| Bookings | Booking pages, availability, appointments | [bookings-tools.md](./bookings-tools.md) |
-| Profile | Portal user profile | [profile-tools.md](./profile-tools.md) |
-| Integrations | Connected third-party services | [integrations-tools.md](./integrations-tools.md) |
-| Billing | Invoices, subscriptions (read-only) | [billing-tools.md](./billing-tools.md) |
-| Services | Agency service catalogue | [services-tools.md](./services-tools.md) |
-| AI | AI chat, content generation | [ai-tools.md](./ai-tools.md) |
-| Automations | Workflow automations | [automations-tools.md](./automations-tools.md) |
-| Hosting | Domains, deploy status | [hosting-tools.md](./hosting-tools.md) |
-| Team | Team members, roles | [team-tools.md](./team-tools.md) |
-| Branding | Brand profiles, assets | [branding-tools.md](./branding-tools.md) |
-| Storefront | Products, orders | [storefront-tools.md](./storefront-tools.md) |
-| Brain | Company knowledge base (AI/RAG) | [brain-tools.md](./brain-tools.md) |
-| Post Types | Custom post type definitions | [post-types-tools.md](./post-types-tools.md) |
-| Approvals | Pending-change approval management | [approvals-tools.md](./approvals-tools.md) |
+| Brain (AI/RAG) | Company knowledge base — notes, meetings, people, docs, tasks, goals, initiatives, playbooks, org units, topics, glossary, decisions | [brain-tools.md](./brain-tools.md) |
+| CRM | Contacts, companies, deals, pipelines, activities, custom fields, saved views, scoring rules | [crm-tools.md](./crm-tools.md) |
+| CMS / Storefront / Branding | Posts, pages, block templates, post types, taxonomies, media, nav, site settings, domains, env vars; storefront products/orders/customers/discounts/reviews; brand profiles and messaging | [content-tools.md](./content-tools.md) |
+| Email / Surveys / Decks / Automations | Email campaigns, lists, subscribers, templates, segments; survey builder and responses; pitch deck create/update/publish; workflow automations | [marketing-tools.md](./marketing-tools.md) |
+| Bookings / Integrations / Hosting / Billing / AI / Approvals / Chat / Notifications | Booking pages and appointments; third-party integrations; domain and deploy status; invoices and subscriptions; AI conversation history and credits; MCP approval links; live chat; notifications | [platform-tools.md](./platform-tools.md) |
+| Projects / Sprints / Kanban / Team / Tickets | Projects CRUD; sprint planning; boards, columns, cards, labels, checklists, time logging; team members and roles; support and task tickets | [project-tools.md](./project-tools.md) |

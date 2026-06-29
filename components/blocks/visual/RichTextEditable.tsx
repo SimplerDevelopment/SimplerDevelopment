@@ -204,9 +204,14 @@ export function RichTextEditable({
         </div>
       )}
 
-      {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
       {(() => {
-        const El = tagName as any;
+        const El = tagName as unknown as React.ComponentType<
+          React.HTMLAttributes<HTMLElement> & {
+            ref?: React.RefObject<HTMLElement | null>;
+            'data-placeholder'?: string;
+            suppressContentEditableWarning?: boolean;
+          }
+        >;
         return (
           <El
             ref={contentRef}

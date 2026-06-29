@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { createElement, useState } from 'react';
 import { Block } from '@/types/blocks';
 import { getBlockIcon } from '@/lib/utils/blockIcons';
 
@@ -130,8 +130,6 @@ function LayerItem({
   const isHovered = hoveredBlockId === block.id;
   const nested = getNestedBlocks(block);
   const hasChildren = nested.some((n) => n.blocks.length > 0);
-  const Icon = getBlockIcon(block.type);
-
   return (
     <div>
       <button
@@ -171,7 +169,7 @@ function LayerItem({
           <span className="flex-shrink-0 w-4" />
         )}
 
-        <Icon className="w-3.5 h-3.5 flex-shrink-0 opacity-60" />
+        {createElement(getBlockIcon(block.type), { className: 'w-3.5 h-3.5 flex-shrink-0 opacity-60' })}
 
         <span className="truncate">{getBlockLabel(block)}</span>
       </button>

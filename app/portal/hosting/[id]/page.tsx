@@ -6,6 +6,7 @@ import { redirect, notFound } from 'next/navigation';
 import Link from 'next/link';
 import { getPortalClient } from '@/lib/portal-client';
 import type { DnsInstruction } from '@/lib/db/schema';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
 
 const statusColor: Record<string, string> = {
   provisioning: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
@@ -60,18 +61,17 @@ export default async function PortalHostingSitePage({
       </Link>
 
       {/* Header */}
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">{site.name}</h1>
-          {site.customDomain && (
-            <p className="text-muted-foreground font-mono mt-1">{site.customDomain}</p>
-          )}
-        </div>
-        <span className={`shrink-0 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium ${statusColor[site.status] || 'bg-gray-100 text-gray-700'}`}>
-          <span className="material-icons text-sm">{statusIcon[site.status] || 'help'}</span>
-          {site.status.charAt(0).toUpperCase() + site.status.slice(1)}
-        </span>
-      </div>
+      <PortalPageHeader
+        eyebrow="Hosting"
+        title={site.name}
+        subtitle={site.customDomain ?? undefined}
+        actions={
+          <span className={`shrink-0 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium ${statusColor[site.status] || 'bg-muted text-muted-foreground'}`}>
+            <span className="material-icons text-sm">{statusIcon[site.status] || 'help'}</span>
+            {site.status.charAt(0).toUpperCase() + site.status.slice(1)}
+          </span>
+        }
+      />
 
       {/* Status banner for provisioning */}
       {site.status === 'provisioning' && (
@@ -100,26 +100,26 @@ export default async function PortalHostingSitePage({
 
       {/* Overview cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-        <div className="bg-card border border-border rounded-xl p-4">
+        <div className="bg-card border border-border rounded-2xl p-4">
           <p className="text-xs text-muted-foreground mb-1">Plan</p>
           <p className="font-semibold text-foreground">{planLabel[site.plan] || site.plan}</p>
         </div>
         {site.renewalDate && (
-          <div className="bg-card border border-border rounded-xl p-4">
+          <div className="bg-card border border-border rounded-2xl p-4">
             <p className="text-xs text-muted-foreground mb-1">Renewal Date</p>
             <p className="font-semibold text-foreground">{new Date(site.renewalDate).toLocaleDateString()}</p>
           </div>
         )}
-        <div className="bg-card border border-border rounded-xl p-4">
+        <div className="bg-card border border-border rounded-2xl p-4">
           <p className="text-xs text-muted-foreground mb-1">Since</p>
           <p className="font-semibold text-foreground">{new Date(site.createdAt).toLocaleDateString()}</p>
         </div>
       </div>
 
       {/* Domain / URLs */}
-      <div className="bg-card border border-border rounded-xl overflow-hidden">
+      <div className="bg-card border border-border rounded-2xl overflow-hidden">
         <div className="px-4 py-3 border-b border-border bg-muted/20">
-          <h2 className="font-semibold text-sm text-foreground flex items-center gap-2">
+          <h2 className="font-display text-sm font-extrabold tracking-[-0.02em] text-foreground flex items-center gap-2">
             <span className="material-icons text-base text-primary">language</span>
             Domain &amp; URLs
           </h2>
@@ -167,9 +167,9 @@ export default async function PortalHostingSitePage({
       </div>
 
       {/* DNS Configuration */}
-      <div className="bg-card border border-border rounded-xl overflow-hidden">
+      <div className="bg-card border border-border rounded-2xl overflow-hidden">
         <div className="px-4 py-3 border-b border-border bg-muted/20">
-          <h2 className="font-semibold text-sm text-foreground flex items-center gap-2">
+          <h2 className="font-display text-sm font-extrabold tracking-[-0.02em] text-foreground flex items-center gap-2">
             <span className="material-icons text-base text-primary">dns</span>
             DNS Configuration
           </h2>
@@ -215,7 +215,7 @@ export default async function PortalHostingSitePage({
             {dnsInstructions.some(r => r.notes) && (
               <div className="space-y-2">
                 {dnsInstructions.filter(r => r.notes).map((r, i) => (
-                  <div key={i} className="flex items-start gap-2 text-xs text-muted-foreground bg-muted/30 rounded-lg p-3">
+                  <div key={i} className="flex items-start gap-2 text-xs text-muted-foreground bg-muted/30 rounded-xl p-3">
                     <span className="material-icons text-sm mt-0.5">info</span>
                     <span><strong className="text-foreground">{r.type} {r.host}:</strong> {r.notes}</span>
                   </div>
@@ -233,7 +233,7 @@ export default async function PortalHostingSitePage({
       </div>
 
       {/* Help */}
-      <div className="bg-card border border-border rounded-xl p-4 flex items-start gap-3">
+      <div className="bg-card border border-border rounded-2xl p-4 flex items-start gap-3">
         <span className="material-icons text-primary mt-0.5">support_agent</span>
         <div className="text-sm">
           <p className="font-medium text-foreground">Need help?</p>

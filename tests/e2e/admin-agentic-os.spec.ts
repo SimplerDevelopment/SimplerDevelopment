@@ -53,6 +53,15 @@ async function loginAsAdmin(page: Page) {
 test.describe('admin agentic-os @admin @agentic-os @critical', () => {
   test.describe.configure({ mode: 'serial' });
 
+  // Agentic OS is a local-dev-only surface: app/api/admin/agentic-os/route.ts
+  // (and the page) return 404 when !isLocalDev(), i.e. under a production build
+  // (`--mode=prod` / `next start`). Skip the whole suite when the feature is
+  // gated off so a prod-mode e2e run isn't red on a dev-only feature.
+  test.beforeEach(async ({ page }) => {
+    const res = await page.request.get('/api/admin/agentic-os');
+    test.skip(res.status() === 404, 'Agentic OS disabled in this build (isLocalDev gate)');
+  });
+
   test('catalog loads with heading, a domain section, and skill cards', async ({ page }) => {
     await loginAsAdmin(page);
     await page.goto('/admin/agentic-os', { waitUntil: 'domcontentloaded' });
@@ -91,33 +100,54 @@ test.describe('admin agentic-os @admin @agentic-os @critical', () => {
   });
 
   test('executor-disabled state is surfaced', async ({ page }) => {
+    // Log in first so that subsequent requests (API probe + page navigation)
+    // all use an authenticated session.
     await loginAsAdmin(page);
+
+    // Query the API (now with auth) to know which executor state this
+    // environment has, so the assertion can match whichever badge the page
+    // renders. A dev machine with AGENTIC_OS_EXECUTOR_ENABLED=1 in .env.local
+    // will render "Local executor available" rather than "Catalog mode"; CI
+    // (env var unset) renders "Catalog mode". Either is correct.
+    const apiRes = await page.request.get('/api/admin/agentic-os');
+    const apiJson = await apiRes.json();
+    const executorAvailable: boolean = apiJson?.data?.executorAvailable ?? false;
+
     await page.goto('/admin/agentic-os', { waitUntil: 'domcontentloaded' });
 
     // Wait for the catalog to hydrate so the executor badge has a chance to
-    // render. The header heading is the cheapest hydration anchor.
+    // render. The header heading is the cheapest hydration anchor — it only
+    // appears after the client-side fetch to /api/admin/agentic-os completes
+    // (the page renders a spinner while loading=true).
     await expect(
       page.getByRole('heading', { level: 1, name: 'Agentic OS' }),
     ).toBeVisible({ timeout: 15_000 });
 
-    // The page renders a "Catalog mode" badge next to the title when
-    // `executorAvailable === false` (see page.tsx around line 644-650).
-    // It also renders the `executorHostHint` paragraph which contains the
-    // literal string "Set AGENTIC_OS_EXECUTOR_ENABLED=1" (see
-    // app/api/admin/agentic-os/route.ts line 61). Either one is sufficient
-    // evidence that the page knows the executor is off; assert the badge
-    // (more stable than scraping the hint copy).
-    await expect(page.getByText('Catalog mode', { exact: true })).toBeVisible({
-      timeout: 10_000,
-    });
+    // The page renders exactly one of two badges next to the h1:
+    //   • "Local executor available" when executorAvailable === true
+    //   • "Catalog mode"             when executorAvailable === false
+    // (page.tsx ~line 636-650; route.ts ~line 49-63)
+    if (executorAvailable) {
+      // The badge span also contains the "bolt" material-icon text node, so
+      // exact matching won't work; use a regex and .first() to avoid
+      // strict-mode ambiguity from ancestor elements that include this text.
+      await expect(
+        page.getByText(/Local executor available/).first(),
+      ).toBeVisible({ timeout: 10_000 });
+    } else {
+      // Same structure: the span contains "visibility" + "Catalog mode".
+      await expect(page.getByText(/Catalog mode/).first()).toBeVisible({
+        timeout: 10_000,
+      });
 
-    // Belt-and-suspenders: the host hint copy should also be visible. If the
-    // server ever changes the hint string this assertion will need to be
-    // updated, but it's worth catching a regression where the hint stops
-    // rendering at all.
-    await expect(
-      page.getByText(/Set AGENTIC_OS_EXECUTOR_ENABLED=1/),
-    ).toBeVisible();
+      // Belt-and-suspenders: when executor is off, the host hint should also
+      // be visible. If the server ever changes the hint string this assertion
+      // will need updating, but it catches regressions where the hint stops
+      // rendering at all.
+      await expect(
+        page.getByText(/Set AGENTIC_OS_EXECUTOR_ENABLED=1/),
+      ).toBeVisible();
+    }
   });
 
   test('run drawer opens with Copy prompt enabled and Run disabled', async ({ page }) => {
@@ -131,7 +161,16 @@ test.describe('admin agentic-os @admin @agentic-os @critical', () => {
     // Click the first on-demand "Run" button on a skill card. The drawer
     // mounts a footer with another "Run" button + a "Copy prompt" button,
     // so after the click we expect both to be visible.
-    const firstCardRunButton = page.getByRole('button', { name: /^Run$/ }).first();
+    // Material Icons render the icon name as text ("play_arrow") inside a
+    // <span class="material-icons">, so the computed accessible name becomes
+    // "play_arrow Run" — /^Run$/ fails.  Match the word "Run" anywhere.
+    // IMPORTANT: the "Run history" filter tab also matches /\bRun\b/ because
+    // its accessible name is "history Run history". Exclude it with
+    // hasNotText so .first() lands on a skill card button, not the tab.
+    const firstCardRunButton = page
+      .getByRole('button', { name: /\bRun\b/ })
+      .filter({ hasNotText: /history/i })
+      .first();
     await expect(firstCardRunButton).toBeVisible({ timeout: 10_000 });
     await firstCardRunButton.click();
 

@@ -244,9 +244,9 @@ describe('CrmContactDetailPage', () => {
     it('renders title and company link in header', async () => {
       const { container } = await renderPage();
       expect(container.textContent).toContain('CTO');
-      const companyLink = container.querySelector('a[href="/portal/crm/companies/42"]');
-      expect(companyLink).toBeTruthy();
-      expect(companyLink?.textContent).toContain('Acme Corp');
+      // Company name is rendered as plain text in the subtitle (e.g. "at Acme Corp"),
+      // not as a navigable link — the header redesign removed the company link.
+      expect(container.textContent).toContain('Acme Corp');
     });
 
     it('renders loading spinner before fetch resolves', () => {
@@ -862,7 +862,8 @@ describe('CrmContactDetailPage', () => {
       ) as HTMLButtonElement;
       fireEvent.click(meetingBtn);
       // No direct value to inspect; instead, check the button has the active classes
-      expect(meetingBtn.className).toContain('bg-primary');
+      // Active chip uses bg-foreground (redesign changed from bg-primary)
+      expect(meetingBtn.className).toContain('bg-foreground');
     });
 
     it('submits a new activity, resets form, and refetches activities', async () => {

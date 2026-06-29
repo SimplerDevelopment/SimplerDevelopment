@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnPrimary, pCardPad, pInput, pSelect } from '@/components/portal/portal-ui';
 
 const durationOptions = [
   { value: 15, label: '15 minutes' },
@@ -57,19 +59,18 @@ export default function NewBookingPage() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
-      <div>
-        <Link
-          href="/portal/tools/booking"
-          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
-        >
-          <span className="material-icons text-lg">arrow_back</span>
-          Back to Booking Pages
-        </Link>
-        <h1 className="text-2xl font-bold text-foreground">Create Booking Page</h1>
-        <p className="text-muted-foreground mt-1 text-sm">
-          Set up a new scheduling page for clients to book time with you
-        </p>
-      </div>
+      <Link
+        href="/portal/tools/booking"
+        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors mb-2"
+      >
+        <span className="material-icons text-lg">arrow_back</span>
+        Back to Booking Pages
+      </Link>
+      <PortalPageHeader
+        eyebrow="Booking"
+        title="Create Booking Page"
+        subtitle="Set up a new scheduling page for clients to book time with you"
+      />
 
       <form onSubmit={handleSubmit} className="space-y-5">
         {error && (
@@ -79,7 +80,7 @@ export default function NewBookingPage() {
           </div>
         )}
 
-        <div className="bg-card border border-border rounded-xl p-5 space-y-4">
+        <div className={`${pCardPad} space-y-4`}>
           <div>
             <label className="block text-sm font-medium text-foreground mb-1.5">Title</label>
             <input
@@ -87,7 +88,7 @@ export default function NewBookingPage() {
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="e.g. 30-Minute Consultation"
-              className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
+              className={pInput}
               required
               disabled={loading}
             />
@@ -103,7 +104,7 @@ export default function NewBookingPage() {
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Brief description shown to people booking with you"
               rows={3}
-              className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary resize-none"
+              className={`${pInput} resize-none`}
               disabled={loading}
             />
           </div>
@@ -113,7 +114,7 @@ export default function NewBookingPage() {
             <select
               value={duration}
               onChange={(e) => setDuration(Number(e.target.value))}
-              className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
+              className={pSelect}
               disabled={loading}
             >
               {durationOptions.map((opt) => (
@@ -131,7 +132,7 @@ export default function NewBookingPage() {
               value={timezone}
               onChange={(e) => setTimezone(e.target.value)}
               placeholder="America/New_York"
-              className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
+              className={pInput}
               disabled={loading}
             />
             <p className="text-xs text-muted-foreground mt-1">
@@ -143,7 +144,7 @@ export default function NewBookingPage() {
         <button
           type="submit"
           disabled={loading || !title.trim()}
-          className="w-full flex items-center justify-center gap-2 px-5 py-3 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className={`w-full ${pBtnPrimary}`}
         >
           {loading ? (
             <>

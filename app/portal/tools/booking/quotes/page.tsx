@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnPrimary, pCard } from '@/components/portal/portal-ui';
 
 interface Quote {
   id: number;
@@ -46,41 +48,38 @@ export default function BookingQuotesPage() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Custom Quotes</h1>
-          <p className="text-sm text-muted-foreground mt-1">Create payment links for custom bookings</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <Link href="/portal/tools/booking" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
-            <span className="material-icons text-lg">arrow_back</span>
-            Back
-          </Link>
-          <Link href="/portal/tools/booking/quotes/new"
-            className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:opacity-90">
+      <Link href="/portal/tools/booking" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
+        <span className="material-icons text-lg">arrow_back</span>
+        Back
+      </Link>
+      <PortalPageHeader
+        eyebrow="Booking"
+        title="Custom Quotes"
+        subtitle="Create payment links for custom bookings"
+        actions={
+          <Link href="/portal/tools/booking/quotes/new" className={pBtnPrimary}>
             <span className="material-icons text-base">add</span>
             New Quote
           </Link>
-        </div>
-      </div>
+        }
+      />
 
       {loading ? (
         <div className="flex justify-center py-20">
           <div className="animate-spin rounded-full h-8 w-8 border-2 border-muted-foreground/20 border-t-primary" />
         </div>
       ) : quotes.length === 0 ? (
-        <div className="bg-card border border-border rounded-xl p-12 text-center">
+        <div className="bg-card border border-border rounded-2xl p-12 text-center">
           <span className="material-icons text-4xl text-muted-foreground mb-3 block">request_quote</span>
           <h2 className="text-lg font-semibold text-foreground mb-1">No quotes yet</h2>
           <p className="text-sm text-muted-foreground mb-4">Create a custom quote to send a payment link to a client</p>
-          <Link href="/portal/tools/booking/quotes/new"
-            className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium">
+          <Link href="/portal/tools/booking/quotes/new" className={pBtnPrimary}>
             <span className="material-icons text-base">add</span>
             Create First Quote
           </Link>
         </div>
       ) : (
-        <div className="bg-card border border-border rounded-xl overflow-hidden">
+        <div className={`${pCard} overflow-hidden`}>
           <div className="divide-y divide-border overflow-x-auto">
             {quotes.map(q => (
               <div key={q.id} className="flex items-center gap-4 px-4 py-3 hover:bg-muted/30 transition-colors min-w-[480px]">

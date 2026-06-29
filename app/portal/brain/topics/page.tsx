@@ -22,6 +22,15 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import TopicTree from '@/components/brain/TopicTree';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import {
+  pBtnPrimary,
+  pBtnGhost,
+  pBtnSoft,
+  pCard,
+  pInput,
+  pSectionTitle,
+} from '@/components/portal/portal-ui';
 import type {
   BrainTopicTreeNode,
   BrainTopicWithBreadcrumb,
@@ -185,40 +194,43 @@ export default function BrainTopicsAdminPage() {
 
   return (
     <div className="max-w-7xl mx-auto py-6 px-4 space-y-4">
-      <header className="flex items-start justify-between gap-3 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+      <PortalPageHeader
+        eyebrow="Company Brain"
+        title={
+          <span className="flex items-center gap-2">
             <span className="material-icons text-primary">account_tree</span>
             Topics
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            {loading
-              ? 'Loading…'
-              : `${totalTopics} ${totalTopics === 1 ? 'topic' : 'topics'} · drag to reorganize`}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => { setCreateRoot(true); setCreateRootValue(''); }}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90"
-          >
-            <span className="material-icons text-base">add</span>
-            New topic
-          </button>
-          <button
-            type="button"
-            onClick={() => setImportOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md border border-border text-foreground hover:bg-accent"
-          >
-            <span className="material-icons text-base">file_download</span>
-            Import from tags
-          </button>
-        </div>
-      </header>
+          </span>
+        }
+        subtitle={
+          loading
+            ? 'Loading…'
+            : `${totalTopics} ${totalTopics === 1 ? 'topic' : 'topics'} · drag to reorganize`
+        }
+        actions={
+          <>
+            <button
+              type="button"
+              onClick={() => { setCreateRoot(true); setCreateRootValue(''); }}
+              className={pBtnPrimary}
+            >
+              <span className="material-icons text-base">add</span>
+              New topic
+            </button>
+            <button
+              type="button"
+              onClick={() => setImportOpen(true)}
+              className={pBtnGhost}
+            >
+              <span className="material-icons text-base">file_download</span>
+              Import from tags
+            </button>
+          </>
+        }
+      />
 
       {error && (
-        <div className="bg-destructive/10 border border-destructive/30 rounded-md p-3 text-sm text-destructive">
+        <div className="bg-destructive/10 border border-destructive/30 rounded-xl p-3 text-sm text-destructive">
           <div className="flex items-center gap-2">
             <span className="material-icons text-base">error_outline</span>
             <span>{error}</span>
@@ -228,7 +240,7 @@ export default function BrainTopicsAdminPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Left: tree */}
-        <div className="lg:col-span-2 bg-card border border-border rounded-lg overflow-hidden">
+        <div className={`lg:col-span-2 ${pCard} overflow-hidden`}>
           <div className="px-3 py-2 border-b border-border bg-muted/30 text-xs font-medium uppercase tracking-wider text-muted-foreground flex items-center gap-2">
             <span className="material-icons text-sm">account_tree</span>
             Topic tree
@@ -254,7 +266,7 @@ export default function BrainTopicsAdminPage() {
                     }}
                     onBlur={handleCreateRoot}
                     placeholder="New root topic name…"
-                    className="flex-1 px-2 py-1 text-sm rounded border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/40"
+                    className={`flex-1 ${pInput} py-1`}
                   />
                 </div>
               )}
@@ -265,7 +277,7 @@ export default function BrainTopicsAdminPage() {
                   <button
                     type="button"
                     onClick={() => { setCreateRoot(true); setCreateRootValue(''); }}
-                    className="inline-flex items-center gap-1 px-3 py-1.5 text-xs rounded-md bg-primary text-primary-foreground hover:opacity-90"
+                    className={`${pBtnPrimary} text-xs px-3 py-1.5`}
                   >
                     <span className="material-icons text-sm">add</span>
                     Create your first topic
@@ -302,7 +314,7 @@ export default function BrainTopicsAdminPage() {
         </div>
 
         {/* Right: details */}
-        <div className="bg-card border border-border rounded-lg overflow-hidden">
+        <div className={`${pCard} overflow-hidden`}>
           {selectedId == null ? (
             <div className="p-8 text-center">
               <span className="material-icons text-3xl text-muted-foreground/50 block mb-2">account_tree</span>
@@ -426,7 +438,7 @@ function TopicDetailPanel({
   if (error || !topic) {
     return (
       <div className="p-6 text-center text-sm">
-        <div className="bg-destructive/10 border border-destructive/30 rounded p-3 text-destructive">
+        <div className="bg-destructive/10 border border-destructive/30 rounded-xl p-3 text-destructive">
           <span className="material-icons text-base align-middle mr-1">error_outline</span>
           {error ?? 'Topic not found.'}
         </div>
@@ -492,7 +504,7 @@ function TopicDetailPanel({
             }}
             rows={3}
             placeholder="Optional — what does this topic cover?"
-            className="w-full px-2 py-1.5 text-sm rounded border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/40 resize-none"
+            className={`${pInput} resize-none`}
           />
           {saving === 'desc' && <div className="text-[10px] text-muted-foreground mt-1"><span className="material-icons text-sm animate-spin align-middle">progress_activity</span> Saving…</div>}
         </div>
@@ -528,7 +540,7 @@ function TopicDetailPanel({
                   if (!ok) setColorDraft(topic.color ?? '');
                 }}
                 placeholder="#06b6d4"
-                className="flex-1 min-w-0 px-2 py-1 text-xs rounded border border-border bg-background focus:outline-none"
+                className={`flex-1 min-w-0 ${pInput} py-1 text-xs`}
               />
             </div>
           </div>
@@ -547,17 +559,17 @@ function TopicDetailPanel({
                 if (!ok) setIconDraft(topic.icon ?? '');
               }}
               placeholder="folder, sell, label…"
-              className="w-full px-2 py-1 text-xs rounded border border-border bg-background focus:outline-none"
+              className={`${pInput} py-1 text-xs`}
             />
             <div className="text-[10px] text-muted-foreground mt-0.5">Material Icons name</div>
           </div>
         </div>
 
         <div className="pt-2 border-t border-border">
-          <div className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1">
-            <span className="material-icons text-sm">attach_file</span>
+          <div className="text-xs font-semibold text-foreground mb-2 flex items-center gap-1">
+            <span className="material-icons text-sm text-primary">attach_file</span>
             Entities attached
-            {entitiesLoading && <span className="material-icons text-sm animate-spin">progress_activity</span>}
+            {entitiesLoading && <span className="material-icons text-sm animate-spin text-muted-foreground">progress_activity</span>}
           </div>
           {entities && entities.items.length === 0 && !entitiesLoading && (
             <div className="text-xs text-muted-foreground italic px-1 py-2">No entities attached yet.</div>
@@ -596,7 +608,7 @@ function TopicDetailPanel({
         <button
           type="button"
           onClick={onDelete}
-          className="inline-flex items-center gap-1 px-3 py-1.5 text-xs rounded border border-destructive/30 text-destructive hover:bg-destructive/10"
+          className="inline-flex items-center gap-1.5 rounded-xl border border-destructive/30 px-3 py-2 text-xs font-semibold text-destructive transition hover:bg-destructive/10"
         >
           <span className="material-icons text-sm">delete</span>
           Delete topic
@@ -657,7 +669,7 @@ function ImportFromTagsWizard({
     <>
       <div className="fixed inset-0 z-40 bg-black/50" onClick={() => !busy && onClose()} />
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
-        <div className="pointer-events-auto w-full max-w-2xl rounded-lg border border-border bg-popover shadow-xl flex flex-col max-h-[85vh]">
+        <div className="pointer-events-auto w-full max-w-2xl rounded-2xl border border-border bg-card shadow-xl flex flex-col max-h-[85vh]">
           <div className="px-4 py-3 border-b border-border flex items-center gap-2">
             <span className="material-icons text-base text-primary">file_download</span>
             <h3 className="text-base font-semibold flex-1">Import topics from tags</h3>
@@ -680,13 +692,13 @@ function ImportFromTagsWizard({
               onChange={(e) => setTagPrefix(e.target.value)}
               placeholder="e.g. kb (leave empty for all)"
               disabled={busy}
-              className="flex-1 px-2 py-1 text-xs rounded border border-border bg-background"
+              className={`flex-1 ${pInput} py-1.5 text-xs`}
             />
             <button
               type="button"
               onClick={() => runImport(true)}
               disabled={busy}
-              className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded border border-border hover:bg-accent disabled:opacity-50"
+              className={`${pBtnGhost} px-2 py-1.5 text-xs disabled:opacity-50`}
             >
               {busy && step === 'preview' ? (
                 <span className="material-icons text-sm animate-spin">progress_activity</span>
@@ -699,14 +711,14 @@ function ImportFromTagsWizard({
 
           <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 text-sm">
             {error && (
-              <div className="bg-destructive/10 border border-destructive/30 rounded p-2 text-xs text-destructive">
+              <div className="bg-destructive/10 border border-destructive/30 rounded-xl p-2 text-xs text-destructive">
                 <span className="material-icons text-sm align-middle mr-1">error_outline</span>
                 {error}
               </div>
             )}
 
             {step === 'done' && report ? (
-              <div className="bg-emerald-500/10 border border-emerald-500/30 rounded p-3 text-sm text-emerald-700 dark:text-emerald-300">
+              <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-3 text-sm text-emerald-700 dark:text-emerald-300">
                 <div className="font-medium mb-1 flex items-center gap-1">
                   <span className="material-icons text-base">check_circle</span>
                   Import complete
@@ -723,7 +735,7 @@ function ImportFromTagsWizard({
               </div>
             ) : (
               <>
-                <div className="bg-muted/40 border border-border rounded p-3 text-xs">
+                <div className="bg-muted/40 border border-border rounded-xl p-3 text-xs">
                   <div className="font-medium text-foreground mb-1">Preview</div>
                   <p className="text-muted-foreground">
                     <strong className="text-foreground">{report.topicsCreated}</strong>{' '}
@@ -741,7 +753,7 @@ function ImportFromTagsWizard({
                 )}
 
                 {report.perTopic.length > 0 && (
-                  <div className="border border-border rounded overflow-hidden">
+                  <div className="border border-border rounded-xl overflow-hidden">
                     <table className="w-full text-xs">
                       <thead className="bg-muted/50">
                         <tr className="text-left">
@@ -780,7 +792,7 @@ function ImportFromTagsWizard({
               <button
                 type="button"
                 onClick={onDone}
-                className="inline-flex items-center gap-1 px-3 py-1.5 text-sm rounded bg-primary text-primary-foreground hover:opacity-90"
+                className={pBtnPrimary}
               >
                 <span className="material-icons text-sm">done</span>
                 Done
@@ -791,7 +803,7 @@ function ImportFromTagsWizard({
                   type="button"
                   onClick={onClose}
                   disabled={busy}
-                  className="px-3 py-1.5 text-sm rounded border border-border hover:bg-accent disabled:opacity-50"
+                  className={`${pBtnGhost} disabled:opacity-50`}
                 >
                   Cancel
                 </button>
@@ -799,7 +811,7 @@ function ImportFromTagsWizard({
                   type="button"
                   onClick={() => { setStep('confirm'); runImport(false); }}
                   disabled={busy || !report || report.perTopic.length === 0}
-                  className="inline-flex items-center gap-1 px-3 py-1.5 text-sm rounded bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50"
+                  className={`${pBtnPrimary} disabled:opacity-50 disabled:hover:translate-y-0`}
                 >
                   {busy && step === 'confirm' ? (
                     <span className="material-icons text-sm animate-spin">progress_activity</span>

@@ -77,6 +77,9 @@ vi.mock('@/lib/db/schema', () => {
     crmProposals: wrap('crmProposals'),
     bookingPages: wrap('bookingPages'),
     surveys: wrap('surveys'),
+    posts: wrap('posts'),
+    brainNotes: wrap('brainNotes'),
+    projectMembers: wrap('projectMembers'),
   }, { has: (t, p) => (p in t) || !(p === "then" || p === "__esModule" || p === "default" || typeof p !== "string"), get: (t, p) => (p in t) ? t[p] : ((p === "then" || p === "__esModule" || p === "default" || typeof p !== "string") ? undefined : wrap(p)) });
 });
 
@@ -742,6 +745,9 @@ describe('DELETE /api/portal/cards/[id]/time-logs/[logId]', () => {
 
   it('deletes the time-log for admin', async () => {
     authMock.mockResolvedValue(STAFF_SESSION);
+    getPortalClientMock.mockResolvedValue({ id: 5 });
+    // tenant-verify SELECT returns the log row
+    selectQueue.push([{ id: 99 }]);
     const res = await DELETE(
       makeJsonRequest({}, 'DELETE'),
       makeParams({ id: '1', logId: '99' }),
@@ -755,6 +761,9 @@ describe('DELETE /api/portal/cards/[id]/time-logs/[logId]', () => {
 
   it('deletes the time-log for employee', async () => {
     authMock.mockResolvedValue(EMPLOYEE_SESSION);
+    getPortalClientMock.mockResolvedValue({ id: 5 });
+    // tenant-verify SELECT returns the log row
+    selectQueue.push([{ id: 42 }]);
     const res = await DELETE(
       makeJsonRequest({}, 'DELETE'),
       makeParams({ id: '1', logId: '42' }),

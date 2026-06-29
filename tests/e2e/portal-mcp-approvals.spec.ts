@@ -466,7 +466,7 @@ test.describe('MCP approval — update & send operations @mcp @approvals', () =>
     expect(snapshot.title).toBe(`Original Title ${ts}`);
   });
 
-  // Regression (Cody / CY Strategies): under a require_cms_approval key, the
+  // Regression: under a require_cms_approval key, the
   // posts_fork → posts_update flow must apply the edit DIRECTLY to the fork.
   // Previously the update was staged into a separate pending_change, orphaned
   // from the fork's own entity approval link, so the fork's preview showed the

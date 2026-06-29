@@ -1,6 +1,7 @@
 export const siteConfig = {
   name: 'SimplerDevelopment',
-  description: 'Design, Dev, and Automation Agency - Creating impressive, interactive web experiences',
+  description:
+    'The all-in-one business platform with a brain: 19 integrated tools — websites, CRM, email, booking, projects and an AI that runs them for you.',
   url: 'https://simplerdevelopment.com',
   ogImage: 'https://simplerdevelopment.com/og.jpg',
   links: {
@@ -9,12 +10,14 @@ export const siteConfig = {
     linkedin: 'https://linkedin.com/company/simplerdevelopment',
   },
   keywords: [
-    'web design automation',
-    'interactive website development',
-    'n8n automation professionals',
-    'Three.js development',
-    'React development',
-    'Next.js agency',
+    'all-in-one business platform',
+    'AI business software',
+    'CRM and website builder',
+    'business automation platform',
+    'small business SaaS',
+    'AI-native platform',
+    'website CRM email booking',
+    'company brain AI',
   ],
 };
 

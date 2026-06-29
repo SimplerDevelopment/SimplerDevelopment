@@ -171,6 +171,12 @@ vi.mock('@/lib/db', () => {
     };
   }
 
+  const tx = {
+    insert(table: { __table?: string } | undefined) {
+      return buildInsert(table);
+    },
+  };
+
   return {
     db: {
       select() {
@@ -181,6 +187,14 @@ vi.mock('@/lib/db', () => {
       },
       update(table: { __table?: string } | undefined) {
         return buildUpdate(table);
+      },
+      // db.execute(sql`...`) — dequeues from selectQueue like a select
+      execute(_query: unknown): Promise<Array<Record<string, unknown>>> {
+        return Promise.resolve(shiftSelect());
+      },
+      // db.transaction(callback) — invokes callback with a tx stub backed by insertQueue
+      async transaction(callback: (tx: typeof tx) => Promise<unknown>) {
+        return callback(tx);
       },
     },
   };
@@ -305,8 +319,8 @@ describe('/api/admin/portal/invoices', () => {
 
     it('creates an invoice with computed totals and line items', async () => {
       authMock.mockResolvedValue(ADMIN_SESSION);
-      // 1) select count
-      selectQueue.push([{ count: 5 }]);
+      // 1) db.execute → max_seq for invoice number generation
+      selectQueue.push([{ max_seq: 5 }]); // nextSeq = 6 → INV-YYYY-0006
       // 2) insert invoice -> returning
       insertQueue.push([
         {
@@ -391,7 +405,7 @@ describe('/api/admin/portal/invoices', () => {
 
     it('builds invoice number INV-YYYY-0001 when no previous invoices exist', async () => {
       authMock.mockResolvedValue(ADMIN_SESSION);
-      selectQueue.push([{ count: 0 }]);
+      selectQueue.push([{ max_seq: 0 }]); // max_seq=0 → nextSeq=1 → INV-YYYY-0001
       insertQueue.push([{ id: 1 }]);
       insertQueue.push([{ id: 2 }]);
       await invoicesRoute.POST(

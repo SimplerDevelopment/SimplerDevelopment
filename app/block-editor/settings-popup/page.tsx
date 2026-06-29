@@ -38,14 +38,6 @@ const BLOCK_TYPE_LABELS: Record<BlockType, string> = {
   'logo-strip': 'Logo Strip',
   gallery: 'Gallery',
   section: 'Section',
-  'palizzi-nav': 'Palizzi Nav',
-  'palizzi-hero': 'Palizzi Hero',
-  'palizzi-welcome': 'Palizzi Welcome',
-  'palizzi-history': 'Palizzi History',
-  'palizzi-menu': 'Palizzi Menu',
-  'palizzi-rules': 'Palizzi Rules',
-  'palizzi-membership': 'Palizzi Membership',
-  'palizzi-footer': 'Palizzi Footer',
   'product-grid': 'Product Grid',
   'featured-products': 'Featured Products',
   'product-categories': 'Product Categories',
@@ -54,6 +46,7 @@ const BLOCK_TYPE_LABELS: Record<BlockType, string> = {
   'product-detail': 'Product Detail',
   booking: 'Booking',
   'booking-menu': 'Booking Menu',
+  'roi-calculator': 'ROI Calculator',
   survey: 'Survey',
   'survey-results': 'Survey Results',
   'social-links': 'Social Links',
@@ -91,23 +84,31 @@ function SettingsPopupContent() {
   // Handle messages from the main window
   const handleBroadcastMessage = useCallback((message: SettingsPanelMessage) => {
     switch (message.type) {
-      case 'SELECTION_CHANGED':
-        setSelectedBlockId(message.payload.selectedBlockId || null);
+      case 'SELECTION_CHANGED': {
+        const p = message.payload as { selectedBlockId?: string };
+        setSelectedBlockId(p.selectedBlockId || null);
         break;
+      }
 
-      case 'BLOCKS_CHANGED':
-        setAllBlocks(message.payload.blocks || []);
+      case 'BLOCKS_CHANGED': {
+        const p = message.payload as { blocks?: Block[] };
+        setAllBlocks(p.blocks || []);
         break;
+      }
 
-      case 'VIEWPORT_CHANGED':
-        setCurrentViewport(message.payload.viewport);
+      case 'VIEWPORT_CHANGED': {
+        const p = message.payload as { viewport: Breakpoint };
+        setCurrentViewport(p.viewport);
         break;
+      }
 
-      case 'BLOCK_DELETED':
-        if (selectedBlockId === message.payload.blockId) {
+      case 'BLOCK_DELETED': {
+        const p = message.payload as { blockId?: string };
+        if (selectedBlockId === p.blockId) {
           setSelectedBlockId(null);
         }
         break;
+      }
 
       case 'WINDOW_CLOSING':
         window.close();

@@ -217,7 +217,7 @@ export function CMSCarouselSection({
             {title}
           </h2>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            Discover a modern content management system built for today's digital needs
+            Discover a modern content management system built for today&apos;s digital needs
           </p>
         </motion.div>
 

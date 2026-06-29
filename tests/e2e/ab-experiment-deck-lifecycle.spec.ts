@@ -10,7 +10,7 @@
  *
  * Test flow:
  *   1. Create a website (domain anchor for the public URL) + blank deck.
- *   2. Publish the deck so /sites/:domain/pitch-deck/:slug resolves.
+ *   2. Publish the deck so /sites/:domain/slides/:slug resolves.
  *   3. POST /api/portal/experiments with deck target.
  *   4. UI: detail page shows "Pitch deck:" + the deck title.
  *   5. PATCH status → 'running'; UI reflects.
@@ -40,6 +40,7 @@ test.describe.configure({ mode: 'serial' });
 
 test.describe('A/B experiment deck lifecycle @ab @critical', () => {
   const cleanups: Array<() => Promise<void>> = [];
+  let siteId: number;
   let siteDomain: string;
   let deckId: number;
   let deckSlug: string;
@@ -52,12 +53,20 @@ test.describe('A/B experiment deck lifecycle @ab @critical', () => {
 
   test('setup: create site (for domain) + blank deck', async ({ clientApi }) => {
     // Decks are not site-scoped — they live on the client. But the public
-    // URL is `/sites/:domain/pitch-deck/:slug`, where :domain must resolve
+    // URL is `/sites/:domain/slides/:slug`, where :domain must resolve
     // to a website owned by the same client. Create a site solely for
     // its domain anchor.
     const { website } = await createTestWebsite(clientApi);
+    siteId = website.id;
     siteDomain = website.domain;
     expect(siteDomain).toBeTruthy();
+
+    // Enable public access so the site doesn't return a 200 "private" overlay
+    // before the A/B resolver runs. (The slides route itself doesn't gate on
+    // publicAccess, but enabling it keeps the test environment honest and
+    // avoids surprises if the routing changes.)
+    // Note: the route only exports PUT (not PATCH).
+    await clientApi.put(`/api/portal/cms/websites/${siteId}`, { publicAccess: true });
 
     deckTitle = `AB Deck ${Date.now()}`;
     const create = await clientApi.post('/api/portal/tools/pitch-decks', {
@@ -161,7 +170,12 @@ test.describe('A/B experiment deck lifecycle @ab @critical', () => {
       extraHTTPHeaders: { Cookie: `sd_visitor=${visitorId}` },
     });
 
-    const publicUrl = `/sites/${siteDomain}/pitch-deck/${deckSlug}`;
+    // Use the canonical /slides/:slug path — the deck page that calls
+    // applyAbToDeckSlides() lives at app/sites/[domain]/slides/[slug]/page.tsx.
+    // The legacy /pitch-deck/:slug rewrite only covers root-level paths, not
+    // /sites/:domain/pitch-deck/:slug, so that variant hits the [[...slug]]
+    // catch-all which doesn't run the A/B resolver.
+    const publicUrl = `/sites/${siteDomain}/slides/${deckSlug}`;
     const r1 = await ctx.get(publicUrl);
     expect([200, 304]).toContain(r1.status());
     // Second hit with the same cookie de-dupes server-side.
@@ -190,12 +204,25 @@ test.describe('A/B experiment deck lifecycle @ab @critical', () => {
   });
 
   test('portal: results panel shows views + goals', async ({ clientApi }) => {
-    const res = await clientApi.get(`/api/portal/experiments/${experimentId}/results`);
-    expect(res.status).toBe(200);
-    expect(res.data.success).toBe(true);
-    const stats = res.data.data.stats as Array<{ key: string; views: number; goals: number }>;
-    const totalViews = stats.reduce((acc, s) => acc + s.views, 0);
-    const totalGoals = stats.reduce((acc, s) => acc + s.goals, 0);
+    // The SSR view event is recorded fire-and-forget (detached promise in
+    // resolve.ts) so it may not have committed by the time we read results.
+    // Poll until both counters are non-zero or we hit the 10 s deadline.
+    const deadline = Date.now() + 10_000;
+    let totalViews = 0;
+    let totalGoals = 0;
+    let lastStatus = 0;
+    while (Date.now() < deadline) {
+      const res = await clientApi.get(`/api/portal/experiments/${experimentId}/results`);
+      lastStatus = res.status;
+      if (res.status === 200 && res.data.success) {
+        const stats = res.data.data.stats as Array<{ key: string; views: number; goals: number }>;
+        totalViews = stats.reduce((acc, s) => acc + s.views, 0);
+        totalGoals = stats.reduce((acc, s) => acc + s.goals, 0);
+        if (totalViews >= 1 && totalGoals >= 1) break;
+      }
+      await new Promise(r => setTimeout(r, 500));
+    }
+    expect(lastStatus).toBe(200);
     expect(totalViews).toBeGreaterThanOrEqual(1);
     expect(totalGoals).toBeGreaterThanOrEqual(1);
   });

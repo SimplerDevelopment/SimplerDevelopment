@@ -15,6 +15,7 @@
  * "skip immediate" and "no one's flushing the queue yet".
  */
 
+import { escapeHtml } from '@/lib/utils/html';
 import { db } from '@/lib/db';
 import { surveys, clients, users } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
@@ -131,15 +132,6 @@ async function handleSurveyResponseSubmitted(event: AutomationEvent): Promise<vo
 }
 
 /** Basic HTML escape to avoid injection in the email body. */
-function escapeHtml(input: string | null | undefined): string {
-  if (input == null) return '';
-  return String(input)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
 
 let initialized = false;
 

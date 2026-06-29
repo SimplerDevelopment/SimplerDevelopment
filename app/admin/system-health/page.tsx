@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 
 interface JobRow {
   name: string;
-  area: 'api-cron' | 'routine' | 'brain-12';
+  area: 'api-cron' | 'routine';
   label: string;
   schedule: string;
   purpose: string;
@@ -91,16 +91,14 @@ function fmtAge(iso: string | null): string {
 const AREA_LABELS: Record<JobRow['area'], string> = {
   'api-cron': 'API Cron (Vercel)',
   'routine': 'Routines (GitHub Actions)',
-  'brain-12': 'BRAIN-12 (one-shot)',
 };
 
 const AREA_ICONS: Record<JobRow['area'], string> = {
   'api-cron': 'schedule',
   'routine': 'cloud',
-  'brain-12': 'task_alt',
 };
 
-const AREA_ORDER: JobRow['area'][] = ['api-cron', 'routine', 'brain-12'];
+const AREA_ORDER: JobRow['area'][] = ['api-cron', 'routine'];
 
 export default function SystemHealthPage() {
   const [jobs, setJobs] = useState<JobRow[]>([]);
@@ -122,7 +120,6 @@ export default function SystemHealthPage() {
     const g: Record<JobRow['area'], JobRow[]> = {
       'api-cron': [],
       'routine': [],
-      'brain-12': [],
     };
     for (const j of jobs) g[j.area].push(j);
     return g;

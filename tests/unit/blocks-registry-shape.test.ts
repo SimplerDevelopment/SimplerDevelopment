@@ -15,7 +15,7 @@ import {
 
 describe('lib/blocks/registry shape', () => {
   it('exposes the expected number of built-in entries', () => {
-    expect(BUILT_IN_BLOCK_TYPES.length).toBe(48);
+    expect(BUILT_IN_BLOCK_TYPES.length).toBe(49);
   });
 
   it('every entry has the canonical 5-field shape', () => {

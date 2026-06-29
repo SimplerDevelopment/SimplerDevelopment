@@ -37,6 +37,14 @@ vi.mock('jsonwebtoken', () => ({
   sign: (...args: unknown[]) => jwtSignMock(...args),
 }));
 
+// next/cache — revalidateTag throws "Invariant: static generation store missing"
+// outside a Next.js request context, so stub it as a no-op for unit tests.
+vi.mock('next/cache', () => ({
+  revalidateTag: vi.fn(),
+  revalidatePath: vi.fn(),
+  unstable_cache: vi.fn((fn: (...args: unknown[]) => unknown) => fn),
+}));
+
 // drizzle-orm — pass through opaque markers; the DB mock ignores them.
 vi.mock('drizzle-orm', () => ({
   eq: (a: unknown, b: unknown) => ({ op: 'eq', a, b }),

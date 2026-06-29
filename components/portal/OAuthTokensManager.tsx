@@ -44,7 +44,22 @@ export default function OAuthTokensManager({
     }
   }
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    void (async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await fetch('/api/portal/oauth-tokens');
+        const json = await res.json();
+        if (json.success) setTokens(json.data);
+        else setError(json.message ?? 'Failed to load tokens');
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Failed to load tokens');
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
 
   async function handleRevoke(id: number, clientName: string) {
     if (!confirm(`Revoke ${clientName}'s access? It will lose access immediately and need to reconnect.`)) return;

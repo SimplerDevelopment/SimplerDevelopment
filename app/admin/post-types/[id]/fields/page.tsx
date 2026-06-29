@@ -64,11 +64,6 @@ export default function CustomFieldsPage() {
     parentId: null as number | null,
   });
 
-  useEffect(() => {
-    fetchPostType();
-    fetchCustomFields();
-  }, [postTypeId]);
-
   const fetchPostType = async () => {
     const response = await fetch(`/api/post-types/${postTypeId}`);
     const data = await response.json();
@@ -85,6 +80,11 @@ export default function CustomFieldsPage() {
     }
     setLoading(false);
   };
+
+  useEffect(() => {
+    fetchPostType();
+    fetchCustomFields();
+  }, [postTypeId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

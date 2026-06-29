@@ -29,14 +29,13 @@ export default function GaPropertyPicker({
 }) {
   const [properties, setProperties] = useState<GaProperty[]>([]);
   const [accounts, setAccounts] = useState<GaAccount[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!currentPropertyId);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [showDashboard, setShowDashboard] = useState(true);
 
   useEffect(() => {
     if (currentPropertyId) {
-      setLoading(false);
       return;
     }
     fetch(`/api/portal/websites/${siteId}/google/analytics`)

@@ -225,7 +225,7 @@ function SlideLayer({ slide, isActive, transition, transMs, kenBurns, elementSty
 
   // Transition styles per mode
   const baseTransition = `all ${transMs}ms cubic-bezier(0.4, 0, 0.2, 1)`;
-  let layerStyle: React.CSSProperties = {
+  const layerStyle: React.CSSProperties = {
     position: 'absolute',
     inset: 0,
     zIndex: isActive ? 20 : 10,

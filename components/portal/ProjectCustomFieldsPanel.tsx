@@ -34,7 +34,6 @@ export default function ProjectCustomFieldsPanel({ projectId, canEdit }: { proje
   const [saving, setSaving] = useState(false);
 
   const load = async () => {
-    setLoading(true);
     try {
       const res = await fetch(`/api/portal/projects/${projectId}/custom-fields`);
       const json = await res.json();

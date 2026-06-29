@@ -45,21 +45,16 @@ import { DeckNextSlideBlockRender, DeckJumpToBlockRender } from './DeckNavBlockR
 import { PopupBlockRender } from './PopupBlockRender';
 import { PostContentPlaceholderRender } from './PostContentPlaceholderRender';
 import { BlockStyleWrapper } from './BlockStyleWrapper';
+import { useBlockEditorOptional } from '@/contexts/BlockEditorContext';
 
 interface ColumnsBlockRenderProps {
   block: ColumnsBlock;
 }
 
 export function ColumnsBlockRender({ block }: ColumnsBlockRenderProps) {
-  // Try to get editor viewport context (available in inline preview, not on real pages)
-  let editorViewport: string | null = null;
-  try {
-    const { useBlockEditor } = require('@/contexts/BlockEditorContext');
-    const ctx = useBlockEditor();
-    editorViewport = ctx.currentViewport;
-  } catch {
-    // Not in editor context — use CSS-based responsive approach
-  }
+  // Get editor viewport context if available (inline preview), otherwise null (real pages)
+  const editorContext = useBlockEditorOptional();
+  const editorViewport = editorContext?.currentViewport ?? null;
 
   const gapClasses = {
     sm: 'gap-4',
@@ -114,7 +109,7 @@ export function ColumnsBlockRender({ block }: ColumnsBlockRenderProps) {
   const parseWidth = (w: number | string) =>
     typeof w === 'string' ? parseFloat(w) || 50 : w;
 
-  const columns = block.columns || [];
+  const columns = Array.isArray(block.columns) ? block.columns : [];
 
   // Normalize widths: if they sum to > 100, scale proportionally so they fit
   const rawWidths = columns.map(c => parseWidth(c.width));

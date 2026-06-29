@@ -12,10 +12,16 @@ if (!url) {
   process.exit(1);
 }
 
-const PROD_INDICATORS = [
-  'tramway.proxy.rlwy.net:43167',
-  'metro.proxy.rlwy.net:25565',
-];
+// PROD_DB_HOSTS: optional comma-separated list of hostname[:port] fragments
+// that identify production database proxies. Set this in your deployment
+// environment if your infra uses named proxy hostnames. Example:
+//   PROD_DB_HOSTS=db-prod.example.com:5432,db-prod-replica.example.com:5432
+// When unset (e.g. open-source / local dev), only RAILWAY_ENVIRONMENT_NAME
+// is used for production detection.
+const PROD_INDICATORS: string[] = (process.env.PROD_DB_HOSTS ?? '')
+  .split(',')
+  .map((h) => h.trim())
+  .filter(Boolean);
 
 const hitProd = PROD_INDICATORS.some((p) => url.includes(p)) || process.env.RAILWAY_ENVIRONMENT_NAME === 'production';
 const override = process.env.ALLOW_PROD === '1';
@@ -28,7 +34,8 @@ if (hitProd && !override) {
   console.error(`  DATABASE_URL → ${redacted}`);
   console.error('');
   console.error('  If this is truly intentional, re-run with ALLOW_PROD=1 in your env.');
-  console.error('  Otherwise update .env to point at staging (nozomi.proxy.rlwy.net).');
+  console.error('  Set PROD_DB_HOSTS to the hostname:port of your production DB proxy,');
+  console.error('  or set RAILWAY_ENVIRONMENT_NAME=production in your Railway environment.');
   console.error('');
   process.exit(1);
 }

@@ -29,6 +29,7 @@ import { and, eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { users, clients, clientMembers, portalApiKeys } from '@/lib/db/schema';
 import { generatePortalApiKey } from '@/lib/mcp-auth';
+import { checkRateLimit, getClientIp } from '@/lib/security/rate-limit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -89,6 +90,14 @@ async function pickPrimaryClient(userId: number): Promise<PrimaryClient | null> 
 
 export async function POST(req: Request) {
   try {
+    // Brute-force guard — same credential surface as the NextAuth provider.
+    if (!(await checkRateLimit(`${getClientIp(req)}:mobile-signin`, 10, 15 * 60 * 1000))) {
+      return NextResponse.json(
+        { error: 'rate_limited', message: 'Too many sign-in attempts. Please try again later.' },
+        { status: 429 },
+      );
+    }
+
     const body = await req.json().catch(() => ({}));
     const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
     const password = typeof body.password === 'string' ? body.password : '';

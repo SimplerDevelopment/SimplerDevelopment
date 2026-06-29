@@ -12,6 +12,7 @@ import type {
   SlimNote,
 } from '../../lib/types';
 import type { ExtractedPage, ExtractedPageResponse, PageKind } from '../../lib/messages';
+import { flushQueue } from '../../lib/offline-queue';
 import { TagInput } from '../components/TagInput';
 import { Spinner } from '../components/Spinner';
 import { DetectedEntityCard } from '../components/DetectedEntityCard';
@@ -55,6 +56,12 @@ export function CaptureTab({ portalUrl, onToast }: Props) {
   const taskTitleTouchedRef = useRef(false);
 
   // Step 1: extract page from active tab
+  // Opening the popup is a good moment to drain anything that was captured
+  // while offline (e.g. a context-menu save) — by now we're likely back online.
+  useEffect(() => {
+    void flushQueue();
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     (async () => {

@@ -18,9 +18,16 @@ dotenv.config({ path: '.env' });
 dotenv.config({ path: '.env.local', override: true });
 
 const DATABASE_URL = process.env.DATABASE_URL ?? '';
-const PROD = ['tramway.proxy.rlwy.net:43167', 'metro.proxy.rlwy.net:25565'];
+// PROD_DB_HOSTS: optional comma-separated list of hostname[:port] fragments
+// that identify production database proxies. See scripts/verify-db-target.ts
+// for full documentation. When unset, only RAILWAY_ENVIRONMENT_NAME is used.
+const PROD: string[] = (process.env.PROD_DB_HOSTS ?? '')
+  .split(',')
+  .map((h) => h.trim())
+  .filter(Boolean);
 if ((PROD.some((p) => DATABASE_URL.includes(p)) || process.env.RAILWAY_ENVIRONMENT_NAME === 'production') && process.env.ALLOW_PROD !== '1') {
   console.error('REFUSING: DATABASE_URL points at a production host. Re-run with ALLOW_PROD=1 only if you mean it.');
+  console.error('Set PROD_DB_HOSTS to your production proxy hostname:port, or set RAILWAY_ENVIRONMENT_NAME=production.');
   process.exit(1);
 }
 

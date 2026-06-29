@@ -102,6 +102,11 @@ export function Footer() {
                 </Link>
               </li>
               <li>
+                <Link href="/compare" className="text-muted-foreground hover:text-primary transition-colors">
+                  Compare
+                </Link>
+              </li>
+              <li>
                 <Link href="/about" className="text-muted-foreground hover:text-primary transition-colors">
                   About Us
                 </Link>
@@ -114,6 +119,16 @@ export function Footer() {
               <li>
                 <Link href="/blog" className="text-muted-foreground hover:text-primary transition-colors">
                   Blog
+                </Link>
+              </li>
+              <li>
+                <Link href="/changelog" className="text-muted-foreground hover:text-primary transition-colors">
+                  Changelog
+                </Link>
+              </li>
+              <li>
+                <Link href="/faq" className="text-muted-foreground hover:text-primary transition-colors">
+                  FAQ
                 </Link>
               </li>
               <li>
@@ -140,15 +155,23 @@ export function Footer() {
               </svg>
             </Link>
             <p className="text-sm text-muted-foreground mt-4">
-              info@simplerdevelopment.com
+              {process.env.NEXT_PUBLIC_CONTACT_EMAIL || 'info@simplerdevelopment.com'}
             </p>
           </div>
         </div>
 
-        <div className="mt-12 pt-8 border-t text-center text-sm text-muted-foreground">
+        <div className="mt-12 pt-8 border-t flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-muted-foreground">
           <p>
             &copy; {currentYear} {siteConfig.name}. All rights reserved.
           </p>
+          <div className="flex items-center gap-4">
+            <Link href="/privacy" className="hover:text-primary transition-colors">
+              Privacy
+            </Link>
+            <Link href="/terms" className="hover:text-primary transition-colors">
+              Terms
+            </Link>
+          </div>
         </div>
       </div>
     </footer>

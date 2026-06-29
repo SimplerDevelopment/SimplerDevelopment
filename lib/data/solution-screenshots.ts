@@ -71,14 +71,11 @@ export const solutionScreenshots: Record<string, string[]> = {
   'help-desk': [
     '/screenshots/solutions/help-desk/01-inbox.png',
     '/screenshots/solutions/help-desk/02-tickets.png',
-    '/screenshots/solutions/help-desk/03-conversation-thread.png',
   ],
   'hosting': [
     '/screenshots/solutions/hosting/01-hosting.png',
-    '/screenshots/solutions/hosting/02-hosting-detail.png',
   ],
   'invoicing': [
-    '/screenshots/solutions/invoicing/01-billing.png',
     '/screenshots/solutions/invoicing/02-invoice-detail.png',
     '/screenshots/solutions/invoicing/03-settings-billing.png',
   ],

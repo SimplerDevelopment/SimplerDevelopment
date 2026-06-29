@@ -20,10 +20,6 @@ export default function CategoriesPage() {
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [formData, setFormData] = useState({ name: '', slug: '', description: '' });
 
-  useEffect(() => {
-    fetchCategories();
-  }, []);
-
   const fetchCategories = async () => {
     const response = await fetch('/api/categories');
     const data = await response.json();
@@ -32,6 +28,10 @@ export default function CategoriesPage() {
     }
     setLoading(false);
   };
+
+  useEffect(() => {
+    fetchCategories();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

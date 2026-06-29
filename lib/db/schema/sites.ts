@@ -1,6 +1,7 @@
 // Per-tenant clients, services, hosted websites, and infrastructure metadata.
 
 import { pgTable, serial, varchar, text, timestamp, boolean, integer, json, uniqueIndex, index } from 'drizzle-orm/pg-core';
+import { encryptedText } from './columns';
 import { users } from './auth';
 import { SurveyField } from './cms';
 
@@ -31,6 +32,33 @@ export const clients = pgTable('clients', {
   // helper grants brain access without requiring an explicit clientServices
   // row. Expired trials simply fall through to the paid-subscription check.
   brainTrialUntil: timestamp('brain_trial_until'),
+  // How this client relates to the feature-domain SKU catalog
+  // (lib/billing/domain-catalog.ts):
+  //   agency — legacy managed client; module gating bypassed entirely.
+  //   saas   — self-serve module subscriptions, prepaid allowances + overage.
+  //   byok   — module subscriptions with own 3rd-party API keys; metered
+  //            COGS that land on their keys are waived.
+  billingMode: varchar('billing_mode', { length: 20 }).default('agency').notNull(),
+  // One 14-day module trial per client (self-serve signup). Null = trial not
+  // yet consumed; set by the Stripe webhook when a trialing subscription
+  // activates. Checkout only grants trial_period_days while this is null.
+  trialUsedAt: timestamp('trial_used_at'),
+  // ── Admin billing overrides (staff-set escape hatches; all null = default) ──
+  // Set from the admin "Billing & Plan" surface. They ripple into the portal's
+  // own billing too (seat display, byok gates), so changing them is a real
+  // billing action — see lib/billing/{seats,entitlements,recompute-subscription}.
+  //
+  //   billableSeatsOverride — when set, the billed seat count (wins over the
+  //     derived owner+accepted-members count in countBillableSeats). For comped
+  //     or contracted-seat deals.
+  billableSeatsOverride: integer('billable_seats_override'),
+  //   compDiscountPercent — 0–100; a per-account comp discount applied as a
+  //     Stripe percent_off coupon the reconciler preserves. SEPARATE from the
+  //     à-la-carte volume discount (which lives in the computed line items).
+  compDiscountPercent: integer('comp_discount_percent'),
+  //   byokEligibleOverride — true grants BYOK eligibility regardless of tier
+  //     (BYOK is contact-sales now); getClientEntitlements ORs it in.
+  byokEligibleOverride: boolean('byok_eligible_override'),
   // Publishing Command Center — the system-managed kanban project that holds
   // every Publishing card for this client. Set on first visit to
   // /portal/publishing by the bootstrap action. Null = not yet bootstrapped.
@@ -99,6 +127,10 @@ export const clientServices = pgTable('client_services', {
   startDate: timestamp('start_date').defaultNow(),
   renewalDate: timestamp('renewal_date'),
   creditsGrantedAt: timestamp('credits_granted_at'), // when last monthly AI credit grant was applied
+  // Stripe Subscription backing this grant when it was purchased self-serve
+  // (module checkout). Null for admin-assigned / legacy rows. Used to cancel
+  // or change the Stripe side when the portal subscription changes.
+  stripeSubscriptionId: varchar('stripe_subscription_id', { length: 255 }),
   notes: text('notes'),
   metadata: json('metadata'), // domain name, server details, etc.
   createdAt: timestamp('created_at').defaultNow().notNull(),
@@ -323,8 +355,8 @@ export const siteTracking = pgTable('site_tracking', {
 export const googleWebsiteTokens = pgTable('google_website_tokens', {
   id: serial('id').primaryKey(),
   websiteId: integer('website_id').notNull().references(() => clientWebsites.id, { onDelete: 'cascade' }).unique(),
-  accessToken: text('access_token').notNull(),
-  refreshToken: text('refresh_token').notNull(),
+  accessToken: encryptedText('access_token').notNull(),
+  refreshToken: encryptedText('refresh_token').notNull(),
   expiresAt: timestamp('expires_at').notNull(),
   // Search Console
   gscSiteUrl: varchar('gsc_site_url', { length: 500 }), // e.g. "https://example.com/"
@@ -424,6 +456,40 @@ export const siteBranding = pgTable('site_branding', {
   }>(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// ─── Site (tenant-level) Outbound Webhooks ──────────────────────────────────
+// Generic per-tenant outbound webhooks that fire on platform automation events
+// (the lib/automation event-bus). Mirrors survey_webhooks / project_webhooks;
+// the unified webhook console reads all three. Scoped by clientId.
+export const siteWebhooks = pgTable('site_webhooks', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  url: varchar('url', { length: 500 }).notNull(),
+  secret: varchar('secret', { length: 64 }),
+  // Subscribed automation event names (see AUTOMATION_EVENTS). '*' = all events.
+  events: json('events').$type<string[]>().notNull().default(['*']),
+  enabled: boolean('enabled').default(true).notNull(),
+  lastFiredAt: timestamp('last_fired_at'),
+  lastStatus: integer('last_status'),
+  failureCount: integer('failure_count').default(0).notNull(),
+  createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// One row per HTTP attempt (the dispatcher retries up to 3x per event).
+export const siteWebhookDeliveries = pgTable('site_webhook_deliveries', {
+  id: serial('id').primaryKey(),
+  webhookId: integer('webhook_id').notNull().references(() => siteWebhooks.id, { onDelete: 'cascade' }),
+  event: varchar('event', { length: 50 }).notNull(),
+  attempt: integer('attempt').notNull().default(1),
+  status: varchar('status', { length: 20 }).notNull(), // 'success' | 'failed'
+  statusCode: integer('status_code'),
+  requestBody: json('request_body').$type<Record<string, unknown>>(),
+  responseBody: text('response_body'),
+  error: text('error'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
 // ─── Branding Profiles ──────────────────────────────────────────────────────

@@ -40,7 +40,7 @@ import {
   type ApprovableEntityType,
 } from '@/lib/mcp/approval-links';
 import { applyPendingChange } from '@/lib/mcp/approvals';
-import { applyPublishAllToSlides } from '@/lib/mcp/decks-publish';
+import { applyPublishAllToSlides } from '@/lib/decks/publish-slide';
 import { revalidatePath } from 'next/cache';
 
 export async function GET(
@@ -99,9 +99,16 @@ export async function POST(
       await applyApproval(link);
     } catch (err) {
       console.error('[approve] side-effect failed', err);
+      const msg = err instanceof Error ? err.message : 'Failed to apply approval';
+      // Stale / already-applied pending changes are domain errors, not server
+      // failures. Return 409 so callers can distinguish "change no longer
+      // applicable" from a genuine infrastructure error.
+      const isStale =
+        msg.startsWith('Pending change is ') ||
+        msg === 'Pending change not found';
       return NextResponse.json(
-        { success: false, message: err instanceof Error ? err.message : 'Failed to apply approval' },
-        { status: 500 },
+        { success: false, message: isStale ? `This change is no longer applicable: ${msg}` : msg },
+        { status: isStale ? 409 : 500 },
       );
     }
   }
@@ -174,7 +181,7 @@ async function applyApproval(link: ApprovalLinkRow): Promise<void> {
       // slide to live — otherwise the public renderer sees the prior live
       // state (or, for a brand-new deck, an empty deck) even though status
       // says published. Slide promotion is the same logic decks_publish_all
-      // runs, factored out into lib/mcp/decks-publish.ts.
+      // runs, factored out into lib/decks/publish-slide.ts.
       const [deck] = await db
         .select()
         .from(pitchDecks)

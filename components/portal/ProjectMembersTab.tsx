@@ -45,7 +45,6 @@ export default function ProjectMembersTab({ projectId, canManage }: { projectId:
   const [error, setError] = useState<string | null>(null);
 
   const load = async () => {
-    setLoading(true);
     try {
       const [m, t] = await Promise.all([
         fetch(`/api/portal/projects/${projectId}/members`).then(r => r.json()),
@@ -230,7 +229,7 @@ export default function ProjectMembersTab({ projectId, canManage }: { projectId:
                     )}
                   </td>
                   <td className="px-4 py-3 text-xs text-muted-foreground">
-                    {new Date(m.addedAt).toLocaleDateString()}
+                    {new Date(m.addedAt).toLocaleDateString('en-US')}
                   </td>
                   {canManage && (
                     <td className="px-4 py-3 text-right">

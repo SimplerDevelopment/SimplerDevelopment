@@ -1,14 +1,14 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { philaprintsDesignAssets as designAssets } from '@/lib/db/schema';
+import { designLibraryAssets as designAssets } from '@/lib/db/schema';
 import { and, eq } from 'drizzle-orm';
-import { resolveClientSite } from '@/lib/portal-client';
+import { resolveStoreSite } from '@/lib/portal-auth';
 
 type Params = { params: Promise<{ siteId: string; assetId: string }> };
 
 async function resolveAsset(userId: number, siteId: string, assetId: string) {
-  const site = await resolveClientSite(userId, parseInt(siteId, 10));
+  const site = await resolveStoreSite(userId, parseInt(siteId, 10));
   if (!site) return { asset: null };
   const aid = parseInt(assetId, 10);
   if (Number.isNaN(aid)) return { asset: null };

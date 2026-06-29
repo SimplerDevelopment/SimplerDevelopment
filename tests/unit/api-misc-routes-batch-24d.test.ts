@@ -49,6 +49,13 @@ vi.mock('@/lib/ai/plan-gate', () => ({
   checkAiPlanGate: (...args: unknown[]) => checkAiPlanGateMock(...args),
 }));
 
+// Entitlements — default to all-enabled so white-label tier gate passes.
+// Individual tests can override via getClientEntitlementsMock.mockResolvedValueOnce.
+const getClientEntitlementsMock = vi.fn();
+vi.mock('@/lib/billing/entitlements', () => ({
+  getClientEntitlements: (...args: unknown[]) => getClientEntitlementsMock(...args),
+}));
+
 const subscribeChannelMock = vi.fn();
 const inboxChannelMock = vi.fn();
 vi.mock('@/lib/chat/realtime', () => ({
@@ -181,6 +188,10 @@ beforeEach(() => {
   deductCreditsMock.mockReset();
   parseAutomationDescriptionMock.mockReset();
   checkAiPlanGateMock.mockReset();
+  getClientEntitlementsMock.mockReset();
+  // Default: Scale-tier client — all entitlements enabled so the white-label
+  // tier gate passes unless a specific test overrides it.
+  getClientEntitlementsMock.mockResolvedValue({ byokEligible: true });
   subscribeChannelMock.mockReset();
   inboxChannelMock.mockReset();
 

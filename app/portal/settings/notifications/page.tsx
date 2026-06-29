@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { pCard } from '@/components/portal/portal-ui';
 
 type Delivery = 'instant' | 'digest_daily' | 'off';
 
@@ -141,9 +142,9 @@ export default function NotificationPreferencesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="bg-card border border-border rounded-xl p-6 space-y-4">
+      <div className={`${pCard} p-6 space-y-4`}>
         <div>
-          <h2 className="text-base font-semibold text-foreground">Notification Preferences</h2>
+          <h2 className="text-base font-display font-extrabold tracking-[-0.01em] text-foreground">Notification Preferences</h2>
           <p className="text-sm text-muted-foreground mt-1">
             Choose how each kind of notification is delivered. <strong>Instant</strong> shows
             it in your panel right away. <strong>Daily digest</strong> batches it for one
@@ -151,7 +152,7 @@ export default function NotificationPreferencesPage() {
           </p>
         </div>
 
-        <div className="divide-y divide-border border border-border rounded-lg overflow-hidden">
+        <div className="divide-y divide-border border border-border rounded-xl overflow-hidden">
           {prefs.map((pref) => {
             const meta = TYPE_META[pref.notificationType] ?? {
               label: pref.notificationType,

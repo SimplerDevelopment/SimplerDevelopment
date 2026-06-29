@@ -41,7 +41,6 @@ export default function ProjectGoalsPanel({ projectId, canEdit }: { projectId: n
   const [saving, setSaving] = useState(false);
 
   const load = async () => {
-    setLoading(true);
     try {
       const res = await fetch(`/api/portal/projects/${projectId}/goals`);
       const json = await res.json();
@@ -263,7 +262,7 @@ export default function ProjectGoalsPanel({ projectId, canEdit }: { projectId: n
                 </div>
                 {g.targetDate && (
                   <p className="text-[10px] text-muted-foreground">
-                    Target: {new Date(g.targetDate).toLocaleDateString()}
+                    Target: {new Date(g.targetDate).toLocaleDateString('en-US')}
                   </p>
                 )}
               </div>

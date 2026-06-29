@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import SurveyBuilder, { SurveyField } from '@/components/admin/SurveyBuilder';
 import { SURVEY_TEMPLATES } from '@/lib/survey-templates';
 import Link from 'next/link';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnPrimary, pBtnGhost, pInput, pSectionTitle } from '@/components/portal/portal-ui';
 
 export default function NewSurveyPage() {
   const router = useRouter();
@@ -61,20 +63,20 @@ export default function NewSurveyPage() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      <div className="flex items-center gap-3">
-        <Link href="/portal/surveys" className="p-1.5 rounded-lg hover:bg-muted transition-colors">
-          <span className="material-icons text-xl text-muted-foreground">arrow_back</span>
-        </Link>
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">New Survey</h1>
-          <p className="text-muted-foreground text-sm">
-            {step === 'choose' ? 'Start from a template or build from scratch' : 'Design your survey and add questions'}
-          </p>
-        </div>
-      </div>
+      <PortalPageHeader
+        eyebrow="Surveys"
+        title="New Survey"
+        subtitle={step === 'choose' ? 'Start from a template or build from scratch' : 'Design your survey and add questions'}
+        actions={
+          <Link href="/portal/surveys" className={pBtnGhost}>
+            <span className="material-icons text-base">arrow_back</span>
+            Back to Surveys
+          </Link>
+        }
+      />
 
       {error && (
-        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3 text-sm text-red-700 dark:text-red-400">
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-3 text-sm text-red-700 dark:text-red-400">
           {error}
         </div>
       )}
@@ -85,7 +87,7 @@ export default function NewSurveyPage() {
           {/* Blank option */}
           <button
             onClick={startBlank}
-            className="w-full bg-card border-2 border-dashed border-border rounded-xl p-6 text-left hover:border-primary/50 hover:bg-muted/30 transition-all group"
+            className="w-full bg-card border-2 border-dashed border-border rounded-2xl p-6 text-left hover:border-primary/50 hover:bg-muted/30 transition-all group"
           >
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center group-hover:bg-primary/10 transition-colors">
@@ -101,13 +103,13 @@ export default function NewSurveyPage() {
           {/* Templates by category */}
           {categories.map(cat => (
             <div key={cat}>
-              <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-3">{cat}</h3>
+              <h3 className={`${pSectionTitle} mb-3`}>{cat}</h3>
               <div className="grid sm:grid-cols-2 gap-3">
                 {SURVEY_TEMPLATES.filter(t => t.category === cat).map(tpl => (
                   <button
                     key={tpl.id}
                     onClick={() => applyTemplate(tpl.id)}
-                    className="bg-card border border-border rounded-xl p-5 text-left hover:border-primary/50 hover:shadow-sm transition-all group"
+                    className="bg-card border border-border rounded-2xl p-5 text-left hover:border-primary/50 hover:shadow-sm transition-all group"
                   >
                     <div className="flex items-start gap-3">
                       <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
@@ -146,8 +148,8 @@ export default function NewSurveyPage() {
           </button>
 
           {/* Basic Info */}
-          <div className="bg-card border border-border rounded-xl p-6 space-y-4">
-            <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
+          <div className="bg-card border border-border rounded-2xl p-6 space-y-4">
+            <h2 className={`${pSectionTitle} flex items-center gap-2`}>
               <span className="material-icons text-primary">info</span>
               Survey Details
             </h2>
@@ -158,7 +160,7 @@ export default function NewSurveyPage() {
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="e.g. Customer Satisfaction Survey"
-                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                className={pInput}
               />
             </div>
             <div>
@@ -168,7 +170,7 @@ export default function NewSurveyPage() {
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Brief description shown at the top of the survey"
                 rows={2}
-                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
+                className={`${pInput} resize-none`}
               />
             </div>
             <div className="flex items-center gap-6">
@@ -187,8 +189,8 @@ export default function NewSurveyPage() {
           </div>
 
           {/* Questions */}
-          <div className="bg-card border border-border rounded-xl p-6 space-y-4">
-            <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
+          <div className="bg-card border border-border rounded-2xl p-6 space-y-4">
+            <h2 className={`${pSectionTitle} flex items-center gap-2`}>
               <span className="material-icons text-primary">quiz</span>
               Questions
             </h2>
@@ -197,11 +199,11 @@ export default function NewSurveyPage() {
 
           {/* Submit */}
           <div className="flex items-center justify-end gap-3">
-            <Link href="/portal/surveys" className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors">Cancel</Link>
+            <Link href="/portal/surveys" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Cancel</Link>
             <button
               type="submit"
               disabled={saving}
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+              className={pBtnPrimary}
             >
               {saving ? (
                 <><span className="material-icons text-lg animate-spin">progress_activity</span>Creating...</>

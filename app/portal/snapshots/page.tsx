@@ -6,6 +6,8 @@
 // export/import mechanics.
 
 import { useCallback, useEffect, useState } from 'react';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnPrimary, pBtnGhost, pCard, pInput, pSelect, pSectionTitle } from '@/components/portal/portal-ui';
 
 type Snapshot = {
   id: number;
@@ -156,22 +158,20 @@ export default function PortalSnapshotsPage() {
 
   return (
     <div className="max-w-5xl mx-auto space-y-6 p-6">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Site snapshots</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Clone configured websites — export blocks, posts, navigation, custom code,
-            and post types as a portable bundle, then import into a new or existing site.
-          </p>
-        </div>
-        <button
-          onClick={() => setShowCreate((s) => !s)}
-          className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-primary-foreground bg-primary rounded-md hover:bg-primary/90"
-        >
-          <span className="material-icons text-base">add</span>
-          Create snapshot
-        </button>
-      </div>
+      <PortalPageHeader
+        eyebrow="History"
+        title="Site snapshots"
+        subtitle="Clone configured websites — export blocks, posts, navigation, custom code, and post types as a portable bundle, then import into a new or existing site."
+        actions={
+          <button
+            onClick={() => setShowCreate((s) => !s)}
+            className={pBtnPrimary}
+          >
+            <span className="material-icons text-base">add</span>
+            Create snapshot
+          </button>
+        }
+      />
 
       {flash && (
         <div
@@ -189,15 +189,15 @@ export default function PortalSnapshotsPage() {
       )}
 
       {showCreate && (
-        <div className="bg-card border border-border rounded-lg p-4 space-y-3">
-          <h2 className="text-sm font-semibold text-foreground">Create snapshot from a site</h2>
+        <div className={`${pCard} p-4 space-y-3`}>
+          <h2 className={pSectionTitle}>Create snapshot from a site</h2>
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
               <label className="block text-xs font-medium text-muted-foreground mb-1">Source site</label>
               <select
                 value={createSiteId}
                 onChange={(e) => setCreateSiteId(e.target.value ? parseInt(e.target.value, 10) : '')}
-                className="w-full px-3 py-2 rounded-md border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                className={pSelect}
               >
                 <option value="">— Select a site —</option>
                 {websites.map((w) => (
@@ -212,7 +212,7 @@ export default function PortalSnapshotsPage() {
                 value={createName}
                 onChange={(e) => setCreateName(e.target.value)}
                 placeholder="e.g. Acme Marketing Site v1"
-                className="w-full px-3 py-2 rounded-md border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                className={pInput}
               />
             </div>
           </div>
@@ -222,20 +222,20 @@ export default function PortalSnapshotsPage() {
               value={createDescription}
               onChange={(e) => setCreateDescription(e.target.value)}
               rows={2}
-              className="w-full px-3 py-2 rounded-md border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              className={pInput}
             />
           </div>
           <div className="flex justify-end gap-2">
             <button
               onClick={() => setShowCreate(false)}
-              className="px-3 py-1.5 text-sm rounded-md border border-border text-foreground hover:bg-accent"
+              className={pBtnGhost}
             >
               Cancel
             </button>
             <button
               onClick={handleCreate}
               disabled={!createSiteId || creating}
-              className="px-3 py-1.5 text-sm rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+              className={pBtnPrimary}
             >
               {creating ? 'Creating…' : 'Create snapshot'}
             </button>
@@ -244,13 +244,13 @@ export default function PortalSnapshotsPage() {
       )}
 
       {snapshots.length === 0 ? (
-        <div className="text-center py-12 bg-card border border-border rounded-lg">
+        <div className={`${pCard} text-center py-12`}>
           <span className="material-icons text-4xl text-muted-foreground mb-2 block">photo_library</span>
           <p className="text-muted-foreground text-sm">No snapshots yet.</p>
           <p className="text-muted-foreground text-xs mt-1">Create your first to clone a site.</p>
         </div>
       ) : (
-        <div className="bg-card border border-border rounded-lg overflow-x-auto -mx-4 sm:mx-0">
+        <div className={`${pCard} overflow-x-auto -mx-4 sm:mx-0`}>
           <table className="w-full text-sm min-w-[640px]">
             <thead className="bg-muted/50 text-muted-foreground">
               <tr>
@@ -281,7 +281,7 @@ export default function PortalSnapshotsPage() {
                       <div className="inline-flex items-center gap-1">
                         <a
                           href={`/api/portal/snapshots/${s.id}/download`}
-                          className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded border border-border text-foreground hover:bg-accent"
+                          className="inline-flex items-center gap-1 rounded-xl border border-border bg-card px-2.5 py-1 text-xs font-semibold text-foreground transition hover:border-foreground/25 hover:shadow-sm"
                           title="Download JSON"
                         >
                           <span className="material-icons text-base">download</span>
@@ -293,7 +293,7 @@ export default function PortalSnapshotsPage() {
                             setImportTargetSiteId('new');
                             setImportNewName(s.name);
                           }}
-                          className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded border border-border text-foreground hover:bg-accent"
+                          className="inline-flex items-center gap-1 rounded-xl border border-border bg-card px-2.5 py-1 text-xs font-semibold text-foreground transition hover:border-foreground/25 hover:shadow-sm disabled:opacity-50"
                           title="Import this snapshot"
                           disabled={busy}
                         >
@@ -302,7 +302,7 @@ export default function PortalSnapshotsPage() {
                         </button>
                         <button
                           onClick={() => handleDelete(s.id)}
-                          className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded border border-border text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                          className="inline-flex items-center gap-1 rounded-xl border border-border bg-card px-2.5 py-1 text-xs font-semibold text-red-600 transition hover:border-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-50"
                           title="Delete snapshot"
                           disabled={busy}
                         >
@@ -325,7 +325,7 @@ export default function PortalSnapshotsPage() {
           onClick={() => !busy && setImportingForSnapshot(null)}
         >
           <div
-            className="bg-card border border-border rounded-lg shadow-lg w-full max-w-md p-5 space-y-4"
+            className="bg-card border border-border rounded-2xl shadow-lg w-full max-w-md p-5 space-y-4"
             onClick={(e) => e.stopPropagation()}
           >
             <div>
@@ -342,7 +342,7 @@ export default function PortalSnapshotsPage() {
                   const v = e.target.value;
                   setImportTargetSiteId(v === 'new' ? 'new' : parseInt(v, 10));
                 }}
-                className="w-full px-3 py-2 rounded-md border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                className={pSelect}
               >
                 <option value="new">— Create a new site —</option>
                 {websites.map((w) => (
@@ -357,7 +357,7 @@ export default function PortalSnapshotsPage() {
                   type="text"
                   value={importNewName}
                   onChange={(e) => setImportNewName(e.target.value)}
-                  className="w-full px-3 py-2 rounded-md border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  className={pInput}
                 />
               </div>
             )}
@@ -374,14 +374,14 @@ export default function PortalSnapshotsPage() {
               <button
                 onClick={() => setImportingForSnapshot(null)}
                 disabled={busy}
-                className="px-3 py-1.5 text-sm rounded-md border border-border text-foreground hover:bg-accent disabled:opacity-50"
+                className={pBtnGhost}
               >
                 Cancel
               </button>
               <button
                 onClick={handleImport}
                 disabled={busy}
-                className="px-3 py-1.5 text-sm rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                className={pBtnPrimary}
               >
                 {busy ? 'Importing…' : 'Import'}
               </button>

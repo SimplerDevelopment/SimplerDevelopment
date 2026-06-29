@@ -11,7 +11,7 @@ export type MessageType =
 
 export interface SettingsPanelMessage {
   type: MessageType;
-  payload: any;
+  payload: unknown;
   tabId: string;
   timestamp: number;
 }
@@ -86,7 +86,7 @@ export function useSettingsPanelSync({
   }, [tabId]);
 
   // Send message function
-  const sendMessage = useCallback((type: MessageType, payload: any) => {
+  const sendMessage = useCallback((type: MessageType, payload: unknown) => {
     if (!channelRef.current) {
       console.warn('BroadcastChannel not initialized');
       return;

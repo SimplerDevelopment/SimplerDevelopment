@@ -233,7 +233,8 @@ describe('api-keys :: validateApiKey', () => {
   it('returns the record when key + siteId + active match and not expired', async () => {
     dbState.apiKeys.push({
       id: 11,
-      key: 'sd_live_abc',
+      // validateApiKey hashes the raw key before querying apiKeys.keyHash
+      keyHash: 'd9af9c39604c7a7ba68dc6c2cc9e19c9ff831c4ce027f3136a9def4bb2038b7b', // SHA-256 of 'sd_live_abc'
       websiteId: 5,
       active: true,
       expiresAt: null,
@@ -253,7 +254,7 @@ describe('api-keys :: validateApiKey', () => {
   it('returns null when expiry is in the past', async () => {
     dbState.apiKeys.push({
       id: 22,
-      key: 'sd_live_old',
+      keyHash: '32062307c33912e9f99ced17c2b1016df8840060437aee9ec9c1e99743e9b17e', // SHA-256 of 'sd_live_old'
       websiteId: 5,
       active: true,
       expiresAt: new Date(Date.now() - 60_000),
@@ -266,7 +267,7 @@ describe('api-keys :: validateApiKey', () => {
   it('returns the record when expiry is in the future', async () => {
     dbState.apiKeys.push({
       id: 33,
-      key: 'sd_live_future',
+      keyHash: '8f72b6d99965e4643963e4f532c1ef686b6d865f496c6ce3dfdd427c7e228d90', // SHA-256 of 'sd_live_future'
       websiteId: 5,
       active: true,
       expiresAt: new Date(Date.now() + 60_000),
@@ -280,7 +281,7 @@ describe('api-keys :: validateApiKey', () => {
   it('swallows fire-and-forget update rejection without throwing', async () => {
     dbState.apiKeys.push({
       id: 44,
-      key: 'sd_live_swallow',
+      keyHash: '1009dc03dff96152d699114a51c1d187e908c22787bcfb83a2a0c8bd965a75e8', // SHA-256 of 'sd_live_swallow'
       websiteId: 5,
       active: true,
       expiresAt: null,

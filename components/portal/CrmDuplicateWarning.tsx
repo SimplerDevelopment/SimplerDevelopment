@@ -32,10 +32,7 @@ export default function CrmDuplicateWarning({ email, phone, firstName, lastName 
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
-    if (!email && !phone && !firstName) {
-      setDuplicates([]);
-      return;
-    }
+    if (!email && !phone && !firstName) return;
 
     const timer = setTimeout(async () => {
       const params = new URLSearchParams();
@@ -65,16 +62,18 @@ export default function CrmDuplicateWarning({ email, phone, firstName, lastName 
     return () => { clearTimeout(timer); abortRef.current?.abort(); };
   }, [email, phone, firstName, lastName]);
 
-  if (loading || duplicates.length === 0) return null;
+  const displayDuplicates = (email || phone || firstName) ? duplicates : [];
+
+  if (loading || displayDuplicates.length === 0) return null;
 
   return (
     <div className="bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-3 space-y-2">
       <div className="flex items-center gap-2 text-sm font-medium text-yellow-800">
         <span className="material-icons text-base">warning</span>
-        Potential duplicate{duplicates.length > 1 ? 's' : ''} found
+        Potential duplicate{displayDuplicates.length > 1 ? 's' : ''} found
       </div>
       <div className="space-y-1.5">
-        {duplicates.slice(0, 3).map(dup => (
+        {displayDuplicates.slice(0, 3).map(dup => (
           <div key={dup.id} className="flex items-center justify-between text-sm">
             <div className="flex items-center gap-2">
               <Link
@@ -96,8 +95,8 @@ export default function CrmDuplicateWarning({ email, phone, firstName, lastName 
           </div>
         ))}
       </div>
-      {duplicates.length > 3 && (
-        <p className="text-xs text-yellow-700">and {duplicates.length - 3} more...</p>
+      {displayDuplicates.length > 3 && (
+        <p className="text-xs text-yellow-700">and {displayDuplicates.length - 3} more...</p>
       )}
     </div>
   );

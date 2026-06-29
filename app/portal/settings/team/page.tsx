@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { pBtnPrimary, pCard, pInput, pSelect } from '@/components/portal/portal-ui';
 
 interface Member {
   memberId: number;
@@ -126,9 +127,9 @@ export default function SettingsTeamPage() {
   return (
     <div className="space-y-6">
       {/* Members list */}
-      <div className="bg-card border border-border rounded-xl overflow-hidden">
+      <div className={`${pCard} overflow-hidden`}>
         <div className="px-6 py-4 border-b border-border">
-          <h2 className="text-base font-semibold text-foreground">Team Members</h2>
+          <h2 className="text-base font-display font-extrabold tracking-[-0.01em] text-foreground">Team Members</h2>
           <p className="text-xs text-muted-foreground mt-0.5">{members.length} member{members.length !== 1 ? 's' : ''}</p>
         </div>
 
@@ -195,9 +196,9 @@ export default function SettingsTeamPage() {
 
       {/* Invite form */}
       {canManage && (
-        <div className="bg-card border border-border rounded-xl p-6 space-y-4">
+        <div className={`${pCard} p-6 space-y-4`}>
           <div>
-            <h2 className="text-base font-semibold text-foreground">Invite a Team Member</h2>
+            <h2 className="text-base font-display font-extrabold tracking-[-0.01em] text-foreground">Invite a Team Member</h2>
             <p className="text-xs text-muted-foreground mt-0.5">They will receive login credentials to access this portal.</p>
           </div>
 
@@ -210,7 +211,7 @@ export default function SettingsTeamPage() {
                   onChange={e => { setInviteForm(p => ({ ...p, name: e.target.value })); setInviteError(''); }}
                   required
                   placeholder="Jane Smith"
-                  className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  className={pInput}
                 />
               </div>
               <div className="space-y-1.5">
@@ -221,7 +222,7 @@ export default function SettingsTeamPage() {
                   onChange={e => { setInviteForm(p => ({ ...p, email: e.target.value })); setInviteError(''); }}
                   required
                   placeholder="jane@acme.com"
-                  className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  className={pInput}
                 />
               </div>
               <div className="space-y-1.5">
@@ -229,7 +230,7 @@ export default function SettingsTeamPage() {
                 <select
                   value={inviteForm.role}
                   onChange={e => setInviteForm(p => ({ ...p, role: e.target.value }))}
-                  className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  className={pSelect}
                 >
                   {ROLES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
                 </select>
@@ -244,7 +245,7 @@ export default function SettingsTeamPage() {
               <button
                 type="submit"
                 disabled={inviting}
-                className="flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+                className={pBtnPrimary}
               >
                 {inviting && <span className="material-icons text-base animate-spin">refresh</span>}
                 <span className="material-icons text-base">person_add</span>
@@ -281,7 +282,7 @@ export default function SettingsTeamPage() {
       )}
 
       {!canManage && (
-        <div className="bg-card border border-border rounded-xl p-5 text-center">
+        <div className={`${pCard} p-5 text-center`}>
           <span className="material-icons text-muted-foreground text-2xl mb-2">lock</span>
           <p className="text-sm text-muted-foreground">Only owners and admins can manage team members.</p>
         </div>

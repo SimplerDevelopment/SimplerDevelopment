@@ -123,6 +123,10 @@ test.describe('Portal CRM — Contact Merge @crm @merge', () => {
       firstName: 'Primary',
       lastName: `Keep-${ts}`,
       email: `primary-${ts}@example.com`,
+      // Leave primary's phone empty so the merge absorbs secondary's phone —
+      // createTestContact otherwise defaults a phone, which makes the merge
+      // correctly keep primary's own number and fail the assertion below.
+      phone: null,
     });
     const { contact: secondary } = await createTestContact(clientApi, {
       firstName: 'Secondary',

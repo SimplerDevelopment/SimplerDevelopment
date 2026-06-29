@@ -227,7 +227,8 @@ describe('CrmCompanyDetailPage', () => {
     it('renders the company name and badges', async () => {
       const { container } = await renderPage();
       expect(container.textContent).toContain('Acme Corp');
-      expect(container.textContent).toContain('11-50');
+      // company size is no longer rendered as a badge in the view header (redesign removed it);
+      // domain and industry appear in the PortalPageHeader subtitle instead
       expect(container.textContent).toContain('acme.test');
       expect(container.textContent).toContain('Software');
     });

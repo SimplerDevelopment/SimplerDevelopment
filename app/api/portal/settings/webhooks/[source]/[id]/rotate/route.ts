@@ -11,6 +11,7 @@ import {
   projectWebhooks,
   surveys,
   surveyWebhooks,
+  siteWebhooks,
 } from '@/lib/db/schema';
 import { and, eq } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
@@ -92,9 +93,20 @@ export async function POST(
     });
   }
 
-  // source === 'site' — table doesn't exist yet.
-  return NextResponse.json(
-    { success: false, message: 'Site-level webhooks are not implemented yet.' },
-    { status: 501 }
-  );
+  // source === 'site' — scoped directly by clientId (no parent object).
+  const [hook] = await db
+    .select({ id: siteWebhooks.id })
+    .from(siteWebhooks)
+    .where(and(eq(siteWebhooks.id, hookId), eq(siteWebhooks.clientId, client.id)))
+    .limit(1);
+  if (!hook) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
+
+  await db
+    .update(siteWebhooks)
+    .set({ secret: newSecret, updatedAt: new Date() })
+    .where(eq(siteWebhooks.id, hookId));
+  return NextResponse.json({
+    success: true,
+    data: { secret: newSecret, secretLast4: newSecret.slice(-4) },
+  });
 }

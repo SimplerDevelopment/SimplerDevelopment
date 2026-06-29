@@ -9,96 +9,99 @@ const NODE_COUNT = 80;
 const CONNECTION_DISTANCE = 3.5;
 const MOUSE_RADIUS = 4;
 
+// Module-level generators — Math.random() lives here, never inside useMemo/render
+function generateParticleData(spreadX = 14, spreadY = 8) {
+  const pos = new Float32Array(NODE_COUNT * 3);
+  const vel = new Float32Array(NODE_COUNT * 3);
+  const base = new Float32Array(NODE_COUNT * 3);
+  for (let i = 0; i < NODE_COUNT; i++) {
+    const i3 = i * 3;
+    const x = (Math.random() - 0.5) * spreadX;
+    const y = (Math.random() - 0.5) * spreadY;
+    const z = (Math.random() - 0.5) * 4;
+    pos[i3] = x; pos[i3 + 1] = y; pos[i3 + 2] = z;
+    base[i3] = x; base[i3 + 1] = y; base[i3 + 2] = z;
+    vel[i3] = (Math.random() - 0.5) * 0.005;
+    vel[i3 + 1] = (Math.random() - 0.5) * 0.005;
+    vel[i3 + 2] = (Math.random() - 0.5) * 0.003;
+  }
+  return { positions: pos, velocities: vel, basePositions: base };
+}
+
+function generateNodeColors() {
+  const cols = new Float32Array(NODE_COUNT * 3);
+  const colorA = new THREE.Color('#3b82f6');
+  const colorB = new THREE.Color('#06b6d4');
+  const colorC = new THREE.Color('#f59e0b');
+  for (let i = 0; i < NODE_COUNT; i++) {
+    const i3 = i * 3;
+    const t = Math.random();
+    let color: THREE.Color;
+    if (t < 0.5) {
+      color = colorA.clone().lerp(colorB, t * 2);
+    } else if (t < 0.9) {
+      color = colorB.clone().lerp(colorA, (t - 0.5) * 2.5);
+    } else {
+      // A few amber accent nodes
+      color = colorC.clone();
+    }
+    cols[i3] = color.r;
+    cols[i3 + 1] = color.g;
+    cols[i3 + 2] = color.b;
+  }
+  return cols;
+}
+
 function ParticleNetwork() {
   const pointsRef = useRef<THREE.Points>(null);
   const linesRef = useRef<THREE.LineSegments>(null);
   const smoothMouse = useRef(new THREE.Vector2(0, 0));
   const { viewport } = useThree();
 
-  // Generate initial node positions in a flat spread
-  const { positions, velocities, basePositions } = useMemo(() => {
-    const pos = new Float32Array(NODE_COUNT * 3);
-    const vel = new Float32Array(NODE_COUNT * 3);
-    const base = new Float32Array(NODE_COUNT * 3);
-    const spreadX = 14;
-    const spreadY = 8;
+  // All mutable data in refs — .current is NEVER accessed during the render phase
+  const particleDataRef = useRef(generateParticleData());
+  const colorsRef = useRef(generateNodeColors());
 
-    for (let i = 0; i < NODE_COUNT; i++) {
-      const i3 = i * 3;
-      const x = (Math.random() - 0.5) * spreadX;
-      const y = (Math.random() - 0.5) * spreadY;
-      const z = (Math.random() - 0.5) * 4;
-
-      pos[i3] = x;
-      pos[i3 + 1] = y;
-      pos[i3 + 2] = z;
-
-      base[i3] = x;
-      base[i3 + 1] = y;
-      base[i3 + 2] = z;
-
-      // Slow drift velocities
-      vel[i3] = (Math.random() - 0.5) * 0.005;
-      vel[i3 + 1] = (Math.random() - 0.5) * 0.005;
-      vel[i3 + 2] = (Math.random() - 0.5) * 0.003;
-    }
-
-    return { positions: pos, velocities: vel, basePositions: base };
-  }, []);
-
-  // Node colors — warm blue/cyan gradient
-  const colors = useMemo(() => {
-    const cols = new Float32Array(NODE_COUNT * 3);
-    const colorA = new THREE.Color('#3b82f6');
-    const colorB = new THREE.Color('#06b6d4');
-    const colorC = new THREE.Color('#f59e0b');
-
-    for (let i = 0; i < NODE_COUNT; i++) {
-      const i3 = i * 3;
-      const t = Math.random();
-      let color: THREE.Color;
-      if (t < 0.5) {
-        color = colorA.clone().lerp(colorB, t * 2);
-      } else if (t < 0.9) {
-        color = colorB.clone().lerp(colorA, (t - 0.5) * 2.5);
-      } else {
-        // A few amber accent nodes
-        color = colorC.clone();
-      }
-      cols[i3] = color.r;
-      cols[i3 + 1] = color.g;
-      cols[i3 + 2] = color.b;
-    }
-    return cols;
-  }, []);
-
-  // Node sizes — varied
-  const sizes = useMemo(() => {
-    const s = new Float32Array(NODE_COUNT);
-    for (let i = 0; i < NODE_COUNT; i++) {
-      s[i] = Math.random() * 0.06 + 0.02;
-    }
-    return s;
-  }, []);
-
-  // Pre-allocate line geometry (max possible connections)
   const maxLines = NODE_COUNT * (NODE_COUNT - 1) / 2;
-  const linePositions = useMemo(() => new Float32Array(maxLines * 6), [maxLines]);
-  const lineColors = useMemo(() => new Float32Array(maxLines * 6), [maxLines]);
+  const linePositionsRef = useRef(new Float32Array(maxLines * 6));
+  const lineColorsRef = useRef(new Float32Array(maxLines * 6));
 
-  const lineGeometry = useMemo(() => {
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.BufferAttribute(linePositions, 3));
-    geo.setAttribute('color', new THREE.BufferAttribute(lineColors, 3));
-    geo.setDrawRange(0, 0);
-    return geo;
-  }, [linePositions, lineColors]);
+  // Set buffer attributes once at mount — ref access is safe inside effects (not render)
+  useEffect(() => {
+    if (!pointsRef.current || !linesRef.current) return;
+    const { positions } = particleDataRef.current;
+    const colors = colorsRef.current;
+
+    pointsRef.current.geometry.setAttribute(
+      'position',
+      new THREE.BufferAttribute(positions, 3),
+    );
+    pointsRef.current.geometry.setAttribute(
+      'color',
+      new THREE.BufferAttribute(colors, 3),
+    );
+
+    linesRef.current.geometry.setAttribute(
+      'position',
+      new THREE.BufferAttribute(linePositionsRef.current, 3),
+    );
+    linesRef.current.geometry.setAttribute(
+      'color',
+      new THREE.BufferAttribute(lineColorsRef.current, 3),
+    );
+    linesRef.current.geometry.setDrawRange(0, 0);
+  }, []);
 
   useFrame((state) => {
     if (!pointsRef.current || !linesRef.current) return;
 
+    // Guard: attributes aren't set until useEffect fires after first mount
+    const posAttr = pointsRef.current.geometry.attributes.position;
+    if (!posAttr) return;
+
+    const { velocities, basePositions } = particleDataRef.current;
     const time = state.clock.getElapsedTime();
-    const pos = pointsRef.current.geometry.attributes.position.array as Float32Array;
+    const pos = posAttr.array as Float32Array;
 
     // Smooth mouse tracking — map pointer to world coords
     const targetX = state.pointer.x * viewport.width * 0.5;
@@ -139,8 +142,8 @@ function ParticleNetwork() {
 
     // Build connections between nearby nodes
     let lineIndex = 0;
-    const lp = linePositions;
-    const lc = lineColors;
+    const lp = linePositionsRef.current;
+    const lc = lineColorsRef.current;
 
     for (let i = 0; i < NODE_COUNT; i++) {
       const i3 = i * 3;
@@ -178,21 +181,19 @@ function ParticleNetwork() {
       }
     }
 
-    lineGeometry.setDrawRange(0, lineIndex * 2);
-    lineGeometry.attributes.position.needsUpdate = true;
-    lineGeometry.attributes.color.needsUpdate = true;
+    const lineGeo = linesRef.current.geometry;
+    if (lineGeo.attributes.position) {
+      lineGeo.setDrawRange(0, lineIndex * 2);
+      lineGeo.attributes.position.needsUpdate = true;
+      lineGeo.attributes.color.needsUpdate = true;
+    }
   });
-
-  const pointsGeometry = useMemo(() => {
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-    return geo;
-  }, [positions, colors]);
 
   return (
     <>
-      <points ref={pointsRef} geometry={pointsGeometry}>
+      {/* <bufferGeometry /> child lets r3f create the geometry; attributes set imperatively in useEffect */}
+      <points ref={pointsRef}>
+        <bufferGeometry />
         <pointsMaterial
           size={0.08}
           vertexColors
@@ -203,7 +204,8 @@ function ParticleNetwork() {
           depthWrite={false}
         />
       </points>
-      <lineSegments ref={linesRef} geometry={lineGeometry}>
+      <lineSegments ref={linesRef}>
+        <bufferGeometry />
         <lineBasicMaterial
           vertexColors
           transparent
@@ -263,10 +265,11 @@ function FloatingOrbs() {
 }
 
 export function HeroParticleNetwork({ className = 'h-screen w-full' }: { className?: string }) {
-  const [isMobile, setIsMobile] = useState(false);
+  const [isMobile, setIsMobile] = useState(
+    () => typeof window !== 'undefined' ? window.innerWidth < 768 : false
+  );
 
   useEffect(() => {
-    setIsMobile(window.innerWidth < 768);
     const onResize = () => setIsMobile(window.innerWidth < 768);
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);

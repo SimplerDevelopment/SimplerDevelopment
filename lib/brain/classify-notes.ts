@@ -178,7 +178,7 @@ const classificationSchema = z.object({
 // ─── Prompt construction ────────────────────────────────────────────────────
 
 function buildSystemPrompt(): string {
-  return `You are classifying knowledge-base notes for Post Captain Consulting, a Slate-only enrollment consultancy serving higher-education enrollment and advancement teams.
+  return `You are classifying knowledge-base notes for a higher-education enrollment consultancy.
 
 For each note, return STRICT JSON matching this schema — no preamble, no markdown fences:
 
@@ -199,7 +199,7 @@ Slug meanings:
 source — where the note originated:
   - slate-kb: Slate documentation, knowledge base, technolutions references
   - competitor: a competitor's marketing/case study/blog/site
-  - own-marketing: Post Captain's own marketing, blog drafts, service pages
+  - own-marketing: own marketing content, blog drafts, service pages
   - industry-news: third-party industry news, EAB/Forbes/Inside Higher Ed, etc.
   - research-brief: original research, white papers, market analysis
   - meeting-transcript: meeting recordings or AI-summarized transcripts
@@ -239,12 +239,19 @@ Rules:
 - Be honest about low confidence; downstream code routes uncertain results to human review.`;
 }
 
-interface NoteRow {
+export interface NoteRow {
   id: number;
   title: string;
   body: string;
   sourceUrl: string | null;
   source: string;
+}
+
+export interface NoteClassifyUsage {
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  cacheCreationTokens: number;
 }
 
 interface PrefillHints {
@@ -350,6 +357,54 @@ function parseClassification(raw: string, noteId: number): NoteClassification {
   };
 }
 
+// ─── Pure per-note classification core (DB-free) ────────────────────────────
+
+/**
+ * Classify ONE note's content: build the (cacheable) prompt, call the model,
+ * parse + validate. No DB, no tenant resolution — the caller supplies the
+ * Anthropic client. The DB orchestrator (`classifyNotes`) and the eval harness
+ * both call this so they exercise the identical prompt path.
+ *
+ * `onUsage` fires with the model usage BEFORE the no-text-block check, matching
+ * the orchestrator's original accounting (a no-text response still counts its
+ * tokens).
+ */
+export async function classifyNoteRow(
+  row: NoteRow,
+  anthropic: Anthropic,
+  systemPrompt: string = buildSystemPrompt(),
+  onUsage?: (usage: NoteClassifyUsage) => void,
+): Promise<{ classification: NoteClassification; usage: NoteClassifyUsage }> {
+  const hints = buildPrefillHints(row);
+  const response = await anthropic.messages.create({
+    model: MODEL,
+    max_tokens: MAX_OUTPUT_TOKENS,
+    // Prompt caching: the system prompt is identical across a batch, so mark it
+    // cacheable. The block form is required to pass `cache_control`.
+    system: [{ type: 'text', text: systemPrompt, cache_control: { type: 'ephemeral' } }],
+    messages: [{ role: 'user', content: buildUserPrompt(row, hints) }],
+  });
+
+  const raw = response.usage as {
+    input_tokens?: number;
+    output_tokens?: number;
+    cache_read_input_tokens?: number;
+    cache_creation_input_tokens?: number;
+  } | undefined;
+  const usage: NoteClassifyUsage = {
+    inputTokens: raw?.input_tokens ?? 0,
+    outputTokens: raw?.output_tokens ?? 0,
+    cacheReadTokens: raw?.cache_read_input_tokens ?? 0,
+    cacheCreationTokens: raw?.cache_creation_input_tokens ?? 0,
+  };
+  onUsage?.(usage);
+
+  const textBlock = response.content.find((b): b is Anthropic.TextBlock => b.type === 'text');
+  if (!textBlock) throw new Error('model returned no text content');
+  const classification = parseClassification(textBlock.text, row.id);
+  return { classification, usage };
+}
+
 // ─── Concurrency limiter (tiny inline semaphore — no new dependency) ────────
 
 function pLimit(max: number): <T>(fn: () => Promise<T>) => Promise<T> {
@@ -445,41 +500,14 @@ export async function classifyNotes(args: ClassifyNotesArgs): Promise<ClassifyNo
   const gate = pLimit(concurrency);
 
   await Promise.all(rows.map((row) => gate(async () => {
-    const hints = buildPrefillHints(row);
     try {
-      const response = await anthropic.messages.create({
-        model: MODEL,
-        max_tokens: MAX_OUTPUT_TOKENS,
-        // Prompt caching: the system prompt is identical across the batch, so
-        // we mark it cacheable. The SDK accepts either a plain string or an
-        // array of content blocks for `system`; the block form is required to
-        // pass `cache_control`.
-        system: [{
-          type: 'text',
-          text: systemPrompt,
-          cache_control: { type: 'ephemeral' },
-        }],
-        messages: [{ role: 'user', content: buildUserPrompt(row, hints) }],
+      const { classification } = await classifyNoteRow(row, anthropic, systemPrompt, (usage) => {
+        inputTokens += usage.inputTokens;
+        outputTokens += usage.outputTokens;
+        cacheReadTokens += usage.cacheReadTokens;
+        cacheCreationTokens += usage.cacheCreationTokens;
       });
-
-      const usage = response.usage as {
-        input_tokens?: number;
-        output_tokens?: number;
-        cache_read_input_tokens?: number;
-        cache_creation_input_tokens?: number;
-      } | undefined;
-      inputTokens += usage?.input_tokens ?? 0;
-      outputTokens += usage?.output_tokens ?? 0;
-      cacheReadTokens += usage?.cache_read_input_tokens ?? 0;
-      cacheCreationTokens += usage?.cache_creation_input_tokens ?? 0;
-
-      const textBlock = response.content.find((b): b is Anthropic.TextBlock => b.type === 'text');
-      if (!textBlock) {
-        skipped.push({ noteId: row.id, reason: 'model returned no text content' });
-        return;
-      }
-      const result = parseClassification(textBlock.text, row.id);
-      classifications.push(result);
+      classifications.push(classification);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'unknown classify error';
       skipped.push({ noteId: row.id, reason: message.slice(0, 300) });

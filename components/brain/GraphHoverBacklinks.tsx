@@ -48,9 +48,11 @@ export default function GraphHoverBacklinks({
   useEffect(() => {
     if (noteId === null) {
       // Clear out so the next show starts from a clean slate.
-      setItems(null);
-      setNote(null);
-      setError(null);
+      queueMicrotask(() => {
+        setItems(null);
+        setNote(null);
+        setError(null);
+      });
       return;
     }
 
@@ -60,9 +62,11 @@ export default function GraphHoverBacklinks({
     // Reset state immediately so the spinner shows during the debounce
     // window — otherwise the panel would flash stale data for the previous
     // node.
-    setItems(null);
-    setNote(null);
-    setError(null);
+    queueMicrotask(() => {
+      setItems(null);
+      setNote(null);
+      setError(null);
+    });
 
     const debounce = setTimeout(() => {
       (async () => {

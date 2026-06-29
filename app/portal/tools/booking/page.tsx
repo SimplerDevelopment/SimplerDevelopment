@@ -5,6 +5,8 @@ import { bookingPages, bookings, googleCalendarTokens, zoomTokens } from '@/lib/
 import { eq, desc, and, gte, sql } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
 import Link from 'next/link';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnPrimary, pBtnGhost } from '@/components/portal/portal-ui';
 
 export default async function BookingPagesListPage() {
   const session = await auth();
@@ -56,25 +58,20 @@ export default async function BookingPagesListPage() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      {/* Header */}
-      <div className="flex items-start justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Booking Pages</h1>
-          <p className="text-muted-foreground mt-1 text-sm">
-            Create scheduling pages so clients can book time with you
-          </p>
-        </div>
-        <Link
-          href="/portal/tools/booking/new"
-          className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
-        >
-          <span className="material-icons text-lg">add</span>
-          New Booking Page
-        </Link>
-      </div>
+      <PortalPageHeader
+        eyebrow="Booking"
+        title="Booking Pages"
+        subtitle="Create scheduling pages so clients can book time with you"
+        actions={
+          <Link href="/portal/tools/booking/new" className={pBtnPrimary}>
+            <span className="material-icons text-lg">add</span>
+            New Booking Page
+          </Link>
+        }
+      />
 
       {/* Google Calendar Status */}
-      <div className="bg-card border border-border rounded-xl p-4 flex items-center justify-between flex-wrap gap-3">
+      <div className="bg-card border border-border rounded-2xl p-4 flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
           <span className="material-icons text-xl text-primary">event</span>
           <div>
@@ -102,9 +99,10 @@ export default async function BookingPagesListPage() {
             </form>
           </div>
         ) : (
+          // eslint-disable-next-line @next/next/no-html-link-for-pages -- OAuth redirect to an API route; next/link prefetch would be wrong
           <a
             href="/api/portal/tools/booking/google/auth"
-            className="inline-flex items-center gap-2 px-4 py-2 bg-background border border-border rounded-lg text-sm font-medium text-foreground hover:bg-muted transition-colors"
+            className={pBtnGhost}
           >
             <span className="material-icons text-lg">link</span>
             Connect
@@ -113,7 +111,7 @@ export default async function BookingPagesListPage() {
       </div>
 
       {/* Zoom Status */}
-      <div className="bg-card border border-border rounded-xl p-4 flex items-center justify-between flex-wrap gap-3">
+      <div className="bg-card border border-border rounded-2xl p-4 flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
           <span className="material-icons text-xl text-primary">video_camera_front</span>
           <div>
@@ -141,9 +139,10 @@ export default async function BookingPagesListPage() {
             </form>
           </div>
         ) : (
+          // eslint-disable-next-line @next/next/no-html-link-for-pages -- OAuth redirect to an API route; next/link prefetch would be wrong
           <a
             href="/api/portal/tools/booking/zoom/auth"
-            className="inline-flex items-center gap-2 px-4 py-2 bg-background border border-border rounded-lg text-sm font-medium text-foreground hover:bg-muted transition-colors"
+            className={pBtnGhost}
           >
             <span className="material-icons text-lg">link</span>
             Connect
@@ -163,7 +162,7 @@ export default async function BookingPagesListPage() {
           <Link
             key={action.href}
             href={action.href}
-            className="bg-card border border-border rounded-xl p-3 hover:border-primary/50 hover:shadow-sm transition-all group text-center"
+            className="bg-card border border-border rounded-2xl p-3 hover:border-primary/50 hover:shadow-sm transition-all group text-center"
           >
             <span className="material-icons text-xl text-muted-foreground group-hover:text-primary transition-colors">{action.icon}</span>
             <p className="text-sm font-medium text-foreground mt-1">{action.label}</p>
@@ -174,7 +173,7 @@ export default async function BookingPagesListPage() {
 
       {/* Booking Pages List */}
       {pages.length === 0 ? (
-        <div className="bg-card border border-border rounded-xl p-10 text-center space-y-4">
+        <div className="bg-card border border-border rounded-2xl p-10 text-center space-y-4">
           <span className="material-icons text-5xl text-muted-foreground/50">calendar_month</span>
           <h2 className="text-lg font-semibold text-foreground">No booking pages yet</h2>
           <p className="text-muted-foreground text-sm max-w-md mx-auto">
@@ -183,7 +182,7 @@ export default async function BookingPagesListPage() {
           </p>
           <Link
             href="/portal/tools/booking/new"
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
+            className={pBtnPrimary}
           >
             <span className="material-icons text-lg">add_circle</span>
             Create Your First Booking Page
@@ -197,7 +196,7 @@ export default async function BookingPagesListPage() {
               <Link
                 key={page.id}
                 href={`/portal/tools/booking/${page.id}`}
-                className="bg-card border border-border rounded-xl p-5 hover:border-primary/50 hover:shadow-sm transition-all group"
+                className="bg-card border border-border rounded-2xl p-5 hover:border-primary/50 hover:shadow-sm transition-all group"
               >
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-center gap-2">
@@ -211,15 +210,22 @@ export default async function BookingPagesListPage() {
                       {page.title}
                     </h3>
                   </div>
-                  <span
-                    className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                      page.active
-                        ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-                        : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'
-                    }`}
-                  >
-                    {page.active ? 'active' : 'inactive'}
-                  </span>
+                  <div className="flex flex-col items-end gap-1">
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                        page.active
+                          ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                          : 'bg-muted text-muted-foreground'
+                      }`}
+                    >
+                      {page.active ? 'active' : 'inactive'}
+                    </span>
+                    {!page.active && (
+                      <span className="text-xs text-muted-foreground text-right leading-tight max-w-[14rem]">
+                        New booking pages are reviewed before going live — usually within a few hours
+                      </span>
+                    )}
+                  </div>
                 </div>
                 {page.description && (
                   <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{page.description}</p>
@@ -245,7 +251,7 @@ export default async function BookingPagesListPage() {
       )}
 
       {/* Tips */}
-      <div className="bg-card border border-border rounded-xl p-4 flex items-start gap-3">
+      <div className="bg-card border border-border rounded-2xl p-4 flex items-start gap-3">
         <span className="material-icons text-primary mt-0.5">tips_and_updates</span>
         <div className="text-sm text-muted-foreground">
           <p className="font-medium text-foreground">Tips</p>

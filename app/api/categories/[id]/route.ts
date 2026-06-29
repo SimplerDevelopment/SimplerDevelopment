@@ -3,6 +3,7 @@ import { db } from '@/lib/db';
 import { categories } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
+import { requireAdminOrEditor, gateResponse } from '@/lib/admin/auth';
 
 const updateCategorySchema = z.object({
   name: z.string().min(1).optional(),
@@ -14,6 +15,10 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const gate = await requireAdminOrEditor();
+  const denied = gateResponse(gate);
+  if (denied) return denied;
+
   try {
     const { id } = await params;
     const categoryId = parseInt(id);
@@ -52,6 +57,10 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const gate = await requireAdminOrEditor();
+  const denied = gateResponse(gate);
+  if (denied) return denied;
+
   try {
     const { id } = await params;
     const categoryId = parseInt(id);
@@ -100,6 +109,10 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const gate = await requireAdminOrEditor();
+  const denied = gateResponse(gate);
+  if (denied) return denied;
+
   try {
     const { id } = await params;
     const categoryId = parseInt(id);

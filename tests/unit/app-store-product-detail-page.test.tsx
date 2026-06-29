@@ -100,15 +100,20 @@ describe('ProductEditPage — new product mode', () => {
   it('renders all major section headings', async () => {
     const { container } = renderPage();
     await waitFor(() => expect(container.textContent).toContain('New Product'));
+    // Details tab is active by default — check its heading
     expect(container.textContent).toContain('Basic Information');
+    // All tab labels are rendered in the tab bar
     expect(container.textContent).toContain('Pricing');
     expect(container.textContent).toContain('Inventory');
     expect(container.textContent).toContain('Shipping');
     expect(container.textContent).toContain('Images');
-    expect(container.textContent).toContain('Category & Tags');
+    expect(container.textContent).toContain('Organization'); // tab label for Category & Tags
+    expect(container.textContent).toContain('Variants');     // tab label for Options & Variants
+    expect(container.textContent).toContain('Bulk Pricing'); // tab label
+    // Navigate to Organization tab and verify its section headings
+    fireEvent.click(findButtonByText(container, 'Organization')!);
+    await waitFor(() => expect(container.textContent).toContain('Category & Tags'));
     expect(container.textContent).toContain('SEO Settings');
-    expect(container.textContent).toContain('Options & Variants');
-    expect(container.textContent).toContain('Bulk Pricing');
   });
 
   it('typing in the Name field auto-generates slug', async () => {
@@ -210,6 +215,9 @@ describe('ProductEditPage — new product mode', () => {
       return makeRes({ success: true, data: [] });
     });
     const { container } = renderPage();
+    await waitFor(() => expect(container.textContent).toContain('New Product'));
+    // Categories are shown on the Organization tab
+    fireEvent.click(findButtonByText(container, 'Organization')!);
     await waitFor(() => {
       expect(container.textContent).toContain('Apparel');
       expect(container.textContent).toContain('Books');
@@ -235,11 +243,14 @@ describe('ProductEditPage — new product mode', () => {
   it('toggles track-inventory and reveals Quantity field', async () => {
     const { container } = renderPage();
     await waitFor(() => expect(container.textContent).toContain('New Product'));
+    // Track Inventory is on the Inventory tab
+    fireEvent.click(findButtonByText(container, 'Inventory')!);
+    await waitFor(() => expect(container.textContent).toContain('Track Inventory'));
     expect(container.textContent).toContain('Disabled');
     expect(container.textContent).not.toContain('Quantity');
     const toggles = Array.from(container.querySelectorAll('button.rounded-full')) as HTMLButtonElement[];
-    // Third toggle in DOM order is track-inventory (after featured and designable)
-    fireEvent.click(toggles[2]);
+    // First (and only) rounded-full toggle on this tab is track-inventory
+    fireEvent.click(toggles[0]);
     await waitFor(() => {
       expect(container.textContent).toContain('Enabled');
       expect(container.textContent).toContain('Quantity');
@@ -252,6 +263,9 @@ describe('ProductEditPage — new product mode', () => {
 describe('ProductEditPage — collapsible sections', () => {
   it('expands SEO section', async () => {
     const { container } = renderPage();
+    await waitFor(() => expect(container.textContent).toContain('New Product'));
+    // SEO Settings is on the Organization tab (collapsible within it)
+    fireEvent.click(findButtonByText(container, 'Organization')!);
     await waitFor(() => expect(container.textContent).toContain('SEO Settings'));
     expect(container.textContent).not.toContain('SEO Title');
     const btn = Array.from(container.querySelectorAll('button')).find((b) =>
@@ -266,11 +280,9 @@ describe('ProductEditPage — collapsible sections', () => {
 
   it('expands Options & Variants section and adds an option', async () => {
     const { container } = renderPage();
-    await waitFor(() => expect(container.textContent).toContain('Options & Variants'));
-    const btn = Array.from(container.querySelectorAll('button')).find((b) =>
-      b.textContent?.includes('Options & Variants'),
-    ) as HTMLButtonElement;
-    fireEvent.click(btn);
+    await waitFor(() => expect(container.textContent).toContain('New Product'));
+    // Options & Variants is the Variants tab — click it to see content
+    fireEvent.click(findButtonByText(container, 'Variants')!);
     await waitFor(() => expect(container.textContent).toContain('Add Option'));
     fireEvent.click(findButtonByText(container, 'Add Option')!);
     await waitFor(() => {
@@ -280,11 +292,9 @@ describe('ProductEditPage — collapsible sections', () => {
 
   it('expands Bulk Pricing and adds a rule', async () => {
     const { container } = renderPage();
-    await waitFor(() => expect(container.textContent).toContain('Bulk Pricing'));
-    const btn = Array.from(container.querySelectorAll('button')).find((b) =>
-      b.textContent?.includes('Bulk Pricing'),
-    ) as HTMLButtonElement;
-    fireEvent.click(btn);
+    await waitFor(() => expect(container.textContent).toContain('New Product'));
+    // Bulk Pricing is its own tab
+    fireEvent.click(findButtonByText(container, 'Bulk Pricing')!);
     await waitFor(() => expect(container.textContent).toContain('Add Rule'));
     fireEvent.click(findButtonByText(container, 'Add Rule')!);
     await waitFor(() => {
@@ -346,8 +356,10 @@ describe('ProductEditPage — edit existing', () => {
     expect(nameInput.value).toBe('Widget');
     const slug = container.querySelector('input[placeholder="product-slug"]') as HTMLInputElement;
     expect(slug.value).toBe('widget');
-    // SEO panel auto-expanded
-    expect(container.textContent).toContain('SEO Title');
+    // SEO fields are on the Organization tab; product has seoTitle so the
+    // SEO collapsible auto-expands — no click needed, just navigate to the tab.
+    fireEvent.click(findButtonByText(container, 'Organization')!);
+    await waitFor(() => expect(container.textContent).toContain('SEO Title'));
   });
 
   it('auto-expands Options & Variants when product has options', async () => {
@@ -370,8 +382,9 @@ describe('ProductEditPage — edit existing', () => {
     });
     const { container } = renderPage();
     await waitFor(() => expect(container.textContent).toContain('Edit Product'));
-    // Options section should be auto-expanded
-    expect(container.textContent).toContain('Add Option');
+    // Options & Variants are on the Variants tab
+    fireEvent.click(findButtonByText(container, 'Variants')!);
+    await waitFor(() => expect(container.textContent).toContain('Add Option'));
   });
 
   it('auto-expands Bulk Pricing when product has rules', async () => {
@@ -394,8 +407,12 @@ describe('ProductEditPage — edit existing', () => {
     });
     const { container } = renderPage();
     await waitFor(() => expect(container.textContent).toContain('Edit Product'));
-    expect(container.textContent).toContain('Min Qty');
-    expect(container.textContent).toContain('Add Rule');
+    // Bulk Pricing is its own tab
+    fireEvent.click(findButtonByText(container, 'Bulk Pricing')!);
+    await waitFor(() => {
+      expect(container.textContent).toContain('Min Qty');
+      expect(container.textContent).toContain('Add Rule');
+    });
   });
 
   it('save in edit mode uses PUT', async () => {
@@ -429,12 +446,9 @@ describe('ProductEditPage — edit existing', () => {
 describe('ProductEditPage — options & variants generation', () => {
   it('generates variants from configured options', async () => {
     const { container } = renderPage();
-    await waitFor(() => expect(container.textContent).toContain('Options & Variants'));
-    fireEvent.click(
-      Array.from(container.querySelectorAll('button')).find((b) =>
-        b.textContent?.includes('Options & Variants'),
-      ) as HTMLButtonElement,
-    );
+    await waitFor(() => expect(container.textContent).toContain('New Product'));
+    // Options & Variants is the Variants tab
+    fireEvent.click(findButtonByText(container, 'Variants')!);
     await waitFor(() => expect(container.textContent).toContain('Add Option'));
     fireEvent.click(findButtonByText(container, 'Add Option')!);
     await waitFor(() => expect(container.querySelector('input[placeholder*="Option name"]')).toBeTruthy());
@@ -457,12 +471,9 @@ describe('ProductEditPage — options & variants generation', () => {
 
   it('remove option button removes the option row', async () => {
     const { container } = renderPage();
-    await waitFor(() => expect(container.textContent).toContain('Options & Variants'));
-    fireEvent.click(
-      Array.from(container.querySelectorAll('button')).find((b) =>
-        b.textContent?.includes('Options & Variants'),
-      ) as HTMLButtonElement,
-    );
+    await waitFor(() => expect(container.textContent).toContain('New Product'));
+    // Options & Variants is the Variants tab
+    fireEvent.click(findButtonByText(container, 'Variants')!);
     await waitFor(() => expect(container.textContent).toContain('Add Option'));
     fireEvent.click(findButtonByText(container, 'Add Option')!);
     await waitFor(() => expect(container.querySelector('input[placeholder*="Option name"]')).toBeTruthy());
@@ -483,12 +494,9 @@ describe('ProductEditPage — options & variants generation', () => {
 describe('ProductEditPage — bulk pricing', () => {
   it('remove bulk rule deletes the row', async () => {
     const { container } = renderPage();
-    await waitFor(() => expect(container.textContent).toContain('Bulk Pricing'));
-    fireEvent.click(
-      Array.from(container.querySelectorAll('button')).find((b) =>
-        b.textContent?.includes('Bulk Pricing'),
-      ) as HTMLButtonElement,
-    );
+    await waitFor(() => expect(container.textContent).toContain('New Product'));
+    // Bulk Pricing is its own tab
+    fireEvent.click(findButtonByText(container, 'Bulk Pricing')!);
     await waitFor(() => expect(container.textContent).toContain('Add Rule'));
     fireEvent.click(findButtonByText(container, 'Add Rule')!);
     await waitFor(() => expect(container.textContent).toContain('Min Qty'));
@@ -505,6 +513,13 @@ describe('ProductEditPage — bulk pricing', () => {
 // ─── Media picker ───────────────────────────────────────────────────────────
 
 describe('ProductEditPage — media picker', () => {
+  async function openImageTab(container: HTMLElement) {
+    // "Images" appears both as a tab label and inside the tab content header.
+    // Click the tab button (it's in the tab bar) to navigate there.
+    fireEvent.click(findButtonByText(container, 'Images')!);
+    await waitFor(() => expect(container.textContent).toContain('Add from Media'));
+  }
+
   it('opens the media picker modal', async () => {
     fetchMock.mockImplementation(async (url: string) => {
       if (url.includes('/cms/websites/') && url.includes('/media')) {
@@ -513,9 +528,9 @@ describe('ProductEditPage — media picker', () => {
       return makeRes({ success: true, data: [] });
     });
     const { container } = renderPage();
-    await waitFor(() => expect(container.textContent).toContain('Images'));
-    const addBtn = findButtonByText(container, 'Add from Media')!;
-    fireEvent.click(addBtn);
+    await waitFor(() => expect(container.textContent).toContain('New Product'));
+    await openImageTab(container);
+    fireEvent.click(findButtonByText(container, 'Add from Media')!);
     await waitFor(() => {
       expect(container.textContent).toContain('Select Images');
     });
@@ -523,7 +538,8 @@ describe('ProductEditPage — media picker', () => {
 
   it('closes media picker via close icon', async () => {
     const { container } = renderPage();
-    await waitFor(() => expect(container.textContent).toContain('Images'));
+    await waitFor(() => expect(container.textContent).toContain('New Product'));
+    await openImageTab(container);
     fireEvent.click(findButtonByText(container, 'Add from Media')!);
     await waitFor(() => expect(container.textContent).toContain('Select Images'));
     const closeBtn = Array.from(container.querySelectorAll('button')).find(
@@ -543,7 +559,8 @@ describe('ProductEditPage — media picker', () => {
       return makeRes({ success: true, data: [] });
     });
     const { container } = renderPage();
-    await waitFor(() => expect(container.textContent).toContain('Images'));
+    await waitFor(() => expect(container.textContent).toContain('New Product'));
+    await openImageTab(container);
     fireEvent.click(findButtonByText(container, 'Add from Media')!);
     await waitFor(() => {
       expect(container.textContent).toContain('No images found');
@@ -564,7 +581,8 @@ describe('ProductEditPage — media picker', () => {
       return makeRes({ success: true, data: [] });
     });
     const { container } = renderPage();
-    await waitFor(() => expect(container.textContent).toContain('Images'));
+    await waitFor(() => expect(container.textContent).toContain('New Product'));
+    await openImageTab(container);
     fireEvent.click(findButtonByText(container, 'Add from Media')!);
     await waitFor(() => {
       expect(container.textContent).toContain('pic.png');
@@ -583,7 +601,8 @@ describe('ProductEditPage — media picker', () => {
       return makeRes({ success: true, data: [] });
     });
     const { container } = renderPage();
-    await waitFor(() => expect(container.textContent).toContain('Images'));
+    await waitFor(() => expect(container.textContent).toContain('New Product'));
+    await openImageTab(container);
     fireEvent.click(findButtonByText(container, 'Add from Media')!);
     await waitFor(() => expect(container.textContent).toContain('pic.png'));
     // Click the media item card (button)
@@ -607,7 +626,8 @@ describe('ProductEditPage — media picker', () => {
   it('typing in picker search updates fetch URL with search param', async () => {
     fetchMock.mockImplementation(async () => makeRes({ success: true, data: [] }));
     const { container } = renderPage();
-    await waitFor(() => expect(container.textContent).toContain('Images'));
+    await waitFor(() => expect(container.textContent).toContain('New Product'));
+    await openImageTab(container);
     fireEvent.click(findButtonByText(container, 'Add from Media')!);
     await waitFor(() => expect(container.textContent).toContain('Select Images'));
     const searchInput = container.querySelector('input[placeholder="Search media..."]') as HTMLInputElement;
@@ -620,7 +640,8 @@ describe('ProductEditPage — media picker', () => {
 
   it('opens upload modal stand-in from media picker', async () => {
     const { container } = renderPage();
-    await waitFor(() => expect(container.textContent).toContain('Images'));
+    await waitFor(() => expect(container.textContent).toContain('New Product'));
+    await openImageTab(container);
     fireEvent.click(findButtonByText(container, 'Add from Media')!);
     await waitFor(() => expect(container.textContent).toContain('Select Images'));
     fireEvent.click(findButtonByText(container, 'Upload New')!);
@@ -631,7 +652,8 @@ describe('ProductEditPage — media picker', () => {
 
   it('Done button closes media picker', async () => {
     const { container } = renderPage();
-    await waitFor(() => expect(container.textContent).toContain('Images'));
+    await waitFor(() => expect(container.textContent).toContain('New Product'));
+    await openImageTab(container);
     fireEvent.click(findButtonByText(container, 'Add from Media')!);
     await waitFor(() => expect(container.textContent).toContain('Select Images'));
     fireEvent.click(findButtonByText(container, 'Done')!);
@@ -667,6 +689,9 @@ describe('ProductEditPage — existing images', () => {
     });
     const { container } = renderPage();
     await waitFor(() => expect(container.textContent).toContain('Edit Product'));
+    // Images are on the Images tab
+    fireEvent.click(findButtonByText(container, 'Images')!);
+    await waitFor(() => expect(container.textContent).toContain('Add from Media'));
     // Two images rendered
     const imgs = container.querySelectorAll('img');
     expect(imgs.length).toBeGreaterThanOrEqual(2);

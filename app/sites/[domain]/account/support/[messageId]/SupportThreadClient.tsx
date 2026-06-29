@@ -38,11 +38,6 @@ export function SupportThreadClient({ siteId, domain, messageId }: { siteId: num
   const [submitting, setSubmitting] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (!token) return;
-    fetchThread();
-  }, [siteId, token, messageId]);
-
   const fetchThread = () => {
     if (!token) return;
     fetch(`/api/storefront/${siteId}/account/support/${messageId}`, {
@@ -53,6 +48,11 @@ export function SupportThreadClient({ siteId, domain, messageId }: { siteId: num
       .catch(() => {})
       .finally(() => setLoading(false));
   };
+
+  useEffect(() => {
+    if (!token) return;
+    fetchThread();
+  }, [siteId, token, messageId]);
 
   useEffect(() => {
     if (thread) {

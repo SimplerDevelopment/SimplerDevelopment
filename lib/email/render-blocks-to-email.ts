@@ -14,6 +14,7 @@ import type {
   EmailHeaderBlock,
   EmailFooterBlock,
 } from '@/types/blocks';
+import { escapeHtml } from '@/lib/utils/html';
 
 /**
  * Converts Block[] to email-safe HTML (table-based, inline styles).
@@ -90,13 +91,6 @@ function mergeStyle(base: string, extra: string): string {
   return Array.from(merged, ([k, v]) => `${k}:${v}`).join(';');
 }
 
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
 
 /** Check if content looks like HTML (has tags) — if so, render as-is; otherwise wrap in <p> */
 function isHtmlContent(content: string): boolean {

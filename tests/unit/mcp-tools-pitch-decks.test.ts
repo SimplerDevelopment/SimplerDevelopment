@@ -277,14 +277,15 @@ beforeEach(() => {
 });
 
 describe('registerPitchDecksTools — registration & scope gating', () => {
-  it('registers all 12 deck tools when scopes=*', () => {
+  it('registers all 13 deck tools when scopes=*', () => {
     const tools = registerAll(['*']);
-    expect(tools.size).toBe(12);
+    expect(tools.size).toBe(13);
     for (const name of [
       'decks_list', 'decks_get', 'decks_create', 'decks_update',
       'decks_fork', 'decks_replace_slides', 'decks_add_slide', 'decks_delete',
       'decks_upload_html', 'decks_upload_html_zip',
       'decks_publish_slide', 'decks_publish_all',
+      'deck_analytics_get',
     ]) {
       expect(tools.has(name), `expected ${name}`).toBe(true);
     }
@@ -316,7 +317,7 @@ describe('registerPitchDecksTools — registration & scope gating', () => {
 
   it('registers the resource-wildcard decks:*', () => {
     const tools = registerAll(['decks:*']);
-    expect(tools.size).toBe(12);
+    expect(tools.size).toBe(13);
   });
 
   it('registers nothing when ctx has no deck scopes', () => {
@@ -368,6 +369,18 @@ describe('decks_list', () => {
     const res = await tools.get('decks_list')!.handler({});
     expect(res.isError).toBeUndefined();
   });
+
+  // Regression: decks-mcp-read-tools-no-service-gate — read tools must honour
+  // the same pitch-decks entitlement gate as the write tools.
+  it('returns serviceDenied when pitch-decks subscription missing', async () => {
+    const portalAuth = await import('@/lib/portal-auth');
+    (portalAuth.hasServiceAccess as ReturnType<typeof vi.fn>).mockResolvedValueOnce(false);
+    dbState.selectDefault = [{ id: 1, title: 'Secret', slug: 'secret' }];
+    const tools = registerAll(['*']);
+    const res = await tools.get('decks_list')!.handler({});
+    expect(res.isError).toBe(true);
+    expect(res.content[0].text).toMatch(/subscription/i);
+  });
 });
 
 // ── decks_get ──────────────────────────────────────────────────────────────
@@ -385,6 +398,32 @@ describe('decks_get', () => {
     const tools = registerAll(['*']);
     const res = await tools.get('decks_get')!.handler({ id: 999 });
     expect((parseJson(res) as { error: string }).error).toMatch(/not found/i);
+  });
+
+  // Regression: decks-mcp-read-tools-no-service-gate (decks_get).
+  it('returns serviceDenied when pitch-decks subscription missing', async () => {
+    const portalAuth = await import('@/lib/portal-auth');
+    (portalAuth.hasServiceAccess as ReturnType<typeof vi.fn>).mockResolvedValueOnce(false);
+    dbState.selectDefault = [{ id: 42, title: 'Secret', slides: [] }];
+    const tools = registerAll(['*']);
+    const res = await tools.get('decks_get')!.handler({ id: 42 });
+    expect(res.isError).toBe(true);
+    expect(res.content[0].text).toMatch(/subscription/i);
+  });
+});
+
+// ── deck_analytics_get ──────────────────────────────────────────────────────
+
+describe('deck_analytics_get', () => {
+  // Regression: decks-mcp-read-tools-no-service-gate (deck_analytics_get).
+  it('returns serviceDenied when pitch-decks subscription missing', async () => {
+    const portalAuth = await import('@/lib/portal-auth');
+    (portalAuth.hasServiceAccess as ReturnType<typeof vi.fn>).mockResolvedValueOnce(false);
+    dbState.selectDefault = [{ id: 7, title: 'Secret' }];
+    const tools = registerAll(['*']);
+    const res = await tools.get('deck_analytics_get')!.handler({ deckId: 7 });
+    expect(res.isError).toBe(true);
+    expect(res.content[0].text).toMatch(/subscription/i);
   });
 });
 

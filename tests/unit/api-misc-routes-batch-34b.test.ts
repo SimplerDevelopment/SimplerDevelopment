@@ -18,8 +18,31 @@ vi.mock('@/lib/auth', () => ({
 }));
 
 const resolveClientSiteMock = vi.fn();
+const getPortalClientMock = vi.fn();
 vi.mock('@/lib/portal-client', () => ({
   resolveClientSite: (...args: unknown[]) => resolveClientSiteMock(...args),
+  getPortalClient: (...args: unknown[]) => getPortalClientMock(...args),
+}));
+
+// portal-auth — mock resolveStoreSite (delegates to resolveClientSiteMock),
+// authorizePortal (uses getPortalClientMock, always grants access), and isAuthError.
+vi.mock('@/lib/portal-auth', async () => {
+  return {
+    resolveStoreSite: async (...args: unknown[]) => resolveClientSiteMock(...args),
+    authorizePortal: async () => {
+      const client = await getPortalClientMock();
+      if (!client) {
+        const { NextResponse } = await import('next/server');
+        return { response: NextResponse.json({ success: false, message: 'Client not found' }, { status: 404 }) };
+      }
+      return { client, userId: client.userId ?? 7, role: 'owner' };
+    },
+    isAuthError: (result: unknown) => result != null && typeof result === 'object' && 'response' in (result as object),
+  };
+});
+
+vi.mock('@/lib/mcp-auth', () => ({
+  resolvePortalFromCurrentRequest: () => Promise.resolve(null),
 }));
 
 // drizzle-orm — stub operators
@@ -52,6 +75,9 @@ vi.mock('@/lib/db/schema', () => {
     productOptionValues: wrap('productOptionValues'),
     productVariants: wrap('productVariants'),
     storeSettings: wrap('storeSettings'),
+    oauthAccessTokens: wrap('oauthAccessTokens'),
+    oauthClients: wrap('oauthClients'),
+    portalApiKeys: wrap('portalApiKeys'),
   }, { has: (t, p) => (p in t) || !(p === "then" || p === "__esModule" || p === "default" || typeof p !== "string"), get: (t, p) => (p in t) ? t[p] : ((p === "then" || p === "__esModule" || p === "default" || typeof p !== "string") ? undefined : wrap(p)) });
 });
 
@@ -239,6 +265,9 @@ beforeEach(() => {
   insertCalls.length = 0;
   authMock.mockReset();
   resolveClientSiteMock.mockReset();
+  getPortalClientMock.mockReset();
+  // userId: 7 matches SESSION.user.id → resolveRole returns 'owner' without DB
+  getPortalClientMock.mockResolvedValue({ id: 33, userId: 7 });
 });
 
 // ===========================================================================

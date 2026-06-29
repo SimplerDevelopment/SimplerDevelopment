@@ -2,7 +2,7 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { clients, clientMembers, clientServices, services } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
-import { getPortalClient } from '@/lib/portal-client';
+import { getPortalClient, resolveClientSite } from '@/lib/portal-client';
 import { resolvePortalFromCurrentRequest } from '@/lib/mcp-auth';
 import { NextResponse } from 'next/server';
 
@@ -115,6 +115,22 @@ export async function authorizePortal(opts?: {
  */
 export function isAuthError(result: AuthorizeResult | AuthorizeError): result is AuthorizeError {
   return 'response' in result;
+}
+
+/**
+ * Resolve a user's site like `resolveClientSite`, but ALSO require the owning
+ * client to have an active `store` subscription (bundle-aware via
+ * `hasServiceAccess`). Returns null if the site isn't the user's OR the client
+ * isn't store-entitled — so store sub-resource routes that swap
+ * `resolveClientSite` → `resolveStoreSite` get a billing gate for free: an
+ * unsubscribed client falls through the route's existing not-found path.
+ * Closes the broad store-REST entitlement gap (distill finding #1, part 3).
+ */
+export async function resolveStoreSite(userId: number, siteId: number, preferredClientId?: number) {
+  const site = await resolveClientSite(userId, siteId, preferredClientId);
+  if (!site) return null;
+  if (!(await hasServiceAccess(site.clientId, 'store'))) return null;
+  return site;
 }
 
 /**

@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Block } from '@/types/blocks';
+import { Column } from '@/types/blocks/layout';
 
 interface BlockTemplate {
   id: number;
@@ -10,7 +11,7 @@ interface BlockTemplate {
   description?: string | null;
   category: string;
   scope: string;
-  blocks: any[];
+  blocks: Block[];
   tags: string[];
   version: number;
 }
@@ -36,11 +37,7 @@ export function TemplateLibrary({ onInsert, onClose, endpoint = '/api/block-temp
   const [search, setSearch] = useState('');
   const [scopeFilter, setScopeFilter] = useState<string>('all');
 
-  useEffect(() => {
-    fetchTemplates();
-  }, [search, scopeFilter]);
-
-  const fetchTemplates = async () => {
+  const fetchTemplates = useCallback(async () => {
     const params = new URLSearchParams();
     if (search) params.set('search', search);
     if (scopeFilter !== 'all') params.set('scope', scopeFilter);
@@ -55,36 +52,40 @@ export function TemplateLibrary({ onInsert, onClose, endpoint = '/api/block-temp
       // Silent fail - empty state will show
     }
     setLoading(false);
-  };
+  }, [search, scopeFilter, endpoint]);
+
+  useEffect(() => {
+    void Promise.resolve().then(() => fetchTemplates());
+  }, [fetchTemplates]);
 
   const handleInsert = (template: BlockTemplate) => {
     // Generate new IDs for all blocks so they're unique in the post
-    const blocksWithNewIds = template.blocks.map((block: any, index: number) => ({
+    const blocksWithNewIds = template.blocks.map((block, index) => ({
       ...block,
       id: `block-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       order: index,
       // Recursively generate IDs for nested blocks
-      ...(block.columns
+      ...('columns' in block && block.columns
         ? {
-            columns: block.columns.map((col: any) => ({
+            columns: (block.columns as Column[]).map((col) => ({
               ...col,
               id: `col-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-              blocks: col.blocks?.map((b: any) => ({
+              blocks: col.blocks?.map((b) => ({
                 ...b,
                 id: `block-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-              })) || [],
+              })) ?? [],
             })),
           }
         : {}),
-      ...(block.tabs
+      ...('tabs' in block && block.tabs
         ? {
-            tabs: block.tabs.map((tab: any) => ({
+            tabs: (block.tabs as Array<{ id: string; label: string; blocks: Block[] }>).map((tab) => ({
               ...tab,
               id: `tab-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-              blocks: tab.blocks?.map((b: any) => ({
+              blocks: tab.blocks?.map((b) => ({
                 ...b,
                 id: `block-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-              })) || [],
+              })) ?? [],
             })),
           }
         : {}),
@@ -94,7 +95,7 @@ export function TemplateLibrary({ onInsert, onClose, endpoint = '/api/block-temp
     onClose();
   };
 
-  const getBlockTypeLabel = (block: any) => {
+  const getBlockTypeLabel = (block: Block) => {
     const type = block.type || 'unknown';
     return type.charAt(0).toUpperCase() + type.slice(1).replace(/-/g, ' ');
   };

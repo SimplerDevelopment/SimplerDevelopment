@@ -85,21 +85,11 @@ vi.mock('@/lib/ai/plan-gate', () => ({
   checkAiPlanGate: (...args: unknown[]) => checkAiPlanGateMock(...args),
 }));
 
-// ---- Anthropic SDK — never let it touch the network ----
-const messagesCreateMock = vi.fn();
-const anthropicCtorSpy = vi.fn();
-vi.mock('@anthropic-ai/sdk', () => {
-  class Anthropic {
-    public messages: { create: typeof messagesCreateMock };
-    constructor(opts: { apiKey: string }) {
-      anthropicCtorSpy(opts);
-      this.messages = { create: messagesCreateMock };
-    }
-  }
-  // TextBlock-like — route uses Anthropic.TextBlock as a type guard, so we
-  // also expose it (an interface in real code; the runtime check is on .type).
-  return { default: Anthropic };
-});
+// ---- AI seam — never let it touch the network ----
+const completeMock = vi.fn();
+vi.mock('@/lib/ai/llm', () => ({
+  complete: (...args: unknown[]) => completeMock(...args),
+}));
 
 // ---- schema mock (shared across both routes) ----
 vi.mock('@/lib/db/schema', () => {
@@ -281,10 +271,10 @@ function makeParams(siteId: string) {
   return { params: Promise.resolve({ siteId }) };
 }
 
-function aiResp(text: string) {
+function aiResp(text: string, inputTokens = 100, outputTokens = 200) {
   return {
-    content: [{ type: 'text', text }],
-    usage: { input_tokens: 100, output_tokens: 200 },
+    text,
+    usage: { inputTokens, outputTokens, totalTokens: inputTokens + outputTokens },
   };
 }
 
@@ -308,8 +298,7 @@ beforeEach(() => {
   resolveClientApiKeyMock.mockReset().mockResolvedValue({ source: 'platform', key: 'sk-test' });
   recordAiUsageMock.mockReset().mockResolvedValue(undefined);
   checkAiPlanGateMock.mockReset().mockResolvedValue({ allowed: true });
-  messagesCreateMock.mockReset();
-  anthropicCtorSpy.mockReset();
+  completeMock.mockReset();
 
   // sane defaults for restyle
   authMock.mockResolvedValue({ user: { id: '7' } });
@@ -414,11 +403,11 @@ describe('POST /api/portal/cms/websites/[siteId]/blocks/restyle', () => {
     expect(res.status).toBe(402);
     const body = await res.json();
     expect(body).toEqual({ success: false, message: 'Upgrade', reason: 'plan' });
-    expect(messagesCreateMock).not.toHaveBeenCalled();
+    expect(completeMock).not.toHaveBeenCalled();
   });
 
   it('returns 200 with variants on the happy path', async () => {
-    messagesCreateMock.mockResolvedValueOnce(
+    completeMock.mockResolvedValueOnce(
       aiResp(JSON.stringify({ variants: [{ id: 'v1', style: {} }] })),
     );
     const res = await restyleMod.POST(
@@ -433,15 +422,16 @@ describe('POST /api/portal/cms/websites/[siteId]/blocks/restyle', () => {
     expect(body.data.diagnostics).toEqual({ warnings: [] });
   });
 
-  it('passes the resolved Anthropic key into the SDK ctor', async () => {
+  it('resolveClientApiKey is called and seam receives the right clientId', async () => {
     resolveClientApiKeyMock.mockResolvedValueOnce({ source: 'byok', key: 'sk-byok-XYZ' });
-    messagesCreateMock.mockResolvedValueOnce(aiResp('{"variants":[]}'));
+    completeMock.mockResolvedValueOnce(aiResp('{"variants":[]}'));
     await restyleMod.POST(makeJsonReq(url, { block: { type: 'hero' } }), makeParams('1'));
-    expect(anthropicCtorSpy).toHaveBeenCalledWith({ apiKey: 'sk-byok-XYZ' });
+    expect(resolveClientApiKeyMock).toHaveBeenCalled();
+    expect(completeMock).toHaveBeenCalledWith(expect.objectContaining({ task: 'blockRestyle', clientId: 10 }));
   });
 
   it('forwards explicit philosophyIds into pickPhilosophies', async () => {
-    messagesCreateMock.mockResolvedValueOnce(aiResp('{"variants":[]}'));
+    completeMock.mockResolvedValueOnce(aiResp('{"variants":[]}'));
     await restyleMod.POST(
       makeJsonReq(url, { block: { type: 'hero' }, philosophyIds: ['a', 'b', 'c'] }),
       makeParams('1'),
@@ -450,7 +440,7 @@ describe('POST /api/portal/cms/websites/[siteId]/blocks/restyle', () => {
   });
 
   it('passes exploreOutsideBrand=true through to the user prompt and validator', async () => {
-    messagesCreateMock.mockResolvedValueOnce(aiResp('{"variants":[]}'));
+    completeMock.mockResolvedValueOnce(aiResp('{"variants":[]}'));
     await restyleMod.POST(
       makeJsonReq(url, { block: { type: 'hero' }, exploreOutsideBrand: true }),
       makeParams('1'),
@@ -467,9 +457,9 @@ describe('POST /api/portal/cms/websites/[siteId]/blocks/restyle', () => {
   });
 
   it('records AI usage with combined tokens', async () => {
-    messagesCreateMock.mockResolvedValueOnce({
-      content: [{ type: 'text', text: '{"variants":[]}' }],
-      usage: { input_tokens: 11, output_tokens: 22 },
+    completeMock.mockResolvedValueOnce({
+      text: '{"variants":[]}',
+      usage: { inputTokens: 11, outputTokens: 22, totalTokens: 33 },
     });
     await restyleMod.POST(makeJsonReq(url, { block: { type: 'hero' } }), makeParams('1'));
     expect(recordAiUsageMock).toHaveBeenCalledWith(
@@ -478,7 +468,7 @@ describe('POST /api/portal/cms/websites/[siteId]/blocks/restyle', () => {
   });
 
   it('strips ```json fences before parsing', async () => {
-    messagesCreateMock.mockResolvedValueOnce(
+    completeMock.mockResolvedValueOnce(
       aiResp('```json\n{"variants":[]}\n```'),
     );
     const res = await restyleMod.POST(
@@ -489,7 +479,7 @@ describe('POST /api/portal/cms/websites/[siteId]/blocks/restyle', () => {
   });
 
   it('returns 502 when the model returns non-JSON', async () => {
-    messagesCreateMock.mockResolvedValueOnce(aiResp('total garbage not json'));
+    completeMock.mockResolvedValueOnce(aiResp('total garbage not json'));
     const res = await restyleMod.POST(
       makeJsonReq(url, { block: { type: 'hero' } }),
       makeParams('1'),
@@ -504,7 +494,7 @@ describe('POST /api/portal/cms/websites/[siteId]/blocks/restyle', () => {
     validateStyleVariantsResponseMock.mockImplementationOnce(() => {
       throw new StyleVariantsValidationErrorMock('bad shape', { variants: 'missing' });
     });
-    messagesCreateMock.mockResolvedValueOnce(aiResp('{"variants":[]}'));
+    completeMock.mockResolvedValueOnce(aiResp('{"variants":[]}'));
     const res = await restyleMod.POST(
       makeJsonReq(url, { block: { type: 'hero' } }),
       makeParams('1'),
@@ -519,7 +509,7 @@ describe('POST /api/portal/cms/websites/[siteId]/blocks/restyle', () => {
     validateStyleVariantsResponseMock.mockImplementationOnce(() => {
       throw new Error('unexpected');
     });
-    messagesCreateMock.mockResolvedValueOnce(aiResp('{"variants":[]}'));
+    completeMock.mockResolvedValueOnce(aiResp('{"variants":[]}'));
     const res = await restyleMod.POST(
       makeJsonReq(url, { block: { type: 'hero' } }),
       makeParams('1'),
@@ -529,8 +519,8 @@ describe('POST /api/portal/cms/websites/[siteId]/blocks/restyle', () => {
     expect(body.message).toBe('unexpected');
   });
 
-  it('returns 500 with generic message when Anthropic call rejects', async () => {
-    messagesCreateMock.mockRejectedValueOnce(new Error('network down'));
+  it('returns 500 with generic message when seam call rejects', async () => {
+    completeMock.mockRejectedValueOnce(new Error('network down'));
     const res = await restyleMod.POST(
       makeJsonReq(url, { block: { type: 'hero' } }),
       makeParams('1'),
@@ -541,14 +531,8 @@ describe('POST /api/portal/cms/websites/[siteId]/blocks/restyle', () => {
     expect(body.message).toBe('network down');
   });
 
-  it('filters non-text content blocks before parsing', async () => {
-    messagesCreateMock.mockResolvedValueOnce({
-      content: [
-        { type: 'tool_use', name: 'whatever' },
-        { type: 'text', text: '{"variants":[]}' },
-      ],
-      usage: { input_tokens: 1, output_tokens: 1 },
-    });
+  it('returns 200 when seam call succeeds (content filtering is seam responsibility)', async () => {
+    completeMock.mockResolvedValueOnce(aiResp('{"variants":[]}', 1, 1));
     const res = await restyleMod.POST(
       makeJsonReq(url, { block: { type: 'hero' } }),
       makeParams('1'),

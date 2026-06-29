@@ -193,7 +193,7 @@ export default function ProjectReportsTab({ projectId, projectKey }: { projectId
         <p className="text-sm text-muted-foreground mb-3">
           Cards per teammate in {capacity?.sprintName ?? 'the selected sprint'}, broken down by board column.
         </p>
-        {capacity && capacity.rows.length > 0
+        {capacity?.rows?.length
           ? <CapacityChart payload={capacity} />
           : <EmptyChart message="No assigned cards in this sprint yet." />}
       </section>
@@ -202,10 +202,10 @@ export default function ProjectReportsTab({ projectId, projectKey }: { projectId
       <section>
         <h2 className="text-lg font-semibold text-foreground mb-1">Velocity</h2>
         <p className="text-sm text-muted-foreground mb-3">
-          Last {velocity?.rows.length ?? 0} completed sprints. Average committed: {velocity?.averageCommitted ?? 0} pts ·
+          Last {velocity?.rows?.length ?? 0} completed sprints. Average committed: {velocity?.averageCommitted ?? 0} pts ·
           {' '}Average completed: {velocity?.averageCompleted ?? 0} pts.
         </p>
-        {velocity && velocity.rows.length > 0 ? <VelocityChart payload={velocity} /> : <EmptyChart message="No completed sprints yet — velocity becomes available once sprints close." />}
+        {velocity?.rows?.length ? <VelocityChart payload={velocity} /> : <EmptyChart message="No completed sprints yet — velocity becomes available once sprints close." />}
       </section>
 
       {/* Retro */}
@@ -226,7 +226,7 @@ export default function ProjectReportsTab({ projectId, projectKey }: { projectId
         <p className="text-sm text-muted-foreground mb-3">
           Card counts per column over the last {cfd?.days?.length ?? 0} day{(cfd?.days?.length ?? 0) === 1 ? '' : 's'}. Stacked-area shape shows where work piles up.
         </p>
-        {cfd && cfd.days.length > 0
+        {cfd?.days?.length
           ? <CfdChart payload={cfd} />
           : <EmptyChart message="No daily snapshots yet — schedule /api/cron/pm-column-snapshots once a day to populate this chart." />}
       </section>
@@ -237,7 +237,7 @@ export default function ProjectReportsTab({ projectId, projectKey }: { projectId
         <p className="text-sm text-muted-foreground mb-3">
           Average cycle time: {cycle?.averageCycleDays ?? 0} days · Average lead time: {cycle?.averageLeadDays ?? 0} days.
         </p>
-        {cycle && cycle.rows.length > 0 ? <CycleTable payload={cycle} projectKey={projectKey} /> : <EmptyChart message="No completed cards yet." />}
+        {cycle?.rows?.length ? <CycleTable payload={cycle} projectKey={projectKey} /> : <EmptyChart message="No completed cards yet." />}
       </section>
     </div>
   );
@@ -546,7 +546,7 @@ function CycleTable({ payload, projectKey }: { payload: CyclePayload; projectKey
                 <td className="px-4 py-2 text-xs text-muted-foreground">{r.storyPoints ?? '—'}</td>
                 <td className="px-4 py-2 text-xs">{fmt(r.leadTimeMinutes)}</td>
                 <td className="px-4 py-2 text-xs">{fmt(r.cycleTimeMinutes)}</td>
-                <td className="px-4 py-2 text-xs text-muted-foreground">{new Date(r.doneAt).toLocaleDateString()}</td>
+                <td className="px-4 py-2 text-xs text-muted-foreground">{new Date(r.doneAt).toLocaleDateString('en-US')}</td>
               </tr>
             );
           })}

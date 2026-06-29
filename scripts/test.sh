@@ -106,6 +106,35 @@ fi
 
 # ── Layer 3: E2E (Playwright) ───────────────────────────────────────────
 if [[ "$LAYER" == "all" || "$LAYER" == "e2e" ]]; then
+  # The credential brute-force guard buckets sign-in attempts per client IP.
+  # Every Playwright request comes from localhost (one bucket) and dozens of
+  # specs each sign in, so the 10/15min limit trips and turns the suite red.
+  # `next dev`/`next start` force NODE_ENV away from 'test', so opt the server
+  # into the explicit bypass here (lib/auth.ts). Never set in prod deploys.
+  export DISABLE_AUTH_RATE_LIMIT=1
+  # Realtime collab token route 503s without a signing secret. Provide a throwaway
+  # one for e2e so the @critical realtime spec can mint/verify tokens. Not a prod secret.
+  export REALTIME_JWT_SECRET="${REALTIME_JWT_SECRET:-e2e-realtime-secret}"
+  # The agentic-os specs assume catalog mode (no in-browser executor), matching
+  # CI hosts without the `claude` CLI. Force it off so a developer's local
+  # AGENTIC_OS_EXECUTOR_ENABLED=1 doesn't flip the run-drawer UI under test.
+  export AGENTIC_OS_EXECUTOR_ENABLED=0
+  # In --mode=prod the server runs as a real production build, where Auth.js v5
+  # refuses requests from an untrusted Host (localhost) unless told to trust it.
+  # Dev mode auto-trusts localhost; prod does not. Without this every sign-in
+  # 500s with UntrustedHost and the whole suite goes red.
+  export AUTH_TRUST_HOST=true
+  # NextAuth refuses every sign-in with MissingSecret (→ 500, whole suite red) if
+  # no secret is set. A fresh checkout has no .env.local, so default a throwaway
+  # here. Crypto keys are defaulted too (correct lengths) so the BYOK / Google
+  # integrations / OAuth-state routes don't 500. All `:-` so a dev's real values
+  # win. Never prod secrets.
+  export AUTH_SECRET="${AUTH_SECRET:-e2e-throwaway-auth-secret-not-for-prod}"
+  export NEXTAUTH_SECRET="${NEXTAUTH_SECRET:-$AUTH_SECRET}"
+  export ENCRYPTION_KEY="${ENCRYPTION_KEY:-$(openssl rand -hex 32)}"
+  export WORKSPACE_TENANT_SECRETS_KEY="${WORKSPACE_TENANT_SECRETS_KEY:-$(openssl rand -hex 32)}"
+  export OAUTH_STATE_SECRET="${OAUTH_STATE_SECRET:-$(openssl rand -hex 32)}"
+  export PORTAL_KMS_KEY="${PORTAL_KMS_KEY:-$(openssl rand -base64 32)}"
   export NODE_V8_COVERAGE="$ROOT/coverage/.v8-server"
   if [[ "$NO_COVERAGE" == "1" ]]; then
     export COLLECT_CLIENT_COVERAGE=0
@@ -140,7 +169,9 @@ if [[ "$LAYER" == "all" || "$LAYER" == "e2e" ]]; then
   PW_ARGS=()
   [[ -n "$TAG"   ]] && PW_ARGS+=(--grep "$TAG")
   [[ -n "$SHARD" ]] && PW_ARGS+=(--shard="$SHARD")
-  run_step "e2e" npx playwright test "${PW_ARGS[@]}" --reporter=list,html
+  # Use the `${arr[@]+"${arr[@]}"}` idiom so an EMPTY array doesn't trip
+  # `set -u` ("unbound variable") on macOS's default bash 3.2.
+  run_step "e2e" npx playwright test ${PW_ARGS[@]+"${PW_ARGS[@]}"} --reporter=list,html
 
   # Clean shutdown so V8 coverage flushes to disk
   echo ">> stopping server"
@@ -188,6 +219,28 @@ fi
 if [[ -f "$TEST_OUTPUT_LOG" ]]; then
   echo ""
   echo "Full test output captured at: $TEST_OUTPUT_LOG"
+fi
+
+# ── Runbook pointer on failure ──────────────────────────────────────────
+# Harness-engineering (AI DevCon 2026): a failing gate should point at its
+# remediation runbook so an agent self-heals instead of blindly re-running.
+# Keyed to the tag/layer that failed; all targets live in vault/06 - Validation.
+if [[ "$FAIL" != "0" ]]; then
+  echo ""
+  echo "────────────────────────────────────────────────────────────────────"
+  echo "✗ Gate failed — read the runbook before re-running:"
+  case "${TAG#@}" in
+    tenancy)  echo "  → vault/06 - Validation/Tenancy Regression.md  (tenant-leak triage)";;
+    critical) echo "  → vault/06 - Validation/QA Flows.md            (golden-path repair)";;
+    *)
+      case "$LAYER" in
+        e2e) echo "  → vault/06 - Validation/E2E Patterns.md         (flaky/selector triage)";;
+        *)   echo "  → vault/06 - Validation/Gate Picking.md         (which gate, why, how to read it)";;
+      esac
+      ;;
+  esac
+  echo "  Full output: $TEST_OUTPUT_LOG"
+  echo "────────────────────────────────────────────────────────────────────"
 fi
 
 exit "$FAIL"

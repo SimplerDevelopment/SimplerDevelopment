@@ -1,6 +1,5 @@
 /**
- * Directory + person extraction primitives, used by
- * scripts/scrape-postcaptain-staff-directories.ts.
+ * Directory + person extraction primitives for scraping staff directories.
  *
  * The web is a mess. These extractors err on the side of strictness — better
  * to miss a person than to insert a "Click Here" contact named after a button.

@@ -29,7 +29,6 @@
 
 import {
   useEffect,
-  useMemo,
   useRef,
   useState,
 } from 'react';
@@ -67,9 +66,10 @@ export function PresenceLayer({
 
   // Track lastSeen per peer keyed by client id. Updates whenever the peer's
   // cursor coords change so we can fade them out after STALE_MS quiet.
-  const [, forceTick] = useState(0);
+  const [tick, setTick] = useState(0);
   const lastSeenRef = useRef<Map<number, number>>(new Map());
   const lastCursorRef = useRef<Map<number, string>>(new Map());
+  const [visiblePeers, setVisiblePeers] = useState<PeerWithLastSeen[]>([]);
 
   // Update lastSeen whenever a peer's cursor moved.
   useEffect(() => {
@@ -97,9 +97,25 @@ export function PresenceLayer({
   // Tick once per second to re-evaluate stale cursors. (Cheap; the layer is
   // mounted only inside the editor so this is bounded to the active page.)
   useEffect(() => {
-    const t = setInterval(() => forceTick((n) => n + 1), 1000);
+    const t = setInterval(() => setTick((n) => n + 1), 1000);
     return () => clearInterval(t);
   }, []);
+
+  // Compute visible (non-stale) peers in an effect so Date.now() and
+  // lastSeenRef.current are read outside render (React Compiler safe).
+  // Runs whenever peers change or the 1-second tick fires.
+  useEffect(() => {
+    const now = Date.now();
+    setVisiblePeers(
+      peers
+        .filter((p) => p.cursor != null)
+        .map((peer) => ({
+          peer,
+          lastSeen: lastSeenRef.current.get(peer.clientId) ?? now,
+        }))
+        .filter(({ lastSeen }) => now - lastSeen < STALE_MS),
+    );
+  }, [peers, tick]);
 
   // Broadcast local cursor (rAF-throttled) on mousemove over the shell.
   useEffect(() => {
@@ -147,16 +163,6 @@ export function PresenceLayer({
     };
   }, [awareness, setCursor]);
 
-  const visiblePeers: PeerWithLastSeen[] = useMemo(() => {
-    const now = Date.now();
-    return peers
-      .filter((p) => p.cursor != null)
-      .map((peer) => ({
-        peer,
-        lastSeen: lastSeenRef.current.get(peer.clientId) ?? now,
-      }))
-      .filter(({ lastSeen }) => now - lastSeen < STALE_MS);
-  }, [peers]);
 
   return (
     <div

@@ -15,8 +15,9 @@ import {
   brainNotes,
 } from '@/lib/db/schema';
 import { and, eq, desc, isNull } from 'drizzle-orm';
+import type { AnyPgColumn, AnyPgTable } from 'drizzle-orm/pg-core';
 
-const ARTIFACT_TABLES: Record<string, { table: any; titleField: string }> = {
+const ARTIFACT_TABLES: Record<string, { table: AnyPgTable; titleField: string }> = {
   website: { table: clientWebsites, titleField: 'name' },
   email_campaign: { table: emailCampaigns, titleField: 'name' },
   pitch_deck: { table: pitchDecks, titleField: 'title' },
@@ -82,12 +83,13 @@ export async function POST(
   // Look up the display title from the source table; enforce tenant ownership
   // so a caller can't attach another client's artifact to their deal.
   const config = ARTIFACT_TABLES[artifactType];
-  const baseWhere = and(eq(config.table.id, artifactId), eq(config.table.clientId, result.client.id));
+  const tableCols = config.table as unknown as Record<string, AnyPgColumn>;
+  const baseWhere = and(eq(tableCols.id, artifactId), eq(tableCols.clientId, result.client.id));
   const finalWhere = artifactType === 'brain_note'
     ? and(baseWhere, isNull(brainNotes.deletedAt))
     : baseWhere;
   const [source] = await db
-    .select({ title: config.table[config.titleField] })
+    .select({ title: tableCols[config.titleField] })
     .from(config.table)
     .where(finalWhere);
   if (!source) {

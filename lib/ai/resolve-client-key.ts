@@ -25,8 +25,9 @@ import { db } from '@/lib/db';
 import { clientApiKeys } from '@/lib/db/schema';
 import { and, eq } from 'drizzle-orm';
 import { decryptApiKey } from '@/lib/crypto/api-key';
+import { getClientEntitlements } from '@/lib/billing/entitlements';
 
-export type AiProvider = 'anthropic' | 'openai' | 'embedding';
+export type AiProvider = 'anthropic' | 'openai' | 'embedding' | 'huggingface';
 
 export interface ResolvedClientKey {
   /** Decrypted plaintext key suitable for passing to an SDK client. */
@@ -59,6 +60,8 @@ function getPlatformKey(provider: AiProvider): string | undefined {
     case 'embedding':
       // Embeddings live on OpenAI today (text-embedding-3-*). Same env var.
       return process.env.OPENAI_API_KEY;
+    case 'huggingface':
+      return process.env.HUGGINGFACE_API_KEY;
   }
 }
 
@@ -67,7 +70,7 @@ function getPlatformKey(provider: AiProvider): string | undefined {
  * Embeddings share the OpenAI bucket — clients add ONE OpenAI key and we use it
  * for both chat and embeddings.
  */
-function dbProvider(provider: AiProvider): 'anthropic' | 'openai' {
+function dbProvider(provider: AiProvider): 'anthropic' | 'openai' | 'huggingface' {
   return provider === 'embedding' ? 'openai' : provider;
 }
 
@@ -94,20 +97,43 @@ export async function resolveClientApiKey(opts: ResolveOptions): Promise<Resolve
     }
   }
 
-  // BYOK lookup. We pick the most recently used key as the active one — the
-  // schema permits multiple labels per provider (prod / staging) but v1 just
-  // uses whichever is freshest.
   let resolved: ResolvedClientKey | null = null;
+
+  // Scale-only BYOK gate (the "inversion"). A client may only USE a stored
+  // provider key while their tier is BYOK-eligible, so a Scale→lower downgrade
+  // stops using a previously-saved key and falls back to the platform key —
+  // we don't let an entitlement lapse leave the client spending on their own
+  // key (or, conversely, keep a discount they no longer pay for). This lookup
+  // sits inside the cached resolution, so it's amortised over the 60s TTL.
+  let byokEligible = false;
   try {
-    const rows = await db
-      .select()
-      .from(clientApiKeys)
-      .where(
-        and(
-          eq(clientApiKeys.clientId, clientId),
-          eq(clientApiKeys.provider, dbProvider(provider)),
-        ),
-      );
+    byokEligible = (await getClientEntitlements(clientId)).byokEligible;
+  } catch (err) {
+    // Fail closed for BYOK: if eligibility can't be confirmed, do NOT use a
+    // client key — fall through to the platform key.
+    console.warn(
+      `[resolveClientApiKey] entitlement check failed for clientId=${clientId}; not using BYOK`,
+      err,
+    );
+    byokEligible = false;
+  }
+
+  // BYOK lookup (only when eligible — otherwise we skip the query entirely and
+  // fall through to the platform key). We pick the most recently used key as
+  // the active one — the schema permits multiple labels per provider (prod /
+  // staging) but v1 just uses whichever is freshest.
+  try {
+    const rows = byokEligible
+      ? await db
+          .select()
+          .from(clientApiKeys)
+          .where(
+            and(
+              eq(clientApiKeys.clientId, clientId),
+              eq(clientApiKeys.provider, dbProvider(provider)),
+            ),
+          )
+      : [];
 
     if (rows.length > 0) {
       // Prefer the row most recently used; otherwise newest by createdAt.
@@ -149,9 +175,13 @@ export async function resolveClientApiKey(opts: ResolveOptions): Promise<Resolve
   if (!resolved) {
     const platform = getPlatformKey(provider);
     if (!platform) {
+      const envVar =
+        provider === 'anthropic' ? 'ANTHROPIC_API_KEY'
+        : provider === 'huggingface' ? 'HUGGINGFACE_API_KEY'
+        : 'OPENAI_API_KEY';
       throw new Error(
         `[resolveClientApiKey] No BYOK row and no platform env var for provider=${provider} (clientId=${clientId}). ` +
-        `Set ${provider === 'anthropic' ? 'ANTHROPIC_API_KEY' : 'OPENAI_API_KEY'} or add a BYOK key.`,
+        `Set ${envVar} or add a BYOK key.`,
       );
     }
     resolved = {

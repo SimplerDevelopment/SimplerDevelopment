@@ -29,6 +29,11 @@ vi.mock('@/lib/portal-client', () => ({
   resolveClientSite: (...args: unknown[]) => resolveClientSiteMock(...args),
 }));
 
+const hasServiceAccessMock = vi.fn();
+vi.mock('@/lib/portal-auth', () => ({
+  hasServiceAccess: (...args: unknown[]) => hasServiceAccessMock(...args),
+}));
+
 vi.mock('@/lib/db/schema', () => {
   const wrap = (name: string) => {
     const target: Record<string, unknown> = {
@@ -392,9 +397,11 @@ beforeEach(() => {
 
   authMock.mockReset();
   resolveClientSiteMock.mockReset();
+  hasServiceAccessMock.mockReset();
 
   authMock.mockResolvedValue({ user: { id: '7' } });
   resolveClientSiteMock.mockResolvedValue({ id: 10 });
+  hasServiceAccessMock.mockResolvedValue(true);
 });
 
 // ---------------------------------------------------------------------------

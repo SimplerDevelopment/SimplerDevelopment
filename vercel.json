@@ -3,7 +3,9 @@
   "framework": "nextjs",
   "buildCommand": "next build",
   "installCommand": "bun install --frozen-lockfile",
-  "regions": ["iad1"],
+  "regions": [
+    "iad1"
+  ],
   "crons": [
     {
       "path": "/api/cron/expire-mcp-pendings",
@@ -74,8 +76,36 @@
       "schedule": "*/15 * * * *"
     },
     {
-      "path": "/api/cron/brain-12",
-      "schedule": "30 7 * * *"
+      "path": "/api/cron/process-crm-sequences",
+      "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/process-scheduled-posts",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/process-linkedin-posts",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/process-contract-signature-reminders",
+      "schedule": "0 */6 * * *"
+    },
+    {
+      "path": "/api/cron/process-cart-abandonment",
+      "schedule": "*/30 * * * *"
+    },
+    {
+      "path": "/api/cron/process-journey-enrollments",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/mcp-rollup",
+      "schedule": "0 4 * * *"
+    },
+    {
+      "path": "/api/cron/mcp-cleanup",
+      "schedule": "23 4 * * *"
     },
     {
       "path": "/api/cron/resend-usage-sync",
@@ -86,7 +116,23 @@
       "schedule": "45 4 * * *"
     },
     {
+      "path": "/api/cron/usage-alerts",
+      "schedule": "15 5 * * *"
+    },
+    {
+      "path": "/api/cron/purge-unverified",
+      "schedule": "30 5 * * *"
+    },
+    {
       "path": "/api/cron/process-scheduled-automations",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/process-workflow-runs",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/process-automation-jobs",
       "schedule": "* * * * *"
     },
     {
@@ -98,11 +144,31 @@
       "schedule": "* * * * *"
     },
     {
-      "path": "/api/cron/magamommy-weekly-drop",
-      "schedule": "0 14 * * 1"
+      "path": "/api/cron/process-playbook-waits",
+      "schedule": "*/5 * * * *"
     },
     {
-      "path": "/api/cron/process-playbook-waits",
+      "path": "/api/cron/email-scheduled-send",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/email-ab-promote",
+      "schedule": "*/30 * * * *"
+    },
+    {
+      "path": "/api/cron/invoices-overdue",
+      "schedule": "7 * * * *"
+    },
+    {
+      "path": "/api/cron/ai-credits-monthly-regrant",
+      "schedule": "0 6 2 * *"
+    },
+    {
+      "path": "/api/cron/eval-runs",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/eval-schedule",
       "schedule": "*/5 * * * *"
     }
   ]

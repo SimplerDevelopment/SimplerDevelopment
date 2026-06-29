@@ -2,9 +2,10 @@ import { NextResponse } from 'next/server';
 import { withCronHealth } from '@/lib/cron-health';
 import { db } from '@/lib/db';
 import { automationRules } from '@/lib/db/schema';
-import { and, eq, isNotNull, lte, asc } from 'drizzle-orm';
+import { and, eq, isNotNull, asc, lte } from 'drizzle-orm';
 import { computeNextRunAt } from '@/lib/automation/schedule';
 import { runRule } from '@/lib/automation/engine';
+import { isAuthorizedCron } from '@/lib/cron-auth';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -22,19 +23,14 @@ export const runtime = 'nodejs';
  * Auth: Vercel cron header OR `Authorization: Bearer ${CRON_SECRET}`.
  */
 async function _GET(req: Request) {
-  const isVercelCron = req.headers.get('x-vercel-cron') === '1';
-  if (!isVercelCron) {
-    const cronSecret = process.env.CRON_SECRET;
-    const auth = req.headers.get('authorization');
-    if (!cronSecret || auth !== `Bearer ${cronSecret}`) {
-      return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
-    }
+  if (!isAuthorizedCron(req)) {
+    return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
   }
 
   const now = new Date();
-
   // Find due rules. The partial index automation_rules_next_run_at_idx
   // (enabled, next_run_at) WHERE schedule IS NOT NULL covers this scan.
+  // next_run_at is timestamptz, so this comparison is TZ-correct.
   const due = await db.select()
     .from(automationRules)
     .where(and(
@@ -63,17 +59,17 @@ async function _GET(req: Request) {
     // at save time), null it out so the rule won't keep ticking.
     const nextNext = computeNextRunAt(rule.schedule, now);
     const claimNext = nextNext ?? null;
-    const currentNextRunAt = rule.nextRunAt;
 
-    // Atomic claim: only one worker should fire this rule. Setting
-    // next_run_at to `claimNext` here means a parallel scheduler tick won't
-    // see the same row as due. updatedAt is bumped so the row's revision
-    // moves on every successful claim.
+    // CAS claim, still-due predicate. Exact `nextRunAt = <observed>` can't be
+    // used: timestamptz has microsecond precision but postgres-js reads it back
+    // as a millisecond JS Date, so equality never matches. Re-assert
+    // `nextRunAt <= now` instead — the winner advances nextRunAt to a future
+    // slot (or null), so a racing tick's predicate is false and it claims 0 rows.
     const claimed = await db.update(automationRules)
       .set({ nextRunAt: claimNext, updatedAt: new Date() })
       .where(and(
         eq(automationRules.id, rule.id),
-        eq(automationRules.nextRunAt, currentNextRunAt),
+        lte(automationRules.nextRunAt, now),
       ))
       .returning({ id: automationRules.id });
 

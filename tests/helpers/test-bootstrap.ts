@@ -37,8 +37,13 @@ export const WORKTREE_ID = crypto.createHash('sha1').update(REPO_ROOT).digest('h
 /** Name of the immutable template DB built once in globalSetup. */
 export const TEMPLATE_DB = `simplerdev_test_template_${WORKTREE_ID}`;
 
-/** Per-worker DB name. Stable for the lifetime of this worker process. */
-export const PER_WORKER_DB = `test_e2e_${WORKTREE_ID}_w${WORKER_ID}`;
+/**
+ * Per-worker DB name. Includes `process.pid` so concurrently-active Vitest
+ * workers that share the same VITEST_POOL_ID value get distinct DB names and
+ * can no longer race on the same DROP/CREATE DATABASE pair.
+ * Format: test_e2e_<8-hex>_w<poolId>_p<pid>  (well under the 63-char limit).
+ */
+export const PER_WORKER_DB = `test_e2e_${WORKTREE_ID}_w${WORKER_ID}_p${process.pid}`;
 
 /**
  * Back-compat alias. Pre-template-DB versions of this file isolated tests

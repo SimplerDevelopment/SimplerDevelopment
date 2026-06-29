@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useLayoutEffect, useRef, useCallback } from 'react';
 import 'animate.css';
 
 // ─── KONAMI CODE ────────────────────────────────────────────────────────────
@@ -14,7 +14,9 @@ const KONAMI = [
 function useKonamiCode(onActivate: () => void) {
   const indexRef = useRef(0);
   const callbackRef = useRef(onActivate);
-  callbackRef.current = onActivate;
+  useLayoutEffect(() => {
+    callbackRef.current = onActivate;
+  });
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {

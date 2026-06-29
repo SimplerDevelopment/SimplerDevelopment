@@ -1,7 +1,7 @@
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
 import { resolvePortalFromRequest } from '@/lib/mcp-auth';
 import { buildMcpServer } from '@/lib/mcp/server';
-import { originFromRequest } from '@/lib/oauth/server';
+import { originFromRequest, resourceIndicatorMatches } from '@/lib/oauth/server';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -18,9 +18,31 @@ function unauthorized(req: Request) {
   );
 }
 
+function invalidAudience(req: Request) {
+  // RFC 8707 / RFC 6750 — the bearer token is audience-bound to a different
+  // resource than this MCP endpoint. Respond with error="invalid_token" so the
+  // client re-runs the OAuth dance requesting the correct `resource`.
+  const origin = originFromRequest(req);
+  const challenge =
+    `Bearer error="invalid_token", ` +
+    `error_description="token audience does not match this resource", ` +
+    `resource_metadata="${origin}/.well-known/oauth-protected-resource", scope="*"`;
+  return new Response(
+    JSON.stringify({ jsonrpc: '2.0', error: { code: -32001, message: 'Invalid token audience' } }),
+    { status: 401, headers: { 'Content-Type': 'application/json', 'WWW-Authenticate': challenge } }
+  );
+}
+
 async function handle(req: Request): Promise<Response> {
   const ctx = await resolvePortalFromRequest(req);
   if (!ctx) return unauthorized(req);
+
+  // RFC 8707 audience enforcement: a token bound to a `resource` must be
+  // presented at that resource. `null` resource = unrestricted (backward-compat
+  // for portal API keys and pre-resource OAuth tokens) and passes through.
+  if (ctx.resource && !resourceIndicatorMatches(ctx.resource, `${originFromRequest(req)}/api/mcp`)) {
+    return invalidAudience(req);
+  }
 
   const server = buildMcpServer(ctx);
   // Stateless mode — each request is independent. Safe for serverless.

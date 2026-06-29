@@ -44,6 +44,22 @@ export function generateAccessToken(): { token: string; hash: string; preview: s
   return { token, hash: sha256(token), preview: `${token.slice(0, 16)}…${token.slice(-4)}` };
 }
 
+export const REFRESH_TOKEN_PREFIX = 'sd_oart_';
+
+/** Mints a refresh token (`sd_oart_…`). Like access tokens, only the SHA-256
+ *  hash is stored; the raw value is returned to the client exactly once. */
+export function generateRefreshToken(): { token: string; hash: string; preview: string } {
+  const raw = crypto.randomBytes(32).toString('hex');
+  const token = `${REFRESH_TOKEN_PREFIX}${raw}`;
+  return { token, hash: sha256(token), preview: `${token.slice(0, 16)}…${token.slice(-4)}` };
+}
+
+/** Opaque id tying a refresh-token rotation lineage together for reuse
+ *  detection. Shared across every token descended from one authorization. */
+export function generateRefreshFamilyId(): string {
+  return `rf_${crypto.randomBytes(16).toString('hex')}`;
+}
+
 export const CLIENT_SECRET_PREFIX = 'sd_cs_';
 
 /** Mints a confidential-client secret. The raw `secret` is shown to the admin
@@ -149,4 +165,26 @@ export function isAcceptableRedirectUri(uri: string): boolean {
   // Native-app redirect schemes are allowed for desktop MCP clients.
   if (/^[a-z][a-z0-9+.-]*:$/.test(parsed.protocol) && parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return true;
   return false;
+}
+
+/** RFC 8707 audience check: does a token's bound `resource` indicator match the
+ *  protected resource it is being presented at? Both sides are normalised to
+ *  `protocol//host/path` (host lower-cased, trailing slashes stripped, query +
+ *  fragment ignored). A malformed token resource fails closed. Callers must
+ *  only invoke this when the token actually carries a (non-null) resource. */
+export function resourceIndicatorMatches(tokenResource: string, expected: string): boolean {
+  const norm = (s: string): string | null => {
+    try {
+      const u = new URL(s);
+      return `${u.protocol}//${u.host.toLowerCase()}${u.pathname.replace(/\/+$/, '')}`;
+    } catch {
+      return null;
+    }
+  };
+  const a = norm(tokenResource);
+  const b = norm(expected);
+  if (a !== null && b !== null) return a === b;
+  // Fail closed: if either isn't a valid absolute URI, require a lenient exact match.
+  const lenient = (s: string) => s.trim().replace(/\/+$/, '').toLowerCase();
+  return lenient(tokenResource) === lenient(expected);
 }

@@ -39,6 +39,8 @@ vi.mock('@/contexts/BlockEditorContext', () => ({
   useBlockEditor: () => {
     throw new Error('useBlockEditor must be used within a BlockEditorProvider');
   },
+  // ViewportSelector uses the optional hook; null = no provider → props fallback.
+  useBlockEditorOptional: () => null,
 }));
 
 // ---------------------------------------------------------------------------

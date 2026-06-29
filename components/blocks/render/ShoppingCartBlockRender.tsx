@@ -4,6 +4,7 @@ import { ShoppingCartBlock } from '@/types/blocks';
 import { useEffect, useState } from 'react';
 import { useBranding } from '@/contexts/BrandingContext';
 import { CartLineDesignBadge } from '@/components/storefront/CartLineDesignBadge';
+import { formatMoney } from '@/lib/utils/money';
 
 interface CartItem {
   id: number;
@@ -68,10 +69,6 @@ export function ShoppingCartBlockRender({ block, siteId }: ShoppingCartBlockRend
     fetchCart();
   }, [siteId]);
 
-  function formatPrice(cents: number) {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100);
-  }
-
   const subtotal = items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
   const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
 
@@ -97,7 +94,7 @@ export function ShoppingCartBlockRender({ block, siteId }: ShoppingCartBlockRend
             <span className="font-semibold">Cart ({itemCount})</span>
           </div>
           {block.showSubtotal !== false && itemCount > 0 && (
-            <span className="font-bold">{formatPrice(subtotal)}</span>
+            <span className="font-bold">{formatMoney(subtotal)}</span>
           )}
         </div>
         {itemCount > 0 ? (
@@ -163,14 +160,14 @@ export function ShoppingCartBlockRender({ block, siteId }: ShoppingCartBlockRend
                         />
                       )}
                     </div>
-                    <div className="font-semibold">{formatPrice(item.unitPrice * item.quantity)}</div>
+                    <div className="font-semibold">{formatMoney(item.unitPrice * item.quantity)}</div>
                   </div>
                 ))}
               </div>
               {block.showSubtotal !== false && (
                 <div className="flex items-center justify-between p-4 border-t border-border bg-muted/5">
                   <span className="font-semibold">Subtotal</span>
-                  <span className="font-bold text-lg">{formatPrice(subtotal)}</span>
+                  <span className="font-bold text-lg">{formatMoney(subtotal)}</span>
                 </div>
               )}
               <div className="p-4 border-t border-border">

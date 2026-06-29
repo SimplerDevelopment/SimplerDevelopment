@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnPrimary, pBtnGhost, pSelect, pInput } from '@/components/portal/portal-ui';
 
 interface RelationshipListRow {
   overlay: {
@@ -136,22 +138,20 @@ export default function BrainRelationshipsPage() {
 
   return (
     <div className="max-w-5xl mx-auto py-8 space-y-6">
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-            <span className="material-icons text-primary">{header.icon}</span>
-            {header.title}
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">{header.subtitle}</p>
-        </div>
-        <button
-          onClick={() => setShowCreate(true)}
-          className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90"
-        >
-          <span className="material-icons text-base">add</span>
-          New relationship
-        </button>
-      </div>
+      <PortalPageHeader
+        eyebrow="Company Brain"
+        title={<span className="flex items-center gap-2"><span className="material-icons text-primary">{header.icon}</span>{header.title}</span>}
+        subtitle={header.subtitle}
+        actions={
+          <button
+            onClick={() => setShowCreate(true)}
+            className={pBtnPrimary}
+          >
+            <span className="material-icons text-base">add</span>
+            New relationship
+          </button>
+        }
+      />
 
       {error && (
         <div className="bg-destructive/10 border border-destructive/30 rounded-md p-3 text-sm text-destructive">
@@ -181,7 +181,7 @@ export default function BrainRelationshipsPage() {
         <select
           value={priorityFilter}
           onChange={(e) => setPriorityFilter(e.target.value)}
-          className="text-xs px-2 py-1 rounded-md border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+          className={pSelect}
         >
           <option value="">All priorities</option>
           <option value="critical">Critical</option>
@@ -193,7 +193,7 @@ export default function BrainRelationshipsPage() {
           <select
             value={typeFilter}
             onChange={(e) => setTypeFilter(e.target.value)}
-            className="text-xs px-2 py-1 rounded-md border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+            className={pSelect}
           >
             <option value="">All types</option>
             {types.map((t) => <option key={t} value={t}>{t.replace(/_/g, ' ')}</option>)}
@@ -207,14 +207,14 @@ export default function BrainRelationshipsPage() {
           Loading…
         </div>
       ) : sorted.length === 0 ? (
-        <div className="text-center py-12 bg-card border border-border rounded-lg">
+        <div className="text-center py-12 bg-card border border-border rounded-2xl">
           <span className="material-icons text-4xl text-muted-foreground mb-2 block">{emptyCopy.icon}</span>
           <p className="text-sm text-foreground font-medium">{emptyCopy.title}</p>
           <p className="text-muted-foreground text-xs mt-1 mb-4">{emptyCopy.hint}</p>
           {view === 'all' && (
             <button
               onClick={() => setShowCreate(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90"
+              className={pBtnPrimary}
             >
               <span className="material-icons text-base">add</span>
               New relationship
@@ -226,7 +226,7 @@ export default function BrainRelationshipsPage() {
           {sorted.map((row) => <RelationshipCard key={row.overlay.id} row={row} />)}
         </div>
       ) : (
-        <div className="bg-card border border-border rounded-lg divide-y divide-border">
+        <div className="bg-card border border-border rounded-2xl divide-y divide-border">
           {sorted.map((row) => <RelationshipRow key={row.overlay.id} row={row} />)}
         </div>
       )}
@@ -245,7 +245,7 @@ function RelationshipCard({ row }: { row: RelationshipListRow }) {
   return (
     <Link
       href={`/portal/brain/relationships/${row.overlay.id}`}
-      className="bg-card border border-border rounded-lg p-4 hover:border-primary/50 transition-colors"
+      className="bg-card border border-border rounded-2xl p-4 hover:border-primary/50 transition-colors"
     >
       <div className="flex items-start justify-between gap-2 mb-1">
         <div className="min-w-0 flex-1">
@@ -293,7 +293,9 @@ function RelationshipCard({ row }: { row: RelationshipListRow }) {
 
 function RelationshipRow({ row }: { row: RelationshipListRow }) {
   const lastTouch = row.overlay.lastTouchAt ? new Date(row.overlay.lastTouchAt) : null;
-  const days = lastTouch ? Math.floor((Date.now() - lastTouch.getTime()) / 86400000) : null;
+  const [days] = useState<number | null>(() =>
+    lastTouch ? Math.floor((Date.now() - lastTouch.getTime()) / 86400000) : null
+  );
   return (
     <Link
       href={`/portal/brain/relationships/${row.overlay.id}`}
@@ -394,7 +396,7 @@ function CreateRelationshipModal({ onClose, onCreated }: { onClose: () => void; 
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-card border border-border rounded-lg shadow-xl max-w-lg w-full p-5 space-y-4 max-h-[90vh] overflow-auto">
+      <div className="bg-card border border-border rounded-2xl shadow-xl max-w-lg w-full p-5 space-y-4 max-h-[90vh] overflow-auto">
         <div>
           <h3 className="text-base font-semibold text-foreground">New relationship</h3>
           <p className="text-xs text-muted-foreground mt-0.5">
@@ -413,7 +415,7 @@ function CreateRelationshipModal({ onClose, onCreated }: { onClose: () => void; 
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search CRM companies or deals…"
-              className="w-full px-3 py-2 rounded-md border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              className={pInput}
               autoFocus
             />
             {suggestions && (
@@ -427,7 +429,7 @@ function CreateRelationshipModal({ onClose, onCreated }: { onClose: () => void; 
                           key={`c${c.id}`}
                           disabled={c.hasOverlay}
                           onClick={() => setPicked({ type: 'company', id: c.id, name: c.name })}
-                          className={`w-full text-left px-3 py-2 rounded-md border text-sm flex items-center justify-between ${
+                          className={`w-full text-left px-3 py-2 rounded-xl border text-sm flex items-center justify-between ${
                             c.hasOverlay
                               ? 'border-border opacity-50 cursor-not-allowed'
                               : 'border-border hover:border-primary hover:bg-accent'
@@ -453,7 +455,7 @@ function CreateRelationshipModal({ onClose, onCreated }: { onClose: () => void; 
                           key={`d${d.id}`}
                           disabled={d.hasOverlay}
                           onClick={() => setPicked({ type: 'deal', id: d.id, name: d.title })}
-                          className={`w-full text-left px-3 py-2 rounded-md border text-sm flex items-center justify-between ${
+                          className={`w-full text-left px-3 py-2 rounded-xl border text-sm flex items-center justify-between ${
                             d.hasOverlay
                               ? 'border-border opacity-50 cursor-not-allowed'
                               : 'border-border hover:border-primary hover:bg-accent'
@@ -478,7 +480,7 @@ function CreateRelationshipModal({ onClose, onCreated }: { onClose: () => void; 
           </>
         ) : (
           <div className="space-y-3">
-            <div className="bg-muted/30 border border-border rounded-md p-3 flex items-center justify-between">
+            <div className="bg-muted/30 border border-border rounded-xl p-3 flex items-center justify-between">
               <div className="flex items-center gap-2 min-w-0">
                 <span className="material-icons text-base text-muted-foreground">{picked.type === 'company' ? 'business' : 'handshake'}</span>
                 <span className="text-sm font-medium text-foreground truncate">{picked.name}</span>
@@ -492,7 +494,7 @@ function CreateRelationshipModal({ onClose, onCreated }: { onClose: () => void; 
                 value={relationshipType}
                 onChange={(e) => setRelationshipType(e.target.value)}
                 placeholder="e.g. household, prospect, referral_partner"
-                className="w-full px-3 py-2 rounded-md border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                className={pInput}
               />
             </div>
             <div>
@@ -500,7 +502,7 @@ function CreateRelationshipModal({ onClose, onCreated }: { onClose: () => void; 
               <select
                 value={priority}
                 onChange={(e) => setPriority(e.target.value as typeof priority)}
-                className="w-full px-3 py-2 rounded-md border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                className={pSelect}
               >
                 <option value="low">Low</option>
                 <option value="medium">Medium</option>
@@ -512,11 +514,11 @@ function CreateRelationshipModal({ onClose, onCreated }: { onClose: () => void; 
         )}
 
         <div className="flex items-center justify-end gap-2 pt-2">
-          <button onClick={onClose} className="px-3 py-1.5 text-sm rounded-md border border-border text-foreground hover:bg-accent">Cancel</button>
+          <button onClick={onClose} className={pBtnGhost}>Cancel</button>
           <button
             onClick={submit}
             disabled={!picked || submitting}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+            className={pBtnPrimary}
           >
             {submitting
               ? <><span className="material-icons animate-spin text-base">progress_activity</span>Creating…</>

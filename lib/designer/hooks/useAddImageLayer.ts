@@ -116,9 +116,9 @@ export function useAddImageLayer({ onUploadImage }: UseAddImageLayerOptions) {
       extraData?: Partial<ImageLayerData>,
     ) => Promise<string | null>;
   };
-  const fn = addFromFile as unknown as AddImageLayerFn;
-  fn.addFromResult = addFromResult;
-  return fn;
+  // Create a fresh wrapper each call so we never mutate the memoized addFromFile ref
+  const wrapper = (file: File) => addFromFile(file);
+  return Object.assign(wrapper, { addFromResult }) as AddImageLayerFn;
 }
 
 export default useAddImageLayer;

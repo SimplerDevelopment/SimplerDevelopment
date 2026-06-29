@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { withCronHealth } from '@/lib/cron-health';
+import { isAuthorizedCron } from '@/lib/cron-auth';
 import { processRecurrences } from '@/lib/portal/recurrence-processor';
 
 export const dynamic = 'force-dynamic';
@@ -12,13 +13,8 @@ export const runtime = 'nodejs';
  * otherwise expects `Authorization: Bearer ${CRON_SECRET}`.
  */
 async function _GET(req: Request) {
-  const isVercelCron = req.headers.get('x-vercel-cron') === '1';
-  if (!isVercelCron) {
-    const cronSecret = process.env.CRON_SECRET;
-    const auth = req.headers.get('authorization');
-    if (!cronSecret || auth !== `Bearer ${cronSecret}`) {
-      return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
-    }
+  if (!isAuthorizedCron(req)) {
+    return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
   }
 
   try {

@@ -49,6 +49,15 @@
   --accent-secondary: #10b981;
   --destructive: #ef4444;
   --destructive-foreground: #ffffff;
+  /* Portal redesign helper tokens (additive — chrome + dashboard widgets).
+     Status tones, the active-nav soft accent, a second surface, and a
+     stronger border used by the persistent sidebar/topbar + widget board. */
+  --portal-ok: #15803d;        --portal-ok-bg: rgba(21,128,61,0.09);
+  --portal-warn: #b45309;      --portal-warn-bg: rgba(180,83,9,0.10);
+  --portal-bad: #dc2626;       --portal-bad-bg: rgba(220,38,38,0.08);
+  --portal-accent-soft: rgba(37,99,235,0.10);
+  --portal-surface-2: #f7f6f4;
+  --portal-border-strong: #c9c5c1;
 }
 
 .nav-logo-icon {
@@ -80,6 +89,12 @@
   --accent-secondary: #10b981;
   --destructive: #ef4444;
   --destructive-foreground: #ffffff;
+  --portal-ok: #34d399;        --portal-ok-bg: rgba(52,211,153,0.14);
+  --portal-warn: #fbbf24;      --portal-warn-bg: rgba(251,191,36,0.14);
+  --portal-bad: #f87171;       --portal-bad-bg: rgba(248,113,113,0.14);
+  --portal-accent-soft: rgba(59,130,246,0.18);
+  --portal-surface-2: #1c1c1f;
+  --portal-border-strong: #52525b;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -101,6 +116,12 @@
     --accent-secondary: #10b981;
     --destructive: #ef4444;
     --destructive-foreground: #ffffff;
+    --portal-ok: #34d399;        --portal-ok-bg: rgba(52,211,153,0.14);
+    --portal-warn: #fbbf24;      --portal-warn-bg: rgba(251,191,36,0.14);
+    --portal-bad: #f87171;       --portal-bad-bg: rgba(248,113,113,0.14);
+    --portal-accent-soft: rgba(59,130,246,0.18);
+    --portal-surface-2: #1c1c1f;
+    --portal-border-strong: #52525b;
   }
 }
 
@@ -271,15 +292,6 @@ html,body {
   flex: 0 0 var(--col-width);
 }
 
-/* Peters Outdoor theme */
-.peters-outdoor {
-  --po-bg: #FAF9F6;
-  --po-text: #1A2E1A;
-  --po-gold: #C8A951;
-  --po-forest: #2D4A2D;
-  --po-forest-light: #7A9B6D;
-  --po-forest-medium: #3D5A3D;
-}
 
 .font-playfair {
   font-family: var(--font-playfair), serif;
@@ -380,4 +392,182 @@ html,body {
   .sd-slide--y {
     animation: none;
   }
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Admin panel — scoped "stark" (Geist / Vercel) theme.
+
+   Overrides the semantic design tokens ONLY for descendants of `.admin-shell`,
+   so the client portal (app/portal) and public sites (app/sites, app/s) keep
+   the original palette untouched. Custom-property inheritance resolves to the
+   nearest defining ancestor, so redefining the tokens on `.admin-shell` flips
+   every `bg-card` / `text-foreground` / `border-border` / `bg-primary`
+   utility inside admin without changing :root.
+
+   Theme: light is the base; dark applies when the admin shell opts in
+   (data-theme="dark") OR the OS prefers dark and the admin shell hasn't
+   explicitly chosen light. Mirrors the global :root:not(.light) pattern.
+   ─────────────────────────────────────────────────────────────────────────── */
+.admin-shell {
+  /* semantic tokens (override globals within this subtree) */
+  --background: #ffffff;
+  --foreground: #0a0a0a;
+  --card: #ffffff;
+  --card-foreground: #0a0a0a;
+  --popover: #ffffff;
+  --popover-foreground: #0a0a0a;
+  --muted: #fafafa;
+  --muted-foreground: #666666;
+  --accent: #f4f4f4;
+  --accent-foreground: #0a0a0a;
+  --border: #ebebeb;
+  --primary: #0a0a0a;
+  --primary-foreground: #ffffff;
+
+  /* admin-only extras (referenced via var() / arbitrary values) */
+  --admin-accent: #0070f3;
+  --admin-accent-glow: rgba(0, 112, 243, 0.10);
+  --admin-surface-2: #fafafa;
+  --admin-hover: #f4f4f4;
+  --admin-border-strong: #d4d4d4;
+  --admin-ok: #15803d;       --admin-ok-bg: rgba(21, 128, 61, 0.08);
+  --admin-warn: #b45309;     --admin-warn-bg: rgba(180, 83, 9, 0.08);
+  --admin-bad: #dc2626;      --admin-bad-bg: rgba(220, 38, 38, 0.07);
+  --admin-neutral: #b0b0b0;
+
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  letter-spacing: -0.006em;
+  -webkit-font-smoothing: antialiased;
+}
+
+.admin-shell[data-theme="dark"] {
+  --background: #000000;
+  --foreground: #ededed;
+  --card: #0a0a0a;
+  --card-foreground: #ededed;
+  --popover: #0a0a0a;
+  --popover-foreground: #ededed;
+  --muted: #111111;
+  --muted-foreground: #8f8f8f;
+  --accent: #161616;
+  --accent-foreground: #ededed;
+  --border: #1f1f1f;
+  --primary: #ededed;
+  --primary-foreground: #0a0a0a;
+
+  --admin-accent: #3291ff;
+  --admin-accent-glow: rgba(50, 145, 255, 0.18);
+  --admin-surface-2: #111111;
+  --admin-hover: #161616;
+  --admin-border-strong: #383838;
+  --admin-ok: #34d399;       --admin-ok-bg: rgba(52, 211, 153, 0.12);
+  --admin-warn: #fbbf24;     --admin-warn-bg: rgba(251, 191, 36, 0.12);
+  --admin-bad: #f87171;      --admin-bad-bg: rgba(248, 113, 113, 0.12);
+  --admin-neutral: #6e6e6e;
+}
+
+@media (prefers-color-scheme: dark) {
+  .admin-shell:not([data-theme="light"]) {
+    --background: #000000;
+    --foreground: #ededed;
+    --card: #0a0a0a;
+    --card-foreground: #ededed;
+    --popover: #0a0a0a;
+    --popover-foreground: #ededed;
+    --muted: #111111;
+    --muted-foreground: #8f8f8f;
+    --accent: #161616;
+    --accent-foreground: #ededed;
+    --border: #1f1f1f;
+    --primary: #ededed;
+    --primary-foreground: #0a0a0a;
+
+    --admin-accent: #3291ff;
+    --admin-accent-glow: rgba(50, 145, 255, 0.18);
+    --admin-surface-2: #111111;
+    --admin-hover: #161616;
+    --admin-border-strong: #383838;
+    --admin-ok: #34d399;       --admin-ok-bg: rgba(52, 211, 153, 0.12);
+    --admin-warn: #fbbf24;     --admin-warn-bg: rgba(251, 191, 36, 0.12);
+    --admin-bad: #f87171;      --admin-bad-bg: rgba(248, 113, 113, 0.12);
+    --admin-neutral: #6e6e6e;
+  }
+}
+
+/* tabular, mono numerals for any element opting in */
+.admin-shell .num { font-family: var(--font-mono), ui-monospace, monospace; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+
+/* stark scrollbars within admin */
+.admin-shell *::-webkit-scrollbar { width: 9px; height: 9px; }
+.admin-shell *::-webkit-scrollbar-thumb { background: var(--admin-border-strong); border-radius: 99px; }
+.admin-shell *::-webkit-scrollbar-track { background: transparent; }
+
+/* ── Auth split-screen brand panel (login / signup / forgot) ─────────────────
+   The drifting color-mesh behind the auth pages' right panel — brand-agnostic,
+   the tenant's name renders over it. Honors prefers-reduced-motion. */
+@keyframes auth-drift {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(8%, -10%) scale(1.12); }
+  66% { transform: translate(-6%, 8%) scale(0.92); }
+}
+@keyframes auth-pulse { 50% { opacity: 0.4; } }
+.auth-mesh { position: absolute; inset: -30%; filter: blur(70px); opacity: 0.85; z-index: 0; }
+.auth-blob { position: absolute; border-radius: 50%; mix-blend-mode: screen; animation: auth-drift 18s ease-in-out infinite; }
+.auth-grain {
+  position: absolute; inset: 0; z-index: 1; opacity: 0.5;
+  background: radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.08) 1px, transparent 0);
+  background-size: 22px 22px;
+}
+.auth-dot { animation: auth-pulse 2s infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .auth-blob, .auth-dot { animation: none; }
+}
+
+/* ── Portal dark chrome (sidebar) — scoped token override ─────────────────────
+   The persistent sidebar carries the redesign's signature #0e0d0c brand
+   surface (same as the auth panel / onboarding rail). Rather than rewrite the
+   sidebar's ~50 semantic classNames, we re-point the design tokens INSIDE this
+   scope to dark values — so `bg-card`, `text-foreground`, `hover:bg-accent`,
+   `border-border`, `--portal-accent-soft`, `text-primary` etc. all resolve dark
+   automatically. White-label inline color overrides still win (set via style=).
+   Reverting the whole dark sidebar = remove the `portal-chrome-dark` class. */
+.portal-chrome-dark {
+  --card: #0e0d0c;
+  --card-foreground: #f5f5f4;
+  --foreground: #ededed;
+  --muted: #1c1b1a;
+  --muted-foreground: #a8a29e;
+  --accent: rgba(255, 255, 255, 0.06);
+  --accent-foreground: #ffffff;
+  --border: rgba(255, 255, 255, 0.09);
+  --primary: #60a5fa;             /* lighter blue reads on the dark surface */
+  --primary-foreground: #0b1220;
+  --portal-accent-soft: rgba(255, 255, 255, 0.09);
+  --portal-surface-2: #1a1917;
+  --portal-border-strong: rgba(255, 255, 255, 0.18);
+  background-color: #0e0d0c;
+  color: var(--foreground);
+}
+/* Subtle top-edge brand glow echoing the auth mesh — static (this is a work
+   tool, not a landing page; no drifting blobs). */
+.portal-chrome-dark::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 240px;
+  background:
+    radial-gradient(130px 120px at 16% 4%, rgba(37, 99, 235, 0.30), transparent 70%),
+    radial-gradient(150px 130px at 96% 0%, rgba(16, 185, 129, 0.16), transparent 72%);
+  pointer-events: none;
+  z-index: 0;
+}
+.portal-chrome-dark > * { position: relative; z-index: 1; }
+
+/* Portal typography — lift the shell out of the Arial default into the
+   product's Geist sans. Scoped to `.portal-shell` so marketing pages are
+   untouched. Matches the redesigned auth/onboarding body type. */
+.portal-shell {
+  font-family: var(--font-geist-sans), system-ui, -apple-system, "Segoe UI", sans-serif;
 }

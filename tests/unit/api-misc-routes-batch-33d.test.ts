@@ -36,9 +36,11 @@ const authorizePortalMock = vi.fn();
 const isAuthErrorMock = vi.fn((r: unknown) =>
   Boolean(r && typeof r === 'object' && 'response' in (r as Record<string, unknown>)),
 );
+const hasServiceAccessMock = vi.fn().mockResolvedValue(true);
 vi.mock('@/lib/portal-auth', () => ({
   authorizePortal: (...args: unknown[]) => authorizePortalMock(...args),
   isAuthError: (r: unknown) => isAuthErrorMock(r),
+  hasServiceAccess: (...args: unknown[]) => hasServiceAccessMock(...args),
 }));
 
 // pitch-deck migration helpers — exercise both the "needs migration" and
@@ -280,6 +282,8 @@ beforeEach(() => {
   authorizePortalMock.mockReset();
   convertAllSlidesToV2Mock.mockReset();
   isV2SlidesMock.mockReset();
+  hasServiceAccessMock.mockReset();
+  hasServiceAccessMock.mockResolvedValue(true);
 });
 
 // ===========================================================================
@@ -1121,14 +1125,14 @@ describe('POST /api/portal/tools/pitch-decks/[id]/versions', () => {
     expect(res.status).toBe(401);
   });
 
-  it('returns 404 when client cannot be resolved', async () => {
+  it('returns 403 when client cannot be resolved', async () => {
     authMock.mockResolvedValue(SESSION);
     getPortalClientMock.mockResolvedValue(null);
     const res = await pitchDeckVersionsRoute.POST(
       makeJsonReq('http://x/api/portal/tools/pitch-decks/1/versions', 'POST', { label: 'x' }),
       { params: Promise.resolve({ id: '1' }) },
     );
-    expect(res.status).toBe(404);
+    expect(res.status).toBe(403);
   });
 
   it('returns 404 when the deck is not found', async () => {

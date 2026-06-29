@@ -1,6 +1,6 @@
 // @vitest-environment node
 /**
- * Unit tests for `lib/plugins/handlers/postcaptain-tools/dispatch.ts`:
+ * Unit tests for `lib/plugins/handlers/content-tools/dispatch.ts`:
  *
  *   - Successful 202 from the worker → ok:true.
  *   - 4xx from the worker → ok:false, retriable:false (permanent).
@@ -17,13 +17,13 @@ vi.mock('@/lib/plugins/jwt', () => ({
 }));
 
 const { dispatchRun, DISPATCH_SCOPE } = await import(
-  '@/lib/plugins/handlers/postcaptain-tools/dispatch'
+  '@/lib/plugins/handlers/content-tools/dispatch'
 );
 
 const fakeApp = {
   id: 42,
-  slug: 'postcaptain-tools',
-  hostUrl: 'https://postcaptain-tools.test',
+  slug: 'content-tools',
+  hostUrl: 'https://content-tools.test',
 } as const;
 
 const fakePayload = {
@@ -53,7 +53,7 @@ describe('dispatchRun', () => {
     const result = await dispatchRun(fakeApp, fakePayload, { fetchImpl });
     expect(result).toEqual({ ok: true, status: 202 });
     expect(signPluginJwtMock).toHaveBeenCalledWith(42, expect.objectContaining({
-      aud: 'postcaptain-tools',
+      aud: 'content-tools',
       sub: 'system',
       clientId: 100,
       scopes: [DISPATCH_SCOPE],
@@ -107,12 +107,12 @@ describe('dispatchRun', () => {
     } as unknown as Response) as unknown as typeof fetch;
 
     await dispatchRun(
-      { ...fakeApp, hostUrl: 'https://postcaptain-tools.test/' },
+      { ...fakeApp, hostUrl: 'https://content-tools.test/' },
       fakePayload,
       { fetchImpl },
     );
 
     const url = (fetchImpl as unknown as ReturnType<typeof vi.fn>).mock.calls[0][0];
-    expect(url).toBe('https://postcaptain-tools.test/internal/execute-run');
+    expect(url).toBe('https://content-tools.test/internal/execute-run');
   });
 });

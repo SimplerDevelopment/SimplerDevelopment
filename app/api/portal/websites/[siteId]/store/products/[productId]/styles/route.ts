@@ -3,12 +3,12 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { products, productStyles } from '@/lib/db/schema';
 import { and, asc, eq } from 'drizzle-orm';
-import { resolveClientSite } from '@/lib/portal-client';
+import { resolveStoreSite } from '@/lib/portal-auth';
 
 type Params = { params: Promise<{ siteId: string; productId: string }> };
 
 async function resolveProduct(userId: number, siteId: string, productId: string) {
-  const site = await resolveClientSite(userId, parseInt(siteId, 10));
+  const site = await resolveStoreSite(userId, parseInt(siteId, 10));
   if (!site) return { site: null, product: null };
   const pid = parseInt(productId, 10);
   if (Number.isNaN(pid)) return { site, product: null };

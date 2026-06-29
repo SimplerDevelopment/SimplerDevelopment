@@ -14,6 +14,7 @@ import { db } from '@/lib/db';
 import { pitchDecks } from '@/lib/db/schema';
 import type { PitchDeckSlideV2 } from '@/lib/db/schema';
 import { getPortalClient } from '@/lib/portal-client';
+import { hasServiceAccess } from '@/lib/portal-auth';
 import {
   applyPublishAllToSlides,
   countDraftSlides,
@@ -38,6 +39,7 @@ export async function POST(
   if (!client) {
     return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
   }
+  if (!(await hasServiceAccess(client.id, 'pitch-decks'))) return NextResponse.json({ success: false, message: 'This feature requires an active pitch-decks subscription.', requiresService: 'pitch-decks', upsellUrl: '/portal/services' }, { status: 403 });
 
   const [deck] = await db.select().from(pitchDecks)
     .where(and(eq(pitchDecks.id, deckId), eq(pitchDecks.clientId, client.id)))

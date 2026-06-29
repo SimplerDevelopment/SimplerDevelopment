@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import type { Block, BlockType } from '@/types/blocks';
+import { pBtnPrimary, pBtnGhost, pCard, pInput } from '@/components/portal/portal-ui';
 import { VisualEditorShell } from '@/components/portal/VisualEditorShell';
 import { EmailPreviewPane } from '@/components/email/EmailPreviewPane';
 import { removeBlockById } from '@/lib/utils/blockHelpers';
@@ -79,7 +80,7 @@ export default function NewPortalCampaignPage() {
     setBlocks(newBlocks);
   }
 
-  const inputClass = 'w-full border border-border rounded-md px-3 py-2 text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary';
+  const inputClass = pInput;
   const labelClass = 'block text-xs font-medium text-muted-foreground mb-1';
 
   const canSave = form.name.trim() && form.subject.trim() && form.fromName.trim() && form.fromEmail.trim() && form.listId && (editorMode === 'visual' ? blocks.length > 0 : form.htmlContent.trim());
@@ -91,7 +92,7 @@ export default function NewPortalCampaignPage() {
         <div className="flex items-center gap-3">
           <Link
             href="/portal/email/campaigns"
-            className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+            className={`${pBtnGhost} !px-2 !py-2`}
           >
             <span className="material-icons">arrow_back</span>
           </Link>
@@ -113,11 +114,11 @@ export default function NewPortalCampaignPage() {
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           {/* Editor mode toggle */}
-          <div className="inline-flex rounded-lg border border-border overflow-hidden">
+          <div className="inline-flex rounded-xl border border-border overflow-hidden">
             <button
               onClick={() => setEditorMode('visual')}
               className={`px-3 py-1.5 text-xs font-medium flex items-center gap-1 transition-colors ${
-                editorMode === 'visual' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent'
+                editorMode === 'visual' ? 'bg-foreground text-background' : 'text-muted-foreground hover:bg-muted'
               }`}
             >
               <span className="material-icons text-sm">dashboard</span>
@@ -126,7 +127,7 @@ export default function NewPortalCampaignPage() {
             <button
               onClick={() => setEditorMode('html')}
               className={`px-3 py-1.5 text-xs font-medium flex items-center gap-1 transition-colors ${
-                editorMode === 'html' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent'
+                editorMode === 'html' ? 'bg-foreground text-background' : 'text-muted-foreground hover:bg-muted'
               }`}
             >
               <span className="material-icons text-sm">code</span>
@@ -137,8 +138,8 @@ export default function NewPortalCampaignPage() {
           {editorMode === 'visual' && (
             <button
               onClick={() => setShowEmailPreview(!showEmailPreview)}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-border rounded-lg transition-colors ${
-                showEmailPreview ? 'bg-primary/10 text-primary border-primary' : 'text-muted-foreground hover:text-foreground hover:bg-accent'
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border rounded-xl transition-colors ${
+                showEmailPreview ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground hover:text-foreground hover:bg-muted'
               }`}
             >
               <span className="material-icons text-base">email</span>
@@ -149,7 +150,7 @@ export default function NewPortalCampaignPage() {
           <button
             onClick={save}
             disabled={saving || !canSave}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg font-medium bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40 transition-all"
+            className={pBtnPrimary}
           >
             {saving ? (
               <span className="material-icons animate-spin text-base">autorenew</span>
@@ -173,7 +174,7 @@ export default function NewPortalCampaignPage() {
       <div className="flex gap-4">
         {/* Settings sidebar — collapsible, like the slides panel */}
         <div className={`shrink-0 transition-all duration-200 ${settingsCollapsed ? 'w-12' : 'w-72'}`}>
-          <div className="bg-card border border-border rounded-xl overflow-hidden">
+          <div className={`${pCard} overflow-hidden`}>
             {settingsCollapsed ? (
               <>
                 <button
@@ -279,7 +280,7 @@ export default function NewPortalCampaignPage() {
             <div className={showEmailPreview ? 'flex flex-col md:flex-row gap-4' : ''}>
               <div className={`${showEmailPreview ? 'flex-1 min-w-0' : 'w-full'}`}>
                 {/* Visual Editor Shell — same as pitch deck */}
-                <div className="rounded-xl overflow-hidden [&>div]:!h-[calc(100vh-180px)]" style={{ minHeight: '600px' }}>
+                <div className="rounded-2xl overflow-hidden [&>div]:!h-[calc(100vh-180px)]" style={{ minHeight: '600px' }}>
                   <VisualEditorShell
                     key={`email-editor`}
                     blocks={blocks}
@@ -310,13 +311,13 @@ export default function NewPortalCampaignPage() {
               </div>
 
               {showEmailPreview && (
-                <div className="w-full sm:w-[400px] shrink-0 bg-card border border-border rounded-xl overflow-hidden" style={{ height: 'calc(100vh - 180px)' }}>
+                <div className={`w-full sm:w-[400px] shrink-0 ${pCard} overflow-hidden`} style={{ height: 'calc(100vh - 180px)' }}>
                   <EmailPreviewPane blocks={blocks} />
                 </div>
               )}
             </div>
           ) : (
-            <div className="bg-card border border-border rounded-xl overflow-hidden">
+            <div className={`${pCard} overflow-hidden`}>
               <div className="px-5 py-3 border-b border-border">
                 <h3 className="text-sm font-semibold text-foreground">Raw HTML Content</h3>
               </div>

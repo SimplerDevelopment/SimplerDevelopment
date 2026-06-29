@@ -1,46 +1,37 @@
-'use client';
+// Server-component auth gate for the admin subtree.
+// Resolves the staff session on the server and redirects unauthenticated or
+// non-staff visitors to /admin/login BEFORE any HTML is sent to the client.
+//
+// REDIRECT-LOOP AVOIDANCE: /admin/login lives inside this layout's route tree.
+// We read x-pathname (stamped by middleware.ts on every app-hostname response)
+// to detect the login page and let it render without an auth check. The login
+// page itself renders a centered card via its own client component — no chrome
+// needed.
+//
+// All sidebar chrome (collapse state, localStorage, CustomEvent) lives in
+// AdminShellClient (a 'use client' component) which this layout renders as its
+// output wrapper.
 
-// SessionProvider is mounted once at the app root in `app/layout.tsx`.
-// Re-wrapping here would spin up an extra /api/auth/session poll, so we just
-// render the admin chrome and let the root provider supply the session.
-import AdminSidebar from '@/components/admin/AdminSidebar';
-import { useState, useEffect } from 'react';
-import { usePathname } from 'next/navigation';
+import { headers } from 'next/headers';
+import { redirect } from 'next/navigation';
+import { requireStaffSession } from '@/lib/admin/auth';
+import AdminShellClient from '@/components/admin/AdminShellClient';
 
-export default function AdminLayout({
+export const dynamic = 'force-dynamic';
+export const fetchCache = 'force-no-store';
+export const revalidate = 0;
+
+export default async function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const pathname = usePathname();
-  const [isCollapsed, setIsCollapsed] = useState(false);
-
+  const headerList = await headers();
+  const pathname = headerList.get('x-pathname') ?? '';
   const isLoginPage = pathname === '/admin/login';
 
-  // Check if we're on a post edit/new screen
-  const isPostEditScreen = pathname.includes('/posts/new') ||
-                          pathname.includes('/posts/edit') ||
-                          (pathname.match(/\/posts\/\d+/) !== null);
-
-  // Full-width pages that don't need max-width constraint
-  const isFullWidthPage = pathname === '/admin' ||
-                          pathname.startsWith('/admin/crm') ||
-                          pathname.startsWith('/admin/portal-ecommerce');
-
-  useEffect(() => {
-    const saved = localStorage.getItem('adminSidebarCollapsed');
-    if (saved !== null) setIsCollapsed(saved === 'true');
-
-    const handleSidebarToggle = (event: CustomEvent<{ collapsed: boolean }>) => {
-      setIsCollapsed(event.detail.collapsed);
-    };
-
-    window.addEventListener('sidebarToggle', handleSidebarToggle as EventListener);
-    return () => {
-      window.removeEventListener('sidebarToggle', handleSidebarToggle as EventListener);
-    };
-  }, []);
-
+  // Always render the login page without auth gating — checking auth here
+  // would redirect back to /admin/login, creating an infinite loop.
   if (isLoginPage) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -49,18 +40,10 @@ export default function AdminLayout({
     );
   }
 
-  return (
-    <div className="min-h-screen bg-background">
-      {!isPostEditScreen && <AdminSidebar />}
-      <div
-        className={`transition-all duration-300 ${
-          isPostEditScreen ? '' : (isCollapsed ? 'lg:pl-16' : 'lg:pl-64')
-        }`}
-      >
-        <main className="min-h-screen">
-          {children}
-        </main>
-      </div>
-    </div>
-  );
+  const session = await requireStaffSession();
+  if (!session) {
+    redirect('/admin/login');
+  }
+
+  return <AdminShellClient>{children}</AdminShellClient>;
 }

@@ -604,10 +604,11 @@ describe('MeetingReviewPage — item grouping and summaries', () => {
 // ─── Approve / reject / edit flows ─────────────────────────────────────────
 
 describe('MeetingReviewPage — approve and reject actions', () => {
-  // The approve button lives in each card; find the per-item one (has bg-primary class).
+  // The approve button lives in each card; find the per-item one (has bg-foreground class
+  // after portal redesign — previously was bg-primary).
   function findApproveBtn(container: HTMLElement): HTMLButtonElement {
     return Array.from(container.querySelectorAll('button')).find((b) =>
-      b.className.includes('bg-primary') && b.textContent?.includes('Approve'),
+      b.className.includes('bg-foreground') && b.textContent?.includes('Approve'),
     ) as HTMLButtonElement;
   }
   function findRejectBtn(container: HTMLElement): HTMLButtonElement {

@@ -12,6 +12,8 @@ import {
   projectWebhookDeliveries,
   surveys,
   surveyWebhooks,
+  siteWebhooks,
+  siteWebhookDeliveries,
 } from '@/lib/db/schema';
 import { and, desc, eq } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
@@ -109,6 +111,33 @@ export async function GET(
     return NextResponse.json({ success: true, data: [] as DeliveryRow[] });
   }
 
-  // site — not implemented yet
-  return NextResponse.json({ success: true, data: [] as DeliveryRow[] });
+  // site — scoped directly by clientId.
+  const [hook] = await db
+    .select({ id: siteWebhooks.id })
+    .from(siteWebhooks)
+    .where(and(eq(siteWebhooks.id, hookId), eq(siteWebhooks.clientId, client.id)))
+    .limit(1);
+  if (!hook) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
+
+  const rows = await db
+    .select({
+      id: siteWebhookDeliveries.id,
+      event: siteWebhookDeliveries.event,
+      statusCode: siteWebhookDeliveries.statusCode,
+      error: siteWebhookDeliveries.error,
+      createdAt: siteWebhookDeliveries.createdAt,
+    })
+    .from(siteWebhookDeliveries)
+    .where(eq(siteWebhookDeliveries.webhookId, hookId))
+    .orderBy(desc(siteWebhookDeliveries.createdAt))
+    .limit(50);
+
+  const data: DeliveryRow[] = rows.map((r) => ({
+    id: r.id,
+    event: r.event,
+    status: r.statusCode ?? null,
+    error: r.error ?? null,
+    createdAt: r.createdAt.toISOString(),
+  }));
+  return NextResponse.json({ success: true, data });
 }

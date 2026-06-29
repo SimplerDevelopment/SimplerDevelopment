@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { randomBytes } from 'node:crypto';
-import { encryptSecret, decryptSecret } from '@/lib/crypto/secrets';
+import { encryptSecret, decryptSecret, decryptMaybe } from '@/lib/crypto/secrets';
 
 const TEST_KEY = randomBytes(32).toString('hex');
 
@@ -84,5 +84,33 @@ describe('encryptSecret / decryptSecret', () => {
 
   it('throws on a too-short blob', () => {
     expect(() => decryptSecret('YWJj')).toThrow(/too short/);
+  });
+});
+
+describe('decryptMaybe (tolerant decrypt for backfill-free adoption)', () => {
+  it('decrypts a real ciphertext blob', () => {
+    const plaintext = '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';
+    expect(decryptMaybe(encryptSecret(plaintext))).toBe(plaintext);
+  });
+
+  it('returns a legacy plaintext OAuth refresh token unchanged (never throws)', () => {
+    // Real Google/Microsoft refresh tokens are long opaque strings — they are
+    // NOT valid GCM blobs, so they must fall through to the plaintext branch.
+    const legacy = '1//09Ftq8xZ_legacy_google_refresh_token_AbC123-_def';
+    expect(decryptMaybe(legacy)).toBe(legacy);
+  });
+
+  it('returns a short/garbage value unchanged instead of throwing', () => {
+    expect(decryptMaybe('YWJj')).toBe('YWJj'); // would throw via decryptSecret
+    expect(decryptMaybe('')).toBe('');
+  });
+
+  it('does not mistake tampered ciphertext for plaintext silently corrupting it', () => {
+    // A tampered blob fails the auth tag and is returned as-is (the raw input),
+    // never a wrong-but-plausible plaintext.
+    const buf = Buffer.from(encryptSecret('sensitive'), 'base64');
+    buf[15] ^= 0x01;
+    const tampered = buf.toString('base64');
+    expect(decryptMaybe(tampered)).toBe(tampered);
   });
 });

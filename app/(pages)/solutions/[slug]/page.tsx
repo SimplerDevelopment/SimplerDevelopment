@@ -9,6 +9,12 @@ import { FadeIn } from '@/components/animations/FadeIn';
 import { SlideIn } from '@/components/animations/SlideIn';
 import { SolutionGallery } from '@/components/solutions/SolutionGallery';
 import { MaintenanceNotice, SOLUTIONS_UNDER_MAINTENANCE } from '@/components/marketing/MaintenanceNotice';
+import { StructuredData } from '@/components/seo/StructuredData';
+import {
+  generateSoftwareApplicationSchema,
+  generateBreadcrumbListSchema,
+} from '@/lib/utils/structured-data';
+import { siteConfig } from '@/config/site';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -47,8 +53,25 @@ export default async function SolutionPage({ params }: PageProps) {
   const otherSolutions = allSolutions.filter((s) => s.slug !== slug);
   const screenshots = getSolutionScreenshots(slug);
 
+  const solutionUrl = `${siteConfig.url}/solutions/${solution.slug}`;
+  const solutionAppSchema = {
+    ...generateSoftwareApplicationSchema(),
+    name: solution.title,
+    description: solution.description,
+    url: solutionUrl,
+    featureList: solution.features,
+    offers: undefined,
+  };
+  const breadcrumbSchema = generateBreadcrumbListSchema([
+    { name: 'Home', item: siteConfig.url },
+    { name: 'Solutions', item: `${siteConfig.url}/solutions` },
+    { name: solution.title, item: solutionUrl },
+  ]);
+
   return (
-    <div className="min-h-screen">
+    <>
+      <StructuredData data={[solutionAppSchema, breadcrumbSchema]} />
+      <div className="min-h-screen">
       {/* Hero */}
       <section className="relative py-24 md:py-32 overflow-hidden">
         <div
@@ -99,12 +122,12 @@ export default async function SolutionPage({ params }: PageProps) {
 
                 <FadeIn delay={0.25}>
                   <div className="flex flex-col sm:flex-row gap-3">
-                    <Button href="/contact" size="lg">
+                    <Button href="/portal/signup" size="lg">
                       Get Started
                       <span className="material-icons text-lg ml-1">arrow_forward</span>
                     </Button>
                     <Button href="/contact" variant="outline" size="lg">
-                      Get a Quote
+                      Book a Consultation
                     </Button>
                   </div>
                 </FadeIn>
@@ -318,17 +341,18 @@ export default async function SolutionPage({ params }: PageProps) {
               Let&apos;s discuss how {solution.badge.toLowerCase()} can transform your business
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button href="/contact" size="lg">
-                Book a Free Consultation
+              <Button href="/portal/signup" size="lg">
+                Start Free Trial
                 <span className="material-icons text-lg ml-1">arrow_forward</span>
               </Button>
-              <Button href="/solutions" variant="outline" size="lg">
-                View All Solutions
+              <Button href="/contact" variant="outline" size="lg">
+                Book a Consultation
               </Button>
             </div>
           </FadeIn>
         </div>
       </section>
     </div>
+    </>
   );
 }

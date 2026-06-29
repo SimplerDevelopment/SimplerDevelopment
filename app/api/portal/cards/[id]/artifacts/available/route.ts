@@ -15,9 +15,10 @@ import {
   brainNotes,
 } from '@/lib/db/schema';
 import { and, eq, inArray, isNull } from 'drizzle-orm';
+import type { AnyPgColumn, AnyPgTable } from 'drizzle-orm/pg-core';
 
-function getRole(session: any): string {
-  return (session as unknown as { user?: { role?: string } })?.user?.role ?? '';
+function getRole(session: unknown): string {
+  return (session as { user?: { role?: string } } | null)?.user?.role ?? '';
 }
 
 export async function GET(
@@ -52,9 +53,14 @@ export async function GET(
 
   const results: { type: string; id: number; title: string }[] = [];
 
-  async function fetchType(type: string, table: any, titleField: string) {
+  async function fetchType(type: string, table: AnyPgTable, titleField: string) {
     if (typeFilter && typeFilter !== type) return;
-    const rows = await db.select({ id: table.id, title: table[titleField] }).from(table).where(eq(table.clientId, clientId));
+    const cols = table as unknown as Record<string, AnyPgColumn>;
+    const queryResult = await db
+      .select({ id: cols.id, title: cols[titleField] })
+      .from(table)
+      .where(eq(cols.clientId, clientId));
+    const rows = queryResult as { id: number; title: string | null }[];
     for (const r of rows) {
       results.push({ type, id: r.id, title: r.title ?? 'Untitled' });
     }

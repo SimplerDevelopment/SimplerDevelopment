@@ -1,8 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import McpApiKeysManager from '@/components/portal/McpApiKeysManager';
 import OAuthTokensManager from '@/components/portal/OAuthTokensManager';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnGhost, pBtnPrimary, pBtnSoft, pCard, pSectionTitle, pCardPad } from '@/components/portal/portal-ui';
 
 type ClientId = 'claude-web' | 'claude-desktop' | 'claude-code' | 'chatgpt';
 
@@ -17,34 +19,44 @@ export default function ConnectAiPage() {
   const [tab, setTab] = useState<ClientId>('claude-web');
   const [origin, setOrigin] = useState('https://simplerdevelopment.com');
 
-  if (typeof window !== 'undefined' && origin === 'https://simplerdevelopment.com' && window.location.origin !== origin) {
-    setOrigin(window.location.origin);
-  }
+  // Detect the actual origin client-side to avoid hardcoding the domain.
+  // Must be in useEffect (not render body) to prevent a hydration mismatch.
+  useEffect(() => {
+    if (window.location.origin !== origin) {
+      setOrigin(window.location.origin);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const endpoint = `${origin}/api/mcp`;
 
   return (
     <div className="max-w-4xl mx-auto py-8 space-y-8">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-          <span className="material-icons text-primary">cable</span>
-          Connect AI to your portal
-        </h1>
-        <p className="text-sm text-muted-foreground mt-2">
-          Hook Claude Desktop, Claude Code, ChatGPT, or any MCP-compatible client up to your portal
-          via <a href="https://modelcontextprotocol.io" target="_blank" rel="noreferrer" className="text-primary hover:underline">Model Context Protocol</a>.
-          The AI can read and write across CRM, content, pitch decks, email, projects, and more —
-          scoped to whatever permissions you grant the API key.
-        </p>
-      </div>
+      <PortalPageHeader
+        eyebrow="Company Brain"
+        title={
+          <span className="flex items-center gap-2">
+            <span className="material-icons text-primary">cable</span>
+            Connect AI to your portal
+          </span>
+        }
+        subtitle={
+          <>
+            Hook Claude Desktop, Claude Code, ChatGPT, or any MCP-compatible client up to your portal
+            via <a href="https://modelcontextprotocol.io" target="_blank" rel="noreferrer" className="text-primary hover:underline">Model Context Protocol</a>.
+            The AI can read and write across CRM, content, pitch decks, email, projects, and more —
+            scoped to whatever permissions you grant the API key.
+          </>
+        }
+      />
 
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold">MCP endpoint</h2>
-        <div className="rounded-md border border-border bg-muted/30 p-3 flex items-center gap-2">
+        <h2 className="font-display text-[17px] font-extrabold tracking-[-0.02em] text-foreground">MCP endpoint</h2>
+        <div className="rounded-xl border border-border bg-card p-3 flex items-center gap-2">
           <code className="text-xs flex-1 break-all">{endpoint}</code>
           <button
             onClick={() => navigator.clipboard.writeText(endpoint)}
-            className="shrink-0 text-xs px-2 py-1 border border-border rounded hover:bg-background"
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-semibold text-foreground transition hover:border-foreground/25 hover:shadow-sm disabled:opacity-50 shrink-0 text-xs"
           >
             Copy
           </button>
@@ -57,7 +69,7 @@ export default function ConnectAiPage() {
 
       <section className="space-y-4">
         <div>
-          <h2 className="text-lg font-semibold">Setup instructions</h2>
+          <h2 className="font-display text-[17px] font-extrabold tracking-[-0.02em] text-foreground">Setup instructions</h2>
           <p className="text-sm text-muted-foreground">Pick your client and follow the steps. You&apos;ll need an API key from the section below.</p>
         </div>
 
@@ -101,7 +113,7 @@ export default function ConnectAiPage() {
 function ClaudeWebInstructions({ endpoint }: { endpoint: string }) {
   return (
     <div className="space-y-4 text-sm">
-      <div className="rounded-md border border-primary/30 bg-primary/5 p-3 text-xs flex items-start gap-2">
+      <div className="rounded-xl border border-primary/30 bg-primary/5 p-3 text-xs flex items-start gap-2">
         <span className="material-icons text-primary text-base mt-0.5">verified</span>
         <span>
           <strong>Easiest path.</strong> No API key, no config file, no terminal — just click Add and approve.
@@ -137,7 +149,7 @@ function ClaudeWebInstructions({ endpoint }: { endpoint: string }) {
           open?&quot;</em> Claude will use the SimplerDevelopment connector to answer.
         </li>
       </ol>
-      <div className="rounded-md border border-border p-3 text-xs space-y-1.5">
+      <div className="rounded-xl border border-border p-3 text-xs space-y-1.5">
         <p className="font-medium">Revoking access</p>
         <p className="text-muted-foreground">
           Two ways to revoke at any time:
@@ -169,12 +181,12 @@ function CodeBlock({ children }: { children: string }) {
   };
   return (
     <div className="relative">
-      <pre className="rounded-md border border-border bg-muted/30 p-3 text-xs overflow-x-auto">
+      <pre className="rounded-xl border border-border bg-muted/30 p-3 text-xs overflow-x-auto">
         <code>{children}</code>
       </pre>
       <button
         onClick={copy}
-        className="absolute top-2 right-2 text-xs px-2 py-0.5 border border-border rounded bg-background hover:bg-muted"
+        className="absolute top-2 right-2 inline-flex items-center justify-center gap-1 rounded-lg border border-border bg-card px-2.5 py-1 text-[12px] font-semibold text-muted-foreground hover:border-foreground/25"
       >
         {copied ? 'Copied' : 'Copy'}
       </button>

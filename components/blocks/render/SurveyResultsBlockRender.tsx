@@ -213,7 +213,7 @@ export function SurveyResultsBlockRender({ block }: { block: SurveyResultsBlock 
   const [activeTab, setActiveTab] = useState(0);
 
   useEffect(() => {
-    if (!block.surveySlug) { setLoading(false); return; }
+    if (!block.surveySlug) { void Promise.resolve().then(() => setLoading(false)); return; }
     fetch(`/api/surveys/${block.surveySlug}/results`)
       .then(r => r.json())
       .then(json => {

@@ -1,10 +1,9 @@
 import { NextResponse } from 'next/server';
 import { revalidateTag } from 'next/cache';
-import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { mcpPendingChanges } from '@/lib/db/schema';
 import { and, eq, inArray } from 'drizzle-orm';
-import { getPortalClient, getPortalRole } from '@/lib/portal-client';
+import { authorizePortal, isAuthError } from '@/lib/portal-auth';
 
 const MAX_BATCH = 25;
 
@@ -15,23 +14,11 @@ interface ItemResult {
 }
 
 export async function POST(req: Request) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
-  }
-  const userId = parseInt(session.user.id, 10);
-  const client = await getPortalClient(userId);
-  if (!client) {
-    return NextResponse.json({ success: false, message: 'Client not found' }, { status: 404 });
-  }
-
-  const role = await getPortalRole(userId, client.id);
-  if (role !== 'owner' && role !== 'admin') {
-    return NextResponse.json(
-      { success: false, message: 'Only owners and admins can reject MCP changes' },
-      { status: 403 },
-    );
-  }
+  // Bearer-aware (mobile) + NextAuth (web). action:'admin' enforces the
+  // owner/admin gate that previously lived in an explicit role check.
+  const authResult = await authorizePortal({ action: 'admin' });
+  if (isAuthError(authResult)) return authResult.response;
+  const { client, userId } = authResult;
 
   const body = await req.json().catch(() => ({} as { ids?: unknown; note?: unknown }));
   const ids = Array.isArray(body.ids)

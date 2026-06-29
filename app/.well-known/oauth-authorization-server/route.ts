@@ -17,7 +17,7 @@ export function GET(req: Request) {
     registration_endpoint: `${origin}/oauth/register`,
     scopes_supported: SUPPORTED_SCOPES,
     response_types_supported: ['code'],
-    grant_types_supported: ['authorization_code'],
+    grant_types_supported: ['authorization_code', 'refresh_token'],
     code_challenge_methods_supported: ['S256'],
     // 'none' = PKCE-only public clients (default; the MCP web case).
     // The two client_secret_* methods are for confidential clients minted via
@@ -31,5 +31,8 @@ export function GET(req: Request) {
     // client_id. We fetch the metadata document from that URL to get
     // redirect_uris without requiring pre-registration (CIMD).
     client_id_metadata_document_supported: true,
+    // RFC 8414 — surface the human-facing legal docs to clients (and reviewers).
+    op_policy_uri: `${origin}/privacy`,
+    op_tos_uri: `${origin}/terms`,
   });
 }

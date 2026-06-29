@@ -68,6 +68,7 @@ vi.mock('@/lib/db/schema', () => {
     surveyWebhooks: wrap('surveyWebhooks'),
     projects: wrap('projects'),
     projectWebhooks: wrap('projectWebhooks'),
+    siteWebhooks: wrap('siteWebhooks'),
   };
 });
 
@@ -557,6 +558,7 @@ describe('GET /api/portal/settings/webhooks', () => {
     getPortalClientMock.mockResolvedValue({ id: 33 });
     selectQueue.push([]); // project webhooks
     selectQueue.push([]); // tenantSurveys
+    selectQueue.push([]); // siteWebhooks
     const res = await GET();
     expect(res.status).toBe(200);
     const body = await res.json();
@@ -567,7 +569,7 @@ describe('GET /api/portal/settings/webhooks', () => {
   it('skips survey webhook query entirely when client has no surveys', async () => {
     authMock.mockResolvedValue(CLIENT_SESSION);
     getPortalClientMock.mockResolvedValue({ id: 33 });
-    // Only 2 select calls: project webhooks + tenantSurveys
+    // 3 select calls: project webhooks + tenantSurveys + siteWebhooks
     const projectCreated = new Date('2026-01-01T00:00:00Z');
     const projectFired = new Date('2026-01-02T00:00:00Z');
     selectQueue.push([
@@ -586,6 +588,7 @@ describe('GET /api/portal/settings/webhooks', () => {
       },
     ]);
     selectQueue.push([]); // no surveys
+    selectQueue.push([]); // siteWebhooks
     const res = await GET();
     expect(res.status).toBe(200);
     const body = await res.json();
@@ -625,6 +628,7 @@ describe('GET /api/portal/settings/webhooks', () => {
       },
     ]);
     selectQueue.push([]); // surveys empty
+    selectQueue.push([]); // siteWebhooks
     const res = await GET();
     const body = await res.json();
     expect(body.data[0].failing).toBe(true);
@@ -651,7 +655,8 @@ describe('GET /api/portal/settings/webhooks', () => {
         createdAt: new Date('2026-02-01T00:00:00Z'),
       },
     ]);
-    selectQueue.push([]);
+    selectQueue.push([]); // surveys empty
+    selectQueue.push([]); // siteWebhooks
     const res = await GET();
     const body = await res.json();
     expect(body.data[0].failing).toBe(true);
@@ -686,6 +691,7 @@ describe('GET /api/portal/settings/webhooks', () => {
         createdAt: new Date('2026-04-01T00:00:00Z'),
       },
     ]); // surveyWebhooks
+    selectQueue.push([]); // siteWebhooks
     const res = await GET();
     expect(res.status).toBe(200);
     const body = await res.json();
@@ -721,7 +727,8 @@ describe('GET /api/portal/settings/webhooks', () => {
         enabled: true,
         createdAt: new Date('2026-03-01T00:00:00Z'),
       },
-    ]);
+    ]); // surveyWebhooks
+    selectQueue.push([]); // siteWebhooks
     const res = await GET();
     const body = await res.json();
     // null title maps to null which fails ??, so fallback to "Survey #99"
@@ -757,7 +764,8 @@ describe('GET /api/portal/settings/webhooks', () => {
         enabled: true,
         createdAt: new Date('2026-06-01T00:00:00Z'),
       },
-    ]);
+    ]); // surveyWebhooks
+    selectQueue.push([]); // siteWebhooks
     const res = await GET();
     const body = await res.json();
     expect(body.data).toHaveLength(2);

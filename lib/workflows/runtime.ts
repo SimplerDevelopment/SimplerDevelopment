@@ -8,12 +8,17 @@ import {
   workflows,
   workflowRuns,
   workflowStepLogs,
+  emailTemplates,
+  emailSubscribers,
   kanbanCards,
   kanbanColumns,
   kanbanCardAssignees,
   projects as projectsTable,
 } from '@/lib/db/schema';
-import { eq, asc } from 'drizzle-orm';
+import { eq, asc, and } from 'drizzle-orm';
+import { resolveResendKey } from '@/lib/email/resolve-resend';
+import { Resend } from 'resend';
+import { randomBytes } from 'crypto';
 import type {
   WorkflowAction,
   WorkflowEdge,
@@ -23,14 +28,14 @@ import type {
   WorkflowStepStatus,
 } from './types';
 
-interface RunOptions {
+export interface RunOptions {
   triggeredBy?: string;
   // Wait actions can sleep up to a configurable cap so the demo doesn't hang
   // for an hour. Default: 5s. Tests can pass 0.
   maxWaitMs?: number;
 }
 
-interface StepResult {
+export interface StepResult {
   status: WorkflowStepStatus;
   output: Record<string, unknown> | null;
   durationMs: number;
@@ -149,12 +154,12 @@ async function walk(
   }
 }
 
-interface NextEdge {
+export interface NextEdge {
   node: WorkflowNode;
   label?: WorkflowEdge['label'];
 }
 
-function nextNodes(graph: WorkflowGraph, fromId: string): NextEdge[] {
+export function nextNodes(graph: WorkflowGraph, fromId: string): NextEdge[] {
   const nodeById = new Map(graph.nodes.map((n) => [n.id, n] as const));
   const out: NextEdge[] = [];
   for (const edge of graph.edges) {
@@ -177,7 +182,7 @@ async function executeStep(
   const start = Date.now();
   let result: StepResult;
   try {
-    result = await executeAction(node.data as WorkflowAction, context, opts);
+    result = await executeAction(node.data as WorkflowAction, context, opts, runId, node.id);
     result.durationMs = Date.now() - start;
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -188,7 +193,10 @@ async function executeStep(
     };
   }
 
-  const action = (node.data as WorkflowAction).kind;
+  // For condition nodes node.type === 'condition' and data.kind === 'condition'.
+  // Guard against any node whose data lacks a kind (e.g. legacy/corrupt graphs)
+  // so the NOT NULL constraint on workflow_step_logs.action is always satisfied.
+  const action = (node.data as WorkflowAction).kind ?? node.type;
   await db.insert(workflowStepLogs).values({
     runId,
     nodeId: node.id,
@@ -203,10 +211,12 @@ async function executeStep(
   return result;
 }
 
-async function executeAction(
+export async function executeAction(
   action: WorkflowAction,
   context: WorkflowRunContext,
   opts: RunOptions,
+  runId?: number,
+  nodeId?: string,
 ): Promise<StepResult> {
   switch (action.kind) {
     case 'wait': {
@@ -237,11 +247,8 @@ async function executeAction(
     }
 
     case 'condition': {
-      // MVP — never wires a real expression evaluator. Honour an explicit
-      // override on the run context (`context.conditions[expression]`), else
-      // default to `true` so downstream branches still fire in the demo.
       const expression = action.expression;
-      const value = pickConditionResult(context, expression);
+      const value = evaluateWorkflowExpression(context, expression);
       return {
         status: 'success',
         output: { expression, value },
@@ -315,23 +322,139 @@ async function executeAction(
       };
     }
 
-    case 'send_email':
-      // TODO(workflows): wire to lib/email/sender once the visual builder
-      // gets templated send capability.
-      return {
-        status: 'skipped',
-        output: { todo: 'send_email not yet wired', templateId: action.templateId, to: action.to },
-        durationMs: 0,
-      };
+    case 'send_email': {
+      const clientId = typeof context.clientId === 'number' ? context.clientId : null;
+      if (!clientId) {
+        return { status: 'skipped', output: { reason: 'no clientId in context' }, durationMs: 0 };
+      }
 
-    case 'add_to_list':
-      // TODO(workflows): wire to email list subscribers once the visual
-      // builder needs it.
+      // Idempotency: if a prior success log exists for this run+node, skip the send.
+      if (runId != null && nodeId) {
+        const [prior] = await db
+          .select({ id: workflowStepLogs.id })
+          .from(workflowStepLogs)
+          .where(
+            and(
+              eq(workflowStepLogs.runId, runId),
+              eq(workflowStepLogs.nodeId, nodeId),
+              eq(workflowStepLogs.status, 'success'),
+            ),
+          )
+          .limit(1);
+        if (prior) {
+          return {
+            status: 'skipped',
+            output: { idempotency: 'already_sent', priorLogId: prior.id },
+            durationMs: 0,
+          };
+        }
+      }
+
+      // Resolve recipient email from run context.
+      let toEmail: string;
+      if (action.to === 'contact') {
+        const contactEmail = typeof context.contactEmail === 'string' ? context.contactEmail : null;
+        if (!contactEmail) {
+          return { status: 'skipped', output: { reason: 'no contactEmail in context' }, durationMs: 0 };
+        }
+        toEmail = contactEmail;
+      } else if (action.to === 'owner') {
+        const ownerEmail = typeof context.ownerEmail === 'string' ? context.ownerEmail : null;
+        if (!ownerEmail) {
+          return { status: 'skipped', output: { reason: 'no ownerEmail in context' }, durationMs: 0 };
+        }
+        toEmail = ownerEmail;
+      } else {
+        toEmail = action.to;
+      }
+
+      // Look up the email template.
+      const [template] = await db
+        .select()
+        .from(emailTemplates)
+        .where(eq(emailTemplates.id, action.templateId))
+        .limit(1);
+
+      if (!template) {
+        return {
+          status: 'failed',
+          output: { reason: `template ${action.templateId} not found` },
+          durationMs: 0,
+        };
+      }
+
+      // Send via Resend with idempotency header.
+      try {
+        const { key } = await resolveResendKey(clientId);
+        const resend = new Resend(key);
+        const idempotencyKey =
+          runId != null && nodeId ? `wf:${runId}:${nodeId}` : undefined;
+        const fromEmail =
+          process.env.DEFAULT_FROM_EMAIL ?? 'noreply@simplerdevelopment.com';
+
+        const result = await resend.emails.send({
+          from: fromEmail,
+          to: toEmail,
+          subject: template.subject ?? '(no subject)',
+          html: template.htmlContent,
+          ...(idempotencyKey
+            ? { headers: { 'Idempotency-Key': idempotencyKey } }
+            : {}),
+        });
+
+        return {
+          status: 'success',
+          output: {
+            resendId: result.data?.id ?? null,
+            to: toEmail,
+            templateId: action.templateId,
+          },
+          durationMs: 0,
+        };
+      } catch (err) {
+        return {
+          status: 'failed',
+          output: {
+            error: err instanceof Error ? err.message : String(err),
+            to: toEmail,
+            templateId: action.templateId,
+          },
+          durationMs: 0,
+        };
+      }
+    }
+
+    case 'add_to_list': {
+      const contactEmail = typeof context.contactEmail === 'string' ? context.contactEmail : null;
+      if (!contactEmail) {
+        return {
+          status: 'skipped',
+          output: { reason: 'no contactEmail in context', listId: action.listId },
+          durationMs: 0,
+        };
+      }
+
+      // Generate an unsubscribe token — required by emailSubscribers schema.
+      // onConflictDoNothing() makes this idempotent: re-running for the same
+      // (listId, email) pair is a no-op (unique index on list_id + email).
+      const unsubscribeToken = randomBytes(32).toString('hex');
+
+      await db
+        .insert(emailSubscribers)
+        .values({
+          listId: action.listId,
+          email: contactEmail,
+          unsubscribeToken,
+          // status defaults to 'active', subscribedAt defaults to now()
+        })
+        .onConflictDoNothing();
+
       return {
-        status: 'skipped',
-        output: { todo: 'add_to_list not yet wired', listId: action.listId },
+        status: 'success',
+        output: { listId: action.listId, email: contactEmail },
         durationMs: 0,
       };
+    }
 
     default: {
       // Exhaustiveness guard — keeps the switch honest if a new action kind
@@ -343,15 +466,103 @@ async function executeAction(
   }
 }
 
-// Look up a per-expression condition override in context. Tests pass
-// `{ conditions: { 'deal.stale': true } }` to choose a branch.
-function pickConditionResult(context: WorkflowRunContext, expression: string): boolean {
-  const conditions = context.conditions;
-  if (conditions && typeof conditions === 'object') {
-    const map = conditions as Record<string, boolean>;
+/**
+ * Evaluate a workflow condition expression against the run context.
+ *
+ * Resolution priority:
+ *
+ * 1. **Explicit override map** — if `context.conditions` contains the expression key,
+ *    that boolean wins. This keeps the test-harness path and any caller-supplied
+ *    explicit-branch overrides working unchanged.
+ *
+ * 2. **Real field-path evaluation** — parse the expression and walk the dotted
+ *    field path (e.g. `contact.tag`, `deal.amount`) into the run context, then
+ *    apply an operator comparison that mirrors `evaluateCondition()` in
+ *    `lib/automation/engine.ts`:
+ *
+ *    - Simple path only (e.g. `"deal.stale"`): truthy-check the resolved value.
+ *    - Path with operator (e.g. `"deal.amount gt 100"`): apply the operator.
+ *      Supported operators: `eq` / `equals`, `neq` / `not_equals`, `contains`,
+ *      `gt`, `lt`, `exists`, `not_exists`.
+ *
+ * **Safe default**: if the field path cannot be resolved (the value is
+ * `undefined`) and no operator overrides that case, the function returns `false`
+ * — i.e. the "false / no-branch" path is taken, not the permissive `true`.
+ * This prevents accidental branch execution when the run context is sparse or
+ * the expression references a field that wasn't populated by the trigger.
+ */
+function evaluateWorkflowExpression(context: WorkflowRunContext, expression: string): boolean {
+  // ── 1. Explicit override map (test harness / caller-controlled branches) ──
+  const conditionsOverride = context.conditions;
+  if (conditionsOverride && typeof conditionsOverride === 'object') {
+    const map = conditionsOverride as Record<string, boolean>;
     if (expression in map) return Boolean(map[expression]);
   }
-  return true;
+
+  // ── 2. Parse expression: "field" | "field operator value" ─────────────────
+  const trimmed = expression.trim();
+  const parts = trimmed.split(/\s+/);
+  const field = parts[0];
+  // No operator token → use 'truthy' semantics (truthy check of the value).
+  const operator = parts.length >= 2 ? parts[1].toLowerCase() : 'truthy';
+  const rawValue = parts.length >= 3 ? parts.slice(2).join(' ') : undefined;
+
+  // Parse the comparison value: coerce to number or boolean when unambiguous.
+  let comparisonValue: unknown = rawValue;
+  if (rawValue !== undefined) {
+    if (rawValue === 'true') comparisonValue = true;
+    else if (rawValue === 'false') comparisonValue = false;
+    else if (rawValue !== '' && !Number.isNaN(Number(rawValue))) comparisonValue = Number(rawValue);
+  }
+
+  // ── 3. Walk the dotted field path into the run context ────────────────────
+  const fieldParts = field.split('.');
+  let current: unknown = context;
+  for (const part of fieldParts) {
+    if (current == null || typeof current !== 'object') {
+      current = undefined;
+      break;
+    }
+    current = (current as Record<string, unknown>)[part];
+  }
+
+  // ── 4. Apply operator (mirrors engine.ts evaluateCondition semantics) ─────
+  switch (operator) {
+    // No operator: truthy check. Unresolved path (undefined) → false (safe default).
+    case 'truthy':
+      return current !== undefined && current !== null && Boolean(current);
+    case 'exists':
+      return current !== undefined && current !== null;
+    case 'not_exists':
+      return current === undefined || current === null;
+    case 'eq':
+    case 'equals':
+      return current === comparisonValue;
+    case 'neq':
+    case 'not_equals':
+      return current !== comparisonValue;
+    case 'contains':
+      return (
+        typeof current === 'string' &&
+        typeof comparisonValue === 'string' &&
+        current.includes(comparisonValue)
+      );
+    case 'gt':
+      return (
+        typeof current === 'number' &&
+        typeof comparisonValue === 'number' &&
+        current > comparisonValue
+      );
+    case 'lt':
+      return (
+        typeof current === 'number' &&
+        typeof comparisonValue === 'number' &&
+        current < comparisonValue
+      );
+    default:
+      // Unknown operator → safe false (no-branch).
+      return false;
+  }
 }
 
 function cloneRecord(value: Record<string, unknown>): Record<string, unknown> {

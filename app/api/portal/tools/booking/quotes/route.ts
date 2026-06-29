@@ -6,9 +6,10 @@ import { eq, desc } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
 import { authorizePortal, isAuthError } from '@/lib/portal-auth';
 import crypto from 'crypto';
+import { slugify } from '@/lib/publishing/slug';
 
 function generateSlug(title: string): string {
-  const base = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').substring(0, 30);
+  const base = slugify(title, 30);
   const suffix = crypto.randomBytes(4).toString('hex');
   return `${base}-${suffix}`;
 }

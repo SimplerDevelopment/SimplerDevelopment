@@ -2,6 +2,8 @@
 
 import Link from 'next/link';
 import { useEffect, useState, useCallback } from 'react';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnPrimary } from '@/components/portal/portal-ui';
 
 interface BrainMeetingRow {
   id: number;
@@ -83,24 +85,17 @@ export default function BrainMeetingsPage() {
 
   return (
     <div className="max-w-5xl mx-auto py-8 space-y-6">
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-            <span className="material-icons text-primary">forum</span>
-            Communications
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Capture communication transcripts, emails, and notes. AI extracts decisions, commitments, and tasks for your review.
-          </p>
-        </div>
-        <Link
-          href="/portal/brain/communications/new"
-          className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90"
-        >
-          <span className="material-icons text-base">add</span>
-          New note
-        </Link>
-      </div>
+      <PortalPageHeader
+        eyebrow="Company Brain"
+        title={<span className="flex items-center gap-2"><span className="material-icons text-primary">forum</span>Communications</span>}
+        subtitle="Capture communication transcripts, emails, and notes. AI extracts decisions, commitments, and tasks for your review."
+        actions={
+          <Link href="/portal/brain/communications/new" className={pBtnPrimary}>
+            <span className="material-icons text-base">add</span>
+            New note
+          </Link>
+        }
+      />
 
       {error && (
         <div className="bg-destructive/10 border border-destructive/30 rounded-md p-3 text-sm text-destructive">
@@ -114,7 +109,7 @@ export default function BrainMeetingsPage() {
           Loading…
         </div>
       ) : meetings.length === 0 ? (
-        <div className="text-center py-12 bg-card border border-border rounded-lg">
+        <div className="text-center py-12 bg-card border border-border rounded-2xl">
           <span className="material-icons text-4xl text-muted-foreground mb-2 block">forum</span>
           <p className="text-foreground text-sm font-medium">No notes yet.</p>
           <p className="text-muted-foreground text-xs mt-1 mb-4">
@@ -122,14 +117,14 @@ export default function BrainMeetingsPage() {
           </p>
           <Link
             href="/portal/brain/communications/new"
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90"
+            className={pBtnPrimary}
           >
             <span className="material-icons text-base">add</span>
             New communication
           </Link>
         </div>
       ) : (
-        <div className="bg-card border border-border rounded-lg divide-y divide-border">
+        <div className="bg-card border border-border rounded-2xl divide-y divide-border">
           {groupByThread(meetings).map((g) => {
             const m = g.latest;
             const status = STATUS_LABELS[m.status];

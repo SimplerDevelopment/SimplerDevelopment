@@ -15,9 +15,13 @@ export default function ApiKeysManager({ siteId }: { siteId: number }) {
   const [keys, setKeys] = useState<ApiKey[]>([]);
   const [loading, setLoading] = useState(true);
   const [newKeyName, setNewKeyName] = useState('');
+  const [scopes, setScopes] = useState<string[]>([]);
   const [createdKey, setCreatedKey] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  const toggleScope = (s: string) =>
+    setScopes(prev => (prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]));
 
   const fetchKeys = async () => {
     const res = await fetch(`/api/portal/websites/${siteId}/api-keys`);
@@ -26,7 +30,14 @@ export default function ApiKeysManager({ siteId }: { siteId: number }) {
     setLoading(false);
   };
 
-  useEffect(() => { fetchKeys(); }, [siteId]);
+  useEffect(() => {
+    void (async () => {
+      const res = await fetch(`/api/portal/websites/${siteId}/api-keys`);
+      const json = await res.json();
+      if (json.success) setKeys(json.data);
+      setLoading(false);
+    })();
+  }, [siteId]);
 
   const createKey = async () => {
     if (!newKeyName.trim()) return;
@@ -34,12 +45,13 @@ export default function ApiKeysManager({ siteId }: { siteId: number }) {
     const res = await fetch(`/api/portal/websites/${siteId}/api-keys`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: newKeyName.trim() }),
+      body: JSON.stringify({ name: newKeyName.trim(), scopes }),
     });
     const json = await res.json();
     if (json.success) {
       setCreatedKey(json.data.key);
       setNewKeyName('');
+      setScopes([]);
       fetchKeys();
     }
     setCreating(false);
@@ -79,12 +91,24 @@ export default function ApiKeysManager({ siteId }: { siteId: number }) {
         </button>
       </div>
 
+      {/* Scopes — none selected = full access */}
+      <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+        <span>Scopes:</span>
+        {(['content:read', 'store:read'] as const).map(s => (
+          <label key={s} className="flex items-center gap-1.5 cursor-pointer">
+            <input type="checkbox" checked={scopes.includes(s)} onChange={() => toggleScope(s)} />
+            <code>{s}</code>
+          </label>
+        ))}
+        <span className="text-muted-foreground/60">{scopes.length === 0 ? '(none selected = full access)' : ''}</span>
+      </div>
+
       {/* Newly created key (shown once) */}
       {createdKey && (
         <div className="p-4 bg-green-50 border border-green-200 rounded-xl dark:bg-green-900/20 dark:border-green-800">
           <p className="text-sm font-medium text-green-800 dark:text-green-300 mb-2">
             <span className="material-icons text-base align-middle mr-1">key</span>
-            API key created! Copy it now -- it won't be shown again.
+            API key created! Copy it now -- it won&apos;t be shown again.
           </p>
           <div className="flex items-center gap-2">
             <code className="flex-1 text-xs bg-white dark:bg-black/20 p-2 rounded border font-mono break-all">

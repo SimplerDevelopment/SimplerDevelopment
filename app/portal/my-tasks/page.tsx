@@ -4,6 +4,7 @@ import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { priorityColor } from '@/lib/portal-utils';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
 
 type MyTaskCardSource = 'kanban' | 'brain';
 type MyTaskSourceFilter = 'all' | 'kanban' | 'brain';
@@ -265,27 +266,25 @@ function MyTasksPageInner() {
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">My Tasks</h1>
-          <p className="text-muted-foreground mt-1">
-            {total} task{total !== 1 ? 's' : ''} assigned to you
-            {overdueCount > 0 && <span className="text-destructive"> · {overdueCount} overdue</span>}
-          </p>
-        </div>
-        <label className="flex items-center gap-2 text-sm text-muted-foreground">
-          <input
-            type="checkbox"
-            checked={filters.openOnly}
-            onChange={toggleOpenOnly}
-            className="rounded border-border"
-          />
-          Hide completed
-        </label>
-      </div>
+      <PortalPageHeader
+        eyebrow="My work"
+        title="My Tasks"
+        subtitle={<>{total} task{total !== 1 ? 's' : ''} assigned to you{overdueCount > 0 && <span className="text-destructive"> · {overdueCount} overdue</span>}</>}
+        actions={
+          <label className="flex items-center gap-2 text-sm text-muted-foreground">
+            <input
+              type="checkbox"
+              checked={filters.openOnly}
+              onChange={toggleOpenOnly}
+              className="rounded border-border"
+            />
+            Hide completed
+          </label>
+        }
+      />
 
       {/* Filter chips */}
-      <div className="bg-card border border-border rounded-xl p-3 space-y-3" aria-label="Task filters">
+      <div className="bg-card border border-border rounded-2xl p-3 space-y-3" aria-label="Task filters">
         <div className="flex items-center gap-2 flex-wrap" role="group" aria-label="Source">
           <span className="text-xs uppercase tracking-wide text-muted-foreground mr-1">Source</span>
           {(['all', 'kanban', 'brain'] as const).map((s) => (
@@ -384,9 +383,9 @@ function MyTasksPageInner() {
           <span className="material-icons animate-spin text-primary text-2xl">refresh</span>
         </div>
       ) : groups.length === 0 ? (
-        <div className="bg-card border border-border rounded-xl p-12 text-center">
+        <div className="bg-card border border-border rounded-2xl p-12 text-center">
           <span className="material-icons text-5xl text-muted-foreground">task_alt</span>
-          <h3 className="mt-4 font-semibold text-foreground">Nothing assigned</h3>
+          <h3 className="mt-4 font-display font-extrabold tracking-[-0.01em] text-foreground">Nothing assigned</h3>
           <p className="mt-2 text-sm text-muted-foreground">
             {hasActiveFilters
               ? 'No tasks match your filters.'
@@ -399,7 +398,7 @@ function MyTasksPageInner() {
             const gKey = `${p.source}-${p.id}`;
             const headerHref = p.source === 'kanban' ? `/portal/projects/${p.id}` : '/portal/brain/tasks';
             return (
-              <div key={gKey} className="bg-card border border-border rounded-xl overflow-hidden">
+              <div key={gKey} className="bg-card border border-border rounded-2xl overflow-hidden">
                 <div className="flex items-center justify-between gap-3 p-4 border-b border-border">
                   <div className="min-w-0 flex items-center gap-2">
                     <span
@@ -409,7 +408,7 @@ function MyTasksPageInner() {
                     >
                       {sourceIcon(p.source)}
                     </span>
-                    <Link href={headerHref} prefetch={false} className="font-semibold text-foreground hover:text-primary transition-colors truncate">
+                    <Link href={headerHref} prefetch={false} className="font-display font-extrabold tracking-[-0.01em] text-foreground hover:text-primary transition-colors truncate">
                       {p.name}
                     </Link>
                     {p.clientName && <span className="text-xs text-muted-foreground ml-2 shrink-0">· {p.clientName}</span>}
@@ -518,7 +517,7 @@ function MyTasksPageInner() {
                 type="button"
                 onClick={() => void loadMore()}
                 disabled={loadingMore}
-                className="text-sm px-4 py-2 rounded-lg border border-border bg-card hover:bg-accent text-foreground inline-flex items-center gap-2 disabled:opacity-50"
+                className="text-sm px-4 py-2 rounded-xl border border-border bg-card hover:bg-accent text-foreground inline-flex items-center gap-2 disabled:opacity-50"
               >
                 <span className={`material-icons text-base ${loadingMore ? 'animate-spin' : ''}`}>
                   {loadingMore ? 'refresh' : 'expand_more'}

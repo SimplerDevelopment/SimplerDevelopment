@@ -1526,6 +1526,31 @@ Transition an order through fulfillment states. Stamps `shippedAt`/`deliveredAt`
 
 ---
 
+#### `store_analytics_get`
+
+Return order and revenue aggregates for a storefront over a time window: total revenue, order count, average order value, and order counts by status. The `siteId` must belong to the authenticated client.
+
+- **Auth:** `store:read`
+
+| Input | Type | Required | Notes |
+|---|---|---|---|
+| `siteId` | `number` | yes | Website whose store to analyse |
+| `days` | `number` | no | Look-back window in days, 1–365 (default 30) |
+
+**Response**
+
+```json
+{
+  "totalRevenue": 124900,
+  "totalOrders": 42,
+  "averageOrderValue": 2974,
+  "ordersByStatus": { "processing": 5, "shipped": 30, "delivered": 7 },
+  "windowDays": 30
+}
+```
+
+---
+
 #### `store_orders_add_note`
 
 Append or overwrite the internal staff-only note on an order. Does not affect customer-facing fields.

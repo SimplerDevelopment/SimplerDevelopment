@@ -22,6 +22,7 @@ import { useRouter } from 'next/navigation';
 import MarkdownView from '@/components/portal/MarkdownView';
 import GlossaryTermForm from '@/components/brain/GlossaryTermForm';
 import type { BrainGlossaryStatus } from '@/lib/db/schema';
+import { pBtnGhost, pCardPad } from '@/components/portal/portal-ui';
 
 interface BrainGlossaryTermDTO {
   id: number;
@@ -196,7 +197,7 @@ export default function BrainGlossaryDetailPage({
 
       <header className="flex items-start justify-between gap-4 flex-wrap">
         <div className="min-w-0">
-          <h1 className="text-2xl font-bold text-foreground break-words">{term.term}</h1>
+          <h1 className="font-display text-[clamp(1.5rem,2.4vw,2rem)] font-extrabold leading-[1.05] tracking-[-0.028em] text-foreground break-words">{term.term}</h1>
           <div className="flex items-center gap-2 flex-wrap mt-1.5">
             <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide rounded ${
               term.status === 'active'
@@ -225,11 +226,7 @@ export default function BrainGlossaryDetailPage({
         </div>
         {!editing && (
           <div className="flex items-center gap-2 shrink-0">
-            <button
-              type="button"
-              onClick={() => setEditing(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md border border-border text-foreground hover:bg-accent"
-            >
+            <button type="button" onClick={() => setEditing(true)} className={pBtnGhost}>
               <span className="material-icons text-base">edit</span>
               Edit
             </button>
@@ -250,7 +247,7 @@ export default function BrainGlossaryDetailPage({
       </header>
 
       {editing ? (
-        <div className="bg-card border border-border rounded-xl p-5">
+        <div className="bg-card border border-border rounded-2xl p-5">
           <GlossaryTermForm
             mode="edit"
             termId={term.id}
@@ -272,7 +269,7 @@ export default function BrainGlossaryDetailPage({
       ) : (
         <>
           {/* Definition */}
-          <section className="bg-card border border-border rounded-xl p-5 space-y-3">
+          <section className="bg-card border border-border rounded-2xl p-5 space-y-3">
             <div>
               <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Definition</h2>
               {looksLikeMarkdown(term.definition) ? (

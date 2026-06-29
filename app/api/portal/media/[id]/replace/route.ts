@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { media, mediaVersions } from '@/lib/db/schema';
-import { getPortalClient } from '@/lib/portal-client';
+import { authorizePortal, isAuthError } from '@/lib/portal-auth';
 import { uploadToS3 } from '@/lib/s3/upload';
 import { cleanEmbedHtml } from '@/lib/html-embed-clean';
 import { importHtmlAssets } from '@/lib/html-asset-import';
@@ -26,15 +25,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 }
 
 async function handle(req: NextRequest, paramsPromise: Promise<{ id: string }>) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
-  }
-  const userId = parseInt(session.user.id as string, 10);
-  const client = await getPortalClient(userId);
-  if (!client) {
-    return NextResponse.json({ success: false, message: 'Client not found' }, { status: 403 });
-  }
+  const authz = await authorizePortal({ action: 'write' });
+  if (isAuthError(authz)) return authz.response;
+  const { client, userId } = authz;
 
   const { id } = await paramsPromise;
   const mediaId = parseInt(id, 10);

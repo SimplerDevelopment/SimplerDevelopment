@@ -90,6 +90,33 @@ vi.mock('@/lib/api-keys', () => ({
   checkRateLimit: vi.fn(),
 }));
 
+vi.mock('@/lib/mcp-auth', () => ({
+  hasScope: vi.fn(() => true),
+}));
+
+// The middleware was hardened to require a valid API key on every request.
+// These tests exercise the route *handler* logic, not the middleware; stub
+// withApiKeyAndCors as a passthrough that still adds the CORS headers the
+// CORS-assertion tests rely on.
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-api-key',
+};
+
+vi.mock('@/lib/api-key-middleware', () => ({
+  withApiKeyAndCors: (handler: (req: Request, ctx: unknown) => Promise<Response>) =>
+    async (req: Request, ctx: unknown) => {
+      if (req.method === 'OPTIONS') {
+        return new Response(null, { status: 204, headers: CORS_HEADERS });
+      }
+      const res = await handler(req, ctx);
+      const headers = new Headers(res.headers);
+      for (const [k, v] of Object.entries(CORS_HEADERS)) headers.set(k, v);
+      return new Response(res.body, { status: res.status, statusText: res.statusText, headers });
+    },
+}));
+
 // ---------------------------------------------------------------------------
 // db mock — used by the tags route only.
 // ---------------------------------------------------------------------------

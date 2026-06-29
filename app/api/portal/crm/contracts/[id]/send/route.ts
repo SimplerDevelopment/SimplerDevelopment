@@ -4,12 +4,17 @@ import { db } from '@/lib/db';
 import { crmContracts, crmContractSigners } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
+import { authorizePortal, isAuthError } from '@/lib/portal-auth';
 import { resend } from '@/lib/email';
 import crypto from 'crypto';
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ success: false }, { status: 401 });
+
+  const authResult = await authorizePortal({ action: 'write', requireService: 'esign' });
+  if (isAuthError(authResult)) return authResult.response;
+
   const client = await getPortalClient(parseInt(session.user.id, 10));
   if (!client) return NextResponse.json({ success: false }, { status: 404 });
 

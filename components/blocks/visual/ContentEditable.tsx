@@ -44,7 +44,13 @@ export function ContentEditable({
     document.execCommand('insertText', false, text);
   };
 
-  const Tag = tagName as any;
+  const Tag = tagName as unknown as React.ComponentType<
+    React.HTMLAttributes<HTMLElement> & {
+      ref?: React.RefObject<HTMLElement | null>;
+      'data-placeholder'?: string;
+      suppressContentEditableWarning?: boolean;
+    }
+  >;
 
   return (
     <Tag

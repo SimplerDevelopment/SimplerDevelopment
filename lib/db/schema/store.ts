@@ -59,6 +59,10 @@ export const storeSettings = pgTable('store_settings', {
   easypostApiKeyEncrypted: text('easypost_api_key_encrypted'), // ciphertext from lib/crypto/api-key.ts
   easypostMode: varchar('easypost_mode', { length: 10 }).default('test'), // 'test' | 'production'
   easypostWebhookSecret: varchar('easypost_webhook_secret', { length: 255 }), // HMAC secret from EasyPost
+  // ─── Fulfillment provider (manual vs. Printful print-on-demand) ───
+  fulfillmentProvider: varchar('fulfillment_provider', { length: 20 }).default('manual').notNull(), // 'manual' | 'printful'
+  printfulApiKeyEncrypted: text('printful_api_key_encrypted'), // AES-256-GCM ciphertext from lib/crypto/api-key.ts
+  printfulStoreId: varchar('printful_store_id', { length: 100 }), // Printful store ID (numeric string)
   shipFromAddress: jsonb('ship_from_address').$type<{
     name?: string; company?: string; line1: string; line2?: string; city: string; state: string; postalCode: string; country: string; phone?: string;
   }>(),
@@ -114,6 +118,9 @@ export const products = pgTable('products', {
   status: varchar('status', { length: 20 }).default('draft').notNull(), // draft, active, archived
   featured: boolean('featured').default(false).notNull(),
   isDesignable: boolean('is_designable').default(false).notNull(),
+  // Printful catalog variant ID — used when the product has no variants.
+  // Maps this product to a specific Printful catalog item for POD fulfillment.
+  printfulVariantId: integer('printful_variant_id'),
   seoTitle: varchar('seo_title', { length: 255 }),
   seoDescription: text('seo_description'),
   tags: json('tags').$type<string[]>().default([]),
@@ -194,6 +201,8 @@ export const productVariants = pgTable('product_variants', {
   heightIn: numeric('height_in', { precision: 8, scale: 2 }),
   image: varchar('image', { length: 500 }),
   optionValues: json('option_values').$type<{ optionId: number; valueId: number }[]>().default([]),
+  // Printful catalog variant ID — maps this specific size/color combo to a Printful variant.
+  printfulVariantId: integer('printful_variant_id'),
   active: boolean('active').default(true).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
@@ -246,8 +255,13 @@ export const carts = pgTable('carts', {
   customerId: integer('customer_id'), // FK added at runtime to avoid circular ref with storeCustomers
   sessionId: varchar('session_id', { length: 255 }),
   customerEmail: varchar('customer_email', { length: 255 }),
+  // status: 'active' | 'converted' | 'abandoned'
   status: varchar('status', { length: 20 }).default('active').notNull(),
   expiresAt: timestamp('expires_at'),
+  // ─── Abandoned-cart recovery ───────────────────────────────────────────────
+  recoveryToken: varchar('recovery_token', { length: 100 }),
+  recoveryTokenExpiresAt: timestamp('recovery_token_expires_at'),
+  recoveryEmailSentAt: timestamp('recovery_email_sent_at'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
@@ -306,6 +320,11 @@ export const orders = pgTable('orders', {
   platformFee: integer('platform_fee'),
   transferId: varchar('transfer_id', { length: 255 }),
   discountCode: varchar('discount_code', { length: 50 }),
+  // ─── Printful POD fulfillment ─────────────────────────────────────────────
+  printfulOrderId: varchar('printful_order_id', { length: 100 }),        // Printful's order ID
+  printfulFulfillmentStatus: varchar('printful_fulfillment_status', { length: 30 }), // pending|in_process|fulfilled|cancelled|failed
+  printfulFulfillmentError: text('printful_fulfillment_error'),           // error message on failed submission
+  printfulSubmittedAt: timestamp('printful_submitted_at'),               // when order was sent to Printful
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
@@ -499,6 +518,24 @@ export const designAssets = pgTable('design_assets', {
   fileSize: integer('file_size'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
+
+// ─── PRINTFUL WEBHOOK INGESTION ─────────────────────────────────────────────
+
+// Raw Printful webhook events for idempotency + audit. eventId is the
+// Printful-issued event id; duplicate deliveries hit the unique index.
+export const printfulEvents = pgTable('printful_events', {
+  id: serial('id').primaryKey(),
+  websiteId: integer('website_id').references(() => clientWebsites.id, { onDelete: 'cascade' }),
+  eventId: varchar('event_id', { length: 255 }).notNull(),   // Printful event id
+  eventType: varchar('event_type', { length: 100 }).notNull(), // shipment_sent, order_status_changed, etc.
+  printfulOrderId: varchar('printful_order_id', { length: 100 }),
+  orderId: integer('order_id').references(() => orders.id, { onDelete: 'set null' }),
+  payload: jsonb('payload').notNull(),
+  processedAt: timestamp('processed_at').defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex('printful_events_event_id_idx').on(t.eventId),
+  index('printful_events_order_id_idx').on(t.orderId),
+]);
 
 // ─── EASYPOST WEBHOOK INGESTION ─────────────────────────────────────────────
 

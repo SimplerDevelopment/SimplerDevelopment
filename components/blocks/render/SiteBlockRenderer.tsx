@@ -51,13 +51,13 @@ interface SiteBlockRendererProps {
 //
 // Execution is gated on the `sd:hydrated` signal (dispatched by <HydrationSignal>
 // once React has committed the block tree on the client). Custom JS frequently
-// mutates block DOM imperatively — e.g. the relayer hero prepends a
-// <canvas id="rl-net"> for its particle network. Running that BEFORE React
-// finishes hydrating the hero produced a hydration mismatch (React expected the
-// section <div>, found the <canvas>). Waiting for hydration makes these
-// progressive enhancements safe. A `load`-based fallback still fires if the
-// hydration signal never arrives (JS error upstream, etc.) so enhancements are
-// never silently lost.
+// mutates block DOM imperatively — e.g. a hero block that prepends a canvas
+// element for a particle network effect. Running that BEFORE React finishes
+// hydrating the hero produces a hydration mismatch (React expected the section
+// <div>, found the <canvas>). Waiting for hydration makes these progressive
+// enhancements safe. A `load`-based fallback still fires if the hydration
+// signal never arrives (JS error upstream, etc.) so enhancements are never
+// silently lost.
 function jsWrapper(label: string, body: string): string {
   return `(function(){function run(){try{${body}\n}catch(e){console.error('[${label}]',e);}}var done=false;function go(){if(done)return;done=true;run();}if(window.__sdSiteHydrated){go();}else{document.addEventListener('sd:hydrated',go,{once:true});function fb(){setTimeout(go,2500);}if(document.readyState==='complete'){fb();}else{window.addEventListener('load',fb,{once:true});}}})();`;
 }

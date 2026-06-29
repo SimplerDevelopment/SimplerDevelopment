@@ -11,14 +11,14 @@ import { render, screen, fireEvent } from '@testing-library/react';
 // Each motion.<tag> returns a plain element that forwards children + className + style.
 vi.mock('framer-motion', () => {
   const passthrough = (tag: string) =>
-    function MotionMock({ children, className, style, onClick }: any) {
+    function MotionMock({ children, className, style, onClick }: { children?: React.ReactNode; className?: string; style?: React.CSSProperties; onClick?: React.MouseEventHandler }) {
       return React.createElement(
         tag,
         { className, style, onClick, 'data-motion': tag },
         children,
       );
     };
-  const motion: any = new Proxy(
+  const motion: Record<string, React.ComponentType<{ children?: React.ReactNode; className?: string; style?: React.CSSProperties; onClick?: React.MouseEventHandler }>> = new Proxy(
     {},
     {
       get: (_target, prop: string) => passthrough(prop),
@@ -26,20 +26,20 @@ vi.mock('framer-motion', () => {
   );
   return {
     motion,
-    AnimatePresence: ({ children }: any) => React.createElement(React.Fragment, null, children),
+    AnimatePresence: ({ children }: { children?: React.ReactNode }) => React.createElement(React.Fragment, null, children),
   };
 });
 
 // next/link — render plain anchor
 vi.mock('next/link', () => ({
   __esModule: true,
-  default: ({ children, href, ...rest }: any) =>
+  default: ({ children, href, ...rest }: { children?: React.ReactNode; href?: string; [key: string]: unknown }) =>
     React.createElement('a', { href, ...rest }, children),
 }));
 
 // Mock Icon to avoid pulling in Material Icons font loader
 vi.mock('@/components/ui/Icon', () => ({
-  Icon: ({ name, className, size, style }: any) =>
+  Icon: ({ name, className, size, style }: { name?: string; className?: string; size?: string | number; style?: React.CSSProperties }) =>
     React.createElement(
       'span',
       { 'data-testid': 'icon', 'data-icon-name': name, className, style, 'data-size': size },
@@ -106,11 +106,12 @@ describe('Hero', () => {
     expect(sec.getAttribute('href')).toBe('/about');
   });
 
-  it('renders the scroll indicator svg', () => {
+  it('no longer renders the removed scroll indicator svg', () => {
     const { container } = render(<Hero title="Hi" />);
-    // The bouncing scroll indicator is an svg with the path d="M19 14l-7 7m0 0l-7-7m7 7V3"
+    // The bouncing scroll indicator (svg path d="M19 14l-7 7m0 0l-7-7m7 7V3")
+    // was removed from Hero — assert it stays gone.
     const path = container.querySelector('path[d="M19 14l-7 7m0 0l-7-7m7 7V3"]');
-    expect(path).toBeTruthy();
+    expect(path).toBeNull();
   });
 });
 

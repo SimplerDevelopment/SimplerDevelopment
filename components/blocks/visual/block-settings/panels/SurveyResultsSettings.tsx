@@ -9,11 +9,10 @@ export function SurveyResultsBlockSettings({ block, onChange }: { block: SurveyR
   const [surveys, setSurveys] = useState<Array<{ id: number; slug: string; title: string; status: string; responseCount: number; fields: Array<{ id: string; label: string; type: string }> }>>([]);
   const [search, setSearch] = useState('');
   const [open, setOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    setLoading(true);
     fetch('/api/portal/surveys')
       .then(r => r.json())
       .then(json => { if (json.success) setSurveys(json.data || []); })

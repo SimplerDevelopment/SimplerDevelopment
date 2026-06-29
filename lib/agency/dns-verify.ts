@@ -11,6 +11,7 @@
 // for the DNS lookup itself, so it's straightforward to unit-test by
 // mocking `node:dns/promises`.
 
+import { randomBytes } from 'node:crypto';
 import { resolveTxt } from 'node:dns/promises';
 
 /**
@@ -59,10 +60,6 @@ export async function verifyDomainOwnership(
  * binding constraint, not the token itself.
  */
 export function generateVerificationToken(): string {
-  // Lazy require so this module remains usable in environments where
-  // `node:crypto` import order would otherwise be funky (edge runtimes).
-  // The verification API path runs in node, so this is fine.
-  const { randomBytes } = require('node:crypto') as typeof import('node:crypto');
   return randomBytes(32).toString('hex');
 }
 

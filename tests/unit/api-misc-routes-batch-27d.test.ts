@@ -288,10 +288,11 @@ describe('/api/mcp', () => {
       const res = await mcpRoute.POST(req);
       expect(res.status).toBe(401);
       const challenge = res.headers.get('WWW-Authenticate');
-      expect(challenge).toContain('Bearer realm="simplerdevelopment-mcp"');
+      // RFC 9728 format: no realm, just resource_metadata + scope
       expect(challenge).toContain(
         'resource_metadata="https://app.example.com/.well-known/oauth-protected-resource"',
       );
+      expect(challenge).toContain('scope=');
       expect(res.headers.get('Content-Type')).toBe('application/json');
       const body = await res.json();
       expect(body.jsonrpc).toBe('2.0');

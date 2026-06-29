@@ -15,8 +15,9 @@ import {
   brainNotes,
 } from '@/lib/db/schema';
 import { and, eq, desc, isNull } from 'drizzle-orm';
+import type { AnyPgColumn, AnyPgTable } from 'drizzle-orm/pg-core';
 
-const ARTIFACT_TABLES: Record<string, { table: any; titleField: string }> = {
+const ARTIFACT_TABLES: Record<string, { table: AnyPgTable; titleField: string }> = {
   website: { table: clientWebsites, titleField: 'name' },
   email_campaign: { table: emailCampaigns, titleField: 'name' },
   pitch_deck: { table: pitchDecks, titleField: 'title' },
@@ -27,8 +28,8 @@ const ARTIFACT_TABLES: Record<string, { table: any; titleField: string }> = {
   brain_note: { table: brainNotes, titleField: 'title' },
 };
 
-function getRole(session: any): string {
-  return (session as unknown as { user?: { role?: string } })?.user?.role ?? '';
+function getRole(session: unknown): string {
+  return (session as { user?: { role?: string } } | null)?.user?.role ?? '';
 }
 
 async function getAuthedCard(cardId: number) {
@@ -93,12 +94,13 @@ export async function POST(
 
   // Enforce tenant ownership: artifact must belong to the task's project's client
   const config = ARTIFACT_TABLES[artifactType];
-  const baseWhere = and(eq(config.table.id, artifactId), eq(config.table.clientId, result.clientId));
+  const tableCols = config.table as unknown as Record<string, AnyPgColumn>;
+  const baseWhere = and(eq(tableCols.id, artifactId), eq(tableCols.clientId, result.clientId));
   const finalWhere = artifactType === 'brain_note'
     ? and(baseWhere, isNull(brainNotes.deletedAt))
     : baseWhere;
   const [source] = await db
-    .select({ title: config.table[config.titleField] })
+    .select({ title: tableCols[config.titleField] })
     .from(config.table)
     .where(finalWhere);
   if (!source) {

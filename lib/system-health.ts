@@ -10,7 +10,7 @@
 //   2. This file — add an entry with the canonical `name` so the dashboard
 //      stops marking it as "never tracked".
 
-export type SystemHealthArea = 'api-cron' | 'routine' | 'brain-12';
+export type SystemHealthArea = 'api-cron' | 'routine';
 
 export interface KnownJob {
   /** Stable identifier (must match what `withCronHealth({ name })` uses). */
@@ -152,14 +152,6 @@ const API_CRONS: KnownJob[] = [
     tracked: true,
   },
   {
-    name: 'api-cron:brain-12',
-    area: 'api-cron',
-    label: 'BRAIN-12 cleanup',
-    schedule: '30 7 * * *',
-    purpose: 'One-shot soft-delete sweep for tagged duplicate brain notes.',
-    tracked: true,
-  },
-  {
     name: 'api-cron:resend-usage-sync',
     area: 'api-cron',
     label: 'Resend usage sync',
@@ -231,44 +223,6 @@ const ROUTINES: KnownJob[] = [
   },
 ];
 
-// scripts/brain-12/* — one-off migrations, not recurring jobs. Surfaced
-// here for completeness so staff can see they exist; they have no schedule
-// and aren't tracked.
-const BRAIN_12: KnownJob[] = [
-  {
-    name: 'brain-12:01-add-deleted-at',
-    area: 'brain-12',
-    label: 'BRAIN-12 01: add deleted_at column',
-    schedule: 'one-shot (manual)',
-    purpose: 'Adds brain_notes.deleted_at on prod to match the TS schema.',
-    tracked: false,
-  },
-  {
-    name: 'brain-12:02-recheck-dupes',
-    area: 'brain-12',
-    label: 'BRAIN-12 02: recheck dupes',
-    schedule: 'one-shot (manual)',
-    purpose: 'Re-tally URL-duplicate brain notes after normalization.',
-    tracked: false,
-  },
-  {
-    name: 'brain-12:03-tag',
-    area: 'brain-12',
-    label: 'BRAIN-12 03: tag dupes/shorts',
-    schedule: 'one-shot (manual)',
-    purpose: 'Tag duplicate / short-note review rows for the cleanup cron.',
-    tracked: false,
-  },
-  {
-    name: 'brain-12:inventory',
-    area: 'brain-12',
-    label: 'BRAIN-12 inventory',
-    schedule: 'one-shot (manual, read-only)',
-    purpose: 'Read-only stub/duplicate/orphan tally on prod.',
-    tracked: false,
-  },
-];
-
 export function listKnownJobs(): KnownJob[] {
-  return [...API_CRONS, ...ROUTINES, ...BRAIN_12];
+  return [...API_CRONS, ...ROUTINES];
 }

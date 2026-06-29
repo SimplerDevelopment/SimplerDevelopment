@@ -224,8 +224,24 @@ export default function GaAnalyticsDashboard({
   }, [siteId, range]);
 
   useEffect(() => {
-    fetchReport();
-  }, [fetchReport]);
+    void (async () => {
+      try {
+        const res = await fetch(
+          `/api/portal/websites/${siteId}/google/analytics/report?range=${range}`,
+        );
+        const json = await res.json();
+        if (json.success) {
+          setReport(json.data);
+        } else {
+          setError(json.message || 'Failed to load analytics');
+        }
+      } catch {
+        setError('Failed to load analytics data');
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [siteId, range]);
 
   return (
     <div className="space-y-5">

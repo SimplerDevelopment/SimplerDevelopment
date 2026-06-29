@@ -249,7 +249,7 @@ All design artifacts generated and agent context updated.
    - Executed `update-agent-context.sh claude`
    - Added TypeScript + Next.js 16 language context
    - Added Builder.io CMS database context
-   - Created `/Users/dancoyle/simplerdevelopment2026/CLAUDE.md`
+   - Created `<repo-root>/CLAUDE.md`
 
 ### Content Models Defined
 

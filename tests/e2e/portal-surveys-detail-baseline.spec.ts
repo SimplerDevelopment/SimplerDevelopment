@@ -38,21 +38,38 @@ async function loginAsClient(page: Page) {
 
 /** Click a top-level tab on the survey detail page. Tabs live inside the
  *  border-bottom flex container. We resolve by ordinal index, which matches
- *  the page's authoritative tab order (overview, edit, recommendation,
- *  responses, analytics, share, settings). */
+ *  the page's authoritative tab order:
+ *  overview(0), edit(1), flow(2), recommendation(3), variants(4),
+ *  responses(5), analytics(6), share(7), webhooks(8), email-followups(9),
+ *  settings(10).
+ *
+ *  IMPORTANT: We use `.overflow-x-auto` in the selector to scope the locator
+ *  specifically to the tab strip. The PortalSidebar renders a header div that
+ *  also has `border-b border-border` classes and contains a direct `<button>`
+ *  child (the mobile-only close button). Even though that button is hidden at
+ *  the lg: breakpoint (display:none via `lg:hidden`), Playwright's
+ *  `locator.nth()` counts ALL DOM-matched elements regardless of visibility.
+ *  Without the `.overflow-x-auto` filter, the sidebar button is counted at
+ *  index 0, shifting every tab index by 1 and causing clicks on the wrong tab.
+ *  The tab strip div has `overflow-x-auto`; the sidebar header does not. */
 const TAB_INDEX: Record<string, number> = {
   overview: 0,
   edit: 1,
-  recommendation: 2,
-  responses: 3,
-  analytics: 4,
-  share: 5,
-  settings: 6,
+  flow: 2,
+  recommendation: 3,
+  variants: 4,
+  responses: 5,
+  analytics: 6,
+  share: 7,
+  webhooks: 8,
+  'email-followups': 9,
+  settings: 10,
 };
 
 async function clickTab(page: Page, key: keyof typeof TAB_INDEX) {
-  // Wait for the tab strip to render (7 tab buttons).
-  const tabStrip = page.locator('div.border-b.border-border > button');
+  // Wait for the tab strip to render (11 tab buttons — settings is last at index 10).
+  // Use `.overflow-x-auto` to scope to the tab strip only (see comment above TAB_INDEX).
+  const tabStrip = page.locator('div.border-b.border-border.overflow-x-auto > button');
   await expect(tabStrip.nth(TAB_INDEX.settings)).toBeVisible({ timeout: 20_000 });
   await tabStrip.nth(TAB_INDEX[key]).click();
 }
@@ -83,6 +100,14 @@ async function createBaselineSurvey(api: ApiClient) {
 }
 
 test.describe('Portal Surveys Detail — Refactor Baseline @critical @surveys', () => {
+  // Cold dev-server (CI, first access) compiles the client bundle for the
+  // `[id]` route on first request, which takes 15–30 s before hydration can
+  // start. All steps after a cold compile run at normal speed, but the total
+  // wall-time for multi-step tests (reload cycle) easily exceeds the default
+  // 60 s. 120 s gives enough headroom for a cold server while still catching
+  // genuine hangs.
+  test.setTimeout(120_000);
+
   let cleanups: Array<() => Promise<void>> = [];
   let hasAccess = false;
 
@@ -105,11 +130,11 @@ test.describe('Portal Surveys Detail — Refactor Baseline @critical @surveys', 
     await loginAsClient(page);
     await page.goto('/portal/surveys');
     // Survey title should appear in the list
-    await expect(page.getByText(result!.survey.title).first()).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText(result!.survey.title).first()).toBeVisible({ timeout: 45_000 });
 
     // Navigate to detail page directly (link variations vary by row layout).
     await page.goto(`/portal/surveys/${result!.survey.id}`);
-    await expect(surveyHeading(page, result!.survey.title)).toBeVisible({ timeout: 30_000 });
+    await expect(surveyHeading(page, result!.survey.title)).toBeVisible({ timeout: 45_000 });
   });
 
   test('add a text question, save, reload, persists', async ({ page, clientApi }) => {
@@ -120,7 +145,7 @@ test.describe('Portal Surveys Detail — Refactor Baseline @critical @surveys', 
 
     await loginAsClient(page);
     await page.goto(`/portal/surveys/${result!.survey.id}`);
-    await expect(surveyHeading(page, result!.survey.title)).toBeVisible({ timeout: 30_000 });
+    await expect(surveyHeading(page, result!.survey.title)).toBeVisible({ timeout: 45_000 });
 
     // Switch to Edit tab
     await clickTab(page, 'edit');
@@ -156,7 +181,7 @@ test.describe('Portal Surveys Detail — Refactor Baseline @critical @surveys', 
 
     // Reload the page and assert label persists in the DOM
     await page.reload();
-    await expect(surveyHeading(page, result!.survey.title)).toBeVisible({ timeout: 30_000 });
+    await expect(surveyHeading(page, result!.survey.title)).toBeVisible({ timeout: 45_000 });
     await clickTab(page, 'edit');
     await expect(page.getByText('SURVEY-baseline-question-1').first()).toBeVisible({ timeout: 10_000 });
   });
@@ -176,7 +201,7 @@ test.describe('Portal Surveys Detail — Refactor Baseline @critical @surveys', 
 
     await loginAsClient(page);
     await page.goto(`/portal/surveys/${result!.survey.id}`);
-    await expect(surveyHeading(page, result!.survey.title)).toBeVisible({ timeout: 30_000 });
+    await expect(surveyHeading(page, result!.survey.title)).toBeVisible({ timeout: 45_000 });
     await clickTab(page, 'edit');
 
     // Expand the field card via the Edit (pencil) button
@@ -201,7 +226,7 @@ test.describe('Portal Surveys Detail — Refactor Baseline @critical @surveys', 
     expect(verify.data.data.fields[0].label).toBe('SURVEY-edited-label');
 
     await page.reload();
-    await expect(surveyHeading(page, result!.survey.title)).toBeVisible({ timeout: 30_000 });
+    await expect(surveyHeading(page, result!.survey.title)).toBeVisible({ timeout: 45_000 });
     await clickTab(page, 'edit');
     await expect(page.getByText('SURVEY-edited-label').first()).toBeVisible({ timeout: 10_000 });
   });
@@ -221,7 +246,7 @@ test.describe('Portal Surveys Detail — Refactor Baseline @critical @surveys', 
 
     await loginAsClient(page);
     await page.goto(`/portal/surveys/${result!.survey.id}`);
-    await expect(surveyHeading(page, result!.survey.title)).toBeVisible({ timeout: 30_000 });
+    await expect(surveyHeading(page, result!.survey.title)).toBeVisible({ timeout: 45_000 });
     await clickTab(page, 'edit');
 
     await page.locator('button', { hasText: 'Add Field' }).first().click();
@@ -266,7 +291,7 @@ test.describe('Portal Surveys Detail — Refactor Baseline @critical @surveys', 
 
     await loginAsClient(page);
     await page.goto(`/portal/surveys/${result!.survey.id}`);
-    await expect(surveyHeading(page, result!.survey.title)).toBeVisible({ timeout: 30_000 });
+    await expect(surveyHeading(page, result!.survey.title)).toBeVisible({ timeout: 45_000 });
     await clickTab(page, 'edit');
 
     // Click the first "Move down" button (belongs to question A → swaps with B).
@@ -294,7 +319,7 @@ test.describe('Portal Surveys Detail — Refactor Baseline @critical @surveys', 
 
     await loginAsClient(page);
     await page.goto(`/portal/surveys/${result!.survey.id}`);
-    await expect(surveyHeading(page, result!.survey.title)).toBeVisible({ timeout: 30_000 });
+    await expect(surveyHeading(page, result!.survey.title)).toBeVisible({ timeout: 45_000 });
 
     await clickTab(page, 'analytics');
     // Zero-state message

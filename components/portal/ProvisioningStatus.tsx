@@ -40,7 +40,11 @@ export default function ProvisioningStatus({ siteId }: { siteId: number }) {
   };
 
   useEffect(() => {
-    fetchStatus();
+    void (async () => {
+      const res = await fetch(`/api/portal/websites/${siteId}/status`);
+      const json = await res.json();
+      if (json.success) setData(json.data);
+    })();
   }, [siteId]);
 
   // Poll while provisioning

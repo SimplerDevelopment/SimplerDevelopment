@@ -80,7 +80,7 @@ vi.mock('@/lib/db/schema', () => {
     'products', 'productImages', 'productOptions', 'productOptionValues',
     'productVariants', 'bulkPricingRules', 'productCategories',
     'invoices', 'clients', 'clientServices',
-    'designs',
+    'designs', 'productSides', 'productDesigns',
   ];
   const out: Record<string, unknown> = {};
   for (const t of tables) out[t] = tableProxy(t);

@@ -88,10 +88,10 @@ function PluginUpsell({
           </Link>
 
           <a
-            href="mailto:support@simplerdevelopment.com"
+            href={`mailto:${process.env.SUPPORT_EMAIL || 'support@simplerdevelopment.com'}`}
             className="text-xs text-muted-foreground hover:underline"
           >
-            support@simplerdevelopment.com
+            {process.env.SUPPORT_EMAIL || 'support@simplerdevelopment.com'}
           </a>
         </div>
 

@@ -17,10 +17,6 @@ export default function TagsPage() {
   const [editingTag, setEditingTag] = useState<Tag | null>(null);
   const [formData, setFormData] = useState({ name: '', slug: '' });
 
-  useEffect(() => {
-    fetchTags();
-  }, []);
-
   const fetchTags = async () => {
     const response = await fetch('/api/tags');
     const data = await response.json();
@@ -29,6 +25,10 @@ export default function TagsPage() {
     }
     setLoading(false);
   };
+
+  useEffect(() => {
+    fetchTags();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

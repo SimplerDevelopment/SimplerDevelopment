@@ -28,10 +28,12 @@ vi.mock('@/lib/auth', () => ({ auth: vi.fn() }));
 // `new Stripe(key)` works — vi.fn() is callable but not constructable, and
 // the route does `const stripe = new Stripe(stripeKey)`.
 const stripeCheckoutCreate = vi.fn();
+const stripePaymentMethodDetach = vi.fn();
 vi.mock('stripe', () => {
   function StripeMock(this: unknown) {
     Object.assign(this as object, {
       checkout: { sessions: { create: stripeCheckoutCreate } },
+      paymentMethods: { detach: stripePaymentMethodDetach },
     });
   }
   return { default: StripeMock };
@@ -112,6 +114,8 @@ async function seedPaymentMethod(clientId: number) {
 
 beforeEach(() => {
   stripeCheckoutCreate.mockReset();
+  stripePaymentMethodDetach.mockReset();
+  stripePaymentMethodDetach.mockResolvedValue({});
 });
 
 describe('GET /api/portal/settings/billing (subscription) @settings @billing @tenancy', () => {

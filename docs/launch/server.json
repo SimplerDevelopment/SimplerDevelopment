@@ -1,0 +1,17 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-09-08/server.schema.json",
+  "name": "io.github.danielpcoyle/simplerdevelopment",
+  "description": "Open-source, MCP-native all-in-one platform: operate per-tenant websites, a CRM, an AI Company Brain (RAG), email campaigns, bookings, a storefront, e-sign, and billing through 200+ scoped MCP tools. Self-hostable, Apache-2.0.",
+  "repository": {
+    "url": "https://github.com/DanielPCoyle/simplerdevelopment2026",
+    "source": "github"
+  },
+  "version": "0.1.0",
+  "websiteUrl": "https://github.com/DanielPCoyle/simplerdevelopment2026",
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://REPLACE-WITH-YOUR-PUBLIC-HOST/api/mcp"
+    }
+  ]
+}

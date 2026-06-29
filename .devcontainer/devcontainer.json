@@ -1,0 +1,43 @@
+{
+  // Design choice: dockerComposeFile + extend (not the postgres devcontainer feature).
+  // Reason: the project already ships docker-compose.yml with pgvector/pgvector:pg16
+  // and ./docker/initdb extension-provisioning scripts. Reusing it keeps the
+  // dev-container DB byte-for-byte identical to the README quick-start setup.
+  // The extend file adds an oven/bun:1-debian workspace container alongside.
+  "name": "SimplerDevelopment",
+  "dockerComposeFile": ["../docker-compose.yml", "docker-compose.extend.yml"],
+  "service": "app",
+  "workspaceFolder": "/workspace",
+
+  // Forward the Next.js dev server and Postgres to the host / Codespaces preview.
+  "forwardPorts": [3000, 5432],
+  "portsAttributes": {
+    "3000": { "label": "Next.js dev server", "onAutoForward": "openPreview" },
+    "5432": { "label": "Postgres (pgvector)" }
+  },
+
+  // Install all workspace + package dependencies once on first create.
+  // Bun is pre-installed in oven/bun:1-debian — no extra install step.
+  "postCreateCommand": "bun install",
+
+  // Next steps after the container starts (see .devcontainer/README.md):
+  //   1. cp .env.example .env.local  — and fill in required secrets
+  //   2. bun run db:migrate           — DATABASE_URL is already set from Compose env
+  //   3. bun dev                      — starts Next.js at http://localhost:3000
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        // Linting — project uses ESLint (bun run lint)
+        "dbaeumer.vscode-eslint",
+        // Tailwind CSS IntelliSense — project uses Tailwind 4
+        "bradlc.vscode-tailwindcss",
+        // SQL tools for inspecting Drizzle/Postgres schemas
+        "mtxr.sqltools",
+        "mtxr.sqltools-driver-pg",
+        // TypeScript language service enhancements
+        "ms-vscode.vscode-typescript-next"
+      ]
+    }
+  }
+}

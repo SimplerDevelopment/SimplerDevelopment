@@ -969,16 +969,17 @@ describe('Review tab — actions', () => {
     });
   }
 
-  // Helper: find the per-item Approve / Reject button (has bg-primary or
-  // hover:bg-destructive on the per-card action row), not the tab.
+  // Helper: find the per-item Approve / Reject button.
+  // pBtnPrimary now uses bg-foreground (was bg-primary before the portal redesign).
+  // pBtnGhost + destructive override now uses hover:text-destructive (was hover:bg-destructive).
   function findItemApprove(container: HTMLElement): HTMLButtonElement {
     return Array.from(container.querySelectorAll('button')).find((b) =>
-      b.className.includes('bg-primary') && b.textContent?.includes('Approve'),
+      b.className.includes('bg-foreground') && b.textContent?.includes('Approve'),
     ) as HTMLButtonElement;
   }
   function findItemReject(container: HTMLElement): HTMLButtonElement {
     return Array.from(container.querySelectorAll('button')).find((b) =>
-      b.className.includes('hover:bg-destructive') && b.textContent?.includes('Reject'),
+      b.className.includes('hover:text-destructive') && b.textContent?.includes('Reject'),
     ) as HTMLButtonElement;
   }
 

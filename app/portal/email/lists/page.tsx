@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
+import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { pBtnPrimary, pBtnGhost, pCard } from '@/components/portal/portal-ui';
 
 interface EmailList {
   id: number;
@@ -194,27 +196,23 @@ export default function PortalEmailListsPage() {
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-2">
-          <Link href="/portal/email" className="text-muted-foreground hover:text-foreground">
-            <span className="material-icons text-base">arrow_back</span>
-          </Link>
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">Subscriber Lists</h1>
-            <p className="text-muted-foreground text-sm mt-0.5">Manage your email lists and contacts.</p>
-          </div>
-        </div>
-        <button
-          onClick={() => setShowForm(!showForm)}
-          className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
-        >
-          <span className="material-icons text-base">add</span>
-          New List
-        </button>
-      </div>
+      <PortalPageHeader
+        eyebrow="Email"
+        title="Subscriber Lists"
+        subtitle="Manage your email lists and contacts."
+        actions={
+          <button
+            onClick={() => setShowForm(!showForm)}
+            className={pBtnPrimary}
+          >
+            <span className="material-icons text-base">add</span>
+            New List
+          </button>
+        }
+      />
 
       {showForm && (
-        <form onSubmit={createList} className="bg-card border border-border rounded-lg p-5 space-y-4">
+        <form onSubmit={createList} className="bg-card border border-border rounded-2xl p-5 space-y-4">
           <h3 className="font-semibold text-foreground">Create List</h3>
           {error && <p className="text-sm text-red-600">{error}</p>}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -232,17 +230,17 @@ export default function PortalEmailListsPage() {
             </div>
           </div>
           <div className="flex gap-2">
-            <button type="submit" disabled={saving} className="px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90 disabled:opacity-50">
+            <button type="submit" disabled={saving} className={pBtnPrimary}>
               {saving ? 'Creating…' : 'Create List'}
             </button>
-            <button type="button" onClick={() => setShowForm(false)} className="px-4 py-2 border border-border rounded-md text-sm text-muted-foreground hover:bg-accent">Cancel</button>
+            <button type="button" onClick={() => setShowForm(false)} className={pBtnGhost}>Cancel</button>
           </div>
         </form>
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Lists */}
-        <div className="bg-card border border-border rounded-lg overflow-hidden">
+        <div className="bg-card border border-border rounded-2xl overflow-hidden">
           <div className="px-5 py-4 border-b border-border">
             <h2 className="font-semibold text-foreground">Lists</h2>
           </div>
@@ -274,7 +272,7 @@ export default function PortalEmailListsPage() {
         </div>
 
         {/* Subscribers */}
-        <div className="bg-card border border-border rounded-lg overflow-hidden">
+        <div className="bg-card border border-border rounded-2xl overflow-hidden">
           <div className="px-5 py-4 border-b border-border flex items-center justify-between">
             <h2 className="font-semibold text-foreground">
               {selectedList ? `${selectedList.name}` : 'Select a list'}
@@ -303,10 +301,10 @@ export default function PortalEmailListsPage() {
                   />
                   <div className="flex gap-2">
                     <button onClick={importCsv} disabled={importing || !csvText.trim()}
-                      className="px-3 py-1.5 bg-primary text-primary-foreground rounded text-xs font-medium hover:bg-primary/90 disabled:opacity-50">
+                      className={`${pBtnPrimary} text-xs`}>
                       {importing ? 'Importing…' : 'Import'}
                     </button>
-                    <button onClick={() => { setShowCsv(false); setCsvText(''); }} className="px-3 py-1.5 border border-border rounded text-xs text-muted-foreground hover:bg-accent">Cancel</button>
+                    <button onClick={() => { setShowCsv(false); setCsvText(''); }} className={`${pBtnGhost} text-xs`}>Cancel</button>
                   </div>
                 </div>
               )}
@@ -318,7 +316,7 @@ export default function PortalEmailListsPage() {
                 <input value={subForm.name} onChange={e => setSubForm(p => ({ ...p, name: e.target.value }))}
                   placeholder="Name"
                   className="w-28 border border-border rounded-md px-3 py-2 text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary" />
-                <button type="submit" disabled={subSaving} className="px-3 py-2 bg-primary text-primary-foreground rounded-md text-sm hover:bg-primary/90 disabled:opacity-50">
+                <button type="submit" disabled={subSaving} className={pBtnPrimary}>
                   <span className="material-icons text-base">add</span>
                 </button>
               </form>

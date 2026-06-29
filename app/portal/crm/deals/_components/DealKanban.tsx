@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { formatCurrency, priorityColor } from '../_lib/ui';
+import { priorityColor } from '../_lib/ui';
+import { formatMoney } from '@/lib/utils/money';
 import type { Deal, Stage } from '../_lib/types';
 
 interface DealKanbanProps {
@@ -87,7 +88,7 @@ export default function DealKanban({
                 </div>
               </div>
               <p className="text-xs text-muted-foreground mt-1 font-medium">
-                {formatCurrency(stageTotal)}
+                {formatMoney(stageTotal)}
               </p>
             </div>
 
@@ -133,10 +134,10 @@ export default function DealKanban({
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <p className="text-sm font-bold text-foreground">{formatCurrency(deal.value)}</p>
+                    <p className="text-sm font-bold text-foreground">{formatMoney(deal.value)}</p>
                     {deal.recurringValue != null && deal.recurringValue > 0 && (
                       <span className="text-[10px] px-1.5 py-0.5 bg-emerald-100 text-emerald-700 rounded font-medium">
-                        {formatCurrency(deal.recurringValue)}/
+                        {formatMoney(deal.recurringValue)}/
                         {deal.billingCycle === 'annual'
                           ? 'yr'
                           : deal.billingCycle === 'quarterly'

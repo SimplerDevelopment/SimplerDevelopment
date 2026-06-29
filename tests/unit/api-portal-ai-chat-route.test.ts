@@ -60,8 +60,28 @@ vi.mock('@/lib/ai/plan-gate', () => ({
 
 const executePortalToolMock = vi.fn();
 vi.mock('@/lib/ai/portal-tools', () => ({
-  PORTAL_TOOLS: [{ name: 'fake_tool', description: 'fake', input_schema: { type: 'object' } }],
+  PORTAL_TOOLS: [{ name: 'list_projects', description: 'List projects', input_schema: { type: 'object', properties: {} } }],
   executePortalTool: (...args: unknown[]) => executePortalToolMock(...args),
+}));
+
+// Classifier — bypass Anthropic so it doesn't consume messagesCreateMock slots
+const classifyPortalRequestMock = vi.fn();
+vi.mock('@/lib/ai/portal-tools/classifier', () => ({
+  classifyPortalRequest: (...args: unknown[]) => classifyPortalRequestMock(...args),
+  classifyPortalComplexity: (...args: unknown[]) => classifyPortalRequestMock(...args),
+}));
+
+// withSpan / startSpan — just execute the callback
+vi.mock('@/lib/ai/tracer', () => ({
+  withSpan: async (_name: unknown, _attrs: unknown, fn: () => unknown) => fn(),
+  startSpan: () => ({ end: () => {} }),
+}));
+
+// toolsForDomains / domainsOfToolCalls — passthrough stubs
+vi.mock('@/lib/ai/portal-tools/domains', () => ({
+  toolsForDomains: (_domains: unknown, tools: unknown) => tools,
+  domainsOfToolCalls: () => [],
+  PORTAL_DOMAINS: [],
 }));
 
 // ---- Anthropic SDK — never let it touch the network ----
@@ -311,6 +331,13 @@ beforeEach(() => {
   recordAiUsageMock.mockReset().mockResolvedValue(undefined);
   checkAiPlanGateMock.mockReset().mockResolvedValue({ allowed: true });
   executePortalToolMock.mockReset();
+  classifyPortalRequestMock.mockReset().mockResolvedValue({
+    complexity: 'simple',
+    domains: [],
+    reasoning: 'test default',
+    inputTokens: 0,
+    outputTokens: 0,
+  });
   messagesCreateMock.mockReset();
   anthropicCtorSpy.mockReset();
 
@@ -583,7 +610,7 @@ describe('POST /api/portal/ai/chat — agentic tool loop', () => {
     expect(body.data.toolCalls).toEqual([
       { name: 'list_projects', input: { foo: 'bar' } },
     ]);
-    expect(executePortalToolMock).toHaveBeenCalledWith('list_projects', { foo: 'bar' }, 10, 7);
+    expect(executePortalToolMock).toHaveBeenCalledWith('list_projects', { foo: 'bar' }, 10, 7, { source: 'assistant' });
     expect(messagesCreateMock).toHaveBeenCalledTimes(2);
 
     // Assistant row stores the toolCalls JSON
@@ -627,6 +654,43 @@ describe('POST /api/portal/ai/chat — agentic tool loop', () => {
     const body = await res.json();
     expect(body.error).toBe('loop_cap_exceeded');
     expect(state.aiMessages).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Security: portal tool results are sanitized before entering model context
+// ---------------------------------------------------------------------------
+
+describe('POST /api/portal/ai/chat — tool result sanitization (N2 fix)', () => {
+  it('redacts an API key in a tool result before it reaches the Anthropic messages array', async () => {
+    // Tool returns a payload that embeds a fake secret (sk- prefix triggers sanitizer)
+    const poisonedResult = { data: 'some notes', apiKey: 'sk-ABCDEF1234567890abcdef' };
+    executePortalToolMock.mockResolvedValueOnce(poisonedResult);
+
+    messagesCreateMock
+      .mockResolvedValueOnce(toolUseResponse('tu_sec', 'list_projects', {}))
+      .mockResolvedValueOnce(textResponse('All done.'));
+
+    const res = await POST(makeRequest({ message: 'show notes' }));
+    expect(res.status).toBe(200);
+
+    // The second messages.create call carries the tool_result user turn.
+    expect(messagesCreateMock).toHaveBeenCalledTimes(2);
+    const secondCall = messagesCreateMock.mock.calls[1]![0] as {
+      messages: Array<{ role: string; content: unknown }>;
+    };
+    // The last user message in the second call is the tool_result turn.
+    const lastUserMsg = secondCall.messages[secondCall.messages.length - 1] as {
+      role: string;
+      content: Array<{ type: string; content?: string }>;
+    };
+    expect(lastUserMsg.role).toBe('user');
+    const toolResultBlock = lastUserMsg.content.find((b) => b.type === 'tool_result');
+    expect(toolResultBlock).toBeDefined();
+    // The raw secret must NOT appear in the content sent to the model.
+    expect(toolResultBlock!.content).not.toContain('sk-ABCDEF1234567890abcdef');
+    // The redaction marker must be present instead.
+    expect(toolResultBlock!.content).toContain('[REDACTED_API_KEY]');
   });
 });
 

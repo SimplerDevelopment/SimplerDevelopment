@@ -63,7 +63,7 @@ export async function PUT(
   if (!site) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
 
   const body = await req.json();
-  const { title, slug, postType, excerpt, content, coverImage, published, categoryIds, tagIds, seoTitle, seoDescription, ogImage, noIndex, canonicalUrl, customCss, customJs, revisionTrigger } = body;
+  const { title, slug, postType, excerpt, content, coverImage, published, categoryIds, tagIds, seoTitle, seoDescription, ogImage, noIndex, canonicalUrl, customCss, customJs, revisionTrigger, scheduledPublishAt } = body;
 
   // Gate raw-HTML / raw-script block types to admin/editor staff only.
   if (content !== undefined) {
@@ -103,6 +103,9 @@ export async function PUT(
       ...(published !== undefined && {
         published,
         publishedAt: published ? new Date() : null,
+      }),
+      ...(scheduledPublishAt !== undefined && {
+        scheduledPublishAt: scheduledPublishAt ? new Date(scheduledPublishAt) : null,
       }),
       ...(seoTitle !== undefined && { seoTitle: seoTitle || null }),
       ...(seoDescription !== undefined && { seoDescription: seoDescription || null }),

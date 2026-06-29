@@ -7,67 +7,26 @@ import { authorizePortal, isAuthError } from '@/lib/portal-auth';
 import { eq, asc, sql } from 'drizzle-orm';
 import Anthropic from '@anthropic-ai/sdk';
 import { PORTAL_TOOLS, executePortalTool } from '@/lib/ai/portal-tools';
+import { classifyPortalRequest } from '@/lib/ai/portal-tools/classifier';
+import { toolsForDomains, domainsOfToolCalls } from '@/lib/ai/portal-tools/domains';
+import { withSpan, startSpan } from '@/lib/ai/tracer';
 import { hasCredits, deductCredits, getBalance } from '@/lib/ai-credits';
 import { resolveClientApiKey } from '@/lib/ai/resolve-client-key';
 import { recordAiUsage } from '@/lib/ai/audit';
 import { checkAiPlanGate } from '@/lib/ai/plan-gate';
+import { PORTAL_CHAT_SYSTEM_PROMPT } from '@/lib/ai/portal-chat-prompt';
+import { sanitizeToolResult } from '@/lib/ai/brain-tools/sanitizer';
 
-const SYSTEM_PROMPT = `You are a helpful AI assistant embedded in the Simpler Development client portal. You can help clients with EVERYTHING in their portal — projects, invoices, tickets, websites, email campaigns, booking pages, pitch decks, team management, services, hosting, CRM, and more.
+// Model routing: a cheap Haiku classifier decides which model runs the loop.
+const HAIKU = 'claude-haiku-4-5-20251001';
+const SONNET = 'claude-sonnet-4-6';
 
-You have access to real-time tools that query and modify the client's data. Always use the appropriate tool before answering — never guess or make up data.
-
-## Linking rules (IMPORTANT)
-Whenever you mention a specific entity by name, always make it a markdown link using the ID from the tool result:
-- Project → [Project Name](/portal/projects/{id})
-- Invoice → [Invoice #number](/portal/billing)
-- Support ticket → [Ticket #number](/portal/tickets/{id})
-- Suggested project → [Project Name](/portal/suggested-projects/{id})
-- Website → [Site Name](/portal/websites/{id})
-- Pitch deck → [Deck Name](/portal/tools/pitch-decks/{id})
-- Booking page → [Page Name](/portal/tools/booking/{id})
-- Email campaign → [Campaign Name](/portal/email/campaigns/{id})
-- CRM contact → [Contact Name](/portal/crm/contacts/{id})
-- CRM company → [Company Name](/portal/crm/companies/{id})
-- CRM deal → [Deal Title](/portal/crm/deals?deal={id})
-
-Only link to things where you have the actual ID from a tool call. Never fabricate IDs.
-
-## Confirmation rules (IMPORTANT — for write actions)
-Before calling any tool that creates, updates, or modifies data (create_support_ticket, reply_to_ticket, add_card_comment, create_website_page, publish_page, create_website_category, create_website_tag, request_service, request_suggested_project, update_profile, invite_team_member, create_crm_contact, update_crm_contact, create_crm_company, create_crm_deal, update_crm_deal, log_crm_activity, create_project_card, update_project_card, move_project_card, create_survey, update_survey, create_crm_proposal, send_crm_proposal, create_automation, toggle_automation, add_email_subscriber, create_email_segment), you MUST:
-1. Summarize what you're about to do with the specific details
-2. Ask the client to confirm with "yes"
-3. Only then call the tool
-
-## Navigation rules
-When an action is better done through the portal UI (e.g. editing a blog post in the block editor, uploading media, designing an email campaign, connecting Google, paying an invoice via Stripe checkout, editing booking page availability), use the navigate_to tool to send them to the right page. Include a brief message telling them what to do when they get there.
-
-Always prefer to complete simple actions directly (via tools) rather than navigating. Only navigate when the task requires the visual UI (rich editors, file uploads, Stripe checkout, OAuth flows).
-
-## General guidelines
-- Be concise, professional, and friendly
-- Only answer questions related to the client's work with Simpler Development
-- Format currency as dollars (e.g. $1,200.00)
-- Format dates in a human-friendly way (e.g. "March 15, 2026")
-- Use markdown sparingly — bullet lists are fine for multiple items, but avoid bold/headers for simple one-line answers
-- If something is outside your scope, suggest they contact the team directly
-- When a client asks "what can you help with?", give a brief overview of ALL your capabilities
-
-## Extended capabilities
-Beyond the basics (projects, invoices, tickets, websites, email, booking, pitch decks), you can also:
-
-**CRM**: Search/create/update contacts, companies, deals. View pipelines and stages. Log activities (calls, emails, meetings). Create and send proposals. Mark deals as won/lost.
-
-**Projects & Tasks**: Create cards (tasks) in project boards, update card details, move cards between columns (e.g. "To Do" to "Done").
-
-**Surveys**: Create surveys with custom fields, view responses and stats, update survey status (draft/active/closed).
-
-**Automations**: View, create, and toggle automation rules. Rules have triggers (e.g. "crm.deal.won"), conditions, and actions (any portal tool).
-
-**Email Marketing**: Add subscribers to lists, create audience segments with filter rules.
-
-**Proposals**: Create CRM proposals with line items, send them to contacts (generates a shareable link).
-
-Use tools directly — only navigate to the portal UI when the task requires visual interaction (drag-drop, file uploads, rich editors).`;
+// Intent router rollout (ADR agent-topology-router-not-domain-mesh):
+//   'shadow' → measure router accuracy/latency; loop still gets ALL tools
+//              (zero capability risk on this client-facing, billing route).
+//   'active' → hand the loop only the routed domain subset (token savings).
+// Flip to 'active' once shadow data shows the router is reliable.
+const ROUTER_MODE: 'shadow' | 'active' = 'shadow';
 
 export async function POST(req: Request) {
   try {
@@ -153,11 +112,29 @@ export async function POST(req: Request) {
     // Append new user message
     anthropicMessages.push({ role: 'user', content: message.trim() });
 
-    // Agentic tool loop
+    // Cheap Haiku classifier does double duty in ONE call (no extra hop):
+    //  - complexity → model routing (simple → Haiku, complex → Sonnet)
+    //  - domains    → intent routing (which tool subset the request needs)
+    const classification = await withSpan(
+      'portal.classify',
+      { clientId: client.id },
+      () => classifyPortalRequest(message.trim(), anthropic),
+    );
+    const loopModel = classification.complexity === 'simple' ? HAIKU : SONNET;
+
+    // Intent router: the subset the router would hand the loop. In 'shadow'
+    // mode we still pass the full surface and only record what we *would* have
+    // selected; in 'active' mode the loop actually gets just this subset.
+    // Empty domains → toolsForDomains returns the full set (fail-open).
+    const routedTools = toolsForDomains(classification.domains, PORTAL_TOOLS);
+    const loopTools = ROUTER_MODE === 'active' ? routedTools : PORTAL_TOOLS;
+
+    // Agentic tool loop. Seed token totals with the classifier spend so
+    // platform-keyed credit deduction stays accurate.
     let finalText = '';
     const allToolCalls: { name: string; input: Record<string, unknown>; result: unknown }[] = [];
-    let totalInputTokens = 0;
-    let totalOutputTokens = 0;
+    let totalInputTokens = classification.inputTokens;
+    let totalOutputTokens = classification.outputTokens;
 
     let currentMessages = [...anthropicMessages];
 
@@ -171,10 +148,10 @@ export async function POST(req: Request) {
     while (loopCount < MAX_LOOPS) {
       loopCount++;
       const response = await anthropic.messages.create({
-        model: 'claude-sonnet-4-6',
+        model: loopModel,
         max_tokens: 2048,
-        system: SYSTEM_PROMPT,
-        tools: PORTAL_TOOLS,
+        system: PORTAL_CHAT_SYSTEM_PROMPT,
+        tools: loopTools,
         messages: currentMessages,
       });
 
@@ -196,17 +173,23 @@ export async function POST(req: Request) {
 
         const toolResults: Anthropic.ToolResultBlockParam[] = [];
         for (const block of toolUseBlocks) {
-          const result = await executePortalTool(
-            block.name,
-            block.input as Record<string, unknown>,
-            client.id,
-            userId,
+          const result = await withSpan(
+            'portal.tool',
+            { tool: block.name, clientId: client.id },
+            () =>
+              executePortalTool(
+                block.name,
+                block.input as Record<string, unknown>,
+                client.id,
+                userId,
+                { source: 'assistant' },
+              ),
           );
           allToolCalls.push({ name: block.name, input: block.input as Record<string, unknown>, result });
           toolResults.push({
             type: 'tool_result',
             tool_use_id: block.id,
-            content: JSON.stringify(result),
+            content: sanitizeToolResult(JSON.stringify(result)),
           });
         }
 
@@ -240,6 +223,25 @@ export async function POST(req: Request) {
         { status: 400 },
       );
     }
+
+    // Intent-router accuracy signal. Compare the domains the router predicted
+    // against the domains the loop's tool calls actually touched. A "miss" is
+    // a tool the model needed from a domain the router did NOT select — in
+    // 'active' mode that tool would have been unavailable. This is the data the
+    // ADR gate wants before flipping ROUTER_MODE to 'active'.
+    const usedDomains = domainsOfToolCalls(allToolCalls);
+    const predicted = new Set(classification.domains);
+    const routerMisses = usedDomains.filter((d) => !predicted.has(d));
+    startSpan('portal.route', {
+      clientId: client.id,
+      mode: ROUTER_MODE,
+      predictedDomains: classification.domains.join(',') || '(none)',
+      usedDomains: usedDomains.join(',') || '(none)',
+      routedToolCount: routedTools.length,
+      totalToolCount: PORTAL_TOOLS.length,
+      misses: routerMisses.join(',') || '(none)',
+      hit: routerMisses.length === 0,
+    }).end();
 
     // Save user message
     await db.insert(aiMessages).values({
@@ -287,6 +289,14 @@ export async function POST(req: Request) {
         toolCalls: allToolCalls.map(tc => ({ name: tc.name, input: tc.input })),
         tokensUsed: totalTokens,
         keySource: resolved.source,
+        model: loopModel,
+        router: {
+          mode: ROUTER_MODE,
+          domains: classification.domains,
+          routedToolCount: routedTools.length,
+          totalToolCount: PORTAL_TOOLS.length,
+          misses: routerMisses,
+        },
         creditsRemaining,
       },
     });
