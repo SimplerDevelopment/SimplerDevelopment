@@ -1,0 +1,119 @@
+# =============================================================================
+# prod-schema-sync.yml — Automated additive-only schema sync to production
+#
+# REQUIRES
+#   Repo secret: PROD_DATABASE_URL
+#     The production Postgres connection string (e.g. postgres://user:pass@host/db).
+#     Add it under Settings → Secrets and variables → Actions → Repository secrets.
+#
+# WHAT IT DOES
+#   On every push to `main`:
+#     1. Spins up a temporary Postgres 18 + pgvector container.
+#     2. Pushes the code's Drizzle schema into that temp DB (pure CREATE — no data).
+#     3. Runs scripts/sync-prod-schema.sh to diff temp DB (TARGET) vs production
+#        (LIVE) and apply ONLY missing CREATE TABLE / ADD COLUMN statements.
+#
+# WHAT IT NEVER DOES
+#   Drops, renames, or modifies any existing production table or column.
+#   If a future change intentionally removes a column or table it MUST be
+#   performed by hand (with a backup taken first) — this workflow will not
+#   propagate removals automatically.
+#
+# ORDERING vs VERCEL DEPLOY
+#   Additive changes are backward-compatible (old code ignores unknown columns).
+#   The schema sync and the Vercel deploy run concurrently; the exact finish
+#   order is safe either way.
+# =============================================================================
+
+name: Prod schema sync (additive)
+
+on:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: prod-schema-sync
+  cancel-in-progress: false   # never abort a running sync; queue instead
+
+jobs:
+  sync:
+    name: Sync prod schema (additive only)
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        # pgvector/pgvector:pg18 bundles the vector extension required by the schema.
+        # Using this image instead of postgres:18 to ensure CREATE EXTENSION vector works.
+        image: pgvector/pgvector:pg18
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      # -----------------------------------------------------------------------
+      # 1. Checkout
+      # -----------------------------------------------------------------------
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # -----------------------------------------------------------------------
+      # 2. Install Bun
+      # -----------------------------------------------------------------------
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+
+      # -----------------------------------------------------------------------
+      # 3. Install dependencies
+      # -----------------------------------------------------------------------
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      # -----------------------------------------------------------------------
+      # 4. Install PostgreSQL 18 client tools (pg_dump / psql must match server)
+      # -----------------------------------------------------------------------
+      - name: Install PostgreSQL 18 client
+        run: |
+          sudo sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" \
+            > /etc/apt/sources.list.d/pgdg.list'
+          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+            | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/postgresql.gpg
+          sudo apt-get update -qq
+          sudo apt-get install -y postgresql-client-18
+          # Ensure pg18 binaries are first on PATH for this job
+          echo "/usr/lib/postgresql/18/bin" >> "$GITHUB_PATH"
+
+      # -----------------------------------------------------------------------
+      # 5. Build TARGET schema into the temporary DB from the Drizzle source
+      # -----------------------------------------------------------------------
+      - name: Build target schema (drizzle-kit push → temp DB)
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
+        run: |
+          # Enable required extensions in the empty temp DB first
+          psql "$DATABASE_URL" -c '
+            CREATE EXTENSION IF NOT EXISTS vector;
+            CREATE EXTENSION IF NOT EXISTS pg_trgm;
+            CREATE EXTENSION IF NOT EXISTS pgcrypto;
+          '
+          # Push the Drizzle schema non-interactively.
+          # --force is safe here: the temp DB is empty so no data can be lost.
+          bunx drizzle-kit push --force
+
+      # -----------------------------------------------------------------------
+      # 6. Apply additive changes to production
+      # -----------------------------------------------------------------------
+      - name: Sync production schema (additive only)
+        env:
+          TARGET_DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
+          LIVE_DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+          PGDUMP: pg_dump
+        run: |
+          chmod +x scripts/sync-prod-schema.sh
+          bash scripts/sync-prod-schema.sh
