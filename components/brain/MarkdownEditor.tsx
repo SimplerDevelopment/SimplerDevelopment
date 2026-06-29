@@ -439,10 +439,8 @@ export default function MarkdownEditor({
 
   // Hydrate persisted mode from localStorage after mount (avoids SSR mismatch).
   useEffect(() => {
-    queueMicrotask(() => {
-      setMode(readStoredMode(storageKey, defaultMode));
-      setHydrated(true);
-    });
+    setMode(readStoredMode(storageKey, defaultMode));
+    setHydrated(true);
   }, [storageKey, defaultMode]);
 
   // Track viewport width to disable split mode on small screens.

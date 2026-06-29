@@ -45,7 +45,7 @@ export function useSettingsPanelSync({
     try {
       const channel = new BroadcastChannel(channelName);
       channelRef.current = channel;
-      queueMicrotask(() => setIsConnected(true));
+      setIsConnected(true);
 
       // Handle incoming messages
       channel.onmessage = (event: MessageEvent<SettingsPanelMessage>) => {
@@ -72,7 +72,7 @@ export function useSettingsPanelSync({
       };
     } catch (error) {
       console.error('Failed to create BroadcastChannel:', error);
-      queueMicrotask(() => setIsConnected(false));
+      setIsConnected(false);
     }
 
     // Cleanup

@@ -172,10 +172,8 @@ export function GradientBuilder({ backgroundColor, backgroundGradient, onChange 
   const [rawValue, setRawValue] = useState(backgroundGradient || '');
 
   useEffect(() => {
-    void Promise.resolve().then(() => {
-      setState(stateFromProps(backgroundColor, backgroundGradient));
-      setRawValue(backgroundGradient || '');
-    });
+    setState(stateFromProps(backgroundColor, backgroundGradient));
+    setRawValue(backgroundGradient || '');
   }, [backgroundColor, backgroundGradient]);
 
   /** Commit state to props with the correct single-vs-gradient split. */

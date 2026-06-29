@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useLayoutEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   DndContext,
   DragEndEvent,
@@ -825,11 +825,8 @@ export default function KanbanBoard({ projectId, initialColumns, isStaff, canEdi
       const id = p ? parseInt(p, 10) : NaN;
       return Number.isFinite(id) ? id : null;
     })();
-    (async () => {
-      await Promise.resolve();
-      const seed = fromPath ?? fromQuery;
-      if (seed != null) setSelectedCardId(seed);
-    })();
+    const seed = fromPath ?? fromQuery;
+    if (seed != null) setSelectedCardId(seed);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -847,9 +844,7 @@ export default function KanbanBoard({ projectId, initialColumns, isStaff, canEdi
   // Keyboard shortcuts: "/" focuses filter search, "c" starts adding a card to the first column.
   // Use refs for values to avoid re-registering the listener on every state change.
   const shortcutStateRef = useRef({ canEdit, columns, selectedCardId });
-  useLayoutEffect(() => {
-    shortcutStateRef.current = { canEdit, columns, selectedCardId };
-  });
+  shortcutStateRef.current = { canEdit, columns, selectedCardId };
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {

@@ -227,12 +227,8 @@ export function useComments(opts: UseCommentsOptions): UseCommentsApi {
 
   // Initial fetch + refetch on entity change.
   useEffect(() => {
-    // Defer the entire fetch start so setState calls inside refresh don't
-    // fire synchronously in the effect body (react-hooks/set-state-in-effect).
-    queueMicrotask(() => {
-      setLoading(true);
-      void refresh();
-    });
+    setLoading(true);
+    void refresh();
     return () => {
       if (abortRef.current) abortRef.current.abort();
     };

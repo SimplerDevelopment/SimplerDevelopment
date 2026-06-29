@@ -126,7 +126,7 @@ All routes under `app/api/portal/brain/` (Next.js App Router, `{ success, data |
 | `app/api/portal/ai/chat/stream/` | SSE stream variant |
 | `app/api/admin/ai/conversations/` | Admin view of AI conversations |
 
-Cron routes: `app/api/cron/brain-daily-notes/route.ts`, `app/api/cron/brain-12/route.ts`, `app/api/cron/brain-empty-old-trash/route.ts`.
+Cron routes: `app/api/cron/brain-daily-notes/route.ts`, `app/api/cron/brain-empty-old-trash/route.ts`.
 
 ## MCP tools
 

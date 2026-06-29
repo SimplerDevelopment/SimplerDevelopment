@@ -113,28 +113,21 @@ export default function AiImageModal({
 
   useEffect(() => {
     if (!open) return;
-    // Capture values synchronously, then apply in queueMicrotask so the
-    // React Compiler rule (react-hooks/set-state-in-effect) does not flag
-    // synchronous setState calls in the effect body.
-    const history = listAiPromptHistory();
-    const prefillSnapshot = prefill ? { ...prefill } : null;
-    queueMicrotask(() => {
-      setError(null);
-      // Drop any cached variants from a previous open so the picker doesn't
-      // flash before the new generate kicks off.
-      setVariants([]);
-      setLastRequest(null);
-      // Re-read recent prompts on each open so the list reflects history
-      // entries written during the same session by other generations.
-      setHistory(history);
-      // Apply prefill on each open so a second "Regenerate" reseeds the form
-      // even if the customer cancelled the first attempt with tweaked values.
-      if (prefillSnapshot) {
-        setPrompt(prefillSnapshot.prompt);
-        setStyle(prefillSnapshot.style);
-        setTransparent(prefillSnapshot.transparent);
-      }
-    });
+    setError(null);
+    // Drop any cached variants from a previous open so the picker doesn't
+    // flash before the new generate kicks off.
+    setVariants([]);
+    setLastRequest(null);
+    // Re-read recent prompts on each open so the list reflects history
+    // entries written during the same session by other generations.
+    setHistory(listAiPromptHistory());
+    // Apply prefill on each open so a second "Regenerate" reseeds the form
+    // even if the customer cancelled the first attempt with tweaked values.
+    if (prefill) {
+      setPrompt(prefill.prompt);
+      setStyle(prefill.style);
+      setTransparent(prefill.transparent);
+    }
     const t = window.setTimeout(() => {
       const el = promptRef.current;
       if (!el) return;

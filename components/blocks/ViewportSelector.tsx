@@ -12,19 +12,19 @@ interface ViewportSelectorProps {
 export function ViewportSelector({
   currentViewport: propViewport,
   onViewportChange: propOnChange,
-  useContext: useEditorContext = true
+  useContext = true
 }: ViewportSelectorProps = {}) {
   const viewports: Breakpoint[] = ['mobile', 'tablet', 'desktop'];
 
-  // Always call hook unconditionally at top level
-  const editorContext = useBlockEditorOptional();
-
+  // Call the optional context hook UNCONDITIONALLY (rules-of-hooks); it returns
+  // null outside a BlockEditorProvider, in which case we fall back to props.
+  const context = useBlockEditorOptional();
   let currentViewport: Breakpoint;
   let onViewportChange: (viewport: Breakpoint) => void;
 
-  if (useEditorContext && editorContext) {
-    currentViewport = editorContext.currentViewport;
-    onViewportChange = editorContext.setCurrentViewport;
+  if (useContext && context) {
+    currentViewport = context.currentViewport;
+    onViewportChange = context.setCurrentViewport;
   } else {
     currentViewport = propViewport || 'desktop';
     onViewportChange = propOnChange || (() => {});

@@ -458,11 +458,11 @@ export default function PlaybookStepEditor({
   // Re-sync local fields if parent's step row changed (e.g. server returned an
   // authoritative version after PATCH).
   useEffect(() => {
-    queueMicrotask(() => setLocal({
+    setLocal({
       key: step.key,
       name: step.name,
       description: step.description ?? '',
-    }));
+    });
   }, [step.id, step.key, step.name, step.description]);
 
   const kindChip = playbookStepKindChip(step.kind);

@@ -61,11 +61,7 @@ export default function TemplatesDrawer({ siteId, productId }: TemplatesDrawerPr
   }, [siteId, productId]);
 
   useEffect(() => {
-    if (!open) return;
-    // fetchTemplates calls setLoading(true) synchronously before any await,
-    // which would flag react-hooks/set-state-in-effect. Deferring to a
-    // queueMicrotask keeps the same visible timing while satisfying the rule.
-    queueMicrotask(() => { void fetchTemplates(); });
+    if (open) void fetchTemplates();
   }, [open, fetchTemplates]);
 
   const onPick = useCallback(

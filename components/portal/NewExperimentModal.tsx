@@ -86,12 +86,10 @@ export default function NewExperimentModal({ open, onClose }: Props) {
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
+    setLoading(true);
+    setLoadError('');
 
     (async () => {
-      await Promise.resolve();
-      if (cancelled) return;
-      setLoading(true);
-      setLoadError('');
       try {
         // Pull sites first; then fetch posts per-site in parallel.
         const sitesRes = await fetch('/api/portal/cms/websites');
@@ -143,15 +141,12 @@ export default function NewExperimentModal({ open, onClose }: Props) {
   // ─── Reset state on close ─────────────────────────────────────────────────
   useEffect(() => {
     if (open) return;
-    (async () => {
-      await Promise.resolve();
-      setTargetType('page');
-      setSelectedTargetId(null);
-      setName('');
-      setNameDirty(false);
-      setSubmitError('');
-      setSubmitting(false);
-    })();
+    setTargetType('page');
+    setSelectedTargetId(null);
+    setName('');
+    setNameDirty(false);
+    setSubmitError('');
+    setSubmitting(false);
   }, [open]);
 
   // ─── Auto-sync default name to the selected target ─────────────────────────
@@ -163,8 +158,10 @@ export default function NewExperimentModal({ open, onClose }: Props) {
     return decks.find(d => d.id === selectedTargetId)?.title ?? '';
   }, [targetType, selectedTargetId, posts, decks]);
 
-  // Derived name: follows the selection until the user manually edits it.
-  const computedName = nameDirty ? name : (selectedTitle ? `A/B test — ${selectedTitle}` : '');
+  useEffect(() => {
+    if (nameDirty) return;
+    setName(selectedTitle ? `A/B test — ${selectedTitle}` : '');
+  }, [selectedTitle, nameDirty]);
 
   // When the user toggles target type, clear selection (default name follows).
   function handleTargetTypeChange(next: TargetType) {
@@ -180,7 +177,7 @@ export default function NewExperimentModal({ open, onClose }: Props) {
       setSubmitError('Pick a target first.');
       return;
     }
-    if (!computedName.trim()) {
+    if (!name.trim()) {
       setSubmitError('Name is required.');
       return;
     }
@@ -195,7 +192,7 @@ export default function NewExperimentModal({ open, onClose }: Props) {
         body: JSON.stringify({
           targetType,
           targetId: selectedTargetId,
-          name: computedName.trim(),
+          name: name.trim(),
         }),
       });
       const json = await res.json();
@@ -337,7 +334,7 @@ export default function NewExperimentModal({ open, onClose }: Props) {
               Name
             </label>
             <input
-              value={computedName}
+              value={name}
               onChange={e => {
                 setName(e.target.value);
                 setNameDirty(true);
