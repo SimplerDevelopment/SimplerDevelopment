@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -68,7 +68,7 @@ jobs:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/simplerdev_test
       DATABASE_URL_TEST: postgresql://postgres:postgres@localhost:5432/simplerdev_test
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
