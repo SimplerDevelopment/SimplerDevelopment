@@ -53,7 +53,7 @@ export function Navigation() {
 
   return (
     <>
-      <nav className="sticky top-0 z-50 border-b bg-background/80 backdrop-blur-md">
+      <nav className="sticky top-0 z-[60] border-b bg-background/80 backdrop-blur-md">
         <div className="container mx-auto px-4">
           <div className="flex h-16 items-center justify-between">
             <div className="flex items-center gap-3">
@@ -171,7 +171,7 @@ export function Navigation() {
 
       {/* Backdrop Overlay */}
       <div
-        className={`fixed inset-0 bg-black/60 backdrop-blur-sm z-40 md:hidden transition-opacity duration-300 ${
+        className={`fixed inset-x-0 top-16 bottom-0 bg-black/60 backdrop-blur-sm z-40 md:hidden transition-opacity duration-300 ${
           mobileMenuOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}
         onClick={closeMobileMenu}
