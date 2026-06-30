@@ -138,7 +138,7 @@ No integration tests — the executor's in-process state and subprocess I/O are 
 `.planning/agentic-os.md` is the archived source-of-truth taxonomy doc. It contains:
 - Domain definitions and rationale for the 10-domain split
 - A gap list of 8 candidate skills not yet in the registry (`simplerdev-drizzle-migration`, `simplerdev-tenancy-regression`, `simplerdev-admin-page-scaffold`, `stripe-price-rotation`, `simplerdev-cron-add`, `mcp-scope-audit`, `brain-rag-eval`, `vendored-skill-refresh`)
-- Notes on the memory layer (CLAUDE.md / `.planning/` / content-kb vault)
+- Notes on the memory layer (CLAUDE.md / `.planning/` / claude-mem / content-kb vault)
 
 A future `external-webhooks` (`cloud` trigger) domain is already typed in `AgenticOsTrigger` but has no registered skills yet.
 

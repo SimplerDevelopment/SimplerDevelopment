@@ -40,7 +40,7 @@ Routing rule:
 - **"How does the code work?" → graphify.** Prefer `graphify-out/` over grep for broad cross-cutting questions when it exists and is recent; keep its commit-hook rebuild healthy. It reflects the *present* code, not history.
 - **"This deserves to be written down for the future" → Obsidian vault.** Domain maps / ADRs / specs / playbooks only. **Do not hand-write per-session logs in the vault** — claude-mem already owns ephemeral session history; the vault is for distilled, durable artifacts that outlive any one session.
 
-**Vault first for feature work.** Before planning/implementing in a domain, read its map in `vault/03 - Domains/` (key files, schema, routes, MCP tools, tests, gotchas — cheaper than re-deriving from code). "Which gates do I run?" → `vault/06 - Validation/Gate Picking.md`. After shipping: **completion ritual** — update the touched Domain Map and ADR any non-obvious decision (delegate to the `vault-librarian` agent; conventions in `.claude/skills/vault/SKILL.md`). New planning artifacts go in `vault/05 - Feature Specs/`, never in `.planning/` (frozen archive). Architecture + Domain notes are drift-checked by `scripts/check-doc-drift.ts` — keep cited paths real.
+**Vault first for feature work.** Before planning/implementing in a domain, read its map in `vault/03 - Domains/` (key files, schema, routes, MCP tools, tests, gotchas — cheaper than re-deriving from code). "Which gates do I run?" → `vault/06 - Validation/Gate Picking.md`. After shipping: **completion ritual** — update the touched Domain Map and ADR any non-obvious decision, following the existing vault frontmatter and map/table conventions. New planning artifacts go in `vault/05 - Feature Specs/`, never in `.planning/` (frozen archive). Architecture + Domain notes are drift-checked by `scripts/check-doc-drift.ts` — keep cited paths real.
 
 **Project status lives on the Kanban board — always.** Plan projects and track status on the Obsidian Kanban board at `vault/05 - Feature Specs/Project Board.md` (lanes: Backlog → Planned → In Progress → Validating → Shipped). Starting a project/feature → add or move its card (linked to its spec note) into the right lane; finishing one → move it to Shipped. Keep card position and the spec's `status` frontmatter in sync. The board file is plain markdown (obsidian-kanban format: `## Lane` headings + `- [ ]` cards) — agents edit it directly.
 
@@ -141,7 +141,7 @@ These are reference docs. Don't read them speculatively; only when the task touc
 - `tests/TESTING_PLAN.md` — what each test layer is responsible for
 - `tests/CI-GATES.md` — coverage floors (60% project-wide / 70% on lib/billing,ai,agency,esign,chat / 90% on lib/crypto), tenancy + critical-e2e gates, local override flags, required-status-check setup
 - `docs/skills/` — SD-* skills reference (overview, authoring, developer, edit-skills proposal)
-- `.claude/learnings.md` — running retro of mistakes/patterns from autonomous (dev-block) runs; read at session start when running unattended
+- claude-mem / session history — query recent autonomous-run mistakes and patterns at session start when running unattended
 
 ### Nested CLAUDE.md files
 

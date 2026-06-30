@@ -40,7 +40,7 @@ Health tracking: every cron handler upserts into the `cron_health` table (schema
 | `/api/cron/stale-crm-deals` | 11:00 Mon | Flag stale CRM pipeline deals |
 | `/api/cron/example-weekly-drop` | 14:00 Mon | Weekly content drop |
 | `/api/cron/failing-automations-notify` | 12:00 daily | Notify on persistently failing automations |
-| `/api/cron/brain-12` | 07:30 daily | Brain daily processing (brain-12 pipeline) |
+| `/api/cron/brain-agent-per-tenant` | 07:30 daily | Per-tenant Brain agent processing |
 | `/api/cron/brain-daily-notes` | 06:05 daily | Generate brain daily summary notes |
 | `/api/cron/brain-empty-old-trash` | 07:15 daily | Purge old trashed brain items |
 | `/api/cron/expire-mcp-pendings` | 03:17 daily | Expire stale MCP pending approvals |
