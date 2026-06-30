@@ -36,6 +36,10 @@
       "schedule": "15 7 * * *"
     },
     {
+      "path": "/api/cron/brain-agent-per-tenant",
+      "schedule": "30 8 * * *"
+    },
+    {
       "path": "/api/cron/failing-automations-notify",
       "schedule": "0 12 * * *"
     },
