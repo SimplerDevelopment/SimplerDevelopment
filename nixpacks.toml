@@ -1,5 +1,5 @@
 [phases.install]
-cmds = ["bun install --frozen-lockfile --filter simplerdevelopment2026"]
+cmds = ["npm install --legacy-peer-deps --workspaces=false --package-lock=false --no-audit --no-fund"]
 
 [phases.build]
 cmds = ["bun run build"]
