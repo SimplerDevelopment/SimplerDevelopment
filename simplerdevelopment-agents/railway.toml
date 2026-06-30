@@ -18,16 +18,10 @@
 #   MASTRA_PLATFORM_ACCESS_TOKEN    — optional; sends OTel traces to Mastra Platform
 
 [build]
-builder = "NIXPACKS"
-# bun.lock present → nixpacks picks bun automatically; we pin it explicitly here
-# so a stray npm/yarn lockfile can never silently redirect the install.
-# `mastra build` compiles TypeScript to .mastra/output/ (the standard Mastra
-# production bundle expected by `mastra start`).
-buildCommand = "bun install && bun run build"
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
 
 [deploy]
-# `mastra start` serves the compiled bundle from .mastra/output/ on $PORT.
-startCommand = "bun run start"
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 5
 # No healthcheckPath — Mastra v1's production server has no documented /health
