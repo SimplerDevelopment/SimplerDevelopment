@@ -39,6 +39,11 @@ vi.mock('@/lib/html-embed-clean', () => ({
   cleanEmbedHtml: vi.fn((html: string) => `<cleaned>${html}</cleaned>`),
 }));
 
+vi.mock('@/lib/security/block-allowlist', () => ({
+  BlockGateError: class BlockGateError extends Error {},
+  assertBlocksAllowedForUserId: vi.fn(async () => undefined),
+}));
+
 vi.mock('@/lib/html-asset-import', () => ({
   importHtmlAssets: vi.fn(async (html: string) => ({
     html: `${html}-imported`,
