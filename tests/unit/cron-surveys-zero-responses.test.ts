@@ -118,7 +118,11 @@ describe('GET /api/cron/surveys-zero-responses', () => {
     queue.push([{ id: 999 }]); // dedupe lookup hits — recent notification exists
 
     const { GET } = await import('@/app/api/cron/surveys-zero-responses/route');
-    const res = await GET(new Request('http://x/api/cron/surveys-zero-responses'));
+    const res = await GET(
+      new Request('http://x/api/cron/surveys-zero-responses', {
+        headers: { 'x-vercel-cron': '1' },
+      }),
+    );
     expect(res.status).toBe(200);
     const json = (await res.json()) as {
       data: { scanned: number; matched: number; notified: number; skippedDup: number };
@@ -135,7 +139,11 @@ describe('GET /api/cron/surveys-zero-responses', () => {
     queue.push([]); // dedupe lookup misses — clear to notify
 
     const { GET } = await import('@/app/api/cron/surveys-zero-responses/route');
-    const res = await GET(new Request('http://x/api/cron/surveys-zero-responses'));
+    const res = await GET(
+      new Request('http://x/api/cron/surveys-zero-responses', {
+        headers: { 'x-vercel-cron': '1' },
+      }),
+    );
     expect(res.status).toBe(200);
     const json = (await res.json()) as {
       data: { scanned: number; matched: number; notified: number; skippedDup: number };
@@ -163,7 +171,11 @@ describe('GET /api/cron/surveys-zero-responses', () => {
     // No dedupe lookup is performed for null-owner candidates.
 
     const { GET } = await import('@/app/api/cron/surveys-zero-responses/route');
-    const res = await GET(new Request('http://x/api/cron/surveys-zero-responses'));
+    const res = await GET(
+      new Request('http://x/api/cron/surveys-zero-responses', {
+        headers: { 'x-vercel-cron': '1' },
+      }),
+    );
     expect(res.status).toBe(200);
     const json = (await res.json()) as {
       data: { scanned: number; matched: number; notified: number; skippedDup: number; skippedNoOwner?: number };

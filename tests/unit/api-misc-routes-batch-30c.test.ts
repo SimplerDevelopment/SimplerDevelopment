@@ -31,6 +31,22 @@ vi.mock('@/lib/portal-client', () => ({
   getPortalClient: (...args: unknown[]) => getPortalClientMock(...args),
 }));
 
+vi.mock('@/lib/portal-auth', () => ({
+  hasServiceAccess: vi.fn().mockResolvedValue(true),
+}));
+
+class TestOwnershipError extends Error {
+  constructor(field: string, id: number) {
+    super(`${field} ${id} does not belong to this client`);
+  }
+}
+
+vi.mock('@/lib/security/assert-owned', () => ({
+  assertContactInClient: vi.fn().mockResolvedValue(undefined),
+  assertCompanyInClient: vi.fn().mockResolvedValue(undefined),
+  OwnershipError: TestOwnershipError,
+}));
+
 vi.mock('@/lib/db/schema', () => {
   const wrap = (name: string) =>
     new Proxy(
@@ -592,7 +608,7 @@ describe('POST /api/portal/crm/activities', () => {
         type: 'task',
         title: 'Follow up',
         description: '   ',
-        dealId: 7,
+        contactId: 50,
       }),
     );
     expect(res.status).toBe(201);
@@ -600,7 +616,7 @@ describe('POST /api/portal/crm/activities', () => {
     expect(stored.dueDate).toBeNull();
     expect(stored.completedAt).toBeNull();
     expect(stored.description).toBeNull();
-    expect(stored.dealId).toBe(7);
+    expect(stored.contactId).toBe(50);
   });
 });
 

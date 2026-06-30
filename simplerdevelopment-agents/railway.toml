@@ -1,0 +1,34 @@
+# Railway deployment for the Mastra agents service.
+#
+# Required env (set in the Railway service):
+#   PORT                            — set automatically by Railway; Mastra
+#                                     production server binds to this port.
+#   SD_MCP_URL                      — URL of the SimplerDevelopment MCP server
+#                                     (e.g. https://your-app.railway.app/api/mcp)
+#   SD_MCP_API_KEY                  — API key / bearer token for the SD MCP server
+#   SD_AGENTS_INTERNAL_SECRET       — shared secret for internal agent→portal calls
+#   ANTHROPIC_API_KEY               — Anthropic API key (all Claude models route here)
+#
+# Optional — override model defaults (falls back to the values shown):
+#   SD_BRAIN_MODEL                  — defaults to anthropic/claude-sonnet-4-6
+#   SD_BRAIN_FAST_MODEL             — defaults to anthropic/claude-haiku-4-5
+#   SD_PORTAL_MODEL                 — defaults to anthropic/claude-sonnet-4-6
+#   SD_PORTAL_FAST_MODEL            — defaults to anthropic/claude-haiku-4-5
+#   SD_SCORER_MODEL                 — defaults to anthropic/claude-haiku-4-5
+#   MASTRA_PLATFORM_ACCESS_TOKEN    — optional; sends OTel traces to Mastra Platform
+
+[build]
+builder = "NIXPACKS"
+# bun.lock present → nixpacks picks bun automatically; we pin it explicitly here
+# so a stray npm/yarn lockfile can never silently redirect the install.
+# `mastra build` compiles TypeScript to .mastra/output/ (the standard Mastra
+# production bundle expected by `mastra start`).
+buildCommand = "bun install && bun run build"
+
+[deploy]
+# `mastra start` serves the compiled bundle from .mastra/output/ on $PORT.
+startCommand = "bun run start"
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 5
+# No healthcheckPath — Mastra v1's production server has no documented /health
+# endpoint. Omitted rather than guessing a wrong path.

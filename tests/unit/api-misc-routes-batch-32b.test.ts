@@ -321,6 +321,7 @@ describe('POST /api/portal/reset-password', () => {
 
   it('hashes the new password, clears the reset token, and returns success', async () => {
     selectQueue.push([{ id: 42 }]);
+    updateReturnQueue.push([{ id: 42 }]);
     bcryptHashMock.mockResolvedValue('NEW_HASH');
     const res = await resetPasswordRoute.POST(
       makeJsonReq('http://x/api/portal/reset-password', 'POST', {

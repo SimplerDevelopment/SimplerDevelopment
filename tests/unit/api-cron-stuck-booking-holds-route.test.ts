@@ -153,7 +153,11 @@ describe('GET /api/cron/stuck-booking-holds', () => {
     queue.push([{ id: 999 }]); // dedupe lookup hits
 
     const { GET } = await import('@/app/api/cron/stuck-booking-holds/route');
-    const res = await GET(new Request('http://x/api/cron/stuck-booking-holds'));
+    const res = await GET(
+      new Request('http://x/api/cron/stuck-booking-holds', {
+        headers: { 'x-vercel-cron': '1' },
+      }),
+    );
     expect(res.status).toBe(200);
     const json = (await res.json()) as {
       data: { scanned: number; matched: number; notified: number; skippedDup: number };
@@ -191,7 +195,11 @@ describe('GET /api/cron/stuck-booking-holds', () => {
     queue.push([]); // dedupe miss
 
     const { GET } = await import('@/app/api/cron/stuck-booking-holds/route');
-    const res = await GET(new Request('http://x/api/cron/stuck-booking-holds'));
+    const res = await GET(
+      new Request('http://x/api/cron/stuck-booking-holds', {
+        headers: { 'x-vercel-cron': '1' },
+      }),
+    );
     expect(res.status).toBe(200);
     const json = (await res.json()) as {
       data: {
@@ -260,7 +268,11 @@ describe('GET /api/cron/stuck-booking-holds', () => {
     queue.push([]); // dedupe miss
 
     const { GET } = await import('@/app/api/cron/stuck-booking-holds/route');
-    const res = await GET(new Request('http://x/api/cron/stuck-booking-holds'));
+    const res = await GET(
+      new Request('http://x/api/cron/stuck-booking-holds', {
+        headers: { 'x-vercel-cron': '1' },
+      }),
+    );
     expect(res.status).toBe(200);
     const json = (await res.json()) as {
       data: { scanned: number; matched: number; notified: number; skippedDup: number };
@@ -308,7 +320,11 @@ describe('GET /api/cron/stuck-booking-holds', () => {
     // No dedupe lookup happens — handler continues before it.
 
     const { GET } = await import('@/app/api/cron/stuck-booking-holds/route');
-    const res = await GET(new Request('http://x/api/cron/stuck-booking-holds'));
+    const res = await GET(
+      new Request('http://x/api/cron/stuck-booking-holds', {
+        headers: { 'x-vercel-cron': '1' },
+      }),
+    );
     expect(res.status).toBe(200);
     const json = (await res.json()) as {
       data: { scanned: number; matched: number; notified: number; skippedDup: number };
@@ -363,7 +379,11 @@ describe('GET /api/cron/stuck-booking-holds', () => {
     queue.push([{ id: 99 }]); // second dedupe — hit → skip
 
     const { GET } = await import('@/app/api/cron/stuck-booking-holds/route');
-    const res = await GET(new Request('http://x/api/cron/stuck-booking-holds'));
+    const res = await GET(
+      new Request('http://x/api/cron/stuck-booking-holds', {
+        headers: { 'x-vercel-cron': '1' },
+      }),
+    );
     expect(res.status).toBe(200);
     const json = (await res.json()) as {
       data: { scanned: number; matched: number; notified: number; skippedDup: number };

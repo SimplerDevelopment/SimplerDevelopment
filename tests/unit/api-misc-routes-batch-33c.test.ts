@@ -53,7 +53,12 @@ vi.mock('@/lib/zoom', () => ({
 
 // next/headers — host + proto come from here.
 const headersMap = new Map<string, string>();
+const TEST_STATE = 'abcd';
 vi.mock('next/headers', () => ({
+  cookies: async () => ({
+    get: (name: string) =>
+      name === 'booking_zoom_oauth_state' ? { value: TEST_STATE } : undefined,
+  }),
   headers: async () => ({
     get: (k: string) => headersMap.get(k.toLowerCase()) ?? null,
   }),
@@ -232,7 +237,11 @@ function makeJsonReq(url: string, method: string, body: unknown): Request {
 }
 
 function makeReq(url: string, init?: RequestInit): Request {
-  return new Request(url, init);
+  const parsed = new URL(url);
+  if (parsed.searchParams.has('code') && !parsed.searchParams.has('state')) {
+    parsed.searchParams.set('state', TEST_STATE);
+  }
+  return new Request(parsed.toString(), init);
 }
 
 import { NextResponse } from 'next/server';

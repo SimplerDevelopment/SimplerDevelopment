@@ -33,6 +33,10 @@ const dbMockState = {
   updateRows: [] as Record<string, unknown>[],
 };
 
+function automationLogRows() {
+  return dbMockState.insertRows.filter((row) => 'ruleId' in row);
+}
+
 function makeSelectChain() {
   const rows = dbMockState.selectQueue.shift()?.rows ?? [];
   const chain: Record<string, unknown> = {};
@@ -213,8 +217,9 @@ describe('lib/automation/engine.ts', () => {
     // Engine registers via onEvent — drive via emitEvent and flush
     eventBus.emitEvent('booking.created', 10, 1, { id: 'b1' });
     await new Promise((r) => setTimeout(r, 0));
-    // No matching trigger → no insert into automationLogs
-    expect(dbMockState.insertRows).toHaveLength(0);
+    // No matching trigger → no insert into automationLogs. The event bus still
+    // journals one automation_jobs row for durable retry.
+    expect(automationLogRows()).toHaveLength(0);
     expect(executePortalToolMock).not.toHaveBeenCalled();
     void handler;
   });
@@ -257,9 +262,10 @@ describe('lib/automation/engine.ts', () => {
     expect(tool).toBe('create_support_ticket');
     expect(params).toEqual({ subject: 'New contact alice@example.com' });
 
-    // automationLogs insert + automationRules update both happened
-    expect(dbMockState.insertRows).toHaveLength(1);
-    expect(dbMockState.insertRows[0]).toMatchObject({ status: 'success', ruleId: 7 });
+    // automationLogs insert + automationRules update both happened. The event
+    // bus also writes an automation_jobs journal row.
+    expect(automationLogRows()).toHaveLength(1);
+    expect(automationLogRows()[0]).toMatchObject({ status: 'success', ruleId: 7 });
     expect(dbMockState.updateRows).toHaveLength(1);
   });
 
@@ -287,8 +293,8 @@ describe('lib/automation/engine.ts', () => {
     eventBus.emitEvent('crm.contact.created', 10, 1, {});
     await new Promise((r) => setTimeout(r, 10));
 
-    expect(dbMockState.insertRows).toHaveLength(1);
-    expect(dbMockState.insertRows[0]).toMatchObject({ status: 'failed', errorMessage: 'boom' });
+    expect(automationLogRows()).toHaveLength(1);
+    expect(automationLogRows()[0]).toMatchObject({ status: 'failed', errorMessage: 'boom' });
   });
 
   it('processEvent skips when conditions do not all pass', async () => {
@@ -314,7 +320,7 @@ describe('lib/automation/engine.ts', () => {
     await new Promise((r) => setTimeout(r, 0));
 
     expect(executePortalToolMock).not.toHaveBeenCalled();
-    expect(dbMockState.insertRows).toHaveLength(0);
+    expect(automationLogRows()).toHaveLength(0);
   });
 
   it('processEvent skips rule when a trigger filter mismatches', async () => {
@@ -340,7 +346,7 @@ describe('lib/automation/engine.ts', () => {
     await new Promise((r) => setTimeout(r, 0));
 
     expect(executePortalToolMock).not.toHaveBeenCalled();
-    expect(dbMockState.insertRows).toHaveLength(0);
+    expect(automationLogRows()).toHaveLength(0);
   });
 
   it('resolveTemplate handles nested arrays and missing fields', async () => {

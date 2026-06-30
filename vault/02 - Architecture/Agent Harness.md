@@ -6,7 +6,7 @@ date: 2026-06-09
 sources:
   - CLAUDE.md
   - .claude/index.md
-  - .claude/learnings.md
+  - CLAUDE.md
   - scripts/check-doc-drift.ts
   - scripts/check-file-budget.ts
   - .dependency-cruiser.cjs
@@ -84,7 +84,7 @@ Agents operate in three tiers:
 
 ## Session memory
 
-`.claude/learnings.md` is the running retro for autonomous (dev-block) sessions. It captures specific footguns, error messages, commands, and confirmed patterns that would have saved a session 30 minutes if present at the start. It is append-only during a session and read at session start when running unattended. Rules graduate to `CLAUDE.md` once they are stable enough to be mandated.
+claude-mem is the running retro for autonomous (dev-block) sessions. It captures specific footguns, error messages, commands, and confirmed patterns that would have saved a session 30 minutes if present at the start. Query it at session start when running unattended. Rules graduate to `CLAUDE.md` once they are stable enough to be mandated.
 
 ## Knowledge graph
 

@@ -252,6 +252,7 @@ beforeEach(() => {
   nextSelectThrows = null;
   nextInsertThrows = null;
   authMock.mockReset();
+  authMock.mockResolvedValue(ADMIN_SESSION);
   getBrandingByWebsiteIdMock.mockReset();
   brandingToCssVarsMock.mockReset();
 });

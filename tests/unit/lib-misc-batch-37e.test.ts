@@ -296,7 +296,13 @@ describe('lib/utils/structured-data', () => {
       '@type': 'Organization',
       name: 'SimplerDevelopment',
       url: 'https://simplerdevelopment.com',
+      logo: 'https://simplerdevelopment.com/logo.png',
       description: 'Design, Dev, and Automation Agency',
+      sameAs: [
+        'https://twitter.com/sd',
+        'https://github.com/sd',
+        'https://linkedin.com/sd',
+      ],
       contactPoint: {
         '@type': 'ContactPoint',
         contactType: 'Customer Service',

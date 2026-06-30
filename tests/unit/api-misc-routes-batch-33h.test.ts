@@ -37,6 +37,11 @@ vi.mock('@/lib/vercel', () => ({
   setEnvVars: (...args: unknown[]) => setEnvVarsMock(...args),
 }));
 
+const requireServiceMock = vi.fn();
+vi.mock('@/lib/mcp/types', () => ({
+  requireService: (...args: unknown[]) => requireServiceMock(...args),
+}));
+
 // drizzle-orm operators — inert objects
 vi.mock('drizzle-orm', () => ({
   eq: (a: unknown, b: unknown) => ({ op: 'eq', a, b }),
@@ -274,6 +279,8 @@ beforeEach(() => {
   getEnvironmentForClientMock.mockReset();
   snapshotEnvironmentMock.mockReset();
   setEnvVarsMock.mockReset();
+  requireServiceMock.mockReset();
+  requireServiceMock.mockResolvedValue(true);
 });
 
 // ===========================================================================

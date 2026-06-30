@@ -46,6 +46,7 @@ date: 2026-06-17
 
 ## In Progress
 
+- [ ] Multi-Tenant Agents Service — make `simplerdevelopment-agents/` a private token-forwarding sub-service of the app (per-request short-lived `sd_oauth_` token → MCP resolves `clientId` unchanged; inbound internal-secret auth; private-network only). `[2026-06-29: Railway dynamic-var wiring for app/realtime/Postgres/agents + media bucket SHIPPED to template project]` `[2026-06-30: GRILLED (6 decisions locked) + CODE COMPLETE on feat/multi-tenant-agents — P1 mint helper lib/oauth/issue.ts (no migration, self-seeds; 4 tests), P2 lib/ai/agents-client.ts (3 tests), P3 agents inbound middleware, P4 sd-mcp per-request token, P4b sdTools multi-tenant gate, P5 railway.toml + drop package-lock, P7 cron app/api/cron/brain-agent-per-tenant + vercel.json. New code typechecks clean, 7 unit tests green. PENDING: P6 Railway env (4 vars, needs railway login) + runtime verify requestContext→listTools propagation against a live stack + bun test:tenancy in CI (local DB port conflict) + commit/PR]` — see [[Spec - Multi-Tenant Agents Service]]
 - [ ] Portal Intent Router — shadow v1 shipped (Haiku classifier now routes domains + model in one call); collecting `portal.route` accuracy data, then flip `ROUTER_MODE` to `'active'` — see [[Portal Intent Router]]
 
 ## Validating

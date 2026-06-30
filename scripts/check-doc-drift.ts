@@ -67,7 +67,9 @@ function findFiles(cmd: string): string[] {
 }
 
 const nestedClaudeMds = () =>
-  findFiles(`find app lib components tests .claude -name CLAUDE.md -not -path '*/node_modules/*' 2>/dev/null`);
+  findFiles(
+    `find app lib components tests .claude -name CLAUDE.md -not -path '*/node_modules/*' -not -path '.claude/worktrees/*' 2>/dev/null`
+  );
 
 // Vault knowledge notes — Architecture notes and Domain Maps cite live repo paths that agents
 // route off; scan them so the vault can't rot into dead pointers. Section indexes ("00 - *")

@@ -79,7 +79,7 @@ Staging points at `$STAGING_DATABASE_URL`. `.env.local` overrides `.env` (the `o
 
 The `drizzle/` directory is generated output. Editing SQL files directly will cause drift between the schema and migration history. Always edit `lib/db/schema/<domain>.ts` and regenerate.
 
-Special case: `drizzle/0061_brain_embeddings.sql` manages the `brain_embeddings` HNSW index manually. drizzle-kit cannot reconcile pgvector HNSW indexes, so `drizzle-kit push --force` would silently drop it. Never run `--force` against a DB with real brain data — use journaled `bun run db:migrate`.
+Special case: `lib/db/schema/brain.ts` declares the `brain_embeddings` table, and pgvector index handling is fragile in drizzle-kit. Never run `drizzle-kit push --force` against a DB with real brain data — use journaled `bun run db:migrate`.
 
 ---
 

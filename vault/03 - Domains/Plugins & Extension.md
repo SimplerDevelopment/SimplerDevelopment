@@ -25,7 +25,7 @@ sources:
   - lib/plugins/handlers/content-tools/drafts.ts
   - lib/plugins/handlers/content-tools/schedule.ts
   - lib/plugins/handlers/content-tools/fire-due-jobs.ts
-  - lib/plugins/handlers/content-tools/cron-auth.ts
+  - lib/cron-auth.ts
   - lib/plugins/handlers/registry.ts
   - lib/extension/extract.ts
   - lib/extension/with-auth.ts
@@ -96,7 +96,7 @@ Two distinct but related extension mechanisms for the SimplerDevelopment platfor
 | `lib/plugins/handlers/content-tools/drafts.ts` | `/drafts` endpoint handlers |
 | `lib/plugins/handlers/content-tools/schedule.ts` | `nextRunAt` computation for scheduled jobs |
 | `lib/plugins/handlers/content-tools/fire-due-jobs.ts` | CAS job firing for the tick cron |
-| `lib/plugins/handlers/content-tools/cron-auth.ts` | Shared Vercel `CRON_SECRET` auth check used by cron routes |
+| `lib/cron-auth.ts` | Shared Vercel `CRON_SECRET` auth check used by cron routes |
 | `lib/plugins/handlers/registry.ts` | Handler registry and route dispatcher |
 | `lib/extension/extract.ts` | AI page extraction (Claude Haiku) + CRM entity resolution, tenant-scoped |
 | `lib/extension/with-auth.ts` | Auth middleware for extension API routes |

@@ -15,7 +15,7 @@ sources:
   - lib/brain/search.ts
   - lib/brain/embeddings.ts
   - lib/db/schema/brain.ts
-  - drizzle/0061_brain_embeddings.sql
+  - drizzle/9001_brain_embedding_triggers.sql
   - app/api/portal/ai/chat/route.ts
   - app/api/portal/ai/chat/stream/route.ts
   - components/portal/AIChatWidget.tsx
@@ -99,7 +99,7 @@ Pattern: ingest sources → embeddings (text → high-dimensional vectors) → v
 
 - Hybrid lexical + semantic search in `lib/brain/search.ts`
 - Embeddings via OpenAI `text-embedding-3-small` in `lib/brain/embeddings.ts`
-- pgvector cosine ANN over the `brain_embeddings` table; schema at `lib/db/schema/brain.ts`, migration `drizzle/0061_brain_embeddings.sql`
+- pgvector-backed embeddings over the `brain_embeddings` table; schema at `lib/db/schema/brain.ts`, queue triggers in `drizzle/9001_brain_embedding_triggers.sql`
 - Fail-soft if `OPENAI_API_KEY` is absent (gracefully degrades to lexical-only)
 
 ---

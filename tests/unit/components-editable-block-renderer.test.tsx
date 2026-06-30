@@ -85,7 +85,7 @@ vi.mock('@/components/visual-editor/SelectableBlock', () => ({
 
 // EditorMode context — provide a mutable default we can override per test.
 let mockEditor: any = makeEditorState({});
-vi.mock('@/components/visual-editor/EditorModeProvider', () => ({
+vi.mock('@/components/visual-editor/editor-mode-context', () => ({
   useEditorModeContext: () => mockEditor,
 }));
 

@@ -87,8 +87,17 @@ interface MockWorkflow {
   clientId: number;
   status: string;
   trigger: unknown;
+  graph?: unknown;
 }
 const wfState: { rows: MockWorkflow[] } = { rows: [] };
+const wfRunState: { runs: Array<Record<string, unknown>>; steps: Array<Record<string, unknown>> } = {
+  runs: [],
+  steps: [],
+};
+const defaultWorkflowGraph = {
+  nodes: [{ id: 'trigger', type: 'trigger', data: {} }],
+  edges: [],
+};
 
 vi.mock('@/lib/db/schema', () => ({
   workflows: {
@@ -97,6 +106,8 @@ vi.mock('@/lib/db/schema', () => ({
     status: 'workflows.status',
     trigger: 'workflows.trigger',
   },
+  workflowRuns: { __table: 'workflowRuns' },
+  workflowRunSteps: { __table: 'workflowRunSteps' },
 }));
 
 vi.mock('drizzle-orm', () => ({
@@ -126,20 +137,36 @@ vi.mock('@/lib/db', () => {
             const matches = wfState.rows.filter(
               (w) => w.clientId === clientId && w.status === status,
             );
-            // Caller selects { id, trigger } — mimic that shape.
-            return Promise.resolve(matches.map((w) => ({ id: w.id, trigger: w.trigger })));
+            return Promise.resolve(
+              matches.map((w) => ({
+                id: w.id,
+                clientId: w.clientId,
+                trigger: w.trigger,
+                graph: w.graph ?? defaultWorkflowGraph,
+              })),
+            );
           },
         };
         return chain;
       },
+      insert(table: { __table?: string }) {
+        return {
+          values(values: Record<string, unknown>) {
+            if (table.__table === 'workflowRuns') {
+              const row = { id: wfRunState.runs.length + 1, ...values };
+              wfRunState.runs.push(row);
+              return { returning: () => Promise.resolve([row]) };
+            }
+            if (table.__table === 'workflowRunSteps') {
+              wfRunState.steps.push(values);
+            }
+            return Promise.resolve();
+          },
+        };
+      },
     },
   };
 });
-
-const runWorkflowMock = vi.fn();
-vi.mock('@/lib/workflows/runtime', () => ({
-  runWorkflow: (...args: unknown[]) => runWorkflowMock(...args),
-}));
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 1. registry.ts
@@ -426,14 +453,15 @@ describe('lib/visual-editor/protocol', () => {
 describe('lib/workflows/trigger.enqueueWorkflowRunsForTrigger', () => {
   beforeEach(() => {
     wfState.rows = [];
-    runWorkflowMock.mockReset();
+    wfRunState.runs = [];
+    wfRunState.steps = [];
   });
 
   it('returns empty matches when no workflows exist', async () => {
     const { enqueueWorkflowRunsForTrigger } = await import('@/lib/workflows/trigger');
     const out = await enqueueWorkflowRunsForTrigger(1, { kind: 'contact.created' }, {});
     expect(out).toEqual({ matchedWorkflowIds: [] });
-    expect(runWorkflowMock).not.toHaveBeenCalled();
+    expect(wfRunState.runs).toEqual([]);
   });
 
   it('skips inactive workflows', async () => {
@@ -444,7 +472,7 @@ describe('lib/workflows/trigger.enqueueWorkflowRunsForTrigger', () => {
     const { enqueueWorkflowRunsForTrigger } = await import('@/lib/workflows/trigger');
     const out = await enqueueWorkflowRunsForTrigger(1, { kind: 'contact.created' }, {});
     expect(out.matchedWorkflowIds).toEqual([]);
-    expect(runWorkflowMock).not.toHaveBeenCalled();
+    expect(wfRunState.runs).toEqual([]);
   });
 
   it('scopes to clientId — does not pick up other clients active workflows', async () => {
@@ -455,7 +483,7 @@ describe('lib/workflows/trigger.enqueueWorkflowRunsForTrigger', () => {
     const { enqueueWorkflowRunsForTrigger } = await import('@/lib/workflows/trigger');
     const out = await enqueueWorkflowRunsForTrigger(1, { kind: 'contact.created' }, {}, { awaitRuns: true });
     expect(out.matchedWorkflowIds).toEqual([20]);
-    expect(runWorkflowMock).toHaveBeenCalledTimes(1);
+    expect(wfRunState.runs).toHaveLength(1);
   });
 
   it('matches by trigger.kind for contact.created', async () => {
@@ -466,7 +494,7 @@ describe('lib/workflows/trigger.enqueueWorkflowRunsForTrigger', () => {
     const { enqueueWorkflowRunsForTrigger } = await import('@/lib/workflows/trigger');
     const out = await enqueueWorkflowRunsForTrigger(1, { kind: 'contact.created' }, {}, { awaitRuns: true });
     expect(out.matchedWorkflowIds).toEqual([30]);
-    expect(runWorkflowMock).toHaveBeenCalledWith(30, expect.objectContaining({ clientId: 1 }), { triggeredBy: 'event' });
+    expect(wfRunState.runs[0]).toEqual(expect.objectContaining({ workflowId: 30, clientId: 1, triggeredBy: 'event' }));
   });
 
   it('enriches context with clientId', async () => {
@@ -475,8 +503,7 @@ describe('lib/workflows/trigger.enqueueWorkflowRunsForTrigger', () => {
     ];
     const { enqueueWorkflowRunsForTrigger } = await import('@/lib/workflows/trigger');
     await enqueueWorkflowRunsForTrigger(7, { kind: 'contact.created' }, { foo: 'bar' }, { awaitRuns: true });
-    const callArg = runWorkflowMock.mock.calls[0][1];
-    expect(callArg).toEqual({ foo: 'bar', clientId: 7 });
+    expect(wfRunState.runs[0].context).toEqual({ foo: 'bar', clientId: 7 });
   });
 
   it('passes through opts.triggeredBy', async () => {
@@ -485,7 +512,7 @@ describe('lib/workflows/trigger.enqueueWorkflowRunsForTrigger', () => {
     ];
     const { enqueueWorkflowRunsForTrigger } = await import('@/lib/workflows/trigger');
     await enqueueWorkflowRunsForTrigger(1, { kind: 'contact.created' }, {}, { awaitRuns: true, triggeredBy: 'cron' });
-    expect(runWorkflowMock).toHaveBeenCalledWith(50, expect.any(Object), { triggeredBy: 'cron' });
+    expect(wfRunState.runs[0]).toEqual(expect.objectContaining({ workflowId: 50, triggeredBy: 'cron' }));
   });
 
   it('defaults triggeredBy to "event" when not provided', async () => {
@@ -494,18 +521,17 @@ describe('lib/workflows/trigger.enqueueWorkflowRunsForTrigger', () => {
     ];
     const { enqueueWorkflowRunsForTrigger } = await import('@/lib/workflows/trigger');
     await enqueueWorkflowRunsForTrigger(1, { kind: 'contact.created' }, {}, { awaitRuns: true });
-    expect(runWorkflowMock).toHaveBeenCalledWith(51, expect.any(Object), { triggeredBy: 'event' });
+    expect(wfRunState.runs[0]).toEqual(expect.objectContaining({ workflowId: 51, triggeredBy: 'event' }));
   });
 
-  it('runs fire-and-forget by default (awaitRuns omitted)', async () => {
+  it('enqueues durable runs by default', async () => {
     wfState.rows = [
       { id: 60, clientId: 1, status: 'active', trigger: { kind: 'contact.created' } },
     ];
-    runWorkflowMock.mockResolvedValueOnce(undefined);
     const { enqueueWorkflowRunsForTrigger } = await import('@/lib/workflows/trigger');
     const out = await enqueueWorkflowRunsForTrigger(1, { kind: 'contact.created' }, {});
     expect(out.matchedWorkflowIds).toEqual([60]);
-    expect(runWorkflowMock).toHaveBeenCalled();
+    expect(wfRunState.runs).toHaveLength(1);
   });
 
   describe('deal.stage_changed matcher', () => {

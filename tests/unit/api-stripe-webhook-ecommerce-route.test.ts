@@ -167,6 +167,7 @@ vi.mock('@/lib/db', () => {
       return updateChain;
     };
     updateChain.where = () => updateChain;
+    updateChain.returning = () => Promise.resolve(dbState.selectQueue.shift() ?? []);
     updateChain.then = (resolve: (v: unknown) => unknown) =>
       Promise.resolve(undefined).then(resolve);
     return updateChain;

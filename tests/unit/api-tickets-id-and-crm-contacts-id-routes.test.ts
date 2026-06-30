@@ -27,6 +27,10 @@ vi.mock('@/lib/portal-client', () => ({
   getPortalClient: (...args: unknown[]) => getPortalClientMock(...args),
 }));
 
+vi.mock('@/lib/portal-auth', () => ({
+  hasServiceAccess: vi.fn().mockResolvedValue(true),
+}));
+
 const createCrmNotificationMock = vi.fn();
 const notifyAllClientUsersMock = vi.fn();
 vi.mock('@/lib/crm/notifications', () => ({
@@ -50,6 +54,7 @@ vi.mock('drizzle-orm', () => ({
   ),
   isNull: (a: unknown) => ({ op: 'isNull', a }),
   or: (...args: unknown[]) => ({ op: 'or', args: args.filter(Boolean) }),
+  inArray: (a: unknown, list: unknown[]) => ({ op: 'inArray', a, list }),
 }));
 
 vi.mock('@/lib/db/schema', () => {
@@ -798,6 +803,7 @@ describe('PUT /api/portal/crm/contacts/[id]', () => {
     authMock.mockResolvedValue({ user: { id: '7' } });
     getPortalClientMock.mockResolvedValue({ id: 10 });
     selectQueue.push([{ id: 1 }]);
+    selectQueue.push([{ id: 101 }, { id: 102 }]);
     updateReturnQueue.push([{ id: 1 }]);
     const res = await contactsRoute.PUT(
       makeJsonRequest('http://x', 'PUT', {
@@ -817,6 +823,7 @@ describe('PUT /api/portal/crm/contacts/[id]', () => {
     authMock.mockResolvedValue({ user: { id: '7' } });
     getPortalClientMock.mockResolvedValue({ id: 10 });
     selectQueue.push([{ id: 1 }]);
+    selectQueue.push([{ id: 101 }, { id: 102 }]);
     updateReturnQueue.push([{ id: 1 }]);
     const res = await contactsRoute.PUT(
       makeJsonRequest('http://x', 'PUT', { tagIds: [101, 102] }),

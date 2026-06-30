@@ -580,10 +580,14 @@ describe('/api/cron/resend-usage-sync', () => {
     expect(res.status).toBe(401);
   });
 
-  it('passes auth gate when CRON_SECRET is not configured', async () => {
+  it('passes auth gate with Vercel cron header when CRON_SECRET is not configured', async () => {
     delete process.env.CRON_SECRET;
     selectQueue.push([]); // no rows
-    const res = await resendUsageSyncRoute.GET(makeReq('http://x/api/cron/resend-usage-sync'));
+    const res = await resendUsageSyncRoute.GET(
+      makeReq('http://x/api/cron/resend-usage-sync', {
+        headers: { 'x-vercel-cron': '1' },
+      }),
+    );
     expect(res.status).toBe(200);
   });
 
@@ -658,11 +662,9 @@ describe('/api/cron/resend-usage-sync', () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.data.upserted).toBe(1);
-    expect(insertCalls).toHaveLength(0);
-    expect(updateSetCalls).toHaveLength(1);
-    expect(updateSetCalls[0]!.table).toBe('usageMeterEvents');
-    expect(updateSetCalls[0]!.values.amount).toBe('100');
-    expect(updateSetCalls[0]!.values.recordedAt).toBeInstanceOf(Date);
+    expect(insertCalls).toHaveLength(1);
+    expect(insertCalls[0]!.table).toBe('usageMeterEvents');
+    expect((insertCalls[0]!.values as Record<string, unknown>).amount).toBe('100');
   });
 
   it('skips rows where clientId is null', async () => {

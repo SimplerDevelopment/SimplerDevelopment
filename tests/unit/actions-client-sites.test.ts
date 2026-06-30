@@ -275,7 +275,7 @@ function seedSite(overrides: Partial<Record<string, unknown>> = {}): Record<stri
 }
 
 function seedWebsiteDomain(overrides: Partial<Record<string, unknown>> = {}): Record<string, unknown> {
-  const row = { id: 1, websiteId: 1, domain: 'aux.example.com', ...overrides };
+  const row = { id: 1, websiteId: 1, domain: 'aux.example.com', status: 'verified', ...overrides };
   state.websiteDomains.push(row);
   return row;
 }

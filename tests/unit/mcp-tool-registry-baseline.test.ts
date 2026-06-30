@@ -458,6 +458,7 @@ const EXPECTED_TOOLS: readonly string[] = [
   'service_requests_create',
   'service_requests_list',
   // ── sites ──
+  'sites_create',
   'sites_get_custom_code',
   'sites_list',
   'sites_publish_custom_code',

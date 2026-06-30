@@ -168,6 +168,8 @@ const EXPECTED_EXPORTS: readonly string[] = [
   'GoogleWorkspaceClientConnection',
   'GoogleWorkspaceTenantCredentials',
   'GoogleWorkspaceUserConnection',
+  'LinkedinPost',
+  'LinkedinUserConnection',
   'MicrosoftTeamsUserConnection',
   'NOTIFICATION_DELIVERIES',
   'NOTIFICATION_TYPES',
@@ -198,6 +200,8 @@ const EXPECTED_EXPORTS: readonly string[] = [
   'NewGoogleWorkspaceClientConnection',
   'NewGoogleWorkspaceTenantCredentials',
   'NewGoogleWorkspaceUserConnection',
+  'NewLinkedinPost',
+  'NewLinkedinUserConnection',
   'NewMicrosoftTeamsUserConnection',
   'NewRegisteredApp',
   'NewRegisteredAppCallbackAudit',
@@ -248,6 +252,7 @@ const EXPECTED_EXPORTS: readonly string[] = [
   'aiCreditPackages',
   'aiMessages',
   'apiKeys',
+  'automationJobs',
   'automationLogs',
   'automationRules',
   'blockTemplateUsages',
@@ -377,6 +382,7 @@ const EXPECTED_EXPORTS: readonly string[] = [
   'emailSubscriberTags',
   'emailSubscribers',
   'emailTemplates',
+  'encryptedText',
   'evalCaseResults',
   'evalCases',
   'evalDatasets',
@@ -406,6 +412,11 @@ const EXPECTED_EXPORTS: readonly string[] = [
   'kanbanCards',
   'kanbanColumns',
   'kanbanLabels',
+  'linkedinPosts',
+  'linkedinUserConnections',
+  'magamommyBriefs',
+  'magamommyConcepts',
+  'magamommyDrops',
   'mcpApprovalLinks',
   'mcpPendingChanges',
   'mcpToolCallDailyRollups',
@@ -424,6 +435,7 @@ const EXPECTED_EXPORTS: readonly string[] = [
   'orderStatusHistory',
   'orders',
   'paymentMethods',
+  'philaprintsDesignAssets',
   'pitchDeckVersions',
   'pitchDeckViews',
   'pitchDecks',
@@ -434,6 +446,8 @@ const EXPECTED_EXPORTS: readonly string[] = [
   'postTags',
   'postTaxonomyTerms',
   'postTypes',
+  'postcaptainBriefs',
+  'postcaptainDrafts',
   'posts',
   'printfulEvents',
   'productCategories',
@@ -517,6 +531,7 @@ const EXPECTED_EXPORTS: readonly string[] = [
   'websiteEmailTemplates',
   'websiteEnvVars',
   'websiteEnvironments',
+  'workflowRunSteps',
   'workflowRuns',
   'workflowStepLogs',
   'workflows',
@@ -541,6 +556,7 @@ const EXPECTED_TABLE_NAMES: Readonly<Record<string, string>> = {
   aiCreditPackages: 'ai_credit_packages',
   aiMessages: 'ai_messages',
   apiKeys: 'api_keys',
+  automationJobs: 'automation_jobs',
   automationLogs: 'automation_logs',
   automationRules: 'automation_rules',
   blockTemplateUsages: 'block_template_usages',
@@ -699,6 +715,11 @@ const EXPECTED_TABLE_NAMES: Readonly<Record<string, string>> = {
   kanbanCards: 'kanban_cards',
   kanbanColumns: 'kanban_columns',
   kanbanLabels: 'kanban_labels',
+  linkedinPosts: 'linkedin_posts',
+  linkedinUserConnections: 'linkedin_user_connections',
+  magamommyBriefs: 'magamommy_briefs',
+  magamommyConcepts: 'magamommy_concepts',
+  magamommyDrops: 'magamommy_drops',
   mcpApprovalLinks: 'mcp_approval_links',
   mcpPendingChanges: 'mcp_pending_changes',
   mcpToolCallDailyRollups: 'mcp_tool_call_daily_rollups',
@@ -717,6 +738,7 @@ const EXPECTED_TABLE_NAMES: Readonly<Record<string, string>> = {
   orderStatusHistory: 'order_status_history',
   orders: 'orders',
   paymentMethods: 'payment_methods',
+  philaprintsDesignAssets: 'philaprints_design_assets',
   pitchDeckVersions: 'pitch_deck_versions',
   pitchDeckViews: 'pitch_deck_views',
   pitchDecks: 'pitch_decks',
@@ -727,6 +749,8 @@ const EXPECTED_TABLE_NAMES: Readonly<Record<string, string>> = {
   postTags: 'post_tags',
   postTaxonomyTerms: 'post_taxonomy_terms',
   postTypes: 'post_types',
+  postcaptainBriefs: 'postcaptain_briefs',
+  postcaptainDrafts: 'postcaptain_drafts',
   posts: 'posts',
   printfulEvents: 'printful_events',
   productCategories: 'product_categories',
@@ -810,6 +834,7 @@ const EXPECTED_TABLE_NAMES: Readonly<Record<string, string>> = {
   websiteEmailTemplates: 'website_email_templates',
   websiteEnvVars: 'website_env_vars',
   websiteEnvironments: 'website_environments',
+  workflowRunSteps: 'workflow_run_steps',
   workflowRuns: 'workflow_runs',
   workflowStepLogs: 'workflow_step_logs',
   workflows: 'workflows',
@@ -850,13 +875,13 @@ describe('lib/db/schema export parity', () => {
     expect(actualTables).toEqual(EXPECTED_TABLE_NAMES);
   });
 
-  it('reports the recorded number of tables (286)', () => {
+  it('reports the recorded number of tables (296)', () => {
     const schemaMap = Schema as unknown as Record<string, unknown>;
     let count = 0;
     for (const value of Object.values(schemaMap)) {
       if (value && typeof value === 'object' && isTable(value)) count += 1;
     }
     expect(count).toBe(Object.keys(EXPECTED_TABLE_NAMES).length);
-    expect(count).toBe(286);
+    expect(count).toBe(296);
   });
 });
