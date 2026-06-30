@@ -1,0 +1,5 @@
+[phases.install]
+cmds = ["bun install --frozen-lockfile --filter simplerdevelopment2026"]
+
+[phases.build]
+cmds = ["bun run build"]
