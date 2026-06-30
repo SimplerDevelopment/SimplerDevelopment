@@ -1,0 +1,4 @@
+interface:
+  display_name: "SimplerDev Test Gate Picker"
+  short_description: "Choose validation gates for repo changes."
+  default_prompt: "Use $simplerdev-test-gate-picker to pick the correct checks for this SimplerDevelopment diff."

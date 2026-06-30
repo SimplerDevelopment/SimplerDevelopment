@@ -71,6 +71,7 @@ An in-repo Model Context Protocol server (`app/api/mcp/route.ts` + `lib/mcp/`) e
 - **Connect a client:** [`docs/mcp.md`](docs/mcp.md) (Claude.ai OAuth, API key, Claude Desktop/Code config)
 - **Tool catalog:** [`docs/api/mcp/overview.md`](docs/api/mcp/overview.md)
 - **Add a tool (contributors):** [`docs/guides/MCP_TOOLS.md`](docs/guides/MCP_TOOLS.md)
+- **Claude Desktop skills:** [`simplerdevelopment-skills`](https://github.com/SimplerDevelopment/simplerdevelopment-skills) — client-facing skills for authoring pages, decks, emails, surveys, booking pages, HTML embeds, and full websites through the SD MCP.
 
 ---
 

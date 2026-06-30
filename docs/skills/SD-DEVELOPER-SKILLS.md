@@ -25,6 +25,11 @@ The companion doc for content authoring (CMS pages, decks, emails, surveys, book
                     │   site-migration                        │
                     │   feature-integrator                    │
                     │                                         │
+                    │   simplerdev-code-review                │
+                    │   simplerdev-test-gate-picker           │
+                    │   simplerdev-db-migration               │
+                    │   simplerdev-release-manager            │
+                    │                                         │
                     │   dev-block  (autonomous n8n loop)      │
                     └─────────────────────────────────────────┘
 ```
@@ -152,6 +157,44 @@ All of these write code into `simplerdevelopment2026/`. They preserve the archit
 
 ---
 
+## Quality and release skills
+
+These live under `.agents/skills/` as repo-local developer skills. They are intentionally consolidated to avoid a large, overlapping skill surface.
+
+### `simplerdev-code-review` — repo-aware review router
+
+**Purpose.** Reviews diffs for SimplerDevelopment-specific risks: bugs, regressions, tenancy leaks, auth/security issues, MCP token payload mistakes, accessibility problems, performance risks, and missing tests.
+
+**Trigger phrases.** `review this diff`, `audit this change`, `security review`, `check for tenant leaks`, `performance review`, `accessibility review`, `pre-commit review`.
+
+**Consolidates.** Security review, accessibility audit, performance audit, and MCP payload review as modes/checklists rather than separate top-level skills.
+
+### `simplerdev-test-gate-picker` — validation selector
+
+**Purpose.** Chooses the smallest defensible validation set based on changed files and risk. Maps touched areas to `bun run typecheck`, unit, integration, tenancy, critical E2E, lint, and release gates.
+
+**Trigger phrases.** `what tests should I run`, `pick gates`, `validate this`, `CI locally`, `is this enough testing`.
+
+**Pairs with.** Every implementation/review skill.
+
+### `simplerdev-db-migration` — Drizzle migration safety
+
+**Purpose.** Owns schema-change workflow: edit `lib/db/schema/**`, generate migrations, review generated SQL, verify DB targets, and choose migration validation gates.
+
+**Trigger phrases.** `add a migration`, `change schema`, `db generate`, `Drizzle migration`, `schema review`, `is this migration safe`.
+
+**Hard boundary.** Never hand-edit `drizzle/*.sql`; schema modules are the source of truth.
+
+### `simplerdev-release-manager` — release readiness
+
+**Purpose.** Prepares changes for commit, push, PR, staging, or main release. Covers docs sync, dependency upgrades, Fallow gate awareness, release notes, and push readiness.
+
+**Trigger phrases.** `ship this`, `prepare release`, `before I push`, `make this PR-ready`, `dependency update`, `release checklist`.
+
+**Consolidates.** Docs sync and dependency-upgrade workflow until either grows large enough to justify a standalone skill.
+
+---
+
 ## Cross-cutting developer conventions
 
 ### Architectural invariants are load-bearing
@@ -200,6 +243,9 @@ Per memory (`project_sd2026_shared_railway_db.md`), sd2026 Vercel Preview (stagi
 | Visual-editor regression | `simplerdev-visual-editor` (audit) → direct fix or `simplerdev-block-type` change |
 | Port a competitor's feature | `feature-integrator` (gap report) → `simplerdev-feature-scaffold` + `simplerdev-ui-scaffold` |
 | Onboard a new client site from a URL | `site-migration` → switches over to the authoring stack for refinements |
+| Review risky work | `simplerdev-code-review` → `simplerdev-test-gate-picker` |
+| Schema or migration change | `simplerdev-db-migration` → `simplerdev-test-gate-picker` |
+| Prepare to commit / push / release | `simplerdev-code-review` → `simplerdev-test-gate-picker` → `simplerdev-release-manager` |
 | Autonomous, single-iteration progress | `dev-block` (invoked by the n8n loop) |
 
 ---
