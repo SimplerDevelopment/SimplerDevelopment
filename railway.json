@@ -2,7 +2,7 @@
   "$schema": "https://railway.com/railway.schema.json",
   "build": {
     "builder": "NIXPACKS",
-    "buildCommand": "bun install --frozen-lockfile && bun run build"
+    "buildCommand": "bun install --frozen-lockfile --filter simplerdevelopment2026 && bun run build"
   },
   "deploy": {
     "startCommand": "bun run start",
