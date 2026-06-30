@@ -32,7 +32,12 @@ vi.mock('@/lib/portal-auth', () => ({
 }));
 
 const headersMock = vi.fn();
+const TEST_STATE = 'abcd';
 vi.mock('next/headers', () => ({
+  cookies: vi.fn(async () => ({
+    get: (name: string) =>
+      name === 'booking_google_oauth_state' ? { value: TEST_STATE } : undefined,
+  })),
   headers: () => headersMock(),
 }));
 
@@ -252,6 +257,7 @@ describe('GET /api/portal/tools/booking/google/callback', () => {
     const u = new URL(
       'https://example.com/api/portal/tools/booking/google/callback',
     );
+    if (qs.code && !qs.state) u.searchParams.set('state', TEST_STATE);
     for (const [k, v] of Object.entries(qs)) u.searchParams.set(k, v);
     return new Request(u.toString());
   }

@@ -1034,7 +1034,9 @@ describe('GET /api/cron/brain-empty-old-trash', () => {
   it('skips auth entirely when CRON_SECRET is unset', async () => {
     delete process.env.CRON_SECRET;
     const res = await cronMod.GET(
-      new Request('http://x/api/cron/brain-empty-old-trash'),
+      new Request('http://x/api/cron/brain-empty-old-trash', {
+        headers: { 'x-vercel-cron': '1' },
+      }),
     );
     expect(res.status).toBe(200);
   });

@@ -753,6 +753,7 @@ describe('GET /api/portal/tools/booking/google/auth', () => {
       access_type: 'offline',
       scope: ['https://www.googleapis.com/auth/calendar'],
       prompt: 'consent',
+      state: expect.any(String),
     });
   });
 

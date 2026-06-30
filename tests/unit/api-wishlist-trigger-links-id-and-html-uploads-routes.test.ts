@@ -309,8 +309,9 @@ describe('POST /api/storefront/[siteId]/account/wishlist', () => {
     mocks.requireCustomerMock.mockResolvedValue({ customerId: 7 });
     const wishlist = { id: 100 };
     const newItem = { id: 1, wishlistId: 100, productId: 50, variantId: null };
-    // 1: existing wishlist, 2: existing item check (empty), 3: insert returning new item
-    queue([wishlist], [], [newItem]);
+    // 1: product site-scope check, 2: existing wishlist,
+    // 3: existing item check (empty), 4: insert returning new item
+    queue([{ id: 50 }], [wishlist], [], [newItem]);
     const res = await wishlistRoute.POST(req({ productId: 50 }), siteParams('1'));
     expect(res.status).toBe(201);
     const body = await res.json();
@@ -322,7 +323,7 @@ describe('POST /api/storefront/[siteId]/account/wishlist', () => {
     mocks.requireCustomerMock.mockResolvedValue({ customerId: 7 });
     const wishlist = { id: 100 };
     const existing = { id: 5 };
-    queue([wishlist], [existing]);
+    queue([{ id: 50 }], [wishlist], [existing]);
     const res = await wishlistRoute.POST(req({ productId: 50 }), siteParams('1'));
     expect(res.status).toBe(200);
     const body = await res.json();
@@ -334,8 +335,9 @@ describe('POST /api/storefront/[siteId]/account/wishlist', () => {
     mocks.requireCustomerMock.mockResolvedValue({ customerId: 7 });
     const newWishlist = { id: 300 };
     const newItem = { id: 11 };
-    // 1: empty existing wishlist, 2: insert wishlist, 3: empty existing item, 4: insert item
-    queue([], [newWishlist], [], [newItem]);
+    // 1: product site-scope check, 2: empty existing wishlist,
+    // 3: insert wishlist, 4: empty existing item, 5: insert item
+    queue([{ id: 50 }], [], [newWishlist], [], [newItem]);
     const res = await wishlistRoute.POST(
       req({ productId: 50, variantId: 8 }),
       siteParams('1'),

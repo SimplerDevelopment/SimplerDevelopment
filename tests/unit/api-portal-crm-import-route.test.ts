@@ -22,6 +22,11 @@ vi.mock('@/lib/portal-client', () => ({
   getPortalClient: (...args: unknown[]) => getPortalClientMock(...args),
 }));
 
+const hasServiceAccessMock = vi.fn();
+vi.mock('@/lib/portal-auth', () => ({
+  hasServiceAccess: (...args: unknown[]) => hasServiceAccessMock(...args),
+}));
+
 vi.mock('@/lib/db/schema', () => {
   const wrap = (tableName: string) =>
     new Proxy(
@@ -219,9 +224,11 @@ beforeEach(() => {
 
   authMock.mockReset();
   getPortalClientMock.mockReset();
+  hasServiceAccessMock.mockReset();
 
   authMock.mockResolvedValue({ user: { id: '7' } });
   getPortalClientMock.mockResolvedValue({ id: 10 });
+  hasServiceAccessMock.mockResolvedValue(true);
 });
 
 // ---------------------------------------------------------------------------

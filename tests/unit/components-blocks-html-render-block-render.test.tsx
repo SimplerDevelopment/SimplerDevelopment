@@ -54,7 +54,7 @@ vi.mock('@/types/visual-editor', () => ({
 
 // EditorModeProvider — control `active` per test
 let editorActive = false;
-vi.mock('@/components/visual-editor/EditorModeProvider', () => ({
+vi.mock('@/components/visual-editor/editor-mode-context', () => ({
   useEditorModeContext: () => ({ active: editorActive }),
 }));
 

@@ -24,6 +24,10 @@ vi.mock('@/lib/auth', () => ({
   auth: () => authMock(),
 }));
 
+vi.mock('@/lib/portal-auth', () => ({
+  hasServiceAccess: vi.fn().mockResolvedValue(true),
+}));
+
 const getPortalClientMock = vi.fn();
 vi.mock('@/lib/portal-client', () => ({
   getPortalClient: (...args: unknown[]) => getPortalClientMock(...args),
@@ -803,6 +807,10 @@ describe('POST /api/portal/crm/contacts', () => {
   });
 
   it('attaches tags when tagIds is a non-empty array', async () => {
+    state.tags.push(
+      { id: 101, clientId: 10, name: 'VIP' },
+      { id: 102, clientId: 10, name: 'Prospect' },
+    );
     const res = await POST(
       makePost({ firstName: 'A', tagIds: [101, 102] }),
     );

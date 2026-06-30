@@ -451,12 +451,16 @@ describe('GET /api/cron/stale-crm-deals — candidate loop', () => {
     expect(json.data.notified).toBe(1);
   });
 
-  it('returns 200 with no CRON_SECRET configured (no auth required)', async () => {
+  it('returns 200 with Vercel cron header when no CRON_SECRET is configured', async () => {
     delete process.env.CRON_SECRET;
     dbExecuteMock.mockResolvedValueOnce({ rows: [] });
 
     const { GET } = await import('@/app/api/cron/stale-crm-deals/route');
-    const res = await GET(new Request('http://x/api/cron/stale-crm-deals'));
+    const res = await GET(
+      new Request('http://x/api/cron/stale-crm-deals', {
+        headers: { 'x-vercel-cron': '1' },
+      }),
+    );
     expect(res.status).toBe(200);
   });
 

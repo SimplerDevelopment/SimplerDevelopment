@@ -5,7 +5,7 @@
  * Complements `cron-failing-automations-notify.test.ts` (which locks down the
  * auth gate + dedupe path) by exercising the response-shape edge cases:
  *   - `db.execute` returning a bare array (neon driver shape) instead of `{ rows }`
- *   - missing CRON_SECRET → route is unauthenticated, allows the call through
+ *   - missing CRON_SECRET + Vercel cron header → route allows the call through
  *   - long error message → truncated to ERROR_TRUNCATE (160 chars) with ellipsis
  *   - null error message → falls back to "(no error message recorded)"
  *   - mixed dedupe + notify outcomes in a single batch
@@ -55,10 +55,14 @@ describe('GET /api/cron/failing-automations-notify — edge cases', () => {
     process.env.CRON_SECRET = ORIGINAL_ENV;
   });
 
-  it('allows the request through when CRON_SECRET is unset (no auth gate)', async () => {
+  it('allows the request through with Vercel cron header when CRON_SECRET is unset', async () => {
     delete process.env.CRON_SECRET;
     const { GET } = await import('@/app/api/cron/failing-automations-notify/route');
-    const res = await GET(new Request('http://x/api/cron/failing-automations-notify'));
+    const res = await GET(
+      new Request('http://x/api/cron/failing-automations-notify', {
+        headers: { 'x-vercel-cron': '1' },
+      }),
+    );
     expect(res.status).toBe(200);
     const json = (await res.json()) as { success: boolean; data: { scanned: number } };
     expect(json.success).toBe(true);

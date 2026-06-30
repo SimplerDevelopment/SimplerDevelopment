@@ -286,12 +286,12 @@ describe('GET /api/posts', () => {
     expect(res.status).toBe(401);
   });
 
-  it('returns 403 when role is not admin/editor', async () => {
+  it('returns scoped empty posts when role is not admin/editor and no portal sites resolve', async () => {
     authMock.mockResolvedValueOnce({ user: { id: '7', role: 'client' } });
     const res = await postsGET(makePostsGet() as unknown as Parameters<typeof postsGET>[0]);
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.error).toBe('Forbidden');
+    expect(body).toEqual({ success: true, data: [], pagination: { limit: 10, offset: 0 } });
   });
 
   it('returns posts without filter (default pagination, desc createdAt)', async () => {

@@ -231,6 +231,7 @@ describe('GET /api/post-types/[id]', () => {
   beforeEach(() => {
     resetDbHandlers();
     vi.clearAllMocks();
+    authMock.mockResolvedValue({ user: { id: '42', role: 'editor' } });
   });
 
   it('returns 400 for non-numeric id', async () => {
@@ -282,6 +283,7 @@ describe('PUT /api/post-types/[id]', () => {
   beforeEach(() => {
     resetDbHandlers();
     vi.clearAllMocks();
+    authMock.mockResolvedValue({ user: { id: '42', role: 'editor' } });
   });
 
   it('returns 400 for non-numeric id', async () => {
@@ -351,6 +353,7 @@ describe('DELETE /api/post-types/[id]', () => {
   beforeEach(() => {
     resetDbHandlers();
     vi.clearAllMocks();
+    authMock.mockResolvedValue({ user: { id: '42', role: 'editor' } });
   });
 
   it('returns 400 for invalid id', async () => {

@@ -100,7 +100,9 @@ vi.mock('@/lib/auth', () => ({
 }));
 
 const resolveClientSiteMock = vi.fn();
+const getPortalClientMock = vi.fn();
 vi.mock('@/lib/portal-client', () => ({
+  getPortalClient: (...args: unknown[]) => getPortalClientMock(...args),
   resolveClientSite: (...args: unknown[]) => resolveClientSiteMock(...args),
 }));
 
@@ -133,6 +135,10 @@ const selectQueue: Row[][] = [];
 const insertQueue: Row[][] = [];
 const updateQueue: Row[][] = [];
 const deleteQueue: Row[][] = [];
+
+function allowStoreAccess() {
+  selectQueue.push([{ category: 'store' }]);
+}
 
 vi.mock('@/lib/db', () => {
   function makeSelectChain() {
@@ -204,9 +210,11 @@ beforeEach(() => {
   updateQueue.length = 0;
   deleteQueue.length = 0;
   authMock.mockReset();
+  getPortalClientMock.mockReset();
   resolveClientSiteMock.mockReset();
   createCrmNotificationMock.mockClear();
   authMock.mockResolvedValue({ user: { id: '7' } });
+  getPortalClientMock.mockResolvedValue({ id: 7, userId: 7 });
   resolveClientSiteMock.mockResolvedValue({ id: 10 });
 });
 
@@ -244,6 +252,7 @@ describe('GET /api/portal/websites/[siteId]/store/analytics', () => {
   });
 
   it('returns 404 when client site cannot be resolved', async () => {
+    allowStoreAccess();
     resolveClientSiteMock.mockResolvedValueOnce(null);
     const { GET } = await import(
       '@/app/api/portal/websites/[siteId]/store/analytics/route'
@@ -256,6 +265,7 @@ describe('GET /api/portal/websites/[siteId]/store/analytics', () => {
 
   it('returns empty/zero analytics when no orders exist (default 30d period)', async () => {
     // 4 select calls: revenue, topProducts, revenueByDay, ordersByStatus
+    allowStoreAccess();
     selectQueue.push([{ totalRevenue: null, totalOrders: 0 }]);
     selectQueue.push([]);
     selectQueue.push([]);
@@ -278,6 +288,7 @@ describe('GET /api/portal/websites/[siteId]/store/analytics', () => {
   });
 
   it('computes averageOrderValue and projects topProducts + revenueByDay', async () => {
+    allowStoreAccess();
     selectQueue.push([{ totalRevenue: '1000', totalOrders: 4 }]);
     selectQueue.push([
       { productId: 1, productName: 'Hat', totalRevenue: '500', totalQuantity: '5' },
@@ -317,6 +328,7 @@ describe('GET /api/portal/websites/[siteId]/store/analytics', () => {
   });
 
   it('handles null/missing totalRevenue and totalQuantity in topProducts', async () => {
+    allowStoreAccess();
     selectQueue.push([{ totalRevenue: null, totalOrders: 0 }]);
     selectQueue.push([
       { productId: 3, productName: 'Free', totalRevenue: null, totalQuantity: null },
@@ -337,6 +349,7 @@ describe('GET /api/portal/websites/[siteId]/store/analytics', () => {
   });
 
   it('echoes the requested period back when 7d', async () => {
+    allowStoreAccess();
     selectQueue.push([{ totalRevenue: '0', totalOrders: 0 }]);
     selectQueue.push([]);
     selectQueue.push([]);
@@ -351,6 +364,7 @@ describe('GET /api/portal/websites/[siteId]/store/analytics', () => {
   });
 
   it('echoes the requested period back when 90d', async () => {
+    allowStoreAccess();
     selectQueue.push([{ totalRevenue: '0', totalOrders: 0 }]);
     selectQueue.push([]);
     selectQueue.push([]);
@@ -364,6 +378,7 @@ describe('GET /api/portal/websites/[siteId]/store/analytics', () => {
   });
 
   it('echoes the requested period back when 12m', async () => {
+    allowStoreAccess();
     selectQueue.push([{ totalRevenue: '0', totalOrders: 0 }]);
     selectQueue.push([]);
     selectQueue.push([]);
@@ -377,6 +392,7 @@ describe('GET /api/portal/websites/[siteId]/store/analytics', () => {
   });
 
   it('falls back to 30d when period is an unknown value', async () => {
+    allowStoreAccess();
     selectQueue.push([{ totalRevenue: '0', totalOrders: 0 }]);
     selectQueue.push([]);
     selectQueue.push([]);
@@ -390,6 +406,7 @@ describe('GET /api/portal/websites/[siteId]/store/analytics', () => {
   });
 
   it('rounds averageOrderValue (integer math)', async () => {
+    allowStoreAccess();
     selectQueue.push([{ totalRevenue: '100', totalOrders: 3 }]);
     selectQueue.push([]);
     selectQueue.push([]);
@@ -747,11 +764,15 @@ describe('GET /api/cron/surveys-zero-responses (complementary)', () => {
     process.env.CRON_SECRET = ORIGINAL_ENV;
   });
 
-  it('accepts unauthenticated calls when CRON_SECRET is not configured', async () => {
+  it('accepts the Vercel cron header when CRON_SECRET is not configured', async () => {
     delete process.env.CRON_SECRET;
     selectQueue.push([]); // candidate query
     const { GET } = await import('@/app/api/cron/surveys-zero-responses/route');
-    const res = await GET(new Request('http://x/api/cron/surveys-zero-responses'));
+    const res = await GET(
+      new Request('http://x/api/cron/surveys-zero-responses', {
+        headers: { 'x-vercel-cron': '1' },
+      }),
+    );
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.success).toBe(true);
@@ -785,7 +806,11 @@ describe('GET /api/cron/surveys-zero-responses (complementary)', () => {
     selectQueue.push([]);
 
     const { GET } = await import('@/app/api/cron/surveys-zero-responses/route');
-    const res = await GET(new Request('http://x/api/cron/surveys-zero-responses'));
+    const res = await GET(
+      new Request('http://x/api/cron/surveys-zero-responses', {
+        headers: { 'x-vercel-cron': '1' },
+      }),
+    );
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.data).toMatchObject({
@@ -811,7 +836,11 @@ describe('GET /api/cron/surveys-zero-responses (complementary)', () => {
     delete process.env.CRON_SECRET;
     selectQueue.push([]);
     const { GET } = await import('@/app/api/cron/surveys-zero-responses/route');
-    const res = await GET(new Request('http://x/api/cron/surveys-zero-responses'));
+    const res = await GET(
+      new Request('http://x/api/cron/surveys-zero-responses', {
+        headers: { 'x-vercel-cron': '1' },
+      }),
+    );
     const body = await res.json();
     expect(typeof body.data.durationMs).toBe('number');
     expect(body.data.durationMs).toBeGreaterThanOrEqual(0);

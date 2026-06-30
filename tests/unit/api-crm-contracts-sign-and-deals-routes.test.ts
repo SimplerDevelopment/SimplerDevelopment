@@ -57,6 +57,7 @@ const authorizePortalMock = vi.fn();
 const isAuthErrorMock = vi.fn();
 vi.mock('@/lib/portal-auth', () => ({
   authorizePortal: (...args: unknown[]) => authorizePortalMock(...args),
+  hasServiceAccess: vi.fn().mockResolvedValue(true),
   isAuthError: (...args: unknown[]) => isAuthErrorMock(...args),
 }));
 

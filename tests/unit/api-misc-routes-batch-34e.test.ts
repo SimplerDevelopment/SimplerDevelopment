@@ -232,7 +232,7 @@ function makeReq(url: string, init?: RequestInit): Request {
   return new Request(url, init);
 }
 
-const SESSION = { user: { id: '7' } };
+const SESSION = { user: { id: '7', role: 'admin' } };
 
 beforeEach(() => {
   selectQueue = [];
@@ -240,7 +240,9 @@ beforeEach(() => {
   insertCalls.length = 0;
   updateCalls.length = 0;
   authMock.mockReset();
+  authMock.mockResolvedValue(SESSION);
   authorizePortalMock.mockReset();
+  authorizePortalMock.mockResolvedValue({ client: { id: 10 }, userId: 7, role: 'admin' });
   getPortalClientMock.mockReset();
   findTemplateMock.mockReset();
 });

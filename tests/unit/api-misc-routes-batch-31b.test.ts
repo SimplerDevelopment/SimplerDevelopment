@@ -48,6 +48,11 @@ vi.mock('@/lib/email', () => ({
   generateUnsubscribeToken: (...args: unknown[]) => generateUnsubscribeTokenMock(...args),
 }));
 
+const emitEventMock = vi.fn();
+vi.mock('@/lib/automation', () => ({
+  emitEvent: (...args: unknown[]) => emitEventMock(...args),
+}));
+
 // drizzle-orm operators — inert objects
 vi.mock('drizzle-orm', () => ({
   eq: (a: unknown, b: unknown) => ({ op: 'eq', a, b }),
@@ -292,6 +297,7 @@ beforeEach(() => {
   renderBlocksToEmailHtmlMock.mockReset();
   buildCampaignHtmlMock.mockReset();
   generateUnsubscribeTokenMock.mockReset();
+  emitEventMock.mockReset();
 });
 
 // ===========================================================================

@@ -20,6 +20,10 @@ const eslintConfig = defineConfig([
     "playwright-report/**",
     "test-results/**",
     "coverage/**",
+    "vault/**",
+    "drizzle/**",
+    "node_modules/**",
+    ".old_modules*/**",
     // Test suites are not production code, are not linted by `next build`, and
     // carry pre-existing fixture-style violations (heavy `any`, `@ts` comments).
     // They remain typechecked (tsc) and executed (vitest/playwright); only the

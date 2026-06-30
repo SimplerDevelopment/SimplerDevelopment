@@ -21,6 +21,11 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 // Hoisted mocks — declared before any route is imported.
 // ---------------------------------------------------------------------------
 
+const authMock = vi.fn();
+vi.mock('@/lib/auth', () => ({
+  auth: () => authMock(),
+}));
+
 const getBrandingByBookingPageSlugMock = vi.fn();
 const brandingToCssVarsMock = vi.fn();
 vi.mock('@/lib/branding', () => ({
@@ -243,6 +248,8 @@ beforeEach(() => {
   insertCalls.length = 0;
   deleteCalls.length = 0;
   updateCalls.length = 0;
+  authMock.mockReset();
+  authMock.mockResolvedValue({ user: { id: '7', role: 'admin' } });
   getBrandingByBookingPageSlugMock.mockReset();
   brandingToCssVarsMock.mockReset();
   // Silence expected error logs

@@ -219,6 +219,7 @@ beforeEach(() => {
   updateCalls.length = 0;
   deleteCalls.length = 0;
   authMock.mockReset();
+  authMock.mockResolvedValue({ user: { id: '7', role: 'admin' } });
   getPortalClientMock.mockReset();
   logCardActivityMock.mockReset();
   logCardActivityMock.mockResolvedValue(undefined);

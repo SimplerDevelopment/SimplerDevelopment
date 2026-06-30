@@ -137,6 +137,31 @@ vi.mock('@/lib/db', () => {
       select() {
         return buildSelect();
       },
+      insert() {
+        return {
+          values() {
+            return {
+              onConflictDoUpdate() {
+                return Promise.resolve(undefined);
+              },
+              then(onF: (v: unknown) => unknown, onR?: (e: unknown) => unknown) {
+                return Promise.resolve(undefined).then(onF, onR);
+              },
+            };
+          },
+        };
+      },
+      update() {
+        return {
+          set() {
+            return {
+              where() {
+                return Promise.resolve(undefined);
+              },
+            };
+          },
+        };
+      },
     },
   };
 });
@@ -257,11 +282,11 @@ describe('GET /api/cron/usage-rollup', () => {
     expect(res.status).toBe(401);
   });
 
-  it('allows the request through when no CRON_SECRET and no vercel header', async () => {
+  it('allows the request through with the Vercel cron header', async () => {
     currentPeriodUtcMock.mockReturnValue('2026-05');
     listClientsWithActiveMeteredItemsMock.mockResolvedValue([]);
     const res = await usageRollupRoute.GET(
-      makeReq('http://x/api/cron/usage-rollup'),
+      makeReq('http://x/api/cron/usage-rollup', { headers: { 'x-vercel-cron': '1' } }),
     );
     expect(res.status).toBe(200);
     const body = await res.json();
@@ -271,7 +296,9 @@ describe('GET /api/cron/usage-rollup', () => {
 
   it('rejects an invalid period format', async () => {
     const res = await usageRollupRoute.GET(
-      makeReq('http://x/api/cron/usage-rollup?period=not-a-month'),
+      makeReq('http://x/api/cron/usage-rollup?period=not-a-month', {
+        headers: { 'x-vercel-cron': '1' },
+      }),
     );
     expect(res.status).toBe(400);
     expect((await res.json()).message).toMatch(/Invalid period/);
@@ -286,7 +313,9 @@ describe('GET /api/cron/usage-rollup', () => {
     // client 3: rejection thrown
     rollupClientPeriodMock.mockRejectedValueOnce(new Error('boom'));
     const res = await usageRollupRoute.GET(
-      makeReq('http://x/api/cron/usage-rollup?period=2026-04'),
+      makeReq('http://x/api/cron/usage-rollup?period=2026-04', {
+        headers: { 'x-vercel-cron': '1' },
+      }),
     );
     expect(res.status).toBe(200);
     const body = await res.json();
@@ -302,7 +331,9 @@ describe('GET /api/cron/usage-rollup', () => {
     listClientsWithActiveMeteredItemsMock.mockResolvedValue([1]);
     rollupClientPeriodMock.mockResolvedValueOnce([{ resource: 'b', error: 'would' }]);
     const res = await usageRollupRoute.GET(
-      makeReq('http://x/api/cron/usage-rollup?period=2026-04&dryRun=1'),
+      makeReq('http://x/api/cron/usage-rollup?period=2026-04&dryRun=1', {
+        headers: { 'x-vercel-cron': '1' },
+      }),
     );
     expect(res.status).toBe(200);
     const body = await res.json();
