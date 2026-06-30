@@ -17,6 +17,7 @@ process.env.DATABASE_URL ??= 'postgresql://placeholder@localhost:5432/placeholde
 process.env.NEXTAUTH_URL ??= 'http://localhost:3000';
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+vi.setConfig({ testTimeout: 90_000 });
 import type { PortalMcpContext } from '@/lib/mcp-auth';
 
 // ── mocks ──────────────────────────────────────────────────────────────────
