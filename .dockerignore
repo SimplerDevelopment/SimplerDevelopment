@@ -9,8 +9,6 @@ playwright.config.*
 .env.local
 .env.development
 .env.test
-workers
-packages/sdk
 Dockerfile
 .dockerignore
 README.md
