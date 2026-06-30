@@ -16,8 +16,6 @@ Think *"open-source, agent-operable alternative to the usual stack of a site bui
   &nbsp;·&nbsp;
   <!-- TODO(launch): publish this as a Railway gallery template (dashboard → Settings → Templates → Publish) and update the href to https://railway.com/template/<SLUG> -->
   <a href="https://railway.com/deploy/simpler-development"><img src="https://railway.com/button.svg" alt="Deploy on Railway" height="28" /></a>
-  &nbsp;·&nbsp;
-  <a href="https://vercel.com/new/clone?repository-url=https://github.com/DanielPCoyle/simplerdevelopment2026"><img src="https://vercel.com/button" alt="Deploy with Vercel" height="28" /></a>
 </p>
 
 > ℹ️ One-click deploy stands up the app, but the platform needs **Postgres + pgvector** and a few secrets — see [Quick start](#quick-start) and **[`docs/deploy/railway.md`](docs/deploy/railway.md)** for the full Railway two-service setup (app + Postgres-with-pgvector, required env vars, pgvector extension step). A published Railway gallery template (one true one-click experience) is a **TODO** for the maintainer — see the deploy guide for instructions.
