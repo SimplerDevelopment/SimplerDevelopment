@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { getResend } from '@/lib/email';
+import { sendEmail } from '@/lib/email';
 import { escapeHtml } from '@/lib/utils/html';
 
 // Hidden form field — bots fill it; humans don't. Drop silently with a 200
@@ -47,16 +47,17 @@ export async function POST(request: NextRequest) {
       <p>${safeMessage}</p>
     `;
 
-    // No Resend key configured (e.g. local dev): log and succeed so the form
-    // still works without a mail provider.
-    if (!process.env.RESEND_API_KEY) {
+    // No provider configured: log and succeed so the form still works without
+    // a mail provider. Mailpit local dev sets EMAIL_TRANSPORT=mailpit and uses
+    // the same send path as production.
+    if (process.env.EMAIL_TRANSPORT !== 'mailpit' && !process.env.RESEND_API_KEY) {
       console.warn('[contact] RESEND_API_KEY not set — submission logged, not emailed:', {
         name, email, subject,
       });
       return NextResponse.json({ message: 'Message sent successfully' }, { status: 200 });
     }
 
-    const result = await getResend().emails.send({
+    const result = await sendEmail({
       from: FROM_EMAIL,
       to: CONTACT_INBOX,
       replyTo: email,

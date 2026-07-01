@@ -2,9 +2,12 @@ import { Resend } from 'resend';
 import type { BlockEditorData } from '@/types/blocks';
 import { renderBlocksToEmailHtml } from './render-blocks-to-email';
 import { buildCampaignHtmlString } from './build-campaign-html';
+import { sendEmail } from './transport';
 
 export { renderBlocksToEmailHtml } from './render-blocks-to-email';
 export { EMAIL_BLOCK_TYPES, isEmailBlockType } from './email-block-types';
+export { createEmailTransport, getEmailTransport, isMailpitEmailTransport, sendEmail } from './transport';
+export type { EmailAttachment, EmailPayload, EmailSendResponse, EmailTransport } from './transport';
 
 /**
  * Lazy Resend client.
@@ -16,9 +19,10 @@ export { EMAIL_BLOCK_TYPES, isEmailBlockType } from './email-block-types';
  * downstream import of `@/lib/email` fail in environments without the
  * env var (notably integration tests that don't actually send mail).
  *
- * Prefer `getResend()` in new code; the `resend` export is kept as a
- * Proxy so existing `resend.emails.send(...)` / `resend.domains.*` call
- * sites continue to work unchanged.
+ * Prefer `sendEmail()` in new code. The `resend` export is kept as a Proxy so
+ * existing `resend.emails.send(...)` call sites route through the configured
+ * email transport, while Resend-only APIs such as `resend.domains.*` still use
+ * the real Resend client.
  */
 let _resend: Resend | null = null;
 
@@ -33,6 +37,11 @@ export function getResend(): Resend {
 
 export const resend: Resend = new Proxy({} as Resend, {
   get(_target, prop, receiver) {
+    if (prop === 'emails') {
+      return {
+        send: sendEmail,
+      };
+    }
     return Reflect.get(getResend() as object, prop, receiver);
   },
 });

@@ -24,7 +24,7 @@ import { eq, and, inArray, sql } from 'drizzle-orm';
 import { FEATURE_DOMAINS } from '@/lib/billing/domain-catalog';
 import { getClientEntitlements } from '@/lib/billing/entitlements';
 import { getMonthlyUsage } from '@/lib/ai-credits';
-import { getResend } from '@/lib/email';
+import { sendEmail } from '@/lib/email';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -463,8 +463,7 @@ export async function runUsageAlerts(): Promise<UsageAlertsResult> {
         // ── Email notification ────────────────────────────────────────────
         if (alert.notifyEmail && ownerEmail) {
           try {
-            const resend = getResend();
-            await resend.emails.send({
+            await sendEmail({
               from: `SimplerDevelopment <${process.env.BILLING_EMAIL || 'billing@simplerdevelopment.com'}>`,
               to: ownerEmail,
               subject: alertSubject(alert),

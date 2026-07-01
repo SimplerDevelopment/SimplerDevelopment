@@ -20,7 +20,7 @@ import { randomBytes } from 'crypto';
 import { db } from '@/lib/db';
 import { users } from '@/lib/db/schema';
 import { and, eq, isNull } from 'drizzle-orm';
-import { getResend } from '@/lib/email';
+import { sendEmail } from '@/lib/email';
 
 const VERIFICATION_TTL_MS = 1000 * 60 * 60 * 24; // 24h
 const WINDOW_MS = 60 * 60 * 1000; // 1 hour window
@@ -112,8 +112,7 @@ export async function POST(req: Request) {
   }
 
   try {
-    const resend = getResend();
-    await resend.emails.send({
+    await sendEmail({
       from: process.env.RESEND_FROM_EMAIL ?? 'SimplerDevelopment <noreply@simplerdevelopment.com>',
       to: user.email,
       subject: 'Verify your email — new link',

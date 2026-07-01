@@ -8,17 +8,18 @@ This folder configures a zero-install development environment for
 
 | Manual step (README) | Dev-container equivalent |
 |---|---|
-| `docker compose up -d` | Done automatically — the db service from `../docker-compose.yml` starts with the container |
+| `docker compose up -d` | Done automatically — the db and Mailpit services from `../docker-compose.yml` start with the container |
 | `bun install` | Runs automatically via `postCreateCommand` |
 | `cp .env.example .env.local` | **You do this once** (see below) |
 | Set `DATABASE_URL` in `.env.local` | Pre-set to `postgresql://postgres:postgres@db:5432/simplerdev` via the Compose environment — you can skip this line in `.env.local` |
+| Set `EMAIL_TRANSPORT=mailpit` | Pre-set via Compose; Mailpit SMTP is reachable as `mailpit:1025` inside the container |
 | `bun run db:migrate` | **You run this once** after filling in `.env.local` |
 | `bun dev` | **You run this** from the integrated terminal |
 
 ## First-time setup (inside the container terminal)
 
 ```bash
-# 1. Copy the example env (pre-filled DATABASE_URL; add real secrets below)
+# 1. Copy the example env (DATABASE_URL and Mailpit are pre-filled by Compose; add real secrets below)
 cp .env.example .env.local
 
 # 2. Open .env.local and fill in the required secrets:
@@ -44,11 +45,13 @@ bun dev   # → http://localhost:3000 (auto-forwarded by Codespaces)
 - **Database:** `pgvector/pgvector:pg16` from `../docker-compose.yml` — same image as the
   README quick start, so schema and extension behavior are identical.
 - **App container:** `oven/bun:1-debian` — Bun is pre-installed; no extra install step.
-- **Networking:** the app container reaches Postgres at hostname `db` (Compose service name).
-  `DATABASE_URL` is pre-wired via the Compose environment; you do not need to set it in `.env.local`
-  unless you want to override it.
-- **Port forwarding:** port 3000 (Next.js) and 5432 (Postgres) are forwarded to the host
-  automatically.
+- **Mailpit:** outbound app email is captured by default via `EMAIL_TRANSPORT=mailpit`.
+  Open the forwarded Mailpit UI on port 8025.
+- **Networking:** the app container reaches Postgres at hostname `db` and Mailpit at hostname
+  `mailpit` (Compose service names). `DATABASE_URL` and Mailpit env vars are pre-wired via the
+  Compose environment; you do not need to set them in `.env.local` unless you want to override them.
+- **Port forwarding:** ports 3000 (Next.js), 5432 (Postgres), and 8025 (Mailpit UI) are forwarded
+  to the host automatically.
 
 ## Resetting
 

@@ -10,8 +10,7 @@ import {
 } from '@/lib/db/schema';
 import { and, eq, lte, asc } from 'drizzle-orm';
 import { resolveResendKey } from '@/lib/email/resolve-resend';
-import { Resend } from 'resend';
-import { buildUnsubscribeUrl } from '@/lib/email';
+import { buildUnsubscribeUrl, createEmailTransport, isMailpitEmailTransport } from '@/lib/email';
 import { isAuthorizedCron } from '@/lib/cron-auth';
 
 export const dynamic = 'force-dynamic';
@@ -286,9 +285,10 @@ async function executeEmailStep(
 
   let resendEmailId: string | null = null;
   try {
-    const { key } = await resolveResendKey(enrollment.clientId);
-    const resend = new Resend(key);
-    const result = await resend.emails.send({
+    const emailTransport = isMailpitEmailTransport()
+      ? createEmailTransport()
+      : createEmailTransport({ resendApiKey: (await resolveResendKey(enrollment.clientId)).key });
+    const result = await emailTransport.send({
       from: `${fromName} <${fromEmail}>`,
       to: subscriber.email,
       subject,

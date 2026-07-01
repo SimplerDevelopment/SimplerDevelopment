@@ -9,11 +9,12 @@
   "service": "app",
   "workspaceFolder": "/workspace",
 
-  // Forward the Next.js dev server and Postgres to the host / Codespaces preview.
-  "forwardPorts": [3000, 5432],
+  // Forward the Next.js dev server, Postgres, and Mailpit UI to the host / Codespaces preview.
+  "forwardPorts": [3000, 5432, 8025],
   "portsAttributes": {
     "3000": { "label": "Next.js dev server", "onAutoForward": "openPreview" },
-    "5432": { "label": "Postgres (pgvector)" }
+    "5432": { "label": "Postgres (pgvector)" },
+    "8025": { "label": "Mailpit email inbox", "onAutoForward": "notify" }
   },
 
   // Install all workspace + package dependencies once on first create.

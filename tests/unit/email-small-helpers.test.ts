@@ -26,7 +26,7 @@ vi.mock('resend', () => {
   return {
     Resend: class {
       key: string;
-      emails = { send: vi.fn().mockResolvedValue({ id: 'msg_default' }) };
+      emails = { send: vi.fn().mockResolvedValue({ data: { id: 'msg_default' }, error: null }) };
       domains = { list: vi.fn().mockResolvedValue({ data: [] }) };
       constructor(key: string) {
         this.key = key;
@@ -127,22 +127,23 @@ describe('lib/email/index — getResend', () => {
 });
 
 describe('lib/email/index — resend proxy', () => {
-  it('routes property access through getResend on first use', async () => {
+  it('routes emails.send through the configured email transport', async () => {
     process.env.RESEND_API_KEY = 're_test_proxy';
     const mod = await import('@/lib/email');
-    // Pull a property — this triggers Proxy.get → getResend()
     const emails = (mod.resend as unknown as { emails: { send: (...a: unknown[]) => Promise<unknown> } }).emails;
     expect(emails).toBeDefined();
     expect(typeof emails.send).toBe('function');
-    const res = await emails.send({ to: 'x@y' });
-    expect(res).toEqual({ id: 'msg_default' });
+    const res = await emails.send({ from: 'a@test.test', to: 'x@y', subject: 'Test', html: '<p>Hi</p>' });
+    expect(res).toEqual({ data: { id: 'msg_default' }, error: null });
     expect(resendInstances).toHaveLength(1);
   });
 
-  it('throws via the proxy when the env key is missing', async () => {
+  it('throws via emails.send when the env key is missing', async () => {
     delete process.env.RESEND_API_KEY;
     const mod = await import('@/lib/email');
-    expect(() => (mod.resend as unknown as { emails: unknown }).emails).toThrow(/RESEND_API_KEY/);
+    const emails = (mod.resend as unknown as { emails: { send: (...a: unknown[]) => Promise<unknown> } }).emails;
+    await expect(emails.send({ from: 'a@test.test', to: 'x@y', subject: 'Test', html: '<p>Hi</p>' }))
+      .rejects.toThrow(/RESEND_API_KEY/);
   });
 });
 
@@ -228,7 +229,7 @@ describe('lib/email/invite-email — sendInviteEmail', () => {
       role: 'member',
       inviteToken: 'tok_123',
     });
-    expect(result).toEqual({ id: 'msg_default' });
+    expect(result).toEqual({ data: { id: 'msg_default' }, error: null });
 
     const inst = resendInstances[0];
     const sendCall = inst.emails.send.mock.calls[0][0];

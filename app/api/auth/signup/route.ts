@@ -4,7 +4,7 @@
 
 import { NextResponse } from 'next/server';
 import { createSelfServeAccount, SignupError } from '@/lib/signup/service';
-import { getResend } from '@/lib/email';
+import { sendEmail } from '@/lib/email';
 import { checkRateLimit, getClientIp } from '@/lib/security/rate-limit';
 
 export async function POST(req: Request) {
@@ -54,8 +54,7 @@ export async function POST(req: Request) {
     // can surface a resend prompt, and log with enough structure to alert on.
     let verificationSent = false;
     try {
-      const resend = getResend();
-      await resend.emails.send({
+      await sendEmail({
         from: process.env.RESEND_FROM_EMAIL ?? 'SimplerDevelopment <noreply@simplerdevelopment.com>',
         to: body.email.trim().toLowerCase(),
         subject: 'Verify your email to get started',

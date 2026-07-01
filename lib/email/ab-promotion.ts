@@ -34,7 +34,7 @@ import {
   pickAbWinner,
 } from './subject-ab';
 import type { Block } from '@/types/blocks';
-import { Resend } from 'resend';
+import { createEmailTransport, isMailpitEmailTransport, type EmailTransport } from './transport';
 
 export interface AbPromotionResult {
   winner: 'a' | 'b' | 'tie';
@@ -91,15 +91,17 @@ export async function executeAbPromotion(
     cachedText = r.text;
   }
 
-  // 5) Resolve Resend client — BYOK first, platform fallback.
-  let resendClient: Resend;
-  if (campaign.clientId != null) {
+  // 5) Resolve email transport — BYOK first, platform fallback.
+  let emailTransport: EmailTransport;
+  if (isMailpitEmailTransport()) {
+    emailTransport = createEmailTransport();
+  } else if (campaign.clientId != null) {
     const { key } = await resolveResendKey(campaign.clientId);
-    resendClient = new Resend(key);
+    emailTransport = createEmailTransport({ resendApiKey: key });
   } else {
     const platformKey = process.env.RESEND_API_KEY;
     if (!platformKey) throw new Error('[executeAbPromotion] RESEND_API_KEY is not set');
-    resendClient = new Resend(platformKey);
+    emailTransport = createEmailTransport({ resendApiKey: platformKey });
   }
 
   // 6) Record winner BEFORE dispatching so partial failures are recoverable.
@@ -119,7 +121,7 @@ export async function executeAbPromotion(
         : buildCampaignHtml(campaign.htmlContent, unsubscribeUrl, campaign.previewText);
       const text = cachedText ?? htmlToText(html);
 
-      const result = await resendClient.emails.send({
+      const result = await emailTransport.send({
         from: `${campaign.fromName} <${campaign.fromEmail}>`,
         to: subscriber.email,
         subject: winnerSubject,

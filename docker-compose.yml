@@ -1,15 +1,17 @@
-# Local development database: Postgres 16 with the pgvector extension preinstalled.
-# This is the one piece of infrastructure that's annoying to set up by hand
-# (the platform's Company Brain / RAG requires pgvector). The app itself runs on
-# the host via `bun dev`.
+# Full local development stack:
+# - db: Postgres 16 with pgvector preinstalled
+# - app: Next.js app at http://localhost:3000
+# - realtime: Yjs WebSocket server at http://localhost:3030/health
+# - agents: Mastra agents service at http://localhost:4111
+# - mailpit: local email capture at http://localhost:8025
 #
 # Usage:
+#   cp .env.example .env.local
 #   docker compose up -d
-#   # point your .env / .env.local at it:
-#   #   DATABASE_URL=postgresql://postgres:postgres@localhost:5432/simplerdev
-#   bun run db:migrate     # creates the schema (extensions auto-provisioned on first boot)
-#   bun run db:seed:dev    # optional: seed dev data
-#   bun dev                # http://localhost:3000
+#
+# The app still expects the same local secrets as normal development. The
+# compose file wires the service-to-service URLs so the whole stack can run
+# together on one machine.
 #
 # Reset everything: docker compose down -v   (the -v drops the data volume)
 
@@ -26,7 +28,6 @@ services:
       - "5432:5432"
     volumes:
       - simplerdev-pgdata:/var/lib/postgresql/data
-      # Auto-provision required extensions (vector, pg_trgm, pgcrypto) on first init.
       - ./docker/initdb:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d simplerdev"]
@@ -34,5 +35,130 @@ services:
       timeout: 5s
       retries: 10
 
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: simplerdev-mailpit
+    restart: unless-stopped
+    ports:
+      - "1025:1025" # SMTP
+      - "8025:8025" # Web UI
+
+  app:
+    image: oven/bun:1.3.11
+    container_name: simplerdev-app
+    restart: unless-stopped
+    working_dir: /workspace
+    command: >
+      sh -lc "bun install --frozen-lockfile &&
+      bun scripts/verify-db-target.ts &&
+      bunx drizzle-kit migrate &&
+      bun scripts/apply-local-manual-migrations.ts &&
+      bun dev"
+    depends_on:
+      db:
+        condition: service_healthy
+      mailpit:
+        condition: service_started
+    env_file:
+      - path: .env.local
+        required: false
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/simplerdev
+      NEXTAUTH_URL: http://localhost:3000
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+      NEXT_PUBLIC_SITE_URL: http://localhost:3000
+      NEXT_PUBLIC_REALTIME_URL: ws://localhost:3030
+      REALTIME_INTERNAL_URL: http://realtime:3030
+      REALTIME_JWT_SECRET: ${REALTIME_JWT_SECRET:-sd-local-dev-realtime-jwt-secret}
+      REALTIME_INTERNAL_SECRET: ${REALTIME_INTERNAL_SECRET:-sd-local-dev-realtime-internal-secret}
+      SD_AGENTS_URL: http://agents:4111
+      AUTH_TRUST_HOST: "true"
+      EMAIL_TRANSPORT: mailpit
+      MAILPIT_SMTP_HOST: mailpit
+      MAILPIT_SMTP_PORT: "1025"
+      PORT: "3000"
+    volumes:
+      - .:/workspace
+      - simplerdev-app-node-modules:/workspace/node_modules
+    ports:
+      - "3000:3000"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "bun --eval \"fetch('http://localhost:3000/api/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))\"",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+
+  realtime:
+    image: oven/bun:1.3.11
+    container_name: simplerdev-realtime
+    restart: unless-stopped
+    working_dir: /workspace/packages/realtime-server
+    command: sh -lc "bun install --frozen-lockfile && bun src/server.ts"
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - path: .env.local
+        required: false
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/simplerdev
+      REALTIME_JWT_SECRET: ${REALTIME_JWT_SECRET:-sd-local-dev-realtime-jwt-secret}
+      REALTIME_INTERNAL_SECRET: ${REALTIME_INTERNAL_SECRET:-sd-local-dev-realtime-internal-secret}
+      PORT: "3030"
+    volumes:
+      - .:/workspace
+      - simplerdev-realtime-node-modules:/workspace/packages/realtime-server/node_modules
+    ports:
+      - "3030:3030"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "bun --eval \"fetch('http://localhost:3030/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))\"",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+
+  agents:
+    image: oven/bun:1.3.11
+    container_name: simplerdev-agents
+    restart: unless-stopped
+    working_dir: /workspace/simplerdevelopment-agents
+    command: sh -lc "bun install --frozen-lockfile && bun dev"
+    depends_on:
+      app:
+        condition: service_healthy
+    env_file:
+      - path: .env.local
+        required: false
+    environment:
+      SD_MCP_URL: http://app:3000/api/mcp
+      PORT: "4111"
+    volumes:
+      - .:/workspace
+      - simplerdev-agents-node-modules:/workspace/simplerdevelopment-agents/node_modules
+    ports:
+      - "4111:4111"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "bun --eval \"fetch('http://localhost:4111').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))\"",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+
 volumes:
   simplerdev-pgdata:
+  simplerdev-app-node-modules:
+  simplerdev-realtime-node-modules:
+  simplerdev-agents-node-modules:

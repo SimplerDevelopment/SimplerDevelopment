@@ -17,7 +17,7 @@ import {
 } from '@/lib/db/schema';
 import { eq, asc, and } from 'drizzle-orm';
 import { resolveResendKey } from '@/lib/email/resolve-resend';
-import { Resend } from 'resend';
+import { createEmailTransport, isMailpitEmailTransport } from '@/lib/email';
 import { randomBytes } from 'crypto';
 import type {
   WorkflowAction,
@@ -383,16 +383,17 @@ export async function executeAction(
         };
       }
 
-      // Send via Resend with idempotency header.
+      // Send via the configured email transport with an idempotency header.
       try {
-        const { key } = await resolveResendKey(clientId);
-        const resend = new Resend(key);
+        const emailTransport = isMailpitEmailTransport()
+          ? createEmailTransport()
+          : createEmailTransport({ resendApiKey: (await resolveResendKey(clientId)).key });
         const idempotencyKey =
           runId != null && nodeId ? `wf:${runId}:${nodeId}` : undefined;
         const fromEmail =
           process.env.DEFAULT_FROM_EMAIL ?? 'noreply@simplerdevelopment.com';
 
-        const result = await resend.emails.send({
+        const result = await emailTransport.send({
           from: fromEmail,
           to: toEmail,
           subject: template.subject ?? '(no subject)',

@@ -28,7 +28,7 @@ import { getOrRenderCampaignHtml, htmlToText } from './render-cache';
 import type { Block } from '@/types/blocks';
 import { splitForAbTest, type AbVariant } from './subject-ab';
 import { resolveResendKey } from './resolve-resend';
-import { Resend } from 'resend';
+import { createEmailTransport, isMailpitEmailTransport, type EmailTransport } from './transport';
 
 export async function executeCampaignSend(
   campaignId: number,
@@ -88,17 +88,20 @@ export async function executeCampaignSend(
     cachedText = result.text;
   }
 
-  // Resolve the Resend key: BYOK if the campaign has a clientId and the client
-  // has a connected key; platform otherwise. campaignId.clientId is nullable
-  // (global / agency campaigns have no owner), so we fall back gracefully.
-  let resendClient: Resend;
-  if (campaign.clientId != null) {
+  // Resolve the email transport: BYOK Resend in hosted environments, Mailpit in
+  // local development when EMAIL_TRANSPORT=mailpit. campaign.clientId is
+  // nullable (global / agency campaigns have no owner), so we fall back
+  // gracefully.
+  let emailTransport: EmailTransport;
+  if (isMailpitEmailTransport()) {
+    emailTransport = createEmailTransport();
+  } else if (campaign.clientId != null) {
     const { key } = await resolveResendKey(campaign.clientId);
-    resendClient = new Resend(key);
+    emailTransport = createEmailTransport({ resendApiKey: key });
   } else {
     const platformKey = process.env.RESEND_API_KEY;
     if (!platformKey) throw new Error('[executeCampaignSend] RESEND_API_KEY is not set');
-    resendClient = new Resend(platformKey);
+    emailTransport = createEmailTransport({ resendApiKey: platformKey });
   }
 
   let sent = 0;
@@ -111,7 +114,7 @@ export async function executeCampaignSend(
           ? cachedHtml.replace(/\{\{UNSUBSCRIBE_URL\}\}/g, unsubscribeUrl)
           : buildCampaignHtml(campaign.htmlContent, unsubscribeUrl, campaign.previewText);
         const text = cachedText ?? htmlToText(html);
-        const result = await resendClient.emails.send({
+        const result = await emailTransport.send({
           from: `${campaign.fromName} <${campaign.fromEmail}>`,
           to: subscriber.email,
           subject: bucket.subject,

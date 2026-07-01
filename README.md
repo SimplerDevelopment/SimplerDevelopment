@@ -15,7 +15,9 @@ Think *"open-source, agent-operable alternative to the usual stack of a site bui
   <a href="#quick-start"><b>⚡ Self-host in 5 minutes</b></a>
   &nbsp;·&nbsp;
   <!-- TODO(launch): publish this as a Railway gallery template (dashboard → Settings → Templates → Publish) and update the href to https://railway.com/template/<SLUG> -->
-  <a href="https://railway.com/deploy/simpler-development"><img src="https://railway.com/button.svg" alt="Deploy on Railway" height="28" /></a>
+  <a href="https://railway.com/deploy?template=https://github.com/DanielPCoyle/simplerdevelopment2026"><img src="https://railway.com/button.svg" alt="Deploy on Railway" height="28" /></a>
+  &nbsp;·&nbsp;
+  <a href="https://vercel.com/new/clone?repository-url=https://github.com/DanielPCoyle/simplerdevelopment2026"><img src="https://vercel.com/button" alt="Deploy with Vercel" height="28" /></a>
 </p>
 
 > ℹ️ One-click deploy stands up the app, but the platform needs **Postgres + pgvector** and a few secrets — see [Quick start](#quick-start) and **[`docs/deploy/railway.md`](docs/deploy/railway.md)** for the full Railway two-service setup (app + Postgres-with-pgvector, required env vars, pgvector extension step). A published Railway gallery template (one true one-click experience) is a **TODO** for the maintainer — see the deploy guide for instructions.
@@ -98,39 +100,36 @@ An in-repo Model Context Protocol server (`app/api/mcp/route.ts` + `lib/mcp/`) e
 
 ## Prerequisites and setup
 
-**Requirements:** Bun 1.3.11+, **PostgreSQL 14+ with the [`pgvector`](https://github.com/pgvector/pgvector) extension** (the Company Brain / RAG needs it), Node.js 20+ (for scripts that use `tsx`), and optionally Docker.
+**Requirements:** Docker for the fastest full-stack local setup. If you run without Docker, install Bun 1.3.11+, Node.js 20+ (for scripts that use `tsx`), and **PostgreSQL 14+ with the [`pgvector`](https://github.com/pgvector/pgvector) extension**.
 
 ### Quick start
 
 > **Zero-install option:** open in [GitHub Codespaces](https://codespaces.new/DanielPCoyle/simplerdevelopment2026) or any [Dev Container](https://containers.dev)-aware editor — Postgres + Bun start automatically. See [`.devcontainer/README.md`](.devcontainer/README.md) for first-time steps.
 
 ```bash
-# 1. Start Postgres + pgvector (Docker — easiest, no local Postgres needed)
-docker compose up -d
-
-# 2. Install dependencies
-bun install
-
-# 3. Configure environment
+# 1. Configure environment
 cp .env.example .env.local
-#   For the Docker DB above, set in .env.local:
-#   DATABASE_URL=postgresql://postgres:postgres@localhost:5432/simplerdev
 #   Generate the required secrets:
 #   AUTH_SECRET / NEXTAUTH_SECRET / OAUTH_STATE_SECRET → openssl rand -hex 32
 #   WORKSPACE_TENANT_SECRETS_KEY                       → openssl rand -hex 32
 #   PORTAL_KMS_KEY                                     → openssl rand -base64 32
 #   ENCRYPTION_KEY                                     → openssl rand -hex 32
 
-# 4. Create the schema and seed dev data
-#    (pgvector + pg_trgm + pgcrypto are auto-provisioned on first Docker boot)
-bun run db:migrate
-bun run db:seed:dev      # optional
+# 2. Start the full local stack: app + Postgres/pgvector + realtime + agents + Mailpit
+docker compose up -d
 
-# 5. Run it
-bun dev                  # http://localhost:3000
+# 3. Optionally seed dev data after the app finishes boot-time migrations
+docker compose exec app bun run db:seed:dev
 ```
 
-> Not using Docker? Point `DATABASE_URL` at any Postgres that has `pgvector` available, then enable the extensions once before migrating:
+The app runs at [http://localhost:3000](http://localhost:3000). Mailpit captures
+local outbound email at [http://localhost:8025](http://localhost:8025). The Docker
+app service wires `DATABASE_URL`, realtime URLs, agents URL, `EMAIL_TRANSPORT=mailpit`,
+and `MAILPIT_SMTP_HOST=mailpit` inside the Compose network.
+
+> Not using Docker? Run `bun install`, point `DATABASE_URL` at any Postgres that has
+> `pgvector` available, set `EMAIL_TRANSPORT=mailpit` if using a local SMTP catcher,
+> then enable the extensions once before migrating:
 > ```sql
 > CREATE EXTENSION IF NOT EXISTS vector;
 > CREATE EXTENSION IF NOT EXISTS pg_trgm;
