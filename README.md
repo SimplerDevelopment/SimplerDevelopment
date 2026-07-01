@@ -6,9 +6,9 @@
 
 Think *"open-source, agent-operable alternative to the usual stack of a site builder + CRM + email tool + booking app + knowledge base"* — unbundled into one self-hostable codebase.
 
-<!-- HERO: record this GIF before launch — `vhs docs/launch/demo.tape` (see docs/launch/demo.tape). It is the #1 conversion asset above the fold. -->
+<!-- HERO TODO: replace this screenshot with a real recorded GIF after recording against a live instance + MCP client. Do not ship the staged docs/launch/demo.tape output as-is. -->
 <p align="center">
-  <img src="docs/launch/demo.gif" alt="An MCP client building a page, CRM record, and booking by talking to an agent" width="800" />
+  <img src="public/screenshots/marketing/portal-onboarding-desktop.png" alt="SimplerDevelopment portal onboarding screen" width="800" />
 </p>
 
 <p align="center">

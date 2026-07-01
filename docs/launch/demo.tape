@@ -10,7 +10,7 @@
 #   1. Install vhs:      brew install vhs   (or: go install github.com/charmbracelet/vhs@latest)
 #   2. Have a working instance + an MCP client configured (see docs/mcp.md).
 #   3. From repo root:   vhs docs/launch/demo.tape
-#   4. Output:           docs/launch/demo.gif  (referenced by README.md)
+#   4. Output:           docs/launch/demo.gif  (replace the README screenshot once real)
 #
 # IMPORTANT (honesty): the `Type`/`Sleep` lines below SIMULATE a representative
 # session for a clean recording. Before publishing, re-record against a REAL
