@@ -1,0 +1,4 @@
+interface:
+  display_name: "SimplerDev DB Migration"
+  short_description: "Safe Drizzle schema and migration workflow."
+  default_prompt: "Use $simplerdev-db-migration to make a safe SimplerDevelopment database schema or migration change."

@@ -15,6 +15,7 @@ pushing=0
 dev_only=1
 changed=""
 fallow_targets=()   # "base_sha branch" for each ref pushed to a deploy branch
+mirror_main_sha=""
 
 while read -r local_ref local_sha remote_ref remote_sha; do
   [ -z "${local_sha:-}" ] && continue
@@ -39,6 +40,10 @@ while read -r local_ref local_sha remote_ref remote_sha; do
   branch="${remote_ref#refs/heads/}"
   if [[ "$branch" =~ $FALLOW_GATED_RE ]]; then
     fallow_targets+=("$fallow_base $branch")
+  fi
+
+  if [ "$branch" = "main" ]; then
+    mirror_main_sha="$local_sha"
   fi
 done
 
@@ -85,4 +90,19 @@ fi
 
 echo "pre-push: running local CI…"
 # shellcheck disable=SC2086
-exec "$ROOT/scripts/ci-local.sh" $ci_args
+"$ROOT/scripts/ci-local.sh" $ci_args
+ci_status=$?
+if [ "$ci_status" -ne 0 ]; then
+  exit "$ci_status"
+fi
+
+if [ -n "$mirror_main_sha" ]; then
+  ORG_MAIN_URL="https://github.com/SimplerDevelopment/simplerdevelopment.git"
+  echo "pre-push: mirroring main to SimplerDevelopment/simplerdevelopment…"
+  if ! git push --no-verify "$ORG_MAIN_URL" "$mirror_main_sha:refs/heads/main"; then
+    echo "pre-push: mirror push to SimplerDevelopment/simplerdevelopment failed." >&2
+    exit 1
+  fi
+fi
+
+exit 0
