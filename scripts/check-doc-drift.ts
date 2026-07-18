@@ -73,10 +73,12 @@ const MOVED_PATHS: { from: string; hint: string }[] = [
 function findFiles(cmd: string): string[] {
   try {
     return execSync(cmd, { encoding: 'utf8' }).split('\n').filter(Boolean);
-  } catch (e) {
-    // find exits non-zero when a listed dir is absent (e.g. vault/ is stripped
-    // from the public tree) but still prints matches from the dirs that exist.
-    const stdout = (e as { stdout?: string }).stdout ?? '';
+  } catch (err) {
+    // `find` exits non-zero when any listed root is absent — e.g. the internal
+    // `vault/` tree, which isn't part of the public repo. The roots that do
+    // exist still emit their matches on stdout, so keep those partial results
+    // instead of failing the commit outright.
+    const stdout = (err as { stdout?: string | Buffer }).stdout?.toString() ?? '';
     return stdout.split('\n').filter(Boolean);
   }
 }
