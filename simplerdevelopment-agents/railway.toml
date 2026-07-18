@@ -1,0 +1,37 @@
+# Railway deployment for the Mastra agents service.
+#
+# Required env (set in the Railway service):
+#   PORT                            — set automatically by Railway; Mastra
+#                                     production server binds to this port.
+#   SD_MCP_URL                      — URL of the SimplerDevelopment MCP server
+#                                     (e.g. https://your-app.railway.app/api/mcp)
+#   SD_AGENTS_INTERNAL_SECRET       — shared secret for internal agent→portal calls.
+#                                     Setting it enables multi-tenant mode: every
+#                                     request must carry a per-tenant token
+#                                     (x-sd-tenant-token) and the static
+#                                     SD_MCP_API_KEY is ignored.
+#   ANTHROPIC_API_KEY               — Anthropic API key (all Claude models route here)
+#
+# Dev/CLI only — do NOT set on a multi-tenant deployment:
+#   SD_MCP_API_KEY                  — static portal key for local runs (run-brain.ts /
+#                                     run-portal.ts / Studio). In multi-tenant mode it
+#                                     would be a long-lived cross-tenant secret; the
+#                                     service refuses to use it there.
+#
+# Optional — override model defaults (falls back to the values shown):
+#   SD_BRAIN_MODEL                  — defaults to anthropic/claude-sonnet-4-6
+#   SD_BRAIN_FAST_MODEL             — defaults to anthropic/claude-haiku-4-5
+#   SD_PORTAL_MODEL                 — defaults to anthropic/claude-sonnet-4-6
+#   SD_PORTAL_FAST_MODEL            — defaults to anthropic/claude-haiku-4-5
+#   SD_SCORER_MODEL                 — defaults to anthropic/claude-haiku-4-5
+#   MASTRA_PLATFORM_ACCESS_TOKEN    — optional; sends OTel traces to Mastra Platform
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 5
+# No healthcheckPath — Mastra v1's production server has no documented /health
+# endpoint. Omitted rather than guessing a wrong path.

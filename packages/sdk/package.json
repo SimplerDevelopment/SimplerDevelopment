@@ -1,0 +1,47 @@
+{
+  "name": "@simplerdevelopment/sdk",
+  "version": "0.1.0",
+  "description": "TypeScript SDK for the SimplerDevelopment platform",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
+  },
+  "devDependencies": {
+    "tsup": "^8.0.0",
+    "typescript": "^5.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SimplerDevelopment/SimplerDevelopment.git",
+    "directory": "packages/sdk"
+  },
+  "homepage": "https://github.com/SimplerDevelopment/SimplerDevelopment/tree/main/packages/sdk#readme",
+  "bugs": {
+    "url": "https://github.com/SimplerDevelopment/SimplerDevelopment/issues"
+  },
+  "keywords": [
+    "simplerdevelopment",
+    "cms",
+    "sdk",
+    "headless"
+  ]
+}

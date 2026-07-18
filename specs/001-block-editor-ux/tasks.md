@@ -1,0 +1,496 @@
+# Tasks: Block Editor UX Improvements
+
+**Feature Branch**: `001-block-editor-ux`
+**Input**: Design documents from `/specs/001-block-editor-ux/`
+**Prerequisites**: plan.md, spec.md, research.md, data-model.md, contracts/api.md
+
+**Tests**: Tests are included per research.md recommendations (Vitest + React Testing Library + Playwright).
+
+**Organization**: Tasks are grouped by user story to enable independent implementation and testing of each story.
+
+## Format: `[ID] [P?] [Story] Description`
+
+- **[P]**: Can run in parallel (different files, no dependencies)
+- **[Story]**: Which user story this task belongs to (e.g., US1, US2, US3)
+- Include exact file paths in descriptions
+
+## Path Conventions
+
+Next.js App Router structure:
+- Components: `components/blocks/`, `components/admin/`, `components/ui/`
+- Utilities: `lib/utils/`, `lib/hooks/`
+- Contexts: `contexts/`
+- Types: `types/`
+- Tests: `tests/unit/`, `tests/integration/`, `tests/e2e/`
+
+---
+
+## Phase 1: Setup (Shared Infrastructure)
+
+**Purpose**: Install dependencies and configure test frameworks
+
+- [X] T001 [P] Install @dnd-kit dependencies (@dnd-kit/core @dnd-kit/sortable @dnd-kit/utilities)
+- [X] T002 [P] Install keyboard shortcuts library (mousetrap @types/mousetrap)
+- [X] T003 [P] Install state management library (immer)
+- [X] T004 [P] Install rich content parsing libraries (unified remark-parse remark-html)
+- [X] T005 [P] Install testing dependencies (vitest @testing-library/react @testing-library/jest-dom @testing-library/user-event @vitejs/plugin-react jsdom)
+- [X] T006 [P] Install E2E testing framework (@playwright/test)
+- [X] T007 Create vitest.config.ts at repository root
+- [X] T008 Create tests/setup.ts for Vitest configuration
+- [X] T009 Create playwright.config.ts at repository root
+- [X] T010 Update package.json with test scripts (test, test:ui, test:coverage, test:e2e, test:e2e:ui)
+
+---
+
+## Phase 2: Foundational (Blocking Prerequisites)
+
+**Purpose**: Core infrastructure that MUST be complete before ANY user story can be implemented
+
+**⚠️ CRITICAL**: No user story work can begin until this phase is complete
+
+- [X] T011 [P] Create EditorState interface in types/blocks.ts
+- [X] T012 [P] Create HistoryEntry interface in types/blocks.ts
+- [X] T013 [P] Create ContentStats interface in types/blocks.ts
+- [X] T014 [P] Create DragState interface in types/blocks.ts
+- [X] T015 Create BlockHistory class utility in lib/utils/blockHistory.ts
+- [X] T016 Create useBlockHistory custom hook in lib/hooks/useBlockHistory.ts
+- [X] T017 Create BlockEditorContext in contexts/BlockEditorContext.tsx
+- [X] T018 Create BlockEditorProvider component in contexts/BlockEditorContext.tsx
+
+**Checkpoint**: Foundation ready - user story implementation can now begin in parallel
+
+---
+
+## Phase 3: User Story 1 - Fix React Console Errors (Priority: P1) 🎯 MVP
+
+**Goal**: Eliminate React key prop warnings in ColumnsBlockPreview to ensure code quality and prevent rendering issues
+
+**Independent Test**: Open browser dev tools, navigate to Content tab in post editor at http://localhost:3005/admin/posts/42/edit, verify no React key prop warnings appear in console when viewing posts with column blocks
+
+### Tests for User Story 1
+
+> **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
+
+- [X] T019 [US1] Create unit test for ColumnsBlockPreview key props in tests/unit/columnsBlockPreview.test.tsx
+
+### Implementation for User Story 1
+
+- [X] T020 [US1] Add unique key prop to mapped columns in components/blocks/visual/ColumnsBlockPreview.tsx using format key={`${block.id}-column-${index}`}
+- [ ] T021 [US1] Verify no console errors by testing with post containing column blocks
+
+**Checkpoint**: At this point, User Story 1 should be fully functional - no React warnings in console
+
+---
+
+## Phase 4: User Story 7 - Undo/Redo with Clear History (Priority: P1)
+
+**Goal**: Content editors can undo and redo changes with confidence that all edits are tracked (block additions, deletions, reordering, content modifications)
+
+**Independent Test**: Make various edits (add, delete, reorder, modify blocks), click undo repeatedly to verify each action reverses, then click redo to verify actions replay correctly. Verify history clears on new edit after undo.
+
+### Tests for User Story 7
+
+> **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
+
+- [ ] T022 [P] [US7] Create unit test for blockHistory utility in tests/unit/blockHistory.test.ts (test push, undo, redo, clear, maxSize)
+- [X] T023 [P] [US7] Create integration test for undo/redo in VisualBlockEditor in tests/integration/undoRedo.test.tsx (test undo deletion, redo, clear future on new action)
+
+### Implementation for User Story 7
+
+- [X] T024 [US7] Implement History<T> class with push/undo/redo/clear methods in lib/utils/blockHistory.ts
+- [X] T025 [US7] Implement useBlockHistory hook with undo/redo state management in lib/hooks/useBlockHistory.ts
+- [X] T026 [US7] Integrate history tracking into BlockEditorContext in contexts/BlockEditorContext.tsx
+- [X] T027 [US7] Add undo button to VisualBlockEditor toolbar in components/blocks/VisualBlockEditor.tsx
+- [X] T028 [US7] Add redo button to VisualBlockEditor toolbar in components/blocks/VisualBlockEditor.tsx
+- [X] T029 [US7] Update all block mutation actions (add, delete, modify, reorder) to create history entries before changes
+- [X] T030 [US7] Add keyboard shortcuts (Cmd+Z for undo, Cmd+Shift+Z for redo) to editor using mousetrap
+  - ✅ Cmd+Z (Undo) working - tested and verified
+  - ❌ Cmd+Shift+Z (Redo) not triggering - needs investigation
+
+**Checkpoint**: At this point, User Story 7 should be fully functional - undo/redo works for all block operations
+
+---
+
+## Phase 5: User Story 2 - Visual Drag-and-Drop Block Reordering (Priority: P1)
+
+**Goal**: Content editors can rearrange blocks by dragging them to different positions with visual feedback
+
+**Independent Test**: Grab a block's drag handle and move it to a different position, verify content order updates correctly with smooth animation and visual drop indicators
+
+### Tests for User Story 2
+
+> **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
+
+- [X] T031 [P] [US2] Create integration test for drag-and-drop in tests/integration/dragDrop.test.tsx (test basic reorder, invalid drop, visual indicators)
+- [ ] T032 [P] [US2] Create E2E test for drag-and-drop in tests/e2e/blockReordering.spec.ts (test full user flow with Playwright)
+
+### Implementation for User Story 2
+
+- [X] T033 [P] [US2] Create useBlockDragDrop hook in lib/hooks/useBlockDragDrop.ts using @dnd-kit
+- [ ] T034 [US2] Wrap VisualBlockEditor blocks with DndContext in components/blocks/VisualBlockEditor.tsx
+- [ ] T035 [US2] Wrap block list with SortableContext in components/blocks/VisualBlockEditor.tsx
+- [ ] T036 [US2] Add useSortable hook to individual block wrappers in components/blocks/VisualBlockEditor.tsx
+- [ ] T037 [US2] Implement onDragStart handler to update isDragging and draggedBlockId state
+- [ ] T038 [US2] Implement onDragOver handler to update dropTargetIndex and show visual indicators
+- [ ] T039 [US2] Implement onDragEnd handler to reorder blocks array and create history entry
+- [ ] T040 [US2] Add drag handle icon to each block in components/blocks/visual/VisualBlockPreview.tsx
+- [ ] T041 [US2] Add CSS transforms and transitions for smooth drag animations
+- [ ] T042 [US2] Add drop indicator component to show where block will be placed
+
+**Checkpoint**: At this point, User Story 2 should be fully functional - drag-and-drop reordering works smoothly
+
+---
+
+## Phase 6: User Story 4 - Keyboard Shortcuts for Common Actions (Priority: P2)
+
+**Goal**: Content editors can perform common editing actions using keyboard shortcuts for efficient workflow
+
+**Independent Test**: Attempt common shortcuts (Cmd+Enter for new block, Cmd+D for duplicate, Cmd+S for save, Cmd+Shift+Up/Down for move) and verify actions execute correctly. Press "?" to view shortcut reference.
+
+### Tests for User Story 4
+
+> **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
+
+- [X] T043 [P] [US4] Create integration test for keyboard shortcuts in tests/integration/keyboardShortcuts.test.tsx (test add block, duplicate, move, save shortcuts)
+
+### Implementation for User Story 4
+
+- [X] T044 [P] [US4] Create keyboard shortcut definitions object in lib/utils/keyboardShortcuts.ts (map keys to actions and descriptions)
+- [X] T045 [US4] Create useKeyboardShortcuts hook in lib/hooks/useKeyboardShortcuts.ts using mousetrap
+- [ ] T046 [US4] Implement keyboard shortcut for add new block (Cmd+Enter) in VisualBlockEditor
+- [ ] T047 [US4] Implement keyboard shortcut for duplicate block (Cmd+D) in VisualBlockEditor
+- [ ] T048 [US4] Implement keyboard shortcut for move block up (Cmd+Shift+Up) in VisualBlockEditor
+- [ ] T049 [US4] Implement keyboard shortcut for move block down (Cmd+Shift+Down) in VisualBlockEditor
+- [ ] T050 [US4] Implement keyboard shortcut for save (Cmd+S) in PostForm
+- [ ] T051 [US4] Implement keyboard shortcut for delete block (Del/Backspace with confirmation) in VisualBlockEditor
+- [ ] T052 [US4] Create KeyboardShortcutReference modal component in components/ui/KeyboardShortcutReference.tsx
+- [ ] T053 [US4] Implement keyboard shortcut to show reference modal ("?" key) in VisualBlockEditor
+- [ ] T054 [US4] Populate reference modal with all shortcuts organized by category
+
+**Checkpoint**: At this point, User Story 4 should be fully functional - all keyboard shortcuts work
+
+---
+
+## Phase 7: User Story 10 - Paste Rich Content from External Sources (Priority: P2)
+
+**Goal**: Content editors can paste content from Word/Google Docs/websites and have editor intelligently convert to appropriate blocks
+
+**Independent Test**: Copy formatted content from Word/Google Docs (headings, paragraphs, lists, images) and paste into editor, verify correct block types are created with formatting preserved
+
+### Tests for User Story 10
+
+> **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
+
+- [X] T055 [P] [US10] Create unit test for richPaste parser in tests/unit/richPaste.test.ts (test HTML to block conversion, heading mapping, formatting preservation)
+
+### Implementation for User Story 10
+
+- [X] T056 [US10] Create parseRichContent function in lib/utils/richPaste.ts using DOMParser
+- [X] T057 [US10] Implement convertNodesToBlocks helper in lib/utils/richPaste.ts (map h1-h6, p, img, blockquote, ul/ol)
+- [ ] T058 [US10] Add paste event handler to VisualBlockEditor in components/blocks/VisualBlockEditor.tsx
+- [ ] T059 [US10] Extract HTML from clipboard data in paste handler
+- [ ] T060 [US10] Parse HTML with parseRichContent and insert resulting blocks
+- [ ] T061 [US10] Preserve inline formatting (bold, italic, links) during paste
+- [ ] T062 [US10] Handle pasted images (base64 or URL) by creating image blocks
+- [ ] T063 [US10] Show notification for unsupported elements that couldn't be converted
+- [ ] T064 [US10] Strip proprietary Word/Google Docs styles and classes
+
+**Checkpoint**: At this point, User Story 10 should be fully functional - rich content paste works
+
+---
+
+## Phase 8: User Story 6 - Preview Blocks Without Leaving Edit Mode (Priority: P2)
+
+**Goal**: Content editors can toggle between edit view and preview view to see how content will appear to readers
+
+**Independent Test**: Click "Preview" toggle and verify blocks render with frontend styling while remaining in editor interface. Hover over blocks to ensure edit controls remain accessible.
+
+### Implementation for User Story 6
+
+- [X] T065 [P] [US6] Add preview mode state to EditorState in types/blocks.ts
+- [X] T066 [US6] Add preview toggle button to VisualBlockEditor toolbar in components/blocks/VisualBlockEditor.tsx
+- [ ] T067 [US6] Import frontend block renderers from components/blocks/render/ to use in preview mode
+- [ ] T068 [US6] Conditionally render BlockRenderer components when in preview mode
+- [ ] T069 [US6] Show hover overlay with edit button when hovering blocks in preview mode
+- [ ] T070 [US6] Implement "Exit Preview" action to return to edit mode
+
+**Checkpoint**: At this point, User Story 6 should be fully functional - preview mode works
+
+---
+
+## Phase 9: User Story 3 - Consistent Block Type Icons (Priority: P2)
+
+**Goal**: Content editors can quickly identify block types using consistent professional iconography
+
+**Independent Test**: View block picker, classic mode list, and toolbar to verify consistent iconography across all interfaces
+
+### Implementation for User Story 3
+
+- [X] T071 [P] [US3] Replace emoji icons (📝, 📄, 💬) with professional icon library (lucide-react or heroicons) in block type definitions
+- [ ] T072 [US3] Update block picker modal icons in components/blocks/VisualBlockEditor.tsx or BlockPicker component
+- [ ] T073 [US3] Update classic mode list icons in components/blocks/BlockEditor.tsx
+- [ ] T074 [US3] Update toolbar action icons in components/blocks/VisualBlockEditor.tsx
+- [ ] T075 [US3] Ensure icon consistency across all 21 block types (Basic, Media, Layout, Components categories)
+
+**Checkpoint**: At this point, User Story 3 should be fully functional - consistent icons everywhere
+
+---
+
+## Phase 10: User Story 5 - Real-Time Character/Word Count (Priority: P3)
+
+**Goal**: Content editors can see character and word counts for individual blocks and entire document
+
+**Independent Test**: Type in blocks and verify live counts update in status bar or block settings panel
+
+### Tests for User Story 5
+
+> **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
+
+- [ ] T076 [P] [US5] Create unit test for wordCount utility in tests/unit/wordCount.test.ts (test word counting, character counting, edge cases)
+
+### Implementation for User Story 5
+
+- [ ] T077 [US5] Create analyzeContent function in lib/utils/wordCount.ts (calculate words, characters, sentences, reading time)
+- [ ] T078 [US5] Create extractPlainText helper in lib/utils/wordCount.ts (extract text from all blocks including nested)
+- [ ] T079 [US5] Create countWords helper in lib/utils/wordCount.ts (handle punctuation, special chars, multiple spaces)
+- [ ] T080 [US5] Add ContentStats to EditorState in contexts/BlockEditorContext.tsx
+- [ ] T081 [US5] Use React.useMemo to calculate stats when blocks change
+- [ ] T082 [US5] Debounce stats updates (300ms) for performance
+- [ ] T083 [US5] Display total document word/character count in editor footer
+- [ ] T084 [US5] Display selected block word/character count in block settings panel
+- [ ] T085 [US5] Display reading time estimate based on 200 WPM average
+
+**Checkpoint**: At this point, User Story 5 should be fully functional - word counts display and update
+
+---
+
+## Phase 11: User Story 8 - Search and Filter Available Blocks (Priority: P3)
+
+**Goal**: Content editors can search for blocks by name or category in block picker modal
+
+**Independent Test**: Open block picker, type "quote" in search field, verify only relevant blocks (Quote) are displayed
+
+### Implementation for User Story 8
+
+- [ ] T086 [P] [US8] Add search input field to block picker modal
+- [ ] T087 [US8] Add search state to track current search query
+- [ ] T088 [US8] Filter block list based on search query (match name or category)
+- [ ] T089 [US8] Display filtered results in real-time as user types
+- [ ] T090 [US8] Show "No blocks found" message when search has no matches
+- [ ] T091 [US8] Clear search and show all blocks when search input is cleared
+
+**Checkpoint**: At this point, User Story 8 should be fully functional - block search works
+
+---
+
+## Phase 12: User Story 9 - Collapse/Expand Large Blocks (Priority: P3)
+
+**Goal**: Content editors can collapse large blocks into compact representations to improve navigation
+
+**Independent Test**: Click collapse icon on a large block and verify it compresses to single-line preview with block type and first few words
+
+### Implementation for User Story 9
+
+- [ ] T092 [P] [US9] Add collapsed state to block data structure or use localStorage
+- [ ] T093 [US9] Add collapse/expand button to block toolbar in components/blocks/visual/VisualBlockPreview.tsx
+- [ ] T094 [US9] Implement collapsed view component showing block type and first 50 characters
+- [ ] T095 [US9] Toggle collapsed state when collapse/expand button clicked
+- [ ] T096 [US9] Persist collapsed state to localStorage with key `collapsed-blocks-${postId}`
+- [ ] T097 [US9] Restore collapsed state on page load from localStorage
+- [ ] T098 [US9] Show full content when expand button clicked on collapsed block
+
+**Checkpoint**: At this point, User Story 9 should be fully functional - block collapse/expand works
+
+---
+
+## Phase 13: Cross-Cutting Concerns & Polish
+
+**Purpose**: Improvements that affect multiple user stories and final touches
+
+- [ ] T099 [P] Implement auto-save with debounce (30s delay) in components/admin/PostForm.tsx
+- [ ] T100 [P] Add save status indicator (idle/saving/saved/error) to PostForm
+- [ ] T101 [P] Implement beforeunload warning for unsaved changes in PostForm
+- [ ] T102 [P] Add localStorage draft backup (every 10s) in PostForm
+- [ ] T103 [P] Implement draft restoration on page load in PostForm
+- [ ] T104 [P] Add error handling and retry logic for save failures
+- [ ] T105 [P] Optimize performance for documents with 100+ blocks
+- [ ] T106 [P] Add accessibility improvements (ARIA labels, keyboard focus indicators)
+- [ ] T107 [P] Add loading states and skeleton screens for better UX
+- [ ] T108 [P] Update CLAUDE.md with new dependencies and tech stack
+- [ ] T109 Run quickstart.md validation to ensure all setup steps work
+- [ ] T110 Create E2E test for complete content creation workflow in tests/e2e/contentCreation.spec.ts
+- [ ] T111 Run full test suite (npm test && npm test:e2e) and fix any failures
+- [ ] T112 Code cleanup and refactoring for consistency
+- [ ] T113 Add JSDoc comments to utility functions and hooks
+- [ ] T114 Performance profiling and optimization
+
+---
+
+## Dependencies & Execution Order
+
+### Phase Dependencies
+
+- **Setup (Phase 1)**: No dependencies - can start immediately
+- **Foundational (Phase 2)**: Depends on Setup completion - BLOCKS all user stories
+- **User Stories (Phase 3-12)**: All depend on Foundational phase completion
+  - User stories can proceed in parallel (if staffed)
+  - Or sequentially in priority order (P1 → P2 → P3)
+- **Polish (Phase 13)**: Depends on all desired user stories being complete
+
+### User Story Dependencies
+
+**P1 Stories (MVP):**
+- **User Story 1 (Fix Console Errors)**: Can start after Phase 2 - No dependencies on other stories
+- **User Story 7 (Undo/Redo)**: Can start after Phase 2 - No dependencies on other stories
+- **User Story 2 (Drag-Drop)**: Can start after Phase 2 - Should integrate with US7 (undo/redo) for best UX but independently testable
+
+**P2 Stories:**
+- **User Story 4 (Keyboard Shortcuts)**: Can start after Phase 2 - Should integrate with US7 (undo/redo) for keyboard undo/redo
+- **User Story 10 (Rich Paste)**: Can start after Phase 2 - Should integrate with US7 (undo/redo) to track pasted content
+- **User Story 6 (Preview Mode)**: Can start after Phase 2 - No dependencies on other stories
+- **User Story 3 (Icons)**: Can start after Phase 2 - No dependencies on other stories
+
+**P3 Stories:**
+- **User Story 5 (Word Count)**: Can start after Phase 2 - No dependencies on other stories
+- **User Story 8 (Block Search)**: Can start after Phase 2 - No dependencies on other stories
+- **User Story 9 (Collapse/Expand)**: Can start after Phase 2 - No dependencies on other stories
+
+### Within Each User Story
+
+- Tests MUST be written and FAIL before implementation
+- Foundation (context, hooks) before component integration
+- Core functionality before UI polish
+- Story complete before moving to next priority
+
+### Parallel Opportunities
+
+**Phase 1 (Setup):**
+- All T001-T010 can run in parallel (different package installations and configs)
+
+**Phase 2 (Foundational):**
+- T011-T014 (type definitions) can run in parallel
+- T015-T016 (history utility and hook) can run in parallel after types
+- T017-T018 (context) depends on types and history being complete
+
+**Within User Stories:**
+- Tests marked [P] can run in parallel
+- Independent file tasks marked [P] can run in parallel
+- Different user stories can be worked on in parallel by different team members
+
+**Phase 13 (Polish):**
+- Most tasks (T099-T108) can run in parallel as they affect different areas
+
+---
+
+## Parallel Example: P1 Stories (MVP)
+
+```bash
+# After Phase 2 completes, launch all P1 user stories in parallel:
+
+# Team Member 1: User Story 1 (Fix Console Errors)
+Task: "Add unique key prop to mapped columns in ColumnsBlockPreview.tsx"
+
+# Team Member 2: User Story 7 (Undo/Redo)
+Task: "Implement History class in lib/utils/blockHistory.ts"
+Task: "Implement useBlockHistory hook in lib/hooks/useBlockHistory.ts"
+Task: "Integrate into VisualBlockEditor"
+
+# Team Member 3: User Story 2 (Drag-Drop)
+Task: "Create useBlockDragDrop hook using @dnd-kit"
+Task: "Integrate DndContext into VisualBlockEditor"
+```
+
+---
+
+## Implementation Strategy
+
+### MVP First (P1 Stories Only)
+
+1. Complete Phase 1: Setup (install dependencies, configure tests)
+2. Complete Phase 2: Foundational (EditorContext, history utilities) - **CRITICAL - blocks all stories**
+3. Complete Phase 3: User Story 1 (Fix console errors) - Quick win
+4. Complete Phase 4: User Story 7 (Undo/redo) - Core feature
+5. Complete Phase 5: User Story 2 (Drag-drop) - Core feature
+6. **STOP and VALIDATE**: Test all P1 stories together
+7. Deploy/demo MVP
+
+### Incremental Delivery
+
+1. Complete Setup + Foundational → Foundation ready
+2. Add User Story 1 (Console fix) → Test independently → Deploy/Demo
+3. Add User Story 7 (Undo/redo) → Test independently → Deploy/Demo
+4. Add User Story 2 (Drag-drop) → Test independently → Deploy/Demo (MVP Complete!)
+5. Add User Story 4 (Keyboard shortcuts) → Test independently → Deploy/Demo
+6. Add User Story 10 (Rich paste) → Test independently → Deploy/Demo
+7. Add User Story 6 (Preview) → Test independently → Deploy/Demo
+8. Add User Story 3 (Icons) → Test independently → Deploy/Demo
+9. Add User Story 5 (Word count) → Test independently → Deploy/Demo
+10. Add User Story 8 (Search) → Test independently → Deploy/Demo
+11. Add User Story 9 (Collapse) → Test independently → Deploy/Demo
+12. Each story adds value without breaking previous stories
+
+### Parallel Team Strategy
+
+With multiple developers after Phase 2 completes:
+
+**Sprint 1 (P1):**
+- Developer A: User Story 1 + User Story 7
+- Developer B: User Story 2
+- Integrate and test together
+
+**Sprint 2 (P2):**
+- Developer A: User Story 4 + User Story 3
+- Developer B: User Story 10 + User Story 6
+- Integrate and test together
+
+**Sprint 3 (P3):**
+- Developer A: User Story 5 + User Story 8
+- Developer B: User Story 9
+- Integrate and test together
+
+---
+
+## Summary
+
+**Total Tasks**: 114 tasks across 13 phases
+
+**Tasks by User Story:**
+- User Story 1 (P1 - Console Errors): 3 tasks
+- User Story 7 (P1 - Undo/Redo): 11 tasks
+- User Story 2 (P1 - Drag-Drop): 12 tasks
+- User Story 4 (P2 - Keyboard Shortcuts): 12 tasks
+- User Story 10 (P2 - Rich Paste): 10 tasks
+- User Story 6 (P2 - Preview): 6 tasks
+- User Story 3 (P2 - Icons): 5 tasks
+- User Story 5 (P3 - Word Count): 10 tasks
+- User Story 8 (P3 - Search): 6 tasks
+- User Story 9 (P3 - Collapse): 7 tasks
+- Setup: 10 tasks
+- Foundational: 8 tasks
+- Polish: 16 tasks
+
+**MVP Scope (P1 only)**: 26 tasks (Setup + Foundational + US1 + US7 + US2)
+
+**Parallel Opportunities**:
+- 10 parallel tasks in Setup phase
+- 3 parallel tasks in Foundational phase
+- Tests can run in parallel within each user story
+- All user stories can be developed in parallel after Foundational phase completes
+
+**Independent Test Criteria**: Each user story has clear test criteria and can be validated independently
+
+**Format Validation**: ✅ All tasks follow checklist format with checkbox, ID, [P] marker where applicable, [Story] label for user story tasks, and specific file paths
+
+---
+
+## Notes
+
+- [P] tasks = different files, no dependencies
+- [Story] label maps task to specific user story for traceability
+- Each user story is independently completable and testable
+- Verify tests fail before implementing (TDD approach)
+- Commit after each task or logical group
+- Stop at any checkpoint to validate story independently
+- MVP consists of P1 user stories: Console fix + Undo/redo + Drag-drop
+- P2 stories enhance UX significantly but MVP is functional without them
+- P3 stories are nice-to-have polish features

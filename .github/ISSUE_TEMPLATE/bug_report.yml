@@ -1,0 +1,65 @@
+name: Bug report
+description: Something isn't working as expected
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug. Please search existing issues first to avoid duplicates.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear description of the bug, including what you expected instead.
+      placeholder: When I ... I expected ... but instead ...
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: Minimal steps so we can reproduce it.
+      placeholder: |
+        1. Go to '...'
+        2. Run '...'
+        3. See error
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: Which part of the platform?
+      options:
+        - Admin panel
+        - Client portal
+        - Public sites / blocks / visual editor
+        - CRM
+        - Company Brain (AI/RAG)
+        - MCP server / tools
+        - Automations / cron
+        - Billing / Stripe
+        - Auth / tenancy
+        - Build / dev setup
+        - Other / unsure
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, Bun version (`bun --version`), Node, Postgres version, and whether pgvector is installed.
+      placeholder: |
+        - OS: macOS 15 / Ubuntu 24.04
+        - Bun: 1.3.11
+        - Postgres: 16 (pgvector installed: yes/no)
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs / screenshots
+      description: Paste any error output. Redact secrets first.
+      render: shell
+    validations:
+      required: false

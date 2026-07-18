@@ -1,0 +1,88 @@
+# =============================================================================
+# publish-cli.yml — Publish @simplerdevelopment/cli to npm
+#
+# REQUIRES
+#   Repo secret: NPM_TOKEN
+#     An npm Automation token (bypasses 2FA) with publish rights to the
+#     @simplerdevelopment scope. Same secret used by publish-sdk.yml.
+#
+# HOW TO RELEASE
+#   1. Bump the version in packages/cli/package.json.
+#   2. Tag the commit `cli-v<version>` (e.g. cli-v0.1.1) and push the tag, OR
+#      trigger this workflow manually from the Actions tab (workflow_dispatch).
+#
+# NOTE
+#   The published manifest.json (the 451-tool surface) is the committed file,
+#   which is drift-guarded by tests/unit/cli/manifest-drift.test.ts in CI — the
+#   publish step builds dist and ships the committed manifest, it does not
+#   regenerate it (regeneration introspects the app's MCP server in-process).
+#
+# WITHOUT THE SECRET
+#   A gate job detects the missing NPM_TOKEN and skips the publish cleanly.
+# =============================================================================
+
+name: Publish CLI
+
+on:
+  push:
+    tags:
+      - 'cli-v*'
+  workflow_dispatch:
+
+jobs:
+  check-secret:
+    name: Check npm token
+    runs-on: ubuntu-latest
+    outputs:
+      configured: ${{ steps.check.outputs.configured }}
+    steps:
+      - id: check
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          if [ -n "$NPM_TOKEN" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "NPM_TOKEN secret not set — skipping CLI publish."
+          fi
+
+  publish:
+    name: Build and publish
+    needs: check-secret
+    if: needs.check-secret.outputs.configured == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # required for npm provenance
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node (with npm registry auth)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+
+      # Install from the monorepo root — the CLI is a Bun workspace member.
+      - name: Install workspace dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Typecheck CLI
+        working-directory: packages/cli
+        run: bun run typecheck
+
+      - name: Build CLI (tsup → dist)
+        working-directory: packages/cli
+        run: bun run build
+
+      # publishConfig.access=public is set in package.json.
+      - name: Publish to npm
+        working-directory: packages/cli
+        run: npm publish --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

@@ -1,0 +1,153 @@
+# Per-domain critical-path e2e matrix.
+#
+# One parallel job per feature domain, each running that domain's e2e specs by
+# tag (Playwright --grep, OR-combining tag synonyms). Mirrors the proven
+# e2e-critical job recipe (Postgres pgvector service -> drizzle push -> seed ->
+# build -> start -> test) but parameterized by domain.
+#
+# WHY a separate workflow (not extra jobs in ci.yml): ~23 full-build e2e legs
+# per PR would multiply runner minutes and slow every merge. This runs NIGHTLY
+# + on-demand instead; PRs keep the fast @critical + @security gates in ci.yml.
+# To promote to a pre-merge gate, add `pull_request:` to `on:` below (and, if
+# required, mark the "E2E ${domain}" checks required in branch protection).
+#
+# Tag source of truth: existing @<domain> tags already present in the specs
+# (inventoried 2026-07-12). A leg's grep is a regex, so synonyms are OR'd.
+name: E2E domains (nightly)
+
+on:
+  schedule:
+    - cron: "0 7 * * *" # 07:00 UTC nightly (~2-3am ET)
+  workflow_dispatch: {} # manual trigger of the full per-domain matrix
+
+concurrency:
+  group: e2e-domains-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e-domain:
+    name: E2E ${{ matrix.domain }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { domain: auth, grep: "@auth" }
+          - { domain: crm, grep: "@crm" }
+          - { domain: cms, grep: "@cms" }
+          - { domain: brain, grep: "@brain" }
+          - { domain: billing, grep: "@billing" }
+          - { domain: pitch-decks, grep: "@pitch-decks" }
+          - { domain: ab-testing, grep: "@ab" }
+          - { domain: surveys, grep: "@surveys" }
+          - { domain: esign, grep: "@esign" }
+          - { domain: automations, grep: "@automations" }
+          - { domain: agentic-os, grep: "@agentic-os" }
+          - { domain: plugins, grep: "@plugins" }
+          - { domain: integrations, grep: "@integrations" }
+          - { domain: agency, grep: "@agency" }
+          - { domain: visual-editor, grep: "@visual-editor" }
+          - { domain: sites, grep: "@sites" }
+          - { domain: store, grep: "@store|@ecommerce" }
+          - { domain: chat, grep: "@chat|@realtime|@voice" }
+          - { domain: bookings, grep: "@bookings?" }
+          - { domain: projects, grep: "@pm|@projects|@kanban" }
+          - { domain: email, grep: "@email" }
+          - { domain: product-designer, grep: "@product-designer" }
+          - { domain: hosting, grep: "@hosting" }
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: simplerdev_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/simplerdev_test
+      DRIZZLE_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/simplerdev_test
+      NEXTAUTH_URL: http://localhost:3000
+      NEXT_PUBLIC_SITE_URL: http://localhost:3000
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+      AUTH_TRUST_HOST: "true"
+      BASE_URL: http://localhost:3000
+      # Prod build served over http://localhost -> force http-compatible cookies
+      # + skip the Upstash-less auth rate limiter for seeded logins (see ci.yml).
+      AUTH_INSECURE_COOKIES: "1"
+      DISABLE_AUTH_RATE_LIMIT: "1"
+      # Per-domain capability env surfaced by the 2026-07-13 triage. SEED_DB_URL:
+      # the plugins gap-coverage specs seed via raw psql against this var (it
+      # defaults to a bogus DB otherwise). PLUGINS_CALLBACK_ORIGIN_BYPASS: lets the
+      # plugin-callback origin check pass in CI. Both only affect their own specs.
+      SEED_DB_URL: postgresql://postgres:postgres@localhost:5432/simplerdev_test
+      PLUGINS_CALLBACK_ORIGIN_BYPASS: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.11
+
+      - name: Cache bun global install cache
+        uses: actions/cache@v6
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      # Ephemeral, e2e-only secrets — never literals in the repo. ENCRYPTION_KEY
+      # is required for any domain touching the encrypted capture/decrypt path
+      # (brain, integrations); set unconditionally since it's harmless elsewhere.
+      - name: Generate ephemeral secrets
+        run: |
+          echo "NEXTAUTH_SECRET=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+          echo "ENCRYPTION_KEY=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+          # Realtime token/collab routes 503 without this — greens the chat leg's
+          # token-issuance + collab-JWT specs (only affects app/api/realtime/*).
+          echo "REALTIME_JWT_SECRET=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+
+      - name: Enable required Postgres extensions
+        run: PGPASSWORD=postgres psql -h localhost -U postgres -d simplerdev_test -c "CREATE EXTENSION IF NOT EXISTS vector; CREATE EXTENSION IF NOT EXISTS pg_trgm; CREATE EXTENSION IF NOT EXISTS pgcrypto;"
+
+      - name: Apply schema (drizzle-kit push)
+        run: bunx drizzle-kit push --force
+
+      - name: Seed e2e fixture (admin + client)
+        run: bun scripts/seed-admin-e2e.ts
+
+      - name: Install Playwright browsers
+        run: bunx playwright install --with-deps chromium
+
+      - name: Build app
+        run: bun run build
+
+      - name: Start app + wait for health
+        run: |
+          bun run start &
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:3000/api/health >/dev/null; then echo "app healthy"; exit 0; fi
+            sleep 2
+          done
+          echo "app never became healthy" >&2; exit 1
+
+      - name: E2E (${{ matrix.domain }})
+        run: scripts/test.sh --layer=e2e --tag="${{ matrix.grep }}" --no-coverage
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report-${{ matrix.domain }}
+          path: playwright-report/
+          retention-days: 7

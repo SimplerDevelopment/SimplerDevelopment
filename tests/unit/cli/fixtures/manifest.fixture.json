@@ -1,0 +1,58 @@
+{
+  "manifestVersion": 1,
+  "toolCount": 4,
+  "domains": [
+    { "name": "posts", "tools": 3 },
+    { "name": "bookings", "tools": 1 }
+  ],
+  "tools": [
+    {
+      "name": "posts_list",
+      "cmd": "posts list",
+      "domain": "posts",
+      "desc": "List posts for the active site.",
+      "destructive": false,
+      "scope": "sites:read",
+      "args": [
+        { "name": "status", "type": "string", "required": false, "enum": ["draft", "published"], "desc": "Filter by publish status." },
+        { "name": "limit", "type": "number", "required": false, "desc": "Max results to return." }
+      ]
+    },
+    {
+      "name": "posts_create",
+      "cmd": "posts create",
+      "domain": "posts",
+      "desc": "Create a new post.",
+      "destructive": false,
+      "scope": "sites:write",
+      "args": [
+        { "name": "title", "type": "string", "required": true, "desc": "Post title." },
+        { "name": "content", "type": "json", "required": true, "desc": "Block content array (JSON)." },
+        { "name": "published", "type": "boolean", "required": false, "desc": "Publish immediately." }
+      ]
+    },
+    {
+      "name": "posts_delete",
+      "cmd": "posts delete",
+      "domain": "posts",
+      "desc": "Permanently delete a post.",
+      "destructive": true,
+      "scope": "sites:write",
+      "args": [
+        { "name": "postId", "type": "number", "required": true, "desc": "Post ID to delete." }
+      ]
+    },
+    {
+      "name": "bookings_cancel",
+      "cmd": "bookings cancel",
+      "domain": "bookings",
+      "desc": "Cancel a booking.",
+      "destructive": true,
+      "scope": "bookings:write",
+      "args": [
+        { "name": "bookingId", "type": "number", "required": true, "desc": "Booking ID to cancel." },
+        { "name": "reason", "type": "string", "required": false, "desc": "Cancellation reason." }
+      ]
+    }
+  ]
+}

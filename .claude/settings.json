@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bun scripts/doctor.ts 2>/dev/null || true",
+            "timeout": 8,
+            "statusMessage": "Checking environment coherence…"
+          }
+        ]
+      }
+    ]
+  }
+}

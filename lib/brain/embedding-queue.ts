@@ -1,0 +1,119 @@
+/**
+ * Embedding job queue. A Postgres trigger (`enqueue_embedding_job()`,
+ * drizzle/9001_brain_embedding_triggers.sql + the 9002 fix) auto-enqueues a
+ * pending job — a cheap single-row upsert — on every INSERT/UPDATE/DELETE to
+ * an embedded table (brain_notes, brain_meetings, brain_tasks, etc.), so
+ * TypeScript write handlers don't need to call anything themselves. A cron
+ * worker drains the queue by calling embedById() for each pending job.
+ *
+ * Why a queue instead of inline embedding on every write:
+ *   * embedById hits OpenAI (~500ms). We don't want to slow user-facing
+ *     POST/PATCH responses with that round-trip.
+ *   * The queue gives us retry-on-transient-failure for free.
+ *   * Multiple rapid writes to the same entity collapse to one re-embed
+ *     thanks to the unique index on (entity_type, entity_id).
+ *
+ * Failure handling: on error, status flips to 'failed' and attempts
+ * increments. The worker re-tries failed jobs up to MAX_ATTEMPTS, after
+ * which it leaves them alone for a human to inspect.
+ */
+
+import { db } from '@/lib/db';
+import { brainEmbeddingJobs } from '@/lib/db/schema';
+import { sql, eq, and, lt, or, asc } from 'drizzle-orm';
+import { embedById } from './embeddings';
+import type { EntityType } from './embeddings';
+
+const MAX_ATTEMPTS = 3;
+const DEFAULT_BATCH_SIZE = 25;
+
+export interface DrainResult {
+  picked: number;
+  succeeded: number;
+  failed: number;
+  errors: Array<{ entityType: string; entityId: number; error: string }>;
+}
+
+/**
+ * Drain up to `maxJobs` pending or retryable-failed jobs from the queue.
+ * Each batch call is bounded so the cron worker can't run unbounded — a
+ * deep queue gets drained over multiple cron ticks rather than one long
+ * request.
+ */
+export async function drainQueue(maxJobs = DEFAULT_BATCH_SIZE): Promise<DrainResult> {
+  const result: DrainResult = { picked: 0, succeeded: 0, failed: 0, errors: [] };
+
+  // Atomically pick a batch of jobs and mark them processing. Using a CTE
+  // with `FOR UPDATE SKIP LOCKED` lets multiple concurrent workers run
+  // safely (one cron + ad-hoc bun run, etc.) without picking the same job.
+  const rows = await db.execute<{ id: number; client_id: number; entity_type: string; entity_id: number; attempts: number }>(sql`
+    WITH picked AS (
+      SELECT id
+      FROM brain_embedding_jobs
+      WHERE status = 'pending'
+         OR (status = 'failed' AND attempts < ${MAX_ATTEMPTS})
+      ORDER BY enqueued_at ASC
+      LIMIT ${maxJobs}
+      FOR UPDATE SKIP LOCKED
+    )
+    UPDATE brain_embedding_jobs j
+    SET status = 'processing', started_at = now()
+    FROM picked
+    WHERE j.id = picked.id
+    RETURNING j.id, j.client_id, j.entity_type, j.entity_id, j.attempts
+  `);
+
+  const jobs = rows as unknown as Array<{ id: number; client_id: number; entity_type: string; entity_id: number; attempts: number }>;
+  result.picked = jobs.length;
+  if (jobs.length === 0) return result;
+
+  for (const job of jobs) {
+    try {
+      await embedById({
+        clientId: job.client_id,
+        entityType: job.entity_type as EntityType,
+        entityId: job.entity_id,
+      });
+      // Success — remove the row.
+      await db.execute(sql`DELETE FROM brain_embedding_jobs WHERE id = ${job.id}`);
+      result.succeeded++;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      await db.execute(sql`
+        UPDATE brain_embedding_jobs
+        SET status = 'failed', attempts = attempts + 1, last_error = ${msg}
+        WHERE id = ${job.id}
+      `);
+      result.failed++;
+      result.errors.push({ entityType: job.entity_type, entityId: job.entity_id, error: msg });
+    }
+  }
+  return result;
+}
+
+/**
+ * Snapshot of queue health. For monitoring + admin UI.
+ */
+export async function getQueueStats(): Promise<{
+  pending: number;
+  processing: number;
+  failed: number;
+  failedExhausted: number;
+}> {
+  const rows = await db.execute<{ status: string; cnt: number; exhausted: number }>(sql`
+    SELECT status, count(*)::int AS cnt,
+      count(*) FILTER (WHERE attempts >= ${MAX_ATTEMPTS})::int AS exhausted
+    FROM brain_embedding_jobs
+    GROUP BY status
+  `);
+  const stats = { pending: 0, processing: 0, failed: 0, failedExhausted: 0 };
+  for (const r of rows as unknown as Array<{ status: string; cnt: number; exhausted: number }>) {
+    if (r.status === 'pending') stats.pending = r.cnt;
+    else if (r.status === 'processing') stats.processing = r.cnt;
+    else if (r.status === 'failed') {
+      stats.failed = r.cnt;
+      stats.failedExhausted = r.exhausted;
+    }
+  }
+  return stats;
+}

@@ -1,0 +1,14 @@
+name = "sd-email-inbound"
+main = "src/index.ts"
+compatibility_date = "2024-09-01"
+
+[vars]
+API_URL = "https://www.simplerdevelopment.com/api/email/inbound"
+# INBOUND_EMAIL_SECRET is set via `wrangler secret put INBOUND_EMAIL_SECRET`
+
+# Attachments on inbound mail (e.g. a meeting deck PDF sent to brain+<token>@…)
+# get streamed to R2 before the worker forwards the JSON payload to the API.
+# The API stores the R2 key on brain_meetings.source_metadata.
+[[r2_buckets]]
+binding = "ATTACHMENTS"
+bucket_name = "brain-email-attachments"

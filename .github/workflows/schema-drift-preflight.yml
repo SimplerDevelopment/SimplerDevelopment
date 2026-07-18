@@ -1,0 +1,102 @@
+# =============================================================================
+# schema-drift-preflight.yml — block non-additive schema drift BEFORE it merges.
+#
+# WHY
+#   prod-schema-sync.yml (post-merge, push:main) applies only ADDITIVE changes
+#   and runs concurrently with the Vercel deploy. It is blind to non-additive
+#   drift (a shared column's type changed, or became NOT NULL) — the deployed
+#   code then expects a shape the live DB never got: the schema-mismatch outage
+#   class (claude-mem S487). This preflight runs on the PR to main and FAILS if
+#   such drift exists, so the risky merge is caught before deploy, not after.
+#
+# REQUIRES
+#   Repo secret PROD_DATABASE_URL (already used by prod-schema-sync.yml).
+#   Read-only here — the job only SELECTs from prod, never writes.
+#
+# MAKE IT BLOCKING
+#   Add "Schema drift preflight" as a required status check under
+#   Settings → Branches → main branch protection. Until then it reports (red X)
+#   but does not hard-block merges.
+# =============================================================================
+
+name: Schema drift preflight
+
+on:
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: schema-drift-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  preflight:
+    name: Schema drift preflight
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: pgvector/pgvector:pg18
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Guard — skip if prod secret is unavailable (e.g. fork PRs)
+        id: guard
+        env:
+          PROD_DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+        run: |
+          if [ -z "${PROD_DATABASE_URL:-}" ]; then
+            echo "PROD_DATABASE_URL not set — cannot diff against prod; skipping."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up Bun
+        if: steps.guard.outputs.skip != 'true'
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        if: steps.guard.outputs.skip != 'true'
+        run: bun install --frozen-lockfile
+
+      - name: Install PostgreSQL 18 client
+        if: steps.guard.outputs.skip != 'true'
+        run: |
+          sudo sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" \
+            > /etc/apt/sources.list.d/pgdg.list'
+          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+            | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/postgresql.gpg
+          sudo apt-get update -qq
+          sudo apt-get install -y postgresql-client-18
+          echo "/usr/lib/postgresql/18/bin" >> "$GITHUB_PATH"
+
+      - name: Build TARGET schema (drizzle-kit push → temp DB)
+        if: steps.guard.outputs.skip != 'true'
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
+        run: |
+          psql "$DATABASE_URL" -c '
+            CREATE EXTENSION IF NOT EXISTS vector;
+            CREATE EXTENSION IF NOT EXISTS pg_trgm;
+            CREATE EXTENSION IF NOT EXISTS pgcrypto;
+          '
+          bunx drizzle-kit push --force
+
+      - name: Preflight — fail on non-additive drift vs prod (read-only)
+        if: steps.guard.outputs.skip != 'true'
+        env:
+          TARGET_DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
+          LIVE_DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+        run: bash scripts/check-schema-drift.sh

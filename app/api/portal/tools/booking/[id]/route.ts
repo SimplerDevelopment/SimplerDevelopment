@@ -1,0 +1,121 @@
+import { NextResponse } from 'next/server';
+import { auth } from '@/lib/auth';
+import { db } from '@/lib/db';
+import { bookingPages } from '@/lib/db/schema';
+import { eq, and } from 'drizzle-orm';
+import { getPortalClient } from '@/lib/portal-client';
+import { authorizePortal, isAuthError } from '@/lib/portal-auth';
+
+async function resolveBookingPage(pageId: number, userId: number) {
+  const client = await getPortalClient(userId);
+  if (!client) return null;
+  const [page] = await db.select().from(bookingPages)
+    .where(and(eq(bookingPages.id, pageId), eq(bookingPages.clientId, client.id)))
+    .limit(1);
+  return page ?? null;
+}
+
+export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const session = await auth();
+  if (!session?.user?.id) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
+
+  // Service access check
+  const authResult = await authorizePortal({ action: 'read', requireService: 'booking' });
+  if (isAuthError(authResult)) return authResult.response;
+
+  const { id } = await params;
+  const page = await resolveBookingPage(parseInt(id), parseInt(session.user.id, 10));
+  if (!page) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
+
+  return NextResponse.json({ success: true, data: page });
+}
+
+export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const session = await auth();
+  if (!session?.user?.id) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
+
+  // Service access check
+  const authResult = await authorizePortal({ action: 'write', requireService: 'booking' });
+  if (isAuthError(authResult)) return authResult.response;
+
+  const { id } = await params;
+  const page = await resolveBookingPage(parseInt(id), parseInt(session.user.id, 10));
+  if (!page) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
+
+  const body = await req.json();
+  const updates: Record<string, unknown> = { updatedAt: new Date() };
+
+  if (body.title !== undefined) updates.title = body.title.trim();
+  if (body.description !== undefined) updates.description = body.description?.trim() || null;
+  if (body.duration !== undefined) updates.duration = body.duration;
+  if (body.bufferBefore !== undefined) updates.bufferBefore = body.bufferBefore;
+  if (body.bufferAfter !== undefined) updates.bufferAfter = body.bufferAfter;
+  if (body.maxAdvanceDays !== undefined) updates.maxAdvanceDays = body.maxAdvanceDays;
+  if (body.minNoticeMins !== undefined) updates.minNoticeMins = body.minNoticeMins;
+  if (body.timezone !== undefined) updates.timezone = body.timezone;
+  if (body.availability !== undefined) updates.availability = body.availability;
+  if (body.questions !== undefined) updates.questions = body.questions;
+  if (body.color !== undefined) updates.color = body.color;
+  if (body.brandingProfileId !== undefined) updates.brandingProfileId = body.brandingProfileId || null;
+  if (body.price !== undefined) updates.price = body.price;
+  if (body.priceLabel !== undefined) updates.priceLabel = body.priceLabel || null;
+  if (body.maxGuests !== undefined) updates.maxGuests = body.maxGuests || null;
+  if (body.websiteId !== undefined) updates.websiteId = body.websiteId || null;
+  if (body.enableAddOns !== undefined) updates.enableAddOns = body.enableAddOns;
+  if (body.enableGiftCertificates !== undefined) updates.enableGiftCertificates = body.enableGiftCertificates;
+  if (body.enableDiscountCodes !== undefined) updates.enableDiscountCodes = body.enableDiscountCodes;
+  if (body.enableWaivers !== undefined) updates.enableWaivers = body.enableWaivers;
+  if (body.waiverContent !== undefined) updates.waiverContent = body.waiverContent || null;
+  if (body.requireWaiverBeforeBooking !== undefined) updates.requireWaiverBeforeBooking = body.requireWaiverBeforeBooking;
+  if (body.checkinEnabled !== undefined) updates.checkinEnabled = body.checkinEnabled;
+  if (body.active !== undefined) updates.active = body.active;
+  if (body.googleCalendarSync !== undefined) updates.googleCalendarSync = body.googleCalendarSync;
+  if (body.conferenceType !== undefined) updates.conferenceType = body.conferenceType;
+  if (body.styling !== undefined) updates.styling = body.styling;
+  if (body.thumbnail !== undefined) updates.thumbnail = body.thumbnail || null;
+  if (body.allowStaffSelection !== undefined) updates.allowStaffSelection = body.allowStaffSelection;
+  if (body.assignedMembers !== undefined) updates.assignedMembers = body.assignedMembers;
+  // Round-robin / group bookings
+  if (body.assignmentMode !== undefined) {
+    const mode = String(body.assignmentMode);
+    if (['fixed', 'round_robin', 'fewest_upcoming'].includes(mode)) {
+      updates.assignmentMode = mode;
+    }
+  }
+  if (body.roundRobinPool !== undefined) {
+    updates.roundRobinPool = Array.isArray(body.roundRobinPool) ? body.roundRobinPool : null;
+  }
+  if (body.bookingType !== undefined) {
+    const t = String(body.bookingType);
+    if (['individual', 'group'].includes(t)) {
+      updates.bookingType = t;
+    }
+  }
+  if (body.groupCapacity !== undefined) {
+    const v = body.groupCapacity == null ? null : parseInt(String(body.groupCapacity), 10);
+    updates.groupCapacity = Number.isFinite(v) && (v as number) > 0 ? v : null;
+  }
+
+  const [updated] = await db.update(bookingPages)
+    .set(updates)
+    .where(eq(bookingPages.id, page.id))
+    .returning();
+
+  return NextResponse.json({ success: true, data: updated });
+}
+
+export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const session = await auth();
+  if (!session?.user?.id) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
+
+  // Service access check
+  const authResult = await authorizePortal({ action: 'write', requireService: 'booking' });
+  if (isAuthError(authResult)) return authResult.response;
+
+  const { id } = await params;
+  const page = await resolveBookingPage(parseInt(id), parseInt(session.user.id, 10));
+  if (!page) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
+
+  await db.delete(bookingPages).where(eq(bookingPages.id, page.id));
+  return NextResponse.json({ success: true });
+}

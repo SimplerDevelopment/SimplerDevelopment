@@ -1,0 +1,52 @@
+#!/bin/sh
+#
+# SimplerDevelopment Skills — macOS .pkg postinstall.
+#
+# The component .pkg drops the skills payload into a staging path under
+# /private/tmp/ during install. This script then copies them into the
+# installing user's ~/.claude/skills/, preserving anything the user already
+# has there. The Installer.app runs this with $HOME set to the installing
+# user's home (because we configured enable_currentUserHome in the
+# distribution XML).
+#
+# Exit non-zero only on hard failures — Installer.app surfaces the exit
+# code as "Installation Failed."
+
+set -eu
+
+STAGING="/private/tmp/com.simplerdevelopment.skills"
+TARGET="${HOME}/.claude/skills"
+
+# Defensive: HOME must be set and point to a real directory. If a Mac
+# install runs in a weird context where HOME is blank, fall back to
+# resolving via getent / dscl on the installing user.
+if [ -z "${HOME:-}" ] || [ ! -d "${HOME}" ]; then
+  if [ -n "${USER:-}" ]; then
+    RESOLVED=$(dscl . -read "/Users/${USER}" NFSHomeDirectory 2>/dev/null | awk '{print $2}')
+    if [ -n "${RESOLVED}" ] && [ -d "${RESOLVED}" ]; then
+      HOME="${RESOLVED}"
+      export HOME
+    fi
+  fi
+fi
+
+if [ -z "${HOME:-}" ] || [ ! -d "${HOME}" ]; then
+  echo "postinstall: HOME is not resolvable; refusing to install." >&2
+  exit 1
+fi
+
+if [ ! -d "${STAGING}" ]; then
+  echo "postinstall: staging payload not found at ${STAGING}; component .pkg shipped wrong." >&2
+  exit 1
+fi
+
+mkdir -p "${TARGET}"
+# -R follows symlinks, preserves dir structure. Using -p only on cp is BSD
+# vs GNU sensitive; the / suffix on source asks BSD cp to copy contents.
+cp -R "${STAGING}/." "${TARGET}/"
+
+# Best-effort cleanup of the staging payload — leaving it would only waste
+# disk; not catastrophic if it fails.
+rm -rf "${STAGING}" 2>/dev/null || true
+
+exit 0

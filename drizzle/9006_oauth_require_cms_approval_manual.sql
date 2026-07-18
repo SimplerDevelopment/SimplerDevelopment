@@ -1,0 +1,22 @@
+-- QAD-048 fix: oauth_access_tokens.require_cms_approval — hand-written; tracker is out of sync, db:generate
+-- prompts an interactive column-rename conflict and refuses non-interactively (same as 9004/9005/9999).
+-- Safe to re-run: ADD COLUMN IF NOT EXISTS, no drops, NOT NULL with a DEFAULT so existing rows backfill.
+-- Must be hand-applied to prod + staging before the staging→main merge, same as 9004/9005/9999.
+-- Mirrors lib/db/schema/audit.ts (oauthAccessTokens.requireCmsApproval).
+--
+-- Why: the MCP approval gate (lib/mcp/pending-changes.ts stageOrApply) previously read the caller's
+-- numeric keyId against portal_api_keys.require_cms_approval. OAuth-connected agents carry an
+-- oauth_access_tokens.id in that same field — a DIFFERENT id space — so the lookup silently bypassed
+-- the gate (or cross-read an unrelated portal key's policy). The flag is now carried on PortalMcpContext,
+-- resolved from whichever table actually authenticated the caller. This column gives OAuth connections
+-- their own approval policy.
+--
+-- Default FALSE preserves the historical effective behavior (OAuth agents wrote directly). NOTE the
+-- asymmetry with portal_api_keys.require_cms_approval, which defaults TRUE — revisit if OAuth-connected
+-- agents should also be gated-by-default (that was the "default-closed" option, deferred).
+--
+-- Adds:
+--   1. oauth_access_tokens.require_cms_approval — boolean, NOT NULL, default false. When true, CMS-write
+--      MCP tools stage to mcp_pending_changes for human approval instead of applying directly.
+
+ALTER TABLE "oauth_access_tokens" ADD COLUMN IF NOT EXISTS "require_cms_approval" boolean DEFAULT false NOT NULL;

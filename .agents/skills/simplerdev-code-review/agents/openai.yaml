@@ -1,0 +1,4 @@
+interface:
+  display_name: "SimplerDev Code Review"
+  short_description: "Review repo changes for SD-specific risks."
+  default_prompt: "Use $simplerdev-code-review to review this SimplerDevelopment diff for bugs, tenancy leaks, security risks, and missing tests."

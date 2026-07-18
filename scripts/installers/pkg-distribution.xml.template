@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Distribution definition for the SimplerDevelopment Claude Skills macOS
+  installer. Values like @@VERSION@@ are substituted by build-mac-pkg.sh
+  before productbuild reads this file.
+
+  enable_currentUserHome="true" makes the installer install into the
+  current user's home (no admin password). The actual file placement
+  happens via the postinstall script — the component .pkg drops a payload
+  in /private/tmp/ and postinstall copies into $HOME/.claude/skills/.
+-->
+<installer-gui-script minSpecVersion="2">
+  <title>SimplerDevelopment Skills</title>
+
+  <welcome    file="welcome.html"    mime-type="text/html"/>
+  <conclusion file="conclusion.html" mime-type="text/html"/>
+
+  <!-- We only allow user-home installs. No system-wide install (would
+       require admin) and no "anywhere" custom location. -->
+  <domains enable_currentUserHome="true"
+           enable_anywhere="false"
+           enable_localSystem="false"/>
+
+  <!-- No customize step — single click to install. -->
+  <options customize="never" require-scripts="true" rootVolumeOnly="false"/>
+
+  <choices-outline>
+    <line choice="default">
+      <line choice="@@IDENTIFIER@@"/>
+    </line>
+  </choices-outline>
+
+  <choice id="default"/>
+  <choice id="@@IDENTIFIER@@" visible="false">
+    <pkg-ref id="@@IDENTIFIER@@"/>
+  </choice>
+
+  <pkg-ref id="@@IDENTIFIER@@"
+           version="@@VERSION@@"
+           onConclusion="none">@@COMPONENT_PKG@@</pkg-ref>
+</installer-gui-script>

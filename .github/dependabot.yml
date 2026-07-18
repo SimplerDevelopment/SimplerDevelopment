@@ -1,0 +1,21 @@
+version: 2
+updates:
+  # Keep GitHub Actions pinned versions current.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels: ["dependencies", "ci"]
+
+  # Bun manifest (package.json + bun.lock). Uses Dependabot's native bun
+  # ecosystem so bumps update bun.lock too — avoids `bun install --frozen-lockfile`
+  # failures on Dependabot PRs.
+  - package-ecosystem: "bun"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    labels: ["dependencies"]
+    groups:
+      minor-and-patch:
+        update-types: ["minor", "patch"]

@@ -1,0 +1,46 @@
+{
+  "name": "@simplerdevelopment/cli",
+  "version": "0.3.5",
+  "description": "Token-lean, JSON-first CLI for the SimplerDevelopment portal MCP surface",
+  "type": "module",
+  "bin": {
+    "simpler": "./dist/index.js"
+  },
+  "files": [
+    "dist",
+    "manifest.json"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "tsup": "^8.0.0",
+    "typescript": "^5.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SimplerDevelopment/SimplerDevelopment.git",
+    "directory": "packages/cli"
+  },
+  "homepage": "https://github.com/SimplerDevelopment/SimplerDevelopment/tree/main/packages/cli#readme",
+  "bugs": {
+    "url": "https://github.com/SimplerDevelopment/SimplerDevelopment/issues"
+  },
+  "keywords": [
+    "simplerdevelopment",
+    "cli",
+    "mcp",
+    "cms",
+    "headless"
+  ]
+}

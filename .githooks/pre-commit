@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+# Fast pre-commit checks (staged files only).
+# Heavy gates (tsc, tests) run at pre-push, not here. One-off bypass: git commit --no-verify
+set -uo pipefail
+
+# Secret scan runs on EVERY branch, before the dev-branch skip below. Lint can be
+# relaxed on dev; a leaked key cannot — dev deploys, and secrets in history need a
+# force-push + rotation to remove. One-off bypass: git commit --no-verify
+echo "pre-commit: secret scan (staged)…"
+bun "$(git rev-parse --show-toplevel)/scripts/check-secrets.ts" || exit 1
+
+# Second, independent pass with gitleaks on the STAGED diff only (fast, git-aware
+# — no node_modules/history walk). Skipped with a note if gitleaks isn't
+# installed, so contributors without the binary aren't blocked (check-secrets.ts
+# above is the always-on baseline; CI runs gitleaks on every PR regardless).
+if command -v gitleaks >/dev/null 2>&1; then
+  echo "pre-commit: gitleaks (staged diff)…"
+  gitleaks protect --staged --redact \
+    --config "$(git rev-parse --show-toplevel)/.gitleaks.toml" || exit 1
+else
+  echo "pre-commit: gitleaks not installed — skipping (install: brew install gitleaks). CI still scans."
+fi
+
+# Dev branches are intentionally frictionless: commits go straight through so the
+# branch can deploy immediately on push. Strict gates still run on every other
+# branch. One-off bypass anywhere: git commit --no-verify
+branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo)"
+case "$branch" in
+  dev|dev/*)
+    echo "pre-commit: '$branch' is a dev branch — gates relaxed (skipped)."
+    exit 0 ;;
+esac
+
+ROOT="$(git rev-parse --show-toplevel)"
+cd "$ROOT"
+
+staged="$(git diff --cached --name-only --diff-filter=ACMR)"
+[ -z "$staged" ] && exit 0
+
+ts_files="$(echo "$staged" | grep -E '\.(ts|tsx)$' || true)"
+
+fail=0
+if [ -n "$ts_files" ]; then
+  echo "pre-commit: eslint (staged)…"
+  # Fail on errors only (warnings are the existing backlog); this stops NEW
+  # errors landing in files you touch without forcing a repo-wide cleanup first.
+  printf '%s\n' "$ts_files" | tr '\n' '\0' | xargs -0 bunx eslint || fail=1
+fi
+echo "pre-commit: file-size budget…"
+bun scripts/check-file-budget.ts || fail=1
+# Doc drift can only break two ways: a staged doc cites a wrong path, or a
+# staged rename/delete of a code file orphans an existing citation. Pure code
+# edits (most commits) can't break it — skip the ~22s scan for those.
+# Pre-push (ci-local.sh) and CI still run the full check as backstops.
+if git diff --cached --name-status | grep -qE '^(R|D)|\.md$|(^|	)(docs/|vault/|\.claude/)'; then
+  echo "pre-commit: doc drift…"
+  bun scripts/check-doc-drift.ts || fail=1
+else
+  echo "pre-commit: doc drift skipped (no staged docs, renames, or deletions)."
+fi
+
+if [ "$fail" -ne 0 ]; then
+  echo "pre-commit failed. Fix the above, or bypass once with: git commit --no-verify"
+  exit 1
+fi
+exit 0

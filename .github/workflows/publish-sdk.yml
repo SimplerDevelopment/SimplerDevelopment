@@ -1,0 +1,87 @@
+# =============================================================================
+# publish-sdk.yml — Publish @simplerdevelopment/sdk to npm
+#
+# REQUIRES
+#   Repo secret: NPM_TOKEN
+#     An npm automation token with publish rights to the @simplerdevelopment
+#     scope. Settings → Secrets and variables → Actions → Repository secrets.
+#
+# HOW TO RELEASE
+#   1. Bump the version in packages/sdk/package.json (npm version semantics).
+#   2. Tag the commit `sdk-v<version>` (e.g. sdk-v0.1.1) and push the tag, OR
+#      trigger this workflow manually from the Actions tab (workflow_dispatch).
+#   The publish step is idempotent-safe: npm rejects re-publishing an existing
+#   version, so an accidental re-run of an already-published tag fails loudly
+#   rather than silently overwriting.
+#
+# WITHOUT THE SECRET
+#   A gate job detects the missing NPM_TOKEN and skips the publish cleanly, so
+#   forks and the pre-setup repo don't see a red required check.
+# =============================================================================
+
+name: Publish SDK
+
+on:
+  push:
+    tags:
+      - 'sdk-v*'
+  workflow_dispatch:
+
+jobs:
+  check-secret:
+    name: Check npm token
+    runs-on: ubuntu-latest
+    outputs:
+      configured: ${{ steps.check.outputs.configured }}
+    steps:
+      - id: check
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          if [ -n "$NPM_TOKEN" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "NPM_TOKEN secret not set — skipping SDK publish."
+          fi
+
+  publish:
+    name: Build and publish
+    needs: check-secret
+    if: needs.check-secret.outputs.configured == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # required for npm provenance
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node (with npm registry auth)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+
+      # Install from the monorepo root — the SDK is a Bun workspace member and
+      # resolves against the root bun.lock, not its stray package-lock.json.
+      - name: Install workspace dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Typecheck SDK
+        working-directory: packages/sdk
+        run: bun run typecheck
+
+      - name: Build SDK (tsup → dist)
+        working-directory: packages/sdk
+        run: bun run build
+
+      # publishConfig.access=public is already set in package.json.
+      - name: Publish to npm
+        working-directory: packages/sdk
+        run: npm publish --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

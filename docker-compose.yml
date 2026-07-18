@@ -1,0 +1,222 @@
+# Full local development stack:
+# - db: Postgres 16 with pgvector preinstalled
+# - app: Next.js app at http://localhost:3000
+# - realtime: Yjs WebSocket server at http://localhost:3030/health
+# - agents: Mastra agents service at http://localhost:4111
+# - mailpit: local email capture at http://localhost:8025
+# - minio: local S3-compatible object storage at :9000 (console :9001)
+#
+# Usage:
+#   cp .env.example .env.local
+#   docker compose up -d
+#
+# The app still expects the same local secrets as normal development. The
+# compose file wires the service-to-service URLs so the whole stack can run
+# together on one machine.
+#
+# Reset everything: docker compose down -v   (the -v drops the data volume)
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: simplerdev-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: simplerdev
+    ports:
+      - "5432:5432"
+    volumes:
+      - simplerdev-pgdata:/var/lib/postgresql/data
+      - ./docker/initdb:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d simplerdev"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: simplerdev-mailpit
+    restart: unless-stopped
+    ports:
+      - "1025:1025" # SMTP
+      - "8025:8025" # Web UI
+
+  app:
+    image: oven/bun:1.3.11
+    container_name: simplerdev-app
+    restart: unless-stopped
+    working_dir: /workspace
+    command: >
+      sh -lc "bun install --frozen-lockfile &&
+      bun scripts/verify-db-target.ts &&
+      bunx drizzle-kit migrate &&
+      bun scripts/apply-local-manual-migrations.ts &&
+      bun dev"
+    depends_on:
+      db:
+        condition: service_healthy
+      mailpit:
+        condition: service_started
+    env_file:
+      - path: .env.local
+        required: false
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/simplerdev
+      # verify-db-target.ts and drizzle.config.ts deliberately let .env.local
+      # OVERRIDE process env (local-dev invariant). Inside the container the
+      # bind-mounted .env.local placeholder (localhost) would clobber
+      # DATABASE_URL above and crash-loop the boot — this channel can't be
+      # overridden and wins in both scripts.
+      DRIZZLE_DATABASE_URL: postgresql://postgres:postgres@db:5432/simplerdev
+      NEXTAUTH_URL: http://localhost:3000
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+      NEXT_PUBLIC_SITE_URL: http://localhost:3000
+      NEXT_PUBLIC_REALTIME_URL: ws://localhost:3030
+      REALTIME_INTERNAL_URL: http://realtime:3030
+      REALTIME_JWT_SECRET: ${REALTIME_JWT_SECRET:-sd-local-dev-realtime-jwt-secret}
+      REALTIME_INTERNAL_SECRET: ${REALTIME_INTERNAL_SECRET:-sd-local-dev-realtime-internal-secret}
+      SD_AGENTS_URL: http://agents:4111
+      AUTH_TRUST_HOST: "true"
+      EMAIL_TRANSPORT: mailpit
+      MAILPIT_SMTP_HOST: mailpit
+      MAILPIT_SMTP_PORT: "1025"
+      PORT: "3000"
+    volumes:
+      - .:/workspace
+      - simplerdev-app-node-modules:/workspace/node_modules
+      # .next on a named volume: keeps the write-heavy dev/build cache off the
+      # macOS bind mount (VirtioFS) — measurably faster compiles in-container.
+      - simplerdev-app-next:/workspace/.next
+    ports:
+      - "3000:3000"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "bun --eval \"fetch('http://localhost:3000/api/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))\"",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      # First boot runs a full `bun install` on a bind mount — on macOS this can
+      # take 15+ minutes cold. Later boots reuse the node_modules volume and are
+      # fast. Without the long grace, `agents` (depends_on: service_healthy)
+      # never starts on first run.
+      start_period: 1200s
+
+  minio:
+    image: minio/minio:latest
+    container_name: simplerdev-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000" # S3 API
+      - "9001:9001" # Console
+    volumes:
+      - simplerdev-minio-data:/data
+    healthcheck:
+      # the minio image includes curl
+      test: ["CMD-SHELL", "curl -f http://localhost:9000/minio/health/live || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  minio-init:
+    image: minio/mc
+    container_name: simplerdev-minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    restart: "no"
+    entrypoint: sh -c "mc alias set local http://minio:9000 minioadmin minioadmin && mc mb --ignore-existing local/simplerdev-media && mc anonymous set download local/simplerdev-media"
+
+  realtime:
+    image: oven/bun:1.3.11
+    container_name: simplerdev-realtime
+    restart: unless-stopped
+    working_dir: /workspace/packages/realtime-server
+    command: sh -lc "bun install --frozen-lockfile && bun src/server.ts"
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - path: .env.local
+        required: false
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/simplerdev
+      REALTIME_JWT_SECRET: ${REALTIME_JWT_SECRET:-sd-local-dev-realtime-jwt-secret}
+      REALTIME_INTERNAL_SECRET: ${REALTIME_INTERNAL_SECRET:-sd-local-dev-realtime-internal-secret}
+      PORT: "3030"
+    volumes:
+      - .:/workspace
+      # realtime-server is a workspace member, so its `bun install` resolves the
+      # workspace ROOT and writes /workspace/node_modules — without this volume
+      # that lands on the bind mount (slow on macOS, pollutes the host checkout).
+      - simplerdev-realtime-root-node-modules:/workspace/node_modules
+      - simplerdev-realtime-node-modules:/workspace/packages/realtime-server/node_modules
+    ports:
+      - "3030:3030"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "bun --eval \"fetch('http://localhost:3030/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))\"",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 1200s # cold bun install grace — see app service note
+
+  agents:
+    image: oven/bun:1.3.11
+    container_name: simplerdev-agents
+    restart: unless-stopped
+    working_dir: /workspace/simplerdevelopment-agents
+    # `mastra dev` (the Studio/hot-reload server) exits 0 immediately in this
+    # detached container and crash-loops under restart:unless-stopped. Use the
+    # production build+start flow instead — same as the Dockerfile and the
+    # deployed Railway service — which serves the HTTP API the app calls.
+    # The build is skipped when .mastra/output already exists (it persists on the
+    # host bind-mount), so only the first start pays the ~5-min cold bundle;
+    # later starts go straight to `start`. Force a rebuild after changing agent
+    # code with: docker compose exec agents rm -rf .mastra/output && docker compose restart agents
+    command: sh -lc "bun install --frozen-lockfile && { [ -f .mastra/output/index.mjs ] && echo 'reusing existing .mastra/output build' || bun run build; } && bun run start"
+    depends_on:
+      app:
+        condition: service_healthy
+    env_file:
+      - path: .env.local
+        required: false
+    environment:
+      SD_MCP_URL: http://app:3000/api/mcp
+      PORT: "4111"
+    volumes:
+      - .:/workspace
+      - simplerdev-agents-node-modules:/workspace/simplerdevelopment-agents/node_modules
+    ports:
+      - "4111:4111"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "bun --eval \"fetch('http://localhost:4111').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))\"",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 1200s # cold bun install grace — see app service note
+
+volumes:
+  simplerdev-pgdata:
+  simplerdev-app-node-modules:
+  simplerdev-app-next:
+  simplerdev-realtime-root-node-modules:
+  simplerdev-realtime-node-modules:
+  simplerdev-agents-node-modules:
+  simplerdev-minio-data:

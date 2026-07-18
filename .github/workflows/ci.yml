@@ -1,0 +1,418 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Cancel superseded runs on the same ref.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ── Secret scan (gitleaks) — cheap, fails fast ──────────────────────────────
+  # Uses the gitleaks BINARY (the gitleaks-action is org-license-gated) in
+  # filesystem mode (`--no-git`) so it scans the working tree a PR proposes,
+  # NOT full history. History-only leaks are remediated separately via a
+  # filter-repo scrub; this job stops NEW secrets from landing. Config +
+  # allowlist live in .gitleaks.toml.
+  secret-scan:
+    name: Secret scan (gitleaks)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install gitleaks
+        run: |
+          VER=8.21.2
+          curl -sSL "https://github.com/gitleaks/gitleaks/releases/download/v${VER}/gitleaks_${VER}_linux_x64.tar.gz" \
+            | tar -xz -C /usr/local/bin gitleaks
+          gitleaks version
+      - name: Scan working tree
+        run: gitleaks detect --no-git --source . --config .gitleaks.toml --redact --verbose
+
+  # ── Fast gates that need no database ────────────────────────────────────────
+  # Split from a single serial "Lint · Typecheck · Unit" job into parallel jobs
+  # so the required merge gate is bounded by the slowest single piece (unit +
+  # coverage) instead of their sum. All three are required status checks on main
+  # — keep branch-protection contexts in sync with these job `name:`s.
+  lint:
+    name: Lint & checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.11
+      - name: Cache bun global install cache
+        uses: actions/cache@v6
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-${{ runner.os }}-
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      - name: Lint
+        run: bun run lint
+      - name: File-size budget (god-file guard)
+        run: bun scripts/check-file-budget.ts
+      - name: Doc drift (cited paths must exist)
+        run: bun scripts/check-doc-drift.ts
+
+  typecheck:
+    name: Typecheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.11
+      - name: Cache bun global install cache
+        uses: actions/cache@v6
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-${{ runner.os }}-
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      - name: Typecheck
+        run: bun run typecheck
+
+  # The unit suite is sharded 4 ways to cut wall-clock. Each shard runs its slice
+  # WITH v8 coverage and emits a Vitest "blob" report (test results + coverage
+  # data). Coverage floors are NOT enforced per-shard — a shard only sees its
+  # slice — they are enforced on the MERGED report by the `unit` gate job below.
+  # fail-fast:false so one red shard doesn't cancel the others (surface every
+  # shard's failures, not just the first).
+  unit-shard:
+    name: Unit shard ${{ matrix.shard }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.11
+      - name: Cache bun global install cache
+        uses: actions/cache@v6
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-${{ runner.os }}-
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      # Collect coverage into the blob but DON'T enforce thresholds here — a
+      # single shard only covers ~1/4 of the suite. The `unit` gate re-applies
+      # the floors on the merged coverage.
+      - name: Unit tests (shard ${{ matrix.shard }}/4, coverage → blob)
+        env:
+          VITEST_SKIP_THRESHOLDS: "1"
+        run: >-
+          bunx vitest run --project=unit
+          --shard=${{ matrix.shard }}/4
+          --coverage
+          --reporter=default
+          --reporter=blob --outputFile.blob=.vitest-reports/blob-${{ matrix.shard }}.json
+      - name: Upload shard blob report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: unit-blob-${{ matrix.shard }}
+          path: .vitest-reports/*
+          include-hidden-files: true
+          retention-days: 1
+
+  # Required status check — keeps the job name "Unit tests" so branch protection
+  # needs no change. Merges all 4 shard blobs and RE-APPLIES the coverage floors
+  # (vitest.config.ts thresholds) on the combined coverage. `needs` without
+  # `if: always()` means a failed shard SKIPS this gate, leaving the required
+  # check unfulfilled → PR stays blocked (fail-safe). Passes iff every shard
+  # passed AND the merged coverage clears every floor.
+  unit:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [unit-shard]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.11
+      - name: Cache bun global install cache
+        uses: actions/cache@v6
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-${{ runner.os }}-
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      - name: Download shard blob reports
+        uses: actions/download-artifact@v8
+        with:
+          path: .vitest-reports
+          pattern: unit-blob-*
+          merge-multiple: true
+      - name: Merge reports + enforce coverage floors
+        run: bunx vitest run --merge-reports --coverage
+
+  # ── Multi-tenant leak regression — needs Postgres + pgvector ────────────────
+  # Mirrors the local `bun test:tenancy` gate. Uses the pgvector image so the
+  # `vector` extension (required by lib/db/schema) is available for migrations.
+  tenancy:
+    name: Tenancy regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: simplerdev_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/simplerdev_test
+      DATABASE_URL_TEST: postgresql://postgres:postgres@localhost:5432/simplerdev_test
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.11
+
+      - name: Cache bun global install cache
+        uses: actions/cache@v6
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Enable required Postgres extensions (pgvector etc.)
+        run: PGPASSWORD=postgres psql -h localhost -U postgres -d simplerdev_test -c "CREATE EXTENSION IF NOT EXISTS vector; CREATE EXTENSION IF NOT EXISTS pg_trgm; CREATE EXTENSION IF NOT EXISTS pgcrypto;"
+
+      - name: Apply schema (Drizzle migrations)
+        run: bun run db:migrate
+
+      - name: Tenancy gate
+        run: bun run test:tenancy
+
+  # ── Golden-path e2e — full app boot + Playwright @critical subset ───────────
+  # Mirrors `bun test:critical` (scripts/prepare-e2e-local.sh flow): pgvector DB,
+  # drizzle-kit push, e2e fixture seed, production build + start, then the
+  # @critical specs. All secrets are ephemeral — optional integrations (Stripe,
+  # Google, S3…) stay dormant exactly as on a fresh `simpler create` instance.
+  e2e-critical:
+    name: Critical e2e (@critical)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: simplerdev_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/simplerdev_test
+      DRIZZLE_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/simplerdev_test
+      NEXTAUTH_URL: http://localhost:3000
+      NEXT_PUBLIC_SITE_URL: http://localhost:3000
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+      AUTH_TRUST_HOST: "true"
+      BASE_URL: http://localhost:3000
+      # The app is a production BUILD served over http://localhost here, so the
+      # default __Secure-/secure session cookie is rejected on the insecure origin
+      # and the credentials callback 500s (QAD-047). Force http-compatible cookies
+      # + skip the (Upstash-less) rate limiter for the seeded logins.
+      AUTH_INSECURE_COOKIES: "1"
+      DISABLE_AUTH_RATE_LIMIT: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.11
+
+      - name: Cache bun global install cache
+        uses: actions/cache@v6
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Generate ephemeral secrets
+        run: echo "NEXTAUTH_SECRET=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+
+      - name: Enable required Postgres extensions
+        run: PGPASSWORD=postgres psql -h localhost -U postgres -d simplerdev_test -c "CREATE EXTENSION IF NOT EXISTS vector; CREATE EXTENSION IF NOT EXISTS pg_trgm; CREATE EXTENSION IF NOT EXISTS pgcrypto;"
+
+      - name: Apply schema (drizzle-kit push)
+        run: bunx drizzle-kit push --force
+
+      - name: Seed e2e fixture (admin + client)
+        run: bun scripts/seed-admin-e2e.ts
+
+      - name: Install Playwright browsers
+        run: bunx playwright install --with-deps chromium
+
+      - name: Build app
+        run: bun run build
+
+      - name: Start app + wait for health
+        run: |
+          bun run start &
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:3000/api/health >/dev/null; then echo "app healthy"; exit 0; fi
+            sleep 2
+          done
+          echo "app never became healthy" >&2; exit 1
+
+      - name: Critical e2e
+        run: scripts/test.sh --layer=e2e --tag=@critical --no-coverage
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
+
+  # Security-controls e2e — mirrors e2e-critical but runs the @security suite
+  # (projects 197-200: MCP boundary, agent gating, audit/forensics, bulk approval).
+  # ENCRYPTION_KEY is set (ephemeral, e2e-only) so the AAF-001 encrypted-capture +
+  # decrypt-route path functions in the seeded run. Kept a SEPARATE job from
+  # @critical so the golden-path gate stays fast and independent.
+  e2e-security:
+    name: Security e2e (@security)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: simplerdev_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/simplerdev_test
+      DRIZZLE_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/simplerdev_test
+      NEXTAUTH_URL: http://localhost:3000
+      NEXT_PUBLIC_SITE_URL: http://localhost:3000
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+      AUTH_TRUST_HOST: "true"
+      BASE_URL: http://localhost:3000
+      AUTH_INSECURE_COOKIES: "1"
+      DISABLE_AUTH_RATE_LIMIT: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.11
+
+      - name: Cache bun global install cache
+        uses: actions/cache@v6
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      # NEXTAUTH_SECRET + ENCRYPTION_KEY are generated ephemerally (never literals in
+      # the repo). ENCRYPTION_KEY must be present for AAF-001's capture/decrypt path;
+      # the same value is used to build+start the app and by the tests in this job.
+      - name: Generate ephemeral secrets
+        run: |
+          echo "NEXTAUTH_SECRET=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+          echo "ENCRYPTION_KEY=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+
+      - name: Enable required Postgres extensions
+        run: PGPASSWORD=postgres psql -h localhost -U postgres -d simplerdev_test -c "CREATE EXTENSION IF NOT EXISTS vector; CREATE EXTENSION IF NOT EXISTS pg_trgm; CREATE EXTENSION IF NOT EXISTS pgcrypto;"
+
+      - name: Apply schema (drizzle-kit push)
+        run: bunx drizzle-kit push --force
+
+      - name: Seed e2e fixture (admin + client)
+        run: bun scripts/seed-admin-e2e.ts
+
+      - name: Install Playwright browsers
+        run: bunx playwright install --with-deps chromium
+
+      - name: Build app
+        run: bun run build
+
+      - name: Start app + wait for health
+        run: |
+          bun run start > /tmp/app-server.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:3000/api/health >/dev/null; then echo "app healthy"; exit 0; fi
+            sleep 2
+          done
+          echo "app never became healthy" >&2; exit 1
+
+      - name: Security e2e
+        run: scripts/test.sh --layer=e2e --tag=@security --no-coverage
+
+      - name: Dump server log (diagnostics)
+        if: failure()
+        run: |
+          echo "=== [mcp-telemetry] capture/audit lines ==="
+          grep -aE "mcp-telemetry|agent_action_captures|posts_delete|capture (encrypt|insert)" /tmp/app-server.log || echo "(no matching lines)"
+          echo "=== agent_action_captures rows (does ANY capture exist, and with what client_id/tool_name?) ==="
+          PGPASSWORD=postgres psql -h localhost -U postgres -d simplerdev_test -c "SELECT id, client_id, tool_name, created_at FROM agent_action_captures ORDER BY id DESC LIMIT 10;" || echo "(query failed)"
+          echo "=== agent_audit_logs high-risk rows (does the wrapper run at all?) ==="
+          PGPASSWORD=postgres psql -h localhost -U postgres -d simplerdev_test -c "SELECT id, client_id, tool_name, status FROM agent_action_logs WHERE tool_name LIKE '%delete%' OR tool_name='posts_delete' ORDER BY id DESC LIMIT 10;" || echo "(query failed)"
+          echo "=== last 120 server log lines ==="
+          tail -120 /tmp/app-server.log || true
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report-security
+          path: playwright-report/
+          retention-days: 7

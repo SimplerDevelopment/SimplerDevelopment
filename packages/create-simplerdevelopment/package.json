@@ -1,0 +1,22 @@
+{
+  "name": "create-simplerdevelopment",
+  "version": "0.1.0",
+  "description": "Scaffold a local SimplerDevelopment dev environment — clone, install, and configure in one command.",
+  "type": "module",
+  "license": "Apache-2.0",
+  "bin": {
+    "create-simplerdevelopment": "./index.js"
+  },
+  "files": [
+    "index.js"
+  ],
+  "dependencies": {
+    "@simplerdevelopment/cli": "^0.3.0"
+  },
+  "keywords": [
+    "simplerdevelopment",
+    "create",
+    "scaffold",
+    "cli"
+  ]
+}

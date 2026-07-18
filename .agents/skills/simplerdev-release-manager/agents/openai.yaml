@@ -1,0 +1,4 @@
+interface:
+  display_name: "SimplerDev Release Manager"
+  short_description: "Prepare SimplerDevelopment changes for release."
+  default_prompt: "Use $simplerdev-release-manager to prepare this SimplerDevelopment change for release."

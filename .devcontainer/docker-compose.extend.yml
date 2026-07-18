@@ -1,0 +1,7 @@
+# Extends ../docker-compose.yml for VS Code Dev Containers and GitHub Codespaces.
+# The base compose file already defines app, db, and Mailpit; this override keeps
+# the app container alive for editor attach instead of starting Next immediately.
+
+services:
+  app:
+    command: sleep infinity

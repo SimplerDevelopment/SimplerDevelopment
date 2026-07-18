@@ -1,0 +1,1590 @@
+openapi: 3.1.0
+
+info:
+  title: SimplerDevelopment REST v1 API
+  version: 1.0.0
+  description: >
+    Authenticated headless CMS / commerce surface for SimplerDevelopment sites.
+    Every request is site-scoped, rate-limited, and returns a consistent
+    { success, data | message } JSON envelope.
+  contact:
+    email: info@simplerdevelopment.com
+
+servers:
+  - url: https://{tenantDomain}/api/v1
+    description: SimplerDevelopment tenant domain
+    variables:
+      tenantDomain:
+        default: simplerdevelopment.com
+        description: >
+          Your portal domain (e.g. yourcompany.simplerdevelopment.com or a custom domain).
+
+security:
+  - BearerAuth: []
+  - ApiKeyHeader: []
+
+tags:
+  - name: Content
+    description: Posts, pages, categories, and tags
+  - name: Media
+    description: Media library assets
+  - name: Blocks
+    description: Block catalog — available block types and their input schemas
+  - name: Commerce
+    description: Products and product categories
+  - name: Site Config
+    description: Branding tokens, site configuration, and navigation tree
+
+# ─────────────────────────────────────────────
+# Paths
+# ─────────────────────────────────────────────
+paths:
+
+  # ── Content ──────────────────────────────────
+
+  /sites/{siteId}/posts:
+    get:
+      operationId: listPosts
+      summary: List published posts
+      description: >
+        Returns a paginated list of published posts for the site. Supports
+        filtering by post type, category, tag, and keyword search.
+      tags: [Content]
+      parameters:
+        - $ref: '#/components/parameters/siteId'
+        - name: limit
+          in: query
+          description: Maximum number of results to return. Capped at 100.
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+        - name: offset
+          in: query
+          description: Number of records to skip for pagination.
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+        - name: postType
+          in: query
+          description: Filter by post type slug (e.g. "blog", "case-study"). Omit to return all types.
+          schema:
+            type: string
+        - name: category
+          in: query
+          description: Filter by category slug. Only posts assigned to this category are returned.
+          schema:
+            type: string
+        - name: tag
+          in: query
+          description: Filter by tag slug. Only posts assigned to this tag are returned.
+          schema:
+            type: string
+        - name: search
+          in: query
+          description: Case-insensitive title keyword filter (matches anywhere in the title).
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Paginated list of posts
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/PostSummary'
+                      pagination:
+                        $ref: '#/components/schemas/OffsetPagination'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /sites/{siteId}/posts/{slug}:
+    get:
+      operationId: getPostBySlug
+      summary: Get a single post by slug
+      description: >
+        Returns a single published post by its slug, including its full content,
+        SEO fields, assigned categories, and assigned tags.
+      tags: [Content]
+      parameters:
+        - $ref: '#/components/parameters/siteId'
+        - $ref: '#/components/parameters/slug'
+      responses:
+        '200':
+          description: Post detail record
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/PostDetail'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /sites/{siteId}/pages:
+    get:
+      operationId: listPages
+      summary: List published pages
+      description: >
+        Returns a paginated list of published pages for the site. Pages are
+        posts with postType = "page". Supports keyword search and pagination.
+      tags: [Content]
+      parameters:
+        - $ref: '#/components/parameters/siteId'
+        - name: limit
+          in: query
+          description: Maximum number of results to return. Capped at 100.
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+        - name: offset
+          in: query
+          description: Number of records to skip for pagination.
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+        - name: search
+          in: query
+          description: Case-insensitive title keyword filter.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Paginated list of pages
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/PostSummary'
+                      pagination:
+                        $ref: '#/components/schemas/OffsetPagination'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /sites/{siteId}/categories:
+    get:
+      operationId: listCategories
+      summary: List categories
+      description: Returns all categories for the site, ordered alphabetically by name.
+      tags: [Content]
+      parameters:
+        - $ref: '#/components/parameters/siteId'
+      responses:
+        '200':
+          description: List of categories
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Category'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /sites/{siteId}/tags:
+    get:
+      operationId: listTags
+      summary: List tags
+      description: Returns all tags for the site, ordered alphabetically by name.
+      tags: [Content]
+      parameters:
+        - $ref: '#/components/parameters/siteId'
+      responses:
+        '200':
+          description: List of tags
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Tag'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  # ── Media ────────────────────────────────────
+
+  /sites/{siteId}/media:
+    get:
+      operationId: listMedia
+      summary: List media items
+      description: >
+        Returns a paginated list of media items belonging to the specified site.
+        Results are ordered newest-first.
+      tags: [Media]
+      parameters:
+        - $ref: '#/components/parameters/siteId'
+        - name: limit
+          in: query
+          description: Number of items to return. Maximum 100.
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+        - name: offset
+          in: query
+          description: Zero-based offset for pagination.
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+        - name: mimeType
+          in: query
+          description: >
+            Filter by MIME type prefix. For example, "image" matches image/jpeg,
+            image/png, etc. Omit (or pass "all") to return all types.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Paginated list of media items
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/MediaItem'
+                      pagination:
+                        $ref: '#/components/schemas/OffsetPagination'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  # ── Blocks ───────────────────────────────────
+
+  /sites/{siteId}/blocks:
+    get:
+      operationId: listBlocks
+      summary: Get block catalog
+      description: >
+        Returns the full catalog of available block types for a site, including
+        each block's display name, category, and accepted input fields. The
+        catalog is the same for all sites; siteId is used only for API key
+        scoping and rate limiting.
+      tags: [Blocks]
+      security:
+        - BearerAuth: []
+        - ApiKeyHeader: []
+        - {}
+      parameters:
+        - $ref: '#/components/parameters/siteId'
+      responses:
+        '200':
+          description: Block catalog
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Block'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  # ── Commerce ─────────────────────────────────
+
+  /sites/{siteId}/products:
+    get:
+      operationId: listProducts
+      summary: List products
+      description: >
+        Returns a paginated list of active products for the site, with optional
+        filtering by category, keyword search, and sort order.
+      tags: [Commerce]
+      parameters:
+        - $ref: '#/components/parameters/siteId'
+        - name: category
+          in: query
+          description: Filter by category slug (e.g. "t-shirts").
+          schema:
+            type: string
+        - name: search
+          in: query
+          description: Keyword search against product name and shortDescription.
+          schema:
+            type: string
+        - name: sort
+          in: query
+          description: Sort order.
+          schema:
+            type: string
+            enum: [newest, price_asc, price_desc, featured]
+            default: newest
+        - name: page
+          in: query
+          description: Page number (1-based).
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+        - name: limit
+          in: query
+          description: Results per page. Capped at 100.
+          schema:
+            type: integer
+            default: 24
+            minimum: 1
+            maximum: 100
+      responses:
+        '200':
+          description: Paginated list of products
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/ProductSummary'
+                      pagination:
+                        $ref: '#/components/schemas/PageBasedPagination'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/StoreNotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /sites/{siteId}/products/{slug}:
+    get:
+      operationId: getProductBySlug
+      summary: Get a single product by slug
+      description: >
+        Returns the full detail record for a single active product, including
+        all images, options (with values), variants, bulk pricing rules, and
+        category info.
+      tags: [Commerce]
+      parameters:
+        - $ref: '#/components/parameters/siteId'
+        - $ref: '#/components/parameters/slug'
+      responses:
+        '200':
+          description: Product detail record
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/ProductDetail'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /sites/{siteId}/product-categories:
+    get:
+      operationId: listProductCategories
+      summary: List product categories
+      description: >
+        Returns all active product categories for the site, ordered by order
+        then name. Includes a live count of active products in each category.
+      tags: [Commerce]
+      parameters:
+        - $ref: '#/components/parameters/siteId'
+      responses:
+        '200':
+          description: List of product categories
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/ProductCategory'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/StoreNotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  # ── Site Config ──────────────────────────────
+
+  /sites/{siteId}/branding:
+    get:
+      operationId: getBranding
+      summary: Get site branding
+      description: >
+        Returns the resolved branding profile for a site plus a flat map of CSS
+        custom property names to values, ready to inject as :root variables.
+        API key is optional; unauthenticated calls are allowed.
+      tags: [Site Config]
+      security:
+        - BearerAuth: []
+        - ApiKeyHeader: []
+        - {}
+      parameters:
+        - $ref: '#/components/parameters/siteId'
+      responses:
+        '200':
+          description: Branding profile and CSS variables
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Branding'
+                      cssVars:
+                        $ref: '#/components/schemas/CssVars'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /sites/{siteId}/config:
+    get:
+      operationId: getSiteConfig
+      summary: Get site configuration bundle
+      description: >
+        Returns a combined site configuration bundle: site metadata, resolved
+        branding, CSS variables, navigation tree, and store status — everything
+        a headless renderer needs in a single request. API key is optional;
+        unauthenticated calls are allowed.
+      tags: [Site Config]
+      security:
+        - BearerAuth: []
+        - ApiKeyHeader: []
+        - {}
+      parameters:
+        - $ref: '#/components/parameters/siteId'
+      responses:
+        '200':
+          description: Combined site configuration bundle
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/SiteConfig'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /sites/{siteId}/navigation:
+    get:
+      operationId: getNavigation
+      summary: Get navigation tree
+      description: >
+        Returns the navigation menu tree for a site. Items are returned as a
+        nested tree (children embedded under their parent), sorted by sortOrder.
+        API key is optional; unauthenticated calls are allowed.
+      tags: [Site Config]
+      security:
+        - BearerAuth: []
+        - ApiKeyHeader: []
+        - {}
+      parameters:
+        - $ref: '#/components/parameters/siteId'
+      responses:
+        '200':
+          description: Navigation tree
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/NavigationItem'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+# ─────────────────────────────────────────────
+# Components
+# ─────────────────────────────────────────────
+components:
+
+  # ── Security schemes ─────────────────────────
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      description: >
+        Pass your sd_live_ API key as a bearer token:
+        Authorization: Bearer sd_live_<your-key>
+    ApiKeyHeader:
+      type: apiKey
+      in: header
+      name: x-api-key
+      description: >
+        Alternatively pass your sd_live_ API key via the x-api-key header.
+        Both forms are equivalent; the middleware checks Authorization first.
+
+  # ── Reusable parameters ──────────────────────
+  parameters:
+    siteId:
+      name: siteId
+      in: path
+      required: true
+      description: The numeric ID of the site.
+      schema:
+        type: integer
+        example: 42
+    slug:
+      name: slug
+      in: path
+      required: true
+      description: The URL slug of the resource.
+      schema:
+        type: string
+        example: getting-started-headless-cms
+
+  # ── Reusable responses ───────────────────────
+  responses:
+    BadRequest:
+      description: Missing or unparseable parameter (e.g. non-numeric siteId)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            success: false
+            message: Invalid site ID
+    Unauthorized:
+      description: Missing, invalid, expired, or site-mismatched API key
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            success: false
+            message: Invalid API key
+    NotFound:
+      description: Resource or site does not exist or is not active
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            success: false
+            message: Not found
+    StoreNotFound:
+      description: No enabled store exists for this site
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            success: false
+            message: Store not found
+    RateLimited:
+      description: Rate limit exceeded — check the Retry-After header
+      headers:
+        Retry-After:
+          description: Seconds until the current window resets.
+          schema:
+            type: integer
+          example: 37
+        X-RateLimit-Limit:
+          description: Maximum requests allowed per minute for this key.
+          schema:
+            type: integer
+          example: 60
+        X-RateLimit-Remaining:
+          description: Always 0 on a 429 response.
+          schema:
+            type: integer
+          example: 0
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            success: false
+            message: Rate limit exceeded
+
+  # ── Schemas ──────────────────────────────────
+  schemas:
+
+    # Envelope
+
+    SuccessEnvelope:
+      type: object
+      required: [success]
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+
+    ErrorEnvelope:
+      type: object
+      required: [success, message]
+      properties:
+        success:
+          type: boolean
+          enum: [false]
+        message:
+          type: string
+          description: Human-readable description of what went wrong.
+
+    # Pagination
+
+    OffsetPagination:
+      type: object
+      required: [limit, offset, total]
+      description: Offset-based pagination metadata.
+      properties:
+        limit:
+          type: integer
+          description: The effective limit applied to this response.
+        offset:
+          type: integer
+          description: The effective offset applied to this response.
+        total:
+          type: integer
+          description: Total number of matching items across all pages.
+
+    PageBasedPagination:
+      type: object
+      required: [page, limit, total, totalPages]
+      description: Page-number-based pagination metadata (used by Commerce endpoints).
+      properties:
+        page:
+          type: integer
+          description: Current page number (1-based).
+        limit:
+          type: integer
+          description: Results per page.
+        total:
+          type: integer
+          description: Total number of matching items.
+        totalPages:
+          type: integer
+          description: Total number of pages.
+
+    # Content
+
+    PostSummary:
+      type: object
+      description: Lightweight post record returned in list responses.
+      required: [id, title, slug, postType, publishedAt]
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        slug:
+          type: string
+        postType:
+          type: string
+          description: Post type slug (e.g. "blog", "page", "case-study").
+        excerpt:
+          type: string
+          nullable: true
+        coverImage:
+          type: string
+          nullable: true
+          description: URL of the cover image.
+        publishedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    PostDetail:
+      type: object
+      description: Full post record returned by the single-post endpoint.
+      required: [id, title, slug, postType, published, websiteId, createdAt, updatedAt, categories, tags]
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        slug:
+          type: string
+        postType:
+          type: string
+        excerpt:
+          type: string
+          nullable: true
+        content:
+          type: string
+          nullable: true
+          description: >
+            JSON string encoding the block tree: { "blocks": [...], "version": "1.0" }.
+            Parse as JSON to work with individual blocks.
+        coverImage:
+          type: string
+          nullable: true
+        published:
+          type: boolean
+        publishedAt:
+          type: string
+          format: date-time
+          nullable: true
+        seoTitle:
+          type: string
+          nullable: true
+        seoDescription:
+          type: string
+          nullable: true
+        ogImage:
+          type: string
+          nullable: true
+        noIndex:
+          type: boolean
+          nullable: true
+        canonicalUrl:
+          type: string
+          nullable: true
+        customCss:
+          type: string
+          nullable: true
+        customJs:
+          type: string
+          nullable: true
+        websiteId:
+          type: integer
+        parentPostId:
+          type: integer
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        categories:
+          type: array
+          items:
+            $ref: '#/components/schemas/CategoryEmbedded'
+        tags:
+          type: array
+          items:
+            $ref: '#/components/schemas/TagEmbedded'
+
+    Category:
+      type: object
+      required: [id, name, slug]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        slug:
+          type: string
+        description:
+          type: string
+          nullable: true
+        color:
+          type: string
+          nullable: true
+          description: Hex color string (e.g. "#2563eb").
+
+    CategoryEmbedded:
+      type: object
+      description: Minimal category record embedded in post detail responses.
+      required: [id, name, slug]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        slug:
+          type: string
+        color:
+          type: string
+          nullable: true
+
+    Tag:
+      type: object
+      required: [id, name, slug]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        slug:
+          type: string
+
+    TagEmbedded:
+      type: object
+      description: Minimal tag record embedded in post detail responses.
+      required: [id, name, slug]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        slug:
+          type: string
+
+    # Media
+
+    MediaItem:
+      type: object
+      required: [id, filename, mimeType, url]
+      properties:
+        id:
+          type: integer
+          description: Unique media item ID.
+        filename:
+          type: string
+          description: Original filename as uploaded.
+        mimeType:
+          type: string
+          description: 'MIME type, e.g. "image/png" or "video/mp4".'
+        url:
+          type: string
+          description: Full URL to the original file.
+        thumbnailUrl:
+          type: string
+          nullable: true
+          description: URL of a generated thumbnail, if available.
+        alt:
+          type: string
+          nullable: true
+          description: Alt text for accessibility.
+        caption:
+          type: string
+          nullable: true
+          description: Optional caption associated with the media item.
+        width:
+          type: integer
+          nullable: true
+          description: Width in pixels (images/videos).
+        height:
+          type: integer
+          nullable: true
+          description: Height in pixels (images/videos).
+
+    # Blocks
+
+    Block:
+      type: object
+      required: [type, name, category, inputs]
+      description: A single entry in the block catalog.
+      properties:
+        type:
+          type: string
+          description: 'Machine identifier used as the type field in block JSON (e.g. "hero", "columns").'
+        name:
+          type: string
+          description: Human-readable display name.
+        category:
+          type: string
+          description: Grouping category.
+          enum: [basic, layout, component, media, ecommerce]
+        inputs:
+          type: array
+          description: List of accepted input field names for this block type.
+          items:
+            type: string
+
+    # Commerce
+
+    ProductSummary:
+      type: object
+      description: Lightweight product record returned in list responses.
+      required: [id, name, slug, price]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        slug:
+          type: string
+        shortDescription:
+          type: string
+          nullable: true
+        price:
+          type: integer
+          description: Price in cents. Divide by 100 for display.
+        compareAtPrice:
+          type: integer
+          nullable: true
+          description: Original/compare-at price in cents. Null when not set.
+        featured:
+          type: boolean
+        categoryId:
+          type: integer
+          nullable: true
+          description: ID of the assigned product category; null for uncategorized products.
+        categoryName:
+          type: string
+          nullable: true
+          description: Name of the assigned product category; null for uncategorized products.
+        image:
+          type: string
+          nullable: true
+          description: URL of the first image by display order; null if no images are attached.
+        createdAt:
+          type: string
+          format: date-time
+
+    ProductDetail:
+      type: object
+      description: Full product detail record.
+      required: [id, websiteId, name, slug, price, status, createdAt, updatedAt, images, options, variants, bulkPricing]
+      properties:
+        id:
+          type: integer
+        websiteId:
+          type: integer
+        categoryId:
+          type: integer
+          nullable: true
+        name:
+          type: string
+        slug:
+          type: string
+        description:
+          type: string
+          nullable: true
+          description: Full HTML product description.
+        shortDescription:
+          type: string
+          nullable: true
+        price:
+          type: integer
+          description: Price in cents.
+        compareAtPrice:
+          type: integer
+          nullable: true
+          description: Compare-at price in cents. Null when not set.
+        costPrice:
+          type: integer
+          nullable: true
+          description: Cost price in cents. Null when not set.
+        sku:
+          type: string
+          nullable: true
+        barcode:
+          type: string
+          nullable: true
+        trackInventory:
+          type: boolean
+        quantity:
+          type: integer
+          nullable: true
+        weight:
+          type: string
+          nullable: true
+        weightUnit:
+          type: string
+          nullable: true
+        lengthIn:
+          type: number
+          nullable: true
+        widthIn:
+          type: number
+          nullable: true
+        heightIn:
+          type: number
+          nullable: true
+        status:
+          type: string
+          enum: [active, inactive, draft]
+        featured:
+          type: boolean
+        isDesignable:
+          type: boolean
+        designable:
+          type: boolean
+        seoTitle:
+          type: string
+          nullable: true
+        seoDescription:
+          type: string
+          nullable: true
+        tags:
+          type: array
+          items:
+            type: string
+          nullable: true
+        metadata:
+          nullable: true
+          description: Arbitrary metadata object; null when not set.
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        images:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductImage'
+        options:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductOption'
+        variants:
+          type: array
+          description: Active variants only (active = true).
+          items:
+            $ref: '#/components/schemas/ProductVariant'
+        bulkPricing:
+          type: array
+          items:
+            $ref: '#/components/schemas/BulkPricingRule'
+        category:
+          nullable: true
+          description: Assigned category; null if uncategorized.
+          allOf:
+            - $ref: '#/components/schemas/ProductCategoryRef'
+
+    ProductImage:
+      type: object
+      required: [id, productId, url, order, createdAt]
+      properties:
+        id:
+          type: integer
+        productId:
+          type: integer
+        url:
+          type: string
+        alt:
+          type: string
+          nullable: true
+        order:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+
+    ProductOption:
+      type: object
+      required: [id, productId, name, order, createdAt, values]
+      properties:
+        id:
+          type: integer
+        productId:
+          type: integer
+        name:
+          type: string
+          description: Option name (e.g. "Size", "Color").
+        order:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        values:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductOptionValue'
+
+    ProductOptionValue:
+      type: object
+      required: [id, optionId, value, order, createdAt]
+      properties:
+        id:
+          type: integer
+        optionId:
+          type: integer
+        value:
+          type: string
+          description: Internal value (e.g. "S").
+        label:
+          type: string
+          nullable: true
+          description: Display label (e.g. "Small").
+        order:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+
+    ProductVariant:
+      type: object
+      required: [id, productId, name, price, quantity, active, createdAt, updatedAt, optionValues]
+      properties:
+        id:
+          type: integer
+        productId:
+          type: integer
+        name:
+          type: string
+        sku:
+          type: string
+          nullable: true
+        barcode:
+          type: string
+          nullable: true
+        price:
+          type: integer
+          description: Variant price in cents.
+        compareAtPrice:
+          type: integer
+          nullable: true
+        costPrice:
+          type: integer
+          nullable: true
+        quantity:
+          type: integer
+          nullable: true
+        weight:
+          type: string
+          nullable: true
+        lengthIn:
+          type: number
+          nullable: true
+        widthIn:
+          type: number
+          nullable: true
+        heightIn:
+          type: number
+          nullable: true
+        image:
+          type: string
+          nullable: true
+        optionValues:
+          type: array
+          items:
+            $ref: '#/components/schemas/VariantOptionValueRef'
+        active:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    VariantOptionValueRef:
+      type: object
+      required: [optionId, valueId]
+      properties:
+        optionId:
+          type: integer
+        valueId:
+          type: integer
+
+    BulkPricingRule:
+      type: object
+      required: [id, productId, minQuantity, priceType, amount, createdAt]
+      properties:
+        id:
+          type: integer
+        productId:
+          type: integer
+        variantId:
+          type: integer
+          nullable: true
+        minQuantity:
+          type: integer
+        maxQuantity:
+          type: integer
+          nullable: true
+        priceType:
+          type: string
+          enum: [fixed, percent_off]
+          description: >
+            "fixed" means amount is a fixed price in cents.
+            "percent_off" means amount is basis points (e.g. 1000 = 10% off).
+        amount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+
+    ProductCategory:
+      type: object
+      required: [id, name, slug, order, productCount]
+      description: Active product category with a live product count.
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        slug:
+          type: string
+        description:
+          type: string
+          nullable: true
+        image:
+          type: string
+          nullable: true
+        parentId:
+          type: integer
+          nullable: true
+          description: >
+            ID of the parent category; null for top-level categories.
+            Enables tree structure.
+        order:
+          type: integer
+        productCount:
+          type: integer
+          description: Live count of active products assigned to this category.
+
+    ProductCategoryRef:
+      type: object
+      description: Minimal category reference embedded in ProductDetail.
+      required: [id, name, slug]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        slug:
+          type: string
+
+    # Site Config
+
+    Branding:
+      type: object
+      description: Resolved branding profile for a site.
+      properties:
+        primaryColor:
+          type: string
+          description: 'Hex color; defaults to #2563eb.'
+        secondaryColor:
+          type: string
+          description: 'Hex color; defaults to #1e40af.'
+        accentColor:
+          type: string
+          description: 'Hex color; defaults to #f59e0b.'
+        backgroundColor:
+          type: string
+          description: 'Hex color; defaults to #ffffff.'
+        textColor:
+          type: string
+          description: 'Hex color; defaults to #111827.'
+        headingFont:
+          type: string
+          description: Font family name for headings.
+        bodyFont:
+          type: string
+          description: Font family name for body text.
+        logoUrl:
+          type: string
+          description: Primary logo URL.
+        logoSquareUrl:
+          type: string
+          description: Square/1:1 logo URL.
+        logoRectUrl:
+          type: string
+          description: Rectangular/wide logo URL.
+        logoIconUrl:
+          type: string
+          description: Icon-mark URL.
+        logoText:
+          type: string
+          description: Text fallback for the logo.
+        logoAlt:
+          type: string
+          description: Alt text for logo images.
+        navTemplate:
+          type: string
+          description: 'Nav layout style (e.g. "classic").'
+        navPosition:
+          type: string
+          description: '"top" or custom value.'
+        navBackground:
+          type: string
+          description: Hex color for nav background.
+        navTextColor:
+          type: string
+          description: Hex color for nav text.
+        borderRadius:
+          type: string
+          description: CSS border-radius value.
+        linkColor:
+          type: string
+          description: Hex color for links.
+        linkHoverColor:
+          type: string
+          description: Hex color for hovered links.
+        faviconUrl:
+          type: string
+          description: Favicon URL.
+        ogImageUrl:
+          type: string
+          description: Default Open Graph image URL.
+        buttonStyle:
+          type: object
+          description: Global button style overrides.
+          properties:
+            primaryBg:
+              type: string
+            primaryText:
+              type: string
+            primaryHoverBg:
+              type: string
+            secondaryBg:
+              type: string
+            secondaryText:
+              type: string
+            secondaryHoverBg:
+              type: string
+            borderRadius:
+              type: string
+            variant:
+              type: string
+        buttonPresets:
+          type: array
+          description: Named button presets; id is a stable UUID.
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+                format: uuid
+              name:
+                type: string
+              backgroundColor:
+                type: string
+              color:
+                type: string
+              borderRadius:
+                type: string
+              fontWeight:
+                type: string
+              textTransform:
+                type: string
+              paddingX:
+                type: string
+              paddingY:
+                type: string
+        typography:
+          type: object
+          description: >
+            Per-element type scale keyed by element name (e.g. "h1", "body").
+          additionalProperties:
+            type: object
+            properties:
+              font:
+                type: string
+              size:
+                type: string
+              weight:
+                type: string
+              lineHeight:
+                type: string
+              letterSpacing:
+                type: string
+        darkMode:
+          type: object
+          description: Dark-mode color overrides.
+          properties:
+            primaryColor:
+              type: string
+            backgroundColor:
+              type: string
+            textColor:
+              type: string
+            navBackground:
+              type: string
+            navTextColor:
+              type: string
+
+    CssVars:
+      type: object
+      description: >
+        Flat map of CSS custom property names to values, ready to inject as
+        :root variables. Only properties that have a value set are included.
+      additionalProperties:
+        type: string
+      example:
+        --brand-primary: '#2563eb'
+        --brand-secondary: '#1e40af'
+        --brand-bg: '#ffffff'
+
+    SiteConfig:
+      type: object
+      description: >
+        Combined site configuration bundle returned by /config — site metadata,
+        resolved branding, CSS variables, navigation tree, and store status.
+      required: [id, storeEnabled]
+      properties:
+        id:
+          type: integer
+          description: Site ID.
+        name:
+          type: string
+          description: Site display name.
+        domain:
+          type: string
+          nullable: true
+          description: 'Custom domain (e.g. "acme.com").'
+        subdomain:
+          type: string
+          nullable: true
+          description: Platform subdomain.
+        description:
+          type: string
+          nullable: true
+          description: Site description.
+        customLayout:
+          nullable: true
+          description: Custom layout config; null if not set.
+        branding:
+          $ref: '#/components/schemas/Branding'
+        cssVars:
+          $ref: '#/components/schemas/CssVars'
+        navigation:
+          type: array
+          description: Full navigation tree — same shape as /navigation response.
+          items:
+            $ref: '#/components/schemas/NavigationItem'
+        storeEnabled:
+          type: boolean
+          description: true if an active store is configured for this site.
+
+    NavigationItem:
+      type: object
+      description: >
+        A navigation menu item. The children array is always present (empty
+        array when there are no children), enabling safe recursion.
+      required: [id, label, href, sortOrder, openInNewTab, isButton, children]
+      properties:
+        id:
+          type: integer
+          description: Unique nav item ID.
+        label:
+          type: string
+          description: Display text for the link.
+        href:
+          type: string
+          description: Link destination (relative or absolute).
+        parentId:
+          type: integer
+          nullable: true
+          description: ID of the parent item; null for root-level items.
+        sortOrder:
+          type: integer
+          description: Display order within siblings; ascending.
+        openInNewTab:
+          type: boolean
+          description: Whether to open the link in a new tab.
+        isButton:
+          type: boolean
+          description: Render as a CTA button instead of a plain link.
+        description:
+          type: string
+          nullable: true
+          description: Optional subtitle for mega-menu layouts.
+        icon:
+          type: string
+          nullable: true
+          description: Material Icon name for the item.
+        featuredImage:
+          type: string
+          nullable: true
+          description: Image URL for rich mega-menu cards.
+        columnGroup:
+          type: integer
+          nullable: true
+          description: Column grouping hint for multi-column dropdown layouts.
+        children:
+          type: array
+          description: Nested child items (same shape); empty array if none.
+          items:
+            $ref: '#/components/schemas/NavigationItem'

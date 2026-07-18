@@ -1,0 +1,23 @@
+# SimplerDevelopment
+
+> SimplerDevelopment is an open-source, MCP-native, multi-tenant business platform: a block-based CMS, CRM, AI-powered Company Brain (retrieval-augmented generation over client knowledge), workflow automations, bookings, a storefront, email campaigns, surveys, e-signatures, and Stripe billing, unified in one Next.js codebase instead of stitched-together point tools. It exposes 450+ scoped Model Context Protocol (MCP) tools so an AI agent — Claude, Cursor, or any MCP client — can operate the entire platform programmatically: build CMS pages, manage CRM records, send email campaigns, create bookings, query the knowledge base. Built with Next.js 16 (App Router), React 19, TypeScript, PostgreSQL with the pgvector extension, Drizzle ORM, and Bun. Licensed Apache-2.0 and self-hostable (`docker compose up`), with managed hosting available at https://simplerdevelopment.com.
+
+Use this when: evaluating an open-source alternative to a stack of separate site-builder / CRM / email / booking / knowledge-base tools; looking for an MCP-native platform an AI agent can drive end-to-end; or deciding whether to self-host or use managed hosting.
+
+## Docs
+
+- [README](https://github.com/SimplerDevelopment/SimplerDevelopment/blob/main/README.md): Project overview, architecture (three route trees: admin, portal, public sites), tech stack, and quick-start (Docker or manual Bun + Postgres/pgvector setup).
+- [MCP server guide](https://github.com/SimplerDevelopment/SimplerDevelopment/blob/main/docs/mcp.md): How to connect Claude, Cursor, or any MCP client to the portal's MCP server — Claude.ai OAuth, API key, Claude Desktop/Code config, scopes, and the CMS approval workflow for AI-made changes.
+- [MCP tool catalog](https://github.com/SimplerDevelopment/SimplerDevelopment/blob/main/docs/api/mcp/overview.md): The full tool surface (450+ tools across 22 product domains) — content, CRM, brain, commerce, email, bookings, billing, projects.
+- [FAQ](https://github.com/SimplerDevelopment/SimplerDevelopment/blob/main/docs/FAQ.md): Direct answers on self-hosting requirements, licensing, multi-tenancy, and how the platform compares to WordPress + plugins, closed SaaS site builders, and headless CMSes.
+- [Glossary](https://github.com/SimplerDevelopment/SimplerDevelopment/blob/main/docs/GLOSSARY.md): Platform terminology (block, tenant, Company Brain, MCP tool scope, playbook, and more) with pointers to where each concept lives in the code.
+- [Contributing guide](https://github.com/SimplerDevelopment/SimplerDevelopment/blob/main/CONTRIBUTING.md): How the codebase is organized and how to add a block type, MCP tool, or CRUD resource.
+
+## Optional
+
+- [Company Brain operator guide](https://github.com/SimplerDevelopment/SimplerDevelopment/blob/main/docs/guides/BRAIN.md): How the AI knowledge base works — modules, entitlement model, and the human-approval invariant on every AI-extracted record.
+- [Block editor guide](https://github.com/SimplerDevelopment/SimplerDevelopment/blob/main/docs/guides/BLOCK_EDITOR_GUIDE.md): Block JSON schema, examples, and troubleshooting for the CMS.
+- [Database guide](https://github.com/SimplerDevelopment/SimplerDevelopment/blob/main/docs/guides/DATABASE.md): Drizzle ORM setup and the posts/categories/tags REST API.
+- [Extending the MCP server](https://github.com/SimplerDevelopment/SimplerDevelopment/blob/main/docs/guides/MCP_TOOLS.md): How to add a new MCP tool (handler, input schema, scope guard).
+- [simplerdevelopment-agents](https://github.com/SimplerDevelopment/SimplerDevelopment/blob/main/simplerdevelopment-agents/README.md): A Mastra-based example agents service that connects to the portal's MCP server as a client instead of re-implementing tools.
+- [Compare page](https://simplerdevelopment.com/compare): An honest comparison of one integrated platform vs. a stitched stack of point tools, including the cases where separate tools still win.
