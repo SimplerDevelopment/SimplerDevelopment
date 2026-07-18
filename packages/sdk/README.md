@@ -17,7 +17,7 @@ import { SimplerDevelopment } from '@simplerdevelopment/sdk';
 
 const client = new SimplerDevelopment({
   siteId: 42,           // numeric site ID from the portal
-  apiKey: 'sd_live_…', // portal-issued API key (optional for public endpoints)
+  apiKey: 'sd_live_…', // portal-issued API key — required on every endpoint
 });
 
 // List published posts
@@ -37,7 +37,9 @@ const { data: products } = await client.products.list({ category: 'apparel', sor
 
 API keys are prefixed `sd_live_` and are issued in the portal under **Settings → API Keys**.
 
-Pass the key as `apiKey` in the constructor. The SDK sends it as the `X-Api-Key` header on every request. Omitting the key still works for the four public endpoints: `config`, `branding`, `navigation`, and `blocks`.
+Pass the key as `apiKey` in the constructor. The SDK sends it as the `X-Api-Key` header on every request.
+
+**An API key is required on every v1 endpoint, including `config`, `branding`, `navigation`, and `blocks`.** Earlier revisions of this README described those four as public; they are not. A missing key once fell through to the handler, which left the whole headless v1 surface unauthenticated — that gap was closed, and unkeyed requests now return `401 { "message": "API key required" }`, which the SDK raises as `UnauthorizedError`.
 
 ```typescript
 const client = new SimplerDevelopment({ siteId: 42, apiKey: 'sd_live_…' });
@@ -50,7 +52,7 @@ const client = new SimplerDevelopment({ siteId: 42, apiKey: 'sd_live_…' });
 | Option | Type | Required | Default | Description |
 |---|---|---|---|---|
 | `siteId` | `number` | Yes | — | Numeric ID of the site to query |
-| `apiKey` | `string` | No | — | `sd_live_` API key; omit for unauthenticated calls |
+| `apiKey` | `string` | In practice, yes | — | `sd_live_` API key. Typed optional so self-hosted deployments can drop auth, but simplerdevelopment.com rejects unkeyed requests on every endpoint |
 | `baseUrl` | `string` | No | `https://simplerdevelopment.com` | Override for self-hosted or preview deployments |
 | `fetch` | `typeof globalThis.fetch` | No | `globalThis.fetch` | Custom fetch implementation (useful in Node < 18 or test mocking) |
 | `defaults` | `RequestOptions` | No | — | Request options applied to every call; overridable per method call |
