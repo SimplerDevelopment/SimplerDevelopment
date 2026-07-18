@@ -9,6 +9,7 @@ export type {
   Tag,
   NavItem,
   Branding,
+  CssVars,
   BrandingResponse,
   Product,
   ProductDetail,
