@@ -1,10 +1,33 @@
 // ---- Config ----
 
+/**
+ * Per-request knobs, accepted as the trailing argument of every resource method
+ * and settable as a client-wide default via `SimplerDevelopmentConfig.defaults`.
+ * Per-call values win over client defaults.
+ */
+export interface RequestOptions {
+  /**
+   * Next.js ISR window in seconds, or `false` to cache indefinitely.
+   * Maps to `next.revalidate`. Ignored outside Next.js.
+   */
+  revalidate?: number | false;
+  /** Next.js cache tags for on-demand revalidation via `revalidateTag()`. */
+  tags?: string[];
+  /** Standard `fetch` cache mode. Note: Next.js rejects `no-store` combined with `revalidate`. */
+  cache?: 'default' | 'no-store' | 'reload' | 'no-cache' | 'force-cache' | 'only-if-cached';
+  /** Abort signal forwarded to the underlying fetch. */
+  signal?: AbortSignal;
+  /** Extra headers merged into the request. The API key header always wins. */
+  headers?: Record<string, string>;
+}
+
 export interface SimplerDevelopmentConfig {
   siteId: number;
   apiKey?: string;
   baseUrl?: string;
   fetch?: typeof globalThis.fetch;
+  /** Request defaults applied to every call; override per method call. */
+  defaults?: RequestOptions;
 }
 
 // ---- API Response Envelope ----
@@ -137,10 +160,17 @@ export interface Branding {
   typography: Record<string, unknown> | null;
 }
 
+/**
+ * CSS custom properties keyed by variable name, ready to spread onto a `style`
+ * attribute or serialize into a stylesheet:
+ * `{ '--brand-primary': '#00B3A6', '--brand-heading-font': 'Figtree' }`.
+ */
+export type CssVars = Record<string, string>;
+
 export interface BrandingResponse {
   success: boolean;
   data: Branding;
-  cssVars: string;
+  cssVars: CssVars;
 }
 
 // ---- Products ----
@@ -227,7 +257,7 @@ export interface SiteConfig {
   description: string | null;
   customLayout: boolean;
   branding: Branding;
-  cssVars: string;
+  cssVars: CssVars;
   navigation: NavItem[];
   storeEnabled: boolean;
 }

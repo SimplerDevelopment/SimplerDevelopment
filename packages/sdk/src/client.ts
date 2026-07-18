@@ -33,6 +33,7 @@ export class SimplerDevelopment {
       siteId: options.siteId,
       apiKey: options.apiKey,
       customFetch: options.fetch || globalThis.fetch.bind(globalThis),
+      defaults: options.defaults,
     };
 
     this.config = new ConfigResource(opts);

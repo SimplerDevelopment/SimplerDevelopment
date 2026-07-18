@@ -53,6 +53,34 @@ const client = new SimplerDevelopment({ siteId: 42, apiKey: 'sd_live_…' });
 | `apiKey` | `string` | No | — | `sd_live_` API key; omit for unauthenticated calls |
 | `baseUrl` | `string` | No | `https://simplerdevelopment.com` | Override for self-hosted or preview deployments |
 | `fetch` | `typeof globalThis.fetch` | No | `globalThis.fetch` | Custom fetch implementation (useful in Node < 18 or test mocking) |
+| `defaults` | `RequestOptions` | No | — | Request options applied to every call; overridable per method call |
+
+## Caching
+
+Every resource method takes an optional trailing `RequestOptions` argument, and the same shape can be set once as `defaults` on the client. Per-call values win over client defaults.
+
+```typescript
+export interface RequestOptions {
+  revalidate?: number | false;  // Next.js ISR window, in seconds
+  tags?: string[];              // Next.js cache tags, for revalidateTag()
+  cache?: 'default' | 'no-store' | 'reload' | 'no-cache' | 'force-cache' | 'only-if-cached';
+  signal?: AbortSignal;
+  headers?: Record<string, string>;
+}
+```
+
+```typescript
+// Cache everything for 60s by default…
+const client = new SimplerDevelopment({ siteId: 42, defaults: { revalidate: 60 } });
+
+// …but keep navigation for an hour, and tag it for targeted invalidation.
+const nav = await client.navigation.get({ revalidate: 3600, tags: ['nav'] });
+
+// …and never cache a preview fetch.
+const draft = await client.pages.get('pricing', { cache: 'no-store' });
+```
+
+`revalidate` and `tags` map onto Next.js's `fetch` extensions. They are inert in other runtimes: when neither is set the SDK omits the `next` key from the request init entirely, so non-Next fetch implementations see a plain init object. Note that Next.js rejects `cache: 'no-store'` combined with `revalidate` — pick one.
 
 ## Resources and methods
 
@@ -67,10 +95,15 @@ Returns the full site bundle: metadata, branding, CSS vars, navigation tree, and
 ### `client.branding`
 
 ```typescript
-client.branding.get(): Promise<{ branding: Branding; cssVars: string }>
+client.branding.get(): Promise<{ branding: Branding; cssVars: CssVars }>
 ```
 
-Returns the brand color palette, logo URLs, typography settings, and a pre-built CSS custom-property string.
+Returns the brand color palette, logo URLs, typography settings, and `cssVars` — a `Record<string, string>` of CSS custom properties (`{ '--brand-primary': '#00B3A6', … }`). In React it can be handed straight to a `style` prop:
+
+```tsx
+const { branding, cssVars } = await client.branding.get();
+return <html style={cssVars as React.CSSProperties}>…</html>;
+```
 
 ### `client.navigation`
 
@@ -93,9 +126,25 @@ client.posts.get(slug: string): Promise<Post>
 
 ```typescript
 client.pages.list(params?: { limit?: number; offset?: number; search?: string }): Promise<{ data: PostSummary[]; pagination: ... }>
+client.pages.get(slug: string): Promise<Post>
 ```
 
-Equivalent to `posts.list` filtered to `postType = "page"`.
+`list` is equivalent to `posts.list` filtered to `postType = "page"`.
+
+`get` fetches a single published page. The v1 API has no `/pages/{slug}` route — `/posts/{slug}` resolves any post type — so `pages.get` reads through the posts endpoint and applies the same `postType = "page"` filter `list` uses. A slug belonging to a blog post throws `NotFoundError` rather than returning a post from a page route.
+
+```typescript
+// Rendering a CMS-authored marketing page in a Next.js route
+import { NotFoundError } from '@simplerdevelopment/sdk';
+
+try {
+  const page = await client.pages.get(slug);
+  return <BlockRenderer content={page.content} />;
+} catch (err) {
+  if (err instanceof NotFoundError) notFound();
+  throw err;
+}
+```
 
 ### `client.categories`
 

@@ -1,6 +1,7 @@
 export { SimplerDevelopment } from './client';
 export type {
   SimplerDevelopmentConfig,
+  RequestOptions,
   Post,
   PostSummary,
   ListPostsParams,
