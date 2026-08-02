@@ -47,9 +47,9 @@ export default function CardDetailModal({
   const children = s.projectCards.filter(c => c.parentCardId === cardId);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center sm:p-4">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-card border border-border rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+      <div className="relative bg-card border border-border rounded-none sm:rounded-xl shadow-2xl w-full h-full sm:h-auto sm:max-w-4xl sm:max-h-[90vh] overflow-hidden flex flex-col">
         {s.loading ? (
           <div className="flex items-center justify-center h-64">
             <span className="material-icons text-4xl text-muted-foreground animate-spin">refresh</span>
@@ -101,7 +101,7 @@ export default function CardDetailModal({
               </div>
             )}
 
-            <div className="flex flex-1 overflow-hidden min-h-0">
+            <div className="flex flex-col sm:flex-row flex-1 overflow-hidden min-h-0">
               <div className="flex-1 overflow-y-auto p-5 space-y-6 bg-card">
                 <CardLabels
                   labels={s.labels} projectLabels={s.projectLabels} canEdit={canEdit}
