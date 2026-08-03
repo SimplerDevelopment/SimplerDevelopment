@@ -143,7 +143,7 @@ export function ShoppingCartBlockRender({ block, siteId }: ShoppingCartBlockRend
                   <div key={item.id} className="flex items-center gap-4 p-4">
                     <div className="w-16 h-16 rounded overflow-hidden bg-muted/10 flex-shrink-0">
                       {item.product?.image ? (
-                        <img src={item.product.image} alt={item.product?.name || ''} className="w-full h-full object-cover" />
+                        <img decoding="async" loading="lazy" src={item.product.image} alt={item.product?.name || ''} className="w-full h-full object-cover" />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center">
                           <span className="material-icons text-muted-foreground/30">inventory_2</span>

@@ -86,7 +86,7 @@ export function TeamFlipGridBlockRender({ block }: Props) {
                   <div className="pc-flip-card__photo">
                     {m.photo ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={m.photo} alt={m.name} />
+                      <img decoding="async" loading="lazy" src={m.photo} alt={m.name} />
                     ) : (
                       <div className="pc-flip-card__photo-placeholder">
                         <Icon name="person" size={56} />

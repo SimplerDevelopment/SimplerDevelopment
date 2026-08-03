@@ -33,7 +33,7 @@ export function CheckoutOrderSummary({
             <div key={item.id} className="flex items-start gap-3 py-3">
               <div className="w-12 h-12 rounded-md overflow-hidden bg-muted/10 flex-shrink-0">
                 {item.image ? (
-                  <img src={item.image} alt={item.productName} className="w-full h-full object-cover" />
+                  <img decoding="async" loading="lazy" src={item.image} alt={item.productName} className="w-full h-full object-cover" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center">
                     <span className="material-icons text-sm text-muted-foreground/30">inventory_2</span>

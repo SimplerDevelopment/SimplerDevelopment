@@ -92,7 +92,7 @@ export function ProductGridBlockRender({ block, siteId }: ProductGridBlockRender
                 <div className="h-full rounded-lg border bg-card overflow-hidden transition-all hover:shadow-lg">
                   <div className="aspect-square overflow-hidden bg-muted/10">
                     {product.image ? (
-                      <img
+                      <img decoding="async" loading="lazy"
                         src={product.image}
                         alt={product.name}
                         className="w-full h-full object-cover transition-transform group-hover:scale-105"

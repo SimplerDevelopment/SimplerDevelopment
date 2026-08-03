@@ -32,7 +32,7 @@ export function GalleryBlockRender({ block }: GalleryBlockRenderProps) {
                 onClick={() => lightbox && setLightboxIndex(index)}
                 className={`block w-full ${lightbox ? 'cursor-pointer' : 'cursor-default'}`}
               >
-                <img
+                <img decoding="async"
                   src={image.url}
                   alt={image.alt}
                   className="w-full h-auto rounded-lg hover:opacity-90 transition-opacity"
@@ -79,7 +79,7 @@ export function GalleryBlockRender({ block }: GalleryBlockRenderProps) {
               onClick={() => lightbox && setLightboxIndex(index)}
               className={`block w-full ${lightbox ? 'cursor-pointer' : 'cursor-default'}`}
             >
-              <img
+              <img decoding="async"
                 src={image.url}
                 alt={image.alt}
                 className="w-full h-auto aspect-square object-cover rounded-lg hover:opacity-90 transition-opacity"
@@ -162,7 +162,7 @@ function Lightbox({
       )}
 
       <div className="max-w-[90vw] max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
-        <img
+        <img decoding="async"
           src={image.url}
           alt={image.alt}
           className="max-w-full max-h-[85vh] object-contain rounded"

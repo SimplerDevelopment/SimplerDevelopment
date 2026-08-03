@@ -56,7 +56,7 @@ export function SiteFooterBlockRender({ block }: SiteFooterBlockRenderProps) {
               <div className="mb-4">
                 <Link href="/" className="flex items-center gap-3 flex-wrap">
                   {block.logoUrl && (
-                    <img
+                    <img decoding="async" loading="lazy"
                       src={block.logoUrl}
                       alt={block.logoAlt || ''}
                       className={`${logoSizeClass} w-auto flex-shrink-0`}

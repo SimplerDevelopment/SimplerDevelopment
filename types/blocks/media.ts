@@ -5,8 +5,21 @@ export interface ImageBlock extends BaseBlock {
   url: string;
   alt: string;
   caption?: string;
+  /** Layout size preset — NOT pixels. See `naturalWidth` for intrinsic size. */
   width?: 'full' | 'large' | 'medium' | 'small';
   alignment?: 'left' | 'center' | 'right';
+  /**
+   * Intrinsic pixel dimensions of the source image, copied from the `media`
+   * row at pick time (upload already extracts them via sharp). The renderer
+   * emits them so the browser can reserve space before the image loads —
+   * without them, `w-full h-auto` collapses to zero height and every image
+   * block costs a layout shift (CLS).
+   *
+   * Optional and additive: blocks authored before this field existed, and
+   * images pasted as bare external URLs, simply render as they always did.
+   */
+  naturalWidth?: number;
+  naturalHeight?: number;
 }
 
 export interface VideoBlock extends BaseBlock {

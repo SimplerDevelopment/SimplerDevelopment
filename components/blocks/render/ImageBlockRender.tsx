@@ -39,6 +39,14 @@ export function ImageBlockRender({ block }: ImageBlockRenderProps) {
 
   const style = typeof block.style === 'object' ? block.style : {};
 
+  // Both dimensions must be present and positive: a zero or partial pair would
+  // produce `aspect-ratio: 800 / 0` and collapse the figure.
+  const hasIntrinsicSize =
+    typeof block.naturalWidth === 'number' &&
+    typeof block.naturalHeight === 'number' &&
+    block.naturalWidth > 0 &&
+    block.naturalHeight > 0;
+
   // No image selected yet: render a placeholder box instead of collapsing to
   // nothing (`return null`), which left the block zero-height and unselectable
   // in the editor. Inline colors keep it theme-independent on any client site.
@@ -73,6 +81,16 @@ export function ImageBlockRender({ block }: ImageBlockRenderProps) {
         <img
           src={block.url}
           alt={block.alt}
+          // Intrinsic size lets the browser reserve the box before the bytes
+          // arrive. `w-full h-auto` still drives layout; width/height only
+          // supply the aspect ratio. Omitted entirely when unknown, which
+          // preserves the pre-existing (shifting) behaviour rather than
+          // guessing a ratio and cropping someone's image.
+          width={hasIntrinsicSize ? block.naturalWidth : undefined}
+          height={hasIntrinsicSize ? block.naturalHeight : undefined}
+          style={hasIntrinsicSize ? { aspectRatio: `${block.naturalWidth} / ${block.naturalHeight}` } : undefined}
+          decoding="async"
+          loading="lazy"
           className={`w-full h-auto ${style.borderRadius ? '' : 'rounded-lg'}`}
         />
         {block.caption && (

@@ -80,7 +80,7 @@ export function MarqueeBlockRender({ block }: MarqueeBlockRenderProps) {
   const renderItemContent = (item: MarqueeItem) => {
     if (item.type === 'image' && item.imageUrl) {
       return (
-        <img
+        <img decoding="async" loading="lazy"
           src={item.imageUrl}
           alt={item.imageAlt || ''}
           style={{

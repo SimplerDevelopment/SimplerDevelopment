@@ -13,7 +13,17 @@ export function ImageBlockEdit({ block, onChange }: ImageBlockEditProps) {
     <div className="space-y-3">
       <MediaPicker
         value={block.url}
-        onChange={(url) => onChange({ ...block, url })}
+        onChange={(url, media) =>
+          onChange({
+            ...block,
+            url,
+            // Carry intrinsic size through so the renderer can reserve space.
+            // Undefined for external URLs and pre-extraction media rows — the
+            // renderer falls back to its previous behaviour in that case.
+            naturalWidth: media?.width ?? undefined,
+            naturalHeight: media?.height ?? undefined,
+          })
+        }
         label="Image"
         required
       />

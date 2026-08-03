@@ -118,7 +118,7 @@ export function MetricCardsBlockRender({ block }: MetricCardsBlockRenderProps) {
               {(metric.institution || metric.institutionLogo) && (
                 <div className="mt-6 pt-4 border-t border-gray-100 flex items-center gap-3" style={institutionStyle}>
                   {metric.institutionLogo && (
-                    <img
+                    <img decoding="async" loading="lazy"
                       src={metric.institutionLogo}
                       alt={metric.institution || ''}
                       className="h-8 w-auto object-contain"

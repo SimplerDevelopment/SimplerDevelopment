@@ -82,7 +82,7 @@ export function ProductCategoriesBlockRender({ block, siteId }: ProductCategorie
                   className="flex items-center gap-4 p-4 border border-border rounded-lg hover:shadow-md transition-all group"
                 >
                   {block.showImage !== false && cat.image && (
-                    <img src={cat.image} alt={cat.name} className="w-16 h-16 object-cover rounded" />
+                    <img decoding="async" loading="lazy" src={cat.image} alt={cat.name} className="w-16 h-16 object-cover rounded" />
                   )}
                   <div className="flex-1">
                     <h3 className="font-semibold group-hover:text-primary transition-colors">{cat.name}</h3>
@@ -136,7 +136,7 @@ export function ProductCategoriesBlockRender({ block, siteId }: ProductCategorie
                   {block.showImage !== false && (
                     <div className="aspect-[4/3] overflow-hidden bg-muted/10">
                       {cat.image ? (
-                        <img
+                        <img decoding="async" loading="lazy"
                           src={cat.image}
                           alt={cat.name}
                           className="w-full h-full object-cover transition-transform group-hover:scale-105"

@@ -337,7 +337,7 @@ export function OrderDetailClient({ siteId, domain, orderNumber }: { siteId: num
                         <div key={item.id} className="flex items-center gap-4 px-5 py-4">
                           {thumb ? (
                             // eslint-disable-next-line @next/next/no-img-element
-                            <img src={thumb} alt={item.productName} className="w-14 h-14 object-cover rounded-lg border border-gray-200" />
+                            <img decoding="async" loading="lazy" src={thumb} alt={item.productName} className="w-14 h-14 object-cover rounded-lg border border-gray-200" />
                           ) : (
                             <div className="w-14 h-14 bg-gray-100 rounded-lg flex items-center justify-center">
                               <span className="material-icons text-gray-300" style={{ fontSize: '24px' }}>image</span>

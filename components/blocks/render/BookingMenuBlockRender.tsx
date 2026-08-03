@@ -113,7 +113,7 @@ export function BookingMenuBlockRender({ block, siteId: siteIdProp }: { block: B
           >
             {page.thumbnail ? (
               <div className="relative overflow-hidden h-36 sm:h-40">
-                <img
+                <img decoding="async" loading="lazy"
                   src={page.thumbnail}
                   alt={page.title}
                   className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
