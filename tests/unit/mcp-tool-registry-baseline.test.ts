@@ -381,6 +381,7 @@ const EXPECTED_TOOLS: readonly string[] = [
   'kanban_create_column',
   'kanban_delete_card',
   'kanban_delete_column',
+  'kanban_get_card',
   'kanban_labels_create',
   'kanban_labels_delete',
   'kanban_labels_list',

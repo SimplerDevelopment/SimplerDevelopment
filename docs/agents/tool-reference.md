@@ -7,7 +7,7 @@
 
 ## Overview
 
-The MCP server exposes **473 tools** across every portal domain via a single HTTP endpoint. The tool set is registry-locked — adding, removing, or renaming a tool without updating the baseline test fails the pre-push gate.
+The MCP server exposes **474 tools** across every portal domain via a single HTTP endpoint. The tool set is registry-locked — adding, removing, or renaming a tool without updating the baseline test fails the pre-push gate.
 
 | Fact | Value |
 |---|---|
@@ -41,7 +41,7 @@ Every tool registration calls `hasScope(ctx.scopes, ...)` before executing. A mi
 ### Scope syntax
 
 - **Named scope:** `<domain>:<access>` — e.g. `brain:read`, `kanban:write`, `email:send`
-- **Wildcard:** `*` — grants access to all 473 tools
+- **Wildcard:** `*` — grants access to all 474 tools
 - **Unscoped tools:** `whoami`, `list_workflows`, `get_workflow` — callable without any scope
 
 ### Named scopes
@@ -100,7 +100,7 @@ When an agent tool returns `{ "approvalUrl": "https://..." }`, the operation is 
 
 ## Tool families
 
-473 tools grouped by namespace. Tools within a family share the same scope prefix (e.g. `brain:read` / `brain:write`).
+474 tools grouped by namespace. Tools within a family share the same scope prefix (e.g. `brain:read` / `brain:write`).
 
 ### brain_* — 156 tools
 
@@ -130,13 +130,13 @@ Company Brain: the knowledge management and CRM-read layer. Largest family in th
 | RAG | search (semantic + keyword over all Brain content) |
 | Misc | dashboard-summary, who-knows |
 
-### kanban_* — 39 tools
+### kanban_* — 40 tools
 
 | Tool group | What it covers |
 |---|---|
-| Board | list-board |
+| Board | list-board (slim — omits card descriptions) |
 | Columns | create, update, delete |
-| Cards | create, update, delete, move |
+| Cards | get-card (full row, incl. description), create, update, delete, move |
 | Card details | assign/unassign, attach-label/detach-label, attach-file-from-url |
 | Card metadata | add/remove/list blockers, list dependencies, list assignees |
 | Comments | add-comment, list-comments |
