@@ -65,7 +65,7 @@ HTML = r"""<meta charset=utf8><meta name=viewport content="width=device-width,in
  #stage{text-align:center;user-select:none}
  .lockup{ display:flex;align-items:center;gap:18px;font-size:min(9vw,72px);
    will-change:transform,filter }
- #iconwrap{ position:relative;width:1.52em;height:1.52em;flex:none;
+ #iconwrap{ position:relative;width:2.4em;height:2.4em;flex:none;
    transform-origin:50% 50%;will-change:transform,opacity }
  #iconwrap img{ position:absolute;inset:0;width:100%;height:100% }
  #stars{ transform-origin:50% 50%;will-change:transform,opacity }
