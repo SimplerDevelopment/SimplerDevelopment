@@ -1,6 +1,6 @@
 {
   "manifestVersion": 1,
-  "toolCount": 468,
+  "toolCount": 473,
   "domains": [
     {
       "name": "agent",
@@ -84,7 +84,7 @@
     },
     {
       "name": "kanban",
-      "tools": 39
+      "tools": 41
     },
     {
       "name": "linkedin",
@@ -124,7 +124,7 @@
     },
     {
       "name": "project",
-      "tools": 3
+      "tools": 6
     },
     {
       "name": "projects",
@@ -9123,7 +9123,7 @@
       "name": "kanban_card_artifact_link",
       "cmd": "kanban card-artifact-link",
       "domain": "kanban",
-      "desc": "Attach a website, email campaign, pitch deck, proposal, booking, survey, project, or path chart to a kanban card. The artifact must belong to this client (path charts via their parent project).",
+      "desc": "Attach a website, email campaign, pitch deck, proposal, booking, survey, project, path chart, or agent flow run to a kanban card. The artifact must belong to this client (path charts via their parent project). Link an agent_flow_run to record which workflow run produced this card's work.",
       "destructive": false,
       "scope": "projects:write",
       "args": [
@@ -9145,7 +9145,8 @@
             "survey",
             "project",
             "post",
-            "path_chart"
+            "path_chart",
+            "agent_flow_run"
           ]
         },
         {
@@ -9209,7 +9210,7 @@
       "name": "kanban_card_artifacts_list",
       "cmd": "kanban card-artifacts-list",
       "domain": "kanban",
-      "desc": "List every artifact (website, email campaign, pitch deck, proposal, booking, survey, project, path chart) linked to a kanban card.",
+      "desc": "List every artifact (website, email campaign, pitch deck, proposal, booking, survey, project, path chart, agent flow run) linked to a kanban card.",
       "destructive": false,
       "scope": "projects:read",
       "args": [
@@ -9297,6 +9298,41 @@
         {
           "name": "labelId",
           "type": "number",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "kanban_card_custom_fields_get",
+      "cmd": "kanban card-custom-fields-get",
+      "domain": "kanban",
+      "desc": "Return every custom field defined on the card's project, each with this card's value (null when unset).",
+      "destructive": false,
+      "scope": "projects:read",
+      "args": [
+        {
+          "name": "cardId",
+          "type": "number",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "kanban_card_custom_fields_set",
+      "cmd": "kanban card-custom-fields-set",
+      "domain": "kanban",
+      "desc": "Upsert one or more custom field values on a card. Every fieldId must belong to the card's own project.",
+      "destructive": false,
+      "scope": "projects:write",
+      "args": [
+        {
+          "name": "cardId",
+          "type": "number",
+          "required": true
+        },
+        {
+          "name": "values",
+          "type": "json",
           "required": true
         }
       ]
@@ -11807,6 +11843,85 @@
           "name": "emailPrefix",
           "type": "string",
           "required": false
+        }
+      ]
+    },
+    {
+      "name": "project_custom_fields_create",
+      "cmd": "project custom-fields-create",
+      "domain": "project",
+      "desc": "Add a custom field definition to a project. The key is derived from the name and de-duplicated automatically. `options` applies only to select / multi_select.",
+      "destructive": false,
+      "scope": "projects:write",
+      "args": [
+        {
+          "name": "projectId",
+          "type": "number",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "kind",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "text",
+            "number",
+            "date",
+            "select",
+            "multi_select",
+            "url",
+            "checkbox"
+          ]
+        },
+        {
+          "name": "required",
+          "type": "boolean",
+          "required": false
+        },
+        {
+          "name": "options",
+          "type": "json",
+          "required": false
+        }
+      ]
+    },
+    {
+      "name": "project_custom_fields_delete",
+      "cmd": "project custom-fields-delete",
+      "domain": "project",
+      "desc": "Remove a custom field definition. Every card value for that field is deleted with it (FK cascade) — this is not reversible.",
+      "destructive": true,
+      "scope": "projects:write",
+      "args": [
+        {
+          "name": "projectId",
+          "type": "number",
+          "required": true
+        },
+        {
+          "name": "fieldId",
+          "type": "number",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "project_custom_fields_list",
+      "cmd": "project custom-fields-list",
+      "domain": "project",
+      "desc": "List the custom fields defined on a project (key, name, kind, required, options). These are definitions, not per-card values — use kanban_card_custom_fields_get for those.",
+      "destructive": false,
+      "scope": "projects:read",
+      "args": [
+        {
+          "name": "projectId",
+          "type": "number",
+          "required": true
         }
       ]
     },
