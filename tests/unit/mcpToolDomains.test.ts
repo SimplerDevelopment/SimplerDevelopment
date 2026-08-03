@@ -50,6 +50,7 @@ vi.mock('@/lib/email/campaign-send', () => ({
 import {
   registerProjectsTools,
   registerKanbanTools,
+  registerKanbanArtifactsTools,
   registerSprintsTools,
   registerTicketsTools,
   registerCrmTools,
@@ -121,10 +122,19 @@ const DOMAIN_CASES: DomainCase[] = [
     expectedNames: ['projects_list', 'projects_create', 'projects_update', 'my_tasks_list'],
   },
   {
+    // Card artifacts / templates / propose-sprint / recurrences moved to the
+    // kanban-artifacts registrar when kanban.ts was split under the god-file
+    // ratchet, so this count dropped from 30.
     name: 'kanban',
     fn: registerKanbanTools,
-    minTools: 30,
-    expectedNames: ['kanban_create_card', 'kanban_move_card', 'kanban_list_board'],
+    minTools: 29,
+    expectedNames: ['kanban_create_card', 'kanban_move_card', 'kanban_list_board', 'kanban_get_card'],
+  },
+  {
+    name: 'kanban-artifacts',
+    fn: registerKanbanArtifactsTools,
+    minTools: 11,
+    expectedNames: ['kanban_card_artifacts_list', 'kanban_card_templates_list', 'kanban_recurrences_list', 'kanban_propose_sprint'],
   },
   {
     name: 'sprints',

@@ -387,5 +387,5 @@ Prompts are user-triggered guided workflows surfaced as slash-commands in capabl
 
 - **Adding a tool:** use the `simplerdev-mcp-tool` skill. Do **not** hand-roll — the lockstep (handler + Zod schema + `hasScope` guard + telemetry registration) is easy to get wrong.
 - **Token budget:** default to slim projections (`lib/mcp/projections.ts`). Echo `{ id, slug, status }` on writes, not the full row. Add an `include` opt-in flag for heavy fields (body/HTML/block JSON). The `simplerdev-mcp-token-budget` skill audits heavy responses.
-- **God files to avoid reading whole:** `lib/brain/mcp-sdk-adapter.ts` (5630 lines), `lib/mcp/tools/cms.ts` (2216 lines), `lib/mcp/tools/crm.ts` (1670 lines), `lib/mcp/tools/kanban.ts` (1484 lines), `lib/mcp/approvals.ts` (1193 lines). Use an Explore subagent for cross-cutting questions over these files.
+- **God files to avoid reading whole:** `lib/brain/mcp-sdk-adapter.ts` (5630 lines), `lib/mcp/tools/cms.ts` (2216 lines), `lib/mcp/tools/crm.ts` (1670 lines), `lib/mcp/approvals.ts` (1193 lines). Use an Explore subagent for cross-cutting questions over these files. (`lib/mcp/tools/kanban.ts` was 1484 — now 988, split into `tools/kanban-artifacts.ts`.)
 - **Telemetry:** per-call latency and token cost are recorded in `lib/mcp/telemetry.ts`. Do not bypass.
