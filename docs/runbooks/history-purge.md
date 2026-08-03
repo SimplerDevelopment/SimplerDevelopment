@@ -20,9 +20,9 @@ All already deleted from every tree — history-only bloat:
 | `.vitest-reports/blob-*` | 175M |
 | `backup_file.dump` | 17M |
 | `docs/architecture-of-unification.mp4` | 29M |
-| `public/sites/<client>/<video>.mp4` | 16M |
+| `public/sites/crosscap/Crossover_Hero_Short.mp4` | 16M |
 | `.agents/skills/huashu-design/assets/bgm-*.mp3` | 27M |
-| `.playwright-mcp/*.log`, `<client>-screenshots-*.png`, `fallow-baselines/*`, `us-4yr-colleges-*.csv` | ~17M |
+| `.playwright-mcp/*.log`, `peters-outdoor-*.png`, `fallow-baselines/*`, `us-4yr-colleges-*.csv` | ~17M |
 
 ## Steps
 

@@ -164,6 +164,9 @@ vi.mock('@/lib/db/schema', () => {
     crmProposals: table(['id', 'title', 'clientId']),
     bookingPages: table(['id', 'title', 'clientId']),
     surveys: table(['id', 'title', 'clientId']),
+    pathCharts: table(['id', 'projectId', 'title']),
+    agentFlows: table(['id', 'name']),
+    agentFlowRuns: table(['id', 'flowId', 'projectId', 'clientId']),
     // remaining tables imported by kanban.ts but not exercised — opaque stubs
     supportTickets: {}, ticketMessages: {}, crmContacts: {}, crmCompanies: {},
     crmDeals: {}, crmPipelines: {}, crmPipelineStages: {}, posts: {}, media: {},
@@ -1533,6 +1536,37 @@ describe('kanban_card_artifacts', () => {
     const v = dbState.lastInsertValues as { displayTitle: string; pinned: boolean };
     expect(v.displayTitle).toBe('Untitled');
     expect(v.pinned).toBe(true);
+  });
+
+  it('link: handles path_chart artifact type via project join', async () => {
+    dbState.selectQueue = [
+      [{ projectId: 1 }],           // card
+      [{ id: 1 }],                  // project (authorizeCardForClient)
+      [{ title: 'Checkout Flow' }], // path_chart + project join
+    ];
+    dbState.insertReturningDefault = [{ id: 200, artifactType: 'path_chart' }];
+    const tools = registerAll();
+    const res = await tools.get('kanban_card_artifact_link')!.handler({
+      cardId: 1, artifactType: 'path_chart', artifactId: 7,
+    });
+    const out = parseJson(res) as { id: number; artifactType: string };
+    expect(out.id).toBe(200);
+    expect(out.artifactType).toBe('path_chart');
+    const v = dbState.lastInsertValues as { displayTitle: string };
+    expect(v.displayTitle).toBe('Checkout Flow');
+  });
+
+  it('link: rejects path_chart when the chart is not owned by this client', async () => {
+    dbState.selectQueue = [
+      [{ projectId: 1 }],   // card
+      [{ id: 1 }],          // project
+      [],                   // path_chart join returns nothing
+    ];
+    const tools = registerAll();
+    const res = await tools.get('kanban_card_artifact_link')!.handler({
+      cardId: 1, artifactType: 'path_chart', artifactId: 7,
+    });
+    expect((parseJson(res) as { error: string }).error).toMatch(/not owned/);
   });
 
   it('toggle_pin: rejects unknown card', async () => {

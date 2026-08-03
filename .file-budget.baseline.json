@@ -158,6 +158,8 @@
   "lib/post-types/mcp-sdk-adapter.ts": 550,
   "lib/storefront/mcp-sdk-adapter.ts": 948,
   "scripts/audits/mobile-audit.ts": 551,
+  "scripts/migrations/crosscap/agentic-os-slides.ts": 1367,
+  "scripts/migrations/crosscap/create-stack-connected-deck.ts": 1424,
   "scripts/scan-tech-stack.ts": 783,
   "scripts/seed-admin-e2e.ts": 780,
   "scripts/seed-brain-demo.ts": 520,

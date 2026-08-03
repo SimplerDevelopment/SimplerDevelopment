@@ -2,7 +2,7 @@
  * Admin user-management + impersonation privilege-escalation gap coverage.
  *
  * Regression for two adversarial-audit findings
- * (internal security audit):
+ * (docs/audits/portal-e2e-adversarial-audit-2026-06-25.md):
  *
  *  - admin-users-editor-privilege-escalation
  *      POST /api/users and PUT /api/users/:id accepted `admin | editor`

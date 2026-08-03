@@ -12,8 +12,7 @@ export const runtime = 'nodejs';
  * GET /api/admin/agent-captures/[id] — decrypt one high-risk-tool argument
  * capture for post-incident forensic reconstruction.
  *
- * Per the internal ADR "high-risk-agent-arg-capture" (AAF-001; not part of
- * this public release):
+ * Per `vault/04 - Decisions/ADR high-risk-agent-arg-capture.md` (AAF-001):
  *   - Restricted to the strictest existing staff tier (`requireAdmin` —
  *     admin, not employee; this codebase has no separate "super-admin" role,
  *     `admin` IS the elevated tier, mirrored from

@@ -1,6 +1,6 @@
 /**
- * Cron endpoint: /api/cron/purge-agent-captures (AAF-001; see the internal
- * ADR log, not part of this public release).
+ * Cron endpoint: /api/cron/purge-agent-captures (AAF-001,
+ * vault/04 - Decisions/ADR high-risk-agent-arg-capture.md).
  *
  * Auth surface mirrors expire-mcp-pendings (tests/integration/api/cron.test.ts):
  *   - 401 without any credentials

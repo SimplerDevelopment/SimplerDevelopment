@@ -1,8 +1,8 @@
 # Launch post drafts
 
-Paste-ready copy for launch day. Derived from the maintainers' internal OSS
-Launch Playbook. Honesty + agency disclosure are deliberate — they are the
-astroturf antidote, not optional.
+Paste-ready copy for launch day. Derived from the OSS Launch Playbook
+(`vault/05 - Feature Specs/OSS Launch Playbook.md`). Honesty + agency
+disclosure are deliberate — they are the astroturf antidote, not optional.
 
 > ⚠️ Before posting: the hero GIF (`docs/launch/demo.gif`) and a live demo /
 > deploy link must exist. HN converts at ~1.4 stars/upvote — the repo, not the

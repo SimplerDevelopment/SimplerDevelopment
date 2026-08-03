@@ -122,6 +122,7 @@
 
 - `/docs/agents/architecture-for-agents` — tenancy model section
 - `/docs/guides/DATABASE` — Drizzle setup guide
+- Feature page: Auth & Security (`vault/05 - Feature Specs/FEATURE-INVENTORY-domains.md` §17)
 
 ---
 

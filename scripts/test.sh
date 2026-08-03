@@ -224,19 +224,18 @@ fi
 # ── Runbook pointer on failure ──────────────────────────────────────────
 # Harness-engineering (AI DevCon 2026): a failing gate should point at its
 # remediation runbook so an agent self-heals instead of blindly re-running.
-# Keyed to the tag/layer that failed; the runbooks themselves live in the
-# maintainers' internal knowledge base (not part of this public release).
+# Keyed to the tag/layer that failed; all targets live in vault/06 - Validation.
 if [[ "$FAIL" != "0" ]]; then
   echo ""
   echo "────────────────────────────────────────────────────────────────────"
-  echo "✗ Gate failed — check the relevant internal runbook before re-running:"
+  echo "✗ Gate failed — read the runbook before re-running:"
   case "${TAG#@}" in
-    tenancy)  echo "  → internal runbook: Tenancy Regression (tenant-leak triage)";;
-    critical) echo "  → internal runbook: QA Flows (golden-path repair)";;
+    tenancy)  echo "  → vault/06 - Validation/Tenancy Regression.md  (tenant-leak triage)";;
+    critical) echo "  → vault/06 - Validation/QA Flows.md            (golden-path repair)";;
     *)
       case "$LAYER" in
-        e2e) echo "  → internal runbook: E2E Patterns (flaky/selector triage)";;
-        *)   echo "  → internal runbook: Gate Picking (which gate, why, how to read it)";;
+        e2e) echo "  → vault/06 - Validation/E2E Patterns.md         (flaky/selector triage)";;
+        *)   echo "  → vault/06 - Validation/Gate Picking.md         (which gate, why, how to read it)";;
       esac
       ;;
   esac

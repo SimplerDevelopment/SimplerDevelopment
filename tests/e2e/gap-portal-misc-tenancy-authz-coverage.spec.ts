@@ -1,6 +1,6 @@
 /**
  * portal-misc cluster regression coverage — closes adversarial-audit findings
- * (internal security audit):
+ * (docs/audits/portal-e2e-adversarial-audit-2026-06-25.md):
  *
  *   1. experiment-list-user-scoped-not-client-scoped
  *      GET /api/portal/experiments filtered by `createdBy = userId`, so a

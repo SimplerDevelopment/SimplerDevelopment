@@ -166,9 +166,8 @@ classify→plan→loop→ground loop against the Anthropic SDK. The adoption pat
    body with `mastra.getWorkflow('brainWorkflow')`.
 
 Either way the **tools stay in one place** — the existing `lib/mcp/` server —
-and the agent is a thin, observable, swappable client. The decision record for
-this lives in the maintainers' internal ADR log (not part of this public
-release).
+and the agent is a thin, observable, swappable client. See the ADR in
+`vault/` for the decision record.
 
 ## Config knobs
 

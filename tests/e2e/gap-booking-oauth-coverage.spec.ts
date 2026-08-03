@@ -1,7 +1,7 @@
 /**
  * Gap regression — booking OAuth CSRF + individual-booking entitlement gate
  *
- * Closes three findings from an internal security audit:
+ * Closes three findings from docs/audits/portal-e2e-adversarial-audit-2026-06-25.md:
  *   - booking-google-oauth-no-csrf-state
  *   - booking-zoom-oauth-no-csrf-state
  *   - booking-individual-update-no-service-gate

@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Capture Target — sd-create-short test fixture</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      background: #f5f7fa;
+      color: #1a1a2e;
+    }
+
+    /* ---- header ---- */
+    header {
+      background: #16213e;
+      color: #e0e0e0;
+      padding: 18px 32px;
+      font-size: 1.1rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+
+    /* ---- main content ---- */
+    main {
+      max-width: 760px;
+      margin: 48px auto;
+      padding: 0 24px;
+    }
+
+    h1 {
+      font-size: 1.75rem;
+      margin-bottom: 8px;
+    }
+
+    p.sub {
+      color: #555;
+      margin-bottom: 32px;
+    }
+
+    /* ---- input row ---- */
+    .input-row {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 28px;
+    }
+
+    #demo-input {
+      flex: 1;
+      padding: 12px 16px;
+      border: 2px solid #c0c8d8;
+      border-radius: 8px;
+      font-size: 1rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    #demo-input:focus {
+      border-color: #4f6ef7;
+    }
+
+    #toggle-btn {
+      padding: 12px 24px;
+      background: #4f6ef7;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+    }
+
+    #toggle-btn:hover  { background: #3a55d4; }
+    #toggle-btn:active { transform: scale(0.97); }
+
+    /* ---- color panel ---- */
+    #color-panel {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      height: 180px;
+      border-radius: 12px;
+      margin-bottom: 32px;
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: 0.04em;
+      transition: background 0.4s;
+    }
+
+    #color-panel.visible {
+      display: flex;
+    }
+
+    /* ---- echo display ---- */
+    #echo {
+      min-height: 44px;
+      padding: 10px 16px;
+      background: #fff;
+      border: 1px solid #dde3ef;
+      border-radius: 8px;
+      font-size: 1rem;
+      color: #333;
+      margin-bottom: 36px;
+    }
+
+    /* ---- long content to enable scrolling ---- */
+    .scroll-content {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin-bottom: 48px;
+    }
+
+    .card {
+      background: #fff;
+      border: 1px solid #e0e6f0;
+      border-radius: 12px;
+      padding: 24px;
+    }
+
+    .card h2 {
+      font-size: 1rem;
+      margin: 0 0 8px;
+      color: #16213e;
+    }
+
+    .card p {
+      margin: 0;
+      font-size: 0.875rem;
+      color: #666;
+      line-height: 1.5;
+    }
+
+    footer {
+      text-align: center;
+      padding: 32px 24px;
+      font-size: 0.8rem;
+      color: #999;
+    }
+  </style>
+</head>
+<body>
+
+  <header>SimplerDevelopment — Demo Capture Fixture</header>
+
+  <main>
+    <h1>Screen Capture Test Page</h1>
+    <p class="sub">Type into the field, click the button, and scroll — all interactions show clearly on video.</p>
+
+    <div class="input-row">
+      <input id="demo-input" type="text" placeholder="Type a message here…" autocomplete="off" />
+      <button id="toggle-btn">Toggle Panel</button>
+    </div>
+
+    <div id="echo">Waiting for input…</div>
+
+    <div id="color-panel">Panel Active</div>
+
+    <div class="scroll-content">
+      <div class="card">
+        <h2>Feature A</h2>
+        <p>Drag-and-drop block editor with live preview. Changes are reflected instantly in the visual editor canvas.</p>
+      </div>
+      <div class="card">
+        <h2>Feature B</h2>
+        <p>Per-tenant theming with brand tokens. Each client site inherits a design system from a central theme config.</p>
+      </div>
+      <div class="card">
+        <h2>Feature C</h2>
+        <p>AI-assisted content drafting. Generate copy, headlines, and CTAs directly from the block editor toolbar.</p>
+      </div>
+      <div class="card">
+        <h2>Feature D</h2>
+        <p>One-click publish with CDN invalidation. Ship changes to live in under three seconds, with automatic rollback.</p>
+      </div>
+      <div class="card">
+        <h2>Feature E</h2>
+        <p>Embedded form builder. Drag survey blocks, connect to CRM, and view submissions in the client portal.</p>
+      </div>
+      <div class="card">
+        <h2>Feature F</h2>
+        <p>Workflow automations. Trigger email sequences, Slack alerts, or webhook calls from any CRM event.</p>
+      </div>
+    </div>
+  </main>
+
+  <footer>sd-create-short · capture-target.html · test fixture only</footer>
+
+  <script>
+    const input  = document.getElementById('demo-input');
+    const btn    = document.getElementById('toggle-btn');
+    const panel  = document.getElementById('color-panel');
+    const echo   = document.getElementById('echo');
+
+    const colors = ['#e84393', '#4f6ef7', '#22c55e', '#f59e0b', '#8b5cf6'];
+    let colorIdx = 0;
+    let panelVisible = false;
+
+    input.addEventListener('input', () => {
+      const val = input.value.trim();
+      echo.textContent = val ? `You typed: "${val}"` : 'Waiting for input…';
+    });
+
+    btn.addEventListener('click', () => {
+      panelVisible = !panelVisible;
+      if (panelVisible) {
+        panel.style.background = colors[colorIdx % colors.length];
+        panel.textContent = `Panel Active — ${colors[colorIdx % colors.length].toUpperCase()}`;
+        colorIdx++;
+        panel.classList.add('visible');
+        btn.textContent = 'Hide Panel';
+      } else {
+        panel.classList.remove('visible');
+        btn.textContent = 'Toggle Panel';
+      }
+    });
+  </script>
+
+</body>
+</html>

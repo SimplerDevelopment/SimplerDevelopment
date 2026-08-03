@@ -37,6 +37,7 @@ const ARTIFACT_LABELS: Record<string, string> = {
   survey: 'Survey',
   post: 'Post',
   brain_note: 'Brain Note',
+  path_chart: 'Path chart',
 };
 
 const ARTIFACT_ICONS: Record<string, string> = {
@@ -48,6 +49,7 @@ const ARTIFACT_ICONS: Record<string, string> = {
   survey: 'poll',
   post: 'article',
   brain_note: 'psychology',
+  path_chart: 'device_hub',
 };
 
 function artifactUrl(type: string, id: number): string | null {

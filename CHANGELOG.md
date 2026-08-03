@@ -13,7 +13,7 @@ This section tracks work in progress toward the first public open-source release
 - `llms.txt` + `docs/agents/` — agent-readiness documentation set (overview,
   architecture, repository/project maps, API index, MCP tool reference, workflow
   reference, glossary) so AI agents and LLM search can understand the project fast.
-- Feature inventory and OSS-readiness audit (maintainers' internal planning artifacts, not part of this repository).
+- Feature inventory and OSS-readiness audit under `vault/05 - Feature Specs/`.
 - `docker/initdb` auto-provisioning of required Postgres extensions (`vector`,
   `pg_trgm`, `pgcrypto`) on first Docker boot, so `docker compose up` →
   `bun run db:migrate` works without manual extension setup.

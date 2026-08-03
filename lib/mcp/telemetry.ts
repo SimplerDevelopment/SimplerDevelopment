@@ -203,8 +203,8 @@ interface AuditRowParams {
  * Additionally, for HIGH-RISK tools only (`isHighRiskTool`), fires a second,
  * independent fire-and-forget insert into `agent_action_captures` — an
  * encrypted, reconstructable copy of the (secrets-redacted, un-truncated)
- * arguments. See the internal ADR "high-risk-agent-arg-capture" (AAF-001;
- * not part of this public release). This is additive: it never replaces the hash log
+ * arguments. See `vault/04 - Decisions/ADR high-risk-agent-arg-capture.md`
+ * (AAF-001). This is additive: it never replaces the hash log
  * (`lib/audit/agent-action-log.ts`) or this redacted summary log, and a
  * capture failure must never affect the tool call either — kept as its own
  * independent `.catch()` rather than nested inside the audit-row promise so

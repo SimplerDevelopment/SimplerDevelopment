@@ -7,7 +7,7 @@
 
 ## Overview
 
-The MCP server exposes **451 tools** across every portal domain via a single HTTP endpoint. The tool set is registry-locked — adding, removing, or renaming a tool without updating the baseline test fails the pre-push gate.
+The MCP server exposes **468 tools** across every portal domain via a single HTTP endpoint. The tool set is registry-locked — adding, removing, or renaming a tool without updating the baseline test fails the pre-push gate.
 
 | Fact | Value |
 |---|---|
@@ -41,7 +41,7 @@ Every tool registration calls `hasScope(ctx.scopes, ...)` before executing. A mi
 ### Scope syntax
 
 - **Named scope:** `<domain>:<access>` — e.g. `brain:read`, `kanban:write`, `email:send`
-- **Wildcard:** `*` — grants access to all 451 tools
+- **Wildcard:** `*` — grants access to all 468 tools
 - **Unscoped tools:** `whoami`, `list_workflows`, `get_workflow` — callable without any scope
 
 ### Named scopes
@@ -100,7 +100,7 @@ When an agent tool returns `{ "approvalUrl": "https://..." }`, the operation is 
 
 ## Tool families
 
-451 tools grouped by namespace. Tools within a family share the same scope prefix (e.g. `brain:read` / `brain:write`).
+468 tools grouped by namespace. Tools within a family share the same scope prefix (e.g. `brain:read` / `brain:write`).
 
 ### brain_* — 156 tools
 

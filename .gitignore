@@ -65,6 +65,16 @@ next-env.d.ts
 # README / repo-meta assets (logos, badges) are committed on purpose.
 !.github/assets/**/*.png
 !.github/assets/**/*.jpg
+# logo-reveal layer assets are pipeline inputs, not QA screenshots (PROM-001).
+!docs/marketing/logo-reveal/*.png
+# ...but its build outputs are reproducible from take-1.wav — see its README.
+docs/marketing/logo-reveal/voice.wav
+docs/marketing/logo-reveal/voice.json
+docs/marketing/logo-reveal/ding*.wav
+docs/marketing/logo-reveal/dings.html
+docs/marketing/logo-reveal/index.html
+docs/marketing/logo-reveal/mixdown.wav
+docs/marketing/logo-reveal/alpha128.raw
 /qa-screenshots/
 
 # playwright HTML report (run artifact, not source)
@@ -163,6 +173,3 @@ packages/*/dist/
 .agents/skills/huashu-design/assets/**/*.mp3
 .agents/skills/huashu-design/assets/**/*.mp4
 .agents/skills/huashu-design/assets/**/*.wav
-
-# internal QA artifacts (screenshots, reports) — not part of the public release
-.qa-reports/

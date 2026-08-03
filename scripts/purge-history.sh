@@ -23,7 +23,7 @@ PATHS=(
   ".playwright-mcp"                                   # MCP session logs
   "backup_file.dump"                                  # 17M db dump
   "docs/architecture-of-unification.mp4"              # 29M orphaned video
-  "public/sites/<client>/<video>.mp4"                 # 16M orphaned video
+  "public/sites/crosscap/Crossover_Hero_Short.mp4"    # 16M orphaned video
   ".agents/skills/huashu-design/assets/bgm-ad.mp3"
   ".agents/skills/huashu-design/assets/bgm-tech.mp3"
   ".agents/skills/huashu-design/assets/bgm-tutorial.mp3"
@@ -32,7 +32,7 @@ PATHS=(
   ".agents/skills/huashu-design/assets/bgm-educational-alt.mp3"
 )
 # Glob-matched junk (root debug artifacts, per CLAUDE.md don't-touch list).
-GLOBS=( "<client>-screenshots-*.png" "fallow-baselines/*" "us-4yr-colleges-*.csv" )
+GLOBS=( "peters-outdoor-*.png" "fallow-baselines/*" "us-4yr-colleges-*.csv" )
 
 command -v git-filter-repo >/dev/null || { echo "install git-filter-repo first"; exit 1; }
 

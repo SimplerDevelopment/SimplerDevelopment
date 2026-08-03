@@ -63,6 +63,9 @@ function collectSchemaExportNames(): string[] {
 // Mechanically generated:
 //   bunx tsx scripts/dump-schema-exports.ts (or the inline tsx snippet in this file's header)
 // Last regenerated: 2026-06-24 (65-commit feature sweep on dev branch)
+// + manually appended path_chart_* additions 2026-07-18 (PVIZ Phase 1 schema, lib/db/schema/pathviz.ts).
+// + manually appended agent_flows 2026-08-02 (Workflow Designer / APWD-003, lib/db/schema/agentFlows.ts).
+// + manually appended agent_flow_runs + agent_flow_run_events 2026-08-03 (executions, same module).
 const EXPECTED_EXPORTS: readonly string[] = [
   'AB_TARGET_TYPES',
   'AbAssignment',
@@ -212,6 +215,8 @@ const EXPECTED_EXPORTS: readonly string[] = [
   'NewRegisteredAppSigningKey',
   'NotificationDelivery',
   'NotificationType',
+  'PathChartNodeMeta',
+  'PathChartNodePosition',
   'PitchDeckDecisionCover',
   'PitchDeckDecisionOption',
   'PitchDeckSlide',
@@ -247,6 +252,10 @@ const EXPECTED_EXPORTS: readonly string[] = [
   'agentActionCaptures',
   'agentActionLog',
   'agentAuditLogs',
+  'agentFlowRunEvents',
+  'agentFlowRunStatusEnum',
+  'agentFlowRuns',
+  'agentFlows',
   'agenticOsRunStatusEnum',
   'agenticOsRuns',
   'aiConversations',
@@ -417,6 +426,9 @@ const EXPECTED_EXPORTS: readonly string[] = [
   'kanbanLabels',
   'linkedinPosts',
   'linkedinUserConnections',
+  'magamommyBriefs',
+  'magamommyConcepts',
+  'magamommyDrops',
   'mcpApprovalLinks',
   'mcpPendingChanges',
   'mcpToolCallDailyRollups',
@@ -434,7 +446,17 @@ const EXPECTED_EXPORTS: readonly string[] = [
   'orderItems',
   'orderStatusHistory',
   'orders',
+  'pathChartClaims',
+  'pathChartEdgeKindEnum',
+  'pathChartEdges',
+  'pathChartEvents',
+  'pathChartNodeKindEnum',
+  'pathChartNodeStatusEnum',
+  'pathChartNodes',
+  'pathChartStatusEnum',
+  'pathCharts',
   'paymentMethods',
+  'philaprintsDesignAssets',
   'pitchDeckVersions',
   'pitchDeckViews',
   'pitchDecks',
@@ -445,6 +467,8 @@ const EXPECTED_EXPORTS: readonly string[] = [
   'postTags',
   'postTaxonomyTerms',
   'postTypes',
+  'postcaptainBriefs',
+  'postcaptainDrafts',
   'posts',
   'printfulEvents',
   'productCategories',
@@ -539,6 +563,9 @@ const EXPECTED_EXPORTS: readonly string[] = [
 // Mechanically generated:
 //   bunx tsx scripts/dump-schema-tables.ts
 // Last regenerated: 2026-06-24 (65-commit feature sweep on dev branch)
+// + manually appended path_chart_* additions 2026-07-18 (PVIZ Phase 1 schema, lib/db/schema/pathviz.ts).
+// + manually appended agent_flows 2026-08-02 (Workflow Designer / APWD-003, lib/db/schema/agentFlows.ts).
+// + manually appended agent_flow_runs + agent_flow_run_events 2026-08-03 (executions, same module).
 const EXPECTED_TABLE_NAMES: Readonly<Record<string, string>> = {
   abAssignments: 'ab_assignments',
   abEvents: 'ab_events',
@@ -547,6 +574,9 @@ const EXPECTED_TABLE_NAMES: Readonly<Record<string, string>> = {
   agentActionCaptures: 'agent_action_captures',
   agentActionLog: 'agent_action_log',
   agentAuditLogs: 'agent_action_logs',
+  agentFlowRunEvents: 'agent_flow_run_events',
+  agentFlowRuns: 'agent_flow_runs',
+  agentFlows: 'agent_flows',
   agenticOsRuns: 'agentic_os_runs',
   aiConversations: 'ai_conversations',
   aiCreditBalances: 'ai_credit_balances',
@@ -715,6 +745,9 @@ const EXPECTED_TABLE_NAMES: Readonly<Record<string, string>> = {
   kanbanLabels: 'kanban_labels',
   linkedinPosts: 'linkedin_posts',
   linkedinUserConnections: 'linkedin_user_connections',
+  magamommyBriefs: 'magamommy_briefs',
+  magamommyConcepts: 'magamommy_concepts',
+  magamommyDrops: 'magamommy_drops',
   mcpApprovalLinks: 'mcp_approval_links',
   mcpPendingChanges: 'mcp_pending_changes',
   mcpToolCallDailyRollups: 'mcp_tool_call_daily_rollups',
@@ -732,7 +765,13 @@ const EXPECTED_TABLE_NAMES: Readonly<Record<string, string>> = {
   orderItems: 'order_items',
   orderStatusHistory: 'order_status_history',
   orders: 'orders',
+  pathChartClaims: 'path_chart_claims',
+  pathChartEdges: 'path_chart_edges',
+  pathChartEvents: 'path_chart_events',
+  pathChartNodes: 'path_chart_nodes',
+  pathCharts: 'path_charts',
   paymentMethods: 'payment_methods',
+  philaprintsDesignAssets: 'philaprints_design_assets',
   pitchDeckVersions: 'pitch_deck_versions',
   pitchDeckViews: 'pitch_deck_views',
   pitchDecks: 'pitch_decks',
@@ -743,6 +782,8 @@ const EXPECTED_TABLE_NAMES: Readonly<Record<string, string>> = {
   postTags: 'post_tags',
   postTaxonomyTerms: 'post_taxonomy_terms',
   postTypes: 'post_types',
+  postcaptainBriefs: 'postcaptain_briefs',
+  postcaptainDrafts: 'postcaptain_drafts',
   posts: 'posts',
   printfulEvents: 'printful_events',
   productCategories: 'product_categories',
@@ -867,13 +908,13 @@ describe('lib/db/schema export parity', () => {
     expect(actualTables).toEqual(EXPECTED_TABLE_NAMES);
   });
 
-  it('reports the recorded number of tables (291)', () => {
+  it('reports the recorded number of tables (305)', () => {
     const schemaMap = Schema as unknown as Record<string, unknown>;
     let count = 0;
     for (const value of Object.values(schemaMap)) {
       if (value && typeof value === 'object' && isTable(value)) count += 1;
     }
     expect(count).toBe(Object.keys(EXPECTED_TABLE_NAMES).length);
-    expect(count).toBe(291);
+    expect(count).toBe(305);
   });
 });

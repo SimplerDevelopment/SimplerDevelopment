@@ -112,6 +112,7 @@
 - `/docs/agents/tool-reference` — full tool catalogue
 - `/docs/agents/api-index` — which API surface to use
 - `/docs/agents/architecture-for-agents` — system overview
+- Feature page: API + MCP integration (`vault/05 - Feature Specs/FEATURE-INVENTORY-api-mcp.md` — for internal linking to public feature pages once published)
 
 ---
 

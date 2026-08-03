@@ -1,7 +1,11 @@
 {
   "manifestVersion": 1,
-  "toolCount": 451,
+  "toolCount": 468,
   "domains": [
+    {
+      "name": "agent",
+      "tools": 4
+    },
     {
       "name": "ai",
       "tools": 4
@@ -103,6 +107,10 @@
       "tools": 2
     },
     {
+      "name": "pathviz",
+      "tools": 13
+    },
+    {
       "name": "post",
       "tools": 13
     },
@@ -180,6 +188,132 @@
     }
   ],
   "tools": [
+    {
+      "name": "agent_flow_runs_event",
+      "cmd": "agent flow-runs-event",
+      "domain": "agent",
+      "desc": "Append a progress event to a run and push it to anyone watching the portal live. Types: node.status (with status started|finished|failed|skipped and a nodeId), run.waiting (parked on a human node), note (free text), run.finished (with status succeeded|failed|abandoned). Include model/inputTokens/outputTokens/durationMs on a finished node so the canvas can show cost per step. summary is capped at 2KB.",
+      "destructive": false,
+      "scope": "projects:write",
+      "args": [
+        {
+          "name": "runId",
+          "type": "number",
+          "required": true
+        },
+        {
+          "name": "type",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "node.status",
+            "run.waiting",
+            "note",
+            "run.finished"
+          ]
+        },
+        {
+          "name": "nodeId",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "summary",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "model",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "inputTokens",
+          "type": "number",
+          "required": false
+        },
+        {
+          "name": "outputTokens",
+          "type": "number",
+          "required": false
+        },
+        {
+          "name": "durationMs",
+          "type": "number",
+          "required": false
+        }
+      ]
+    },
+    {
+      "name": "agent_flow_runs_start",
+      "cmd": "agent flow-runs-start",
+      "domain": "agent",
+      "desc": "Open an execution of a Workflow Designer flow and return its runId. Snapshots the flow graph onto the run so the execution stays readable even if the flow is edited later. Report progress with agent_flow_runs_event. For a sub-flow handoff, pass the calling run as parentRunId and the calling node as parentNodeId.",
+      "destructive": false,
+      "scope": "projects:write",
+      "args": [
+        {
+          "name": "projectId",
+          "type": "number",
+          "required": true
+        },
+        {
+          "name": "flowId",
+          "type": "number",
+          "required": true
+        },
+        {
+          "name": "parentRunId",
+          "type": "number",
+          "required": false
+        },
+        {
+          "name": "parentNodeId",
+          "type": "string",
+          "required": false
+        }
+      ]
+    },
+    {
+      "name": "agent_flows_get",
+      "cmd": "agent flows-get",
+      "domain": "agent",
+      "desc": "Get one Workflow Designer flow including its full node/edge graph. Node data carries agentType (a .claude/agents persona slug), model, prompt, entryPoint, fanOut ('all' = run every outgoing branch, 'one' = take exactly one), and for human nodes assigneeIds (project-member user ids who must sign off). Edge kind is handoff or dependency.",
+      "destructive": false,
+      "scope": "projects:read",
+      "args": [
+        {
+          "name": "projectId",
+          "type": "number",
+          "required": true
+        },
+        {
+          "name": "flowId",
+          "type": "number",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "agent_flows_list",
+      "cmd": "agent flows-list",
+      "domain": "agent",
+      "desc": "List the Workflow Designer agent flows attached to a project. Returns a slim row per flow (no graph payload) — call agent_flows_get for the graph itself.",
+      "destructive": false,
+      "scope": "projects:read",
+      "args": [
+        {
+          "name": "projectId",
+          "type": "number",
+          "required": true
+        }
+      ]
+    },
     {
       "name": "ai_conversations_get",
       "cmd": "ai conversations-get",
@@ -322,7 +456,8 @@
             "site_nav",
             "block_template",
             "taxonomy",
-            "post_taxonomy"
+            "post_taxonomy",
+            "crm_deal"
           ]
         },
         {
@@ -415,7 +550,7 @@
       "domain": "automations",
       "desc": "Permanently delete an automation rule. Logs are retained.",
       "destructive": true,
-      "scope": "automations:write",
+      "scope": "automations:delete",
       "args": [
         {
           "name": "id",
@@ -576,7 +711,7 @@
       "domain": "block",
       "desc": "Stages a tombstone on the template (draft.pendingDelete). The row is not actually deleted, and embedded usages keep resolving, until `block_templates_publish` runs. Refuses to stage a delete if any posts still embed it as a global template — remove or convert those usages first.",
       "destructive": true,
-      "scope": "sites:write",
+      "scope": "sites:delete",
       "args": [
         {
           "name": "id",
@@ -6668,7 +6803,7 @@
       "domain": "contracts",
       "desc": "Mark a contract as voided (not executable). Stamps voidedAt + reason. Cannot be undone via MCP.",
       "destructive": true,
-      "scope": "crm:write",
+      "scope": "crm:delete",
       "args": [
         {
           "name": "id",
@@ -7193,7 +7328,7 @@
       "domain": "crm",
       "desc": "Remove a custom field definition. All stored values for this field are cascaded.",
       "destructive": true,
-      "scope": "crm:write",
+      "scope": "crm:delete",
       "args": [
         {
           "name": "id",
@@ -7380,6 +7515,12 @@
           "required": true
         },
         {
+          "name": "parentCommentId",
+          "type": "number",
+          "required": false,
+          "desc": "Optional id of the root comment being replied to. Must belong to the same deal. One level of threading only."
+        },
+        {
           "name": "mentionedUserIds",
           "type": "json",
           "required": false,
@@ -7393,7 +7534,7 @@
       "domain": "crm",
       "desc": "Delete one of the caller's own comments on a deal. Matches the portal route — cannot delete other users' comments.",
       "destructive": true,
-      "scope": "crm:write",
+      "scope": "crm:delete",
       "args": [
         {
           "name": "dealId",
@@ -7484,7 +7625,7 @@
       "domain": "crm",
       "desc": "Permanently delete a CRM deal. Cascades to deal artifacts and comments via FK ON DELETE CASCADE.",
       "destructive": true,
-      "scope": "crm:write",
+      "scope": "crm:delete",
       "args": [
         {
           "name": "dealId",
@@ -7931,7 +8072,7 @@
       "domain": "decks",
       "desc": "Permanently delete a pitch deck and all its versions.",
       "destructive": true,
-      "scope": "decks:write",
+      "scope": "decks:delete",
       "args": [
         {
           "name": "id",
@@ -8254,7 +8395,7 @@
       "domain": "email",
       "desc": "Permanently delete a campaign. Refuses if the campaign has already sent.",
       "destructive": true,
-      "scope": "email:write",
+      "scope": "email:delete",
       "args": [
         {
           "name": "id",
@@ -8448,7 +8589,7 @@
       "domain": "email",
       "desc": "Permanently delete an email list and every subscriber in it. Campaigns referencing the list will block deletion.",
       "destructive": true,
-      "scope": "email:write",
+      "scope": "email:delete",
       "args": [
         {
           "name": "id",
@@ -8609,7 +8750,7 @@
       "domain": "email",
       "desc": "Remove a subscriber. By default marks them as `unsubscribed` (soft-remove). Pass `hardDelete: true` to permanently delete the row — this loses the audit trail.",
       "destructive": true,
-      "scope": "email:write",
+      "scope": "email:delete",
       "args": [
         {
           "name": "id",
@@ -8982,7 +9123,7 @@
       "name": "kanban_card_artifact_link",
       "cmd": "kanban card-artifact-link",
       "domain": "kanban",
-      "desc": "Attach a website, email campaign, pitch deck, proposal, booking, survey, or project to a kanban card. The artifact must belong to this client.",
+      "desc": "Attach a website, email campaign, pitch deck, proposal, booking, survey, project, or path chart to a kanban card. The artifact must belong to this client (path charts via their parent project).",
       "destructive": false,
       "scope": "projects:write",
       "args": [
@@ -9003,7 +9144,8 @@
             "booking",
             "survey",
             "project",
-            "post"
+            "post",
+            "path_chart"
           ]
         },
         {
@@ -9067,7 +9209,7 @@
       "name": "kanban_card_artifacts_list",
       "cmd": "kanban card-artifacts-list",
       "domain": "kanban",
-      "desc": "List every artifact (website, email campaign, pitch deck, proposal, booking, survey, project) linked to a kanban card.",
+      "desc": "List every artifact (website, email campaign, pitch deck, proposal, booking, survey, project, path chart) linked to a kanban card.",
       "destructive": false,
       "scope": "projects:read",
       "args": [
@@ -9301,7 +9443,7 @@
       "domain": "kanban",
       "desc": "Permanently delete a kanban card template by id. This action is irreversible.",
       "destructive": true,
-      "scope": "projects:write",
+      "scope": "projects:delete",
       "args": [
         {
           "name": "id",
@@ -9371,7 +9513,7 @@
       "domain": "kanban",
       "desc": "Permanently remove a checklist item.",
       "destructive": true,
-      "scope": "projects:write",
+      "scope": "projects:delete",
       "args": [
         {
           "name": "id",
@@ -9611,7 +9753,7 @@
       "domain": "kanban",
       "desc": "Delete a label. Removes it from all cards.",
       "destructive": true,
-      "scope": "projects:write",
+      "scope": "projects:delete",
       "args": [
         {
           "name": "id",
@@ -9799,7 +9941,7 @@
       "domain": "kanban",
       "desc": "Permanently delete a recurring card-creation rule by id. This action is irreversible and stops future card generation.",
       "destructive": true,
-      "scope": "projects:write",
+      "scope": "projects:delete",
       "args": [
         {
           "name": "id",
@@ -10067,7 +10209,7 @@
       "domain": "media",
       "desc": "Delete a media row from the client's library. NOTE: this removes the DB record; the S3 object itself is not purged.",
       "destructive": true,
-      "scope": "media:write",
+      "scope": "media:delete",
       "args": [
         {
           "name": "id",
@@ -10288,7 +10430,7 @@
       "domain": "nav",
       "desc": "Stages a tombstone on the nav item (draft.pendingDelete). The row is not actually deleted until `nav_publish` runs — the live nav still shows the item until then. Child items (parentId) are not auto-handled.",
       "destructive": true,
-      "scope": "sites:write",
+      "scope": "sites:delete",
       "args": [
         {
           "name": "id",
@@ -10438,6 +10580,376 @@
           "type": "boolean",
           "required": false,
           "desc": "When true, mark ALL unread notifications read."
+        }
+      ]
+    },
+    {
+      "name": "pathviz_claim",
+      "cmd": "pathviz claim",
+      "domain": "pathviz",
+      "desc": "Create a soft/advisory file-and-node lease so other agents coordinating on the same project can see what you're working on. NEVER denies — an overlapping claim comes back as a warning (with the other agent's intent/files/recent notes) for the calling agent to read and negotiate, e.g. via pathviz_note.",
+      "destructive": false,
+      "scope": "projects:write",
+      "args": [
+        {
+          "name": "chartId",
+          "type": "number",
+          "required": true
+        },
+        {
+          "name": "nodeKeys",
+          "type": "json",
+          "required": true
+        },
+        {
+          "name": "intent",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "files",
+          "type": "json",
+          "required": true
+        },
+        {
+          "name": "ttlMinutes",
+          "type": "number",
+          "required": false,
+          "desc": "Default 30, max 120."
+        },
+        {
+          "name": "agentLabel",
+          "type": "string",
+          "required": false,
+          "desc": "Self-declared session name (e.g. \"claude/wallet-ui\") to attribute this write to. Defaults to a ctx-derived identity when omitted."
+        }
+      ]
+    },
+    {
+      "name": "pathviz_create_chart",
+      "cmd": "pathviz create-chart",
+      "domain": "pathviz",
+      "desc": "Create a new path-visualization (\"Dev Paths\") chart under a project — the live node-graph an agent declares while building.",
+      "destructive": false,
+      "scope": "projects:write",
+      "args": [
+        {
+          "name": "projectId",
+          "type": "number",
+          "required": true
+        },
+        {
+          "name": "title",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "appLabel",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "agentLabel",
+          "type": "string",
+          "required": false,
+          "desc": "Self-declared session name (e.g. \"claude/wallet-ui\") to attribute this write to. Defaults to a ctx-derived identity when omitted."
+        }
+      ]
+    },
+    {
+      "name": "pathviz_get_chart",
+      "cmd": "pathviz get-chart",
+      "domain": "pathviz",
+      "desc": "Load a chart's full graph: chart metadata, every node and edge, active claims, and the last 20 notes. The \"load my map\" call an agent makes at the start of a task.",
+      "destructive": false,
+      "scope": "projects:read",
+      "args": [
+        {
+          "name": "chartId",
+          "type": "number",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "pathviz_list_charts",
+      "cmd": "pathviz list-charts",
+      "domain": "pathviz",
+      "desc": "List path-visualization (\"Dev Paths\") charts for a project — id, title, status, app label, node/edge counts, and the last event time.",
+      "destructive": false,
+      "scope": "projects:read",
+      "args": [
+        {
+          "name": "projectId",
+          "type": "number",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "pathviz_note",
+      "cmd": "pathviz note",
+      "domain": "pathviz",
+      "desc": "Add a threaded note on a node — the negotiation/coordination record (interface contracts, \"who waits\", handoffs) between agents. Returned by pathviz_get_chart and in pathviz_claim conflict warnings.",
+      "destructive": false,
+      "scope": "projects:write",
+      "args": [
+        {
+          "name": "chartId",
+          "type": "number",
+          "required": true
+        },
+        {
+          "name": "nodeKey",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "text",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "agentLabel",
+          "type": "string",
+          "required": false,
+          "desc": "Self-declared session name (e.g. \"claude/wallet-ui\") to attribute this write to. Defaults to a ctx-derived identity when omitted."
+        }
+      ]
+    },
+    {
+      "name": "pathviz_release",
+      "cmd": "pathviz release",
+      "domain": "pathviz",
+      "desc": "Release the calling agent's active claims on a chart — for the given nodeKeys, or every claim the agent holds on this chart if nodeKeys is omitted.",
+      "destructive": false,
+      "scope": "projects:write",
+      "args": [
+        {
+          "name": "chartId",
+          "type": "number",
+          "required": true
+        },
+        {
+          "name": "nodeKeys",
+          "type": "json",
+          "required": false
+        },
+        {
+          "name": "note",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "agentLabel",
+          "type": "string",
+          "required": false,
+          "desc": "Self-declared session name (e.g. \"claude/wallet-ui\") to attribute this write to. Defaults to a ctx-derived identity when omitted."
+        }
+      ]
+    },
+    {
+      "name": "pathviz_remove",
+      "cmd": "pathviz remove",
+      "domain": "pathviz",
+      "desc": "Delete nodes by key (their edges cascade) and/or edges by id. Provide nodeKeys and/or edgeIds.",
+      "destructive": true,
+      "scope": "projects:write",
+      "args": [
+        {
+          "name": "chartId",
+          "type": "number",
+          "required": true
+        },
+        {
+          "name": "nodeKeys",
+          "type": "json",
+          "required": false
+        },
+        {
+          "name": "edgeIds",
+          "type": "json",
+          "required": false
+        },
+        {
+          "name": "agentLabel",
+          "type": "string",
+          "required": false,
+          "desc": "Self-declared session name (e.g. \"claude/wallet-ui\") to attribute this write to. Defaults to a ctx-derived identity when omitted."
+        }
+      ]
+    },
+    {
+      "name": "pathviz_set_status",
+      "cmd": "pathviz set-status",
+      "domain": "pathviz",
+      "desc": "Cheapest possible status flip for one or more nodes by key — the call an agent makes constantly while working (planned → scaffolded → wired → styled → tested → shipped, or blocked/error). Does not touch meta/position; use pathviz_upsert_nodes for that.",
+      "destructive": false,
+      "scope": "projects:write",
+      "args": [
+        {
+          "name": "chartId",
+          "type": "number",
+          "required": true
+        },
+        {
+          "name": "updates",
+          "type": "json",
+          "required": true
+        },
+        {
+          "name": "agentLabel",
+          "type": "string",
+          "required": false,
+          "desc": "Self-declared session name (e.g. \"claude/wallet-ui\") to attribute this write to. Defaults to a ctx-derived identity when omitted."
+        }
+      ]
+    },
+    {
+      "name": "pathviz_touch",
+      "cmd": "pathviz touch",
+      "domain": "pathviz",
+      "desc": "Ultra-cheap presence heartbeat on a node — call every ~10-30s while actively working it. Refreshes the agent's active claim TTLs on this chart by 30 minutes and returns any OTHER agent's active claim on this same node as a contested warning.",
+      "destructive": false,
+      "scope": "projects:write",
+      "args": [
+        {
+          "name": "chartId",
+          "type": "number",
+          "required": true
+        },
+        {
+          "name": "nodeKey",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "action",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "agentLabel",
+          "type": "string",
+          "required": false,
+          "desc": "Self-declared session name (e.g. \"claude/wallet-ui\") to attribute this write to. Defaults to a ctx-derived identity when omitted."
+        }
+      ]
+    },
+    {
+      "name": "pathviz_update_chart",
+      "cmd": "pathviz update-chart",
+      "domain": "pathviz",
+      "desc": "Update a chart's title, description, or status. Set status to \"archived\" to soft-delete — lifecycle is archive-only, there is no hard delete.",
+      "destructive": false,
+      "scope": "projects:write",
+      "args": [
+        {
+          "name": "chartId",
+          "type": "number",
+          "required": true
+        },
+        {
+          "name": "title",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "required": false,
+          "enum": [
+            "active",
+            "archived"
+          ]
+        },
+        {
+          "name": "agentLabel",
+          "type": "string",
+          "required": false,
+          "desc": "Self-declared session name (e.g. \"claude/wallet-ui\") to attribute this write to. Defaults to a ctx-derived identity when omitted."
+        }
+      ]
+    },
+    {
+      "name": "pathviz_upsert_edges",
+      "cmd": "pathviz upsert-edges",
+      "domain": "pathviz",
+      "desc": "Batch-declare or update up to 50 edges on a chart by (sourceKey, targetKey, kind). \"nav\" = user navigation between screens; \"data\" = a node calling a service.",
+      "destructive": false,
+      "scope": "projects:write",
+      "args": [
+        {
+          "name": "chartId",
+          "type": "number",
+          "required": true
+        },
+        {
+          "name": "edges",
+          "type": "json",
+          "required": true
+        },
+        {
+          "name": "agentLabel",
+          "type": "string",
+          "required": false,
+          "desc": "Self-declared session name (e.g. \"claude/wallet-ui\") to attribute this write to. Defaults to a ctx-derived identity when omitted."
+        }
+      ]
+    },
+    {
+      "name": "pathviz_upsert_nodes",
+      "cmd": "pathviz upsert-nodes",
+      "domain": "pathviz",
+      "desc": "Batch-declare or update up to 50 nodes on a chart, upserted by (chartId, key). parentKey resolves to the parent node's id — the parent must already exist in the chart or appear earlier in this same batch. Fields omitted on an already-existing node are left unchanged (use pathviz_set_status for a cheaper status-only flip).",
+      "destructive": false,
+      "scope": "projects:write",
+      "args": [
+        {
+          "name": "chartId",
+          "type": "number",
+          "required": true
+        },
+        {
+          "name": "nodes",
+          "type": "json",
+          "required": true
+        },
+        {
+          "name": "agentLabel",
+          "type": "string",
+          "required": false,
+          "desc": "Self-declared session name (e.g. \"claude/wallet-ui\") to attribute this write to. Defaults to a ctx-derived identity when omitted."
+        }
+      ]
+    },
+    {
+      "name": "pathviz_who_owns",
+      "cmd": "pathviz who-owns",
+      "domain": "pathviz",
+      "desc": "Look up active (unreleased, unexpired) claims across a project's charts whose declared files intersect the given file list — the pre-dispatch coordination check before an agent starts touching a path. A stored path ending in \"*\" matches as a prefix.",
+      "destructive": false,
+      "scope": "projects:read",
+      "args": [
+        {
+          "name": "projectId",
+          "type": "number",
+          "required": true
+        },
+        {
+          "name": "files",
+          "type": "json",
+          "required": true
         }
       ]
     },
@@ -10962,7 +11474,7 @@
       "domain": "posts",
       "desc": "Permanently delete a post. Revisions cascade. Only posts that belong to a website owned by this client can be deleted.",
       "destructive": true,
-      "scope": "sites:write",
+      "scope": "sites:delete",
       "args": [
         {
           "name": "id",
@@ -11319,7 +11831,7 @@
       "domain": "project",
       "desc": "Remove a user from a project. Refuses to remove the last owner.",
       "destructive": true,
-      "scope": "projects:write",
+      "scope": "projects:delete",
       "args": [
         {
           "name": "projectId",
@@ -11368,7 +11880,7 @@
       "name": "projects_artifact_link",
       "cmd": "projects artifact-link",
       "domain": "projects",
-      "desc": "Attach a website, email campaign, pitch deck, proposal, booking, survey, post, or brain note to a project. The artifact must belong to this client (posts are scoped via their parent website).",
+      "desc": "Attach a website, email campaign, pitch deck, proposal, booking, survey, post, brain note, or path chart to a project. The artifact must belong to this client (posts are scoped via their parent website; path charts via their parent project).",
       "destructive": false,
       "scope": "projects:write",
       "args": [
@@ -11389,7 +11901,8 @@
             "booking",
             "survey",
             "post",
-            "brain_note"
+            "brain_note",
+            "path_chart"
           ]
         },
         {
@@ -11453,7 +11966,7 @@
       "name": "projects_artifacts_list",
       "cmd": "projects artifacts-list",
       "domain": "projects",
-      "desc": "List every artifact (website, email campaign, pitch deck, proposal, booking, survey, post, brain note) linked to a project.",
+      "desc": "List every artifact (website, email campaign, pitch deck, proposal, booking, survey, post, brain note, path chart) linked to a project.",
       "destructive": false,
       "scope": "projects:read",
       "args": [
@@ -11538,7 +12051,8 @@
             "booking",
             "survey",
             "post",
-            "brain_note"
+            "brain_note",
+            "path_chart"
           ]
         },
         {
@@ -12107,7 +12621,7 @@
       "domain": "sprints",
       "desc": "Permanently delete a sprint. Cards currently assigned to it are sent back to the sprint dock (sprintId cleared).",
       "destructive": true,
-      "scope": "projects:write",
+      "scope": "projects:delete",
       "args": [
         {
           "name": "id",
@@ -13926,7 +14440,7 @@
       "domain": "website",
       "desc": "Remove a custom domain attachment. Does not affect external DNS.",
       "destructive": true,
-      "scope": "sites:write",
+      "scope": "sites:delete",
       "args": [
         {
           "name": "id",
@@ -13941,7 +14455,7 @@
       "domain": "website",
       "desc": "Remove an env var by id.",
       "destructive": true,
-      "scope": "sites:write",
+      "scope": "sites:delete",
       "args": [
         {
           "name": "id",

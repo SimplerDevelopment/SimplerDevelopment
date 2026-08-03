@@ -1,6 +1,6 @@
 /**
  * Storefront cluster regression coverage — closes four adversarial-audit findings
- * (internal security audit):
+ * (docs/audits/portal-e2e-adversarial-audit-2026-06-25.md):
  *
  *   1. store-analytics-stripe-connect-no-entitlement
  *      Portal store analytics + Stripe Connect onboarding were gated only by

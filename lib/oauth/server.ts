@@ -153,11 +153,44 @@ export function verifyPkceS256(verifier: string, challenge: string): boolean {
   return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(challenge));
 }
 
-/** Validate that a redirect_uri is an exact (string-equal) match to one of the
- *  redirect URIs the client registered. RFC 6749 §3.1.2.3 / OAuth 2.1 require
- *  exact matching — no wildcarding, no trailing-slash forgiveness. */
+/** Is this an http(s) loopback URI? RFC 8252 §7.3 treats `localhost`,
+ *  `127.0.0.1` and `[::1]` as the loopback interface. */
+function isLoopbackRedirect(url: URL): boolean {
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') return false;
+  return url.hostname === 'localhost' || url.hostname === '127.0.0.1' || url.hostname === '[::1]';
+}
+
+/** Do two loopback URIs match ignoring only the port? Everything else — scheme,
+ *  host, path, query — must still be string-equal. */
+function loopbackMatchesIgnoringPort(a: string, b: string): boolean {
+  let ua: URL, ub: URL;
+  try { ua = new URL(a); ub = new URL(b); } catch { return false; }
+  if (!isLoopbackRedirect(ua) || !isLoopbackRedirect(ub)) return false;
+  return ua.protocol === ub.protocol
+    && ua.hostname === ub.hostname
+    && ua.pathname === ub.pathname
+    && ua.search === ub.search;
+}
+
+/** Validate that a redirect_uri matches one of the redirect URIs the client
+ *  registered. RFC 6749 §3.1.2.3 / OAuth 2.1 require exact matching — no
+ *  wildcarding, no trailing-slash forgiveness — and that is what we do for
+ *  every remote URI.
+ *
+ *  The one carve-out is loopback: RFC 8252 §7.3 requires the authorization
+ *  server to "allow any port to be specified at the time of the request for
+ *  loopback IP redirect URIs", because native clients grab an ephemeral port
+ *  from the OS per flow and cannot register it ahead of time. Claude Code is
+ *  exactly this case — its client metadata registers portless
+ *  `http://localhost/callback`, then requests `http://localhost:54321/callback`.
+ *  Without this carve-out no such client can ever authorize.
+ *
+ *  Only the port is forgiven, and only when BOTH sides are loopback. A
+ *  loopback redirect already implies the attacker is running code on the user's
+ *  own machine, so this does not widen the remote attack surface. */
 export function redirectUriMatches(registered: string[], requested: string): boolean {
-  return registered.includes(requested);
+  if (registered.includes(requested)) return true;
+  return registered.some((uri) => loopbackMatchesIgnoringPort(uri, requested));
 }
 
 /** Loose validation that a registered redirect URI looks plausible. We accept

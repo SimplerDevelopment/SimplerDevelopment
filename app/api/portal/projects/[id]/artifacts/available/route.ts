@@ -12,6 +12,7 @@ import {
   surveys,
   posts,
   brainNotes,
+  pathCharts,
 } from '@/lib/db/schema';
 import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 
@@ -22,8 +23,8 @@ function getRole(session: any): string {
 
 // Per-type fetch configs. Each returns rows shaped { id, title } scoped to
 // clientId, optionally filtered by a case-insensitive `q` search and capped
-// at `limit`. Posts and brain_notes have extra gating so they're handled
-// inline below.
+// at `limit`. Posts, brain_notes, and path_charts have extra gating so
+// they're handled inline below.
 const SIMPLE_TYPES = {
   website: { table: clientWebsites, titleField: 'name' as const },
   email_campaign: { table: emailCampaigns, titleField: 'name' as const },
@@ -37,6 +38,7 @@ const SUPPORTED_TYPES = [
   ...Object.keys(SIMPLE_TYPES),
   'brain_note',
   'post',
+  'path_chart',
   'all',
 ] as const;
 
@@ -90,6 +92,26 @@ async function fetchBrainNotes(
     .where(where)
     .limit(limit);
   return rows.map(r => ({ type: 'brain_note', id: r.id, title: r.title ?? 'Untitled' }));
+}
+
+async function fetchPathCharts(
+  clientId: number,
+  limit: number,
+  q: string | null,
+): Promise<{ type: string; id: number; title: string }[]> {
+  // Path charts have no clientId column — gate by projectId belonging to
+  // this client (same indirect pattern as posts, below).
+  const baseWhere = eq(projects.clientId, clientId);
+  const where = q
+    ? and(baseWhere, sql`${pathCharts.title} ILIKE ${'%' + q + '%'}`)
+    : baseWhere;
+  const rows = await db
+    .select({ id: pathCharts.id, title: pathCharts.title })
+    .from(pathCharts)
+    .innerJoin(projects, eq(projects.id, pathCharts.projectId))
+    .where(where)
+    .limit(limit);
+  return rows.map(r => ({ type: 'path_chart', id: r.id, title: r.title ?? 'Untitled' }));
 }
 
 async function fetchPosts(
@@ -180,6 +202,7 @@ export async function GET(
       ...simpleKeys.map(k => fetchSimple(k, clientId, perType, q)),
       fetchBrainNotes(clientId, perType, q),
       fetchPosts(clientId, perType, q),
+      fetchPathCharts(clientId, perType, q),
     ]);
     return NextResponse.json({ success: true, data: batches.flat() });
   }
@@ -195,6 +218,8 @@ export async function GET(
     results = await fetchBrainNotes(clientId, limit, q);
   } else if (typeFilter === 'post') {
     results = await fetchPosts(clientId, limit, q);
+  } else if (typeFilter === 'path_chart') {
+    results = await fetchPathCharts(clientId, limit, q);
   } else {
     results = await fetchSimple(typeFilter as keyof typeof SIMPLE_TYPES, clientId, limit, q);
   }

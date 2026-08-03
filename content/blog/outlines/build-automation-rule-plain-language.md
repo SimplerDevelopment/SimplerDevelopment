@@ -7,6 +7,7 @@ status: outline
 date: 2026-06-27
 sources:
   - marketing/feature-pages/automations-workflows.md
+  - vault/05 - Feature Specs/FEATURE-INVENTORY-domains.md (domain 14)
   - marketing/seo/seo-plan.md
 authoring-constraints: >
   Visual Workflow Builder is available but shipped first to dev branch (as of 2026-06-27);

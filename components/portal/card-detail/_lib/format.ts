@@ -15,7 +15,17 @@ export const ARTIFACT_ICONS: Record<string, string> = {
   survey: 'poll',
   project: 'folder',
   post: 'article',
+  path_chart: 'device_hub',
+  agent_flow_run: 'account_tree',
 };
+
+/**
+ * Artifact types attached by the workflow runner rather than chosen by a
+ * person. They render like any other linked artifact but are filtered out of
+ * the "Link Artifact" picker — a human has no way to know which run produced
+ * a card, and offering an empty list reads as a broken filter.
+ */
+export const AGENT_LINKED_ARTIFACT_TYPES = new Set(['agent_flow_run']);
 
 export const ARTIFACT_LABELS: Record<string, string> = {
   website: 'Website',
@@ -26,6 +36,8 @@ export const ARTIFACT_LABELS: Record<string, string> = {
   survey: 'Survey',
   project: 'Project',
   post: 'Doc / Post',
+  path_chart: 'Path chart',
+  agent_flow_run: 'Workflow run',
 };
 
 export function artifactUrl(type: string, id: number): string | null {
@@ -46,6 +58,12 @@ export function artifactUrl(type: string, id: number): string | null {
       return `/portal/projects/${id}`;
     case 'post':
       return `/portal/posts/${id}`;
+    case 'agent_flow_run':
+      // The Executions tab lives under the run's project, and a link row
+      // carries only (type, id) — so this points at a resolver that looks the
+      // project up and redirects, rather than widening artifactUrl's
+      // signature for one caller.
+      return `/portal/flow-runs/${id}`;
     default:
       return null;
   }

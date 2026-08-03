@@ -1,0 +1,1218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dev Paths v3 — Constellation + Density</title>
+<!--
+  ═══════════════════════════════════════════════════════════════════════
+  DEV PATHS v3 — constellation view + density stress + polish + 5 agents
+  Spec: vault/05 - Feature Specs/Path Visualizations.md (v2 expansion)
+
+  v3 adds over v2 (all four iteration directions, 2026-07-18):
+   · CONSTELLATION — project level: every chart as a live card, cross-chart
+     file threads (shared-file awareness between efforts). Click to dive.
+   · DENSITY — 26 nodes / 6 lanes (screens, components, api, schema,
+     services, jobs, infra, tests) · ~210 events · ~108s session
+   · POLISH — zoom LOD (far view declutters), beacon tags alternate sides,
+     dot-grid pans with the world, richer status flash
+   · 5 AGENTS — wallet-ui, payments-api, platform, qa in-canvas
+     (validated #FF66C4/#8FA0FF/#DCE7F0/#E8927C) + checkout-ui at
+     constellation level (#C084FC). Identity never color-alone.
+
+  Same pure reducer-over-event-log architecture. Session is now BUILT
+  PROGRAMMATICALLY (phase helpers → sorted event log) — the same shape a
+  real multi-agent session would append to path_chart_events.
+  ═══════════════════════════════════════════════════════════════════════
+-->
+<style>
+  :root {
+    --surface: #0C141C;  --panel: #111C26;  --panel-2: #16232F;
+    --line: #1F3140;  --line-bright: #2C4356;
+    --ink: #E4EDF4;  --ink-2: #93A6B8;  --ink-3: #5C7183;
+    --st-planned: #64748B;  --st-scaffolded: #4B8DE0;  --st-wired: #22B8E6;
+    --st-styled: #2EDCB4;   --st-tested: #6EE86E;      --st-shipped: #E9F87E;
+    --st-blocked: #ECA83D;  --st-error: #F1655A;
+    --mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; overflow: hidden; }
+  body { background: var(--surface); color: var(--ink); font-family: var(--sans); display: flex; flex-direction: column; }
+  .hud { font-family: var(--mono); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-3); }
+
+  /* ── Header ─────────────────────────────────────────────────── */
+  header { position: relative; z-index: 30; display: flex; align-items: center; gap: 12px; height: 52px; padding: 0 18px; background: color-mix(in oklab, var(--panel) 85%, transparent); border-bottom: 1px solid var(--line); backdrop-filter: blur(10px); }
+  .brand { display: flex; align-items: center; gap: 8px; }
+  .brand svg { width: 16px; height: 16px; }
+  .crumb { font-size: 13px; font-weight: 600; white-space: nowrap; display: flex; align-items: center; gap: 6px; }
+  .crumb .dim { color: var(--ink-3); font-weight: 500; }
+  .crumb .link { color: var(--ink-2); cursor: pointer; }
+  .crumb .link:hover { color: var(--ink); text-decoration: underline; }
+  #crumbChart { display: none; }
+  body.in-canvas #crumbChart { display: inline; }
+  .chip { font-family: var(--mono); font-size: 10px; padding: 3px 8px; border-radius: 4px; border: 1px solid var(--line-bright); color: var(--ink-2); background: var(--panel-2); white-space: nowrap; }
+  .hspace { flex: 1; }
+  .evcount { font-family: var(--mono); font-size: 11px; color: var(--ink-3); white-space: nowrap; }
+  .evcount b { color: var(--ink-2); font-weight: 600; }
+  .agent-chip { display: flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 10.5px; color: var(--ink-2); padding: 4px 9px; border-radius: 20px; white-space: nowrap; border: 1px solid color-mix(in oklab, var(--ac) 40%, transparent); background: color-mix(in oklab, var(--ac) 9%, transparent); transition: opacity .4s ease; }
+  .agent-chip.idle { opacity: .38; }
+  .agent-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ac); box-shadow: 0 0 8px var(--ac); }
+  .live-badge { display: flex; align-items: center; gap: 7px; font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: .18em; padding: 5px 12px; border-radius: 4px; cursor: pointer; user-select: none; border: 1px solid transparent; white-space: nowrap; }
+  .live-badge.live { color: #6EE86E; border-color: #6ee86e55; background: #6ee86e12; }
+  .live-badge.paused { color: var(--st-blocked); border-color: #eca83d55; background: #eca83d12; }
+  .live-badge.replay { color: var(--st-wired); border-color: #22b8e655; background: #22b8e612; }
+  .live-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+  .live .live-dot { animation: blink 1.6s ease-in-out infinite; }
+  @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: .25; } }
+  .btn { display: flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 5px; cursor: pointer; border: 1px solid var(--line-bright); background: var(--panel-2); color: var(--ink-2); }
+  .btn:hover { color: var(--ink); border-color: var(--ink-3); }
+  .btn svg { width: 15px; height: 15px; }
+
+  /* ── Stage / canvas ─────────────────────────────────────────── */
+  #stage { position: relative; flex: 1; overflow: hidden; }
+  #viewport { position: absolute; inset: 0; overflow: hidden; cursor: grab; background-color: var(--surface); background-image: radial-gradient(1200px 600px at 50% 120%, #14212cAA 0%, transparent 60%), radial-gradient(circle, #1F314055 1px, transparent 1.4px); background-size: auto, 26px 26px; }
+  #viewport.dragging { cursor: grabbing; }
+  #world { position: absolute; top: 0; left: 0; transform-origin: 0 0; will-change: transform; }
+  #edgeSvg { position: absolute; top: 0; left: 0; overflow: visible; pointer-events: none; }
+  .lane-label { position: absolute; font-family: var(--mono); font-size: 10px; letter-spacing: .3em; color: #33485C; text-transform: uppercase; }
+
+  .edge-nav { fill: none; stroke: var(--line-bright); stroke-width: 2; stroke-dasharray: 7 5; animation: march 1.1s linear infinite; }
+  .edge-nav.lit { stroke: color-mix(in oklab, var(--st-wired) 55%, var(--line-bright)); }
+  @keyframes march { to { stroke-dashoffset: -12; } }
+  .edge-data { fill: none; stroke: var(--line); stroke-width: 1.5; stroke-dasharray: 2 4; }
+  .edge-data.hot { stroke: color-mix(in oklab, var(--st-wired) 40%, var(--line)); }
+  .particle { fill: var(--st-wired); }
+  .edge-arrow { fill: var(--line-bright); }
+
+  .node { position: absolute; border-radius: 10px; cursor: pointer; transition: box-shadow .3s ease, border-color .3s ease, transform .12s ease, outline-color .3s ease; }
+  .node:hover { transform: translateY(-1px); }
+  .node.mounting { animation: mount .55s cubic-bezier(.16,1,.3,1) both; }
+  @keyframes mount { from { opacity: 0; transform: scale(.75) translateY(8px); filter: blur(4px); } }
+  .node.flash { box-shadow: 0 0 0 1px var(--nc), 0 0 30px color-mix(in oklab, var(--nc) 60%, transparent), 0 6px 24px #00000055; }
+  .comp.flash { border-color: var(--cc); box-shadow: 0 0 14px color-mix(in oklab, var(--cc) 45%, transparent); }
+  .node.err-shake { animation: shake .5s ease both; }
+  @keyframes shake { 20%,60% { transform: translateX(-4px); } 40%,80% { transform: translateX(4px); } }
+  .node.claimed { outline: 2px solid var(--claimc); outline-offset: 4px; }
+  .node.contested { outline: 2px dashed var(--st-blocked); outline-offset: 4px; }
+  .claim-tag { position: absolute; top: -11px; left: 10px; z-index: 3; display: flex; align-items: center; gap: 5px; font-family: var(--mono); font-size: 8.5px; letter-spacing: .06em; color: var(--ink-2); background: var(--panel-2); border: 1px solid var(--line-bright); padding: 2px 7px; border-radius: 8px; white-space: nowrap; }
+  .claim-tag i { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
+  .claim-tag.warn { border-color: color-mix(in oklab, var(--st-blocked) 60%, transparent); color: var(--st-blocked); }
+  .note-badge { display: inline-flex; align-items: center; gap: 3px; font-family: var(--mono); font-size: 9px; color: var(--ink-3); }
+  .note-badge svg { width: 11px; height: 11px; }
+  .status-word { font-family: var(--mono); font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: var(--nc, var(--st-planned)); }
+  .ring rect { fill: var(--line); }
+  .ring rect.on { fill: var(--nc, var(--st-planned)); }
+
+  .screen { background: linear-gradient(180deg, color-mix(in oklab, var(--panel-2) 92%, var(--nc, var(--st-planned))) 0%, var(--panel) 100%); border: 1px solid color-mix(in oklab, var(--nc, var(--st-planned)) 45%, var(--line)); box-shadow: 0 6px 24px #00000055, inset 0 1px 0 #ffffff0d; }
+  .screen.shipped-fill { background: linear-gradient(180deg, color-mix(in oklab, var(--st-shipped) 16%, var(--panel-2)), var(--panel)); }
+  .screen .head { display: flex; align-items: center; gap: 8px; padding: 11px 12px 8px; }
+  .screen .title { font-size: 13px; font-weight: 650; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .route { display: inline-block; margin: 0 12px 8px; font-family: var(--mono); font-size: 10px; color: var(--ink-2); padding: 2px 7px; border-radius: 4px; background: #0009; border: 1px solid var(--line); }
+  .st-line { padding: 0 12px 5px; }
+  .chips { padding: 0 10px; display: flex; flex-direction: column; gap: 5px; }
+  .comp { display: flex; align-items: center; gap: 7px; height: 26px; padding: 0 9px; border-radius: 6px; cursor: pointer; background: #0B131B99; border: 1px solid var(--line); font-size: 11px; color: var(--ink-2); transition: border-color .3s ease; }
+  .comp:hover { border-color: var(--ink-3); }
+  .comp .cdot { width: 7px; height: 7px; border-radius: 2px; background: var(--cc, var(--st-planned)); flex: none; }
+  .comp .cname { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .comp .cst { font-family: var(--mono); font-size: 8px; letter-spacing: .1em; text-transform: uppercase; color: var(--cc, var(--st-planned)); }
+
+  .api, .job, .infra { display: flex; align-items: center; gap: 9px; padding: 0 13px; background: color-mix(in oklab, var(--panel-2) 93%, var(--nc, var(--st-planned))); border: 1px solid color-mix(in oklab, var(--nc, var(--st-planned)) 42%, var(--line)); box-shadow: 0 4px 18px #00000048; border-radius: 8px; }
+  .api .method { font-family: var(--mono); font-size: 8.5px; font-weight: 700; letter-spacing: .08em; color: #0C141C; background: var(--nc, var(--st-planned)); border-radius: 3px; padding: 2px 5px; flex: none; }
+  .aname { font-family: var(--mono); font-size: 11px; color: var(--ink-2); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .job { border-radius: 999px 8px 8px 999px; }
+  .job svg, .infra svg { width: 14px; height: 14px; flex: none; color: var(--nc, var(--st-planned)); }
+  .infra { border-style: dotted; }
+  .schema { padding: 9px 13px; background: color-mix(in oklab, var(--panel-2) 93%, var(--nc, var(--st-planned))); border: 1px solid color-mix(in oklab, var(--nc, var(--st-planned)) 42%, var(--line)); border-radius: 8px; box-shadow: 0 4px 18px #00000048; }
+  .schema .stag { font-family: var(--mono); font-size: 7.5px; letter-spacing: .2em; color: var(--ink-3); }
+  .schema .sname { font-family: var(--mono); font-size: 12px; color: var(--ink); margin-top: 2px; display: flex; align-items: center; gap: 8px; }
+  .service, .test { display: flex; align-items: center; gap: 9px; padding: 0 12px; border: 1px solid color-mix(in oklab, var(--nc, var(--st-planned)) 40%, var(--line)); background: color-mix(in oklab, var(--panel-2) 94%, var(--nc, var(--st-planned))); box-shadow: 0 4px 16px #00000044; }
+  .service { border-radius: 999px; }
+  .test { border-radius: 8px; border-style: dashed; }
+  .service svg, .test svg { width: 14px; height: 14px; flex: none; color: var(--nc, var(--st-planned)); }
+  .sname { font-family: var(--mono); font-size: 10.5px; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* LOD: far zoom declutters */
+  #world.far .route, #world.far .cst, #world.far .st-line, #world.far .note-badge, #world.far .claim-tag { display: none; }
+  #world.far .comp { height: 18px; font-size: 10px; }
+
+  .beacon { position: absolute; width: 0; height: 0; pointer-events: none; transition: transform .7s cubic-bezier(.3,.8,.3,1), opacity .4s ease; z-index: 5; }
+  .beacon.hidden { opacity: 0; }
+  .radar { position: absolute; left: 0; top: 0; width: 60px; height: 60px; margin: -30px 0 0 -30px; border-radius: 50%; border: 1.5px solid var(--ac); opacity: 0; animation: radar 2.2s ease-out infinite; }
+  .radar:nth-child(2) { animation-delay: .7s; }
+  .radar:nth-child(3) { animation-delay: 1.4s; }
+  @keyframes radar { 0% { transform: scale(.25); opacity: .8; } 70% { opacity: .18; } 100% { transform: scale(1.6); opacity: 0; } }
+  .beacon-core { position: absolute; left: -5px; top: -5px; width: 10px; height: 10px; border-radius: 50%; background: var(--ac); box-shadow: 0 0 12px var(--ac), 0 0 30px color-mix(in oklab, var(--ac) 60%, transparent); }
+  .beacon-tag { position: absolute; left: 14px; top: -34px; white-space: nowrap; font-family: var(--mono); font-size: 10px; color: var(--ink); background: color-mix(in oklab, var(--ac) 14%, #10141aE8); border: 1px solid color-mix(in oklab, var(--ac) 45%, transparent); padding: 5px 9px; border-radius: 6px; box-shadow: 0 4px 18px #00000066; }
+  .beacon[data-side="below"] .beacon-tag { top: 16px; }
+  .beacon-tag b { color: var(--ac); font-weight: 700; }
+
+  #legend { position: absolute; right: 14px; bottom: 74px; z-index: 20; display: flex; flex-direction: column; gap: 6px; padding: 9px 12px; border-radius: 8px; background: color-mix(in oklab, var(--panel) 88%, transparent); border: 1px solid var(--line); backdrop-filter: blur(8px); }
+  .lrow { display: flex; gap: 11px; }
+  .litem { display: flex; align-items: center; gap: 5px; font-family: var(--mono); font-size: 8.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); }
+  .litem i { width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
+  .litem i.oline { background: transparent; border: 1.5px solid var(--ink-2); }
+  .litem i.oline-c { background: transparent; border: 1.5px dashed var(--st-blocked); }
+
+  #ticker { position: absolute; left: 14px; bottom: 74px; z-index: 20; display: flex; flex-direction: column-reverse; gap: 4px; pointer-events: none; }
+  .tick-line { display: flex; align-items: center; gap: 7px; font-family: var(--mono); font-size: 10px; color: var(--ink-2); background: color-mix(in oklab, var(--panel) 80%, transparent); border: 1px solid var(--line); border-radius: 5px; padding: 4px 9px; animation: tickin .35s ease both; backdrop-filter: blur(6px); }
+  .tick-line .adot { width: 6px; height: 6px; border-radius: 50%; flex: none; }
+  .tick-line .t { color: var(--ink-3); }
+  .tick-line .et { color: var(--st-wired); }
+  .tick-line.is-err .et { color: var(--st-error); }
+  .tick-line.is-conf { border-color: color-mix(in oklab, var(--st-blocked) 50%, transparent); }
+  .tick-line.is-conf .et { color: var(--st-blocked); }
+  .tick-line.is-note .et { color: #C9B8FF; }
+  @keyframes tickin { from { opacity: 0; transform: translateY(8px); } }
+  .tick-line.old { opacity: .38; } .tick-line.older { opacity: .16; }
+
+  #scrub { position: relative; z-index: 30; display: flex; align-items: center; gap: 14px; height: 58px; padding: 0 16px; background: color-mix(in oklab, var(--panel) 92%, transparent); border-top: 1px solid var(--line); backdrop-filter: blur(10px); }
+  #playBtn { width: 34px; height: 34px; border-radius: 50%; }
+  .timewrap { flex: 1; display: flex; flex-direction: column; gap: 5px; }
+  #track { position: relative; height: 22px; cursor: pointer; }
+  #track .rail { position: absolute; left: 0; right: 0; top: 10px; height: 3px; border-radius: 2px; background: var(--line); }
+  #track .fill { position: absolute; left: 0; top: 10px; height: 3px; border-radius: 2px; background: linear-gradient(90deg, var(--st-scaffolded), var(--st-wired), var(--st-styled)); }
+  #track .etick { position: absolute; top: 7px; width: 2px; height: 9px; border-radius: 1px; background: var(--line-bright); }
+  #track .etick.is-status { background: color-mix(in oklab, var(--st-styled) 70%, var(--line-bright)); }
+  #track .etick.is-err { background: var(--st-error); }
+  #track .etick.is-conf { background: var(--st-blocked); height: 12px; top: 5px; }
+  #track .playhead { position: absolute; top: 3px; width: 3px; height: 17px; border-radius: 2px; background: var(--ink); box-shadow: 0 0 8px #ffffff66; margin-left: -1px; }
+  .timelabels { display: flex; justify-content: space-between; }
+  #speed { display: flex; gap: 3px; }
+  .spd { font-family: var(--mono); font-size: 10px; padding: 3px 8px; border-radius: 4px; cursor: pointer; color: var(--ink-3); border: 1px solid transparent; }
+  .spd.on { color: var(--ink); border-color: var(--line-bright); background: var(--panel-2); }
+
+  #inspector { position: absolute; top: 0; right: 0; bottom: 0; width: 330px; z-index: 25; background: color-mix(in oklab, var(--panel) 96%, transparent); border-left: 1px solid var(--line); backdrop-filter: blur(14px); transform: translateX(350px); transition: transform .35s cubic-bezier(.3,.9,.3,1); display: flex; flex-direction: column; }
+  #inspector.open { transform: translateX(0); }
+  .insp-head { display: flex; align-items: center; gap: 10px; padding: 16px 16px 12px; border-bottom: 1px solid var(--line); }
+  .insp-title { font-size: 15px; font-weight: 650; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .insp-body { flex: 1; overflow-y: auto; padding: 14px 16px 20px; display: flex; flex-direction: column; gap: 16px; }
+  .insp-sec .hud { margin-bottom: 7px; }
+  .kv { display: grid; grid-template-columns: 86px 1fr; gap: 4px 10px; font-size: 11.5px; }
+  .kv .k { color: var(--ink-3); font-family: var(--mono); font-size: 10px; padding-top: 1px; }
+  .kv .v { color: var(--ink-2); font-family: var(--mono); font-size: 10.5px; word-break: break-word; }
+  .kv .v.code { color: #A8D3EE; }
+  .insp-status-row { display: flex; align-items: center; gap: 10px; }
+  .call-row { display: flex; align-items: center; gap: 7px; font-family: var(--mono); font-size: 10.5px; color: var(--ink-2); padding: 5px 8px; border: 1px solid var(--line); border-radius: 5px; margin-bottom: 5px; background: #0009; }
+  .call-row svg { width: 12px; height: 12px; color: var(--st-wired); flex: none; }
+  .hist-row { display: flex; align-items: center; gap: 8px; font-family: var(--mono); font-size: 10px; color: var(--ink-3); padding: 3px 0; }
+  .hist-row .adot { width: 6px; height: 6px; border-radius: 50%; flex: none; }
+  .hist-row .hv { color: var(--ink-2); }
+  .claim-card { border: 1px solid var(--line-bright); border-radius: 7px; padding: 8px 10px; margin-bottom: 6px; background: #0009; }
+  .claim-card .crow { display: flex; align-items: center; gap: 7px; font-family: var(--mono); font-size: 10.5px; color: var(--ink); }
+  .claim-card .crow i { width: 7px; height: 7px; border-radius: 50%; }
+  .claim-card .cintent { font-size: 11px; color: var(--ink-2); margin-top: 4px; }
+  .claim-card .cfiles { font-family: var(--mono); font-size: 9.5px; color: var(--ink-3); margin-top: 5px; line-height: 1.5; }
+  .contested-banner { font-family: var(--mono); font-size: 9.5px; letter-spacing: .1em; color: var(--st-blocked); border: 1px dashed color-mix(in oklab, var(--st-blocked) 55%, transparent); border-radius: 6px; padding: 6px 9px; margin-bottom: 7px; }
+  .note-row { display: flex; gap: 8px; padding: 7px 0; border-bottom: 1px solid var(--line); }
+  .note-row:last-child { border-bottom: none; }
+  .note-row .adot { width: 7px; height: 7px; border-radius: 50%; flex: none; margin-top: 3px; }
+  .note-row .nbody { flex: 1; }
+  .note-row .nwho { font-family: var(--mono); font-size: 9px; color: var(--ink-3); margin-bottom: 2px; }
+  .note-row .nwho b { color: var(--ink-2); }
+  .note-row .ntext { font-size: 11px; color: var(--ink-2); line-height: 1.45; }
+  .test-ok { color: var(--st-tested); } .test-none { color: var(--ink-3); }
+
+  #endcard { position: absolute; inset: 0; z-index: 40; display: flex; align-items: center; justify-content: center; background: #060b10CC; backdrop-filter: blur(6px); opacity: 0; pointer-events: none; transition: opacity .5s ease; }
+  #endcard.show { opacity: 1; pointer-events: auto; }
+  .endbox { text-align: center; display: flex; flex-direction: column; gap: 12px; align-items: center; }
+  .endbox .big { font-size: 22px; font-weight: 700; }
+  .endbox .stats { font-family: var(--mono); font-size: 11px; color: var(--ink-2); letter-spacing: .08em; }
+
+  /* ── Constellation (project view) ───────────────────────────── */
+  #constellation { position: absolute; inset: 0; z-index: 22; display: flex; align-items: center; justify-content: center; background: var(--surface); background-image: radial-gradient(1000px 500px at 50% -10%, #14212c88 0%, transparent 60%), radial-gradient(circle, #1F314044 1px, transparent 1.4px); background-size: auto, 30px 30px; opacity: 1; transition: opacity .45s ease; }
+  body.in-canvas #constellation { opacity: 0; pointer-events: none; }
+  body.in-canvas #ticker, body.in-canvas #legend { display: flex; }
+  body:not(.in-canvas) #ticker, body:not(.in-canvas) #legend { display: none; }
+  #constInner { position: relative; }
+  #threadSvg { position: absolute; inset: 0; overflow: visible; pointer-events: none; }
+  .thread { fill: none; stroke: var(--line-bright); stroke-width: 1.5; stroke-dasharray: 3 5; }
+  .thread.hot { stroke: var(--st-blocked); animation: threadpulse 2s ease-in-out infinite; }
+  @keyframes threadpulse { 0%,100% { opacity: .9; } 50% { opacity: .35; } }
+  .thread-label { position: absolute; transform: translate(-50%, -50%); font-family: var(--mono); font-size: 9px; color: var(--ink-2); background: var(--panel-2); border: 1px solid var(--line-bright); border-radius: 8px; padding: 3px 8px; white-space: nowrap; z-index: 3; }
+  .thread-label.hot { color: var(--st-blocked); border-color: color-mix(in oklab, var(--st-blocked) 55%, transparent); }
+  #chartGrid { position: relative; display: grid; grid-template-columns: repeat(3, 372px); gap: 26px; z-index: 2; }
+  .chart-card { position: relative; height: 208px; border-radius: 12px; padding: 15px 16px; cursor: pointer; background: linear-gradient(180deg, var(--panel-2), var(--panel)); border: 1px solid var(--line-bright); box-shadow: 0 8px 30px #00000055, inset 0 1px 0 #ffffff0d; transition: transform .18s ease, border-color .25s ease, box-shadow .25s ease; display: flex; flex-direction: column; gap: 9px; }
+  .chart-card:hover { transform: translateY(-3px); border-color: var(--ink-3); box-shadow: 0 14px 40px #00000077; }
+  .chart-card.is-live { border-color: color-mix(in oklab, #6EE86E 35%, var(--line-bright)); }
+  .cc-head { display: flex; align-items: center; gap: 8px; }
+  .cc-title { font-size: 13.5px; font-weight: 650; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cc-live { display: flex; align-items: center; gap: 5px; font-family: var(--mono); font-size: 9px; font-weight: 700; letter-spacing: .14em; color: #6EE86E; }
+  .cc-live i { width: 6px; height: 6px; border-radius: 50%; background: #6EE86E; animation: blink 1.6s ease-in-out infinite; }
+  .cc-idle { font-family: var(--mono); font-size: 9px; letter-spacing: .14em; color: var(--ink-3); }
+  .cc-desc { font-size: 11px; color: var(--ink-3); line-height: 1.4; height: 30px; overflow: hidden; }
+  .cc-map { position: relative; flex: 1; border-radius: 7px; background: #0A121A; border: 1px solid var(--line); overflow: hidden; }
+  .cc-map i { position: absolute; width: 5px; height: 5px; border-radius: 2px; }
+  .cc-mix { display: flex; height: 5px; border-radius: 3px; overflow: hidden; background: var(--line); }
+  .cc-mix i { height: 100%; }
+  .cc-foot { display: flex; align-items: center; gap: 10px; font-family: var(--mono); font-size: 9.5px; color: var(--ink-3); }
+  .cc-agents { display: flex; gap: 4px; margin-left: auto; }
+  .cc-agents i { width: 8px; height: 8px; border-radius: 50%; box-shadow: 0 0 6px currentColor; }
+  #constTitle { position: absolute; top: -54px; left: 0; display: flex; align-items: baseline; gap: 12px; }
+  #constTitle .big { font-size: 17px; font-weight: 700; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .radar, .live .live-dot, .cc-live i, .thread.hot { animation: none !important; }
+    .edge-nav { animation: none !important; }
+    .particle { display: none; }
+    .node.mounting { animation-duration: .01s; }
+    .beacon { transition: none; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand" title="Dev Paths">
+    <svg viewBox="0 0 16 16" fill="none"><path d="M2 8h3M11 8h3" stroke="#22B8E6" stroke-width="1.5"/><rect x="5" y="5" width="6" height="6" rx="1.5" stroke="#22B8E6" stroke-width="1.5"/><circle cx="2" cy="8" r="1.4" fill="#FF66C4"/><circle cx="14" cy="8" r="1.4" fill="#22B8E6"/></svg>
+    <span class="hud" style="color:#8FB6CE">Dev Paths</span>
+  </div>
+  <div class="crumb">
+    <span class="dim">Acme Storefront /</span>
+    <span class="link" id="toCharts">Charts</span>
+    <span id="crumbChart"><span class="dim">/</span> Saved Cards — End to End</span>
+  </div>
+  <span class="chip">acme-storefront</span>
+  <div class="hspace"></div>
+  <span class="evcount"><b id="evNow">0</b>/<span id="evTotal">0</span> events</span>
+  <div id="agentChips" style="display:flex;gap:7px"></div>
+  <div class="live-badge live" id="liveBadge" title="Click to go live"><span class="live-dot"></span><span id="liveText">LIVE</span></div>
+  <div class="btn" id="fitBtn" title="Fit to view"><svg viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M5 1H1v4M10 1h4v4M5 14H1v-4M10 14h4v-4"/></svg></div>
+</header>
+
+<div id="stage">
+  <div id="viewport">
+    <div id="world">
+      <svg id="edgeSvg" width="1600" height="1000"></svg>
+      <div class="lane-label" style="left:34px;top:140px">UI</div>
+      <div class="lane-label" style="left:34px;top:368px">API</div>
+      <div class="lane-label" style="left:34px;top:574px">Jobs · Infra</div>
+      <div class="lane-label" style="left:34px;top:784px">Data</div>
+      <div id="nodes"></div>
+      <div id="beacons"></div>
+    </div>
+  </div>
+
+  <div id="ticker"></div>
+
+  <div id="legend">
+    <div class="lrow" id="legendRamp"></div>
+    <div class="lrow" id="legendAlerts"></div>
+  </div>
+
+  <div id="constellation">
+    <div id="constInner">
+      <div id="constTitle"><span class="big">Charts</span><span class="hud">6 dev paths · 5 agents active today · click a chart to dive in</span></div>
+      <svg id="threadSvg"></svg>
+      <div id="chartGrid"></div>
+    </div>
+  </div>
+
+  <aside id="inspector">
+    <div class="insp-head">
+      <div class="insp-title" id="inspTitle">—</div>
+      <div class="btn" id="inspClose"><svg viewBox="0 0 14 14" stroke="currentColor" stroke-width="1.6"><path d="M2 2l10 10M12 2L2 12"/></svg></div>
+    </div>
+    <div class="insp-body" id="inspBody"></div>
+  </aside>
+
+  <div id="endcard">
+    <div class="endbox">
+      <div class="hud" style="color:#6EE86E">Session complete</div>
+      <div class="big">Saved Cards — all paths shipped</div>
+      <div class="stats" id="endStats"></div>
+      <div class="hud" id="endCountdown" style="margin-top:6px"></div>
+    </div>
+  </div>
+</div>
+
+<div id="scrub">
+  <div class="btn" id="playBtn"><svg id="playIcon" viewBox="0 0 14 14" fill="currentColor"><path d="M3.5 2.2v9.6L11.6 7z"/></svg></div>
+  <div class="timewrap">
+    <div id="track"><div class="rail"></div><div class="fill" id="fill"></div><div class="playhead" id="playhead"></div></div>
+    <div class="timelabels"><span class="hud" id="tNow">00:00</span><span class="hud">session 2026-07-18 · saved cards · 4 agents on chart</span><span class="hud" id="tEnd">00:00</span></div>
+  </div>
+  <div id="speed">
+    <span class="spd" data-s="0.5">.5×</span>
+    <span class="spd on" data-s="1">1×</span>
+    <span class="spd" data-s="2">2×</span>
+    <span class="spd" data-s="4">4×</span>
+  </div>
+</div>
+
+<script>
+'use strict';
+/* ═══════════════ 1 · STATUS + AGENTS ═══════════════ */
+const STATUS = {
+  planned:    { c: 'var(--st-planned)',    hex: '#64748B', step: 1 },
+  scaffolded: { c: 'var(--st-scaffolded)', hex: '#4B8DE0', step: 2 },
+  wired:      { c: 'var(--st-wired)',      hex: '#22B8E6', step: 3 },
+  styled:     { c: 'var(--st-styled)',     hex: '#2EDCB4', step: 4 },
+  tested:     { c: 'var(--st-tested)',     hex: '#6EE86E', step: 5 },
+  shipped:    { c: 'var(--st-shipped)',    hex: '#E9F87E', step: 6 },
+  blocked:    { c: 'var(--st-blocked)',    hex: '#ECA83D', step: 0 },
+  error:      { c: 'var(--st-error)',      hex: '#F1655A', step: 0 },
+};
+const AGENTS = {
+  'wallet-ui':    { color: '#FF66C4', full: 'claude/wallet-ui' },
+  'payments-api': { color: '#8FA0FF', full: 'claude/payments-api' },
+  'platform':     { color: '#E8927C', full: 'claude/platform' },
+  'qa':           { color: '#DCE7F0', full: 'claude/qa' },
+};
+const EXTRA_AGENTS = { 'checkout-ui': { color: '#C084FC', full: 'claude/checkout-ui' } }; // constellation-only
+
+/* ═══════════════ 2 · LAYOUT — 4 bands, 26 nodes ═══════════════ */
+const POS = {
+  wallet:      { x: 110,  y: 60,  w: 250, h: 184 },
+  payment:     { x: 440,  y: 60,  w: 250, h: 152 },
+  account:     { x: 770,  y: 60,  w: 250, h: 152 },
+  specWallet:  { x: 1120, y: 64,  w: 215, h: 40 },
+  specIntent:  { x: 1120, y: 130, w: 215, h: 40 },
+  specBilling: { x: 1120, y: 196, w: 215, h: 40 },
+  apiCards:    { x: 120,  y: 350, w: 205, h: 56 },
+  apiIntent:   { x: 420,  y: 350, w: 235, h: 56 },
+  apiBilling:  { x: 740,  y: 350, w: 230, h: 56 },
+  apiWebhook:  { x: 1060, y: 350, w: 245, h: 56 },
+  jobReceipt:  { x: 150,  y: 556, w: 210, h: 48 },
+  svcResend:   { x: 430,  y: 560, w: 185, h: 40 },
+  jobExpiry:   { x: 690,  y: 556, w: 225, h: 48 },
+  infraQueue:  { x: 985,  y: 556, w: 195, h: 48 },
+  infraSecret: { x: 1250, y: 556, w: 255, h: 48 },
+  tblCards:    { x: 150,  y: 766, w: 185, h: 62 },
+  tblEvents:   { x: 450,  y: 766, w: 205, h: 62 },
+  tblSnapshots:{ x: 770,  y: 766, w: 225, h: 62 },
+  svcStripe:   { x: 1110, y: 776, w: 200, h: 40 },
+};
+const WORLD = { w: 1530, h: 810, ox: 20, oy: 40 };
+
+/* ═══════════════ 3 · SESSION BUILDER (programmatic, ~210 events) ═══════════════ */
+const EVENTS = [];
+const ev = o => EVENTS.push(o);
+const N  = (t, agent, key, kind, label, extra = {}) => ev({ t, agent, type: 'node.upserted', key, kind, label, ...extra });
+const S  = (t, agent, key, status, note) => ev({ t, agent, type: 'node.status', key, status, note });
+const E  = (t, agent, from, to, kind, label) => ev({ t, agent, type: 'edge.upserted', from, to, kind, label });
+const T  = (t, agent, key, action) => ev({ t, agent, type: 'agent.touch', key, action });
+const C  = (t, agent, key, intent, files) => ev({ t, agent, type: 'claim', key, intent, files });
+const R  = (t, agent, key, note) => ev({ t, agent, type: 'release', key, note });
+const X  = (t, key, agents, files) => ev({ t, type: 'conflict', key, agents, files });
+const NO = (t, agent, key, text) => ev({ t, agent, type: 'note', key, text });
+const M  = (t, agent, key, meta) => ev({ t, agent, type: 'node.meta', key, meta });
+// progression helper: statuses staggered from t0
+const prog = (agent, key, t0, pairs) => pairs.forEach(([dt, status, note]) => S(t0 + dt, agent, key, status, note));
+
+/* ── Phase A · territory (0–10) ── */
+ev({ t: 0.4, agent: 'payments-api', type: 'chart.created', title: 'Saved Cards — End to End' });
+N(0.7, 'payments-api', 'tblCards', 'schema', 'cards', { file: 'lib/db/schema/payments.ts', cols: '9 cols' });
+N(1.0, 'payments-api', 'tblEvents', 'schema', 'payment_events', { file: 'lib/db/schema/payments.ts', cols: '6 cols' });
+N(1.3, 'payments-api', 'tblSnapshots', 'schema', 'billing_snapshots', { file: 'lib/db/schema/billing.ts', cols: '7 cols' });
+N(1.6, 'payments-api', 'apiCards', 'api', '/api/cards', { method: 'POST·GET', file: 'app/api/cards/route.ts' });
+N(1.9, 'payments-api', 'apiIntent', 'api', '/api/checkout/intent', { method: 'POST', file: 'lib/payments/intent.ts' });
+N(2.2, 'payments-api', 'apiBilling', 'api', '/api/billing/history', { method: 'GET', file: 'app/api/billing/history/route.ts' });
+N(2.5, 'payments-api', 'apiWebhook', 'api', '/api/stripe/webhook', { method: 'POST', file: 'app/api/stripe/webhook/route.ts' });
+N(2.8, 'payments-api', 'svcStripe', 'service', 'stripe.com · SetupIntent', { domain: 'stripe.com' });
+E(3.1, 'payments-api', 'apiCards', 'tblCards', 'data', 'CRUD');
+E(3.3, 'payments-api', 'apiIntent', 'svcStripe', 'data', 'confirm');
+E(3.5, 'payments-api', 'apiIntent', 'tblCards', 'data', 'reads saved card');
+E(3.7, 'payments-api', 'svcStripe', 'apiWebhook', 'data', 'events in');
+E(3.9, 'payments-api', 'apiWebhook', 'tblEvents', 'data', 'audit');
+E(4.1, 'payments-api', 'apiBilling', 'tblSnapshots', 'data', 'reads');
+N(4.4, 'wallet-ui', 'wallet', 'screen', 'Wallet', { route: '/wallet', file: 'app/wallet/page.tsx' });
+N(4.7, 'wallet-ui', 'payment', 'screen', 'Payment', { route: '/checkout/payment', file: 'app/checkout/payment/page.tsx' });
+N(5.0, 'wallet-ui', 'account', 'screen', 'Billing', { route: '/account/billing', file: 'app/account/billing/page.tsx' });
+E(5.2, 'wallet-ui', 'wallet', 'payment', 'nav', 'checkout');
+E(5.4, 'wallet-ui', 'payment', 'account', 'nav', 'view receipt');
+N(5.7, 'wallet-ui', 'SavedCardList', 'component', 'SavedCardList', { parent: 'wallet', file: 'components/wallet/SavedCardList.tsx' });
+N(5.9, 'wallet-ui', 'AddCardModal', 'component', 'AddCardModal', { parent: 'wallet', file: 'components/wallet/AddCardModal.tsx' });
+N(6.1, 'wallet-ui', 'CardArtwork', 'component', 'CardArtwork', { parent: 'wallet', file: 'components/wallet/CardArtwork.tsx' });
+N(6.3, 'wallet-ui', 'SavedCardPicker', 'component', 'SavedCardPicker', { parent: 'payment', file: 'components/checkout/SavedCardPicker.tsx' });
+N(6.5, 'wallet-ui', 'ThreeDSModal', 'component', 'ThreeDSModal', { parent: 'payment', file: 'components/checkout/ThreeDSModal.tsx' });
+N(6.7, 'wallet-ui', 'BillingHistory', 'component', 'BillingHistory', { parent: 'account', file: 'components/account/BillingHistory.tsx' });
+N(6.9, 'wallet-ui', 'DefaultCardBadge', 'component', 'DefaultCardBadge', { parent: 'account', file: 'components/account/DefaultCardBadge.tsx' });
+E(7.1, 'wallet-ui', 'wallet', 'apiCards', 'data', 'list + add');
+E(7.3, 'wallet-ui', 'payment', 'apiIntent', 'data', 'create intent');
+E(7.5, 'wallet-ui', 'account', 'apiBilling', 'data', 'history');
+N(7.8, 'platform', 'infraQueue', 'infra', 'queue: payments', { file: 'lib/queue/payments.ts' });
+N(8.0, 'platform', 'jobReceipt', 'job', 'receipt-email worker', { file: 'workers/receipt-email.ts' });
+N(8.2, 'platform', 'jobExpiry', 'job', 'card-expiry-scan (cron)', { file: 'workers/card-expiry-scan.ts' });
+N(8.4, 'platform', 'infraSecret', 'infra', 'env: STRIPE_WEBHOOK_SECRET', { file: '.env / host config' });
+N(8.6, 'platform', 'svcResend', 'service', 'resend.com · receipts', { domain: 'resend.com' });
+E(8.8, 'platform', 'apiWebhook', 'infraQueue', 'data', 'enqueue');
+E(9.0, 'platform', 'infraQueue', 'jobReceipt', 'data', 'consume');
+E(9.2, 'platform', 'jobReceipt', 'svcResend', 'data', 'send');
+E(9.35, 'platform', 'jobReceipt', 'tblEvents', 'data', 'mark sent');
+E(9.5, 'platform', 'jobExpiry', 'tblCards', 'data', 'scan');
+E(9.6, 'platform', 'jobExpiry', 'svcResend', 'data', 'expiry notice');
+E(9.7, 'platform', 'infraSecret', 'apiWebhook', 'data', 'verifies');
+N(9.85, 'qa', 'specWallet', 'test', 'wallet.spec.ts', { file: 'tests/e2e/wallet.spec.ts' });
+N(9.95, 'qa', 'specIntent', 'test', 'saved-card-intent.spec.ts', { file: 'tests/e2e/saved-card-intent.spec.ts' });
+N(10.05, 'qa', 'specBilling', 'test', 'billing-history.spec.ts', { file: 'tests/e2e/billing-history.spec.ts' });
+E(10.15, 'qa', 'specWallet', 'wallet', 'data', 'covers');
+E(10.25, 'qa', 'specIntent', 'payment', 'data', 'covers');
+E(10.35, 'qa', 'specBilling', 'account', 'data', 'covers');
+
+/* ── Phase B · parallel build (10–30) ── */
+C(10.6, 'payments-api', 'tblCards', 'cards table + migration', ['lib/db/schema/payments.ts', 'drizzle/0142_cards.sql']);
+C(10.9, 'wallet-ui', 'wallet', 'build wallet screen', ['app/wallet/page.tsx', 'components/wallet/*']);
+C(11.2, 'platform', 'infraQueue', 'stand up payments queue', ['lib/queue/payments.ts', 'railway.json']);
+C(11.5, 'qa', 'specWallet', 'author wallet e2e', ['tests/e2e/wallet.spec.ts']);
+T(11.8, 'payments-api', 'tblCards', 'writing cards schema');
+T(12.1, 'wallet-ui', 'SavedCardList', 'scaffolding list');
+T(12.4, 'platform', 'infraQueue', 'provisioning queue');
+prog('payments-api', 'tblCards', 12.6, [[0, 'scaffolded'], [1.6, 'wired', 'migration 0142 generated']]);
+prog('wallet-ui', 'wallet', 12.9, [[0, 'scaffolded']]);
+prog('wallet-ui', 'SavedCardList', 13.4, [[0, 'scaffolded']]);
+prog('platform', 'infraQueue', 13.8, [[0, 'scaffolded'], [2.2, 'wired', 'queue live on railway']]);
+R(14.6, 'payments-api', 'tblCards', 'migration ready');
+C(14.9, 'payments-api', 'apiCards', 'cards CRUD endpoints', ['app/api/cards/route.ts', 'lib/payments/cards.ts']);
+T(15.2, 'payments-api', 'apiCards', 'wiring cards CRUD');
+M(15.5, 'wallet-ui', 'SavedCardList', { state: 'cards: Card[] · deleting: id|null', store: 'useWalletStore.cards', props: '—', calls: 'GET /api/cards · DELETE /api/cards' });
+S(15.8, 'wallet-ui', 'SavedCardList', 'wired');
+prog('payments-api', 'apiCards', 16.4, [[0, 'scaffolded'], [1.2, 'wired']]);
+T(16.8, 'wallet-ui', 'AddCardModal', 'building add-card modal');
+prog('wallet-ui', 'AddCardModal', 17.6, [[0, 'scaffolded'], [1.0, 'wired']]);
+T(18.2, 'platform', 'jobReceipt', 'wiring receipt worker');
+prog('platform', 'jobReceipt', 19.0, [[0, 'scaffolded'], [1.8, 'wired', 'consumes queue, sends via resend']]);
+T(19.4, 'wallet-ui', 'CardArtwork', 'card artwork renderer');
+prog('wallet-ui', 'CardArtwork', 20.2, [[0, 'scaffolded'], [1.0, 'wired']]);
+C(20.6, 'payments-api', 'apiIntent', 'add saved_card_id support', ['lib/payments/intent.ts', 'app/api/checkout/intent/route.ts']);
+T(21.0, 'payments-api', 'apiIntent', 'extending intent handler');
+S(21.6, 'payments-api', 'apiIntent', 'scaffolded');
+S(22.0, 'wallet-ui', 'wallet', 'wired');
+T(22.6, 'wallet-ui', 'wallet', 'styling wallet');
+prog('wallet-ui', 'wallet', 23.4, [[0, 'styled']]);
+prog('wallet-ui', 'SavedCardList', 24.0, [[0, 'styled']]);
+prog('wallet-ui', 'AddCardModal', 24.4, [[0, 'styled']]);
+prog('wallet-ui', 'CardArtwork', 24.8, [[0, 'styled']]);
+T(25.2, 'qa', 'specWallet', 'writing wallet e2e');
+S(26.0, 'qa', 'specWallet', 'wired', 'spec authored');
+T(26.6, 'payments-api', 'apiIntent', 'refactoring for saved cards');
+T(27.2, 'platform', 'jobExpiry', 'expiry-scan cron');
+prog('platform', 'jobExpiry', 28.0, [[0, 'scaffolded'], [1.6, 'wired', 'daily 06:00 UTC']]);
+
+/* ── Phase C · THE CONTESTED PATH (28–46) ── */
+T(28.4, 'wallet-ui', 'SavedCardPicker', 'starting saved-card picker');
+S(29.0, 'wallet-ui', 'SavedCardPicker', 'scaffolded');
+C(29.6, 'wallet-ui', 'apiIntent', 'need paymentMethodId param for picker', ['lib/payments/intent.ts']);
+X(29.6, 'apiIntent', ['wallet-ui', 'payments-api'], ['lib/payments/intent.ts']);
+NO(30.4, 'wallet-ui', 'apiIntent', 'Need `paymentMethodId` in the intent payload for the picker — can I take this file?');
+NO(32.0, 'payments-api', 'apiIntent', 'Mid-refactor: adding `saved_card_id` + `setup_future_usage`. ~90s out. I’ll expose `paymentMethodId` as an alias so you don’t need server changes.');
+T(33.0, 'wallet-ui', 'SavedCardPicker', 'building picker against mock');
+S(34.0, 'wallet-ui', 'payment', 'scaffolded');
+T(36.0, 'payments-api', 'apiIntent', 'finishing saved-card path');
+S(38.0, 'payments-api', 'apiIntent', 'wired');
+NO(39.0, 'payments-api', 'apiIntent', 'Done — new signature: `{amount, saved_card_id?, setup_future_usage?}` (+ `paymentMethodId` alias). Releasing.');
+R(39.4, 'payments-api', 'apiIntent', 'handed off to wallet-ui');
+T(40.6, 'wallet-ui', 'apiIntent', 'wiring picker to new intent API');
+M(41.6, 'wallet-ui', 'SavedCardPicker', { state: 'selected: cardId|new · confirming: bool', store: 'useCheckoutStore.payment', props: 'amount, currency', calls: 'POST /api/checkout/intent {paymentMethodId}' });
+S(42.4, 'wallet-ui', 'SavedCardPicker', 'wired');
+S(43.2, 'wallet-ui', 'payment', 'wired');
+R(44.0, 'wallet-ui', 'apiIntent', 'no server changes needed — consumed the alias');
+T(44.8, 'wallet-ui', 'ThreeDSModal', 'scaffolding 3DS modal');
+prog('wallet-ui', 'ThreeDSModal', 45.6, [[0, 'scaffolded']]);
+
+/* ── Phase D · platform secret beat + billing wave (46–62) ── */
+C(46.4, 'platform', 'infraSecret', 'rotate webhook secret for staging', ['.env', 'host config']);
+NO(47.2, 'platform', 'apiWebhook', 'Rotating STRIPE_WEBHOOK_SECRET in staging — webhook e2e will 401 for ~60s. Pause runs until I release.');
+NO(48.4, 'qa', 'apiWebhook', 'Ack — holding webhook-dependent specs until your release.');
+T(49.0, 'platform', 'infraSecret', 'rotating secret');
+S(49.8, 'platform', 'infraSecret', 'wired', 'rotated + verified');
+R(50.6, 'platform', 'infraSecret', 'rotation done — webhook e2e safe');
+T(51.2, 'payments-api', 'apiWebhook', 'wiring webhook audit');
+prog('payments-api', 'apiWebhook', 52.0, [[0, 'wired'], [0.6, 'wired']]);
+S(52.8, 'payments-api', 'tblEvents', 'wired');
+T(53.4, 'wallet-ui', 'BillingHistory', 'billing history list');
+C(53.8, 'payments-api', 'apiBilling', 'billing history endpoint', ['app/api/billing/history/route.ts']);
+T(54.2, 'payments-api', 'apiBilling', 'snapshot reads');
+prog('payments-api', 'apiBilling', 55.0, [[0, 'scaffolded'], [1.2, 'wired']]);
+S(55.4, 'payments-api', 'tblSnapshots', 'wired');
+prog('wallet-ui', 'BillingHistory', 56.0, [[0, 'scaffolded'], [1.4, 'wired']]);
+T(57.0, 'wallet-ui', 'DefaultCardBadge', 'default-card badge');
+prog('wallet-ui', 'DefaultCardBadge', 57.8, [[0, 'scaffolded'], [0.9, 'wired']]);
+S(58.4, 'wallet-ui', 'account', 'scaffolded');
+S(59.2, 'wallet-ui', 'account', 'wired');
+T(59.8, 'wallet-ui', 'account', 'styling billing screen');
+prog('wallet-ui', 'account', 60.6, [[0, 'styled']]);
+prog('wallet-ui', 'BillingHistory', 61.0, [[0, 'styled']]);
+prog('wallet-ui', 'DefaultCardBadge', 61.4, [[0, 'styled']]);
+prog('wallet-ui', 'payment', 61.8, [[0, 'styled']]);
+prog('wallet-ui', 'SavedCardPicker', 62.2, [[0, 'styled']]);
+R(62.6, 'platform', 'infraQueue', 'queue + workers stable');
+
+/* ── Phase E · QA sweeps + 3DS fix loop (63–88) ── */
+T(63.2, 'qa', 'specWallet', 'running wallet e2e');
+S(64.2, 'qa', 'specWallet', 'tested', '4/4 passing');
+prog('qa', 'wallet', 64.6, [[0, 'tested']]);
+prog('qa', 'SavedCardList', 65.0, [[0, 'tested']]);
+prog('qa', 'AddCardModal', 65.3, [[0, 'tested']]);
+prog('qa', 'CardArtwork', 65.6, [[0, 'tested']]);
+prog('qa', 'apiCards', 65.9, [[0, 'tested']]);
+prog('qa', 'tblCards', 66.2, [[0, 'tested']]);
+C(67.0, 'qa', 'specIntent', 'saved-card intent e2e', ['tests/e2e/saved-card-intent.spec.ts']);
+T(67.4, 'qa', 'specIntent', 'authoring intent e2e');
+S(68.4, 'qa', 'specIntent', 'wired', 'spec authored');
+T(69.2, 'qa', 'specIntent', 'running intent e2e');
+S(70.4, 'qa', 'specIntent', 'error', '3DS challenge leg fails — picker skips confirmation');
+NO(71.2, 'qa', 'SavedCardPicker', '3DS: picker never calls `confirmCardPayment` when intent returns `requires_action`.');
+S(71.6, 'qa', 'SavedCardPicker', 'error', '3DS requires_action path missing');
+T(73.0, 'wallet-ui', 'SavedCardPicker', 'adding requires_action branch');
+T(74.0, 'wallet-ui', 'ThreeDSModal', 'wiring challenge flow');
+S(75.0, 'wallet-ui', 'ThreeDSModal', 'wired', 'challenge flow in');
+S(75.6, 'wallet-ui', 'SavedCardPicker', 'wired', '3DS handled via ThreeDSModal');
+prog('wallet-ui', 'ThreeDSModal', 76.2, [[0, 'styled']]);
+T(77.0, 'qa', 'specIntent', 'rerunning intent e2e');
+S(78.2, 'qa', 'specIntent', 'tested', '6/6 passing incl. 3DS');
+prog('qa', 'SavedCardPicker', 78.6, [[0, 'tested']]);
+prog('qa', 'ThreeDSModal', 79.0, [[0, 'tested']]);
+prog('qa', 'payment', 79.4, [[0, 'tested']]);
+prog('qa', 'apiIntent', 79.8, [[0, 'tested']]);
+T(80.4, 'qa', 'specBilling', 'authoring billing e2e');
+S(81.4, 'qa', 'specBilling', 'wired', 'spec authored');
+T(82.0, 'qa', 'specBilling', 'running billing e2e');
+S(83.0, 'qa', 'specBilling', 'tested', '3/3 passing');
+prog('qa', 'account', 83.4, [[0, 'tested']]);
+prog('qa', 'BillingHistory', 83.7, [[0, 'tested']]);
+prog('qa', 'DefaultCardBadge', 84.0, [[0, 'tested']]);
+prog('qa', 'apiBilling', 84.3, [[0, 'tested']]);
+prog('qa', 'tblSnapshots', 84.6, [[0, 'tested']]);
+prog('qa', 'apiWebhook', 84.9, [[0, 'tested']]);
+prog('qa', 'tblEvents', 85.2, [[0, 'tested']]);
+prog('qa', 'jobReceipt', 85.5, [[0, 'tested']]);
+prog('qa', 'jobExpiry', 85.8, [[0, 'tested']]);
+prog('qa', 'infraQueue', 86.1, [[0, 'tested']]);
+prog('qa', 'infraSecret', 86.4, [[0, 'tested']]);
+
+/* ── Phase F · ship sweep (88–104) ── */
+T(88.0, 'payments-api', 'apiCards', 'shipping payments API');
+['apiCards', 'apiIntent', 'apiBilling', 'apiWebhook', 'tblCards', 'tblEvents', 'tblSnapshots'].forEach((k, i) => S(88.8 + i * 0.4, 'payments-api', k, 'shipped'));
+T(92.0, 'platform', 'infraQueue', 'shipping workers');
+['infraQueue', 'jobReceipt', 'jobExpiry', 'infraSecret'].forEach((k, i) => S(92.6 + i * 0.4, 'platform', k, 'shipped'));
+T(94.6, 'wallet-ui', 'wallet', 'shipping wallet + checkout');
+['wallet', 'SavedCardList', 'AddCardModal', 'CardArtwork', 'payment', 'SavedCardPicker', 'ThreeDSModal', 'account', 'BillingHistory', 'DefaultCardBadge'].forEach((k, i) => S(95.2 + i * 0.4, 'wallet-ui', k, 'shipped'));
+['specWallet', 'specIntent', 'specBilling'].forEach((k, i) => S(99.6 + i * 0.3, 'qa', k, 'shipped'));
+R(100.8, 'wallet-ui', 'wallet', 'done');
+R(101.1, 'qa', 'specWallet', 'done'); R(101.3, 'qa', 'specIntent', 'done');
+R(101.5, 'payments-api', 'apiCards', 'done'); R(101.7, 'qa', 'specBilling', 'done');
+ev({ t: 103.0, type: 'chart.updated', note: 'session complete — 4 agents · 1 contested path resolved · 0 open claims' });
+
+EVENTS.sort((a, b) => a.t - b.t);
+EVENTS.forEach((e, i) => e.id = i + 1);
+const DUR = 106;
+
+/* ═══════════════ 4 · PURE REDUCER ═══════════════ */
+function stateAt(T) {
+  const s = { nodes: new Map(), edges: [], presence: new Map(), claims: new Map(), notes: new Map(), applied: 0, lastByNode: new Map(), noteCount: 0, conflicts: 0 };
+  for (const e of EVENTS) {
+    if (e.t > T) break;
+    s.applied++;
+    if (e.type === 'node.upserted') {
+      s.nodes.set(e.key, { key: e.key, kind: e.kind, label: e.label, parent: e.parent || null, route: e.route || null, file: e.file || null, domain: e.domain || null, method: e.method || null, cols: e.cols || null, status: 'planned', lastStep: 1, statusAt: e.t, bornAt: e.t, note: null, meta: {}, history: [{ t: e.t, status: 'planned', agent: e.agent }] });
+    } else if (e.type === 'node.status') {
+      const n = s.nodes.get(e.key);
+      if (n && n.status !== e.status) {
+        n.status = e.status; n.statusAt = e.t; n.note = e.note || n.note;
+        if (STATUS[e.status].step > 0) n.lastStep = STATUS[e.status].step;
+        n.history.push({ t: e.t, status: e.status, agent: e.agent });
+      }
+    } else if (e.type === 'node.meta') {
+      const n = s.nodes.get(e.key);
+      if (n) Object.assign(n.meta, e.meta);
+    } else if (e.type === 'edge.upserted') {
+      s.edges.push({ from: e.from, to: e.to, kind: e.kind, label: e.label, bornAt: e.t });
+    } else if (e.type === 'agent.touch') {
+      s.presence.set(e.agent, { key: e.key, action: e.action, t: e.t });
+      s.lastByNode.set(e.key, e.t);
+    } else if (e.type === 'claim') {
+      const list = s.claims.get(e.key) || [];
+      list.push({ agent: e.agent, intent: e.intent, files: e.files, t: e.t });
+      s.claims.set(e.key, list);
+    } else if (e.type === 'release') {
+      const list = (s.claims.get(e.key) || []).filter(c => c.agent !== e.agent);
+      if (list.length) s.claims.set(e.key, list); else s.claims.delete(e.key);
+    } else if (e.type === 'note') {
+      const list = s.notes.get(e.key) || [];
+      list.push({ agent: e.agent, text: e.text, t: e.t });
+      s.notes.set(e.key, list);
+      s.noteCount++;
+    } else if (e.type === 'conflict') {
+      s.conflicts++;
+    }
+  }
+  return s;
+}
+
+/* ═══════════════ 5 · GEOMETRY ═══════════════ */
+function nodeRect(n) { return POS[n.key] || null; }
+function worldPosOf(state, key) {
+  const n = state.nodes.get(key);
+  if (!n) return null;
+  const r = POS[key];
+  if (r) return n.kind === 'screen' ? { x: r.x + 14, y: r.y + 20 } : { x: r.x + 16, y: r.y + r.h / 2 };
+  if (n.parent && POS[n.parent]) {
+    const siblings = [...state.nodes.values()].filter(m => m.parent === n.parent);
+    const idx = siblings.findIndex(m => m.key === key);
+    const pp = POS[n.parent];
+    return { x: pp.x + 16, y: pp.y + 92 + idx * 31 };
+  }
+  return null;
+}
+function edgePath(a, b, kind) {
+  const acx = a.x + a.w / 2, acy = a.y + a.h / 2, bcx = b.x + b.w / 2, bcy = b.y + b.h / 2;
+  if (kind === 'nav' || Math.abs(bcx - acx) > Math.abs(bcy - acy) * 1.6) {
+    const ltr = bcx > acx;
+    const x1 = ltr ? a.x + a.w : a.x, y1 = acy, x2 = ltr ? b.x : b.x + b.w, y2 = bcy;
+    const dx = Math.max(50, Math.abs(x2 - x1) / 2) * (ltr ? 1 : -1);
+    return { d: `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`, end: { x: x2, y: y2, ltr } };
+  }
+  const down = bcy > acy;
+  const y1 = down ? a.y + a.h : a.y, y2 = down ? b.y : b.y + b.h;
+  const dy = Math.max(34, Math.abs(y2 - y1) / 2) * (down ? 1 : -1);
+  return { d: `M ${acx} ${y1} C ${acx} ${y1 + dy}, ${bcx} ${y2 - dy}, ${bcx} ${y2}`, end: null };
+}
+
+/* ═══════════════ 6 · CANVAS RENDER ═══════════════ */
+const $ = id => document.getElementById(id);
+const nodesEl = $('nodes'), edgeSvg = $('edgeSvg'), beaconsEl = $('beacons');
+const SVGNS = 'http://www.w3.org/2000/svg';
+let selectedKey = null;
+
+const ICONS = {
+  cloud: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M4.5 12.5a3 3 0 0 1-.4-6A4 4 0 0 1 12 7.6a2.5 2.5 0 0 1-.7 4.9z"/></svg>',
+  flask: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M6 1.5h4M7 1.5v4.2L3.2 12a1.6 1.6 0 0 0 1.4 2.5h6.8a1.6 1.6 0 0 0 1.4-2.5L9 5.7V1.5M5 10h6"/></svg>',
+  gear: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><circle cx="8" cy="8" r="2.2"/><path d="M8 1.6v2M8 12.4v2M1.6 8h2M12.4 8h2M3.5 3.5l1.4 1.4M11.1 11.1l1.4 1.4M12.5 3.5l-1.4 1.4M4.9 11.1l-1.4 1.4"/></svg>',
+  bolt: '<svg viewBox="0 0 16 16" fill="currentColor"><path d="M9 1 3 9h3.5L7 15l6-8H9.5z"/></svg>',
+  check: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 8.5 3.2 3L13 4.5"/></svg>',
+  warn: '<svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1.5 15 14H1zM7.3 6h1.4v4H7.3zm0 5h1.4v1.5H7.3z"/></svg>',
+  chat: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M2 3.5A1.5 1.5 0 0 1 3.5 2h9A1.5 1.5 0 0 1 14 3.5v6a1.5 1.5 0 0 1-1.5 1.5H8l-3.5 3v-3h-1A1.5 1.5 0 0 1 2 9.5z"/></svg>',
+};
+
+function ringSVG(step) {
+  let r = `<svg class="ring" width="34" height="8" viewBox="0 0 34 8">`;
+  for (let i = 0; i < 6; i++) r += `<rect x="${i * 6}" y="1" width="4" height="6" rx="1" class="${i < step ? 'on' : ''}"/>`;
+  return r + '</svg>';
+}
+function noteBadge(state, key) {
+  const c = (state.notes.get(key) || []).length;
+  return c ? `<span class="note-badge">${ICONS.chat}${c}</span>` : '';
+}
+function claimTag(state, key) {
+  const claims = state.claims.get(key) || [];
+  if (!claims.length) return '';
+  if (claims.length > 1) {
+    const dots = claims.map(c => `<i style="background:${AGENTS[c.agent].color}"></i>`).join('');
+    return `<span class="claim-tag warn">${dots} contested</span>`;
+  }
+  const c = claims[0];
+  return `<span class="claim-tag"><i style="background:${AGENTS[c.agent].color}"></i>${c.agent}</span>`;
+}
+
+function renderGraph(state, T) {
+  edgeSvg.innerHTML = '';
+  for (const e of state.edges) {
+    const a = state.nodes.get(e.from), b = state.nodes.get(e.to);
+    if (!a || !b) continue;
+    const ra = nodeRect(a), rb = nodeRect(b);
+    if (!ra || !rb) continue;
+    const { d, end } = edgePath(ra, rb, e.kind);
+    const p = document.createElementNS(SVGNS, 'path');
+    p.setAttribute('d', d);
+    const srcHot = (state.lastByNode.get(e.from) ?? -99) > T - 7 ||
+      [...state.nodes.values()].some(m => m.parent === e.from && (state.lastByNode.get(m.key) ?? -99) > T - 7);
+    p.setAttribute('class', e.kind === 'nav'
+      ? 'edge-nav' + (STATUS[a.status].step >= 3 && STATUS[b.status].step >= 3 ? ' lit' : '')
+      : 'edge-data' + (srcHot ? ' hot' : ''));
+    const age = T - e.bornAt;
+    if (age < 0.9) p.style.opacity = String(Math.min(1, age / 0.4));
+    edgeSvg.appendChild(p);
+    if (e.kind === 'nav' && end) {
+      const sgn = end.ltr ? 1 : -1;
+      const ar = document.createElementNS(SVGNS, 'path');
+      ar.setAttribute('d', `M ${end.x - 9 * sgn} ${end.y - 5} L ${end.x - 1 * sgn} ${end.y} L ${end.x - 9 * sgn} ${end.y + 5} Z`);
+      ar.setAttribute('class', 'edge-arrow');
+      edgeSvg.appendChild(ar);
+    }
+    if (e.kind === 'data' && srcHot) spawnParticles(p, T);
+  }
+
+  const seen = new Set();
+  for (const n of state.nodes.values()) {
+    if (!POS[n.key]) continue;
+    seen.add(n.key);
+    let el = nodesEl.querySelector(`[data-key="${n.key}"]`);
+    if (!el) {
+      el = document.createElement('div');
+      el.dataset.key = n.key;
+      el.addEventListener('click', ev2 => { ev2.stopPropagation(); openInspector(n.key); });
+      nodesEl.appendChild(el);
+    }
+    const st = STATUS[n.status];
+    const age = T - n.bornAt, stAge = T - n.statusAt;
+    const flash = stAge >= 0 && stAge < 1.0 && n.status !== 'planned';
+    const claims = state.claims.get(n.key) || [];
+    const cls = ['node', n.kind === 'screen' ? 'screen' : n.kind];
+    if (age < 0.6) cls.push('mounting');
+    if (flash) cls.push(n.status === 'error' ? 'err-shake flash' : 'flash');
+    if (n.status === 'shipped' && n.kind === 'screen') cls.push('shipped-fill');
+    if (claims.length > 1) cls.push('contested');
+    else if (claims.length === 1) cls.push('claimed');
+    el.className = cls.join(' ');
+    el.style.setProperty('--nc', st.c);
+    if (claims.length === 1) el.style.setProperty('--claimc', AGENTS[claims[0].agent].color);
+    const r = nodeRect(n);
+    el.style.left = r.x + 'px'; el.style.top = r.y + 'px';
+    el.style.width = r.w + 'px'; el.style.height = r.h + 'px';
+
+    const alert = n.status === 'error' || n.status === 'blocked';
+    const tag = claimTag(state, n.key);
+
+    if (n.kind === 'screen') {
+      const comps = [...state.nodes.values()].filter(m => m.parent === n.key);
+      el.innerHTML = `${tag}
+        <div class="head">
+          <span class="title">${n.label}</span>
+          ${noteBadge(state, n.key)}
+          ${alert ? `<span style="color:${st.c};width:13px;display:inline-flex">${ICONS.warn}</span>` : ''}
+          ${n.status === 'shipped' ? `<span style="color:${st.c};width:13px;display:inline-flex">${ICONS.check}</span>` : ''}
+          ${ringSVG(n.lastStep)}
+        </div>
+        <span class="route">${n.route}</span>
+        <div class="hud st-line" style="color:${st.c}">${n.status}</div>
+        <div class="chips">${comps.map(c => {
+          const cst = STATUS[c.status];
+          const cFlash = (T - c.statusAt) >= 0 && (T - c.statusAt) < 1.0 && c.status !== 'planned';
+          const cn = (state.notes.get(c.key) || []).length;
+          return `<div class="comp${cFlash ? ' flash' : ''}" data-comp="${c.key}" style="--cc:${cst.c}">
+            <span class="cdot"></span><span class="cname">${c.label}</span>
+            ${cn ? `<span class="note-badge">${ICONS.chat}${cn}</span>` : ''}
+            <span class="cst">${c.status}</span>
+          </div>`;
+        }).join('')}</div>`;
+      el.querySelectorAll('.comp').forEach(ch =>
+        ch.addEventListener('click', ev2 => { ev2.stopPropagation(); openInspector(ch.dataset.comp); }));
+    } else if (n.kind === 'api') {
+      el.innerHTML = `${tag}<span class="method">${n.method}</span><span class="aname">${n.label}</span>${noteBadge(state, n.key)}${alert ? `<span style="color:${st.c};width:13px;display:inline-flex;flex:none">${ICONS.warn}</span>` : ''}${ringSVG(n.lastStep)}`;
+    } else if (n.kind === 'schema') {
+      el.innerHTML = `${tag}<div class="stag">TABLE · ${n.cols}</div><div class="sname">${n.label} ${ringSVG(n.lastStep)}</div>`;
+    } else if (n.kind === 'service') {
+      el.innerHTML = `${tag}${ICONS.cloud}<span class="sname">${n.label}</span>`;
+    } else if (n.kind === 'job') {
+      el.innerHTML = `${tag}${ICONS.bolt}<span class="sname">${n.label}</span>${ringSVG(n.lastStep)}`;
+    } else if (n.kind === 'infra') {
+      el.innerHTML = `${tag}${ICONS.gear}<span class="sname">${n.label}</span>${noteBadge(state, n.key)}${ringSVG(n.lastStep)}`;
+    } else if (n.kind === 'test') {
+      el.innerHTML = `${tag}${ICONS.flask}<span class="sname">${n.label}</span>${noteBadge(state, n.key)}${alert ? `<span style="color:${st.c};width:12px;display:inline-flex;flex:none">${ICONS.warn}</span>` : ''}${ringSVG(n.lastStep)}`;
+    }
+  }
+  for (const el of [...nodesEl.children]) if (!seen.has(el.dataset.key)) el.remove();
+
+  // beacons — tags alternate sides to avoid collisions
+  Object.keys(AGENTS).forEach((agent, idx) => {
+    let b = beaconsEl.querySelector(`[data-agent="${agent}"]`);
+    if (!b) {
+      b = document.createElement('div');
+      b.className = 'beacon hidden'; b.dataset.agent = agent;
+      b.dataset.side = idx % 2 ? 'below' : 'above';
+      b.style.setProperty('--ac', AGENTS[agent].color);
+      b.innerHTML = `<div class="radar"></div><div class="radar"></div><div class="radar"></div>
+        <div class="beacon-core"></div>
+        <div class="beacon-tag"><b>${agent}</b> <span class="bact"></span></div>`;
+      beaconsEl.appendChild(b);
+    }
+    const pr = state.presence.get(agent);
+    if (pr && T - pr.t < 10) {
+      const wp = worldPosOf(state, pr.key);
+      if (wp) {
+        b.classList.remove('hidden');
+        b.style.transform = `translate(${wp.x + idx * 22}px, ${wp.y + idx * 6}px)`;
+        b.querySelector('.bact').textContent = '· ' + pr.action;
+        return;
+      }
+    }
+    b.classList.add('hidden');
+  });
+
+  Object.keys(AGENTS).forEach(agent => {
+    const chip = document.querySelector(`.agent-chip[data-agent="${agent}"]`);
+    const pr = state.presence.get(agent);
+    chip.classList.toggle('idle', !(pr && T - pr.t < 12));
+  });
+}
+
+function spawnParticles(pathEl, T) {
+  const g = document.createElementNS(SVGNS, 'g');
+  const len = pathEl.getTotalLength();
+  for (let i = 0; i < 3; i++) {
+    const ph = ((T * 0.55) + i / 3) % 1;
+    const pt = pathEl.getPointAtLength(ph * len);
+    const c = document.createElementNS(SVGNS, 'circle');
+    c.setAttribute('cx', pt.x); c.setAttribute('cy', pt.y);
+    c.setAttribute('r', 2.2 - i * 0.4);
+    c.setAttribute('class', 'particle');
+    c.setAttribute('opacity', String(0.9 - i * 0.25));
+    g.appendChild(c);
+  }
+  edgeSvg.appendChild(g);
+}
+
+/* ═══════════════ 7 · CONSTELLATION ═══════════════ */
+const CHARTS = [
+  { id: 'saved-cards', title: 'Saved Cards — End to End', live: true, desc: 'Wallet, saved-card checkout, billing history, receipts pipeline.', agents: ['wallet-ui', 'payments-api', 'platform', 'qa'] },
+  { id: 'checkout-flow', title: 'Checkout Flow', live: true, desc: 'Cart → shipping → payment → review. Guest + member paths.', agents: ['checkout-ui'], mix: { wired: 4, styled: 5, tested: 3 }, counts: '14 nodes · 12 edges', dots: [[.1,.3,'styled'],[.28,.5,'styled'],[.46,.3,'wired'],[.64,.55,'styled'],[.82,.35,'tested'],[.2,.75,'wired'],[.5,.8,'tested'],[.75,.72,'wired'],[.9,.6,'styled'],[.35,.15,'tested'],[.6,.18,'styled'],[.15,.55,'wired'],[.55,.4,'styled'],[.88,.2,'tested']] },
+  { id: 'onboarding', title: 'Onboarding Wizard', live: false, idle: 'idle · 2d', desc: 'Signup, plan pick, workspace setup, first-run tour.', agents: [], mix: { planned: 3, scaffolded: 2, wired: 6 }, counts: '11 nodes · 9 edges', dots: [[.12,.4,'wired'],[.3,.25,'wired'],[.48,.45,'wired'],[.66,.3,'scaffolded'],[.84,.5,'planned'],[.25,.7,'wired'],[.55,.75,'scaffolded'],[.78,.68,'planned'],[.4,.55,'wired'],[.9,.35,'planned'],[.6,.15,'wired']] },
+  { id: 'search', title: 'Search & Browse', live: false, idle: 'shipped · 6d', desc: 'Catalog search, filters, PDP. Shipped last sprint.', agents: [], mix: { shipped: 12 }, counts: '12 nodes · 10 edges', dots: [[.1,.35,'shipped'],[.3,.2,'shipped'],[.5,.4,'shipped'],[.7,.25,'shipped'],[.88,.45,'shipped'],[.2,.65,'shipped'],[.42,.75,'shipped'],[.62,.6,'shipped'],[.8,.78,'shipped'],[.35,.45,'shipped'],[.55,.15,'shipped'],[.9,.65,'shipped']] },
+  { id: 'infra-queue', title: 'Infra: Queue Migration', live: false, idle: 'idle · 4h', desc: 'Move workers from cron polling to the payments queue.', agents: [], mix: { wired: 3, tested: 2, planned: 2 }, counts: '7 nodes · 6 edges', dots: [[.15,.4,'tested'],[.35,.6,'wired'],[.55,.35,'wired'],[.75,.55,'wired'],[.5,.8,'planned'],[.88,.3,'planned'],[.25,.2,'tested']] },
+  { id: 'admin-reports', title: 'Admin Reports', live: false, idle: 'planned', desc: 'Revenue + card-health dashboards for the ops panel.', agents: [], mix: { planned: 8 }, counts: '8 nodes · 5 edges', dots: [[.15,.35,'planned'],[.35,.55,'planned'],[.55,.3,'planned'],[.75,.5,'planned'],[.3,.75,'planned'],[.6,.72,'planned'],[.85,.65,'planned'],[.45,.15,'planned']] },
+];
+const THREADS = [
+  { a: 'saved-cards', b: 'checkout-flow', label: 'lib/payments/intent.ts', hot: true },
+  { a: 'saved-cards', b: 'infra-queue', label: 'drizzle/0142_cards.sql', hot: false },
+];
+
+function chartMix(state) { // live status mix for saved-cards
+  const mix = {};
+  for (const n of state.nodes.values()) mix[n.status] = (mix[n.status] || 0) + 1;
+  return mix;
+}
+function renderConstellation(state, T) {
+  const grid = $('chartGrid');
+  if (!grid.children.length) {
+    grid.innerHTML = CHARTS.map(c => `
+      <div class="chart-card ${c.live ? 'is-live' : ''}" data-chart="${c.id}">
+        <div class="cc-head">
+          <span class="cc-title">${c.title}</span>
+          ${c.live ? `<span class="cc-live"><i></i>LIVE</span>` : `<span class="cc-idle">${c.idle}</span>`}
+        </div>
+        <div class="cc-desc">${c.desc}</div>
+        <div class="cc-map" data-map="${c.id}"></div>
+        <div class="cc-mix" data-mix="${c.id}"></div>
+        <div class="cc-foot"><span data-counts="${c.id}">${c.counts || ''}</span><span class="cc-agents" data-agents="${c.id}"></span></div>
+      </div>`).join('');
+    grid.querySelectorAll('.chart-card').forEach(card =>
+      card.addEventListener('click', () => { userNavigated = true; enterCanvas(); }));
+    requestAnimationFrame(drawThreads);
+  }
+  for (const c of CHARTS) {
+    const isSaved = c.id === 'saved-cards';
+    const mix = isSaved ? chartMix(state) : c.mix;
+    const total = Object.values(mix).reduce((a, b) => a + b, 0) || 1;
+    $('chartGrid').querySelector(`[data-mix="${c.id}"]`).innerHTML =
+      Object.entries(mix).map(([k, v]) => `<i style="width:${v / total * 100}%;background:${STATUS[k].hex}"></i>`).join('');
+    const mapEl = grid.querySelector(`[data-map="${c.id}"]`);
+    if (isSaved) {
+      mapEl.innerHTML = [...state.nodes.values()].filter(n => POS[n.key]).map(n => {
+        const r = POS[n.key];
+        return `<i style="left:${(r.x + r.w / 2) / WORLD.w * 96 + 2}%;top:${(r.y + r.h / 2 - 40) / WORLD.h * 88 + 6}%;background:${STATUS[n.status].hex}"></i>`;
+      }).join('');
+      grid.querySelector(`[data-counts="${c.id}"]`).textContent =
+        `${state.nodes.size} nodes · ${state.edges.length} edges · ${state.applied} events`;
+    } else if (!mapEl.children.length) {
+      mapEl.innerHTML = c.dots.map(([x, y, st2]) => `<i style="left:${x * 94 + 3}%;top:${y * 84 + 8}%;background:${STATUS[st2].hex}"></i>`).join('');
+    }
+    const agEl = grid.querySelector(`[data-agents="${c.id}"]`);
+    const roster = isSaved
+      ? [...state.presence.entries()].filter(([, p]) => T - p.t < 12).map(([a]) => a)
+      : c.agents;
+    agEl.innerHTML = roster.map(a => {
+      const col = (AGENTS[a] || EXTRA_AGENTS[a]).color;
+      return `<i title="${a}" style="background:${col};color:${col}"></i>`;
+    }).join('');
+  }
+}
+function drawThreads() {
+  const svg = $('threadSvg'), inner = $('constInner');
+  const ir = inner.getBoundingClientRect();
+  svg.setAttribute('width', ir.width); svg.setAttribute('height', ir.height);
+  svg.innerHTML = '';
+  inner.querySelectorAll('.thread-label').forEach(l => l.remove());
+  THREADS.forEach((th, ti) => {
+    const ca = inner.querySelector(`[data-chart="${th.a}"]`), cb = inner.querySelector(`[data-chart="${th.b}"]`);
+    if (!ca || !cb) return;
+    const ra = ca.getBoundingClientRect(), rb = cb.getBoundingClientRect();
+    const x1 = ra.left - ir.left + ra.width / 2 + ti * 30, y1 = ra.top - ir.top + ra.height;
+    const x2 = rb.left - ir.left + rb.width / 2, y2 = rb.top - ir.top;
+    const p = document.createElementNS(SVGNS, 'path');
+    const my = Math.max(y1, y2) + 20 + ti * 28;
+    p.setAttribute('d', `M ${x1} ${y1} C ${x1} ${my}, ${x2} ${my}, ${x2} ${y2}`);
+    p.setAttribute('class', 'thread' + (th.hot ? ' hot' : ''));
+    svg.appendChild(p);
+    const lbl = document.createElement('div');
+    lbl.className = 'thread-label' + (th.hot ? ' hot' : '');
+    lbl.style.left = ((x1 + x2) / 2) + 'px'; lbl.style.top = (my - 4) + 'px';
+    lbl.textContent = th.label + (th.hot ? ' · 2 efforts' : '');
+    inner.appendChild(lbl);
+  });
+}
+
+let userNavigated = false;
+function enterCanvas() { document.body.classList.add('in-canvas'); }
+function enterConstellation() { document.body.classList.remove('in-canvas'); requestAnimationFrame(drawThreads); }
+$('toCharts').addEventListener('click', () => { userNavigated = true; enterConstellation(); });
+
+/* ═══════════════ 8 · INSPECTOR ═══════════════ */
+const inspector = $('inspector');
+function openInspector(key) { selectedKey = key; inspector.classList.add('open'); renderInspector(stateAt(simT)); }
+$('inspClose').addEventListener('click', () => { selectedKey = null; inspector.classList.remove('open'); });
+function fmtT(t) { const m = String(Math.floor(t / 60)).padStart(2, '0'), s = String(Math.floor(t % 60)).padStart(2, '0'); return `${m}:${s}`; }
+
+function renderInspector(state) {
+  if (!selectedKey) return;
+  const n = state.nodes.get(selectedKey);
+  if (!n) { inspector.classList.remove('open'); return; }
+  $('inspTitle').textContent = n.label;
+  const st = STATUS[n.status];
+  const tested = ['tested', 'shipped'].includes(n.status);
+  const kindLabel = { screen: 'Screen · route', component: 'Component', service: 'External service', api: 'API route', schema: 'DB table', test: 'Test suite', job: 'Worker / job', infra: 'Infrastructure' }[n.kind];
+  const claims = state.claims.get(n.key) || [];
+  const notes = state.notes.get(n.key) || [];
+  $('inspBody').innerHTML = `
+    <div class="insp-sec">
+      <div class="insp-status-row">
+        <span class="status-word" style="--nc:${st.c};font-size:11px">${n.status}</span>
+        <span style="--nc:${st.c}">${ringSVG(n.lastStep)}</span>
+      </div>
+      ${n.note ? `<div style="font-family:var(--mono);font-size:10px;color:${n.status === 'error' ? 'var(--st-error)' : 'var(--ink-3)'};margin-top:7px">${n.note}</div>` : ''}
+    </div>
+    ${claims.length ? `
+    <div class="insp-sec">
+      <div class="hud">Claims</div>
+      ${claims.length > 1 ? `<div class="contested-banner">CONTESTED — ${claims.length} agents want this path</div>` : ''}
+      ${claims.map(c => `<div class="claim-card">
+        <div class="crow"><i style="background:${AGENTS[c.agent].color}"></i>${AGENTS[c.agent].full}<span style="color:var(--ink-3);margin-left:auto">${fmtT(c.t)}</span></div>
+        <div class="cintent">${c.intent}</div>
+        <div class="cfiles">${c.files.join('<br>')}</div>
+      </div>`).join('')}
+    </div>` : ''}
+    ${notes.length ? `
+    <div class="insp-sec">
+      <div class="hud">Notes (${notes.length})</div>
+      ${notes.map(no => `<div class="note-row">
+        <span class="adot" style="background:${AGENTS[no.agent].color}"></span>
+        <div class="nbody"><div class="nwho"><b>${no.agent}</b> · ${fmtT(no.t)}</div><div class="ntext">${no.text}</div></div>
+      </div>`).join('')}
+    </div>` : ''}
+    <div class="insp-sec">
+      <div class="hud">Identity</div>
+      <div class="kv">
+        <span class="k">kind</span><span class="v">${kindLabel}</span>
+        ${n.route ? `<span class="k">route</span><span class="v code">${n.route}</span>` : ''}
+        ${n.method ? `<span class="k">method</span><span class="v code">${n.method}</span>` : ''}
+        ${n.file ? `<span class="k">file</span><span class="v code">${n.file}</span>` : ''}
+        ${n.domain ? `<span class="k">domain</span><span class="v">${n.domain}</span>` : ''}
+        ${n.parent ? `<span class="k">screen</span><span class="v">${n.parent}</span>` : ''}
+      </div>
+    </div>
+    ${Object.keys(n.meta).length ? `
+    <div class="insp-sec">
+      <div class="hud">Declared state</div>
+      <div class="kv">
+        ${n.meta.state ? `<span class="k">state</span><span class="v code">${n.meta.state}</span>` : ''}
+        ${n.meta.store ? `<span class="k">store</span><span class="v code">${n.meta.store}</span>` : ''}
+        ${n.meta.props ? `<span class="k">props</span><span class="v code">${n.meta.props}</span>` : ''}
+      </div>
+    </div>` : ''}
+    ${n.meta.calls ? `
+    <div class="insp-sec">
+      <div class="hud">External calls</div>
+      ${n.meta.calls.split('·').map(c => `<div class="call-row">${ICONS.cloud}<span>${c.trim()}</span></div>`).join('')}
+    </div>` : ''}
+    ${n.kind !== 'test' ? `
+    <div class="insp-sec">
+      <div class="hud">Tests</div>
+      <div style="font-family:var(--mono);font-size:10.5px" class="${tested ? 'test-ok' : 'test-none'}">${tested ? '✓ covered' : '— none yet'}</div>
+    </div>` : ''}
+    <div class="insp-sec">
+      <div class="hud">Status history</div>
+      ${n.history.slice(-7).reverse().map(h =>
+        `<div class="hist-row"><span class="adot" style="background:${h.agent ? AGENTS[h.agent].color : 'var(--line-bright)'}"></span><span>${fmtT(h.t)}</span><span class="hv" style="color:${STATUS[h.status].hex}">${h.status}</span></div>`).join('')}
+    </div>`;
+}
+
+/* ═══════════════ 9 · TICKER + LEGEND + CHIPS ═══════════════ */
+const ticker = $('ticker');
+function renderTicker(state, T) {
+  const recent = EVENTS.filter(e => e.t <= T && e.t > T - 7 && e.type !== 'node.meta').slice(-4);
+  ticker.innerHTML = recent.map((e, i, arr) => {
+    const pos = arr.length - 1 - i;
+    const cls = pos === 0 ? '' : pos === 1 ? 'old' : 'older';
+    const isErr = e.type === 'node.status' && (e.status === 'error' || e.status === 'blocked');
+    const isConf = e.type === 'conflict';
+    const isNote = e.type === 'note';
+    const ac = e.agent ? AGENTS[e.agent].color : 'var(--line-bright)';
+    let et = e.type.replace('node.', '').replace('edge.upserted', 'edge').replace('agent.', '');
+    let msg;
+    if (e.type === 'node.status') msg = `${e.key} → <b style="color:${STATUS[e.status].hex}">${e.status}</b>`;
+    else if (e.type === 'node.upserted') msg = `+ ${e.key}`;
+    else if (e.type === 'edge.upserted') msg = `${e.from} ⇢ ${e.to}`;
+    else if (e.type === 'agent.touch') msg = `${e.key} · ${e.action}`;
+    else if (e.type === 'claim') msg = `${e.key} — ${e.intent}`;
+    else if (e.type === 'release') msg = `${e.key}${e.note ? ' — ' + e.note : ''}`;
+    else if (e.type === 'conflict') msg = `${e.key} — ${e.agents.join(' × ')}`;
+    else if (e.type === 'note') msg = `on ${e.key}`;
+    else msg = e.title || e.note || e.type;
+    return `<div class="tick-line ${cls} ${isErr ? 'is-err' : ''} ${isConf ? 'is-conf' : ''} ${isNote ? 'is-note' : ''}">
+      <span class="adot" style="background:${isConf ? 'var(--st-blocked)' : ac}"></span>
+      <span class="t">${fmtT(e.t)}</span> <span class="et">${isConf ? 'CONTESTED' : et}</span> ${msg}
+    </div>`;
+  }).reverse().join('');
+  $('evNow').textContent = state.applied;
+}
+$('legendRamp').innerHTML = ['planned', 'scaffolded', 'wired', 'styled', 'tested', 'shipped']
+  .map(k => `<span class="litem"><i style="background:${STATUS[k].hex}"></i>${k}</span>`).join('');
+$('legendAlerts').innerHTML =
+  `<span class="litem"><i style="background:${STATUS.blocked.hex}"></i>blocked</span>
+   <span class="litem"><i style="background:${STATUS.error.hex}"></i>error</span>
+   <span class="litem"><i class="oline"></i>claimed</span>
+   <span class="litem"><i class="oline-c"></i>contested</span>`;
+$('agentChips').innerHTML = Object.entries(AGENTS)
+  .map(([k, a]) => `<div class="agent-chip idle" data-agent="${k}" style="--ac:${a.color}"><span class="agent-dot"></span>${k}</div>`).join('');
+
+/* ═══════════════ 10 · SCRUBBER ═══════════════ */
+const track = $('track');
+$('tEnd').textContent = fmtT(DUR);
+$('evTotal').textContent = EVENTS.length;
+for (const e of EVENTS) {
+  if (['agent.touch', 'node.meta', 'claim', 'release', 'note'].includes(e.type)) continue;
+  const tick2 = document.createElement('div');
+  const isErr = e.type === 'node.status' && (e.status === 'error' || e.status === 'blocked');
+  tick2.className = 'etick' + (e.type === 'conflict' ? ' is-conf' : isErr ? ' is-err' : e.type === 'node.status' ? ' is-status' : '');
+  tick2.style.left = (e.t / DUR * 100) + '%';
+  track.appendChild(tick2);
+}
+let scrubbing = false;
+function trackSeek(ev2) {
+  const r = track.getBoundingClientRect();
+  const f = Math.min(1, Math.max(0, (ev2.clientX - r.left) / r.width));
+  seekTo(f * DUR, 'replay');
+}
+track.addEventListener('mousedown', ev2 => { scrubbing = true; userNavigated = true; trackSeek(ev2); });
+window.addEventListener('mousemove', ev2 => { if (scrubbing) trackSeek(ev2); });
+window.addEventListener('mouseup', () => { scrubbing = false; });
+
+/* ═══════════════ 11 · SIM CLOCK ═══════════════ */
+let simT = 0, playing = true, speed = 1, mode = 'live';
+let lastTick = null, endShownAt = null;
+const liveBadge = $('liveBadge'), liveText = $('liveText'), playIcon = $('playIcon');
+function setMode(m) {
+  mode = m;
+  liveBadge.className = 'live-badge ' + (m === 'live' ? 'live' : m === 'paused' ? 'paused' : 'replay');
+  liveText.textContent = m === 'live' ? 'LIVE' : m === 'paused' ? 'PAUSED' : 'REPLAY';
+  playIcon.innerHTML = playing ? '<path d="M3 2h3v10H3zM8 2h3v10H8z"/>' : '<path d="M3.5 2.2v9.6L11.6 7z"/>';
+}
+function seekTo(t, m) {
+  simT = Math.min(DUR, Math.max(0, t));
+  if (m === 'replay') playing = false;
+  setMode(m || mode);
+  $('endcard').classList.remove('show'); endShownAt = null;
+  render(simT);
+}
+liveBadge.addEventListener('click', () => { playing = true; speed = 1; syncSpeedUI(); setMode('live'); });
+$('playBtn').addEventListener('click', () => { playing = !playing; setMode(playing ? (mode === 'paused' ? 'replay' : mode) : 'paused'); });
+document.querySelectorAll('.spd').forEach(el => el.addEventListener('click', () => {
+  speed = parseFloat(el.dataset.s); syncSpeedUI();
+  if (!playing) { playing = true; setMode('replay'); }
+}));
+function syncSpeedUI() { document.querySelectorAll('.spd').forEach(el => el.classList.toggle('on', parseFloat(el.dataset.s) === speed)); }
+
+function render(T) {
+  const state = stateAt(T);
+  if (document.body.classList.contains('in-canvas')) {
+    renderGraph(state, T);
+    renderTicker(state, T);
+    renderInspector(state);
+  } else {
+    renderConstellation(state, T);
+  }
+  $('fill').style.width = (T / DUR * 100) + '%';
+  $('playhead').style.left = (T / DUR * 100) + '%';
+  $('tNow').textContent = fmtT(T);
+}
+
+function tick(now) {
+  if (lastTick === null) { lastTick = now; window.__ready = true; render(simT); requestAnimationFrame(tick); return; }
+  const dt = (now - lastTick) / 1000; lastTick = now;
+  if (playing && !scrubbing) {
+    simT = Math.min(DUR, simT + dt * speed);
+    if (simT >= 6 && !userNavigated && !document.body.classList.contains('in-canvas')) enterCanvas(); // auto-dive
+    if (simT >= DUR) {
+      if (mode === 'live') {
+        if (endShownAt === null) {
+          endShownAt = now;
+          const st2 = stateAt(DUR);
+          $('endStats').textContent = `${EVENTS.length} events · ${st2.nodes.size} nodes · 4 agents · ${st2.conflicts} contested path resolved · ${st2.noteCount} notes`;
+          $('endcard').classList.add('show');
+        }
+        const waitLeft = 4 - (now - endShownAt) / 1000;
+        $('endCountdown').textContent = `replaying in ${Math.max(0, waitLeft).toFixed(0)}s — or scrub the timeline`;
+        if (waitLeft <= 0 && !window.__recording) { userNavigated = false; enterConstellation(); seekTo(0, 'live'); playing = true; setMode('live'); }
+      } else { playing = false; setMode('paused'); }
+    }
+    render(simT);
+  }
+  requestAnimationFrame(tick);
+}
+
+/* ═══════════════ 12 · PAN / ZOOM (+LOD, parallax grid) ═══════════════ */
+const viewport = $('viewport'), world = $('world');
+let view = { x: 0, y: 0, k: 1 };
+function applyView() {
+  world.style.transform = `translate(${view.x}px, ${view.y}px) scale(${view.k})`;
+  world.classList.toggle('far', view.k < 0.62);
+  viewport.style.backgroundPosition = `0 0, ${view.x}px ${view.y}px`;
+}
+function fitView() {
+  const vw = viewport.clientWidth, vh = viewport.clientHeight;
+  const k = Math.min((vw - 60) / WORLD.w, (vh - 90) / WORLD.h, 1.2);
+  view.k = k;
+  view.x = (vw - WORLD.w * k) / 2 - WORLD.ox * k + 10;
+  view.y = (vh - WORLD.h * k) / 2 - WORLD.oy * k;
+  applyView();
+}
+$('fitBtn').addEventListener('click', fitView);
+let panning = null;
+viewport.addEventListener('mousedown', ev2 => {
+  if (ev2.target.closest('.node') || ev2.target.closest('#legend')) return;
+  panning = { x: ev2.clientX, y: ev2.clientY, vx: view.x, vy: view.y };
+  viewport.classList.add('dragging');
+});
+window.addEventListener('mousemove', ev2 => {
+  if (!panning) return;
+  view.x = panning.vx + (ev2.clientX - panning.x);
+  view.y = panning.vy + (ev2.clientY - panning.y);
+  applyView();
+});
+window.addEventListener('mouseup', () => { panning = null; viewport.classList.remove('dragging'); });
+viewport.addEventListener('wheel', ev2 => {
+  ev2.preventDefault();
+  const k0 = view.k;
+  const k = Math.min(2.2, Math.max(0.3, k0 * (ev2.deltaY < 0 ? 1.09 : 0.92)));
+  const r = viewport.getBoundingClientRect();
+  const mx = ev2.clientX - r.left, my = ev2.clientY - r.top;
+  view.x = mx - (mx - view.x) * (k / k0);
+  view.y = my - (my - view.y) * (k / k0);
+  view.k = k;
+  applyView();
+}, { passive: false });
+window.addEventListener('resize', () => { fitView(); if (!document.body.classList.contains('in-canvas')) drawThreads(); });
+
+/* ═══════════════ 13 · BOOT + self-check ═══════════════ */
+window.__seek = t => { userNavigated = true; enterCanvas(); seekTo(t, 'replay'); };
+window.__constellation = () => { userNavigated = true; enterConstellation(); };
+(function selfCheck() {
+  for (let i = 1; i < EVENTS.length; i++) console.assert(EVENTS[i].t >= EVENTS[i - 1].t, 'events not sorted at', i);
+  const a = stateAt(50), b = stateAt(50);
+  console.assert(a.nodes.size === b.nodes.size && a.applied === b.applied, 'reducer not deterministic');
+  const end = stateAt(DUR);
+  console.assert(end.nodes.size === 26, 'expected 26 nodes at end, got', end.nodes.size);
+  console.assert(end.claims.size === 0, 'expected all claims released at end, got', [...end.claims.keys()]);
+  console.assert(stateAt(31).claims.get('apiIntent')?.length === 2, 'expected contested apiIntent at t=31');
+  console.assert([...end.nodes.values()].every(n => n.kind === 'service' || n.status === 'shipped'), 'expected all non-service nodes shipped');
+  console.log(`%cDEV PATHS v3 OK — ${EVENTS.length} events · ${end.nodes.size} nodes · ${end.conflicts} conflict · ${end.noteCount} notes`, 'color:#22B8E6');
+})();
+document.fonts.ready.then(() => {
+  fitView();
+  render(0);
+  setMode('live');
+  requestAnimationFrame(tick);
+});
+</script>
+</body>
+</html>

@@ -16,3 +16,24 @@ export const PlanningTab = dynamic(() => import('@/components/portal/planning/Pl
   ssr: false,
   loading: () => <div className="p-8 text-sm text-muted-foreground">Loading planning…</div>,
 });
+
+// AgentFlowTab uses reactflow, which touches `window`/ResizeObserver directly,
+// so it must opt out of SSR too.
+export const AgentFlowTab = dynamic(() => import('@/components/portal/AgentFlowTab'), {
+  ssr: false,
+  loading: () => <div className="p-8 text-sm text-muted-foreground">Loading workflow designer…</div>,
+});
+
+// FlowExecutionsTab holds live EventSource subscriptions, so it must not be
+// server-rendered — same ssr:false requirement as the canvas tabs.
+export const FlowExecutionsTab = dynamic(() => import('@/components/portal/FlowExecutionsTab'), {
+  ssr: false,
+  loading: () => <div className="p-8 text-sm text-muted-foreground">Loading executions…</div>,
+});
+
+// PathVizTab (Dev Paths) renders a reactflow canvas, which reads `window` —
+// same ssr:false requirement as KanbanBoard/PlanningTab above.
+export const PathVizTab = dynamic(() => import('@/components/portal/pathviz/PathVizTab'), {
+  ssr: false,
+  loading: () => <div className="p-8 text-sm text-muted-foreground">Loading Dev Paths…</div>,
+});

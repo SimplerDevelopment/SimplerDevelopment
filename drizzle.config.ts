@@ -20,16 +20,6 @@ if (!process.env.DATABASE_URL) {
   throw new Error('DATABASE_URL environment variable is not set');
 }
 
-// Tables that exist in the database but are deliberately NOT described by this
-// schema — bespoke or legacy tables owned by something else. `drizzle-kit push`
-// treats an unknown table as one to DROP, so without this they would be deleted.
-// Set DRIZZLE_IGNORE_TABLES to a comma-separated list of glob patterns, e.g.
-//   DRIZZLE_IGNORE_TABLES="legacy_*,vendor_reports,acme_*"
-const ignoredTables = (process.env.DRIZZLE_IGNORE_TABLES ?? '')
-  .split(',')
-  .map((pattern) => pattern.trim())
-  .filter(Boolean);
-
 export default {
   schema: './lib/db/schema/index.ts',
   out: './drizzle',
@@ -37,9 +27,4 @@ export default {
   dbCredentials: {
     url: process.env.DATABASE_URL,
   },
-  // `['*', '!foo']` = manage everything except the ignored patterns. Omitted
-  // entirely when nothing is ignored so default behaviour is unchanged.
-  ...(ignoredTables.length > 0
-    ? { tablesFilter: ['*', ...ignoredTables.map((pattern) => `!${pattern}`)] }
-    : {}),
 } satisfies Config;

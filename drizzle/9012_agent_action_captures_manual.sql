@@ -1,6 +1,6 @@
 -- AAF-001: agent_action_captures — encrypted, access-controlled, 90-day-retained
--- full-argument capture for HIGH-RISK agent tools (see the internal ADR log,
--- not part of this public release). Additive to the
+-- full-argument capture for HIGH-RISK agent tools (see
+-- vault/04 - Decisions/ADR high-risk-agent-arg-capture.md). Additive to the
 -- existing hash log (agent_action_log) and redacted summary log
 -- (agent_action_logs) — never replaces either.
 --

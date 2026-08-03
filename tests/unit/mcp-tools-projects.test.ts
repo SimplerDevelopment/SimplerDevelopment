@@ -125,6 +125,12 @@ vi.mock('@/lib/db/schema', () => {
       projectArtifacts: make('id', 'projectId', 'artifactType', 'artifactId', 'displayTitle', 'pinned', 'createdBy', 'createdAt'),
       cardTemplates: make('id', 'clientId', 'projectId', 'name', 'description', 'payload', 'createdBy'),
       brainNotes: make('id', 'clientId', 'title'),
+      pathCharts: make('id', 'projectId', 'title'),
+      // Imported by the shared artifact-vocab module, not by this registrar —
+      // the projects artifact enum has no agent_flow_run (a run already
+      // carries projectId, so that edge needs no link row).
+      agentFlows: make('id', 'name'),
+      agentFlowRuns: make('id', 'flowId', 'projectId', 'clientId'),
       brainAiReviewItems: make('id', 'clientId', 'sourceType', 'sourceId', 'proposedType', 'proposedPayload', 'status'),
       kanbanCards: make('id', 'number', 'title', 'priority', 'dueDate', 'projectId', 'columnId'),
       kanbanColumns: make('id', 'name', 'isDone', 'projectId', 'order', 'color', 'wipLimit'),
@@ -982,6 +988,33 @@ describe('projects_artifact_link', () => {
     const tools = registerAll();
     const res = await tools.get('projects_artifact_link')!.handler({
       projectId: 5, artifactType: 'post', artifactId: 30,
+    });
+    expect((parseJson(res) as Row).error).toMatch(/not found or not owned/);
+  });
+
+  it('handles path_chart artifact type via project join', async () => {
+    dbState.selectQueue = [
+      [{ id: 5 }],                        // project auth
+      [{ title: 'Checkout Flow' }],       // path_chart + project join
+    ];
+    dbState.insertReturning = [{ id: 103, artifactType: 'path_chart', displayTitle: 'Checkout Flow' }];
+    const tools = registerAll();
+    const res = await tools.get('projects_artifact_link')!.handler({
+      projectId: 5, artifactType: 'path_chart', artifactId: 40,
+    });
+    const out = parseJson(res) as Row;
+    expect(out.artifactType).toBe('path_chart');
+    expect(out.displayTitle).toBe('Checkout Flow');
+  });
+
+  it('returns not owned when path_chart lookup is empty (cross-tenant guard)', async () => {
+    dbState.selectQueue = [
+      [{ id: 5 }], // project auth
+      [],           // path_chart join returns nothing
+    ];
+    const tools = registerAll();
+    const res = await tools.get('projects_artifact_link')!.handler({
+      projectId: 5, artifactType: 'path_chart', artifactId: 40,
     });
     expect((parseJson(res) as Row).error).toMatch(/not found or not owned/);
   });

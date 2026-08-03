@@ -2,8 +2,8 @@
  * Shared blast-radius classification for AI-agent portal tools.
  *
  * Single source of truth for "which write operations are high-risk" per
- * the internal ADR "agent-write-approval-gate-matrix" (not part of this
- * public release). A tool is approval-required when it is irreversible, outbound, an authority/access
+ * `vault/04 - Decisions/ADR agent-write-approval-gate-matrix.md`. A tool is
+ * approval-required when it is irreversible, outbound, an authority/access
  * change, or financial. The SAME classification drives two behaviours:
  *
  *  - **Attended** agents (Portal AI chat, where a human is in the loop) STAGE

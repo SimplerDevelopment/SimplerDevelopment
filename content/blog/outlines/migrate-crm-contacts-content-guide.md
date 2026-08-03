@@ -6,6 +6,7 @@ slug: migrate-crm-contacts-content-guide
 status: outline
 date: 2026-06-27
 sources:
+  - vault/05 - Feature Specs/FEATURE-INVENTORY-domains.md (domains 2, 4)
   - marketing/feature-pages/crm.md
   - marketing/feature-pages/websites-cms-visual-editor.md
   - docs/agents/ai-overview.md

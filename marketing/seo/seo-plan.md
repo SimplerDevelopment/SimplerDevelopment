@@ -1,7 +1,7 @@
 # SEO Plan — SimplerDevelopment Marketing Site
 
 > **Phase 11 — Site-Wide SEO.** Spec only; no app code changes.
-> Sources: `docs/agents/ai-overview.md`, `lib/data/solutions.ts`, `app/sitemap.ts`, `app/robots.ts`.
+> Sources: `vault/05 - Feature Specs/FEATURE-INVENTORY-domains.md`, `docs/agents/ai-overview.md`, `lib/data/solutions.ts`, `app/sitemap.ts`, `app/robots.ts`.
 > Status flags honor the inventory — no features are claimed beyond what is marked Active.
 > All URLs use `example.com` as a placeholder. Replace with the real domain at implementation.
 
@@ -31,7 +31,7 @@ The marketing site's public route tree lives under `app/(pages)/`. The `/solutio
 
 ### 1b. Feature / Solution Pages (`/solutions/[slug]`)
 
-Cross-references: each slug maps to a feature spec in `../feature-pages/` (e.g., `../feature-pages/ai-connect.md`).
+Cross-references: each slug maps to a feature spec in `../feature-pages/` (e.g., `../feature-pages/ai-connect.md`) and to the domain entry in `vault/03 - Domains/`.
 
 | Slug | `<title>` (≤60 chars) | Meta Description (≤155 chars) | Canonical | Primary Keyword |
 |---|---|---|---|---|
@@ -441,7 +441,7 @@ The three CWV metrics are **LCP** (Largest Contentful Paint), **INP** (Interacti
 
 ## 6. Keyword Map
 
-Grounded in the feature set described in the internal feature inventory and `docs/agents/ai-overview.md`. No invented features. The platform occupies four keyword spaces: **agency SaaS**, **AI CRM / knowledge base**, **website builder**, and **MCP / AI automation**. Terms reflect what the target buyer (a software agency or digital agency principal) actually searches.
+Grounded in the feature set described in `FEATURE-INVENTORY-domains.md` and `docs/agents/ai-overview.md`. No invented features. The platform occupies four keyword spaces: **agency SaaS**, **AI CRM / knowledge base**, **website builder**, and **MCP / AI automation**. Terms reflect what the target buyer (a software agency or digital agency principal) actually searches.
 
 ### 6a. Core Pages
 
@@ -510,6 +510,7 @@ Ranked by SEO impact-to-effort ratio:
 
 - Feature page specs: `../feature-pages/` (one file per solution slug, e.g., `../feature-pages/ai-connect.md`)
 - Agent AI overview (MCP surface, tool namespaces): `/docs/agents/ai-overview.md`
+- Domain inventory (feature status flags): `vault/05 - Feature Specs/FEATURE-INVENTORY-domains.md`
 - Existing sitemap: `app/sitemap.ts`
 - Existing robots: `app/robots.ts`
 - Solutions data (slugs, titles, features): `lib/data/solutions.ts`

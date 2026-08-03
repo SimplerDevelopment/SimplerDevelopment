@@ -5,9 +5,9 @@ Conceptual map of all 22 product domains: where the code lives, which schema mod
 **Siblings:** [repository-map.md](./repository-map.md) · [architecture-for-agents.md](./architecture-for-agents.md) · [ai-overview.md](./ai-overview.md) · [api-index.md](./api-index.md) · [tool-reference.md](./tool-reference.md) · [glossary.md](./glossary.md) · [/llms.txt](/llms.txt)
 
 Before editing in any domain:
-1. Read the Domain Map — maintainers keep this in the internal planning vault (not part of this public release; key files, gotchas, and test coverage notes).
+1. Read the Domain Map in `vault/03 - Domains/<domain>.md` — it has key files, gotchas, and test coverage notes.
 2. Read the nearest nested `CLAUDE.md` (see [repository-map.md](./repository-map.md) for which dirs have them).
-3. After shipping: update the Domain Map and move the card on the project's Kanban board.
+3. After shipping: update the Domain Map and move the Kanban card in `vault/05 - Feature Specs/Project Board.md`.
 
 ---
 
@@ -204,7 +204,7 @@ Before editing in any domain:
 
 **What it is:** NextAuth v5 sessions, MCP bearer-token auth, OAuth 2.1 authorization server (PKCE, RFC 7636, dynamic client registration), AES-256-GCM BYOK key encryption, rate limiting (Upstash Redis, fail-open), TOTP/MFA.
 
-**Note:** TOTP enrollment, login TOTP field, and MFA-disable shipped 2026-06-26. The internal domain map for Auth & Security has a known drift — "MFA not implemented" is stale.
+**Note:** TOTP enrollment, login TOTP field, and MFA-disable shipped 2026-06-26. The vault domain map at `vault/03 - Domains/Auth & Security.md` has a known drift — "MFA not implemented" is stale.
 
 **⚠ Known limits:** JWT is stateless; deactivated users keep sessions up to 60s by design. Edge middleware cannot do DB-lookup host validation (deferred to Wave 3).
 

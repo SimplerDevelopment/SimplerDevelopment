@@ -1,7 +1,6 @@
 /**
  * Prompt registry resolver — the production read-path for the hybrid prompt
- * registry (see the internal "Prompt Eval Dashboard" spec, not part of this
- * public release).
+ * registry (see vault/05 - Feature Specs/Prompt Eval Dashboard).
  *
  * `resolvePrompt(key, fallback)` returns the ACTIVE version's body for a prompt,
  * with the in-code constant (`fallback`) as the safety net:

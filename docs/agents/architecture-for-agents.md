@@ -15,7 +15,7 @@ SimplerDevelopment is a **multi-tenant SaaS platform** with four integrated laye
 | Admin panel | Internal staff UI — manages all tenants, billing, AI, platform health |
 | Client portal | Per-tenant UI — each client manages their own site, CRM, Brain, projects |
 | Per-tenant public sites | The websites each client publishes to their own custom domain |
-| API / MCP surface | REST v1 + 451-tool MCP server for automation and AI-agent integrations |
+| API / MCP surface | REST v1 + 468-tool MCP server for automation and AI-agent integrations |
 
 **Stack at a glance:** Next.js 16.1.1 App Router · React 19 · TypeScript 5 · Tailwind 4 · Drizzle ORM + Postgres/pgvector · NextAuth v5 (JWT strategy) · Bun (package manager and runtime). Lock file: `bun.lock` — always use `bun`, never `npm`.
 
@@ -223,7 +223,7 @@ All surfaces share the `{ success, data | message }` response envelope.
 
 | Surface | Base path | Auth | Notes |
 |---|---|---|---|
-| MCP (Streamable HTTP) | `POST /api/mcp` | `sd_mcp_` or `sd_oauth_` bearer | 451 tools; scope-gated; approval-link pattern for writes |
+| MCP (Streamable HTTP) | `POST /api/mcp` | `sd_mcp_` or `sd_oauth_` bearer | 468 tools; scope-gated; approval-link pattern for writes |
 | REST v1 (headless, read-only) | `/api/v1/sites/{siteId}/...` | `sd_live_` bearer | OpenAPI 3.1 spec in `public/openapi.yaml`; GET only confirmed |
 | Public (unauthenticated) | `/api/public/...` | None | Booking, gift cert, live chat, published content by slug, A/B events |
 | Portal internal | `/api/portal/...` | Session cookie | ~60 route groups; not for third parties |
@@ -232,7 +232,7 @@ All surfaces share the `{ success, data | message }` response envelope.
 
 ### MCP tool surface
 
-The MCP server (`lib/mcp/server.ts`) exposes **451 tools** locked by `tests/unit/mcp-tool-registry-baseline.test.ts`. Drift (tool added/removed/renamed without updating `EXPECTED_TOOLS`) fails pre-push CI.
+The MCP server (`lib/mcp/server.ts`) exposes **468 tools** locked by `tests/unit/mcp-tool-registry-baseline.test.ts`. Drift (tool added/removed/renamed without updating `EXPECTED_TOOLS`) fails pre-push CI.
 
 **Top tool families:**
 
@@ -379,7 +379,7 @@ When you need to work in a specific area, read the nearest `CLAUDE.md` before op
 | Tests / coverage | `tests/CLAUDE.md` | `tests/CI-GATES.md` |
 | Auth / roles | `docs/guides/USER_MANAGEMENT.md` | `lib/auth.ts` |
 | Tenancy middleware | `middleware.ts`, `lib/active-client.ts` | — |
-| Domain maps / ADRs / specs | internal planning vault (private, not part of this public release) | internal planning vault (private, not part of this public release) |
+| Domain maps / ADRs / specs | `vault/03 - Domains/` | `vault/05 - Feature Specs/` |
 
 **For cross-cutting "how does X work" questions:** prefer `graphify-out/` (when fresh) over grep. Otherwise spawn an `Explore` subagent — do not pull large files into the main context.
 
@@ -387,4 +387,4 @@ When you need to work in a specific area, read the nearest `CLAUDE.md` before op
 
 ---
 
-*Document source: `CLAUDE.md`, `app/portal/CLAUDE.md`, `app/admin/CLAUDE.md`, `lib/blocks/CLAUDE.md`, `lib/mcp/CLAUDE.md`, `lib/db/CLAUDE.md`, `lib/ai/CLAUDE.md`, the internal feature inventory, `middleware.ts`, `.claude/index.md`. Last updated 2026-06-27.*
+*Document source: `CLAUDE.md`, `app/portal/CLAUDE.md`, `app/admin/CLAUDE.md`, `lib/blocks/CLAUDE.md`, `lib/mcp/CLAUDE.md`, `lib/db/CLAUDE.md`, `lib/ai/CLAUDE.md`, `vault/05 - Feature Specs/FEATURE-INVENTORY-api-mcp.md`, `middleware.ts`, `.claude/index.md`. Last updated 2026-06-27.*

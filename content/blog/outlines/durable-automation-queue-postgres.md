@@ -118,6 +118,7 @@ cron (one batch per minute)
 
 - `/docs/agents/tool-reference#automations_` — MCP tools for automation rules
 - `/docs/agents/architecture-for-agents` — extension points section (Automations/Workflows)
+- Feature inventory: Automations & Workflows (`vault/05 - Feature Specs/FEATURE-INVENTORY-domains.md` §14)
 
 ---
 

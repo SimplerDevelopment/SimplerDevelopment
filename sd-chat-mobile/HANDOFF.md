@@ -7,12 +7,12 @@ Last updated: 2026-05-27 by Claude Opus 4.7 — Session 8: end-to-end Playwright
 User directive: "run the dev server and continue working" — Playwright MCP came back online mid-session, so I drove the four brain detail screens end-to-end and unblocked the portal-side issues that surfaced.
 
 ### All four bottom sheets verified in the browser
-With Playwright connected, walked the new `ActionsSheet` rendering on every detail screen against real Acme Strategies seed data (client 98):
+With Playwright connected, walked the new `ActionsSheet` rendering on every detail screen against real CY-Strategies seed data (client 98):
 
 - **Note** (`/brain/note/2596` — "Q3 board prep"): sheet shows Share / Open in portal / Delete / Cancel. Tapping Delete arms the row to "Tap again to delete" exactly as designed; second tap would have fired `useDeleteNote()`. Confirmed without actually deleting via Cancel.
 - **Decision** (`/brain/decision/7` — "Adopt Next.js 16 for new portal"): sheet shows Share / Supersede / Open in portal / Cancel. New `[Ask the assistant about this decision]` gradient + `⋯` action bar layout looks clean.
-- **Glossary** (`/brain/glossary/7` — "Acme-Score"): sheet shows Share / Edit / Open in portal / Cancel.
-- **Person** (`/brain/person/9` — "Alex Rivera"): sheet shows Share / **Email Alex** (with the actual first name) / Open in portal / Cancel — the conditional `Email` row correctly picked up Alex's `alex@acme-strategies.example` from the DB.
+- **Glossary** (`/brain/glossary/7` — "CY-Score"): sheet shows Share / Edit / Open in portal / Cancel.
+- **Person** (`/brain/person/9` — "Alex Rivera"): sheet shows Share / **Email Alex** (with the actual first name) / Open in portal / Cancel — the conditional `Email` row correctly picked up Alex's `alex@cy-strategies.example` from the DB.
 
 Screenshots saved as `v7-{note,decision,glossary,person}-actions-sheet.png`.
 
@@ -399,7 +399,7 @@ User directive: "continue work autonomously overnight" — picked up Tier 4 foll
 Previously the Decisions / Glossary filter chips on `/brain/search` always showed 0 (per the Phase-4 comment in the source). Extended `lib/brain/search.ts` (portal) with three new branches — `decision`, `glossary`, `person` — and updated the route's allowed-types set + the mobile `BrainSearchEntityType` union + `app/brain/search.tsx` filter map, count derivation, group ordering, label/icon mappings, and `navigateForHit`. All three new types deep-link into the right `/brain/<type>/[id]` screen on tap.
 
 Verified end-to-end in Playwright:
-- "Acme-Score" → 2 notes + 1 glossary hit, Glossary chip count = 1
+- "CY-Score" → 2 notes + 1 glossary hit, Glossary chip count = 1
 - "PostHog" → 1 decision hit, Decisions chip count = 1
 - "Priya" → 1 person + 1 note, People chip count = 1
 
@@ -420,7 +420,7 @@ New `components/brain/Markdown.tsx` — dependency-free renderer for headers (`#
 `/brain/dashboard` was both cookie-only (no bearer) and bare (no try/catch). Threaded `req`, wrapped query in try/catch with clean-error envelope. Verified it returns 200 once the underlying tables exist (see DB fix below). Mobile doesn't call this endpoint today but the brain You-tab "Company Brain" card or a future home dashboard will.
 
 ### DB: applied 0125_brain_playbooks + 0126_brain_documents
-`/brain/dashboard` was 500ing because its single 17-CTE query references `brain_playbook_runs`, `brain_documents`, `brain_document_required_reads`, and `brain_document_acknowledgments`. Hand-applied both migrations via `psql -v ON_ERROR_STOP=1`. Dashboard endpoint now returns full counts: `{ openTasks: 1, peopleActive: 4, glossaryTermsActive: 3, … }` for Acme Strategies.
+`/brain/dashboard` was 500ing because its single 17-CTE query references `brain_playbook_runs`, `brain_documents`, `brain_document_required_reads`, and `brain_document_acknowledgments`. Hand-applied both migrations via `psql -v ON_ERROR_STOP=1`. Dashboard endpoint now returns full counts: `{ openTasks: 1, peopleActive: 4, glossaryTermsActive: 3, … }` for CY Strategies.
 
 ### Mobile bug fix: chat detail 404 had no nav
 Going to `/chat/<unknown-id>` rendered a bare "Conversation not found." with no back chrome and a default header. Rewrote the 404 branch to include a "< Chats" back affordance, a chat-bubble icon, a centered "Conversation not found" / "It may have been deleted or it belongs to a different workspace." pair. Uses `router.replace('/(tabs)')` since a `back()` from a deep-link 404 has nowhere to go.
@@ -429,10 +429,10 @@ Going to `/chat/<unknown-id>` rendered a bare "Conversation not found." with no 
 `app/(tabs)/you.tsx` had three hardcoded mock counts ("12" members, "2 pending" invitations, "1,284 notes" brain, "1,242 left" credits) that have outlived the mockup. Cleared the values (rows still navigate / sit there as entry points) so users don't see lies on first launch. Same fix already in `meet-assistant.tsx` from earlier in the session ("1,284 notes" → "Notes, decisions, people & glossary, all in one place"). Wired the Company Brain settings row to navigate to `/(tabs)/brain`.
 
 ### Brain tab now shows per-list counts in the chip row
-The Notes / Decisions / People / Glossary chips on `/(tabs)/brain` always rendered just the label. They now render `<Label> <count>` once each query resolves — Notes 3, Decisions 3, People 4, Glossary 3 on the Acme Strategies seed. Counts come from `.data?.items.length` so they match what the user sees in the list below (not the unbounded server total). No new network calls; the tabs were already fetching all four lists in parallel for instant tab switching.
+The Notes / Decisions / People / Glossary chips on `/(tabs)/brain` always rendered just the label. They now render `<Label> <count>` once each query resolves — Notes 3, Decisions 3, People 4, Glossary 3 on the CY Strategies seed. Counts come from `.data?.items.length` so they match what the user sees in the list below (not the unbounded server total). No new network calls; the tabs were already fetching all four lists in parallel for instant tab switching.
 
 ### Polished: glossary search snippet no longer duplicates the title
-When a user searched for `Acme-Score` the glossary hit rendered "Acme-Score / Acme-Score" (title + snippet). The snippet picker centered on the term, so the snippet WAS the term. Fix: in the glossary search branch, if the snippet matches the term verbatim, fall back to `shortDefinition` or `definition.slice(0, 140)` instead. Visual cleanup, no logic change.
+When a user searched for `CY-Score` the glossary hit rendered "CY-Score / CY-Score" (title + snippet). The snippet picker centered on the term, so the snippet WAS the term. Fix: in the glossary search branch, if the snippet matches the term verbatim, fall back to `shortDefinition` or `definition.slice(0, 140)` instead. Visual cleanup, no logic change.
 
 ### Accessibility labels — round 2
 Added `accessibilityLabel` to icon-only / icon-leading Pressables previously missed:
@@ -484,9 +484,9 @@ DB (dev, simplerdev_realprod_dryrun):
 - `/brain/note/2596` (markdown renders correctly)
 - `/brain/decision/7` (full detail + wired action bar)
 - `/brain/person/9` (Alex Rivera detail card)
-- `/brain/glossary/7` (Acme-Score)
+- `/brain/glossary/7` (CY-Score)
 - `/brain/suggestions` (3 real heuristic suggestions, CTAs deep-link)
-- `/brain/search?q=Acme-Score | PostHog | Priya` (decisions / glossary / person chips populated correctly)
+- `/brain/search?q=CY-Score | PostHog | Priya` (decisions / glossary / person chips populated correctly)
 - `/approvals`, `/approvals/history`, `/approvals/audit`, `/approvals/bulk` (no 500, render either data or empty state)
 - `/media` (renders gallery)
 - `/settings/notifications`, `/settings/appearance`, `/settings/privacy`, `/settings/ai-assistant` (no console errors)
@@ -527,8 +527,8 @@ Applied in order (all idempotent or net-new):
 
 Still missing on dev DB (not blocking mobile, defer): `brain_documents`, `brain_document_versions`, `brain_document_links`, `brain_document_acknowledgments`, `brain_document_required_reads`, `brain_playbooks`, `brain_playbook_steps`, `brain_playbook_links`, `brain_playbook_runs`, `brain_playbook_run_steps`. Apply `drizzle/0125_brain_playbooks.sql` + `drizzle/0126_brain_documents.sql` when those features land on mobile.
 
-### Seeded test data on Acme Strategies (client 98)
-4 people (Alex Rivera, Priya Shah, Marcus Lee, Dana Wu), 3 decisions (one fresh, two stale >180d to trigger the `decision_stale` heuristic), 3 glossary terms (Acme-Score, TLR, BlueShelf), 3 notes (one with 45-day-old open checkboxes to trigger `note_followup_stale`). The `brain/suggestions` endpoint now returns 3 real heuristic suggestions for this tenant.
+### Seeded test data on CY Strategies (client 98)
+4 people (Alex Rivera, Priya Shah, Marcus Lee, Dana Wu), 3 decisions (one fresh, two stale >180d to trigger the `decision_stale` heuristic), 3 glossary terms (CY-Score, TLR, BlueShelf), 3 notes (one with 45-day-old open checkboxes to trigger `note_followup_stale`). The `brain/suggestions` endpoint now returns 3 real heuristic suggestions for this tenant.
 
 ### Server: defensive try/catch on people + glossary list routes
 `simplerdevelopment2026/app/api/portal/brain/people/route.ts` and `…/brain/glossary/route.ts` now mirror the decisions route — the listing query is wrapped in try/catch so any future schema drift surfaces a clean JSON envelope with the Postgres error instead of a generic 500 page.
@@ -536,7 +536,7 @@ Still missing on dev DB (not blocking mobile, defer): `brain_documents`, `brain_
 ### Mobile bug fix: session blob now persists on workspace switch
 `useSwitchWorkspace` previously updated the bearer token (via `setToken`) and the React Query `currentUser` cache, but never updated the cached `Session` blob in localStorage / SecureStore. On reload, `getCachedSession()` would return the OLD tenant until `/api/portal/me` round-tripped. Fix: `lib/api/auth.ts` exports `persistSession`; `lib/api/user.ts` `useSwitchWorkspace` calls it after `setToken`. Verified by switching CY → Acme Agency → CY in the running app and inspecting `localStorage['sd-chat:auth:session']`.
 
-### Verified end-to-end via Playwright (Acme Strategies)
+### Verified end-to-end via Playwright (CY Strategies)
 - Brain → Notes (3 seeded notes render)
 - Brain → Decisions (3 seeded decisions render, ACCEPTED chips, dates correct)
 - Brain → People (4 seeded people render)
@@ -641,13 +641,13 @@ Tier-1 server gaps closed (three previously-missing portal routes), Tier-2 entit
 
 - **Right-click for long-press message actions on web** — RN web doesn't bind `contextmenu` to `onLongPress`. Had to dispatch `pointerdown` + `mousedown` via `evaluate` to fire it during testing. Anything trying to Playwright-test long-press needs that workaround or a dedicated test ID.
 - **Em-dashes in HTTP headers** — Bun rejects non-ASCII in header values with a 500 (Node is more permissive). Caused the audit export 500 until I ASCII-normalized the fallback message.
-- **Server-side schema drift on Acme Strategies tenant** — `brain_decisions`/`people`/`glossary` SELECT * fails because the DB columns don't match the Drizzle schema. The try/catch now returns a clean 500 with the actual Postgres error, but the underlying fix is a migration, not a code change.
+- **Server-side schema drift on CY Strategies tenant** — `brain_decisions`/`people`/`glossary` SELECT * fails because the DB columns don't match the Drizzle schema. The try/catch now returns a clean 500 with the actual Postgres error, but the underlying fix is a migration, not a code change.
 
 ## Known follow-ups (next session, in priority order)
 
 ### Tier 1 — fix the brain SQL schema drift on dev DB
 - Decisions, people, glossary list endpoints throw "Failed query: SELECT ... FROM brain_*" with a column not found. Either run pending Drizzle migrations against the dev DB, or check `git log` for a recent schema add that wasn't migrated. The `try/catch` I added to `brain/decisions/route.ts` shows the raw Postgres error in the response body — handy debugging.
-- Once the drift is fixed, the bearer-aware brain routes will work end-to-end for entitled tenants (e.g. Acme Strategies, client 98).
+- Once the drift is fixed, the bearer-aware brain routes will work end-to-end for entitled tenants (e.g. CY Strategies, client 98).
 
 ### Tier 2 — native (iOS/Android) follow-ups
 - Audit export download on native — wire `expo-file-system` + `Sharing.shareAsync` for the iOS/Android share-sheet path. (Web path works.)
@@ -673,7 +673,7 @@ Tier-1 server gaps closed (three previously-missing portal routes), Tier-2 entit
 Start a fresh Claude session and feed it just this file path:
 
 ```
-sd-chat-mobile/HANDOFF.md
+/Users/dancoyle/simplerdevelopment/sd-chat-mobile/HANDOFF.md
 ```
 
 Best first move next session: chase the brain schema drift (Tier 1). Once `brain/decisions` etc return 200, the EntitlementUpsell path becomes the exception not the norm — at which point we can stress-test all the bearer-auth + suggestions endpoint heuristics against real data.

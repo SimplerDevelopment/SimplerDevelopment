@@ -2,7 +2,7 @@
  * Gap coverage — CRM REST write entitlement + cross-tenant FK scoping
  *
  * Closes three adversarial-audit findings on the portal CRM REST surface
- * (internal security audit):
+ * (docs/audits/portal-e2e-adversarial-audit-2026-06-25.md):
  *
  *   1. crm-rest-api-no-service-entitlement-gate
  *      The POST/PUT/DELETE CRM routes that back the portal UI did NOT call the

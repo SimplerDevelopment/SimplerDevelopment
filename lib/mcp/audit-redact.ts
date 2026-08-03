@@ -68,9 +68,8 @@ export function redactInputs(args: unknown): unknown {
  * WITHOUT the 4 KB truncation `redactInputs` applies.
  *
  * This is the payload encrypted into `agent_action_captures` for high-risk
- * tools (see `lib/mcp/telemetry.ts`, `lib/mcp/high-risk-tools.ts`, and the
- * internal ADR "high-risk-agent-arg-capture", not part of this public
- * release). The point of
+ * tools (see `lib/mcp/telemetry.ts`, `lib/mcp/high-risk-tools.ts`, and
+ * `vault/04 - Decisions/ADR high-risk-agent-arg-capture.md`). The point of
  * that capture is forensic reconstruction after a suspected prompt
  * injection, so recipient lists / bodies / other PII must survive
  * un-truncated — only true secrets (passwords, API keys, tokens, etc.) are

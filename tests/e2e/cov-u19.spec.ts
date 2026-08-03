@@ -1,8 +1,8 @@
 /**
  * cov-u19.spec.ts — Billing Stripe E2E coverage (unit 19)
  *
- * Cards covered (indices 4–7 from the "## To Test" backlog in the internal
- * Billing Stripe E2E Audit, not part of this public release):
+ * Cards covered (indices 4–7 from the "## To Test" backlog in
+ * vault/05 - Feature Specs/E2E Audit/Billing Stripe E2E Audit.md):
  *
  *   4. POST /api/admin/portal/subscriptions/:id/refund — validates invoiceId required
  *      and 404 on unknown subscription

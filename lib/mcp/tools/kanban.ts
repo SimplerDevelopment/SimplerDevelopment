@@ -22,14 +22,8 @@ import {
   sprintScopeHistory,
   cardTemplates,
   cardRecurrences,
-  clientWebsites,
-  emailCampaigns,
-  pitchDecks,
-  surveys,
-  bookingPages,
   sprints,
   users,
-  crmProposals,
   kanbanCardComments,
   kanbanCardTimeLogs,
   kanbanCardFiles,
@@ -57,6 +51,7 @@ import {
   requireScope,
   revalidateForWrite,
 } from '../types';
+import { COMMON_ARTIFACT_TABLES, resolveArtifactTitle, type ArtifactTablesDict } from './artifact-vocab';
 
 export function registerKanbanTools(server: McpServer, ctx: PortalMcpContext): void {
   const clientId = ctx.client.id;
@@ -979,17 +974,20 @@ export function registerKanbanTools(server: McpServer, ctx: PortalMcpContext): v
   );
 
   // ── KANBAN CARD ARTIFACTS ──────────────────────────────────────────────
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const CARD_ARTIFACT_TABLES: Record<string, { table: any; titleField: string }> = {
-    website: { table: clientWebsites, titleField: 'name' },
-    email_campaign: { table: emailCampaigns, titleField: 'name' },
-    pitch_deck: { table: pitchDecks, titleField: 'title' },
-    proposal: { table: crmProposals, titleField: 'title' },
-    booking: { table: bookingPages, titleField: 'title' },
-    survey: { table: surveys, titleField: 'title' },
+  // Title resolution lives in ./artifact-vocab (shared with the projects
+  // registrar); path_chart and agent_flow_run are special-cased there too.
+  //
+  // `agent_flow_run` is the provenance edge: it records WHICH workflow run
+  // produced the work on this card. A run already knows its project, so this
+  // link is the only thing standing between "we log agent cost" and "we know
+  // what a given card cost to deliver" — join it against kanban_card_time_logs
+  // for the human half. Linked by the runner (see .claude/skills/sd-run-flow),
+  // not hand-picked, which is why it stays out of the UI picker.
+  const CARD_ARTIFACT_TYPE_ENUM = z.enum(['website', 'email_campaign', 'pitch_deck', 'proposal', 'booking', 'survey', 'project', 'post', 'path_chart', 'agent_flow_run']);
+  const CARD_ARTIFACT_TABLES: ArtifactTablesDict = {
+    ...COMMON_ARTIFACT_TABLES,
     project: { table: projects, titleField: 'name' },
   };
-  const CARD_ARTIFACT_TYPE_ENUM = z.enum(['website', 'email_campaign', 'pitch_deck', 'proposal', 'booking', 'survey', 'project', 'post']);
 
   async function authorizeCardForClient(cardId: number) {
     const [card] = await db.select({ projectId: kanbanCards.projectId }).from(kanbanCards)
@@ -1004,7 +1002,7 @@ export function registerKanbanTools(server: McpServer, ctx: PortalMcpContext): v
     'kanban_card_artifacts_list',
     {
       title: 'List artifacts linked to a kanban card',
-      description: 'List every artifact (website, email campaign, pitch deck, proposal, booking, survey, project) linked to a kanban card.',
+      description: 'List every artifact (website, email campaign, pitch deck, proposal, booking, survey, project, path chart, agent flow run) linked to a kanban card.',
       inputSchema: { cardId: z.number() },
     },
     async ({ cardId }) => {
@@ -1021,7 +1019,7 @@ export function registerKanbanTools(server: McpServer, ctx: PortalMcpContext): v
     'kanban_card_artifact_link',
     {
       title: 'Link an artifact to a kanban card',
-      description: 'Attach a website, email campaign, pitch deck, proposal, booking, survey, or project to a kanban card. The artifact must belong to this client.',
+      description: 'Attach a website, email campaign, pitch deck, proposal, booking, survey, project, path chart, or agent flow run to a kanban card. The artifact must belong to this client (path charts via their parent project). Link an agent_flow_run to record which workflow run produced this card\'s work.',
       inputSchema: {
         cardId: z.number(),
         artifactType: CARD_ARTIFACT_TYPE_ENUM,
@@ -1033,17 +1031,14 @@ export function registerKanbanTools(server: McpServer, ctx: PortalMcpContext): v
       if (!requireScope(ctx, 'projects:write')) return denied('projects:write');
       if (!(await authorizeCardForClient(cardId))) return json({ error: 'Card not found' });
 
-      const config = CARD_ARTIFACT_TABLES[artifactType];
-      const [source] = await db.select({ title: config.table[config.titleField] })
-        .from(config.table)
-        .where(and(eq(config.table.id, artifactId), eq(config.table.clientId, clientId)));
-      if (!source) return json({ error: 'Artifact not found or not owned by this client' });
+      const resolved = await resolveArtifactTitle(artifactType, artifactId, clientId, CARD_ARTIFACT_TABLES);
+      if (!resolved.found) return json({ error: 'Artifact not found or not owned by this client' });
 
       const [row] = await db.insert(kanbanCardArtifacts).values({
         cardId,
         artifactType,
         artifactId,
-        displayTitle: source.title || 'Untitled',
+        displayTitle: resolved.title || 'Untitled',
         pinned: pinned ?? false,
         createdBy: ctx.userId,
       }).returning();

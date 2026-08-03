@@ -1,8 +1,8 @@
 /**
  * cov-u27 — Automations Workflows coverage slice (unit 27)
  *
- * Cards 4-7 (0-based) from "## To Test" in the internal Automations
- * Workflows E2E Audit (not part of this public release).
+ * Cards 4-7 (0-based) from "## To Test" in:
+ *   vault/05 - Feature Specs/E2E Audit/Automations Workflows E2E Audit.md
  *
  * Card 4: send_email / add_to_list action kinds
  * Card 5: Plain-English rule parser → workflow creation

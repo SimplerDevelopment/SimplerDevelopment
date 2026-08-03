@@ -263,6 +263,78 @@ describe('lib/oauth/server', () => {
         ),
       ).toBe(false);
     });
+
+    // RFC 8252 §7.3 — native clients take an ephemeral loopback port per flow
+    // and cannot register it in advance, so the port (and only the port) is
+    // forgiven on loopback redirects.
+    describe('loopback ephemeral ports', () => {
+      it('matches a portless registered loopback URI against any requested port', () => {
+        // The real Claude Code case: CIMD registers portless, request carries a port.
+        expect(
+          redirectUriMatches(['http://localhost/callback'], 'http://localhost:3118/callback'),
+        ).toBe(true);
+        expect(
+          redirectUriMatches(['http://127.0.0.1/callback'], 'http://127.0.0.1:54321/callback'),
+        ).toBe(true);
+      });
+
+      it('matches across two different ports', () => {
+        expect(
+          redirectUriMatches(['http://localhost:1234/callback'], 'http://localhost:5678/callback'),
+        ).toBe(true);
+      });
+
+      it('matches IPv6 loopback', () => {
+        expect(
+          redirectUriMatches(['http://[::1]/callback'], 'http://[::1]:8080/callback'),
+        ).toBe(true);
+      });
+
+      it('does not forgive a differing path', () => {
+        expect(
+          redirectUriMatches(['http://localhost/callback'], 'http://localhost:3118/evil'),
+        ).toBe(false);
+      });
+
+      it('does not forgive a differing query', () => {
+        expect(
+          redirectUriMatches(['http://localhost/cb?a=1'], 'http://localhost:3118/cb?a=2'),
+        ).toBe(false);
+      });
+
+      it('does not cross loopback hostnames', () => {
+        expect(
+          redirectUriMatches(['http://localhost/callback'], 'http://127.0.0.1:3118/callback'),
+        ).toBe(false);
+      });
+
+      it('does not cross http and https', () => {
+        expect(
+          redirectUriMatches(['https://localhost/callback'], 'http://localhost:3118/callback'),
+        ).toBe(false);
+      });
+
+      // The carve-out must not leak to remote hosts — a registered
+      // https://a.example.com must never match a different port.
+      it('does not forgive the port on a non-loopback host', () => {
+        expect(
+          redirectUriMatches(['https://a.example.com/cb'], 'https://a.example.com:8443/cb'),
+        ).toBe(false);
+      });
+
+      it('does not treat a lookalike host as loopback', () => {
+        expect(
+          redirectUriMatches(['http://localhost/cb'], 'http://localhost.evil.com:3118/cb'),
+        ).toBe(false);
+      });
+
+      it('survives an unparseable registered URI', () => {
+        expect(
+          redirectUriMatches(['not a url', 'http://localhost/callback'], 'http://localhost:3118/callback'),
+        ).toBe(true);
+        expect(redirectUriMatches(['not a url'], 'http://localhost:3118/callback')).toBe(false);
+      });
+    });
   });
 
   describe('isAcceptableRedirectUri', () => {

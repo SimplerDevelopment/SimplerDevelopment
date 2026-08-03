@@ -9,9 +9,17 @@ if (!databaseUrl) {
   process.exit(1);
 }
 
+// Any 9xxx-numbered manual migration. This used to be /^(900\d|9999)/, which
+// matched 9000-9009 and special-cased 9999 — so the moment the series reached
+// 9010 every subsequent migration was silently skipped on every local dev
+// environment (9010 type-align, 9011, 9012, 9013 pathviz, 9014 agent_flows all
+// went unapplied, and the Workflow Designer 500'd locally on a missing table).
+// Silent because the loop just never saw the files: no error, no warning.
+// Zero-padded 4-digit prefixes sort correctly under a plain lexicographic
+// .sort(), so ordering still holds as the series grows.
 const drizzleDir = join(process.cwd(), 'drizzle');
 const files = readdirSync(drizzleDir)
-  .filter((file) => /^(900\d|9999).*\.sql$/.test(file))
+  .filter((file) => /^9\d{3}.*\.sql$/.test(file))
   .sort();
 
 if (files.length === 0) {

@@ -13,6 +13,7 @@ import {
   surveys,
   posts,
   brainNotes,
+  pathCharts,
 } from '@/lib/db/schema';
 import { and, eq, inArray, isNull } from 'drizzle-orm';
 import type { AnyPgColumn, AnyPgTable } from 'drizzle-orm/pg-core';
@@ -105,6 +106,19 @@ export async function GET(
       for (const r of postRows) {
         results.push({ type: 'post', id: r.id, title: `${r.title}${r.postType && r.postType !== 'blog' ? ` (${r.postType})` : ''}` });
       }
+    }
+  }
+
+  // Path charts have no clientId column — gate by projectId belonging to
+  // this client (same indirect pattern as posts, above).
+  if (!typeFilter || typeFilter === 'path_chart') {
+    const chartRows = await db
+      .select({ id: pathCharts.id, title: pathCharts.title })
+      .from(pathCharts)
+      .innerJoin(projects, eq(projects.id, pathCharts.projectId))
+      .where(eq(projects.clientId, clientId));
+    for (const r of chartRows) {
+      results.push({ type: 'path_chart', id: r.id, title: r.title ?? 'Untitled' });
     }
   }
 

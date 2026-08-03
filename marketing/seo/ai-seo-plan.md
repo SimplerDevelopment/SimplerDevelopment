@@ -5,6 +5,8 @@ area: AI-SEO / GEO (Generative Engine Optimization)
 date: 2026-06-27
 status: draft
 sources:
+  - vault/05 - Feature Specs/FEATURE-INVENTORY-domains.md
+  - vault/05 - Feature Specs/FEATURE-INVENTORY-api-mcp.md
   - docs/agents/ai-overview.md
   - docs/agents/glossary.md
   - llms.txt

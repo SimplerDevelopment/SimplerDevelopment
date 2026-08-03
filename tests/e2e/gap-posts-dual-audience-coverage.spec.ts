@@ -2,7 +2,7 @@
  * Posts dual-audience authz / tenant-scope regression
  *   @gap @posts-dual-audience @critical
  *
- * Closes four adversarial-audit findings (internal security audit):
+ * Closes four adversarial-audit findings (docs/audits/portal-e2e-adversarial-audit-2026-06-25.md):
  *   admin-post-schedule-no-auth      → PATCH /api/posts/[id]/schedule had zero auth
  *   admin-custom-fields-no-auth      → GET/PUT /api/posts/[id]/custom-fields had zero auth
  *   admin-calendar-no-auth           → GET /api/posts/calendar leaked all tenants' posts

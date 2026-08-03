@@ -3,6 +3,8 @@ type: editorial-calendar
 status: draft
 date: 2026-06-27
 sources:
+  - vault/05 - Feature Specs/FEATURE-INVENTORY-domains.md
+  - vault/05 - Feature Specs/FEATURE-INVENTORY-api-mcp.md
   - docs/agents/ai-overview.md
   - marketing/feature-pages/ (all files)
   - marketing/seo/ai-seo-plan.md

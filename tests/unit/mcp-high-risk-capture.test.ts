@@ -1,8 +1,7 @@
 // @vitest-environment node
 /**
  * Unit tests for the AAF-001 high-risk-tool argument capture wired into
- * `lib/mcp/telemetry.ts` (see the internal ADR log, not part of this public
- * release).
+ * `lib/mcp/telemetry.ts` (see `vault/04 - Decisions/ADR high-risk-agent-arg-capture.md`).
  *
  * db is mocked so this stays a fast, deterministic unit test — mirrors the
  * pattern in tests/unit/mcp-audit-instrumentation.test.ts (which covers the

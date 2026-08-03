@@ -8,7 +8,6 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { and, desc, eq } from 'drizzle-orm';
-import type { AnyPgTable, AnyPgColumn } from 'drizzle-orm/pg-core';
 import { db } from '@/lib/db';
 import {
   projects,
@@ -16,14 +15,7 @@ import {
   kanbanColumns,
   kanbanLabels,
   kanbanCardAssignees,
-  posts,
-  clientWebsites,
-  emailCampaigns,
-  pitchDecks,
-  surveys,
-  bookingPages,
   users,
-  crmProposals,
   projectMembers,
   cardTemplates,
   projectArtifacts,
@@ -40,6 +32,7 @@ import {
   requireScope,
   revalidateForWrite,
 } from '../types';
+import { COMMON_ARTIFACT_TABLES, resolveArtifactTitle, type ArtifactTablesDict } from './artifact-vocab';
 
 export function registerProjectsTools(server: McpServer, ctx: PortalMcpContext): void {
   const clientId = ctx.client.id;
@@ -326,25 +319,19 @@ export function registerProjectsTools(server: McpServer, ctx: PortalMcpContext):
   );
 
   // ── PROJECT ARTIFACTS ──────────────────────────────────────────────────
-  // Polymorphic artifact links from a project. Mirrors the kanban-card and
-  // crm-deal artifact patterns: caller picks an artifact type + id, we verify
-  // the artifact belongs to this client, then we insert a project_artifacts
-  // row with a snapshotted display title for cheap renders. Posts are scoped
-  // via website (clientWebsites.clientId), so they get their own indirect
-  // ownership check rather than a direct artifact.clientId comparison.
-  const PROJECT_ARTIFACT_TABLES: Record<string, { table: AnyPgTable; titleField: string }> = {
-    website: { table: clientWebsites, titleField: 'name' },
-    email_campaign: { table: emailCampaigns, titleField: 'name' },
-    pitch_deck: { table: pitchDecks, titleField: 'title' },
-    proposal: { table: crmProposals, titleField: 'title' },
-    booking: { table: bookingPages, titleField: 'title' },
-    survey: { table: surveys, titleField: 'title' },
-    brain_note: { table: brainNotes, titleField: 'title' },
-  };
+  // Polymorphic artifact links from a project. Caller picks an artifact type
+  // + id; resolveArtifactTitle (./artifact-vocab) verifies ownership and
+  // resolves a display title, including the indirect post/path_chart joins,
+  // then we insert a project_artifacts row with a snapshotted title for
+  // cheap renders.
   const PROJECT_ARTIFACT_TYPE_ENUM = z.enum([
     'website', 'email_campaign', 'pitch_deck', 'proposal',
-    'booking', 'survey', 'post', 'brain_note',
+    'booking', 'survey', 'post', 'brain_note', 'path_chart',
   ]);
+  const PROJECT_ARTIFACT_TABLES: ArtifactTablesDict = {
+    ...COMMON_ARTIFACT_TABLES,
+    brain_note: { table: brainNotes, titleField: 'title' },
+  };
 
   async function authorizeProjectForClient(projectId: number) {
     const [proj] = await db.select({ id: projects.id }).from(projects)
@@ -356,7 +343,7 @@ export function registerProjectsTools(server: McpServer, ctx: PortalMcpContext):
     'projects_artifacts_list',
     {
       title: 'List artifacts linked to a project',
-      description: 'List every artifact (website, email campaign, pitch deck, proposal, booking, survey, post, brain note) linked to a project.',
+      description: 'List every artifact (website, email campaign, pitch deck, proposal, booking, survey, post, brain note, path chart) linked to a project.',
       inputSchema: { projectId: z.number() },
     },
     async ({ projectId }) => {
@@ -373,7 +360,7 @@ export function registerProjectsTools(server: McpServer, ctx: PortalMcpContext):
     'projects_artifact_link',
     {
       title: 'Link an artifact to a project',
-      description: 'Attach a website, email campaign, pitch deck, proposal, booking, survey, post, or brain note to a project. The artifact must belong to this client (posts are scoped via their parent website).',
+      description: 'Attach a website, email campaign, pitch deck, proposal, booking, survey, post, brain note, or path chart to a project. The artifact must belong to this client (posts are scoped via their parent website; path charts via their parent project).',
       inputSchema: {
         projectId: z.number(),
         artifactType: PROJECT_ARTIFACT_TYPE_ENUM,
@@ -385,35 +372,16 @@ export function registerProjectsTools(server: McpServer, ctx: PortalMcpContext):
       if (!requireScope(ctx, 'projects:write')) return denied('projects:write');
       if (!(await authorizeProjectForClient(projectId))) return json({ error: 'Project not found' });
 
-      let title: string | null = null;
-      if (artifactType === 'post') {
-        // Posts have no clientId; they're scoped via websiteId → clientWebsites.clientId.
-        // Posts with websiteId=null are global/admin and excluded here.
-        const [row] = await db
-          .select({ title: posts.title, postType: posts.postType })
-          .from(posts)
-          .innerJoin(clientWebsites, eq(clientWebsites.id, posts.websiteId))
-          .where(and(eq(posts.id, artifactId), eq(clientWebsites.clientId, clientId)))
-          .limit(1);
-        if (!row) return json({ error: 'Artifact not found or not owned by this client' });
-        title = row.postType && row.postType !== 'blog'
-          ? `${row.title} (${row.postType})`
-          : row.title;
-      } else {
-        const config = PROJECT_ARTIFACT_TABLES[artifactType];
-        const tbl = config.table as AnyPgTable & Record<string, AnyPgColumn>;
-        const [source] = await db.select({ title: tbl[config.titleField] })
-          .from(config.table)
-          .where(and(eq(tbl.id, artifactId), eq(tbl.clientId, clientId)));
-        if (!source) return json({ error: 'Artifact not found or not owned by this client' });
-        title = source.title as string | null;
-      }
+      const resolved = await resolveArtifactTitle(
+        artifactType, artifactId, clientId, PROJECT_ARTIFACT_TABLES, { handlePost: true },
+      );
+      if (!resolved.found) return json({ error: 'Artifact not found or not owned by this client' });
 
       const [row] = await db.insert(projectArtifacts).values({
         projectId,
         artifactType,
         artifactId,
-        displayTitle: title || 'Untitled',
+        displayTitle: resolved.title || 'Untitled',
         pinned: pinned ?? false,
         createdBy: ctx.userId,
       }).returning();

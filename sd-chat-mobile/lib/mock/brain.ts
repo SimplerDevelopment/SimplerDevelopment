@@ -165,13 +165,13 @@ export const brainDecisions: BrainDecision[] = [
   {
     id: 'd-3',
     code: 'DR-011',
-    title: 'Use Acme Sync as the canonical CRM exporter',
+    title: 'Use Crosscap as the canonical CRM exporter',
     status: 'superseded',
     context:
       'Three competing CSV shapes were floating in the team. Pick one and document it.',
-    decision: 'Acme Sync is the source of truth; HubSpot + Salesforce are derived.',
+    decision: 'Crosscap is the source of truth; HubSpot + Salesforce are derived.',
     rationale:
-      'Acme Sync already maps to our internal field schema and the API is stable.',
+      'Crosscap already maps to our internal field schema and the API is stable.',
     decidedAt: 'Apr 14',
     decidedBy: 'Aisha Patel',
     decidedById: 49,

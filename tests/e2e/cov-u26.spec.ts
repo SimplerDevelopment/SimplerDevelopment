@@ -1,8 +1,8 @@
 /**
  * cov-u26 — Automations Workflows coverage slice (unit 26)
  *
- * Cards 0-3 from "## To Test" in the internal Automations Workflows E2E
- * Audit (not part of this public release).
+ * Cards 0-3 from "## To Test" in:
+ *   vault/05 - Feature Specs/E2E Audit/Automations Workflows E2E Audit.md
  *
  * Card 0: Durable retry on workflow step failure — GAP (runtime has no retry mechanism)
  * Card 1: Branching / conditional logic in workflow — BUG documented below

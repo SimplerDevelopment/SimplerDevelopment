@@ -71,7 +71,14 @@ const MOVED_PATHS: { from: string; hint: string }[] = [
 ];
 
 function findFiles(cmd: string): string[] {
-  return execSync(cmd, { encoding: 'utf8' }).split('\n').filter(Boolean);
+  try {
+    return execSync(cmd, { encoding: 'utf8' }).split('\n').filter(Boolean);
+  } catch (e) {
+    // find exits non-zero when a listed dir is absent (e.g. vault/ is stripped
+    // from the public tree) but still prints matches from the dirs that exist.
+    const stdout = (e as { stdout?: string }).stdout ?? '';
+    return stdout.split('\n').filter(Boolean);
+  }
 }
 
 const nestedClaudeMds = () =>
@@ -87,17 +94,9 @@ const agentDocs = () => findFiles(`find docs/agents -name '*.md' 2>/dev/null`);
 // Vault knowledge notes — Architecture notes and Domain Maps cite live repo paths that agents
 // route off; scan them so the vault can't rot into dead pointers. Section indexes ("00 - *")
 // and other vault sections (specs, ADRs, logs) are exempt: they reference history, not live nav.
-//
-// `vault/` is the maintainers' internal Obsidian knowledge base and is NOT part of this public
-// release — it does not exist in this checkout. `find` below fails silently (stderr redirected)
-// and `findFiles` returns an empty array in that case, so this is a harmless no-op here; it only
-// does real work in a checkout that has the vault alongside it. Left as-is (not stubbed out) so
-// the script still behaves correctly for anyone running it against such a checkout — set
-// `VAULT_DIR` to override the vault's location if it lives somewhere other than `vault/`.
-const VAULT_DIR = process.env.VAULT_DIR || 'vault';
 const vaultNotes = () =>
   findFiles(
-    `find '${VAULT_DIR}/02 - Architecture' '${VAULT_DIR}/03 - Domains' -name '*.md' -not -name '00 - *' 2>/dev/null`
+    `find 'vault/02 - Architecture' 'vault/03 - Domains' -name '*.md' -not -name '00 - *' 2>/dev/null`
   );
 
 // Skills + skill docs — scanned for moved-path references only (they legitimately mention

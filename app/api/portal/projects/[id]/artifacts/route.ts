@@ -13,6 +13,7 @@ import {
   surveys,
   posts,
   brainNotes,
+  pathCharts,
 } from '@/lib/db/schema';
 import { and, eq, desc, inArray, isNull } from 'drizzle-orm';
 
@@ -132,6 +133,18 @@ export async function POST(
       return NextResponse.json({ success: false, message: 'Artifact not found' }, { status: 404 });
     }
     displayTitle = post.title || body.displayTitle || 'Untitled';
+  } else if (artifactType === 'path_chart') {
+    // Path charts have no clientId — gate by projectId belonging to this client.
+    const [chart] = await db
+      .select({ title: pathCharts.title })
+      .from(pathCharts)
+      .innerJoin(projects, eq(projects.id, pathCharts.projectId))
+      .where(and(eq(pathCharts.id, artifactId), eq(projects.clientId, result.clientId)))
+      .limit(1);
+    if (!chart) {
+      return NextResponse.json({ success: false, message: 'Artifact not found' }, { status: 404 });
+    }
+    displayTitle = chart.title || body.displayTitle || 'Untitled';
   } else if (ARTIFACT_TABLES[artifactType]) {
     const config = ARTIFACT_TABLES[artifactType];
     // brain_note requires excluding soft-deleted rows.

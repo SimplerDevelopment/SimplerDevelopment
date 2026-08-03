@@ -2,7 +2,7 @@
  * High-risk MCP tool classifier.
  *
  * Per the ADR "Reconstructable retained argument capture for high-risk agent
- * tools" (the team's internal ADR log, not part of this public release), the
+ * tools" (`vault/04 - Decisions/ADR high-risk-agent-arg-capture.md`), the
  * high-risk set mirrors the GATE side of `ADR agent-write-approval-gate-matrix`
  * — the operations worth a human's approval are the same ones worth
  * reconstructing after the fact from an encrypted, access-controlled capture

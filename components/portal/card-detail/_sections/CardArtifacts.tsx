@@ -3,7 +3,7 @@
  */
 'use client';
 
-import { ARTIFACT_ICONS, ARTIFACT_LABELS, artifactUrl } from '../_lib/format';
+import { AGENT_LINKED_ARTIFACT_TYPES, ARTIFACT_ICONS, ARTIFACT_LABELS, artifactUrl } from '../_lib/format';
 import type { Artifact, AvailableArtifact } from '../_lib/types';
 
 interface Props {
@@ -63,15 +63,17 @@ export function CardArtifacts({
             >
               All
             </button>
-            {Object.entries(ARTIFACT_LABELS).map(([type, label]) => (
-              <button
-                key={type}
-                onClick={() => setArtifactTypeFilter(type)}
-                className={`px-2 py-1 rounded text-xs font-medium transition-colors ${artifactTypeFilter === type ? 'bg-primary text-primary-foreground' : 'bg-accent text-foreground hover:bg-accent/80'}`}
-              >
-                {label}
-              </button>
-            ))}
+            {Object.entries(ARTIFACT_LABELS)
+              .filter(([type]) => !AGENT_LINKED_ARTIFACT_TYPES.has(type))
+              .map(([type, label]) => (
+                <button
+                  key={type}
+                  onClick={() => setArtifactTypeFilter(type)}
+                  className={`px-2 py-1 rounded text-xs font-medium transition-colors ${artifactTypeFilter === type ? 'bg-primary text-primary-foreground' : 'bg-accent text-foreground hover:bg-accent/80'}`}
+                >
+                  {label}
+                </button>
+              ))}
           </div>
           <div className="max-h-48 overflow-y-auto space-y-1">
             {filteredAvailable.map(a => (

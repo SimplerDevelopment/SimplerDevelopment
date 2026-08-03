@@ -172,6 +172,7 @@ The Brain is not a flat note store. It has typed sub-domains that provide struct
 - `/docs/agents/tool-reference#brain_` — full Brain MCP tool catalogue
 - `/docs/agents/architecture-for-agents#8-ai-and-rag-layer` — AI layer overview
 - `/docs/agents/api-index` — MCP endpoint and credential reference
+- Feature inventory: Company Brain & AI (`vault/05 - Feature Specs/FEATURE-INVENTORY-domains.md` §5)
 - Self-hosting guide (`content/blog/outlines/self-hosting-guide.md`) — pgvector setup
 
 ---

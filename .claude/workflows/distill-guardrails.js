@@ -104,7 +104,7 @@ const distilled = await agent(
   `You are distilling captured developer feedback into proposed guardrails for the SimplerDevelopment repo, in the spirit of "harness engineering" — never give the same review feedback twice; encode each recurring mistake as the cheapest DURABLE rung that holds (doc < lint < test < reviewer-persona).\n\n` +
     `Here are ${allSignals.length} raw signals gathered from learnings.md, git history, and claude-mem:\n\n${JSON.stringify(allSignals, null, 2)}\n\n` +
     `Cluster signals that are the same underlying mistake (across sources). For each cluster, propose ONE concrete guardrail: pick the lowest rung on the ladder that would actually prevent recurrence, and name the SPECIFIC artifact (the exact eslint rule + config, the exact test/assertion, the exact CLAUDE.md/nested-CLAUDE.md edit, or the exact reviewer-persona bullet). ` +
-    `Ground every artifact in how THIS repo already works (existing eslint.config.mjs, scripts/test.sh gates, the nested CLAUDE.md files) — do not invent generic advice. ` +
+    `Ground every artifact in how THIS repo already works (existing eslint.config.mjs, scripts/test.sh gates, the nested CLAUDE.md files, vault/06 - Validation runbooks) — do not invent generic advice. ` +
     `KEEP a candidate only if occurrences >= ${minOccurrences} OR kind is security/data-loss. Everything else goes in \`dropped\` with a one-line reason (do not silently discard). Order candidates by leverage (recurrence × severity, cheapest rung first).`,
   { label: 'distill', phase: 'Distill', schema: CANDIDATE_SCHEMA },
 )

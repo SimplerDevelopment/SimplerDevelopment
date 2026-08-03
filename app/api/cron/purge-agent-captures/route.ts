@@ -12,8 +12,8 @@ const RETENTION_DAYS = 90;
 
 /**
  * Cron endpoint: hard-purge `agent_action_captures` ciphertext older than the
- * 90-day retention window (AAF-001; see the internal ADR log, not part of
- * this public release). The hash log
+ * 90-day retention window (AAF-001,
+ * `vault/04 - Decisions/ADR high-risk-agent-arg-capture.md`). The hash log
  * (`agent_action_log`) and redacted summary log (`agent_action_logs`) are
  * untouched — only the encrypted reconstructable capture is time-boxed.
  *

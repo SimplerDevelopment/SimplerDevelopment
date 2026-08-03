@@ -1,8 +1,7 @@
 /**
  * ESign Approvals — Coverage slice u37
  *
- * Cards [12..15] from the internal ESign Approvals E2E Audit (not part of
- * this public release).
+ * Cards [12..15] from vault/05 - Feature Specs/E2E Audit/ESign Approvals E2E Audit.md
  *
  *  12 — Native contract send path (/api/portal/crm/contracts/[id]/send)
  *  13 — Public contract viewer /api/contracts/[token]: page loads for valid signer token

@@ -166,6 +166,8 @@ These three steps are required in this order for every AI call. Partial complian
 - `/docs/agents/tool-reference#approval-link-pattern` — approval-link detail
 - `/docs/agents/api-index` — credential types and auth model
 - `/docs/agents/architecture-for-agents#6-auth` — OAuth server and role model
+- Feature inventory: Auth & Security (`vault/05 - Feature Specs/FEATURE-INVENTORY-domains.md` §17)
+- Feature inventory: E-Sign & Approvals (`vault/05 - Feature Specs/FEATURE-INVENTORY-domains.md` §13)
 
 ---
 

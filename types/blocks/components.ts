@@ -105,9 +105,8 @@ export interface CtaBlock extends BaseBlock {
 /**
  * VEQA-067 Strategy A — unified hero+cta type. `hero` and `cta` stay
  * registered and renderable (legacy content in `posts.content` is never
- * rewritten — see the internal VEQA-067 spec, not part of this public
- * release); this is the merged type new blocks are created as, with `layout`
- * selecting which legacy look
+ * rewritten — see vault/05 - Feature Specs/VEQA-067); this is the merged
+ * type new blocks are created as, with `layout` selecting which legacy look
  * to preserve.
  *
  * Field naming is canonical (`primaryButtonText/Url`, not `ctaText/ctaLink`).

@@ -64,6 +64,7 @@ vi.mock('@/lib/db/schema', () => {
     crmProposals: wrap('crmProposals'),
     bookingPages: wrap('bookingPages'),
     brainNotes: wrap('brainNotes'),
+    pathCharts: wrap('pathCharts'),
   };
 });
 
@@ -603,6 +604,42 @@ describe('POST /api/portal/cards/[id]/artifacts', () => {
     );
     expect(res.status).toBe(201);
     expect(insertCalls[0].values).toMatchObject({ displayTitle: 'Untitled' });
+  });
+
+  it('handles path_chart via the project join (no direct clientId column)', async () => {
+    authMock.mockResolvedValue(STAFF_SESSION);
+    selectQueue.push([{ id: 1, projectId: 5 }]); // card
+    selectQueue.push([{ id: 5, clientId: 33 }]); // project
+    selectQueue.push([{ title: 'Checkout Flow' }]); // path_chart + project join
+    insertReturnQueue.push([
+      { id: 103, cardId: 1, artifactType: 'path_chart', artifactId: 40, displayTitle: 'Checkout Flow', pinned: false, createdBy: 7 },
+    ]);
+    const res = await POST(
+      makeJsonRequest({ artifactType: 'path_chart', artifactId: 40 }),
+      makeParams({ id: '1' }),
+    );
+    expect(res.status).toBe(201);
+    const body = await res.json();
+    expect(body.data.displayTitle).toBe('Checkout Flow');
+    expect(insertCalls[insertCalls.length - 1].values).toMatchObject({
+      artifactType: 'path_chart',
+      artifactId: 40,
+      displayTitle: 'Checkout Flow',
+    });
+  });
+
+  it('returns 404 when the path_chart is not owned by this client', async () => {
+    authMock.mockResolvedValue(STAFF_SESSION);
+    selectQueue.push([{ id: 1, projectId: 5 }]); // card
+    selectQueue.push([{ id: 5, clientId: 33 }]); // project
+    selectQueue.push([]); // path_chart join returns nothing
+    const res = await POST(
+      makeJsonRequest({ artifactType: 'path_chart', artifactId: 40 }),
+      makeParams({ id: '1' }),
+    );
+    expect(res.status).toBe(404);
+    const body = await res.json();
+    expect(body.message).toBe('Artifact not found');
   });
 });
 

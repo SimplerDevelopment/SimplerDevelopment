@@ -1,8 +1,8 @@
 /**
  * Bookings Services — Coverage spec
  *
- * Exercises the "needs spec" backlog from the internal Bookings Services
- * E2E Audit (not part of this public release).
+ * Exercises the "needs spec" backlog from:
+ *   vault/05 - Feature Specs/E2E Audit/Bookings Services E2E Audit.md
  *
  * Cards already in Gaps Found (no implementation) are noted in comments.
  * This file covers:

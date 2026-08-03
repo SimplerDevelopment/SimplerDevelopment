@@ -5,6 +5,7 @@ slug: /features/websites-cms-visual-editor
 status: spec-draft
 date: 2026-06-27
 sources:
+  - vault/05 - Feature Specs/FEATURE-INVENTORY-domains.md (domains 1, 2, 3)
   - docs/agents/ai-overview.md
   - docs/agents/glossary.md
 ---

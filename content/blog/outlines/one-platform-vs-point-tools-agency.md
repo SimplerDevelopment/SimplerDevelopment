@@ -6,6 +6,7 @@ slug: one-platform-vs-point-tools-agency
 status: outline
 date: 2026-06-27
 sources:
+  - vault/05 - Feature Specs/FEATURE-INVENTORY-domains.md (all domains)
   - marketing/feature-pages/websites-cms-visual-editor.md
   - marketing/feature-pages/crm.md
   - marketing/feature-pages/automations-workflows.md

@@ -1,0 +1,994 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Path Visualizations — Motion Mockup</title>
+<!--
+  ═══════════════════════════════════════════════════════════════════════
+  PATH VISUALIZATIONS — hi-fi motion mockup (design reference, NOT prod code)
+  Spec: vault/05 - Feature Specs/Path Visualizations.md
+
+  Confirmed decisions this demonstrates (grilled 2026-07-18):
+   · nodes = screens ⊃ components, services as satellites
+   · node state = build-status ramp + declared metadata (inspector)
+   · live = SSE push + agent presence beacon   · replay scrubber over event log
+   · mission-control dark theme, self-contained panel
+
+  Architecture mirrors the real spec on purpose: a scripted event log +
+  a pure reducer stateAt(T). Live mode, scrubbing and replay are the SAME
+  render path — this is exactly how the production tab is meant to work.
+
+  Fake data: "Acme Storefront — Checkout Flow" build session (~72s).
+  Status ramp validated with dataviz validate_palette.js (dark surface
+  #0C141C). Status is never color-alone: 6-segment ring + status word.
+  ═══════════════════════════════════════════════════════════════════════
+-->
+<style>
+  :root {
+    --surface:      #0C141C;
+    --panel:        #111C26;
+    --panel-2:      #16232F;
+    --line:         #1F3140;
+    --line-bright:  #2C4356;
+    --ink:          #E4EDF4;
+    --ink-2:        #93A6B8;
+    --ink-3:        #5C7183;
+
+    --st-planned:    #64748B;
+    --st-scaffolded: #4B8DE0;
+    --st-wired:      #22B8E6;
+    --st-styled:     #2EDCB4;
+    --st-tested:     #6EE86E;
+    --st-shipped:    #E9F87E;
+    --st-blocked:    #ECA83D;
+    --st-error:      #F1655A;
+    --agent:         #F06ED8;
+
+    --mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; overflow: hidden; }
+  body {
+    background: var(--surface);
+    color: var(--ink);
+    font-family: var(--sans);
+    display: flex; flex-direction: column;
+  }
+
+  /* ── HUD text idiom ─────────────────────────────────────────── */
+  .hud { font-family: var(--mono); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-3); }
+
+  /* ── Header ─────────────────────────────────────────────────── */
+  header {
+    position: relative; z-index: 30;
+    display: flex; align-items: center; gap: 14px;
+    height: 52px; padding: 0 18px;
+    background: color-mix(in oklab, var(--panel) 85%, transparent);
+    border-bottom: 1px solid var(--line);
+    backdrop-filter: blur(10px);
+  }
+  .brand { display: flex; align-items: center; gap: 8px; }
+  .brand svg { width: 16px; height: 16px; }
+  .crumb { font-size: 13px; font-weight: 600; letter-spacing: .01em; white-space: nowrap; }
+  .crumb .dim { color: var(--ink-3); font-weight: 500; }
+  .chip {
+    font-family: var(--mono); font-size: 10px; letter-spacing: .06em;
+    padding: 3px 8px; border-radius: 4px;
+    border: 1px solid var(--line-bright); color: var(--ink-2);
+    background: var(--panel-2); white-space: nowrap;
+  }
+  .hspace { flex: 1; }
+  .evcount { font-family: var(--mono); font-size: 11px; color: var(--ink-3); white-space: nowrap; }
+  .evcount b { color: var(--ink-2); font-weight: 600; }
+  .agent-chip {
+    display: flex; align-items: center; gap: 7px;
+    font-family: var(--mono); font-size: 11px; color: var(--ink-2);
+    padding: 4px 10px; border-radius: 20px;
+    border: 1px solid color-mix(in oklab, var(--agent) 40%, transparent);
+    background: color-mix(in oklab, var(--agent) 10%, transparent);
+    white-space: nowrap;
+  }
+  .agent-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--agent); box-shadow: 0 0 8px var(--agent); }
+  .live-badge {
+    display: flex; align-items: center; gap: 7px;
+    font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: .18em;
+    padding: 5px 12px; border-radius: 4px; cursor: pointer; user-select: none;
+    border: 1px solid transparent; white-space: nowrap;
+  }
+  .live-badge.live   { color: #6EE86E; border-color: #6ee86e55; background: #6ee86e12; }
+  .live-badge.paused { color: var(--st-blocked); border-color: #eca83d55; background: #eca83d12; }
+  .live-badge.replay { color: var(--st-wired); border-color: #22b8e655; background: #22b8e612; }
+  .live-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+  .live .live-dot { animation: blink 1.6s ease-in-out infinite; }
+  @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: .25; } }
+  .btn {
+    display: flex; align-items: center; justify-content: center;
+    width: 30px; height: 30px; border-radius: 5px; cursor: pointer;
+    border: 1px solid var(--line-bright); background: var(--panel-2); color: var(--ink-2);
+  }
+  .btn:hover { color: var(--ink); border-color: var(--ink-3); }
+  .btn svg { width: 15px; height: 15px; }
+
+  /* ── Stage / viewport ───────────────────────────────────────── */
+  #stage { position: relative; flex: 1; overflow: hidden; }
+  #viewport {
+    position: absolute; inset: 0; overflow: hidden; cursor: grab;
+    background:
+      radial-gradient(1200px 600px at 50% 120%, #14212cAA 0%, transparent 60%),
+      radial-gradient(circle, #1F314055 1px, transparent 1.4px);
+    background-size: auto, 26px 26px;
+  }
+  #viewport.dragging { cursor: grabbing; }
+  #world { position: absolute; top: 0; left: 0; transform-origin: 0 0; will-change: transform; }
+  #edgeSvg { position: absolute; top: 0; left: 0; overflow: visible; pointer-events: none; }
+
+  /* ── Edges ──────────────────────────────────────────────────── */
+  .edge-nav {
+    fill: none; stroke: var(--line-bright); stroke-width: 2;
+    stroke-dasharray: 7 5;
+    animation: march 1.1s linear infinite;
+  }
+  .edge-nav.lit { stroke: color-mix(in oklab, var(--st-wired) 55%, var(--line-bright)); }
+  @keyframes march { to { stroke-dashoffset: -12; } }
+  .edge-data { fill: none; stroke: var(--line); stroke-width: 1.5; stroke-dasharray: 2 4; }
+  .edge-data.hot { stroke: color-mix(in oklab, var(--st-wired) 40%, var(--line)); }
+  .particle { fill: var(--st-wired); }
+  .edge-arrow { fill: var(--line-bright); }
+
+  /* ── Nodes: screens ─────────────────────────────────────────── */
+  .node {
+    position: absolute; border-radius: 10px; cursor: pointer;
+    transition: box-shadow .3s ease, border-color .3s ease, transform .12s ease;
+  }
+  .node:hover { transform: translateY(-1px); }
+  .screen {
+    width: 250px; height: 150px;
+    background: linear-gradient(180deg, color-mix(in oklab, var(--panel-2) 92%, var(--nc, var(--st-planned))) 0%, var(--panel) 100%);
+    border: 1px solid color-mix(in oklab, var(--nc, var(--st-planned)) 45%, var(--line));
+    box-shadow: 0 6px 24px #00000055, inset 0 1px 0 #ffffff0d;
+  }
+  .screen.shipped-fill {
+    background: linear-gradient(180deg, color-mix(in oklab, var(--st-shipped) 16%, var(--panel-2)), var(--panel));
+  }
+  .screen .head { display: flex; align-items: center; gap: 8px; padding: 11px 12px 8px; }
+  .screen .title { font-size: 13px; font-weight: 650; letter-spacing: .01em; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .route {
+    display: inline-block; margin: 0 12px 8px;
+    font-family: var(--mono); font-size: 10px; color: var(--ink-2);
+    padding: 2px 7px; border-radius: 4px; background: #0009; border: 1px solid var(--line);
+  }
+  .status-word { font-family: var(--mono); font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: var(--nc, var(--st-planned)); }
+
+  /* segmented progress ring (6 ticks) — non-color status encoding */
+  .ring { flex: none; }
+  .ring rect { fill: var(--line); }
+  .ring rect.on { fill: var(--nc, var(--st-planned)); }
+
+  .chips { padding: 0 10px; display: flex; flex-direction: column; gap: 5px; }
+  .comp {
+    display: flex; align-items: center; gap: 7px;
+    height: 26px; padding: 0 9px; border-radius: 6px; cursor: pointer;
+    background: #0B131B99; border: 1px solid var(--line);
+    font-size: 11px; color: var(--ink-2);
+    transition: border-color .3s ease;
+  }
+  .comp:hover { border-color: var(--ink-3); }
+  .comp .cdot { width: 7px; height: 7px; border-radius: 2px; background: var(--cc, var(--st-planned)); flex: none; }
+  .comp .cname { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .comp .cst { font-family: var(--mono); font-size: 8px; letter-spacing: .1em; text-transform: uppercase; color: var(--cc, var(--st-planned)); }
+
+  /* ── Nodes: services ────────────────────────────────────────── */
+  .service {
+    width: 186px; height: 40px;
+    display: flex; align-items: center; gap: 9px; padding: 0 12px;
+    border-radius: 999px;
+    background: color-mix(in oklab, var(--panel-2) 94%, var(--nc, var(--st-planned)));
+    border: 1px solid color-mix(in oklab, var(--nc, var(--st-planned)) 40%, var(--line));
+    box-shadow: 0 4px 16px #00000044;
+  }
+  .service svg { width: 14px; height: 14px; flex: none; color: var(--nc, var(--st-planned)); }
+  .service .sname { font-family: var(--mono); font-size: 10.5px; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* mount + status-change age animations (seek-pure: driven by data-age) */
+  .node.mounting { animation: mount .55s cubic-bezier(.16,1,.3,1) both; }
+  @keyframes mount { from { opacity: 0; transform: scale(.75) translateY(8px); filter: blur(4px); } }
+  .node.flash { box-shadow: 0 0 0 1px var(--nc), 0 0 28px color-mix(in oklab, var(--nc) 55%, transparent), 0 6px 24px #00000055; }
+  .comp.flash { border-color: var(--cc); box-shadow: 0 0 14px color-mix(in oklab, var(--cc) 45%, transparent); }
+  .node.err-shake { animation: shake .5s ease both; }
+  @keyframes shake { 20%,60% { transform: translateX(-4px); } 40%,80% { transform: translateX(4px); } }
+
+  /* ── Agent beacon ───────────────────────────────────────────── */
+  #beacon { position: absolute; width: 0; height: 0; pointer-events: none; transition: transform .7s cubic-bezier(.3,.8,.3,1); z-index: 5; }
+  #beacon.hidden { opacity: 0; }
+  .radar { position: absolute; left: 0; top: 0; width: 60px; height: 60px; margin: -30px 0 0 -30px; border-radius: 50%; border: 1.5px solid var(--agent); opacity: 0; animation: radar 2.2s ease-out infinite; }
+  .radar:nth-child(2) { animation-delay: .7s; }
+  .radar:nth-child(3) { animation-delay: 1.4s; }
+  @keyframes radar { 0% { transform: scale(.25); opacity: .8; } 70% { opacity: .18; } 100% { transform: scale(1.6); opacity: 0; } }
+  .beacon-core { position: absolute; left: -5px; top: -5px; width: 10px; height: 10px; border-radius: 50%; background: var(--agent); box-shadow: 0 0 12px var(--agent), 0 0 30px color-mix(in oklab, var(--agent) 60%, transparent); }
+  .beacon-tag {
+    position: absolute; left: 14px; top: -34px; white-space: nowrap;
+    font-family: var(--mono); font-size: 10px; color: #FFD6F4;
+    background: color-mix(in oklab, var(--agent) 16%, #170f16E8);
+    border: 1px solid color-mix(in oklab, var(--agent) 45%, transparent);
+    padding: 5px 9px; border-radius: 6px;
+    box-shadow: 0 4px 18px #00000066;
+  }
+  .beacon-tag b { color: #fff; font-weight: 600; }
+
+  /* ── Legend ─────────────────────────────────────────────────── */
+  #legend {
+    position: absolute; right: 14px; bottom: 74px; z-index: 20;
+    display: flex; flex-direction: column; gap: 6px;
+    padding: 9px 12px; border-radius: 8px;
+    background: color-mix(in oklab, var(--panel) 88%, transparent);
+    border: 1px solid var(--line); backdrop-filter: blur(8px);
+  }
+  .lrow { display: flex; gap: 11px; }
+  .litem { display: flex; align-items: center; gap: 5px; font-family: var(--mono); font-size: 8.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); }
+  .litem i { width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
+
+  /* ── Event ticker ───────────────────────────────────────────── */
+  #ticker { position: absolute; left: 14px; bottom: 74px; z-index: 20; display: flex; flex-direction: column-reverse; gap: 4px; pointer-events: none; }
+  .tick-line {
+    font-family: var(--mono); font-size: 10px; color: var(--ink-2);
+    background: color-mix(in oklab, var(--panel) 80%, transparent);
+    border: 1px solid var(--line); border-radius: 5px; padding: 4px 9px;
+    animation: tickin .35s ease both; backdrop-filter: blur(6px);
+  }
+  .tick-line .t { color: var(--ink-3); }
+  .tick-line .et { color: var(--st-wired); }
+  .tick-line.is-err .et { color: var(--st-error); }
+  .tick-line.is-touch .et { color: var(--agent); }
+  @keyframes tickin { from { opacity: 0; transform: translateY(8px); } }
+  .tick-line.old { opacity: .38; }
+  .tick-line.older { opacity: .16; }
+
+  /* ── Scrubber ───────────────────────────────────────────────── */
+  #scrub {
+    position: relative; z-index: 30;
+    display: flex; align-items: center; gap: 14px;
+    height: 58px; padding: 0 16px;
+    background: color-mix(in oklab, var(--panel) 92%, transparent);
+    border-top: 1px solid var(--line); backdrop-filter: blur(10px);
+  }
+  #playBtn { width: 34px; height: 34px; border-radius: 50%; }
+  .timewrap { flex: 1; display: flex; flex-direction: column; gap: 5px; }
+  #track { position: relative; height: 22px; cursor: pointer; }
+  #track .rail { position: absolute; left: 0; right: 0; top: 10px; height: 3px; border-radius: 2px; background: var(--line); }
+  #track .fill { position: absolute; left: 0; top: 10px; height: 3px; border-radius: 2px; background: linear-gradient(90deg, var(--st-scaffolded), var(--st-wired), var(--st-styled)); }
+  #track .etick { position: absolute; top: 7px; width: 2px; height: 9px; border-radius: 1px; background: var(--line-bright); }
+  #track .etick.is-status { background: color-mix(in oklab, var(--st-styled) 70%, var(--line-bright)); }
+  #track .etick.is-err { background: var(--st-error); }
+  #track .playhead {
+    position: absolute; top: 3px; width: 3px; height: 17px; border-radius: 2px;
+    background: var(--ink); box-shadow: 0 0 8px #ffffff66; margin-left: -1px;
+  }
+  .timelabels { display: flex; justify-content: space-between; }
+  #speed { display: flex; gap: 3px; }
+  .spd { font-family: var(--mono); font-size: 10px; padding: 3px 8px; border-radius: 4px; cursor: pointer; color: var(--ink-3); border: 1px solid transparent; }
+  .spd.on { color: var(--ink); border-color: var(--line-bright); background: var(--panel-2); }
+
+  /* ── Inspector ──────────────────────────────────────────────── */
+  #inspector {
+    position: absolute; top: 0; right: 0; bottom: 0; width: 320px; z-index: 25;
+    background: color-mix(in oklab, var(--panel) 96%, transparent);
+    border-left: 1px solid var(--line); backdrop-filter: blur(14px);
+    transform: translateX(340px); transition: transform .35s cubic-bezier(.3,.9,.3,1);
+    display: flex; flex-direction: column;
+  }
+  #inspector.open { transform: translateX(0); }
+  .insp-head { display: flex; align-items: center; gap: 10px; padding: 16px 16px 12px; border-bottom: 1px solid var(--line); }
+  .insp-title { font-size: 15px; font-weight: 650; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .insp-body { flex: 1; overflow-y: auto; padding: 14px 16px 20px; display: flex; flex-direction: column; gap: 16px; }
+  .insp-sec .hud { margin-bottom: 7px; }
+  .kv { display: grid; grid-template-columns: 86px 1fr; gap: 4px 10px; font-size: 11.5px; }
+  .kv .k { color: var(--ink-3); font-family: var(--mono); font-size: 10px; padding-top: 1px; }
+  .kv .v { color: var(--ink-2); font-family: var(--mono); font-size: 10.5px; word-break: break-word; }
+  .kv .v.code { color: #A8D3EE; }
+  .insp-status-row { display: flex; align-items: center; gap: 10px; }
+  .call-row { display: flex; align-items: center; gap: 7px; font-family: var(--mono); font-size: 10.5px; color: var(--ink-2); padding: 5px 8px; border: 1px solid var(--line); border-radius: 5px; margin-bottom: 5px; background: #0009; }
+  .call-row svg { width: 12px; height: 12px; color: var(--st-wired); flex: none; }
+  .hist-row { display: flex; gap: 9px; font-family: var(--mono); font-size: 10px; color: var(--ink-3); padding: 3px 0; }
+  .hist-row .hv { color: var(--ink-2); }
+  .test-ok { color: var(--st-tested); } .test-none { color: var(--ink-3); }
+
+  /* ── End card ───────────────────────────────────────────────── */
+  #endcard {
+    position: absolute; inset: 0; z-index: 40; display: flex; align-items: center; justify-content: center;
+    background: #060b10CC; backdrop-filter: blur(6px); opacity: 0; pointer-events: none; transition: opacity .5s ease;
+  }
+  #endcard.show { opacity: 1; pointer-events: auto; }
+  .endbox { text-align: center; display: flex; flex-direction: column; gap: 12px; align-items: center; }
+  .endbox .big { font-size: 22px; font-weight: 700; letter-spacing: .02em; }
+  .endbox .stats { font-family: var(--mono); font-size: 11px; color: var(--ink-2); letter-spacing: .08em; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .radar, .live .live-dot { animation: none !important; }
+    .edge-nav { animation: none !important; }
+    .particle { display: none; }
+    .node.mounting { animation-duration: .01s; }
+    #beacon { transition: none; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand" title="Path Visualizations">
+    <svg viewBox="0 0 16 16" fill="none"><path d="M2 8h3M11 8h3" stroke="#22B8E6" stroke-width="1.5"/><rect x="5" y="5" width="6" height="6" rx="1.5" stroke="#22B8E6" stroke-width="1.5"/><circle cx="2" cy="8" r="1.4" fill="#F06ED8"/><circle cx="14" cy="8" r="1.4" fill="#22B8E6"/></svg>
+    <span class="hud" style="color:#8FB6CE">Path Viz</span>
+  </div>
+  <div class="crumb"><span class="dim">Acme Storefront /</span> Checkout Flow</div>
+  <span class="chip">acme-storefront</span>
+  <div class="hspace"></div>
+  <span class="evcount"><b id="evNow">0</b>/<span id="evTotal">0</span> events</span>
+  <div class="agent-chip"><span class="agent-dot"></span><span id="agentName">claude/checkout-1</span></div>
+  <div class="live-badge live" id="liveBadge" title="Click to go live"><span class="live-dot"></span><span id="liveText">LIVE</span></div>
+  <div class="btn" id="fitBtn" title="Fit to view"><svg viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M5 1H1v4M10 1h4v4M5 14H1v-4M10 14h4v-4"/></svg></div>
+</header>
+
+<div id="stage">
+  <div id="viewport">
+    <div id="world">
+      <svg id="edgeSvg" width="2000" height="800"></svg>
+      <div id="nodes"></div>
+      <div id="beacon" class="hidden">
+        <div class="radar"></div><div class="radar"></div><div class="radar"></div>
+        <div class="beacon-core"></div>
+        <div class="beacon-tag"><b id="beaconAgent">claude/checkout-1</b> <span id="beaconAction"></span></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="ticker"></div>
+
+  <div id="legend">
+    <div class="lrow" id="legendRamp"></div>
+    <div class="lrow" id="legendAlerts"></div>
+  </div>
+
+  <aside id="inspector">
+    <div class="insp-head">
+      <div class="insp-title" id="inspTitle">—</div>
+      <div class="btn" id="inspClose"><svg viewBox="0 0 14 14" stroke="currentColor" stroke-width="1.6"><path d="M2 2l10 10M12 2L2 12"/></svg></div>
+    </div>
+    <div class="insp-body" id="inspBody"></div>
+  </aside>
+
+  <div id="endcard">
+    <div class="endbox">
+      <div class="hud" style="color:#6EE86E">Session complete</div>
+      <div class="big">Checkout Flow — all paths shipped</div>
+      <div class="stats" id="endStats"></div>
+      <div class="hud" id="endCountdown" style="margin-top:6px"></div>
+    </div>
+  </div>
+</div>
+
+<div id="scrub">
+  <div class="btn" id="playBtn"><svg id="playIcon" viewBox="0 0 14 14" fill="currentColor"><path d="M3.5 2.2v9.6L11.6 7z"/></svg></div>
+  <div class="timewrap">
+    <div id="track"><div class="rail"></div><div class="fill" id="fill"></div><div class="playhead" id="playhead"></div></div>
+    <div class="timelabels"><span class="hud" id="tNow">00:00</span><span class="hud">session 2026-07-18 · replay any moment</span><span class="hud" id="tEnd">00:00</span></div>
+  </div>
+  <div id="speed">
+    <span class="spd" data-s="0.5">.5×</span>
+    <span class="spd on" data-s="1">1×</span>
+    <span class="spd" data-s="2">2×</span>
+    <span class="spd" data-s="4">4×</span>
+  </div>
+</div>
+
+<script>
+'use strict';
+/* ════════════════════════════════════════════════════════════════
+   1 · STATUS SYSTEM
+   ════════════════════════════════════════════════════════════════ */
+const STATUS = {
+  planned:    { c: 'var(--st-planned)',    hex: '#64748B', step: 1 },
+  scaffolded: { c: 'var(--st-scaffolded)', hex: '#4B8DE0', step: 2 },
+  wired:      { c: 'var(--st-wired)',      hex: '#22B8E6', step: 3 },
+  styled:     { c: 'var(--st-styled)',     hex: '#2EDCB4', step: 4 },
+  tested:     { c: 'var(--st-tested)',     hex: '#6EE86E', step: 5 },
+  shipped:    { c: 'var(--st-shipped)',    hex: '#E9F87E', step: 6 },
+  blocked:    { c: 'var(--st-blocked)',    hex: '#ECA83D', step: 0 },
+  error:      { c: 'var(--st-error)',      hex: '#F1655A', step: 0 },
+};
+
+/* ════════════════════════════════════════════════════════════════
+   2 · LAYOUT (hand-placed for the mockup; prod uses auto-layout)
+   ════════════════════════════════════════════════════════════════ */
+const POS = {
+  cart:      { x: 100,  y: 300 }, shipping:  { x: 450,  y: 170 },
+  payment:   { x: 800,  y: 300 }, review:    { x: 1150, y: 180 },
+  confirmed: { x: 1480, y: 310 },
+  'svc-cart':   { x: 132,  y: 560 }, 'svc-rates':  { x: 482,  y: 470 },
+  'svc-stripe': { x: 832,  y: 590 }, 'svc-orders': { x: 1182, y: 470 },
+  'svc-resend': { x: 1512, y: 560 },
+};
+const SCREEN_W = 250, SCREEN_H = 150, SVC_W = 186, SVC_H = 40;
+const WORLD = { w: 1830, h: 660, ox: 60, oy: 140 }; // content bounds for fit
+
+/* ════════════════════════════════════════════════════════════════
+   3 · SCRIPTED SESSION — the fake event log (~72s story)
+   Shapes mirror path_chart_events in the spec.
+   ════════════════════════════════════════════════════════════════ */
+const N = (t, key, kind, label, extra = {}) => ({ t, type: 'node.upserted', key, kind, label, ...extra });
+const S = (t, key, status, note) => ({ t, type: 'node.status', key, status, note });
+const E = (t, from, to, kind, label) => ({ t, type: 'edge.upserted', from, to, kind, label });
+const T = (t, key, action) => ({ t, type: 'agent.touch', key, action });
+const M = (t, key, meta) => ({ t, type: 'node.meta', key, meta });
+
+const EVENTS = [
+  { t: 0.4, type: 'chart.created', title: 'Checkout Flow' },
+  // ── declare the territory
+  N(0.8, 'cart', 'screen', 'Cart', { route: '/cart', file: 'app/cart/page.tsx' }),
+  N(1.2, 'shipping', 'screen', 'Shipping', { route: '/checkout/shipping', file: 'app/checkout/shipping/page.tsx' }),
+  N(1.6, 'payment', 'screen', 'Payment', { route: '/checkout/payment', file: 'app/checkout/payment/page.tsx' }),
+  N(2.0, 'review', 'screen', 'Review', { route: '/checkout/review', file: 'app/checkout/review/page.tsx' }),
+  N(2.4, 'confirmed', 'screen', 'Confirmed', { route: '/order/[id]', file: 'app/order/[id]/page.tsx' }),
+  E(2.9, 'cart', 'shipping', 'nav', 'proceed'),
+  E(3.2, 'shipping', 'payment', 'nav', 'continue'),
+  E(3.5, 'payment', 'review', 'nav', 'review order'),
+  E(3.8, 'review', 'confirmed', 'nav', 'place order'),
+  T(4.4, 'cart', 'mapping the flow'),
+  // ── cart
+  N(6.0, 'CartLineItems', 'component', 'CartLineItems', { parent: 'cart', file: 'components/cart/CartLineItems.tsx' }),
+  N(6.4, 'PromoCodeField', 'component', 'PromoCodeField', { parent: 'cart', file: 'components/cart/PromoCodeField.tsx' }),
+  N(6.8, 'svc-cart', 'service', 'POST /api/cart', { domain: 'internal' }),
+  E(7.1, 'cart', 'svc-cart', 'data', 'sync cart'),
+  S(7.6, 'cart', 'scaffolded'),
+  T(8.2, 'CartLineItems', 'building line items'),
+  S(9.0, 'CartLineItems', 'scaffolded'),
+  M(9.8, 'CartLineItems', { state: 'items: CartItem[] · qtyDraft: n', store: 'useCartStore.items', props: '—', calls: 'POST /api/cart' }),
+  S(10.2, 'CartLineItems', 'wired'),
+  T(11.0, 'PromoCodeField', 'wiring promo validation'),
+  M(11.7, 'PromoCodeField', { state: 'code: string · valid: bool|null', store: 'useCartStore.promo', props: 'onApplied()', calls: 'POST /api/cart/promo' }),
+  S(12.0, 'PromoCodeField', 'wired'),
+  S(13.0, 'cart', 'wired'),
+  T(13.6, 'cart', 'styling cart screen'),
+  S(14.2, 'cart', 'styled'),
+  S(15.0, 'CartLineItems', 'styled'),
+  S(15.4, 'PromoCodeField', 'styled'),
+  // ── shipping
+  T(16.0, 'shipping', 'scaffolding shipping'),
+  N(16.5, 'AddressForm', 'component', 'AddressForm', { parent: 'shipping', file: 'components/checkout/AddressForm.tsx' }),
+  N(16.8, 'RateSelector', 'component', 'RateSelector', { parent: 'shipping', file: 'components/checkout/RateSelector.tsx' }),
+  N(17.1, 'svc-rates', 'service', 'GET /api/shipping/rates', { domain: 'internal' }),
+  E(17.3, 'shipping', 'svc-rates', 'data', 'fetch rates'),
+  S(17.6, 'shipping', 'scaffolded'),
+  T(18.4, 'AddressForm', 'wiring address validation'),
+  M(19.0, 'AddressForm', { state: 'address: Address · errors: map', store: 'useCheckoutStore.address', props: 'onValid()', calls: '—' }),
+  S(19.4, 'AddressForm', 'wired'),
+  T(20.4, 'RateSelector', 'wiring live rates'),
+  M(21.2, 'RateSelector', { state: 'rates: Rate[] · selected: id', store: 'useCheckoutStore.rate', props: 'address', calls: 'GET /api/shipping/rates' }),
+  S(21.6, 'RateSelector', 'wired'),
+  S(22.4, 'shipping', 'wired'),
+  T(23.0, 'shipping', 'styling shipping'),
+  S(23.8, 'shipping', 'styled'),
+  S(24.5, 'AddressForm', 'styled'),
+  S(24.9, 'RateSelector', 'styled'),
+  // ── payment + the error beat
+  T(26.0, 'payment', 'scaffolding payment'),
+  N(26.5, 'PaymentElement', 'component', 'PaymentElement', { parent: 'payment', file: 'components/checkout/PaymentElement.tsx' }),
+  N(26.8, 'BillingToggle', 'component', 'BillingToggle', { parent: 'payment', file: 'components/checkout/BillingToggle.tsx' }),
+  N(27.1, 'svc-stripe', 'service', 'stripe.com · PaymentIntent', { domain: 'stripe.com' }),
+  E(27.3, 'payment', 'svc-stripe', 'data', 'confirm payment'),
+  S(27.6, 'payment', 'scaffolded'),
+  T(28.6, 'PaymentElement', 'wiring Stripe intent'),
+  M(29.4, 'PaymentElement', { state: 'clientSecret: string · status: idle|processing', store: 'useCheckoutStore.payment', props: 'amount, currency', calls: 'POST /api/checkout/intent · stripe.confirmPayment()' }),
+  S(30.0, 'PaymentElement', 'wired'),
+  S(31.0, 'payment', 'wired'),
+  T(32.2, 'PaymentElement', 'verifying webhook'),
+  S(33.5, 'PaymentElement', 'error', 'webhook signature mismatch — raw body double-parsed'),
+  S(35.0, 'payment', 'blocked', 'blocked on PaymentElement webhook fix'),
+  T(36.5, 'PaymentElement', 'fixing raw-body handling'),
+  S(39.5, 'PaymentElement', 'wired', 'webhook verified ✓'),
+  S(40.5, 'payment', 'wired'),
+  T(41.5, 'BillingToggle', 'wiring billing toggle'),
+  S(42.5, 'BillingToggle', 'wired'),
+  T(43.0, 'payment', 'styling payment'),
+  S(43.8, 'payment', 'styled'),
+  S(44.4, 'PaymentElement', 'styled'),
+  S(44.8, 'BillingToggle', 'styled'),
+  // ── review + confirmation
+  T(46.0, 'review', 'building order review'),
+  N(46.5, 'OrderSummary', 'component', 'OrderSummary', { parent: 'review', file: 'components/checkout/OrderSummary.tsx' }),
+  N(46.9, 'svc-orders', 'service', 'POST /api/orders', { domain: 'internal' }),
+  E(47.1, 'review', 'svc-orders', 'data', 'create order'),
+  S(47.4, 'review', 'scaffolded'),
+  M(48.2, 'OrderSummary', { state: 'derived from stores', store: 'useCartStore + useCheckoutStore', props: '—', calls: 'POST /api/orders' }),
+  S(48.6, 'OrderSummary', 'wired'),
+  S(49.6, 'review', 'wired'),
+  S(50.8, 'review', 'styled'),
+  S(51.2, 'OrderSummary', 'styled'),
+  T(52.2, 'confirmed', 'wiring confirmation'),
+  N(52.7, 'svc-resend', 'service', 'resend.com · receipt email', { domain: 'resend.com' }),
+  E(52.9, 'confirmed', 'svc-resend', 'data', 'send receipt'),
+  S(53.4, 'confirmed', 'scaffolded'),
+  S(54.8, 'confirmed', 'wired'),
+  S(55.8, 'confirmed', 'styled'),
+  // ── test sweep
+  T(57.4, 'cart', 'running e2e: checkout.spec.ts'),
+  S(58.2, 'cart', 'tested'), S(58.5, 'shipping', 'tested'),
+  T(58.7, 'payment', 'e2e: payment leg'),
+  S(59.0, 'payment', 'tested'), S(59.3, 'review', 'tested'), S(59.6, 'confirmed', 'tested'),
+  S(59.9, 'CartLineItems', 'tested'), S(60.1, 'PromoCodeField', 'tested'),
+  S(60.3, 'AddressForm', 'tested'), S(60.5, 'RateSelector', 'tested'),
+  S(60.7, 'PaymentElement', 'tested'), S(60.9, 'BillingToggle', 'tested'),
+  S(61.1, 'OrderSummary', 'tested'),
+  // ── ship sweep
+  T(62.4, 'cart', 'shipping the flow'),
+  S(63.0, 'cart', 'shipped'), S(63.4, 'shipping', 'shipped'),
+  S(63.8, 'payment', 'shipped'), S(64.2, 'review', 'shipped'), S(64.6, 'confirmed', 'shipped'),
+  S(65.0, 'CartLineItems', 'shipped'), S(65.2, 'PromoCodeField', 'shipped'),
+  S(65.4, 'AddressForm', 'shipped'), S(65.6, 'RateSelector', 'shipped'),
+  S(65.8, 'PaymentElement', 'shipped'), S(66.0, 'BillingToggle', 'shipped'),
+  S(66.2, 'OrderSummary', 'shipped'),
+  { t: 67.0, type: 'chart.updated', note: 'session complete' },
+];
+const DUR = 71;
+EVENTS.forEach((e, i) => e.id = i + 1);
+
+/* ════════════════════════════════════════════════════════════════
+   4 · PURE REDUCER — stateAt(T). Same shape as prod event reducer.
+   ════════════════════════════════════════════════════════════════ */
+function stateAt(T) {
+  const s = { nodes: new Map(), edges: [], touch: null, applied: 0, lastByNode: new Map() };
+  for (const e of EVENTS) {
+    if (e.t > T) break;
+    s.applied++;
+    if (e.type === 'node.upserted') {
+      s.nodes.set(e.key, {
+        key: e.key, kind: e.kind, label: e.label, parent: e.parent || null,
+        route: e.route || null, file: e.file || null, domain: e.domain || null,
+        status: 'planned', lastStep: 1, statusAt: e.t, bornAt: e.t, note: null,
+        meta: {}, history: [{ t: e.t, status: 'planned' }],
+      });
+    } else if (e.type === 'node.status') {
+      const n = s.nodes.get(e.key);
+      if (n) {
+        n.status = e.status; n.statusAt = e.t; n.note = e.note || n.note;
+        if (STATUS[e.status].step > 0) n.lastStep = STATUS[e.status].step;
+        n.history.push({ t: e.t, status: e.status });
+      }
+    } else if (e.type === 'node.meta') {
+      const n = s.nodes.get(e.key);
+      if (n) { Object.assign(n.meta, e.meta); n.metaAt = e.t; }
+    } else if (e.type === 'edge.upserted') {
+      s.edges.push({ from: e.from, to: e.to, kind: e.kind, label: e.label, bornAt: e.t });
+    } else if (e.type === 'agent.touch') {
+      s.touch = { key: e.key, action: e.action, t: e.t };
+      s.lastByNode.set(e.key, e.t);
+    }
+  }
+  return s;
+}
+
+/* ════════════════════════════════════════════════════════════════
+   5 · GEOMETRY helpers
+   ════════════════════════════════════════════════════════════════ */
+function nodeRect(n) {
+  const p = POS[n.key];
+  if (!p) return null;
+  return n.kind === 'service'
+    ? { x: p.x, y: p.y, w: SVC_W, h: SVC_H }
+    : { x: p.x, y: p.y, w: SCREEN_W, h: SCREEN_H };
+}
+function worldPosOf(state, key) { // beacon target (screens/services/component chips)
+  const n = state.nodes.get(key);
+  if (!n) return null;
+  if (POS[key]) {
+    const r = nodeRect(n);
+    return n.kind === 'service'
+      ? { x: r.x + 18, y: r.y + r.h / 2 }
+      : { x: r.x + 14, y: r.y + 20 };
+  }
+  if (n.parent && POS[n.parent]) {
+    const siblings = [...state.nodes.values()].filter(m => m.parent === n.parent);
+    const idx = siblings.findIndex(m => m.key === key);
+    const pp = POS[n.parent];
+    return { x: pp.x + 16, y: pp.y + 90 + idx * 31 };
+  }
+  return null;
+}
+function edgePath(a, b, kind) {
+  if (kind === 'nav') {
+    const x1 = a.x + a.w, y1 = a.y + a.h / 2, x2 = b.x, y2 = b.y + b.h / 2;
+    const dx = Math.max(50, (x2 - x1) / 2);
+    return `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`;
+  }
+  const x1 = a.x + a.w / 2, y1 = a.y + a.h, x2 = b.x + b.w / 2, y2 = b.y;
+  const dy = Math.max(34, (y2 - y1) / 2);
+  return `M ${x1} ${y1} C ${x1} ${y1 + dy}, ${x2} ${y2 - dy}, ${x2} ${y2}`;
+}
+
+/* ════════════════════════════════════════════════════════════════
+   6 · RENDER — DOM diff-lite, age-driven animations (seek-pure)
+   ════════════════════════════════════════════════════════════════ */
+const $ = id => document.getElementById(id);
+const nodesEl = $('nodes'), edgeSvg = $('edgeSvg'), beacon = $('beacon');
+const SVGNS = 'http://www.w3.org/2000/svg';
+let selectedKey = null;
+
+const ICONS = {
+  cloud: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M4.5 12.5a3 3 0 0 1-.4-6A4 4 0 0 1 12 7.6a2.5 2.5 0 0 1-.7 4.9z"/></svg>',
+  bolt: '<svg viewBox="0 0 16 16" fill="currentColor"><path d="M9 1 3 9h3.5L7 15l6-8H9.5z"/></svg>',
+  check: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 8.5 3.2 3L13 4.5"/></svg>',
+  warn: '<svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1.5 15 14H1zM7.3 6h1.4v4H7.3zm0 5h1.4v1.5H7.3z"/></svg>',
+};
+
+function ringSVG(step, on) {
+  let r = `<svg class="ring" width="34" height="8" viewBox="0 0 34 8">`;
+  for (let i = 0; i < 6; i++) r += `<rect x="${i * 6}" y="1" width="4" height="6" rx="1" class="${i < step && on ? 'on' : ''}"/>`;
+  return r + '</svg>';
+}
+
+function renderGraph(state, T) {
+  // ── edges
+  edgeSvg.innerHTML = '';
+  for (const e of state.edges) {
+    const a = state.nodes.get(e.from), b = state.nodes.get(e.to);
+    if (!a || !b) continue;
+    const ra = nodeRect(a), rb = nodeRect(b);
+    if (!ra || !rb) continue;
+    const d = edgePath(ra, rb, e.kind);
+    const p = document.createElementNS(SVGNS, 'path');
+    p.setAttribute('d', d);
+    const srcHot = (state.lastByNode.get(e.from) ?? -99) > T - 7 ||
+      [...state.nodes.values()].some(m => m.parent === e.from && (state.lastByNode.get(m.key) ?? -99) > T - 7);
+    p.setAttribute('class', e.kind === 'nav'
+      ? 'edge-nav' + (STATUS[a.status].step >= 3 && STATUS[b.status].step >= 3 ? ' lit' : '')
+      : 'edge-data' + (srcHot ? ' hot' : ''));
+    const age = T - e.bornAt;
+    if (age < 0.9) { // draw-on
+      const len = p.getTotalLength ? 600 : 600;
+      p.style.strokeDasharray = e.kind === 'nav' ? '7 5' : '2 4';
+      p.style.opacity = String(Math.min(1, age / 0.4));
+    }
+    edgeSvg.appendChild(p);
+    if (e.kind === 'nav') { // arrowhead
+      const x2 = rb.x, y2 = rb.y + rb.h / 2;
+      const ar = document.createElementNS(SVGNS, 'path');
+      ar.setAttribute('d', `M ${x2 - 9} ${y2 - 5} L ${x2 - 1} ${y2} L ${x2 - 9} ${y2 + 5} Z`);
+      ar.setAttribute('class', 'edge-arrow');
+      edgeSvg.appendChild(ar);
+    }
+    if (e.kind === 'data' && srcHot) spawnParticles(p, T, e);
+  }
+
+  // ── nodes (screens + services; components render inside their screens)
+  const seen = new Set();
+  for (const n of state.nodes.values()) {
+    if (!POS[n.key]) continue;
+    seen.add(n.key);
+    let el = nodesEl.querySelector(`[data-key="${n.key}"]`);
+    if (!el) {
+      el = document.createElement('div');
+      el.dataset.key = n.key;
+      el.addEventListener('click', ev => { ev.stopPropagation(); openInspector(n.key); });
+      nodesEl.appendChild(el);
+    }
+    const st = STATUS[n.status];
+    const age = T - n.bornAt, stAge = T - n.statusAt;
+    const flash = stAge >= 0 && stAge < 1.0 && n.status !== 'planned';
+    const cls = ['node', n.kind === 'service' ? 'service' : 'screen'];
+    if (age < 0.6) cls.push('mounting');
+    if (flash) cls.push(n.status === 'error' ? 'err-shake flash' : 'flash');
+    if (n.status === 'shipped') cls.push('shipped-fill');
+    el.className = cls.join(' ');
+    el.style.setProperty('--nc', st.c);
+    const r = nodeRect(n);
+    el.style.left = r.x + 'px'; el.style.top = r.y + 'px';
+
+    if (n.kind === 'service') {
+      el.innerHTML = `${n.domain && n.domain !== 'internal' ? ICONS.cloud : ICONS.bolt}<span class="sname">${n.label}</span>`;
+    } else {
+      const comps = [...state.nodes.values()].filter(m => m.parent === n.key);
+      const alert = n.status === 'error' || n.status === 'blocked';
+      el.innerHTML = `
+        <div class="head">
+          <span class="title">${n.label}</span>
+          <span class="status-word">${alert ? `${n.status} ` : ''}</span>
+          ${alert ? `<span style="color:${st.c};width:13px;display:inline-flex">${ICONS.warn}</span>` : ''}
+          ${n.status === 'shipped' ? `<span style="color:${st.c};width:13px;display:inline-flex">${ICONS.check}</span>` : ''}
+          ${ringSVG(n.lastStep, true)}
+        </div>
+        <span class="route">${n.route}</span>
+        <div class="hud" style="padding:0 12px 5px;color:${st.c};letter-spacing:.1em">${n.status}</div>
+        <div class="chips">${comps.map(c => {
+          const cst = STATUS[c.status];
+          const cFlash = (T - c.statusAt) >= 0 && (T - c.statusAt) < 1.0 && c.status !== 'planned';
+          return `<div class="comp${cFlash ? ' flash' : ''}" data-comp="${c.key}" style="--cc:${cst.c}">
+            <span class="cdot"></span><span class="cname">${c.label}</span><span class="cst">${c.status}</span>
+          </div>`;
+        }).join('')}</div>`;
+      el.querySelectorAll('.comp').forEach(ch =>
+        ch.addEventListener('click', ev => { ev.stopPropagation(); openInspector(ch.dataset.comp); }));
+    }
+  }
+  for (const el of [...nodesEl.children]) if (!seen.has(el.dataset.key)) el.remove();
+
+  // ── beacon
+  const tch = state.touch;
+  if (tch && T - tch.t < 9) {
+    const wp = worldPosOf(state, tch.key);
+    if (wp) {
+      beacon.classList.remove('hidden');
+      beacon.style.transform = `translate(${wp.x}px, ${wp.y}px)`;
+      $('beaconAction').textContent = '· ' + tch.action;
+    }
+  } else beacon.classList.add('hidden');
+}
+
+/* particles on hot data edges — pooled per edge, positioned along path */
+const particlePool = new Map();
+function spawnParticles(pathEl, T, e) {
+  const key = e.from + '→' + e.to;
+  const g = document.createElementNS(SVGNS, 'g');
+  const len = pathEl.getTotalLength();
+  for (let i = 0; i < 3; i++) {
+    const ph = ((T * 0.55) + i / 3) % 1;
+    const pt = pathEl.getPointAtLength(ph * len);
+    const c = document.createElementNS(SVGNS, 'circle');
+    c.setAttribute('cx', pt.x); c.setAttribute('cy', pt.y);
+    c.setAttribute('r', 2.2 - i * 0.4);
+    c.setAttribute('class', 'particle');
+    c.setAttribute('opacity', String(0.9 - i * 0.25));
+    g.appendChild(c);
+  }
+  edgeSvg.appendChild(g);
+}
+
+/* ════════════════════════════════════════════════════════════════
+   7 · INSPECTOR
+   ════════════════════════════════════════════════════════════════ */
+const inspector = $('inspector');
+function openInspector(key) { selectedKey = key; inspector.classList.add('open'); renderInspector(stateAt(simT)); }
+$('inspClose').addEventListener('click', () => { selectedKey = null; inspector.classList.remove('open'); });
+function fmtT(t) { const m = String(Math.floor(t / 60)).padStart(2, '0'), s = String(Math.floor(t % 60)).padStart(2, '0'); return `${m}:${s}`; }
+
+function renderInspector(state) {
+  if (!selectedKey) return;
+  const n = state.nodes.get(selectedKey);
+  if (!n) { inspector.classList.remove('open'); return; }
+  $('inspTitle').textContent = n.label;
+  const st = STATUS[n.status];
+  const tested = ['tested', 'shipped'].includes(n.status);
+  const kindLabel = { screen: 'Screen · route', component: 'Component', service: 'External call' }[n.kind];
+  $('inspBody').innerHTML = `
+    <div class="insp-sec">
+      <div class="insp-status-row">
+        <span class="status-word" style="--nc:${st.c};font-size:11px">${n.status}</span>
+        <span style="--nc:${st.c}">${ringSVG(n.lastStep, true)}</span>
+        ${n.note ? `<span style="font-size:10px;color:var(--ink-3)"></span>` : ''}
+      </div>
+      ${n.note ? `<div style="font-family:var(--mono);font-size:10px;color:${n.status === 'error' ? 'var(--st-error)' : 'var(--ink-3)'};margin-top:7px">${n.note}</div>` : ''}
+    </div>
+    <div class="insp-sec">
+      <div class="hud">Identity</div>
+      <div class="kv">
+        <span class="k">kind</span><span class="v">${kindLabel}</span>
+        ${n.route ? `<span class="k">route</span><span class="v code">${n.route}</span>` : ''}
+        ${n.file ? `<span class="k">file</span><span class="v code">${n.file}</span>` : ''}
+        ${n.domain ? `<span class="k">domain</span><span class="v">${n.domain}</span>` : ''}
+        ${n.parent ? `<span class="k">screen</span><span class="v">${n.parent}</span>` : ''}
+      </div>
+    </div>
+    ${Object.keys(n.meta).length ? `
+    <div class="insp-sec">
+      <div class="hud">Declared state</div>
+      <div class="kv">
+        ${n.meta.state ? `<span class="k">state</span><span class="v code">${n.meta.state}</span>` : ''}
+        ${n.meta.store ? `<span class="k">store</span><span class="v code">${n.meta.store}</span>` : ''}
+        ${n.meta.props ? `<span class="k">props</span><span class="v code">${n.meta.props}</span>` : ''}
+      </div>
+    </div>` : ''}
+    ${n.meta.calls ? `
+    <div class="insp-sec">
+      <div class="hud">External calls</div>
+      ${n.meta.calls.split('·').map(c => `<div class="call-row">${ICONS.cloud}<span>${c.trim()}</span></div>`).join('')}
+    </div>` : ''}
+    <div class="insp-sec">
+      <div class="hud">Tests</div>
+      <div style="font-family:var(--mono);font-size:10.5px" class="${tested ? 'test-ok' : 'test-none'}">
+        ${tested ? '✓ covered · checkout.spec.ts' : '— none yet'}
+      </div>
+    </div>
+    <div class="insp-sec">
+      <div class="hud">Status history</div>
+      ${n.history.slice(-6).reverse().map(h =>
+        `<div class="hist-row"><span>${fmtT(h.t)}</span><span class="hv" style="color:${STATUS[h.status].hex}">${h.status}</span></div>`).join('')}
+    </div>`;
+}
+
+/* ════════════════════════════════════════════════════════════════
+   8 · TICKER + counters
+   ════════════════════════════════════════════════════════════════ */
+const ticker = $('ticker');
+function renderTicker(state, T) {
+  const recent = EVENTS.filter(e => e.t <= T && e.t > T - 7 && e.type !== 'node.meta').slice(-4);
+  ticker.innerHTML = recent.map((e, i, arr) => {
+    const pos = arr.length - 1 - i;
+    const cls = pos === 0 ? '' : pos === 1 ? 'old' : 'older';
+    const isErr = e.type === 'node.status' && (e.status === 'error' || e.status === 'blocked');
+    const isTouch = e.type === 'agent.touch';
+    let msg;
+    if (e.type === 'node.status') msg = `${e.key} → <b style="color:${STATUS[e.status].hex}">${e.status}</b>`;
+    else if (e.type === 'node.upserted') msg = `+ ${e.key}`;
+    else if (e.type === 'edge.upserted') msg = `${e.from} ⇢ ${e.to}`;
+    else if (e.type === 'agent.touch') msg = `${e.key} · ${e.action}`;
+    else msg = e.title || e.note || e.type;
+    return `<div class="tick-line ${cls} ${isErr ? 'is-err' : ''} ${isTouch ? 'is-touch' : ''}">
+      <span class="t">${fmtT(e.t)}</span> <span class="et">${e.type.replace('node.', '').replace('edge.upserted', 'edge').replace('agent.', '')}</span> ${msg}
+    </div>`;
+  }).reverse().join('');
+  $('evNow').textContent = state.applied;
+}
+
+/* ════════════════════════════════════════════════════════════════
+   9 · LEGEND
+   ════════════════════════════════════════════════════════════════ */
+$('legendRamp').innerHTML = ['planned', 'scaffolded', 'wired', 'styled', 'tested', 'shipped']
+  .map(k => `<span class="litem"><i style="background:${STATUS[k].hex}"></i>${k}</span>`).join('');
+$('legendAlerts').innerHTML = [['blocked', STATUS.blocked.hex], ['error', STATUS.error.hex], ['agent', '#F06ED8']]
+  .map(([k, c]) => `<span class="litem"><i style="background:${c}"></i>${k}</span>`).join('');
+
+/* ════════════════════════════════════════════════════════════════
+   10 · SCRUBBER
+   ════════════════════════════════════════════════════════════════ */
+const track = $('track');
+$('tEnd').textContent = fmtT(DUR);
+$('evTotal').textContent = EVENTS.length;
+for (const e of EVENTS) {
+  if (e.type === 'agent.touch' || e.type === 'node.meta') continue;
+  const tick = document.createElement('div');
+  const isErr = e.type === 'node.status' && (e.status === 'error' || e.status === 'blocked');
+  tick.className = 'etick' + (isErr ? ' is-err' : e.type === 'node.status' ? ' is-status' : '');
+  tick.style.left = (e.t / DUR * 100) + '%';
+  track.appendChild(tick);
+}
+let scrubbing = false;
+function trackSeek(ev) {
+  const r = track.getBoundingClientRect();
+  const f = Math.min(1, Math.max(0, (ev.clientX - r.left) / r.width));
+  seekTo(f * DUR, 'replay');
+}
+track.addEventListener('mousedown', ev => { scrubbing = true; trackSeek(ev); });
+window.addEventListener('mousemove', ev => { if (scrubbing) trackSeek(ev); });
+window.addEventListener('mouseup', () => { scrubbing = false; });
+
+/* ════════════════════════════════════════════════════════════════
+   11 · SIM CLOCK + modes  (pure render — seek-safe)
+   ════════════════════════════════════════════════════════════════ */
+let simT = 0, playing = true, speed = 1, mode = 'live'; // live | replay | paused
+let lastTick = null, endShownAt = null;
+
+const liveBadge = $('liveBadge'), liveText = $('liveText'), playIcon = $('playIcon');
+function setMode(m) {
+  mode = m;
+  liveBadge.className = 'live-badge ' + (m === 'live' ? 'live' : m === 'paused' ? 'paused' : 'replay');
+  liveText.textContent = m === 'live' ? 'LIVE' : m === 'paused' ? 'PAUSED' : 'REPLAY';
+  playIcon.innerHTML = playing
+    ? '<path d="M3 2h3v10H3zM8 2h3v10H8z"/>'
+    : '<path d="M3.5 2.2v9.6L11.6 7z"/>';
+}
+function seekTo(t, m) {
+  simT = Math.min(DUR, Math.max(0, t));
+  playing = m !== 'paused' ? (m === 'replay' ? false : playing) : false;
+  if (m === 'replay') playing = false;
+  setMode(m || mode);
+  $('endcard').classList.remove('show'); endShownAt = null;
+  render(simT);
+}
+liveBadge.addEventListener('click', () => { playing = true; speed = 1; syncSpeedUI(); setMode('live'); });
+$('playBtn').addEventListener('click', () => {
+  playing = !playing;
+  setMode(playing ? (mode === 'paused' ? 'replay' : mode) : 'paused');
+});
+document.querySelectorAll('.spd').forEach(el => el.addEventListener('click', () => {
+  speed = parseFloat(el.dataset.s); syncSpeedUI();
+  if (!playing) { playing = true; setMode('replay'); }
+}));
+function syncSpeedUI() { document.querySelectorAll('.spd').forEach(el => el.classList.toggle('on', parseFloat(el.dataset.s) === speed)); }
+
+function render(T) {
+  const state = stateAt(T);
+  renderGraph(state, T);
+  renderTicker(state, T);
+  renderInspector(state);
+  $('fill').style.width = (T / DUR * 100) + '%';
+  $('playhead').style.left = (T / DUR * 100) + '%';
+  $('tNow').textContent = fmtT(T);
+}
+
+function tick(now) {
+  if (lastTick === null) { lastTick = now; window.__ready = true; render(simT); requestAnimationFrame(tick); return; }
+  const dt = (now - lastTick) / 1000; lastTick = now;
+  if (playing && !scrubbing) {
+    simT = Math.min(DUR, simT + dt * speed);
+    if (simT >= DUR) {
+      if (mode === 'live') {
+        if (endShownAt === null) {
+          endShownAt = now;
+          const st = stateAt(DUR);
+          $('endStats').textContent = `${EVENTS.length} events · ${st.nodes.size} nodes · ${st.edges.length} edges · 1 agent`;
+          $('endcard').classList.add('show');
+        }
+        const waitLeft = 4 - (now - endShownAt) / 1000;
+        $('endCountdown').textContent = `replaying in ${Math.max(0, waitLeft).toFixed(0)}s — or scrub the timeline`;
+        if (waitLeft <= 0 && !window.__recording) {
+          $('endcard').classList.add('show'); // will be removed by seek
+          seekTo(0, 'live'); playing = true; setMode('live');
+        }
+      } else { playing = false; setMode('paused'); }
+    }
+    render(simT);
+  } else if (scrubbing) {
+    // render happens in trackSeek
+  }
+  requestAnimationFrame(tick);
+}
+
+/* ════════════════════════════════════════════════════════════════
+   12 · PAN / ZOOM
+   ════════════════════════════════════════════════════════════════ */
+const viewport = $('viewport'), world = $('world');
+let view = { x: 0, y: 0, k: 1 };
+function applyView() { world.style.transform = `translate(${view.x}px, ${view.y}px) scale(${view.k})`; }
+function fitView() {
+  const vw = viewport.clientWidth, vh = viewport.clientHeight;
+  const k = Math.min((vw - 60) / WORLD.w, (vh - 80) / WORLD.h, 1.15);
+  view.k = k;
+  view.x = (vw - WORLD.w * k) / 2 - WORLD.ox * k + 20;
+  view.y = (vh - WORLD.h * k) / 2 - WORLD.oy * k + 10;
+  applyView();
+}
+$('fitBtn').addEventListener('click', fitView);
+let panning = null;
+viewport.addEventListener('mousedown', ev => {
+  if (ev.target.closest('.node') || ev.target.closest('#legend')) return;
+  panning = { x: ev.clientX, y: ev.clientY, vx: view.x, vy: view.y };
+  viewport.classList.add('dragging');
+});
+window.addEventListener('mousemove', ev => {
+  if (!panning) return;
+  view.x = panning.vx + (ev.clientX - panning.x);
+  view.y = panning.vy + (ev.clientY - panning.y);
+  applyView();
+});
+window.addEventListener('mouseup', () => { panning = null; viewport.classList.remove('dragging'); });
+viewport.addEventListener('wheel', ev => {
+  ev.preventDefault();
+  const k0 = view.k;
+  const k = Math.min(2.2, Math.max(0.35, k0 * (ev.deltaY < 0 ? 1.09 : 0.92)));
+  const r = viewport.getBoundingClientRect();
+  const mx = ev.clientX - r.left, my = ev.clientY - r.top;
+  view.x = mx - (mx - view.x) * (k / k0);
+  view.y = my - (my - view.y) * (k / k0);
+  view.k = k;
+  applyView();
+}, { passive: false });
+window.addEventListener('resize', fitView);
+
+/* ════════════════════════════════════════════════════════════════
+   13 · BOOT + self-check
+   ════════════════════════════════════════════════════════════════ */
+window.__seek = t => { seekTo(t, 'replay'); };  // Playwright / debug hook
+(function selfCheck() { // ponytail: reducer determinism smoke — fails loud in console
+  const a = stateAt(35), b = stateAt(35);
+  console.assert(a.nodes.size === b.nodes.size && a.applied === b.applied, 'reducer not deterministic');
+  console.assert(stateAt(DUR).nodes.size === 16, 'expected 16 nodes at end, got', stateAt(DUR).nodes.size);
+  console.log(`%cPATHVIZ MOCKUP OK — ${EVENTS.length} events · ${stateAt(DUR).nodes.size} nodes`, 'color:#22B8E6');
+})();
+document.fonts.ready.then(() => {
+  fitView();
+  render(0);
+  setMode('live');
+  requestAnimationFrame(tick);
+});
+</script>
+</body>
+</html>

@@ -4,7 +4,7 @@ Launch-prep artifacts for the marketing site (mission Phases 8, 11, 12). These a
 **specs and plans**, not live pages — a later phase turns them into real routes once
 the app is green and screenshots/GIFs are captured.
 
-**Ground rule:** every claim here is grounded in the feature inventory (an internal planning document, not part of this public release).
+**Ground rule:** every claim here is grounded in the [feature inventory](../vault/05%20-%20Feature%20Specs/FEATURE-INVENTORY-domains.md).
 Dormant/stub capabilities (voice assistant, print designer, deck A/B, social
 publishing, SDK, dispatcher cron) are deliberately **excluded** from public copy and
 flagged in each file's "Status Notes". Do not market what isn't shipped.

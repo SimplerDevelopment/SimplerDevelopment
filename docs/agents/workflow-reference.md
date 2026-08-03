@@ -182,7 +182,7 @@ Prefer these skills over hand-rolling. Each one produces the correct set of file
 
 | Task | Skill / tool | Produces |
 |---|---|---|
-| Plan a feature / consult domain knowledge | `vault` skill (maintainers' internal planning vault — not part of this public release) | Domain map, ADR, spec |
+| Plan a feature / consult domain knowledge | `vault` skill; read `vault/03 - Domains/<domain>.md` first | Domain map, ADR, spec |
 | New CRUD resource (schema + API route + E2E) | `simplerdev-feature-scaffold` | Schema migration, API route (with auth envelope), Playwright E2E |
 | New UI pages for an existing resource | `simplerdev-ui-scaffold` | Portal page + form components |
 | New block type | `simplerdev-block-type` | TS interface, render component, registry entry, production renderer case, `/api/blocks` metadata |
@@ -299,4 +299,5 @@ bun run smoke:skills:cleanup       # clean up smoke test artifacts
 - `tests/CI-GATES.md` — coverage floors, pre-push auto-gates, diff coverage, @flaky quarantine convention
 - `tests/SKILLS_E2E_GUIDE.md` — testing SD-* skills end-to-end
 - `docs/guides/DATABASE.md` — Drizzle setup, posts/categories/tags REST API details
+- `vault/06 - Validation/Gate Picking.md` — decision guide for which test gates to run for a given change type
 - `lib/db/CLAUDE.md` — Drizzle migration workflow, tenancy invariants, footguns

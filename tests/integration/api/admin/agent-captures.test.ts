@@ -1,7 +1,6 @@
 /**
  * GET /api/admin/agent-captures/[id] — AAF-001 high-risk-tool argument
- * capture decryption (see the internal ADR log, not part of this public
- * release).
+ * capture decryption (vault/04 - Decisions/ADR high-risk-agent-arg-capture.md).
  *
  * Auth surface: mirrors app/api/admin/prompts/[id]/promote/route.ts's
  * requireAdmin() — admin role only, not employee/editor. There is no

@@ -6,6 +6,7 @@ slug: white-label-multi-tenant-agency-platform
 status: outline
 date: 2026-06-27
 sources:
+  - vault/05 - Feature Specs/FEATURE-INVENTORY-domains.md (domain 15, 16, 17)
   - marketing/feature-pages/ai-agent-platform.md
   - docs/agents/ai-overview.md
   - marketing/seo/seo-plan.md

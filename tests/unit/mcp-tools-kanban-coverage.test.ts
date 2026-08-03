@@ -174,6 +174,7 @@ vi.mock('@/lib/db/schema', () => {
     crmProposals: table(['id', 'title', 'clientId']),
     bookingPages: table(['id', 'title', 'clientId']),
     surveys: table(['id', 'title', 'clientId']),
+    pathCharts: table(['id', 'projectId', 'title']),
     // remaining tables: opaque stubs
     supportTickets: {}, ticketMessages: {}, crmContacts: {}, crmCompanies: {},
     crmDeals: {}, crmPipelines: {}, crmPipelineStages: {}, posts: {}, media: {},

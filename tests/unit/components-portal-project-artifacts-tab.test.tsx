@@ -190,6 +190,7 @@ describe('ProjectArtifactsTab — artifact list', () => {
       { type: 'survey', label: 'Survey' },
       { type: 'post', label: 'Post' },
       { type: 'brain_note', label: 'Brain Note' },
+      { type: 'path_chart', label: 'Path chart' },
     ];
     for (const { type, label } of types) {
       cleanup();

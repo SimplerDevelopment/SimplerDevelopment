@@ -12,7 +12,7 @@ This is a ~357k-line monorepo (app 157k / lib 81k / components 119k LOC). Contex
 - **Before reading a file >500 lines, spawn a subagent.** Use `Explore` for "where is X / how does Y work"; use `block-implementer`-style atomic workers for changes. The main thread should not hold 2000-line god files. See god-file lists inside each nested `CLAUDE.md`.
 - **For broad cross-cutting questions ("how does the auth flow work end-to-end"), prefer `graphify-out/` over grep** when it exists and is recent. Otherwise spawn an `Explore` subagent.
 - **Don't read documentation speculatively.** Pointers at the bottom of this file are read-on-demand; only follow when the task touches that area.
-- **Fan-out cap + continuous integration (guardrail, 2026-07-08):** at most **3 concurrent agent worktrees** per initiative. Each unit **merges back to the integration branch as soon as it completes** — never batch-merge a pile of branches at the end (a 10-branch batch merge once blocked on conflicts in every single branch). A unit that conflicts is resolved *before* the next unit dispatches. Single-writer applies to any shared artifact file (e.g. `CLAUDE.md`, audit report JSON) — one worktree owns it, others leave notes. `bun run doctor` (auto-run at session start) warns when the cap is exceeded.
+- **Fan-out cap + continuous integration (guardrail, 2026-07-08):** at most **3 concurrent agent worktrees** per initiative. Each unit **merges back to the integration branch as soon as it completes** — never batch-merge a pile of branches at the end (a 10-branch batch merge once blocked on conflicts in every single branch). A unit that conflicts is resolved *before* the next unit dispatches. Single-writer applies to any shared artifact file (`vault/`, `CLAUDE.md`, `.planning/audits/*.json`) — one worktree owns it, others leave notes. `bun run doctor` (auto-run at session start) warns when the cap is exceeded.
 - **Escalation contract (worker → boss):** If a task turns out to need a design/architecture decision, hits an unknown root cause, requires touching files outside your assigned scope, would break a test you can't cleanly fix, or is otherwise beyond a straightforward mechanical change — **stop**. Return a message starting with `ESCALATE:` covering: (1) what you completed, (2) exactly where you got stuck, (3) why it exceeds a worker task, (4) what the boss needs (file/line, error, decision required), (5) recommended next step. Revert any half-done risky edits before returning.
 
 ## Prompt intake (complex requests — do this BEFORE planning/coding)
@@ -34,18 +34,18 @@ These three systems are **complementary, not redundant** — each owns a differe
 |---|---|---|---|
 | **claude-mem** | Time / episodic | Auto, on commit/session-end (hooks) | "What did we *do / decide / discover* in past sessions?" |
 | **graphify** (`graphify-out/`) | Structure / semantic | On-demand rebuild of code+docs *as they are now* | "How does *X work* end-to-end in the codebase?" |
-| **Internal planning vault** (private — not part of this public release) | Curation / durable | Manual + the `vault` skill / `vault-librarian` agent, authored on purpose | "What's the *canonical domain map / ADR / spec / playbook* worth keeping?" |
+| **Obsidian vault** (`vault/`) | Curation / durable | Manual + the `vault` skill / `vault-librarian` agent, authored on purpose | "What's the *canonical domain map / ADR / spec / playbook* worth keeping?" |
 
 Routing rule:
 - **Auto-history → claude-mem.** Don't curate it; query it (the `S###`/numeric IDs in the SessionStart hook, or the `mem-search` skill). It's a log, not a source of truth.
 - **"How does the code work?" → graphify.** Prefer `graphify-out/` over grep for broad cross-cutting questions when it exists and is recent; keep its commit-hook rebuild healthy. It reflects the *present* code, not history.
 - **"This deserves to be written down for the future" → Obsidian vault.** Domain maps / ADRs / specs / playbooks only. **Do not hand-write per-session logs in the vault** — claude-mem already owns ephemeral session history; the vault is for distilled, durable artifacts that outlive any one session.
 
-**Vault first for feature work (maintainers).** Before planning/implementing in a domain, read its map — the team keeps this in the internal planning vault (not part of this public release; key files, schema, routes, MCP tools, tests, gotchas — cheaper than re-deriving from code). Without vault access, `docs/agents/project-map.md`, the nearest nested `CLAUDE.md`, and `tests/CI-GATES.md` (for "which gates do I run?") are the closest public equivalents. After shipping: **completion ritual** — update the touched domain documentation and record any non-obvious decision. Architecture + Domain notes are drift-checked by `scripts/check-doc-drift.ts` — keep cited paths real.
+**Vault first for feature work.** Before planning/implementing in a domain, read its map in `vault/03 - Domains/` (key files, schema, routes, MCP tools, tests, gotchas — cheaper than re-deriving from code). "Which gates do I run?" → `vault/06 - Validation/Gate Picking.md`. After shipping: **completion ritual** — update the touched Domain Map and ADR any non-obvious decision, following the existing vault frontmatter and map/table conventions. New planning artifacts go in `vault/05 - Feature Specs/`, never in `.planning/` (frozen archive). Architecture + Domain notes are drift-checked by `scripts/check-doc-drift.ts` — keep cited paths real.
 
-> **The internal planning vault (private, not part of this public release) is single-writer — never edited from a parallel agent worktree.** Concurrent worktrees editing the same vault files is what silently drops docs on merge (we once recovered 112 vault files lost to one merge, and a domain-map split arrived half-applied). Rule for maintainers with vault access: if a run fans out across worktrees, exactly **one** of them owns the vault; the others touch code only and leave a note for the vault-owner to fold in. The completion ritual (update the domain map / decision record) is done in the main working tree, in its **own commit**, not mixed into a code merge coming from another branch. If you find yourself resolving a merge conflict inside the vault, stop and reconcile by hand against the newest content — do not let the merge pick a side.
+> **`vault/` is single-writer — never edit it from a parallel agent worktree.** Concurrent worktrees editing the same vault files is what silently drops docs on merge (we once recovered 112 vault files lost to one merge, and a domain-map split arrived half-applied). Rule: if a run fans out across worktrees, exactly **one** of them owns `vault/`; the others touch code only and leave a note for the vault-owner to fold in. The completion ritual (update the Domain Map / ADR) is done in the main working tree, in its **own commit**, not mixed into a code merge coming from another branch. If you find yourself resolving a merge conflict inside `vault/`, stop and reconcile by hand against the newest content — do not let the merge pick a side.
 
-**Project status lives in the SimplerDevelopment portal — always.** Track status in the portal's project/Kanban system via the `kanban_*` MCP tools (`kanban_list_board`, `kanban_create_card`, `kanban_move_card`, `kanban_update_card`) — **NOT** the vault markdown boards, which are now **frozen snapshots** (an internal legacy artifact, not part of this public release; do not edit their lanes). Discover projects with `projects_list`, create with `projects_create`, read a board with `kanban_list_board({projectId})`. Lanes: Backlog → Planned → In Progress → Validating → Approved → Shipped. Starting a project/feature → create/move its card into the right lane; finishing → move it to Shipped. Keep the portal card and the spec note's `status` frontmatter in sync. Reference board: **Visual Editor QA = project 150**. The internal vault (not part of this public release) keeps the durable **spec / ADR / domain notes**, not status columns — link a card to its spec note in the card description.
+**Project status lives in the SimplerDevelopment portal — always.** Track status in the portal's project/Kanban system via the `kanban_*` MCP tools (`kanban_list_board`, `kanban_create_card`, `kanban_move_card`, `kanban_update_card`) — **NOT** the vault markdown boards, which are now **frozen snapshots** (`vault/05 - Feature Specs/*Board.md` carry a MIGRATED banner; do not edit their lanes). Discover projects with `projects_list`, create with `projects_create`, read a board with `kanban_list_board({projectId})`. Lanes: Backlog → Planned → In Progress → Validating → Approved → Shipped. Starting a project/feature → create/move its card into the right lane; finishing → move it to Shipped. Keep the portal card and the spec note's `status` frontmatter in sync. Reference board: **Visual Editor QA = project 150**. The vault (`vault/05 - Feature Specs/`) keeps the durable **spec / ADR / domain notes**, not status columns — link a card to its spec note in the card description.
 
 ## Run / build / test (non-guessable commands only)
 
@@ -69,7 +69,7 @@ Routing rule:
 
 ### This deployment (concrete — Railway "metro")
 
-- **Prod live DB = the `PRODUCTION DB` service on Railway**, project **`Simpler Development`** (`<RAILWAY_PROJECT_ID>…`), environment **`production`**. Internal host `postgres.railway.internal`; external/public proxy **`prod-db.proxy.example.com:25565`** (this is the **"metro"** DB the operator means by that name). The `agents` + `realtime` Railway services and the Vercel app all read this DB. (There is a *second*, unused `Postgres` service on `unused-db.proxy.example.com` — **not** prod; don't touch it.)
+- **Prod live DB = the `PRODUCTION DB` service on Railway**, project **`Simpler Development`** (`148ba8a0-…`), environment **`production`**. Internal host `postgres-ishf.railway.internal`; external/public proxy **`metro.proxy.rlwy.net:25565`** (this is the **"metro"** DB the operator means by that name). The `agents` + `realtime` Railway services and the Vercel app all read this DB. (There is a *second*, unused `Postgres` service on `tramway.proxy.rlwy.net` — **not** prod; don't touch it.)
 - **Fetch the prod URL without asking (secrets live in Railway, never in git):**
   ```bash
   railway link --project "Simpler Development" --environment production --service "PRODUCTION DB"
@@ -98,7 +98,7 @@ Routing rule:
 
 | Task | Use |
 |---|---|
-| Plan a feature / consult or update project knowledge | `vault` skill / `vault-librarian` agent (maintainers' internal planning vault — not part of this public release) |
+| Plan a feature / consult or update project knowledge | `vault` skill (read `vault/03 - Domains/` map first), `vault-librarian` agent for upkeep |
 | New CRUD resource | `simplerdev-feature-scaffold` (schema + route + e2e), then `simplerdev-ui-scaffold` for pages |
 | New block type | `simplerdev-block-type`. For visual exploration first, `huashu-design` (see below) |
 | New MCP tool | `simplerdev-mcp-tool` (handler + schema + scope guard registered in lockstep) |
@@ -108,6 +108,7 @@ Routing rule:
 | Autonomous dev loop (hands-off) | `dev-block` skill |
 | E2E test authoring | `/e2e-writer`. Running existing E2E: `/e2e-runner`. Visual QA: `/qa` |
 | Visual diff (port verification) | `/visual-compare` |
+| Delegate role-based work to a department agent | the persona roster in `.claude/agents/` (21 invokable role agents) — see `docs/agency-personas.md` for the org chart, 3-tier model assignment, and the review pipeline |
 
 ## Dynamic workflows — when to reach for the `Workflow` tool (multi-agent orchestration)
 
@@ -125,7 +126,7 @@ Routing rule:
 
 | Pattern | Reach for it when… | Concrete here |
 |---|---|---|
-| **Classify & Act** | inbound needs routing before any handler acts | Triage open portal `tickets` / CRM leads / `brain_list_review_items` → bug / billing / feature / spam handlers; route a feature request to the right domain owner |
+| **Classify & Act** | inbound needs routing before any handler acts | Triage open portal `tickets` / CRM leads / `brain_list_review_items` → bug / billing / feature / spam handlers; route a feature request to the right `vault/03 - Domains/` map |
 | **Fan Out & Synthesize** | a task splits cleanly across the monorepo's per-domain / per-file structure, then merges | Block-controls-coverage audit (one agent per block type → merged report — cf. `.planning/audits/`); per-site migration audit (one agent per site); a cross-domain sweep when `graphify-out/` is stale |
 | **Adversarial Verification** | a risky change must survive skeptics, not self-praise | **Tenant-leak review** of a data-access change (≥3 agents each hunting a `clientId`/`siteId` scoping gap — pairs with `bun test:tenancy`); auth / billing / migration review; verifying Brain/RAG output. (This is what user-triggered `/code-review ultra` does.) |
 | **Generate & Filter** | taste-required — over-generate, then judge down with a *separate* judge agent + rubric | Block-type design directions (pairs with `huashu-design`: 40 mockups → judge to 3); brand messaging / `email_campaigns` subject lines; CRM outreach openers |
@@ -162,6 +163,7 @@ These are reference docs. Don't read them speculatively; only when the task touc
 - `tests/TESTING_PLAN.md` — what each test layer is responsible for
 - `tests/CI-GATES.md` — coverage floors (60% project-wide / 70% on lib/billing,ai,agency,esign,chat / 90% on lib/crypto), tenancy + critical-e2e gates, local override flags, required-status-check setup
 - `docs/skills/` — SD-* skills reference (overview, authoring, developer, edit-skills proposal)
+- `docs/agency-personas.md` — the role-based agent system: 21 invokable personas in `.claude/agents/`, model tiering (Opus decide/review · Sonnet build · Haiku mechanical), the multi-agent review pipeline, and the adopt-a-lens exec/advisory roles. Conductor = the main Opus session
 - claude-mem / session history — query recent autonomous-run mistakes and patterns at session start when running unattended
 
 ### Nested CLAUDE.md files

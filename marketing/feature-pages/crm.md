@@ -5,6 +5,7 @@ slug: /features/crm
 status: spec-draft
 date: 2026-06-27
 sources:
+  - vault/05 - Feature Specs/FEATURE-INVENTORY-domains.md (domain 4)
   - docs/agents/ai-overview.md
   - docs/agents/glossary.md
 ---

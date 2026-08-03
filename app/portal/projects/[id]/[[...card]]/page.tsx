@@ -22,7 +22,7 @@ import { canEditProject, canManageProject } from '@/lib/portal/project-permissio
 // KanbanBoard/PlanningTab opt out of SSR (dnd-kit + window). `ssr: false` is
 // not allowed with next/dynamic inside a Server Component, so those two live in
 // a Client Component wrapper. The SSR-safe tabs below stay code-split here.
-import { KanbanBoard, PlanningTab } from './dynamic-tabs';
+import { KanbanBoard, PlanningTab, AgentFlowTab, FlowExecutionsTab, PathVizTab } from './dynamic-tabs';
 
 // Heavy tab components are code-split — only the bundle for the active tab
 // ships down to the client. These are pure React (useEffect + fetch), so they
@@ -55,6 +55,9 @@ export default async function ProjectKanbanPage({ params, searchParams }: { para
     : tab === 'reports' ? 'reports'
     : tab === 'members' ? 'members'
     : tab === 'settings' ? 'settings'
+    : tab === 'flow' ? 'flow'
+    : tab === 'runs' ? 'runs'
+    : tab === 'visualizations' ? 'visualizations'
     : 'board';
   const projectId = parseInt(id, 10);
   const userId = parseInt(session.user.id, 10);
@@ -344,6 +347,9 @@ export default async function ProjectKanbanPage({ params, searchParams }: { para
           { key: 'planning', href: `/portal/projects/${projectId}?tab=planning`,    label: 'Planning', icon: 'event_note' },
           { key: 'reports',  href: `/portal/projects/${projectId}?tab=reports`,     label: 'Reports',  icon: 'analytics' },
           { key: 'files',    href: `/portal/projects/${projectId}?tab=files`,       label: 'Files & Artifacts', icon: 'folder' },
+          { key: 'flow',     href: `/portal/projects/${projectId}?tab=flow`,        label: 'Workflow Designer', icon: 'account_tree' },
+          { key: 'runs',     href: `/portal/projects/${projectId}?tab=runs`,        label: 'Executions', icon: 'history' },
+          { key: 'visualizations', href: `/portal/projects/${projectId}?tab=visualizations`, label: 'Visualizations', icon: 'device_hub' },
           { key: 'members',  href: `/portal/projects/${projectId}?tab=members`,     label: 'Members',  icon: 'group' },
           { key: 'settings', href: `/portal/projects/${projectId}?tab=settings`,    label: 'Settings', icon: 'settings' },
         ] as const).map(t => (
@@ -361,6 +367,12 @@ export default async function ProjectKanbanPage({ params, searchParams }: { para
         <PlanningTab projectId={projectId} projectKey={project.projectKey} canEdit={canEdit} isStaff={staff} currentUserId={userId} />
       ) : activeTab === 'reports' ? (
         <ProjectReportsTab projectId={projectId} projectKey={project.projectKey} />
+      ) : activeTab === 'runs' ? (
+        <FlowExecutionsTab projectId={projectId} />
+      ) : activeTab === 'flow' ? (
+        <AgentFlowTab projectId={projectId} canEdit={canEdit} />
+      ) : activeTab === 'visualizations' ? (
+        <PathVizTab projectId={projectId} />
       ) : activeTab === 'members' ? (
         <ProjectMembersTab projectId={projectId} canManage={canManage} />
       ) : activeTab === 'settings' ? (

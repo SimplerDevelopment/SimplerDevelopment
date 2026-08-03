@@ -75,7 +75,7 @@ Prefer a terminal? The [`simpler` CLI](docs/developers/cli.md) drives the *same*
 
 Each product area is documented as a **domain** — a map of its key files, schema, routes, MCP tools, tests, and gotchas. Start at the index and follow the one you care about.
 
-**[Feature domains index →](docs/agents/project-map.md)**
+**[Feature domains index →](vault/03%20-%20Domains/00%20-%20Domains%20Index.md)**
 
 Websites & CMS · Visual Editor · Company Brain & AI · CRM · Bookings & Services · Storefront & Commerce · Email & Campaigns · Surveys · Pitch Decks · E-Sign & Approvals · Automations & Workflows · Billing & Stripe · Projects, Tickets & Kanban · Chat, Realtime & Voice · Agency, Onboarding & Branding · Integrations (Google, Microsoft, OAuth) · Plugins & Extension.
 
@@ -110,12 +110,13 @@ Dig deeper as you need it:
 
 | Topic | Where |
 |---|---|
-| **Architecture overview** — route trees, tenancy, API envelope, block CMS | [`docs/agents/architecture-for-agents.md`](docs/agents/architecture-for-agents.md) |
+| **Architecture overview** — route trees, tenancy, API envelope, block CMS | [`docs/agents/architecture-for-agents.md`](docs/agents/architecture-for-agents.md) · [Architecture index](vault/02%20-%20Architecture/00%20-%20Architecture%20Index.md) |
 | **Tech stack** | [see below](#tech-stack) |
 | **.env configuration** | [`.env.example`](.env.example) (canonical, annotated) · [minimum-to-boot](docs/getting-started.md#the-minimum-to-boot) |
 | **Dev & testing guide** | [`tests/TESTING_PLAN.md`](tests/TESTING_PLAN.md) |
 | **CI/CD & coverage gates** | [`tests/CI-GATES.md`](tests/CI-GATES.md) |
 | **Git hooks** | [`.githooks/`](.githooks/) (pre-commit / pre-push run the local CI gate) |
+| **Obsidian vault** — durable architecture, domain maps, decision records | [`vault/`](vault/) |
 | **All project docs** | [`docs/`](docs/index.md) |
 
 ### Tech stack

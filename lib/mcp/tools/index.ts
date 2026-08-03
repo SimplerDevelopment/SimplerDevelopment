@@ -39,6 +39,9 @@ import { registerApprovalsTools } from './approvals';
 import { registerNotificationsTools } from './notifications';
 import { registerChatTools } from './chat';
 import { registerLinkedinTools } from './linkedin';
+import { registerPathvizTools } from './pathviz';
+import { registerPathvizCoordinationTools } from './pathviz-coordination';
+import { registerAgentFlowTools } from './agent-flows';
 
 export {
   registerProjectsTools,
@@ -71,6 +74,9 @@ export {
   registerNotificationsTools,
   registerChatTools,
   registerLinkedinTools,
+  registerPathvizTools,
+  registerPathvizCoordinationTools,
+  registerAgentFlowTools,
 };
 
 /**
@@ -85,6 +91,8 @@ export const allToolRegistrars: readonly McpToolRegistrar[] = [
   registerPromptTemplates,
   registerWorkflowTools,
   registerProjectsTools,
+  registerPathvizTools,
+  registerPathvizCoordinationTools,
   registerKanbanTools,
   registerTicketsTools,
   registerCrmTools,
@@ -110,4 +118,5 @@ export const allToolRegistrars: readonly McpToolRegistrar[] = [
   registerNotificationsTools,
   registerChatTools,
   registerLinkedinTools,
+  registerAgentFlowTools,
 ];

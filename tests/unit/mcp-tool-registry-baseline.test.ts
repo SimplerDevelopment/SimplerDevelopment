@@ -43,6 +43,11 @@ import { buildMcpServer } from '@/lib/mcp/server';
 // (branding, storefront, brain, post-types, approvals). Ordering does not
 // matter — the assertion is on set membership.
 const EXPECTED_TOOLS: readonly string[] = [
+  // ── agent flows (Workflow Designer) ──
+  'agent_flows_get',
+  'agent_flows_list',
+  'agent_flow_runs_event',
+  'agent_flow_runs_start',
   // ── ai ──
   'ai_conversations_get',
   'ai_conversations_list',
@@ -406,6 +411,20 @@ const EXPECTED_TOOLS: readonly string[] = [
   // ── notifications ──
   'notifications_list',
   'notifications_mark_read',
+  // ── pathviz ──
+  'pathviz_claim',
+  'pathviz_create_chart',
+  'pathviz_get_chart',
+  'pathviz_list_charts',
+  'pathviz_note',
+  'pathviz_release',
+  'pathviz_remove',
+  'pathviz_set_status',
+  'pathviz_touch',
+  'pathviz_update_chart',
+  'pathviz_upsert_edges',
+  'pathviz_upsert_nodes',
+  'pathviz_who_owns',
   // ── post ──
   'post_types_create',
   'post_types_delete',

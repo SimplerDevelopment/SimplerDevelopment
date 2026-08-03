@@ -17,6 +17,7 @@ Annotated directory tree for the SimplerDevelopment monorepo (~357k LOC). Writte
 ├── scripts/              One-off and CI utility scripts (seed, migrate, audit)
 ├── drizzle/              ⛔ Generated SQL migrations — DO NOT hand-edit
 ├── docs/                 Guides, agent docs, API reference, skill docs
+├── vault/                Obsidian knowledge vault (domain maps, ADRs, specs)
 ├── workers/              Standalone long-running servers (realtime collab, email inbound)
 ├── packages/             Shared packages (sdk/, starter/)
 ├── public/               Static assets served at /
@@ -364,7 +365,7 @@ scripts/
 ├── routines/             Cron routine scripts
 ├── start-local-db.sh     Spin up local Postgres for integration tests
 ├── verify-db-target.ts   Refuses to run against prod/staging URLs
-├── check-doc-drift.ts    Validates that nav docs (and, internally, vault domain maps) cite real paths
+├── check-doc-drift.ts    Validates that vault domain maps cite real paths
 └── ...
 ```
 
@@ -406,9 +407,23 @@ docs/
 
 ---
 
-## Internal planning vault
+## vault/ — Obsidian Knowledge Vault
 
-The team also keeps a private Obsidian vault (domain maps, ADRs, feature specs, validation runbooks) as the durable "how does X work" reference for each product domain. It is **not part of this public release** — there is no `vault/` directory in this repository tree. Public contributors should rely on the nested `CLAUDE.md` files and `docs/agents/` for the equivalent orientation.
+```
+vault/
+├── 00 - Index.md         Vault navigation index
+├── 02 - Architecture/    Architecture decision records (ADRs)
+├── 03 - Domains/         Domain maps (one per product domain — 22 files)
+│   └── *.md              Canonical source for: key files, schema, routes, tests, gotchas
+├── 04 - Decisions/       ADRs (non-obvious decisions logged here)
+├── 05 - Feature Specs/   Feature specs + Project Board (Kanban status tracker)
+│   └── Project Board.md  ← canonical project status (Backlog → Shipped)
+├── 06 - Validation/      Gate picking guide and test strategy docs
+│   └── Gate Picking.md   "Which gate do I run?" decision guide
+└── 07 - Operations/      Deploy, env, cron, migration how-tos
+```
+
+**Rule:** Domain Maps in `03 - Domains/` are the authoritative "how does X work" reference. Read the map before editing code in that domain. Update it after shipping.
 
 ---
 

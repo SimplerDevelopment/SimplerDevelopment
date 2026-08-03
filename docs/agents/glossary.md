@@ -100,7 +100,7 @@ A Company Brain record representing a project or strategic effort. Initiatives c
 ## M
 
 ### MCP (Model Context Protocol)
-The protocol by which AI clients (e.g. Claude.ai) call platform capabilities as structured tools. The platform's MCP endpoint is `POST /api/mcp` (Streamable HTTP). 451 tools available under the `*` wildcard scope. See [tool reference](./tool-reference.md) and [AI overview](./ai-overview.md).
+The protocol by which AI clients (e.g. Claude.ai) call platform capabilities as structured tools. The platform's MCP endpoint is `POST /api/mcp` (Streamable HTTP). 468 tools available under the `*` wildcard scope. See [tool reference](./tool-reference.md) and [AI overview](./ai-overview.md).
 
 ### MCP Approval Queue
 The set of pending content changes created by MCP write tools and waiting for human approval before going live. Each pending change has an approval link. Portal staff review the queue at `app/portal/approvals/`. See **Approval Link**.

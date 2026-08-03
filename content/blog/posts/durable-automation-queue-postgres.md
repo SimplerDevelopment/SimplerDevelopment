@@ -128,4 +128,4 @@ Keeping automation state in Postgres rather than a separate broker is a delibera
 
 ---
 
-*See also: [MCP tool reference — automations](/docs/agents/tool-reference#automations_) · [Architecture for agents](/docs/agents/architecture-for-agents)*
+*See also: [MCP tool reference — automations](/docs/agents/tool-reference#automations_) · [Architecture for agents](/docs/agents/architecture-for-agents) · [Automations & Workflows domain map](/vault/05 - Feature Specs/FEATURE-INVENTORY-domains.md)*

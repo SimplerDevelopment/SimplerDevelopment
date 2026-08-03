@@ -125,7 +125,7 @@ export const oauthRefreshTokens = pgTable('oauth_refresh_tokens', {
 
 // ─── High-risk agent-tool argument capture ──────────────────────────────────
 //
-// Per the internal ADR "high-risk-agent-arg-capture" (AAF-001; not part of this public release):
+// Per `vault/04 - Decisions/ADR high-risk-agent-arg-capture.md` (AAF-001):
 // `agent_action_logs` (see `lib/db/schema/agenticOs.ts`) stores a redacted,
 // 4KB-truncated inputs summary for EVERY tool call — that's forensically
 // insufficient for high-risk tools (sends, deletes, authority mutations),

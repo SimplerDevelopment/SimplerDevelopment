@@ -4,8 +4,9 @@
 > listed below. Review against live inventory before posting.
 
 **Last verified:** 2026-06-27
-**Sources:** `docs/agents/ai-overview.md`, the internal feature inventory (not part of
-this public release), `marketing/feature-pages/`, `marketing/seo/ai-seo-plan.md`, `README.md`
+**Sources:** `docs/agents/ai-overview.md`, `vault/05 - Feature Specs/FEATURE-INVENTORY-domains.md`,
+`vault/05 - Feature Specs/FEATURE-INVENTORY-api-mcp.md`, `marketing/feature-pages/`,
+`marketing/seo/ai-seo-plan.md`, `README.md`
 
 ---
 
@@ -18,15 +19,15 @@ Use these numbers in posts. Do not substitute alternatives.
 | Apache-2.0 license | `README.md`, `LICENSE` |
 | 450 MCP tools at `POST /api/mcp` | `docs/agents/ai-overview.md`, `tests/unit/mcp-tool-registry-baseline.test.ts` |
 | 156 `brain_*` tools (Company Brain namespace) | `docs/agents/ai-overview.md` |
-| 47 built-in block types | internal feature inventory |
-| 22 product domains | internal feature inventory (22 sections) |
+| 47 built-in block types | `vault/05 - Feature Specs/FEATURE-INVENTORY-api-mcp.md` |
+| 22 product domains | `vault/05 - Feature Specs/FEATURE-INVENTORY-domains.md` (22 sections) |
 | ~50 named MCP scopes | `docs/agents/ai-overview.md` |
-| OpenAPI 3.1 spec at `/openapi.yaml` (1590 lines, v1 REST) | internal feature inventory |
+| OpenAPI 3.1 spec at `/openapi.yaml` (1590 lines, v1 REST) | `vault/05 - Feature Specs/FEATURE-INVENTORY-api-mcp.md` |
 | pgvector for Company Brain semantic search | `docs/agents/ai-overview.md` |
 | Self-hostable on Vercel + Postgres | `README.md` |
 | Yjs CRDT for visual editor + pitch deck collaboration | `docs/agents/ai-overview.md` |
-| TOTP/MFA shipped 2026-06-26 | internal feature inventory (domain 17) |
-| Approval-link pattern for live MCP writes | `docs/agents/ai-overview.md`, internal feature inventory |
+| TOTP/MFA shipped 2026-06-26 | `vault/05 - Feature Specs/FEATURE-INVENTORY-domains.md` (domain 17) |
+| Approval-link pattern for live MCP writes | `docs/agents/ai-overview.md`, `vault/05 - Feature Specs/FEATURE-INVENTORY-api-mcp.md` |
 
 ## Do NOT claim in any post
 

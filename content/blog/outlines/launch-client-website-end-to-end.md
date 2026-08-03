@@ -7,6 +7,7 @@ status: outline
 date: 2026-06-27
 sources:
   - marketing/feature-pages/websites-cms-visual-editor.md
+  - vault/05 - Feature Specs/FEATURE-INVENTORY-domains.md (domains 1, 2, 3)
   - marketing/seo/seo-plan.md
 ---
 

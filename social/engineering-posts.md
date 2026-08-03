@@ -131,6 +131,7 @@ SimplerDevelopment ships two automation engines: event-driven rules (trigger →
 - `app/portal/automations/`
 - `lib/publishing/` (durable queue drainer)
 - Feature page: `marketing/feature-pages/automations-workflows.md`
+- `vault/05 - Feature Specs/FEATURE-INVENTORY-domains.md` (domain 14 — flags)
 
 ---
 
@@ -158,3 +159,4 @@ Running an MCP server inside a multi-tenant SaaS means you need a real authoriza
 - `lib/oauth/scopes.ts`
 - `app/oauth/authorize/`
 - `docs/agents/ai-overview.md` (auth section)
+- `vault/05 - Feature Specs/FEATURE-INVENTORY-api-mcp.md` (Section 3 — Auth)

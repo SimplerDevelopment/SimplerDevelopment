@@ -17,10 +17,10 @@ Pointers from "I need to work on X" → the right CLAUDE.md / guide / skill. Loa
 
 ## By task
 
-- **Plan a feature** → maintainers' internal planning vault (domain maps, feature specs — not part of this public release); public checkouts should start from `docs/agents/project-map.md` and the nearest nested `CLAUDE.md`
+- **Plan a feature** → `vault/03 - Domains/<domain>.md` first (the Domain Map: key files, schema, routes, tests, gotchas), then spec in `vault/05 - Feature Specs/`
 - **Record a decision / update project knowledge** → `vault` skill, `vault-librarian` agent
-- **Pick which tests/gates to run** → `tests/CI-GATES.md`
-- **Deploy / env / crons / migrations how-to** → internal ops runbooks (not part of this public release)
+- **Pick which tests/gates to run** → `vault/06 - Validation/Gate Picking.md`
+- **Deploy / env / crons / migrations how-to** → `vault/07 - Operations/`
 - **New CRUD resource** → `simplerdev-feature-scaffold` skill
 - **New portal page (no API)** → `simplerdev-ui-scaffold` skill
 - **New block type** → `simplerdev-block-type` skill (visual exploration first: `huashu-design`)
@@ -28,6 +28,7 @@ Pointers from "I need to work on X" → the right CLAUDE.md / guide / skill. Loa
 - **Slim down an MCP tool response** → `simplerdev-mcp-token-budget` skill
 - **New client site from a URL** → `site-migration` skill
 - **Block editor audit** → `block-orchestrator` (drive) + `block-implementer` (atomic units)
+- **Delegate to a role persona (frontend/backend/ai/devops/review/QA/etc.)** → `.claude/agents/` (21 agents via the Agent tool); org chart + model tiering + pipeline in `docs/agency-personas.md`
 - **Draft a week of LinkedIn posts** → `linkedin-weekly-drafts` skill
 - **Write E2E tests** → `/e2e-writer`
 - **Run E2E tests** → `/e2e-runner`
@@ -43,7 +44,7 @@ Pointers from "I need to work on X" → the right CLAUDE.md / guide / skill. Loa
 ## Session state / memory
 
 - `@.claude/learnings.md` — running retro of mistakes/patterns from autonomous runs (read at session start when unattended)
-- `~/.claude/projects/<project>/memory/MEMORY.md` — cross-conversation memory (auto-loaded)
+- `~/.claude/projects/-Users-dancoyle-simplerdevelopment/memory/MEMORY.md` — cross-conversation memory (auto-loaded)
 
 ## Don't-touch zones (recap)
 

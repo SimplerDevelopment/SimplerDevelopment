@@ -3,8 +3,8 @@
 Phase 10 deliverables — a blog editorial calendar plus post outlines. These are
 planning artifacts (calendar + outlines), not published posts.
 
-**Ground rule:** every topic maps to a real, shipped capability in the feature
-inventory (an internal planning document, not part of this public release).
+**Ground rule:** every topic maps to a real, shipped capability in the
+[feature inventory](../../vault/05%20-%20Feature%20Specs/FEATURE-INVENTORY-domains.md).
 Anything needing real customers, metrics, or testimonials (customer stories, case
 studies, benchmarks, ROI comparisons) is in the calendar's **DEFERRED** section —
 not written, never fabricated.

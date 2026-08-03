@@ -1,8 +1,8 @@
 /**
  * cov-u42 — Agency Onboarding Branding E2E Coverage
  *
- * Covers cards 0-3 from the "## To Test" section of the internal Agency
- * Onboarding Branding E2E Audit (not part of this public release).
+ * Covers cards 0-3 from the "## To Test" section of:
+ *   vault/05 - Feature Specs/E2E Audit/Agency Onboarding Branding E2E Audit.md
  *
  * Card 0: White-label onboarding clone flow — needs spec (gap: no implementation)
  * Card 1: Tiered entitlement provisioning for resold tenants — needs spec (gap: no implementation)

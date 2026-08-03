@@ -2,7 +2,7 @@
  * Approval-token cross-tenant leak regression spec
  *   @gap @approve-token-tenancy @tenancy @critical
  *
- * Gaps covered (internal security audit):
+ * Gaps covered (docs/audits/portal-e2e-adversarial-audit-2026-06-25.md):
  *   - approve-email-campaign-no-clientid-scope
  *   - approve-post-no-clientid-scope
  *   - approve-block-template-no-clientid-scope

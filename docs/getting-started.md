@@ -214,5 +214,26 @@ the [Dev & Testing guide](../tests/TESTING_PLAN.md) for the full test story.
   chars.
 - **Brain features error on startup?** Your Postgres is missing `pgvector` — see
   the extension SQL above.
+- **Code changes don't show up in the browser, and a rebuild makes it *worse*?**
+  Check for a stale **service worker** on `localhost:3000` — DevTools →
+  Application → Service workers. This app registers none, so anything there came
+  from a different project that previously used port 3000, and it will keep
+  serving its own cached JS chunks for this origin.
+
+  It is a nasty one to diagnose because everything else looks correct: the source
+  on disk is right, the container sees the right bytes, `tsc` passes, and `curl`
+  against the dev server returns the *correct* chunk — only the browser is wrong.
+  Hot reload keeps working (HMR uses a websocket, which bypasses the worker), so
+  edits appear live and then vanish on the next reload. `fetch(url, { cache:
+  'no-store' })` does **not** bypass a service worker, so cache-busting a request
+  proves nothing.
+
+  Fix it from the console on that origin:
+
+  ```js
+  for (const r of await navigator.serviceWorker.getRegistrations()) await r.unregister();
+  for (const k of await caches.keys()) await caches.delete(k);
+  // then reload
+  ```
 
 Still stuck? Open a [discussion or issue](https://github.com/SimplerDevelopment/SimplerDevelopment/issues).

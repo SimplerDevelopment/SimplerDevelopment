@@ -13,9 +13,16 @@ import {
   bookingPages,
   surveys,
   brainNotes,
+  pathCharts,
+  agentFlows,
+  agentFlowRuns,
 } from '@/lib/db/schema';
 import { and, eq, desc, isNull } from 'drizzle-orm';
 import type { AnyPgColumn, AnyPgTable } from 'drizzle-orm/pg-core';
+
+// Types whose ownership or title can't be resolved by the generic
+// (clientId + titleField) lookup below and get their own branch instead.
+const INDIRECT_ARTIFACT_TYPES = new Set(['path_chart', 'agent_flow_run']);
 
 const ARTIFACT_TABLES: Record<string, { table: AnyPgTable; titleField: string }> = {
   website: { table: clientWebsites, titleField: 'name' },
@@ -88,25 +95,59 @@ export async function POST(
   const body = await req.json();
   const { artifactType, artifactId } = body;
 
-  if (!artifactType || !artifactId || !ARTIFACT_TABLES[artifactType]) {
+  if (!artifactType || !artifactId || (!INDIRECT_ARTIFACT_TYPES.has(artifactType) && !ARTIFACT_TABLES[artifactType])) {
     return NextResponse.json({ success: false, message: 'Valid artifactType and artifactId required' }, { status: 400 });
   }
 
-  // Enforce tenant ownership: artifact must belong to the task's project's client
-  const config = ARTIFACT_TABLES[artifactType];
-  const tableCols = config.table as unknown as Record<string, AnyPgColumn>;
-  const baseWhere = and(eq(tableCols.id, artifactId), eq(tableCols.clientId, result.clientId));
-  const finalWhere = artifactType === 'brain_note'
-    ? and(baseWhere, isNull(brainNotes.deletedAt))
-    : baseWhere;
-  const [source] = await db
-    .select({ title: tableCols[config.titleField] })
-    .from(config.table)
-    .where(finalWhere);
-  if (!source) {
-    return NextResponse.json({ success: false, message: 'Artifact not found' }, { status: 404 });
+  let displayTitle: string;
+  if (artifactType === 'agent_flow_run') {
+    // Inverse of path_chart below: a run carries clientId directly, so the
+    // join is for the display title (a run has no name of its own, only its
+    // flow's). Both predicates stay on agent_flow_runs so another tenant's
+    // run is not-found rather than found-with-their-flow-name.
+    const [run] = await db
+      .select({ flowName: agentFlows.name, runId: agentFlowRuns.id })
+      .from(agentFlowRuns)
+      .innerJoin(agentFlows, eq(agentFlows.id, agentFlowRuns.flowId))
+      .where(and(eq(agentFlowRuns.id, artifactId), eq(agentFlowRuns.clientId, result.clientId)))
+      .limit(1);
+    if (!run) {
+      return NextResponse.json({ success: false, message: 'Artifact not found' }, { status: 404 });
+    }
+    // Run id in the title: a card can link several runs of the same flow
+    // (rework loop, retry), and three identical labels tell a reader nothing.
+    displayTitle = `${run.flowName} — run #${run.runId}`;
+  } else if (artifactType === 'path_chart') {
+    // Path charts have no clientId column; ownership flows through their
+    // parent project (projectId -> projects.clientId), the same indirect
+    // pattern brain_note's soft-delete gate uses below.
+    const [chart] = await db
+      .select({ title: pathCharts.title })
+      .from(pathCharts)
+      .innerJoin(projects, eq(projects.id, pathCharts.projectId))
+      .where(and(eq(pathCharts.id, artifactId), eq(projects.clientId, result.clientId)))
+      .limit(1);
+    if (!chart) {
+      return NextResponse.json({ success: false, message: 'Artifact not found' }, { status: 404 });
+    }
+    displayTitle = chart.title || body.displayTitle || 'Untitled';
+  } else {
+    // Enforce tenant ownership: artifact must belong to the task's project's client
+    const config = ARTIFACT_TABLES[artifactType];
+    const tableCols = config.table as unknown as Record<string, AnyPgColumn>;
+    const baseWhere = and(eq(tableCols.id, artifactId), eq(tableCols.clientId, result.clientId));
+    const finalWhere = artifactType === 'brain_note'
+      ? and(baseWhere, isNull(brainNotes.deletedAt))
+      : baseWhere;
+    const [source] = await db
+      .select({ title: tableCols[config.titleField] })
+      .from(config.table)
+      .where(finalWhere);
+    if (!source) {
+      return NextResponse.json({ success: false, message: 'Artifact not found' }, { status: 404 });
+    }
+    displayTitle = source.title || body.displayTitle || 'Untitled';
   }
-  const displayTitle = source.title || body.displayTitle || 'Untitled';
 
   const [artifact] = await db
     .insert(kanbanCardArtifacts)

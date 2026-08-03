@@ -147,6 +147,7 @@ bun run db:migrate    # applies locally; auto-refuses prod URLs
 - `/docs/guides/DATABASE` — Drizzle setup + REST API for posts/categories/tags
 - `/docs/agents/architecture-for-agents` — stack and deployment topology section
 - `/docs/agents/api-index` — API surfaces reference (for first-run API health check)
+- Feature inventory: Auth & Security (`vault/05 - Feature Specs/FEATURE-INVENTORY-domains.md` §17)
 
 ---
 

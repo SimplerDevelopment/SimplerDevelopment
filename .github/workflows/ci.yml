@@ -118,6 +118,10 @@ jobs:
       - name: Unit tests (shard ${{ matrix.shard }}/4, coverage → blob)
         env:
           VITEST_SKIP_THRESHOLDS: "1"
+          # Fork workers hit the default ~2GB heap under v8 coverage (shard 4
+          # OOM'd deterministically, incl. on main's own run at 11599ca0).
+          # 4 forks x 4GB fits the 16GB runner.
+          NODE_OPTIONS: --max-old-space-size=4096
         run: >-
           bunx vitest run --project=unit
           --shard=${{ matrix.shard }}/4
