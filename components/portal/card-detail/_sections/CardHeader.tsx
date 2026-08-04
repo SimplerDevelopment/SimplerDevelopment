@@ -57,7 +57,7 @@ export function CardHeader({
     }
   }
   return (
-    <div className="flex items-start gap-3 p-5 border-b border-border shrink-0 bg-card">
+    <div className="flex items-start gap-3 p-5 border-b border-border shrink-0 bg-card flex-wrap gap-y-2">
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-1 flex-wrap text-xs">
           <span className={`material-icons text-base ${typeMeta.color}`} aria-label={typeMeta.label}>
@@ -116,7 +116,7 @@ export function CardHeader({
       {cardUrl && (
         <button
           onClick={copyLink}
-          className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-colors shrink-0 ${
+          className={`flex items-center gap-1 px-2.5 py-2 sm:py-1.5 rounded-lg border text-xs font-medium transition-colors shrink-0 min-w-[40px] justify-center ${
             copied
               ? 'bg-primary/10 border-primary text-primary'
               : 'border-border text-muted-foreground hover:bg-accent hover:text-foreground'
@@ -125,13 +125,13 @@ export function CardHeader({
           aria-label="Copy link to this card"
         >
           <span className="material-icons text-base">{copied ? 'check' : 'link'}</span>
-          {copied ? 'Copied' : 'Copy link'}
+          <span className="hidden sm:inline">{copied ? 'Copied' : 'Copy link'}</span>
         </button>
       )}
       {toggleWatch && (
         <button
           onClick={toggleWatch}
-          className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-colors shrink-0 ${
+          className={`flex items-center gap-1 px-2.5 py-2 sm:py-1.5 rounded-lg border text-xs font-medium transition-colors shrink-0 min-w-[40px] justify-center ${
             watching
               ? 'bg-primary/10 border-primary text-primary'
               : 'border-border text-muted-foreground hover:bg-accent hover:text-foreground'
@@ -142,12 +142,12 @@ export function CardHeader({
           <span className="material-icons text-base">
             {watching ? 'notifications_active' : 'notifications_none'}
           </span>
-          {watching ? 'Watching' : 'Watch'}
+          <span className="hidden sm:inline">{watching ? 'Watching' : 'Watch'}</span>
         </button>
       )}
       <button
         onClick={onClose}
-        className="p-1.5 rounded-lg hover:bg-accent transition-colors shrink-0"
+        className="p-2 rounded-lg hover:bg-accent transition-colors shrink-0"
       >
         <span className="material-icons text-xl text-muted-foreground">close</span>
       </button>

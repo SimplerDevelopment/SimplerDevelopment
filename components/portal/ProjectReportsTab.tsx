@@ -471,7 +471,7 @@ function CapacityChart({ payload }: { payload: CapacityPayload }) {
           .filter((s): s is { col: CapacityColumn; cards: number; points: number } => s !== null);
 
         return (
-          <div key={r.userId} className="grid grid-cols-[160px_1fr_auto] items-center gap-3 text-sm">
+          <div key={r.userId} className="flex flex-col gap-1 sm:grid sm:grid-cols-[120px_1fr_auto] sm:items-center sm:gap-3 text-sm">
             <div className="truncate" title={r.email}>
               <span className="font-medium text-foreground">{r.name ?? r.email}</span>
             </div>
@@ -524,8 +524,8 @@ function CycleTable({ payload, projectKey }: { payload: CyclePayload; projectKey
     return `${mins}m`;
   };
   return (
-    <div className="bg-card border border-border rounded-xl overflow-hidden">
-      <table className="w-full text-sm">
+    <div className="bg-card border border-border rounded-xl overflow-x-auto">
+      <table className="w-full text-sm min-w-[560px]">
         <thead className="bg-muted/50 border-b border-border">
           <tr>
             <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider w-24">Key</th>

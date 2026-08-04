@@ -130,7 +130,7 @@ function KanbanCard({
     >
       {/* Move-to button */}
       {otherColumns.length > 0 && onMoveToColumn && (
-        <div className="absolute top-1.5 right-1.5 opacity-0 group-hover/card:opacity-100 transition-opacity z-10">
+        <div className="absolute top-1.5 right-1.5 opacity-100 sm:opacity-0 sm:group-hover/card:opacity-100 transition-opacity z-10">
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); setShowMoveMenu(!showMoveMenu); }}
@@ -319,7 +319,7 @@ function KanbanColumn({
   const isEmpty = column.cards.length === 0;
 
   return (
-    <div className="flex-shrink-0 w-72 flex flex-col bg-muted/40 rounded-xl border border-border group/col">
+    <div className="flex-shrink-0 w-[85vw] max-w-72 sm:w-72 flex flex-col bg-muted/40 rounded-xl border border-border group/col">
       {/* Header */}
       <div className="flex items-center justify-between p-3 border-b border-border">
         <div className="flex items-center gap-2 min-w-0">
@@ -350,7 +350,7 @@ function KanbanColumn({
             </span>
           )}
         </div>
-        <div className="flex items-center gap-0.5 opacity-0 group-hover/col:opacity-100 transition-opacity shrink-0">
+        <div className="flex items-center gap-0.5 opacity-100 sm:opacity-0 sm:group-hover/col:opacity-100 transition-opacity shrink-0">
           {isStaff && (
             <button
               type="button"

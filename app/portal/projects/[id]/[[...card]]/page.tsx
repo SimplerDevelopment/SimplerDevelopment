@@ -341,7 +341,7 @@ export default async function ProjectKanbanPage({ params, searchParams }: { para
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 border-b border-border">
+      <div className="flex gap-1 border-b border-border overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
         {([
           { key: 'board',    href: `/portal/projects/${projectId}`,                 label: 'Board',    icon: 'view_kanban' },
           { key: 'planning', href: `/portal/projects/${projectId}?tab=planning`,    label: 'Planning', icon: 'event_note' },
@@ -354,8 +354,9 @@ export default async function ProjectKanbanPage({ params, searchParams }: { para
           { key: 'settings', href: `/portal/projects/${projectId}?tab=settings`,    label: 'Settings', icon: 'settings' },
         ] as const).map(t => (
           <Link key={t.key} href={t.href}
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === t.key ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>
-            <span className="material-icons text-sm align-middle mr-1">{t.icon}</span>{t.label}
+            aria-label={t.label}
+            className={`shrink-0 whitespace-nowrap px-3 sm:px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === t.key ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>
+            <span className="material-icons text-sm align-middle sm:mr-1">{t.icon}</span><span className="hidden sm:inline">{t.label}</span>
           </Link>
         ))}
       </div>
