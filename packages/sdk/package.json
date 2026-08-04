@@ -1,6 +1,6 @@
 {
   "name": "@simplerdevelopment/sdk",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "TypeScript SDK for the SimplerDevelopment platform",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -19,11 +19,14 @@
     "build": "tsup",
     "dev": "tsup --watch",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "prepublishOnly": "npm run build"
   },
   "devDependencies": {
     "tsup": "^8.0.0",
-    "typescript": "^5.0.0"
+    "typescript": "^5.0.0",
+    "vitest": "^4.1.10"
   },
   "publishConfig": {
     "access": "public"

@@ -1,6 +1,7 @@
 export { SimplerDevelopment } from './client';
 export type {
   SimplerDevelopmentConfig,
+  RequestOptions,
   Post,
   PostSummary,
   ListPostsParams,
@@ -8,6 +9,7 @@ export type {
   Tag,
   NavItem,
   Branding,
+  CssVars,
   BrandingResponse,
   Product,
   ProductDetail,
