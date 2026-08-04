@@ -382,10 +382,6 @@ describe('registerKanbanTools — registration', () => {
       'kanban_card_add_comment',
       'kanban_card_log_time',
       'kanban_card_attach_file_from_url',
-      'kanban_card_artifacts_list',
-      'kanban_card_artifact_link',
-      'kanban_card_artifact_toggle_pin',
-      'kanban_card_artifact_unlink',
     ]) {
       expect(tools.has(name), `should register ${name}`).toBe(true);
     }
@@ -461,6 +457,46 @@ describe('kanban_list_board', () => {
     // scope and asserting the tool was not registered (covered above).
     expect(tools.has('kanban_list_board')).toBe(true);
     void ctxBad;
+  });
+});
+
+// ── kanban_get_card ─────────────────────────────────────────────────────────
+
+describe('kanban_get_card', () => {
+  beforeEach(resetState);
+
+  it('returns the full card row including description', async () => {
+    dbState.selectQueue = [
+      [{ id: 100, projectId: 1, title: 'AUTH79-012', description: 'TOTP MFA bypassable' }], // card
+      [{ id: 1 }],                                                                          // owning project
+    ];
+    const tools = registerAll();
+    const res = await tools.get('kanban_get_card')!.handler({ id: 100 });
+    expect(parseJson(res)).toEqual({
+      id: 100, projectId: 1, title: 'AUTH79-012', description: 'TOTP MFA bypassable',
+    });
+  });
+
+  it('returns Card not found when the card does not exist', async () => {
+    dbState.selectQueue = [[]];
+    const tools = registerAll();
+    const res = await tools.get('kanban_get_card')!.handler({ id: 999 });
+    expect(parseJson(res)).toEqual({ error: 'Card not found' });
+  });
+
+  // Tenancy: a card id from another client must not leak its description.
+  it('returns Permission denied when the card belongs to another client', async () => {
+    dbState.selectQueue = [
+      [{ id: 100, projectId: 42, title: 'Someone else’s card', description: 'secret' }],
+      [],  // project lookup filtered by clientId finds nothing
+    ];
+    const tools = registerAll();
+    const res = await tools.get('kanban_get_card')!.handler({ id: 100 });
+    expect(parseJson(res)).toEqual({ error: 'Permission denied' });
+  });
+
+  it('is not registered without projects:read', () => {
+    expect(registerAll(['projects:write']).has('kanban_get_card')).toBe(false);
   });
 });
 
@@ -1456,186 +1492,5 @@ describe('kanban_card_attach_file_from_url', () => {
       cardId: 1, url: 'https://example.com/x.png',
     });
     expect((parseJson(res) as { error: string }).error).toMatch(/Fetch returned 404/);
-  });
-});
-
-// ── artifact links ──────────────────────────────────────────────────────────
-
-describe('kanban_card_artifacts', () => {
-  beforeEach(resetState);
-
-  it('list: rejects unknown card', async () => {
-    dbState.selectQueue = [[]];
-    const tools = registerAll();
-    const res = await tools.get('kanban_card_artifacts_list')!.handler({ cardId: 1 });
-    expect(parseJson(res)).toEqual({ error: 'Card not found' });
-  });
-
-  it('list: returns artifact rows', async () => {
-    dbState.selectQueue = [
-      [{ projectId: 1 }],   // authorizeCardForClient: card
-      [{ id: 1 }],          // authorizeCardForClient: project
-      [{ id: 5, artifactType: 'pitch_deck' }], // artifact rows
-    ];
-    const tools = registerAll();
-    const res = await tools.get('kanban_card_artifacts_list')!.handler({ cardId: 1 });
-    expect(parseJson(res)).toEqual([{ id: 5, artifactType: 'pitch_deck' }]);
-  });
-
-  it('link: rejects unknown card', async () => {
-    dbState.selectQueue = [[]];
-    const tools = registerAll();
-    const res = await tools.get('kanban_card_artifact_link')!.handler({
-      cardId: 1, artifactType: 'pitch_deck', artifactId: 5,
-    });
-    expect(parseJson(res)).toEqual({ error: 'Card not found' });
-  });
-
-  it('link: rejects when artifact not owned', async () => {
-    dbState.selectQueue = [
-      [{ projectId: 1 }],   // card
-      [{ id: 1 }],          // project
-      [],                   // artifact lookup empty
-    ];
-    const tools = registerAll();
-    const res = await tools.get('kanban_card_artifact_link')!.handler({
-      cardId: 1, artifactType: 'pitch_deck', artifactId: 5,
-    });
-    expect((parseJson(res) as { error: string }).error).toMatch(/not owned/);
-  });
-
-  it('link: persists row with default pinned=false on success', async () => {
-    dbState.selectQueue = [
-      [{ projectId: 1 }],   // card
-      [{ id: 1 }],          // project
-      [{ title: 'Deck One' }], // artifact
-    ];
-    dbState.insertReturningDefault = [{ id: 99 }];
-    const tools = registerAll();
-    const res = await tools.get('kanban_card_artifact_link')!.handler({
-      cardId: 1, artifactType: 'pitch_deck', artifactId: 5,
-    });
-    expect((parseJson(res) as { id: number }).id).toBe(99);
-    const v = dbState.lastInsertValues as { pinned: boolean; displayTitle: string; createdBy: number };
-    expect(v.pinned).toBe(false);
-    expect(v.displayTitle).toBe('Deck One');
-    expect(v.createdBy).toBe(11);
-  });
-
-  it('link: falls back to "Untitled" when artifact title is empty', async () => {
-    dbState.selectQueue = [
-      [{ projectId: 1 }],
-      [{ id: 1 }],
-      [{ title: '' }],
-    ];
-    dbState.insertReturningDefault = [{ id: 100 }];
-    const tools = registerAll();
-    await tools.get('kanban_card_artifact_link')!.handler({
-      cardId: 1, artifactType: 'pitch_deck', artifactId: 5, pinned: true,
-    });
-    const v = dbState.lastInsertValues as { displayTitle: string; pinned: boolean };
-    expect(v.displayTitle).toBe('Untitled');
-    expect(v.pinned).toBe(true);
-  });
-
-  it('link: handles path_chart artifact type via project join', async () => {
-    dbState.selectQueue = [
-      [{ projectId: 1 }],           // card
-      [{ id: 1 }],                  // project (authorizeCardForClient)
-      [{ title: 'Checkout Flow' }], // path_chart + project join
-    ];
-    dbState.insertReturningDefault = [{ id: 200, artifactType: 'path_chart' }];
-    const tools = registerAll();
-    const res = await tools.get('kanban_card_artifact_link')!.handler({
-      cardId: 1, artifactType: 'path_chart', artifactId: 7,
-    });
-    const out = parseJson(res) as { id: number; artifactType: string };
-    expect(out.id).toBe(200);
-    expect(out.artifactType).toBe('path_chart');
-    const v = dbState.lastInsertValues as { displayTitle: string };
-    expect(v.displayTitle).toBe('Checkout Flow');
-  });
-
-  it('link: rejects path_chart when the chart is not owned by this client', async () => {
-    dbState.selectQueue = [
-      [{ projectId: 1 }],   // card
-      [{ id: 1 }],          // project
-      [],                   // path_chart join returns nothing
-    ];
-    const tools = registerAll();
-    const res = await tools.get('kanban_card_artifact_link')!.handler({
-      cardId: 1, artifactType: 'path_chart', artifactId: 7,
-    });
-    expect((parseJson(res) as { error: string }).error).toMatch(/not owned/);
-  });
-
-  it('toggle_pin: rejects unknown card', async () => {
-    dbState.selectQueue = [[]];
-    const tools = registerAll();
-    const res = await tools.get('kanban_card_artifact_toggle_pin')!.handler({
-      cardId: 1, artifactDbId: 99, pinned: true,
-    });
-    expect(parseJson(res)).toEqual({ error: 'Card not found' });
-  });
-
-  it('toggle_pin: returns Artifact link not found when update returns nothing', async () => {
-    dbState.selectQueue = [
-      [{ projectId: 1 }],
-      [{ id: 1 }],
-    ];
-    dbState.updateReturningDefault = [];
-    const tools = registerAll();
-    const res = await tools.get('kanban_card_artifact_toggle_pin')!.handler({
-      cardId: 1, artifactDbId: 99, pinned: true,
-    });
-    expect((parseJson(res) as { error: string }).error).toMatch(/Artifact link not found/);
-  });
-
-  it('toggle_pin: returns updated row on success', async () => {
-    dbState.selectQueue = [
-      [{ projectId: 1 }],
-      [{ id: 1 }],
-    ];
-    dbState.updateReturningDefault = [{ id: 99, pinned: true }];
-    const tools = registerAll();
-    const res = await tools.get('kanban_card_artifact_toggle_pin')!.handler({
-      cardId: 1, artifactDbId: 99, pinned: true,
-    });
-    expect((parseJson(res) as { pinned: boolean }).pinned).toBe(true);
-  });
-
-  it('unlink: rejects unknown card', async () => {
-    dbState.selectQueue = [[]];
-    const tools = registerAll();
-    const res = await tools.get('kanban_card_artifact_unlink')!.handler({
-      cardId: 1, artifactDbId: 99,
-    });
-    expect(parseJson(res)).toEqual({ error: 'Card not found' });
-  });
-
-  it('unlink: returns Artifact link not found when delete returns nothing', async () => {
-    dbState.selectQueue = [
-      [{ projectId: 1 }],
-      [{ id: 1 }],
-    ];
-    dbState.deleteReturningDefault = [];
-    const tools = registerAll();
-    const res = await tools.get('kanban_card_artifact_unlink')!.handler({
-      cardId: 1, artifactDbId: 99,
-    });
-    expect((parseJson(res) as { error: string }).error).toMatch(/Artifact link not found/);
-  });
-
-  it('unlink: returns row on success', async () => {
-    dbState.selectQueue = [
-      [{ projectId: 1 }],
-      [{ id: 1 }],
-    ];
-    dbState.deleteReturningDefault = [{ id: 99 }];
-    const tools = registerAll();
-    const res = await tools.get('kanban_card_artifact_unlink')!.handler({
-      cardId: 1, artifactDbId: 99,
-    });
-    expect((parseJson(res) as { id: number }).id).toBe(99);
   });
 });

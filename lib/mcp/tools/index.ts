@@ -12,6 +12,7 @@ import type { McpToolRegistrar } from '../types';
 import { registerProjectsTools } from './projects';
 import { registerProjectCustomFieldTools } from './project-custom-fields';
 import { registerKanbanTools } from './kanban';
+import { registerKanbanArtifactsTools } from './kanban-artifacts';
 import { registerSprintsTools } from './sprints';
 import { registerTicketsTools } from './tickets';
 import { registerCrmTools } from './crm';
@@ -48,6 +49,7 @@ export {
   registerProjectsTools,
   registerProjectCustomFieldTools,
   registerKanbanTools,
+  registerKanbanArtifactsTools,
   registerSprintsTools,
   registerTicketsTools,
   registerCrmTools,
@@ -97,6 +99,7 @@ export const allToolRegistrars: readonly McpToolRegistrar[] = [
   registerPathvizTools,
   registerPathvizCoordinationTools,
   registerKanbanTools,
+  registerKanbanArtifactsTools,
   registerTicketsTools,
   registerCrmTools,
   registerCmsTools,

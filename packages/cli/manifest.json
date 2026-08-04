@@ -1,6 +1,6 @@
 {
   "manifestVersion": 1,
-  "toolCount": 473,
+  "toolCount": 474,
   "domains": [
     {
       "name": "agent",
@@ -84,7 +84,7 @@
     },
     {
       "name": "kanban",
-      "tools": 41
+      "tools": 42
     },
     {
       "name": "linkedin",
@@ -9750,6 +9750,21 @@
       "desc": "Permanently delete a kanban column and every card inside it (cascade).",
       "destructive": true,
       "scope": "projects:write",
+      "args": [
+        {
+          "name": "id",
+          "type": "number",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "kanban_get_card",
+      "cmd": "kanban get-card",
+      "domain": "kanban",
+      "desc": "Get a single kanban card INCLUDING its long-text description. `kanban_list_board` deliberately omits description for payload reasons — use this to read the body of one card (agent hand-off, migrating a card between boards, answering \"what does this ticket actually say\"). Fetch per card; do not loop it over a whole board.",
+      "destructive": false,
+      "scope": "projects:read",
       "args": [
         {
           "name": "id",

@@ -7,7 +7,7 @@
 
 ## Overview
 
-The MCP server exposes **473 tools** across every portal domain via a single HTTP endpoint. The tool set is registry-locked — adding, removing, or renaming a tool without updating the baseline test fails the pre-push gate.
+The MCP server exposes **474 tools** across every portal domain via a single HTTP endpoint. The tool set is registry-locked — adding, removing, or renaming a tool without updating the baseline test fails the pre-push gate.
 
 | Fact | Value |
 |---|---|
@@ -41,7 +41,7 @@ Every tool registration calls `hasScope(ctx.scopes, ...)` before executing. A mi
 ### Scope syntax
 
 - **Named scope:** `<domain>:<access>` — e.g. `brain:read`, `kanban:write`, `email:send`
-- **Wildcard:** `*` — grants access to all 473 tools
+- **Wildcard:** `*` — grants access to all 474 tools
 - **Unscoped tools:** `whoami`, `list_workflows`, `get_workflow` — callable without any scope
 
 ### Named scopes
@@ -100,7 +100,7 @@ When an agent tool returns `{ "approvalUrl": "https://..." }`, the operation is 
 
 ## Tool families
 
-473 tools grouped by namespace. Tools within a family share the same scope prefix (e.g. `brain:read` / `brain:write`).
+474 tools grouped by namespace. Tools within a family share the same scope prefix (e.g. `brain:read` / `brain:write`).
 
 ### brain_* — 156 tools
 
@@ -130,13 +130,13 @@ Company Brain: the knowledge management and CRM-read layer. Largest family in th
 | RAG | search (semantic + keyword over all Brain content) |
 | Misc | dashboard-summary, who-knows |
 
-### kanban_* — 39 tools
+### kanban_* — 40 tools
 
 | Tool group | What it covers |
 |---|---|
-| Board | list-board |
+| Board | list-board (slim — omits card descriptions) |
 | Columns | create, update, delete |
-| Cards | create, update, delete, move |
+| Cards | get-card (full row, incl. description), create, update, delete, move |
 | Card details | assign/unassign, attach-label/detach-label, attach-file-from-url |
 | Card metadata | add/remove/list blockers, list dependencies, list assignees |
 | Comments | add-comment, list-comments |
@@ -387,5 +387,5 @@ Prompts are user-triggered guided workflows surfaced as slash-commands in capabl
 
 - **Adding a tool:** use the `simplerdev-mcp-tool` skill. Do **not** hand-roll — the lockstep (handler + Zod schema + `hasScope` guard + telemetry registration) is easy to get wrong.
 - **Token budget:** default to slim projections (`lib/mcp/projections.ts`). Echo `{ id, slug, status }` on writes, not the full row. Add an `include` opt-in flag for heavy fields (body/HTML/block JSON). The `simplerdev-mcp-token-budget` skill audits heavy responses.
-- **God files to avoid reading whole:** `lib/brain/mcp-sdk-adapter.ts` (5630 lines), `lib/mcp/tools/cms.ts` (2216 lines), `lib/mcp/tools/crm.ts` (1670 lines), `lib/mcp/tools/kanban.ts` (1484 lines), `lib/mcp/approvals.ts` (1193 lines). Use an Explore subagent for cross-cutting questions over these files.
+- **God files to avoid reading whole:** `lib/brain/mcp-sdk-adapter.ts` (5630 lines), `lib/mcp/tools/cms.ts` (2216 lines), `lib/mcp/tools/crm.ts` (1670 lines), `lib/mcp/approvals.ts` (1193 lines). Use an Explore subagent for cross-cutting questions over these files. (`lib/mcp/tools/kanban.ts` was 1484 — now 988, split into `tools/kanban-artifacts.ts`.)
 - **Telemetry:** per-call latency and token cost are recorded in `lib/mcp/telemetry.ts`. Do not bypass.

@@ -350,6 +350,10 @@ function ctxFor(scopes: string[]): PortalMcpContext {
 
 // import after all mocks
 import { registerKanbanTools } from '@/lib/mcp/tools/kanban';
+// Card templates, propose-sprint and recurrences moved to the kanban-artifacts
+// registrar when kanban.ts was split under the god-file ratchet. This file
+// covers tools from both, so registerAll() composes both registrars.
+import { registerKanbanArtifactsTools } from '@/lib/mcp/tools/kanban-artifacts';
 import { checkWipLimit } from '@/lib/portal/wip-limit';
 import { computeSprintProposal } from '@/lib/portal/sprint-planner';
 import { computeSprintTotals, computeVelocityAverages } from '@/lib/portal/sprint-charts';
@@ -357,8 +361,10 @@ import { recordCardAddedToSprint, recordCardRemovedFromSprint, recordCardColumnM
 
 function registerAll(scopes: string[] = ['projects:read', 'projects:write']) {
   const { stub, tools } = makeServer();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  /* eslint-disable @typescript-eslint/no-explicit-any */
   registerKanbanTools(stub as any, ctxFor(scopes));
+  registerKanbanArtifactsTools(stub as any, ctxFor(scopes));
+  /* eslint-enable @typescript-eslint/no-explicit-any */
   return tools;
 }
 
