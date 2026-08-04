@@ -6,9 +6,9 @@ import {
   bulkPricingRules, shippingRates, shippingZones, discountCodes,
   orders, orderItems, orderStatusHistory,
   giftCertificates, giftCertificateRedemptions,
-  clientWebsites,
+  clientWebsites, productDesigns,
 } from '@/lib/db/schema';
-import { eq, and, asc, desc, sql, inArray } from 'drizzle-orm';
+import { eq, and, asc, desc, sql, inArray, isNull } from 'drizzle-orm';
 import { resolveSiteStripe, SiteStripeError, type SiteStripeContext } from '@/lib/stripe/site-stripe';
 import { revalidateAdminDashboard } from '@/lib/admin/dashboard-cache';
 import { emitEvent } from '@/lib/automation/event-bus';
@@ -125,12 +125,32 @@ export async function POST(
       variantMap = Object.fromEntries(variantRows.map(v => [v.id, v]));
     }
 
+    // Load print-ready renders for designed items. Fenced to this site's
+    // websiteId so a cart row referencing a foreign-site design cannot pull
+    // that tenant's artwork into this order.
+    const designUuids = items.map(i => i.designId).filter((d): d is string => !!d);
+    const printFileMap: Record<string, Record<string, string>> = {};
+    if (designUuids.length > 0) {
+      const designRows = await db.select({
+        uuid: productDesigns.uuid,
+        printFiles: productDesigns.printFiles,
+      })
+        .from(productDesigns)
+        .where(and(
+          inArray(productDesigns.uuid, designUuids),
+          eq(productDesigns.websiteId, websiteId),
+          isNull(productDesigns.deletedAt),
+        ));
+      for (const d of designRows) printFileMap[d.uuid] = d.printFiles ?? {};
+    }
+
     // 2. Calculate subtotal with bulk pricing
     let subtotal = 0;
     const orderItemsData: {
       productId: number;
       variantId: number | null;
       designId: string | null;
+      printReadyUrl: string | null;
       productName: string;
       variantName: string | null;
       sku: string | null;
@@ -195,6 +215,10 @@ export async function POST(
         productId: item.productId,
         variantId: item.variantId,
         designId: item.designId,
+        // Freeze the print file onto the order item at purchase time, so
+        // fulfilment is unaffected by later edits or deletion of the design.
+        // ponytail: front only — pod.ts submits a single placement today.
+        printReadyUrl: item.designId ? (printFileMap[item.designId]?.front ?? null) : null,
         productName: product.name,
         variantName: variant?.name || null,
         sku: variant?.sku || product.sku || null,
@@ -397,6 +421,7 @@ export async function POST(
         // fulfillment team has a permanent link back to the customer's
         // canvas.
         designId: item.designId,
+        printReadyUrl: item.printReadyUrl,
         productName: item.productName,
         variantName: item.variantName,
         sku: item.sku,

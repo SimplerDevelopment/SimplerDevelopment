@@ -340,6 +340,40 @@ export class DesignApi {
 
     return response.json();
   }
+
+  /**
+   * Upload a print-ready render for one side of a design.
+   *
+   * `dataUrl` must be a transparent, print-resolution PNG produced by
+   * exportPrintFile — the server rejects opaque images (probable mockups) and
+   * under-resolution exports, so a rejection here is a real defect in the
+   * export path, not a transient error. Surfaced to the caller rather than
+   * swallowed: an order without a print file cannot be fulfilled.
+   */
+  static async uploadPrintFile(
+    id: number,
+    side: string,
+    dataUrl: string,
+  ): Promise<{ side: string; url: string; printFiles: Record<string, string> }> {
+    const params = this.getQueryParams();
+    const base = `${this.baseUrl}/${id}/print-file`;
+    const url = params.toString() ? `${base}?${params}` : base;
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: this.baseHeaders(),
+      credentials: 'include',
+      body: JSON.stringify({ side, printFileDataUrl: dataUrl }),
+    });
+
+    const json = await response.json().catch(() => null);
+    if (!response.ok) {
+      throw new Error(json?.message || `Failed to upload print file: ${response.statusText}`);
+    }
+
+    // The storefront API returns a { success, data } envelope.
+    return json?.data ?? json;
+  }
 }
 
 // Export utility functions for common operations

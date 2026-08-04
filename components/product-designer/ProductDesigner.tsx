@@ -15,6 +15,7 @@ import { StoreAssignmentTable, type StoreAssignmentSelection } from "./StoreAssi
 import { BsArrowsFullscreen, BsChevronLeft, BsChevronRight, BsGrid3X3Gap, BsX } from "react-icons/bs";
 import { AiOutlineZoomIn, AiOutlineZoomOut } from "react-icons/ai";
 import { DesignApi, designUtils, type Design } from "./utils/designApi";
+import { uploadPrintFileForSide } from "./utils/exportPrintFile";
 import { SessionManager } from "./utils/sessionManager";
 import { loadDesignFonts } from "./utils/fontLoader";
 
@@ -553,8 +554,21 @@ export const ProductDesigner: React.FC<ProductDesignerProps> = ({
     }
   }, [layers, styleOverrides, currentDesignId]);
 
+  // Print-ready file upload — see utils/exportPrintFile. Called from every save
+  // path; without it a design cannot be fulfilled (pod.ts refuses the order).
+  const syncPrintFile = useCallback(
+    (id: number | null | undefined) =>
+      uploadPrintFileForSide(id, side, DesignApi.uploadPrintFile.bind(DesignApi))
+        .then((err) => { if (err) setSaveError(err); }),
+    [side],
+  );
+
   // Design management functions
-  const saveDesign = useCallback(async (name?: string): Promise<Design | null> => {
+  // `idOverride` lets the callers that track a design via `selectedDesignId`
+  // (the designs-list selection) reuse this path without it being mistaken for
+  // a new design — `currentDesignId` is the in-editor design and the two are
+  // not interchangeable.
+  const saveDesign = useCallback(async (name?: string, idOverride?: number | null): Promise<Design | null> => {
     if (!product || !style) {
       console.error('Cannot save design: missing product or style');
       return null;
@@ -570,8 +584,9 @@ export const ProductDesigner: React.FC<ProductDesignerProps> = ({
       const combinedName = `${designName} - ${productName}`;
       
       let savedDesign: Design;
+      const targetId = idOverride ?? currentDesignId;
 
-      if (currentDesignId) {
+      if (targetId) {
         // Update existing design - only send fields that can be updated
         const updateData = {
           name: combinedName,
@@ -579,7 +594,7 @@ export const ProductDesigner: React.FC<ProductDesignerProps> = ({
           styleOverrides,
           side: side?.side || 'front',
         };
-        savedDesign = await DesignApi.updateDesign(currentDesignId, updateData, userId);
+        savedDesign = await DesignApi.updateDesign(targetId, updateData, userId);
       } else {
         // Create new design - send all required fields
         const createData = {
@@ -604,7 +619,9 @@ export const ProductDesigner: React.FC<ProductDesignerProps> = ({
       }));
 
       setDesignName(savedDesign.name);
-      
+
+      await syncPrintFile(savedDesign.id);
+
       return savedDesign;
     } catch (error) {
       console.error('Error saving design:', error);
@@ -811,25 +828,14 @@ export const ProductDesigner: React.FC<ProductDesignerProps> = ({
         styleOverrides,
       });
     } else {
-      // Handle internal save and redirect via DesignApi (Wave 2I).
+      // Delegates to saveDesign rather than re-issuing the DesignApi calls:
+      // three copies of this drifted apart, which is how the print-file upload
+      // came to be wired to only one of them.
       try {
-        if (typeof selectedDesignId === "number" && selectedDesignId) {
-          await DesignApi.updateDesign(selectedDesignId, {
-            name: designName.trim(),
-            layers,
-            styleOverrides,
-            side: side?.side ?? 'front',
-          }, userId ?? undefined);
-        } else if (product?.id && style?.id) {
-          await DesignApi.createDesign({
-            name: designName.trim(),
-            productId: Number(product.id),
-            styleId: style.id,
-            side: side?.side ?? 'front',
-            layers,
-            styleOverrides,
-          }, userId ?? undefined);
-        }
+        await saveDesign(
+          designName.trim(),
+          typeof selectedDesignId === "number" ? selectedDesignId : null,
+        );
 
         // Refresh and navigate
         const result: any = await DesignApi.getDesigns();
@@ -858,23 +864,10 @@ export const ProductDesigner: React.FC<ProductDesignerProps> = ({
 
     try {
       setSaveError(null);
-      if (typeof selectedDesignId === "number" && selectedDesignId) {
-        await DesignApi.updateDesign(selectedDesignId, {
-          name: designName.trim(),
-          layers,
-          styleOverrides,
-          side: side?.side ?? 'front',
-        }, userId ?? undefined);
-      } else if (product?.id && style?.id) {
-        await DesignApi.createDesign({
-          name: designName.trim(),
-          productId: Number(product.id),
-          styleId: style.id,
-          side: side?.side ?? 'front',
-          layers,
-          styleOverrides,
-        }, userId ?? undefined);
-      }
+      await saveDesign(
+        designName.trim(),
+        typeof selectedDesignId === "number" ? selectedDesignId : null,
+      );
 
       const result: any = await DesignApi.getDesigns();
       const data = Array.isArray(result?.data) ? result.data : Array.isArray(result) ? result : [];
