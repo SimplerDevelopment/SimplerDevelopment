@@ -44,6 +44,37 @@ export interface UpdateDesignRequest {
   thumbnailUrl?: string;
 }
 
+/**
+ * Normalise a styles+sides payload into the shape the editor's views expect.
+ *
+ * The storefront styles endpoint returns `product_sides` rows verbatim, so a
+ * side carries `imageUrl`. Every view component (MainView, ScalableMainView,
+ * StoreAssignmentTable) reads `imageFilePath` — the editor's own name, inherited
+ * from the monorepo this was ported from. Without the bridge the mockup renders
+ * with an empty src, the design surface collapses, and the print-file export
+ * refuses to run against it.
+ *
+ * Applied at the single boundary where API data enters the editor rather than
+ * renaming the field across every consumer.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function normalizeStyles(rawStyles: any[]): any[] {
+  if (!Array.isArray(rawStyles)) return [];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return rawStyles.map((style: any) => ({
+    ...style,
+    imageFilePathFront:
+      style.imageFilePathFront ?? style.frontImageUrl ?? style.thumbnailUrl ?? null,
+    sides: Array.isArray(style.sides)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ? style.sides.map((sd: any) => ({
+          ...sd,
+          imageFilePath: sd.imageFilePath ?? sd.imageUrl ?? null,
+        }))
+      : style.sides,
+  }));
+}
+
 export class DesignApi {
   // overridden by ProductDesigner via static init
   static baseUrl = '/api/designs';

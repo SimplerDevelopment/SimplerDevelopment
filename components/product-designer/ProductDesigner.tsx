@@ -14,7 +14,7 @@ import { DesignerCartTable, type CartSelection } from "./DesignerCartTable";
 import { StoreAssignmentTable, type StoreAssignmentSelection } from "./StoreAssignmentTable";
 import { BsArrowsFullscreen, BsChevronLeft, BsChevronRight, BsGrid3X3Gap, BsX } from "react-icons/bs";
 import { AiOutlineZoomIn, AiOutlineZoomOut } from "react-icons/ai";
-import { DesignApi, designUtils, type Design } from "./utils/designApi";
+import { DesignApi, designUtils, normalizeStyles, type Design } from "./utils/designApi";
 import { uploadPrintFileForSide } from "./utils/exportPrintFile";
 import { SessionManager } from "./utils/sessionManager";
 import { loadDesignFonts } from "./utils/fontLoader";
@@ -314,11 +314,15 @@ export const ProductDesigner: React.FC<ProductDesignerProps> = ({
           `/api/storefront/${websiteId}/products/${pid}/styles`
         );
         const stylesJson = await stylesResponse.json();
-        const allStyles = Array.isArray(stylesJson?.data)
-          ? stylesJson.data
-          : Array.isArray(stylesJson)
-            ? stylesJson
-            : [];
+        // normalizeStyles bridges the API's `imageUrl` to the `imageFilePath`
+        // the editor's views read — without it the mockup src is empty.
+        const allStyles = normalizeStyles(
+          Array.isArray(stylesJson?.data)
+            ? stylesJson.data
+            : Array.isArray(stylesJson)
+              ? stylesJson
+              : [],
+        );
 
         // Default style = first style (DB has `order` ascending). The editor's
         // downstream code looks for either `isDefault` or just `styles[0]`.
