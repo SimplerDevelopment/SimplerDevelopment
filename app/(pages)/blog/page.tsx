@@ -60,6 +60,44 @@ export default async function BlogPage({
           </FadeIn>
         </div>
 
+        {/* Featured: scroll-driven WebGL essay. Served as its own full-viewport
+            document at /agile-after-ai rather than a /blog/<slug> post, because
+            it owns the scroll and cannot sit inside the article layout. */}
+        <SlideIn direction="up">
+          <Link href="/agile-after-ai" className="block mb-12">
+            <article className="group relative overflow-hidden rounded-lg border border-[#1e2d3d] bg-[#07090c] p-8 md:p-12 transition-all hover:border-[#00b3a6]">
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-0 opacity-30"
+                style={{
+                  backgroundImage:
+                    'linear-gradient(to right, #16202b 1px, transparent 1px), linear-gradient(to bottom, #16202b 1px, transparent 1px)',
+                  backgroundSize: '44px 44px',
+                  maskImage:
+                    'radial-gradient(ellipse 120% 80% at 50% 40%, #000 30%, transparent 78%)',
+                }}
+              />
+              <div className="relative max-w-2xl">
+                <div className="mb-4 font-mono text-xs uppercase tracking-[0.2em] text-[#00b3a6]">
+                  Interactive · Field notes
+                </div>
+                <h2 className="mb-3 text-3xl font-bold text-[#dfe7ee] md:text-4xl">
+                  If Agile were invented after AI
+                </h2>
+                <p className="mb-6 text-[#8b9bab]">
+                  One study found developers 55.8% faster. Another found them 19% slower.
+                  A scroll-driven reading of what an AI-native Agile would actually look
+                  like, and what holds up in practice.
+                </p>
+                <span className="inline-flex items-center gap-2 font-mono text-sm text-[#f6ad55]">
+                  Open the experience
+                  <span className="transition-transform group-hover:translate-x-1">→</span>
+                </span>
+              </div>
+            </article>
+          </Link>
+        </SlideIn>
+
         {/* Blog Posts Grid */}
         {posts && posts.length > 0 ? (
           <>
