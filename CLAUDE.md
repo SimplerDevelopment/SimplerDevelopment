@@ -81,6 +81,28 @@ Routing rule:
 - `bun run db:generate` — generate Drizzle migration; **never hand-edit `drizzle/*.sql`**
 - `bun run db:migrate` — apply migrations (auto-runs `db:verify-target` to refuse prod URLs)
 
+## Repository topology (read before pushing)
+
+**This repo — `SimplerDevelopment/SimplerDevelopment` — is PUBLIC and is the
+source of truth.** Vercel and the Railway `agents` / `realtime` services deploy
+from its `main`. Open PRs here; GitHub Actions is free on public repos, so this
+is also where CI actually runs.
+
+Two sibling repos, both **private**, neither a development target:
+
+| Repo | Role |
+|---|---|
+| `SimplerDevelopment-internal` | Frozen archive. Holds the full 3,246-commit history and the pre-split vault history. Its `main` still carries `vault/` in 8 of 11 commits — never mirror it here. |
+| `SimplerDevelopment-vault` | The engineering vault (ADRs, domain maps, specs, validation). Clone it into `./vault`; it is gitignored here. |
+
+`vault/` must never enter this repo — `.githooks/pre-push` rejects any push
+carrying it, and `scripts/publish-public.sh` exists for deliberate one-off syncs
+out of the archive. The automatic main-mirror was retired on 2026-08-03.
+
+```bash
+git clone https://github.com/SimplerDevelopment/SimplerDevelopment-vault.git vault
+```
+
 ## Deployment (host topology)
 
 - **Hosting: Vercel (or any Next.js host).** Production branch = **`main`**; every other pushed branch deploys as a **Preview** automatically. Configure the deploy target in your own Vercel/host project.
