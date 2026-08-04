@@ -34,16 +34,37 @@ These three systems are **complementary, not redundant** — each owns a differe
 |---|---|---|---|
 | **claude-mem** | Time / episodic | Auto, on commit/session-end (hooks) | "What did we *do / decide / discover* in past sessions?" |
 | **graphify** (`graphify-out/`) | Structure / semantic | On-demand rebuild of code+docs *as they are now* | "How does *X work* end-to-end in the codebase?" |
-| **Obsidian vault** (`vault/`) | Curation / durable | Manual + the `vault` skill / `vault-librarian` agent, authored on purpose | "What's the *canonical domain map / ADR / spec / playbook* worth keeping?" |
+| **Obsidian vault** (`vault/` — [its own PRIVATE repo](https://github.com/SimplerDevelopment/SimplerDevelopment-vault)) | Curation / durable | Manual + the `vault` skill / `vault-librarian` agent, authored on purpose | "What's the *canonical domain map / ADR / spec / playbook* worth keeping?" |
 
 Routing rule:
 - **Auto-history → claude-mem.** Don't curate it; query it (the `S###`/numeric IDs in the SessionStart hook, or the `mem-search` skill). It's a log, not a source of truth.
 - **"How does the code work?" → graphify.** Prefer `graphify-out/` over grep for broad cross-cutting questions when it exists and is recent; keep its commit-hook rebuild healthy. It reflects the *present* code, not history.
 - **"This deserves to be written down for the future" → Obsidian vault.** Domain maps / ADRs / specs / playbooks only. **Do not hand-write per-session logs in the vault** — claude-mem already owns ephemeral session history; the vault is for distilled, durable artifacts that outlive any one session.
 
+> **The vault is a separate private repo, cloned into `./vault`.** It was split
+> out on 2026-08-03 so that every branch of THIS repo is publishable to the
+> public mirror (`SimplerDevelopment/SimplerDevelopment`) — while it lived here,
+> no branch could be pushed there and PRs on the public repo were impossible.
+> `vault/` is gitignored here; commits to it happen inside `./vault` against its
+> own remote. Every `vault/...` path below still resolves as long as it is
+> cloned:
+>
+> ```bash
+> git clone https://github.com/SimplerDevelopment/SimplerDevelopment-vault.git vault
+> ```
+>
+> Its pre-split history stays in this repo's history — `git log -- vault/` on an
+> older branch still works.
+
 **Vault first for feature work.** Before planning/implementing in a domain, read its map in `vault/03 - Domains/` (key files, schema, routes, MCP tools, tests, gotchas — cheaper than re-deriving from code). "Which gates do I run?" → `vault/06 - Validation/Gate Picking.md`. After shipping: **completion ritual** — update the touched Domain Map and ADR any non-obvious decision, following the existing vault frontmatter and map/table conventions. New planning artifacts go in `vault/05 - Feature Specs/`, never in `.planning/` (frozen archive). Architecture + Domain notes are drift-checked by `scripts/check-doc-drift.ts` — keep cited paths real.
 
-> **`vault/` is single-writer — never edit it from a parallel agent worktree.** Concurrent worktrees editing the same vault files is what silently drops docs on merge (we once recovered 112 vault files lost to one merge, and a domain-map split arrived half-applied). Rule: if a run fans out across worktrees, exactly **one** of them owns `vault/`; the others touch code only and leave a note for the vault-owner to fold in. The completion ritual (update the Domain Map / ADR) is done in the main working tree, in its **own commit**, not mixed into a code merge coming from another branch. If you find yourself resolving a merge conflict inside `vault/`, stop and reconcile by hand against the newest content — do not let the merge pick a side.
+> **`vault/` is single-writer.** Now that it is its own repo, agent worktrees of
+> THIS repo no longer carry a copy — which removes the merge hazard that once
+> lost 112 vault files and half-applied a domain-map split. The rule still holds
+> inside the vault repo itself: one writer at a time, and the completion ritual
+> (update the Domain Map / ADR) is its own commit there, never mixed into a code
+> change here. If you hit a merge conflict inside the vault repo, reconcile by
+> hand against the newest content — do not let the merge pick a side.
 
 **Project status lives in the SimplerDevelopment portal — always.** Track status in the portal's project/Kanban system via the `kanban_*` MCP tools (`kanban_list_board`, `kanban_create_card`, `kanban_move_card`, `kanban_update_card`) — **NOT** the vault markdown boards, which are now **frozen snapshots** (`vault/05 - Feature Specs/*Board.md` carry a MIGRATED banner; do not edit their lanes). Discover projects with `projects_list`, create with `projects_create`, read a board with `kanban_list_board({projectId})`. Lanes: Backlog → Planned → In Progress → Validating → Approved → Shipped. Starting a project/feature → create/move its card into the right lane; finishing → move it to Shipped. Keep the portal card and the spec note's `status` frontmatter in sync. Reference board: **Visual Editor QA = project 150**. The vault (`vault/05 - Feature Specs/`) keeps the durable **spec / ADR / domain notes**, not status columns — link a card to its spec note in the card description.
 

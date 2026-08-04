@@ -10,6 +10,11 @@
 # vault/ never enters the public repo's history and cannot be recovered from
 # an earlier commit there.
 #
+# As of 2026-08-03 the vault is its own private repo and is gitignored here, so
+# a tracked vault/ should be impossible. This stays as defence in depth — it
+# costs nothing and catches a `git add -f` or a stale branch predating the
+# split.
+#
 # Usage:
 #   scripts/publish-public.sh [<commit-ish>]      # defaults to origin main / HEAD
 #

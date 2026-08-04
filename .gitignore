@@ -125,12 +125,11 @@ node_modules/
 .vitest-reports/
 test-results/
 
-# Obsidian vault — track knowledge, not app state
-vault/.obsidian/workspace*
-vault/.obsidian/cache
-vault/.obsidian/plugins/*/main.js
-vault/.obsidian/plugins/*/styles.css
-vault/.obsidian/plugins/*/manifest.json
+# Engineering vault — now its own PRIVATE repo:
+#   https://github.com/SimplerDevelopment/SimplerDevelopment-vault
+# Kept OUT of this repo so every branch here is publishable to the public
+# mirror. Clone it into ./vault to work on both side by side.
+vault/
 
 # local Sentry auth token (never commit)
 .sentry-token
@@ -154,8 +153,7 @@ evals-out/
 /release-synthesis-report.md
 
 # Local Obsidian app/plugin state (a plugin data.json contained a live API key
-# + RSA private key — never commit). vault/ content itself stays tracked on dev.
-vault/.obsidian/
+# + RSA private key — never commit).
 .vscode/
 .idea/
 /dist/

@@ -64,6 +64,10 @@ done
 # them. So a direct push of vault-bearing commits to the public repo is
 # refused, and scripts/publish-public.sh is the supported path — it strips
 # vault/ from the TREE, so the directory never enters public history at all.
+#
+# Since the 2026-08-03 split the vault is its own private repo and gitignored
+# here, so this should never fire. Kept as defence in depth: it still catches a
+# `git add -f` or a branch created before the split.
 if [ "$target_is_public" = 1 ] && [ "${#pushed_shas[@]}" -gt 0 ]; then
   for sha in "${pushed_shas[@]}"; do
     # -z because ls-tree QUOTES paths with spaces (a plain ^vault/ match misses
