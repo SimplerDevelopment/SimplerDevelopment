@@ -12,7 +12,6 @@ import {
   storeSettings,
   products,
   productVariants,
-  designs,
 } from '@/lib/db/schema';
 import { decryptApiKey } from '@/lib/crypto/api-key';
 import {
@@ -101,24 +100,22 @@ export async function submitPODOrder(
     }
 
     // 8. Determine print-file URL.
-    let printFileUrl: string | undefined;
-
-    if (item.printReadyUrl) {
-      printFileUrl = item.printReadyUrl;
-    } else if (item.designId) {
-      const [design] = await db.select({ renderedUrl: designs.renderedUrl })
-        .from(designs)
-        .where(eq(designs.id, item.designId))
-        .limit(1);
-      if (design?.renderedUrl) {
-        printFileUrl = design.renderedUrl;
-      } else {
-        console.warn(
-          `[submitPODOrder] order ${orderId} item ${item.id} (${item.productName}): ` +
-          'no print-ready URL available — Printful may reject this item',
-        );
-      }
+    //
+    // `orderItems.printReadyUrl` is the ONLY valid source. It holds a
+    // transparent, artwork-only render at print DPI, frozen at checkout.
+    //
+    // This deliberately does NOT fall back to a design's rendered/thumbnail
+    // image. Those are composite MOCKUPS (artwork stamped onto a blank
+    // product photo — see lib/printing/composite.ts). Sending one to Printful
+    // prints a picture of a t-shirt onto the t-shirt. A hard failure here
+    // costs a support ticket; the fallback cost real garments.
+    if (!item.printReadyUrl) {
+      throw new Error(
+        `Order item ${item.id} ('${item.productName}') has no print-ready file. ` +
+        'Refusing to submit to Printful — a design mockup is not a print file.',
+      );
     }
+    const printFileUrl = item.printReadyUrl;
 
     // 9. Build PrintfulOrderItem.
     printfulItems.push({
@@ -126,7 +123,10 @@ export async function submitPODOrder(
       quantity: item.quantity,
       name: item.productName,
       retail_price: (item.unitPrice / 100).toFixed(2),
-      files: printFileUrl ? [{ type: 'front', url: printFileUrl }] : [],
+      // ponytail: single front placement. Multi-surface (back/sleeve) needs one
+      // file per productSides row — add when the print renderer emits per-side
+      // files, since there is nothing to send until then.
+      files: [{ type: 'front', url: printFileUrl }],
     });
   }
 
