@@ -13,10 +13,50 @@ import {
   resolveCropRect,
   resolveExportScale,
   isUsableSurface,
+  scaleBounds,
   MIN_PRINT_EDGE_PX,
   MAX_OUTPUT_EDGE_PX,
   MIN_SURFACE_EDGE_PX,
 } from '@/components/product-designer/utils/exportPrintFile';
+
+describe('scaleBounds', () => {
+  it('converts mockup-image pixels into surface pixels', () => {
+    // The live failure: bounds recorded on a 333x500 mockup rendered at 600px
+    // wide (1.802x). Cropping with the raw numbers produced a fully transparent
+    // export because the crop sat on blank garment above the artwork.
+    const scaled = scaleBounds(
+      { printableX: 80, printableY: 80, printableWidth: 173, printableHeight: 310 },
+      600 / 333,
+    );
+    expect(scaled).toEqual({
+      printableX: 144,
+      printableY: 144,
+      printableWidth: 312,
+      printableHeight: 559,
+    });
+  });
+
+  it('is a no-op at 1:1', () => {
+    const b = { printableX: 10, printableY: 20, printableWidth: 30, printableHeight: 40 };
+    expect(scaleBounds(b, 1)).toBe(b);
+  });
+
+  it('passes null bounds through untouched', () => {
+    expect(scaleBounds(null, 2)).toBeNull();
+  });
+
+  it('ignores a nonsensical scale rather than corrupting the crop', () => {
+    const b = { printableX: 10, printableY: 20, printableWidth: 30, printableHeight: 40 };
+    expect(scaleBounds(b, 0)).toBe(b);
+    expect(scaleBounds(b, NaN)).toBe(b);
+  });
+
+  it('preserves nulls inside bounds (null width = full image)', () => {
+    const scaled = scaleBounds({ printableX: 10, printableWidth: null, printableHeight: null }, 2);
+    expect(scaled?.printableX).toBe(20);
+    expect(scaled?.printableWidth).toBeNull();
+  });
+});
 
 describe('isUsableSurface', () => {
   it('accepts a normally laid-out canvas', () => {

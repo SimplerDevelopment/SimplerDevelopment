@@ -53,11 +53,37 @@ export interface CropRect {
 }
 
 /**
+ * Scale printable bounds from mockup-image pixels into surface CSS pixels.
+ *
+ * `product_sides` records the print area against the mockup image's own pixel
+ * grid (e.g. 80,80 173x310 on a 333x500 image), but the surface renders that
+ * image scaled to fit (e.g. 600x901, ~1.8x). Cropping with the raw numbers
+ * lands on the wrong region entirely — the first live export came back a fully
+ * transparent 837x1500, because the crop sat on blank garment above the art.
+ *
+ * Pure — exported for unit testing.
+ */
+export function scaleBounds(
+  bounds: PrintableBounds | null | undefined,
+  scale: number,
+): PrintableBounds | null | undefined {
+  if (!bounds || !Number.isFinite(scale) || scale <= 0 || scale === 1) return bounds;
+  const mul = (v: number | null | undefined) =>
+    typeof v === 'number' ? Math.round(v * scale) : v;
+  return {
+    printableX: mul(bounds.printableX),
+    printableY: mul(bounds.printableY),
+    printableWidth: mul(bounds.printableWidth),
+    printableHeight: mul(bounds.printableHeight),
+  };
+}
+
+/**
  * Resolve the crop rectangle for a side, in the surface's own pixel space.
  *
- * `product_sides` stores the printable area in mockup-image pixels. When a
- * side has no bounds recorded (printableWidth/Height are nullable and mean
- * "full image"), the whole surface is the print area.
+ * Bounds must already be in surface pixels — see scaleBounds. When a side has
+ * no bounds recorded (printableWidth/Height are nullable and mean "full
+ * image"), the whole surface is the print area.
  *
  * Pure — exported for unit testing.
  */
@@ -133,7 +159,15 @@ export async function exportPrintFile(
   const surfaceHeight = surface.offsetHeight;
   if (!isUsableSurface(surfaceWidth, surfaceHeight)) return null;
 
-  const crop = resolveCropRect(surfaceWidth, surfaceHeight, bounds);
+  // The mockup renders scaled-to-fit, and the printable bounds are recorded
+  // against its natural pixel grid — convert before cropping.
+  const mockup = surface.querySelector<HTMLImageElement>(`img[${PRINT_EXCLUDE_ATTR}]`);
+  const mockupScale =
+    mockup && mockup.naturalWidth > 0 && mockup.offsetWidth > 0
+      ? mockup.offsetWidth / mockup.naturalWidth
+      : 1;
+
+  const crop = resolveCropRect(surfaceWidth, surfaceHeight, scaleBounds(bounds, mockupScale));
   const scale = resolveExportScale(crop.width, crop.height, minEdge);
 
   // Loaded lazily — html2canvas is heavy and only needed when exporting.
@@ -152,6 +186,25 @@ export async function exportPrintFile(
     height: crop.height,
     useCORS: true,
     logging: false,
+    // The designer's zoom applies a CSS scale to an ancestor of the surface.
+    // html2canvas measures layout boxes but does not reconcile ancestor
+    // transforms, so the captured region lands somewhere else entirely and the
+    // export comes back fully transparent — artwork present on screen, nothing
+    // in the file. Neutralising the transforms in the CLONED document keeps the
+    // live DOM (and the user's zoom) untouched.
+    onclone: (doc: Document) => {
+      const clonedSurface = doc.querySelector<HTMLElement>('#productEditorMainView .mainView');
+      let node: HTMLElement | null = clonedSurface?.parentElement ?? null;
+      while (node && node !== doc.body) {
+        const t = node.style?.transform;
+        if (t && t !== 'none') {
+          node.style.transform = 'none';
+          node.style.top = '0px';
+          node.style.left = '0px';
+        }
+        node = node.parentElement;
+      }
+    },
   });
 
   return canvas.toDataURL('image/png');
