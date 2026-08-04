@@ -201,7 +201,7 @@ export function ProductDetailBlockRender({ block, siteId }: ProductDetailBlockRe
             <div style={getElementCSS(block.elementStyles, 'gallery')}>
               <div className="relative aspect-square rounded-xl overflow-hidden bg-muted/5 border border-border">
                 {product.images.length > 0 ? (
-                  <img src={product.images[selectedImage]?.url} alt={product.images[selectedImage]?.alt || product.name} className="w-full h-full object-cover" />
+                  <img decoding="async" fetchPriority="high" src={product.images[selectedImage]?.url} alt={product.images[selectedImage]?.alt || product.name} className="w-full h-full object-cover" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center">
                     <span className="material-icons text-8xl text-muted-foreground/20">inventory_2</span>
@@ -221,7 +221,7 @@ export function ProductDetailBlockRender({ block, siteId }: ProductDetailBlockRe
                       onClick={() => setSelectedImage(i)}
                       className={`w-20 h-20 flex-shrink-0 rounded-lg overflow-hidden border-2 transition-all ${selectedImage === i ? 'border-primary ring-2 ring-primary/20' : 'border-border hover:border-primary/50'}`}
                     >
-                      <img src={img.url} alt={img.alt || `${product.name} ${i + 1}`} className="w-full h-full object-cover" />
+                      <img decoding="async" loading="lazy" src={img.url} alt={img.alt || `${product.name} ${i + 1}`} className="w-full h-full object-cover" />
                     </button>
                   ))}
                 </div>

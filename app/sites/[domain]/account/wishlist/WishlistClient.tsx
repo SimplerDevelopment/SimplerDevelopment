@@ -84,7 +84,7 @@ export function WishlistClient({ siteId, domain }: { siteId: number; domain: str
                   {/* Image */}
                   <div className="aspect-square bg-gray-100 relative">
                     {item.imageUrl ? (
-                      <img src={item.imageUrl} alt={item.productName} className="w-full h-full object-cover" />
+                      <img decoding="async" loading="lazy" src={item.imageUrl} alt={item.productName} className="w-full h-full object-cover" />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
                         <span className="material-icons text-gray-300" style={{ fontSize: '48px' }}>image</span>

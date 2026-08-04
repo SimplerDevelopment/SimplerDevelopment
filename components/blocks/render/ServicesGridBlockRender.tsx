@@ -87,7 +87,7 @@ export function ServicesGridBlockRender({ block }: ServicesGridBlockRenderProps)
             style={{ borderColor: '#E5E7EB', ...cardStyle }}
           >
             {service.image ? (
-              <img src={service.image} alt="" className="w-14 h-14 object-contain mb-4" style={imageStyle} />
+              <img decoding="async" loading="lazy" src={service.image} alt="" className="w-14 h-14 object-contain mb-4" style={imageStyle} />
             ) : service.icon ? (
               <span
                 className="material-icons mb-4"

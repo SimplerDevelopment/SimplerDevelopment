@@ -3,12 +3,20 @@
 import { useState, useEffect } from 'react';
 import MediaUploadModal from './MediaUploadModal';
 
-interface MediaItem {
+export interface MediaItem {
   id: number;
   filename: string;
   url: string;
   mimeType: string;
   alt?: string | null;
+  /**
+   * Intrinsic pixel size. Populated on upload via sharp and already returned
+   * by the list endpoints (they `.select()` the whole row) — this interface
+   * just never declared it, so callers dropped it. Nullable for non-raster
+   * media and rows uploaded before extraction existed.
+   */
+  width?: number | null;
+  height?: number | null;
 }
 
 interface PaginationMeta {
@@ -19,7 +27,12 @@ interface PaginationMeta {
 
 interface MediaPickerProps {
   value?: string;
-  onChange: (url: string) => void;
+  /**
+   * `media` is the full picked row, so callers that care about intrinsic size
+   * (e.g. the image block, for CLS reservation) can read it. Additive second
+   * arg — existing one-param handlers are unaffected.
+   */
+  onChange: (url: string, media?: MediaItem) => void;
   mimeTypeFilter?: string;
   label?: string;
   required?: boolean;
@@ -82,8 +95,8 @@ export default function MediaPicker({
   }, [search]);
 
 
-  const handleSelect = (url: string) => {
-    onChange(url);
+  const handleSelect = (item: MediaItem) => {
+    onChange(item.url, item);
     setShowPicker(false);
   };
 
@@ -194,7 +207,7 @@ export default function MediaPicker({
                     <button
                       type="button"
                       key={item.id}
-                      onClick={() => handleSelect(item.url)}
+                      onClick={() => handleSelect(item)}
                       className="cursor-pointer rounded-lg border border-border bg-card overflow-hidden hover:border-primary hover:shadow-lg transition-all text-left"
                     >
                       {item.mimeType.startsWith('image/') ? (

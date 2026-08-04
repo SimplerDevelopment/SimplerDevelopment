@@ -64,7 +64,7 @@ export function TeamShowcaseBlockRender({ block }: TeamShowcaseBlockRenderProps)
               >
                 {/* Photo */}
                 <div className="relative lg:w-1/2 min-h-[400px] lg:min-h-0 overflow-hidden">
-                  <img
+                  <img decoding="async" loading="lazy"
                     src={member.photo}
                     alt={member.name}
                     className="w-full h-full object-cover object-top"

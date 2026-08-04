@@ -60,7 +60,7 @@ export function LogoStripBlockRender({ block }: LogoStripBlockRenderProps) {
       <div className={`grid ${gridClass} ${gapClass} ${justifyClass} items-center`}>
         {(block.logos || []).map((logo) => {
           const img = (
-            <img
+            <img decoding="async"
               src={logo.imageUrl}
               alt={logo.alt}
               className={`max-w-full w-auto object-contain mx-auto transition-all duration-300 ${

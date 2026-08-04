@@ -77,7 +77,7 @@ export function FeaturedContentBlockRender({ block }: FeaturedContentBlockRender
           {/* Image */}
           {block.imageUrl && (
             <div className={block.imagePosition === 'right' ? 'lg:col-start-2' : 'lg:col-start-1'}>
-              <img
+              <img decoding="async" loading="lazy"
                 src={block.imageUrl}
                 alt={block.title}
                 className={`w-full h-auto shadow-lg ${!branding?.borderRadius ? 'rounded-lg' : ''}`}

@@ -97,7 +97,7 @@ export function BlogPostsBlockRender({ block }: BlogPostsBlockRenderProps) {
                 <article className="group h-full rounded-lg border bg-card overflow-hidden transition-all hover:shadow-lg">
                   {post.coverImage && (
                     <div className="aspect-video overflow-hidden">
-                      <img
+                      <img decoding="async" loading="lazy"
                         src={post.coverImage}
                         alt={post.title}
                         className="w-full h-full object-cover transition-transform group-hover:scale-105"

@@ -111,7 +111,7 @@ export function SiteFooter({
           <div>
             {logoUrl ? (
               <Link href={prefixHref('/')} style={{ display: 'inline-block', marginBottom: '16px' }}>
-                <img src={logoUrl} alt={logoAlt} style={{ height: '36px', width: 'auto' }} />
+                <img decoding="async" src={logoUrl} alt={logoAlt} style={{ height: '36px', width: 'auto' }} />
               </Link>
             ) : (
               <Link
@@ -210,7 +210,7 @@ export function SiteFooter({
                 {trustBadges.map((badge, i) => {
                   const img = (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img
+                    <img decoding="async"
                       src={badge.src}
                       alt={badge.alt}
                       width={badge.width ?? 100}

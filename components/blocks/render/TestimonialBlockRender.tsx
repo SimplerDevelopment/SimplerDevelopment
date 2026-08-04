@@ -55,7 +55,7 @@ export function TestimonialBlockRender({ block }: TestimonialBlockRenderProps) {
 
           <div className="flex flex-col items-center">
             {block.avatar && (
-              <img
+              <img decoding="async" loading="lazy"
                 src={block.avatar}
                 alt={block.author}
                 className="w-16 h-16 rounded-full mb-4 object-cover"

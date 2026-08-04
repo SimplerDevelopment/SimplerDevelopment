@@ -140,7 +140,7 @@ export function CartPageClient({ siteId, domain }: CartPageClientProps) {
               <div key={item.id} className="flex items-center gap-4 p-4">
                 <div className="w-16 h-16 rounded-lg overflow-hidden bg-muted/10 flex-shrink-0">
                   {item.image ? (
-                    <img src={item.image} alt={item.productName} className="w-full h-full object-cover" />
+                    <img decoding="async" src={item.image} alt={item.productName} className="w-full h-full object-cover" />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center">
                       <span className="material-icons text-muted-foreground/30">inventory_2</span>

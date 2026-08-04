@@ -122,7 +122,7 @@ export function FlipCardGridBlockRender({ block }: FlipCardGridBlockRenderProps)
                   }}
                 >
                   {card.frontImage ? (
-                    <img
+                    <img decoding="async" loading="lazy"
                       src={card.frontImage}
                       alt=""
                       className="w-20 h-20 object-contain mb-4"
