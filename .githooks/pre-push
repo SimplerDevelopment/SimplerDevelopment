@@ -141,22 +141,22 @@ if [ "$ci_status" -ne 0 ]; then
   exit "$ci_status"
 fi
 
-if [ -n "$mirror_main_sha" ]; then
-  # Skip when already pushing to the public repo (the guard above has already
-  # cleared that push, and double-pushing the same ref races itself into a
-  # stale-lock rejection).
-  if [ "$target_is_public" = 1 ]; then
-    echo "pre-push: push target is already the public repo — skipping mirror."
-  else
-    # Mirror through publish-public.sh, NOT a raw `git push` of main: main
-    # carries vault/, and a raw mirror would publish it. The script strips the
-    # excluded paths from the tree and fast-forwards public main.
-    echo "pre-push: mirroring main to SimplerDevelopment/SimplerDevelopment (vault excluded)…"
-    if ! "$ROOT/scripts/publish-public.sh" "$mirror_main_sha"; then
-      echo "pre-push: mirror publish to SimplerDevelopment/SimplerDevelopment failed." >&2
-      exit 1
-    fi
-  fi
+# ── main-branch mirror: RETIRED 2026-08-03 ───────────────────────────────────
+# Development is now public-first: this repo (SimplerDevelopment/SimplerDevelopment)
+# IS the source of truth, and Vercel + the Railway agents/realtime services
+# deploy from it. There is nothing to mirror TO.
+#
+# The old hook auto-published main to the public repo whenever main was pushed
+# to the internal one. Keeping it would now be actively harmful: the internal
+# repo is a frozen archive whose main still carries vault/ in 8 of its 11
+# commits, so a stray push there would overwrite this repo's main with stale,
+# stripped content.
+#
+# scripts/publish-public.sh is retained for deliberate one-off syncs out of the
+# archive. It is no longer wired to run automatically.
+if [ -n "$mirror_main_sha" ] && [ "$target_is_public" != 1 ]; then
+  echo "pre-push: main pushed to a non-public remote — auto-mirror is retired;"
+  echo "          run scripts/publish-public.sh by hand if a sync is intended."
 fi
 
 exit 0
