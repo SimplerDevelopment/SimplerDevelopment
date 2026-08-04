@@ -86,10 +86,16 @@ vi.mock('@/lib/db/schema', () => ({
     active: 'productVariants.active',
     name: 'productVariants.name',
   },
-  designs: {
-    id: 'designs.id',
-    name: 'designs.name',
-    thumbnailUrl: 'designs.thumbnailUrl',
+  productDesigns: {
+    id: 'productDesigns.id',
+    uuid: 'productDesigns.uuid',
+    websiteId: 'productDesigns.websiteId',
+    productId: 'productDesigns.productId',
+    customerId: 'productDesigns.customerId',
+    sessionId: 'productDesigns.sessionId',
+    name: 'productDesigns.name',
+    thumbnailUrl: 'productDesigns.thumbnailUrl',
+    deletedAt: 'productDesigns.deletedAt',
   },
 }));
 
