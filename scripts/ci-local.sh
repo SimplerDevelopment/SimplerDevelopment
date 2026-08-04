@@ -64,7 +64,27 @@ typecheck_committed() {
     rm -rf "$tmpdir"
     return 1
   fi
-  ln -s "$PWD/node_modules" "$tmpdir/node_modules"
+  # Resolve a node_modules that actually has tsc. Agent worktrees under
+  # .claude/worktrees/ are created WITHOUT an install, so "$PWD/node_modules" is
+  # frequently missing (or an empty dir holding only .cache/.vite from a prior
+  # vitest run). Symlinking that produced a 37s failure with a misleading
+  # "Cannot find module .../node_modules/.bin/tsc" that reads like a type error.
+  # Fall back to the main checkout's install, which a worktree shares anyway.
+  local nm="$PWD/node_modules" main_root
+  if [ ! -x "$nm/.bin/tsc" ]; then
+    main_root=$(dirname "$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)")
+    if [ -n "$main_root" ] && [ -x "$main_root/node_modules/.bin/tsc" ]; then
+      nm="$main_root/node_modules"
+    else
+      printf '\033[31mERROR: no node_modules containing .bin/tsc found.\033[0m\n'
+      printf '\033[31m       Looked in: %s\033[0m\n' "$PWD/node_modules"
+      [ -n "$main_root" ] && printf '\033[31m              and: %s\033[0m\n' "$main_root/node_modules"
+      printf '\033[31m       Run `bun install` (in this worktree or the main checkout).\033[0m\n'
+      git worktree remove -f "$tmpdir" >/dev/null 2>&1 || rm -rf "$tmpdir"
+      return 1
+    fi
+  fi
+  ln -s "$nm" "$tmpdir/node_modules"
   # next-env.d.ts / .next/types are gitignored, so absent from the HEAD checkout;
   # copy the ambient Next types in (if present) so this matches a normal tsc run.
   [ -f next-env.d.ts ] && cp next-env.d.ts "$tmpdir/next-env.d.ts"
