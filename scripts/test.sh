@@ -86,6 +86,37 @@ fi
 
 # ── Layer 2: Integration (UI + API) ─────────────────────────────────────
 if [[ "$LAYER" == "all" || "$LAYER" == "integration" ]]; then
+  # Refuse to run the integration layer against a database that isn't clearly a
+  # test database.
+  #
+  # The integration suites truncate and reseed whatever they connect to. Invoked
+  # via `bun test:tenancy` (scripts/run-tenancy.sh) that is pinned to
+  # simplerdev_test, but calling this script directly inherits the ambient
+  # DATABASE_URL — which in this repo is a REMOTE Railway URL in .env. That is
+  # not hypothetical: on 2026-08-04 a direct invocation ran against a remote
+  # database and left a stray row change behind.
+  #
+  # Allowed: a URL whose database name contains "test", or an explicit
+  # ALLOW_NON_TEST_DB=1 for the rare case where you really mean it.
+  INT_DB_URL="${DATABASE_URL_TEST:-${DATABASE_URL:-}}"
+  INT_DB_NAME="${INT_DB_URL##*/}"      # strip everything up to the last /
+  INT_DB_NAME="${INT_DB_NAME%%\?*}"    # strip any ?query suffix
+  if [[ "${ALLOW_NON_TEST_DB:-0}" != "1" ]]; then
+    if [[ -z "$INT_DB_URL" ]]; then
+      echo "✖ integration: no DATABASE_URL_TEST or DATABASE_URL set." >&2
+      echo "  Use \`bun test:tenancy\` / \`bun test:integration:local\`, which pin a local test DB." >&2
+      exit 1
+    fi
+    if [[ "$INT_DB_NAME" != *test* ]]; then
+      echo "✖ integration: refusing to run against database '${INT_DB_NAME}'." >&2
+      echo "  These suites truncate and reseed the database they connect to, and this" >&2
+      echo "  name doesn't look like a test DB (expected the name to contain 'test')." >&2
+      echo "  Use \`bun test:tenancy\` or \`bun test:integration:local\` — both pin simplerdev_test." >&2
+      echo "  Override only if you are certain: ALLOW_NON_TEST_DB=1 $0 ..." >&2
+      exit 1
+    fi
+  fi
+
   # vitest doesn't have first-class tag filtering; we route --tag to
   # --testNamePattern so e.g. `--tag=tenancy` only runs describe/it blocks
   # whose full name contains `@tenancy` (the convention in tests/integration).
