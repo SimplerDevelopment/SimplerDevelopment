@@ -15,7 +15,6 @@ import { StoreAssignmentTable, type StoreAssignmentSelection } from "./StoreAssi
 import { BsArrowsFullscreen, BsChevronLeft, BsChevronRight, BsGrid3X3Gap, BsX } from "react-icons/bs";
 import { AiOutlineZoomIn, AiOutlineZoomOut } from "react-icons/ai";
 import { DesignApi, designUtils, normalizeStyles, type Design } from "./utils/designApi";
-import { uploadPrintFileForSide } from "./utils/exportPrintFile";
 import { SessionManager } from "./utils/sessionManager";
 import { loadDesignFonts } from "./utils/fontLoader";
 
@@ -558,12 +557,16 @@ export const ProductDesigner: React.FC<ProductDesignerProps> = ({
     }
   }, [layers, styleOverrides, currentDesignId]);
 
-  // Print-ready file upload — see utils/exportPrintFile. Called from every save
-  // path; without it a design cannot be fulfilled (pod.ts refuses the order).
+  // Print-ready file. Rendered server-side from the saved layers — the browser
+  // sends no image. Called from every save path; without it a design cannot be
+  // fulfilled, because pod.ts refuses an order that has no print file.
   const syncPrintFile = useCallback(
     (id: number | null | undefined) =>
-      uploadPrintFileForSide(id, side, DesignApi.uploadPrintFile.bind(DesignApi))
-        .then((err) => { if (err) setSaveError(err); }),
+      !id ? Promise.resolve() : DesignApi.requestPrintFile(id, side?.side ?? 'front')
+        .then(() => undefined)
+        .catch((e: unknown) => setSaveError(
+          `Design saved, but the print file failed: ${e instanceof Error ? e.message : 'unknown error'}`,
+        )),
     [side],
   );
 

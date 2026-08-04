@@ -103,10 +103,6 @@ export const MainView = memo(function MainView({ overRideSide = null }: { overRi
             alt={sideInUse.side}
             className="w-full h-full object-contain scale-100"
             draggable="false"
-            // Never capture the product mockup into a print file — a composite
-            // of artwork over a garment photo is what gets a shirt printed with
-            // a picture of a shirt. See utils/exportPrintFile.ts.
-            data-print-exclude=""
           />
         )}
         {filteredLayers.map((layer) => (

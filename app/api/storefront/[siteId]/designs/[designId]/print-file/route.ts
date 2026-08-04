@@ -1,24 +1,48 @@
-// Print-file upload for a saved product design.
+// Print-file generation for a saved product design.
 //
-// The designer renders the canvas at print resolution client-side (same shape
-// as generate-thumbnail) and POSTs it here. We validate it hard, upload to S3,
-// and record it on productDesigns.printFiles keyed by side.
+// The caller POSTs only `{ side }`. The file is rendered SERVER-SIDE from the
+// design's stored layers (lib/printing/renderPrintFile), uploaded to S3, and
+// recorded on productDesigns.printFiles keyed by side. The browser sends no
+// image — see vault ADR print-file-is-artwork-not-mockup.
 //
-// Why the validation is strict: whatever lands here is eventually sent to
-// Printful and physically printed on a garment the store owner pays for. A
-// bad file is not a rendering glitch, it is scrap. Two failure modes are
-// specifically guarded:
+// `validatePrintFile` below predates that and once guarded a client upload. It
+// is retained as defence in depth against a renderer regression: whatever lands
+// here is eventually printed on a garment the store owner pays for, so a bad
+// file is not a rendering glitch, it is scrap. Two failure modes are checked:
 //
 //   • a mockup instead of artwork — a composite of artwork over a product
 //     photo is opaque, so we require an alpha channel.
-//   • an under-resolution export — a canvas-sized PNG looks fine on screen
-//     and prints visibly pixelated.
+//   • an under-resolution render — looks fine on screen, prints pixelated.
 import { NextRequest, NextResponse } from 'next/server';
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, asc, eq, isNull } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { storeSettings, productDesigns } from '@/lib/db/schema';
+import { storeSettings, productDesigns, productSides, productStyles } from '@/lib/db/schema';
 import { uploadToS3 } from '@/lib/s3/upload';
 import { resolveDesignerCaller } from '@/lib/storefront/designer-auth';
+import { renderPrintFile } from '@/lib/printing/renderPrintFile';
+
+/**
+ * Read a mockup's pixel dimensions. `product_sides` stores printable bounds
+ * against this grid but not the grid itself, so it has to come from the image.
+ */
+async function readMockupSize(
+  imageUrl: string | null | undefined,
+): Promise<{ width: number; height: number } | null> {
+  if (!imageUrl) return null;
+  try {
+    const abs = imageUrl.startsWith('http')
+      ? imageUrl
+      : `${process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'}${imageUrl}`;
+    const res = await fetch(abs);
+    if (!res.ok) return null;
+    const sharp = (await import('sharp')).default;
+    const meta = await sharp(Buffer.from(await res.arrayBuffer())).metadata();
+    if (!meta.width || !meta.height) return null;
+    return { width: meta.width, height: meta.height };
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Minimum long-edge pixels for an accepted print file.
@@ -172,16 +196,78 @@ export async function POST(
       return NextResponse.json({ success: false, message: 'Forbidden' }, { status: 403 });
     }
 
-    const validation = await validatePrintFile(body?.printFileDataUrl);
-    if (!validation.ok || !validation.buffer) {
+    // Resolve the side: its printable bounds and its mockup, which together
+    // define the region to render and the coordinate space to render it in.
+    // A design usually carries its styleId, but older/anonymous saves can leave
+    // it null — fall back to the product's first style so those stay renderable
+    // rather than failing with a confusing "no side configured".
+    let styleId = design.styleId ?? null;
+    if (styleId === null) {
+      const [fallback] = await db.select({ id: productStyles.id })
+        .from(productStyles)
+        .where(eq(productStyles.productId, design.productId))
+        .orderBy(asc(productStyles.order), asc(productStyles.id))
+        .limit(1);
+      styleId = fallback?.id ?? null;
+    }
+
+    const [sideRow] = styleId === null ? [] : await db.select().from(productSides)
+      .where(and(
+        eq(productSides.styleId, styleId),
+        eq(productSides.side, side),
+      ))
+      .limit(1);
+    if (!sideRow) {
       return NextResponse.json(
-        { success: false, message: validation.message },
-        { status: validation.status },
+        { success: false, message: `No '${side}' side configured for this design's style` },
+        { status: 400 },
+      );
+    }
+
+    // product_sides records printable bounds in the mockup's own pixel grid but
+    // does not store its dimensions, so read them off the image itself.
+    const mockup = await readMockupSize(sideRow.imageUrl);
+    if (!mockup) {
+      return NextResponse.json(
+        { success: false, message: 'Could not read the mockup image for this side' },
+        { status: 422 },
+      );
+    }
+
+    const layersForSide = (Array.isArray(design.layers) ? design.layers : []).filter(
+      (l) => !(l as { side?: string })?.side || (l as { side?: string }).side === side,
+    ) as Parameters<typeof renderPrintFile>[0]['layers'];
+
+    const render = await renderPrintFile({ layers: layersForSide, side: sideRow, mockup });
+
+    if (render.layersRendered === 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: render.layersSkipped > 0
+            ? `Nothing renderable on the '${side}' side (${render.layersSkipped} unsupported layer(s))`
+            : `No artwork on the '${side}' side`,
+        },
+        { status: 422 },
+      );
+    }
+
+    // Defence in depth. We control the renderer now, so this should never fire —
+    // which is exactly why it is worth keeping: it turns a renderer regression
+    // into a failed request instead of a blank garment.
+    const validation = await validatePrintFile(
+      `data:image/png;base64,${render.buffer.toString('base64')}`,
+    );
+    if (!validation.ok) {
+      console.error('[print-file] server render failed its own validation:', validation.message);
+      return NextResponse.json(
+        { success: false, message: `Render failed validation: ${validation.message}` },
+        { status: 500 },
       );
     }
 
     const upload = await uploadToS3(
-      validation.buffer,
+      render.buffer,
       `print-${design.id}-${side}.png`,
       'image/png',
       { key: `media/print-files/design-${design.id}-${side}-${Date.now()}.png` },

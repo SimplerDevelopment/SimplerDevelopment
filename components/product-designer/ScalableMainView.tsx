@@ -188,8 +188,6 @@ export const ScalableMainView = memo(function ScalableMainView({
                 alt={sideInUse.side}
                 className="w-full h-full object-contain scale-100"
                 draggable="false"
-                // See MainView — the mockup must never land in a print file.
-                data-print-exclude=""
               />
             )}
             {layersToRender.map((layer) => (

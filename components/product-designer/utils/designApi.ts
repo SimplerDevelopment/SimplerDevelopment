@@ -373,18 +373,17 @@ export class DesignApi {
   }
 
   /**
-   * Upload a print-ready render for one side of a design.
+   * Ask the server to render and store the print-ready file for one side.
    *
-   * `dataUrl` must be a transparent, print-resolution PNG produced by
-   * exportPrintFile — the server rejects opaque images (probable mockups) and
-   * under-resolution exports, so a rejection here is a real defect in the
-   * export path, not a transient error. Surfaced to the caller rather than
-   * swallowed: an order without a print file cannot be fulfilled.
+   * The render happens server-side from the design's stored layers — the
+   * browser sends no image. A failure here is a real defect (missing artwork,
+   * an unconfigured side, a renderer regression), not a transient error, so it
+   * is surfaced rather than swallowed: an order without a print file cannot be
+   * fulfilled.
    */
-  static async uploadPrintFile(
+  static async requestPrintFile(
     id: number,
     side: string,
-    dataUrl: string,
   ): Promise<{ side: string; url: string; printFiles: Record<string, string> }> {
     const params = this.getQueryParams();
     const base = `${this.baseUrl}/${id}/print-file`;
@@ -394,7 +393,7 @@ export class DesignApi {
       method: 'POST',
       headers: this.baseHeaders(),
       credentials: 'include',
-      body: JSON.stringify({ side, printFileDataUrl: dataUrl }),
+      body: JSON.stringify({ side }),
     });
 
     const json = await response.json().catch(() => null);
