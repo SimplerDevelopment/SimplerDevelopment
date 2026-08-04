@@ -151,6 +151,7 @@ export async function POST(
       variantId: number | null;
       designId: string | null;
       printReadyUrl: string | null;
+      printFiles: Record<string, string>;
       productName: string;
       variantName: string | null;
       sku: string | null;
@@ -215,10 +216,12 @@ export async function POST(
         productId: item.productId,
         variantId: item.variantId,
         designId: item.designId,
-        // Freeze the print file onto the order item at purchase time, so
+        // Freeze the print files onto the order item at purchase time, so
         // fulfilment is unaffected by later edits or deletion of the design.
-        // ponytail: front only — pod.ts submits a single placement today.
+        // The map carries every designed side; printReadyUrl stays as the
+        // front-side shorthand for existing readers.
         printReadyUrl: item.designId ? (printFileMap[item.designId]?.front ?? null) : null,
+        printFiles: item.designId ? (printFileMap[item.designId] ?? {}) : {},
         productName: product.name,
         variantName: variant?.name || null,
         sku: variant?.sku || product.sku || null,
@@ -422,6 +425,7 @@ export async function POST(
         // canvas.
         designId: item.designId,
         printReadyUrl: item.printReadyUrl,
+        printFiles: item.printFiles,
         productName: item.productName,
         variantName: item.variantName,
         sku: item.sku,

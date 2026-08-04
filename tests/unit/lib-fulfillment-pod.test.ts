@@ -38,7 +38,22 @@ vi.mock('@/lib/fulfillment/providers/printful', () => ({
   },
 }));
 
-const { submitPODOrder } = await import('@/lib/fulfillment/pod');
+const { submitPODOrder, printfulPlacement } = await import('@/lib/fulfillment/pod');
+
+describe('printfulPlacement', () => {
+  it('maps our catalog side slugs onto Printful placements', () => {
+    expect(printfulPlacement('front')).toBe('front');
+    expect(printfulPlacement('back')).toBe('back');
+    expect(printfulPlacement('sleeveleft')).toBe('left_sleeve');
+    expect(printfulPlacement('sleeveright')).toBe('right_sleeve');
+  });
+
+  it('passes an unknown side through rather than dropping it', () => {
+    // Better to let Printful reject a placement it doesn't know than to
+    // silently omit artwork the customer paid for.
+    expect(printfulPlacement('hood')).toBe('hood');
+  });
+});
 
 /** Build a fake drizzle db that returns `queue` entries in FIFO order. */
 function makeDb(queue: unknown[]) {
@@ -121,6 +136,31 @@ describe('submitPODOrder — print-file safety', () => {
 
     // The guarantee that matters: Printful was never called.
     expect(mocks.createOrder).not.toHaveBeenCalled();
+  });
+
+  it('submits one Printful file per designed side', async () => {
+    mocks.createOrder.mockResolvedValue({ id: 778, status: 'pending' });
+
+    const db = makeDb([
+      [PAID_ORDER],
+      [PRINTFUL_SETTINGS],
+      [{
+        id: 901, orderId: 42, productName: 'Tee', quantity: 1, unitPrice: 2500,
+        variantId: 5, productId: 1, printReadyUrl: 'https://s3/front.png', designId: null,
+        printFiles: { front: 'https://s3/front.png', back: 'https://s3/back.png', sleeveleft: 'https://s3/sl.png' },
+      }],
+      [{ printfulVariantId: 4012 }],
+    ]);
+
+    await submitPODOrder(42, db);
+
+    const submitted = mocks.createOrder.mock.calls[0][0] as {
+      items: Array<{ files: Array<{ type: string; url: string }> }>;
+    };
+    const files = submitted.items[0].files;
+    expect(files).toHaveLength(3);
+    expect(files.map(f => f.type).sort()).toEqual(['back', 'front', 'left_sleeve']);
+    expect(files.find(f => f.type === 'back')?.url).toBe('https://s3/back.png');
   });
 
   it('submits when a genuine print-ready file is present', async () => {

@@ -381,6 +381,34 @@ export class DesignApi {
    * is surfaced rather than swallowed: an order without a print file cannot be
    * fulfilled.
    */
+  /**
+   * Render print files for every side the design actually uses.
+   *
+   * Not just the visible one: a customer who designs a back and then switches
+   * to the front would otherwise have the back silently dropped at fulfilment.
+   * Returns a user-facing message on failure, or null on success, so the caller
+   * can surface it without the loop leaking into the component.
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  static async requestPrintFilesForDesign(
+    id: number,
+    layers: any[] | null | undefined,
+    fallbackSide: string,
+  ): Promise<string | null> {
+    const sides = [...new Set((layers ?? []).map((l) => l?.side).filter(Boolean))];
+    if (sides.length === 0) sides.push(fallbackSide);
+
+    const failures: string[] = [];
+    for (const s of sides) {
+      try {
+        await this.requestPrintFile(id, s as string);
+      } catch (e) {
+        failures.push(`${s}: ${e instanceof Error ? e.message : 'unknown error'}`);
+      }
+    }
+    return failures.length ? `Design saved, but the print file failed — ${failures.join('; ')}` : null;
+  }
+
   static async requestPrintFile(
     id: number,
     side: string,

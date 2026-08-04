@@ -557,17 +557,15 @@ export const ProductDesigner: React.FC<ProductDesignerProps> = ({
     }
   }, [layers, styleOverrides, currentDesignId]);
 
-  // Print-ready file. Rendered server-side from the saved layers — the browser
-  // sends no image. Called from every save path; without it a design cannot be
-  // fulfilled, because pod.ts refuses an order that has no print file.
+  // Print-ready files, rendered server-side from the saved layers for every side
+  // in use (see DesignApi.requestPrintFilesForDesign). Called from every save
+  // path: pod.ts refuses to fulfil an order that has no print file.
   const syncPrintFile = useCallback(
     (id: number | null | undefined) =>
-      !id ? Promise.resolve() : DesignApi.requestPrintFile(id, side?.side ?? 'front')
-        .then(() => undefined)
-        .catch((e: unknown) => setSaveError(
-          `Design saved, but the print file failed: ${e instanceof Error ? e.message : 'unknown error'}`,
-        )),
-    [side],
+      !id ? Promise.resolve() : DesignApi
+        .requestPrintFilesForDesign(id, layers, side?.side ?? 'front')
+        .then((err) => { if (err) setSaveError(err); }),
+    [side, layers],
   );
 
   // Design management functions

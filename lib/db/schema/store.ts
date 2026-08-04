@@ -337,7 +337,10 @@ export const orderItems = pgTable('order_items', {
   designId: uuid('design_id'), // FK added at runtime to designs.id
   // Frozen snapshot of layersBySurface + canvasSize at checkout, so deleting the design doesn't break fulfillment
   designSnapshot: jsonb('design_snapshot'),
-  printReadyUrl: varchar('print_ready_url', { length: 500 }), // hi-res render, populated by Stripe webhook
+  printReadyUrl: varchar('print_ready_url', { length: 500 }), // shorthand for printFiles.front
+  // Print-ready renders by side slug ('front'|'back'|'sleeveleft'|…), frozen at checkout from
+  // productDesigns.printFiles. pod.ts sends one Printful file per placement. See ADR print-file-is-artwork-not-mockup.
+  printFiles: jsonb('print_files').$type<Record<string, string>>().default({}),
   productName: varchar('product_name', { length: 255 }).notNull(),
   variantName: varchar('variant_name', { length: 255 }),
   sku: varchar('sku', { length: 100 }),
