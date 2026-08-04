@@ -1085,6 +1085,8 @@ export function registerApprovalToolsOnSdk(server: McpServer, ctx: PortalMcpCont
         summary: mcpPendingChanges.summary,
         status: mcpPendingChanges.status,
         keyId: mcpPendingChanges.keyId,
+        // Required by isSelfApproval — credential identity is (kind, id), not id.
+        credentialKind: mcpPendingChanges.credentialKind,
         userId: mcpPendingChanges.userId,
         reviewerId: mcpPendingChanges.reviewerId,
         reviewedAt: mcpPendingChanges.reviewedAt,

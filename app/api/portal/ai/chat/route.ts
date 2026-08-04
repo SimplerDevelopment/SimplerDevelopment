@@ -52,7 +52,7 @@ export async function POST(req: Request) {
     // high-risk writes stage for approval. stageOrApply only reads
     // client.id / userId / keyId / requireCmsApproval off it.
     const gateCtx = client.aiChatRequiresApproval
-      ? { userId, client, scopes: [] as string[], keyId: null, requireCmsApproval: true }
+      ? { userId, client, scopes: [] as string[], keyId: null, credentialKind: null, requireCmsApproval: true }
       : undefined;
 
     const { message, conversationId } = await req.json();

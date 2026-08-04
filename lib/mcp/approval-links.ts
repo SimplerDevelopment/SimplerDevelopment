@@ -111,6 +111,7 @@ export async function createApprovalLink(args: CreateApprovalLinkArgs): Promise<
       summary: args.summary.slice(0, 500),
       createdBy: args.ctx.userId ?? null,
       keyId: args.ctx.keyId ?? null,
+      credentialKind: args.ctx.credentialKind ?? null,
       expiresAt,
       status: 'pending',
     })

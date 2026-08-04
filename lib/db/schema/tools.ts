@@ -3,7 +3,9 @@
 import { pgTable, serial, varchar, text, timestamp, boolean, integer, bigint, json, jsonb, index, uniqueIndex } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 import { encryptedText } from './columns';
-import { portalApiKeys, users } from './auth';
+// portalApiKeys is intentionally NOT imported — mcp_tool_calls.api_key_id is
+// polymorphic (portal_api_keys | oauth_access_tokens), so it carries no FK.
+import { users } from './auth';
 import { clientWebsites, clients } from './sites';
 import { brandingProfiles } from './cms';
 import { productVariants, products } from './store';
@@ -830,7 +832,12 @@ export const giftCertificateRedemptions = pgTable('gift_certificate_redemptions'
 export const mcpToolCalls = pgTable('mcp_tool_calls', {
   id: serial('id').primaryKey(),
   clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
-  apiKeyId: integer('api_key_id').references(() => portalApiKeys.id, { onDelete: 'set null' }),
+  // POLYMORPHIC: portal_api_keys.id OR oauth_access_tokens.id, disambiguated by
+  // `credential_kind`. The old FK to portal_api_keys meant every OAuth-authenticated
+  // tool call failed this insert — and because logToolCall swallows errors, ALL
+  // OAuth telemetry was silently dropped rather than reported (QAD-048 id spaces).
+  apiKeyId: integer('api_key_id'),
+  credentialKind: varchar('credential_kind', { length: 20 }),
   userId: integer('user_id').references(() => users.id, { onDelete: 'set null' }),
   toolName: varchar('tool_name', { length: 100 }).notNull(),
   requestBytes: integer('request_bytes').default(0).notNull(),

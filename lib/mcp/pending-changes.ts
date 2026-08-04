@@ -113,6 +113,7 @@ export async function stageOrApply<T>(opts: StageOrApplyOpts<T>): Promise<StageO
       clientId: ctx.client.id,
       userId: ctx.userId,
       keyId: ctx.keyId,
+      credentialKind: ctx.credentialKind ?? null,
       entityType,
       entityId,
       operation,

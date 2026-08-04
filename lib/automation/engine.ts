@@ -313,6 +313,7 @@ async function executeAction(
           client: { id: clientId } as unknown as PortalMcpContext['client'],
           scopes: ruleScopes ?? [],
           keyId: null,
+          credentialKind: null,
           requireCmsApproval: true,
         }
       : undefined;
