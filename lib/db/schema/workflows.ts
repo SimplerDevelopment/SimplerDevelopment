@@ -3,8 +3,12 @@
 // `automation_rules` (in brain.ts) is a single-shot rules engine — given an
 // event, run a flat list of actions. `workflows` is the visual layer: a graph
 // of typed trigger / action / condition nodes that can branch, wait, and
-// chain. The two engines coexist; workflows do not yet listen to live CRM
-// events (see lib/workflows/trigger.ts for the shim).
+// chain. Separate tables, separate execution models — but NOT isolated:
+// lib/automation/engine.ts's processEvent() bridges every processed event
+// into lib/workflows/trigger.ts's `enqueueWorkflowRunsForTrigger`, which
+// enqueues rows into `workflowRunSteps` below for the crm.contact.created,
+// crm.deal.updated (stage-change), and form.submitted event kinds. A
+// `schedule`-kind workflow trigger is not yet wired to any cron source.
 
 import { pgTable, serial, varchar, text, timestamp, integer, json, index } from 'drizzle-orm/pg-core';
 import { users } from './auth';

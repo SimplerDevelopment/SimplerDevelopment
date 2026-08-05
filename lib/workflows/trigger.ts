@@ -28,10 +28,12 @@ export async function enqueueWorkflowRunsForTrigger(
   context: WorkflowRunContext,
   opts: EnqueueOptions = {},
 ): Promise<{ matchedWorkflowIds: number[] }> {
-  // TODO(workflows): wire this into the live CRM event stream — call sites
-  // for `contact.created`, `deal.stage_changed`, `form.submitted`, plus a
-  // cron worker for `schedule` triggers. Today only the test-run endpoint
-  // calls this directly with a synthetic context.
+  // Wired into the live event stream: lib/automation/engine.ts's
+  // processEvent() calls this for every `crm.contact.created`,
+  // `crm.deal.updated` (stage-change), and `form.submitted` event. The
+  // `/[id]/test-run` endpoint also still calls this directly with a
+  // synthetic context. Remaining gap: no cron/source maps events onto the
+  // `schedule`-kind trigger yet.
 
   const active = await db
     .select()

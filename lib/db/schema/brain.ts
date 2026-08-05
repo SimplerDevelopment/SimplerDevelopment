@@ -56,6 +56,10 @@ export interface AutomationSchedule {
   cronExpression?: string;
 }
 
+// Lives here (not a dedicated automation schema module) for historical
+// reasons — the automation engine was built as part of the Company Brain
+// initiative before it grew into its own domain. Not a data-model merge;
+// `lib/automation/` and `lib/workflows/` own the runtime logic.
 export const automationRules = pgTable('automation_rules', {
   id: serial('id').primaryKey(),
   clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
