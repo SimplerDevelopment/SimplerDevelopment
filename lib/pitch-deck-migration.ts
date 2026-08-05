@@ -1,3 +1,8 @@
+// V1 → V2 slide conversion. Read-only migration path: this module upgrades
+// legacy `formatVersion: 1` (`PitchDeckSlide`) rows to V2 (`PitchDeckSlideV2`)
+// in memory for rendering/editing. Nothing here writes V1 back — every MCP
+// write tool in lib/mcp/tools/pitch-decks.ts hard-codes `formatVersion: 2`,
+// so V1 has no write path and exists only to be read and converted.
 import type { PitchDeckSlide, PitchDeckSlideV2, PitchDeckTheme } from '@/lib/db/schema';
 import type { Block } from '@/types/blocks';
 
