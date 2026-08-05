@@ -266,7 +266,13 @@ export const crmContracts = pgTable('crm_contracts', {
   voidedAt: timestamp('voided_at'),
   voidReason: text('void_reason'),
   createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
-  // E-signature provider integration (DropboxSign, future-proofed for swaps)
+  // E-signature provider integration (DropboxSign, future-proofed for swaps).
+  // This is a SECOND, independent signing flow from `status`/`clientToken`/
+  // `crmContractSigners` above: `send/route.ts` sends per-signer tokenized
+  // links and only ever touches `status`, while `send-for-signature/route.ts`
+  // hands the doc to DropboxSign as a single embedded signer and only ever
+  // touches `esignStatus`. The two state machines don't sync each other —
+  // sending via one path leaves the other's fields untouched.
   esignProvider: varchar('esign_provider', { length: 20 }), // 'dropboxsign' | null
   esignProviderRequestId: varchar('esign_provider_request_id', { length: 255 }),
   esignSignerEmail: varchar('esign_signer_email', { length: 255 }),
