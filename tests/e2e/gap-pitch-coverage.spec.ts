@@ -37,17 +37,16 @@ import { runCleanups, createTestWebsite } from './setup/helpers';
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
 
-// ── Shared fixture: one site + one designable product + one legacy `designs` row ──
-// The ai-image / ai-text routes use the *legacy* `designs` table (UUID pk),
-// not the newer `productDesigns` table. We seed a legacy design template
-// through the portal admin-designer setup API so we have a real UUID to hit.
+// ── Shared fixture: one site + one designable product ──
+// The legacy ai-image / ai-text coverage was removed with the legacy designer
+// (see vault ADR consolidate-on-product-designs-via-uuid); what remains here is
+// generate-thumbnail and designs/claim, both still live.
 
 test.describe.configure({ mode: 'serial' });
 
 // File-scoped state seeded in beforeAll.
 let siteId: number;
 let productId: number;
-let legacyDesignUuid: string; // UUID-format ID from the `designs` table
 const fileCleanups: Array<() => Promise<void>> = [];
 
 test.describe('Pitch — designs AI + thumbnail + claim gaps @gap @pitch', () => {
@@ -87,42 +86,7 @@ test.describe('Pitch — designs AI + thumbnail + claim gaps @gap @pitch', () =>
         .catch(() => {});
     });
 
-    // 4. Seed a legacy `designs` row via the admin-designer-setup API so the
-    //    ai-image / ai-text routes have a real UUID to reference.
-    //    The portal POST /api/portal/websites/[siteId]/store/design-assets
-    //    is for assets only. Instead use the storefront
-    //    POST /api/storefront/[siteId]/designs with ?templates=1 to create a
-    //    template via the portal admin.
-    //    Actually the cleanest path: create via portal admin-designer-setup
-    //    endpoint that stores to the `designs` table.
-    const adminDesignRes = await clientApi.post(
-      `/api/portal/websites/${siteId}/store/products/${productId}/design-surfaces`,
-      {
-        side: 'front',
-        label: 'Front',
-        imageUrl: 'https://example.com/mockup.png',
-        printableX: 0,
-        printableY: 0,
-        printableWidth: 400,
-        printableHeight: 400,
-      },
-    );
-    // design-surfaces is for sides; we need a designs row. Use the storefront
-    // template create path instead (portal staff can create templates).
-    // The route for creating a legacy `designs` row as a template is:
-    // POST /api/portal/websites/[siteId]/store/design-templates (if it exists)
-    // OR via the storefront POST /designs with a sessionId (creates an anonymous design).
-    // We'll use the storefront POST to create a real design row seeded by a
-    // browser context (so we get the session cookie + UUID back).
-    const anonCtx: APIRequestContext = await pwRequest.newContext({ baseURL: BASE_URL });
-    try {
-      const createRes = await anonCtx.post(`/api/storefront/${siteId}/designs`, {
-        data: {
-          productId,
-          name: 'E2E AI Test Design',
-          layers: [{ id: 'l1', type: 'text', text: 'AI Test', x: 10, y: 10 }],
-        },
-      });
+  });
       const createBody = await createRes.json() as {
         success: boolean;
         data?: { id: number; uuid: string; sessionId?: string };
@@ -143,7 +107,6 @@ test.describe('Pitch — designs AI + thumbnail + claim gaps @gap @pitch', () =>
       // the auth guards. For the 403 (auth) test we need a design that exists.
       // Since seeding a `designs` row requires portal-staff or the old designer,
       // we'll test the validation/guard paths that don't require an existing design.
-      legacyDesignUuid = createBody.data.uuid; // use this as a placeholder UUID
     } finally {
       await anonCtx.dispose();
     }
@@ -154,191 +117,6 @@ test.describe('Pitch — designs AI + thumbnail + claim gaps @gap @pitch', () =>
   });
 
   // ── Gap 1: /designs/[designId]/ai-image ──────────────────────────────────────
-
-  test.describe('ai-image @gap @pitch-ai-image', () => {
-    test('rejects invalid siteId with 400', async () => {
-      const ctx = await pwRequest.newContext({ baseURL: BASE_URL });
-      try {
-        const res = await ctx.post(`/api/storefront/not-a-number/designs/${legacyDesignUuid}/ai-image`, {
-          data: { prompt: 'a cat' },
-        });
-        expect(res.status()).toBe(400);
-        const body = await res.json() as { success: boolean; message: string };
-        expect(body.success).toBe(false);
-      } finally {
-        await ctx.dispose();
-      }
-    });
-
-    test('rejects missing prompt with 400', async ({ unauthApi }) => {
-      // Use a well-formed UUID that won't match a design — the route validates
-      // the prompt BEFORE it resolves the design (prompt check is first).
-      const fakeUuid = '00000000-0000-0000-0000-000000000001';
-      // We call via a raw context because unauthApi is a portal API client
-      // (cookie-based NextAuth) not a storefront context.
-      const ctx = await pwRequest.newContext({ baseURL: BASE_URL });
-      try {
-        const res = await ctx.post(`/api/storefront/${siteId}/designs/${fakeUuid}/ai-image`, {
-          data: { prompt: '' },
-        });
-        expect(res.status()).toBe(400);
-        const body = await res.json() as { success: boolean; message: string };
-        expect(body.success).toBe(false);
-        expect(body.message).toMatch(/prompt/i);
-      } finally {
-        await ctx.dispose();
-      }
-    });
-
-    test('rejects prompt over 1000 chars with 400', async () => {
-      const fakeUuid = '00000000-0000-0000-0000-000000000001';
-      const ctx = await pwRequest.newContext({ baseURL: BASE_URL });
-      try {
-        const longPrompt = 'a'.repeat(1001);
-        const res = await ctx.post(`/api/storefront/${siteId}/designs/${fakeUuid}/ai-image`, {
-          data: { prompt: longPrompt },
-        });
-        expect(res.status()).toBe(400);
-        const body = await res.json() as { success: boolean; message: string };
-        expect(body.success).toBe(false);
-        expect(body.message).toContain('1000');
-      } finally {
-        await ctx.dispose();
-      }
-    });
-
-    test('rejects bad designId format with 400', async () => {
-      const ctx = await pwRequest.newContext({ baseURL: BASE_URL });
-      try {
-        const res = await ctx.post(`/api/storefront/${siteId}/designs/not-a-valid-uuid/ai-image`, {
-          data: { prompt: 'a cat' },
-        });
-        // The route checks the UUID format AFTER verifyStore but BEFORE the
-        // design lookup — it returns 400 for a malformed UUID.
-        expect(res.status()).toBe(400);
-        const body = await res.json() as { success: boolean; message: string };
-        expect(body.success).toBe(false);
-        expect(body.message).toMatch(/design id/i);
-      } finally {
-        await ctx.dispose();
-      }
-    });
-
-    test('returns 404 for nonexistent design UUID', async () => {
-      const ctx = await pwRequest.newContext({ baseURL: BASE_URL });
-      try {
-        const nonExistentUuid = '11111111-2222-3333-4444-555555555555';
-        const res = await ctx.post(
-          `/api/storefront/${siteId}/designs/${nonExistentUuid}/ai-image`,
-          { data: { prompt: 'a cat', sessionId: 'fake-session' } },
-        );
-        expect(res.status()).toBe(404);
-        const body = await res.json() as { success: boolean; message: string };
-        expect(body.success).toBe(false);
-        expect(body.message).toMatch(/not found/i);
-      } finally {
-        await ctx.dispose();
-      }
-    });
-
-    // NOTE: The 201 success path requires a live OpenAI key and S3 — BLOCKED in CI.
-    // If a real design row existed AND AI was configured, the route would return 201.
-    // The 402/503 plan-gate / key-unavailable paths would fire after auth resolves,
-    // which we can't reach without a real `designs` row in the DB.
-  });
-
-  // ── Gap 2: /designs/[designId]/ai-text ───────────────────────────────────────
-
-  test.describe('ai-text @gap @pitch-ai-text', () => {
-    test('rejects invalid siteId with 400', async () => {
-      const ctx = await pwRequest.newContext({ baseURL: BASE_URL });
-      try {
-        const fakeUuid = '00000000-0000-0000-0000-000000000001';
-        const res = await ctx.post(
-          `/api/storefront/not-a-number/designs/${fakeUuid}/ai-text`,
-          { data: { prompt: 'funny dog' } },
-        );
-        expect(res.status()).toBe(400);
-        const body = await res.json() as { success: boolean; message: string };
-        expect(body.success).toBe(false);
-      } finally {
-        await ctx.dispose();
-      }
-    });
-
-    test('rejects missing prompt with 400', async () => {
-      const ctx = await pwRequest.newContext({ baseURL: BASE_URL });
-      try {
-        const fakeUuid = '00000000-0000-0000-0000-000000000001';
-        const res = await ctx.post(
-          `/api/storefront/${siteId}/designs/${fakeUuid}/ai-text`,
-          { data: { prompt: '' } },
-        );
-        expect(res.status()).toBe(400);
-        const body = await res.json() as { success: boolean; message: string };
-        expect(body.success).toBe(false);
-        expect(body.message).toMatch(/prompt|text/i);
-      } finally {
-        await ctx.dispose();
-      }
-    });
-
-    test('rejects prompt over 600 chars with 400', async () => {
-      const ctx = await pwRequest.newContext({ baseURL: BASE_URL });
-      try {
-        const fakeUuid = '00000000-0000-0000-0000-000000000001';
-        const longPrompt = 'b'.repeat(601);
-        const res = await ctx.post(
-          `/api/storefront/${siteId}/designs/${fakeUuid}/ai-text`,
-          { data: { prompt: longPrompt } },
-        );
-        expect(res.status()).toBe(400);
-        const body = await res.json() as { success: boolean; message: string };
-        expect(body.success).toBe(false);
-        expect(body.message).toContain('600');
-      } finally {
-        await ctx.dispose();
-      }
-    });
-
-    test('rejects bad designId format with 400', async () => {
-      const ctx = await pwRequest.newContext({ baseURL: BASE_URL });
-      try {
-        const res = await ctx.post(
-          `/api/storefront/${siteId}/designs/not-valid/ai-text`,
-          { data: { prompt: 'funny puns' } },
-        );
-        expect(res.status()).toBe(400);
-        const body = await res.json() as { success: boolean; message: string };
-        expect(body.success).toBe(false);
-        expect(body.message).toMatch(/design id/i);
-      } finally {
-        await ctx.dispose();
-      }
-    });
-
-    test('returns 404 for nonexistent design UUID', async () => {
-      const ctx = await pwRequest.newContext({ baseURL: BASE_URL });
-      try {
-        const nonExistentUuid = '11111111-2222-3333-4444-555555555556';
-        const res = await ctx.post(
-          `/api/storefront/${siteId}/designs/${nonExistentUuid}/ai-text`,
-          { data: { prompt: 'punny dog', sessionId: 'fake-session' } },
-        );
-        expect(res.status()).toBe(404);
-        const body = await res.json() as { success: boolean; message: string };
-        expect(body.success).toBe(false);
-        expect(body.message).toMatch(/not found/i);
-      } finally {
-        await ctx.dispose();
-      }
-    });
-
-    // NOTE: 201 success path blocked — requires live Anthropic key. The 402/503
-    // plan-gate / key paths would require a real `designs` row to reach.
-  });
-
-  // ── Gap 3: /designs/generate-thumbnail ───────────────────────────────────────
 
   test.describe('generate-thumbnail @gap @pitch-thumbnail', () => {
     test('rejects invalid siteId with 400', async () => {

@@ -5,7 +5,6 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { slugify } from '@/lib/publishing/slug';
 import MediaUploadModal from '@/components/admin/MediaUploadModal';
-import DesignSurfacesEditor from '@/components/portal/store/DesignSurfacesEditor';
 import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
 import { pBtnPrimary, pBtnGhost, pBtnSoft, pCard, pCardPad, pInput, pSelect, pSectionTitle, pChip } from '@/components/portal/portal-ui';
 
@@ -1375,7 +1374,6 @@ export default function ProductEditPage() {
               <p className="text-xs text-muted-foreground mb-3">
                 Each surface (front/back/sleeve…) defines the printable area. Customer-customizable products use these in the public designer; store-designed products use them for store-authored templates and fulfillment.
               </p>
-              <DesignSurfacesEditor productId={parseInt(productId)} siteId={siteId} />
             </div>
           )}
         </div>

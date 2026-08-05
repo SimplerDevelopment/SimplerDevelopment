@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { orders, orderItems, orderStatusHistory, easypostEvents, designs } from '@/lib/db/schema';
-import { and, eq, desc, isNull } from 'drizzle-orm';
+import { orders, orderItems, orderStatusHistory, easypostEvents, productDesigns } from '@/lib/db/schema';
+import { and, eq, desc, isNull, sql } from 'drizzle-orm';
 import { requireCustomer } from '@/lib/storefront/customer-auth';
 
 /**
@@ -39,14 +39,14 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ site
       quantity: orderItems.quantity,
       total: orderItems.total,
       createdAt: orderItems.createdAt,
-      designRowId: designs.id,
-      designName: designs.name,
-      designThumbnailUrl: designs.thumbnailUrl,
+      designRowId: productDesigns.id,
+      designName: productDesigns.name,
+      designThumbnailUrl: productDesigns.thumbnailUrl,
     })
       .from(orderItems)
-      .leftJoin(designs, and(
-        eq(designs.id, orderItems.designId),
-      ))
+      // orderItems.designId is a pg uuid holding productDesigns.uuid, so the
+      // join casts to text — see the portal order route for the same pattern.
+      .leftJoin(productDesigns, sql`${productDesigns.uuid} = ${orderItems.designId}::text`)
       .where(eq(orderItems.orderId, order.id)),
     db.select().from(orderStatusHistory).where(eq(orderStatusHistory.orderId, order.id)).orderBy(desc(orderStatusHistory.createdAt)),
     db.select({

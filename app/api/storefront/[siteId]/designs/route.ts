@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { db } from '@/lib/db';
-import { storeSettings, products, designs, productDesigns } from '@/lib/db/schema';
+import { storeSettings, products, productDesigns } from '@/lib/db/schema';
 import { and, desc, eq, isNull } from 'drizzle-orm';
 import { isPortalStaffWithSiteAccess } from '@/lib/storefront/portal-staff-auth';
 import {
@@ -22,7 +22,7 @@ async function verifyStore(websiteId: number) {
 // or Bearer token. Returns [] (not 404) when no match — the client expects
 // { success: true, data: [...] } and handles an empty list.
 //
-// Legacy path: ?templates=1 still reads from the `designs` table (site-wide
+// ?templates=1 lists site-wide reusable templates (
 // reusable templates seeded by staff).
 export async function GET(
   req: NextRequest,
@@ -44,20 +44,22 @@ export async function GET(
     const qProductId = url.searchParams.get('productId');
     const qTemplates = url.searchParams.get('templates'); // "1" → site-wide templates (legacy)
 
-    // Templates are site-wide reusable designs — served from legacy `designs` table.
+    // Site-wide reusable templates. Repointed from the retired legacy `designs`
+    // table onto productDesigns, which carries the same isTemplate flag.
     if (qTemplates === '1') {
       const templateConditions = [
-        eq(designs.websiteId, websiteId),
-        eq(designs.isTemplate, true),
+        eq(productDesigns.websiteId, websiteId),
+        eq(productDesigns.isTemplate, true),
+        isNull(productDesigns.deletedAt),
       ];
       if (qProductId) {
         const pid = parseInt(qProductId, 10);
-        if (!isNaN(pid)) templateConditions.push(eq(designs.productId, pid));
+        if (!isNaN(pid)) templateConditions.push(eq(productDesigns.productId, pid));
       }
       const rows = await db.select()
-        .from(designs)
+        .from(productDesigns)
         .where(and(...templateConditions))
-        .orderBy(desc(designs.updatedAt))
+        .orderBy(desc(productDesigns.updatedAt))
         .limit(50);
       return NextResponse.json({ success: true, data: rows });
     }
