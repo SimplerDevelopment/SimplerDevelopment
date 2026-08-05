@@ -59,6 +59,20 @@ fallow-baselines/
 drizzle/meta/
 .file-budget.baseline.json
 
+# Scraped source content for one-off site migrations. Gitignored, and the single
+# biggest thing in the graph: 881 JSON files of harvested contentHtml, ~27 nodes
+# each — 23,551 nodes, 57% of the whole graph, and 83% of everything outside the
+# main connected component.
+#
+# Bulk data fragments a graph rather than connecting it. Every key becomes a node
+# whose only edge is to its parent document, so it lands as thousands of
+# 1-3 node islands and drags the median degree to 1. The migration *scripts* stay
+# indexed — they are code. Only their scraped payload goes.
+scripts/migrations/**/data/
+
+# Local tool cache.
+.impeccable/
+
 # Throwaway QA capture dirs. These are per-run screenshot artefacts, not
 # architecture, and vision extraction over ~1,300 of them is pure cost.
 .qa-tmp-*/
