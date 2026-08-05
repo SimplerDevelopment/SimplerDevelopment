@@ -54,7 +54,6 @@ interface ProductForm {
   description: string;
   status: string;
   featured: boolean;
-  isDesignable: boolean;
   designMode: ProductDesignMode;
   metadata: Record<string, string>;
   designable: boolean;
@@ -182,11 +181,11 @@ function normalizeMetadata(value: unknown): Record<string, string> {
   return out;
 }
 
-function resolveDesignMode(product: { isDesignable?: boolean; metadata?: unknown }): ProductDesignMode {
+function resolveDesignMode(product: { designable?: boolean; metadata?: unknown }): ProductDesignMode {
   const metadata = normalizeMetadata(product.metadata);
   const raw = metadata.productDesignMode;
   if (raw === 'standard' || raw === 'store' || raw === 'customer') return raw;
-  if (product.isDesignable) return 'customer';
+  if (product.designable) return 'customer';
   if (metadata.storeDesignId) {
     return 'store';
   }
@@ -200,7 +199,6 @@ const defaultForm: ProductForm = {
   description: '',
   status: 'draft',
   featured: false,
-  isDesignable: false,
   designMode: 'standard',
   metadata: {},
   designable: false,
@@ -273,10 +271,9 @@ export default function ProductEditPage() {
             description: p.description || '',
             status: p.status || 'draft',
             featured: p.featured || false,
-            isDesignable: designMode === 'customer',
+            designable: designMode === 'customer',
             designMode,
             metadata,
-            designable: p.designable || false,
             priceCents: moneyToCents(p.priceCents ?? p.price),
             compareAtPriceCents: moneyToCents(p.compareAtPriceCents ?? p.compareAtPrice),
             costPriceCents: moneyToCents(p.costPriceCents ?? p.costPrice),
@@ -314,11 +311,11 @@ export default function ProductEditPage() {
 
   const setDesignMode = async (mode: ProductDesignMode) => {
     const metadata = { ...form.metadata, productDesignMode: mode };
-    const isDesignable = mode === 'customer';
+    const designable = mode === 'customer';
     setForm((prev) => ({
       ...prev,
       designMode: mode,
-      isDesignable,
+      designable,
       metadata,
     }));
     setError('');
@@ -328,7 +325,7 @@ export default function ProductEditPage() {
         await fetch(`${base}/products/${productId}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ isDesignable, metadata }),
+          body: JSON.stringify({ designable, metadata }),
         });
       } catch {
         // Non-fatal. A later full save will surface any persistent issue.
@@ -475,7 +472,7 @@ export default function ProductEditPage() {
         alt: img.altText || null,
         order: idx,
       })),
-      isDesignable: form.designMode === 'customer',
+      designable: form.designMode === 'customer',
       metadata: {
         ...form.metadata,
         productDesignMode: form.designMode,
@@ -669,32 +666,6 @@ export default function ProductEditPage() {
                   />
                 </button>
                 <span className="text-sm text-muted-foreground">{form.featured ? 'Yes' : 'No'}</span>
-              </div>
-            </div>
-          </div>
-          <div className="space-y-1.5 pt-2 border-t border-border">
-            <label className="text-sm font-medium text-foreground">Customer-designable product</label>
-            <div className="flex items-start gap-3 pt-1.5">
-              <button
-                type="button"
-                onClick={() => updateField('designable', !form.designable)}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors flex-shrink-0 ${
-                  form.designable ? 'bg-primary' : 'bg-border'
-                }`}
-              >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    form.designable ? 'translate-x-6' : 'translate-x-1'
-                  }`}
-                />
-              </button>
-              <div className="flex-1">
-                <span className="text-sm text-muted-foreground block">
-                  {form.designable ? 'Enabled' : 'Disabled'}
-                </span>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Lets customers create their own design on this product. Set up styles &amp; sides in the Designer tab.
-                </p>
               </div>
             </div>
           </div>

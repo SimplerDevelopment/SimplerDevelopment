@@ -66,13 +66,12 @@ export default async function PortalDesignerEntryPage({ params }: PageProps) {
   if (!site) notFound();
 
   // Resolve the product on the user's website. Widened to include the
-  // designable/isDesignable so either flag opens the Print Designer.
+  // designable — the single flag that opens the Print Designer.
   const [product] = await db
     .select({
       id: products.id,
       slug: products.slug,
       designable: products.designable,
-      isDesignable: products.isDesignable,
       metadata: products.metadata,
     })
     .from(products)
@@ -90,7 +89,6 @@ export default async function PortalDesignerEntryPage({ params }: PageProps) {
   // Always the Print Designer. The legacy designer was retired once the cart
   // moved onto product_designs — see vault ADR
   // consolidate-on-product-designs-via-uuid. Both `designable` and the older
-  // `isDesignable` flag route here now, so a product flagged either way opens
   // the editor rather than 404ing on the deleted /designer/ route.
   redirect(`/sites/${host}/design/${product.slug}?staff=1`);
 }

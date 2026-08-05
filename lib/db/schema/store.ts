@@ -117,7 +117,6 @@ export const products = pgTable('products', {
   heightIn: numeric('height_in', { precision: 8, scale: 2 }),
   status: varchar('status', { length: 20 }).default('draft').notNull(), // draft, active, archived
   featured: boolean('featured').default(false).notNull(),
-  isDesignable: boolean('is_designable').default(false).notNull(),
   // Printful catalog variant ID — used when the product has no variants.
   // Maps this product to a specific Printful catalog item for POD fulfillment.
   printfulVariantId: integer('printful_variant_id'),

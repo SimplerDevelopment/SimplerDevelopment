@@ -118,7 +118,7 @@ export async function POST(
   const {
     name, slug, description, shortDescription, price, compareAtPrice, costPrice,
     sku, barcode, trackInventory, quantity, weight, weightUnit, status,
-    featured, categoryId, tags, seoTitle, seoDescription, images, isDesignable,
+    featured, categoryId, tags, seoTitle, seoDescription, images,
     designable, metadata,
   } = body;
 
@@ -177,7 +177,6 @@ export async function POST(
       weightUnit: weightUnit || 'g',
       status: status || 'draft',
       featured: featured ?? false,
-      isDesignable: isDesignable ?? false,
       designable: designable ?? false,
       categoryId: categoryId ? parseInt(String(categoryId)) : null,
       tags: tags || [],

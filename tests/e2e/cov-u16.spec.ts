@@ -33,9 +33,7 @@ async function enableStore(
   });
 }
 
-/** Create a designable product on a site.
- *  Pass isDesignable=true for the legacy `designs` table path (finalize / save-as-template).
- *  Pass designable=true for the new `productDesigns` table path (clone). */
+/** Create a designable product on a site. */
 async function createDesignableProduct(
   api: {
     post: (
@@ -45,7 +43,7 @@ async function createDesignableProduct(
     delete: (url: string) => Promise<unknown>;
   },
   siteId: number,
-  flags: { isDesignable?: boolean; designable?: boolean } = { designable: true },
+  flags: { designable?: boolean } = { designable: true },
 ): Promise<{ productId: number; cleanup: () => Promise<void> }> {
   const ts = Date.now();
   const slug = `e2e-u16-${ts}`;

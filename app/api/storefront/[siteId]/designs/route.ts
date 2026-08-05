@@ -154,7 +154,7 @@ export async function POST(
     if (!product) {
       return NextResponse.json({ success: false, message: 'Product not found' }, { status: 404 });
     }
-    if (!product.isDesignable && !product.designable) {
+    if (!product.designable) {
       return NextResponse.json({ success: false, message: 'Product is not designable' }, { status: 400 });
     }
 
