@@ -7,7 +7,8 @@
  * so `scripts/test.sh --layer=integration --tag=tenancy` (alias
  * `bun test:tenancy`) picks it up.
  *
- * What this spec asserts (see .planning/plugin-registry-spec.md "Trust model"):
+ * What this spec asserts (originally keyed off .planning/plugin-registry-spec.md
+ * "Trust model", removed pre-OSS-release):
  *
  *   1. Happy path                      → 200, ctx.client filters by clientA
  *   2. Wrong-client JWT                → 403 tenancy violation

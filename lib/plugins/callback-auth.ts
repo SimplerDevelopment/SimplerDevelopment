@@ -5,7 +5,8 @@
 // portal minted a 60s JWT, the plugin echoed it back here, and we re-verify
 // EVERY claim against the DB before letting any handler run.
 //
-// Order is load-bearing (see .planning/plugin-registry-spec.md "Trust model"):
+// Order is load-bearing (originally specified in .planning/plugin-registry-spec.md
+// "Trust model", removed pre-OSS-release — this comment is now the source of truth):
 //   1. Extract `Authorization: Bearer <jwt>`           → 401 unauthorized
 //   2. Verify signature + issuer + audience + expiry  → 401 with reason
 //   3. Validate `Origin` against `app.hostUrl`         → 403 forbidden
@@ -59,8 +60,9 @@ export type CallbackAuthResult =
   | { ok: true; ctx: CallbackContext }
   | { ok: false; status: number; code: string; message: string };
 
-// Error codes match the envelope vocabulary in
-// .planning/plugin-registry-spec.md §"Callback envelope".
+// Error codes match the envelope vocabulary produced by ok()/fail() in
+// lib/plugins/handlers/types.ts (originally specified in
+// .planning/plugin-registry-spec.md §"Callback envelope", removed pre-OSS-release).
 const CODE_UNAUTHORIZED = 'unauthorized';
 const CODE_FORBIDDEN = 'forbidden';
 const CODE_REPLAY = 'replay';

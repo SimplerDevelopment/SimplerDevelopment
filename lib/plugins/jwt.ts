@@ -10,7 +10,8 @@
 // `retiring` keys verify; `revoked` keys do not. Mint always uses an `active`
 // key. The raw HMAC secret is stored AES-GCM-encrypted via lib/plugins/kms.ts.
 //
-// Verification MUST (per .planning/plugin-registry-spec.md "JWT contract"):
+// Verification MUST (spec was .planning/plugin-registry-spec.md, removed
+// pre-OSS-release — this list is now authoritative):
 //   - reject any algorithm other than HS256 (no `alg: none`, no asymmetric)
 //   - reject if iss !== 'simplerdev-portal'
 //   - reject if aud !== <expectedAud>
