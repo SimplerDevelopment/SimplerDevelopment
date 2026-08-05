@@ -40,6 +40,67 @@ cd "$ROOT"
 rm -rf coverage/
 mkdir -p coverage/.v8-server coverage/.v8-client coverage/.v8-merged coverage/vitest
 
+# ── E2E database target guard ───────────────────────────────────────────
+# MUST run before the DB prep below. `reset-e2e-db.ts` drops and recreates, and
+# `seed-admin-e2e.ts` writes — and both resolve DATABASE_URL themselves via
+# dotenv injection from .env, which in this repo is a REMOTE Railway URL.
+#
+# Checking only the ambient $DATABASE_URL would be theatre: the shell usually
+# has it unset, so the check passes and the child then injects the remote value
+# anyway. That is exactly how a @critical run on 2026-08-05 came to issue eight
+# INSERTs against a Railway database from cov-u11.spec.ts.
+#
+# So: resolve the value the children will actually see (shell > .env.local >
+# .env), refuse a remote host, then EXPORT it — every child (tsx, playwright,
+# and the 28 e2e specs that shell out to raw `psql "$DATABASE_URL"`) inherits
+# one vetted target instead of resolving its own.
+#
+# A local *dev* DB is legitimate here: e2e specs write targeted fixture rows
+# rather than truncating, which is why the integration layer's stricter
+# "name must contain test" rule is deliberately not reused.
+read_env_var() {  # $1=file  $2=key
+  [[ -f "$1" ]] || return 0
+  local line
+  line="$(grep -aE "^$2=" "$1" | head -1)"
+  [[ -z "$line" ]] && return 0
+  line="${line#*=}"
+  line="${line%\"}"; line="${line#\"}"
+  line="${line%\'}"; line="${line#\'}"
+  printf '%s' "$line"
+}
+
+if [[ "$LAYER" == "all" || "$LAYER" == "e2e" ]]; then
+  E2E_DB_URL="${DATABASE_URL:-}"
+  [[ -z "$E2E_DB_URL" ]] && E2E_DB_URL="$(read_env_var "$ROOT/.env.local" DATABASE_URL)"
+  [[ -z "$E2E_DB_URL" ]] && E2E_DB_URL="$(read_env_var "$ROOT/.env" DATABASE_URL)"
+
+  if [[ -n "$E2E_DB_URL" && "${ALLOW_REMOTE_DB:-0}" != "1" ]]; then
+    E2E_DB_HOST="${E2E_DB_URL#*://}"   # strip scheme
+    E2E_DB_HOST="${E2E_DB_HOST#*@}"    # strip credentials
+    E2E_DB_HOST="${E2E_DB_HOST%%/*}"   # strip /dbname
+    E2E_DB_HOST="${E2E_DB_HOST%%:*}"   # strip :port
+    E2E_DB_NAME="${E2E_DB_URL##*/}"
+    E2E_DB_NAME="${E2E_DB_NAME%%\?*}"
+    case "$E2E_DB_HOST" in
+      localhost|127.0.0.1|::1|host.docker.internal|"") ;;
+      *)
+        if [[ "$E2E_DB_NAME" != *test* ]]; then
+          echo "✖ e2e: refusing to run against remote database host '${E2E_DB_HOST}'." >&2
+          echo "  The e2e layer resets/seeds the database and its specs write fixture" >&2
+          echo "  rows via psql. Pointing that at a remote host writes to someone" >&2
+          echo "  else's environment." >&2
+          echo "  Use a local DB (.env.local pins localhost), or override only if you" >&2
+          echo "  are certain: ALLOW_REMOTE_DB=1 $0 ..." >&2
+          exit 1
+        fi
+        ;;
+    esac
+  fi
+
+  # Pin it so no child re-resolves .env and lands somewhere else.
+  [[ -n "$E2E_DB_URL" ]] && export DATABASE_URL="$E2E_DB_URL"
+fi
+
 # ── DB prep ─────────────────────────────────────────────────────────────
 if [[ "$RESET_DB" == "1" ]]; then
   echo ">> resetting E2E database"
