@@ -807,7 +807,10 @@ export function registerKanbanTools(server: McpServer, ctx: PortalMcpContext): v
       if (!card) return json({ error: 'Card not found' });
       const [blocker] = await db.select().from(kanbanCards).where(eq(kanbanCards.id, blockerCardId)).limit(1);
       if (!blocker || blocker.projectId !== card.projectId) return json({ error: 'Blocker must be in the same project' });
-      // Reject direct reciprocal cycle
+      // Reject direct reciprocal cycle. This only catches an immediate A<->B
+      // pair — NOT general graph cycles. A longer chain (A blocks B, B blocks
+      // C, C blocks A) sails through undetected, and kanbanCardDependencies
+      // has no DB-level cycle constraint either.
       const [reciprocal] = await db.select().from(kanbanCardDependencies)
         .where(and(
           eq(kanbanCardDependencies.blockedCardId, blockerCardId),

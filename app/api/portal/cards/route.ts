@@ -99,6 +99,14 @@ export async function POST(req: Request) {
 
   const existing = await db.select({ id: kanbanCards.id }).from(kanbanCards).where(eq(kanbanCards.columnId, columnId));
 
+  // SELECT-max-then-INSERT, unguarded by a transaction, lock, or unique
+  // constraint (kanbanCards.number has none). Concurrent creates in the same
+  // project can compute the same nextNumber and both commit — the same
+  // unresolved race as the ticket-number allocators (see the comment in
+  // app/api/portal/tickets/route.ts). Note most other card-creation paths
+  // (kanban_create_card, brain task promotion, workflow runtime) don't set
+  // `number` at all and leave it null — this route and the recurrence
+  // processor are the only two that populate it.
   const [{ max }] = await db
     .select({ max: sql<number | null>`MAX(${kanbanCards.number})` })
     .from(kanbanCards)

@@ -8,6 +8,13 @@
  * close the v0 helpdesk gap, not to ship a Zendesk clone.
  *
  * TODO: escalation rules, business-hours, per-tenant SLA overrides.
+ *
+ * Deadlines are computed once, at create time, and never revisited:
+ * tickets_update (lib/mcp/tools/tickets.ts) allows changing priority after
+ * creation but does not recall computeSlaDeadlines, so firstResponseDueAt /
+ * resolutionDueAt keep reflecting the ticket's ORIGINAL priority. The REST
+ * PATCH route (app/api/portal/tickets/[id]/route.ts) sidesteps this by not
+ * accepting priority at all.
  */
 
 export type TicketPriority = 'urgent' | 'high' | 'medium' | 'low';

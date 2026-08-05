@@ -94,6 +94,13 @@ export const kanbanCards = pgTable('kanban_cards', {
   // to physical columns (e.g. parallel review/qa columns that all = in_review).
   storyPoints: integer('story_points'),
   cardType: varchar('card_type', { length: 20 }).default('task').notNull(), // task, story, epic, bug, spike
+  // No FK to kanbanCards.id. A self-referencing FK is achievable in this
+  // Drizzle version (see agentFlowRuns.parentRunId in agentFlows.ts for the
+  // `(): AnyPgColumn => table.col` pattern) — this column predates that and
+  // was never retrofitted. Consequence: kanban_delete_card does not clear or
+  // cascade children's parentCardId, so deleting an epic/story leaves its
+  // children pointing at a now-nonexistent id with nothing at the DB layer
+  // to catch it.
   parentCardId: integer('parent_card_id'),
   workflowState: varchar('workflow_state', { length: 20 }).default('todo').notNull(), // todo, in_progress, in_review, done, canceled
   // Publishing Command Center — when this card lives on a system_kind='publishing'
