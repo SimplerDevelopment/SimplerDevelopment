@@ -1,5 +1,10 @@
 import { cookies } from 'next/headers';
 
+// Portal session tenant identity (the `sd-active-client` cookie), used
+// throughout app/portal/. Not to be confused with lib/publishing/active-client.ts,
+// a same-named but unrelated helper scoped to the Publishing Command Center —
+// it resolves the acting client via getPortalClient(userId), not this cookie.
+
 const COOKIE_NAME = 'sd-active-client';
 
 /**
