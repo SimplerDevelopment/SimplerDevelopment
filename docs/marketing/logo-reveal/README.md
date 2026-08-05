@@ -46,16 +46,16 @@ the export — deterministic seek-and-snap, no dropped frames:
 # one audio bed: voice + the ding at DINGT, padded to the render duration
 ffmpeg -y -i voice.wav -i ding.wav \
   -filter_complex "[1:a]adelay=2450|2450[d];[0:a][d]amix=inputs=2:duration=longest:normalize=0,apad[a]" \
-  -map "[a]" -t 3.65 -ac 1 -ar 48000 -sample_fmt s16 mixdown.wav
+  -map "[a]" -t 3.55 -ac 1 -ar 48000 -sample_fmt s16 mixdown.wav
 
 node ../../../.claude/skills/sd-create-short/scripts/render.mjs \
   --html index.html --out /tmp/logo-reveal-render --audio mixdown.wav
 ```
 
 `adelay` and `-t` must match `DINGT` and `RENDER_DUR` in `build_html.py`.
-`RENDER_DUR` is derived from the ding's own length, because the bell rings ~1.2 s
+`RENDER_DUR` is derived from the ding's own length, because the music box rings ~1.1 s
 and would otherwise be cut mid-decay: the visual beats end at `TOTAL` (3.2 s) but
-the render runs to 3.65 s.
+the render runs to 3.55 s.
 
 Asset regeneration (only needed if the logo/dings change):
 
@@ -64,10 +64,17 @@ curl -sLo iconLogo.png https://www.simplerdevelopment.com/iconLogo.png
 ffmpeg -y -i iconLogo.png -vf "format=rgba,alphaextract" -f rawvideo -pix_fmt gray alpha128.raw
 uv run --with numpy python3 make_assets.py   # decompose logo -> icon_brackets.png + icon_stars.png
 uv run --with numpy python3 gen_dings.py     # 4 ding candidates + dings.html audition page
-cp ding3_warmbell.wav ding.wav               # warm bell was the chosen default
+cp ding1_musicbox.wav ding.wav               # music box is the chosen ding (see note below)
 ```
 
-## Choreography (3.2 s of beats, 3.65 s rendered, on take-1.wav)
+> **Which ding is canonical: `ding1_musicbox`.** The `ding*.wav` files are
+> generated and gitignored, so nothing in the tree records which one was picked
+> — and the rendered MP4 drifted to `ding3_warmbell` at some point without the
+> README being updated. If you need to identify the ding in a rendered file,
+> the fundamentals are distinctive: musicbox 1047 Hz (C6), chime 1319 Hz (E6),
+> warm bell 880 Hz (A5), celesta a 1047/1319/1568 arpeggio.
+
+## Choreography (3.2 s of beats, 3.55 s rendered, on take-1.wav)
 
 The line is read **"Simpler [pause] Development"**:
 
@@ -77,7 +84,7 @@ The line is read **"Simpler [pause] Development"**:
 | "Simpler" un-wipes | 0.20 s | the vocal attack |
 | *(hold)* | 1.50–2.04 s | the 0.54 s pause |
 | "Development" snaps in with overshoot | 2.07 s | its punch (0.898) |
-| sparkles + warm-bell ding | 2.45 s | just before speech ends at 2.55 |
+| sparkles + music-box ding | 2.45 s | just before speech ends at 2.55 |
 
 Two things worth knowing before retiming to a different take:
 
