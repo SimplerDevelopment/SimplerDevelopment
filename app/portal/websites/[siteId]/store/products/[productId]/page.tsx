@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { slugify } from '@/lib/publishing/slug';
 import MediaUploadModal from '@/components/admin/MediaUploadModal';
 import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { PrintfulFulfillmentPanel } from '@/components/portal/store/PrintfulFulfillmentPanel';
 import { pBtnPrimary, pBtnGhost, pBtnSoft, pCard, pCardPad, pInput, pSelect, pSectionTitle, pChip } from '@/components/portal/portal-ui';
 
 interface ProductImage {
@@ -806,36 +807,11 @@ export default function ProductEditPage() {
 
       {/* Print Tab */}
       {activeTab === 'print' && (
-        <div className="rounded-2xl border border-border bg-card p-6 space-y-4">
-          <h2 className={`${pSectionTitle} flex items-center gap-2`}>
-            <span className="material-icons text-lg text-muted-foreground">print</span>
-            Fulfillment
-          </h2>
-          {form.variants.length === 0 ? (
-            <div className="space-y-1.5 max-w-xs">
-              <label className="text-sm font-medium text-foreground">Printful Variant ID</label>
-              <input
-                type="number"
-                min="1"
-                value={form.printfulVariantId ?? ''}
-                onChange={(e) =>
-                  updateField('printfulVariantId', e.target.value ? parseInt(e.target.value) : null)
-                }
-                placeholder="e.g. 4012"
-                className={pInput}
-              />
-              <p className="text-xs text-muted-foreground">
-                Printful catalog variant ID — find this in Printful&apos;s Product Catalog. Required for automatic print-on-demand fulfillment via Printful.
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">
-                Set the Printful Variant ID per variant in the Options &amp; Variants section below. Required for automatic print-on-demand fulfillment via Printful.
-              </p>
-            </div>
-          )}
-        </div>
+        <PrintfulFulfillmentPanel
+          variants={form.variants}
+          productPrintfulVariantId={form.printfulVariantId}
+          onProductPrintfulVariantIdChange={(v) => updateField('printfulVariantId', v)}
+        />
       )}
 
       {/* Images Tab */}
@@ -1231,7 +1207,16 @@ export default function ProductEditPage() {
                             )
                           }
                           placeholder="—"
-                          className="w-20 rounded-lg border border-border bg-card px-2 py-1.5 text-xs text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
+                          title={
+                            variant.active && !variant.printfulVariantId
+                              ? 'No Printful ID — this variant cannot be fulfilled by Printful'
+                              : undefined
+                          }
+                          className={`w-20 rounded-lg border bg-card px-2 py-1.5 text-xs text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 ${
+                            variant.active && !variant.printfulVariantId
+                              ? 'border-amber-500/60'
+                              : 'border-border'
+                          }`}
                         />
                       </td>
                       <td className="px-3 py-2">
