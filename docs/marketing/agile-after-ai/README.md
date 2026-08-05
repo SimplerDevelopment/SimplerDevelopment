@@ -44,10 +44,13 @@ sound on its own.** A clip plays only from a click, or — once *Auto* has been 
 on by hand — as the continuous run advances. `Auto` and mute both persist in
 `localStorage`, and even a persisted `Auto` waits for a gesture before the first play.
 
+The nine live clips run 83–118s each and total ~7 MB, hosted in the portal media
+library (rows 440–448 on site 241) and served same-origin from `/api/media/proxy/…`.
+
 ### Regenerating the clips
 
 ```bash
-nlm login                    # NotebookLM tokens expire; do this first
+nlm login                    # NotebookLM tokens expire mid-session; expect to redo this
 ```
 
 Then, per slide: create a NotebookLM notebook, add each section's text as its own
@@ -60,6 +63,18 @@ the returned URLs into the manifest and rebuild.
 
 Section text for the sources is derived from `index.src.html`, so it never drifts from
 the published prose — re-extract it rather than keeping a second copy.
+
+Three things that will bite on a rerun:
+
+- **NotebookLM hands back `.m4a`, which the portal rejects.** The media allow-list is
+  `audio/mpeg`, `audio/ogg`, `audio/wav` only. Transcode first —
+  `ffmpeg -i in.m4a -ac 1 -b:a 64k out.mp3` is transparent for speech and cuts ~3.5 MB
+  to under 1 MB.
+- **Artifact status is useless as a readiness signal.** The API reports `unknown` for
+  both *generating* and *finished*. Infer readiness from a download that succeeds and
+  returns a plausibly-sized file.
+- **A generation can fail silently** — it just never becomes downloadable. One of the
+  nine did. Give it a ceiling and regenerate rather than polling forever.
 
 ## Constraints worth knowing
 

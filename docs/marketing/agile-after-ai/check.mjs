@@ -38,13 +38,13 @@ function silentWav(seconds = 6, rate = 8000) {
 const stubs = [join(DIR, '_stub.wav'), join(DIR, '_test.html')];
 await writeFile(stubs[0], silentWav());
 const built = await readFile(join(DIR, 'index.html'), 'utf8');
+/* Stub every entry, wired or not — this checks the transport, not the clips,
+   and the real URLs point at a media proxy this server cannot serve. */
 const stubbed = built.replace(
-  new RegExp(`"(${SLIDES.join('|')})":\\s*null`, 'g'), '"$1": "_stub.wav"',
+  new RegExp(`"(${SLIDES.join('|')})":\\s*(?:null|"[^"]*")`, 'g'), '"$1": "_stub.wav"',
 );
-assert.equal(
-  (stubbed.match(/_stub\.wav/g) || []).length + (built.match(/"https?:[^"]*"/g) || []).length >= SLIDES.length,
-  true, 'every slide needs a manifest entry to stub',
-);
+assert.equal((stubbed.match(/_stub\.wav/g) || []).length, SLIDES.length,
+  'every slide needs a manifest entry to stub');
 await writeFile(stubs[1], stubbed);
 
 const MIME = { '.html': 'text/html', '.wav': 'audio/wav', '.js': 'text/javascript', '.css': 'text/css' };
