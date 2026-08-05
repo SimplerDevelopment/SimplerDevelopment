@@ -42,9 +42,32 @@ ALTER TABLE "mcp_pending_changes" ADD COLUMN IF NOT EXISTS "credential_kind" var
 ALTER TABLE "mcp_approval_links"  ADD COLUMN IF NOT EXISTS "credential_kind" varchar(20);
 ALTER TABLE "mcp_tool_calls"      ADD COLUMN IF NOT EXISTS "credential_kind" varchar(20);
 
-ALTER TABLE "mcp_pending_changes" DROP CONSTRAINT IF EXISTS "mcp_pending_changes_key_id_portal_api_keys_id_fk";
-ALTER TABLE "mcp_approval_links"  DROP CONSTRAINT IF EXISTS "mcp_approval_links_key_id_portal_api_keys_id_fk";
-ALTER TABLE "mcp_tool_calls"      DROP CONSTRAINT IF EXISTS "mcp_tool_calls_api_key_id_portal_api_keys_id_fk";
+-- Drop by LOOKUP, not by name. The constraint names diverge by environment:
+-- drizzle generates `<table>_<col>_portal_api_keys_id_fk`, but metro (created via
+-- an older hand-applied path) carries the Postgres defaults
+-- `mcp_approval_links_key_id_fkey` and `mcp_tool_calls_api_key_id_fkey`. A
+-- hard-coded DROP CONSTRAINT IF EXISTS would have silently no-oped on two of the
+-- three tables in production — the precise failure mode this migration exists to
+-- remove. Resolve them from the catalogue instead.
+DO $$
+DECLARE
+  r record;
+BEGIN
+  FOR r IN
+    SELECT c.conrelid AS tbl, c.conname
+      FROM pg_constraint c
+     WHERE c.contype = 'f'
+       AND c.confrelid = 'portal_api_keys'::regclass
+       AND c.conrelid IN (
+             'mcp_pending_changes'::regclass,
+             'mcp_approval_links'::regclass,
+             'mcp_tool_calls'::regclass
+           )
+  LOOP
+    EXECUTE format('ALTER TABLE %s DROP CONSTRAINT %I', r.tbl::regclass, r.conname);
+    RAISE NOTICE 'QAD-048: dropped FK % on %', r.conname, r.tbl::regclass;
+  END LOOP;
+END $$;
 
 -- Self-verification. A DROP CONSTRAINT IF EXISTS against a name that never
 -- matched is a silent no-op — exactly the "control that looks applied and
