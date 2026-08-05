@@ -88,7 +88,9 @@ export default async function PortalDesignerEntryPage({ params }: PageProps) {
 
   // Always the Print Designer. The legacy designer was retired once the cart
   // moved onto product_designs — see vault ADR
-  // consolidate-on-product-designs-via-uuid. Both `designable` and the older
-  // the editor rather than 404ing on the deleted /designer/ route.
+  // consolidate-on-product-designs-via-uuid. `isDesignable`, the flag that used
+  // to route here to the legacy editor, was folded into `designable` and
+  // dropped (migration 9019, "collapse the two designable flags into one") —
+  // so this is the only destination now.
   redirect(`/sites/${host}/design/${product.slug}?staff=1`);
 }

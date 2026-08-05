@@ -4,6 +4,10 @@ import { pgTable, serial, varchar, text, timestamp, boolean, integer, json, json
 import { users } from './auth';
 import { clientWebsites, clients } from './sites';
 
+// clientId-scoped (not websiteId): this is the platform's OWN billing —
+// the card the agency charges the client's account. It has no connection to
+// storefront customer checkout, which never stores a card (Stripe PaymentIntent
+// only). Don't reach for this table when working on store checkout.
 export const paymentMethods = pgTable('payment_methods', {
   id: serial('id').primaryKey(),
   clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
