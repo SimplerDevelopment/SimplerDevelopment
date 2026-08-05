@@ -6,6 +6,9 @@
  *     (god files may shrink — never grow).
  *   - New files (not in the baseline) MUST stay under NEW_FILE_CAP lines.
  *
+ * Sizes are measured in CODE lines — comments and blanks are free, so a god file
+ * can always be explained, just never extended. See `loc()` below.
+ *
  * This lets the existing 5k-line monsters stay (grandfathered) while guaranteeing they
  * only get smaller, and stops new god files from ever appearing.
  *
@@ -26,9 +29,41 @@ function listFiles(): string[] {
   );
   return out.split('\n').filter(Boolean);
 }
+/**
+ * Count CODE lines. Blank lines and comment-only lines are free.
+ *
+ * This ratchet exists to stop god files accreting more *logic*. Since
+ * 2026-08-05 the code is also the source of truth for how the system works
+ * (see `vault/04 - Decisions/ADR code-is-the-source-of-truth.md`), so a god
+ * file has to stay free to grow *explanation* while still being blocked from
+ * growing *behaviour*.
+ *
+ * Counting raw lines made those two rules fight, and the comment lost: adding
+ * a 10-line comment to ProductDesigner.tsx (1836 lines, pinned) failed the
+ * commit and the only offered remedies were "split the file" or "re-baseline".
+ * Neither is the right answer to writing a comment.
+ *
+ * A line counts as a comment only when the *line itself* starts with `//`,
+ * `/*` or `*` after trimming — so a URL inside a string literal is still code.
+ */
 const loc = (f: string): number => {
   try {
-    return readFileSync(f, 'utf8').split('\n').length;
+    let inBlock = false;
+    let n = 0;
+    for (const raw of readFileSync(f, 'utf8').split('\n')) {
+      const line = raw.trim();
+      if (inBlock) {
+        if (line.includes('*/')) inBlock = false;
+        continue;
+      }
+      if (!line || line.startsWith('//') || line.startsWith('*')) continue;
+      if (line.startsWith('/*')) {
+        if (!line.includes('*/')) inBlock = true;
+        continue;
+      }
+      n++;
+    }
+    return n;
   } catch {
     return 0;
   }

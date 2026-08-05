@@ -6,6 +6,21 @@
 // products.designable flips this on for a given product, and
 // cartItems/orderItems carry a forward-declared `designId` FK back to
 // productDesigns (declared here; see store.ts for the column).
+//
+// TENANCY: this subsystem is scoped per-WEBSITE, not per-client. Every table
+// here keys off websiteId — designLibraryAssets directly, productDesigns by
+// websiteId plus an owner (customerId for a signed-in shopper, sessionId for an
+// anonymous one). A query that scopes only by clientId will cross site
+// boundaries. Run `bun test:tenancy` after touching any read/write here.
+//
+// Anonymous designs are deliberately keyed by sessionId so they survive a
+// session change and can later be claimed onto a customer account — see
+// app/api/storefront/[siteId]/designs/claim/route.ts. That is why ownership is
+// two nullable columns rather than one required FK.
+//
+// There is NO service-entitlement gate on the designer. It is a feature of the
+// store/websites subscription and is simply on whenever products.designable is
+// true, so don't go looking for a requireService() guard.
 
 import {
   pgTable,

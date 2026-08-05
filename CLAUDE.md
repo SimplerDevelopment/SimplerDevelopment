@@ -86,6 +86,7 @@ Two **query** tools sit alongside. Neither is a place you *write*:
 ## Run / build / test (non-guessable commands only)
 
 - `bun dev` — dev server
+  - ⚠️ **Turbopack dev chunks have stable filenames.** The browser can keep serving a *cached* chunk while the dev server returns new bytes for the same URL — surviving `rm -rf .next` and a server restart. The symptoms mimic a logic bug perfectly and have burned hours. Hard-reload (⌘⇧R) and confirm with `curl <chunk-url> | grep -c <symbol>` before you start debugging your own code.
 - `bun run lint` — ESLint
 - `tsc --noEmit` — typecheck (alias: `bun run typecheck`; run after any non-trivial Edit batch)
 - `scripts/test.sh --layer=unit --no-coverage` — Vitest unit (alias: `bun test`)

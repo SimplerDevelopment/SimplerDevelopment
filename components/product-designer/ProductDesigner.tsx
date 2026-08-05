@@ -1,5 +1,15 @@
 // @ts-nocheck
-// TODO(designer): clean up types — ported from CRA, see .planning/product-designer-integration.md
+// TODO(designer): clean up types — ported from CRA.
+//
+// THERE IS NO CANVAS. Despite being a "designer", this editor renders every
+// layer as plain DOM (see MainView / ScalableMainView), not into a <canvas>.
+// So there is no toDataURL() to export from, and any plan that starts with
+// "grab the canvas" is dead on arrival. Print files are rasterised server-side
+// from the stored layer array instead — lib/printing/renderPrintFile.ts.
+//
+// This is not an implementation detail to tidy up later; browser capture was
+// tried and abandoned. html2canvas returns a correctly-sized but entirely
+// transparent image for this markup.
 'use client';
 
 import React, { useEffect, useContext, useState, useCallback, useMemo, memo, lazy, Suspense, startTransition, useRef } from "react";
