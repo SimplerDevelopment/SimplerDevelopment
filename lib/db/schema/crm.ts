@@ -254,6 +254,11 @@ export const crmContracts = pgTable('crm_contracts', {
   fees: json('fees').$type<ProposalFee[]>().default([]),
   currency: varchar('currency', { length: 3 }).default('USD'),
   validUntil: timestamp('valid_until'),
+  // Generated at creation (app/api/portal/crm/contracts/route.ts) and echoed
+  // into the `contractUrl` field of send/route.ts's response, but no route
+  // looks a contract up BY this token — /contract/[token] and its API resolve
+  // signers via `crmContractSigners.token` instead (one token per signer, not
+  // one per contract). Don't assume this is a working credential.
   clientToken: varchar('client_token', { length: 64 }).notNull().unique(),
   documentHash: varchar('document_hash', { length: 64 }), // SHA-256 of content at send time for tamper detection
   // Branding
@@ -319,6 +324,10 @@ export const crmContractSigners = pgTable('crm_contract_signers', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
+// No API routes or MCP tools read/write this table yet (verified 2026-08:
+// no importer outside this schema file and its export-parity test). Templates
+// intended to seed crmContracts.{clauses,lineItems,fees} on creation, but
+// that wiring doesn't exist — don't assume a hidden consumer before adding one.
 export const crmContractTemplates = pgTable('crm_contract_templates', {
   id: serial('id').primaryKey(),
   clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),

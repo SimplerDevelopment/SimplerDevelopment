@@ -394,6 +394,10 @@ function PreviewBody({ preview }: { preview: ApprovalEntityPreview }) {
             srcDoc={preview.htmlContent || '<p style="padding:24px;color:#666">No HTML content yet.</p>'}
             className="w-full"
             style={{ minHeight: '70vh', border: 'none' }}
+            // Deliberately omits allow-scripts: htmlContent is unsanitized
+            // AI/author-authored content rendered via srcDoc (not the site
+            // renderer's pipeline), and this page has no auth — a script tag
+            // in the draft must not execute in the reviewer's browser.
             sandbox="allow-same-origin"
           />
         </div>

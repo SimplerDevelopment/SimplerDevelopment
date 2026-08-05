@@ -1,3 +1,14 @@
+/**
+ * POST /api/portal/crm/contracts/[id]/send
+ *
+ * Native, provider-free signing flow: emails each `crmContractSigners` row a
+ * unique `/contract/<token>` link and drives `crmContracts.status` /
+ * `documentHash`. Independent from the DropboxSign flow in
+ * `send-for-signature/route.ts` (which drives `esignStatus` instead) — see
+ * the field-block comment on `crmContracts` in `lib/db/schema/crm.ts` for why
+ * the two state machines never sync each other.
+ */
+
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
