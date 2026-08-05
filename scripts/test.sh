@@ -166,6 +166,16 @@ if [[ "$LAYER" == "all" || "$LAYER" == "e2e" ]]; then
   export WORKSPACE_TENANT_SECRETS_KEY="${WORKSPACE_TENANT_SECRETS_KEY:-$(openssl rand -hex 32)}"
   export OAUTH_STATE_SECRET="${OAUTH_STATE_SECRET:-$(openssl rand -hex 32)}"
   export PORTAL_KMS_KEY="${PORTAL_KMS_KEY:-$(openssl rand -base64 32)}"
+  # The storefront checkout golden-path spec creates a REAL Stripe test-mode
+  # PaymentIntent, so it needs the secret key in the *test* process (the server
+  # gets its own copy from .env). We deliberately do not source .env here — it
+  # carries a remote DATABASE_URL (see the guard above) — so lift just this one
+  # var, and only when it is a test key. A live key is never propagated into a
+  # test run; without a match the spec skips itself.
+  if [[ -z "${STRIPE_SECRET_KEY:-}" && -f "$ROOT/.env" ]]; then
+    STRIPE_SECRET_KEY="$(grep -aE '^STRIPE_SECRET_KEY=sk_test_' "$ROOT/.env" | head -1 | cut -d= -f2- | tr -d '"'"'"'[:space:]')"
+    [[ -n "$STRIPE_SECRET_KEY" ]] && export STRIPE_SECRET_KEY
+  fi
   export NODE_V8_COVERAGE="$ROOT/coverage/.v8-server"
   if [[ "$NO_COVERAGE" == "1" ]]; then
     export COLLECT_CLIENT_COVERAGE=0

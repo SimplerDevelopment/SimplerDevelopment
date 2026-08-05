@@ -2,17 +2,10 @@
  * Pitch — Gap coverage spec @gap @pitch
  *
  * Gaps covered:
- * 1. /api/storefront/[siteId]/designs/[designId]/ai-image
- *    - Requires OpenAI + S3 for success path → BLOCKED for success
- *    - Tests: invalid siteId (400), missing prompt (400), bad designId format (400),
- *      missing design (404), wrong sessionId / no auth (403), plan-gate or key
- *      unavailable (402 / 503) — all reachable without real AI/S3.
- *
- * 2. /api/storefront/[siteId]/designs/[designId]/ai-text
- *    - Requires Anthropic API for success path → BLOCKED for success
- *    - Tests: invalid siteId (400), missing prompt (400), bad designId format (400),
- *      missing design (404), wrong sessionId / no auth (403), plan-gate or key
- *      unavailable (402 / 503) — all reachable without real AI calls.
+ * 1. & 2. ai-image / ai-text — REMOVED. Both routes belonged to the legacy
+ *    Fabric designer and were deleted with it (see the vault ADR
+ *    "consolidate-on-product-designs-via-uuid"). Their fixture seeded a row in
+ *    the dropped `designs` table, so it went too.
  *
  * 3. /api/storefront/[siteId]/designs/generate-thumbnail
  *    - S3 upload path → BLOCKED for success (requires S3)
@@ -25,9 +18,8 @@
  *      valid claim transfers designs (200) — full auth path exercised via storefront
  *      register → create anonymous design → login → claim.
  *
- * NOTE: The ai-image and ai-text success paths (201) require a live OpenAI /
- * Anthropic API key and S3 — these are not available in CI and are BLOCKED.
- * The generate-thumbnail S3 upload path is BLOCKED for the same reason.
+ * NOTE: The generate-thumbnail S3 upload success path requires real S3, which CI
+ * does not provide — only its guard paths are exercised here.
  */
 
 import { request as pwRequest } from '@playwright/test';
@@ -87,36 +79,12 @@ test.describe('Pitch — designs AI + thumbnail + claim gaps @gap @pitch', () =>
     });
 
   });
-      const createBody = await createRes.json() as {
-        success: boolean;
-        data?: { id: number; uuid: string; sessionId?: string };
-      };
-      if (!createBody.success || !createBody.data) {
-        throw new Error(`Failed to seed design: ${JSON.stringify(createBody)}`);
-      }
-      // The new storefront POST returns a productDesigns row (integer id + uuid).
-      // The uuid field is the shareable uuid but the routes under
-      // /designs/[designId]/ai-image expect the `designs` table uuid (string pk).
-      // We need to check what id format the ai routes actually use.
-      // Reading the ai-image route: it queries `designs` table by UUID pk.
-      // The storefront POST however creates in `productDesigns` (integer pk).
-      // These are two different tables. The ai-image/ai-text routes specifically
-      // use the `designs` table which is the legacy designer table.
-      // For the guard tests we only need a syntactically-valid UUID that doesn't
-      // exist in `designs` — which will give us 404 (not found) rather than
-      // the auth guards. For the 403 (auth) test we need a design that exists.
-      // Since seeding a `designs` row requires portal-staff or the old designer,
-      // we'll test the validation/guard paths that don't require an existing design.
-    } finally {
-      await anonCtx.dispose();
-    }
-  });
 
   test.afterAll(async () => {
     await runCleanups(fileCleanups);
   });
 
-  // ── Gap 1: /designs/[designId]/ai-image ──────────────────────────────────────
+  // ── Gap 3: /designs/generate-thumbnail ───────────────────────────────────────
 
   test.describe('generate-thumbnail @gap @pitch-thumbnail', () => {
     test('rejects invalid siteId with 400', async () => {
