@@ -668,6 +668,15 @@ function NestedSortableBlock({
 
 // ─── Container block renderer (columns with nested drop zones) ───────────────
 
+// Container blocks (columns/section/tabs) can't just delegate to their
+// production render component — the editor needs to wrap each child slot
+// with drop-zone/sortable chrome the production component doesn't know
+// about. So their box-model/background/layout styling is hand-duplicated in
+// the branches below (each commented "mirrors ...BlockRender") instead of
+// rendering ColumnsBlockRender/SectionBlockRender directly. A style fix made
+// only in the production renderer (e.g. VEQA-034's section margin, commit
+// 682da3d4e) does not reach here automatically — canvas and published page
+// diverge until the matching branch below is updated too.
 function ContainerBlockRenderer({
   block,
   registry,

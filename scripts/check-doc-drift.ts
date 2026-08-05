@@ -20,6 +20,7 @@
  */
 import { readFileSync, existsSync } from 'node:fs';
 import { execSync } from 'node:child_process';
+import { join, dirname } from 'node:path';
 
 // Navigation / pointer docs only. NOT planning docs like TESTING_PLAN.md, which
 // intentionally reference files that are targets-to-write and may not exist yet.
@@ -162,8 +163,20 @@ for (const doc of docs) {
   while ((m = LINE_COUNT.exec(text))) {
     const ref = m[1].trim();
     const documented = Number(m[2]);
-    if (!SOURCE_ROOT.test(ref) || !existsSync(ref)) continue;
-    const actual = lineCount(ref);
+
+    // Resolve repo-root paths first, then bare filenames against the doc's own
+    // directory. Nested CLAUDE.md files name their neighbours without a path
+    // ("`BlockContentEditor.tsx` (2018)"), which fails SOURCE_ROOT and used to
+    // be skipped outright — so those annotations were never checked at all.
+    // components/portal/visual-editor/CLAUDE.md carried "(2018)" for a file
+    // that is 117 lines, and "(1694)" for one that is 488, telling every agent
+    // to spawn a subagent before opening files it could just read. Found
+    // 2026-08-05 while migrating that domain's notes into code.
+    const resolved = SOURCE_ROOT.test(ref)
+      ? ref
+      : join(dirname(doc), ref);
+    if (!existsSync(resolved)) continue;
+    const actual = lineCount(resolved);
     const tol = Math.max(75, actual * 0.1);
     if (Math.abs(documented - actual) > tol) drifted.push({ doc, ref, documented, actual });
   }

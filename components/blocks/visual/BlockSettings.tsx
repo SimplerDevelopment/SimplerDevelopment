@@ -24,6 +24,14 @@ interface BlockSettingsProps {
 
 type SettingsTab = 'general' | 'style' | 'elements';
 
+// TWO PARALLEL PANEL SYSTEMS: this dispatch drives the VisualBlockEditor /
+// settings-popup surface. A separate, unrelated dispatch — PANEL_MAP in
+// components/portal/visual-editor/BlockContentEditor.tsx, routing to
+// _components/block-panels/ — drives the portal editor's own sidebar for the
+// SAME block types. A field added to a panel here without the matching
+// portal-side panel half-ships: VEQA-068's card-grid icon-color control
+// landed in DynamicPanel first and was invisible in the portal editor until
+// MarketingPanel got the same field (see commit 682da3d4e).
 const SLUG_TO_CATEGORY: Record<string, 'LayoutPanel' | 'ContentPanel' | 'FormPanel' | 'MediaPanel' | 'DynamicPanel' | 'SectionsPanel'> = {
   'section': 'LayoutPanel',
   'divider': 'LayoutPanel',
