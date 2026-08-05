@@ -56,6 +56,11 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   if (body.description !== undefined) updates.description = body.description?.trim() || null;
   if (body.fields !== undefined) updates.fields = body.fields;
   if (body.pages !== undefined) updates.pages = body.pages;
+  // Sets status directly — no approval gate here. Contrast with
+  // surveys_create/surveys_update (lib/mcp/tools/surveys.ts), which mint an
+  // approval URL before a draft flips to active. A session-authed portal PUT
+  // can flip straight to 'active'; approval is enforced on the MCP path only,
+  // not universally.
   if (body.status !== undefined) updates.status = body.status;
   if (body.color !== undefined) updates.color = body.color;
   if (body.brandingProfileId !== undefined) updates.brandingProfileId = body.brandingProfileId || null;

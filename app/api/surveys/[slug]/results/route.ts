@@ -10,6 +10,10 @@
  * Gated by `surveys.publish_results` (DIST-03). When false, the route returns
  * 404 — drive-by callers shouldn't be able to discover whether a slug exists.
  * Aggregate-only by construction; no individual responses are exposed (DIST-04).
+ *
+ * Keep it that way: any future per-response export belongs behind
+ * /api/portal/surveys/[id]/export (session-gated), never bolted onto this
+ * public route.
  */
 
 import { NextResponse } from 'next/server';

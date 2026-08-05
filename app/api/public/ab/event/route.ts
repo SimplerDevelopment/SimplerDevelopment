@@ -6,6 +6,12 @@
 // — we de-duplicate on insert by checking for any existing row with the
 // same triple. Real abuse mitigation lives at the edge; this only stops
 // dashboard-padding from a single visitor hammering the endpoint.
+//
+// This route never touches `ab_assignments` — the sticky assignment row is
+// created server-side during page render via `recordExposure`
+// (lib/ab/resolve.ts). A POST here just logs an event against whatever
+// (experimentId, variantKey) the client already has; it doesn't require or
+// create an assignment.
 
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
