@@ -1,0 +1,34 @@
+# graphify corpus exclusions (gitignore syntax)
+#
+# graphify's built-in SKIP_DIRS covers node_modules/.git/dist/build/coverage,
+# but deliberately allows dot-dirs ("users often want .github/, .claude/").
+# That is right for skills and agents and badly wrong for worktrees.
+
+# Agent worktrees are FULL COPIES of this repo created by isolated agent
+# sessions. Indexing them made the codebase appear ~4x over: the graph reached
+# 378MB with 474,152 references to worktrees/agent-*, which distorts god nodes,
+# community detection and every query that leans on them.
+#
+# Excluded from the graph only — never delete these from disk (see CLAUDE.md:
+# "worktree-agent-* branches ... never delete from here").
+.claude/worktrees/
+
+# Everything else under .claude/ is kept on purpose: skills/, agents/, rules/
+# and workflows/ are hand-authored and genuinely part of how this project works.
+
+# Frozen planning archive + its screenshot/vision-review JSON artifacts.
+# Superseded by vault/ (see CLAUDE.md) and pure generated noise.
+.planning/**/screenshots/
+
+# Local scratch + build artefacts that carry no architecture.
+.next/
+graphify-out/
+
+# Throwaway QA capture dirs. These are per-run screenshot artefacts, not
+# architecture, and vision extraction over ~1,300 of them is pure cost.
+.qa-tmp-*/
+docs/screenshots/
+public/screenshots/
+audit-verify-*.png
+editor-*.png
+edit-*.png
