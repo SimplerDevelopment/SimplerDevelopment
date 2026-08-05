@@ -427,6 +427,86 @@ a:focus-visible { outline: 2px solid var(--warn); outline-offset: 3px; }
   .bar { grid-template-columns: 6rem 1fr 3rem; }
 }
 
+/* ---------- share + hire: page furniture below the argument ---------- */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s1);
+  padding: 10px 16px;
+  font: 500 11px/1 var(--mono);
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  text-decoration: none;
+  background: color-mix(in srgb, var(--bg-raise) 80%, transparent);
+  border: 1px solid var(--rule-lit);
+  border-radius: 2px;
+  cursor: pointer;
+  transition: color .18s, border-color .18s;
+}
+.btn:hover,
+.btn:focus-visible { color: var(--wire); border-color: var(--wire-soft); }
+.btn--warm { color: var(--warn); border-color: var(--warn-soft); }
+.btn--warm:hover,
+.btn--warm:focus-visible { color: var(--warn); border-color: var(--warn); }
+
+.share {
+  max-width: 1180px;
+  margin: var(--s7) auto 0;
+  padding: 0 var(--gutter);
+}
+.share__label {
+  font: 500 11px/1 var(--mono);
+  letter-spacing: .22em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  margin-bottom: var(--s3);
+}
+.share__row { display: flex; flex-wrap: wrap; gap: var(--s2); }
+
+.hire {
+  max-width: 1180px;
+  margin: var(--s6) auto 0;
+  padding: 0 var(--gutter);
+}
+.hire__inner {
+  display: flex;
+  gap: var(--s4);
+  align-items: flex-start;
+  padding: var(--s5);
+  background: color-mix(in srgb, var(--bg-raise) 88%, transparent);
+  border: 1px solid var(--rule-lit);
+  border-left: 2px solid var(--warn-soft);
+}
+.hire__photo {
+  width: 120px; height: 120px;
+  flex: none;
+  border-radius: 50%;
+  object-fit: cover;
+  filter: grayscale(1) contrast(1.05);
+  border: 1px solid var(--rule-lit);
+}
+.hire__body { max-width: var(--measure); }
+.hire__body h2 { font-size: clamp(24px, 3vw, 32px); margin: 0 0 var(--s2); }
+.hire__body p { color: var(--ink-dim); }
+.hire__links { display: flex; flex-wrap: wrap; gap: var(--s2); margin-top: var(--s3); }
+
+.backlink { margin-top: var(--s3); }
+.backlink a {
+  font: 500 11px/1 var(--mono);
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  text-decoration: none;
+}
+.backlink a:hover, .backlink a:focus-visible { color: var(--wire); }
+
+@media (max-width: 720px) {
+  .hire__inner { flex-direction: column; }
+  .hire__photo { width: 88px; height: 88px; }
+}
+
 /* ---------- narration: per-section listen button ---------- */
 
 /* Sits directly above the instrument label, on its own line, so it never

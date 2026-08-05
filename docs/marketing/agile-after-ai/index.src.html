@@ -5,6 +5,44 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>If Agile Were Invented After AI — SimplerDevelopment</title>
 <meta name="description" content="What would Agile look like if it were designed in 2026, after agentic coding? A visual reading of the evidence, and what actually holds up in practice.">
+<link rel="canonical" href="https://www.simplerdevelopment.com/agile-after-ai">
+<meta name="author" content="Dan Coyle">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<meta name="theme-color" content="#07090c">
+
+<!-- Open Graph. The image is a real 1200x630 capture of this page, so a share
+     preview shows the piece itself rather than a generic site card. -->
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="SimplerDevelopment">
+<meta property="og:url" content="https://www.simplerdevelopment.com/agile-after-ai">
+<meta property="og:title" content="If Agile were invented after AI">
+<meta property="og:description" content="The manifesto isn't obsolete — but it was written to coordinate people who produce software, and that is no longer the scarce thing. Nine sections on what actually holds up, each one narrated.">
+<meta property="og:image" content="https://www.simplerdevelopment.com/agile-after-ai/og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="If Agile were invented after AI — SimplerDevelopment field notes, August 2026">
+<meta property="article:author" content="Dan Coyle">
+<meta property="article:published_time" content="2026-08-04">
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="If Agile were invented after AI">
+<meta name="twitter:description" content="Two credible studies on AI and developer productivity point in opposite directions. Nobody has found a universal multiplier. Nine sections on what actually holds up.">
+<meta name="twitter:image" content="https://www.simplerdevelopment.com/agile-after-ai/og.jpg">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "If Agile were invented after AI",
+  "description": "What would Agile look like if it were designed in 2026, after agentic coding? A visual reading of the evidence, and what actually holds up in practice.",
+  "image": "https://www.simplerdevelopment.com/agile-after-ai/og.jpg",
+  "datePublished": "2026-08-04",
+  "author":    { "@type": "Person",       "name": "Dan Coyle" },
+  "publisher": { "@type": "Organization", "name": "SimplerDevelopment", "url": "https://www.simplerdevelopment.com" },
+  "mainEntityOfPage": "https://www.simplerdevelopment.com/agile-after-ai"
+}
+</script>
+
 <link rel="stylesheet" href="css/main.css">
 </head>
 <body>
@@ -475,9 +513,48 @@
     </div>
   </section>
 
+  <!-- ============ SHARE ============ -->
+  <!-- Deliberately no data-scene: the scene layer asserts exactly 8, and this
+       is page furniture rather than part of the argument. -->
+  <div class="share">
+    <div class="share__label">Share this</div>
+    <div class="share__row">
+      <a class="btn" target="_blank" rel="noopener"
+         href="https://www.linkedin.com/sharing/share-offsite/?url=https%3A%2F%2Fwww.simplerdevelopment.com%2Fagile-after-ai">LinkedIn</a>
+      <a class="btn" target="_blank" rel="noopener"
+         href="https://twitter.com/intent/tweet?url=https%3A%2F%2Fwww.simplerdevelopment.com%2Fagile-after-ai&amp;text=If%20Agile%20were%20invented%20after%20AI">X</a>
+      <a class="btn" rel="noopener"
+         href="mailto:?subject=If%20Agile%20were%20invented%20after%20AI&amp;body=https%3A%2F%2Fwww.simplerdevelopment.com%2Fagile-after-ai">Email</a>
+      <button class="btn" type="button" id="copylink" data-url="https://www.simplerdevelopment.com/agile-after-ai">Copy link</button>
+    </div>
+  </div>
+
+  <!-- ============ HIRE ============ -->
+  <div class="hire">
+    <div class="hire__inner">
+      <img class="hire__photo" src="/dan-coyle.jpg" alt="Dan Coyle" width="120" height="120" loading="lazy">
+      <div class="hire__body">
+        <div class="tag tag--warn">Hire Dan</div>
+        <h2>Want this kind of thinking on your team?</h2>
+        <p>
+          I build software that ships and write about how the work actually
+          changes. If the questions in this piece are live at your company —
+          what to delegate, what evidence to demand, who stays accountable —
+          I'd like to hear about it.
+        </p>
+        <div class="hire__links">
+          <a class="btn btn--warm" href="mailto:info@simplerdevelopment.com">info@simplerdevelopment.com</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- ============ FOOTER ============ -->
   <footer class="foot">
     <div class="wordmark">SimplerDevelopment</div>
+    <div class="backlink">
+      <a href="https://www.simplerdevelopment.com">&larr; Back to SimplerDevelopment</a>
+    </div>
 
     <div class="note" style="margin-top:24px">
       <b>On sources.</b> This piece is our commentary on an AI-generated research
@@ -835,7 +912,25 @@ window.__sdNarration = {
     paint();
   }
 
-  reveal(); bars(); rungs(); narration();
+  function copylink() {
+    var b = document.getElementById('copylink');
+    if (!b) return;
+    b.addEventListener('click', function () {
+      var url = b.dataset.url;
+      var done = function () {
+        var was = b.textContent;
+        b.textContent = 'Copied';
+        setTimeout(function () { b.textContent = was; }, 1600);
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(url).then(done, function () { prompt('Copy this link', url); });
+      } else {
+        prompt('Copy this link', url);   /* http / older browsers: no clipboard API */
+      }
+    });
+  }
+
+  reveal(); bars(); rungs(); narration(); copylink();
   window.__sdReduced = reduced;
 })();
 </script>
