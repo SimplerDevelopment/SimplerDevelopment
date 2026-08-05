@@ -1,9 +1,12 @@
 /**
  * Typed registry types for the SimplerDevelopment Agentic OS.
  *
- * Source-of-truth taxonomy is `.planning/agentic-os.md`. The registry in
- * `./registry.ts` is the typed projection that the admin catalog UI, the
- * headless executor, and the schedule planner all read from.
+ * `./registry.ts` (the SKILLS array) is the source of truth for the skill
+ * catalog — the admin catalog UI and the headless executor both read from it
+ * directly. `.planning/agentic-os.md`, referenced by an earlier version of
+ * this comment, is gitignored local scratch, not guaranteed to exist (it was
+ * stripped during an oss-prep pass), and nothing re-reads it — don't point
+ * future edits at it.
  */
 
 export type AgenticOsDomain =
