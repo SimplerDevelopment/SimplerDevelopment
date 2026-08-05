@@ -400,7 +400,8 @@ a:focus-visible { outline: 2px solid var(--warn); outline-offset: 3px; }
 
 .foot {
   border-top: 1px solid var(--rule-lit);
-  padding: var(--s5) var(--gutter) var(--s7);
+  /* extra bottom room so the last reference never sits under the transport */
+  padding: var(--s5) var(--gutter) calc(var(--s7) + 56px);
   max-width: 1180px;
   margin: var(--s7) auto 0;
 }
@@ -424,6 +425,100 @@ a:focus-visible { outline: 2px solid var(--warn); outline-offset: 3px; }
   .readout { max-width: none; margin-left: 0; }
   .act--scene { padding-block: 24vh; }
   .bar { grid-template-columns: 6rem 1fr 3rem; }
+}
+
+/* ---------- narration: per-section listen button ---------- */
+
+/* Sits directly above the instrument label, on its own line, so it never
+   competes with the .tag rule for horizontal space. */
+.listen {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s1);
+  margin-bottom: var(--s2);
+  padding: 6px 12px 6px 8px;
+  font: 500 10px/1 var(--mono);
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  background: color-mix(in srgb, var(--bg-raise) 80%, transparent);
+  border: 1px solid var(--rule-lit);
+  border-radius: 2px;
+  cursor: pointer;
+  transition: color .18s, border-color .18s, background .18s;
+}
+.listen:hover,
+.listen:focus-visible { color: var(--wire); border-color: var(--wire-soft); }
+.listen svg { width: 12px; height: 12px; fill: currentColor; flex: none; }
+.listen[aria-pressed="true"] { color: var(--wire); border-color: var(--wire-soft); }
+
+/* ---------- narration: fixed transport ---------- */
+
+.narrator {
+  position: fixed;
+  z-index: 40;
+  left: 50%;
+  bottom: max(16px, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  padding: 4px;
+  background: color-mix(in srgb, var(--bg-raise) 92%, transparent);
+  border: 1px solid var(--rule-lit);
+  border-radius: 3px;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 8px 32px rgb(0 0 0 / .55);
+}
+
+.narrator button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 34px;
+  height: 34px;
+  padding: 0 9px;
+  font: 500 10px/1 var(--mono);
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  background: none;
+  border: 0;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: color .18s, background .18s;
+}
+.narrator button:hover,
+.narrator button:focus-visible { color: var(--ink); background: var(--rule); }
+.narrator button svg { width: 13px; height: 13px; fill: currentColor; flex: none; }
+
+/* on = the control is doing something: playing, autoplaying */
+.narrator button[aria-pressed="true"] { color: var(--wire); }
+/* muted is a warning state, not an active one */
+.narrator button[data-role="mute"][aria-pressed="true"] { color: var(--warn); }
+.narrator button[disabled] { opacity: .3; cursor: default; }
+.narrator button[disabled]:hover { color: var(--ink-dim); background: none; }
+
+.narrator__rule { width: 1px; margin: 6px 4px; background: var(--rule-lit); flex: none; }
+
+.narrator__now {
+  display: flex;
+  align-items: center;
+  gap: var(--s1);
+  padding: 0 var(--s2) 0 var(--s1);
+  font: 500 10px/1 var(--mono);
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  white-space: nowrap;
+}
+.narrator__idx { color: var(--wire); font-variant-numeric: tabular-nums; }
+.narrator__title { max-width: 15rem; overflow: hidden; text-overflow: ellipsis; }
+
+@media (max-width: 720px) {
+  .narrator__title { display: none; }
+  .narrator button { padding: 0 7px; }
 }
 
 /* ---------- reduced motion: a real reading path, not a degraded one ---------- */

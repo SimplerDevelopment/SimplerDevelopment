@@ -478,6 +478,9 @@ async function boot() {
 
     gsap.registerPlugin(ScrollTrigger);
     const lenis = new Lenis({ duration: 1.05, smoothWheel: true });
+    // the narration transport scrolls between sections; once Lenis owns the
+    // scroll, scrollIntoView fights it, so hand it the instance to drive
+    window.__sdLenis = lenis;
     lenis.on('scroll', ScrollTrigger.update);
     gsap.ticker.add((t) => lenis.raf(t * 1000));
     gsap.ticker.lagSmoothing(0);
