@@ -46,19 +46,71 @@ if [ -z "$GRAPHIFY_PYTHON" ]; then
     fi
 fi
 
-export GRAPHIFY_CHANGED="$CHANGED"
+# ── Serialise rebuilds (local addition, not part of `graphify hook install`) ──
+# Without this, every commit launches its own full rebuild. On 2026-08-05 seven
+# commits in one session produced seven rebuilds, two of them running
+# concurrently for 14-18 minutes on an already-saturated machine, competing with
+# the e2e suite for CPU. They also all wrote the same log with `>`, so they
+# clobbered each other and it read empty.
+#
+# `mkdir` is the atomic primitive here (portable; no flock on macOS). A commit
+# that cannot take the lock leaves its file list in the pending queue and exits —
+# the in-flight rebuild picks it up, so queued changes are deferred, never lost.
+_GRAPHIFY_LOCK="$GIT_DIR/graphify-rebuild.lock"
+_GRAPHIFY_PENDING="$GIT_DIR/graphify-pending-files"
+
+printf '%s\n' "$CHANGED" >> "$_GRAPHIFY_PENDING"
+
+if ! mkdir "$_GRAPHIFY_LOCK" 2>/dev/null; then
+    # Reclaim a lock whose owner died (crash, kill -9, reboot).
+    _OWNER=$(cat "$_GRAPHIFY_LOCK/pid" 2>/dev/null)
+    if [ -n "$_OWNER" ] && kill -0 "$_OWNER" 2>/dev/null; then
+        echo "[graphify hook] rebuild already running (pid $_OWNER) - changes queued"
+        exit 0
+    fi
+    rm -rf "$_GRAPHIFY_LOCK"
+    if ! mkdir "$_GRAPHIFY_LOCK" 2>/dev/null; then
+        echo "[graphify hook] could not take rebuild lock - changes queued"
+        exit 0
+    fi
+fi
+# Placeholder owner, replaced with the background job's pid once it is launched.
+# It exists only to close the window between mkdir and that assignment, during
+# which an empty pid file would look like a dead owner and let a second commit
+# reclaim a perfectly live lock. This shell IS alive for that window, so $$ is
+# the right value here — and the wrong value to leave behind, since this hook
+# exits the moment it backgrounds the rebuild.
+echo $$ > "$_GRAPHIFY_LOCK/pid"
+
+export GRAPHIFY_PENDING="$_GRAPHIFY_PENDING"
 
 # Run rebuild detached so git commit returns immediately.
 # Full repo rebuilds can take hours; blocking the post-commit hook stalls the shell.
 _GRAPHIFY_LOG="${HOME}/.cache/graphify-rebuild.log"
 mkdir -p "$(dirname "$_GRAPHIFY_LOG")"
+# Appending (so concurrent-era clobbering can't recur) means this needs a cap.
+if [ -f "$_GRAPHIFY_LOG" ] && [ "$(wc -c < "$_GRAPHIFY_LOG" 2>/dev/null || echo 0)" -gt 5000000 ]; then
+    : > "$_GRAPHIFY_LOG"
+fi
 echo "[graphify hook] launching background rebuild (log: $_GRAPHIFY_LOG)"
+(
 nohup $GRAPHIFY_PYTHON -c "
 import os, signal, sys
 from pathlib import Path
 
-changed_raw = os.environ.get('GRAPHIFY_CHANGED', '')
-changed = [Path(f.strip()) for f in changed_raw.strip().splitlines() if f.strip()]
+# Drain the pending queue rather than this commit's diff alone: commits that
+# arrived while a rebuild held the lock left their files here.
+pending = os.environ.get('GRAPHIFY_PENDING', '')
+changed, seen = [], set()
+if pending and Path(pending).exists():
+    for line in Path(pending).read_text().splitlines():
+        f = line.strip()
+        if f and f not in seen:
+            seen.add(f)
+            changed.append(Path(f))
+    # Claim the queue now. Anything committed from here on re-queues for the
+    # next run instead of being silently folded into this one.
+    Path(pending).write_text('')
 
 if not changed:
     sys.exit(0)
@@ -80,6 +132,9 @@ except TimeoutError as exc:
 except Exception as exc:
     print(f'[graphify hook] Rebuild failed: {exc}')
     sys.exit(1)
-" > "$_GRAPHIFY_LOG" 2>&1 < /dev/null &
+" >> "$_GRAPHIFY_LOG" 2>&1 < /dev/null
+rm -rf "$_GRAPHIFY_LOCK"
+) >> "$_GRAPHIFY_LOG" 2>&1 < /dev/null &
+echo $! > "$_GRAPHIFY_LOCK/pid"
 disown 2>/dev/null || true
 # graphify-hook-end
