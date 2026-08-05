@@ -19,10 +19,16 @@ import { join } from 'node:path';
 export const dynamic = 'force-static';
 
 // Read once at build time, not per request.
+//
+// The GA id is substituted here rather than baked into the committed asset: the
+// document is static and public, and the id belongs to the environment. When
+// NEXT_PUBLIC_GA_ID is unset the placeholder simply stays put, the page's own
+// guard rejects it, and no analytics load — matching app/layout.tsx, which only
+// renders gtag when the var is present.
 const html = readFileSync(
   join(process.cwd(), 'public', 'agile-after-ai', 'index.html'),
   'utf8',
-);
+).replace('__SD_GA_ID__', process.env.NEXT_PUBLIC_GA_ID ?? '');
 
 export function GET() {
   return new Response(html, {

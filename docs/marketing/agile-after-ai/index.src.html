@@ -37,10 +37,31 @@
   "description": "What would Agile look like if it were designed in 2026, after agentic coding? A visual reading of the evidence, and what actually holds up in practice.",
   "image": "https://www.simplerdevelopment.com/agile-after-ai/og.jpg",
   "datePublished": "2026-08-04",
-  "author":    { "@type": "Person",       "name": "Dan Coyle" },
+  "author":    { "@type": "Person",       "name": "Dan Coyle",
+                 "sameAs": ["https://www.linkedin.com/in/danielpcoyle/"] },
   "publisher": { "@type": "Organization", "name": "SimplerDevelopment", "url": "https://www.simplerdevelopment.com" },
   "mainEntityOfPage": "https://www.simplerdevelopment.com/agile-after-ai"
 }
+</script>
+
+<!-- Analytics. This document is served raw by app/agile-after-ai/route.ts and
+     never passes through app/layout.tsx, so it does not inherit the site's
+     gtag. The placeholder below is substituted at build time from
+     NEXT_PUBLIC_GA_ID; when the var is unset it stays a placeholder, the guard
+     fails, and nothing is loaded — same behaviour as the layout. -->
+<script>
+(function () {
+  var id = '__SD_GA_ID__';
+  if (!/^G-[A-Z0-9]+$/.test(id)) return;      /* unset or unsubstituted */
+  window.dataLayer = window.dataLayer || [];
+  window.gtag = function () { window.dataLayer.push(arguments); };
+  gtag('js', new Date());
+  gtag('config', id);
+  var s = document.createElement('script');
+  s.async = true;
+  s.src = 'https://www.googletagmanager.com/gtag/js?id=' + id;
+  document.head.appendChild(s);
+})();
 </script>
 
 <link rel="stylesheet" href="css/main.css">
@@ -544,6 +565,8 @@
         </p>
         <div class="hire__links">
           <a class="btn btn--warm" href="mailto:info@simplerdevelopment.com">info@simplerdevelopment.com</a>
+          <a class="btn" target="_blank" rel="noopener me"
+             href="https://www.linkedin.com/in/danielpcoyle/">LinkedIn</a>
         </div>
       </div>
     </div>
@@ -623,6 +646,12 @@ window.__sdNarration = {
 <script>
 (function () {
   var reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* No-ops when gtag never loaded, so nothing here depends on analytics
+     being present — the page behaves identically with it blocked. */
+  function track(name, params) {
+    if (typeof window.gtag === 'function') window.gtag('event', name, params || {});
+  }
 
   function reveal() {
     var els = document.querySelectorAll(
@@ -751,8 +780,24 @@ window.__sdNarration = {
       if (sounding !== i) { sounding = i; a.src = clips[i]; }
       a.muted = muted;
       var p = a.play();
-      if (p && p.catch) p.catch(function () { paint(); });   /* blocked: leave the UI honest */
+      /* fire only on a play that actually started, and only on the browser's
+         say-so — an autoplay rejection must not count as a listen */
+      if (p && p.then) {
+        p.then(function () { trackPlay(i); }, function () { paint(); });
+      } else {
+        trackPlay(i);
+      }
       paint();
+    }
+
+    function trackPlay(i) {
+      track('narration_play', {
+        section: slides[i].dataset.scene || 'hero',
+        section_index: i + 1,
+        section_title: titles[i],
+        muted: muted,
+        auto: auto,
+      });
     }
 
     function stop() { if (audio) audio.pause(); }
@@ -930,7 +975,23 @@ window.__sdNarration = {
     });
   }
 
-  reveal(); bars(); rungs(); narration(); copylink();
+  /* Fires once, when the card is genuinely on screen rather than merely
+     scrolled past — half of it visible, which at this card's height means
+     the reader has stopped on it. */
+  function hireView() {
+    var el = document.querySelector('.hire');
+    if (!el || !('IntersectionObserver' in window)) return;
+    var io = new IntersectionObserver(function (es) {
+      es.forEach(function (e) {
+        if (!e.isIntersecting) return;
+        io.disconnect();
+        track('hire_section_view', { section: 'hire_dan' });
+      });
+    }, { threshold: 0.5 });
+    io.observe(el);
+  }
+
+  reveal(); bars(); rungs(); narration(); copylink(); hireView();
   window.__sdReduced = reduced;
 })();
 </script>
