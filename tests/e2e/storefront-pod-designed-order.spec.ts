@@ -19,21 +19,26 @@
  * are uuid vs text; a regression there is a Postgres type error, not a silent
  * miss, and only a cart containing a real design will hit it.
  *
- * WHAT THIS SPEC DELIBERATELY DOES NOT DO — and why:
+ * WHY THE FREEZE TEST SEEDS ITS PRINT FILES:
  *
- * The print files are seeded straight into the database rather than produced by
- * POST /designs/[id]/print-file. That route renders server-side with sharp and
- * uploads to S3, and S3_ENDPOINT points at `http://minio:9000` — a
- * docker-compose service. On a machine without Docker running there is no
- * object store to upload to, so driving the real render would make this spec
- * fail for an environmental reason on the most revenue-critical path in the
- * product. The renderer itself is covered by unit tests
- * (`lib-printing-render-print-file.test.ts`,
- * `api-storefront-print-file-validation.test.ts`); what those cannot cover is
- * whether the resulting URLs survive the trip onto an order. That is this file.
+ * The golden path writes print files straight to the database rather than
+ * rendering them, so that the FREEZE stays testable on any machine. The render
+ * hop needs object storage (S3_ENDPOINT → minio), and making the most
+ * revenue-critical assertion in the suite depend on Docker being up would mean
+ * it fails for environmental reasons rather than real ones.
  *
- * If minio is running, the render hop is worth adding here — see the skipped
- * test at the bottom, which documents exactly what it should assert.
+ * The render itself is covered separately, at the bottom of this file, against
+ * real object storage — it skips (loudly) when minio is unreachable. Run it
+ * with:
+ *
+ *   docker compose up -d minio minio-init
+ *   S3_ENDPOINT=http://localhost:9000 S3_PUBLIC_ENDPOINT=http://localhost:9000 \
+ *   S3_BUCKET_NAME=simplerdev-media S3_ACCESS_KEY_ID=minioadmin \
+ *   S3_SECRET_ACCESS_KEY=minioadmin \
+ *   scripts/test.sh --layer=e2e --tag="POD — designed order" --no-coverage
+ *
+ * Those overrides matter: .env.local points S3 at REAL remote storage, and a
+ * test run must not write artifacts there.
  */
 import { request as pwRequest } from '@playwright/test';
 import type { APIRequestContext } from '@playwright/test';
@@ -52,9 +57,35 @@ const HAS_STRIPE_TEST_KEY = STRIPE_KEY.startsWith('sk_test_');
 // reaching for whatever .env has.
 const DB_URL = process.env.DATABASE_URL || 'postgresql://postgres@localhost:5432/simplerdev';
 
-/** Run one statement without a shell, so `$` in a URL can't be expanded. */
+// A mockup the render hop can actually read. `readMockupSize` accepts an
+// absolute http URL, so this is served straight out of minio's public bucket
+// rather than through /api/media/proxy — which would otherwise resolve against
+// whatever S3 the app is pointed at, i.e. real remote storage.
+//
+// Seed it with:
+//   docker compose up -d minio minio-init
+//   docker run --rm --network container:simplerdev-minio -v /tmp:/fixtures \
+//     --entrypoint sh minio/mc -c "mc alias set l http://localhost:9000 \
+//     minioadmin minioadmin && mc cp /fixtures/e2e-mockup.png \
+//     l/simplerdev-media/e2e/mockup.png && mc anonymous set download l/simplerdev-media"
+const MOCKUP_URL =
+  process.env.E2E_MOCKUP_URL || 'http://localhost:9000/simplerdev-media/e2e/mockup.png';
+
+/**
+ * Run one statement without a shell, so `$` in a URL can't be expanded.
+ *
+ * Strips psql's trailing DML command tag. With `-At`, `INSERT … RETURNING id`
+ * prints the id AND a tag line ("INSERT 0 1"), so a naive `.trim()` returns
+ * "123\nINSERT 0 1" and `Number()` on it is NaN — which then flows into the
+ * next statement as a syntax error rather than anything that names the cause.
+ * `auth-qa-sweep-79.spec.ts` carries the same guard.
+ */
 function psql(sql: string): string {
-  return execFileSync('psql', [DB_URL, '-At', '-c', sql], { encoding: 'utf8' }).trim();
+  return execFileSync('psql', [DB_URL, '-At', '-c', sql], { encoding: 'utf8' })
+    .split('\n')
+    .filter((l) => l.trim() && !/^(INSERT|UPDATE|DELETE|SELECT)\s+\d/.test(l.trim()))
+    .join('\n')
+    .trim();
 }
 
 /** Stand up a throwaway site whose store can actually charge. */
@@ -117,7 +148,7 @@ async function createAnonymousDesign(
   ctx: APIRequestContext,
   siteId: number,
   productId: number,
-): Promise<{ uuid: string; sessionId: string }> {
+): Promise<{ id: number; uuid: string; sessionId: string }> {
   const res = await ctx.post(`/api/storefront/${siteId}/designs`, {
     data: {
       productId,
@@ -131,13 +162,23 @@ async function createAnonymousDesign(
     },
   });
   expect(res.status(), 'design must be created').toBe(201);
-  const uuid = (await res.json()).data.uuid as string;
+  const data = (await res.json()).data as { id: number; uuid: string };
 
   const state = await ctx.storageState();
   const cookie = state.cookies.find((c) => c.name === 'sd_design_session');
   expect(cookie?.value, 'POST /designs must mint an anonymous design session').toBeTruthy();
 
-  return { uuid, sessionId: cookie!.value };
+  return { id: data.id, uuid: data.uuid, sessionId: cookie!.value };
+}
+
+/** Is object storage actually reachable? The render hop needs it; nothing else does. */
+async function minioReachable(): Promise<boolean> {
+  try {
+    const res = await fetch(MOCKUP_URL, { method: 'HEAD' });
+    return res.ok;
+  } catch {
+    return false;
+  }
 }
 
 // Every test here provisions its own site (create website → admin BYOK grant →
@@ -295,16 +336,80 @@ test.describe('POD — designed order end to end @ecommerce @pod @critical', () 
     }
   });
 
-  // Needs `docker compose up -d minio` (S3_ENDPOINT is http://minio:9000).
-  // Unskip when object storage is available in the test environment.
-  test.skip('print-file route renders and records a real print file', async () => {
-    // Should: create a design with layers on a product that has a style + side
-    // (mockup image + printable bounds), POST {side:'front'}, then assert
-    //   - 200 and a URL in the response
-    //   - productDesigns.printFiles.front is set to that URL
-    //   - the rendered PNG has a real alpha channel (artwork, never a mockup)
-    //   - its long edge is >= MIN_PRINT_EDGE_PX (1500)
-    // The last two are the guarantees validatePrintFile enforces and the
-    // reason a mockup can never reach Printful.
+  test('print-file route renders a real print file and records it on the design', async ({
+    clientApi,
+    adminApi,
+  }) => {
+    // The only test here that needs object storage: it renders server-side and
+    // uploads. Skips rather than fails when minio is down, because an
+    // infrastructure gap should not read as a broken money path.
+    if (!(await minioReachable())) {
+      test.skip(true, `object storage unreachable at ${MOCKUP_URL} — run: docker compose up -d minio minio-init`);
+      return;
+    }
+
+    const cleanups: Array<() => Promise<void>> = [];
+    const anon = await pwRequest.newContext({ baseURL: BASE_URL });
+    try {
+      const siteId = await provisionStoreSite(clientApi, adminApi, cleanups);
+      const productId = await createDesignableProduct(clientApi, siteId, cleanups);
+      const { id: designId } = await createAnonymousDesign(anon, siteId, productId);
+
+      // A style + side is what defines the printable region and the coordinate
+      // space to render in. Bounds are in the MOCKUP's pixel grid (333x500
+      // here), not rendered CSS pixels — the values mirror a real catalog row.
+      const styleId = Number(
+        psql(`INSERT INTO product_styles (product_id, name, "order")
+              VALUES (${productId}, 'E2E Style', 0) RETURNING id;`),
+      );
+      psql(
+        `INSERT INTO product_sides (style_id, side, image_url, printable_x, printable_y,
+                                    printable_width, printable_height)
+         VALUES (${styleId}, 'front', '${MOCKUP_URL}', 80, 80, 173, 310);`,
+      );
+
+      // ── Render ─────────────────────────────────────────────────────────────
+      const res = await anon.post(
+        `/api/storefront/${siteId}/designs/${designId}/print-file`,
+        { data: { side: 'front' } },
+      );
+      const body = await res.json();
+      expect(res.status(), `render failed: ${JSON.stringify(body)}`).toBe(200);
+
+      const url = body.data?.url as string;
+      expect(url, 'the route must return the uploaded print-file URL').toBeTruthy();
+
+      // Recorded on the design, keyed by side — this is what checkout freezes.
+      expect(
+        psql(`SELECT print_files->>'front' FROM product_designs WHERE id = ${designId};`),
+      ).toBe(url);
+
+      // ── The two guarantees that keep a mockup off a garment ────────────────
+      // The route records a RELATIVE media-proxy path (/api/media/proxy/…),
+      // not an absolute URL — the proxy is what reads the object back out of
+      // S3. Resolve it against the app before fetching.
+      const abs = url.startsWith('http') ? url : `${BASE_URL}${url}`;
+      const dl = await fetch(abs);
+      expect(dl.ok, `rendered file must be fetchable at ${abs}`).toBe(true);
+      const buf = Buffer.from(await dl.arrayBuffer());
+      const sharp = (await import('sharp')).default;
+      const meta = await sharp(buf).metadata();
+
+      // Artwork only. A mockup render would be opaque; the print file must
+      // carry transparency or Printful prints a picture of a shirt on a shirt.
+      expect(meta.hasAlpha, 'print file must have an alpha channel').toBe(true);
+
+      // MIN_PRINT_EDGE_PX — below this the garment prints visibly soft.
+      const longEdge = Math.max(meta.width ?? 0, meta.height ?? 0);
+      expect(longEdge, `long edge ${longEdge}px is below the 1500px print floor`)
+        .toBeGreaterThanOrEqual(1500);
+
+      // And it must be artwork, not a copy of the mockup we fed in.
+      expect(meta.width).not.toBe(333);
+      expect(meta.height).not.toBe(500);
+    } finally {
+      await anon.dispose();
+      await runCleanups(cleanups);
+    }
   });
 });
