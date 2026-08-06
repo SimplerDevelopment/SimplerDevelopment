@@ -14,5 +14,9 @@ import type { ReactNode } from 'react';
  * content-height so it clips nothing vertically. md+ stays `visible`.
  */
 export default function MarketingPagesLayout({ children }: { children: ReactNode }) {
-  return <div className="overflow-x-clip md:overflow-x-visible">{children}</div>;
+  // `retro` scopes the retro-future design system (see app/globals.css) to the
+  // public marketing tree only — the portal and admin keep their own palette
+  // and type. Applying it here means every page in this route group inherits
+  // the tokens without importing anything.
+  return <div className="retro retro-paper overflow-x-clip md:overflow-x-visible">{children}</div>;
 }

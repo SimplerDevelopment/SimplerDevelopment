@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, DM_Sans, Inter, Playfair_Display } from "next/font/google";
+import { Geist, Geist_Mono, DM_Sans, Inter, Playfair_Display, Orbitron, Raleway } from "next/font/google";
 import "./globals.css";
 import { defaultSEO } from "@/config/seo";
 import { StructuredData } from "@/components/seo/StructuredData";
@@ -54,6 +54,27 @@ const playfairDisplay = Playfair_Display({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700", "800", "900"],
   preload: false,
+});
+
+// ─── Retro-future marketing type ────────────────────────────────────────────
+// The public marketing pages run on the retro-future design system; its tokens
+// name these two exactly. Orbitron is the squared, space-age display face that
+// carries the "1950s idea of the future" read; Raleway is the humanist body
+// face that keeps long-form copy legible next to it.
+//
+// preload: TRUE, unlike every font above. These are on the critical path for
+// the marketing pages — the hero headline is Orbitron, so deferring it means a
+// visible swap on the first thing a visitor sees.
+const orbitron = Orbitron({
+  variable: "--font-orbitron",
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800", "900"],
+});
+
+const raleway = Raleway({
+  variable: "--font-raleway",
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700", "800"],
 });
 
 export const metadata: Metadata = defaultSEO;
@@ -138,7 +159,7 @@ gtag('config', '${gaId}');`,
         />
       </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${dmSans.variable} ${inter.variable} ${playfairDisplay.variable} antialiased min-h-screen flex flex-col`}
+        className={`${geistSans.variable} ${geistMono.variable} ${dmSans.variable} ${inter.variable} ${playfairDisplay.variable} ${orbitron.variable} ${raleway.variable} antialiased min-h-screen flex flex-col`}
       >
         {isClientSite ? (
           // Public client sites supply their own nav/footer (app/sites/[domain]
