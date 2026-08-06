@@ -1,8 +1,8 @@
 import { generateSEO } from '@/lib/utils/seo';
-import { Button } from '@/components/ui/Button';
-import { FadeIn } from '@/components/animations/FadeIn';
 import { StructuredData } from '@/components/seo/StructuredData';
 import { generateBreadcrumbListSchema } from '@/lib/utils/structured-data';
+import { PageHeader, CTABanner } from '@/components/retro/sections';
+import { RetroBadge, Star } from '@/components/retro/primitives';
 
 export const metadata = generateSEO({
   title: 'Changelog',
@@ -81,10 +81,10 @@ const entries: Entry[] = [
   },
 ];
 
-const labelColor: Record<string, string> = {
-  Added: 'text-green-500 border-green-500/30 bg-green-500/10',
-  Improved: 'text-blue-500 border-blue-500/30 bg-blue-500/10',
-  Fixed: 'text-amber-500 border-amber-500/30 bg-amber-500/10',
+const labelTone: Record<Entry['sections'][number]['label'], 'orange' | 'teal' | 'gold'> = {
+  Added: 'orange',
+  Improved: 'teal',
+  Fixed: 'gold',
 };
 
 export default function ChangelogPage() {
@@ -95,64 +95,62 @@ export default function ChangelogPage() {
   return (
     <>
       <StructuredData data={breadcrumb} />
-      <div className="container mx-auto px-4 py-20">
-        <div className="max-w-3xl mx-auto">
-          <FadeIn>
-            <div className="text-center mb-16">
-              <p className="text-primary font-mono text-sm font-semibold mb-3 tracking-wider">{'// CHANGELOG'}</p>
-              <h1 className="text-4xl md:text-6xl font-bold mb-4">What’s new</h1>
-              <p className="text-xl text-muted-foreground">
-                Release notes and product updates for SimplerDevelopment.
-              </p>
-            </div>
-          </FadeIn>
 
+      <PageHeader
+        eyebrow="// Changelog"
+        title="What's New."
+        subtitle="Every module we've shipped, when it shipped, and why it matters. No filler, no vanity metrics."
+      />
+
+      <section className="bg-[var(--retro-cream)]">
+        <div className="mx-auto max-w-3xl px-6 py-16 sm:py-20">
           <div className="space-y-12">
             {entries.map((e) => (
-              <FadeIn key={e.version + e.date}>
-                <article className="relative pl-6 border-l-2 border-border">
-                  <span className="absolute -left-[7px] top-1.5 w-3 h-3 rounded-full bg-primary" />
-                  <div className="flex items-baseline gap-3 flex-wrap mb-1">
-                    <h2 className="text-2xl font-bold">{e.version}</h2>
-                    <time className="text-sm text-muted-foreground font-mono">{e.date}</time>
-                  </div>
-                  {e.tagline && <p className="text-muted-foreground mb-4">{e.tagline}</p>}
-                  {e.sections.map((s) => (
-                    <div key={s.label} className="mb-4">
-                      <span
-                        className={`inline-block text-xs font-semibold px-2 py-0.5 rounded-full border mb-3 ${labelColor[s.label]}`}
-                      >
-                        {s.label}
-                      </span>
-                      <ul className="space-y-2">
-                        {s.items.map((it, i) => (
-                          <li key={i} className="text-muted-foreground leading-relaxed flex gap-2">
-                            <span className="text-primary mt-1.5 shrink-0">•</span>
-                            <span>{it}</span>
-                          </li>
-                        ))}
-                      </ul>
+              <article
+                key={e.version + e.date}
+                className="relative border-l-2 border-[color-mix(in_srgb,var(--retro-mid)_40%,transparent)] pl-7"
+              >
+                <Star className="absolute -left-[9px] top-1 h-4 w-4 text-[var(--retro-gold)]" />
+                <div className="mb-1 flex flex-wrap items-baseline gap-3">
+                  <h2 className="font-display text-2xl font-bold text-[var(--retro-ink)]">{e.version}</h2>
+                  <time className="font-display text-sm tracking-wide text-[color-mix(in_srgb,var(--retro-ink)_60%,transparent)]">
+                    {e.date}
+                  </time>
+                </div>
+                {e.tagline && (
+                  <p className="mb-4 text-[color-mix(in_srgb,var(--retro-ink)_78%,transparent)]">{e.tagline}</p>
+                )}
+                {e.sections.map((s) => (
+                  <div key={s.label} className="mb-4">
+                    <div className="mb-3">
+                      <RetroBadge tone={labelTone[s.label]}>{s.label}</RetroBadge>
                     </div>
-                  ))}
-                </article>
-              </FadeIn>
+                    <ul className="space-y-2">
+                      {s.items.map((it, i) => (
+                        <li
+                          key={i}
+                          className="flex gap-2 leading-relaxed text-[color-mix(in_srgb,var(--retro-ink)_78%,transparent)]"
+                        >
+                          <Star className="mt-1.5 h-3 w-3 shrink-0 text-[var(--retro-orange)]" />
+                          <span>{it}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </article>
             ))}
           </div>
-
-          <FadeIn>
-            <div className="text-center mt-16 rounded-2xl border border-border bg-card p-10">
-              <h2 className="text-2xl font-bold mb-3">Built in the open</h2>
-              <p className="text-muted-foreground mb-6">
-                Follow development on GitHub, self-host it free, or contact us for managed hosting.
-              </p>
-              <div className="flex flex-wrap gap-3 justify-center">
-                <Button href="/contact">Contact us for managed hosting</Button>
-                <Button href="/solutions" variant="outline">Explore the platform</Button>
-              </div>
-            </div>
-          </FadeIn>
         </div>
-      </div>
+      </section>
+
+      <CTABanner
+        title="Built In The Open."
+        subtitle="Follow development on GitHub, self-host it free, or contact us for managed hosting."
+        primary={{ href: '/contact', label: 'Contact us for managed hosting' }}
+        secondary={{ href: '/solutions', label: 'Explore the platform' }}
+        art="satellite-dish"
+      />
     </>
   );
 }
