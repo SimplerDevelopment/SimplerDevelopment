@@ -5,8 +5,6 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useSession } from 'next-auth/react';
-import { siteConfig } from '@/config/site';
-import { ThemeToggle } from './ThemeToggle';
 import { UserDropdown } from './UserDropdown';
 import { SolutionsMegaMenu } from './SolutionsMegaMenu';
 
@@ -118,7 +116,12 @@ export function Navigation() {
                 </>
               )}
 
-              <ThemeToggle />
+              {/* Theme toggle removed: the retro marketing skin defines its palette
+                  as fixed hex tokens under `.retro`, so light/dark has no effect on
+                  any surface this nav renders over — verified by toggling `.dark`
+                  and measuring the band background (unchanged). A control that
+                  visibly does nothing is worse than no control. The portal and
+                  admin keep their own toggle; this nav never renders there. */}
 
               {session ? (
                 <UserDropdown user={session.user} />
@@ -143,7 +146,6 @@ export function Navigation() {
 
             {/* Mobile Menu Button & Theme Toggle */}
             <div className="flex items-center space-x-4 md:hidden">
-              <ThemeToggle />
               <button
                 onClick={toggleMobileMenu}
                 className="inline-flex items-center justify-center p-2 rounded hover:bg-[color-mix(in_srgb,var(--retro-cream)_12%,transparent)] transition-colors"
