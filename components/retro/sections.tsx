@@ -9,6 +9,7 @@
 import Image from 'next/image';
 import type { ReactNode } from 'react';
 import { RetroButton, SectionHeading, Star, InkPanel } from './primitives';
+// (re-exported at the bottom for pages that treat this file as the entry point)
 // Client island — keeps these sections usable from Server Components. See the
 // gate's header for why the dynamic import can't live here.
 import StarFieldGate from './StarFieldGate';
@@ -199,4 +200,23 @@ export function PageHeader({ eyebrow, title, subtitle }: { eyebrow?: string; tit
   );
 }
 
-export { SectionHeading };
+/**
+ * Re-exported primitives.
+ *
+ * Pages naturally reach for `sections` as the single entry point and import
+ * things like InkPanel from here — which used to fail at build time. Because
+ * these are all in one module graph, ONE bad import 500s every route in the
+ * `(pages)` group, not just the page with the typo. Re-exporting removes the
+ * distinction rather than asking every author to remember which file a given
+ * component lives in.
+ */
+export {
+  SectionHeading,
+  InkPanel,
+  RetroCard,
+  RetroButton,
+  RetroBadge,
+  StatBlock,
+  OrbitDivider,
+  Star,
+} from './primitives';
