@@ -22,12 +22,26 @@ const WATCH_THRESHOLD = 500; // files above this get pinned in the baseline
 const BASELINE = '.file-budget.baseline.json';
 const ROOTS = ['app', 'lib', 'components', 'scripts', 'workers'];
 
+/**
+ * Tracked files only — `git ls-files`, never `find`.
+ *
+ * The ratchet governs what is IN the repo. A working tree routinely carries
+ * stray untracked `.ts` files: leftovers from a branch switch, another agent's
+ * worktree spilling in, a half-finished spike. Scanning the filesystem made
+ * those count, so files nobody had touched could fail an unrelated commit —
+ * and the error told you to split a file that git has never heard of.
+ *
+ * On 2026-08-06 a stale checkout dropped ~1,200 files from a June branch into
+ * this tree. Eleven of them were untracked god files. They blocked a one-file
+ * commit with an error naming only those eleven, which reads exactly like "you
+ * made these huge" and not at all like "your tree has junk in it".
+ */
 function listFiles(): string[] {
-  const out = execSync(
-    `find ${ROOTS.join(' ')} -type f \\( -name '*.ts' -o -name '*.tsx' \\) -not -path '*/node_modules/*' 2>/dev/null`,
-    { encoding: 'utf8', maxBuffer: 128 * 1024 * 1024 },
-  );
-  return out.split('\n').filter(Boolean);
+  const out = execSync(`git ls-files -- ${ROOTS.join(' ')}`, {
+    encoding: 'utf8',
+    maxBuffer: 128 * 1024 * 1024,
+  });
+  return out.split('\n').filter((f) => f.endsWith('.ts') || f.endsWith('.tsx'));
 }
 /**
  * Count CODE lines. Blank lines and comment-only lines are free.
