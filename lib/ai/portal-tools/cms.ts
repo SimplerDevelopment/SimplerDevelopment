@@ -2,14 +2,14 @@
  * CMS / website AI tools — websites, pages/posts, categories, tags, media,
  * hosting, and the deeper page-content / block edit tools.
  */
-import type Anthropic from '@anthropic-ai/sdk';
+import type { PortalTool } from './types';
 import { db } from '@/lib/db';
 import {
   clientWebsites, posts, postRevisions, categories, tags, media, hostedSites,
 } from '@/lib/db/schema';
 import { eq, and, desc, sql } from 'drizzle-orm';
 
-export const cmsTools: Anthropic.Tool[] = [
+export const cmsTools: PortalTool[] = [
   {
     name: 'get_my_websites',
     description: 'Get all client websites with page counts and deployment status.',
@@ -75,6 +75,7 @@ export const cmsTools: Anthropic.Tool[] = [
   },
   {
     name: 'publish_page',
+    requiresApproval: true,
     description: 'Publish or unpublish a page/post. Confirm with client first.',
     input_schema: {
       type: 'object' as const,

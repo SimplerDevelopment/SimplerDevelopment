@@ -10,8 +10,8 @@ import { logAgentAction, hashParams } from '@/lib/audit/agent-action-log';
 import { stageOrApply } from '@/lib/mcp/pending-changes';
 import type { PortalMcpContext } from '@/lib/mcp-auth';
 
-export { APPROVAL_REQUIRED_TOOLS, isApprovalRequired, unattendedRefusal } from './gating';
-import { isApprovalRequired } from './gating';
+export { unattendedRefusal } from './gating';
+import type { PortalTool } from './types';
 
 import { dashboardTools, dashboardHandlers } from './dashboard';
 import { projectTools, projectHandlers } from './projects';
@@ -40,7 +40,7 @@ type Handler = (
 // navigation → CRM → projects-cards already in projects → surveys → CRM
 // proposals already in CRM → automations → email subscribers/segments already
 // in email).
-export const PORTAL_TOOLS: Anthropic.Tool[] = [
+const ALL_TOOLS_WITH_META: PortalTool[] = [
   ...dashboardTools,
   ...projectTools.filter(t => !['create_project_card', 'update_project_card', 'move_project_card', 'add_card_comment'].includes(t.name)),
   ...billingTools.filter(t => t.name !== 'pay_invoice'),
@@ -80,6 +80,32 @@ export const PORTAL_TOOLS: Anthropic.Tool[] = [
   ...automationTools,
   ...emailTools.filter(t => ['add_email_subscriber', 'get_email_segments', 'create_email_segment'].includes(t.name)),
 ];
+
+/**
+ * High-blast-radius tools, derived from the `requiresApproval` flags the domain
+ * modules declare on the tools themselves (see `./types` and `./gating`).
+ *
+ * Derived, never hand-listed: the previous hand-maintained list lived in a
+ * separate module, so a new high-risk tool could be added to a domain file and
+ * silently miss the gate. `tests/unit/portal-tools-gating.test.ts` pins this set
+ * against the gate-matrix ADR so a change here has to be deliberate.
+ */
+export const APPROVAL_REQUIRED_TOOLS: ReadonlySet<string> = new Set(
+  ALL_TOOLS_WITH_META.filter(t => t.requiresApproval).map(t => t.name),
+);
+
+/** True when the named portal tool is high-blast-radius (see matrix ADR). */
+export function isApprovalRequired(name: string): boolean {
+  return APPROVAL_REQUIRED_TOOLS.has(name);
+}
+
+/**
+ * The registry sent to the Anthropic API. `requiresApproval` is local metadata,
+ * so it is stripped here — the wire shape is exactly `Anthropic.Tool`.
+ */
+export const PORTAL_TOOLS: Anthropic.Tool[] = ALL_TOOLS_WITH_META.map(
+  ({ requiresApproval: _requiresApproval, ...tool }) => tool,
+);
 
 // Lookup table: tool name → handler. Built once at module load. Each handler
 // owns its own DB calls and is identical (line-for-line) to the body that

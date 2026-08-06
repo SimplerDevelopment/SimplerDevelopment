@@ -1,12 +1,12 @@
 /**
  * Billing AI tools — invoices, payment methods, pay-invoice navigation.
  */
-import type Anthropic from '@anthropic-ai/sdk';
+import type { PortalTool } from './types';
 import { db } from '@/lib/db';
 import { invoices, invoiceItems, paymentMethods } from '@/lib/db/schema';
 import { eq, and, desc } from 'drizzle-orm';
 
-export const billingTools: Anthropic.Tool[] = [
+export const billingTools: PortalTool[] = [
   {
     name: 'get_my_invoices',
     description: 'Get all invoices for this client including amounts, status, and due dates.',
@@ -28,6 +28,7 @@ export const billingTools: Anthropic.Tool[] = [
   },
   {
     name: 'pay_invoice',
+    requiresApproval: true,
     description: 'Navigate the user to pay a specific invoice. This opens the invoice with the pay button highlighted.',
     input_schema: {
       type: 'object' as const,

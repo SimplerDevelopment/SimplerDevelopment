@@ -47,7 +47,8 @@ AI orchestration layer: key resolution, plan-gating, tool execution for the Comp
 3. Write unit tests; keep coverage ≥70%.
 
 **New Portal AI tool:**
-1. Create (or extend) a domain module under `portal-tools/` exporting `*Tools: Anthropic.Tool[]` and `*Handlers: Record<string, Handler>`.
+1. Create (or extend) a domain module under `portal-tools/` exporting `*Tools: PortalTool[]` (`./types`; an `Anthropic.Tool` plus local metadata) and `*Handlers: Record<string, Handler>`.
+1b. **If the tool is irreversible, outbound, an authority/access change, or financial, set `requiresApproval: true` on the definition itself.** `APPROVAL_REQUIRED_TOOLS` is derived from those flags, so an unflagged high-risk tool executes on every path including the unattended ones (inbound email, automation engine). Then add the name to `GATE_MATRIX` in `tests/unit/portal-tools-gating.test.ts` — it pins the derived set to the gate-matrix ADR by exact equality, so the test fails until you do.
 2. Import and spread both into `portal-tools/index.ts` (`PORTAL_TOOLS` + `HANDLERS`).
 3. Tool ordering in `PORTAL_TOOLS` is intentional (read block at top of `portal-tools/index.ts`); preserve the read/write grouping.
 4. **Add the tool name to `TOOL_DOMAIN` in `portal-tools/domains.ts`** (the intent-router map). `tests/unit/portal-tool-domains.test.ts` asserts exact set-equality with `PORTAL_TOOLS`, so a tool with no domain fails CI. If it's cross-cutting like `navigate_to`, add it to `BASELINE_TOOL_NAMES` instead.

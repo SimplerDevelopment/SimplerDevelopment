@@ -1,7 +1,7 @@
 /**
  * CRM AI tools — contacts, companies, deals, activities, pipelines, proposals.
  */
-import type Anthropic from '@anthropic-ai/sdk';
+import type { PortalTool } from './types';
 import { db } from '@/lib/db';
 import {
   crmContacts, crmCompanies, crmDeals, crmActivities,
@@ -13,7 +13,7 @@ import { eq, and, desc, asc, sql, inArray } from 'drizzle-orm';
 import { emitEvent } from '@/lib/automation/event-bus';
 import { ensureDefaultPipeline } from '@/lib/crm/default-pipeline';
 
-export const crmTools: Anthropic.Tool[] = [
+export const crmTools: PortalTool[] = [
   {
     name: 'get_crm_contacts',
     description: 'Get CRM contacts. Optionally filter by status or search by name/email.',
@@ -135,6 +135,7 @@ export const crmTools: Anthropic.Tool[] = [
   },
   {
     name: 'create_crm_deal',
+    requiresApproval: true,
     description: 'Create a new CRM deal. If pipeline_id/stage_id are omitted, the client\'s default pipeline and its first stage are used — useful for automation rules.',
     input_schema: {
       type: 'object' as const,
@@ -154,6 +155,7 @@ export const crmTools: Anthropic.Tool[] = [
   },
   {
     name: 'update_crm_deal',
+    requiresApproval: true,
     description: 'Update a CRM deal. Can change stage, status, value, etc.',
     input_schema: {
       type: 'object' as const,
@@ -216,6 +218,7 @@ export const crmTools: Anthropic.Tool[] = [
   },
   {
     name: 'send_crm_proposal',
+    requiresApproval: true,
     description: 'Send a draft proposal to the contact. This marks it as sent and generates a shareable link.',
     input_schema: {
       type: 'object' as const,

@@ -1,55 +1,38 @@
 /**
- * Shared blast-radius classification for AI-agent portal tools.
+ * Blast-radius classification for AI-agent portal tools — the refusal side.
  *
- * Single source of truth for "which write operations are high-risk" per
- * `vault/04 - Decisions/ADR agent-write-approval-gate-matrix.md`. A tool is
+ * The classification itself is no longer a list in this file. It is declared on
+ * each tool, at its definition site, via `requiresApproval` (see `./types`), and
+ * `APPROVAL_REQUIRED_TOOLS` in `./index` is derived from those flags.
+ *
+ * Why it moved: this file used to hold a hand-maintained `Set` of nine tool
+ * names, under a comment instructing the reader to "keep this list beside the
+ * tools it classifies". It was not beside them — it was a separate module
+ * listing bare strings, and nothing connected the two. Adding a high-risk tool
+ * to `crm.ts` and forgetting this file produced a tool that silently executed on
+ * every path, including the unattended ones. The flag now lives on the tool, so
+ * the classification is visible in the diff that introduces the tool.
+ *
+ * The policy is unchanged and still governed by
+ * `vault/04 - Decisions/ADR agent-write-approval-gate-matrix.md`: a tool is
  * approval-required when it is irreversible, outbound, an authority/access
- * change, or financial. The SAME classification drives two behaviours:
+ * change, or financial. `tests/unit/portal-tools-gating.test.ts` pins the
+ * resulting set against that matrix, so annotating (or un-annotating) a tool
+ * fails CI until the matrix is updated deliberately.
  *
- *  - **Attended** agents (Portal AI chat, where a human is in the loop) STAGE
- *    these for approval instead of executing (see `executePortalTool` gate).
- *  - **Unattended** agents (inbound-email handler, automation engine) run on
- *    untrusted / third-party input with no interactive approver, so they must
- *    REFUSE these outright — path-level least-privilege. Queuing an approval
- *    per inbound email would just flood the queue with injection attempts.
- *
- * Benign, reversible edits (content/field updates, drafts, notes, reads) are
- * absent here and execute directly on every path.
+ * This module stays free of imports so the refusal payload can be used without
+ * pulling in the tool registry and its DB dependencies.
  */
-
-/**
- * Portal-tool names (see `PORTAL_TOOLS` in ./index.ts) whose blast radius
- * warrants human approval. Keep this list beside the tools it classifies; a new
- * high-risk tool must be added here at registration time.
- */
-export const APPROVAL_REQUIRED_TOOLS: ReadonlySet<string> = new Set([
-  // Publish-to-live (makes content publicly visible)
-  'publish_page',
-  // Outbound sends
-  'send_crm_proposal',
-  // Authority / access changes
-  'invite_team_member',
-  // Financial / billable commitments
-  'pay_invoice',
-  'request_service',
-  // Creating or enabling autonomous authority — an agent that can author a
-  // persistent automation rule can grant itself ongoing unattended reach.
-  'create_automation',
-  'toggle_automation',
-  // Deal records — the "critical deal record" an injection would target.
-  'create_crm_deal',
-  'update_crm_deal',
-]);
-
-/** True when the named portal tool is high-blast-radius (see matrix ADR). */
-export function isApprovalRequired(name: string): boolean {
-  return APPROVAL_REQUIRED_TOOLS.has(name);
-}
 
 /**
  * Refusal payload returned to an unattended agent that attempts a high-risk
  * tool. Shaped like a normal tool result (carries `error`) so the agent loop
  * surfaces it to the user and moves on rather than crashing.
+ *
+ * Unattended agents (inbound-email handler, automation engine) run on untrusted
+ * third-party input with no interactive approver, so they refuse outright rather
+ * than staging: queuing an approval per inbound email would just flood the queue
+ * with injection attempts.
  */
 export function unattendedRefusal(name: string): { error: string } {
   return {

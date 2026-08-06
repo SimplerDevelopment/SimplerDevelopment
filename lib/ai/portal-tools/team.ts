@@ -1,7 +1,7 @@
 /**
  * Team / profile / suggested-projects AI tools.
  */
-import type Anthropic from '@anthropic-ai/sdk';
+import type { PortalTool } from './types';
 import { db } from '@/lib/db';
 import {
   clientMembers, clients, users,
@@ -9,7 +9,7 @@ import {
 } from '@/lib/db/schema';
 import { eq, and, isNull, or } from 'drizzle-orm';
 
-export const teamTools: Anthropic.Tool[] = [
+export const teamTools: PortalTool[] = [
   {
     name: 'get_suggested_projects',
     description: 'Get suggested projects the client can request (pre-built project templates).',
@@ -54,6 +54,7 @@ export const teamTools: Anthropic.Tool[] = [
   },
   {
     name: 'invite_team_member',
+    requiresApproval: true,
     description: 'Invite a new team member to the client account. Only call AFTER the client confirms name, email, and role.',
     input_schema: {
       type: 'object' as const,

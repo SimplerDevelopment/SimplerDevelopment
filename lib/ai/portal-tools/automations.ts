@@ -1,14 +1,14 @@
 /**
  * Automation-rule AI tools.
  */
-import type Anthropic from '@anthropic-ai/sdk';
+import type { PortalTool } from './types';
 import { db } from '@/lib/db';
 import { automationRules } from '@/lib/db/schema';
 import type { AutomationTrigger, AutomationCondition, AutomationAction } from '@/lib/db/schema';
 import { eq, and, desc } from 'drizzle-orm';
 import { deriveRuleScopes } from './derive-rule-scopes';
 
-export const automationTools: Anthropic.Tool[] = [
+export const automationTools: PortalTool[] = [
   {
     name: 'get_my_automations',
     description: 'Get all automation rules for this client.',
@@ -16,6 +16,7 @@ export const automationTools: Anthropic.Tool[] = [
   },
   {
     name: 'create_automation',
+    requiresApproval: true,
     description: 'Create an automation rule. Confirm with user first. Use get_my_automations to see examples of trigger/action format.',
     input_schema: {
       type: 'object' as const,
@@ -31,6 +32,7 @@ export const automationTools: Anthropic.Tool[] = [
   },
   {
     name: 'toggle_automation',
+    requiresApproval: true,
     description: 'Enable or disable an automation rule.',
     input_schema: {
       type: 'object' as const,
