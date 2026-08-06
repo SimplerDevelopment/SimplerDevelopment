@@ -21,7 +21,7 @@
  * Callers should lazy-load this with `next/dynamic({ ssr: false })`; there is
  * no server-rendered fallback for a WebGL canvas.
  */
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 
@@ -64,16 +64,26 @@ function Layer({ count, depth, speed, size, tint }: { count: number; depth: numb
   );
 }
 
+/**
+ * `useSyncExternalStore` rather than useState+useEffect: a media query IS an
+ * external store, and reading it into state inside an effect causes the
+ * cascading render React now warns about. This also gives the correct SSR
+ * value (false) without a flash.
+ */
+const MOTION_QUERY = '(prefers-reduced-motion: reduce)';
+
+function subscribeToMotionPreference(onChange: () => void): () => void {
+  const mq = window.matchMedia(MOTION_QUERY);
+  mq.addEventListener('change', onChange);
+  return () => mq.removeEventListener('change', onChange);
+}
+
 function usePrefersReducedMotion(): boolean {
-  const [reduced, setReduced] = useState(false);
-  useEffect(() => {
-    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
-    setReduced(mq.matches);
-    const on = (e: MediaQueryListEvent) => setReduced(e.matches);
-    mq.addEventListener('change', on);
-    return () => mq.removeEventListener('change', on);
-  }, []);
-  return reduced;
+  return useSyncExternalStore(
+    subscribeToMotionPreference,
+    () => window.matchMedia(MOTION_QUERY).matches,
+    () => false, // server: assume motion is fine, the client corrects on mount
+  );
 }
 
 export default function StarField({ className = '' }: { className?: string }) {
