@@ -34,6 +34,16 @@ STARK = [  # sparkles hidden, then pop in at the end with the ding
  {"t":DINGT+0.30,"o":1,"s":1.00,"r":0,"e":"out"},
  {"t":TOTAL,"o":1,"s":1.00,"r":0,"e":"smooth"},
 ]
+LIFTK = [  # the whole lockup rises with the chord and stays up
+ # A chord swells and sustains where a bell just decays, so this lifts and
+ # holds rather than bouncing back. Applied on top of the idle bob and the
+ # loudness breath, not instead of them — the sine keeps running underneath.
+ {"t":0.00,"y":0,"s":1.000,"e":"smooth"},
+ {"t":DINGT,"y":0,"s":1.000,"e":"out"},
+ {"t":DINGT+0.24,"y":-14,"s":1.032,"e":"out"},   # rise, slight overshoot
+ {"t":DINGT+0.48,"y":-10,"s":1.020,"e":"out"},   # settle
+ {"t":TOTAL,"y":-10,"s":1.020,"e":"smooth"},
+]
 SIMP = [  # un-wipes from behind the icon, LANDS on the vocal attack 0.20
  # Deliberately NOT the 1.08 swell apex: "Simpler" is drawn out over 1.38s, so
  # anchoring to the apex left the word on screen ~0.9s after you hear it. The
@@ -98,7 +108,7 @@ HTML = r"""<meta charset=utf8><meta name=viewport content="width=device-width,in
 <audio id=ding src="data:audio/wav;base64,@@DING@@"></audio>
 <script>
 const DUR=@@DUR@@, HOP=@@HOP@@, TOTAL=@@TOTAL@@, DINGT=@@DINGT@@, LOUD=@@LOUD@@;
-const ICONK=@@ICONK@@, STARK=@@STARK@@, SIMP=@@SIMP@@, DEVL=@@DEVL@@;
+const ICONK=@@ICONK@@, STARK=@@STARK@@, SIMP=@@SIMP@@, DEVL=@@DEVL@@, LIFTK=@@LIFTK@@;
 const $=id=>document.getElementById(id);
 const aud=$('aud'), ding=$('ding'), iconwrap=$('iconwrap'), stars=$('stars'),
       simp=$('simp'), dev=$('dev'), lockup=$('lockup');
@@ -116,7 +126,8 @@ const loudAt=t=>LOUD[Math.min(LOUD.length-1,Math.max(0,Math.floor(t/HOP)))]||0;
 function render(t){
   const g=loudAt(t);
   const by=Math.sin(t*Math.PI*1.6)*2.2, bs=1+Math.sin(t*Math.PI*1.6)*0.006+g*0.018;
-  lockup.style.transform=`translateY(${by.toFixed(2)}px) scale(${bs.toFixed(4)})`;
+  const lf=samp(LIFTK,t,['y','s']);
+  lockup.style.transform=`translateY(${(by+lf.y).toFixed(2)}px) scale(${(bs*lf.s).toFixed(4)})`;
   lockup.style.filter=`drop-shadow(0 0 ${(2+g*16).toFixed(1)}px rgba(0,0,0,${(0.05+g*0.20).toFixed(2)}))`;
   const ic=samp(ICONK,t,['o','s','r']);
   const iIdle=1+Math.sin(t*Math.PI*1.9)*0.016;
@@ -171,7 +182,8 @@ sub={"@@FONT@@":FONT,"@@BRK@@":BRK,"@@STR@@":STR,"@@WAV@@":WAV,"@@DING@@":DING,
      "@@RW@@":str(RW),"@@RH@@":str(RH),"@@FPS@@":str(FPS),"@@RENDER_DUR@@":str(RENDER_DUR),
      "@@DUR@@":str(DUR),"@@HOP@@":str(HOP),"@@TOTAL@@":str(TOTAL),"@@DINGT@@":str(DINGT),
      "@@LOUD@@":json.dumps(LOUD),"@@ICONK@@":json.dumps(ICONK),"@@STARK@@":json.dumps(STARK),
-     "@@SIMP@@":json.dumps(SIMP),"@@DEVL@@":json.dumps(DEVL)}
+     "@@SIMP@@":json.dumps(SIMP),"@@DEVL@@":json.dumps(DEVL),
+     "@@LIFTK@@":json.dumps(LIFTK)}
 for k,v in sub.items(): HTML=HTML.replace(k,v)
 open(f"{DIR}/index.html","w").write(HTML)
 print(f"wrote index.html ({len(HTML)//1024} KB)  voice={DUR}s total={TOTAL}s")

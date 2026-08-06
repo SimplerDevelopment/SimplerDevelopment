@@ -171,3 +171,6 @@ packages/*/dist/
 .agents/skills/huashu-design/assets/**/*.mp3
 .agents/skills/huashu-design/assets/**/*.mp4
 .agents/skills/huashu-design/assets/**/*.wav
+
+# transient fixtures written by docs/marketing/agile-after-ai/check.mjs
+public/agile-after-ai/_*

@@ -113,6 +113,48 @@ export default async function BlogPage({
           </FadeIn>
         )}
 
+        {/* Featured: scroll-driven WebGL essay. Served as its own full-viewport
+            document at /agile-after-ai rather than a /blog/<slug> post, because
+            it owns the scroll and cannot sit inside the article layout.
+            Restyled onto the retro tokens during the 2026-08 reskin — it keeps
+            the ink surface so it still reads as "featured" against the cream
+            band, rather than the pre-reskin slate palette it shipped in. */}
+        <SlideIn direction="up">
+          <Link href="/agile-after-ai" className="block mb-12">
+            <article className="group relative overflow-hidden rounded-md border border-[color-mix(in_srgb,var(--retro-gold)_45%,transparent)] bg-[var(--retro-ink)] p-8 transition-colors hover:border-[var(--retro-gold)] md:p-12">
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-0 opacity-25"
+                style={{
+                  backgroundImage:
+                    'linear-gradient(to right, var(--retro-rule) 1px, transparent 1px), linear-gradient(to bottom, var(--retro-rule) 1px, transparent 1px)',
+                  backgroundSize: '44px 44px',
+                  maskImage:
+                    'radial-gradient(ellipse 120% 80% at 50% 40%, #000 30%, transparent 78%)',
+                }}
+              />
+              <div className="relative max-w-2xl">
+                <div className="mb-4">
+                  <RetroBadge tone="orange">Interactive · Field notes</RetroBadge>
+                </div>
+                <h2 className="font-display mb-3 text-3xl font-bold text-[var(--retro-cream)] md:text-4xl">
+                  If Agile were invented after AI
+                </h2>
+                <p className="mb-6 text-[color-mix(in_srgb,var(--retro-cream)_78%,transparent)]">
+                  One study found developers 55.8% faster. Another found them 19% slower.
+                  A scroll-driven reading of what an AI-native Agile would actually look
+                  like, and what holds up in practice.
+                </p>
+                <span className="font-display inline-flex items-center gap-2 text-sm font-bold uppercase tracking-[0.14em] text-[var(--retro-gold)]">
+                  Open the experience
+                  <span className="transition-transform group-hover:translate-x-1">→</span>
+                </span>
+              </div>
+            </article>
+          </Link>
+        </SlideIn>
+
+        {/* Blog Posts Grid */}
         {posts && posts.length > 0 ? (
           <>
             <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
