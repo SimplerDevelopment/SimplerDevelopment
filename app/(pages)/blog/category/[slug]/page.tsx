@@ -1,10 +1,12 @@
-import { getBlogPostsByCategory, getCategoryBySlug, getAllCategories } from '@/lib/actions/blog';
+import { getBlogPostsByCategory, getCategoryBySlug, getAllCategories, type BlogPostWithRelations } from '@/lib/actions/blog';
 import { generateSEO } from '@/lib/utils/seo';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { FadeIn } from '@/components/animations/FadeIn';
 import { SlideIn } from '@/components/animations/SlideIn';
 import Link from 'next/link';
+import { PageHeader, CreamBand, CTABanner } from '@/components/retro/sections';
+import { RetroBadge } from '@/components/retro/primitives';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -48,6 +50,66 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   });
 }
 
+// Retro-skinned post card — same shape as blog/page.tsx's BlogPostCard.
+// Duplicated rather than shared: this reskin is scoped to only the three
+// blog route files, so no new shared component file was introduced.
+function BlogPostCard({ post }: { post: BlogPostWithRelations }) {
+  return (
+    <Link
+      href={`/blog/${post.slug}`}
+      className="group flex h-full flex-col overflow-hidden rounded-md border border-[color-mix(in_srgb,var(--retro-mid)_35%,transparent)] bg-[var(--retro-cream)] transition-colors hover:border-[var(--retro-mid)]"
+    >
+      {post.coverImage && (
+        <div className="aspect-video overflow-hidden border-b border-[color-mix(in_srgb,var(--retro-mid)_35%,transparent)]">
+          <img
+            src={post.coverImage}
+            alt={post.title}
+            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+          />
+        </div>
+      )}
+
+      <div className="flex flex-1 flex-col gap-3 p-6">
+        {post.category && <RetroBadge tone="teal">{post.category.name}</RetroBadge>}
+
+        <h2 className="font-display text-lg font-bold leading-snug text-[var(--retro-ink)]">{post.title}</h2>
+
+        {post.excerpt && (
+          <p className="line-clamp-3 text-sm leading-relaxed text-[color-mix(in_srgb,var(--retro-ink)_75%,transparent)]">
+            {post.excerpt}
+          </p>
+        )}
+
+        <div className="mt-auto flex items-center justify-between gap-3 pt-2">
+          {post.publishedAt && (
+            <time
+              dateTime={new Date(post.publishedAt).toISOString()}
+              className="text-xs text-[color-mix(in_srgb,var(--retro-ink)_60%,transparent)]"
+            >
+              {new Date(post.publishedAt).toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric',
+              })}
+            </time>
+          )}
+          <span className="text-sm font-bold text-[var(--retro-orange)]">Read it →</span>
+        </div>
+
+        {post.tags && post.tags.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {post.tags.slice(0, 3).map((tag) => (
+              <RetroBadge key={tag.id} tone="gold">
+                {tag.name}
+              </RetroBadge>
+            ))}
+          </div>
+        )}
+      </div>
+    </Link>
+  );
+}
+
 export default async function CategoryPage({ params }: PageProps) {
   const { slug } = await params;
   const category = await getCategoryBySlug(slug);
@@ -62,142 +124,57 @@ export default async function CategoryPage({ params }: PageProps) {
   ]);
 
   return (
-    <div className="container mx-auto px-4 py-20">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="text-center mb-16">
-          <FadeIn>
-            <div className="inline-block mb-4">
-              <div
-                className="px-4 py-2 rounded-full text-sm font-semibold flex items-center gap-2"
-                style={{ backgroundColor: category.color ? `${category.color}20` : undefined, color: category.color || undefined }}
+    <>
+      <PageHeader
+        eyebrow="Flight Log · Category"
+        title={category.name}
+        subtitle={category.description || undefined}
+      />
+
+      <CreamBand>
+        <FadeIn>
+          <div className="mb-10 flex flex-wrap justify-center gap-3">
+            <Link href="/blog" className="inline-block transition-opacity hover:opacity-80">
+              <RetroBadge tone="teal">All Posts</RetroBadge>
+            </Link>
+            {allCategories.map((cat) => (
+              <Link
+                key={cat.slug}
+                href={`/blog/category/${cat.slug}`}
+                className="inline-block transition-opacity hover:opacity-80"
               >
-                {category.color && <span className="w-2 h-2 rounded-full" style={{ backgroundColor: category.color }} />}
-                {category.name}
-              </div>
-            </div>
-            <h1 className="text-4xl md:text-6xl font-bold mb-4">{category.name}</h1>
-            {category.description && (
-              <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-                {category.description}
-              </p>
-            )}
-          </FadeIn>
-        </div>
-
-        {/* Categories Filter */}
-        <div className="mb-12">
-          <FadeIn delay={0.1}>
-            <div className="flex flex-wrap gap-3 justify-center">
-              <Link href="/blog" className="group">
-                <div className="px-4 py-2 rounded-full border border-primary/20 bg-background/40 backdrop-blur-sm hover:border-primary/40 transition-all duration-300">
-                  <span className="text-sm font-medium">All Posts</span>
-                </div>
+                <RetroBadge tone={cat.slug === slug ? 'orange' : 'teal'}>{cat.name}</RetroBadge>
               </Link>
-              {allCategories.map((cat) => (
-                <Link
-                  key={cat.slug}
-                  href={`/blog/category/${cat.slug}`}
-                  className="group"
-                >
-                  <div
-                    className={`px-4 py-2 rounded-full border backdrop-blur-sm transition-all duration-300 flex items-center gap-2 ${
-                      cat.slug === slug
-                        ? 'border-primary/40 bg-primary/10'
-                        : 'border-primary/20 bg-background/40 hover:border-primary/40'
-                    }`}
-                  >
-                    {cat.color && (
-                      <span
-                        className="w-2 h-2 rounded-full"
-                        style={{ backgroundColor: cat.color }}
-                      />
-                    )}
-                    <span className="text-sm font-medium">{cat.name}</span>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </FadeIn>
-        </div>
+            ))}
+          </div>
+        </FadeIn>
 
-        {/* Blog Posts Grid */}
         {posts && posts.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
             {posts.map((post, index) => (
-              <SlideIn key={post.id} direction="up" delay={index * 0.1}>
-                <Link href={`/blog/${post.slug}`}>
-                  <article className="group h-full rounded-lg border bg-card overflow-hidden transition-all hover:shadow-lg">
-                    {post.coverImage && (
-                      <div className="aspect-video overflow-hidden">
-                        <img
-                          src={post.coverImage}
-                          alt={post.title}
-                          className="w-full h-full object-cover transition-transform group-hover:scale-105"
-                        />
-                      </div>
-                    )}
-
-                    <div className="p-6">
-                      {post.category && (
-                        <div
-                          className="text-sm font-medium mb-2"
-                          style={{ color: post.category.color || undefined }}
-                        >
-                          {post.category.name}
-                        </div>
-                      )}
-
-                      <h2 className="text-2xl font-bold mb-3 group-hover:text-primary transition-colors">
-                        {post.title}
-                      </h2>
-
-                      {post.excerpt && (
-                        <p className="text-muted-foreground mb-4 line-clamp-3">
-                          {post.excerpt}
-                        </p>
-                      )}
-
-                      <div className="flex items-center justify-between text-sm text-muted-foreground">
-                        {post.publishedAt && (
-                          <time dateTime={new Date(post.publishedAt).toISOString()}>
-                            {new Date(post.publishedAt).toLocaleDateString('en-US', {
-                              month: 'short',
-                              day: 'numeric',
-                              year: 'numeric',
-                            })}
-                          </time>
-                        )}
-                      </div>
-
-                      {post.tags && post.tags.length > 0 && (
-                        <div className="flex flex-wrap gap-2 mt-4">
-                          {post.tags.slice(0, 3).map((tag) => (
-                            <span
-                              key={tag.id}
-                              className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary"
-                            >
-                              {tag.name}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </article>
-                </Link>
+              <SlideIn key={post.id} direction="up" delay={index * 0.08}>
+                <BlogPostCard post={post} />
               </SlideIn>
             ))}
           </div>
         ) : (
-          <div className="text-center py-12">
+          <div className="py-12 text-center">
             <FadeIn>
-              <p className="text-xl text-muted-foreground">
-                No posts in this category yet. Check back soon!
+              <p className="text-base leading-relaxed text-[color-mix(in_srgb,var(--retro-ink)_75%,transparent)]">
+                Nothing filed under {category.name} yet — check back soon.
               </p>
             </FadeIn>
           </div>
         )}
-      </div>
-    </div>
+      </CreamBand>
+
+      <CTABanner
+        title="Explore The Rest Of The Log."
+        subtitle="Free forever if you host it yourself. We'll be here either way."
+        primary={{ href: '/blog', label: 'All Dispatches' }}
+        secondary={{ href: '/contact', label: 'Talk To Us' }}
+        art="radio-tower"
+      />
+    </>
   );
 }

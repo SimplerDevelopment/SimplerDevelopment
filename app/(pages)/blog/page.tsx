@@ -1,8 +1,10 @@
-import { getAllBlogPosts, getAllCategories } from '@/lib/actions/blog';
+import { getAllBlogPosts, getAllCategories, type BlogPostWithRelations } from '@/lib/actions/blog';
 import { generateSEO } from '@/lib/utils/seo';
 import { FadeIn } from '@/components/animations/FadeIn';
 import { SlideIn } from '@/components/animations/SlideIn';
 import Link from 'next/link';
+import { PageHeader, CreamBand, CTABanner } from '@/components/retro/sections';
+import { RetroBadge, RetroButton } from '@/components/retro/primitives';
 
 export const metadata = generateSEO({
   title: 'Blog',
@@ -11,6 +13,68 @@ export const metadata = generateSEO({
 });
 
 const PAGE_SIZE = 9;
+
+// Retro-skinned post card — shared shape with the "Dispatches" grid on the
+// homepage (HomeClient.tsx), extended with the cover image / category / tags
+// this index page already had before the reskin. Duplicated (not extracted to
+// a shared component) in blog/category/[slug]/page.tsx per the reskin's
+// file-scope constraint — this page only touches the three blog routes.
+function BlogPostCard({ post }: { post: BlogPostWithRelations }) {
+  return (
+    <Link
+      href={`/blog/${post.slug}`}
+      className="group flex h-full flex-col overflow-hidden rounded-md border border-[color-mix(in_srgb,var(--retro-mid)_35%,transparent)] bg-[var(--retro-cream)] transition-colors hover:border-[var(--retro-mid)]"
+    >
+      {post.coverImage && (
+        <div className="aspect-video overflow-hidden border-b border-[color-mix(in_srgb,var(--retro-mid)_35%,transparent)]">
+          <img
+            src={post.coverImage}
+            alt={post.title}
+            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+          />
+        </div>
+      )}
+
+      <div className="flex flex-1 flex-col gap-3 p-6">
+        {post.category && <RetroBadge tone="teal">{post.category.name}</RetroBadge>}
+
+        <h2 className="font-display text-lg font-bold leading-snug text-[var(--retro-ink)]">{post.title}</h2>
+
+        {post.excerpt && (
+          <p className="line-clamp-3 text-sm leading-relaxed text-[color-mix(in_srgb,var(--retro-ink)_75%,transparent)]">
+            {post.excerpt}
+          </p>
+        )}
+
+        <div className="mt-auto flex items-center justify-between gap-3 pt-2">
+          {post.publishedAt && (
+            <time
+              dateTime={new Date(post.publishedAt).toISOString()}
+              className="text-xs text-[color-mix(in_srgb,var(--retro-ink)_60%,transparent)]"
+            >
+              {new Date(post.publishedAt).toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric',
+              })}
+            </time>
+          )}
+          <span className="text-sm font-bold text-[var(--retro-orange)]">Read it →</span>
+        </div>
+
+        {post.tags && post.tags.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {post.tags.slice(0, 3).map((tag) => (
+              <RetroBadge key={tag.id} tone="gold">
+                {tag.name}
+              </RetroBadge>
+            ))}
+          </div>
+        )}
+      </div>
+    </Link>
+  );
+}
 
 export default async function BlogPage({
   searchParams,
@@ -25,157 +89,87 @@ export default async function BlogPage({
   const pagePosts = posts.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   return (
-    <div className="container mx-auto px-4 py-20">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="text-center mb-16">
-          <FadeIn>
-            <h1 className="text-4xl md:text-6xl font-bold mb-4">Blog</h1>
-            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              Insights, tutorials, and thoughts on web design, development, and automation
-            </p>
-          </FadeIn>
-        </div>
+    <>
+      <PageHeader
+        eyebrow="Flight Log · Blog"
+        title="Dispatches From The Field."
+        subtitle="Field notes on web design, development, and automation — logged by the crew building the platform."
+      />
 
-        {/* Categories */}
-        <div className="mb-12">
-          <FadeIn delay={0.1}>
-            <div className="flex flex-wrap gap-3 justify-center">
+      <CreamBand>
+        {categories.length > 0 && (
+          <FadeIn>
+            <div className="mb-10 flex flex-wrap justify-center gap-3">
               {categories.map((category) => (
                 <Link
                   key={category.slug}
                   href={`/blog/category/${category.slug}`}
-                  className="group"
+                  className="inline-block transition-opacity hover:opacity-80"
                 >
-                  <div className="px-4 py-2 rounded-full border border-primary/20 bg-background/40 backdrop-blur-sm hover:border-primary/40 transition-all duration-300 flex items-center gap-2">
-                    <span
-                      className="w-2 h-2 rounded-full"
-                      style={{ backgroundColor: category.color || undefined }}
-                    />
-                    <span className="text-sm font-medium">{category.name}</span>
-                  </div>
+                  <RetroBadge tone="teal">{category.name}</RetroBadge>
                 </Link>
               ))}
             </div>
           </FadeIn>
-        </div>
+        )}
 
-        {/* Blog Posts Grid */}
         {posts && posts.length > 0 ? (
           <>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {pagePosts.map((post, index) => {
-              return (
-                <SlideIn key={post.id} direction="up" delay={index * 0.1}>
-                  <Link href={`/blog/${post.slug}`}>
-                    <article className="group h-full rounded-lg border bg-card overflow-hidden transition-all hover:shadow-lg">
-                      {post.coverImage && (
-                        <div className="aspect-video overflow-hidden">
-                          <img
-                            src={post.coverImage}
-                            alt={post.title}
-                            className="w-full h-full object-cover transition-transform group-hover:scale-105"
-                          />
-                        </div>
-                      )}
-
-                      <div className="p-6">
-                        {post.category && (
-                          <div
-                            className="text-sm font-medium mb-2"
-                            style={{ color: post.category.color || undefined }}
-                          >
-                            {post.category.name}
-                          </div>
-                        )}
-
-                        <h2 className="text-2xl font-bold mb-3 group-hover:text-primary transition-colors">
-                          {post.title}
-                        </h2>
-
-                        {post.excerpt && (
-                          <p className="text-muted-foreground mb-4 line-clamp-3">
-                            {post.excerpt}
-                          </p>
-                        )}
-
-                        <div className="flex items-center justify-between text-sm text-muted-foreground">
-                          {post.publishedAt && (
-                            <time dateTime={new Date(post.publishedAt).toISOString()}>
-                              {new Date(post.publishedAt).toLocaleDateString('en-US', {
-                                month: 'short',
-                                day: 'numeric',
-                                year: 'numeric',
-                              })}
-                            </time>
-                          )}
-                        </div>
-
-                        {post.tags && post.tags.length > 0 && (
-                          <div className="flex flex-wrap gap-2 mt-4">
-                            {post.tags.slice(0, 3).map((tag) => (
-                              <span
-                                key={tag.id}
-                                className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary"
-                              >
-                                {tag.name}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </article>
-                  </Link>
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
+              {pagePosts.map((post, index) => (
+                <SlideIn key={post.id} direction="up" delay={index * 0.08}>
+                  <BlogPostCard post={post} />
                 </SlideIn>
-              );
-            })}
-          </div>
-
-          {totalPages > 1 && (
-            <nav className="mt-16 flex items-center justify-center gap-2" aria-label="Blog pagination">
-              {currentPage > 1 && (
-                <Link
-                  href={`/blog?page=${currentPage - 1}`}
-                  className="px-4 py-2 rounded-lg border border-border text-sm font-medium hover:border-primary/50 transition-colors"
-                >
-                  ← Previous
-                </Link>
-              )}
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
-                <Link
-                  key={p}
-                  href={`/blog?page=${p}`}
-                  aria-current={p === currentPage ? 'page' : undefined}
-                  className={`min-w-10 px-3 py-2 rounded-lg border text-sm font-medium text-center transition-colors ${
-                    p === currentPage
-                      ? 'border-primary bg-primary text-primary-foreground'
-                      : 'border-border hover:border-primary/50'
-                  }`}
-                >
-                  {p}
-                </Link>
               ))}
-              {currentPage < totalPages && (
-                <Link
-                  href={`/blog?page=${currentPage + 1}`}
-                  className="px-4 py-2 rounded-lg border border-border text-sm font-medium hover:border-primary/50 transition-colors"
-                >
-                  Next →
-                </Link>
-              )}
-            </nav>
-          )}
+            </div>
+
+            {totalPages > 1 && (
+              <nav className="mt-16 flex flex-wrap items-center justify-center gap-2" aria-label="Blog pagination">
+                {currentPage > 1 && (
+                  <RetroButton href={`/blog?page=${currentPage - 1}`} variant="secondary">
+                    ← Previous
+                  </RetroButton>
+                )}
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+                  <Link
+                    key={p}
+                    href={`/blog?page=${p}`}
+                    aria-current={p === currentPage ? 'page' : undefined}
+                    className={`inline-flex min-w-10 items-center justify-center rounded border px-3 py-2 text-sm font-bold transition-colors ${
+                      p === currentPage
+                        ? 'border-[var(--retro-orange)] bg-[var(--retro-orange)] text-[var(--retro-cream)]'
+                        : 'border-[color-mix(in_srgb,var(--retro-mid)_35%,transparent)] text-[var(--retro-ink)] hover:border-[var(--retro-mid)]'
+                    }`}
+                  >
+                    {p}
+                  </Link>
+                ))}
+                {currentPage < totalPages && (
+                  <RetroButton href={`/blog?page=${currentPage + 1}`} variant="secondary">
+                    Next →
+                  </RetroButton>
+                )}
+              </nav>
+            )}
           </>
         ) : (
-          <div className="text-center py-12">
+          <div className="py-12 text-center">
             <FadeIn>
-              <p className="text-xl text-muted-foreground">
-                No blog posts yet. Check back soon for insights and tutorials!
+              <p className="text-base leading-relaxed text-[color-mix(in_srgb,var(--retro-ink)_75%,transparent)]">
+                Nothing in the log yet — check back soon for dispatches from the field.
               </p>
             </FadeIn>
           </div>
         )}
-      </div>
-    </div>
+      </CreamBand>
+
+      <CTABanner
+        title="Got A Mission Of Your Own?"
+        subtitle="Free forever if you host it yourself. We'll be here either way."
+        primary={{ href: '/pricing', label: 'Start Free' }}
+        secondary={{ href: '/contact', label: 'Talk To Us' }}
+        art="radio-tower"
+      />
+    </>
   );
 }
