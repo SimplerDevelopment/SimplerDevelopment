@@ -4,6 +4,13 @@
  * Loads a website's email template for a given event, merges variables,
  * applies branding, and sends via Resend. Falls back to default templates
  * if no custom template exists.
+ *
+ * BYOK note: this always sends through the platform Resend key (the `resend`
+ * proxy from ./index, ultimately process.env.RESEND_API_KEY) — it never calls
+ * resolveResendKey() the way campaign sends do (lib/email/campaign-send.ts,
+ * ab-promotion.ts). Deliberate: order confirmations, booking reminders, invites,
+ * and MCP approvals are platform-originated sends, not client-COGS sends, so
+ * they're excluded from BYOK routing on purpose, not by oversight.
  */
 
 import { db } from '@/lib/db';

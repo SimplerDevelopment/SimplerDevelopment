@@ -7,7 +7,11 @@
  * Card 0: Durable retry on workflow step failure — GAP (runtime has no retry mechanism)
  * Card 1: Branching / conditional logic in workflow — BUG documented below
  * Card 2: Loop / iteration step — GAP (no loop node type in runtime)
- * Card 3: enqueueWorkflowRunsForTrigger wired to live CRM events — GAP (not yet wired)
+ * Card 3: enqueueWorkflowRunsForTrigger wired to live CRM events — NO LONGER A GAP.
+ *   lib/automation/engine.ts:521 calls it from processEvent() for
+ *   crm.contact.created, crm.deal.updated (stage change) and form.submitted.
+ *   Annotation corrected 2026-08-05; the coverage this spec adds is still valid,
+ *   but do not cite it as evidence the bridge is missing.
  *
  * BUG (Card 1): When a workflow graph contains a 'condition' node with
  * data = { expression: '...' }, the runtime's executeStep() reads action kind

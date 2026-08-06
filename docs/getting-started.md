@@ -214,6 +214,22 @@ the [Dev & Testing guide](../tests/TESTING_PLAN.md) for the full test story.
   chars.
 - **Brain features error on startup?** Your Postgres is missing `pgvector` — see
   the extension SQL above.
+- **Uploads 500 with `getaddrinfo ENOTFOUND minio`?** `S3_ENDPOINT` in
+  `.env.local` is `http://minio:9000` — a Docker-internal hostname that only
+  resolves *inside* the compose network. Running the app on the host with bare
+  `bun dev` cannot see it. Either run the app in Docker, or point the endpoint at
+  the published port:
+
+  ```bash
+  docker compose up -d minio          # it is not started by default
+  # then, for a host-side run:
+  S3_ENDPOINT=http://localhost:9000 bun dev
+  ```
+
+  Note that the `scripts/catalog/*` tools call `dotenv.config({ override: true })`,
+  so `.env.local` **wins over your shell environment** — exporting `S3_ENDPOINT`
+  in front of those scripts does nothing. Edit the file for the duration of the
+  run, or run them inside the container.
 - **Code changes don't show up in the browser, and a rebuild makes it *worse*?**
   Check for a stale **service worker** on `localhost:3000` — DevTools →
   Application → Service workers. This app registers none, so anything there came
@@ -234,6 +250,20 @@ the [Dev & Testing guide](../tests/TESTING_PLAN.md) for the full test story.
   for (const r of await navigator.serviceWorker.getRegistrations()) await r.unregister();
   for (const k of await caches.keys()) await caches.delete(k);
   // then reload
+  ```
+
+  **There is a second, simpler flavour of the same trap without any service
+  worker.** Turbopack reuses *stable* chunk filenames in dev, so after an edit
+  the browser can keep serving its cached copy of `_<hash>._.js` even though the
+  server is returning new bytes for that exact URL. Symptoms are identical —
+  disk is right, `curl` is right, browser is wrong — and it survives `rm -rf
+  .next` and dev-server restarts, because the staleness is client-side. A normal
+  reload does not fix it; `fetch(url, { cache: 'reload' })` did not either.
+  **Hard-reload the tab (⌘⇧R / Ctrl-Shift-R).** Confirm which side is stale
+  before you go debugging your own logic:
+
+  ```bash
+  curl -s http://localhost:3000/_next/static/chunks/<chunk>.js | grep -c mySymbol
   ```
 
 Still stuck? Open a [discussion or issue](https://github.com/SimplerDevelopment/SimplerDevelopment/issues).

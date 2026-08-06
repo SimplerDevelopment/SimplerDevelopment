@@ -9,9 +9,22 @@
 // Plugins currently share the portal's registrable domain, so the plugin cookie
 // deliberately uses the SAME domain/secure resolution as the session cookie.
 // When plugin hosts move to a separate registrable domain (QAD-043 follow-up,
-// gated on shipping any third-party plugin — see the Plugins & Extension domain
-// map), this handoff must move off a domain-pinned cookie entirely (a cookie
+// gated on shipping any third-party plugin — see the GATED FOLLOW-UP note
+// below), this handoff must move off a domain-pinned cookie entirely (a cookie
 // can't span two registrable domains).
+//
+// UNMITIGATED risk this file does NOT fix: because the plugin host is a
+// sibling subdomain of the apex (e.g. content-tools.simplerdevelopment.com)
+// and the real NextAuth session cookie is pinned to `.simplerdevelopment.com`
+// (lib/auth.ts), the browser also attaches `__Secure-authjs.session-token` —
+// not just this handoff cookie — to every request to the plugin host.
+// SameSite=lax does not help: sibling subdomains are same-site. A compromised
+// plugin server can read the real session token (account-takeover class).
+// Accepted short-term only because the sole current plugin (Content Tools) is
+// first-party. GATED FOLLOW-UP (must land before any third-party plugin): move
+// plugin hosts to a separate registrable domain (e.g. `*.sdplugins.app`) so
+// the session cookie is cross-site and never sent, and replace this
+// domain-pinned handoff with a signed URL param / postMessage handshake.
 
 // Mirror of lib/auth.ts USE_SECURE_COOKIES — insecure only in local/e2e dev.
 function secureCookiesEnabled(): boolean {

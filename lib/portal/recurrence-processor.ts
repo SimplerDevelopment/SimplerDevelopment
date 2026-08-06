@@ -49,6 +49,11 @@ export async function processRecurrences(now: Date = new Date()): Promise<Proces
       const existing = await db.select({ id: kanbanCards.id }).from(kanbanCards)
         .where(eq(kanbanCards.columnId, rec.columnId));
 
+      // Same unguarded SELECT-max-then-INSERT card-number race as
+      // app/api/portal/cards/route.ts. Lower exposure here since this loop
+      // processes one due recurrence at a time within a single invocation,
+      // but nothing prevents two overlapping cron runs (e.g. a slow prior
+      // invocation still finishing) from computing the same nextNumber.
       const [{ max }] = await db
         .select({ max: sql<number | null>`MAX(${kanbanCards.number})` })
         .from(kanbanCards)

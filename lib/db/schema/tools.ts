@@ -202,7 +202,10 @@ export const pitchDecks = pgTable('pitch_decks', {
   canonicalUrl: varchar('canonical_url', { length: 500 }),
   noIndex: boolean('no_index').default(false).notNull(),
   // Lightweight fork pointer — set by decks_fork. Points to pitch_decks.id of
-  // the deck this row was duplicated from.
+  // the deck this row was duplicated from. Deliberately not a real FK (no
+  // .references()/onDelete) — deleting the parent does NOT cascade or null
+  // this out, so a fork's parentDeckId can dangle and point at a row that no
+  // longer exists.
   parentDeckId: integer('parent_deck_id'),
   createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').defaultNow().notNull(),

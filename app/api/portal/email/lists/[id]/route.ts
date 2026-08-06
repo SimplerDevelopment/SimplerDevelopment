@@ -115,6 +115,10 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   const listId = parseInt(id);
   if (!await ownsList(client, listId)) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
 
+  // No pre-check here: emailCampaigns.listId has onDelete:'restrict' (see
+  // lib/db/schema/email.ts), so a list with any campaign still pointing to it
+  // throws a raw Postgres FK-violation that this route does NOT catch — it
+  // surfaces as an unhandled 500, not the usual { success: false } envelope.
   await db.delete(emailLists).where(eq(emailLists.id, listId));
   return NextResponse.json({ success: true });
 }

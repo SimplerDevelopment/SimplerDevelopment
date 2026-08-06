@@ -8,7 +8,8 @@
 // duplicate the logic if it's compiled for Edge — either way the rules here
 // are the source of truth.
 //
-// Visibility rules (mirrors `.planning/plugin-registry-spec.md` §Entitlement):
+// Visibility rules (originally specified in `.planning/plugin-registry-spec.md`
+// §Entitlement, removed pre-OSS-release — this list is now authoritative):
 //   • visibility='global'    → every authenticated tenant
 //   • visibility='allowlist' → clientId must appear in app.allowedClientIds
 //   • visibility='entitled'  → an active clientServices row must join to

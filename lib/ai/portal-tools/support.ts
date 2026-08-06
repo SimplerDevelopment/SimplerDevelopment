@@ -111,6 +111,12 @@ export const supportHandlers: Record<string, SupportHandler> = {
       subject: string; body: string; priority: string; category: string;
     };
 
+    // Same unguarded SELECT-max-then-INSERT number allocation as
+    // app/api/portal/tickets/route.ts and lib/mcp/tools/tickets.ts's
+    // tickets_create — no transaction, no unique constraint on
+    // supportTickets.number, so concurrent creates from this client can
+    // collide on the same ticket number. Also skips lib/tickets/sla.ts, so
+    // tickets created via the chat assistant get no SLA deadlines.
     const [last] = await db.select({ number: supportTickets.number })
       .from(supportTickets).where(eq(supportTickets.clientId, clientId))
       .orderBy(desc(supportTickets.number)).limit(1);

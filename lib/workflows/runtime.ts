@@ -46,6 +46,14 @@ export interface StepResult {
 
 const DEFAULT_MAX_WAIT_MS = 5_000;
 
+// `executeAction()` and `nextNodes()` below are NOT test-only — the durable
+// production path (app/api/cron/process-workflow-runs/route.ts, reached via
+// lib/workflows/trigger.ts's `enqueueWorkflowRunsForTrigger`) imports and
+// reuses them directly against the `workflow_run_steps` queue. Only this
+// function — the synchronous DFS orchestrator — is exclusive to the
+// `/[id]/test-run` endpoint. Do not call `runWorkflow()` for live trigger
+// flows; enqueue via `enqueueWorkflowRunsForTrigger()` instead so retries,
+// backoff, and dead-lettering apply.
 export async function runWorkflow(
   workflowId: number,
   triggerContext: WorkflowRunContext,

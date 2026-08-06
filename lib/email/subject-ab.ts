@@ -129,8 +129,10 @@ export function pickAbWinner(
  * A/B blast for the winner to be picked. Currently a hard-coded 4h —
  * see WINNER_DECISION_DELAY_HOURS.
  *
- * TODO: schedule via existing cron infra (see app/api/cron/*). For now an
- * operator hits POST /api/portal/email-campaigns/[id]/promote-winner.
+ * Auto-promotion is live: app/api/cron/email-ab-promote polls every 30min and
+ * promotes anything past the window via executeAbPromotion() (lib/email/ab-promotion.ts).
+ * Operators can still hit POST /api/portal/email/campaigns/[id]/promote-winner
+ * manually (with ?force=1 to skip the wait) — this function backs both paths.
  */
 export function isAbDecisionWindowReady(
   abInitialSentAt: Date | null,

@@ -36,10 +36,15 @@ export async function POST(req: Request) {
   const priority = body.priority ?? 'medium';
   const { firstResponseDueAt, resolutionDueAt } = computeSlaDeadlines(priority);
 
-  // Wrap number allocation + insert in a transaction so concurrent creates
-  // from the same tenant cannot read the same max and collide on the same
-  // number. max() is also scoped to this tenant (fixes the old cross-tenant
-  // count() which was both a race and a tenancy bug).
+  // max() is scoped to this tenant (fixes the old cross-tenant count() bug).
+  // The transaction wrapper does NOT by itself close the concurrency race:
+  // Postgres's default READ COMMITTED isolation lets two concurrent
+  // transactions both read the same max() before either commits, and
+  // supportTickets.number has no unique constraint to catch the resulting
+  // duplicate at insert time (see .claude/rules/tenancy.md — this is the
+  // SELECT-max-then-INSERT footgun that has shipped here before). Treat
+  // duplicate ticket numbers as possible under concurrent creates from the
+  // same client, not merely theoretical.
   const { ticket } = await db.transaction(async (tx) => {
     const [{ maxNumber }] = await tx
       .select({ maxNumber: max(supportTickets.number) })

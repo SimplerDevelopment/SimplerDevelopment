@@ -22,6 +22,10 @@ import type { AnyPgColumn, AnyPgTable } from 'drizzle-orm/pg-core';
 
 // Types whose ownership or title can't be resolved by the generic
 // (clientId + titleField) lookup below and get their own branch instead.
+//
+// This whole resolution scheme is a hand-duplicated copy of
+// lib/mcp/tools/artifact-vocab.ts (not imported — the MCP and REST paths
+// evolved separately). Keep both in sync when adding an artifact type.
 const INDIRECT_ARTIFACT_TYPES = new Set(['path_chart', 'agent_flow_run']);
 
 const ARTIFACT_TABLES: Record<string, { table: AnyPgTable; titleField: string }> = {

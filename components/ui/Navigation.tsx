@@ -5,10 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useSession } from 'next-auth/react';
-import { siteConfig } from '@/config/site';
-import { ThemeToggle } from './ThemeToggle';
 import { UserDropdown } from './UserDropdown';
-import { Button } from './Button';
 import { SolutionsMegaMenu } from './SolutionsMegaMenu';
 
 export function Navigation() {
@@ -53,14 +50,18 @@ export function Navigation() {
 
   return (
     <>
-      <nav className="sticky top-0 z-[60] border-b bg-background/80 backdrop-blur-md">
+      {/* `retro` scopes the retro-future tokens (app/globals.css) to the nav.
+          Safe to apply unconditionally: LayoutContent lists /admin and /portal
+          in STANDALONE_PREFIXES and returns before rendering this, so the nav
+          only ever appears on the public marketing surface. */}
+      <nav className="retro sticky top-0 z-[60] border-b border-[color-mix(in_srgb,var(--retro-gold)_30%,transparent)] bg-[var(--retro-ink)] text-[var(--retro-cream)]">
         <div className="container mx-auto px-4">
           <div className="flex h-16 items-center justify-between">
             <div className="flex items-center gap-3">
               {isPostEditScreen && (
                 <Link
                   href="/admin/posts"
-                  className="flex items-center justify-center w-8 h-8 rounded-md hover:bg-accent transition-colors"
+                  className="flex items-center justify-center w-8 h-8 rounded hover:bg-[color-mix(in_srgb,var(--retro-cream)_12%,transparent)] transition-colors"
                   title="Back to Posts"
                 >
                   <svg
@@ -78,7 +79,7 @@ export function Navigation() {
                   </svg>
                 </Link>
               )}
-              <Link href="/" className="text-xl font-heading flex items-center" onClick={closeMobileMenu}>
+              <Link href="/" className="font-display text-xl flex items-center gap-2" onClick={closeMobileMenu}>
                 <Image
                   src="/iconLogo.png"
                   alt=""
@@ -87,7 +88,7 @@ export function Navigation() {
                   className="nav-logo-icon"
                   priority
                 />
-                <span><b>Simpler</b> Development</span>
+                <span className="tracking-tight"><b>Simpler</b>Development</span>
               </Link>
             </div>
 
@@ -102,8 +103,10 @@ export function Navigation() {
                       <Link
                         key={link.href}
                         href={link.href}
-                        className={`text-sm font-heading font-semibold hover:text-primary transition-colors ${
-                          pathname === link.href ? 'text-primary' : ''
+                        className={`text-sm font-semibold transition-colors ${
+                          pathname === link.href
+                            ? 'text-[var(--retro-gold)]'
+                            : 'text-[color-mix(in_srgb,var(--retro-cream)_85%,transparent)] hover:text-[var(--retro-gold)]'
                         }`}
                       >
                         {link.label}
@@ -113,20 +116,28 @@ export function Navigation() {
                 </>
               )}
 
-              <ThemeToggle />
+              {/* Theme toggle removed: the retro marketing skin defines its palette
+                  as fixed hex tokens under `.retro`, so light/dark has no effect on
+                  any surface this nav renders over — verified by toggling `.dark`
+                  and measuring the band background (unchanged). A control that
+                  visibly does nothing is worse than no control. The portal and
+                  admin keep their own toggle; this nav never renders there. */}
 
               {session ? (
                 <UserDropdown user={session.user} />
               ) : !pathname.startsWith('/admin') ? (
                 <>
-                  <Button href="/contact" size="sm">
-                    Contact Us
-                  </Button>
+                  <Link
+                    href="/contact"
+                    className="inline-flex items-center gap-2 rounded bg-[var(--retro-orange)] px-4 py-2 text-sm font-bold text-[var(--retro-cream)] transition-colors hover:bg-[var(--retro-rust)]"
+                  >
+                    Contact Us <span aria-hidden>🚀</span>
+                  </Link>
                 </>
               ) : (
                 <Link
                   href="/admin/login"
-                  className="text-sm font-heading font-semibold hover:text-primary transition-colors"
+                  className="text-sm font-semibold text-[color-mix(in_srgb,var(--retro-cream)_85%,transparent)] hover:text-[var(--retro-gold)] transition-colors"
                 >
                   Login
                 </Link>
@@ -135,10 +146,9 @@ export function Navigation() {
 
             {/* Mobile Menu Button & Theme Toggle */}
             <div className="flex items-center space-x-4 md:hidden">
-              <ThemeToggle />
               <button
                 onClick={toggleMobileMenu}
-                className="inline-flex items-center justify-center p-2 rounded-md hover:bg-accent transition-all duration-200 hover:scale-110"
+                className="inline-flex items-center justify-center p-2 rounded hover:bg-[color-mix(in_srgb,var(--retro-cream)_12%,transparent)] transition-colors"
                 aria-label="Toggle mobile menu"
                 aria-expanded={mobileMenuOpen}
               >
@@ -174,7 +184,7 @@ export function Navigation() {
 
       {/* Mobile Menu Slide-in Panel */}
       <div
-        className={`fixed top-16 right-0 bottom-0 w-72 bg-background border-l shadow-2xl z-40 md:hidden transform transition-transform duration-300 ease-out ${
+        className={`retro fixed top-16 right-0 bottom-0 w-72 bg-[var(--retro-ink)] text-[var(--retro-cream)] border-l border-[color-mix(in_srgb,var(--retro-gold)_30%,transparent)] z-40 md:hidden transform transition-transform duration-300 ease-out ${
           mobileMenuOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
       >
@@ -182,7 +192,7 @@ export function Navigation() {
           <div className="px-4 py-6 space-y-2">
             {!pathname.startsWith('/admin') && (
               <>
-                <div className="text-xs font-semibold text-muted-foreground tracking-wider mb-4 px-3">
+                <div className="eyebrow mb-4 px-3">
                   Navigation
                 </div>
                 {navLinks.map((link, index) => (
@@ -190,8 +200,10 @@ export function Navigation() {
                     key={link.href}
                     href={link.href}
                     onClick={closeMobileMenu}
-                    className={`group flex items-center px-4 py-4 rounded-lg text-lg font-heading font-semibold hover:bg-primary/10 hover:text-primary transition-all duration-200 hover:translate-x-1 ${
-                      pathname === link.href ? 'bg-primary/10 text-primary' : ''
+                    className={`group flex items-center rounded px-4 py-4 text-lg font-semibold transition-colors ${
+                      pathname === link.href
+                        ? 'bg-[color-mix(in_srgb,var(--retro-gold)_18%,transparent)] text-[var(--retro-gold)]'
+                        : 'hover:bg-[color-mix(in_srgb,var(--retro-cream)_12%,transparent)]'
                     }`}
                     style={{
                       animation: mobileMenuOpen ? `slideIn 0.3s ease-out ${index * 0.05}s both` : 'none'
@@ -203,9 +215,11 @@ export function Navigation() {
 
                 {/* Mobile CTA */}
                 <div className="pt-2 px-4 flex flex-col gap-2">
-                  <Button href="/contact" size="md" className="w-full justify-center" onClick={closeMobileMenu}>
-                    Contact Us
-                  </Button>
+                  <Link
+                    href="/contact"
+                    onClick={closeMobileMenu}
+                    className="flex w-full items-center justify-center gap-2 rounded bg-[var(--retro-orange)] px-4 py-3 text-base font-bold text-[var(--retro-cream)] transition-colors hover:bg-[var(--retro-rust)]"
+                  >Contact Us <span aria-hidden>🚀</span></Link>
                 </div>
               </>
             )}
@@ -234,14 +248,14 @@ export function Navigation() {
                   <Link
                     href="/admin"
                     onClick={closeMobileMenu}
-                    className="flex items-center px-4 py-4 rounded-lg text-lg font-heading font-semibold hover:bg-accent transition-all duration-200 hover:translate-x-1"
+                    className="flex items-center px-4 py-4 rounded text-lg font-semibold hover:bg-[color-mix(in_srgb,var(--retro-cream)_12%,transparent)] transition-colors"
                   >
                     <span>Dashboard</span>
                   </Link>
                   <Link
                     href="/admin/settings"
                     onClick={closeMobileMenu}
-                    className="flex items-center px-4 py-4 rounded-lg text-lg font-heading font-semibold hover:bg-accent transition-all duration-200 hover:translate-x-1"
+                    className="flex items-center px-4 py-4 rounded text-lg font-semibold hover:bg-[color-mix(in_srgb,var(--retro-cream)_12%,transparent)] transition-colors"
                   >
                     <span>Settings</span>
                   </Link>
@@ -250,7 +264,7 @@ export function Navigation() {
                 <Link
                   href="/admin/login"
                   onClick={closeMobileMenu}
-                  className="flex items-center justify-center px-4 py-3 rounded-lg text-base font-heading font-semibold text-muted-foreground hover:text-primary transition-all duration-200"
+                  className="flex items-center justify-center px-4 py-3 rounded text-base font-semibold text-[color-mix(in_srgb,var(--retro-cream)_70%,transparent)] hover:text-[var(--retro-gold)] transition-colors"
                 >
                   Admin Login
                 </Link>

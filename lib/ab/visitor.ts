@@ -9,6 +9,11 @@
 //     store. Use in the public site render path so every viewer ends up with
 //     a stable id by the time the response is sent.
 //
+// Intentionally decoupled from auth: variant assignment (lib/ab/assign.ts)
+// buckets on this anonymous id, never on a logged-in userId. A visitor keeps
+// their bucket whether or not they sign in, and signing into the same
+// account on a second device does not merge or re-bucket them.
+//
 // Note: Next 16 makes the `cookies()` store mutable in route handlers and
 // server actions but read-only in plain server components. The render-path
 // caller is `app/sites/...` which IS a server component, so we set the

@@ -31,6 +31,10 @@ export const abExperiments = pgTable('ab_experiments', {
   targetId: integer('target_id').notNull(),
   // Legacy column. Kept (nullable) for back-compat with existing rows + the
   // post FK. New writes mirror target_id here only when target_type='post'.
+  // Cascade note: deleting a post cascades through this FK to delete the
+  // experiment row, which in turn cascades (via experimentId FK) through
+  // abVariants, abAssignments, and abEvents below — a post delete silently
+  // purges its entire AB history, not just the experiment record.
   postId: integer('post_id').references(() => posts.id, { onDelete: 'cascade' }),
   name: varchar('name', { length: 255 }).notNull(),
   hypothesis: text('hypothesis'),
@@ -51,6 +55,10 @@ export const abExperiments = pgTable('ab_experiments', {
 }, (t) => [
   index('ab_experiments_post_idx').on(t.postId),
   index('ab_experiments_status_idx').on(t.status),
+  // Not unique — nothing at the DB layer stops two 'running' experiments on
+  // the same (target_type, target_id); `findRunningExperimentForTarget` in
+  // lib/ab/resolve.ts just takes the most recent by startedAt, and the
+  // create route doesn't check for an existing running experiment either.
   index('ab_experiments_target_idx').on(t.targetType, t.targetId, t.status),
 ]);
 

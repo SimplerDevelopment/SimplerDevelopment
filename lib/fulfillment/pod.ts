@@ -12,7 +12,6 @@ import {
   storeSettings,
   products,
   productVariants,
-  designs,
 } from '@/lib/db/schema';
 import { decryptApiKey } from '@/lib/crypto/api-key';
 import {
@@ -20,6 +19,31 @@ import {
   type PrintfulRecipient,
   type PrintfulShippingRate,
 } from './providers/printful';
+
+// ─── side → Printful placement ───────────────────────────────────────────────
+
+/**
+ * Map our side slug onto Printful's placement name.
+ *
+ * `product_sides.side` uses the slugs inherited from the catalog import
+ * (`front`, `back`, `sleeveleft`, `sleeveright`); Printful names its placements
+ * with underscores and leading side (`left_sleeve`). Anything unrecognised is
+ * passed through unchanged so a new catalog side reaches Printful and fails
+ * loudly there rather than being silently dropped here.
+ *
+ * Exported for unit testing.
+ */
+export function printfulPlacement(side: string): string {
+  const map: Record<string, string> = {
+    front: 'front',
+    back: 'back',
+    sleeveleft: 'left_sleeve',
+    sleeveright: 'right_sleeve',
+    left_sleeve: 'left_sleeve',
+    right_sleeve: 'right_sleeve',
+  };
+  return map[side] ?? side;
+}
 
 // ─── submitPODOrder ──────────────────────────────────────────────────────────
 
@@ -100,24 +124,31 @@ export async function submitPODOrder(
       throw new Error(`Product '${item.productName}' has no Printful variant ID configured`);
     }
 
-    // 8. Determine print-file URL.
-    let printFileUrl: string | undefined;
+    // 8. Determine print files, one per designed side.
+    //
+    // `orderItems.printFiles` / `printReadyUrl` are the ONLY valid sources. Both
+    // hold transparent, artwork-only renders at print DPI, frozen at checkout.
+    //
+    // This deliberately does NOT fall back to a design's rendered/thumbnail
+    // image. Those are composite MOCKUPS (artwork stamped onto a blank
+    // product photo — see lib/printing/composite.ts). Sending one to Printful
+    // prints a picture of a t-shirt onto the t-shirt. A hard failure here
+    // costs a support ticket; the fallback cost real garments.
+    const sideFiles: Record<string, string> = {
+      ...(item.printFiles ?? {}),
+      // printReadyUrl is the front-side shorthand; the map wins if both exist.
+      ...(item.printReadyUrl && !item.printFiles?.front ? { front: item.printReadyUrl } : {}),
+    };
 
-    if (item.printReadyUrl) {
-      printFileUrl = item.printReadyUrl;
-    } else if (item.designId) {
-      const [design] = await db.select({ renderedUrl: designs.renderedUrl })
-        .from(designs)
-        .where(eq(designs.id, item.designId))
-        .limit(1);
-      if (design?.renderedUrl) {
-        printFileUrl = design.renderedUrl;
-      } else {
-        console.warn(
-          `[submitPODOrder] order ${orderId} item ${item.id} (${item.productName}): ` +
-          'no print-ready URL available — Printful may reject this item',
-        );
-      }
+    const files = Object.entries(sideFiles)
+      .filter(([, url]) => !!url)
+      .map(([side, url]) => ({ type: printfulPlacement(side), url }));
+
+    if (files.length === 0) {
+      throw new Error(
+        `Order item ${item.id} ('${item.productName}') has no print-ready file. ` +
+        'Refusing to submit to Printful — a design mockup is not a print file.',
+      );
     }
 
     // 9. Build PrintfulOrderItem.
@@ -126,7 +157,7 @@ export async function submitPODOrder(
       quantity: item.quantity,
       name: item.productName,
       retail_price: (item.unitPrice / 100).toFixed(2),
-      files: printFileUrl ? [{ type: 'front', url: printFileUrl }] : [],
+      files,
     });
   }
 

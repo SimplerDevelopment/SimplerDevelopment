@@ -143,7 +143,9 @@ export async function POST(req: Request) {
     return jsonError(400, 'Last message must be a non-empty user turn');
   }
 
-  // ── 3. Plan-gate (Starter without BYOK is blocked).
+  // ── 3. Plan-gate (currently a pass-through / extension point — post
+  // BYOK-inversion, checkAiPlanGate always returns { allowed: true }; kept as
+  // a call site for future per-tier/per-provider gating). See plan-gate.ts.
   const gate = await checkAiPlanGate({ clientId: client.id, provider: 'anthropic' });
   if (!gate.allowed) {
     return jsonError(402, gate.message ?? 'AI access is not available on the current plan.');

@@ -58,8 +58,10 @@ export function SolutionsMegaMenu() {
         href="/solutions"
         aria-expanded={open}
         aria-haspopup="true"
-        className={`flex items-center gap-1 text-sm font-heading font-semibold hover:text-primary transition-colors ${
-          isActive ? 'text-primary' : ''
+        className={`flex items-center gap-1 text-sm font-semibold transition-colors ${
+          isActive
+            ? 'text-[var(--retro-gold)]'
+            : 'text-[color-mix(in_srgb,var(--retro-cream)_85%,transparent)] hover:text-[var(--retro-gold)]'
         }`}
       >
         Solutions
@@ -80,18 +82,18 @@ export function SolutionsMegaMenu() {
         onMouseLeave={scheduleClose}
       >
         <div className="container mx-auto px-4">
-          <div className="rounded-2xl border bg-background shadow-2xl overflow-hidden">
+          <div className="retro overflow-hidden rounded-md border border-[color-mix(in_srgb,var(--retro-gold)_30%,transparent)] bg-[var(--retro-ink)] text-[var(--retro-cream)]">
             {/* Header */}
-            <div className="flex items-end justify-between gap-4 px-6 pt-6 pb-4 border-b">
+            <div className="flex items-end justify-between gap-4 border-b border-[color-mix(in_srgb,var(--retro-gold)_25%,transparent)] px-6 pt-6 pb-4">
               <div>
-                <p className="text-primary font-mono text-xs font-semibold tracking-wider mb-1">{`// PLATFORM`}</p>
+                <p className="eyebrow mb-1">{`// PLATFORM`}</p>
                 <h2 className="font-display text-2xl font-bold leading-tight">
                   Every tool your business needs
                 </h2>
               </div>
               <Link
                 href="/solutions"
-                className="hidden lg:inline-flex items-center gap-1 text-sm font-semibold text-primary hover:gap-2 transition-all whitespace-nowrap"
+                className="hidden lg:inline-flex items-center gap-1 whitespace-nowrap text-sm font-semibold text-[var(--retro-orange)] transition-all hover:gap-2"
               >
                 View all {solutions.length} solutions
                 <span className="material-icons text-lg">arrow_forward</span>
@@ -106,28 +108,25 @@ export function SolutionsMegaMenu() {
                     key={solution.slug}
                     href={`/solutions/${solution.slug}`}
                     onClick={() => setOpen(false)}
-                    className="group relative overflow-hidden rounded-xl border p-4 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg"
-                    style={{
-                      backgroundColor: `${solution.color}08`,
-                      borderColor: `${solution.color}20`,
-                    }}
+                    className="group relative overflow-hidden rounded-md border border-[color-mix(in_srgb,var(--retro-gold)_25%,transparent)] p-4 transition-colors hover:border-[var(--retro-gold)]"
+                    style={{ backgroundColor: 'color-mix(in srgb, var(--retro-cream) 6%, transparent)' }}
                   >
                     {/* Watermark number */}
                     <span
                       className="absolute -right-1 -top-3 text-5xl font-black leading-none select-none pointer-events-none"
-                      style={{ color: `${solution.color}12` }}
+                      style={{ color: 'color-mix(in srgb, var(--retro-gold) 14%, transparent)' }}
                     >
                       {String(index + 1).padStart(2, '0')}
                     </span>
 
                     <span
                       className="material-icons relative z-10 mb-3 block"
-                      style={{ color: solution.color, fontSize: '30px' }}
+                      style={{ color: 'var(--retro-gold)', fontSize: '30px' }}
                     >
                       {solution.icon}
                     </span>
 
-                    <h3 className="relative z-10 font-heading font-bold text-sm mb-2 group-hover:text-primary transition-colors">
+                    <h3 className="font-display relative z-10 mb-2 text-sm font-bold transition-colors group-hover:text-[var(--retro-gold)]">
                       {solution.badge}
                     </h3>
 
@@ -136,11 +135,11 @@ export function SolutionsMegaMenu() {
                         <li key={fi} className="flex items-start gap-1.5 text-xs leading-snug">
                           <span
                             className="material-icons text-sm flex-shrink-0"
-                            style={{ color: solution.color }}
+                            style={{ color: 'var(--retro-orange)' }}
                           >
                             check
                           </span>
-                          <span className="text-muted-foreground">{feature}</span>
+                          <span className="text-[color-mix(in_srgb,var(--retro-cream)_70%,transparent)]">{feature}</span>
                         </li>
                       ))}
                     </ul>

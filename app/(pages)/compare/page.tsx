@@ -1,8 +1,8 @@
 import { generateSEO } from '@/lib/utils/seo';
-import { Button } from '@/components/ui/Button';
-import { FadeIn } from '@/components/animations/FadeIn';
 import { StructuredData } from '@/components/seo/StructuredData';
 import { generateFAQSchema, generateBreadcrumbListSchema } from '@/lib/utils/structured-data';
+import { PageHeader, CreamBand, InkPanel, CTABanner } from '@/components/retro/sections';
+import { SectionHeading } from '@/components/retro/primitives';
 
 export const metadata = generateSEO({
   title: 'One Platform vs a Stack of Point Tools',
@@ -11,9 +11,10 @@ export const metadata = generateSEO({
   path: '/compare',
 });
 
-// Category positioning — compares the integrated platform to the GENERIC pattern
-// of stitching separate point tools. No named competitors, no fabricated feature
-// matrices; every claim is grounded in the actual product.
+// Skinned in the retro-future design system — see components/retro/. Voice is
+// mid-century mission-control; every row/answer below is unchanged from the
+// pre-retro copy (still category positioning against the GENERIC pattern of
+// stitched point tools — no named competitors, no fabricated feature matrix).
 const rows: { dimension: string; stack: string; sd: string }[] = [
   {
     dimension: 'Shared data',
@@ -84,85 +85,90 @@ export default function ComparePage() {
   return (
     <>
       <StructuredData data={[faqSchema, breadcrumb]} />
-      <div className="container mx-auto px-4 py-20">
-        <div className="max-w-5xl mx-auto">
-          <FadeIn>
-            <div className="text-center mb-16">
-              <p className="text-primary font-mono text-sm font-semibold mb-3 tracking-wider">{'// COMPARE'}</p>
-              <h1 className="text-4xl md:text-6xl font-bold mb-4">One platform vs a stack of point tools</h1>
-              <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-                Eighteen connected modules that share one database — instead of a website builder, CRM, email
-                tool, booking app, and knowledge base that don’t talk to each other.
-              </p>
-            </div>
-          </FadeIn>
 
-          {/* Comparison table */}
-          <FadeIn>
-            <div className="overflow-hidden rounded-2xl border border-border">
-              <div className="grid grid-cols-1 md:grid-cols-[1fr_1.3fr_1.3fr]">
-                <div className="hidden md:block bg-muted/30 p-5 font-semibold text-sm uppercase tracking-wider text-muted-foreground">
-                  &nbsp;
+      <PageHeader
+        eyebrow="Mission Comparison"
+        title="One Platform vs. A Stack Of Point Tools"
+        subtitle="Eighteen connected modules that share one database — instead of a website builder, CRM, email tool, booking app, and knowledge base that don't talk to each other."
+      />
+
+      {/* Comparison table */}
+      <CreamBand>
+        <SectionHeading
+          eyebrow="Side By Side"
+          title="Same Mission. Different Flight Plans."
+          subtitle="Read it row by row — every line is a real difference, not a marketing wash."
+        />
+        <div className="overflow-hidden rounded-md border border-[color-mix(in_srgb,var(--retro-mid)_40%,transparent)]">
+          <div className="grid grid-cols-1 md:grid-cols-[1fr_1.3fr_1.3fr]">
+            <div className="hidden bg-[var(--retro-cream)] p-5 md:block" />
+            <div className="hidden border-l border-[color-mix(in_srgb,var(--retro-mid)_30%,transparent)] bg-[var(--retro-cream)] p-5 font-display text-xs font-bold uppercase tracking-[0.14em] text-[var(--retro-ink)] md:block">
+              A Stitched Point-Tool Stack
+            </div>
+            <div className="hidden border-l border-[color-mix(in_srgb,var(--retro-mid)_30%,transparent)] bg-[color-mix(in_srgb,var(--retro-orange)_10%,var(--retro-cream))] p-5 font-display text-xs font-bold uppercase tracking-[0.14em] text-[var(--retro-orange)] md:block">
+              SimplerDevelopment
+            </div>
+            {rows.map((r) => (
+              <div key={r.dimension} className="contents">
+                <div className="border-t border-[color-mix(in_srgb,var(--retro-mid)_30%,transparent)] bg-[color-mix(in_srgb,var(--retro-mid)_8%,var(--retro-cream))] p-5 font-display text-sm font-bold text-[var(--retro-ink)]">
+                  {r.dimension}
                 </div>
-                <div className="hidden md:block bg-muted/30 p-5 font-semibold text-muted-foreground border-l border-border">
-                  A stitched point-tool stack
+                <div className="border-t border-l border-[color-mix(in_srgb,var(--retro-mid)_30%,transparent)] p-5 text-sm text-[color-mix(in_srgb,var(--retro-ink)_72%,transparent)]">
+                  <span className="mb-1 block font-display text-xs font-bold uppercase tracking-wide text-[color-mix(in_srgb,var(--retro-ink)_55%,transparent)] md:hidden">
+                    Point-tool stack
+                  </span>
+                  {r.stack}
                 </div>
-                <div className="hidden md:block bg-primary/10 p-5 font-semibold text-primary border-l border-border">
-                  SimplerDevelopment
+                <div className="border-t border-l border-[color-mix(in_srgb,var(--retro-mid)_30%,transparent)] bg-[color-mix(in_srgb,var(--retro-orange)_6%,var(--retro-cream))] p-5 text-sm text-[var(--retro-ink)]">
+                  <span className="mb-1 block font-display text-xs font-bold uppercase tracking-wide text-[var(--retro-orange)] md:hidden">
+                    SimplerDevelopment
+                  </span>
+                  {r.sd}
                 </div>
-                {rows.map((r) => (
-                  <div key={r.dimension} className="contents">
-                    <div className="p-5 font-semibold border-t border-border bg-muted/10">{r.dimension}</div>
-                    <div className="p-5 text-sm text-muted-foreground border-t border-l border-border">
-                      <span className="md:hidden font-semibold text-foreground/70 block mb-1">Point-tool stack</span>
-                      {r.stack}
-                    </div>
-                    <div className="p-5 text-sm border-t border-l border-border bg-primary/5">
-                      <span className="md:hidden font-semibold text-primary block mb-1">SimplerDevelopment</span>
-                      {r.sd}
-                    </div>
-                  </div>
-                ))}
               </div>
-            </div>
-          </FadeIn>
-
-          {/* Honest: when point tools win */}
-          <FadeIn>
-            <div className="mt-12 rounded-2xl border border-border bg-card p-8">
-              <h2 className="text-xl font-bold mb-3">When separate tools still win</h2>
-              <p className="text-muted-foreground">
-                We’d rather be honest: if you only need a single capability and want the deepest feature set in
-                that one niche, a dedicated tool can be the better choice. Consolidation pays off once you run
-                several tools that need to share data — which is most agencies and operators.
-              </p>
-            </div>
-          </FadeIn>
-
-          {/* FAQ */}
-          <FadeIn>
-            <div className="mt-16">
-              <h2 className="text-2xl font-bold mb-8 text-center">Common questions</h2>
-              <dl className="space-y-6 max-w-3xl mx-auto">
-                {faqs.map((f) => (
-                  <div key={f.question} className="border-b border-border pb-6 last:border-0">
-                    <dt className="text-lg font-semibold mb-2">{f.question}</dt>
-                    <dd className="text-muted-foreground leading-relaxed">{f.answer}</dd>
-                  </div>
-                ))}
-              </dl>
-            </div>
-          </FadeIn>
-
-          {/* CTA */}
-          <FadeIn>
-            <div className="text-center mt-16 flex flex-wrap gap-3 justify-center">
-              <Button href="/contact" size="lg">Contact us for managed hosting</Button>
-              <Button href="/solutions" variant="outline" size="lg">Explore the platform</Button>
-            </div>
-          </FadeIn>
+            ))}
+          </div>
         </div>
-      </div>
+      </CreamBand>
+
+      {/* Honest: when point tools win */}
+      <InkPanel>
+        <div className="mx-auto max-w-3xl px-6 py-16 text-center sm:py-20">
+          <SectionHeading eyebrow="Honest Log Entry" title="When Separate Tools Still Win." onDark />
+          <p className="text-base leading-relaxed text-[color-mix(in_srgb,var(--retro-cream)_82%,transparent)]">
+            We’d rather be honest: if you only need a single capability and want the deepest
+            feature set in that one niche, a dedicated tool can be the better choice.
+            Consolidation pays off once you run several tools that need to share data — which is
+            most agencies and operators.
+          </p>
+        </div>
+      </InkPanel>
+
+      {/* FAQ */}
+      <CreamBand>
+        <SectionHeading eyebrow="Transmissions In" title="Common Questions" />
+        <dl className="mx-auto max-w-3xl space-y-6">
+          {faqs.map((f) => (
+            <div
+              key={f.question}
+              className="border-b border-[color-mix(in_srgb,var(--retro-mid)_30%,transparent)] pb-6 last:border-0"
+            >
+              <dt className="font-display text-lg font-bold text-[var(--retro-ink)]">{f.question}</dt>
+              <dd className="mt-2 text-sm leading-relaxed text-[color-mix(in_srgb,var(--retro-ink)_75%,transparent)]">
+                {f.answer}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      </CreamBand>
+
+      <CTABanner
+        title="Ready To Compare Against Your Own Stack?"
+        subtitle="Talk to the crew, or go explore the modules yourself."
+        primary={{ href: '/contact', label: 'Contact Us For Managed Hosting' }}
+        secondary={{ href: '/solutions', label: 'Explore The Platform' }}
+        art="satellite-dish"
+      />
     </>
   );
 }

@@ -156,7 +156,6 @@ export async function optInCatalogProduct(opts: OptInOptions): Promise<OptInResu
         costPrice: baseCost || null,
         status,
         designable: true,
-        isDesignable: false,
         trackInventory: false,
         quantity: 0,
       })

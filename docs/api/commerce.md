@@ -118,7 +118,6 @@ Returns the full detail record for a single active product, including all images
     "heightIn": null,
     "status": "active",
     "featured": true,
-    "isDesignable": false,
     "designable": false,
     "seoTitle": "Classic Crew Tee | Shop",
     "seoDescription": null,

@@ -1,17 +1,16 @@
 import { redirect, notFound } from 'next/navigation';
-import { and, asc, eq, or } from 'drizzle-orm';
+import { and, eq, or } from 'drizzle-orm';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import {
   clients,
   clientMembers,
   clientWebsites,
-  designs,
   products,
 } from '@/lib/db/schema';
 
 // Portal-side entry point for editing a store-mode product's design in the
-// same canvas designer customers use at /sites/<domain>/designer/<slug>.
+// same Print Designer customers use at /sites/<domain>/design/<slug>.
 //
 // What this page does: verifies portal auth + access, resolves the product's
 // template design row, then issues an HTTP redirect to the storefront
@@ -67,14 +66,12 @@ export default async function PortalDesignerEntryPage({ params }: PageProps) {
   if (!site) notFound();
 
   // Resolve the product on the user's website. Widened to include the
-  // designable/isDesignable/metadata columns so we can branch below between
-  // the legacy `designs`-table designer and the new `productDesigns` one.
+  // designable — the single flag that opens the Print Designer.
   const [product] = await db
     .select({
       id: products.id,
       slug: products.slug,
       designable: products.designable,
-      isDesignable: products.isDesignable,
       metadata: products.metadata,
     })
     .from(products)
@@ -89,37 +86,11 @@ export default async function PortalDesignerEntryPage({ params }: PageProps) {
   const host = site.domain || site.vercelDomain || (site.subdomain ? `${site.subdomain}.simplerdevelopment.com` : null);
   if (!host) notFound();
 
-  // New product designer (`productDesigns` table, /sites/<host>/design/<slug>)
-  // — only for products flagged `designable` that AREN'T also flagged for
-  // the legacy designer. Without this branch, these products' "Open Designer
-  // Setup" / "Open in Designer" buttons fell through to the legacy redirect
-  // below and 404'd on /designer/<slug> (isDesignable required there).
-  const meta = (product.metadata ?? {}) as Record<string, unknown>;
-  const useLegacy = product.isDesignable || meta.productDesignMode === 'store';
-  if (!useLegacy && product.designable) {
-    redirect(`/sites/${host}/design/${product.slug}?staff=1`);
-  }
-
-  // Find the design — prefer the template flavor (server-authored), fall
-  // back to any design on the product. If none exists yet, the storefront
-  // route's auto-create-on-first-action will mint one.
-  const [design] = await db
-    .select({ id: designs.id })
-    .from(designs)
-    .where(
-      and(
-        eq(designs.productId, productId),
-        eq(designs.websiteId, siteId),
-        eq(designs.isTemplate, true),
-      ),
-    )
-    .orderBy(asc(designs.createdAt))
-    .limit(1);
-
-  const params2 = new URLSearchParams({ staff: '1' });
-  if (design) params2.set('designId', design.id);
-
-  // Same-origin redirect — the dev server proxies /sites/<domain>/* on the
-  // same host, so we use a path-only redirect to stay on the current origin.
-  redirect(`/sites/${host}/designer/${product.slug}?${params2.toString()}`);
+  // Always the Print Designer. The legacy designer was retired once the cart
+  // moved onto product_designs — see vault ADR
+  // consolidate-on-product-designs-via-uuid. `isDesignable`, the flag that used
+  // to route here to the legacy editor, was folded into `designable` and
+  // dropped (migration 9019, "collapse the two designable flags into one") —
+  // so this is the only destination now.
+  redirect(`/sites/${host}/design/${product.slug}?staff=1`);
 }

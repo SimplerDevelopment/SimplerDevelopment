@@ -148,7 +148,12 @@ export const postTaxonomyTerms = pgTable('post_taxonomy_terms', {
 export const customFields = pgTable('custom_fields', {
   id: serial('id').primaryKey(),
   postTypeId: integer('post_type_id').notNull().references(() => postTypes.id, { onDelete: 'cascade' }),
-  parentId: integer('parent_id'), // Self-ref FK for sub-fields of repeaters/groups (added by migration, FK set up there)
+  // Self-ref for sub-fields of repeaters/groups. NO database FK constraint exists
+  // (verified against drizzle/*.sql — none was ever added despite an earlier
+  // version of this comment claiming otherwise). Deleting a parent field must
+  // cascade to children in the app layer or they orphan; see the DELETE handler
+  // in app/api/custom-fields/[id]/route.ts.
+  parentId: integer('parent_id'),
   name: varchar('name', { length: 100 }).notNull(),
   slug: varchar('slug', { length: 100 }).notNull(),
   fieldType: varchar('field_type', { length: 50 }).notNull(), // text, textarea, number, date, select, checkbox, url, email, image, user_select, repeater, group
@@ -292,6 +297,9 @@ export interface SurveyField {
 
 // White-label service catalog (domains, hosting, dev, maintenance)
 
+// branding_profiles / branding_messaging live here, not in a dedicated
+// branding schema module — lib/branding/ is a utility library (palette,
+// contrast, sentinel resolution) with no schema file of its own.
 export const brandingProfiles = pgTable('branding_profiles', {
   id: serial('id').primaryKey(),
   clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),

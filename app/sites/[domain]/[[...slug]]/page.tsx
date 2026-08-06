@@ -226,7 +226,10 @@ export default async function ClientSitePage({ params, searchParams }: PageProps
     );
   }
 
-  // Shop listing
+  // Shop listing. `shop` and `shop/*` are reserved path prefixes handled here
+  // before any CMS post-slug lookup runs (below) — a page/post authored with
+  // slug `shop` or `shop/<anything>` is permanently shadowed and unreachable.
+  // There is no guard elsewhere preventing that slug from being saved.
   if (pageSlug === 'shop') {
     return (
       <Suspense fallback={

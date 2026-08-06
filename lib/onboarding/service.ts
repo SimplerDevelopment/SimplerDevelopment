@@ -138,6 +138,13 @@ export async function completeOnboarding(userId: number, clientId: number | null
     .where(eq(userOnboarding.userId, userId))
     .limit(1);
 
+  // `reopenedAt` is stamped only by reopenOnboarding() below, server-side —
+  // the PATCH route's answers allowlist deliberately excludes it, so a
+  // client can't forge it to unlock skip/complete on a fresh signup.
+  // Known residual gap: a client can still PATCH `step: 'done'` directly
+  // (a valid OnboardingStep) and satisfy `row.step === 'done'` without ever
+  // walking the wizard — this only stops *skipping without progressing the
+  // step field at all*, not a client lying about the step it reached.
   const canComplete = !!row && (row.step === 'done' || !!row.completedAt || !!(row.answers as OnboardingAnswers)?.reopenedAt);
   if (!canComplete) {
     throw new OnboardingIncompleteError('Finish the setup wizard before completing onboarding');

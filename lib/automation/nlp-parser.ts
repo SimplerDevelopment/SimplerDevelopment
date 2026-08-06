@@ -3,6 +3,11 @@
  *
  * Takes a plain-English automation description and uses Claude
  * to parse it into structured trigger/condition/action JSON.
+ *
+ * Uses the TENANT's own Claude API key (resolved via resolveClientApiKey,
+ * not a platform-wide key) and records the call against that tenant's AI
+ * usage/billing via recordAiUsage — a client without a configured key or
+ * with exhausted quota fails here rather than falling back to a shared key.
  */
 
 import { AUTOMATION_EVENTS } from './event-bus';

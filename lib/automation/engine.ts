@@ -147,7 +147,12 @@ async function executeAction(
 ): Promise<{ tool: string; params: Record<string, unknown>; result: unknown; error?: string }> {
   const resolvedParams = resolveTemplate(action.params, payload) as Record<string, unknown>;
 
-  // Handle delayed actions
+  // Handle delayed actions. NOT a real scheduler: this blocks the current
+  // serverless invocation for `delay` seconds rather than rescheduling the
+  // work. A short delay (minutes) survives; a multi-hour/day delay (e.g. the
+  // CRM "New Contact Follow-up" preset's 1d/2d options) will hit the
+  // platform's function timeout long before it fires, so the action is
+  // effectively dropped. Only "Immediately" (delay=0) is reliable today.
   if (action.delay && action.delay > 0) {
     await new Promise((resolve) => setTimeout(resolve, action.delay! * 1000));
   }

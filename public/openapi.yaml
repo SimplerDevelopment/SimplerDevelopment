@@ -1094,8 +1094,6 @@ components:
           enum: [active, inactive, draft]
         featured:
           type: boolean
-        isDesignable:
-          type: boolean
         designable:
           type: boolean
         seoTitle:

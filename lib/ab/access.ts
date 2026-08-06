@@ -101,6 +101,10 @@ export async function authorizeTargetForUser(
     case 'survey':
     case 'email':
       // Not yet wired — explicit refusal until the per-type renderer is in.
+      // Survey variants are a separate concept/schema (`survey_variants` in
+      // lib/db/schema/surveys.ts) with their own assignment logic, not a
+      // consumer of this module. Email subject-line A/B is planned but has
+      // no schema yet — don't assume either routes through here.
       return null;
     default:
       return null;

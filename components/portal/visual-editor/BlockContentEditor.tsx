@@ -25,6 +25,19 @@ interface PanelProps {
 
 // ─── Block-type → panel lookup table ─────────────────────────────────────────
 
+// TWO PARALLEL PANEL SYSTEMS: this PANEL_MAP drives the portal block-content
+// editor sidebar. A separate, unrelated dispatch — SLUG_TO_CATEGORY in
+// components/blocks/visual/BlockSettings.tsx, routing to
+// components/blocks/visual/block-settings/panels/ (DynamicPanel etc.) — drives
+// the VisualBlockEditor/settings-popup surface for the SAME block types. A
+// field added to only one side half-ships: VEQA-068's card-grid icon-color
+// control initially existed only in DynamicPanel and was invisible here until
+// MarketingPanel got the matching field (see commit 682da3d4e). Wire both when
+// adding a field to an existing block type.
+//
+// Missing a slug here is a silent no-op, not an error: `Panel` below resolves
+// to `undefined` and the sidebar renders nothing for that block type — found
+// during VEQA-067 when hero-cta shipped without a PANEL_MAP entry.
 const PANEL_MAP: Record<string, ComponentType<PanelProps>> = {
   // Content
   heading: ContentPanel,

@@ -40,6 +40,67 @@ cd "$ROOT"
 rm -rf coverage/
 mkdir -p coverage/.v8-server coverage/.v8-client coverage/.v8-merged coverage/vitest
 
+# ── E2E database target guard ───────────────────────────────────────────
+# MUST run before the DB prep below. `reset-e2e-db.ts` drops and recreates, and
+# `seed-admin-e2e.ts` writes — and both resolve DATABASE_URL themselves via
+# dotenv injection from .env, which in this repo is a REMOTE Railway URL.
+#
+# Checking only the ambient $DATABASE_URL would be theatre: the shell usually
+# has it unset, so the check passes and the child then injects the remote value
+# anyway. That is exactly how a @critical run on 2026-08-05 came to issue eight
+# INSERTs against a Railway database from cov-u11.spec.ts.
+#
+# So: resolve the value the children will actually see (shell > .env.local >
+# .env), refuse a remote host, then EXPORT it — every child (tsx, playwright,
+# and the 28 e2e specs that shell out to raw `psql "$DATABASE_URL"`) inherits
+# one vetted target instead of resolving its own.
+#
+# A local *dev* DB is legitimate here: e2e specs write targeted fixture rows
+# rather than truncating, which is why the integration layer's stricter
+# "name must contain test" rule is deliberately not reused.
+read_env_var() {  # $1=file  $2=key
+  [[ -f "$1" ]] || return 0
+  local line
+  line="$(grep -aE "^$2=" "$1" | head -1)"
+  [[ -z "$line" ]] && return 0
+  line="${line#*=}"
+  line="${line%\"}"; line="${line#\"}"
+  line="${line%\'}"; line="${line#\'}"
+  printf '%s' "$line"
+}
+
+if [[ "$LAYER" == "all" || "$LAYER" == "e2e" ]]; then
+  E2E_DB_URL="${DATABASE_URL:-}"
+  [[ -z "$E2E_DB_URL" ]] && E2E_DB_URL="$(read_env_var "$ROOT/.env.local" DATABASE_URL)"
+  [[ -z "$E2E_DB_URL" ]] && E2E_DB_URL="$(read_env_var "$ROOT/.env" DATABASE_URL)"
+
+  if [[ -n "$E2E_DB_URL" && "${ALLOW_REMOTE_DB:-0}" != "1" ]]; then
+    E2E_DB_HOST="${E2E_DB_URL#*://}"   # strip scheme
+    E2E_DB_HOST="${E2E_DB_HOST#*@}"    # strip credentials
+    E2E_DB_HOST="${E2E_DB_HOST%%/*}"   # strip /dbname
+    E2E_DB_HOST="${E2E_DB_HOST%%:*}"   # strip :port
+    E2E_DB_NAME="${E2E_DB_URL##*/}"
+    E2E_DB_NAME="${E2E_DB_NAME%%\?*}"
+    case "$E2E_DB_HOST" in
+      localhost|127.0.0.1|::1|host.docker.internal|"") ;;
+      *)
+        if [[ "$E2E_DB_NAME" != *test* ]]; then
+          echo "✖ e2e: refusing to run against remote database host '${E2E_DB_HOST}'." >&2
+          echo "  The e2e layer resets/seeds the database and its specs write fixture" >&2
+          echo "  rows via psql. Pointing that at a remote host writes to someone" >&2
+          echo "  else's environment." >&2
+          echo "  Use a local DB (.env.local pins localhost), or override only if you" >&2
+          echo "  are certain: ALLOW_REMOTE_DB=1 $0 ..." >&2
+          exit 1
+        fi
+        ;;
+    esac
+  fi
+
+  # Pin it so no child re-resolves .env and lands somewhere else.
+  [[ -n "$E2E_DB_URL" ]] && export DATABASE_URL="$E2E_DB_URL"
+fi
+
 # ── DB prep ─────────────────────────────────────────────────────────────
 if [[ "$RESET_DB" == "1" ]]; then
   echo ">> resetting E2E database"
@@ -86,6 +147,37 @@ fi
 
 # ── Layer 2: Integration (UI + API) ─────────────────────────────────────
 if [[ "$LAYER" == "all" || "$LAYER" == "integration" ]]; then
+  # Refuse to run the integration layer against a database that isn't clearly a
+  # test database.
+  #
+  # The integration suites truncate and reseed whatever they connect to. Invoked
+  # via `bun test:tenancy` (scripts/run-tenancy.sh) that is pinned to
+  # simplerdev_test, but calling this script directly inherits the ambient
+  # DATABASE_URL — which in this repo is a REMOTE Railway URL in .env. That is
+  # not hypothetical: on 2026-08-04 a direct invocation ran against a remote
+  # database and left a stray row change behind.
+  #
+  # Allowed: a URL whose database name contains "test", or an explicit
+  # ALLOW_NON_TEST_DB=1 for the rare case where you really mean it.
+  INT_DB_URL="${DATABASE_URL_TEST:-${DATABASE_URL:-}}"
+  INT_DB_NAME="${INT_DB_URL##*/}"      # strip everything up to the last /
+  INT_DB_NAME="${INT_DB_NAME%%\?*}"    # strip any ?query suffix
+  if [[ "${ALLOW_NON_TEST_DB:-0}" != "1" ]]; then
+    if [[ -z "$INT_DB_URL" ]]; then
+      echo "✖ integration: no DATABASE_URL_TEST or DATABASE_URL set." >&2
+      echo "  Use \`bun test:tenancy\` / \`bun test:integration:local\`, which pin a local test DB." >&2
+      exit 1
+    fi
+    if [[ "$INT_DB_NAME" != *test* ]]; then
+      echo "✖ integration: refusing to run against database '${INT_DB_NAME}'." >&2
+      echo "  These suites truncate and reseed the database they connect to, and this" >&2
+      echo "  name doesn't look like a test DB (expected the name to contain 'test')." >&2
+      echo "  Use \`bun test:tenancy\` or \`bun test:integration:local\` — both pin simplerdev_test." >&2
+      echo "  Override only if you are certain: ALLOW_NON_TEST_DB=1 $0 ..." >&2
+      exit 1
+    fi
+  fi
+
   # vitest doesn't have first-class tag filtering; we route --tag to
   # --testNamePattern so e.g. `--tag=tenancy` only runs describe/it blocks
   # whose full name contains `@tenancy` (the convention in tests/integration).
@@ -135,6 +227,16 @@ if [[ "$LAYER" == "all" || "$LAYER" == "e2e" ]]; then
   export WORKSPACE_TENANT_SECRETS_KEY="${WORKSPACE_TENANT_SECRETS_KEY:-$(openssl rand -hex 32)}"
   export OAUTH_STATE_SECRET="${OAUTH_STATE_SECRET:-$(openssl rand -hex 32)}"
   export PORTAL_KMS_KEY="${PORTAL_KMS_KEY:-$(openssl rand -base64 32)}"
+  # The storefront checkout golden-path spec creates a REAL Stripe test-mode
+  # PaymentIntent, so it needs the secret key in the *test* process (the server
+  # gets its own copy from .env). We deliberately do not source .env here — it
+  # carries a remote DATABASE_URL (see the guard above) — so lift just this one
+  # var, and only when it is a test key. A live key is never propagated into a
+  # test run; without a match the spec skips itself.
+  if [[ -z "${STRIPE_SECRET_KEY:-}" && -f "$ROOT/.env" ]]; then
+    STRIPE_SECRET_KEY="$(grep -aE '^STRIPE_SECRET_KEY=sk_test_' "$ROOT/.env" | head -1 | cut -d= -f2- | tr -d '"'"'"'[:space:]')"
+    [[ -n "$STRIPE_SECRET_KEY" ]] && export STRIPE_SECRET_KEY
+  fi
   export NODE_V8_COVERAGE="$ROOT/coverage/.v8-server"
   if [[ "$NO_COVERAGE" == "1" ]]; then
     export COLLECT_CLIENT_COVERAGE=0

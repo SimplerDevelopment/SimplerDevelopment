@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { orders, orderItems, orderStatusHistory, designs } from '@/lib/db/schema';
-import { and, eq, asc } from 'drizzle-orm';
+import { orders, orderItems, orderStatusHistory, productDesigns } from '@/lib/db/schema';
+import { and, eq, asc, sql } from 'drizzle-orm';
 import { resolveClientSite } from '@/lib/portal-client';
 import {
   sendTransactionalEmail, getWebsiteUrls, formatCents, formatAddress, formatEmailDate, buildItemsHtml,
@@ -37,10 +37,12 @@ export async function GET(_req: Request, { params }: Params) {
   const order = await resolveOrder(parseInt(session.user.id, 10), siteId, orderId);
   if (!order) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
 
-  // Left-join designs (uuid-PK Fabric.js designs table) so the admin can
-  // see the saved-design thumbnail/name inline with each order line.
-  // When the design row no longer exists the join misses and design is null,
-  // letting the UI render a "Design no longer available" placeholder.
+  // Left-join productDesigns so the admin sees the saved-design thumbnail/name
+  // inline with each order line. orderItems.designId is a pg uuid holding
+  // productDesigns.uuid (the share-link key), so the join casts to text —
+  // without it Postgres raises `operator does not exist: character varying = uuid`.
+  // When the design no longer exists the join misses and design is null, letting
+  // the UI render a "Design no longer available" placeholder.
   const [itemsWithDesign, history] = await Promise.all([
     db.select({
       id: orderItems.id,
@@ -55,12 +57,12 @@ export async function GET(_req: Request, { params }: Params) {
       quantity: orderItems.quantity,
       total: orderItems.total,
       createdAt: orderItems.createdAt,
-      designRowId: designs.id,
-      designName: designs.name,
-      designThumbnailUrl: designs.thumbnailUrl,
+      designRowId: productDesigns.id,
+      designName: productDesigns.name,
+      designThumbnailUrl: productDesigns.thumbnailUrl,
     })
       .from(orderItems)
-      .leftJoin(designs, eq(designs.id, orderItems.designId))
+      .leftJoin(productDesigns, sql`${productDesigns.uuid} = ${orderItems.designId}::text`)
       .where(eq(orderItems.orderId, order.id)),
     db.select().from(orderStatusHistory).where(eq(orderStatusHistory.orderId, order.id)).orderBy(asc(orderStatusHistory.createdAt)),
   ]);

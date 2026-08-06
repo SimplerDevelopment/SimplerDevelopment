@@ -80,6 +80,11 @@ export async function POST(req: Request) {
     : BASE_INSTRUCTIONS;
 
   // ── 4. Mint the ephemeral client secret with server-controlled session config.
+  // NOTE: `resolved.key` also needs OpenAI Realtime API access enabled on the
+  // account/project — a distinct capability grant from standard chat/embeddings
+  // access. A BYOK or platform key that works fine elsewhere in lib/ai/ can
+  // still fail here (502 below) until Realtime access is provisioned on the
+  // OpenAI platform.
   let oaRes: Response;
   try {
     oaRes = await fetch('https://api.openai.com/v1/realtime/client_secrets', {

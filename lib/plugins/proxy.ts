@@ -21,8 +21,9 @@
 //      before it reaches the plugin origin.
 //
 // The middleware that consumes this module is in the project root
-// `middleware.ts`. See `.planning/plugin-registry-spec.md` for the full
-// architecture.
+// `middleware.ts`. (Further architecture detail lived in
+// `.planning/plugin-registry-spec.md`, removed pre-OSS-release — the
+// per-function docstrings above are now the source of truth.)
 
 import { and, eq } from 'drizzle-orm';
 import { unstable_cache, revalidateTag } from 'next/cache';

@@ -77,6 +77,12 @@ const EMAIL_AUTOMATION_PRESETS: AutomationPreset[] = [
   },
 ];
 
+// Known gap: the Sender Defaults fields below are local-only state — there is
+// no load-existing-values effect, no Save button, and no API call, so nothing
+// entered here persists. This is why inline sender-verification wasn't added
+// to the onboarding module-setup step for email (see the WIZARD_TIERS doc
+// comment in lib/onboarding/module-segments.ts) — there's no working save
+// path to wire an inline form to yet.
 export default function EmailSettingsPage() {
   const [defaultFromName, setDefaultFromName] = useState('');
   const [defaultFromEmail, setDefaultFromEmail] = useState('');
