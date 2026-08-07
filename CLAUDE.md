@@ -142,6 +142,78 @@ git clone https://github.com/SimplerDevelopment/SimplerDevelopment-vault.git vau
   Then verify the new column exists and re-call `whoami`. As of 2026-07-11 all manual migrations through `9010` are applied to metro and the drift is clean.
 - **Auto-sync is now wired (2026-07-11).** The `PROD_DATABASE_URL` repo secret is set, so the `Prod schema sync (additive)` workflow now actually runs on every merge to `main` and auto-applies **additive** changes (CREATE TABLE / ADD COLUMN) to metro — before this the secret was unset and the job silently skipped (green but a no-op). A `Schema drift preflight` check now also fails a PR on **non-additive** drift (type/nullability changes the additive sync can't apply). So: new columns/tables auto-apply; **type/constraint changes (e.g. `9010`'s `timestamp→timestamptz`, `integer→bigint`) still need a hand-written guarded `*_manual.sql` applied to metro** (make them re-runnable — guard `ALTER … TYPE` behind an `information_schema` type check so a re-run can't reinterpret, cf. `9010`).
 
+## Hotfix lane (shipping a small fix without the full PR wait)
+
+**First, the thing that surprises people: `main` is NOT branch-protected.** No
+status check is *required* to merge — `gh api .../branches/main/protection`
+returns 404. Every gate below is convention plus two local git hooks. So the
+question is never "can I skip validation" (you always can); it is "which checks
+actually protect production, and which am I only waiting on out of habit."
+
+**What the gates cost, measured:**
+
+| Gate | Where | Time | Skippable? |
+|---|---|---|---|
+| gitleaks + eslint + file-budget + doc-drift | `.githooks/pre-commit` | ~10s | **Never.** Cheap, and catches secrets. |
+| vault guard | `.githooks/pre-push` | <1s | **Never** — see below. |
+| local CI (boundaries, budget, doc-drift, **typecheck**) | `.githooks/pre-push` | **~10 min**, nearly all typecheck | Yes — it duplicates GitHub's `Typecheck` job |
+| 15 GitHub Actions checks | CI on push | ~13 min | Partly — see "merge on the relevant checks" |
+
+### What qualifies as a hotfix
+
+Narrow, or this becomes the default path and the gates stop meaning anything:
+
+- ✅ Copy, links, colours, spacing — presentation on an already-shipped surface.
+  A dead `href`, a wrong string, a contrast bug, a stale brand name.
+- ❌ **Never**: schema/migrations, auth, billing, tenancy, MCP scopes, data
+  access, anything under `lib/db`, `lib/mcp`, or an `app/**/api/**` route.
+  Those get the full board, no exceptions, however small the diff looks.
+
+### The fast path
+
+```bash
+# 1. Commit normally — the pre-commit hook is 10s and includes secret scanning.
+git commit -m "fix(scope): ..."
+
+# 2. Verify by hand the ONE thing --no-verify would skip that matters, then push.
+#    The vault guard exists because this repo is PUBLIC and vault/ is internal.
+git diff --name-only origin/main..HEAD | grep '^vault/' && echo "STOP" || git push --no-verify
+
+# 3. Merge on the RELEVANT checks, not all 15 (see below).
+gh pr checks <n>
+gh pr merge <n> --merge
+```
+
+### Merge on the relevant checks
+
+For a presentation-only change, the checks that can actually catch your bug are
+**Typecheck, Lint & checks, Vercel (the build), gitleaks and GitGuardian** —
+roughly 3 minutes, not 13. Unit shards, tenancy and e2e do not exercise
+marketing copy; waiting on them is habit, not safety.
+
+Two rules that make this safe rather than reckless:
+
+1. **Never merge on a RED check, even an "unrelated" one.** "Probably flaky" is
+   a hypothesis, not a result. Re-run it or reproduce it locally
+   (`bunx vitest run --project=unit --shard=3/4` reproduces one CI shard
+   exactly). If it is genuinely flaky, say so *with the evidence* and move on.
+2. **If you merged before the board settled, you still own it.** Watch the
+   remaining checks. If one goes red after the merge, revert immediately —
+   don't debug forward on `main`.
+
+### Rollback is the real safety net
+
+Vercel deploys production from `main`, so the merge *is* the deploy and the
+revert *is* the rollback:
+
+```bash
+git revert --no-edit <sha> && git push        # production rebuilds from main
+```
+
+Because `main` is unprotected, this takes about a minute. That is precisely why
+the fast path is defensible for presentation changes and indefensible for a
+migration — you cannot `git revert` a column that has already been dropped.
+
 ## Architecture invariants (load-bearing — break at your peril)
 
 - **Three audiences, three route trees:**
