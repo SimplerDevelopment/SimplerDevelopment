@@ -121,7 +121,18 @@ const shots: Shot[] = [
   { slug: 'websites', file: '02-site-entries', url: '/portal/websites/{siteId}/entries' },
 ];
 
-const REVEAL = `(() => { const s=document.createElement('style'); s.textContent='*{opacity:1 !important; transform:none !important; transition:none !important; animation:none !important;}'; document.head.appendChild(s); try{localStorage.setItem('theme','light')}catch(e){} document.documentElement.classList.remove('dark'); document.documentElement.style.colorScheme='light'; })()`;
+const REVEAL = `(() => {
+  const s=document.createElement('style');
+  // Freeze animations so nothing is caught mid-transition, and hide the Next.js
+  // dev overlay — a "Compiling..." badge photographed into a marketing shot is
+  // exactly the kind of artifact this gallery must never ship.
+  s.textContent='*{opacity:1 !important; transform:none !important; transition:none !important; animation:none !important;}'
+    + 'nextjs-portal,[data-nextjs-toast],[data-nextjs-dev-tools-button],#__next-build-watcher,[data-nextjs-build-indicator]{display:none !important;}';
+  document.head.appendChild(s);
+  try{localStorage.setItem('theme','light')}catch(e){}
+  document.documentElement.classList.remove('dark');
+  document.documentElement.style.colorScheme='light';
+})()`;
 
 /* ------------------------------------------------------------------ */
 /*  Quality audit — rules live in lib/screenshots/audit.ts so they are          */
@@ -194,18 +205,29 @@ async function run() {
     await page.goto(`${BASE}/portal/dashboard`, { waitUntil: 'domcontentloaded' });
     if (/\/login/.test(page.url())) throw new Error('session expired — re-export AUTH_STATE');
   } else {
-    await page.goto(`${BASE}/portal/login`, { waitUntil: 'domcontentloaded' });
-    await page.getByPlaceholder('you@company.com').fill(EMAIL);
-    await page.getByPlaceholder('••••••••').fill(PASSWORD);
-    await page.locator('button[type="submit"]').click();
-    // A cold dev server compiles the destination route on demand, so the
-    // post-login redirect can take minutes — wait on the navigation, not a
-    // fixed sleep.
-    await page
-      .waitForURL((u) => !/\/login/.test(u.toString()), { timeout: NAV_TIMEOUT })
-      .catch(() => {});
-    if (/\/login/.test(page.url())) throw new Error('login failed and no AUTH_STATE present');
+    await page.goto(`${BASE}/portal/login`, { waitUntil: 'domcontentloaded', timeout: NAV_TIMEOUT });
+    // Drive Auth.js directly rather than filling the form and clicking.
+    // The login page is a client component using signIn() inside an onSubmit
+    // handler on a <form method="post">. Against a cold dev server the JS
+    // bundle compiles on demand, so a scripted click lands BEFORE React
+    // hydrates: preventDefault never runs, the browser does a native POST to
+    // /portal/login, and you get a 200 with no session and no error message.
+    const res = await page.evaluate(
+      async ([email, password]) => {
+        const { csrfToken } = await (await fetch('/api/auth/csrf')).json();
+        const r = await fetch('/api/auth/callback/credentials', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({ csrfToken, email, password, totpCode: '', redirect: 'false', json: 'true' }),
+        });
+        const session = await (await fetch('/api/auth/session')).json();
+        return { status: r.status, user: session?.user?.email ?? null };
+      },
+      [EMAIL, PASSWORD],
+    );
+    if (!res.user) throw new Error(`login failed (callback ${res.status}) and no AUTH_STATE present`);
     await ctx.storageState({ path: AUTH_STATE });
+    await page.goto(`${BASE}/portal/dashboard`, { waitUntil: 'domcontentloaded', timeout: NAV_TIMEOUT });
   }
   console.log('authed:', page.url());
 

@@ -24,6 +24,7 @@ describe('screenshot audit — rejects what actually shipped', () => {
     ['company-brain/09-ask', 'MCP endpoint\nhttp://localhost:3100/api/mcp', 'localhost URL'],
     ['contracts/03', 'Discovery & Architecture $5,000.00 $NaN\nSubtotal $NaN\nTotal $NaN', 'NaN in rendered output'],
     ['ecommerce/01', 'Cold Brew Concentrate\nactive\n$NaN\n999', 'NaN in rendered output'],
+    ['crm/05-companies', 'Sunrise Family Office\nsunrisefo.example.com\nSeeded by scripts/seed-brain-demo.ts', 'seed metadata in tenant copy'],
 
   ];
 

@@ -30,6 +30,9 @@ export const JUNK_PATTERNS: Rule[] = [
   [/\bTest (List|Site|Post|MCP Key|Company)\b/i, 'test-fixture'],
   [/\b\d{13}\b/, 'epoch-suffixed seed name'],
   [/APPR-MUT-|INV-PAY-E2E|crm-route-/i, 'e2e-fixture'],
+  // Seeders stamp their own filename into notes/description fields; it rendered
+  // as the company blurb on the CRM card ("Seeded by scripts/seed-brain-demo.ts").
+  [/seeded by\b|scripts\/seed-/i, 'seed metadata in tenant copy'],
 ];
 
 /** Internal URLs must never appear in public marketing. */
