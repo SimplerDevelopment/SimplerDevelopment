@@ -5,8 +5,8 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { slugify } from '@/lib/publishing/slug';
 import MediaUploadModal from '@/components/admin/MediaUploadModal';
-import DesignSurfacesEditor from '@/components/portal/store/DesignSurfacesEditor';
 import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
+import { PrintfulFulfillmentPanel } from '@/components/portal/store/PrintfulFulfillmentPanel';
 import { pBtnPrimary, pBtnGhost, pBtnSoft, pCard, pCardPad, pInput, pSelect, pSectionTitle, pChip } from '@/components/portal/portal-ui';
 
 interface ProductImage {
@@ -55,7 +55,6 @@ interface ProductForm {
   description: string;
   status: string;
   featured: boolean;
-  isDesignable: boolean;
   designMode: ProductDesignMode;
   metadata: Record<string, string>;
   designable: boolean;
@@ -183,11 +182,11 @@ function normalizeMetadata(value: unknown): Record<string, string> {
   return out;
 }
 
-function resolveDesignMode(product: { isDesignable?: boolean; metadata?: unknown }): ProductDesignMode {
+function resolveDesignMode(product: { designable?: boolean; metadata?: unknown }): ProductDesignMode {
   const metadata = normalizeMetadata(product.metadata);
   const raw = metadata.productDesignMode;
   if (raw === 'standard' || raw === 'store' || raw === 'customer') return raw;
-  if (product.isDesignable) return 'customer';
+  if (product.designable) return 'customer';
   if (metadata.storeDesignId) {
     return 'store';
   }
@@ -201,7 +200,6 @@ const defaultForm: ProductForm = {
   description: '',
   status: 'draft',
   featured: false,
-  isDesignable: false,
   designMode: 'standard',
   metadata: {},
   designable: false,
@@ -274,10 +272,9 @@ export default function ProductEditPage() {
             description: p.description || '',
             status: p.status || 'draft',
             featured: p.featured || false,
-            isDesignable: designMode === 'customer',
+            designable: designMode === 'customer',
             designMode,
             metadata,
-            designable: p.designable || false,
             priceCents: moneyToCents(p.priceCents ?? p.price),
             compareAtPriceCents: moneyToCents(p.compareAtPriceCents ?? p.compareAtPrice),
             costPriceCents: moneyToCents(p.costPriceCents ?? p.costPrice),
@@ -315,11 +312,11 @@ export default function ProductEditPage() {
 
   const setDesignMode = async (mode: ProductDesignMode) => {
     const metadata = { ...form.metadata, productDesignMode: mode };
-    const isDesignable = mode === 'customer';
+    const designable = mode === 'customer';
     setForm((prev) => ({
       ...prev,
       designMode: mode,
-      isDesignable,
+      designable,
       metadata,
     }));
     setError('');
@@ -329,7 +326,7 @@ export default function ProductEditPage() {
         await fetch(`${base}/products/${productId}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ isDesignable, metadata }),
+          body: JSON.stringify({ designable, metadata }),
         });
       } catch {
         // Non-fatal. A later full save will surface any persistent issue.
@@ -476,7 +473,7 @@ export default function ProductEditPage() {
         alt: img.altText || null,
         order: idx,
       })),
-      isDesignable: form.designMode === 'customer',
+      designable: form.designMode === 'customer',
       metadata: {
         ...form.metadata,
         productDesignMode: form.designMode,
@@ -673,32 +670,6 @@ export default function ProductEditPage() {
               </div>
             </div>
           </div>
-          <div className="space-y-1.5 pt-2 border-t border-border">
-            <label className="text-sm font-medium text-foreground">Customer-designable product</label>
-            <div className="flex items-start gap-3 pt-1.5">
-              <button
-                type="button"
-                onClick={() => updateField('designable', !form.designable)}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors flex-shrink-0 ${
-                  form.designable ? 'bg-primary' : 'bg-border'
-                }`}
-              >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    form.designable ? 'translate-x-6' : 'translate-x-1'
-                  }`}
-                />
-              </button>
-              <div className="flex-1">
-                <span className="text-sm text-muted-foreground block">
-                  {form.designable ? 'Enabled' : 'Disabled'}
-                </span>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Lets customers create their own design on this product. Set up styles &amp; sides in the Designer tab.
-                </p>
-              </div>
-            </div>
-          </div>
         </div>
       )}
 
@@ -836,36 +807,11 @@ export default function ProductEditPage() {
 
       {/* Print Tab */}
       {activeTab === 'print' && (
-        <div className="rounded-2xl border border-border bg-card p-6 space-y-4">
-          <h2 className={`${pSectionTitle} flex items-center gap-2`}>
-            <span className="material-icons text-lg text-muted-foreground">print</span>
-            Fulfillment
-          </h2>
-          {form.variants.length === 0 ? (
-            <div className="space-y-1.5 max-w-xs">
-              <label className="text-sm font-medium text-foreground">Printful Variant ID</label>
-              <input
-                type="number"
-                min="1"
-                value={form.printfulVariantId ?? ''}
-                onChange={(e) =>
-                  updateField('printfulVariantId', e.target.value ? parseInt(e.target.value) : null)
-                }
-                placeholder="e.g. 4012"
-                className={pInput}
-              />
-              <p className="text-xs text-muted-foreground">
-                Printful catalog variant ID — find this in Printful&apos;s Product Catalog. Required for automatic print-on-demand fulfillment via Printful.
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">
-                Set the Printful Variant ID per variant in the Options &amp; Variants section below. Required for automatic print-on-demand fulfillment via Printful.
-              </p>
-            </div>
-          )}
-        </div>
+        <PrintfulFulfillmentPanel
+          variants={form.variants}
+          productPrintfulVariantId={form.printfulVariantId}
+          onProductPrintfulVariantIdChange={(v) => updateField('printfulVariantId', v)}
+        />
       )}
 
       {/* Images Tab */}
@@ -1261,7 +1207,16 @@ export default function ProductEditPage() {
                             )
                           }
                           placeholder="—"
-                          className="w-20 rounded-lg border border-border bg-card px-2 py-1.5 text-xs text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
+                          title={
+                            variant.active && !variant.printfulVariantId
+                              ? 'No Printful ID — this variant cannot be fulfilled by Printful'
+                              : undefined
+                          }
+                          className={`w-20 rounded-lg border bg-card px-2 py-1.5 text-xs text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 ${
+                            variant.active && !variant.printfulVariantId
+                              ? 'border-amber-500/60'
+                              : 'border-border'
+                          }`}
                         />
                       </td>
                       <td className="px-3 py-2">
@@ -1375,7 +1330,6 @@ export default function ProductEditPage() {
               <p className="text-xs text-muted-foreground mb-3">
                 Each surface (front/back/sleeve…) defines the printable area. Customer-customizable products use these in the public designer; store-designed products use them for store-authored templates and fulfillment.
               </p>
-              <DesignSurfacesEditor productId={parseInt(productId)} siteId={siteId} />
             </div>
           )}
         </div>

@@ -7,7 +7,7 @@ status: internal-draft
 sources:
   - vault/05 - Feature Specs/FEATURE-INVENTORY-domains.md (domain 15 — Agency, Onboarding & Branding)
   - docs/agents/ai-overview.md
-  - docs/agents/glossary.md
+  - vault/Glossary.md
   - marketing/feature-pages/
 ---
 

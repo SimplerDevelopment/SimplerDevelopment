@@ -10,6 +10,12 @@
  *   brain:approve   — approve/reject AI review items, edit relationship
  *                     overlays. This is sensitive; gate behind a separate
  *                     scope so power users can opt in explicitly.
+ *
+ * Trust boundary: `brain:write` tools commit directly — the "AI is never the
+ * source of truth" review-queue path (lib/brain/review.ts) is opt-in per
+ * tool, not structural. Only tools that explicitly route through
+ * brainAiReviewItems (e.g. `brain_propose_task` vs. the direct
+ * `brain_create_task`) get human approval before the record exists.
  */
 
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';

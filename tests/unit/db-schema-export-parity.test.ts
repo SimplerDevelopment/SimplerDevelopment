@@ -373,9 +373,7 @@ const EXPECTED_EXPORTS: readonly string[] = [
   'cronHealth',
   'customDomainHistory',
   'customFields',
-  'designAssets',
   'designLibraryAssets',
-  'designs',
   'devicePushTokens',
   'discountCodes',
   'documentComments',
@@ -472,7 +470,6 @@ const EXPECTED_EXPORTS: readonly string[] = [
   'posts',
   'printfulEvents',
   'productCategories',
-  'productDesignSurfaces',
   'productDesigns',
   'productImages',
   'productOptionValues',
@@ -693,9 +690,7 @@ const EXPECTED_TABLE_NAMES: Readonly<Record<string, string>> = {
   cronHealth: 'cron_health',
   customDomainHistory: 'custom_domain_history',
   customFields: 'custom_fields',
-  designAssets: 'design_assets',
   designLibraryAssets: 'design_library_assets',
-  designs: 'designs',
   devicePushTokens: 'device_push_tokens',
   discountCodes: 'discount_codes',
   documentComments: 'document_comments',
@@ -787,7 +782,6 @@ const EXPECTED_TABLE_NAMES: Readonly<Record<string, string>> = {
   posts: 'posts',
   printfulEvents: 'printful_events',
   productCategories: 'product_categories',
-  productDesignSurfaces: 'product_design_surfaces',
   productDesigns: 'product_designs',
   productImages: 'product_images',
   productOptionValues: 'product_option_values',
@@ -908,13 +902,13 @@ describe('lib/db/schema export parity', () => {
     expect(actualTables).toEqual(EXPECTED_TABLE_NAMES);
   });
 
-  it('reports the recorded number of tables (305)', () => {
+  it('reports the recorded number of tables (302)', () => {
     const schemaMap = Schema as unknown as Record<string, unknown>;
     let count = 0;
     for (const value of Object.values(schemaMap)) {
       if (value && typeof value === 'object' && isTable(value)) count += 1;
     }
     expect(count).toBe(Object.keys(EXPECTED_TABLE_NAMES).length);
-    expect(count).toBe(305);
+    expect(count).toBe(302);
   });
 });

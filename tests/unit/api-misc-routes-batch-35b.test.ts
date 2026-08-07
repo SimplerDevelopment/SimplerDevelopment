@@ -73,10 +73,11 @@ vi.mock('@/lib/db/schema', () => ({
     orderId: 'orderStatusHistory.orderId',
     createdAt: 'orderStatusHistory.createdAt',
   },
-  designs: {
-    id: 'designs.id',
-    name: 'designs.name',
-    thumbnailUrl: 'designs.thumbnailUrl',
+  productDesigns: {
+    id: 'productDesigns.id',
+    uuid: 'productDesigns.uuid',
+    name: 'productDesigns.name',
+    thumbnailUrl: 'productDesigns.thumbnailUrl',
   },
   easypostEvents: {
     id: 'easypostEvents.id',
@@ -104,6 +105,12 @@ vi.mock('drizzle-orm', () => ({
   isNull: (a: unknown) => ({ op: 'isNull', a }),
   or: (...args: unknown[]) => ({ op: 'or', args: args.filter(Boolean) }),
   inArray: (a: unknown, list: unknown[]) => ({ op: 'inArray', a, list }),
+  sql: Object.assign(
+    function sqlTag(strings: TemplateStringsArray, ...values: unknown[]) {
+      return { op: 'sql', strings: Array.from(strings), values };
+    },
+    {},
+  ),
 }));
 
 vi.mock('@/lib/storefront/customer-auth', () => ({

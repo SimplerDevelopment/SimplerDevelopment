@@ -74,7 +74,7 @@ function makeProduct(overrides: Record<string, unknown> = {}) {
     tags: ['tag1', 'tag2'],
     seoTitle: null,
     seoDescription: null,
-    isDesignable: false,
+    designable: false,
     designable: false,
     images: [],
     options: [],
@@ -559,12 +559,12 @@ describe('ProductPage', () => {
     await waitFor(() => expect(screen.getAllByText(/Customize this product/).length).toBeGreaterThan(0));
   });
 
-  it('shows isDesignable designer link when isDesignable=true', async () => {
-    mockSuccessResponse(makeProduct({ isDesignable: true }));
+  it('shows the designer link when designable=true', async () => {
+    mockSuccessResponse(makeProduct({ designable: true }));
     render(<ProductPage siteId={1} productSlug="test-widget" />);
     await waitFor(() => {
       const link = screen.getByRole('link', { name: /Customize this product/ });
-      expect(link.getAttribute('href')).toContain('/designer/test-widget');
+      expect(link.getAttribute('href')).toContain('/design/test-widget');
     });
   });
 

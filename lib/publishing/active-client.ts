@@ -3,6 +3,10 @@
 // Publishing project is bootstrapped. Returns the project handle plus the
 // caller's role so downstream pages can render the right affordances without
 // each one re-resolving identity.
+//
+// Same-named but unrelated to lib/active-client.ts (the portal's
+// `sd-active-client` cookie reader) — this file resolves tenant identity via
+// getPortalClient(userId) below, independent of that cookie.
 
 import { auth } from '@/lib/auth';
 import { redirect } from 'next/navigation';

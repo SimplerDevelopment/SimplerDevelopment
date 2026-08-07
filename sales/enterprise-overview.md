@@ -7,7 +7,7 @@ status: internal-draft
 sources:
   - vault/05 - Feature Specs/FEATURE-INVENTORY-domains.md
   - docs/agents/ai-overview.md
-  - docs/agents/glossary.md
+  - vault/Glossary.md
   - marketing/feature-pages/
 ---
 

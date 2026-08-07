@@ -5,6 +5,10 @@ import { aiConversations, aiMessages } from '@/lib/db/schema';
 import { getPortalClient } from '@/lib/portal-client';
 import { authorizePortal, isAuthError } from '@/lib/portal-auth';
 import { eq, asc, sql } from 'drizzle-orm';
+// Deliberate carve-out from the lib/ai/llm.ts provider seam: this route runs
+// a Haiku intent-router pass and then streams the tool-use loop directly, and
+// that streaming shape hasn't been ported to the seam yet. Don't route this
+// through lib/ai/llm.ts without also porting the streaming path.
 import Anthropic from '@anthropic-ai/sdk';
 import { PORTAL_TOOLS, executePortalTool } from '@/lib/ai/portal-tools';
 import { classifyPortalRequest } from '@/lib/ai/portal-tools/classifier';
@@ -58,7 +62,11 @@ export async function POST(req: Request) {
     const { message, conversationId } = await req.json();
     if (!message?.trim()) return NextResponse.json({ success: false, message: 'message is required' }, { status: 400 });
 
-    // Plan-gate first: Starter without BYOK is blocked before any other check.
+    // Plan-gate (currently a pass-through / extension point — post
+    // BYOK-inversion, checkAiPlanGate always returns { allowed: true } for
+    // every tier; kept as a call site for future per-tier/per-provider
+    // gating). See lib/ai/plan-gate.ts. This is NOT the old "Starter without
+    // BYOK is blocked" behavior — that rule no longer exists.
     const gate = await checkAiPlanGate({ clientId: client.id, provider: 'anthropic' });
     if (!gate.allowed) {
       return NextResponse.json({

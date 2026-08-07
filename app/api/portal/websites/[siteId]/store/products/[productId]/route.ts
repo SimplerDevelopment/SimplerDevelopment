@@ -144,7 +144,7 @@ export async function PUT(req: Request, { params }: Params) {
     if (body[f] !== undefined) updateData[f] = body[f] != null ? parseInt(String(body[f])) : null;
   }
 
-  const boolFields = ['trackInventory', 'featured', 'isDesignable', 'designable'];
+  const boolFields = ['trackInventory', 'featured', 'designable'];
   for (const f of boolFields) {
     if (body[f] !== undefined) updateData[f] = body[f];
   }

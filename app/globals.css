@@ -162,8 +162,112 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  /* Was `Arial, Helvetica, sans-serif` — a Next scaffold default that never
+     matched the project's own type. Point it at the sans the app actually
+     loads so anything not explicitly classed inherits the right face.
+     Marketing pages opt into the retro stack via `.retro` below. */
+  font-family: var(--font-sans), ui-sans-serif, system-ui, -apple-system, sans-serif;
   transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* ─── Retro-future marketing design system ─────────────────────────────────
+   Tokens taken verbatim from the component-library board in ~/Downloads/Design.
+   Scoped to `.retro` rather than :root because the portal and admin trees keep
+   their own palette — this is the public marketing skin only.
+
+   The palette is deliberately narrow: two teals for ground, cream for paper,
+   orange for action, gold for ornament. The 1950s-futurism read comes from
+   using them flatly, with hard edges and no gradients-as-decoration. */
+.retro {
+  --retro-ink: #0E2A2E;        /* darkest teal — page ground, nav, footer */
+  --retro-deep: #144B4F;       /* dark teal — raised panels on ink */
+  --retro-mid: #1F686E;        /* mid teal — borders, muted text on cream */
+  --retro-gold: #E1B24A;       /* amber — ornament, stars, badge rules */
+  --retro-orange: #E15A2A;     /* primary action */
+  --retro-rust: #D6451F;       /* pressed / emphasis */
+  --retro-cream: #F4E9CF;      /* paper */
+  --retro-black: #111111;
+
+  --retro-display: var(--font-orbitron), ui-sans-serif, system-ui, sans-serif;
+  --retro-body: var(--font-raleway), ui-sans-serif, system-ui, sans-serif;
+
+  /* Hairline rules read as "printed" rather than "UI" at this weight. */
+  --retro-rule: 1px solid color-mix(in srgb, var(--retro-mid) 40%, transparent);
+
+  /* Type only — deliberately NO background/color here. `.retro` is applied to
+     both cream surfaces (page bodies) and ink ones (nav, footer, CTA bands);
+     painting a background from the token class made those fight it and lose,
+     which rendered the nav cream-on-cream with invisible links. Surfaces set
+     their own bg/text; this class only carries the variables and the fonts. */
+  font-family: var(--retro-body);
+}
+
+/* Page bodies opt in explicitly. */
+.retro-paper {
+  background: var(--retro-cream);
+  color: var(--retro-ink);
+}
+
+/* Form controls inside the marketing skin.
+   Shared form components (ContactForm, newsletter, booking) style their inputs
+   with `bg-background`, which resolves to the app's dark surface and rendered
+   as charcoal boxes sitting on a cream band. Rather than fork every form
+   component for the marketing tree, override the controls once here — the forms
+   keep their markup, actions and validation untouched. */
+.retro input[type='text'],
+.retro input[type='email'],
+.retro input[type='tel'],
+.retro input[type='url'],
+.retro input[type='search'],
+.retro input[type='number'],
+.retro textarea,
+.retro select {
+  background: color-mix(in srgb, var(--retro-cream) 60%, #fff);
+  color: var(--retro-ink);
+  border-color: color-mix(in srgb, var(--retro-mid) 45%, transparent);
+  border-radius: 4px;
+}
+
+.retro input::placeholder,
+.retro textarea::placeholder {
+  color: color-mix(in srgb, var(--retro-ink) 45%, transparent);
+}
+
+.retro input:focus-visible,
+.retro textarea:focus-visible,
+.retro select:focus-visible {
+  outline: 2px solid var(--retro-gold);
+  outline-offset: 1px;
+  border-color: var(--retro-mid);
+}
+
+/* Buttons rendered by shared form components pick up the app's primary blue.
+   Inside the marketing skin they should read as the retro action colour. */
+.retro button[type='submit'] {
+  background: var(--retro-orange);
+  color: var(--retro-cream);
+  border-radius: 4px;
+}
+
+.retro button[type='submit']:hover:not(:disabled) {
+  background: var(--retro-rust);
+}
+
+.retro h1, .retro h2, .retro h3, .retro .font-display {
+  font-family: var(--retro-display);
+  letter-spacing: -0.01em;
+}
+
+/* Section eyebrows: uppercase, wide-tracked, gold — the board uses these to
+   separate every band. Small caps at this tracking is the single strongest
+   period signal in the whole system. */
+.retro .eyebrow {
+  font-family: var(--retro-display);
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--retro-gold);
 }
 
 /* Marquee animation */

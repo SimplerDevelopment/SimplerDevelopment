@@ -1,6 +1,6 @@
 // Plugin callback rate limiter — sliding-window in-memory counter keyed by
-// (appId, clientId). Default 30 req/min per
-// .planning/plugin-registry-spec.md §"Rate limiting".
+// (appId, clientId). Default 30 req/min (originally specified in
+// .planning/plugin-registry-spec.md §"Rate limiting", removed pre-OSS-release).
 //
 // Pattern is duplicated from `lib/api-keys.ts::checkRateLimit` rather than
 // imported because the api-keys helper is keyed by a single integer

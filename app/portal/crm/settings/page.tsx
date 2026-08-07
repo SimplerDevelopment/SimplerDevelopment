@@ -9,6 +9,11 @@ import NotificationsTab from './_components/NotificationsTab';
 import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
 import { pBtnPrimary } from '@/components/portal/portal-ui';
 
+// All 5 presets below wire to the same `create_support_ticket` tool (only the
+// subject/body differ) — none send email, so there's nothing to check in an
+// email inbox for these. `deal_created_project`'s name/description promise
+// project creation, but its action is `create_support_ticket` like the rest;
+// no Projects/Kanban row is ever created — treat the name as aspirational.
 const CRM_AUTOMATION_PRESETS: AutomationPreset[] = [
   {
     key: 'deal_won_notification',

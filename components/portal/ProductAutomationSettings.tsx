@@ -86,6 +86,11 @@ export default function ProductAutomationSettings({ productScope, presets, title
       .finally(() => setLoading(false));
   }, [productScope, presets]);
 
+  // A saved rule is matched back to its preset by (trigger.event, name) — there
+  // is no stored preset key. Renaming a preset's `name` in code therefore
+  // orphans any rule a user already enabled under the old name: the DB row
+  // still exists and still fires, but this UI can no longer find it, so the
+  // toggle silently reads as "off" even though the automation is still live.
   const isPresetEnabled = useCallback(
     (preset: AutomationPreset) => {
       return rules.some(

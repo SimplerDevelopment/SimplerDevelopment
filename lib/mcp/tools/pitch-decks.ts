@@ -220,6 +220,9 @@ export function registerPitchDecksTools(server: McpServer, ctx: PortalMcpContext
       //   3. No default → no profile (fall back to theme args / hard defaults)
       let profile: typeof brandingProfiles.$inferSelect | null = null;
       if (args.brandingProfileId != null) {
+        // The clientId in this WHERE is the tenancy check — args.brandingProfileId
+        // is a bare numeric id from the caller and must never be trusted alone;
+        // a profile belonging to another client has to 404 here, not resolve.
         const [row] = await db.select().from(brandingProfiles)
           .where(and(eq(brandingProfiles.id, args.brandingProfileId), eq(brandingProfiles.clientId, clientId)))
           .limit(1);

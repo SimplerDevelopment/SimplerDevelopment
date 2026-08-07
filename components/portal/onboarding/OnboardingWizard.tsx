@@ -330,6 +330,9 @@ export default function OnboardingWizard({ initialState, stripeEnabled = true }:
 
         {/* Once the plan is chosen (payment step onward), setup can't be skipped —
             billing must be completed (or explicitly bypassed on Stripe-less instances). */}
+        {/* reopenedAt gates visibility: fresh signups never see "Skip setup" — only
+            a session that came back through reopenOnboarding() gets it, matching the
+            server-side check in completeOnboarding() (lib/onboarding/service.ts). */}
         {currentStep !== 'done' &&
           !(activeSteps.includes('payment') && stepIndex >= activeSteps.indexOf('payment')) &&
           !!state.answers.reopenedAt && (

@@ -126,6 +126,9 @@ export const emailSegments = pgTable('email_segments', {
   description: text('description'),
   rules: json('rules').$type<{ field: string; operator: string; value: string }[]>().default([]),
   matchType: varchar('match_type', { length: 10 }).default('all').notNull(), // 'all' or 'any'
+  // Neither column is ever written past insert-time default — no route, MCP
+  // tool, or cron recomputes a segment's membership against `rules`. Treat
+  // both as dead/always-stale until something actually evaluates the rules.
   subscriberCount: integer('subscriber_count').default(0).notNull(),
   lastCalculatedAt: timestamp('last_calculated_at'),
   createdAt: timestamp('created_at').defaultNow().notNull(),

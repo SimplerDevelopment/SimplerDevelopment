@@ -7,8 +7,8 @@
 // `path` matches the manifest entry. Segments starting with `:` are param
 // captures (we only support `:id` style today — registry.ts enforces that).
 //
-// `ok()` and `fail()` produce the standard envelope from
-// .planning/plugin-registry-spec.md §"Callback envelope":
+// `ok()` and `fail()` produce the standard envelope (originally specified in
+// .planning/plugin-registry-spec.md §"Callback envelope", removed pre-OSS-release):
 //   success: { success: true, data: T }
 //   failure: { success: false, error: { code, message, details? } }
 

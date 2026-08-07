@@ -47,6 +47,11 @@ import { PostContentPlaceholderRender } from './PostContentPlaceholderRender';
 import { BlockStyleWrapper } from './BlockStyleWrapper';
 import { useBlockEditorOptional } from '@/contexts/BlockEditorContext';
 
+// This component's column-width/gap/padding styling is hand-mirrored by
+// `ContainerBlockRenderer` in EditableBlockRenderer.tsx (the visual-editor
+// canvas can't wrap this component with drop-zone chrome, so it duplicates
+// the styling logic instead). A styling change here must be mirrored there
+// too or the editor canvas and the published page will diverge.
 interface ColumnsBlockRenderProps {
   block: ColumnsBlock;
 }

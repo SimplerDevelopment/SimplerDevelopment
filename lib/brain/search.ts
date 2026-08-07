@@ -60,10 +60,15 @@ const DEFAULT_TOTAL = 25;
  * Hybrid search across the brain. Lexical (ILIKE) on every entity type and
  * semantic (pgvector cosine ANN) on entity types that have embeddings.
  *
- * Today only `note` has embeddings (KB import populates them). When meeting
- * transcripts and relationship summaries get embedded too, this same
- * function picks them up automatically — the semantic branch already filters
- * by entity_type at the SQL level.
+ * All 8 EntityType values (lib/brain/embeddings.ts) are auto-embedded via the
+ * Postgres trigger in drizzle/9001+9002 — the semantic branch picks up
+ * meeting/task/relationship/company/contact/deal/post automatically, not just
+ * `note`; it already filters by entity_type at the SQL level.
+ *
+ * Embedding is async (queued by the trigger, drained by
+ * /api/cron/process-embeddings every minute — see embedding-queue.ts), so a
+ * just-created or just-edited row can be a lexical-only hit (or briefly
+ * absent from semantic results entirely) until the next cron tick embeds it.
  *
  * If OPENAI_API_KEY isn't configured or the semantic call fails, falls back
  * to lexical-only without breaking the search response.

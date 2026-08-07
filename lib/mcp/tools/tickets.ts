@@ -121,6 +121,12 @@ export function registerTicketsTools(server: McpServer, ctx: PortalMcpContext): 
     },
     async ({ subject, body, priority = 'medium', category = 'general', projectId }) => {
       if (!requireScope(ctx, 'tickets:write')) return denied('tickets:write');
+      // Same SELECT-max-then-INSERT number allocation as the REST ticket
+      // route (app/api/portal/tickets/route.ts) but without even that
+      // route's transaction wrapper, so this path is equally exposed to the
+      // concurrent-create duplicate-number race (see the comment there).
+      // Also does not stamp firstResponseDueAt/resolutionDueAt via
+      // lib/tickets/sla.ts, so tickets created through this tool show no SLA.
       const [{ maxNum }] = await db
         .select({ maxNum: sql<number>`coalesce(max(${supportTickets.number}), 0)` })
         .from(supportTickets).where(eq(supportTickets.clientId, clientId));
@@ -193,7 +199,7 @@ export function registerTicketsTools(server: McpServer, ctx: PortalMcpContext): 
         patch.status = status;
         if ((status === 'resolved' || status === 'closed') && existing.status !== 'resolved' && existing.status !== 'closed') patch.resolvedAt = new Date();
       }
-      if (priority !== undefined) patch.priority = priority;
+      if (priority !== undefined) patch.priority = priority; // does NOT recompute SLA deadlines — see lib/tickets/sla.ts
       if (category !== undefined) patch.category = category;
       if (subject !== undefined) patch.subject = subject;
       if (assignedTo !== undefined) patch.assignedTo = assignedTo;

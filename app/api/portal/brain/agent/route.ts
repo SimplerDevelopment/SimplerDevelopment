@@ -21,6 +21,9 @@
  */
 
 import { eq, asc, sql } from 'drizzle-orm';
+// Deliberate carve-out from the lib/ai/llm.ts provider seam: this route's SSE
+// tool-call streaming loop is being coordinated with the feat/ai-stream-tool-calling
+// branch, not ported piecemeal. Leave on the raw SDK until that branch lands.
 import Anthropic from '@anthropic-ai/sdk';
 
 import { db } from '@/lib/db';

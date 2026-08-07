@@ -256,6 +256,10 @@ export function SurveyFormInline({
     return null;
   }
 
+  // Unlike validateCurrentPage(), this does NOT check isFieldVisible() first.
+  // showIf and goToPage on the same field are not a supported combination: a
+  // field hidden by a dependency can still carry a stale answer from before
+  // it was hidden, and that stale answer will still trigger the jump here.
   function getNextPage(): number {
     const pageFields = pages[pageIndex] || [];
     for (const field of pageFields) {

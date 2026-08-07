@@ -6,6 +6,12 @@ import { crmContacts, crmScoringRules } from '@/lib/db/schema';
 import { and, eq } from 'drizzle-orm';
 import { crmEntitlementError } from '@/lib/crm/entitlement';
 
+// Nothing in-app calls this endpoint today — no contact-create, activity-log,
+// form-submit, or email-open handler invokes it. Scoring only happens if a
+// caller (portal AI, MCP client, external integration) POSTs an eventType
+// here explicitly; logging a crm_activities row does NOT score a contact.
+// The Lead Scoring settings tab's copy claims points are added "automatically"
+// — that isn't true end-to-end yet.
 export async function POST(
   req: Request,
   { params }: { params: Promise<{ id: string }> }

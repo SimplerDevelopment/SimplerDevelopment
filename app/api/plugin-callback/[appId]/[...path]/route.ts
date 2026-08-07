@@ -1,7 +1,8 @@
 // Plugin callback dispatcher — the cross-origin REST surface that registered
 // plugins call back into the portal with their `x-sd-tenant` JWT.
 //
-// Flow (mirrors .planning/plugin-registry-spec.md §"Trust model"):
+// Flow (originally specified in .planning/plugin-registry-spec.md
+// §"Trust model", removed pre-OSS-release — this list is now authoritative):
 //   1. authenticateCallback() — Bearer JWT verify, Origin check, jti
 //      replay dedup via UNIQUE(jti), tenancy re-check
 //   2. rate-limit per (appId, clientId) — 30 req/min sliding window

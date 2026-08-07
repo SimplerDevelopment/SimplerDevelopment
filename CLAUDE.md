@@ -26,20 +26,29 @@ Only after the revised prompt is confirmed and grilling has resolved the open br
 
 **Skip this** for trivial or already-fully-specified work: small single-file edits, quick questions, mechanical fixes, or a task whose scope and approach are already unambiguous. When unsure whether a prompt qualifies, treat it as qualifying.
 
-## Where knowledge lives (route notes here — three tools, three axes)
+## Where knowledge lives (the code, first)
 
-These three systems are **complementary, not redundant** — each owns a different axis. Route knowledge by *kind*, don't duplicate across them:
+**The code and its inline comments are the source of truth.** A fact about how the system behaves belongs in the file that implements it — close enough that changing one forces you to look at the other. Prose that lives elsewhere drifts silently, and the drift is invisible until someone acts on a stale claim. See `vault/04 - Decisions/ADR code-is-the-source-of-truth.md`.
 
-| Tool | Axis | Captured how | Use it to answer |
+Exactly **three** kinds of standalone document exist. All live in the vault:
+
+| Kind | Where | Answers | Why it can't be a comment |
 |---|---|---|---|
-| **claude-mem** | Time / episodic | Auto, on commit/session-end (hooks) | "What did we *do / decide / discover* in past sessions?" |
-| **graphify** (`graphify-out/`) | Structure / semantic | On-demand rebuild of code+docs *as they are now* | "How does *X work* end-to-end in the codebase?" |
-| **Obsidian vault** (`vault/` — [its own PRIVATE repo](https://github.com/SimplerDevelopment/SimplerDevelopment-vault)) | Curation / durable | Manual + the `vault` skill / `vault-librarian` agent, authored on purpose | "What's the *canonical domain map / ADR / spec / playbook* worth keeping?" |
+| **ADRs** | `vault/04 - Decisions/` | "Why this way, and what was rejected?" | Code shows what was chosen, never the alternatives or the reasoning |
+| **Daily logs** | claude-mem (auto) + `vault/01 - Daily Logs/` (distilled) | "What did we do / discover / decide?" | Episodic, spans many files, belongs to no one of them |
+| **Glossary** | `vault/Glossary.md` | "What does this term mean here?" | Shared vocabulary has no natural home file |
 
-Routing rule:
-- **Auto-history → claude-mem.** Don't curate it; query it (the `S###`/numeric IDs in the SessionStart hook, or the `mem-search` skill). It's a log, not a source of truth.
-- **"How does the code work?" → graphify.** Prefer `graphify-out/` over grep for broad cross-cutting questions when it exists and is recent; keep its commit-hook rebuild healthy. It reflects the *present* code, not history.
-- **"This deserves to be written down for the future" → Obsidian vault.** Domain maps / ADRs / specs / playbooks only. **Do not hand-write per-session logs in the vault** — claude-mem already owns ephemeral session history; the vault is for distilled, durable artifacts that outlive any one session.
+Two **query** tools sit alongside. Neither is a place you *write*:
+
+- **claude-mem** — episodic history, captured automatically on commit/session-end. Query it (`mem-search`, or the `S###` IDs in the SessionStart hook).
+- **graphify** (`graphify-out/`) — structural index of the code as it is now. Prefer `graphify query "..."` over grep for broad cross-cutting questions.
+
+**Routing rule — if it describes how the code behaves, it goes in the code.** If it explains a *decision*, it's an ADR. If it's *vocabulary*, it's the glossary. If it's *what happened*, claude-mem already has it. Nothing else gets written down: no domain maps, no architecture notes, no feature specs, no validation guides. Those were removed on 2026-08-05 after their durable content was migrated into the code they described.
+
+**Not covered by this policy** (kept — these aren't internal notes):
+- **Public-facing documentation published on the site** — `docs/api/`, the MCP tool reference, `public/openapi.yaml`. A product surface.
+- **Open-source community files** — `README`, `CONTRIBUTING`, `CODE_OF_CONDUCT`, `SECURITY`. This repo is public.
+- **Agent tooling** — this file, the nested `CLAUDE.md`s, `AGENTS.md`, `.claude/`. Operating instructions for agents, not documentation about the code.
 
 > **The vault is a separate private repo, cloned into `./vault`.** It was split
 > out on 2026-08-03 so that every branch of THIS repo is publishable to the
@@ -56,21 +65,28 @@ Routing rule:
 > Its pre-split history stays in this repo's history — `git log -- vault/` on an
 > older branch still works.
 
-**Vault first for feature work.** Before planning/implementing in a domain, read its map in `vault/03 - Domains/` (key files, schema, routes, MCP tools, tests, gotchas — cheaper than re-deriving from code). "Which gates do I run?" → `vault/06 - Validation/Gate Picking.md`. After shipping: **completion ritual** — update the touched Domain Map and ADR any non-obvious decision, following the existing vault frontmatter and map/table conventions. New planning artifacts go in `vault/05 - Feature Specs/`, never in `.planning/` (frozen archive). Architecture + Domain notes are drift-checked by `scripts/check-doc-drift.ts` — keep cited paths real.
+**Code first for feature work.** Before planning/implementing in a domain, read the code — start from `@.claude/index.md` for the map, `graphify query` for cross-cutting questions, and the nearest nested `CLAUDE.md` for that subtree's invariants. Gotchas that used to live in a domain map now live as comments in the file they apply to.
+
+**Completion ritual (after shipping):**
+1. Make sure the *code comments* carry what you learned — that is where domain knowledge lives now. A non-obvious `why` you had to reconstruct is a comment you owe the next reader.
+2. ADR any non-obvious decision (`vault/04 - Decisions/`).
+3. Add any new domain term to `vault/Glossary.md`.
+4. Move the portal Kanban card to Shipped.
 
 > **`vault/` is single-writer.** Now that it is its own repo, agent worktrees of
 > THIS repo no longer carry a copy — which removes the merge hazard that once
 > lost 112 vault files and half-applied a domain-map split. The rule still holds
-> inside the vault repo itself: one writer at a time, and the completion ritual
-> (update the Domain Map / ADR) is its own commit there, never mixed into a code
-> change here. If you hit a merge conflict inside the vault repo, reconcile by
-> hand against the newest content — do not let the merge pick a side.
+> inside the vault repo itself: one writer at a time, and an ADR / glossary /
+> daily-log edit is its own commit there, never mixed into a code change here.
+> If you hit a merge conflict inside the vault repo, reconcile by hand against
+> the newest content — do not let the merge pick a side.
 
-**Project status lives in the SimplerDevelopment portal — always.** Track status in the portal's project/Kanban system via the `kanban_*` MCP tools (`kanban_list_board`, `kanban_create_card`, `kanban_move_card`, `kanban_update_card`) — **NOT** the vault markdown boards, which are now **frozen snapshots** (`vault/05 - Feature Specs/*Board.md` carry a MIGRATED banner; do not edit their lanes). Discover projects with `projects_list`, create with `projects_create`, read a board with `kanban_list_board({projectId})`. Lanes: Backlog → Planned → In Progress → Validating → Approved → Shipped. Starting a project/feature → create/move its card into the right lane; finishing → move it to Shipped. Keep the portal card and the spec note's `status` frontmatter in sync. Reference board: **Visual Editor QA = project 150**. The vault (`vault/05 - Feature Specs/`) keeps the durable **spec / ADR / domain notes**, not status columns — link a card to its spec note in the card description.
+**Project status lives in the SimplerDevelopment portal — always.** Track status in the portal's project/Kanban system via the `kanban_*` MCP tools (`kanban_list_board`, `kanban_create_card`, `kanban_move_card`, `kanban_update_card`) — **NOT** the vault markdown boards, which are now **frozen snapshots** (`vault/05 - Feature Specs/*Board.md` carry a MIGRATED banner; do not edit their lanes). Discover projects with `projects_list`, create with `projects_create`, read a board with `kanban_list_board({projectId})`. Lanes: Backlog → Planned → In Progress → Validating → Approved → Shipped. Starting a project/feature → create/move its card into the right lane; finishing → move it to Shipped. Reference board: **Visual Editor QA = project 150**. The card *is* the plan and the status — there is no companion spec note to keep in sync (see the knowledge policy above); put the context in the card description and link any relevant ADR.
 
 ## Run / build / test (non-guessable commands only)
 
 - `bun dev` — dev server
+  - ⚠️ **Turbopack dev chunks have stable filenames.** The browser can keep serving a *cached* chunk while the dev server returns new bytes for the same URL — surviving `rm -rf .next` and a server restart. The symptoms mimic a logic bug perfectly and have burned hours. Hard-reload (⌘⇧R) and confirm with `curl <chunk-url> | grep -c <symbol>` before you start debugging your own code.
 - `bun run lint` — ESLint
 - `tsc --noEmit` — typecheck (alias: `bun run typecheck`; run after any non-trivial Edit batch)
 - `scripts/test.sh --layer=unit --no-coverage` — Vitest unit (alias: `bun test`)
@@ -93,7 +109,7 @@ Two sibling repos, both **private**, neither a development target:
 | Repo | Role |
 |---|---|
 | `SimplerDevelopment-internal` | Frozen archive. Holds the full 3,246-commit history and the pre-split vault history. Its `main` still carries `vault/` in 8 of 11 commits — never mirror it here. |
-| `SimplerDevelopment-vault` | The engineering vault (ADRs, domain maps, specs, validation). Clone it into `./vault`; it is gitignored here. |
+| `SimplerDevelopment-vault` | The engineering vault — ADRs, daily logs, glossary. Clone it into `./vault`; it is gitignored here. |
 
 `vault/` must never enter this repo — `.githooks/pre-push` rejects any push
 carrying it, and `scripts/publish-public.sh` exists for deliberate one-off syncs
@@ -141,7 +157,7 @@ git clone https://github.com/SimplerDevelopment/SimplerDevelopment-vault.git vau
 
 | Task | Use |
 |---|---|
-| Plan a feature / consult or update project knowledge | `vault` skill (read `vault/03 - Domains/` map first), `vault-librarian` agent for upkeep |
+| Plan a feature / consult project knowledge | Read the code (`@.claude/index.md` → nested `CLAUDE.md` → `graphify query`). Record decisions as ADRs in `vault/04 - Decisions/` |
 | New CRUD resource | `simplerdev-feature-scaffold` (schema + route + e2e), then `simplerdev-ui-scaffold` for pages |
 | New block type | `simplerdev-block-type`. For visual exploration first, `huashu-design` (see below) |
 | New MCP tool | `simplerdev-mcp-tool` (handler + schema + scope guard registered in lockstep) |
@@ -169,14 +185,14 @@ git clone https://github.com/SimplerDevelopment/SimplerDevelopment-vault.git vau
 
 | Pattern | Reach for it when… | Concrete here |
 |---|---|---|
-| **Classify & Act** | inbound needs routing before any handler acts | Triage open portal `tickets` / CRM leads / `brain_list_review_items` → bug / billing / feature / spam handlers; route a feature request to the right `vault/03 - Domains/` map |
+| **Classify & Act** | inbound needs routing before any handler acts | Triage open portal `tickets` / CRM leads / `brain_list_review_items` → bug / billing / feature / spam handlers; route a feature request to the right subsystem |
 | **Fan Out & Synthesize** | a task splits cleanly across the monorepo's per-domain / per-file structure, then merges | Block-controls-coverage audit (one agent per block type → merged report — cf. `.planning/audits/`); per-site migration audit (one agent per site); a cross-domain sweep when `graphify-out/` is stale |
 | **Adversarial Verification** | a risky change must survive skeptics, not self-praise | **Tenant-leak review** of a data-access change (≥3 agents each hunting a `clientId`/`siteId` scoping gap — pairs with `bun test:tenancy`); auth / billing / migration review; verifying Brain/RAG output. (This is what user-triggered `/code-review ultra` does.) |
 | **Generate & Filter** | taste-required — over-generate, then judge down with a *separate* judge agent + rubric | Block-type design directions (pairs with `huashu-design`: 40 mockups → judge to 3); brand messaging / `email_campaigns` subject lines; CRM outreach openers |
 | **Tournament** | rank / decide pairwise when one context can't hold all options fairly | Prioritize Kanban backlog cards; pick between architecture approaches (pairs with the `Plan` agent); rank N audit findings or candidate block designs head-to-head |
 | **Loop Until Done** | unknown-size hunt, no fixed pass count | Chase a flaky unit/e2e test in its own worktree until it repros, then trace it; "audit every block until a clean pass finds no new coverage gaps" (the `dev-block` skill is a hand-rolled version of this) |
 
-**Keep the project's guardrails inside a workflow too:** workflow agents inherit the session model by default — keep Opus on the boss / judge / synthesis steps and let Sonnet workers fan out (matches the global delegation policy). A workflow that *ships* code still owes the **completion ritual** (update the touched Domain Map, ADR non-obvious calls, move the portal Kanban card to Shipped via `kanban_move_card`) and the relevant gate (`bun test:tenancy` after any data-access change, `bun test:critical` before declaring done). For large/layered jobs, hand it a token **budget** ("+500k") — workflows are expensive; reserve them for genuinely big or multi-layered work. _Pattern catalog: Anthropic's dynamic-workflows guide — `code.claude.com/docs/en/workflows`._
+**Keep the project's guardrails inside a workflow too:** workflow agents inherit the session model by default — keep Opus on the boss / judge / synthesis steps and let Sonnet workers fan out (matches the global delegation policy). A workflow that *ships* code still owes the **completion ritual** (comments carry what was learned, ADR non-obvious calls, new terms to the glossary, move the portal Kanban card to Shipped via `kanban_move_card`) and the relevant gate (`bun test:tenancy` after any data-access change, `bun test:critical` before declaring done). For large/layered jobs, hand it a token **budget** ("+500k") — workflows are expensive; reserve them for genuinely big or multi-layered work. _Pattern catalog: Anthropic's dynamic-workflows guide — `code.claude.com/docs/en/workflows`._
 
 ## Don't-touch zones
 

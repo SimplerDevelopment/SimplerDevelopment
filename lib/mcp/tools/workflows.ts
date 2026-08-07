@@ -21,6 +21,11 @@
  * polished client-facing delivery these should be curated down to the
  * portable "use these MCP tools to produce X" steps — tracked separately. The
  * mechanism here is the deliverable.
+ *
+ * NOT the automation "Visual Workflow builder" domain (lib/workflows/,
+ * lib/db/schema/workflows.ts) despite the shared name — that domain has no
+ * MCP CRUD tools of its own yet. Don't conflate the two when searching for
+ * "workflow" MCP tools.
  */
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';

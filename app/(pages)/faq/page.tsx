@@ -1,8 +1,8 @@
 import { generateSEO } from '@/lib/utils/seo';
-import { Button } from '@/components/ui/Button';
-import { FadeIn } from '@/components/animations/FadeIn';
 import { StructuredData } from '@/components/seo/StructuredData';
 import { generateFAQSchema } from '@/lib/utils/structured-data';
+import { PageHeader, CreamBand, InkPanel, CTABanner } from '@/components/retro/sections';
+import { Star } from '@/components/retro/primitives';
 
 export const metadata = generateSEO({
   title: 'FAQ',
@@ -11,8 +11,11 @@ export const metadata = generateSEO({
   path: '/faq',
 });
 
-// Grouped, fully-visible Q&A (no JS accordion) so every answer is crawlable by
-// search engines and LLMs. All claims are grounded in the actual product.
+// Skinned in the retro-future design system — see components/retro/. Grouped,
+// fully-visible Q&A (no JS accordion) so every answer stays crawlable by
+// search engines and LLMs, and matches generateFAQSchema below verbatim. Every
+// answer is unchanged from the pre-retro copy — the retro voice lives in the
+// page chrome (header, band rhythm), not in facts like the licence or crypto.
 const groups: { category: string; items: { question: string; answer: string }[] }[] = [
   {
     category: 'Product',
@@ -116,48 +119,73 @@ export default function FaqPage() {
   return (
     <>
       <StructuredData data={faqSchema} />
-      <div className="container mx-auto px-4 py-20">
-        <div className="max-w-3xl mx-auto">
-          <FadeIn>
-            <div className="text-center mb-16">
-              <p className="text-primary font-mono text-sm font-semibold mb-3 tracking-wider">{'// FAQ'}</p>
-              <h1 className="text-4xl md:text-6xl font-bold mb-4">Frequently asked questions</h1>
-              <p className="text-xl text-muted-foreground">
-                What SimplerDevelopment does, how it&apos;s priced, and how to run it your way.
-              </p>
-            </div>
-          </FadeIn>
 
-          {groups.map((group) => (
-            <section key={group.category} className="mb-12">
-              <FadeIn>
-                <h2 className="text-sm font-mono uppercase tracking-wider text-primary mb-6">{group.category}</h2>
-                <dl className="space-y-8">
-                  {group.items.map((item) => (
-                    <div key={item.question} className="border-b border-border pb-8 last:border-0">
-                      <dt className="text-xl font-semibold mb-3">{item.question}</dt>
-                      <dd className="text-muted-foreground leading-relaxed">{item.answer}</dd>
-                    </div>
-                  ))}
-                </dl>
-              </FadeIn>
-            </section>
-          ))}
+      <PageHeader
+        eyebrow="Flight Manual"
+        title="Frequently Asked Questions"
+        subtitle="What the platform does, what it costs, and how to fly it your way."
+      />
 
-          <FadeIn>
-            <div className="text-center mt-16 rounded-2xl border border-border bg-card p-10">
-              <h2 className="text-2xl font-bold mb-3">Still have questions?</h2>
-              <p className="text-muted-foreground mb-6">
-                Read the docs, or talk to the team that builds it.
-              </p>
-              <div className="flex flex-wrap gap-3 justify-center">
-                <Button href="/docs">Read the docs</Button>
-                <Button href="/contact" variant="outline">Book a consultation</Button>
-              </div>
+      {groups.map((group, i) => {
+        const isDark = i % 2 === 1;
+        const body = (
+          <>
+            <p className="eyebrow flex items-center gap-3">
+              <Star className="h-3 w-3" />
+              {group.category}
+            </p>
+            <dl className="mt-6 space-y-8">
+              {group.items.map((item) => (
+                <div
+                  key={item.question}
+                  className={`border-b pb-8 last:border-0 ${
+                    isDark
+                      ? 'border-[color-mix(in_srgb,var(--retro-cream)_20%,transparent)]'
+                      : 'border-[color-mix(in_srgb,var(--retro-mid)_30%,transparent)]'
+                  }`}
+                >
+                  <dt
+                    className={`font-display text-lg font-bold ${
+                      isDark ? 'text-[var(--retro-cream)]' : 'text-[var(--retro-ink)]'
+                    }`}
+                  >
+                    {item.question}
+                  </dt>
+                  <dd
+                    className={`mt-2 text-sm leading-relaxed ${
+                      isDark
+                        ? 'text-[color-mix(in_srgb,var(--retro-cream)_78%,transparent)]'
+                        : 'text-[color-mix(in_srgb,var(--retro-ink)_75%,transparent)]'
+                    }`}
+                  >
+                    {item.answer}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          </>
+        );
+
+        return isDark ? (
+          <InkPanel key={group.category}>
+            <div className="mx-auto max-w-7xl px-6 py-16 sm:py-20">
+              <div className="mx-auto max-w-3xl">{body}</div>
             </div>
-          </FadeIn>
-        </div>
-      </div>
+          </InkPanel>
+        ) : (
+          <CreamBand key={group.category}>
+            <div className="mx-auto max-w-3xl">{body}</div>
+          </CreamBand>
+        );
+      })}
+
+      <CTABanner
+        title="Got More Questions?"
+        subtitle="Read the docs, or talk to the crew that builds it."
+        primary={{ href: '/docs', label: 'Read The Docs' }}
+        secondary={{ href: '/contact', label: 'Book A Consultation' }}
+        art="radio-tower"
+      />
     </>
   );
 }

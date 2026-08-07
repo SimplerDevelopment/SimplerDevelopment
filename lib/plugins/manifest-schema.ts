@@ -1,7 +1,7 @@
 // Plugin manifest contract — the Zod schemas the portal uses to validate a
 // remote plugin's self-description served at `<host_url>/sd-manifest.json`.
-// See `.planning/plugin-registry-spec.md` § "Manifest contract" for the
-// long-lived spec. These schemas are the load-bearing piece — they're what
+// (The long-lived spec lived in `.planning/plugin-registry-spec.md`, removed
+// pre-OSS-release.) These schemas are the load-bearing piece — they're what
 // the portal applies before trusting any nav item or callback route a plugin
 // declares.
 

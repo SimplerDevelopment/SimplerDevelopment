@@ -64,8 +64,8 @@ export default async function DesignPage({ params, searchParams }: PageProps) {
   if (!product.designable) notFound();
 
   // ?staff=1 (from the portal entry point, D1) only takes effect if the
-  // requesting portal session actually has access to this website — same
-  // gate the legacy /designer/ route uses for its own staff flag.
+  // requesting portal session actually has access to this website — the same
+  // gate the retired legacy /designer/ route used for its own staff flag.
   const staffMode = staffRequest && (await portalSessionHasSiteAccess(site.id));
 
   return (

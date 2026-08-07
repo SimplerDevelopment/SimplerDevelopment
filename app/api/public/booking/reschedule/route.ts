@@ -320,6 +320,12 @@ export async function POST(req: Request) {
     }
   }
 
+  // Zoom meetings are intentionally NOT touched here. lib/zoom.ts exposes
+  // createZoomMeeting and deleteZoomMeeting but no update — a
+  // conferenceType='zoom' booking keeps its original meeting time in Zoom
+  // after a reschedule even though bookings.startTime/endTime just moved.
+  // The join link stays the same; it just points at the old time.
+
   // ── Emit automation event ──────────────────────────────────────────────────
 
   emitEvent('booking.rescheduled', booking.clientId, 0, {

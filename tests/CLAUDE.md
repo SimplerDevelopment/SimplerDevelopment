@@ -25,6 +25,13 @@ scripts/test.sh --layer=integration --tag=tenancy --no-coverage   # alias: bun t
 **`bun test:critical` is the QA gate before declaring work done.**
 **`bun test:tenancy` runs after every data-access change.**
 
+**Always use the aliases for the integration layer.** These suites truncate and
+reseed whatever DB they connect to. The aliases pin `simplerdev_test`; calling
+`scripts/test.sh --layer=integration` directly inherits the ambient
+`DATABASE_URL`, which in this repo is a **remote Railway URL in `.env`**.
+`test.sh` now refuses any integration run whose DB name lacks `test`
+(override: `ALLOW_NON_TEST_DB=1`), but prefer the alias.
+
 ## Writing new tests
 
 - New tests: use `/e2e-writer` (for E2E) — produces `.spec.ts` with proper fixtures, cleanup, idempotent patterns.

@@ -26,7 +26,7 @@ async function seedProduct(websiteId: number): Promise<number> {
   const slug = `gap-rest-prod-${Date.now().toString(36)}-${Math.floor(performance.now())}`;
   return parseInt(
     sql(
-      `INSERT INTO products (website_id, name, slug, price, track_inventory, quantity, status, featured, is_designable, designable, created_at, updated_at) ` +
+      `INSERT INTO products (website_id, name, slug, price, track_inventory, quantity, status, featured, designable, created_at, updated_at) ` +
         `VALUES (${websiteId}, 'Gap REST Product', '${slug}', 1000, false, 0, 'active', false, false, false, now(), now()) RETURNING id`,
     ),
     10,

@@ -41,6 +41,9 @@ export default async function PortalDashboardPage() {
   // First-run gate: send brand-new users into the onboarding wizard. We treat
   // "no row" and "row with NULL completed_at" identically — both mean the
   // user has never finished. Self-link from settings can `reopen` later.
+  // This is the ONLY place in app/portal that checks completedAt — other
+  // portal pages don't redirect, so a user who lands deep-linked elsewhere
+  // (bookmark, shared URL) bypasses the wizard entirely for that visit.
   const [ob] = await db
     .select({ completedAt: userOnboarding.completedAt })
     .from(userOnboarding)

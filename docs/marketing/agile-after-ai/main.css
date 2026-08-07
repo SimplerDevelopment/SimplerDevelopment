@@ -1,0 +1,619 @@
+/* ============================================================
+   If Agile Were Invented After AI — technical blueprint system
+   SimplerDevelopment, 2026
+   ============================================================ */
+
+:root {
+  /* field */
+  --bg:        #07090c;
+  --bg-raise:  #0b0f14;
+  --rule:      #16202b;
+  --rule-lit:  #1e2d3d;
+
+  /* ink */
+  --ink:       #dfe7ee;
+  --ink-dim:   #8b9bab;
+  --ink-faint: #5a6a7a;
+
+  /* signal */
+  --wire:      #00b3a6;  /* SD brand teal — machine execution */
+  --wire-soft: #0e6d67;
+  --warn:      #f6ad55;  /* amber — human decision, always */
+  --warn-soft: #7a5424;
+
+  /* type */
+  --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+  --serif: "Iowan Old Style", "Charter", Georgia, "Times New Roman", serif;
+
+  /* rhythm — 8pt */
+  --s1: 8px;  --s2: 16px; --s3: 24px; --s4: 32px;
+  --s5: 48px; --s6: 64px; --s7: 96px; --s8: 144px;
+
+  --measure: 34rem;
+  --gutter: clamp(20px, 5vw, 64px);
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html {
+  background: var(--bg);
+  -webkit-text-size-adjust: 100%;
+  /* the text scrim is a decorative pseudo-element that intentionally bleeds
+     past its column; clip (not hidden) keeps it from creating a scrollbar
+     without turning html into a scroll container */
+  overflow-x: clip;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 400 17px/1.65 var(--serif);
+  font-synthesis-weight: none;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+/* ---------- the fixed canvas: one, and only one ---------- */
+
+#stage {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 700ms ease;
+}
+#stage.lit { opacity: 1; }
+#stage canvas { display: block; width: 100%; height: 100%; }
+
+/* content rides above the canvas */
+.doc { position: relative; z-index: 1; }
+
+/* ---------- blueprint grid ---------- */
+
+.grid-field {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(to right,  var(--rule) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--rule) 1px, transparent 1px);
+  background-size: 88px 88px;
+  opacity: .34;
+  mask-image: radial-gradient(ellipse 120% 80% at 50% 40%, #000 30%, transparent 78%);
+}
+
+/* ---------- layout ---------- */
+
+.act {
+  position: relative;
+  padding: var(--s8) var(--gutter);
+  max-width: 1180px;
+  margin: 0 auto;
+}
+.act--tall { min-height: 100vh; display: flex; flex-direction: column; justify-content: center; }
+
+/* Scene acts: generous runway above and below so the canvas has room to move
+   while the reading column passes through it. No pinning, so nothing can
+   overflow the viewport at any height. */
+.act--scene { padding-block: 42vh; }
+
+.col { max-width: var(--measure); }
+.col--wide { max-width: 52rem; }
+
+/* Text always wins over the canvas. Full-width acts sit over live geometry, so
+   they get a soft scrim rather than a hard panel: the 3D still reads around the
+   edges, the prose stays legible at the centre. */
+.act--tall .col { position: relative; z-index: 1; }
+.act--tall .col::before {
+  content: "";
+  position: absolute;
+  inset: -6vh -8vw;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse at center,
+    color-mix(in srgb, var(--bg) 95%, transparent) 0%,
+    color-mix(in srgb, var(--bg) 88%, transparent) 42%,
+    transparent 76%
+  );
+}
+
+/* pinned reading column beside a scene */
+.readout {
+  max-width: 26rem;
+  margin-left: auto;
+  padding: var(--s4);
+  background: color-mix(in srgb, var(--bg) 86%, transparent);
+  border: 1px solid var(--rule-lit);
+  backdrop-filter: blur(6px);
+}
+
+/* ---------- instrument labels ---------- */
+
+.tag {
+  font: 500 11px/1 var(--mono);
+  letter-spacing: .22em;
+  text-transform: uppercase;
+  color: var(--wire);
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  margin-bottom: var(--s4);
+}
+.tag::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(to right, var(--wire-soft), transparent);
+}
+.tag--warn { color: var(--warn); }
+.tag--warn::after { background: linear-gradient(to right, var(--warn-soft), transparent); }
+
+/* ---------- type ---------- */
+
+h1, h2, h3 { font-weight: 400; letter-spacing: -.02em; margin: 0 0 var(--s3); }
+
+h1 {
+  font-size: clamp(2.6rem, 7vw, 5.4rem);
+  line-height: 1.02;
+  letter-spacing: -.035em;
+}
+h2 {
+  font-size: clamp(1.9rem, 4vw, 3.1rem);
+  line-height: 1.1;
+  margin-bottom: var(--s4);
+}
+h3 {
+  font: 500 12px/1.4 var(--mono);
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  margin-bottom: var(--s2);
+}
+
+p { margin: 0 0 var(--s3); color: var(--ink-dim); }
+p.lead {
+  font-size: clamp(1.15rem, 2vw, 1.45rem);
+  line-height: 1.5;
+  color: var(--ink);
+}
+strong { color: var(--ink); font-weight: 600; }
+em { font-style: italic; color: var(--ink); }
+
+a { color: var(--wire); text-decoration: none; border-bottom: 1px solid var(--wire-soft); }
+a:hover { border-bottom-color: var(--wire); }
+a:focus-visible { outline: 2px solid var(--warn); outline-offset: 3px; }
+
+/* ---------- the premise line ---------- */
+
+.premise {
+  font-family: var(--mono);
+  font-size: clamp(1rem, 2.1vw, 1.6rem);
+  line-height: 1.85;
+  letter-spacing: -.01em;
+  color: var(--ink);
+  border-left: 2px solid var(--wire);
+  padding-left: var(--s4);
+  margin: var(--s6) 0;
+}
+.premise b { color: var(--wire); font-weight: 500; }
+
+/* ---------- big numbers ---------- */
+
+.figures {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--s2);
+  margin: var(--s6) 0;
+}
+.fig {
+  border: 1px solid var(--rule-lit);
+  padding: var(--s4);
+  background: var(--bg-raise);
+}
+.fig__n {
+  font: 300 clamp(2.4rem, 5vw, 3.6rem)/1 var(--mono);
+  letter-spacing: -.04em;
+  color: var(--wire);
+  display: block;
+  margin-bottom: var(--s2);
+}
+.fig--slow .fig__n { color: var(--warn); }
+.fig__l { font: 400 13px/1.5 var(--mono); color: var(--ink-faint); }
+
+/* ---------- the ladder ---------- */
+
+.ladder { border-top: 1px solid var(--rule-lit); margin: var(--s5) 0; }
+.rung {
+  display: grid;
+  grid-template-columns: 2.5rem 1fr;
+  gap: var(--s3);
+  padding: var(--s3) 0;
+  border-bottom: 1px solid var(--rule);
+  align-items: start;
+  opacity: .34;
+  transition: opacity 420ms ease, border-color 420ms ease;
+}
+.rung.active { opacity: 1; border-bottom-color: var(--rule-lit); }
+.rung__i { font: 400 12px/1.8 var(--mono); color: var(--wire); }
+.rung__t { font: 500 15px/1.5 var(--mono); color: var(--ink); margin-bottom: 2px; }
+.rung__d { font-size: 15px; color: var(--ink-dim); margin: 0; }
+.rung__c { font: 400 12px/1.6 var(--mono); color: var(--warn); margin-top: var(--s1); }
+.rung--stop .rung__i,
+.rung--stop .rung__t { color: var(--warn); }
+
+/* ---------- effort split ---------- */
+
+.split { margin: var(--s5) 0; }
+.bar {
+  display: grid;
+  grid-template-columns: 8rem 1fr 3.5rem;
+  gap: var(--s3);
+  align-items: center;
+  padding: var(--s2) 0;
+  border-bottom: 1px solid var(--rule);
+}
+.bar__l { font: 400 12px/1.4 var(--mono); color: var(--ink-dim); }
+.bar__t { height: 3px; background: var(--rule-lit); position: relative; overflow: hidden; }
+.bar__f {
+  position: absolute; inset: 0 auto 0 0;
+  width: 100%;
+  background: var(--wire);
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 900ms cubic-bezier(.2,.7,.2,1);
+  will-change: transform;
+}
+.bar--hero .bar__f { background: var(--warn); }
+.bar--hero .bar__l, .bar--hero .bar__v { color: var(--warn); }
+.bar__v { font: 400 12px/1.4 var(--mono); color: var(--ink-dim); text-align: right; }
+
+/* ---------- formula ---------- */
+
+.formula {
+  font: 400 clamp(12px, 1.5vw, 15px)/2.1 var(--mono);
+  color: var(--ink-dim);
+  border: 1px solid var(--rule-lit);
+  background: var(--bg-raise);
+  padding: var(--s4);
+  margin: var(--s4) 0;
+  overflow-x: auto;
+}
+.formula b { color: var(--wire); font-weight: 400; }
+.formula .h { color: var(--warn); }
+
+/* ---------- SD commentary aside ---------- */
+
+.sd {
+  border: 1px solid var(--wire-soft);
+  border-left-width: 2px;
+  background: linear-gradient(to right, color-mix(in srgb, var(--wire) 7%, transparent), transparent 60%);
+  padding: var(--s4);
+  margin: var(--s5) 0;
+}
+.sd__h {
+  font: 500 11px/1 var(--mono);
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  color: var(--wire);
+  margin-bottom: var(--s2);
+}
+.sd p { color: var(--ink); margin-bottom: var(--s2); }
+.sd p:last-child { margin-bottom: 0; }
+.sd code {
+  font: 400 .88em/1 var(--mono);
+  color: var(--warn);
+  background: color-mix(in srgb, var(--warn) 12%, transparent);
+  padding: 2px 5px;
+}
+
+/* ---------- shift table ---------- */
+
+.shift { margin: var(--s5) 0; border-top: 1px solid var(--rule-lit); }
+.shift__row {
+  display: grid;
+  grid-template-columns: 1fr 1.15fr;
+  gap: var(--s4);
+  padding: var(--s3) 0;
+  border-bottom: 1px solid var(--rule);
+}
+.shift__a { font: 400 14px/1.55 var(--mono); color: var(--ink-faint); }
+.shift__b { font-size: 15px; color: var(--ink); margin: 0; }
+.shift__b b { color: var(--wire); font-weight: 500; }
+
+/* ---------- closing responsibilities ---------- */
+
+.duties { margin: var(--s6) 0; }
+.duty {
+  border-left: 2px solid var(--warn);
+  padding: var(--s2) 0 var(--s2) var(--s4);
+  margin-bottom: var(--s4);
+  font-size: clamp(1.05rem, 2vw, 1.3rem);
+  line-height: 1.45;
+  color: var(--ink);
+}
+
+/* ---------- hero ---------- */
+
+.hero {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: var(--s7) var(--gutter) var(--s6);
+  max-width: 1180px;
+  margin: 0 auto;
+}
+.hero__meta {
+  font: 500 11px/1.9 var(--mono);
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  margin-bottom: var(--s5);
+}
+.hero__meta b { color: var(--wire); font-weight: 500; }
+.hero__sub {
+  font-size: clamp(1.1rem, 2.2vw, 1.5rem);
+  line-height: 1.5;
+  color: var(--ink-dim);
+  max-width: 40rem;
+  margin: var(--s4) 0 0;
+}
+.hero__cue {
+  margin-top: var(--s7);
+  font: 400 11px/1 var(--mono);
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  display: flex; align-items: center; gap: var(--s2);
+}
+.hero__cue::before {
+  content: ""; width: 40px; height: 1px; background: var(--wire);
+  transform-origin: left;
+  animation: cue 2.4s ease-in-out infinite;
+}
+@keyframes cue { 0%,100% { transform: scaleX(.3); opacity:.4 } 50% { transform: scaleX(1); opacity:1 } }
+
+/* ---------- source note + citations ---------- */
+
+.note {
+  font: 400 13px/1.7 var(--mono);
+  color: var(--ink-faint);
+  border: 1px dashed var(--rule-lit);
+  padding: var(--s3);
+  margin: var(--s5) 0;
+}
+.note b { color: var(--ink-dim); font-weight: 500; }
+
+.refs { margin: var(--s6) 0 0; padding: 0; list-style: none; columns: 2; column-gap: var(--s5); }
+.refs li {
+  font: 400 12px/1.6 var(--mono);
+  color: var(--ink-faint);
+  break-inside: avoid;
+  margin-bottom: var(--s2);
+}
+.refs a { border-bottom-color: transparent; color: var(--ink-dim); }
+.refs a:hover { color: var(--wire); }
+
+.foot {
+  border-top: 1px solid var(--rule-lit);
+  /* extra bottom room so the last reference never sits under the transport */
+  padding: var(--s5) var(--gutter) calc(var(--s7) + 56px);
+  max-width: 1180px;
+  margin: var(--s7) auto 0;
+}
+.wordmark {
+  font: 500 12px/1 var(--mono);
+  letter-spacing: .3em;
+  text-transform: uppercase;
+  color: var(--wire);
+}
+
+/* ---------- scroll reveal ---------- */
+
+.rise { opacity: 0; transform: translateY(18px); }
+.rise.seen { opacity: 1; transform: none; transition: opacity 800ms ease, transform 800ms cubic-bezier(.2,.7,.2,1); }
+
+/* ---------- responsive ---------- */
+
+@media (max-width: 860px) {
+  .shift__row { grid-template-columns: 1fr; gap: var(--s1); }
+  .refs { columns: 1; }
+  .readout { max-width: none; margin-left: 0; }
+  .act--scene { padding-block: 24vh; }
+  .bar { grid-template-columns: 6rem 1fr 3rem; }
+}
+
+/* ---------- share + hire: page furniture below the argument ---------- */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s1);
+  padding: 10px 16px;
+  font: 500 11px/1 var(--mono);
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  text-decoration: none;
+  background: color-mix(in srgb, var(--bg-raise) 80%, transparent);
+  border: 1px solid var(--rule-lit);
+  border-radius: 2px;
+  cursor: pointer;
+  transition: color .18s, border-color .18s;
+}
+.btn:hover,
+.btn:focus-visible { color: var(--wire); border-color: var(--wire-soft); }
+.btn--warm { color: var(--warn); border-color: var(--warn-soft); }
+.btn--warm:hover,
+.btn--warm:focus-visible { color: var(--warn); border-color: var(--warn); }
+
+.share {
+  max-width: 1180px;
+  margin: var(--s7) auto 0;
+  padding: 0 var(--gutter);
+}
+.share__label {
+  font: 500 11px/1 var(--mono);
+  letter-spacing: .22em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  margin-bottom: var(--s3);
+}
+.share__row { display: flex; flex-wrap: wrap; gap: var(--s2); }
+
+.hire {
+  max-width: 1180px;
+  margin: var(--s6) auto 0;
+  padding: 0 var(--gutter);
+}
+.hire__inner {
+  display: flex;
+  gap: var(--s4);
+  align-items: flex-start;
+  padding: var(--s5);
+  background: color-mix(in srgb, var(--bg-raise) 88%, transparent);
+  border: 1px solid var(--rule-lit);
+  border-left: 2px solid var(--warn-soft);
+}
+.hire__photo {
+  width: 120px; height: 120px;
+  flex: none;
+  border-radius: 50%;
+  object-fit: cover;
+  filter: grayscale(1) contrast(1.05);
+  border: 1px solid var(--rule-lit);
+}
+.hire__body { max-width: var(--measure); }
+.hire__body h2 { font-size: clamp(24px, 3vw, 32px); margin: 0 0 var(--s2); }
+.hire__body p { color: var(--ink-dim); }
+.hire__links { display: flex; flex-wrap: wrap; gap: var(--s2); margin-top: var(--s3); }
+
+.backlink { margin-top: var(--s3); }
+.backlink a {
+  font: 500 11px/1 var(--mono);
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  text-decoration: none;
+}
+.backlink a:hover, .backlink a:focus-visible { color: var(--wire); }
+
+@media (max-width: 720px) {
+  .hire__inner { flex-direction: column; }
+  .hire__photo { width: 88px; height: 88px; }
+}
+
+/* ---------- narration: per-section listen button ---------- */
+
+/* Sits directly above the instrument label, on its own line, so it never
+   competes with the .tag rule for horizontal space. */
+.listen {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s1);
+  margin-bottom: var(--s2);
+  padding: 6px 12px 6px 8px;
+  font: 500 10px/1 var(--mono);
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  background: color-mix(in srgb, var(--bg-raise) 80%, transparent);
+  border: 1px solid var(--rule-lit);
+  border-radius: 2px;
+  cursor: pointer;
+  transition: color .18s, border-color .18s, background .18s;
+}
+.listen:hover,
+.listen:focus-visible { color: var(--wire); border-color: var(--wire-soft); }
+.listen svg { width: 12px; height: 12px; fill: currentColor; flex: none; }
+.listen[aria-pressed="true"] { color: var(--wire); border-color: var(--wire-soft); }
+
+/* ---------- narration: fixed transport ---------- */
+
+.narrator {
+  position: fixed;
+  z-index: 40;
+  left: 50%;
+  bottom: max(16px, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  padding: 4px;
+  background: color-mix(in srgb, var(--bg-raise) 92%, transparent);
+  border: 1px solid var(--rule-lit);
+  border-radius: 3px;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 8px 32px rgb(0 0 0 / .55);
+}
+
+.narrator button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 34px;
+  height: 34px;
+  padding: 0 9px;
+  font: 500 10px/1 var(--mono);
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  background: none;
+  border: 0;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: color .18s, background .18s;
+}
+.narrator button:hover,
+.narrator button:focus-visible { color: var(--ink); background: var(--rule); }
+.narrator button svg { width: 13px; height: 13px; fill: currentColor; flex: none; }
+
+/* on = the control is doing something: playing, autoplaying */
+.narrator button[aria-pressed="true"] { color: var(--wire); }
+/* muted is a warning state, not an active one */
+.narrator button[data-role="mute"][aria-pressed="true"] { color: var(--warn); }
+.narrator button[disabled] { opacity: .3; cursor: default; }
+.narrator button[disabled]:hover { color: var(--ink-dim); background: none; }
+
+.narrator__rule { width: 1px; margin: 6px 4px; background: var(--rule-lit); flex: none; }
+
+.narrator__now {
+  display: flex;
+  align-items: center;
+  gap: var(--s1);
+  padding: 0 var(--s2) 0 var(--s1);
+  font: 500 10px/1 var(--mono);
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  white-space: nowrap;
+}
+.narrator__idx { color: var(--wire); font-variant-numeric: tabular-nums; }
+.narrator__title { max-width: 15rem; overflow: hidden; text-overflow: ellipsis; }
+
+@media (max-width: 720px) {
+  .narrator__title { display: none; }
+  .narrator button { padding: 0 7px; }
+}
+
+/* ---------- reduced motion: a real reading path, not a degraded one ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important;
+    scroll-behavior: auto !important;
+  }
+  #stage { display: none; }
+  .rise { opacity: 1; transform: none; }
+  .rung { opacity: 1; }
+  .act--scene { padding-block: var(--s6); }
+  .act { padding-top: var(--s6); padding-bottom: var(--s6); }
+  .hero__cue::before { animation: none; transform: scaleX(1); }
+}

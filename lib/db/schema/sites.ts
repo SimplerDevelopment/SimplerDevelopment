@@ -104,6 +104,10 @@ export const clientMembers = pgTable('client_members', {
 
 // GitHub OAuth connections for portal users (repo collaborator access)
 
+// This is the AGENCY's own product catalog (hosting, domain, development,
+// maintenance) that clients subscribe to via client_services below — not to
+// be confused with booking_pages (lib/db/schema/tools.ts), which are the
+// schedulable offerings a client sets up for their own customers.
 export const services = pgTable('services', {
   id: serial('id').primaryKey(),
   name: varchar('name', { length: 255 }).notNull(),

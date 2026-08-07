@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import {
   storeSettings, carts, cartItems, products, productImages,
-  productVariants, designs,
+  productVariants, productDesigns,
 } from '@/lib/db/schema';
 import { eq, and, asc, isNull, sql } from 'drizzle-orm';
 import { extractToken, validateSession } from '@/lib/storefront/customer-auth';
@@ -53,8 +53,13 @@ export async function GET(
     }
 
     // Fetch cart items with product details + (optional) saved-design info.
-    // Left-join on designs so storefront can render the design
+    // Left-join on productDesigns so storefront can render the design
     // thumbnail/name and an "Edit design" link without a second round-trip.
+    //
+    // `cartItems.designId` is a pg `uuid` column; `productDesigns.uuid` is the
+    // share-link varchar(36). They hold the same crypto.randomUUID() value, so
+    // the join casts the uuid side to text — without the cast Postgres raises
+    // `operator does not exist: character varying = uuid`.
     const items = await db.select({
       id: cartItems.id,
       productId: cartItems.productId,
@@ -65,13 +70,20 @@ export async function GET(
       productName: products.name,
       productSlug: products.slug,
       productStatus: products.status,
-      designRowId: designs.id,
-      designName: designs.name,
-      designThumbnailUrl: designs.thumbnailUrl,
+      designRowId: productDesigns.id,
+      designUuid: productDesigns.uuid,
+      designName: productDesigns.name,
+      designThumbnailUrl: productDesigns.thumbnailUrl,
     })
       .from(cartItems)
       .innerJoin(products, eq(products.id, cartItems.productId))
-      .leftJoin(designs, eq(designs.id, cartItems.designId))
+      .leftJoin(
+        productDesigns,
+        and(
+          sql`${productDesigns.uuid} = ${cartItems.designId}::text`,
+          isNull(productDesigns.deletedAt),
+        ),
+      )
       .where(eq(cartItems.cartId, cart.id));
 
     // Fetch first image per product
@@ -129,6 +141,9 @@ export async function GET(
       design: item.designRowId
         ? {
             id: item.designRowId,
+            // Share-link key — the storefront builds its "Edit design" link
+            // from this, not from the integer id.
+            uuid: item.designUuid,
             name: item.designName,
             thumbnailUrl: item.designThumbnailUrl,
           }
@@ -181,17 +196,20 @@ export async function POST(
       return NextResponse.json({ success: false, message: 'sessionId and productId are required' }, { status: 400 });
     }
 
-    // Validate optional designId — must belong to this site & product, and caller must own it
+    // Validate optional designId — must belong to this site & product, and caller must own it.
+    // `designId` is the productDesigns share-link uuid (crypto.randomUUID()),
+    // which is what gets stored in the cartItems.designId uuid column.
     if (designId !== undefined && designId !== null) {
       if (typeof designId !== 'string' || !/^[0-9a-fA-F-]{36}$/.test(designId)) {
         return NextResponse.json({ success: false, message: 'Invalid designId' }, { status: 400 });
       }
 
-      const [design] = await db.select().from(designs)
+      const [design] = await db.select().from(productDesigns)
         .where(and(
-          eq(designs.id, designId),
-          eq(designs.websiteId, websiteId),
-          eq(designs.productId, productId),
+          eq(productDesigns.uuid, designId),
+          eq(productDesigns.websiteId, websiteId),
+          eq(productDesigns.productId, productId),
+          isNull(productDesigns.deletedAt),
         ))
         .limit(1);
 

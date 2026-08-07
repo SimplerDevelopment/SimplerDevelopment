@@ -28,6 +28,12 @@
  *   rather than for tenancy. Card registrar only — a run already stores
  *   `projectId`, so the project↔run edge exists natively and needs no link
  *   row. Linking a run to the CARD it delivered is the edge that was missing.
+ *
+ * NOT shared with app/api/portal/cards/[id]/artifacts/route.ts, which
+ * reimplements this same resolution (including the path_chart and
+ * agent_flow_run branches) independently for the REST path. A change here
+ * (e.g. a new artifact type) needs the matching edit there too — a test
+ * against one proves nothing about the other.
  */
 import { and, eq } from 'drizzle-orm';
 import type { AnyPgTable, AnyPgColumn } from 'drizzle-orm/pg-core';

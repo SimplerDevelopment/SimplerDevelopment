@@ -1,3 +1,14 @@
+/**
+ * POST /api/portal/crm/contracts/[id]/send
+ *
+ * Native, provider-free signing flow: emails each `crmContractSigners` row a
+ * unique `/contract/<token>` link and drives `crmContracts.status` /
+ * `documentHash`. Independent from the DropboxSign flow in
+ * `send-for-signature/route.ts` (which drives `esignStatus` instead) — see
+ * the field-block comment on `crmContracts` in `lib/db/schema/crm.ts` for why
+ * the two state machines never sync each other.
+ */
+
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
@@ -25,6 +36,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     .where(and(eq(crmContracts.id, contractId), eq(crmContracts.clientId, client.id)));
 
   if (!contract) return NextResponse.json({ success: false, message: 'Contract not found' }, { status: 404 });
+  // 'sent' is allowed (not just 'draft') so a contract can be edited and
+  // re-sent before any signer has acted; the hash below is unconditionally
+  // recomputed on every call, so re-sending intentionally overwrites the
+  // previous tamper-detection hash to match the current content.
   if (contract.status !== 'draft' && contract.status !== 'sent') {
     return NextResponse.json({ success: false, message: 'Contract cannot be sent in its current state' }, { status: 400 });
   }

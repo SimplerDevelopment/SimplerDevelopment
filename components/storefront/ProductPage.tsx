@@ -65,7 +65,6 @@ interface Product {
   tags: string[] | null;
   seoTitle: string | null;
   seoDescription: string | null;
-  isDesignable: boolean;
   images: ProductImage[];
   options: ProductOption[];
   variants: ProductVariant[];
@@ -514,16 +513,6 @@ export function ProductPage({ siteId, productSlug }: ProductPageProps) {
                 </>
               )}
             </button>
-
-            {product.isDesignable && (
-              <Link
-                href={`/designer/${product.slug}`}
-                className="w-full flex items-center justify-center gap-3 px-6 py-4 border-2 border-primary text-primary text-lg font-semibold rounded-xl hover:bg-primary/5 transition-colors"
-              >
-                <span className="material-icons text-xl">brush</span>
-                Customize this product
-              </Link>
-            )}
 
             {/* Cart Message */}
             {cartMessage && (

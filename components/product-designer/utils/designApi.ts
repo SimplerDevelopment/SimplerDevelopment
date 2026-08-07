@@ -44,6 +44,37 @@ export interface UpdateDesignRequest {
   thumbnailUrl?: string;
 }
 
+/**
+ * Normalise a styles+sides payload into the shape the editor's views expect.
+ *
+ * The storefront styles endpoint returns `product_sides` rows verbatim, so a
+ * side carries `imageUrl`. Every view component (MainView, ScalableMainView,
+ * StoreAssignmentTable) reads `imageFilePath` — the editor's own name, inherited
+ * from the monorepo this was ported from. Without the bridge the mockup renders
+ * with an empty src, the design surface collapses, and the print-file export
+ * refuses to run against it.
+ *
+ * Applied at the single boundary where API data enters the editor rather than
+ * renaming the field across every consumer.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function normalizeStyles(rawStyles: any[]): any[] {
+  if (!Array.isArray(rawStyles)) return [];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return rawStyles.map((style: any) => ({
+    ...style,
+    imageFilePathFront:
+      style.imageFilePathFront ?? style.frontImageUrl ?? style.thumbnailUrl ?? null,
+    sides: Array.isArray(style.sides)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ? style.sides.map((sd: any) => ({
+          ...sd,
+          imageFilePath: sd.imageFilePath ?? sd.imageUrl ?? null,
+        }))
+      : style.sides,
+  }));
+}
+
 export class DesignApi {
   // overridden by ProductDesigner via static init
   static baseUrl = '/api/designs';
@@ -339,6 +370,67 @@ export class DesignApi {
     }
 
     return response.json();
+  }
+
+  /**
+   * Ask the server to render and store the print-ready file for one side.
+   *
+   * The render happens server-side from the design's stored layers — the
+   * browser sends no image. A failure here is a real defect (missing artwork,
+   * an unconfigured side, a renderer regression), not a transient error, so it
+   * is surfaced rather than swallowed: an order without a print file cannot be
+   * fulfilled.
+   */
+  /**
+   * Render print files for every side the design actually uses.
+   *
+   * Not just the visible one: a customer who designs a back and then switches
+   * to the front would otherwise have the back silently dropped at fulfilment.
+   * Returns a user-facing message on failure, or null on success, so the caller
+   * can surface it without the loop leaking into the component.
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  static async requestPrintFilesForDesign(
+    id: number,
+    layers: any[] | null | undefined,
+    fallbackSide: string,
+  ): Promise<string | null> {
+    const sides = [...new Set((layers ?? []).map((l) => l?.side).filter(Boolean))];
+    if (sides.length === 0) sides.push(fallbackSide);
+
+    const failures: string[] = [];
+    for (const s of sides) {
+      try {
+        await this.requestPrintFile(id, s as string);
+      } catch (e) {
+        failures.push(`${s}: ${e instanceof Error ? e.message : 'unknown error'}`);
+      }
+    }
+    return failures.length ? `Design saved, but the print file failed — ${failures.join('; ')}` : null;
+  }
+
+  static async requestPrintFile(
+    id: number,
+    side: string,
+  ): Promise<{ side: string; url: string; printFiles: Record<string, string> }> {
+    const params = this.getQueryParams();
+    const base = `${this.baseUrl}/${id}/print-file`;
+    const url = params.toString() ? `${base}?${params}` : base;
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: this.baseHeaders(),
+      credentials: 'include',
+      body: JSON.stringify({ side }),
+    });
+
+    const json = await response.json().catch(() => null);
+    if (!response.ok) {
+      throw new Error(json?.message || `Failed to upload print file: ${response.statusText}`);
+    }
+
+    // The storefront API returns a { success, data } envelope.
+    return json?.data ?? json;
   }
 }
 
