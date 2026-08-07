@@ -82,7 +82,7 @@ export default async function BlogPostPage({ params }: PageProps) {
             {post.category && (
               <Link
                 href={`/blog/category/${post.category.slug}`}
-                className="eyebrow inline-flex items-center gap-3 hover:text-[var(--retro-cream)]"
+                className="eyebrow eyebrow--on-ink inline-flex items-center gap-3 hover:text-[var(--retro-cream)]"
               >
                 <Star className="h-3 w-3" />
                 {post.category.name}

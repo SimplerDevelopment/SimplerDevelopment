@@ -208,7 +208,7 @@ export default async function BlogPage({
       <CTABanner
         title="Got A Mission Of Your Own?"
         subtitle="Free forever if you host it yourself. We'll be here either way."
-        primary={{ href: '/pricing', label: 'Start Free' }}
+        primary={{ href: '/portal/signup', label: 'Start Free' }}
         secondary={{ href: '/contact', label: 'Talk To Us' }}
         art="radio-tower"
       />

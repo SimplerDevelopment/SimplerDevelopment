@@ -1,9 +1,11 @@
 /**
  * Retro-future primitives for the public marketing pages.
  *
- * Ported from the component-library board in the design references: two teals
- * for ground, cream for paper, orange for action, gold for ornament. Tokens
- * live in `app/globals.css` under `.retro` — this file only composes them.
+ * One dark ground, one light paper, one warm accent, gold for ornament. The
+ * eight values live in `app/globals.css` under `.retro` and this file only
+ * composes them — never inline a hex here, or the next palette change has to
+ * hunt for it (that is exactly how StarField ended up painting stars in the
+ * previous palette after the 2026-08-07 swap to Deep Space).
  *
  * The period read comes from restraint, not decoration: flat fills, hairline
  * rules, hard corners (4-6px, never pill), and wide-tracked uppercase display
@@ -47,10 +49,17 @@ export function SectionHeading({
   return (
     <div className={`${centered ? 'text-center mx-auto max-w-3xl' : 'text-left'} mb-10`}>
       {eyebrow && (
-        <p className={`eyebrow flex items-center gap-3 ${centered ? 'justify-center' : ''}`}>
-          <Star className="h-3 w-3" />
+        // `onDark` already tells us which ground this sits on, so it also picks
+        // the eyebrow ink: real gold on ink, burnt amber on cream (gold is only
+        // 1.6:1 there). The stars stay gold on both — ornament, not text.
+        <p
+          className={`eyebrow flex items-center gap-3 ${onDark ? 'eyebrow--on-ink' : ''} ${
+            centered ? 'justify-center' : ''
+          }`}
+        >
+          <Star className="h-3 w-3 text-[var(--retro-gold)]" />
           {eyebrow}
-          <Star className="h-3 w-3" />
+          <Star className="h-3 w-3 text-[var(--retro-gold)]" />
         </p>
       )}
       <h2

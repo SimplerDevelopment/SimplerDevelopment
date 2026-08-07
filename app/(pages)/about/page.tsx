@@ -128,7 +128,7 @@ export default function AboutPage() {
                   height={160}
                   className="h-14 w-14 object-contain"
                 />
-                <span className="eyebrow mt-4 block">{v.key}</span>
+                <span className="eyebrow eyebrow--on-ink mt-4 block">{v.key}</span>
                 <h3 className="font-display mt-2 text-base font-bold text-[var(--retro-cream)]">{v.title}</h3>
                 <p className="mt-2 text-sm leading-relaxed text-[color-mix(in_srgb,var(--retro-cream)_78%,transparent)]">
                   {v.body}

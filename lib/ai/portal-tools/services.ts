@@ -1,12 +1,12 @@
 /**
  * Service catalog + service-request AI tools.
  */
-import type Anthropic from '@anthropic-ai/sdk';
+import type { PortalTool } from './types';
 import { db } from '@/lib/db';
 import { services, clientServices, serviceRequests } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
 
-export const servicesTools: Anthropic.Tool[] = [
+export const servicesTools: PortalTool[] = [
   {
     name: 'get_services_catalog',
     description: 'Get available services the client can subscribe to, with pricing and features.',
@@ -19,6 +19,7 @@ export const servicesTools: Anthropic.Tool[] = [
   },
   {
     name: 'request_service',
+    requiresApproval: true,
     description: 'Submit a request for a service from the catalog. Only call AFTER the client confirms.',
     input_schema: {
       type: 'object' as const,

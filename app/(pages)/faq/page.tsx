@@ -130,7 +130,7 @@ export default function FaqPage() {
         const isDark = i % 2 === 1;
         const body = (
           <>
-            <p className="eyebrow flex items-center gap-3">
+            <p className={`eyebrow flex items-center gap-3 ${isDark ? 'eyebrow--on-ink' : ''}`}>
               <Star className="h-3 w-3" />
               {group.category}
             </p>

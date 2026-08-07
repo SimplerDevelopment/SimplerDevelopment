@@ -45,7 +45,7 @@ export function RetroHero({
       <div className="relative mx-auto grid max-w-7xl items-center gap-10 px-6 py-16 sm:py-24 lg:grid-cols-2">
         <div>
           {eyebrow && (
-            <p className="eyebrow flex items-center gap-3">
+            <p className="eyebrow eyebrow--on-ink flex items-center gap-3">
               <Star className="h-3 w-3" />
               {eyebrow}
             </p>
@@ -103,7 +103,7 @@ export function TrustStrip({ eyebrow = 'Trusted by teams shipping in production'
   return (
     <InkPanel className="border-y border-[color-mix(in_srgb,var(--retro-gold)_25%,transparent)]">
       <div className="mx-auto max-w-7xl px-6 py-6">
-        <p className="eyebrow text-center">{eyebrow}</p>
+        <p className="eyebrow eyebrow--on-ink text-center">{eyebrow}</p>
         <div className="mt-4 flex flex-wrap items-center justify-center gap-x-10 gap-y-3">
           {names.map((n) => (
             <span key={n} className="font-display text-sm font-bold tracking-wide text-[color-mix(in_srgb,var(--retro-cream)_80%,transparent)]">
@@ -183,7 +183,7 @@ export function PageHeader({ eyebrow, title, subtitle }: { eyebrow?: string; tit
     <InkPanel className="relative isolate overflow-hidden">
       <div className="mx-auto max-w-4xl px-6 py-14 text-center sm:py-20">
         {eyebrow && (
-          <p className="eyebrow flex items-center justify-center gap-3">
+          <p className="eyebrow eyebrow--on-ink flex items-center justify-center gap-3">
             <Star className="h-3 w-3" />
             {eyebrow}
             <Star className="h-3 w-3" />

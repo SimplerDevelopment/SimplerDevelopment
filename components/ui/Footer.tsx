@@ -47,7 +47,7 @@ export function Footer() {
 
           {/* Platform */}
           <div>
-            <h4 className="eyebrow mb-4">Platform</h4>
+            <h4 className="eyebrow eyebrow--on-ink mb-4">Platform</h4>
             <ul className="space-y-2.5 text-sm">
               <li>
                 <Link href="/solutions/websites" className="text-[color-mix(in_srgb,var(--retro-cream)_72%,transparent)] transition-colors hover:text-[var(--retro-gold)]">
@@ -94,7 +94,7 @@ export function Footer() {
 
           {/* Company */}
           <div>
-            <h4 className="eyebrow mb-4">Company</h4>
+            <h4 className="eyebrow eyebrow--on-ink mb-4">Company</h4>
             <ul className="space-y-2.5 text-sm">
               <li>
                 <Link href="/compare" className="text-[color-mix(in_srgb,var(--retro-cream)_72%,transparent)] transition-colors hover:text-[var(--retro-gold)]">
@@ -136,7 +136,7 @@ export function Footer() {
 
           {/* Developers */}
           <div>
-            <h4 className="eyebrow mb-4">Developers</h4>
+            <h4 className="eyebrow eyebrow--on-ink mb-4">Developers</h4>
             <ul className="space-y-2.5 text-sm">
               <li>
                 <Link href="/docs" className="text-[color-mix(in_srgb,var(--retro-cream)_72%,transparent)] transition-colors hover:text-[var(--retro-gold)]">
@@ -173,7 +173,7 @@ export function Footer() {
 
           {/* Get in Touch */}
           <div>
-            <h4 className="eyebrow mb-4">Get in Touch</h4>
+            <h4 className="eyebrow eyebrow--on-ink mb-4">Get in Touch</h4>
             <p className="text-sm text-[color-mix(in_srgb,var(--retro-cream)_65%,transparent)] mb-3">
               Ready to start your project?
             </p>

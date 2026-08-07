@@ -25,8 +25,29 @@ import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'reac
 import { Canvas, useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 
-const CREAM = new THREE.Color('#F4E9CF');
-const GOLD = new THREE.Color('#E1B24A');
+/**
+ * Star tints, read from the live design tokens rather than pinned as hex.
+ *
+ * These used to be literal `#F4E9CF` / `#E1B24A`. That silently rotted the
+ * moment the marketing palette moved to Deep Space (2026-08-07): the ground
+ * changed to a near-black and the stars kept painting themselves in the old
+ * teal palette's cream and gold. WebGL does not inherit CSS, so nothing warned
+ * about it — the whole point of routing every colour through eight tokens is
+ * lost the moment one component copies a value out.
+ *
+ * `--retro-*` lives on `.retro`, not `:root`, so the read has to happen from an
+ * element inside that subtree — the canvas host, which is always under it.
+ * Falls back to the current token values if the lookup returns nothing (a
+ * detached node, or a caller that mounted this outside `.retro`).
+ */
+const FALLBACK_CREAM = '#F6F4F0';
+const FALLBACK_GOLD = '#D8B15A';
+
+function readTint(from: HTMLElement | null, token: string, fallback: string): THREE.Color {
+  if (typeof window === 'undefined' || !from) return new THREE.Color(fallback);
+  const v = getComputedStyle(from).getPropertyValue(token).trim();
+  return new THREE.Color(v || fallback);
+}
 
 function Layer({ count, depth, speed, size, tint }: { count: number; depth: number; speed: number; size: number; tint: THREE.Color }) {
   const ref = useRef<THREE.Points>(null);
@@ -89,11 +110,21 @@ function usePrefersReducedMotion(): boolean {
 export default function StarField({ className = '' }: { className?: string }) {
   const host = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(true);
+  // Resolved after mount, because getComputedStyle needs a mounted node. The
+  // first frame uses the fallbacks, which are the same values the tokens hold.
+  const [tints, setTints] = useState(() => ({
+    cream: new THREE.Color(FALLBACK_CREAM),
+    gold: new THREE.Color(FALLBACK_GOLD),
+  }));
   const reduced = usePrefersReducedMotion();
 
   useEffect(() => {
     const el = host.current;
     if (!el) return;
+    setTints({
+      cream: readTint(el, '--retro-cream', FALLBACK_CREAM),
+      gold: readTint(el, '--retro-gold', FALLBACK_GOLD),
+    });
     const io = new IntersectionObserver(([e]) => setVisible(e.isIntersecting), { rootMargin: '120px' });
     io.observe(el);
     return () => io.disconnect();
@@ -109,9 +140,9 @@ export default function StarField({ className = '' }: { className?: string }) {
         frameloop={reduced ? 'demand' : visible ? 'always' : 'never'}
         gl={{ antialias: false, alpha: true }}
       >
-        <Layer count={180} depth={8} speed={0.06} size={0.055} tint={CREAM} />
-        <Layer count={110} depth={5} speed={0.13} size={0.075} tint={CREAM} />
-        <Layer count={36} depth={3} speed={0.22} size={0.11} tint={GOLD} />
+        <Layer count={180} depth={8} speed={0.06} size={0.055} tint={tints.cream} />
+        <Layer count={110} depth={5} speed={0.13} size={0.075} tint={tints.cream} />
+        <Layer count={36} depth={3} speed={0.22} size={0.11} tint={tints.gold} />
       </Canvas>
     </div>
   );
