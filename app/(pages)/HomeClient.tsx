@@ -57,7 +57,7 @@ const GITHUB_URL = siteConfig.links.github;
 const leadModules: ManifestModule[] = [
   {
     title: 'AI Connect (MCP)',
-    description: 'Connect Claude, Cursor, or any MCP client and operate the whole platform via 200+ scoped tools',
+    description: 'Connect any MCP client and operate the whole platform via 200+ scoped tools',
     href: '/solutions/ai-connect',
     tag: 'Operate it by agent',
   },
@@ -249,7 +249,7 @@ export function HomeClient({ recentPosts = [] }: { recentPosts?: BlogPostWithRel
             <SectionHeading
               eyebrow="AI Connect · MCP"
               title="Point An Agent At It And Talk."
-              subtitle="Connect Claude, Cursor or any MCP client and operate the platform through 200+ scoped tools. Build a page, move a deal, schedule a campaign. The same permissions apply whether a person clicks it or an agent calls it."
+              subtitle="Connect any MCP client and operate the platform through 200+ scoped tools. Build a page, move a deal, schedule a campaign. The same permissions apply whether a person clicks it or an agent calls it."
               align="left"
               onDark
             />

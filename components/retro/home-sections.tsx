@@ -166,7 +166,7 @@ const SYSTEMS: { name: string; state: string; tone: 'ok' | 'warn' | 'crit' }[] =
   { name: 'Brain indexing', state: 'Healthy', tone: 'ok' },
   { name: 'Email queue', state: 'Backlog', tone: 'warn' },
   { name: 'Store checkout', state: 'Healthy', tone: 'ok' },
-  { name: 'Zapier bridge', state: 'Down', tone: 'crit' },
+  { name: 'Webhook bridge', state: 'Down', tone: 'crit' },
 ];
 
 const TONE_FILL: Record<'ok' | 'warn' | 'crit', string> = {
@@ -176,7 +176,7 @@ const TONE_FILL: Record<'ok' | 'warn' | 'crit', string> = {
 };
 
 const FEED = [
-  { mod: 'CRM', text: 'Deal moved to Proposal · Halden Robotics', at: '11:04' },
+  { mod: 'CRM', text: 'Deal moved to Proposal', at: '11:04' },
   { mod: 'Contracts', text: 'MSA signed by both parties', at: '10:41' },
   { mod: 'Websites', text: 'Pricing page published to production', at: '09:58' },
   { mod: 'Company Brain', text: '14 documents re-indexed', at: '09:12' },
@@ -190,10 +190,10 @@ const FEED = [
  * reads as a monitor on a desk, whereas an ink band behind it would paint the
  * page the same colour as the frame and dissolve it.
  *
- * The figures are sample data and the caption says so. They are the platform's
- * own interface with an example workspace in it — not a customer's numbers, and
- * not dressed up as one. (Fabricated social proof was deliberately removed from
- * this page once already; don't reintroduce it here by implication.)
+ * The figures are sample data and the caption says so. No company is named
+ * anywhere in it — not a real one, and not an invented one either. An earlier
+ * draft had a fake customer in the activity feed, which is fabricated social
+ * proof wearing a UI costume. Keep every row generic.
  */
 export function MissionControl() {
   return (
