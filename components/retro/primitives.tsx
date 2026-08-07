@@ -1,9 +1,11 @@
 /**
  * Retro-future primitives for the public marketing pages.
  *
- * Ported from the component-library board in the design references: two teals
- * for ground, cream for paper, orange for action, gold for ornament. Tokens
- * live in `app/globals.css` under `.retro` — this file only composes them.
+ * One dark ground, one light paper, one warm accent, gold for ornament. The
+ * eight values live in `app/globals.css` under `.retro` and this file only
+ * composes them — never inline a hex here, or the next palette change has to
+ * hunt for it (that is exactly how StarField ended up painting stars in the
+ * previous palette after the 2026-08-07 swap to Deep Space).
  *
  * The period read comes from restraint, not decoration: flat fills, hairline
  * rules, hard corners (4-6px, never pill), and wide-tracked uppercase display
