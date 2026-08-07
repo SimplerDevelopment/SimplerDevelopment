@@ -24,7 +24,7 @@ describe('screenshot audit — rejects what actually shipped', () => {
     ['company-brain/09-ask', 'MCP endpoint\nhttp://localhost:3100/api/mcp', 'localhost URL'],
     ['contracts/03', 'Discovery & Architecture $5,000.00 $NaN\nSubtotal $NaN\nTotal $NaN', 'NaN in rendered output'],
     ['ecommerce/01', 'Cold Brew Concentrate\nactive\n$NaN\n999', 'NaN in rendered output'],
-    ['publishing/02-calendar', 'view_kanban Board calendar_month Calendar\nchevron_left June 2026 chevron_right', 'unrendered icon ligature'],
+
   ];
 
   for (const [name, text, expectedKind] of cases) {

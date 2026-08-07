@@ -39,11 +39,17 @@ export const LEAK_PATTERNS: Rule[] = [
   [/\.vercel\.app/i, 'preview-deploy URL'],
 ];
 
-/** Rendering failures that photograph as literal text. */
+/**
+ * Rendering failures that photograph as literal text.
+ *
+ * NOTE: icon ligatures are deliberately NOT checked here. `<span
+ * class="material-icons">chevron_left</span>` has innerText "chevron_left"
+ * whether or not the font loaded, so a text rule would reject every page.
+ * The capture script strips .material-icons nodes before calling this, and
+ * detects a genuinely-missing icon font with document.fonts.check() instead.
+ */
 export const RENDER_PATTERNS: Rule[] = [
   [/\$NaN|\bNaN\b/, 'NaN in rendered output'],
-  // Material Icon ligature names show through when the icon font fails to load.
-  [/\b(view_kanban|calendar_month|chevron_left|chevron_right|add_circle_outline|more_vert|arrow_back)\b/, 'unrendered icon ligature'],
   [/\bundefined\b/, 'literal "undefined"'],
 ];
 

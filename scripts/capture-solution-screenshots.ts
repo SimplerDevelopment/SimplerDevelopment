@@ -29,6 +29,7 @@ const OUT = path.resolve('public/screenshots/solutions');
 const EMAIL = process.env.CAP_EMAIL || 'client@example.com';
 const PASSWORD = process.env.CAP_PASSWORD || 'client123';
 const AUDIT_ON = process.env.AUDIT !== 'off';
+const NAV_TIMEOUT = Number(process.env.NAV_TIMEOUT || 240000); // dev compiles routes on demand
 
 type Shot = {
   slug: string;
@@ -130,11 +131,23 @@ const REVEAL = `(() => { const s=document.createElement('style'); s.textContent=
 /* ------------------------------------------------------------------ */
 
 async function audit(page: Page, shot: Shot): Promise<Violation[]> {
-  const text = await page.evaluate(() => {
-    const main = document.querySelector('main') || document.body;
-    return (main as HTMLElement).innerText || '';
+  const { text, iconFontLoaded } = await page.evaluate(() => {
+    const root = (document.querySelector('main') || document.body) as HTMLElement;
+    // Icon <span>s carry their ligature name as text whether or not the font
+    // rendered, so strip them from the audited copy and check the font itself.
+    const clone = root.cloneNode(true) as HTMLElement;
+    clone.querySelectorAll('.material-icons, .material-symbols-outlined').forEach((n) => n.remove());
+    return {
+      text: clone.innerText || '',
+      iconFontLoaded: document.fonts.check('24px "Material Icons"'),
+    };
   });
-  return auditText(text, { allowEmpty: shot.allowEmpty });
+
+  const violations = auditText(text, { allowEmpty: shot.allowEmpty });
+  if (!iconFontLoaded) {
+    violations.push({ kind: 'icon font failed to load', match: 'Material Icons' });
+  }
+  return violations;
 }
 
 /** Wait for the page to be DONE loading — not a skeleton/spinner frame. */
@@ -185,8 +198,14 @@ async function run() {
     await page.getByPlaceholder('you@company.com').fill(EMAIL);
     await page.getByPlaceholder('••••••••').fill(PASSWORD);
     await page.locator('button[type="submit"]').click();
-    await page.waitForTimeout(4000);
+    // A cold dev server compiles the destination route on demand, so the
+    // post-login redirect can take minutes — wait on the navigation, not a
+    // fixed sleep.
+    await page
+      .waitForURL((u) => !/\/login/.test(u.toString()), { timeout: NAV_TIMEOUT })
+      .catch(() => {});
     if (/\/login/.test(page.url())) throw new Error('login failed and no AUTH_STATE present');
+    await ctx.storageState({ path: AUTH_STATE });
   }
   console.log('authed:', page.url());
 
@@ -226,7 +245,7 @@ async function run() {
         } else {
           url = shot.url;
         }
-        await page.goto(`${BASE}${url}`, { waitUntil: 'domcontentloaded', timeout: 55000 });
+        await page.goto(`${BASE}${url}`, { waitUntil: 'domcontentloaded', timeout: NAV_TIMEOUT });
       } else {
         const from = (shot.from || '').replace('{siteId}', siteId);
         if (from.includes('{siteId}')) throw new Error('no site available for {siteId}');
