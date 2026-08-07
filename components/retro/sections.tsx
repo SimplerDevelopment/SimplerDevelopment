@@ -13,6 +13,7 @@ import { RetroButton, SectionHeading, Star, InkPanel } from './primitives';
 // Client island — keeps these sections usable from Server Components. See the
 // gate's header for why the dynamic import can't live here.
 import StarFieldGate from './StarFieldGate';
+import HeroConsoleGate from './HeroConsoleGate';
 
 /**
  * Hero. `art` names a file in /public/retro — the illustration sits right of
@@ -26,6 +27,7 @@ export function RetroHero({
   primary,
   secondary,
   art = 'city-launch',
+  video = false,
   footnote,
   stars = true,
 }: {
@@ -36,6 +38,8 @@ export function RetroHero({
   primary?: { href: string; label: string };
   secondary?: { href: string; label: string };
   art?: string;
+  /** Swap the still illustration for the animated console (homepage only). */
+  video?: boolean;
   footnote?: ReactNode;
   stars?: boolean;
 }) {
@@ -84,14 +88,18 @@ export function RetroHero({
         </div>
 
         <div className="relative flex justify-center lg:justify-end">
-          <Image
-            src={`/retro/${art}.webp`}
-            alt=""
-            width={900}
-            height={600}
-            priority
-            className="h-auto w-full max-w-lg object-contain drop-shadow-none"
-          />
+          {video ? (
+            <HeroConsoleGate />
+          ) : (
+            <Image
+              src={`/retro/${art}.webp`}
+              alt=""
+              width={900}
+              height={600}
+              priority
+              className="h-auto w-full max-w-lg object-contain drop-shadow-none"
+            />
+          )}
         </div>
       </div>
     </section>

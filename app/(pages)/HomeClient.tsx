@@ -182,7 +182,7 @@ export function HomeClient({ recentPosts = [] }: { recentPosts?: BlogPostWithRel
         }
         primary={{ href: '/portal/signup', label: 'Start Free' }}
         secondary={{ href: GITHUB_URL, label: 'Read the Source' }}
-        art="city-launch"
+        video
         footnote={
           <>
             <span>★ No seat caps</span>
