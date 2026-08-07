@@ -22,6 +22,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { SectionHeading, Star } from './primitives';
+import SignalStageGate from './SignalStageGate';
 
 // ─── Crew lanes ─────────────────────────────────────────────────────────────
 
@@ -52,7 +53,7 @@ export function CrewLanes({ lanes }: { lanes: CrewLane[] }) {
               alt=""
               // Lanes are cropped by the 4/5 box, so a single nominal size is fine
               // here; the crop, not the intrinsic ratio, decides what is shown.
-              width={752}
+              width={600}
               height={900}
               className="h-full w-full object-cover object-top"
             />
@@ -362,8 +363,18 @@ function Panel({ title, children }: { title: string; children: ReactNode }) {
  */
 export function SignalBand({ chips, children }: { chips: string[]; children: ReactNode }) {
   return (
-    <div className="grid grid-cols-1 items-center gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:gap-14">
-      <div>
+    /* Not a grid. The station is anchored to the SECTION's bottom-right corner
+       rather than sharing a row, so it can run bigger than a column would allow
+       and sit into the corner of the ink band.
+
+       Note there is deliberately no `relative` on this root: the art must
+       resolve against the InkPanel, not against the max-w-7xl content box.
+       Anchoring to the content box leaves it ~80px short of the band edge on
+       wide screens, because that box is centred. The wrapper still needs
+       `overflow-hidden` — the station is taller than the padding allows and
+       would otherwise spill into the next band. */
+    <div className="lg:min-h-[460px]">
+      <div className="relative z-10 max-w-2xl">
         {children}
         <div className="flex flex-wrap gap-1.5 pt-2">
           {chips.map((c) => (
@@ -376,11 +387,13 @@ export function SignalBand({ chips, children }: { chips: string[]; children: Rea
           ))}
         </div>
       </div>
-      <div className="relative min-h-[260px] lg:min-h-[300px]" aria-hidden>
-        <Image src="/retro/satellite.webp" alt="" width={789} height={743} className="absolute right-[24%] top-0 w-[34%] opacity-90" />
-        <Image src="/retro/satellite-dish.webp" alt="" width={803} height={800} className="absolute bottom-[4%] left-0 w-[56%]" />
-        <Image src="/retro/astronaut-pointing.webp" alt="" width={900} height={875} className="absolute bottom-[2%] left-[44%] w-[40%]" />
-        <Image src="/retro/radio-tower.webp" alt="" width={491} height={900} className="absolute bottom-0 right-[8%] w-[26%]" />
+      {/* Below lg it goes back to ordinary flow under the copy — a corner-
+          anchored station on a phone would sit behind the text. */}
+      <div
+        className="relative mx-auto mt-10 h-[280px] w-full max-w-md
+                   lg:absolute lg:bottom-0 lg:right-0 lg:mt-0 lg:h-[430px] lg:w-[46%] lg:max-w-none"
+      >
+        <SignalStageGate className="h-full w-full" />
       </div>
     </div>
   );
@@ -428,18 +441,33 @@ export function LicencePlate({ claim, body, support }: { claim: ReactNode; body:
         </div>
       </div>
 
-      <div className="mt-14 grid grid-cols-1 gap-px border-y border-[color-mix(in_srgb,var(--retro-mid)_34%,transparent)] bg-[color-mix(in_srgb,var(--retro-mid)_34%,transparent)] md:grid-cols-3">
+      {/* The art stands ON the top rule and breaks above it.
+          How that works: each cell has no top padding, so its image box starts
+          flush with the rule. The box is short (120px) and aligns its image to
+          the BOTTOM, so anything taller than the box overflows upward, through
+          the border and into the band above — which is why the row needs a big
+          mt to clear the licence claim.
+          The bleed is deliberately uneven. The three illustrations run from
+          900x257 (console) to 885x876 (robot), so at a shared width they end up
+          wildly different heights; bottom-aligning them puts every base on one
+          line and lets the tall ones tower. Forcing a uniform height instead
+          would letterbox the wide console to a sliver and flatten the effect. */}
+      <div className="mt-28 grid grid-cols-1 gap-px border-y border-[color-mix(in_srgb,var(--retro-mid)_34%,transparent)] bg-[color-mix(in_srgb,var(--retro-mid)_34%,transparent)] md:grid-cols-3">
         {support.map((s) => (
-          <div key={s.title} className="grid grid-cols-[auto_1fr] items-start gap-x-5 gap-y-1 bg-[var(--retro-cream)] px-6 py-7">
-            <Image
-              src={`/retro/${s.art}.webp`}
-              alt=""
-              width={SUPPORT_ART[s.art]?.[0] ?? 900}
-              height={SUPPORT_ART[s.art]?.[1] ?? 900}
-              className="row-span-2 h-[84px] w-[112px] object-contain object-left"
-            />
-            <h3 className="font-display text-base font-bold text-[var(--retro-ink)]">{s.title}</h3>
-            <p className="text-sm leading-relaxed text-[color-mix(in_srgb,var(--retro-ink)_74%,var(--retro-cream))]">{s.body}</p>
+          <div key={s.title} className="relative flex flex-col bg-[var(--retro-cream)] px-6 pb-7">
+            <div className="flex h-[120px] items-end justify-center">
+              <Image
+                src={`/retro/${s.art}.webp`}
+                alt=""
+                width={SUPPORT_ART[s.art]?.[0] ?? 900}
+                height={SUPPORT_ART[s.art]?.[1] ?? 900}
+                className="h-auto w-full max-w-[250px] object-contain object-bottom"
+              />
+            </div>
+            <h3 className="font-display mt-6 text-base font-bold text-[var(--retro-ink)]">{s.title}</h3>
+            <p className="mt-1 text-sm leading-relaxed text-[color-mix(in_srgb,var(--retro-ink)_74%,var(--retro-cream))]">
+              {s.body}
+            </p>
           </div>
         ))}
       </div>
