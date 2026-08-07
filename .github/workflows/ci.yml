@@ -23,7 +23,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Install gitleaks
         run: |
           VER=8.21.2
@@ -43,7 +43,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
@@ -68,7 +68,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
@@ -99,7 +99,7 @@ jobs:
       matrix:
         shard: [1, 2, 3, 4]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
@@ -149,7 +149,7 @@ jobs:
     timeout-minutes: 10
     needs: [unit-shard]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
@@ -196,7 +196,7 @@ jobs:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/simplerdev_test
       DATABASE_URL_TEST: postgresql://postgres:postgres@localhost:5432/simplerdev_test
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -260,7 +260,7 @@ jobs:
       AUTH_INSECURE_COOKIES: "1"
       DISABLE_AUTH_RATE_LIMIT: "1"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -349,7 +349,7 @@ jobs:
       AUTH_INSECURE_COOKIES: "1"
       DISABLE_AUTH_RATE_LIMIT: "1"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
