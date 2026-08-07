@@ -116,7 +116,7 @@ export default function ContactPage() {
       <CTABanner
         title="Ready To Start The Mission?"
         subtitle="Free forever if you host it yourself. We'll be here either way."
-        primary={{ href: '/pricing', label: 'Start Free' }}
+        primary={{ href: '/portal/signup', label: 'Start Free' }}
         secondary={{ href: siteConfig.links.github, label: 'Read the Source' }}
         art="astronaut-pointing"
       />

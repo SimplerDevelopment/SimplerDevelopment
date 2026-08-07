@@ -180,7 +180,7 @@ export function HomeClient({ recentPosts = [] }: { recentPosts?: BlogPostWithRel
             already talk to each other, so you can stop paying six vendors to almost integrate.
           </>
         }
-        primary={{ href: '/pricing', label: 'Start Free' }}
+        primary={{ href: '/portal/signup', label: 'Start Free' }}
         secondary={{ href: GITHUB_URL, label: 'Read the Source' }}
         art="city-launch"
         footnote={
@@ -357,7 +357,7 @@ export function HomeClient({ recentPosts = [] }: { recentPosts?: BlogPostWithRel
       <CTABanner
         title="Ready To Launch Something Great?"
         subtitle="Clone it this afternoon, or let us stand it up for you. Either way you own the result."
-        primary={{ href: '/pricing', label: 'Start Free' }}
+        primary={{ href: '/portal/signup', label: 'Start Free' }}
         secondary={{ href: '/contact', label: 'Talk To Us' }}
         art="rocket"
       />
