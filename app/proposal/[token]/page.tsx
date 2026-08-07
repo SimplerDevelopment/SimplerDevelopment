@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import { sanitizeHtml } from '@/lib/security/sanitize-html';
+import { normalizeLineItems, lineItemTotal, sumLineItems } from '@/lib/proposals/line-items';
+import { formatMoney as fmtCurrency } from '@/lib/utils/money';
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -18,7 +20,7 @@ interface LineItem {
   id: string;
   description: string;
   details: string;
-  qty: number;
+  quantity: number;
   unitPrice: number;
   optional: boolean;
 }
@@ -60,10 +62,6 @@ interface Proposal {
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
 /* ------------------------------------------------------------------ */
-
-function fmtCurrency(cents: number): string {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100);
-}
 
 function daysUntil(dateStr: string): number {
   const target = new Date(dateStr);
@@ -257,16 +255,16 @@ export default function PublicProposalPage() {
 
   const accent = proposal.accentColor || '#2563eb';
   const sectionsList: Section[] = Array.isArray(proposal.sections) ? proposal.sections : [];
-  const allLineItems: LineItem[] = Array.isArray(proposal.lineItems) ? proposal.lineItems : [];
+  const allLineItems = normalizeLineItems(proposal.lineItems) as LineItem[];
   const allFees: Fee[] = Array.isArray(proposal.fees) ? proposal.fees : [];
 
   const requiredItems = allLineItems.filter(li => !li.optional);
   const optionalItems = allLineItems.filter(li => li.optional);
 
-  const requiredSubtotal = requiredItems.reduce((sum, li) => sum + li.qty * li.unitPrice, 0);
-  const optionalSubtotal = optionalItems
-    .filter(li => selectedOptionals.has(li.id))
-    .reduce((sum, li) => sum + li.qty * li.unitPrice, 0);
+  const requiredSubtotal = sumLineItems(requiredItems);
+  const optionalSubtotal = sumLineItems(
+    optionalItems.filter(li => selectedOptionals.has(li.id))
+  );
   const subtotal = requiredSubtotal + optionalSubtotal;
 
   const computedFees = allFees.map(f => ({
@@ -464,9 +462,9 @@ export default function PublicProposalPage() {
                               <div className="font-medium text-gray-900">{li.description}</div>
                               {li.details && <div className="text-sm text-gray-500 mt-0.5">{li.details}</div>}
                             </td>
-                            <td className="px-6 py-4 text-right text-gray-700">{li.qty}</td>
+                            <td className="px-6 py-4 text-right text-gray-700">{li.quantity}</td>
                             <td className="px-6 py-4 text-right text-gray-700">{fmtCurrency(li.unitPrice)}</td>
-                            <td className="px-6 py-4 text-right font-medium text-gray-900">{fmtCurrency(li.qty * li.unitPrice)}</td>
+                            <td className="px-6 py-4 text-right font-medium text-gray-900">{fmtCurrency(lineItemTotal(li))}</td>
                           </tr>
                         ))}
                         {optionalItems.length > 0 && (
@@ -495,11 +493,11 @@ export default function PublicProposalPage() {
                                     </div>
                                   </div>
                                 </td>
-                                <td className="px-6 py-4 text-right text-gray-700">{li.qty}</td>
+                                <td className="px-6 py-4 text-right text-gray-700">{li.quantity}</td>
                                 <td className="px-6 py-4 text-right text-gray-700">{fmtCurrency(li.unitPrice)}</td>
                                 <td className="px-6 py-4 text-right font-medium text-gray-700">
-                                  {selectedOptionals.has(li.id) ? fmtCurrency(li.qty * li.unitPrice) : (
-                                    <span className="text-gray-400">{fmtCurrency(li.qty * li.unitPrice)}</span>
+                                  {selectedOptionals.has(li.id) ? fmtCurrency(lineItemTotal(li)) : (
+                                    <span className="text-gray-400">{fmtCurrency(lineItemTotal(li))}</span>
                                   )}
                                 </td>
                               </tr>

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import CrmCompanyTypeaheadPicker from '@/components/portal/CrmCompanyTypeaheadPicker';
 import { formatMoney } from '@/lib/utils/money';
+import { normalizeLineItems, sumLineItems } from '@/lib/proposals/line-items';
 import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
 import { pBtnPrimary, pBtnGhost, pCard, pCardPad, pInput, pSelect, pSectionTitle } from '@/components/portal/portal-ui';
 
@@ -35,7 +36,7 @@ interface LineItem {
   id: string;
   description: string;
   details: string;
-  qty: number;
+  quantity: number;
   unitPrice: number;
   optional: boolean;
 }
@@ -87,11 +88,9 @@ const proposalStatusColor: Record<string, string> = {
 };
 
 function computeValue(lineItems: LineItem[], fees: Fee[]): number {
-  const items = Array.isArray(lineItems) ? lineItems : [];
+  const items = normalizeLineItems(lineItems);
   const feeList = Array.isArray(fees) ? fees : [];
-  const subtotal = items
-    .filter(li => !li.optional)
-    .reduce((sum, li) => sum + (li.qty || 0) * (li.unitPrice || 0), 0);
+  const subtotal = sumLineItems(items.filter(li => !li.optional));
   const feesTotal = feeList.reduce((sum, f) => {
     if (f.type === 'flat') return sum + (f.amount || 0);
     if (f.type === 'percent') return sum + Math.round(subtotal * (f.amount || 0) / 100);
