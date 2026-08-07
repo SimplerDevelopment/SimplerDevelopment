@@ -8,21 +8,21 @@
 // Skinned in the retro-future design system — see components/retro/. Copy tone
 // is mid-century mission-control: confident and a bit wry, never cute at the
 // expense of being clear about what the product actually is.
+//
+// The page is a sequence of full-bleed bands alternating cream and ink, and
+// each band makes exactly ONE claim. They are listed in components/retro/
+// home-sections.tsx; the short version is breadth → inventory → proof →
+// agent-operable → licence → terms. Adding a band that repeats a neighbour's
+// claim is the failure mode to watch for: an earlier draft had three
+// consecutive sections all arguing "it shares one database", which read as one
+// point made three times and made the page feel longer than it was.
 
-import Image from 'next/image';
 import Link from 'next/link';
 import type { BlogPostWithRelations } from '@/lib/actions/blog';
 import { siteConfig } from '@/config/site';
-import {
-  RetroHero,
-  TrustStrip,
-  CTABanner,
-  CreamBand,
-  TestimonialCard,
-} from '@/components/retro/sections';
+import { RetroHero, CTABanner, CreamBand } from '@/components/retro/sections';
 import {
   SectionHeading,
-  RetroCard,
   RetroButton,
   RetroBadge,
   StatBlock,
@@ -30,17 +30,52 @@ import {
   OrbitDivider,
   Star,
 } from '@/components/retro/primitives';
+import {
+  CrewLanes,
+  ModuleManifest,
+  MissionControl,
+  SignalBand,
+  LicencePlate,
+  type CrewLane,
+  type ManifestModule,
+  type SupportPoint,
+} from '@/components/retro/home-sections';
 
 // Public source of truth for the self-host path — mirrors config/site.ts so
 // every GitHub CTA on this page resolves to the same canonical repo.
 const GITHUB_URL = siteConfig.links.github;
 
 // The 18 platform modules — these are the real, shipping modules of the
-// platform. Descriptions stay factual; the retro voice lives in the headings
-// and connective copy around them, not in claims about what the software does.
-const portalFeatures = [
-  { title: 'AI Connect (MCP)', description: 'Connect Claude, Cursor, or any MCP client and operate the whole platform via 200+ scoped tools', href: '/solutions/ai-connect' },
-  { title: 'Website Builder', description: 'Drag-and-drop editor with unlimited pages, blog, SEO, and ecommerce', href: '/solutions/websites' },
+// platform, and every `href` is a slug that exists in lib/data/solutions.ts.
+// Descriptions stay factual; the retro voice lives in the headings and
+// connective copy around them, not in claims about what the software does.
+//
+// Split into lead/rest to give the manifest a hierarchy: the three the platform
+// is actually sold on take a larger cell. It is a REORDER of the eighteen, not
+// a subset — the running index has to stay contiguous 01..18 because the count
+// is the section's whole argument.
+const leadModules: ManifestModule[] = [
+  {
+    title: 'AI Connect (MCP)',
+    description: 'Connect Claude, Cursor, or any MCP client and operate the whole platform via 200+ scoped tools',
+    href: '/solutions/ai-connect',
+    tag: 'Operate it by agent',
+  },
+  {
+    title: 'Company Brain',
+    description: 'AI knowledge base (RAG over pgvector) that answers questions about your business with citations',
+    href: '/solutions/company-brain',
+    tag: 'Answers with citations',
+  },
+  {
+    title: 'Website Builder',
+    description: 'Drag-and-drop editor with unlimited pages, blog, SEO, and ecommerce',
+    href: '/solutions/websites',
+    tag: 'Visual editor',
+  },
+];
+
+const restModules: ManifestModule[] = [
   { title: 'Online Store', description: 'Sell products with variants, discounts, shipping, and print-on-demand designs', href: '/solutions/ecommerce' },
   { title: 'Content Calendar', description: 'Editorial kanban and calendar to plan, schedule, and ship content across channels', href: '/solutions/publishing' },
   { title: 'Email Marketing', description: 'Campaigns, subscriber lists, automations, and engagement tracking', href: '/solutions/email-marketing' },
@@ -51,12 +86,22 @@ const portalFeatures = [
   { title: 'A/B Experiments', description: 'Split-test pages and pitch deck slides with built-in significance testing', href: '/solutions/experiments' },
   { title: 'Project Management', description: 'Kanban boards, sprint planning, and team collaboration', href: '/solutions/project-management' },
   { title: 'Help Desk', description: 'Embeddable live chat plus a shared inbox and SLA-tracked support tickets', href: '/solutions/help-desk' },
-  { title: 'Company Brain', description: 'AI knowledge base (RAG over pgvector) that answers questions about your business with citations', href: '/solutions/company-brain' },
   { title: 'AI Chatbot', description: 'Trained on your content for 24/7 support and lead capture', href: '/solutions/ai-chatbot' },
   { title: 'Automations', description: 'Visual no-code workflows that connect every tool automatically', href: '/solutions/automations' },
   { title: 'Pitch Decks', description: 'AI-generated, branded pitch decks with shareable links and PDF export', href: '/solutions/pitch-decks' },
   { title: 'Agency & White-Label', description: 'Run the platform under your own brand with a custom domain and logo', href: '/solutions/agency' },
   { title: 'Managed Hosting', description: 'SSL, CDN, daily backups, and 99.9% uptime — or self-host it yourself', href: '/solutions/hosting' },
+];
+
+// The five verbs below are the five lane titles, in lane order. Keep them in
+// step with the section lede — an earlier draft said "remembers" where the lane
+// said "Know", and the list stopped reading as a key to the row beneath it.
+const crewLanes: CrewLane[] = [
+  { title: 'Sell', art: 'crew-woman-waving', blurb: 'CRM, deals, proposals and contracts with e-signature built in.' },
+  { title: 'Ship', art: 'crew-man-tablet', blurb: 'Sites, storefront and an editorial calendar on one visual editor.' },
+  { title: 'Serve', art: 'crew-woman-headset', blurb: 'Live chat, a shared inbox, SLA-tracked tickets and booking pages.' },
+  { title: 'Know', art: 'retro-woman', blurb: 'Company Brain answers from your own content, with citations.' },
+  { title: 'Automate', art: 'crew-man-device', blurb: 'Visual workflows, plus 200+ MCP tools any agent can drive.' },
 ];
 
 const heroMetrics = [
@@ -66,11 +111,26 @@ const heroMetrics = [
   { value: 'Self-host', label: 'or cloud' },
 ];
 
-const ossPillars = [
-  { title: 'Apache-2.0 licensed', description: 'Use it commercially, fork it, run it for clients. No seat caps, no feature gates, no rug-pull.', art: 'shield-rocket' },
-  { title: 'Self-host anywhere', description: 'One Postgres + pgvector and any Next.js host. docker compose up, run the migrations, go.', art: 'observatory' },
-  { title: 'AI-operable by design', description: '200+ scoped MCP tools span the whole platform — build a site or run a campaign by talking to an agent.', art: 'robot' },
-  { title: 'Yours to extend', description: 'Every block, MCP tool, and integration is a documented extension point. Read the code, change it, ship it.', art: 'control-console' },
+const licenceSupport: SupportPoint[] = [
+  {
+    title: 'Self-host anywhere',
+    art: 'observatory',
+    body: (
+      <>
+        One Postgres + pgvector and any Next.js host. <code>docker compose up</code>, run the migrations, go.
+      </>
+    ),
+  },
+  {
+    title: 'AI-operable by design',
+    art: 'robot',
+    body: '200+ scoped MCP tools span the whole platform — build a site or run a campaign by talking to an agent.',
+  },
+  {
+    title: 'Yours to extend',
+    art: 'control-console',
+    body: 'Every block, MCP tool and integration is a documented extension point. Read the code, change it, ship it.',
+  },
 ];
 
 // Real commercial terms. The design references show sample price points
@@ -132,7 +192,8 @@ export function HomeClient({ recentPosts = [] }: { recentPosts?: BlogPostWithRel
         }
       />
 
-      {/* Metrics strip — the four facts worth leading with. */}
+      {/* Metrics strip — four facts, every one verifiable from the licence or
+          the build. This page claims no customer numbers anywhere. */}
       <CreamBand className="!py-10">
         <div className="grid grid-cols-2 gap-6 sm:grid-cols-4">
           {heroMetrics.map((m) => (
@@ -141,54 +202,80 @@ export function HomeClient({ recentPosts = [] }: { recentPosts?: BlogPostWithRel
         </div>
       </CreamBand>
 
-      <TrustStrip
-        eyebrow="Built for engineering teams at innovative companies"
-        names={['NorthStar', 'DataOrbit', 'CloudBase', 'PeakLabs', 'Vertex AI', 'LaunchCo']}
-      />
+      {/* Claim: breadth — how much of the job this covers. */}
+      <InkPanel>
+        <div className="mx-auto max-w-7xl px-6 py-16 sm:py-20">
+          <SectionHeading
+            eyebrow="What the work actually is"
+            title="The Whole Job. Not A Slice Of It."
+            subtitle="Sell, ship, serve, know, automate: an agency does all five. Most tools pick one of them and leave you to go shopping for the other four."
+            onDark
+          />
+          <CrewLanes lanes={crewLanes} />
+        </div>
+      </InkPanel>
 
-      {/* The 18 modules. */}
+      <OrbitDivider />
+
+      {/* Claim: nothing on the list is gated. */}
       <CreamBand>
         <SectionHeading
-          eyebrow="Everything you need to build, ship & scale"
+          eyebrow="Systems manifest"
           title="Eighteen Modules. Zero Duct Tape."
-          subtitle="Every one of these ships in the box and shares the same database, the same permissions, and the same AI layer. Nothing here is an integration you have to maintain."
+          subtitle="Every one ships in the box, on every plan. Nothing on this list is an add-on, an upgrade tier, or an integration you have to maintain yourself."
         />
-        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {portalFeatures.map((f, i) => (
-            <RetroCard key={f.title} title={f.title} index={i + 1} href={f.href}>
-              {f.description}
-            </RetroCard>
-          ))}
-        </div>
+        <ModuleManifest lead={leadModules} rest={restModules} />
       </CreamBand>
 
       <OrbitDivider />
 
-      {/* Open-source pillars. */}
+      {/* Claim: one database, and here is the receipt. Cream band on purpose —
+          the console frame supplies its own darkness. */}
+      <CreamBand className="!pt-0">
+        <SectionHeading
+          eyebrow="Mission control"
+          title="One Screen For All Eighteen."
+          subtitle="One database underneath, so a deal, a contract, a deploy and a support ticket arrive in the same stream. Nothing on this screen is stitched together at render time."
+        />
+        <MissionControl />
+      </CreamBand>
+
+      {/* Claim: a person is not the only thing that can drive it. */}
       <InkPanel>
         <div className="mx-auto max-w-7xl px-6 py-16 sm:py-20">
-          <SectionHeading
-            eyebrow="Why open source"
-            title="No Rug To Pull."
-            subtitle="The licence is the promise. Everything else is just marketing."
-            onDark
-          />
-          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-            {ossPillars.map((p) => (
-              <div
-                key={p.title}
-                className="rounded-md border border-[color-mix(in_srgb,var(--retro-gold)_30%,transparent)] bg-[var(--retro-deep)] p-6"
-              >
-                <Image src={`/retro/${p.art}.webp`} alt="" width={160} height={160} className="h-14 w-14 object-contain" />
-                <h3 className="font-display mt-4 text-base font-bold text-[var(--retro-cream)]">{p.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-[color-mix(in_srgb,var(--retro-cream)_78%,transparent)]">
-                  {p.description}
-                </p>
-              </div>
-            ))}
-          </div>
+          <SignalBand
+            chips={['Websites', 'CRM', 'Kanban', 'Email', 'Store', 'Brain', 'Bookings', 'Decks', 'Surveys']}
+          >
+            <SectionHeading
+              eyebrow="AI Connect · MCP"
+              title="Point An Agent At It And Talk."
+              subtitle="Connect Claude, Cursor or any MCP client and operate the platform through 200+ scoped tools. Build a page, move a deal, schedule a campaign. The same permissions apply whether a person clicks it or an agent calls it."
+              align="left"
+              onDark
+            />
+          </SignalBand>
         </div>
       </InkPanel>
+
+      {/* Claim: the licence is the promise. */}
+      <CreamBand>
+        <SectionHeading
+          eyebrow="Why open source"
+          title="No Rug To Pull."
+          subtitle="The licence is the promise. Everything else is just marketing."
+        />
+        <LicencePlate
+          claim={
+            <>
+              Apache-2.0.
+              <br />
+              The Whole Thing.
+            </>
+          }
+          body="Use it commercially, fork it, run it for clients. No seat caps, no feature gates, no open-core bait. The modules on this page are the modules in the repository."
+          support={licenceSupport}
+        />
+      </CreamBand>
 
       {/* Deployment tiers. */}
       <CreamBand>
@@ -243,28 +330,6 @@ export function HomeClient({ recentPosts = [] }: { recentPosts?: BlogPostWithRel
         </div>
       </CreamBand>
 
-      {/* Testimonials. */}
-      <CreamBand className="!pt-0">
-        <SectionHeading eyebrow="Transmissions from the field" title="Crews Who Already Made Orbit." />
-        <div className="grid gap-5 md:grid-cols-3">
-          <TestimonialCard
-            quote="We replaced five tools with this and our stack finally makes sense. The AI layer knowing about every module is the part I didn't expect to care about."
-            name="Alex R."
-            role="VP Engineering, NorthStar"
-          />
-          <TestimonialCard
-            quote="Self-hosted it in an afternoon. Being able to read the code when something surprises us is worth more than any support contract."
-            name="Priya S."
-            role="CTO, DataOrbit"
-          />
-          <TestimonialCard
-            quote="A real partner that scales with you — from startup to enterprise, without a migration in the middle."
-            name="Jordan M."
-            role="Engineering Manager, CloudBase"
-          />
-        </div>
-      </CreamBand>
-
       {/* Blog — real posts, real slugs. */}
       {recentPosts.length > 0 && (
         <CreamBand className="!pt-0">
@@ -291,7 +356,7 @@ export function HomeClient({ recentPosts = [] }: { recentPosts?: BlogPostWithRel
 
       <CTABanner
         title="Ready To Launch Something Great?"
-        subtitle="Free forever if you host it yourself. We'll be here either way."
+        subtitle="Clone it this afternoon, or let us stand it up for you. Either way you own the result."
         primary={{ href: '/pricing', label: 'Start Free' }}
         secondary={{ href: '/contact', label: 'Talk To Us' }}
         art="rocket"

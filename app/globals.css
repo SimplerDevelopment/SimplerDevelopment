@@ -187,6 +187,10 @@ body {
   --retro-rust: #D6451F;       /* pressed / emphasis */
   --retro-cream: #F4E9CF;      /* paper */
   --retro-black: #111111;
+  /* Label ink for small caps ON CREAM. Same hue as --retro-gold, darkened
+     until it clears AA (5.0:1 on paper vs gold's 1.6:1). Ornament keeps gold;
+     anything a reader has to actually read uses this. */
+  --retro-label: #8A5714;
 
   --retro-display: var(--font-orbitron), ui-sans-serif, system-ui, sans-serif;
   --retro-body: var(--font-raleway), ui-sans-serif, system-ui, sans-serif;
@@ -258,15 +262,27 @@ body {
   letter-spacing: -0.01em;
 }
 
-/* Section eyebrows: uppercase, wide-tracked, gold — the board uses these to
-   separate every band. Small caps at this tracking is the single strongest
-   period signal in the whole system. */
+/* Section eyebrows: uppercase, wide-tracked — the board uses these to separate
+   every band. Small caps at this tracking is the single strongest period signal
+   in the whole system.
+
+   Colour is NOT --retro-gold here, though the board draws them that way. Gold
+   is an ornament value: it sings on ink (7.7:1) and collapses to 1.6:1 on
+   cream, and eyebrows sit on cream far more often than on ink. At 0.75rem with
+   0.18em tracking that was unreadable, not merely low-contrast. Paper gets a
+   burnt amber of the same hue (5.0:1); ink surfaces opt back into real gold
+   with `.eyebrow--on-ink`. Stars, rules and other ornament keep --retro-gold
+   everywhere, because none of them carry information. */
 .retro .eyebrow {
   font-family: var(--retro-display);
   text-transform: uppercase;
   letter-spacing: 0.18em;
   font-size: 0.75rem;
   font-weight: 700;
+  color: var(--retro-label);
+}
+
+.retro .eyebrow--on-ink {
   color: var(--retro-gold);
 }
 

@@ -86,7 +86,7 @@ export function SolutionsMegaMenu() {
             {/* Header */}
             <div className="flex items-end justify-between gap-4 border-b border-[color-mix(in_srgb,var(--retro-gold)_25%,transparent)] px-6 pt-6 pb-4">
               <div>
-                <p className="eyebrow mb-1">{`// PLATFORM`}</p>
+                <p className="eyebrow eyebrow--on-ink mb-1">{`// PLATFORM`}</p>
                 <h2 className="font-display text-2xl font-bold leading-tight">
                   Every tool your business needs
                 </h2>

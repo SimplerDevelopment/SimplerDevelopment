@@ -192,7 +192,7 @@ export function Navigation() {
           <div className="px-4 py-6 space-y-2">
             {!pathname.startsWith('/admin') && (
               <>
-                <div className="eyebrow mb-4 px-3">
+                <div className="eyebrow eyebrow--on-ink mb-4 px-3">
                   Navigation
                 </div>
                 {navLinks.map((link, index) => (

@@ -47,10 +47,17 @@ export function SectionHeading({
   return (
     <div className={`${centered ? 'text-center mx-auto max-w-3xl' : 'text-left'} mb-10`}>
       {eyebrow && (
-        <p className={`eyebrow flex items-center gap-3 ${centered ? 'justify-center' : ''}`}>
-          <Star className="h-3 w-3" />
+        // `onDark` already tells us which ground this sits on, so it also picks
+        // the eyebrow ink: real gold on ink, burnt amber on cream (gold is only
+        // 1.6:1 there). The stars stay gold on both — ornament, not text.
+        <p
+          className={`eyebrow flex items-center gap-3 ${onDark ? 'eyebrow--on-ink' : ''} ${
+            centered ? 'justify-center' : ''
+          }`}
+        >
+          <Star className="h-3 w-3 text-[var(--retro-gold)]" />
           {eyebrow}
-          <Star className="h-3 w-3" />
+          <Star className="h-3 w-3 text-[var(--retro-gold)]" />
         </p>
       )}
       <h2
