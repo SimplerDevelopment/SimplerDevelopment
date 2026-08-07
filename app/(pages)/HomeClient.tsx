@@ -96,12 +96,20 @@ const restModules: ManifestModule[] = [
 // The five verbs below are the five lane titles, in lane order. Keep them in
 // step with the section lede — an earlier draft said "remembers" where the lane
 // said "Know", and the list stopped reading as a key to the row beneath it.
+// Art is named for the LANE, not the character, so a reassignment is a file
+// replacement rather than a rename hunt through the codebase.
+//
+// Each figure is picked so the prop matches the work — blueprint on Ship,
+// checklist on Serve, tablet on Know, comms rig on Automate — and so the row
+// reads as distinct individuals rather than one archetype recoloured. Serve is
+// a service robot rather than a person, which is also the honest illustration
+// for the lane that includes an AI chatbot answering at 2am.
 const crewLanes: CrewLane[] = [
-  { title: 'Sell', art: 'crew-woman-waving', blurb: 'CRM, deals, proposals and contracts with e-signature built in.' },
-  { title: 'Ship', art: 'crew-man-tablet', blurb: 'Sites, storefront and an editorial calendar on one visual editor.' },
-  { title: 'Serve', art: 'crew-woman-headset', blurb: 'Live chat, a shared inbox, SLA-tracked tickets and booking pages.' },
-  { title: 'Know', art: 'retro-woman', blurb: 'Company Brain answers from your own content, with citations.' },
-  { title: 'Automate', art: 'crew-man-device', blurb: 'Visual workflows, plus 200+ MCP tools any agent can drive.' },
+  { title: 'Sell', art: 'crew-sell', blurb: 'CRM, deals, proposals and contracts with e-signature built in.' },
+  { title: 'Ship', art: 'crew-ship', blurb: 'Sites, storefront and an editorial calendar on one visual editor.' },
+  { title: 'Serve', art: 'crew-serve', blurb: 'Live chat, a shared inbox, SLA-tracked tickets and booking pages.' },
+  { title: 'Know', art: 'crew-know', blurb: 'Company Brain answers from your own content, with citations.' },
+  { title: 'Automate', art: 'crew-automate', blurb: 'Visual workflows, plus 200+ MCP tools any agent can drive.' },
 ];
 
 const heroMetrics = [
@@ -182,7 +190,7 @@ export function HomeClient({ recentPosts = [] }: { recentPosts?: BlogPostWithRel
         }
         primary={{ href: '/portal/signup', label: 'Start Free' }}
         secondary={{ href: GITHUB_URL, label: 'Read the Source' }}
-        art="city-launch"
+        video
         footnote={
           <>
             <span>★ No seat caps</span>
@@ -240,8 +248,11 @@ export function HomeClient({ recentPosts = [] }: { recentPosts?: BlogPostWithRel
         <MissionControl />
       </CreamBand>
 
-      {/* Claim: a person is not the only thing that can drive it. */}
-      <InkPanel>
+      {/* Claim: a person is not the only thing that can drive it.
+          overflow-hidden is required, not cosmetic: SignalBand anchors the
+          ground station to this band's bottom-right corner with negative
+          offsets, and without the clip it spills into the next section. */}
+      <InkPanel className="relative overflow-hidden">
         <div className="mx-auto max-w-7xl px-6 py-16 sm:py-20">
           <SignalBand
             chips={['Websites', 'CRM', 'Kanban', 'Email', 'Store', 'Brain', 'Bookings', 'Decks', 'Surveys']}

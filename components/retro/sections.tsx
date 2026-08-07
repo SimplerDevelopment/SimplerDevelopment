@@ -13,6 +13,7 @@ import { RetroButton, SectionHeading, Star, InkPanel } from './primitives';
 // Client island — keeps these sections usable from Server Components. See the
 // gate's header for why the dynamic import can't live here.
 import StarFieldGate from './StarFieldGate';
+import HeroConsoleGate from './HeroConsoleGate';
 
 /**
  * Hero. `art` names a file in /public/retro — the illustration sits right of
@@ -26,6 +27,7 @@ export function RetroHero({
   primary,
   secondary,
   art = 'city-launch',
+  video = false,
   footnote,
   stars = true,
 }: {
@@ -36,16 +38,32 @@ export function RetroHero({
   primary?: { href: string; label: string };
   secondary?: { href: string; label: string };
   art?: string;
+  /** Swap the still illustration for the animated console (homepage only). */
+  video?: boolean;
   footnote?: ReactNode;
   stars?: boolean;
 }) {
+  /* The video hero stacks: copy centred on top, console full-width beneath.
+     The side-by-side grid is kept for the still-illustration callers, whose
+     art is roughly 3:2 and sits happily in a half-width column. The console
+     clip is 3.4:1 — in that same column it reads as a thin strip, and it has
+     detail (five running screens) that is the whole point of using it, so it
+     wants the full page width. */
+  const stacked = video;
+
   return (
     <section className="relative isolate overflow-hidden bg-[var(--retro-ink)] text-[var(--retro-cream)]">
       {stars && <StarFieldGate />}
-      <div className="relative mx-auto grid max-w-7xl items-center gap-10 px-6 py-16 sm:py-24 lg:grid-cols-2">
-        <div>
+      <div
+        className={`relative mx-auto max-w-7xl px-6 ${
+          stacked
+            ? 'pt-8 pb-0 sm:pt-10'
+            : 'grid items-center gap-10 py-16 sm:py-24 lg:grid-cols-2'
+        }`}
+      >
+        <div className={stacked ? 'mx-auto max-w-5xl text-center' : ''}>
           {eyebrow && (
-            <p className="eyebrow eyebrow--on-ink flex items-center gap-3">
+            <p className={`eyebrow eyebrow--on-ink flex items-center gap-3 ${stacked ? 'justify-center' : ''}`}>
               <Star className="h-3 w-3" />
               {eyebrow}
             </p>
@@ -59,11 +77,15 @@ export function RetroHero({
               </>
             )}
           </h1>
-          <p className="mt-5 max-w-xl text-base leading-relaxed text-[color-mix(in_srgb,var(--retro-cream)_82%,transparent)] sm:text-lg">
+          <p
+            className={`mt-5 max-w-xl text-base leading-relaxed text-[color-mix(in_srgb,var(--retro-cream)_82%,transparent)] sm:text-lg ${
+              stacked ? 'mx-auto' : ''
+            }`}
+          >
             {subtitle}
           </p>
           {(primary || secondary) && (
-            <div className="mt-8 flex flex-wrap gap-3">
+            <div className={`mt-8 flex flex-wrap gap-3 ${stacked ? 'justify-center' : ''}`}>
               {primary && (
                 <RetroButton href={primary.href} variant="primary" icon="rocket">
                   {primary.label}
@@ -77,21 +99,29 @@ export function RetroHero({
             </div>
           )}
           {footnote && (
-            <div className="mt-6 flex flex-wrap gap-x-6 gap-y-2 text-xs text-[color-mix(in_srgb,var(--retro-cream)_65%,transparent)]">
+            <div
+              className={`mt-6 flex flex-wrap gap-x-6 gap-y-2 text-xs text-[color-mix(in_srgb,var(--retro-cream)_65%,transparent)] ${
+                stacked ? 'justify-center' : ''
+              }`}
+            >
               {footnote}
             </div>
           )}
         </div>
 
-        <div className="relative flex justify-center lg:justify-end">
-          <Image
-            src={`/retro/${art}.webp`}
-            alt=""
-            width={900}
-            height={600}
-            priority
-            className="h-auto w-full max-w-lg object-contain drop-shadow-none"
-          />
+        <div className={stacked ? 'relative mt-10 flex justify-center'  : 'relative flex justify-center lg:justify-end'}>
+          {video ? (
+            <HeroConsoleGate />
+          ) : (
+            <Image
+              src={`/retro/${art}.webp`}
+              alt=""
+              width={900}
+              height={600}
+              priority
+              className="h-auto w-full max-w-lg object-contain drop-shadow-none"
+            />
+          )}
         </div>
       </div>
     </section>
