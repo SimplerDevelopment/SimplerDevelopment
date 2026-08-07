@@ -75,8 +75,11 @@ export default function HeroConsole({ className = '' }: { className?: string }) 
     return () => v.removeEventListener('loadeddata', probe);
   }, [reduced]);
 
-  // Play once per entry. Rewinding on intersect is what makes it replay when
-  // the hero is scrolled back to, rather than sitting on its last frame.
+  // Loops continuously, but only while it is actually on screen — a hero that
+  // keeps decoding video after the visitor has scrolled to the footer is just
+  // burning battery. Resumes rather than rewinds on re-entry: for an ambient
+  // loop, dropping back in mid-cycle reads as "still running", where a hard
+  // restart draws attention to itself every time the hero scrolls back.
   useEffect(() => {
     const v = video.current;
     if (!v || !alphaOk) return;
@@ -84,7 +87,6 @@ export default function HeroConsole({ className = '' }: { className?: string }) 
     const io = new IntersectionObserver(
       ([e]) => {
         if (e.isIntersecting) {
-          v.currentTime = 0;
           // Autoplay can still be refused (low-power mode); the poster is
           // underneath, so a rejection degrades to the still rather than a gap.
           void v.play().catch(() => {});
@@ -99,7 +101,7 @@ export default function HeroConsole({ className = '' }: { className?: string }) 
   }, [alphaOk]);
 
   return (
-    <div className={`relative w-full self-center ${className}`}>
+    <div className={`relative w-full max-w-[959px] self-center ${className}`}>
       {/* self-center is load-bearing: the parent is a flex row, so a stretched
           wrapper made the poster sit at the top while the absolutely-placed
           video centred itself vertically — the two drew the console at
@@ -112,7 +114,7 @@ export default function HeroConsole({ className = '' }: { className?: string }) 
         src="/retro/hero-console-poster.webp"
         alt=""
         width={1128}
-        height={334}
+        height={320}
         priority
         className="h-auto w-full object-contain"
       />
@@ -124,6 +126,7 @@ export default function HeroConsole({ className = '' }: { className?: string }) 
           }`}
           src="/retro/hero-console.webm"
           muted
+          loop
           playsInline
           preload="auto"
           aria-hidden

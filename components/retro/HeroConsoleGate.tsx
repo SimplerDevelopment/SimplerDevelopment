@@ -18,12 +18,12 @@ import Image from 'next/image';
 const HeroConsole = dynamic(() => import('./HeroConsole'), {
   ssr: false,
   loading: () => (
-    <div className="relative w-full self-center">
+    <div className="relative w-full max-w-[959px] self-center">
       <Image
         src="/retro/hero-console-poster.webp"
         alt=""
         width={1128}
-        height={334}
+        height={320}
         priority
         className="h-auto w-full object-contain"
       />

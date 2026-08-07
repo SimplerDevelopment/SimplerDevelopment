@@ -1,13 +1,24 @@
 'use client';
 
 /**
- * Drifting starfield behind the retro hero.
+ * Travelling starfield behind the retro hero.
  *
- * Deliberately small in scope. The design's period read comes from flat
- * illustration, not from 3D — so this stays a slow parallax backdrop rather
- * than anything that competes with the artwork in front of it. Three layers at
- * different depths and speeds are enough to give the hero life; more reads as a
- * screensaver.
+ * Stars stream toward the viewer along Z and recycle to the far plane, so the
+ * hero reads as forward motion rather than a drifting backdrop. It stays a
+ * backdrop in every other sense — the design's period read comes from flat
+ * illustration, and anything that competes with the artwork in front of it is
+ * wrong for this page.
+ *
+ * HOW THE CLEAR CENTRE WORKS. The hero copy is centred over this, so the middle
+ * has to stay quiet. Culling stars by *world* radius does not achieve that: a
+ * star's screen position is x/|z|, so one spawned far away lands near the
+ * vanishing point no matter how large its world radius is. Instead each star is
+ * spawned by SCREEN radius — pick `sr` (world units per unit of depth), then set
+ * its world x/y to `sr * |z|`. Because travel only decreases |z|, screen radius
+ * `sr` is the star's minimum for its whole life, so nothing ever crosses into
+ * the hole. The result is a clear cone down the middle that widens toward the
+ * viewer, which is also what travelling through a tunnel actually looks like.
+ * The hole is stretched horizontally because the text block is wider than tall.
  *
  * Performance rules this obeys, because it renders behind the first thing a
  * visitor sees:
@@ -17,6 +28,8 @@
  *   - honours prefers-reduced-motion by rendering ONE static frame — the stars
  *     still appear, they just stop moving. Removing them entirely would leave a
  *     flat void where the design expects a night sky.
+ *   - positions are mutated in place on one Float32Array; no per-frame
+ *     allocation, no geometry rebuild.
  *
  * Callers should lazy-load this with `next/dynamic({ ssr: false })`; there is
  * no server-rendered fallback for a WebGL canvas.
@@ -24,6 +37,21 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
+
+/**
+ * Seeded LCG, defined at module scope on purpose.
+ *
+ * Inlining `let s = seed` inside a useMemo trips react-hooks/immutability —
+ * the compiler cannot tell a scratch variable inside a pure computation from a
+ * render-phase mutation of shared state. Hoisting the closure factory here
+ * makes the reassignment plainly local to a normal function, and reads better
+ * besides. Deterministic by design: a field that reshuffles between mounts
+ * reads as a flicker rather than as stars.
+ */
+function lcg(seed: number): () => number {
+  let s = seed;
+  return () => ((s = (s * 9301 + 49297) % 233280) / 233280);
+}
 
 /**
  * Star tints, read from the live design tokens rather than pinned as hex.
@@ -37,8 +65,6 @@ import * as THREE from 'three';
  *
  * `--retro-*` lives on `.retro`, not `:root`, so the read has to happen from an
  * element inside that subtree — the canvas host, which is always under it.
- * Falls back to the current token values if the lookup returns nothing (a
- * detached node, or a caller that mounted this outside `.retro`).
  */
 const FALLBACK_CREAM = '#F6F4F0';
 const FALLBACK_GOLD = '#D8B15A';
@@ -49,30 +75,79 @@ function readTint(from: HTMLElement | null, token: string, fallback: string): TH
   return new THREE.Color(v || fallback);
 }
 
-function Layer({ count, depth, speed, size, tint }: { count: number; depth: number; speed: number; size: number; tint: THREE.Color }) {
-  const ref = useRef<THREE.Points>(null);
-  const reduced = usePrefersReducedMotion();
+// Depth range the stars occupy, in world units in front of the camera.
+const Z_FAR = 60;
+const Z_NEAR = 1.5;
+// Screen radius, as world-units-per-unit-depth. The camera's 60° fov gives a
+// half-height of tan(30°) ≈ 0.577, so SR_MIN 0.2 keeps roughly the middle third
+// of the frame height empty; X_STRETCH widens that hole to clear the headline.
+const SR_MIN = 0.2;
+const SR_MAX = 1.45;
+const X_STRETCH = 2.1;
 
-  // Deterministic scatter: a seeded LCG rather than Math.random() so the field
-  // is identical between server-adjacent renders and React strict-mode double
-  // mounts. A field that reshuffles on remount reads as a flicker.
-  const positions = useMemo(() => {
-    let seed = count * 9301 + depth * 49297;
-    const rand = () => ((seed = (seed * 9301 + 49297) % 233280) / 233280);
+/**
+ * One depth band. Splitting into bands rather than one cloud lets the near
+ * band be sparse, large and fast and the far band dense, small and slow, which
+ * is what sells depth — a single uniform cloud reads as flat noise moving.
+ */
+function Layer({
+  count,
+  speed,
+  size,
+  tint,
+  opacity,
+  seed,
+  reduced,
+}: {
+  count: number;
+  speed: number;
+  size: number;
+  tint: THREE.Color;
+  opacity: number;
+  seed: number;
+  reduced: boolean;
+}) {
+  const ref = useRef<THREE.Points>(null);
+
+  // Deterministic scatter: a seeded LCG rather than Math.random(), so the field
+  // is identical between renders and React strict-mode double mounts. A field
+  // that reshuffles on remount reads as a flicker.
+  const { positions, rand } = useMemo(() => {
+    const rnd = lcg(seed);
     const arr = new Float32Array(count * 3);
     for (let i = 0; i < count; i++) {
-      arr[i * 3] = (rand() - 0.5) * 24;
-      arr[i * 3 + 1] = (rand() - 0.5) * 12;
-      arr[i * 3 + 2] = -depth;
+      const z = -(Z_NEAR + rnd() * (Z_FAR - Z_NEAR));
+      const sr = SR_MIN + rnd() * (SR_MAX - SR_MIN);
+      const a = rnd() * Math.PI * 2;
+      const d = Math.abs(z);
+      arr[i * 3] = Math.cos(a) * sr * d * X_STRETCH;
+      arr[i * 3 + 1] = Math.sin(a) * sr * d;
+      arr[i * 3 + 2] = z;
     }
-    return arr;
-  }, [count, depth]);
+    return { positions: arr, rand: rnd };
+  }, [count, seed]);
 
   useFrame((_, delta) => {
     if (reduced || !ref.current) return;
-    // Wrap rather than reset so there is no visible seam when a star recycles.
-    ref.current.position.x -= delta * speed;
-    if (ref.current.position.x < -12) ref.current.position.x += 12;
+    const attr = ref.current.geometry.getAttribute('position') as THREE.BufferAttribute;
+    const arr = attr.array as Float32Array;
+    // Clamp delta: a backgrounded tab resumes with a huge delta, which would
+    // teleport the whole field forward and recycle every star at once.
+    const step = Math.min(delta, 0.05) * speed;
+
+    for (let i = 0; i < count; i++) {
+      const zi = i * 3 + 2;
+      arr[zi] += step;
+      if (arr[zi] > -Z_NEAR) {
+        // Respawn at the far plane on a fresh spoke, keeping the centre clear.
+        const sr = SR_MIN + rand() * (SR_MAX - SR_MIN);
+        const a = rand() * Math.PI * 2;
+        arr[i * 3] = Math.cos(a) * sr * Z_FAR * X_STRETCH;
+        arr[i * 3 + 1] = Math.sin(a) * sr * Z_FAR;
+        arr[zi] = -Z_FAR;
+      }
+    }
+    attr.needsUpdate = true;
   });
 
   return (
@@ -80,17 +155,18 @@ function Layer({ count, depth, speed, size, tint }: { count: number; depth: numb
       <bufferGeometry>
         <bufferAttribute attach="attributes-position" args={[positions, 3]} />
       </bufferGeometry>
-      <pointsMaterial size={size} color={tint} transparent opacity={0.9} sizeAttenuation depthWrite={false} />
+      <pointsMaterial
+        size={size}
+        color={tint}
+        transparent
+        opacity={opacity}
+        sizeAttenuation
+        depthWrite={false}
+      />
     </points>
   );
 }
 
-/**
- * `useSyncExternalStore` rather than useState+useEffect: a media query IS an
- * external store, and reading it into state inside an effect causes the
- * cascading render React now warns about. This also gives the correct SSR
- * value (false) without a flash.
- */
 const MOTION_QUERY = '(prefers-reduced-motion: reduce)';
 
 function subscribeToMotionPreference(onChange: () => void): () => void {
@@ -110,8 +186,6 @@ function usePrefersReducedMotion(): boolean {
 export default function StarField({ className = '' }: { className?: string }) {
   const host = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(true);
-  // Resolved after mount, because getComputedStyle needs a mounted node. The
-  // first frame uses the fallbacks, which are the same values the tokens hold.
   const [tints, setTints] = useState(() => ({
     cream: new THREE.Color(FALLBACK_CREAM),
     gold: new THREE.Color(FALLBACK_GOLD),
@@ -134,15 +208,15 @@ export default function StarField({ className = '' }: { className?: string }) {
     <div ref={host} className={`pointer-events-none absolute inset-0 ${className}`} aria-hidden>
       <Canvas
         dpr={[1, 1.5]}
-        camera={{ position: [0, 0, 6], fov: 60 }}
+        camera={{ position: [0, 0, 0], fov: 60, near: 0.1, far: Z_FAR + 10 }}
         // 'demand' renders a single frame and stops — exactly the static field
         // reduced-motion should get, with no rAF loop left running.
         frameloop={reduced ? 'demand' : visible ? 'always' : 'never'}
         gl={{ antialias: false, alpha: true }}
       >
-        <Layer count={180} depth={8} speed={0.06} size={0.055} tint={tints.cream} />
-        <Layer count={110} depth={5} speed={0.13} size={0.075} tint={tints.cream} />
-        <Layer count={36} depth={3} speed={0.22} size={0.11} tint={tints.gold} />
+        <Layer count={220} speed={5.5} size={0.055} tint={tints.cream} opacity={0.9} seed={9301} reduced={reduced} />
+        <Layer count={150} speed={9} size={0.075} tint={tints.cream} opacity={0.75} seed={49297} reduced={reduced} />
+        <Layer count={45} speed={13} size={0.1} tint={tints.gold} opacity={0.6} seed={233280} reduced={reduced} />
       </Canvas>
     </div>
   );
