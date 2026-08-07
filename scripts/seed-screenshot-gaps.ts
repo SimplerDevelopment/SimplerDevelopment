@@ -32,6 +32,11 @@ async function main() {
   const rowsOf = (r: unknown): Record<string, unknown>[] =>
     Array.isArray(r) ? (r as Record<string, unknown>[]) : ((r as { rows?: Record<string, unknown>[] })?.rows ?? []);
 
+  const hasProducts = async (): Promise<boolean> => {
+    const r = await db.execute(sql.raw('SELECT count(*)::int AS n FROM products'));
+    return Number(rowsOf(r)[0]?.n ?? 0) > 0;
+  };
+
   const count = async (table: string): Promise<number> => {
     const r = await db.execute(sql.raw(`SELECT count(*)::int AS n FROM ${table} WHERE client_id = ${CLIENT_ID}`));
     return Number(rowsOf(r)[0]?.n ?? 0);
@@ -41,15 +46,12 @@ async function main() {
   // `ON CONFLICT DO NOTHING` does NOT make an insert idempotent — a re-run (or
   // a run that died partway) silently duplicates every row. Duplicated seed
   // rows are exactly what put five identical companies in the CRM screenshot.
-  // The capture DB is a throwaway, so guard the whole script instead: re-running
-  // is a no-op, and recovering from a partial run means recreating the DB.
-  if ((await count('client_websites')) > 0 && (await count('brain_playbooks')) > 0) {
-    console.log('screenshot gaps already seeded — nothing to do');
-    return;
-  }
+  // Each section below is therefore guarded on its own table being empty:
+  // re-running is a no-op, and a partial run resumes where it stopped.
+  const empty = async (table: string) => (await count(table)) === 0;
 
   /* ── websites ─────────────────────────────────────────────────────────── */
-  await db.execute(sql`
+  if (await empty('client_websites')) await db.execute(sql`
     INSERT INTO client_websites (client_id, name, subdomain, domain, description, active, public_access)
     VALUES
       (${CLIENT_ID}, 'Northwind Coffee Co.', 'northwindcoffee', 'northwindcoffee.com',
@@ -73,7 +75,7 @@ async function main() {
   /* ── store ────────────────────────────────────────────────────────────── */
   // price is INTEGER CENTS. Seeding dollars here is what makes a storefront
   // read "$24.00" as "$0.24" — keep these in cents.
-  await db.execute(sql`
+  if (!(await hasProducts())) await db.execute(sql`
     INSERT INTO products (website_id, name, slug, short_description, description, price, compare_at_price, cost_price, sku, track_inventory, quantity, status, featured)
     VALUES
       (${siteId}, 'Cold Brew Concentrate', 'cold-brew-concentrate',
@@ -98,7 +100,7 @@ async function main() {
   done.push(`products=${Number(rowsOf(prodCount)[0]?.n ?? 0)}`);
 
   /* ── hosting ──────────────────────────────────────────────────────────── */
-  await db.execute(sql`
+  if (await empty('hosted_sites')) await db.execute(sql`
     INSERT INTO hosted_sites (client_id, name, custom_domain, railway_domain, status, plan, renewal_date, notes)
     VALUES
       (${CLIENT_ID}, 'Northwind Coffee Co. — Production', 'northwindcoffee.com',
@@ -112,7 +114,7 @@ async function main() {
   done.push(`hosted_sites=${await count('hosted_sites')}`);
 
   /* ── chat widget ──────────────────────────────────────────────────────── */
-  await db.execute(sql`
+  if (await empty('chat_widgets')) await db.execute(sql`
     INSERT INTO chat_widgets (client_id, site_id, enabled, greeting_message, away_message, position, primary_color, brain_enabled)
     VALUES (${CLIENT_ID}, ${siteId}, true,
       'Hi there! Questions about our roasts or your order? Ask away.',
@@ -124,7 +126,7 @@ async function main() {
 
   /* ── automations / workflows ──────────────────────────────────────────── */
   const graph = (nodes: unknown) => JSON.stringify(nodes);
-  await db.execute(sql`
+  if (await empty('workflows')) await db.execute(sql`
     INSERT INTO workflows (client_id, name, description, status, trigger, graph, created_by)
     VALUES
       (${CLIENT_ID}, 'Abandoned cart recovery',
@@ -164,7 +166,7 @@ async function main() {
   done.push(`workflows=${await count('workflows')}`);
 
   /* ── publishing campaigns ─────────────────────────────────────────────── */
-  await db.execute(sql`
+  if (await empty('publishing_campaigns')) await db.execute(sql`
     INSERT INTO publishing_campaigns (client_id, name, slug, description, color, start_date, end_date, status, created_by)
     VALUES
       (${CLIENT_ID}, 'Fall Harvest Launch', 'fall-harvest-launch',
@@ -181,7 +183,7 @@ async function main() {
   done.push(`publishing_campaigns=${await count('publishing_campaigns')}`);
 
   /* ── brain org chart ──────────────────────────────────────────────────── */
-  await db.execute(sql`
+  if (await empty('brain_org_units')) await db.execute(sql`
     INSERT INTO brain_org_units (client_id, parent_id, name, slug, path, description, lead_person_id, color, sort_order, created_by)
     VALUES (${CLIENT_ID}, NULL, 'Northwind Coffee Co.', 'northwind', 'northwind',
             'Everything under one roof.', 1, '#1f2937', 0, 1)
@@ -191,7 +193,7 @@ async function main() {
     SELECT id FROM brain_org_units WHERE client_id = ${CLIENT_ID} AND slug = 'northwind' LIMIT 1
   `);
   const rootId = Number(rowsOf(rootRow)[0]?.id);
-  await db.execute(sql`
+  if ((await count('brain_org_units')) < 2) await db.execute(sql`
     INSERT INTO brain_org_units (client_id, parent_id, name, slug, path, description, lead_person_id, color, sort_order, created_by)
     VALUES
       (${CLIENT_ID}, ${rootId}, 'Roasting & Production', 'roasting', ${'northwind/roasting'},
@@ -205,7 +207,7 @@ async function main() {
   done.push(`brain_org_units=${await count('brain_org_units')}`);
 
   /* ── brain playbooks ──────────────────────────────────────────────────── */
-  await db.execute(sql`
+  if (await empty('brain_playbooks')) await db.execute(sql`
     INSERT INTO brain_playbooks (client_id, name, slug, description, status, trigger_kind, category, owner_id, source, created_by)
     VALUES
       (${CLIENT_ID}, 'New wholesale account onboarding', 'wholesale-onboarding',
@@ -220,6 +222,133 @@ async function main() {
     ON CONFLICT DO NOTHING
   `);
   done.push(`brain_playbooks=${await count('brain_playbooks')}`);
+
+  /* ── automation rules (the /portal/automations list) ──────────────────── */
+  // actions[].tool is load-bearing: the rules list renders formatToolName(action.tool),
+  // which has no null guard — an action shaped {type:...} crashes the whole page.
+  await (async () => {
+    if (!(await empty('automation_rules'))) { done.push(`automation_rules=${await count('automation_rules')}(kept)`); return; }
+    await db.execute(sql`
+      INSERT INTO automation_rules (client_id, name, description, trigger, actions, enabled, source, product_scope, execution_count, created_by)
+      VALUES
+        (${CLIENT_ID}, 'Welcome email on signup',
+         'Send the welcome sequence when a new contact is created from a web form.',
+         ${sql.raw(`'${JSON.stringify({ event: 'crm.contact.created' })}'::json`)},
+         ${sql.raw(`'${JSON.stringify([{ tool: 'send_email', template: 'welcome' }])}'::json`)},
+         true, 'manual', 'crm', 128, 1),
+        (${CLIENT_ID}, 'Route wholesale enquiries',
+         'Assign inbound wholesale leads to the retail team and open a deal.',
+         ${sql.raw(`'${JSON.stringify({ event: 'crm.contact.created' })}'::json`)},
+         ${sql.raw(`'${JSON.stringify([{ tool: 'assign_owner' }, { tool: 'create_deal' }])}'::json`)},
+         true, 'manual', 'crm', 41, 1),
+        (${CLIENT_ID}, 'Low stock alert',
+         'Notify the roastery when any product drops below 50 units.',
+         ${sql.raw(`'${JSON.stringify({ event: 'store.inventory.low' })}'::json`)},
+         ${sql.raw(`'${JSON.stringify([{ tool: 'send_notification' }])}'::json`)},
+         true, 'manual', 'store', 17, 1),
+        (${CLIENT_ID}, 'Post-booking follow-up',
+         'Email a recap and a feedback survey 24 hours after a booking completes.',
+         ${sql.raw(`'${JSON.stringify({ event: 'booking.completed' })}'::json`)},
+         ${sql.raw(`'${JSON.stringify([{ tool: 'send_email', delay: 86400 }])}'::json`)},
+         false, 'manual', 'bookings', 9, 1)
+    `);
+    done.push(`automation_rules=${await count('automation_rules')}`);
+  })();
+
+  /* ── proposals ────────────────────────────────────────────────────────── */
+  // line_items use the canonical `quantity` field (NOT the legacy `qty` the
+  // portal editor used to write) — a proposal seeded with `qty` renders $NaN.
+  await (async () => {
+    if (!(await empty('crm_proposals'))) { done.push(`crm_proposals=${await count('crm_proposals')}(kept)`); return; }
+    const items = (rows: [string, number, number][]) =>
+      JSON.stringify(rows.map(([description, quantity, unitPrice], i) => ({
+        id: `li-${i + 1}`, description, quantity, unitPrice, optional: false,
+      })));
+    await db.execute(sql`
+      INSERT INTO crm_proposals (client_id, contact_id, title, summary, status, sections, line_items, fees, currency, client_token, accent_color, sent_at, view_count, created_at)
+      VALUES
+        (${CLIENT_ID}, 1, 'Wholesale Programme — Sunrise Family Office',
+         'Quarterly bean supply, branded packaging and staff training for four offices.',
+         'sent',
+         ${sql.raw(`'${JSON.stringify([{ id: 's1', type: 'heading', content: 'Scope of work' }, { id: 's2', type: 'text', content: 'A standing quarterly supply of two single-origin roasts, co-branded packaging, and a half-day barista training for each office.' }])}'::json`)},
+         ${sql.raw(`'${items([['Single-origin beans — quarterly supply', 4, 185000], ['Co-branded packaging setup', 1, 240000], ['Barista training (half day, per office)', 4, 95000]])}'::json`)},
+         ${sql.raw(`'${JSON.stringify([])}'::json`)},
+         'USD', 'tok-wholesale-sunrise', '#b45309', now() - interval '6 days', 4, now() - interval '8 days'),
+        (${CLIENT_ID}, 2, 'Cafe Fit-Out — Acme Wealth Partners',
+         'Espresso bar build-out, equipment and a twelve-month service plan.',
+         'sent',
+         ${sql.raw(`'${JSON.stringify([{ id: 's1', type: 'heading', content: 'Proposal' }, { id: 's2', type: 'text', content: 'Turn-key espresso bar for the ninth-floor client lounge, including equipment, install and ongoing servicing.' }])}'::json`)},
+         ${sql.raw(`'${items([['La Marzocco Linea Mini + grinder', 1, 890000], ['Bar joinery and install', 1, 460000], ['12-month service plan', 1, 180000]])}'::json`)},
+         ${sql.raw(`'${JSON.stringify([])}'::json`)},
+         'USD', 'tok-fitout-acme', '#2563eb', now() - interval '2 days', 2, now() - interval '3 days'),
+        (${CLIENT_ID}, 3, 'Subscription Pilot — Meridian Law Group',
+         'Three-month office subscription pilot with monthly rotating origins.',
+         'draft',
+         ${sql.raw(`'${JSON.stringify([{ id: 's1', type: 'heading', content: 'Pilot terms' }, { id: 's2', type: 'text', content: 'Three months of rotating single-origin deliveries, cancel any time after month one.' }])}'::json`)},
+         ${sql.raw(`'${items([['Monthly office subscription (3 months)', 3, 220000], ['Onboarding tasting session', 1, 75000]])}'::json`)},
+         ${sql.raw(`'${JSON.stringify([])}'::json`)},
+         'USD', 'tok-pilot-meridian', '#15803d', NULL, 0, now() - interval '1 day')
+    `);
+    done.push(`crm_proposals=${await count('crm_proposals')}`);
+  })();
+
+  /* ── pitch decks ──────────────────────────────────────────────────────── */
+  await (async () => {
+    if (!(await empty('pitch_decks'))) { done.push(`pitch_decks=${await count('pitch_decks')}(kept)`); return; }
+    const slides = (titles: string[]) =>
+      JSON.stringify(titles.map((t, i) => ({
+        id: `sl-${i + 1}`, label: t,
+        blocks: [{ type: 'heading', text: t }, { type: 'text', text: 'Northwind Coffee Co.' }],
+      })));
+    await db.execute(sql`
+      INSERT INTO pitch_decks (client_id, title, slug, description, status, slides, format_version, created_by)
+      VALUES
+        (${CLIENT_ID}, 'Wholesale Partner Deck', 'wholesale-partner-deck',
+         'What partnering with Northwind looks like for cafes and hospitality accounts.',
+         'published',
+         ${sql.raw(`'${slides(['Who we are', 'Our roasts', 'Wholesale pricing', 'Delivery & service', 'Getting started'])}'::json`)}, 2, 1),
+        (${CLIENT_ID}, 'Investor Update — Q3 2026', 'investor-update-q3-2026',
+         'Quarterly trading update, subscription growth and the roastery expansion.',
+         'published',
+         ${sql.raw(`'${slides(['Highlights', 'Revenue', 'Subscription growth', 'Roastery expansion', 'Outlook'])}'::json`)}, 2, 1),
+        (${CLIENT_ID}, 'Brand Story — Origins', 'brand-story-origins',
+         'Founding story, sourcing philosophy and sustainability commitments.',
+         'draft',
+         ${sql.raw(`'${slides(['Origins', 'Sourcing', 'The roast', 'Sustainability'])}'::json`)}, 2, 1)
+    `);
+    done.push(`pitch_decks=${await count('pitch_decks')}`);
+  })();
+
+  /* ── A/B experiments (target a real post) ─────────────────────────────── */
+  await (async () => {
+    const r0 = await db.execute(sql.raw('SELECT count(*)::int AS n FROM ab_experiments'));
+    if (Number(rowsOf(r0)[0]?.n ?? 0) > 0) { done.push('ab_experiments=kept'); return; }
+    await db.execute(sql`
+      INSERT INTO posts (title, slug, post_type, excerpt, content, published, published_at, website_id)
+      VALUES ('Exceptional Coffee, Delivered Fresh', 'home', 'page',
+        'Single-origin beans roasted to order and shipped within 24 hours.',
+        'At Northwind Coffee Co. we work directly with farmers in Ethiopia, Colombia and Guatemala.',
+        true, now() - interval '30 days', ${siteId})
+      ON CONFLICT DO NOTHING
+    `);
+    const postRow = await db.execute(sql`SELECT id FROM posts WHERE website_id = ${siteId} ORDER BY id LIMIT 1`);
+    const postId = Number(rowsOf(postRow)[0]?.id);
+    if (!postId) { done.push('ab_experiments=skipped(no post)'); return; }
+    await db.execute(sql`
+      INSERT INTO ab_experiments (target_type, target_id, post_id, name, hypothesis, status, variant_split, goal_metric, started_at, ended_at, created_by)
+      VALUES
+        ('post', ${postId}, ${postId}, 'Homepage hero — action-first vs value-first',
+         'Leading with "Shop the roast" converts better than leading with the sourcing story.',
+         'running', ${sql.raw(`'${JSON.stringify({ a: 50, b: 50 })}'::json`)}, 'click',
+         now() - interval '11 days', NULL, 1),
+        ('post', ${postId}, ${postId}, 'Free-shipping banner',
+         'Surfacing the free-shipping threshold above the fold lifts add-to-cart.',
+         'completed', ${sql.raw(`'${JSON.stringify({ a: 50, b: 50 })}'::json`)}, 'click',
+         now() - interval '40 days', now() - interval '12 days', 1)
+    `);
+    const r1 = await db.execute(sql.raw('SELECT count(*)::int AS n FROM ab_experiments'));
+    done.push(`ab_experiments=${Number(rowsOf(r1)[0]?.n ?? 0)}`);
+  })();
 
   console.log('SEEDED screenshot gaps →', done.join('  '));
   console.log(`site_id=${siteId} (use SITE_ID=${siteId} for the capture script)`);

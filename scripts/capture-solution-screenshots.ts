@@ -58,7 +58,9 @@ const shots: Shot[] = [
   { slug: 'ai-chatbot', file: '02-widgets', from: '/portal/inbox', linkPrefix: '/portal/inbox/widgets/' },
   // automations
   { slug: 'automations', file: '01-workflows', url: '/portal/automations' },
-  { slug: 'automations', file: '02-workflow-builder', from: '/portal/automations/workflows', linkPrefix: '/portal/automations/workflows/' },
+  // 02-workflow-builder is deliberately absent: the ReactFlow canvas does not
+  // fitView on load, so nodes photograph stacked off-screen, and the page carries
+  // a "Beta — workflows do not execute yet" banner that no marketing shot wants.
   // booking
   { slug: 'booking', file: '01-booking-list', url: '/portal/tools/booking' },
   { slug: 'booking', file: '02-booking-calendar', url: '/portal/tools/booking/calendar' },
@@ -127,7 +129,8 @@ const REVEAL = `(() => {
   // dev overlay — a "Compiling..." badge photographed into a marketing shot is
   // exactly the kind of artifact this gallery must never ship.
   s.textContent='*{opacity:1 !important; transform:none !important; transition:none !important; animation:none !important;}'
-    + 'nextjs-portal,[data-nextjs-toast],[data-nextjs-dev-tools-button],#__next-build-watcher,[data-nextjs-build-indicator]{display:none !important;}';
+    + 'nextjs-portal,[data-nextjs-toast],[data-nextjs-dev-tools-button],#__next-build-watcher,[data-nextjs-build-indicator]{display:none !important;}'
+    + '[data-testid="get-started-checklist"]{display:none !important;}';
   document.head.appendChild(s);
   try{localStorage.setItem('theme','light')}catch(e){}
   document.documentElement.classList.remove('dark');
@@ -148,6 +151,10 @@ async function audit(page: Page, shot: Shot): Promise<Violation[]> {
     // rendered, so strip them from the audited copy and check the font itself.
     const clone = root.cloneNode(true) as HTMLElement;
     clone.querySelectorAll('.material-icons, .material-symbols-outlined').forEach((n) => n.remove());
+    // The get-started checklist says "Create your first survey" even when the
+    // page below it is full of real surveys — auditing it produces a false
+    // empty-state. It's also onboarding chrome no marketing shot wants.
+    clone.querySelectorAll('[data-testid="get-started-checklist"]').forEach((n) => n.remove());
     return {
       text: clone.innerText || '',
       iconFontLoaded: document.fonts.check('24px "Material Icons"'),
