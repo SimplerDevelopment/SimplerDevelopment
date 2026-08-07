@@ -182,7 +182,7 @@
     "c8": "^11.0.0",
     "dependency-cruiser": "^17.4.3",
     "drizzle-kit": "^0.31.8",
-    "eslint": "^9",
+    "eslint": "^10",
     "eslint-config-next": "16.2.10",
     "eslint-plugin-react-hooks": "^7.1.1",
     "fallow": "^2.93.0",
