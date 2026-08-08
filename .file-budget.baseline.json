@@ -44,7 +44,7 @@
   "app/portal/websites/[siteId]/branding/page.tsx": 1063,
   "app/portal/websites/[siteId]/media/page.tsx": 583,
   "app/portal/websites/[siteId]/store/orders/[orderId]/page.tsx": 890,
-  "app/portal/websites/[siteId]/store/products/[productId]/page.tsx": 1369,
+  "app/portal/websites/[siteId]/store/products/[productId]/page.tsx": 1371,
   "app/portal/websites/[siteId]/store/settings/page.tsx": 1463,
   "app/portal/websites/[siteId]/store/shipping/page.tsx": 676,
   "app/proposal/[token]/page.tsx": 689,
