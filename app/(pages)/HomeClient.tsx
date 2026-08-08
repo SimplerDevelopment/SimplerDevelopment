@@ -100,10 +100,17 @@ const restModules: ManifestModule[] = [
 // replacement rather than a rename hunt through the codebase.
 //
 // Each figure is picked so the prop matches the work — blueprint on Ship,
-// checklist on Serve, tablet on Know, comms rig on Automate — and so the row
-// reads as distinct individuals rather than one archetype recoloured. Serve is
-// a service robot rather than a person, which is also the honest illustration
-// for the lane that includes an AI chatbot answering at 2am.
+// checklist on Serve, tablet on Know, rolled plans and a pen on Automate (you
+// draw a workflow before you run it) — and so the row reads as distinct
+// individuals rather than one archetype recoloured. Serve is a service robot
+// rather than a person, which is also the honest illustration for the lane that
+// includes an AI chatbot answering at 2am.
+//
+// Frame convention, if a lane's art is ever re-cut: 600x900 canvas, figure
+// trimmed on an alpha>32 bbox (the sources carry a faint glow that alpha>0
+// would keep), scaled to ~780-800px tall, centred near x=300 with the feet
+// landing around y=830. Matching it matters — the lanes sit in one row, and a
+// figure standing on a different baseline reads as a mistake.
 const crewLanes: CrewLane[] = [
   { title: 'Sell', art: 'crew-sell', blurb: 'CRM, deals, proposals and contracts with e-signature built in.' },
   { title: 'Ship', art: 'crew-ship', blurb: 'Sites, storefront and an editorial calendar on one visual editor.' },
