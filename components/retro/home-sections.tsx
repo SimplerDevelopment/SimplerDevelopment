@@ -441,7 +441,7 @@ export function LicencePlate({ claim, body, support }: { claim: ReactNode; body:
         </div>
       </div>
 
-      {/* The art stands ON the top rule and breaks above it.
+      {/* The art stands ON the top rule and breaks above it — on md and up only.
           How that works: each cell has no top padding, so its image box starts
           flush with the rule. The box is short (120px) and aligns its image to
           the BOTTOM, so anything taller than the box overflows upward, through
@@ -451,11 +451,23 @@ export function LicencePlate({ claim, body, support }: { claim: ReactNode; body:
           900x257 (console) to 885x876 (robot), so at a shared width they end up
           wildly different heights; bottom-aligning them puts every base on one
           line and lets the tall ones tower. Forcing a uniform height instead
-          would letterbox the wide console to a sliver and flatten the effect. */}
-      <div className="mt-28 grid grid-cols-1 gap-px border-y border-[color-mix(in_srgb,var(--retro-mid)_34%,transparent)] bg-[color-mix(in_srgb,var(--retro-mid)_34%,transparent)] md:grid-cols-3">
+          would letterbox the wide console to a sliver and flatten the effect.
+
+          WHY IT STOPS BELOW md. The effect assumes empty space above the rule.
+          That holds when the cells sit SIDE BY SIDE, and stops holding the
+          moment they stack: below md each cell's neighbour above is the
+          previous cell's paragraph, so the overflow lands on live text. At a
+          250px width the robot renders 247px tall against a 120px box — 127px
+          of bleed, which on a phone covered most of "docker compose up, run the
+          migrations, go" and made the sentence unreadable.
+          So on mobile the box sizes to its image (h-auto) and the cell takes
+          back its top padding: images sit in flow, nothing overlaps, and the
+          row's top margin shrinks because there is no longer a bleed to clear.
+          Desktop is untouched. */}
+      <div className="mt-14 grid grid-cols-1 gap-px border-y border-[color-mix(in_srgb,var(--retro-mid)_34%,transparent)] bg-[color-mix(in_srgb,var(--retro-mid)_34%,transparent)] md:mt-28 md:grid-cols-3">
         {support.map((s) => (
-          <div key={s.title} className="relative flex flex-col bg-[var(--retro-cream)] px-6 pb-7">
-            <div className="flex h-[120px] items-end justify-center">
+          <div key={s.title} className="relative flex flex-col bg-[var(--retro-cream)] px-6 pb-7 pt-8 md:pt-0">
+            <div className="flex h-auto items-end justify-center md:h-[120px]">
               <Image
                 src={`/retro/${s.art}.webp`}
                 alt=""
