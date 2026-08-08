@@ -34,9 +34,11 @@
  * Callers should lazy-load this with `next/dynamic({ ssr: false })`; there is
  * no server-rendered fallback for a WebGL canvas.
  */
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
+
+import { usePrefersReducedMotion } from './use-motion-gates';
 
 /**
  * Seeded LCG, defined at module scope on purpose.
@@ -164,22 +166,6 @@ function Layer({
         depthWrite={false}
       />
     </points>
-  );
-}
-
-const MOTION_QUERY = '(prefers-reduced-motion: reduce)';
-
-function subscribeToMotionPreference(onChange: () => void): () => void {
-  const mq = window.matchMedia(MOTION_QUERY);
-  mq.addEventListener('change', onChange);
-  return () => mq.removeEventListener('change', onChange);
-}
-
-function usePrefersReducedMotion(): boolean {
-  return useSyncExternalStore(
-    subscribeToMotionPreference,
-    () => window.matchMedia(MOTION_QUERY).matches,
-    () => false, // server: assume motion is fine, the client corrects on mount
   );
 }
 
