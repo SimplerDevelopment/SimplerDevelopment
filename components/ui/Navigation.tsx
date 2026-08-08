@@ -24,15 +24,30 @@ export function Navigation() {
     if (mobileMenuOpen) closeMobileMenu();
   }, [pathname]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Prevent body scroll when menu is open
+  // Lock scrolling while the drawer is open — on the ROOT element, not <body>.
+  //
+  // This was `document.body.style.overflow` and it failed twice over. Locking
+  // body makes body a scroll container, which silently breaks the `sticky`
+  // header above: its offset then resolves against a container that never
+  // scrolls, so it renders at its static document position — 2,600px above the
+  // viewport on a scrolled page. The drawer is anchored `top-16` on the
+  // assumption the header is there, so opening the menu left a gap with page
+  // content showing through and no visible way to close it.
+  //
+  // And it did not even lock: measured on production in both engines, a wheel
+  // event still scrolled the page 2600 → 3000 with body overflow hidden.
+  // Locking the root element holds the header at top:0 AND genuinely blocks
+  // scroll (verified in WebKit and Chromium). Reverting this to `body` will
+  // reintroduce a bug that reads as "the top bar disappears".
   useEffect(() => {
+    const root = document.documentElement;
     if (mobileMenuOpen) {
-      document.body.style.overflow = 'hidden';
+      root.style.overflow = 'hidden';
     } else {
-      document.body.style.overflow = 'unset';
+      root.style.overflow = '';
     }
     return () => {
-      document.body.style.overflow = 'unset';
+      root.style.overflow = '';
     };
   }, [mobileMenuOpen]);
 
