@@ -101,7 +101,7 @@ const restModules: ManifestModule[] = [
 //
 // Each figure is picked so the prop matches the work, and so the row reads as
 // distinct individuals rather than one archetype recoloured:
-//   Sell      helmet under one arm, mid-wave — the greeting
+//   Sell      headset and tablet — a call in progress, which is the job
 //   Ship      rolled plans and a pen — you draw it before you build it
 //   Serve     a service robot with a checklist, not a person: the honest
 //             illustration for the lane that includes a chatbot answering at 2am
