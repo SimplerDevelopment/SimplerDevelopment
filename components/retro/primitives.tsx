@@ -227,7 +227,7 @@ export function RetroBadge({ children, tone = 'gold' }: { children: ReactNode; t
   } as const;
   return (
     <span
-      className={`font-display inline-flex items-center rounded border px-2.5 py-1 text-[0.65rem] font-bold uppercase tracking-[0.14em] ${tones[tone]}`}
+      className={`font-display inline-flex items-center rounded border px-2.5 py-1 text-[0.7rem] font-bold uppercase tracking-[0.14em] ${tones[tone]}`}
     >
       {children}
     </span>
