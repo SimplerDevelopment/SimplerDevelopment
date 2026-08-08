@@ -24,24 +24,10 @@
  * keyed frame, so the fallback is not a downgrade in composition, only in
  * motion.
  */
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 
-const MOTION_QUERY = '(prefers-reduced-motion: reduce)';
-
-function subscribeToMotionPreference(onChange: () => void): () => void {
-  const mq = window.matchMedia(MOTION_QUERY);
-  mq.addEventListener('change', onChange);
-  return () => mq.removeEventListener('change', onChange);
-}
-
-function usePrefersReducedMotion(): boolean {
-  return useSyncExternalStore(
-    subscribeToMotionPreference,
-    () => window.matchMedia(MOTION_QUERY).matches,
-    () => false, // server: assume motion is fine, the client corrects on mount
-  );
-}
+import { usePrefersReducedMotion } from './use-motion-gates';
 
 export default function HeroConsole({ className = '' }: { className?: string }) {
   const video = useRef<HTMLVideoElement>(null);

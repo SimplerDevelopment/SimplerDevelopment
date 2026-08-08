@@ -30,10 +30,12 @@
  *   - scroll work happens in a rAF-throttled handler writing to refs, so it
  *     never triggers a React render
  */
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Image from 'next/image';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
+
+import { usePrefersReducedMotion } from './use-motion-gates';
 
 /**
  * Seeded LCG, defined at module scope on purpose.
@@ -48,22 +50,6 @@ import * as THREE from 'three';
 function lcg(seed: number): () => number {
   let s = seed;
   return () => ((s = (s * 9301 + 49297) % 233280) / 233280);
-}
-
-const MOTION_QUERY = '(prefers-reduced-motion: reduce)';
-
-function subscribeToMotionPreference(onChange: () => void): () => void {
-  const mq = window.matchMedia(MOTION_QUERY);
-  mq.addEventListener('change', onChange);
-  return () => mq.removeEventListener('change', onChange);
-}
-
-function usePrefersReducedMotion(): boolean {
-  return useSyncExternalStore(
-    subscribeToMotionPreference,
-    () => window.matchMedia(MOTION_QUERY).matches,
-    () => false,
-  );
 }
 
 function token(host: HTMLElement | null, name: string, fallback: string): string {
