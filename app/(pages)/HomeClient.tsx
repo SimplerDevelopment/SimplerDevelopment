@@ -99,12 +99,14 @@ const restModules: ManifestModule[] = [
 // Art is named for the LANE, not the character, so a reassignment is a file
 // replacement rather than a rename hunt through the codebase.
 //
-// Each figure is picked so the prop matches the work — blueprint on Ship,
-// checklist on Serve, tablet on Know, rolled plans and a pen on Automate (you
-// draw a workflow before you run it) — and so the row reads as distinct
-// individuals rather than one archetype recoloured. Serve is a service robot
-// rather than a person, which is also the honest illustration for the lane that
-// includes an AI chatbot answering at 2am.
+// Each figure is picked so the prop matches the work, and so the row reads as
+// distinct individuals rather than one archetype recoloured:
+//   Sell      helmet under one arm, mid-wave — the greeting
+//   Ship      rolled plans and a pen — you draw it before you build it
+//   Serve     a service robot with a checklist, not a person: the honest
+//             illustration for the lane that includes a chatbot answering at 2am
+//   Know      tablet and stylus — reading back what the company already knows
+//   Automate  a laptop running a launch — the thing that goes without you
 //
 // Frame convention, if a lane's art is ever re-cut: 600x900 canvas, figure
 // trimmed on an alpha>32 bbox (the sources carry a faint glow that alpha>0
