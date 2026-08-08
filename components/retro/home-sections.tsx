@@ -136,7 +136,7 @@ function ModuleCell({ module: m, index, lead = false }: { module: ManifestModule
         {m.description}
       </p>
       {m.tag && (
-        <span className="font-display col-start-2 mt-2 flex items-center gap-2 text-[0.6rem] font-bold uppercase tracking-[0.16em] text-[var(--retro-label)]">
+        <span className="font-display col-start-2 mt-2 flex items-center gap-2 text-[0.7rem] font-bold uppercase tracking-[0.16em] text-[var(--retro-label)]">
           <Star className="h-2.5 w-2.5 text-[var(--retro-gold)]" />
           {m.tag}
         </span>
@@ -204,7 +204,19 @@ export function MissionControl() {
           <span className="h-2.5 w-2.5 rounded-full bg-[var(--retro-orange)]" />
           <span className="h-2.5 w-2.5 rounded-full bg-[color-mix(in_srgb,var(--retro-gold)_30%,transparent)]" />
           <span className="h-2.5 w-2.5 rounded-full bg-[color-mix(in_srgb,var(--retro-gold)_30%,transparent)]" />
-          <span className="font-display ml-2 text-[0.62rem] font-bold uppercase tracking-[0.2em] text-[var(--retro-gold)]">
+          {/* 0.7rem (11.2px) is the floor for every uppercase label in this
+              mockup, and there is no size below it anywhere in this file.
+              These were 0.55-0.66rem, chosen against a wide desktop chrome
+              where they read as fine print. They measured 8.8-10.6px, which is
+              under the ~11px most people can comfortably read, and the mockup
+              narrows on a phone while the type does not narrow with it — so the
+              fine print had to grow rather than the frame shrink.
+              A mobile-only bump was tried first and rejected: it left desktop
+              sitting at 8.8px, which has the same problem for the same reason.
+              The wide tracking on these labels means a raise costs more width
+              than the rem delta suggests; measured after, the console still has
+              no horizontal overflow at 320, 390 or 1440. */}
+          <span className="font-display ml-2 text-[0.72rem] font-bold uppercase tracking-[0.2em] text-[var(--retro-gold)]">
             Workspace · Overview
           </span>
         </div>
@@ -216,7 +228,7 @@ export function MissionControl() {
           >
             {NAV_GROUPS.map((g) => (
               <div key={g.label} className="contents">
-                <span className="font-display px-2.5 pt-2 pb-1.5 text-[0.58rem] font-bold uppercase tracking-[0.18em] text-[color-mix(in_srgb,var(--retro-cream)_45%,transparent)]">
+                <span className="font-display px-2.5 pt-2 pb-1.5 text-[0.7rem] font-bold uppercase tracking-[0.18em] text-[color-mix(in_srgb,var(--retro-cream)_45%,transparent)]">
                   {g.label}
                 </span>
                 {g.items.map((item) => (
@@ -239,7 +251,7 @@ export function MissionControl() {
             <div className="grid grid-cols-2 gap-px border border-[color-mix(in_srgb,var(--retro-gold)_30%,transparent)] bg-[color-mix(in_srgb,var(--retro-gold)_30%,transparent)] sm:grid-cols-4">
               {TILES.map((t) => (
                 <div key={t.label} className="bg-[var(--retro-ink)] px-3.5 py-3">
-                  <span className="font-display block text-[0.58rem] font-bold uppercase tracking-[0.14em] text-[color-mix(in_srgb,var(--retro-cream)_50%,transparent)]">
+                  <span className="font-display block text-[0.7rem] font-bold uppercase tracking-[0.14em] text-[color-mix(in_srgb,var(--retro-cream)_50%,transparent)]">
                     {t.label}
                   </span>
                   <b className="font-display mt-1 block text-2xl font-extrabold tabular-nums text-[var(--retro-cream)]">
@@ -297,7 +309,7 @@ export function MissionControl() {
                     <div key={s.name} className="flex items-center gap-2.5 text-[0.76rem] text-[color-mix(in_srgb,var(--retro-cream)_80%,transparent)]">
                       <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${TONE_FILL[s.tone]}`} />
                       {s.name}
-                      <span className="font-display ml-auto text-[0.55rem] font-bold uppercase tracking-[0.12em] text-[color-mix(in_srgb,var(--retro-cream)_50%,transparent)]">
+                      <span className="font-display ml-auto text-[0.7rem] font-bold uppercase tracking-[0.12em] text-[color-mix(in_srgb,var(--retro-cream)_50%,transparent)]">
                         {s.state}
                       </span>
                     </div>
@@ -313,7 +325,7 @@ export function MissionControl() {
                     key={f.text}
                     className="flex flex-wrap items-center gap-x-3 gap-y-0.5 bg-[var(--retro-ink)] px-3 py-2 text-[0.78rem] text-[color-mix(in_srgb,var(--retro-cream)_82%,transparent)]"
                   >
-                    <span className="font-display w-auto shrink-0 text-[0.55rem] font-bold uppercase tracking-[0.12em] text-[var(--retro-gold)] sm:w-[8.5rem]">
+                    <span className="font-display w-auto shrink-0 text-[0.7rem] font-bold uppercase tracking-[0.12em] text-[var(--retro-gold)] sm:w-[8.5rem]">
                       {f.mod}
                     </span>
                     {f.text}
@@ -335,7 +347,7 @@ export function MissionControl() {
         height={257}
         className="-mt-px w-[min(420px,80%)] opacity-90"
       />
-      <p className="font-display mt-4 text-center text-[0.66rem] font-bold uppercase tracking-[0.14em] text-[color-mix(in_srgb,var(--retro-ink)_70%,var(--retro-cream))]">
+      <p className="font-display mt-4 text-center text-[0.7rem] font-bold uppercase tracking-[0.14em] text-[color-mix(in_srgb,var(--retro-ink)_70%,var(--retro-cream))]">
         Interface preview · sample workspace, not a customer account
       </p>
     </div>
@@ -345,7 +357,7 @@ export function MissionControl() {
 function Panel({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div className="min-w-0 border border-[color-mix(in_srgb,var(--retro-gold)_30%,transparent)] p-3.5">
-      <h4 className="font-display mb-3 text-[0.6rem] font-bold uppercase tracking-[0.16em] text-[color-mix(in_srgb,var(--retro-cream)_55%,transparent)]">
+      <h4 className="font-display mb-3 text-[0.72rem] font-bold uppercase tracking-[0.16em] text-[color-mix(in_srgb,var(--retro-cream)_55%,transparent)]">
         {title}
       </h4>
       {children}
@@ -380,7 +392,7 @@ export function SignalBand({ chips, children }: { chips: string[]; children: Rea
           {chips.map((c) => (
             <span
               key={c}
-              className="font-display rounded-sm border border-[color-mix(in_srgb,var(--retro-gold)_30%,transparent)] px-2.5 py-1.5 text-[0.64rem] font-bold uppercase tracking-[0.1em] text-[color-mix(in_srgb,var(--retro-cream)_72%,transparent)]"
+              className="font-display rounded-sm border border-[color-mix(in_srgb,var(--retro-gold)_30%,transparent)] px-2.5 py-1.5 text-[0.7rem] font-bold uppercase tracking-[0.1em] text-[color-mix(in_srgb,var(--retro-cream)_72%,transparent)]"
             >
               {c}
             </span>
