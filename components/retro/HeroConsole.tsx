@@ -18,11 +18,26 @@
  * WHY THE ALPHA PROBE: Safari plays VP9 WebM but does not composite its alpha.
  * Feature-detecting with canPlayType is therefore a trap — it reports
  * "probably", the video plays, and the user gets a bright green rectangle in
- * the hero. So instead the first decoded frame is drawn to a 1x1 canvas and its
- * corner alpha is read. Transparent → reveal the video. Anything else → leave
- * the static poster up and never show the video at all. The poster is the same
- * keyed frame, so the fallback is not a downgrade in composition, only in
- * motion.
+ * the hero. So a frame is drawn to a 1x1 canvas and its corner alpha is read.
+ * Transparent → play the video. Anything else → leave the static poster up.
+ * The poster is the same keyed frame, so the fallback costs motion, not
+ * composition.
+ *
+ * WHY THE PROBE IS ITS OWN 604-BYTE FILE. This used to probe the real clip,
+ * which meant Safari downloaded ~500KB over cellular, decoded it, failed the
+ * check, and showed the poster anyway — every byte wasted. alpha-probe.webm is
+ * a single 16x16 fully-transparent VP9-alpha frame, and it returns the *same*
+ * verdict as the real clip in both engines (measured: Chromium 0/0, WebKit
+ * 255/255). So the decision now happens before the real file is requested, and
+ * `src` is only set once alpha is confirmed.
+ *
+ * Two things this is deliberately NOT:
+ *   - not a UA sniff. This is a capability test, so the day WebKit ships alpha
+ *     compositing the video simply starts working with no code change.
+ *   - not a data: URI. WebKit taints a canvas drawn from data:-sourced media,
+ *     so the read threw SecurityError instead of returning a pixel. It failed
+ *     closed, which is the right outcome for the wrong reason — a same-origin
+ *     file gives an honest pixel value and can't mask a real alpha reading.
  */
 import { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
@@ -34,31 +49,42 @@ export default function HeroConsole({ className = '' }: { className?: string }) 
   const [alphaOk, setAlphaOk] = useState(false);
   const reduced = usePrefersReducedMotion();
 
-  // Read the alpha of a corner pixel from the first decoded frame. Same-origin
-  // asset, so the canvas is not tainted; the try/catch is for the case where a
-  // browser refuses the read anyway — failing closed keeps the poster.
+  // Decode the 604-byte probe and read one pixel of it. Every exit path that
+  // is not "definitely transparent" leaves alphaOk false, so the real clip is
+  // never requested: a decode error, a 404, a canvas the browser refuses to
+  // read, or a browser that simply paints the frame opaque.
   useEffect(() => {
-    const v = video.current;
-    if (!v || reduced) return;
+    if (reduced) return;
 
-    const probe = () => {
+    const v = document.createElement('video');
+    v.muted = true;
+    v.playsInline = true;
+    v.preload = 'auto';
+
+    const read = () => {
       try {
         const c = document.createElement('canvas');
         c.width = 1;
         c.height = 1;
         const ctx = c.getContext('2d', { willReadFrequently: true });
         if (!ctx) return;
-        // Sample a 24px corner block — background in every frame of the clip.
-        ctx.drawImage(v, 0, 0, 24, 24, 0, 0, 1, 1);
+        ctx.drawImage(v, 0, 0, 8, 8, 0, 0, 1, 1);
         setAlphaOk(ctx.getImageData(0, 0, 1, 1).data[3] === 0);
       } catch {
         setAlphaOk(false);
       }
     };
 
-    if (v.readyState >= 2) probe();
-    else v.addEventListener('loadeddata', probe, { once: true });
-    return () => v.removeEventListener('loadeddata', probe);
+    v.addEventListener('loadeddata', read, { once: true });
+    v.addEventListener('error', () => setAlphaOk(false), { once: true });
+    v.src = '/retro/alpha-probe.webm';
+
+    return () => {
+      v.removeEventListener('loadeddata', read);
+      // Drop the source so a probe still in flight cannot resolve after unmount.
+      v.removeAttribute('src');
+      v.load();
+    };
   }, [reduced]);
 
   // Loops continuously, but only while it is actually on screen — a hero that
@@ -104,12 +130,12 @@ export default function HeroConsole({ className = '' }: { className?: string }) 
         priority
         className="h-auto w-full object-contain"
       />
-      {!reduced && (
+      {/* Mounted only once the probe has confirmed alpha, so the ~500KB clip is
+          never requested on an engine that would refuse to composite it. */}
+      {!reduced && alphaOk && (
         <video
           ref={video}
-          className={`absolute inset-0 h-full w-full object-contain transition-opacity duration-300 ${
-            alphaOk ? 'opacity-100' : 'opacity-0'
-          }`}
+          className="absolute inset-0 h-full w-full object-contain opacity-100 transition-opacity duration-300"
           src="/retro/hero-console.webm"
           muted
           loop
