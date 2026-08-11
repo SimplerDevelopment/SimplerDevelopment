@@ -166,7 +166,7 @@ export default function ComparePage() {
         title="Ready To Compare Against Your Own Stack?"
         subtitle="Talk to the crew, or go explore the modules yourself."
         primary={{ href: '/contact', label: 'Contact Us For Managed Hosting' }}
-        secondary={{ href: '/solutions', label: 'Explore The Platform' }}
+        secondary={{ href: '/calculator', label: 'Price It Against Your Stack' }}
         art="satellite-dish"
       />
     </>
