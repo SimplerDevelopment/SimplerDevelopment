@@ -187,6 +187,32 @@ if [[ "$LAYER" == "all" || "$LAYER" == "integration" ]]; then
     # work, then re-prefix to match the in-test convention (`@tenancy`).
     INT_TAG="${TAG#@}"
     INT_VITEST_ARGS+=(--testNamePattern "@${INT_TAG}")
+
+    # …but --testNamePattern only decides which tests RUN. vitest still loads
+    # and transforms every matching file to discover the names inside it: a
+    # measured tenancy run collected 220 files and 2192 tests to execute 458,
+    # skipping 164 files entirely. Narrowing to files that actually contain the
+    # tag keeps the name filter authoritative (a stray file can't sneak untagged
+    # tests in) while skipping the rest.
+    #
+    # Worth calibrating: this is a SMALL win. In that run transform+import was
+    # 37s of 1349s wall — under 3%. The cost is test execution (2522s of CPU
+    # across 458 tests, ~5.5s each) divided by `maxWorkers` in vitest.config.ts,
+    # which is where any real speedup has to come from.
+    #
+    # Falls back to the unfiltered run if grep finds nothing, so a tag that
+    # exists only in describe-block metadata still behaves as before rather
+    # than silently running zero tests.
+    INT_TAG_FILES=()
+    while IFS= read -r f; do
+      [[ -n "$f" ]] && INT_TAG_FILES+=("$f")
+    done < <(grep -rl -- "@${INT_TAG}" tests/integration --include='*.test.ts' 2>/dev/null | sort)
+    if (( ${#INT_TAG_FILES[@]} > 0 )); then
+      echo ">> tag '@${INT_TAG}' found in ${#INT_TAG_FILES[@]} file(s) — restricting the run to those"
+      INT_VITEST_ARGS+=("${INT_TAG_FILES[@]}")
+    else
+      echo ">> tag '@${INT_TAG}' matched no files by grep — running the full integration set"
+    fi
   fi
   if [[ "$NO_COVERAGE" == "1" ]]; then
     run_step "integration" npx vitest run "${INT_VITEST_ARGS[@]}"
