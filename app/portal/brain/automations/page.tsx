@@ -293,8 +293,8 @@ function getEventScope(event: string | null | undefined): string {
   return 'other';
 }
 
-function formatToolName(tool: string): string {
-  return tool.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+function formatToolName(tool?: string | null): string { // untyped JSON — a row missing `tool` crashed the whole rules list
+  return tool ? tool.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) : 'Unknown action';
 }
 
 function timeAgo(dateStr: string): string {
@@ -745,7 +745,7 @@ export default function BrainAutomationsPage() {
             </div>
           ) : (
             rules.map((rule) => {
-              const scope = getEventScope(rule.trigger.event);
+              const scope = getEventScope(rule.trigger?.event ?? '');
               return (
                 <div
                   key={rule.id}
@@ -776,11 +776,11 @@ export default function BrainAutomationsPage() {
                           </span>
                           {rule.schedule
                             ? describeScheduleClient(rule.schedule)
-                            : (EVENT_LABELS[rule.trigger.event] || rule.trigger.event)}
+                            : (EVENT_LABELS[rule.trigger?.event ?? ''] || rule.trigger?.event || 'Unknown trigger')}
                         </span>
                         <span className="flex items-center gap-1">
                           <span className="material-icons text-xs">arrow_forward</span>
-                          {rule.actions.length} action{rule.actions.length !== 1 ? 's' : ''}
+                          {rule.actions?.length ?? 0} action{(rule.actions?.length ?? 0) !== 1 ? 's' : ''}
                         </span>
                         {rule.executionCount > 0 && (
                           <span className="flex items-center gap-1">
@@ -803,7 +803,7 @@ export default function BrainAutomationsPage() {
 
                       {/* Action chips */}
                       <div className="flex flex-wrap gap-1.5 mt-2">
-                        {rule.actions.map((action, i) => (
+                        {(rule.actions ?? []).map((action, i) => (
                           <span
                             key={i}
                             className="text-[10px] font-mono bg-muted px-2 py-0.5 rounded"
@@ -967,7 +967,7 @@ export default function BrainAutomationsPage() {
                         <span className="material-icons text-xs">sensors</span>
                         <span>{EVENT_LABELS[tpl.rule.trigger.event] || tpl.rule.trigger.event}</span>
                         <span className="material-icons text-xs">arrow_forward</span>
-                        <span className="font-mono">{formatToolName(tpl.rule.actions[0].tool)}</span>
+                        <span className="font-mono">{formatToolName(tpl.rule.actions[0]?.tool)}</span>
                       </div>
                       <button
                         onClick={() => handleInstallTemplate(tpl)}

@@ -12,8 +12,8 @@ interface Product {
   name: string;
   slug: string;
   status: string;
-  priceCents: number;
-  compareAtPriceCents?: number | null;
+  price: number;
+  compareAtPrice?: number | null;
   quantity: number;
   trackInventory: boolean;
   category?: { id: number; name: string } | null;
@@ -335,10 +335,10 @@ export default function ProductsListPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3 font-medium text-foreground">
-                      {formatMoney(product.priceCents)}
-                      {product.compareAtPriceCents && (
+                      {formatMoney(product.price)}
+                      {product.compareAtPrice && (
                         <span className="text-xs text-muted-foreground line-through ml-1.5">
-                          {formatMoney(product.compareAtPriceCents)}
+                          {formatMoney(product.compareAtPrice)}
                         </span>
                       )}
                     </td>

@@ -8,11 +8,15 @@ export function formatMoney(
   opts: { currency?: string; fractionDigits?: number } = {},
 ): string {
   const { currency = 'USD', fractionDigits } = opts;
+  // A non-finite amount means a bug upstream (usually a missing field on untyped
+  // JSON). Render $0.00 rather than "$NaN" — this formatter feeds client-facing
+  // proposals, invoices and storefront checkout, where "$NaN" is unshippable.
+  const amount = Number.isFinite(cents) ? cents : 0;
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency,
     ...(fractionDigits != null
       ? { minimumFractionDigits: fractionDigits, maximumFractionDigits: fractionDigits }
       : {}),
-  }).format(cents / 100);
+  }).format(amount / 100);
 }

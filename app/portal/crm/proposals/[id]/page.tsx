@@ -6,6 +6,8 @@ import { sanitizeRichHtml } from '@/lib/security/sanitize-html';
 import CrmCompanyTypeaheadPicker from '@/components/portal/CrmCompanyTypeaheadPicker';
 import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
 import { pBtnPrimary, pBtnGhost, pBtnSoft, pCard, pCardPad, pInput, pSelect, pSectionTitle } from '@/components/portal/portal-ui';
+import { normalizeLineItems, lineItemTotal, sumLineItems } from '@/lib/proposals/line-items';
+import { formatMoney as fmtCurrency } from '@/lib/utils/money';
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -21,7 +23,7 @@ interface LineItem {
   id: string;
   description: string;
   details: string;
-  qty: number;
+  quantity: number;
   unitPrice: number;
   optional: boolean;
 }
@@ -89,10 +91,6 @@ const statusColor: Record<string, string> = {
   declined: 'bg-red-100 text-red-700',
   expired: 'bg-gray-100 text-gray-500',
 };
-
-function fmtCurrency(cents: number): string {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100);
-}
 
 function uid(): string {
   return crypto.randomUUID();
@@ -170,7 +168,7 @@ export default function ProposalEditorPage() {
     setValidUntil(p.validUntil ? p.validUntil.slice(0, 10) : '');
     setFooterText(p.footerText ?? '');
     setSections(Array.isArray(p.sections) ? p.sections : []);
-    setLineItems(Array.isArray(p.lineItems) ? p.lineItems : []);
+    setLineItems(normalizeLineItems(p.lineItems) as LineItem[]);
     setFees(Array.isArray(p.fees) ? p.fees : []);
     setLoading(false);
   }, [id]);
@@ -309,7 +307,7 @@ export default function ProposalEditorPage() {
 
   /* Line item helpers */
   function addLineItem() {
-    setLineItems(prev => [...prev, { id: uid(), description: '', details: '', qty: 1, unitPrice: 0, optional: false }]);
+    setLineItems(prev => [...prev, { id: uid(), description: '', details: '', quantity: 1, unitPrice: 0, optional: false }]);
   }
 
   function updateLineItem(itemId: string, field: keyof LineItem, value: string | number | boolean) {
@@ -334,7 +332,7 @@ export default function ProposalEditorPage() {
   }
 
   /* Computed totals */
-  const subtotal = lineItems.filter(li => !li.optional).reduce((sum, li) => sum + li.qty * li.unitPrice, 0);
+  const subtotal = sumLineItems(lineItems.filter(li => !li.optional));
   const computedFees = fees.map(f => ({
     ...f,
     computed: f.type === 'flat' ? f.amount : Math.round(subtotal * f.amount / 100),
@@ -679,8 +677,8 @@ export default function ProposalEditorPage() {
                           <input
                             type="number"
                             min="0"
-                            value={li.qty}
-                            onChange={e => updateLineItem(li.id, 'qty', Number(e.target.value))}
+                            value={li.quantity}
+                            onChange={e => updateLineItem(li.id, 'quantity', Number(e.target.value))}
                             className="w-full rounded-lg border border-border bg-card px-2.5 py-1.5 text-sm text-foreground text-right outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
                           />
                         </td>
@@ -695,7 +693,7 @@ export default function ProposalEditorPage() {
                           />
                         </td>
                         <td className="py-2 pr-2 text-right font-medium text-foreground">
-                          {fmtCurrency(li.qty * li.unitPrice)}
+                          {fmtCurrency(lineItemTotal(li))}
                         </td>
                         <td className="py-2 pr-2 text-center">
                           <input
@@ -869,9 +867,9 @@ export default function ProposalEditorPage() {
                                     {li.details && <div className="text-muted-foreground">{li.details}</div>}
                                     {li.optional && <span className="text-xs text-yellow-600">(Optional)</span>}
                                   </td>
-                                  <td className="px-2 py-1.5 text-right text-muted-foreground">{li.qty}</td>
+                                  <td className="px-2 py-1.5 text-right text-muted-foreground">{li.quantity}</td>
                                   <td className="px-2 py-1.5 text-right text-muted-foreground">{fmtCurrency(li.unitPrice)}</td>
-                                  <td className="px-2 py-1.5 text-right font-medium text-foreground">{fmtCurrency(li.qty * li.unitPrice)}</td>
+                                  <td className="px-2 py-1.5 text-right font-medium text-foreground">{fmtCurrency(lineItemTotal(li))}</td>
                                 </tr>
                               ))}
                             </tbody>

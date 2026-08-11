@@ -76,7 +76,7 @@ export default function DomainGetStarted({ domainKey }: { domainKey: string }) {
   const doneByKey = new Map(status.steps.map((s) => [s.key, s.done]));
 
   return (
-    <div className="rounded-xl border border-border bg-card p-5 mb-4">
+    <div data-testid="get-started-checklist" className="rounded-xl border border-border bg-card p-5 mb-4">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           {catalog && <span className="material-icons text-primary text-xl">{catalog.icon}</span>}
