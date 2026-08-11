@@ -413,10 +413,20 @@ export function SignalBand({ chips, children }: { chips: string[]; children: Rea
 
 // ─── Licence plate ──────────────────────────────────────────────────────────
 
-/** True pixel sizes, so next/image gets the right intrinsic ratio per icon. */
+/**
+ * True pixel sizes, so next/image gets the right intrinsic ratio per icon.
+ *
+ * Every art key the support row can use belongs here, including ones it is not
+ * using right now — the lookup falls back to a square 900x900, which is silently
+ * wrong for anything that is not square and shows up as a squashed illustration
+ * rather than as an error. `control-console` stays listed for that reason: it
+ * is 900x257, so a missing entry would be very visibly wrong if it is ever
+ * pointed at this row again.
+ */
 const SUPPORT_ART: Record<string, [number, number]> = {
   observatory: [900, 636],
   robot: [885, 876],
+  satellite: [789, 743],
   'control-console': [900, 257],
 };
 

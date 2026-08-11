@@ -145,7 +145,7 @@ const licenceSupport: SupportPoint[] = [
   },
   {
     title: 'Yours to extend',
-    art: 'control-console',
+    art: 'satellite',
     body: 'Every block, MCP tool and integration is a documented extension point. Read the code, change it, ship it.',
   },
 ];
