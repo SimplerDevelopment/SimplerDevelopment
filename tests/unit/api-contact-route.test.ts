@@ -66,8 +66,14 @@ const VALID_BODY = {
   message: 'We would like to talk about a project.',
 };
 
-function request(body: Record<string, unknown>): NextRequest {
-  return { json: async () => body } as unknown as NextRequest;
+function request(body: Record<string, unknown>, attrCookie?: string): NextRequest {
+  return {
+    json: async () => body,
+    cookies: {
+      get: (name: string) =>
+        attrCookie && name === 'sd_attr' ? { value: attrCookie } : undefined,
+    },
+  } as unknown as NextRequest;
 }
 
 async function loadRoute(agencyClientId: string | undefined) {
@@ -113,6 +119,48 @@ describe('POST /api/contact — CRM lead capture', () => {
       104,
       0,
       expect.objectContaining({ id: 77, email: VALID_BODY.email, source: 'contact-form' }),
+    );
+  });
+
+  it('carries first-touch attribution from the cookie onto the new contact', async () => {
+    mocks.upsertContactByEmail.mockResolvedValue({ contactId: 77, created: true });
+    mocks.ensureDefaultPipeline.mockResolvedValue({ id: 5 });
+    mocks.dbQueue.push([{ id: 42 }]);
+
+    const { POST } = await loadRoute('104');
+    await POST(request(VALID_BODY, JSON.stringify({ s: 'linkedin', c: 'launch', l: '/pricing' })));
+
+    expect(mocks.upsertContactByEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        attribution: expect.objectContaining({ s: 'linkedin', c: 'launch', l: '/pricing' }),
+      }),
+    );
+  });
+
+  it('passes null attribution for a lead with no first touch', async () => {
+    mocks.upsertContactByEmail.mockResolvedValue({ contactId: 77, created: true });
+    mocks.ensureDefaultPipeline.mockResolvedValue({ id: 5 });
+    mocks.dbQueue.push([{ id: 42 }]);
+
+    const { POST } = await loadRoute('104');
+    await POST(request(VALID_BODY));
+
+    expect(mocks.upsertContactByEmail).toHaveBeenCalledWith(
+      expect.objectContaining({ attribution: null }),
+    );
+  });
+
+  it('still captures the lead when the attribution cookie is corrupt', async () => {
+    mocks.upsertContactByEmail.mockResolvedValue({ contactId: 77, created: true });
+    mocks.ensureDefaultPipeline.mockResolvedValue({ id: 5 });
+    mocks.dbQueue.push([{ id: 42 }]);
+
+    const { POST } = await loadRoute('104');
+    const res = await POST(request(VALID_BODY, '{not json'));
+
+    expect(res.status).toBe(200);
+    expect(mocks.upsertContactByEmail).toHaveBeenCalledWith(
+      expect.objectContaining({ attribution: null }),
     );
   });
 

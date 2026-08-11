@@ -1,8 +1,9 @@
 // Companies, contacts, pipelines, deals, proposals, contracts, and CRM-side custom fields.
 
-import { pgTable, serial, varchar, text, timestamp, boolean, integer, json, numeric, uniqueIndex, index } from 'drizzle-orm/pg-core';
+import { pgTable, serial, varchar, text, timestamp, boolean, integer, json, jsonb, numeric, uniqueIndex, index } from 'drizzle-orm/pg-core';
 import { users } from './auth';
 import { clients } from './sites';
+import type { Attribution } from '@/lib/attribution';
 
 export const crmCompanies = pgTable('crm_companies', {
   id: serial('id').primaryKey(),
@@ -45,6 +46,12 @@ export const crmContacts = pgTable('crm_contacts', {
   linkedinUrl: varchar('linkedin_url', { length: 500 }),
   title: varchar('title', { length: 150 }), // job title
   source: varchar('source', { length: 100 }), // web, referral, cold-call, event, etc.
+  // First-touch attribution: the campaign/referrer that brought this person in,
+  // captured at their first meaningful visit and copied here on conversion.
+  // `source` above says WHICH FORM they used; this says WHERE THEY CAME FROM.
+  // Deals inherit it via contactId rather than duplicating — first touch
+  // belongs to the person, not to each opportunity. See lib/attribution.ts.
+  attribution: jsonb('attribution').$type<Attribution>(),
   status: varchar('status', { length: 50 }).default('active').notNull(), // active, inactive, lead, customer
   avatarUrl: varchar('avatar_url', { length: 500 }),
   address: text('address'),
