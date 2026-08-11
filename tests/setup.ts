@@ -1,6 +1,21 @@
 import '@testing-library/jest-dom';
 import { expect, afterEach, vi } from 'vitest';
-import { cleanup } from '@testing-library/react';
+import { cleanup, configure } from '@testing-library/react';
+
+// testing-library's async helpers (waitFor, findBy*) have their OWN timeout,
+// defaulting to 1000ms and completely independent of vitest's `testTimeout`.
+// Raising testTimeout to 30s (see vitest.config.ts) therefore did nothing for
+// this class of failure: a heavy jsdom component gets 30s from vitest and 1s
+// from waitFor, and on a loaded CI runner the second one is what runs out.
+//
+// The symptom is a nondeterministic red on a DIFFERENT spec each run — three
+// consecutive CI runs failed shard 1, nothing, then shard 3, on unrelated
+// component tests that all pass in isolation. Each false red costs a full suite
+// re-run, so this is one of the more expensive kinds of slow.
+//
+// 5s is margin for a slow render, not cover for a broken one: a component that
+// never renders still fails, just 4s later.
+configure({ asyncUtilTimeout: 5_000 });
 
 // jsdom doesn't implement a handful of browser APIs that responsive hooks and
 // the visual-editor / deck components rely on at render time. Provide inert
