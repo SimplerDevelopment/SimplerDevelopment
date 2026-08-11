@@ -116,11 +116,19 @@ function Planet({ colors, progress, reduced }: { colors: { mid: string; gold: st
   useFrame((state) => {
     if (!g.current) return;
     const p = reduced ? 0 : progress.current?.current ?? 0;
-    g.current.position.y = 5.4 + p * 2.2;
+    g.current.position.y = 2.6 + p * 1.4;
     g.current.rotation.z = reduced ? 0 : state.clock.elapsedTime * 0.02;
   });
+  // Sits lower and further out than it used to (was y 5.4, z -26). The backdrop
+  // now bleeds a full stage height above the band, and with a fixed vertical fov
+  // a taller canvas zooms the scene rather than showing more of it — which put
+  // the planet through the top edge. A clipped planet reads as exactly the
+  // "background is cut off at the top" bug this bleed was added to fix, so it
+  // was moved back down into frame and pushed further away to hold its old
+  // apparent size. Its parallax swing is narrowed to match, so it stays clear of
+  // the edge across the whole scroll range.
   return (
-    <group ref={g} position={[6.4, 5.4, -26]}>
+    <group ref={g} position={[7.4, 2.6, -44]}>
       <mesh>
         <circleGeometry args={[2.1, 48]} />
         <meshBasicMaterial color={colors.mid} transparent opacity={0.5} />
@@ -272,9 +280,20 @@ export default function SignalStage({ className = '' }: { className?: string }) 
   return (
     <div ref={host} className={`relative ${className}`} aria-hidden>
       {/* The WebGL backdrop is deliberately larger than the art stage and bleeds
-          left, so the horizon reads as continuing under the copy rather than
-          stopping in a box. */}
-      <div className="pointer-events-none absolute inset-y-0 -left-[60%] right-0 z-0 lg:-left-[110%]">
+          out of it on three sides, so the sky reads as continuing behind the
+          copy rather than stopping in a box.
+          It used to bleed only left (inset-y-0), which pinned it to the stage
+          box — 430px tall, anchored to the band's bottom. On a 620px band that
+          left the top 190px with no sky at all and drew a hard horizontal edge
+          straight under the headline. The same argument that justifies the left
+          bleed applies upward, so it now bleeds up by a full stage height too.
+          Bleeding UP is safe where bleeding DOWN would not be: the InkPanel
+          clips with overflow-hidden, so the extra canvas is trimmed at the band
+          edge instead of spilling into the neighbouring section.
+          The camera keeps a fixed vertical fov, so a taller canvas shows more
+          sky rather than scaling the scene — the moon's horizon stays put and
+          the space above the station simply fills in. */}
+      <div className="pointer-events-none absolute -top-full bottom-0 -left-[60%] right-0 z-0 lg:-left-[110%]">
         <Canvas
           dpr={[1, 1.5]}
           camera={{ position: [0, 1.2, 0], fov: 55, near: 0.1, far: 120 }}
