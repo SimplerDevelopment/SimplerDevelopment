@@ -10,6 +10,11 @@ import {
 import { signPluginJwt } from '@/lib/plugins/jwt';
 import { pluginTenantCookieOptions } from '@/lib/plugins/tenant-cookie';
 import { ensureVisitorCookie } from '@/lib/ab/visitor';
+import { ensureAttributionCookie } from '@/lib/attribution';
+
+/** Paths that never represent a lead arriving: APIs, authenticated app
+ *  surfaces, OAuth, the embeddable widget, and Next internals. */
+const ATTRIBUTION_EXCLUDED_PATH = /^\/(api|portal|admin|oauth|widget|_next)(\/|$)/;
 
 // Hostnames that belong to the app itself (not client sites)
 const APP_HOSTNAMES = new Set([
@@ -316,6 +321,19 @@ export async function middleware(req: NextRequest) {
   // to the public A/B-eligible routes so we don't stamp portal/admin pages.
   if (pathname.startsWith('/pitch-deck') || pathname.startsWith('/slides')) {
     ensureVisitorCookie(req, response);
+  }
+
+  // First-touch attribution across OUR OWN public surfaces — marketing pages,
+  // blog, booking, surveys, decks. A denylist rather than a route list so a
+  // new marketing page is covered the day it ships instead of the day someone
+  // remembers to add it here.
+  //
+  // Excludes authenticated and machine surfaces, where a utm_* param is noise
+  // rather than a lead source. Cheap on the excluded paths too: the helper
+  // returns immediately once the cookie exists, and never writes at all
+  // without a campaign or external referrer (see lib/attribution.ts).
+  if (!ATTRIBUTION_EXCLUDED_PATH.test(pathname)) {
+    ensureAttributionCookie(req, response);
   }
 
   // Stamp dev CORS headers on API responses going back to the mobile client. The

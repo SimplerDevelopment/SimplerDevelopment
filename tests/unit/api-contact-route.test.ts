@@ -45,8 +45,19 @@ const mocks = vi.hoisted(() => {
     ensureDefaultPipeline: vi.fn(),
     emitEvent: vi.fn(),
     sendEmail: vi.fn(() => Promise.resolve({ error: null })),
+    /** Value the mocked next/headers cookie store returns for sd_attr. */
+    attrCookie: { current: undefined as string | undefined },
   };
 });
+
+vi.mock('next/headers', () => ({
+  cookies: async () => ({
+    get: (name: string) =>
+      name === 'sd_attr' && mocks.attrCookie.current !== undefined
+        ? { value: mocks.attrCookie.current }
+        : undefined,
+  }),
+}));
 
 vi.mock('@/lib/db', () => ({ db: mocks.db }));
 vi.mock('@/lib/db/schema', () => ({
@@ -66,7 +77,11 @@ const VALID_BODY = {
   message: 'We would like to talk about a project.',
 };
 
-function request(body: Record<string, unknown>): NextRequest {
+/** Build a request, optionally with a first-touch attribution cookie present.
+ *  The cookie is delivered through the mocked next/headers store, so the
+ *  request stays a plain object — the route must not depend on NextRequest. */
+function request(body: Record<string, unknown>, attrCookie?: string): NextRequest {
+  mocks.attrCookie.current = attrCookie;
   return { json: async () => body } as unknown as NextRequest;
 }
 
@@ -113,6 +128,48 @@ describe('POST /api/contact — CRM lead capture', () => {
       104,
       0,
       expect.objectContaining({ id: 77, email: VALID_BODY.email, source: 'contact-form' }),
+    );
+  });
+
+  it('carries first-touch attribution from the cookie onto the new contact', async () => {
+    mocks.upsertContactByEmail.mockResolvedValue({ contactId: 77, created: true });
+    mocks.ensureDefaultPipeline.mockResolvedValue({ id: 5 });
+    mocks.dbQueue.push([{ id: 42 }]);
+
+    const { POST } = await loadRoute('104');
+    await POST(request(VALID_BODY, JSON.stringify({ s: 'linkedin', c: 'launch', l: '/pricing' })));
+
+    expect(mocks.upsertContactByEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        attribution: expect.objectContaining({ s: 'linkedin', c: 'launch', l: '/pricing' }),
+      }),
+    );
+  });
+
+  it('passes null attribution for a lead with no first touch', async () => {
+    mocks.upsertContactByEmail.mockResolvedValue({ contactId: 77, created: true });
+    mocks.ensureDefaultPipeline.mockResolvedValue({ id: 5 });
+    mocks.dbQueue.push([{ id: 42 }]);
+
+    const { POST } = await loadRoute('104');
+    await POST(request(VALID_BODY));
+
+    expect(mocks.upsertContactByEmail).toHaveBeenCalledWith(
+      expect.objectContaining({ attribution: null }),
+    );
+  });
+
+  it('still captures the lead when the attribution cookie is corrupt', async () => {
+    mocks.upsertContactByEmail.mockResolvedValue({ contactId: 77, created: true });
+    mocks.ensureDefaultPipeline.mockResolvedValue({ id: 5 });
+    mocks.dbQueue.push([{ id: 42 }]);
+
+    const { POST } = await loadRoute('104');
+    const res = await POST(request(VALID_BODY, '{not json'));
+
+    expect(res.status).toBe(200);
+    expect(mocks.upsertContactByEmail).toHaveBeenCalledWith(
+      expect.objectContaining({ attribution: null }),
     );
   });
 

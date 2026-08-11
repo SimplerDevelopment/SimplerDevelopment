@@ -8,6 +8,8 @@ import { crmDeals, crmPipelineStages } from '@/lib/db/schema';
 import { upsertContactByEmail } from '@/lib/crm/contacts';
 import { ensureDefaultPipeline } from '@/lib/crm/default-pipeline';
 import { emitEvent } from '@/lib/automation/event-bus';
+import { cookies } from 'next/headers';
+import { ATTRIBUTION_COOKIE, parseAttributionCookie, type Attribution } from '@/lib/attribution';
 
 // Hidden form field — bots fill it; humans don't. Drop silently with a 200
 // so the bot doesn't learn it's been detected. Pair with a CAPTCHA if abuse
@@ -27,6 +29,22 @@ const AGENCY_CLIENT_ID = process.env.SD_AGENCY_CLIENT_ID
   : null;
 
 /**
+ * First-touch attribution for this submission, or null.
+ *
+ * Never throws. `cookies()` requires a request scope and will throw without
+ * one, and the cookie itself is client-supplied — but attribution is optional
+ * enrichment on top of a lead we already have. Losing it must never cost the
+ * enquiry, so every failure degrades to "unattributed" rather than a 500.
+ */
+async function readFirstTouch(): Promise<Attribution | null> {
+  try {
+    return parseAttributionCookie((await cookies()).get(ATTRIBUTION_COOKIE)?.value);
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Mirror an inbound contact-form submission into the CRM.
  *
  * Best-effort by design: the submitter's message is already on its way to
@@ -38,7 +56,13 @@ const AGENCY_CLIENT_ID = process.env.SD_AGENCY_CLIENT_ID
  * follow-ups still arrive by email. If per-submission history in the CRM is
  * wanted later, log a crm_activities row here rather than another deal.
  */
-async function captureLead(input: { name: string; email: string; subject?: string; message: string }): Promise<void> {
+async function captureLead(input: {
+  name: string;
+  email: string;
+  subject?: string;
+  message: string;
+  attribution: Attribution | null;
+}): Promise<void> {
   if (AGENCY_CLIENT_ID === null || !Number.isInteger(AGENCY_CLIENT_ID)) {
     console.warn('[contact] SD_AGENCY_CLIENT_ID unset or invalid — lead not captured to CRM');
     return;
@@ -50,6 +74,7 @@ async function captureLead(input: { name: string; email: string; subject?: strin
       email: input.email,
       displayName: input.name,
       source: 'contact-form',
+      attribution: input.attribution,
     });
 
     if (created) {
@@ -115,7 +140,14 @@ export async function POST(request: NextRequest) {
     // early, and a lead that only ever existed in an unsent email is exactly
     // the leak this closes. Awaited, not floated — a serverless invocation can
     // be frozen the moment the response is returned.
-    await captureLead({ name, email, subject, message });
+    await captureLead({
+      name,
+      email,
+      subject,
+      message,
+      // First touch was stamped by middleware, possibly on a visit weeks ago.
+      attribution: await readFirstTouch(),
+    });
 
     const safeName = escapeHtml(name);
     const safeEmail = escapeHtml(email);

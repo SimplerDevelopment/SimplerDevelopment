@@ -13,6 +13,8 @@ import type { SurveyFieldDef } from '@/lib/db/schema/surveys';
 import { assertPipelineInClient, assertStageInClient } from '@/lib/security/assert-owned';
 import { upsertContactByEmail } from '@/lib/crm/contacts';
 import { checkRateLimit, getClientIp } from '@/lib/security/rate-limit';
+import { cookies } from 'next/headers';
+import { ATTRIBUTION_COOKIE, parseAttributionCookie } from '@/lib/attribution';
 
 // CORS — public survey submit needs to accept POST from sandboxed iframes
 // (their effective origin is `null`, so `*` matches). The endpoint is
@@ -375,11 +377,19 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
         .replace(/\{score\}/g, String(computedScore));
 
       // Upsert a CRM contact so the deal is never orphaned.
+      // First touch was stamped by middleware, possibly on an earlier visit.
+      // Read inside the try/catch with everything else here: a cookie problem
+      // must not cost us the lead.
+      const attribution = parseAttributionCookie(
+        (await cookies()).get(ATTRIBUTION_COOKIE)?.value,
+      );
+
       const { contactId, created } = await upsertContactByEmail({
         clientId: survey.clientId,
         email: respondentEmail,
         displayName: response.respondentName ?? undefined,
         source: 'survey',
+        attribution,
       });
 
       await db.insert(crmDeals).values({
