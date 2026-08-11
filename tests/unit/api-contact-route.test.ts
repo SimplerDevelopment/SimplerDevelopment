@@ -45,8 +45,19 @@ const mocks = vi.hoisted(() => {
     ensureDefaultPipeline: vi.fn(),
     emitEvent: vi.fn(),
     sendEmail: vi.fn(() => Promise.resolve({ error: null })),
+    /** Value the mocked next/headers cookie store returns for sd_attr. */
+    attrCookie: { current: undefined as string | undefined },
   };
 });
+
+vi.mock('next/headers', () => ({
+  cookies: async () => ({
+    get: (name: string) =>
+      name === 'sd_attr' && mocks.attrCookie.current !== undefined
+        ? { value: mocks.attrCookie.current }
+        : undefined,
+  }),
+}));
 
 vi.mock('@/lib/db', () => ({ db: mocks.db }));
 vi.mock('@/lib/db/schema', () => ({
@@ -66,14 +77,12 @@ const VALID_BODY = {
   message: 'We would like to talk about a project.',
 };
 
+/** Build a request, optionally with a first-touch attribution cookie present.
+ *  The cookie is delivered through the mocked next/headers store, so the
+ *  request stays a plain object — the route must not depend on NextRequest. */
 function request(body: Record<string, unknown>, attrCookie?: string): NextRequest {
-  return {
-    json: async () => body,
-    cookies: {
-      get: (name: string) =>
-        attrCookie && name === 'sd_attr' ? { value: attrCookie } : undefined,
-    },
-  } as unknown as NextRequest;
+  mocks.attrCookie.current = attrCookie;
+  return { json: async () => body } as unknown as NextRequest;
 }
 
 async function loadRoute(agencyClientId: string | undefined) {

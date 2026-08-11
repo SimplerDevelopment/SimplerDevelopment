@@ -8,6 +8,7 @@ import { crmDeals, crmPipelineStages } from '@/lib/db/schema';
 import { upsertContactByEmail } from '@/lib/crm/contacts';
 import { ensureDefaultPipeline } from '@/lib/crm/default-pipeline';
 import { emitEvent } from '@/lib/automation/event-bus';
+import { cookies } from 'next/headers';
 import { ATTRIBUTION_COOKIE, parseAttributionCookie, type Attribution } from '@/lib/attribution';
 
 // Hidden form field — bots fill it; humans don't. Drop silently with a 200
@@ -26,6 +27,22 @@ const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'SimplerDevelopment <noreply
 const AGENCY_CLIENT_ID = process.env.SD_AGENCY_CLIENT_ID
   ? Number(process.env.SD_AGENCY_CLIENT_ID)
   : null;
+
+/**
+ * First-touch attribution for this submission, or null.
+ *
+ * Never throws. `cookies()` requires a request scope and will throw without
+ * one, and the cookie itself is client-supplied — but attribution is optional
+ * enrichment on top of a lead we already have. Losing it must never cost the
+ * enquiry, so every failure degrades to "unattributed" rather than a 500.
+ */
+async function readFirstTouch(): Promise<Attribution | null> {
+  try {
+    return parseAttributionCookie((await cookies()).get(ATTRIBUTION_COOKIE)?.value);
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Mirror an inbound contact-form submission into the CRM.
@@ -129,7 +146,7 @@ export async function POST(request: NextRequest) {
       subject,
       message,
       // First touch was stamped by middleware, possibly on a visit weeks ago.
-      attribution: parseAttributionCookie(request.cookies.get(ATTRIBUTION_COOKIE)?.value),
+      attribution: await readFirstTouch(),
     });
 
     const safeName = escapeHtml(name);
