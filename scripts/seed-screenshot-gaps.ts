@@ -350,6 +350,20 @@ async function main() {
     done.push(`ab_experiments=${Number(rowsOf(r1)[0]?.n ?? 0)}`);
   })();
 
+  /* ── company coordinates (the CRM map panel) ──────────────────────────── */
+  // CompanyMapImpl filters to companies with finite lat/lng and early-returns
+  // when none qualify — so ungeocoded companies render a blank grey map panel
+  // next to the cards, which is ~40% of the CRM screenshot.
+  await db.execute(sql`
+    UPDATE crm_companies SET latitude = 45.5152, longitude = -122.6784
+    WHERE client_id = ${CLIENT_ID} AND latitude IS NULL AND id % 2 = 1
+  `);
+  await db.execute(sql`
+    UPDATE crm_companies SET latitude = 47.6062, longitude = -122.3321
+    WHERE client_id = ${CLIENT_ID} AND latitude IS NULL
+  `);
+  done.push('crm_companies.geocoded');
+
   console.log('SEEDED screenshot gaps →', done.join('  '));
   console.log(`site_id=${siteId} (use SITE_ID=${siteId} for the capture script)`);
 }

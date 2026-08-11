@@ -43,6 +43,8 @@ type Shot = {
   public?: boolean;
   /** Skip the empty-state audit for a screen that is legitimately a form. */
   allowEmpty?: boolean;
+  /** Click this selector once the page has settled, then re-settle and shoot. */
+  clickBefore?: string;
 };
 
 const shots: Shot[] = [
@@ -85,7 +87,10 @@ const shots: Shot[] = [
   { slug: 'crm', file: '02-contacts', url: '/portal/crm/contacts' },
   { slug: 'crm', file: '03-deals-board', url: '/portal/crm/deals' },
   { slug: 'crm', file: '04-contact-detail', from: '/portal/crm/contacts', linkPrefix: '/portal/crm/contacts/' },
-  { slug: 'crm', file: '05-companies', url: '/portal/crm/companies' },
+  // Table view, not the default Map: the map panel pulls OpenStreetMap tiles,
+  // which do not reliably load in headless capture and photograph as a large
+  // grey rectangle. The table shows the same data with no third-party dependency.
+  { slug: 'crm', file: '05-companies', url: '/portal/crm/companies', clickBefore: 'button[title="Table view"]' },
   // ecommerce — previously captured outside this pipeline at 1x, hence the
   // mismatched legacy chrome in the old gallery.
   { slug: 'ecommerce', file: '01-products', url: '/portal/websites/{siteId}/store/products' },
@@ -300,7 +305,11 @@ async function run() {
       }
 
       if (/\/onboarding|\/login/.test(page.url())) throw new Error(`redirected to ${page.url()}`);
-      const ready = await settle(page);
+      let ready = await settle(page);
+      if (shot.clickBefore) {
+        await page.locator(shot.clickBefore).first().click({ timeout: 15000 }).catch(() => {});
+        ready = await settle(page);
+      }
 
       const violations = AUDIT_ON ? await audit(page, shot) : [];
       if (violations.length) {
