@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { mcpPendingChanges, portalApiKeys, users } from '@/lib/db/schema';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, isNull, or } from 'drizzle-orm';
 import { authorizePortal, isAuthError } from '@/lib/portal-auth';
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -21,7 +21,18 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       submitterEmail: users.email,
     })
     .from(mcpPendingChanges)
-    .leftJoin(portalApiKeys, eq(portalApiKeys.id, mcpPendingChanges.keyId))
+    // Polymorphic key_id — see the note in ../route.ts. Join only the portal-key
+    // id space so a colliding OAuth token id can't surface another client's key name.
+    .leftJoin(
+      portalApiKeys,
+      and(
+        eq(portalApiKeys.id, mcpPendingChanges.keyId),
+        or(
+          eq(mcpPendingChanges.credentialKind, 'portal_api_key'),
+          isNull(mcpPendingChanges.credentialKind),
+        ),
+      ),
+    )
     .leftJoin(users, eq(users.id, mcpPendingChanges.userId))
     .where(and(eq(mcpPendingChanges.id, changeId), eq(mcpPendingChanges.clientId, client.id)))
     .limit(1);

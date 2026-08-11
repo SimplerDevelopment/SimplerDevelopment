@@ -144,6 +144,7 @@ export function estimateTokens(text: string): number {
 interface ToolCallLog {
   clientId: number;
   apiKeyId: number | null;
+  credentialKind: string | null;
   userId: number | null;
   toolName: string;
   requestBytes: number;
@@ -166,6 +167,7 @@ function logToolCall(log: ToolCallLog): void {
     .values({
       clientId: log.clientId,
       apiKeyId: log.apiKeyId ?? null,
+      credentialKind: log.credentialKind ?? null,
       userId: log.userId ?? null,
       toolName: log.toolName,
       requestBytes: log.requestBytes,
@@ -411,6 +413,7 @@ export function wrapRegisterTool(server: McpServer, ctx: PortalMcpContext): void
         logToolCall({
           clientId: ctx.client.id,
           apiKeyId: ctx.keyId ?? null,
+          credentialKind: ctx.credentialKind ?? null,
           userId: ctx.userId ?? null,
           toolName: name,
           requestBytes,
@@ -453,6 +456,7 @@ export function wrapRegisterTool(server: McpServer, ctx: PortalMcpContext): void
       logToolCall({
         clientId: ctx.client.id,
         apiKeyId: ctx.keyId ?? null,
+        credentialKind: ctx.credentialKind ?? null,
         userId: ctx.userId ?? null,
         toolName: name,
         requestBytes,

@@ -1,14 +1,22 @@
 // Approval queue for portal MCP-issued changes (pending → approved/rejected/applied).
 
 import { pgTable, serial, varchar, text, timestamp, integer, json, index } from 'drizzle-orm/pg-core';
-import { portalApiKeys, users } from './auth';
+// portalApiKeys is intentionally NOT imported: key_id is polymorphic across
+// portal_api_keys and oauth_access_tokens, so neither table can carry an FK to it.
+import { users } from './auth';
 import { clients } from './sites';
 
 export const mcpPendingChanges = pgTable('mcp_pending_changes', {
   id: serial('id').primaryKey(),
   clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
   userId: integer('user_id').references(() => users.id, { onDelete: 'set null' }),
-  keyId: integer('key_id').references(() => portalApiKeys.id, { onDelete: 'set null' }),
+  // POLYMORPHIC: portal_api_keys.id OR oauth_access_tokens.id — disambiguated by
+  // `credential_kind`. Deliberately NOT a foreign key: it previously referenced
+  // portal_api_keys only, so every OAuth-authenticated caller violated it (QAD-048
+  // id-space split). Audit rows should also outlive the credential they name, which
+  // the old `onDelete: 'set null'` erased.
+  keyId: integer('key_id'),
+  credentialKind: varchar('credential_kind', { length: 20 }),
   entityType: varchar('entity_type', { length: 50 }).notNull(),
   entityId: integer('entity_id'),
   operation: varchar('operation', { length: 20 }).notNull(),
@@ -53,7 +61,10 @@ export const mcpApprovalLinks = pgTable('mcp_approval_links', {
   status: varchar('status', { length: 20 }).default('pending').notNull(), // 'pending' | 'approved' | 'rejected' | 'expired'
   summary: varchar('summary', { length: 500 }),
   createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
-  keyId: integer('key_id').references(() => portalApiKeys.id, { onDelete: 'set null' }),
+  // POLYMORPHIC — see the note on mcp_pending_changes.keyId above. An FK to
+  // portal_api_keys made every OAuth caller's approval link fail to insert.
+  keyId: integer('key_id'),
+  credentialKind: varchar('credential_kind', { length: 20 }),
   // Captured at approve/reject time — reviewers are usually not logged in.
   reviewerName: varchar('reviewer_name', { length: 255 }),
   reviewerEmail: varchar('reviewer_email', { length: 255 }),

@@ -7,11 +7,23 @@
  * dependency-free so it unit-tests without a DB.
  */
 export function isSelfApproval(
-  change: { userId: number | null; keyId: number | null },
-  approver: { userId: number | null; keyId: number | null },
+  change: { userId: number | null; keyId: number | null; credentialKind?: string | null },
+  approver: { userId: number | null; keyId: number | null; credentialKind?: string | null },
 ): boolean {
-  return (
-    (change.userId != null && change.userId === approver.userId) ||
-    (change.keyId != null && change.keyId === approver.keyId)
-  );
+  if (change.userId != null && change.userId === approver.userId) return true;
+  if (change.keyId == null || change.keyId !== approver.keyId) return false;
+
+  // `key_id` is polymorphic across portal_api_keys and oauth_access_tokens, so
+  // credential identity is the PAIR (kind, id) — id 332 in one space is a
+  // different credential from id 332 in the other (QAD-048).
+  const changeKind = change.credentialKind ?? null;
+  const approverKind = approver.credentialKind ?? null;
+
+  // Unknown kind on either side (rows staged before the discriminator existed):
+  // fall back to id-only matching. That over-blocks at worst; treating an
+  // unknown kind as "different credential" would ALLOW a self-approval we
+  // can't rule out, and this control must fail closed.
+  if (changeKind == null || approverKind == null) return true;
+
+  return changeKind === approverKind;
 }
