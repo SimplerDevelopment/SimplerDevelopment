@@ -11,7 +11,7 @@
  * These assert the retry is real (not just a swallowed error), that it is
  * bounded, and that it doesn't fire for unrelated failures.
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 const valuesMock = vi.fn();
 vi.mock('@/lib/db', () => ({ db: { insert: () => ({ values: valuesMock }) } }));
@@ -38,6 +38,13 @@ describe('logAgentAction — deadlock retry', () => {
   beforeEach(() => {
     valuesMock.mockReset();
     vi.spyOn(console, 'warn').mockImplementation(() => {});
+  });
+
+  // `console` is global and this project sets neither `restoreMocks` nor
+  // `clearMocks`, so a spy left in place outlives this file and silences warns
+  // in every test that shares the worker afterwards. Restore explicitly.
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it('retries once and succeeds when the first insert deadlocks', async () => {
