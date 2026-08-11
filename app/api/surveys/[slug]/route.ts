@@ -375,7 +375,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
         .replace(/\{score\}/g, String(computedScore));
 
       // Upsert a CRM contact so the deal is never orphaned.
-      const { contactId } = await upsertContactByEmail({
+      const { contactId, created } = await upsertContactByEmail({
         clientId: survey.clientId,
         email: respondentEmail,
         displayName: response.respondentName ?? undefined,
@@ -391,6 +391,21 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
         ownerId: null,
         contactId,
       });
+
+      // A qualified survey lead IS a new CRM contact, so it has to reach the
+      // same automation rules as one added in the portal or via storefront
+      // signup — without this, "when a contact is created, do X" silently
+      // skipped the scored inbound leads it most wants to catch.
+      // Only for genuinely new contacts: a returning respondent isn't one.
+      // userId 0 = unauthenticated public actor, as above for the response event.
+      if (created) {
+        emitEvent('crm.contact.created', survey.clientId, 0, {
+          id: contactId,
+          name: response.respondentName || '',
+          email: respondentEmail,
+          source: 'survey',
+        });
+      }
     }
   } catch (err) {
     console.error('[surveys/submit] auto-route to CRM failed', err);
