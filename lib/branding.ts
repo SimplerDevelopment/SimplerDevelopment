@@ -12,9 +12,9 @@
  */
 
 import { db } from '@/lib/db';
-import { siteBranding, clientWebsites, brandingProfiles, brandingMessaging, bookingPages, surveys } from '@/lib/db/schema';
+import { siteBranding, clientWebsites, brandingProfiles, brandingMessaging, bookingPages, surveys, clients } from '@/lib/db/schema';
 import type { PitchDeckTheme } from '@/lib/db/schema';
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, and, desc, asc } from 'drizzle-orm';
 import { unstable_cache } from 'next/cache';
 import { brandingToCssVars as _brandingToCssVars } from './branding/css-vars';
 import { messagingRowToContext, type BrandDefaultsContext, type BrandMessagingContext } from './branding/block-defaults';
@@ -178,17 +178,32 @@ async function _getBrandingByClientIdUncached(
     return rowToBranding(defaultProfile);
   }
 
-  // Fall back to first active website's branding
-  const [site] = await db
+  // Fall back to a website's branding. Which website matters: an agency client
+  // owns every site it builds, so "any active site" can mean a site branded for
+  // someone else entirely — that is how the booking widget on our own /contact
+  // page ended up wearing a showcase client's colours. Prefer the client's
+  // designated default website, and otherwise take the oldest active site
+  // deterministically: an unordered LIMIT 1 let Postgres return a different
+  // brand run to run, so the same page could change identity between requests.
+  const [client] = await db
+    .select({ defaultWebsiteId: clients.defaultWebsiteId })
+    .from(clients)
+    .where(eq(clients.id, clientId))
+    .limit(1);
+
+  const activeSites = await db
     .select({ id: clientWebsites.id })
     .from(clientWebsites)
     .where(and(eq(clientWebsites.clientId, clientId), eq(clientWebsites.active, true)))
-    .limit(1);
+    .orderBy(asc(clientWebsites.id));
 
-  if (!site) return { ...DEFAULTS };
+  if (activeSites.length === 0) return { ...DEFAULTS };
 
-  const branding = await getBrandingByWebsiteId(site.id);
-  return { ...branding, websiteId: site.id };
+  const siteId =
+    activeSites.find((s) => s.id === client?.defaultWebsiteId)?.id ?? activeSites[0].id;
+
+  const branding = await getBrandingByWebsiteId(siteId);
+  return { ...branding, websiteId: siteId };
 }
 
 /**

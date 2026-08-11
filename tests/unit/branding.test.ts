@@ -72,6 +72,7 @@ vi.mock('@/lib/db', () => ({ db: h.dbMock }));
 
 vi.mock('@/lib/db/schema', () => ({
   siteBranding: { websiteId: 'siteBranding.websiteId' },
+  clients: { id: 'clients.id', defaultWebsiteId: 'clients.defaultWebsiteId' },
   clientWebsites: {
     id: 'clientWebsites.id',
     clientId: 'clientWebsites.clientId',
@@ -345,20 +346,56 @@ describe('getBrandingByClientId', () => {
     expect((out as { websiteId?: number }).websiteId).toBeUndefined();
   });
 
-  it('falls back to first active website branding when no default profile', async () => {
+  it('falls back to website branding when no default profile', async () => {
     pushRows([]); // no default profile
-    pushRows([{ id: 17 }]); // first active website
-    // getBrandingByWebsiteId: site has no profile
-    pushRows([{ brandingProfileId: null }]);
-    // and siteBranding row
-    pushRows([{ primaryColor: '#beefed' }]);
+    pushRows([{ defaultWebsiteId: null }]); // client row
+    pushRows([{ id: 17 }]); // active sites
+    pushRows([{ brandingProfileId: null }]); // site has no profile
+    pushRows([{ primaryColor: '#beefed' }]); // siteBranding row
     const out = await getBrandingByClientId(5);
     expect(out.primaryColor).toBe('#beefed');
     expect(out.websiteId).toBe(17);
   });
 
+  /**
+   * Regression: an agency client owns every site it builds, so "any active
+   * site" could hand a surface a *showcase client's* brand — that is how the
+   * booking widget on our own /contact page ended up wearing someone else's
+   * colours. Selection must be intentional and deterministic.
+   */
+  it('prefers the client\'s designated default website over other active sites', async () => {
+    pushRows([]); // no default profile
+    pushRows([{ defaultWebsiteId: 241 }]); // client designates its own site
+    pushRows([{ id: 92 }, { id: 241 }, { id: 415 }]); // active sites, oldest first
+    pushRows([{ brandingProfileId: null }]);
+    pushRows([{ primaryColor: '#0000ff' }]);
+    const out = await getBrandingByClientId(104);
+    expect(out.websiteId).toBe(241); // NOT 92, the oldest
+  });
+
+  it('falls back to the oldest active site when no default website is set', async () => {
+    pushRows([]);
+    pushRows([{ defaultWebsiteId: null }]);
+    pushRows([{ id: 92 }, { id: 241 }, { id: 415 }]);
+    pushRows([{ brandingProfileId: null }]);
+    pushRows([{ primaryColor: '#00ff00' }]);
+    const out = await getBrandingByClientId(104);
+    expect(out.websiteId).toBe(92); // deterministic, not whatever the DB returned first
+  });
+
+  it('ignores a default website that is not in the active set', async () => {
+    pushRows([]);
+    pushRows([{ defaultWebsiteId: 999 }]); // stale/inactive pointer
+    pushRows([{ id: 92 }, { id: 241 }]);
+    pushRows([{ brandingProfileId: null }]);
+    pushRows([{ primaryColor: '#ff0000' }]);
+    const out = await getBrandingByClientId(104);
+    expect(out.websiteId).toBe(92);
+  });
+
   it('returns defaults when client has no profile and no active website', async () => {
     pushRows([]); // no default profile
+    pushRows([{ defaultWebsiteId: null }]); // client row
     pushRows([]); // no websites
     const out = await getBrandingByClientId(5);
     expect(out.primaryColor).toBe('#2563eb');
