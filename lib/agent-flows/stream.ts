@@ -43,13 +43,18 @@ function safeId(id: number, what: string): number {
   return id;
 }
 
-// Keep in sync with lib/agent-flows/events.ts.
+// Keep in sync with lib/agent-flows/events.ts. Duplicated rather than imported
+// on purpose: that module pulls in the Drizzle client, and this one must stay a
+// bare LISTEN subscriber.
 export function projectChannel(projectId: number): string {
   return `agent_flow_project_${safeId(projectId, 'project id')}`;
 }
 export function runChannel(runId: number): string {
   return `agent_flow_run_${safeId(runId, 'run id')}`;
 }
+/** Cross-tenant staff rollup. No id to validate — see events.ts for why it is
+ *  a constant rather than one channel per project. */
+export const ADMIN_CHANNEL = 'agent_flow_admin';
 
 /**
  * Best-effort parse of a NOTIFY payload into an event id. The publisher sends
@@ -112,6 +117,18 @@ export function subscribeProjectChannel(
   onNotify: (eventId: number | null) => void,
 ): AgentFlowSubscription {
   return subscribe(projectChannel(projectId), onNotify);
+}
+
+/**
+ * Subscribe to the cross-tenant admin channel — run lifecycle across every
+ * client. Staff-only by construction: this channel carries no tenant data (the
+ * payload is a bare event id used as a wakeup), so the authorization that
+ * matters lives in the SSE route, which re-queries and decides what to return.
+ */
+export function subscribeAdminChannel(
+  onNotify: (eventId: number | null) => void,
+): AgentFlowSubscription {
+  return subscribe(ADMIN_CHANNEL, onNotify);
 }
 
 // -- Test hook ---------------------------------------------------------------
