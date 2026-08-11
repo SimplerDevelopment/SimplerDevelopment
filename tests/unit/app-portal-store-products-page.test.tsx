@@ -65,14 +65,19 @@ const fetchMock = vi.fn<(url: string, init?: RequestInit) => Promise<FetchResp>>
 
 // ─── data factories ───────────────────────────────────────────────────────────
 
+// Mirrors what GET /api/portal/websites/[siteId]/store/products actually
+// returns: it spreads the raw row, so the money fields are the schema columns
+// `price` / `compareAtPrice` (integer cents) — NOT `priceCents`. This fixture
+// used the *Cents names, which is why the page rendering `product.priceCents`
+// passed CI while shipping "$NaN" to production.
 function makeProduct(over: Partial<Record<string, any>> = {}): any {
   return {
     id: 1,
     name: 'Widget Pro',
     slug: 'widget-pro',
     status: 'active',
-    priceCents: 1999,
-    compareAtPriceCents: null,
+    price: 1999,
+    compareAtPrice: null,
     quantity: 10,
     trackInventory: true,
     category: null,
@@ -240,7 +245,7 @@ describe('ProductsListPage — product list', () => {
   it('renders compare-at price when present', async () => {
     fetchMock.mockImplementation(async (url: string) => {
       if (url.includes('/categories')) return makeRes(makeCategoriesRes());
-      return makeRes(makeProductsRes([makeProduct({ priceCents: 999, compareAtPriceCents: 1999 })]));
+      return makeRes(makeProductsRes([makeProduct({ price: 999, compareAtPrice: 1999 })]));
     });
     const { container } = renderPage();
     await waitFor(() => {
