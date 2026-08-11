@@ -40,6 +40,18 @@ export function runChannel(runId: number): string {
   return `agent_flow_run_${runId}`;
 }
 
+/**
+ * Cross-tenant channel for the staff-only /admin rollup, which watches every
+ * client's runs at once and so has no projectId to key a channel on.
+ *
+ * Constant rather than per-id: an admin viewer would otherwise have to LISTEN
+ * on one channel per project and re-subscribe whenever a new project appears.
+ * It carries the same coarse lifecycle events as the project channel — the
+ * payload is only ever a wakeup, so this leaks no tenant data to the channel
+ * itself; authorization happens in the SSE route that subscribes.
+ */
+export const ADMIN_CHANNEL = 'agent_flow_admin';
+
 /** Run-lifecycle events also go to the coarse project channel. Node-level
  *  chatter deliberately does not — that is the whole point of splitting. */
 const PROJECT_SCOPED: ReadonlySet<AgentFlowEventType> = new Set([
@@ -122,9 +134,11 @@ export async function appendRunEvent(
     return row.id;
   });
 
-  // Wake the fine channel always, the coarse one only for lifecycle events.
+  // Wake the fine channel always, the coarse ones only for lifecycle events.
   const channels = [runChannel(runId)];
-  if (PROJECT_SCOPED.has(input.type)) channels.push(projectChannel(projectId));
+  if (PROJECT_SCOPED.has(input.type)) {
+    channels.push(projectChannel(projectId), ADMIN_CHANNEL);
+  }
   for (const ch of channels) {
     try {
       await db.execute(sql`select pg_notify(${ch}, ${String(eventId)})`);

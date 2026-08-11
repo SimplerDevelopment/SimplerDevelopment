@@ -96,6 +96,7 @@ export function getNavSections(): NavSection[] {
         },
         { href: '/admin/portal-tickets', label: 'Support Tickets', icon: 'support_agent' },
         { href: '/admin/automations', label: 'Automations', icon: 'bolt' },
+        { href: '/admin/agent-runs', label: 'Agent Runs', icon: 'network_node' },
         { href: '/admin/system-health', label: 'System Health', icon: 'monitor_heart' },
         { href: '/admin/oauth-clients', label: 'OAuth Clients', icon: 'key' },
         ...(process.env.NODE_ENV === 'development'
