@@ -128,24 +128,6 @@ export function RetroHero({
   );
 }
 
-/** Logo strip. Names only — the board keeps this quiet and monochrome. */
-export function TrustStrip({ eyebrow = 'Trusted by teams shipping in production', names }: { eyebrow?: string; names: string[] }) {
-  return (
-    <InkPanel className="border-y border-[color-mix(in_srgb,var(--retro-gold)_25%,transparent)]">
-      <div className="mx-auto max-w-7xl px-6 py-6">
-        <p className="eyebrow eyebrow--on-ink text-center">{eyebrow}</p>
-        <div className="mt-4 flex flex-wrap items-center justify-center gap-x-10 gap-y-3">
-          {names.map((n) => (
-            <span key={n} className="font-display text-sm font-bold tracking-wide text-[color-mix(in_srgb,var(--retro-cream)_80%,transparent)]">
-              {n}
-            </span>
-          ))}
-        </div>
-      </div>
-    </InkPanel>
-  );
-}
-
 /** Closing call to action. One per page, always the last band before the footer. */
 export function CTABanner({
   title,
@@ -193,17 +175,6 @@ export function CreamBand({ children, className = '' }: { children: ReactNode; c
     <section className={`bg-[var(--retro-cream)] ${className}`}>
       <div className="mx-auto max-w-7xl px-6 py-16 sm:py-20">{children}</div>
     </section>
-  );
-}
-
-export function TestimonialCard({ quote, name, role }: { quote: string; name: string; role: string }) {
-  return (
-    <figure className="flex h-full flex-col rounded-md border border-[color-mix(in_srgb,var(--retro-mid)_35%,transparent)] bg-[var(--retro-cream)] p-6">
-      <blockquote className="text-sm leading-relaxed text-[var(--retro-ink)]">“{quote}”</blockquote>
-      <figcaption className="mt-4 text-xs text-[color-mix(in_srgb,var(--retro-ink)_65%,transparent)]">
-        — <span className="font-semibold text-[var(--retro-ink)]">{name}</span>, {role}
-      </figcaption>
-    </figure>
   );
 }
 
