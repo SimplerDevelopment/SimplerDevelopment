@@ -102,6 +102,11 @@ export function Footer() {
                 </Link>
               </li>
               <li>
+                <Link href="/calculator" className="text-[color-mix(in_srgb,var(--retro-cream)_72%,transparent)] transition-colors hover:text-[var(--retro-gold)]">
+                  Cost Calculator
+                </Link>
+              </li>
+              <li>
                 <Link href="/about" className="text-[color-mix(in_srgb,var(--retro-cream)_72%,transparent)] transition-colors hover:text-[var(--retro-gold)]">
                   About Us
                 </Link>
