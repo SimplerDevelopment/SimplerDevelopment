@@ -99,7 +99,7 @@ export default function GetStartedChecklist() {
   const progressPct = Math.round((completedCount / totalActions) * 100);
 
   return (
-    <div className="rounded-xl border border-border bg-card p-5 mb-4">
+    <div data-testid="get-started-checklist" className="rounded-xl border border-border bg-card p-5 mb-4">
       {/* Heading row */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">

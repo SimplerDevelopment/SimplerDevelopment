@@ -117,15 +117,24 @@ export default defineConfig({
           //      single-digit seconds.
           globalSetup: ['./tests/helpers/global-setup.ts'],
           pool: 'forks',
-          // Parallel forks, BUT capped at 2 concurrent workers. Each worker
-          // owns a per-worker DB (`test_e2e_w<id>`) created from the
-          // template. Two concurrent workers ≤ two extra full-size DB copies
-          // on disk at any moment.
+          // Parallel forks. Each worker owns a per-worker DB (`test_e2e_w<id>`)
+          // created from the template.
           //   setup-api.ts drops the worker's DB in afterAll.
           //   global-setup drops orphans from crashed runs at startup, and
           //   drops the template DB at end of run.
           //   scripts/cleanup-test-schemas.ts sweeps manually.
-          maxWorkers: 2,
+          //
+          // Was capped at 2 on the reasoning that each worker costs "a full-size
+          // DB copy on disk". Measured, that copy is 30 MB — so four workers is
+          // 120 MB, against ~14 GB free on a CI runner. The cap was costing far
+          // more than it saved: a tenancy run spends ~2522s of CPU in tests, and
+          // wall time is simply that divided by this number (1349s at 2). Four
+          // matches ubuntu-latest's 4 vCPU and roughly halves it.
+          //
+          // Raise further only with evidence: past 4 you are oversubscribing
+          // cores, and Postgres FK contention between workers (see the deadlock
+          // retry in lib/audit/agent-action-log.ts) gets worse, not better.
+          maxWorkers: Number(process.env.VITEST_INTEGRATION_WORKERS ?? 4),
           // Vitest 4.x requires a unique `sequence.groupOrder` for projects
           // that override `maxWorkers`; otherwise startup fails with
           // "different 'maxWorkers' but same 'sequence.groupOrder'".

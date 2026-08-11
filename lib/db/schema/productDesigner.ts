@@ -52,6 +52,14 @@ export const productStyles = pgTable('product_styles', {
   colorHex: varchar('color_hex', { length: 7 }), // optional swatch color e.g. "#000000"
   thumbnailUrl: varchar('thumbnail_url', { length: 500 }), // small thumb for picker
   priceCents: integer('price_cents'), // optional override; null = use product.price
+  // Printful catalogue variant for THIS colourway. Lives on the style, not the
+  // product, because Printful models colour as a distinct variant — "Black / L"
+  // and "White / L" are different variant IDs of the same catalogue product.
+  // `products.printfulVariantId` remains the fallback for non-designable items
+  // that have a single variant. Null here means the style is not yet mapped and
+  // an order containing it cannot be submitted for fulfilment — surfaced by
+  // components/portal/store/PrintfulFulfillmentPanel.tsx.
+  printfulVariantId: integer('printful_variant_id'),
   order: integer('order').default(0).notNull(),
   active: boolean('active').default(true).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),

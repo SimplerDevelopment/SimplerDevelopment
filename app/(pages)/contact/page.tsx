@@ -13,6 +13,20 @@ import { SectionHeading, RetroCard } from '@/components/retro/primitives';
 // Served publicly at /book/<slug>.
 const BOOKING_SLUG = '30-minute-consultation-mq0h6cgc';
 
+// Pin the widget to this page's own palette instead of letting it resolve brand
+// from the portal. We are an agency client: we own every site we build, so the
+// client-level brand fallback can hand this widget a *showcase client's* colours
+// and logo — on our own contact page. Passing explicit overrides (and hiding the
+// logo) means this surface never depends on that resolution at all.
+const BOOKING_STYLE = {
+  primaryColor: '#FF5C2B',   // --retro-orange
+  textColor: '#0B0D14',      // --retro-ink
+  backgroundColor: 'transparent',
+  formBg: 'transparent',
+  buttonBg: '#FF5C2B',
+  buttonText: '#FFFFFF',
+} as const;
+
 export const metadata = generateSEO({
   title: 'Contact Us',
   description: 'Get in touch with SimplerDevelopment - Let\'s discuss your next project and how we can help transform your digital presence.',
@@ -35,7 +49,12 @@ export default function ContactPage() {
             <SlideIn direction="left">
               <RetroCard title="Book A Flight Briefing" icon="satellite-dish">
                 <p className="mb-6">30 minutes, no fluff — just your project and how we can help.</p>
-                <BookingFormInline slug={BOOKING_SLUG} showPageTitle={false} />
+                <BookingFormInline
+                  slug={BOOKING_SLUG}
+                  showPageTitle={false}
+                  showLogo={false}
+                  styleOverrides={BOOKING_STYLE}
+                />
               </RetroCard>
             </SlideIn>
 

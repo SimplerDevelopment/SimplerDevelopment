@@ -6,6 +6,13 @@ import { and, eq } from 'drizzle-orm';
 export const PORTAL_KEY_PREFIX = 'sd_mcp_';
 export const OAUTH_TOKEN_PREFIX = 'sd_oauth_';
 
+/**
+ * Which table `keyId` came from. `key_id` is POLYMORPHIC — portal API keys and
+ * OAuth access tokens are separate id spaces, so an id is only meaningful when
+ * paired with its kind. Persist both together; never compare ids alone.
+ */
+export type McpCredentialKind = 'portal_api_key' | 'oauth_access_token';
+
 export interface PortalMcpContext {
   userId: number;
   client: typeof clients.$inferSelect;
@@ -13,6 +20,12 @@ export interface PortalMcpContext {
   // null when the caller is a portal *session* (no API key / OAuth token) — e.g.
   // a synthetic gate ctx built by the web AI-chat route for approval staging.
   keyId: number | null;
+  /**
+   * The id space `keyId` belongs to; null when `keyId` is null. Required
+   * wherever `keyId` is persisted or compared — `portal_api_keys.id` 332 and
+   * `oauth_access_tokens.id` 332 are DIFFERENT credentials (QAD-048).
+   */
+  credentialKind: McpCredentialKind | null;
   /**
    * When true, CMS-write MCP tools stage to mcp_pending_changes for human
    * approval instead of applying directly. Resolved from the authenticating
@@ -90,6 +103,7 @@ export async function resolvePortalApiKey(rawKey: string): Promise<PortalMcpCont
     client,
     scopes: record.scopes ?? [],
     keyId: record.id,
+    credentialKind: 'portal_api_key',
     requireCmsApproval: record.requireCmsApproval,
     // Portal API keys are not audience-bound — unrestricted.
     resource: null,
@@ -133,6 +147,7 @@ export async function resolveOAuthToken(rawToken: string): Promise<PortalMcpCont
     client,
     scopes: record.scopes ?? [],
     keyId: record.id,
+    credentialKind: 'oauth_access_token',
     requireCmsApproval: record.requireCmsApproval ?? false,
     // RFC 8707 audience binding (e.g. the MCP server URL), or null = unrestricted.
     resource: record.resource ?? null,

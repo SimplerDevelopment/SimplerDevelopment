@@ -72,6 +72,20 @@ export async function POST(req: Request, { params }: Params) {
     body.order != null && body.order !== '' ? parseInt(String(body.order), 10) || 0 : 0;
   const active = body.active === undefined ? true : Boolean(body.active);
 
+  // Printful models colour as a distinct catalogue variant, so the mapping is
+  // per-style. Null is legitimate — the style just can't be fulfilled until it
+  // is mapped, which PrintfulFulfillmentPanel surfaces.
+  let printfulVariantId: number | null = null;
+  if (body.printfulVariantId != null && body.printfulVariantId !== '') {
+    printfulVariantId = parseInt(String(body.printfulVariantId), 10);
+    if (Number.isNaN(printfulVariantId) || printfulVariantId <= 0) {
+      return NextResponse.json(
+        { success: false, message: 'printfulVariantId must be a positive integer' },
+        { status: 400 },
+      );
+    }
+  }
+
   const [created] = await db
     .insert(productStyles)
     .values({
@@ -80,6 +94,7 @@ export async function POST(req: Request, { params }: Params) {
       colorHex,
       thumbnailUrl,
       priceCents,
+      printfulVariantId,
       order,
       active,
     })

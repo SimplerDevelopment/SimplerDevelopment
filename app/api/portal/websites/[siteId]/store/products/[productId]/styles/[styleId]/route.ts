@@ -87,6 +87,23 @@ export async function PUT(req: Request, { params }: Params) {
     updateData.order = parseInt(String(body.order), 10) || 0;
   }
   if (body.active !== undefined) updateData.active = Boolean(body.active);
+  // Explicit null/'' clears the mapping — distinct from omitting the key, which
+  // leaves it untouched. Unmapping is a real action: it takes the style out of
+  // fulfilment rather than silently keeping a stale variant.
+  if (body.printfulVariantId !== undefined) {
+    if (body.printfulVariantId === null || body.printfulVariantId === '') {
+      updateData.printfulVariantId = null;
+    } else {
+      const v = parseInt(String(body.printfulVariantId), 10);
+      if (Number.isNaN(v) || v <= 0) {
+        return NextResponse.json(
+          { success: false, message: 'printfulVariantId must be a positive integer' },
+          { status: 400 },
+        );
+      }
+      updateData.printfulVariantId = v;
+    }
+  }
 
   const [updated] = await db
     .update(productStyles)

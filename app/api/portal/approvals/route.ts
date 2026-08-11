@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { unstable_cache } from 'next/cache';
 import { db } from '@/lib/db';
 import { mcpPendingChanges, portalApiKeys, users } from '@/lib/db/schema';
-import { and, desc, eq, gte, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, isNull, or, sql } from 'drizzle-orm';
 import { authorizePortal, isAuthError } from '@/lib/portal-auth';
 
 // Per-client cached count for the layout-shell approvals bell. 30s TTL
@@ -83,7 +83,21 @@ export async function GET(req: Request) {
       createdAt: mcpPendingChanges.createdAt,
     })
     .from(mcpPendingChanges)
-    .leftJoin(portalApiKeys, eq(portalApiKeys.id, mcpPendingChanges.keyId))
+    // key_id is polymorphic (portal_api_keys | oauth_access_tokens) — join only
+    // within the portal-key id space, or an OAuth token id numerically colliding
+    // with a portal key id would display the wrong credential name to the
+    // reviewer. Legacy rows carry a null kind and are always portal keys: OAuth
+    // staging could never insert while the old FK existed.
+    .leftJoin(
+      portalApiKeys,
+      and(
+        eq(portalApiKeys.id, mcpPendingChanges.keyId),
+        or(
+          eq(mcpPendingChanges.credentialKind, 'portal_api_key'),
+          isNull(mcpPendingChanges.credentialKind),
+        ),
+      ),
+    )
     .leftJoin(users, eq(users.id, mcpPendingChanges.userId))
     .where(and(...conds))
     .orderBy(desc(mcpPendingChanges.createdAt))
