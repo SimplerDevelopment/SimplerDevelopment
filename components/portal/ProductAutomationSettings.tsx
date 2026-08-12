@@ -239,7 +239,7 @@ export default function ProductAutomationSettings({ productScope, presets, title
                     <span className="material-icons text-lg">{preset.icon}</span>
                   </div>
                   <div className="min-w-0">
-                    <h4 className="font-medium text-sm">{preset.name}</h4>
+                    <h4 id={`preset-name-${preset.key}`} className="font-medium text-sm">{preset.name}</h4>
                     <p className="text-xs text-muted-foreground mt-0.5">{preset.description}</p>
                   </div>
                 </div>
@@ -247,6 +247,9 @@ export default function ProductAutomationSettings({ productScope, presets, title
                 <button
                   onClick={() => handleToggle(preset)}
                   disabled={isToggling}
+                  role="switch"
+                  aria-checked={enabled}
+                  aria-labelledby={`preset-name-${preset.key}`}
                   className={`relative inline-flex h-6 w-10 items-center rounded-full transition-colors shrink-0 ${
                     enabled ? 'bg-green-500' : 'bg-muted'
                   }`}

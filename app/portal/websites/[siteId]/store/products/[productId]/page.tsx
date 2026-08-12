@@ -652,10 +652,10 @@ export default function ProductEditPage() {
               </select>
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">Featured</label>
+              <label id="product-featured-label" className="text-sm font-medium text-foreground">Featured</label>
               <div className="flex items-center gap-3 pt-1.5">
                 <button
-                  type="button"
+                  type="button" role="switch" aria-checked={form.featured} aria-labelledby="product-featured-label"
                   onClick={() => updateField('featured', !form.featured)}
                   className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
                     form.featured ? 'bg-primary' : 'bg-border'
@@ -740,10 +740,10 @@ export default function ProductEditPage() {
             </div>
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Track Inventory</label>
+            <label id="product-track-inventory-label" className="text-sm font-medium text-foreground">Track Inventory</label>
             <div className="flex items-center gap-3 pt-1.5">
               <button
-                type="button"
+                type="button" role="switch" aria-checked={form.trackInventory} aria-labelledby="product-track-inventory-label"
                 onClick={() => updateField('trackInventory', !form.trackInventory)}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
                   form.trackInventory ? 'bg-primary' : 'bg-border'

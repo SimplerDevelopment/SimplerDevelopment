@@ -635,10 +635,10 @@ export default function StoreSettingsPage() {
             <p className="text-xs text-muted-foreground">Enter as percentage (e.g. 8.5 for 8.5%)</p>
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Tax Inclusive</label>
+            <label id="tax-inclusive-label" className="text-sm font-medium text-foreground">Tax Inclusive</label>
             <div className="flex items-center gap-3 pt-1.5">
               <button
-                type="button"
+                type="button" role="switch" aria-checked={settings.taxInclusive} aria-labelledby="tax-inclusive-label"
                 onClick={() => updateField('taxInclusive', !settings.taxInclusive)}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
                   settings.taxInclusive ? 'bg-primary' : 'bg-border'
@@ -666,10 +666,10 @@ export default function StoreSettingsPage() {
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Requires Shipping</label>
+            <label id="requires-shipping-label" className="text-sm font-medium text-foreground">Requires Shipping</label>
             <div className="flex items-center gap-3 pt-1.5">
               <button
-                type="button"
+                type="button" role="switch" aria-checked={settings.requiresShipping} aria-labelledby="requires-shipping-label"
                 onClick={() => updateField('requiresShipping', !settings.requiresShipping)}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
                   settings.requiresShipping ? 'bg-primary' : 'bg-border'
@@ -687,10 +687,10 @@ export default function StoreSettingsPage() {
             </div>
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Enable Reviews</label>
+            <label id="enable-reviews-feature-label" className="text-sm font-medium text-foreground">Enable Reviews</label>
             <div className="flex items-center gap-3 pt-1.5">
               <button
-                type="button"
+                type="button" role="switch" aria-checked={settings.enableReviews} aria-labelledby="enable-reviews-feature-label"
                 onClick={() => updateField('enableReviews', !settings.enableReviews)}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
                   settings.enableReviews ? 'bg-primary' : 'bg-border'
@@ -728,10 +728,10 @@ export default function StoreSettingsPage() {
             { key: 'enableReviews' as const, label: 'Product Reviews', desc: 'Customers can leave product reviews' },
           ] as const).map(toggle => (
             <div key={toggle.key} className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">{toggle.label}</label>
+              <label id={`customer-portal-${toggle.key}-label`} className="text-sm font-medium text-foreground">{toggle.label}</label>
               <div className="flex items-center gap-3 pt-1.5">
                 <button
-                  type="button"
+                  type="button" role="switch" aria-checked={settings[toggle.key]} aria-labelledby={`customer-portal-${toggle.key}-label`}
                   onClick={() => updateField(toggle.key, !settings[toggle.key])}
                   className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
                     settings[toggle.key] ? 'bg-primary' : 'bg-border'
@@ -1100,10 +1100,10 @@ export default function StoreSettingsPage() {
 
             {/* Live rates fallback */}
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">Live Rates Fallback</label>
+              <label id="live-rates-fallback-label" className="text-sm font-medium text-foreground">Live Rates Fallback</label>
               <div className="flex items-center gap-3 pt-1.5">
                 <button
-                  type="button"
+                  type="button" role="switch" aria-checked={settings.liveRatesFallback} aria-labelledby="live-rates-fallback-label"
                   onClick={() => updateField('liveRatesFallback', !settings.liveRatesFallback)}
                   className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
                     settings.liveRatesFallback ? 'bg-primary' : 'bg-border'

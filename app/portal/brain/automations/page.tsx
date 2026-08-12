@@ -754,7 +754,7 @@ export default function BrainAutomationsPage() {
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
-                        <h3 className="font-semibold text-sm truncate">{rule.name}</h3>
+                        <h3 id={`rule-name-${rule.id}`} className="font-semibold text-sm truncate">{rule.name}</h3>
                         <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${SCOPE_COLORS[scope] || 'bg-muted text-muted-foreground'}`}>
                           {scope}
                         </span>
@@ -819,7 +819,7 @@ export default function BrainAutomationsPage() {
                       {/* Toggle */}
                       <button
                         onClick={() => handleToggle(rule.id, !rule.enabled)}
-                        disabled={togglingId === rule.id}
+                        disabled={togglingId === rule.id} role="switch" aria-checked={rule.enabled} aria-labelledby={`rule-name-${rule.id}`}
                         className={`relative inline-flex h-6 w-10 items-center rounded-full transition-colors ${
                           rule.enabled ? 'bg-green-500' : 'bg-muted'
                         }`}

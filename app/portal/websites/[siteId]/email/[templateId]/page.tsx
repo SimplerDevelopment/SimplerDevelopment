@@ -290,12 +290,15 @@ export default function WebsiteEmailTemplatePage({ params }: { params: Promise<{
                   <button
                     type="button"
                     onClick={() => setEnabled(!enabled)}
+                    role="switch"
+                    aria-checked={enabled}
+                    aria-labelledby="template-enabled-label"
                     className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${enabled ? 'bg-primary' : 'bg-border'}`}
                   >
                     <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${enabled ? 'translate-x-6' : 'translate-x-1'}`} />
                   </button>
                   <div>
-                    <span className="text-sm font-medium text-foreground">Enabled</span>
+                    <span id="template-enabled-label" className="text-sm font-medium text-foreground">Enabled</span>
                     <p className="text-xs text-muted-foreground">When disabled, this email won&apos;t be sent even when the event fires.</p>
                   </div>
                 </label>
