@@ -41,6 +41,31 @@ async function removeMembership(userId: number, clientId: number): Promise<void>
   `;
 }
 
+/**
+ * Wait for the MCP wrapper's fire-and-forget audit writes to land.
+ *
+ * Every tool call fires `void logAgentAction(...)` (lib/mcp/server.ts) — an INSERT
+ * that takes FOR KEY SHARE locks on its client and user parent rows. This file
+ * makes many calls, so left in flight those inserts overlap the next test's setup
+ * and deadlock it; only the audit side retries on 40P01 (see the comment in
+ * lib/audit/agent-action-log.ts), so the victim is whatever this file does next.
+ *
+ * Polls until the row count stops moving rather than sleeping a fixed interval — a
+ * fixed sleep just relocates the flake to whenever the machine is loaded.
+ */
+async function drainAuditWrites(): Promise<void> {
+  const sql = getTestSql();
+  let previous = -1;
+  for (let attempt = 0; attempt < 40; attempt++) {
+    const [row] = await sql<{ n: number }[]>`
+      SELECT count(*)::int AS n FROM ${sql(TEST_SCHEMA)}.agent_action_log
+    `;
+    if (row.n === previous) return;
+    previous = row.n;
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+}
+
 async function projectsOf(clientId: number): Promise<{ id: number; name: string }[]> {
   const sql = getTestSql();
   return sql<{ id: number; name: string }[]>`
@@ -58,6 +83,9 @@ describe('MCP credential spanning several companies @mcp @tenancy', () => {
     // exists for: one human, two companies, one MCP connection.
     await addMembership(A.user.id, B.client.id, 'owner');
   });
+
+  // Must run before the next test's setup touches client/user rows.
+  afterEach(drainAuditWrites);
 
   it('reports every reachable company through whoami', async () => {
     const server = await buildMcpServerForTest(A, ['*'], [A.client.id, B.client.id]);
