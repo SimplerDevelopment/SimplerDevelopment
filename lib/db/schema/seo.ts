@@ -272,6 +272,46 @@ export const seoRecommendations = pgTable('seo_recommendations', {
   index('seo_recommendations_client_idx').on(t.clientId),
 ]);
 
+// ─── seo_gsc_query_daily / seo_gsc_page_daily ───────────────────────────────
+// Search Console history, imported daily per project (only projects linked to
+// a hosted website with a connected gscSiteUrl). Grain is (project, date,
+// query|page) — country/device dimensions are deliberately dropped: no
+// report reads them and they multiply cardinality ~20x. Position is the
+// impression-weighted average GSC reports for the day. GSC data lags ~2-3
+// days; the importer never asks for fresher than today-3.
+// ponytail: rowLimit-capped import (top queries/pages only) — full-fidelity
+// export via the GSC bulk-export API if a tenant ever outgrows this.
+
+export const seoGscQueryDaily = pgTable('seo_gsc_query_daily', {
+  id: bigserial('id', { mode: 'number' }).primaryKey(),
+  projectId: integer('project_id').notNull().references(() => seoProjects.id, { onDelete: 'cascade' }),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  date: varchar('date', { length: 10 }).notNull(), // 'YYYY-MM-DD' (GSC's own keying; no TZ ambiguity)
+  query: varchar('query', { length: 512 }).notNull(),
+  clicks: integer('clicks').default(0).notNull(),
+  impressions: integer('impressions').default(0).notNull(),
+  ctr: real('ctr').default(0).notNull(),
+  position: real('position').default(0).notNull(),
+}, (t) => [
+  uniqueIndex('seo_gsc_query_daily_uq').on(t.projectId, t.date, t.query),
+  index('seo_gsc_query_daily_client_idx').on(t.clientId),
+]);
+
+export const seoGscPageDaily = pgTable('seo_gsc_page_daily', {
+  id: bigserial('id', { mode: 'number' }).primaryKey(),
+  projectId: integer('project_id').notNull().references(() => seoProjects.id, { onDelete: 'cascade' }),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  date: varchar('date', { length: 10 }).notNull(),
+  page: varchar('page', { length: 2048 }).notNull(),
+  clicks: integer('clicks').default(0).notNull(),
+  impressions: integer('impressions').default(0).notNull(),
+  ctr: real('ctr').default(0).notNull(),
+  position: real('position').default(0).notNull(),
+}, (t) => [
+  uniqueIndex('seo_gsc_page_daily_uq').on(t.projectId, t.date, t.page),
+  index('seo_gsc_page_daily_client_idx').on(t.clientId),
+]);
+
 // ─── Inferred types ─────────────────────────────────────────────────────────
 
 export type SeoProject = typeof seoProjects.$inferSelect;
@@ -291,3 +331,9 @@ export type NewSeoIssue = typeof seoIssues.$inferInsert;
 
 export type SeoRecommendation = typeof seoRecommendations.$inferSelect;
 export type NewSeoRecommendation = typeof seoRecommendations.$inferInsert;
+
+export type SeoGscQueryDaily = typeof seoGscQueryDaily.$inferSelect;
+export type NewSeoGscQueryDaily = typeof seoGscQueryDaily.$inferInsert;
+
+export type SeoGscPageDaily = typeof seoGscPageDaily.$inferSelect;
+export type NewSeoGscPageDaily = typeof seoGscPageDaily.$inferInsert;

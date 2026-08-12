@@ -122,3 +122,73 @@ export interface WebsiteOption {
   id: number;
   name: string;
 }
+
+// ── Search Performance (Google Search Console) ──────────────────────────────
+// Mirrors GET /api/portal/seo/projects/[id]/search-performance.
+
+export interface GscOverviewPoint {
+  date: string;
+  clicks: number;
+  impressions: number;
+}
+
+export interface GscOverview {
+  series: GscOverviewPoint[];
+  totals: {
+    clicks: number;
+    impressions: number;
+    avgCtr: number;
+    avgPosition: number;
+  };
+}
+
+export interface QueryDelta {
+  query: string;
+  clicks: number;
+  prevClicks: number;
+  deltaClicks: number;
+  position: number;
+  prevPosition: number;
+}
+
+export interface QueryStat {
+  query: string;
+  clicks: number;
+  impressions: number;
+  ctr: number;
+  position: number;
+}
+
+export interface PageDelta {
+  page: string;
+  clicks: number;
+  prevClicks: number;
+  deltaClicks: number;
+  declinePct: number;
+}
+
+export interface SearchPerformanceReports {
+  winners: QueryDelta[];
+  losers: QueryDelta[];
+  newQueries: QueryStat[];
+  lostQueries: QueryStat[];
+  ctrOpportunities: QueryStat[];
+  strikingDistance: QueryStat[];
+  pageDecay: PageDelta[];
+}
+
+export interface SearchPerformanceData {
+  /** false → project not linked to a hosted site with GSC connected. */
+  connected: boolean;
+  /** The GSC property, when connected. */
+  siteUrl: string | null;
+  /** Newest imported day ('YYYY-MM-DD'), null when no data yet. */
+  lastDate: string | null;
+  overview: GscOverview | null;
+  reports: SearchPerformanceReports | null;
+}
+
+/** Mirrors GscImportResult in lib/seo/gsc.ts — the POST /gsc-import response. */
+export type GscImportResult =
+  | { imported: { queries: number; pages: number } }
+  | { skipped: 'not-linked' | 'not-connected' | 'up-to-date' };

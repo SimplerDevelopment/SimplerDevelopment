@@ -186,6 +186,10 @@
     {
       "path": "/api/cron/seo-crawl-tick",
       "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/seo-gsc-import",
+      "schedule": "15 7 * * *"
     }
   ]
 }

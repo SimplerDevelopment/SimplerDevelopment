@@ -10,18 +10,20 @@ import { pBtnPrimary } from '@/components/portal/portal-ui';
 import { HealthScoreBadge } from './HealthScoreBadge';
 import { RunStatusPill } from './RunStatusPill';
 import { isRunActive, relativeTime } from './format';
-import type { SeoProjectDetail, SeoRun } from './types';
+import type { SearchPerformanceData, SeoProjectDetail, SeoRun } from './types';
 import { OverviewTab } from './OverviewTab';
 import { IssuesTab } from './IssuesTab';
 import { PagesTab } from './PagesTab';
+import { SearchPerformanceTab } from './SearchPerformanceTab';
 import { HistoryTab } from './HistoryTab';
 
-type Tab = 'overview' | 'issues' | 'pages' | 'history';
+type Tab = 'overview' | 'issues' | 'pages' | 'search' | 'history';
 
 const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'overview', label: 'Overview', icon: 'dashboard' },
   { id: 'issues', label: 'Issues', icon: 'fact_check' },
   { id: 'pages', label: 'Pages', icon: 'description' },
+  { id: 'search', label: 'Search', icon: 'query_stats' },
   { id: 'history', label: 'History', icon: 'history' },
 ];
 
@@ -32,6 +34,11 @@ export default function SeoProjectDashboard({ projectId }: { projectId: number }
   const [tab, setTab] = useState<Tab>('overview');
   const [starting, setStarting] = useState(false);
   const [runError, setRunError] = useState('');
+  // Cached at the shell level (not inside SearchPerformanceTab) so switching
+  // tabs away and back doesn't re-trigger the GSC fetch — see that
+  // component's comment for why this data source needs different caching
+  // than the run-scoped Issues/Pages tabs.
+  const [searchPerf, setSearchPerf] = useState<SearchPerformanceData | null>(null);
 
   const fetchProject = useCallback(async () => {
     try {
@@ -183,6 +190,9 @@ export default function SeoProjectDashboard({ projectId }: { projectId: number }
       {tab === 'overview' && <OverviewTab run={latestRun} />}
       {tab === 'issues' && <IssuesTab runId={latestRun?.id ?? null} runStatus={latestRun?.status ?? null} />}
       {tab === 'pages' && <PagesTab runId={latestRun?.id ?? null} runStatus={latestRun?.status ?? null} />}
+      {tab === 'search' && (
+        <SearchPerformanceTab projectId={projectId} data={searchPerf} onDataChange={setSearchPerf} />
+      )}
       {tab === 'history' && <HistoryTab runs={project.runs} />}
     </div>
   );
