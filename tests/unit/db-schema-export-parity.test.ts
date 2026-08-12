@@ -172,6 +172,9 @@ const EXPECTED_EXPORTS: readonly string[] = [
   'GoogleWorkspaceClientConnection',
   'GoogleWorkspaceTenantCredentials',
   'GoogleWorkspaceUserConnection',
+  'InternalJob',
+  'InternalJobStatus',
+  'InternalJobType',
   'LinkedinPost',
   'LinkedinUserConnection',
   'MicrosoftTeamsUserConnection',
@@ -205,6 +208,7 @@ const EXPECTED_EXPORTS: readonly string[] = [
   'NewGoogleWorkspaceClientConnection',
   'NewGoogleWorkspaceTenantCredentials',
   'NewGoogleWorkspaceUserConnection',
+  'NewInternalJob',
   'NewLinkedinPost',
   'NewLinkedinUserConnection',
   'NewMicrosoftTeamsUserConnection',
@@ -407,6 +411,7 @@ const EXPECTED_EXPORTS: readonly string[] = [
   'googleWorkspaceUserConnections',
   'hostedSites',
   'httpRequestLogs',
+  'internalJobs',
   'invoiceItems',
   'invoices',
   'kanbanCardActivities',
@@ -723,6 +728,7 @@ const EXPECTED_TABLE_NAMES: Readonly<Record<string, string>> = {
   googleWorkspaceUserConnections: 'google_workspace_user_connections',
   hostedSites: 'hosted_sites',
   httpRequestLogs: 'http_request_logs',
+  internalJobs: 'internal_jobs',
   invoiceItems: 'invoice_items',
   invoices: 'invoices',
   kanbanCardActivities: 'kanban_card_activities',
@@ -902,13 +908,13 @@ describe('lib/db/schema export parity', () => {
     expect(actualTables).toEqual(EXPECTED_TABLE_NAMES);
   });
 
-  it('reports the recorded number of tables (302)', () => {
+  it('reports the recorded number of tables (303)', () => {
     const schemaMap = Schema as unknown as Record<string, unknown>;
     let count = 0;
     for (const value of Object.values(schemaMap)) {
       if (value && typeof value === 'object' && isTable(value)) count += 1;
     }
     expect(count).toBe(Object.keys(EXPECTED_TABLE_NAMES).length);
-    expect(count).toBe(302);
+    expect(count).toBe(303);
   });
 });

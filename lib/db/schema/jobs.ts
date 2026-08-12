@@ -17,7 +17,7 @@ import { clients } from './sites';
 
 /** Job types handled by lib/jobs. Adding one here without a handler entry
  *  dead-letters every row of that type — the two move together. */
-export type InternalJobType = 'pod.submit';
+export type InternalJobType = 'pod.submit' | 'email.campaign_send' | 'automation.delayed_action';
 
 export type InternalJobStatus = 'pending' | 'running' | 'completed' | 'dead_letter';
 
