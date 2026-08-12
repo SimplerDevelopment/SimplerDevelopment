@@ -2,9 +2,10 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import {
   orders, orderItems, orderStatusHistory, carts,
-  products, productVariants, discountCodes,
+  products, productVariants, discountCodes, clientWebsites,
 } from '@/lib/db/schema';
 import { eq, and, sql } from 'drizzle-orm';
+import { enqueueJob } from '@/lib/jobs';
 import {
   sendTransactionalEmail, getWebsiteUrls, formatCents, formatAddress, formatEmailDate, buildItemsHtml,
 } from '@/lib/email/send-transactional';
@@ -179,6 +180,40 @@ export async function POST(req: Request) {
         updatedAt: new Date(),
       }).where(eq(orders.id, orderId));
 
+      // Queue Printful auto-fulfillment. This used to call submitPODOrder
+      // fire-and-forget below the email send, which lost the order whenever
+      // Printful was down or the lambda froze after responding: the customer had
+      // paid, nothing reached the printer, and the only trace was a console
+      // line. It is now a durable job with backoff + dead-lettering (lib/jobs,
+      // drained every minute).
+      //
+      // Deliberately placed HERE — after the (idempotent) paid flag, before the
+      // inventory decrement. Awaiting the insert means a DB failure 500s the
+      // webhook and Stripe redelivers, which is what we want; but redelivery
+      // re-runs everything below, and the inventory decrement is NOT idempotent.
+      // Enqueueing first keeps the only rollback-unsafe work downstream of the
+      // step that can now fail. A redelivery that gets this far is absorbed by
+      // the dedupe key rather than queueing a second submission.
+      const [site] = await db
+        .select({ clientId: clientWebsites.clientId })
+        .from(clientWebsites)
+        .where(eq(clientWebsites.id, order.websiteId))
+        .limit(1);
+
+      if (site) {
+        await enqueueJob({
+          clientId: site.clientId,
+          type: 'pod.submit',
+          payload: { orderId },
+          dedupeKey: `pod.submit:${orderId}`,
+        }, db);
+      } else {
+        // Cannot happen — orders.website_id is a NOT NULL FK to client_websites
+        // — but the job row needs a real client_id, so log loudly rather than
+        // guess a tenant. Not fatal: the payment is still recorded below.
+        console.error(`[webhook/ecommerce] no client_websites row for order ${orderId}; POD not queued`);
+      }
+
       // Insert order status history
       await db.insert(orderStatusHistory).values({
         orderId,
@@ -268,17 +303,6 @@ export async function POST(req: Request) {
         total: order.total,
       });
 
-      // Fire-and-forget Printful auto-fulfillment. The outer .catch is required:
-      // a rejecting dynamic import (or a throw in the .then callback) would
-      // otherwise surface as an unhandled rejection — noisy in prod logs and
-      // enough to fail the unit shard even though the request itself succeeded.
-      import('@/lib/fulfillment/pod').then(({ submitPODOrder }) =>
-        submitPODOrder(orderId, db).catch(err =>
-          console.error('[webhook/ecommerce] submitPODOrder failed:', err)
-        )
-      ).catch(err =>
-        console.error('[webhook/ecommerce] POD module load failed:', err)
-      );
     }
 
     if (event.type === 'payment_intent.payment_failed') {

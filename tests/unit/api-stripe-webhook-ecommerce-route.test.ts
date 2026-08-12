@@ -118,6 +118,9 @@ vi.mock('@/lib/db/schema', () => {
   const tables = [
     'orders', 'orderItems', 'orderStatusHistory',
     'carts', 'products', 'productVariants', 'discountCodes',
+    // Read on the paid path to resolve the order's owning client for the
+    // pod.submit job row (internal_jobs.client_id).
+    'clientWebsites', 'internalJobs',
   ];
   const exports: Record<string, unknown> = {};
   for (const t of tables) exports[t] = tableProxy(t);
@@ -155,6 +158,8 @@ vi.mock('@/lib/db', () => {
       return insertChain;
     };
     insertChain.returning = () => Promise.resolve([]);
+    // enqueueJob (lib/jobs) inserts with ON CONFLICT DO NOTHING for idempotency.
+    insertChain.onConflictDoNothing = () => insertChain;
     insertChain.then = (resolve: (v: unknown) => unknown) =>
       Promise.resolve(undefined).then(resolve);
     return insertChain;
@@ -220,6 +225,14 @@ interface JsonResponse {
   received?: boolean;
   error?: string;
 }
+
+/**
+ * The client_websites lookup on the paid path, which resolves the order's
+ * owning tenant for the queued pod.submit job. The db mock serves selects
+ * positionally, so every paid-path test must queue this row between the order
+ * lookup and the order-items lookup or the sequence shifts by one.
+ */
+const SITE_ROW = [{ clientId: 99 }];
 
 const DEFAULT_ORDER = {
   id: 500,
@@ -380,6 +393,7 @@ describe('POST /api/stripe/webhook/ecommerce — payment_intent.succeeded', () =
       },
     });
     dbState.selectQueue.push([DEFAULT_ORDER]); // order lookup
+    dbState.selectQueue.push(SITE_ROW);        // clientWebsites -> owning client
     dbState.selectQueue.push([
       { id: 1, orderId: 500, productId: 7, variantId: 17, quantity: 2 },
       { id: 2, orderId: 500, productId: 8, variantId: null, quantity: 1 },
@@ -434,12 +448,39 @@ describe('POST /api/stripe/webhook/ecommerce — payment_intent.succeeded', () =
     });
   });
 
+  it('queues a deduped pod.submit job for the order owner instead of submitting inline', async () => {
+    // Regression guard. This used to be `submitPODOrder(...).catch(console.error)`
+    // fired after the response, so a Printful outage lost a PAID order with only
+    // a log line to show for it. The webhook must now leave a durable row behind.
+    stripeState.constructEvent.mockReturnValue({
+      type: 'payment_intent.succeeded',
+      data: { object: { id: 'pi_pod', metadata: { orderId: '500', websiteId: '1' } } },
+    });
+    dbState.selectQueue.push([DEFAULT_ORDER]); // order lookup
+    dbState.selectQueue.push(SITE_ROW);        // clientWebsites -> owning client
+    dbState.selectQueue.push([]);              // order items
+
+    const { POST } = await import('@/app/api/stripe/webhook/ecommerce/route');
+    const res = await POST(makeRequest('{}'));
+    expect(res.status).toBe(200);
+
+    const jobInsert = dbState.inserts.find((i) => i.table === 'internalJobs');
+    expect(jobInsert, 'paid order must enqueue a pod.submit job').toBeDefined();
+    expect(jobInsert!.values).toMatchObject({
+      clientId: 99,                    // tenant resolved from the order's site
+      type: 'pod.submit',
+      payload: { orderId: 500 },
+      dedupeKey: 'pod.submit:500',     // Stripe redelivery cannot double-print
+    });
+  });
+
   it('increments discountCodes.usedCount when the order used a discount code', async () => {
     stripeState.constructEvent.mockReturnValue({
       type: 'payment_intent.succeeded',
       data: { object: { id: 'pi_disc', metadata: { orderId: '500', websiteId: '1' } } },
     });
     dbState.selectQueue.push([{ ...DEFAULT_ORDER, discountCode: 'SAVE10' }]);
+    dbState.selectQueue.push(SITE_ROW);
     dbState.selectQueue.push([]); // no items
 
     const { POST } = await import('@/app/api/stripe/webhook/ecommerce/route');
@@ -456,6 +497,7 @@ describe('POST /api/stripe/webhook/ecommerce — payment_intent.succeeded', () =
       data: { object: { id: 'pi_nodisc', metadata: { orderId: '500', websiteId: '1' } } },
     });
     dbState.selectQueue.push([{ ...DEFAULT_ORDER, discountCode: null }]);
+    dbState.selectQueue.push(SITE_ROW);
     dbState.selectQueue.push([]);
 
     const { POST } = await import('@/app/api/stripe/webhook/ecommerce/route');
@@ -472,6 +514,7 @@ describe('POST /api/stripe/webhook/ecommerce — payment_intent.succeeded', () =
       data: { object: { id: 'pi_solo', metadata: { orderId: '500', websiteId: '1' } } },
     });
     dbState.selectQueue.push([{ ...DEFAULT_ORDER, customerName: 'Madonna' }]);
+    dbState.selectQueue.push(SITE_ROW);
     dbState.selectQueue.push([]);
 
     const { POST } = await import('@/app/api/stripe/webhook/ecommerce/route');
@@ -488,6 +531,7 @@ describe('POST /api/stripe/webhook/ecommerce — payment_intent.succeeded', () =
       data: { object: { id: 'pi_emailfail', metadata: { orderId: '500', websiteId: '1' } } },
     });
     dbState.selectQueue.push([DEFAULT_ORDER]);
+    dbState.selectQueue.push(SITE_ROW);
     dbState.selectQueue.push([]);
     emailState.sendTransactionalEmail.mockRejectedValueOnce(new Error('SMTP down'));
     const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -506,6 +550,7 @@ describe('POST /api/stripe/webhook/ecommerce — payment_intent.succeeded', () =
       data: { object: { id: 'pi_novar', metadata: { orderId: '500', websiteId: '1' } } },
     });
     dbState.selectQueue.push([DEFAULT_ORDER]);
+    dbState.selectQueue.push(SITE_ROW);
     dbState.selectQueue.push([
       { id: 1, orderId: 500, productId: 7, variantId: null, quantity: 3 },
     ]);
