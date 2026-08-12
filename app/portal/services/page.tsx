@@ -76,7 +76,7 @@ export default async function PortalServicesPage({
       {allServices.length === 0 ? (
         <div className="bg-card border border-border rounded-2xl p-12 text-center">
           <span className="material-icons text-5xl text-muted-foreground">storefront</span>
-          <h3 className="mt-4 font-display font-extrabold tracking-[-0.01em] text-foreground">No services available</h3>
+          <h2 className="mt-4 font-display font-extrabold tracking-[-0.01em] text-foreground">No services available</h2>
           <p className="mt-2 text-sm text-muted-foreground">Check back soon or contact us about custom services.</p>
         </div>
       ) : (
@@ -107,7 +107,7 @@ export default async function PortalServicesPage({
                     <div className="flex items-start justify-between gap-4">
                       <div>
                         <div className="flex items-center gap-2">
-                          <h3 className="font-display font-extrabold tracking-[-0.01em] text-foreground">{svc.name}</h3>
+                          <h2 className="font-display font-extrabold tracking-[-0.01em] text-foreground">{svc.name}</h2>
                           {owned && (
                             <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-medium">
                               <span className="material-icons text-xs">check_circle</span>

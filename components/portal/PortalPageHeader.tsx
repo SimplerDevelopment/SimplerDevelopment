@@ -8,6 +8,19 @@ import type { ReactNode } from 'react';
  * Replaces the portal's ad-hoc `<h1 className="text-2xl font-bold">`. Keep the
  * same `title` text a page used before (titles are asserted by some tests).
  *
+ * This is the ONLY heading the shared portal shell (`app/portal/layout.tsx` /
+ * `PortalShell.tsx`) ever gets — the shell itself renders no heading. Every
+ * page that uses this component is responsible for making sure its OWN first
+ * content heading is `<h2>`, not `<h3>` (a handful of pages used h3 for a
+ * "section title" purely because it had the right font-size — see the
+ * `pSectionTitle` token in `portal-ui.ts`, which is a `<h2>`-styled class, not
+ * an h3 one). Skipping h2 breaks the document outline screen readers use to
+ * navigate (Aug 2026 Lighthouse sweep: 27 routes failed `heading-order` this
+ * way). A few route subtrees emit their own literal `<h1>` instead of using
+ * this component — `app/portal/publishing/layout.tsx`,
+ * `app/portal/settings/layout.tsx`, `components/admin/PostEditorLayout.tsx`
+ * — the same rule applies there: their children must start at h2.
+ *
  *   <PortalPageHeader
  *     eyebrow="Workspace"
  *     title="Dashboard"

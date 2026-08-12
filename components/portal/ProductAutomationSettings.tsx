@@ -207,10 +207,10 @@ export default function ProductAutomationSettings({ productScope, presets, title
     <div>
       {title && (
         <div className="mb-4">
-          <h3 className="text-lg font-semibold flex items-center gap-2">
+          <h2 className="text-lg font-semibold flex items-center gap-2">
             <span className="material-icons text-lg text-primary">bolt</span>
             {title}
-          </h3>
+          </h2>
           {description && <p className="text-sm text-muted-foreground mt-0.5">{description}</p>}
         </div>
       )}
@@ -239,7 +239,9 @@ export default function ProductAutomationSettings({ productScope, presets, title
                     <span className="material-icons text-lg">{preset.icon}</span>
                   </div>
                   <div className="min-w-0">
-                    <h4 id={`preset-name-${preset.key}`} className="font-medium text-sm">{preset.name}</h4>
+                    {/* id is load-bearing: the preset's toggle names itself from
+                        this heading via aria-labelledby. */}
+                    <h3 id={`preset-name-${preset.key}`} className="font-medium text-sm">{preset.name}</h3>
                     <p className="text-xs text-muted-foreground mt-0.5">{preset.description}</p>
                   </div>
                 </div>

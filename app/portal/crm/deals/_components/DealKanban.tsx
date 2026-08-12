@@ -81,7 +81,7 @@ export default function DealKanban({
                     className="w-2.5 h-2.5 rounded-full"
                     style={{ backgroundColor: stage.color || '#6b7280' }}
                   />
-                  <h4 className="text-sm font-semibold text-foreground">{stage.name}</h4>
+                  <h2 className="text-sm font-semibold text-foreground">{stage.name}</h2>
                   <span className="text-xs text-muted-foreground bg-accent px-1.5 py-0.5 rounded-full">
                     {stageDeals.length}
                   </span>
@@ -123,7 +123,7 @@ export default function DealKanban({
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex items-center gap-1.5">
                       <span className="material-icons text-xs text-muted-foreground/50">drag_indicator</span>
-                      <h5 className="text-sm font-medium text-foreground leading-tight">{deal.title}</h5>
+                      <h3 className="text-sm font-medium text-foreground leading-tight">{deal.title}</h3>
                     </div>
                     <span
                       className={`text-[10px] px-1.5 py-0.5 rounded font-medium shrink-0 ${

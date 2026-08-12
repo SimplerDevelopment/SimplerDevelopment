@@ -142,7 +142,7 @@ export default async function WebsiteSettingsPage({
           <div className="flex items-center gap-3">
             <span className="material-icons text-muted-foreground text-lg group-hover:text-primary transition-colors">bolt</span>
             <div>
-              <h3 className="font-semibold text-sm text-foreground">Automations & Notifications</h3>
+              <h2 className="font-semibold text-sm text-foreground">Automations & Notifications</h2>
               <p className="text-xs text-muted-foreground mt-0.5">Configure automated workflows and event alerts</p>
             </div>
           </div>

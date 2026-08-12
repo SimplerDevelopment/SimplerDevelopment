@@ -140,7 +140,7 @@ export default function UsageMeters() {
     return (
       <div className="bg-card border border-border rounded-xl p-12 text-center">
         <span className="material-icons text-5xl text-muted-foreground/40">data_usage</span>
-        <h3 className="mt-4 font-semibold text-foreground">No metered usage yet</h3>
+        <h2 className="mt-4 font-semibold text-foreground">No metered usage yet</h2>
         <p className="mt-2 text-sm text-muted-foreground">
           Usage meters appear here once you have active modules with included allowances.
         </p>
@@ -166,10 +166,10 @@ export default function UsageMeters() {
       {/* Infra meters */}
       {infraRows.length > 0 && (
         <div className="bg-card border border-border rounded-xl px-6 py-5">
-          <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
+          <h2 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
             <span className="material-icons text-base text-muted-foreground">speed</span>
             Resource usage this month
-          </h3>
+          </h2>
           <div className="divide-y divide-border">
             {infraRows.map((row) => (
               <UsageMeterRow key={row.resource} row={row} />
@@ -180,10 +180,10 @@ export default function UsageMeters() {
 
       {/* AI credits section */}
       <div className="bg-card border border-border rounded-xl px-6 py-5">
-        <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
+        <h2 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
           <span className="material-icons text-base text-muted-foreground">psychology</span>
           AI credits
-        </h3>
+        </h2>
 
         {/* Credit balance */}
         <div className="flex items-center justify-between mb-4 p-3 bg-muted/50 rounded-lg">

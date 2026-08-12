@@ -28,7 +28,7 @@ export function CreatePageIntroCard({
       <div className="w-full max-w-lg">
         <div className="text-center mb-8">
           <span className="material-icons text-5xl text-muted-foreground/30 mb-3 block">edit_note</span>
-          <h3 className="text-lg font-semibold text-foreground">Create New Page</h3>
+          <h2 className="text-lg font-semibold text-foreground">Create New Page</h2>
           <p className="text-sm text-muted-foreground mt-1">Fill in the details below to create the page and open the visual editor.</p>
         </div>
 

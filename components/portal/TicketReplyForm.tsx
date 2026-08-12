@@ -41,9 +41,9 @@ export default function TicketReplyForm({ ticketId, isStaff }: Props) {
 
   return (
     <div className="bg-card border border-border rounded-xl p-6">
-      <h3 className="text-sm font-semibold text-foreground mb-3">
+      <h2 className="text-sm font-semibold text-foreground mb-3">
         {isStaff ? 'Reply to Client' : 'Reply'}
-      </h3>
+      </h2>
 
       {error && (
         <div className="mb-3 p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-sm text-destructive flex items-center gap-2">

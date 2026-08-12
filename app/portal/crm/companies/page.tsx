@@ -169,7 +169,7 @@ export default function CrmCompaniesPage() {
         <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4" onClick={() => setShowForm(false)}>
         <form onSubmit={handleSubmit} onClick={e => e.stopPropagation()} className={`${pCard} my-8 w-full max-w-3xl p-6 space-y-4`}>
           <div className="flex items-center justify-between">
-            <h3 className="font-semibold text-foreground">New Company</h3>
+            <h2 className="font-semibold text-foreground">New Company</h2>
             <button type="button" onClick={() => setShowForm(false)} aria-label="Close" className="text-muted-foreground hover:text-foreground">
               <span className="material-icons text-base">close</span>
             </button>
@@ -456,7 +456,7 @@ export default function CrmCompaniesPage() {
                       </div>
                     )}
                     <div className="min-w-0">
-                      <h3 className="font-semibold text-foreground truncate group-hover:text-primary transition-colors">{c.name}</h3>
+                      <h2 className="font-semibold text-foreground truncate group-hover:text-primary transition-colors">{c.name}</h2>
                       {c.domain && (
                         <p className="text-xs text-muted-foreground truncate">{c.domain}</p>
                       )}

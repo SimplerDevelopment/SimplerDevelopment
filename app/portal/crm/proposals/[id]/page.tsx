@@ -479,10 +479,10 @@ export default function ProposalEditorPage() {
 
           {/* Recipient & Branding */}
           <div className="bg-card border border-border rounded-2xl p-5 space-y-4">
-            <h3 className={`${pSectionTitle} flex items-center gap-2`}>
+            <h2 className={`${pSectionTitle} flex items-center gap-2`}>
               <span className="material-icons text-base text-muted-foreground">settings</span>
               Details &amp; Branding
-            </h3>
+            </h2>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
               <div>
                 <label className="block text-xs font-medium text-muted-foreground mb-1">Contact</label>
@@ -538,10 +538,10 @@ export default function ProposalEditorPage() {
 
           {/* Content Sections */}
           <div className="bg-card border border-border rounded-2xl p-5 space-y-4">
-            <h3 className={`${pSectionTitle} flex items-center gap-2`}>
+            <h2 className={`${pSectionTitle} flex items-center gap-2`}>
               <span className="material-icons text-base text-muted-foreground">view_list</span>
               Content Sections
-            </h3>
+            </h2>
 
             {sections.length === 0 && (
               <p className="text-sm text-muted-foreground py-4 text-center">No sections yet. Add sections below to build your proposal.</p>
@@ -635,10 +635,10 @@ export default function ProposalEditorPage() {
 
           {/* Line Items */}
           <div className="bg-card border border-border rounded-2xl p-5 space-y-4">
-            <h3 className={`${pSectionTitle} flex items-center gap-2`}>
+            <h2 className={`${pSectionTitle} flex items-center gap-2`}>
               <span className="material-icons text-base text-muted-foreground">receipt_long</span>
               Line Items
-            </h3>
+            </h2>
 
             {lineItems.length > 0 && (
               <div className="overflow-x-auto">
@@ -743,10 +743,10 @@ export default function ProposalEditorPage() {
 
           {/* Fees Editor */}
           <div className="bg-card border border-border rounded-2xl p-5 space-y-4">
-            <h3 className={`${pSectionTitle} flex items-center gap-2`}>
+            <h2 className={`${pSectionTitle} flex items-center gap-2`}>
               <span className="material-icons text-base text-muted-foreground">percent</span>
               Fees
-            </h3>
+            </h2>
 
             {fees.map(f => (
               <div key={f.id} className="flex items-center gap-2">
