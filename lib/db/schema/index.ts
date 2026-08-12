@@ -32,3 +32,4 @@ export * from './publishing';
 export * from './evals';
 export * from './clientLegacy';
 export * from './agentFlows';
+export * from './seo';
