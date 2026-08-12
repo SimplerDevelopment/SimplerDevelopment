@@ -26,6 +26,7 @@ import { registerProfileTools } from './profile';
 import { registerIntegrationsTools } from './integrations';
 import { registerBillingTools } from './billing';
 import { registerServicesTools } from './services';
+import { registerSeoTools } from './seo';
 import { registerAiTools } from './ai';
 import { registerAutomationsTools } from './automations';
 import { registerHostingTools } from './hosting';
@@ -63,6 +64,7 @@ export {
   registerIntegrationsTools,
   registerBillingTools,
   registerServicesTools,
+  registerSeoTools,
   registerAiTools,
   registerAutomationsTools,
   registerHostingTools,
@@ -112,6 +114,7 @@ export const allToolRegistrars: readonly McpToolRegistrar[] = [
   registerIntegrationsTools,
   registerBillingTools,
   registerServicesTools,
+  registerSeoTools,
   registerAiTools,
   registerAutomationsTools,
   registerHostingTools,

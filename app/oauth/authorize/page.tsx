@@ -158,6 +158,7 @@ export default async function AuthorizePage({ searchParams }: { searchParams: Pr
     'chat:read': 'Read chat conversations',
     'chat:write': 'Reply to chat conversations',
     'notifications:read': 'Read notifications',
+    'seo:read': 'Read SEO audits and recommendations',
     'notifications:write': 'Manage notification preferences',
   };
 

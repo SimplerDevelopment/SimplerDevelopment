@@ -46,6 +46,7 @@ const VALID_SCOPES = new Set([
   'profile:write',
   'projects:read',
   'projects:write',
+  'seo:read',
   'services:read',
   'services:write',
   'sites:read',

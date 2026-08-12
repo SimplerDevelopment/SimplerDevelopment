@@ -478,6 +478,10 @@ const EXPECTED_TOOLS: readonly string[] = [
   'proposals_list',
   'proposals_send',
   'proposals_update',
+  // ── seo ──
+  'seo_audit_get',
+  'seo_projects_list',
+  'seo_recommendations_list',
   // ── service ──
   'service_catalog_list',
   'service_requests_create',
