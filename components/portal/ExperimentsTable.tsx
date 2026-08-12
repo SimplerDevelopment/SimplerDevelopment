@@ -90,7 +90,7 @@ export default function ExperimentsTable({ experiments }: { experiments: Experim
     <div className="space-y-4">
       {/* Filter bar */}
       <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
-        <div className="flex items-center gap-1 bg-white border border-gray-200 rounded-lg p-0.5">
+        <div className="flex items-center gap-1 bg-card border border-border rounded-lg p-0.5">
           {STATUS_OPTIONS.map(opt => (
             <button
               key={opt.key}
@@ -98,8 +98,8 @@ export default function ExperimentsTable({ experiments }: { experiments: Experim
               onClick={() => setStatusFilter(opt.key)}
               className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
                 statusFilter === opt.key
-                  ? 'bg-blue-600 text-white'
-                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-accent'
               }`}
             >
               {opt.label}
@@ -110,7 +110,7 @@ export default function ExperimentsTable({ experiments }: { experiments: Experim
           ))}
         </div>
 
-        <div className="flex items-center gap-1 bg-white border border-gray-200 rounded-lg p-0.5">
+        <div className="flex items-center gap-1 bg-card border border-border rounded-lg p-0.5">
           {TARGET_OPTIONS.map(opt => (
             <button
               key={opt.key}
@@ -118,8 +118,8 @@ export default function ExperimentsTable({ experiments }: { experiments: Experim
               onClick={() => setTargetFilter(opt.key)}
               className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
                 targetFilter === opt.key
-                  ? 'bg-blue-600 text-white'
-                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-accent'
               }`}
             >
               {opt.label}
@@ -132,25 +132,25 @@ export default function ExperimentsTable({ experiments }: { experiments: Experim
       </div>
 
       {filtered.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-gray-300 px-8 py-12 text-center">
-          <span className="material-icons text-4xl text-gray-400 mb-2">filter_alt_off</span>
+        <div className="rounded-lg border border-dashed border-border px-8 py-12 text-center">
+          <span className="material-icons text-4xl text-muted-foreground mb-2">filter_alt_off</span>
           <h2 className="text-base font-medium mb-1">No experiments match these filters</h2>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-muted-foreground">
             Try clearing the status or target filter to see all {experiments.length} experiment{experiments.length === 1 ? '' : 's'}.
           </p>
           <button
             type="button"
             onClick={() => { setStatusFilter('all'); setTargetFilter('all'); }}
-            className="inline-flex items-center gap-1.5 mt-3 px-3 py-1.5 rounded-md text-xs font-medium border border-gray-300 hover:bg-gray-50"
+            className="inline-flex items-center gap-1.5 mt-3 px-3 py-1.5 rounded-md text-xs font-medium border border-border hover:bg-accent"
           >
             <span className="material-icons text-sm">refresh</span>
             Reset filters
           </button>
         </div>
       ) : (
-        <div className="rounded-lg border border-gray-200 overflow-hidden bg-white">
+        <div className="rounded-lg border border-border overflow-hidden bg-card">
           <table className="w-full text-sm">
-            <thead className="bg-gray-50 text-left text-xs uppercase text-gray-500">
+            <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
               <tr>
                 <th className="px-4 py-3 font-medium">Experiment</th>
                 <th className="px-4 py-3 font-medium">Type</th>
@@ -165,28 +165,28 @@ export default function ExperimentsTable({ experiments }: { experiments: Experim
               {filtered.map(exp => {
                 const meta = TARGET_LABEL[exp.targetType] ?? { icon: 'help', label: exp.targetType };
                 return (
-                  <tr key={exp.id} className="border-t border-gray-100 hover:bg-gray-50">
+                  <tr key={exp.id} className="border-t border-border hover:bg-muted/30">
                     <td className="px-4 py-3 font-medium">{exp.name}</td>
                     <td className="px-4 py-3">
-                      <span className="inline-flex items-center gap-1 text-xs text-gray-700">
+                      <span className="inline-flex items-center gap-1 text-xs text-foreground">
                         <span className="material-icons text-base">{meta.icon}</span>
                         {meta.label}
                       </span>
                     </td>
                     <td className="px-4 py-3">
                       {exp.targetEditHref ? (
-                        <Link href={exp.targetEditHref} className="text-blue-600 hover:underline">
+                        <Link href={exp.targetEditHref} className="text-primary hover:underline">
                           {exp.targetTitle}
                         </Link>
                       ) : (
                         <span>{exp.targetTitle}</span>
                       )}
                       {exp.targetSubLabel ? (
-                        <div className="text-xs text-gray-400">{exp.targetSubLabel}</div>
+                        <div className="text-xs text-muted-foreground">{exp.targetSubLabel}</div>
                       ) : null}
                     </td>
                     <td className="px-4 py-3">
-                      <span className="inline-flex items-center gap-1 text-xs text-gray-700">
+                      <span className="inline-flex items-center gap-1 text-xs text-foreground">
                         <span className="material-icons text-base">flag</span>
                         {exp.goalMetric}
                       </span>
@@ -197,13 +197,13 @@ export default function ExperimentsTable({ experiments }: { experiments: Experim
                         {exp.status}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-xs text-gray-500">
+                    <td className="px-4 py-3 text-xs text-muted-foreground">
                       {exp.startedAt ? new Date(exp.startedAt).toLocaleDateString() : '—'}
                     </td>
                     <td className="px-4 py-3 text-right">
                       <Link
                         href={`/portal/experiments/${exp.id}`}
-                        className="text-sm text-blue-600 hover:underline"
+                        className="text-sm text-primary hover:underline"
                       >
                         Open
                       </Link>
