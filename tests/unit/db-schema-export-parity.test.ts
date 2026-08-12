@@ -66,6 +66,7 @@ function collectSchemaExportNames(): string[] {
 // + manually appended path_chart_* additions 2026-07-18 (PVIZ Phase 1 schema, lib/db/schema/pathviz.ts).
 // + manually appended agent_flows 2026-08-02 (Workflow Designer / APWD-003, lib/db/schema/agentFlows.ts).
 // + manually appended agent_flow_runs + agent_flow_run_events 2026-08-03 (executions, same module).
+// + regenerated 2026-08-12: seo_* tables (SEO Intelligence core audit, lib/db/schema/seo.ts).
 const EXPECTED_EXPORTS: readonly string[] = [
   'AB_TARGET_TYPES',
   'AbAssignment',
@@ -217,6 +218,12 @@ const EXPECTED_EXPORTS: readonly string[] = [
   'NewRegisteredAppJob',
   'NewRegisteredAppRun',
   'NewRegisteredAppSigningKey',
+  'NewSeoCrawlPage',
+  'NewSeoCrawlRun',
+  'NewSeoIssue',
+  'NewSeoPageLink',
+  'NewSeoProject',
+  'NewSeoRecommendation',
   'NotificationDelivery',
   'NotificationType',
   'PathChartNodeMeta',
@@ -236,6 +243,17 @@ const EXPECTED_EXPORTS: readonly string[] = [
   'RegisteredAppJob',
   'RegisteredAppRun',
   'RegisteredAppSigningKey',
+  'SeoCrawlPage',
+  'SeoCrawlRun',
+  'SeoCrawlRunState',
+  'SeoCrawlRunStats',
+  'SeoIssue',
+  'SeoPageLink',
+  'SeoPageMeta',
+  'SeoProject',
+  'SeoProjectSettings',
+  'SeoRecommendation',
+  'SeoRecommendationEvidence',
   'ShowIfCondition',
   'ShowIfRule',
   'SiteNavigationDraft',
@@ -501,6 +519,12 @@ const EXPECTED_EXPORTS: readonly string[] = [
   'registeredAppRuns',
   'registeredAppSigningKeys',
   'registeredApps',
+  'seoCrawlPages',
+  'seoCrawlRuns',
+  'seoIssues',
+  'seoPageLinks',
+  'seoProjects',
+  'seoRecommendations',
   'serviceRequests',
   'services',
   'shippingRates',
@@ -568,6 +592,7 @@ const EXPECTED_EXPORTS: readonly string[] = [
 // + manually appended path_chart_* additions 2026-07-18 (PVIZ Phase 1 schema, lib/db/schema/pathviz.ts).
 // + manually appended agent_flows 2026-08-02 (Workflow Designer / APWD-003, lib/db/schema/agentFlows.ts).
 // + manually appended agent_flow_runs + agent_flow_run_events 2026-08-03 (executions, same module).
+// + regenerated 2026-08-12: seo_* tables (SEO Intelligence core audit, lib/db/schema/seo.ts).
 const EXPECTED_TABLE_NAMES: Readonly<Record<string, string>> = {
   abAssignments: 'ab_assignments',
   abEvents: 'ab_events',
@@ -814,6 +839,12 @@ const EXPECTED_TABLE_NAMES: Readonly<Record<string, string>> = {
   registeredAppRuns: 'registered_app_runs',
   registeredAppSigningKeys: 'registered_app_signing_keys',
   registeredApps: 'registered_apps',
+  seoCrawlPages: 'seo_crawl_pages',
+  seoCrawlRuns: 'seo_crawl_runs',
+  seoIssues: 'seo_issues',
+  seoPageLinks: 'seo_page_links',
+  seoProjects: 'seo_projects',
+  seoRecommendations: 'seo_recommendations',
   serviceRequests: 'service_requests',
   services: 'services',
   shippingRates: 'shipping_rates',
@@ -908,13 +939,13 @@ describe('lib/db/schema export parity', () => {
     expect(actualTables).toEqual(EXPECTED_TABLE_NAMES);
   });
 
-  it('reports the recorded number of tables (303)', () => {
+  it('reports the recorded number of tables (309)', () => {
     const schemaMap = Schema as unknown as Record<string, unknown>;
     let count = 0;
     for (const value of Object.values(schemaMap)) {
       if (value && typeof value === 'object' && isTable(value)) count += 1;
     }
     expect(count).toBe(Object.keys(EXPECTED_TABLE_NAMES).length);
-    expect(count).toBe(303);
+    expect(count).toBe(309);
   });
 });
