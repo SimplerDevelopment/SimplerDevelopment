@@ -940,12 +940,12 @@ describe('PortalCampaignDetailPage — sendCampaign', () => {
     expect(fetchMock.mock.calls.length).toBe(beforeCalls);
   });
 
-  it('shows success banner with sent count after send', async () => {
+  it('shows the queued banner after send (PUX-046 — durable async dispatch)', async () => {
     vi.stubGlobal('confirm', vi.fn(() => true));
     fetchMock.mockImplementation(async (url: string, init?: any) => {
       if (url.includes('/api/portal/branding/defaults')) return makeRes({ success: false });
       if (url.includes('/send') && init?.method === 'POST') {
-        return makeRes({ success: true, data: { sent: 75, failed: 0, total: 75 } });
+        return makeRes({ success: true, data: { queued: true, totalTargets: 75 } });
       }
       return makeRes({ success: true, data: { campaign: makeCampaign(), sends: [] } });
     });
@@ -956,17 +956,17 @@ describe('PortalCampaignDetailPage — sendCampaign', () => {
     ) as HTMLButtonElement;
     fireEvent.click(sendBtn);
     await waitFor(() => {
-      expect(container.textContent).toContain('Sent successfully');
-      expect(container.textContent).toContain('75 delivered');
+      expect(container.textContent).toContain('Queued');
+      expect(container.textContent).toContain('75 subscribers in the background');
     });
   });
 
-  it('shows failed count when some sends fail', async () => {
+  it('pluralizes the queued banner correctly for a single recipient', async () => {
     vi.stubGlobal('confirm', vi.fn(() => true));
     fetchMock.mockImplementation(async (url: string, init?: any) => {
       if (url.includes('/api/portal/branding/defaults')) return makeRes({ success: false });
       if (url.includes('/send') && init?.method === 'POST') {
-        return makeRes({ success: true, data: { sent: 70, failed: 5, total: 75 } });
+        return makeRes({ success: true, data: { queued: true, totalTargets: 1 } });
       }
       return makeRes({ success: true, data: { campaign: makeCampaign(), sends: [] } });
     });
@@ -977,7 +977,7 @@ describe('PortalCampaignDetailPage — sendCampaign', () => {
     ) as HTMLButtonElement;
     fireEvent.click(sendBtn);
     await waitFor(() => {
-      expect(container.textContent).toContain('5 failed');
+      expect(container.textContent).toContain('1 subscriber in the background');
     });
   });
 
@@ -1001,12 +1001,12 @@ describe('PortalCampaignDetailPage — sendCampaign', () => {
     await waitFor(() => expect(alertMock).toHaveBeenCalled());
   });
 
-  it('updates campaign status to sent after successful send', async () => {
+  it('flips campaign status to sending after queueing (terminal status arrives via poll)', async () => {
     vi.stubGlobal('confirm', vi.fn(() => true));
     fetchMock.mockImplementation(async (url: string, init?: any) => {
       if (url.includes('/api/portal/branding/defaults')) return makeRes({ success: false });
       if (url.includes('/send') && init?.method === 'POST') {
-        return makeRes({ success: true, data: { sent: 10, failed: 0, total: 10 } });
+        return makeRes({ success: true, data: { queued: true, totalTargets: 10 } });
       }
       return makeRes({ success: true, data: { campaign: makeCampaign(), sends: [] } });
     });
@@ -1017,8 +1017,8 @@ describe('PortalCampaignDetailPage — sendCampaign', () => {
     ) as HTMLButtonElement;
     fireEvent.click(sendBtn);
     await waitFor(() => {
-      // Status badge should now say "sent"
-      expect(container.textContent).toContain('Sent successfully');
+      expect(container.textContent).toContain('Queued');
+      expect(container.textContent).not.toContain('Sent successfully');
     });
   });
 });

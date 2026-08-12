@@ -144,6 +144,10 @@
       "schedule": "* * * * *"
     },
     {
+      "path": "/api/cron/process-internal-jobs",
+      "schedule": "* * * * *"
+    },
+    {
       "path": "/api/cron/plugin-runs-drain",
       "schedule": "* * * * *"
     },
