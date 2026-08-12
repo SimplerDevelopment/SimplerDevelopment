@@ -582,8 +582,8 @@ export default function StoreSettingsPage() {
             />
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Currency</label>
-            <select value={settings.currency} onChange={(e) => updateField('currency', e.target.value)} className={pSelect}>
+            <label htmlFor="store-currency" className="text-sm font-medium text-foreground">Currency</label>
+            <select id="store-currency" value={settings.currency} onChange={(e) => updateField('currency', e.target.value)} className={pSelect}>
               {currencies.map((c) => (
                 <option key={c.value} value={c.value}>
                   {c.label}
@@ -931,8 +931,8 @@ export default function StoreSettingsPage() {
             {/* Mode + Webhook secret */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-foreground">Mode</label>
-                <select
+                <label htmlFor="store-easypost-mode" className="text-sm font-medium text-foreground">Mode</label>
+                <select id="store-easypost-mode"
                   value={settings.easypostMode ?? 'test'}
                   onChange={(e) => updateField('easypostMode', e.target.value as 'test' | 'production')}
                   className={pSelect}

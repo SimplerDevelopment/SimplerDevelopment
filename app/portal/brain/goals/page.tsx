@@ -209,6 +209,7 @@ function GoalsListContent() {
 
         <div className="mt-2 flex items-center gap-2 flex-wrap text-xs">
           <select
+            aria-label="Filter by owner"
             value={ownerIdParam ?? ''}
             onChange={(e) => setParam({ ownerId: e.target.value || null })}
             className="appearance-none rounded-xl border border-border bg-card px-3.5 py-2 pr-10 text-sm text-foreground outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/15"

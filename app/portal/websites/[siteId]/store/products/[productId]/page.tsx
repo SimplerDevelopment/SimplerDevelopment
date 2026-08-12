@@ -644,8 +644,8 @@ export default function ProductEditPage() {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">Status</label>
-              <select value={form.status} onChange={(e) => updateField('status', e.target.value)} className={pSelect}>
+              <label htmlFor="product-status" className="text-sm font-medium text-foreground">Status</label>
+              <select id="product-status" value={form.status} onChange={(e) => updateField('status', e.target.value)} className={pSelect}>
                 <option value="draft">Draft</option>
                 <option value="active">Active</option>
                 <option value="archived">Archived</option>
@@ -794,8 +794,8 @@ export default function ProductEditPage() {
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">Weight Unit</label>
-              <select value={form.weightUnit} onChange={(e) => updateField('weightUnit', e.target.value)} className={pSelect}>
+              <label htmlFor="product-weight-unit" className="text-sm font-medium text-foreground">Weight Unit</label>
+              <select id="product-weight-unit" value={form.weightUnit} onChange={(e) => updateField('weightUnit', e.target.value)} className={pSelect}>
                 <option value="g">Grams (g)</option>
                 <option value="kg">Kilograms (kg)</option>
                 <option value="oz">Ounces (oz)</option>
@@ -1012,8 +1012,8 @@ export default function ProductEditPage() {
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-foreground">Category</label>
-                <select value={form.categoryId} onChange={(e) => updateField('categoryId', e.target.value)} className={pSelect}>
+                <label htmlFor="product-category" className="text-sm font-medium text-foreground">Category</label>
+                <select id="product-category" value={form.categoryId} onChange={(e) => updateField('categoryId', e.target.value)} className={pSelect}>
                   <option value="">No category</option>
                   {categories.map((cat) => (
                     <option key={cat.id} value={String(cat.id)}>

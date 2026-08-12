@@ -112,8 +112,9 @@ export default function NewBookingPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1.5">Duration</label>
+            <label htmlFor="booking-duration" className="block text-sm font-medium text-foreground mb-1.5">Duration</label>
             <select
+              id="booking-duration"
               value={duration}
               onChange={(e) => setDuration(Number(e.target.value))}
               className={pSelect}

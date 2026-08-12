@@ -166,8 +166,9 @@ function CreateEditForm({ mode, initial, onSubmit, onCancel, team, submitLabel }
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-muted-foreground mb-1">Confidentiality</label>
+          <label htmlFor="initiative-confidentiality" className="block text-xs font-medium text-muted-foreground mb-1">Confidentiality</label>
           <select
+            id="initiative-confidentiality"
             value={values.confidentialityLevel}
             onChange={(e) => set('confidentialityLevel', e.target.value as InitiativeFormValues['confidentialityLevel'])}
             className="w-full px-3 py-2 rounded-md border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
@@ -181,8 +182,9 @@ function CreateEditForm({ mode, initial, onSubmit, onCancel, team, submitLabel }
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
-          <label className="block text-xs font-medium text-muted-foreground mb-1">Owner</label>
+          <label htmlFor="initiative-owner" className="block text-xs font-medium text-muted-foreground mb-1">Owner</label>
           <select
+            id="initiative-owner"
             value={values.ownerId ?? ''}
             onChange={(e) => set('ownerId', e.target.value ? parseInt(e.target.value, 10) : null)}
             className="w-full px-3 py-2 rounded-md border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
@@ -195,8 +197,9 @@ function CreateEditForm({ mode, initial, onSubmit, onCancel, team, submitLabel }
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-muted-foreground mb-1">Sponsor (optional)</label>
+          <label htmlFor="initiative-sponsor" className="block text-xs font-medium text-muted-foreground mb-1">Sponsor (optional)</label>
           <select
+            id="initiative-sponsor"
             value={values.sponsorId ?? ''}
             onChange={(e) => set('sponsorId', e.target.value ? parseInt(e.target.value, 10) : null)}
             className="w-full px-3 py-2 rounded-md border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"

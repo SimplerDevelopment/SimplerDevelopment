@@ -629,7 +629,7 @@ export default function ContentCalendar({ websiteId, basePath, siteId }: Content
 
         <div className="flex items-center gap-2 flex-wrap">
           <select
-            value={filterStatus}
+            aria-label="Filter by status" value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value)}
             className="px-2 py-1.5 text-xs rounded-md border border-border bg-background text-foreground"
           >
@@ -639,7 +639,7 @@ export default function ContentCalendar({ websiteId, basePath, siteId }: Content
             <option value="draft">Draft</option>
           </select>
           <select
-            value={filterType}
+            aria-label="Filter by post type" value={filterType}
             onChange={(e) => setFilterType(e.target.value)}
             className="px-2 py-1.5 text-xs rounded-md border border-border bg-background text-foreground"
           >

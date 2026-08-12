@@ -172,8 +172,9 @@ export default function RelationshipDetailPage() {
 
       <Section title="Snapshot" icon="dashboard">
         <div className="grid sm:grid-cols-2 gap-3">
-          <Field label="Priority">
+          <Field label="Priority" htmlFor="relationship-priority">
             <select
+              id="relationship-priority"
               value={overlay.priority}
               onChange={(e) => save({ priority: e.target.value })}
               className={pSelect}
@@ -184,8 +185,9 @@ export default function RelationshipDetailPage() {
               <option value="critical">Critical</option>
             </select>
           </Field>
-          <Field label="Status">
+          <Field label="Status" htmlFor="relationship-status">
             <select
+              id="relationship-status"
               value={overlay.status}
               onChange={(e) => save({ status: e.target.value })}
               className={pSelect}

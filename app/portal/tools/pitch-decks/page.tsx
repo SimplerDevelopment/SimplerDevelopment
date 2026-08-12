@@ -176,6 +176,7 @@ export default function PitchDecksPage() {
 
           {/* Sort dropdown */}
           <select
+            aria-label="Sort decks by"
             value={sort}
             onChange={e => setSort(e.target.value as typeof sort)}
             className={`${pSelect} w-auto`}

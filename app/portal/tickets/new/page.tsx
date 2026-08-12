@@ -70,8 +70,9 @@ export default function NewTicketPage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1">Category</label>
+              <label htmlFor="ticket-category" className="block text-sm font-medium text-foreground mb-1">Category</label>
               <select
+                id="ticket-category"
                 value={form.category}
                 onChange={(e) => setForm({ ...form, category: e.target.value })}
                 className={pSelect}
@@ -84,8 +85,9 @@ export default function NewTicketPage() {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1">Priority</label>
+              <label htmlFor="ticket-priority" className="block text-sm font-medium text-foreground mb-1">Priority</label>
               <select
+                id="ticket-priority"
                 value={form.priority}
                 onChange={(e) => setForm({ ...form, priority: e.target.value })}
                 className={pSelect}

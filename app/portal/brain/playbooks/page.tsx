@@ -239,6 +239,7 @@ function PlaybooksListContent() {
           </div>
 
           <select
+            aria-label="Filter by category"
             value={categoryParam}
             onChange={(e) => setParam({ category: e.target.value || null })}
             className="px-2 py-1 rounded-xl border border-border bg-card text-foreground text-xs focus:outline-none focus:ring-2 focus:ring-primary/15 focus:border-primary"
@@ -250,6 +251,7 @@ function PlaybooksListContent() {
           </select>
 
           <select
+            aria-label="Filter by owner"
             value={ownerIdParam ?? ''}
             onChange={(e) => setParam({ ownerId: e.target.value || null })}
             className="px-2 py-1 rounded-xl border border-border bg-card text-foreground text-xs focus:outline-none focus:ring-2 focus:ring-primary/15 focus:border-primary"

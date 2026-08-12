@@ -341,7 +341,7 @@ export default function WorkflowEditorPage() {
           className="text-lg font-semibold bg-transparent border border-transparent hover:border-border focus:border-border rounded px-2 py-1 outline-none flex-1 min-w-[200px]"
         />
         <select
-          value={status}
+          aria-label="Workflow status" value={status}
           onChange={(e) => setStatus(e.target.value as WorkflowStatus)}
           className="text-xs px-2 py-1 border border-border rounded bg-background"
         >

@@ -94,6 +94,7 @@ export function PostEditorLayout({
 
               {/* Right — status + publish */}
               <select
+                aria-label="Post publish status"
                 value={published ? 'published' : 'draft'}
                 onChange={(e) => onStatusChange(e.target.value as 'draft' | 'published')}
                 className="px-2 py-1 text-sm rounded-md border border-border hover:bg-accent transition-colors bg-background shrink-0"

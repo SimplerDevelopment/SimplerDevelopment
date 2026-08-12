@@ -146,8 +146,9 @@ export default function PlaybookForm({
           />
         </div>
         <div>
-          <label className="block text-xs font-medium text-muted-foreground mb-1">Owner</label>
+          <label htmlFor="playbook-owner" className="block text-xs font-medium text-muted-foreground mb-1">Owner</label>
           <select
+            id="playbook-owner"
             value={values.ownerId ?? ''}
             onChange={(e) => set('ownerId', e.target.value ? parseInt(e.target.value, 10) : null)}
             className="w-full px-3 py-2 rounded-md border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"

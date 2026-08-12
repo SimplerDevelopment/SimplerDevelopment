@@ -485,8 +485,8 @@ export default function ProposalEditorPage() {
             </h2>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
               <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1">Contact</label>
-                <select value={contactId} onChange={e => setContactId(e.target.value)} className={pSelect}>
+                <label htmlFor="proposal-contact" className="block text-xs font-medium text-muted-foreground mb-1">Contact</label>
+                <select id="proposal-contact" value={contactId} onChange={e => setContactId(e.target.value)} className={pSelect}>
                   <option value="">None</option>
                   {contacts.map(c => <option key={c.id} value={c.id}>{c.firstName} {c.lastName}</option>)}
                 </select>
@@ -504,8 +504,8 @@ export default function ProposalEditorPage() {
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1">Deal</label>
-                <select value={dealId} onChange={e => setDealId(e.target.value)} className={pSelect}>
+                <label htmlFor="proposal-deal" className="block text-xs font-medium text-muted-foreground mb-1">Deal</label>
+                <select id="proposal-deal" value={dealId} onChange={e => setDealId(e.target.value)} className={pSelect}>
                   <option value="">None</option>
                   {deals.map(d => <option key={d.id} value={d.id}>{d.title}</option>)}
                 </select>

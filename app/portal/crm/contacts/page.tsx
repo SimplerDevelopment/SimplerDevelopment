@@ -419,7 +419,7 @@ export default function CrmContactsPage() {
           <div className="flex items-center gap-2">
             <span className="material-icons text-base text-muted-foreground">bookmark</span>
             <select
-              value={selectedViewId ?? ''}
+              aria-label="Saved view" value={selectedViewId ?? ''}
               onChange={e => {
                 const id = e.target.value ? Number(e.target.value) : null;
                 const view = savedViews.find(v => v.id === id) ?? null;
@@ -489,7 +489,7 @@ export default function CrmContactsPage() {
             />
           </div>
           <select
-            value={statusFilter}
+            aria-label="Filter by status" value={statusFilter}
             onChange={e => { setStatusFilter(e.target.value); setPage(1); }}
             className="appearance-none rounded-xl border border-border bg-card px-3.5 py-2.5 pr-10 text-sm text-foreground outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/15"
           >

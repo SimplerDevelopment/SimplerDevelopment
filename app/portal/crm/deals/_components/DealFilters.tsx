@@ -35,6 +35,7 @@ export default function DealFilters({
     <div className="flex items-center justify-between gap-4 flex-wrap">
       <div className="flex items-center gap-3 flex-wrap">
         <select
+          aria-label="Filter by pipeline"
           value={selectedPipelineId ?? ''}
           onChange={(e) => onSelectPipeline(Number(e.target.value))}
           className="px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"

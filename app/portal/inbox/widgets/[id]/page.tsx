@@ -135,8 +135,9 @@ export default function WidgetSettingsPage({ params }: { params: Promise<{ id: s
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="text-sm font-medium">Position</label>
+            <label htmlFor="widget-position" className="text-sm font-medium">Position</label>
             <select
+              id="widget-position"
               className={`${pSelect} mt-1`}
               value={widget.position}
               onChange={(e) => setWidget({ ...widget, position: e.target.value })}
