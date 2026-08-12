@@ -57,6 +57,16 @@ export const JOB_HANDLERS: Record<
     // duplicate delivery is a no-op rather than a second printed garment.
     await submitPODOrder(orderId, db);
   },
+
+  'email.campaign_send': async (payload, db) => {
+    const { runCampaignSendJob } = await import('@/lib/email/campaign-send-job');
+    await runCampaignSendJob(payload, db);
+  },
+
+  'automation.delayed_action': async (payload, db) => {
+    const { runDelayedAutomationAction } = await import('@/lib/automation/delayed-action-job');
+    await runDelayedAutomationAction(payload, db);
+  },
 };
 
 // ─── enqueue ─────────────────────────────────────────────────────────────────
@@ -71,6 +81,13 @@ export interface EnqueueJobParams {
    * genuinely harmless. Convention: `<type>:<entity id>`.
    */
   dedupeKey?: string;
+  /**
+   * Earliest time the job may run. Maps onto the dual-purpose next_retry_at
+   * column: on a 'pending' row that column is the earliest claim time, and the
+   * drain's PASS 2 already honors it — so a future runAt is a delayed job for
+   * free. Omit to run on the next tick.
+   */
+  runAt?: Date;
 }
 
 /**
@@ -91,6 +108,7 @@ export async function enqueueJob(
       type: params.type,
       payload: params.payload,
       dedupeKey: params.dedupeKey ?? null,
+      nextRetryAt: params.runAt ?? null,
     })
     .onConflictDoNothing({ target: internalJobs.dedupeKey });
 }
