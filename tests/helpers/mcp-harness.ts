@@ -14,6 +14,7 @@
  * scope guard, Zod schema and query path.
  */
 import { buildMcpServer } from '@/lib/mcp/server';
+import { applyTarget, hydrateReachable, resolveTarget } from '@/lib/mcp/client-scope';
 import type { PortalMcpContext } from '@/lib/mcp-auth';
 import type { TenantCtx } from './session';
 
@@ -30,8 +31,23 @@ type RegisteredTool = {
 export async function buildMcpServerForTest(
   tenant: TenantCtx,
   scopes: string[] = ['*'],
+  /**
+   * Consent-time client allowlist, for specs about multi-company credentials.
+   * Passed through the REAL `hydrateReachable`, so the spec exercises the
+   * allowlist ∩ live-membership intersection rather than a hand-built roster —
+   * an id here that the user has no `client_members` row for is expected to
+   * drop out, and specs assert exactly that.
+   */
+  allowedClientIds?: number[],
+  /**
+   * The company this server's calls act on — what `app/api/mcp/route.ts` reads off
+   * the JSON-RPC body. Pass it whenever `allowedClientIds` covers several
+   * companies; omitting it reproduces a call that named none, which is expected
+   * to be refused. Ignored for single-company credentials.
+   */
+  targetClientId?: number,
 ): Promise<unknown> {
-  const ctx: PortalMcpContext = {
+  const base: PortalMcpContext = {
     userId: tenant.user.id,
     keyId: 1,
     scopes,
@@ -43,8 +59,15 @@ export async function buildMcpServerForTest(
       id: tenant.client.id,
       company: tenant.client.name,
     } as PortalMcpContext['client'],
+    ...(allowedClientIds?.length ? { allowedClientIds } : {}),
   };
-  return buildMcpServer(ctx);
+  if (!allowedClientIds?.length) return buildMcpServer(base);
+
+  // Mirror the route: hydrate the roster, then resolve + apply the target before
+  // the registry is built. Resolution deliberately does NOT live in the tool
+  // wrapper — see the note at the top of lib/mcp/client-scope.ts.
+  const roster = await hydrateReachable(base);
+  return buildMcpServer(applyTarget(roster, resolveTarget(roster, targetClientId)));
 }
 
 /**

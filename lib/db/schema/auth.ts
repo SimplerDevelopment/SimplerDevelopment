@@ -89,6 +89,11 @@ export const portalApiKeys = pgTable('portal_api_keys', {
   name: varchar('name', { length: 100 }).notNull(),
   keyHash: varchar('key_hash', { length: 128 }).notNull().unique(),
   keyPreview: varchar('key_preview', { length: 20 }).notNull(),
+  /** Every portal client this key may act for; `clientId` above is the DEFAULT
+   *  and is always a member. Intersected with live `client_members` on every
+   *  request — see `lib/mcp/client-scope.ts` and the fuller note on
+   *  `oauthAccessTokens.clientIds`. */
+  clientIds: json('client_ids').$type<number[]>().default([]).notNull(),
   scopes: json('scopes').$type<string[]>().default([]).notNull(),
   active: boolean('active').default(true).notNull(),
   /** When true, CMS-write MCP tools stage to mcp_pending_changes instead of

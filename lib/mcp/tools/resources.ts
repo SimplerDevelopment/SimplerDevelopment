@@ -12,6 +12,14 @@
  * as a tool. Unscoped keys simply don't see them in resources/list, and every
  * query is filtered by `ctx.client.id`.
  *
+ * A resource is addressed by a URI and takes no arguments, so unlike a tool it
+ * cannot be told which company it applies to. On a credential reaching several
+ * companies the tenant-scoped ones would silently serve the DEFAULT company's
+ * data — the agent reads Acme's brand and applies it to a page it just created
+ * under Beta. So they register only when the roster is unambiguous; the same
+ * data is reachable via `branding_get_profile` / `service_catalog_list`, which
+ * do take a clientId.
+ *
  * Drift guard: the registered URI set is locked by
  * `tests/unit/mcp-tool-registry-baseline.test.ts` (EXPECTED_RESOURCES).
  */
@@ -22,9 +30,13 @@ import { services, clientServices } from '@/lib/db/schema';
 import { hasScope, type PortalMcpContext } from '@/lib/mcp-auth';
 import { handleBrandingGetProfile, handleBrandingGetMessaging } from '@/lib/branding/mcp-tools';
 import { BLOCKS_SCHEMA_REFERENCE } from '../blocks-schema';
+import { reachableOf } from '../client-scope';
 
 export function registerResourceDocs(server: McpServer, ctx: PortalMcpContext): void {
   const clientId = ctx.client.id;
+  const reachable = reachableOf(ctx);
+  /** Tenant-scoped resources are only unambiguous with a single reachable client. */
+  const singleClient = reachable.length <= 1;
 
   // ── blocks://schema — static visual-editor block reference ───────────────
   // Used by AI clients to author valid `blocks` arrays for posts_create /
@@ -46,7 +58,7 @@ export function registerResourceDocs(server: McpServer, ctx: PortalMcpContext): 
   // ── brand://default — this client's default brand profile + messaging ────
   // Lets a client read voice/colours/fonts ONCE instead of threading brand
   // through every content tool. Gated like branding_get_profile.
-  hasScope(ctx.scopes, 'branding:read') && server.registerResource(
+  singleClient && hasScope(ctx.scopes, 'branding:read') && server.registerResource(
     'brand-default',
     'brand://default',
     {
@@ -74,7 +86,7 @@ export function registerResourceDocs(server: McpServer, ctx: PortalMcpContext): 
   // Tells the client which serviceId values are valid AND which features are
   // actually enabled for this tenant (active subscriptions). Gated like
   // service_catalog_list.
-  hasScope(ctx.scopes, 'services:read') && server.registerResource(
+  singleClient && hasScope(ctx.scopes, 'services:read') && server.registerResource(
     'service-catalog',
     'catalog://services',
     {
@@ -149,7 +161,12 @@ export function registerResourceDocs(server: McpServer, ctx: PortalMcpContext): 
           uri: uri.href,
           mimeType: 'application/json',
           text: JSON.stringify({
-            client: { id: ctx.client.id, company: ctx.client.company },
+            client: { id: clientId, company: ctx.client.company },
+            // The whole roster, since a resource read can't name a company the
+            // way a tool call does — reporting only the default would misstate
+            // what this connection can reach.
+            clients: reachable.map((r) => ({ id: r.client.id, company: r.client.company, role: r.role })),
+            defaultClientId: clientId,
             scopes: ctx.scopes,
             fullAccess: wildcard,
             readDomains: [...reads].sort(),

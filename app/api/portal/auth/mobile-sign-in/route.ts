@@ -154,6 +154,9 @@ export async function POST(req: Request) {
 
     await db.insert(portalApiKeys).values({
       clientId: primary.id,
+      // Single-tenant on purpose: the mobile app has its own client switcher and
+      // re-authenticates per portal, so this key never needs a multi-company set.
+      clientIds: [primary.id],
       userId: user.id,
       name: `${KEY_NAME} — ${new Date().toISOString().slice(0, 10)}`,
       keyHash: hash,

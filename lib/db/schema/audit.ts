@@ -53,6 +53,9 @@ export const oauthAuthorizationCodes = pgTable('oauth_authorization_codes', {
   oauthClientId: integer('oauth_client_id').notNull().references(() => oauthClients.id, { onDelete: 'cascade' }),
   userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  /** Consent-time client allowlist — see `oauthAccessTokens.clientIds`. Carried
+   *  through code → token so the token inherits exactly what was consented. */
+  clientIds: json('client_ids').$type<number[]>().notNull().default([]),
   /** Granted scopes — may be a subset of those requested. */
   scopes: json('scopes').$type<string[]>().notNull(),
   /** Must match the value sent to /oauth/token exactly. */
@@ -78,6 +81,19 @@ export const oauthAccessTokens = pgTable('oauth_access_tokens', {
   oauthClientId: integer('oauth_client_id').notNull().references(() => oauthClients.id, { onDelete: 'cascade' }),
   userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  /**
+   * Every portal client this grant may act for — the allowlist the user ticked
+   * on the consent screen. `clientId` above remains the DEFAULT (used when the
+   * caller omits `clientId` and only one client is reachable) and is always a
+   * member of this array.
+   *
+   * This is a CEILING, not the effective set: `lib/mcp/client-scope.ts`
+   * intersects it with live `client_members` on every request, so losing a
+   * membership cuts MCP access immediately without revoking the token, and a
+   * token can never widen past what was consented (joining a new company
+   * requires re-consent).
+   */
+  clientIds: json('client_ids').$type<number[]>().notNull().default([]),
   scopes: json('scopes').$type<string[]>().notNull(),
   resource: varchar('resource', { length: 500 }),
   /** When true, CMS-write MCP tools stage to mcp_pending_changes instead of
@@ -110,6 +126,10 @@ export const oauthRefreshTokens = pgTable('oauth_refresh_tokens', {
   oauthClientId: integer('oauth_client_id').notNull().references(() => oauthClients.id, { onDelete: 'cascade' }),
   userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  /** Consent-time client allowlist — see `oauthAccessTokens.clientIds`. Carried
+   *  on the refresh token so a rotation re-mints the same allowlist rather than
+   *  silently narrowing the grant back to `clientId`. */
+  clientIds: json('client_ids').$type<number[]>().notNull().default([]),
   scopes: json('scopes').$type<string[]>().notNull(),
   resource: varchar('resource', { length: 500 }),
   /** Rotation lineage. All tokens descended from one authorization share an id;

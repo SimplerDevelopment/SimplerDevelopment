@@ -252,7 +252,14 @@ function err(message: string) {
 
 export function registerBrainToolsOnSdk(server: McpServer, ctx: PortalMcpContext) {
   const clientId = ctx.client.id;
-  const profilePromise = getOrCreateBrainProfile(clientId, ctx.client.company || 'Company Brain');
+  // The Brain profile is fetched inside the one handler that needs it (see
+  // brain_create_meeting below), NOT here. getOrCreateBrainProfile WRITES (upserts
+  // a brain_profiles row), so calling it at registration provisioned a row for
+  // every MCP connection merely for listing tools — and once a credential can act
+  // for several companies, a session touching five provisioned five. It also left
+  // an unawaited promise whose rejection surfaced as an unhandled FK error after
+  // the client row was gone. The upsert is idempotent and called at most once per
+  // request, so it needs no memo.
 
   // ── READ — search & summaries ────────────────────────────────────────────
 
@@ -489,7 +496,7 @@ export function registerBrainToolsOnSdk(server: McpServer, ctx: PortalMcpContext
       if (args.companyId !== undefined && args.dealId !== undefined) {
         return err('A meeting can link to a company OR a deal, not both.');
       }
-      const profile = await profilePromise;
+      const profile = await getOrCreateBrainProfile(clientId, ctx.client.company || 'Company Brain');
       if (!profile.enabled) return err('Company Brain is not enabled for this workspace.');
       try {
         const meeting: BrainMeeting = await createMeetingFromAdapter({

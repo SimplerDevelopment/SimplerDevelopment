@@ -15,16 +15,18 @@ import { NextResponse } from 'next/server';
 
 export type PortalAction = 'read' | 'write' | 'admin' | 'owner';
 
-type PortalRole = 'owner' | 'admin' | 'member' | 'viewer';
+export type PortalRole = 'owner' | 'admin' | 'member' | 'viewer';
 
-const ROLE_LEVELS: Record<PortalRole, number> = {
+// Exported so the MCP surface enforces the SAME ladder as the REST routes rather
+// than growing a second, drifting copy — see lib/mcp/client-scope.ts#roleDenial.
+export const ROLE_LEVELS: Record<PortalRole, number> = {
   viewer: 0,
   member: 1,
   admin: 2,
   owner: 3,
 };
 
-const ACTION_REQUIRED_LEVEL: Record<PortalAction, number> = {
+export const ACTION_REQUIRED_LEVEL: Record<PortalAction, number> = {
   read: 0,    // viewer+
   write: 1,   // member+
   admin: 2,   // admin+
