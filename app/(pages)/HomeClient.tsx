@@ -197,7 +197,7 @@ export function HomeClient({ recentPosts = [] }: { recentPosts?: BlogPostWithRel
             already talk to each other, so you can stop paying six vendors to almost integrate.
           </>
         }
-        primary={{ href: '/portal/signup', label: 'Start Free' }}
+        primary={{ href: '/contact', label: 'Contact Us' }}
         secondary={{ href: GITHUB_URL, label: 'Read the Source' }}
         video
         footnote={
