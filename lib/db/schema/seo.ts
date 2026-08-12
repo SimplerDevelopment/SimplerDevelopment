@@ -81,8 +81,10 @@ export const seoProjects = pgTable('seo_projects', {
 // needs correct UTC round-trips regardless of PG session timezone).
 
 export type SeoCrawlRunState = {
-  // Frontier: URLs discovered but not yet fetched, with their depth.
-  frontier?: { url: string; depth: number }[];
+  // Frontier: URLs discovered but not yet fetched, with their depth and how
+  // they were discovered (persisted mid-run, so provenance must survive the
+  // round-trip — seo_crawl_pages.discovered_from is written from it).
+  frontier?: { url: string; depth: number; from: 'seed' | 'link' | 'sitemap' | 'redirect' }[];
   // Normalized URLs already fetched or queued this run (dedup set).
   seen?: string[];
   // Sitemap URLs found, kept for sitemap-vs-crawl rules.
