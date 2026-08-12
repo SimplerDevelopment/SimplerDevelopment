@@ -83,8 +83,20 @@
   --card-foreground: #ededed;
   --popover: #1f1f23;
   --popover-foreground: #ededed;
+  /* --primary does double duty in dark mode: it is the `bg-primary` button
+     surface (which needs to be DARK enough for its foreground) and it is also
+     `text-primary` on dark cards (which needs to be LIGHT enough against them).
+     Those pull in opposite directions and no single value satisfies both —
+     white-on-X needs luminance <= 0.184, X-on-#18181b needs >= 0.213. So the
+     contrast is fixed on the foreground instead: white on #3b82f6 was 3.68:1,
+     under the 4.5:1 AA floor, and every dark-mode `bg-primary` button failed
+     axe color-contrast because of it (60 of the 72 affected screens in the
+     Aug 2026 sweep). #0b1220 on #3b82f6 is 5.09:1, and leaving --primary alone
+     keeps `text-primary` where it was rather than making it worse.
+     Splitting the roles into two tokens is the real fix, but `text-primary`
+     has ~1459 usages, so that is its own piece of work. */
   --primary: #3b82f6;
-  --primary-foreground: #ffffff;
+  --primary-foreground: #0b1220;
   --muted: #27272a;
   --muted-foreground: #a1a1aa;
   --accent: #27272a;
@@ -112,8 +124,9 @@
     --card-foreground: #ededed;
     --popover: #1f1f23;
     --popover-foreground: #ededed;
+    /* Keep in step with the .dark block above — same AA contrast reason. */
     --primary: #3b82f6;
-    --primary-foreground: #ffffff;
+    --primary-foreground: #0b1220;
     --muted: #27272a;
     --muted-foreground: #a1a1aa;
     --accent: #27272a;
