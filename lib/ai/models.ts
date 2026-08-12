@@ -42,7 +42,8 @@ export type AiTask =
   | 'slideGen'
   | 'slideBatchEdit'
   | 'inboundEmail'
-  | 'extensionExtract';
+  | 'extensionExtract'
+  | 'seoRecommendations'; // SEO Intelligence: prioritized-fixes generation
 
 export interface ModelChoice {
   provider: LlmProvider;
@@ -93,6 +94,7 @@ export const MODELS: Record<AiTask, ModelChoice> = {
   slideBatchEdit:    { provider: 'anthropic', model: 'claude-sonnet-4-6' },
   inboundEmail:      { provider: 'anthropic', model: 'claude-sonnet-4-6' },
   extensionExtract:  { provider: 'anthropic', model: 'claude-haiku-4-5-20251001' },
+  seoRecommendations: { provider: 'anthropic', model: 'claude-sonnet-4-6' },
 };
 
 const HF_BASE_URL = process.env.HUGGINGFACE_BASE_URL ?? 'https://router.huggingface.co/v1';

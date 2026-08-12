@@ -10,16 +10,18 @@ import { pBtnPrimary } from '@/components/portal/portal-ui';
 import { HealthScoreBadge } from './HealthScoreBadge';
 import { RunStatusPill } from './RunStatusPill';
 import { isRunActive, relativeTime } from './format';
-import type { SearchPerformanceData, SeoProjectDetail, SeoRun } from './types';
+import type { Recommendation, SearchPerformanceData, SeoProjectDetail, SeoRun } from './types';
 import { OverviewTab } from './OverviewTab';
 import { IssuesTab } from './IssuesTab';
 import { PagesTab } from './PagesTab';
 import { SearchPerformanceTab } from './SearchPerformanceTab';
+import { RecommendationsTab } from './RecommendationsTab';
 import { HistoryTab } from './HistoryTab';
 
-type Tab = 'overview' | 'issues' | 'pages' | 'search' | 'history';
+type Tab = 'recommendations' | 'overview' | 'issues' | 'pages' | 'search' | 'history';
 
 const TABS: { id: Tab; label: string; icon: string }[] = [
+  { id: 'recommendations', label: 'Do next', icon: 'checklist' },
   { id: 'overview', label: 'Overview', icon: 'dashboard' },
   { id: 'issues', label: 'Issues', icon: 'fact_check' },
   { id: 'pages', label: 'Pages', icon: 'description' },
@@ -39,6 +41,9 @@ export default function SeoProjectDashboard({ projectId }: { projectId: number }
   // component's comment for why this data source needs different caching
   // than the run-scoped Issues/Pages tabs.
   const [searchPerf, setSearchPerf] = useState<SearchPerformanceData | null>(null);
+  // Same rationale as searchPerf above — recommendation generation is a
+  // real metered AI call, so it must not silently re-fire on tab revisit.
+  const [recommendations, setRecommendations] = useState<Recommendation[] | null>(null);
 
   const fetchProject = useCallback(async () => {
     try {
@@ -187,6 +192,9 @@ export default function SeoProjectDashboard({ projectId }: { projectId: number }
         ))}
       </div>
 
+      {tab === 'recommendations' && (
+        <RecommendationsTab projectId={projectId} data={recommendations} onDataChange={setRecommendations} />
+      )}
       {tab === 'overview' && <OverviewTab run={latestRun} />}
       {tab === 'issues' && <IssuesTab runId={latestRun?.id ?? null} runStatus={latestRun?.status ?? null} />}
       {tab === 'pages' && <PagesTab runId={latestRun?.id ?? null} runStatus={latestRun?.status ?? null} />}

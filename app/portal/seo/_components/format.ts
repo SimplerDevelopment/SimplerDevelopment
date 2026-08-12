@@ -86,3 +86,27 @@ export const deltaClasses: Record<DeltaTone, string> = {
 export function formatSignedNumber(n: number): string {
   return n > 0 ? `+${n.toLocaleString()}` : n.toLocaleString();
 }
+
+// ── Recommendations ──────────────────────────────────────────────────────
+
+/** Shared high/medium/low tier for a recommendation's impact and effort.
+ * The two axes mean opposite things (high impact is good, high effort is
+ * bad), so this is one neutral 3-step scale rather than a good/bad color —
+ * the "Impact"/"Effort" label carries the meaning, not the color. */
+export type Tier = 'high' | 'medium' | 'low';
+
+export const tierClasses: Record<Tier, string> = {
+  high: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
+  medium: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+  low: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400',
+};
+
+/** Recommendation body is markdown-ish prose, not full markdown — split on
+ * blank lines into paragraphs; callers render each with `whitespace-pre-line`
+ * so single line breaks inside a paragraph still show. */
+export function splitParagraphs(text: string): string[] {
+  return text
+    .split(/\n{2,}/)
+    .map((p) => p.trim())
+    .filter(Boolean);
+}
