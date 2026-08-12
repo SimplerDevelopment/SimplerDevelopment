@@ -142,6 +142,10 @@ export type SeoPageMeta = {
   robotsMeta?: string | null;
   headers?: Record<string, string>; // response headers the rules care about
   iframeCount?: number;
+  canonicalCount?: number; // number of rel=canonical link tags found
+  metaRefresh?: boolean; // <meta http-equiv="refresh"> present
+  insecureResourceCount?: number; // http:// subresources on an https page
+  jsonLdParseErrors?: number; // JSON-LD <script> blocks that failed to parse
 };
 
 export const seoCrawlPages = pgTable('seo_crawl_pages', {
