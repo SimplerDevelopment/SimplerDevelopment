@@ -66,7 +66,7 @@ function collectSchemaExportNames(): string[] {
 // + manually appended path_chart_* additions 2026-07-18 (PVIZ Phase 1 schema, lib/db/schema/pathviz.ts).
 // + manually appended agent_flows 2026-08-02 (Workflow Designer / APWD-003, lib/db/schema/agentFlows.ts).
 // + manually appended agent_flow_runs + agent_flow_run_events 2026-08-03 (executions, same module).
-// + regenerated 2026-08-12: seo_* tables (SEO Intelligence core audit, lib/db/schema/seo.ts).
+// + regenerated 2026-08-12: seo_* tables (SEO Intelligence core audit + GSC history, lib/db/schema/seo.ts).
 const EXPECTED_EXPORTS: readonly string[] = [
   'AB_TARGET_TYPES',
   'AbAssignment',
@@ -220,6 +220,8 @@ const EXPECTED_EXPORTS: readonly string[] = [
   'NewRegisteredAppSigningKey',
   'NewSeoCrawlPage',
   'NewSeoCrawlRun',
+  'NewSeoGscPageDaily',
+  'NewSeoGscQueryDaily',
   'NewSeoIssue',
   'NewSeoPageLink',
   'NewSeoProject',
@@ -247,6 +249,8 @@ const EXPECTED_EXPORTS: readonly string[] = [
   'SeoCrawlRun',
   'SeoCrawlRunState',
   'SeoCrawlRunStats',
+  'SeoGscPageDaily',
+  'SeoGscQueryDaily',
   'SeoIssue',
   'SeoPageLink',
   'SeoPageMeta',
@@ -521,6 +525,8 @@ const EXPECTED_EXPORTS: readonly string[] = [
   'registeredApps',
   'seoCrawlPages',
   'seoCrawlRuns',
+  'seoGscPageDaily',
+  'seoGscQueryDaily',
   'seoIssues',
   'seoPageLinks',
   'seoProjects',
@@ -592,7 +598,7 @@ const EXPECTED_EXPORTS: readonly string[] = [
 // + manually appended path_chart_* additions 2026-07-18 (PVIZ Phase 1 schema, lib/db/schema/pathviz.ts).
 // + manually appended agent_flows 2026-08-02 (Workflow Designer / APWD-003, lib/db/schema/agentFlows.ts).
 // + manually appended agent_flow_runs + agent_flow_run_events 2026-08-03 (executions, same module).
-// + regenerated 2026-08-12: seo_* tables (SEO Intelligence core audit, lib/db/schema/seo.ts).
+// + regenerated 2026-08-12: seo_* tables (SEO Intelligence core audit + GSC history, lib/db/schema/seo.ts).
 const EXPECTED_TABLE_NAMES: Readonly<Record<string, string>> = {
   abAssignments: 'ab_assignments',
   abEvents: 'ab_events',
@@ -841,6 +847,8 @@ const EXPECTED_TABLE_NAMES: Readonly<Record<string, string>> = {
   registeredApps: 'registered_apps',
   seoCrawlPages: 'seo_crawl_pages',
   seoCrawlRuns: 'seo_crawl_runs',
+  seoGscPageDaily: 'seo_gsc_page_daily',
+  seoGscQueryDaily: 'seo_gsc_query_daily',
   seoIssues: 'seo_issues',
   seoPageLinks: 'seo_page_links',
   seoProjects: 'seo_projects',
@@ -939,13 +947,13 @@ describe('lib/db/schema export parity', () => {
     expect(actualTables).toEqual(EXPECTED_TABLE_NAMES);
   });
 
-  it('reports the recorded number of tables (309)', () => {
+  it('reports the recorded number of tables (311)', () => {
     const schemaMap = Schema as unknown as Record<string, unknown>;
     let count = 0;
     for (const value of Object.values(schemaMap)) {
       if (value && typeof value === 'object' && isTable(value)) count += 1;
     }
     expect(count).toBe(Object.keys(EXPECTED_TABLE_NAMES).length);
-    expect(count).toBe(309);
+    expect(count).toBe(311);
   });
 });

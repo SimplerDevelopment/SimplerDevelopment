@@ -101,6 +101,33 @@ describe('SEO Intelligence portal API @seo @tenancy', () => {
     expect((mine.data as Envelope<{ name: string }>).data.name).not.toBe('stolen');
   });
 
+  it("returns 404 to tenant B for tenant A's GSC import and search-performance routes", async () => {
+    await asTenant(A);
+    const created = await createProject('https://a-gsc.com/');
+    const projectId = String(created.data.id);
+
+    await asTenant(B);
+    const gscImport = await import('@/app/api/portal/seo/projects/[id]/gsc-import/route');
+    const searchPerf = await import('@/app/api/portal/seo/projects/[id]/search-performance/route');
+    expect(
+      (await callHandler(gscImport as unknown as Record<string, unknown>, 'POST', { params: { id: projectId } })).status,
+    ).toBe(404);
+    expect(
+      (await callHandler(searchPerf as unknown as Record<string, unknown>, 'GET', { params: { id: projectId } })).status,
+    ).toBe(404);
+
+    // Owner: external-domain project (no linked website) reports not-connected
+    // rather than erroring.
+    await asTenant(A);
+    const mine = await callHandler<Envelope<{ connected: boolean }>>(
+      searchPerf as unknown as Record<string, unknown>,
+      'GET',
+      { params: { id: projectId } },
+    );
+    expect(mine.status).toBe(200);
+    expect((mine.data as Envelope<{ connected: boolean }>).data.connected).toBe(false);
+  });
+
   it('enqueues one crawl run per project (idempotent trigger) and scopes run reads @tenancy', async () => {
     await asTenant(A);
     const created = await createProject('https://a-crawl.com/');

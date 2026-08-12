@@ -53,3 +53,36 @@ export const severityIcons: Record<IssueSeverity, string> = {
 export function isRunActive(status: string | null | undefined): boolean {
   return status === 'queued' || status === 'running';
 }
+
+// ── Search Performance formatting ───────────────────────────────────────────
+// GSC's ctr/avgCtr come through the API as a 0-1 fraction; position as a
+// float (1-based rank). Both are display-only concerns local to this tab.
+
+/** 0-1 fraction → "12.3%". */
+export function formatPct(fraction: number): string {
+  return `${(fraction * 100).toFixed(1)}%`;
+}
+
+/** GSC's 1-based average rank → one decimal place, e.g. "4.2". */
+export function formatPosition(position: number): string {
+  return position.toFixed(1);
+}
+
+export type DeltaTone = 'up' | 'down' | 'flat';
+
+export function deltaTone(delta: number): DeltaTone {
+  if (delta > 0) return 'up';
+  if (delta < 0) return 'down';
+  return 'flat';
+}
+
+export const deltaClasses: Record<DeltaTone, string> = {
+  up: 'text-green-600 dark:text-green-400',
+  down: 'text-red-600 dark:text-red-400',
+  flat: 'text-muted-foreground',
+};
+
+/** Signed, comma-grouped delta, e.g. "+128" / "-42" / "0". */
+export function formatSignedNumber(n: number): string {
+  return n > 0 ? `+${n.toLocaleString()}` : n.toLocaleString();
+}
