@@ -354,13 +354,21 @@ export default function NotificationBell() {
       <button
         onClick={() => setOpen((prev) => !prev)}
         className="relative p-2 rounded-lg hover:bg-muted transition-colors"
-        aria-label="Notifications"
+        aria-label={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : 'Notifications'}
         aria-expanded={open}
         aria-haspopup="true"
       >
-        <span className="material-icons text-muted-foreground text-xl">notifications</span>
+        {/* Both children are aria-hidden so the button's visible text is empty and
+            the aria-label alone supplies the accessible name. Without this the
+            unread count is visible text absent from the name, which fails axe's
+            label-content-name-mismatch — it was the single most widespread a11y
+            failure in the portal (147 of 162 screens), since this bell renders in
+            the header on every page. The count belongs in the label, not beside it.
+            The material-icons ligature text ("notifications") is decorative for the
+            same reason. */}
+        <span aria-hidden="true" className="material-icons text-muted-foreground text-xl">notifications</span>
         {unreadCount > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold text-white bg-red-500 rounded-full leading-none">
+          <span aria-hidden="true" className="absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold text-white bg-red-500 rounded-full leading-none">
             {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         )}
