@@ -150,6 +150,15 @@ vi.mock('@/lib/email/render-cache', () => ({
   htmlToText: (h: string) => htmlToTextMock(h),
 }));
 
+// PUX-046 — the send route now enqueues a durable job instead of sending
+// inline; the actual dispatch loop (buildCampaignHtml/resend/etc. above)
+// lives in lib/email/campaign-send.ts and is exercised by
+// tests/unit/email-campaign-send.test.ts, not here.
+const enqueueCampaignSendMock = vi.fn(async () => undefined);
+vi.mock('@/lib/email/campaign-send-job', () => ({
+  enqueueCampaignSend: (...args: unknown[]) => enqueueCampaignSendMock(...args),
+}));
+
 // sanitize-html passthrough — lets rendered HTML survive the sanitization step
 vi.mock('@/lib/security/sanitize-html', () => ({
   sanitizeHtml: (html: string) => html,
@@ -331,6 +340,7 @@ beforeEach(() => {
   getOrRenderCampaignHtmlMock.mockReset();
   htmlToTextMock.mockReset().mockImplementation((h: string) => `text:${h}`);
   emitEventMock.mockReset();
+  enqueueCampaignSendMock.mockReset().mockResolvedValue(undefined);
 
   authMock.mockResolvedValue({ user: { id: '7' } });
   getPortalClientMock.mockResolvedValue({ id: 10 });
@@ -522,7 +532,7 @@ describe('POST /api/portal/email/campaigns/[id]/send', () => {
     expect(body.message).toMatch(/no active subscribers/i);
   });
 
-  it('non-block-editor path: builds html via buildCampaignHtml, sends + counts successes', async () => {
+  it('enqueues the durable send job and flips status to sending (PUX-046 — no longer sends inline)', async () => {
     selectQueue.push([
       {
         id: 1,
@@ -537,6 +547,7 @@ describe('POST /api/portal/email/campaigns/[id]/send', () => {
         useBlockEditor: false,
         contentBlocks: null,
         previewText: 'preview',
+        abEnabled: false,
       },
     ]);
     selectQueue.push([]); // no prior sends
@@ -549,74 +560,24 @@ describe('POST /api/portal/email/campaigns/[id]/send', () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.success).toBe(true);
-    expect(body.data).toEqual({ sent: 2, failed: 0, total: 2 });
+    expect(body.data).toEqual({ queued: true, totalTargets: 2 });
 
+    // The dispatch loop (buildCampaignHtml/render-cache/resend) no longer
+    // runs inline — the job (lib/email/campaign-send.ts) owns that now.
     expect(getOrRenderCampaignHtmlMock).not.toHaveBeenCalled();
-    expect(buildCampaignHtmlMock).toHaveBeenCalledTimes(2);
-    expect(resendSendMock).toHaveBeenCalledTimes(2);
-    // Each send insert recorded
-    const sendsInserts = insertValuesCalls.filter((c) => c.table === 'emailCampaignSends');
-    expect(sendsInserts).toHaveLength(2);
-    // status updates: sending then sent
-    const campaignUpdates = updateSetCalls.filter((u) => u.table === 'emailCampaigns');
-    expect(campaignUpdates).toHaveLength(2);
-    expect(campaignUpdates[0].set.status).toBe('sending');
-    expect(campaignUpdates[0].set.totalRecipients).toBe(2);
-    expect(campaignUpdates[1].set.status).toBe('sent');
-    expect(campaignUpdates[1].set.totalSent).toBe(2);
-
-    // Resend args include reply-to and List-Unsubscribe headers
-    const firstCall = resendSendMock.mock.calls[0][0] as {
-      headers: Record<string, string>;
-      replyTo: string;
-      from: string;
-    };
-    expect(firstCall.from).toBe('me <me@x.test>');
-    expect(firstCall.replyTo).toBe('reply@x.test');
-    expect(firstCall.headers['List-Unsubscribe']).toContain('https://example.test/u/tok-a');
-  });
-
-  it('block-editor path: renders once via getOrRenderCampaignHtml and substitutes unsubscribe url per recipient', async () => {
-    selectQueue.push([
-      {
-        id: 1,
-        clientId: 10,
-        listId: 77,
-        status: 'draft',
-        subject: 'subj',
-        fromName: 'me',
-        fromEmail: 'me@x.test',
-        replyTo: null,
-        htmlContent: '<p>fallback</p>',
-        useBlockEditor: true,
-        contentBlocks: [{ type: 'heading' }, { type: 'p' }],
-        previewText: 'preview',
-      },
-    ]);
-    selectQueue.push([]); // no prior sends
-    selectQueue.push([
-      { id: 501, email: 'a@x.test', unsubscribeToken: 'tok-a' },
-    ]);
-    getOrRenderCampaignHtmlMock.mockResolvedValueOnce({
-      html: '<p>hi {{UNSUBSCRIBE_URL}}</p>',
-      text: 'hi {{UNSUBSCRIBE_URL}}',
-    });
-
-    const res = await sendPOST(makeReq(), paramsFor('1'));
-    expect(res.status).toBe(200);
-    const body = await res.json();
-    expect(body.data).toEqual({ sent: 1, failed: 0, total: 1 });
-
-    expect(getOrRenderCampaignHtmlMock).toHaveBeenCalledTimes(1);
-    // The unsubscribe placeholder must have been replaced with the recipient URL
-    const sendArgs = resendSendMock.mock.calls[0][0] as { html: string; text: string };
-    expect(sendArgs.html).toContain('https://example.test/u/tok-a');
-    expect(sendArgs.html).not.toContain('{{UNSUBSCRIBE_URL}}');
-    // buildCampaignHtml NOT used in block-editor path
     expect(buildCampaignHtmlMock).not.toHaveBeenCalled();
+    expect(resendSendMock).not.toHaveBeenCalled();
+
+    expect(enqueueCampaignSendMock).toHaveBeenCalledTimes(1);
+    expect(enqueueCampaignSendMock).toHaveBeenCalledWith(1, 10);
+
+    // The status flip to 'sending' lives inside enqueueCampaignSend (mocked
+    // here) — the route itself no longer writes campaign state at all.
+    const campaignUpdates = updateSetCalls.filter((u) => u.table === 'emailCampaigns');
+    expect(campaignUpdates).toHaveLength(0);
   });
 
-  it('counts failures from Resend without aborting the loop', async () => {
+  it('returns 502 without enqueuing when the email transport is unresolvable', async () => {
     selectQueue.push([
       {
         id: 1,
@@ -633,22 +594,19 @@ describe('POST /api/portal/email/campaigns/[id]/send', () => {
         previewText: null,
       },
     ]);
-    selectQueue.push([]);
-    selectQueue.push([
-      { id: 501, email: 'a@x.test', unsubscribeToken: 'tok-a' },
-      { id: 502, email: 'b@x.test', unsubscribeToken: 'tok-b' },
-    ]);
-    resendSendMock
-      .mockResolvedValueOnce({ data: { id: 'ok-1' } })
-      .mockRejectedValueOnce(new Error('boom'));
+    selectQueue.push([]); // no prior sends
+    selectQueue.push([{ id: 501, email: 'a@x.test', unsubscribeToken: 'tok-a' }]);
+    resolveResendKeyMock.mockRejectedValueOnce(new Error('no key configured'));
 
     const res = await sendPOST(makeReq(), paramsFor('1'));
-    expect(res.status).toBe(200);
+    expect(res.status).toBe(502);
     const body = await res.json();
-    expect(body.data).toEqual({ sent: 1, failed: 1, total: 2 });
+    expect(body.success).toBe(false);
+    expect(enqueueCampaignSendMock).not.toHaveBeenCalled();
+    expect(updateSetCalls.filter((u) => u.table === 'emailCampaigns')).toHaveLength(0);
   });
 
-  it('filters out subscribers already in the sends table', async () => {
+  it('filters out subscribers already in the sends table before enqueuing', async () => {
     selectQueue.push([
       {
         id: 1,
@@ -674,11 +632,12 @@ describe('POST /api/portal/email/campaigns/[id]/send', () => {
     const res = await sendPOST(makeReq(), paramsFor('1'));
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.data).toEqual({ sent: 1, failed: 0, total: 1 });
-    // Only one subscriber should have been emailed
-    expect(resendSendMock).toHaveBeenCalledTimes(1);
-    const toArg = (resendSendMock.mock.calls[0][0] as { to: string }).to;
-    expect(toArg).toBe('b@x.test');
+    // Only the not-yet-sent subscriber (502) counts toward totalTargets.
+    expect(body.data).toEqual({ queued: true, totalTargets: 1 });
+    expect(enqueueCampaignSendMock).toHaveBeenCalledWith(1, 10);
+    // Status/count writes moved into enqueueCampaignSend (mocked here).
+    const campaignUpdates = updateSetCalls.filter((u) => u.table === 'emailCampaigns');
+    expect(campaignUpdates).toHaveLength(0);
   });
 });
 

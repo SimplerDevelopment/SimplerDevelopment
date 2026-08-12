@@ -36,8 +36,8 @@ vi.mock('@/lib/email', () => ({
   generateUnsubscribeToken: vi.fn(() => 'fake-unsub-token'),
 }));
 
-vi.mock('@/lib/email/campaign-send', () => ({
-  executeCampaignSend: vi.fn(async () => ({ ok: true, sent: 5, skipped: 1 })),
+vi.mock('@/lib/email/campaign-send-job', () => ({
+  enqueueCampaignSend: vi.fn(async () => undefined),
 }));
 
 vi.mock('@/lib/google/oauth', () => ({
@@ -642,14 +642,14 @@ describe('email_campaigns_send', () => {
     expect(out.willSend).toBe(2);
   });
 
-  it('dispatches via executeCampaignSend on real send', async () => {
+  it('enqueues the durable send job on real send (PUX-046 — no longer sends inline)', async () => {
     dbState.selectRows = [{ id: 1, status: 'draft', listId: 2, name: 'C', subject: 'S', fromEmail: 'a@b.com' }];
-    const campaign = await import('@/lib/email/campaign-send');
-    (campaign.executeCampaignSend as ReturnType<typeof vi.fn>).mockClear();
+    const jobModule = await import('@/lib/email/campaign-send-job');
+    (jobModule.enqueueCampaignSend as ReturnType<typeof vi.fn>).mockClear();
     const tools = registerAll();
     const res = await tools.get('email_campaigns_send')!.handler({ id: 1 });
-    expect(campaign.executeCampaignSend).toHaveBeenCalledWith(1, expect.objectContaining({ name: 'C' }));
-    expect((parseJson(res) as { ok: boolean }).ok).toBe(true);
+    expect(jobModule.enqueueCampaignSend).toHaveBeenCalledWith(1, 1);
+    expect(parseJson(res)).toEqual({ queued: true, campaignId: 1 });
   });
 });
 

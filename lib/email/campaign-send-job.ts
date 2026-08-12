@@ -57,6 +57,17 @@ export async function enqueueCampaignSend(
     },
     db,
   );
+  // "queued" IS "sending" as far as the product is concerned, so the enqueue
+  // owns the status flip — every producer (portal route, MCP apply, scheduled
+  // cron) gets it without repeating it. Also load-bearing for the cron: a
+  // 'scheduled' campaign that stayed 'scheduled' after enqueue would be
+  // re-selected every tick. If this flip fails the enqueue already stuck: the
+  // next attempt's ON CONFLICT no-ops and the flip retries. executeCampaignSend
+  // re-asserts 'sending' (plus totalRecipients) when the job actually runs.
+  await db
+    .update(emailCampaigns)
+    .set({ status: 'sending', updatedAt: new Date() })
+    .where(and(eq(emailCampaigns.id, campaignId), eq(emailCampaigns.clientId, clientId)));
 }
 
 /**

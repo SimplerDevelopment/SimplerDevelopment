@@ -100,7 +100,7 @@ import {
   buildUnsubscribeUrl,
   generateUnsubscribeToken,
 } from '@/lib/email';
-import { executeCampaignSend } from '@/lib/email/campaign-send';
+import { enqueueCampaignSend } from '@/lib/email/campaign-send-job';
 import { revoke as revokeGoogleToken } from '@/lib/google/oauth';
 import { getTenantWorkspaceCredentialsByClientId } from '@/lib/google/tenant-credentials';
 import { stageOrApply } from '../pending-changes';
@@ -237,7 +237,7 @@ export function registerEmailTools(server: McpServer, ctx: PortalMcpContext): vo
     {
       title: 'Send email campaign NOW',
       description:
-        'Dispatch a draft/scheduled campaign to every active subscriber on its list, skipping subscribers who have already received it (resume-safe). Synchronous — large lists will block the MCP call; use dryRun first to preview. Gated on the `email:send` scope, which should be granted separately from `email:write`.',
+        'Dispatch a draft/scheduled campaign to every active subscriber on its list, skipping subscribers who have already received it (resume-safe). Queues the send on the durable internal jobs queue (dispatch begins within ~60s, retried with backoff, resume-safe). Use dryRun first to preview. Gated on the `email:send` scope, which should be granted separately from `email:write`.',
       inputSchema: {
         id: z.number(),
         dryRun: z.boolean().optional().describe('If true, return target counts without sending.'),
@@ -283,9 +283,8 @@ export function registerEmailTools(server: McpServer, ctx: PortalMcpContext): vo
           fromEmail: campaign.fromEmail,
           listId: campaign.listId,
         },
-        apply: async () => {
-          return await executeCampaignSend(id, campaign);
-        },
+        // enqueueCampaignSend also flips the campaign to 'sending'.
+        apply: () => enqueueCampaignSend(id, clientId).then(() => ({ queued: true, campaignId: id })),
       });
       if (result.pending) return json({ pending: true, pendingId: result.pendingId, summary: result.summary, status: 'pending' });
       revalidateForWrite('portal');
