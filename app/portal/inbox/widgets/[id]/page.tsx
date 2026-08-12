@@ -112,8 +112,9 @@ export default function WidgetSettingsPage({ params }: { params: Promise<{ id: s
         </div>
 
         <div>
-          <label className="text-sm font-medium">Greeting message</label>
+          <label htmlFor="widget-greeting-message" className="text-sm font-medium">Greeting message</label>
           <textarea
+            id="widget-greeting-message"
             className="w-full rounded-xl border border-border bg-card px-3.5 py-2 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary focus:ring-4 focus:ring-primary/15 mt-1 resize-none"
             rows={2}
             value={widget.greetingMessage ?? ''}
@@ -122,8 +123,9 @@ export default function WidgetSettingsPage({ params }: { params: Promise<{ id: s
         </div>
 
         <div>
-          <label className="text-sm font-medium">Away message</label>
+          <label htmlFor="widget-away-message" className="text-sm font-medium">Away message</label>
           <textarea
+            id="widget-away-message"
             className="w-full rounded-xl border border-border bg-card px-3.5 py-2 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary focus:ring-4 focus:ring-primary/15 mt-1 resize-none"
             rows={2}
             value={widget.awayMessage ?? ''}

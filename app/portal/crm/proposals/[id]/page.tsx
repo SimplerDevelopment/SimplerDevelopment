@@ -511,10 +511,10 @@ export default function ProposalEditorPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1">Accent Color</label>
+                <label htmlFor="proposal-accent-color-hex" className="block text-xs font-medium text-muted-foreground mb-1">Accent Color</label>
                 <div className="flex items-center gap-2">
-                  <input type="color" value={accentColor} onChange={e => setAccentColor(e.target.value)} className="w-8 h-8 rounded border border-border cursor-pointer" />
-                  <input value={accentColor} onChange={e => setAccentColor(e.target.value)} className="flex-1 rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/15" />
+                  <input type="color" aria-label="Accent color picker" value={accentColor} onChange={e => setAccentColor(e.target.value)} className="w-8 h-8 rounded border border-border cursor-pointer" />
+                  <input id="proposal-accent-color-hex" value={accentColor} onChange={e => setAccentColor(e.target.value)} className="flex-1 rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/15" />
                 </div>
               </div>
               <div>

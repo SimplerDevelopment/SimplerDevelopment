@@ -152,8 +152,9 @@ export default function BrainSettingsPage() {
 
       {/* Identity */}
       <Section title="Identity" icon="badge">
-        <Row label="Display name" help="Shown at the top of the Brain dashboard.">
+        <Row label="Display name" help="Shown at the top of the Brain dashboard." htmlFor="brain-display-name">
           <NameField
+            id="brain-display-name"
             value={profile.name}
             onSave={(v) => save({ name: v })}
             disabled={saving}
@@ -339,11 +340,21 @@ function Section({ title, icon, children }: { title: string; icon: string; child
   );
 }
 
-function Row({ label, help, children }: { label: string; help?: string; children: React.ReactNode }) {
+function Row({
+  label,
+  help,
+  htmlFor,
+  children,
+}: {
+  label: string;
+  help?: string;
+  htmlFor?: string;
+  children: React.ReactNode;
+}) {
   return (
     <div className="flex items-start justify-between gap-4 py-2 border-b border-border last:border-b-0">
       <div className="flex-1 min-w-0">
-        <div className="text-sm font-medium text-foreground">{label}</div>
+        <label htmlFor={htmlFor} className="block text-sm font-medium text-foreground">{label}</label>
         {help && <p className="text-xs text-muted-foreground mt-0.5">{help}</p>}
       </div>
       <div className="flex-shrink-0">{children}</div>
@@ -372,13 +383,24 @@ function Toggle({ checked, onChange, disabled }: { checked: boolean; onChange: (
   );
 }
 
-function NameField({ value, onSave, disabled }: { value: string; onSave: (v: string) => void; disabled?: boolean }) {
+function NameField({
+  value,
+  onSave,
+  disabled,
+  id,
+}: {
+  value: string;
+  onSave: (v: string) => void;
+  disabled?: boolean;
+  id?: string;
+}) {
   const [draft, setDraft] = useState(value);
   useEffect(() => setDraft(value), [value]);
   const dirty = draft.trim() !== value && draft.trim().length > 0;
   return (
     <div className="flex items-center gap-2">
       <input
+        id={id}
         type="text"
         value={draft}
         onChange={(e) => setDraft(e.target.value)}

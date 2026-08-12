@@ -280,6 +280,7 @@ export default function ProductsListPage() {
                   <th className="px-4 py-3 w-10">
                     <input
                       type="checkbox"
+                      aria-label="Select all products"
                       checked={selected.size === products.length && products.length > 0}
                       onChange={toggleAll}
                       className="rounded border-border"
@@ -303,6 +304,7 @@ export default function ProductsListPage() {
                     <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                       <input
                         type="checkbox"
+                        aria-label={`Select ${product.name}`}
                         checked={selected.has(product.id)}
                         onChange={() => toggleSelect(product.id)}
                         className="rounded border-border"

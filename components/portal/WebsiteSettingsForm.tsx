@@ -94,8 +94,9 @@ export default function WebsiteSettingsForm({
 
       <div className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-foreground mb-1.5">Website name</label>
+          <label htmlFor="website-settings-name" className="block text-sm font-medium text-foreground mb-1.5">Website name</label>
           <input
+            id="website-settings-name"
             value={name}
             onChange={e => setName(e.target.value)}
             className="w-full px-3 py-2.5 bg-background border border-border rounded-lg text-foreground outline-none focus:border-primary text-sm"
@@ -103,8 +104,9 @@ export default function WebsiteSettingsForm({
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-foreground mb-1.5">Description</label>
+          <label htmlFor="website-settings-description" className="block text-sm font-medium text-foreground mb-1.5">Description</label>
           <textarea
+            id="website-settings-description"
             value={description}
             onChange={e => setDescription(e.target.value)}
             rows={2}

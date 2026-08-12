@@ -336,7 +336,7 @@ export default function WorkflowEditorPage() {
           <span className="material-icons">arrow_back</span>
         </Link>
         <input
-          value={name}
+          value={name} aria-label="Workflow name"
           onChange={(e) => setName(e.target.value)}
           className="text-lg font-semibold bg-transparent border border-transparent hover:border-border focus:border-border rounded px-2 py-1 outline-none flex-1 min-w-[200px]"
         />

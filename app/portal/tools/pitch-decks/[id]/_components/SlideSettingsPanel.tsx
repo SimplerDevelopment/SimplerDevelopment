@@ -33,6 +33,7 @@ export function SlideSettingsPanel({ slide, theme, onChange }: SlideSettingsPane
         <div className="flex items-center gap-2">
           <input
             type="color"
+            aria-label="Slide background color picker"
             value={slide.pageSettings?.backgroundColor || theme.backgroundColor}
             onChange={(e) => updatePageSettings({ backgroundColor: e.target.value })}
             className="w-8 h-8 rounded border border-border cursor-pointer shrink-0"
@@ -169,6 +170,7 @@ export function SlideSettingsPanel({ slide, theme, onChange }: SlideSettingsPane
         <div className="flex items-center gap-2">
           <input
             type="color"
+            aria-label="Slide text color picker"
             value={slide.pageSettings?.color || theme.textColor}
             onChange={(e) => updatePageSettings({ color: e.target.value })}
             className="w-8 h-8 rounded border border-border cursor-pointer shrink-0"

@@ -123,13 +123,13 @@ export default function NewQuotePage() {
           <h2 className="text-sm font-display font-extrabold tracking-[-0.01em] text-foreground">Customer</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1">Name *</label>
-              <input type="text" required value={customerName} onChange={e => setCustomerName(e.target.value)}
+              <label htmlFor="quote-customer-name" className="block text-sm font-medium text-foreground mb-1">Name *</label>
+              <input id="quote-customer-name" type="text" required value={customerName} onChange={e => setCustomerName(e.target.value)}
                 className="w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary focus:ring-4 focus:ring-primary/15" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1">Email *</label>
-              <input type="email" required value={customerEmail} onChange={e => setCustomerEmail(e.target.value)}
+              <label htmlFor="quote-customer-email" className="block text-sm font-medium text-foreground mb-1">Email *</label>
+              <input id="quote-customer-email" type="email" required value={customerEmail} onChange={e => setCustomerEmail(e.target.value)}
                 className="w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary focus:ring-4 focus:ring-primary/15" />
             </div>
           </div>

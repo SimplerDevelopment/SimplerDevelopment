@@ -211,8 +211,9 @@ function CreateEditForm({ mode, initial, onSubmit, onCancel, team, submitLabel }
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
-          <label className="block text-xs font-medium text-muted-foreground mb-1">Start date</label>
+          <label htmlFor="initiative-start-date" className="block text-xs font-medium text-muted-foreground mb-1">Start date</label>
           <input
+            id="initiative-start-date"
             type="date"
             value={values.startDate}
             onChange={(e) => set('startDate', e.target.value)}
@@ -220,8 +221,9 @@ function CreateEditForm({ mode, initial, onSubmit, onCancel, team, submitLabel }
           />
         </div>
         <div>
-          <label className="block text-xs font-medium text-muted-foreground mb-1">Target date</label>
+          <label htmlFor="initiative-target-date" className="block text-xs font-medium text-muted-foreground mb-1">Target date</label>
           <input
+            id="initiative-target-date"
             type="date"
             value={values.targetDate}
             onChange={(e) => set('targetDate', e.target.value)}

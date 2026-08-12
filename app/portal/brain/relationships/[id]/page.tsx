@@ -195,8 +195,9 @@ export default function RelationshipDetailPage() {
               <option value="archived">Archived</option>
             </select>
           </Field>
-          <Field label="Next review">
+          <Field label="Next review" htmlFor="relationship-next-review">
             <input
+              id="relationship-next-review"
               type="date"
               value={overlay.nextReviewAt ? overlay.nextReviewAt.slice(0, 10) : ''}
               onChange={(e) => save({ nextReviewAt: e.target.value ? new Date(e.target.value).toISOString() : null })}
@@ -331,10 +332,20 @@ function Section({ title, icon, action, children }: { title: string; icon: strin
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({
+  label,
+  htmlFor,
+  children,
+}: {
+  label: string;
+  htmlFor?: string;
+  children: React.ReactNode;
+}) {
   return (
     <div>
-      <label className="block text-xs font-medium text-muted-foreground mb-1">{label}</label>
+      <label htmlFor={htmlFor} className="block text-xs font-medium text-muted-foreground mb-1">
+        {label}
+      </label>
       {children}
     </div>
   );

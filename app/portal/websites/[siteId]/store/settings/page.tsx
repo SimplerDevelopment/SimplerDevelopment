@@ -601,9 +601,9 @@ export default function StoreSettingsPage() {
             />
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Low Stock Threshold</label>
+            <label htmlFor="store-low-stock-threshold" className="text-sm font-medium text-foreground">Low Stock Threshold</label>
             <input
-              type="number"
+              id="store-low-stock-threshold" type="number"
               min="0"
               value={settings.lowStockThreshold ?? 0}
               onChange={(e) => updateField('lowStockThreshold', parseInt(e.target.value) || 0)}

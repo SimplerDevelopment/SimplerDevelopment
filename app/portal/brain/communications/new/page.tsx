@@ -184,8 +184,9 @@ export default function NewBrainMeetingPage() {
               className="w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary focus:ring-4 focus:ring-primary/15"
             />
           </Field>
-          <Field label="Date (optional)">
+          <Field label="Date (optional)" htmlFor="communication-date">
             <input
+              id="communication-date"
               type="datetime-local"
               value={meetingDate}
               onChange={(e) => setMeetingDate(e.target.value)}
@@ -309,10 +310,22 @@ function Section({ title, icon, children }: { title: string; icon: string; child
   );
 }
 
-function Field({ label, help, children }: { label: string; help?: string; children: React.ReactNode }) {
+function Field({
+  label,
+  help,
+  htmlFor,
+  children,
+}: {
+  label: string;
+  help?: string;
+  htmlFor?: string;
+  children: React.ReactNode;
+}) {
   return (
     <div>
-      <label className="block text-xs font-medium text-muted-foreground mb-1">{label}</label>
+      <label htmlFor={htmlFor} className="block text-xs font-medium text-muted-foreground mb-1">
+        {label}
+      </label>
       {children}
       {help && <p className="text-xs text-muted-foreground mt-1">{help}</p>}
     </div>
