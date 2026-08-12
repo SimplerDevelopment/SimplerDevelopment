@@ -186,8 +186,12 @@ async function flush() {
   });
 }
 
+// Prefix match, not equality: the bell's accessible name carries the unread count
+// ("Notifications, 3 unread") so screen-reader users get the state, not just the
+// control. An exact-match selector silently stops finding the button the moment a
+// fixture has unread items.
 async function openDropdown(container: HTMLElement) {
-  const bell = container.querySelector('button[aria-label="Notifications"]') as HTMLElement;
+  const bell = container.querySelector('button[aria-label^="Notifications"]') as HTMLElement;
   await act(async () => {
     fireEvent.click(bell);
     await Promise.resolve();
@@ -220,7 +224,7 @@ describe('NotificationBell — bell button + badge', () => {
   it('renders the bell button with aria-label', async () => {
     const { container } = render(<NotificationBell />);
     await flush();
-    expect(container.querySelector('button[aria-label="Notifications"]')).toBeTruthy();
+    expect(container.querySelector('button[aria-label^="Notifications"]')).toBeTruthy();
   });
 
   it('does not show a badge when both feeds report zero unread', async () => {
@@ -622,7 +626,7 @@ describe('NotificationBell — markAllRead', () => {
       await Promise.resolve();
       await Promise.resolve();
     });
-    expect(container.querySelector('button[aria-label="Notifications"]')).toBeTruthy();
+    expect(container.querySelector('button[aria-label^="Notifications"]')).toBeTruthy();
   });
 });
 

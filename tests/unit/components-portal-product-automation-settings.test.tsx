@@ -193,7 +193,9 @@ describe('ProductAutomationSettings', () => {
     });
 
     await waitFor(() => expect(screen.getByText('Tag Lead')).toBeInTheDocument());
-    expect(screen.queryByRole('heading', { level: 3 })).not.toBeInTheDocument();
+    // The optional title block renders at level 2; preset names are the level-3
+    // headings beneath it, so assert on the block's own level, not "any h3".
+    expect(screen.queryByRole('heading', { level: 2 })).not.toBeInTheDocument();
   });
 
   // ── 5. Toggle creates a new rule (POST) ───────────────────────────────────
@@ -212,7 +214,9 @@ describe('ProductAutomationSettings', () => {
 
     await waitFor(() => expect(screen.getByText('Tag Lead')).toBeInTheDocument());
 
-    const toggle = screen.getByRole('button');
+    // role=switch, not button: a toggle must announce its on/off state to a screen
+    // reader, and role="switch" overrides the implicit button role to do that.
+    const toggle = screen.getByRole('switch');
     await act(async () => { fireEvent.click(toggle); });
 
     await waitFor(() => {
@@ -241,7 +245,7 @@ describe('ProductAutomationSettings', () => {
 
     await waitFor(() => expect(screen.getByText('Tag Lead')).toBeInTheDocument());
 
-    await act(async () => { fireEvent.click(screen.getByRole('button')); });
+    await act(async () => { fireEvent.click(screen.getByRole('switch')); });
 
     await waitFor(() => {
       const postCall = fetchMock.mock.calls.find(
@@ -283,7 +287,7 @@ describe('ProductAutomationSettings', () => {
 
     await waitFor(() => expect(screen.getByText('Tag Lead')).toBeInTheDocument());
 
-    await act(async () => { fireEvent.click(screen.getByRole('button')); });
+    await act(async () => { fireEvent.click(screen.getByRole('switch')); });
 
     await waitFor(() => {
       const patchCall = fetchMock.mock.calls.find(
@@ -322,7 +326,7 @@ describe('ProductAutomationSettings', () => {
 
     await waitFor(() => expect(screen.getByText('Tag Lead')).toBeInTheDocument());
 
-    await act(async () => { fireEvent.click(screen.getByRole('button')); });
+    await act(async () => { fireEvent.click(screen.getByRole('switch')); });
 
     await waitFor(() => {
       const patchCall = fetchMock.mock.calls.find(
@@ -649,7 +653,7 @@ describe('ProductAutomationSettings', () => {
 
     await waitFor(() => expect(screen.getByText('Tag Lead')).toBeInTheDocument());
 
-    const toggle = screen.getByRole('button');
+    const toggle = screen.getByRole('switch');
     expect(toggle.className).toContain('bg-green-500');
   });
 
@@ -679,7 +683,7 @@ describe('ProductAutomationSettings', () => {
 
     await waitFor(() => expect(screen.getByText('Tag Lead')).toBeInTheDocument());
 
-    const toggle = screen.getByRole('button');
+    const toggle = screen.getByRole('switch');
 
     act(() => { fireEvent.click(toggle); });
 
