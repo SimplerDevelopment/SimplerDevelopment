@@ -186,6 +186,10 @@
     {
       "path": "/api/cron/purge-agent-captures",
       "schedule": "23 4 * * *"
+    },
+    {
+      "path": "/api/cron/seo-crawl-tick",
+      "schedule": "* * * * *"
     }
   ]
 }

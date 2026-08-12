@@ -177,6 +177,16 @@ export const COMPETITORS: CompetitorRow[] = [
     url: 'https://buffer.com/pricing',
     source: 'vendor',
   },
+  {
+    key: 'seo',
+    vendor: 'Ahrefs',
+    plan: 'Starter',
+    monthlyCents: 2_900,
+    basis: 'flat',
+    note: 'Month-to-month, single user, heavily credit-capped — Lite, the first full tier, is $129/mo. Checked August 12, 2026.',
+    url: 'https://ahrefs.com/pricing',
+    source: 'press',
+  },
 ];
 
 const BY_KEY = new Map(COMPETITORS.map((c) => [c.key, c]));

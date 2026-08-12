@@ -96,14 +96,17 @@ beforeEach(() => {
 // ── Pure billing math (property tests on the catalog) ─────────────────────────
 
 describe('volume-discount math (domain-catalog)', () => {
-  it('volumeTierFor crosses at exactly 4 / 8 / 12 modules', () => {
+  it('volumeTierFor crosses at exactly 4 / 8 / 12 / 13 modules', () => {
     expect(volumeTierFor(3)).toBeNull();
     expect(volumeTierFor(4)?.percentOff).toBe(10);
     expect(volumeTierFor(7)?.percentOff).toBe(10);
     expect(volumeTierFor(8)?.percentOff).toBe(20);
     expect(volumeTierFor(11)?.percentOff).toBe(20);
     expect(volumeTierFor(12)?.percentOff).toBe(40);
-    expect(volumeTierFor(100)?.percentOff).toBe(40);
+    // 13-module tier added with the 'seo' domain (2026-08-12) so the
+    // all-modules à-la-carte bill stays under the bundle ceiling (OBQA-016).
+    expect(volumeTierFor(13)?.percentOff).toBe(46);
+    expect(volumeTierFor(100)?.percentOff).toBe(46);
   });
 
   it('discountedModuleCents rounds half-up per module', () => {

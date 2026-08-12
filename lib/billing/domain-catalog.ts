@@ -397,6 +397,41 @@ export const FEATURE_DOMAINS: FeatureDomain[] = [
     promotesTo: ['email', 'websites'],
     navHrefs: ['/portal/publishing'],
   },
+  {
+    key: 'seo',
+    slug: 'module-seo',
+    // No Stripe IDs yet — pricing is provisional until crawl + AI costs are
+    // measured (build-plan rule: measure provider cost before pricing). The
+    // entitlement gate is live from day one; seed Stripe products at launch
+    // via scripts/seed-domain-modules.ts like the other modules.
+    name: 'SEO Intelligence',
+    tagline: 'Site audits, Search Console insights, and AI-ranked fixes for any domain.',
+    icon: 'travel_explore',
+    monthlyPriceCents: 2_900,
+    features: [
+      'Site audits: own crawler + 50 technical checks',
+      'Internal link authority (PageRank) and orphan detection',
+      'Google Search Console performance insights',
+      'AI recommendations: the fixes worth doing, ranked',
+      'Audit any domain — including sites we don\'t host',
+    ],
+    meters: [
+      {
+        resource: 'seo_crawled_urls',
+        label: 'Crawled URLs',
+        unit: 'URLs',
+        includedPerMonth: 10_000,
+        bundleIncludedPerMonth: 50_000,
+        overageRateCents: 50, // $0.50 per 1k extra crawled URLs
+        overageUnitSize: 1_000,
+        waivedForByok: false, // crawler infra is ours in every mode
+      },
+    ],
+    includedAiCredits: 0, // recommendations meter through the shared AI-credits ledger
+    byokProviders: [],
+    promotesTo: ['websites', 'brain', 'email'],
+    navHrefs: ['/portal/seo'],
+  },
 ];
 
 // ── Bundle ────────────────────────────────────────────────────────────────────
@@ -453,12 +488,16 @@ export interface VolumeTier {
 }
 
 /** Discount thresholds, highest first so volumeTierFor() returns the best match. */
-// Invariant (OBQA-016): the top tier is pinned so ALL-12 à-la-carte
-// (26,100¢ seed sum × 0.60 = 15,660¢) never exceeds BUNDLE.monthlyPriceCents
-// (15,900¢). Break-even is 39.08%, so 40 is the minimal integer percent. Locked
-// by a guard test in tests/unit/billing-recompute-subscription.test.ts. If
-// module or bundle seed prices change, re-check this tier.
+// Invariant (OBQA-016): the top tier is pinned so ALL-modules à-la-carte never
+// exceeds BUNDLE.monthlyPriceCents (15,900¢) — the bundle price is the ceiling
+// on any module bill. With 13 modules (29,000¢ seed sum, 'seo' added
+// 2026-08-12) break-even is 45.17%, so 46 is the minimal integer percent:
+// 29,000 × 0.54 = 15,660¢ ≤ 15,900¢. The 12-module tier keeps its original 40%
+// so existing 12-module subscribers' prices don't move. Locked by a guard test
+// in tests/unit/billing-recompute-subscription.test.ts. If module or bundle
+// seed prices change, re-check this tier.
 export const VOLUME_TIERS: VolumeTier[] = [
+  { minModules: 13, percentOff: 46 },
   { minModules: 12, percentOff: 40 },
   { minModules: 8, percentOff: 20 },
   { minModules: 4, percentOff: 10 },

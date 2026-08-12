@@ -132,6 +132,13 @@ export function buildPortalNavItems(
       ],
     },
     {
+      href: '/portal/seo',
+      label: 'SEO Intelligence',
+      icon: 'travel_explore',
+      requiredDomain: 'seo',
+      keywords: ['seo', 'site audit', 'crawler', 'technical seo', 'search console', 'rankings'],
+    },
+    {
       // Marketing groups the outbound/content surfaces so they don't each take
       // a top-level slot. Each child keeps its own requiredDomain gate.
       href: '/portal/marketing',
