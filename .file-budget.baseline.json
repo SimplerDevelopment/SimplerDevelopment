@@ -38,7 +38,7 @@
   "app/portal/crm/proposals/[id]/page.tsx": 929,
   "app/portal/crm/proposals/page.tsx": 549,
   "app/portal/crm/settings/page.tsx": 547,
-  "app/portal/email/campaigns/[id]/page.tsx": 515,
+  "app/portal/email/campaigns/[id]/page.tsx": 522,
   "app/portal/media/page.tsx": 608,
   "app/portal/my-tasks/page.tsx": 534,
   "app/portal/settings/ai/page.tsx": 517,

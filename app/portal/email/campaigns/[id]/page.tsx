@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useRef, use } from 'react';
+import { useState, useEffect, useRef, useCallback, use } from 'react';
+import { useCampaignSendingPoll } from '@/components/portal/email/use-campaign-sending-poll';
 import Link from 'next/link';
 import { sanitizeRichHtml } from '@/lib/security/sanitize-html';
 import type { Block, BlockType, BlockEditorData } from '@/types/blocks';
@@ -84,7 +85,7 @@ function PortalCampaignDetailPageInner({ id }: { id: string }) {
   const [sends, setSends] = useState<Send[]>([]);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
-  const [sendResult, setSendResult] = useState<{ sent: number; failed: number; total: number } | null>(null);
+  const [sendResult, setSendResult] = useState<{ queued: true; totalTargets: number } | null>(null);
   const [tab, setTab] = useState<'overview' | 'content' | 'sends'>('overview');
 
   // Edit state
@@ -106,6 +107,14 @@ function PortalCampaignDetailPageInner({ id }: { id: string }) {
         setLoading(false);
       });
   }, [id]);
+
+  // Durable async send (PUX-046): poll for the terminal status — see the hook.
+  const onSendingPollData = useCallback((data: unknown) => {
+    const d = data as { campaign?: Campaign; sends?: Send[] } | null;
+    setCampaign(d?.campaign ?? null);
+    setSends(d?.sends ?? []);
+  }, []);
+  useCampaignSendingPoll(id, campaign?.status === 'sending', onSendingPollData);
 
   // Brand defaults — pre-fill new email blocks (header logo, footer company name, etc.)
   const [brandDefaults, setBrandDefaults] = useState<BrandDefaultsContext | null>(null);
@@ -267,8 +276,9 @@ function PortalCampaignDetailPageInner({ id }: { id: string }) {
     const data = await res.json();
     setSending(false);
     if (!data.success) { alert(data.message); return; }
+    // Route queues the send + flips status server-side; the poll catches the end.
     setSendResult(data.data);
-    setCampaign(prev => prev ? { ...prev, status: 'sent', sentAt: new Date().toISOString(), totalSent: data.data.sent } : prev);
+    setCampaign(prev => prev ? { ...prev, status: 'sending' } : prev);
   }
 
   if (loading) return <div className="p-6 text-muted-foreground text-sm">Loading…</div>;
@@ -328,8 +338,8 @@ function PortalCampaignDetailPageInner({ id }: { id: string }) {
       </div>
 
       {sendResult && (
-        <div className="bg-green-50 border border-green-200 text-green-800 text-sm px-4 py-3 rounded-lg">
-          Sent successfully: {sendResult.sent} delivered{sendResult.failed > 0 ? `, ${sendResult.failed} failed` : ''}.
+        <div className="bg-blue-50 border border-blue-200 text-blue-800 text-sm px-4 py-3 rounded-lg">
+          Queued — sending to {sendResult.totalTargets} subscriber{sendResult.totalTargets === 1 ? '' : 's'} in the background.
         </div>
       )}
 

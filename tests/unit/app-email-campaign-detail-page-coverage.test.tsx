@@ -169,7 +169,8 @@ function defaultFetch(url: string, init?: RequestInit): FetchResp {
     return makeRes({ success: true });
   }
   if (/\/api\/portal\/email\/campaigns\/\d+\/send$/.test(url) && init?.method === 'POST') {
-    return makeRes({ success: true, data: { sent: 95, failed: 5, total: 100 } });
+    // PUX-046: the route queues the durable send instead of dispatching inline.
+    return makeRes({ success: true, data: { queued: true, totalTargets: 95 } });
   }
   if (url.includes('/api/portal/email/preview') && init?.method === 'POST') {
     return makeRes({ success: true, data: { testSent: { ok: true, to: 'me@example.com' } } });
@@ -601,28 +602,29 @@ describe('PortalCampaignDetailPage — send campaign', () => {
     ).length).toBe(0);
   });
 
-  it('calls send endpoint and shows success banner on confirm', async () => {
+  it('calls send endpoint and shows the queued banner on confirm (PUX-046)', async () => {
     confirmMock.mockReturnValue(true);
     const { container } = await renderPage();
     fireEvent.click(screen.getByText('Send Now'));
     await waitFor(() => {
-      expect(container.textContent).toContain('Sent successfully');
-      expect(container.textContent).toContain('95 delivered');
+      expect(container.textContent).toContain('Queued');
+      expect(container.textContent).toContain('95 subscribers in the background');
     });
   });
 
-  it('shows failure count in banner when failed > 0', async () => {
+  it('flips the local status to sending after queueing (terminal status arrives via poll)', async () => {
     confirmMock.mockReturnValue(true);
     fetchMock.mockImplementation(async (url: string, init?: RequestInit) => {
       if (/\/send$/.test(url) && init?.method === 'POST') {
-        return makeRes({ success: true, data: { sent: 90, failed: 10, total: 100 } });
+        return makeRes({ success: true, data: { queued: true, totalTargets: 100 } });
       }
       return defaultFetch(url, init);
     });
     const { container } = await renderPage();
     fireEvent.click(screen.getByText('Send Now'));
     await waitFor(() => {
-      expect(container.textContent).toContain('10 failed');
+      expect(container.textContent).toContain('sending to 100 subscribers');
+      expect(container.textContent).not.toContain('Sent successfully');
     });
   });
 

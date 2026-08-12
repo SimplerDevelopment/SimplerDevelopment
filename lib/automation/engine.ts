@@ -135,7 +135,10 @@ export function isActionAllowed(
 
 // ─── ACTION EXECUTION ──────────────────────────────────────────────────────
 
-async function executeAction(
+// Exported (rather than module-private like the rest of the execution path)
+// solely for lib/automation/delayed-action-job.ts, which re-enters here at
+// fire time with the deferred action's snapshot.
+export async function executeAction(
   action: AutomationAction,
   clientId: number,
   userId: number,
@@ -147,14 +150,41 @@ async function executeAction(
 ): Promise<{ tool: string; params: Record<string, unknown>; result: unknown; error?: string }> {
   const resolvedParams = resolveTemplate(action.params, payload) as Record<string, unknown>;
 
-  // Handle delayed actions. NOT a real scheduler: this blocks the current
-  // serverless invocation for `delay` seconds rather than rescheduling the
-  // work. A short delay (minutes) survives; a multi-hour/day delay (e.g. the
-  // CRM "New Contact Follow-up" preset's 1d/2d options) will hit the
-  // platform's function timeout long before it fires, so the action is
-  // effectively dropped. Only "Immediately" (delay=0) is reliable today.
-  if (action.delay && action.delay > 0) {
-    await new Promise((resolve) => setTimeout(resolve, action.delay! * 1000));
+  // Delayed actions become durable internal_jobs rows (PUX-047). The old
+  // implementation slept in-process (`await setTimeout(delay)`), so anything
+  // beyond a few minutes hit the platform's function timeout and the action
+  // silently never ran — despite the rule builder offering 1d/2d presets.
+  // Enqueue-with-runAt survives the invocation: process-internal-jobs claims
+  // the row once runAt passes and runDelayedAutomationAction re-enters this
+  // function with the delay stripped. The rule is re-read AT FIRE TIME
+  // (enabled flag + current scopes) — see delayed-action-job.ts for why
+  // scopes are never replayed from a snapshot.
+  //
+  // ruleId is always set on the runRule path (the only caller today); the
+  // guard is belt-and-braces so a hypothetical rule-less call degrades to
+  // immediate execution instead of a job the handler can't attribute.
+  if (action.delay && action.delay > 0 && ruleId != null) {
+    try {
+      const runAt = new Date(Date.now() + action.delay * 1000);
+      const { enqueueJob } = await import('@/lib/jobs');
+      await enqueueJob({
+        clientId,
+        type: 'automation.delayed_action',
+        payload: {
+          ruleId,
+          clientId,
+          userId,
+          // Delay stripped so the deferred run executes instead of re-deferring.
+          action: { ...action, delay: 0 },
+          eventPayload: payload,
+        },
+        runAt,
+      });
+      return { tool: action.tool, params: resolvedParams, result: { deferred: true, runAt: runAt.toISOString() } };
+    } catch (err) {
+      const error = err instanceof Error ? err.message : String(err);
+      return { tool: action.tool, params: resolvedParams, result: null, error };
+    }
   }
 
   // ── Scope gate (applies to ALL actions, including the special-case bridges
