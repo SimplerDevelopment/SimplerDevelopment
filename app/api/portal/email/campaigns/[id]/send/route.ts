@@ -3,13 +3,11 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { emailCampaigns, emailSubscribers, emailCampaignSends } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
-import { buildCampaignHtml, buildUnsubscribeUrl, createEmailTransport, isMailpitEmailTransport, type EmailTransport } from '@/lib/email';
-import { getOrRenderCampaignHtml, htmlToText } from '@/lib/email/render-cache';
-import type { Block } from '@/types/blocks';
+import { createEmailTransport, isMailpitEmailTransport } from '@/lib/email';
 import { getPortalClient } from '@/lib/portal-client';
-import { splitForAbTest, type AbVariant } from '@/lib/email/subject-ab';
 import { authorizePortal, isAuthError } from '@/lib/portal-auth';
 import { resolveResendKey } from '@/lib/email/resolve-resend';
+import { enqueueCampaignSend } from '@/lib/email/campaign-send-job';
 
 async function requireClient() {
   const session = await auth();
@@ -67,34 +65,18 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     return NextResponse.json({ success: false, message: 'No active subscribers to send to' }, { status: 400 });
   }
 
-  // Build the dispatch plan. In non-A/B mode this is a single bucket. In
-  // A/B mode we split the first abTestSizePct evenly into A and B and hold
-  // the remainder back for the winner-promotion phase.
-  type DispatchBucket = { variant: AbVariant | null; subject: string; recipients: typeof targets };
-  const plan: DispatchBucket[] = [];
-
-  if (campaign.abEnabled && campaign.abSubjectB) {
-    const split = splitForAbTest(targets, campaign.abTestSizePct ?? 10);
-    if (split.a.length > 0) plan.push({ variant: 'a', subject: campaign.subject, recipients: split.a });
-    if (split.b.length > 0) plan.push({ variant: 'b', subject: campaign.abSubjectB, recipients: split.b });
-    // Remainder is held for the winner-promotion endpoint — see
-    // POST /api/portal/email-campaigns/[id]/promote-winner.
-  } else {
-    plan.push({ variant: null, subject: campaign.subject, recipients: targets });
-  }
-
-  const totalThisDispatch = plan.reduce((sum, b) => sum + b.recipients.length, 0);
-
   // Resolve the email transport — BYOK Resend when hosted, Mailpit locally —
-  // BEFORE mutating any campaign state. A missing platform/BYOK key throws
-  // here; catch it and return a structured error instead of an uncaught 500,
-  // and before flipping status to 'sending' so the campaign isn't left
-  // stuck mid-send.
-  let emailTransport: EmailTransport;
+  // BEFORE queuing anything. A missing platform/BYOK key throws here; catch
+  // it and return a structured error instead of enqueuing a job that would
+  // just fail async on the same lookup — this way the person clicking
+  // "Send" gets the actionable error immediately instead of via a stranded
+  // 'sending' campaign.
   try {
-    emailTransport = isMailpitEmailTransport()
-      ? createEmailTransport()
-      : createEmailTransport({ resendApiKey: (await resolveResendKey(client.id)).key });
+    if (isMailpitEmailTransport()) {
+      createEmailTransport();
+    } else {
+      createEmailTransport({ resendApiKey: (await resolveResendKey(client.id)).key });
+    }
   } catch {
     return NextResponse.json(
       { success: false, message: 'Email transport unavailable — no Resend key configured for this client' },
@@ -102,101 +84,15 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     );
   }
 
-  await db
-    .update(emailCampaigns)
-    .set({
-      status: 'sending',
-      // Track total list size, not just this dispatch — the held-back
-      // remainder is still part of the campaign reach.
-      totalRecipients: targets.length,
-      updatedAt: new Date(),
-    })
-    .where(eq(emailCampaigns.id, campaignId));
-
-  // Block-builder path: render once via the sha256-keyed cache so all
-  // recipients reuse the same HTML body (cheaper, deterministic).
-  let cachedHtml: string | null = null;
-  let cachedText: string | null = null;
-  if (campaign.useBlockEditor && Array.isArray(campaign.contentBlocks)) {
-    const r = await getOrRenderCampaignHtml(
-      campaignId,
-      campaign.contentBlocks as Block[],
-      { previewText: campaign.previewText, subject: campaign.subject },
-    );
-    cachedHtml = r.html;
-    cachedText = r.text;
-  }
-
-  let sent = 0;
-  let failed = 0;
-
-  for (const bucket of plan) {
-    for (const subscriber of bucket.recipients) {
-      try {
-        const unsubscribeUrl = buildUnsubscribeUrl(subscriber.unsubscribeToken);
-        const html = cachedHtml
-          ? cachedHtml.replace(/\{\{UNSUBSCRIBE_URL\}\}/g, unsubscribeUrl)
-          : buildCampaignHtml(campaign.htmlContent, unsubscribeUrl, campaign.previewText);
-        const text = cachedText ?? htmlToText(html);
-
-        const result = await emailTransport.send({
-          from: `${campaign.fromName} <${campaign.fromEmail}>`,
-          to: subscriber.email,
-          subject: bucket.subject,
-          html,
-          text,
-          ...(campaign.replyTo ? { replyTo: campaign.replyTo } : {}),
-          headers: {
-            'List-Unsubscribe': `<${unsubscribeUrl}>`,
-            'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
-          },
-        });
-
-        await db.insert(emailCampaignSends).values({
-          campaignId,
-          subscriberId: subscriber.id,
-          resendEmailId: result.data?.id ?? null,
-          abVariant: bucket.variant,
-          sentAt: new Date(),
-        });
-
-        sent++;
-      } catch {
-        failed++;
-      }
-    }
-  }
-
-  // For A/B campaigns we DO NOT mark status='sent' here — the campaign is
-  // mid-test until the winner is promoted. We use a custom 'ab_testing'
-  // status; the promote-winner endpoint flips it to 'sent' once the
-  // remainder dispatches.
-  const nextStatus = campaign.abEnabled ? 'ab_testing' : 'sent';
-  await db
-    .update(emailCampaigns)
-    .set({
-      status: nextStatus,
-      sentAt: new Date(),
-      totalSent: sent,
-      updatedAt: new Date(),
-    })
-    .where(eq(emailCampaigns.id, campaignId));
+  // The actual send (A/B split, rendering, per-subscriber dispatch, and the
+  // eventual status flip to 'sent'/'ab_testing') now happens durably on the
+  // internal_jobs queue — see lib/email/campaign-send-job.ts (PUX-046). The
+  // helper also flips status to 'sending', so a double-click lands on the
+  // already-sending guard above instead of enqueuing twice.
+  await enqueueCampaignSend(campaignId, client.id);
 
   return NextResponse.json({
     success: true,
-    data: {
-      sent,
-      failed,
-      total: totalThisDispatch,
-      // When A/B, surface the held-back count so the UI can render
-      // "X recipients waiting for winner".
-      ...(campaign.abEnabled && {
-        ab: {
-          phase: 'testing' as const,
-          held: targets.length - totalThisDispatch,
-          variants: plan.map(b => ({ variant: b.variant, subject: b.subject, count: b.recipients.length })),
-        },
-      }),
-    },
+    data: { queued: true, totalTargets: targets.length },
   });
 }

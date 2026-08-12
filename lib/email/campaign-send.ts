@@ -68,6 +68,24 @@ export async function executeCampaignSend(
 
   const totalThisDispatch = plan.reduce((sum, b) => sum + b.recipients.length, 0);
 
+  // Resolve the email transport: BYOK Resend in hosted environments, Mailpit in
+  // local development when EMAIL_TRANSPORT=mailpit. campaign.clientId is
+  // nullable (global / agency campaigns have no owner), so we fall back
+  // gracefully. Resolved BEFORE the status flip below: a missing key must
+  // throw while the campaign is still in its prior status, not strand it in
+  // 'sending' (the portal route made this same call deliberately).
+  let emailTransport: EmailTransport;
+  if (isMailpitEmailTransport()) {
+    emailTransport = createEmailTransport();
+  } else if (campaign.clientId != null) {
+    const { key } = await resolveResendKey(campaign.clientId);
+    emailTransport = createEmailTransport({ resendApiKey: key });
+  } else {
+    const platformKey = process.env.RESEND_API_KEY;
+    if (!platformKey) throw new Error('[executeCampaignSend] RESEND_API_KEY is not set');
+    emailTransport = createEmailTransport({ resendApiKey: platformKey });
+  }
+
   await db
     .update(emailCampaigns)
     .set({ status: 'sending', totalRecipients: targets.length, updatedAt: new Date() })
@@ -86,22 +104,6 @@ export async function executeCampaignSend(
     );
     cachedHtml = result.html;
     cachedText = result.text;
-  }
-
-  // Resolve the email transport: BYOK Resend in hosted environments, Mailpit in
-  // local development when EMAIL_TRANSPORT=mailpit. campaign.clientId is
-  // nullable (global / agency campaigns have no owner), so we fall back
-  // gracefully.
-  let emailTransport: EmailTransport;
-  if (isMailpitEmailTransport()) {
-    emailTransport = createEmailTransport();
-  } else if (campaign.clientId != null) {
-    const { key } = await resolveResendKey(campaign.clientId);
-    emailTransport = createEmailTransport({ resendApiKey: key });
-  } else {
-    const platformKey = process.env.RESEND_API_KEY;
-    if (!platformKey) throw new Error('[executeCampaignSend] RESEND_API_KEY is not set');
-    emailTransport = createEmailTransport({ resendApiKey: platformKey });
   }
 
   let sent = 0;
