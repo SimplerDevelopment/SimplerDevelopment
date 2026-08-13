@@ -111,6 +111,8 @@ Scopes follow the pattern `resource:action`. A key's scope list is fixed at issu
 | `branding:write` | Create/update/delete brand profiles and messaging |
 | _(unscoped)_ | `whoami` and the `blocks://schema` resource — always available regardless of scopes |
 
+Scopes apply uniformly to every company the connection reaches; what varies per company is your **role** — see [Choosing which company a call acts on](#choosing-which-company-a-call-acts-on).
+
 ---
 
 ## Approval workflow
@@ -193,11 +195,48 @@ curl -X POST https://simplerdevelopment.com/api/mcp \
 
 ---
 
+## Choosing which company a call acts on
+
+A credential belongs to a **user**, and a user can belong to several companies. When you authorize a connection you tick which companies it may reach; that set is then intersected with your live team membership on every request, so losing access to a company cuts this connection's access to it immediately, and joining a new company requires re-authorizing.
+
+If the connection reaches **one** company, nothing changes — every call is scoped to it implicitly.
+
+If it reaches **more than one**, every tool call takes a `clientId` naming the company it applies to:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "tools/call",
+  "params": {
+    "name": "posts_create",
+    "arguments": { "clientId": 19, "title": "Fall promo" }
+  }
+}
+```
+
+Omit it and the call is refused with the companies listed, rather than being applied to a default:
+
+```
+clientId is required: this credential can act for 3 companies.
+  12  Acme Dental (owner)
+  19  Beta Roofing (viewer)
+  31  Gamma Legal (admin)
+```
+
+Three consequences worth knowing:
+
+- **Your role is checked per company.** A `crm:write` scope does not let you write a company where you are only a `viewer`; scopes describe the connection, roles describe your access to each company.
+- **A batch may not mix companies.** Every `tools/call` in one batched request must pass the same `clientId`; send them separately otherwise.
+- **`brand://default` and `catalog://services` are only offered to single-company connections.** A resource URI cannot name a company, so multi-company connections read the same data through `branding_get_profile` / `service_catalog_list`, which take a `clientId`.
+
+---
+
 ## `whoami` tool
 
-**Always available — no scope required.**
+**Always available — no scope required, and the only tool that never needs a `clientId`** (it is how you discover which ones are valid).
 
-Returns your authenticated user ID, client/company context, and the scopes your current credential grants.
+Returns your authenticated user ID, every company the credential can act for with your role on each, the default company, and the scopes your current credential grants.
 
 **Tool call:**
 
@@ -222,7 +261,7 @@ Returns your authenticated user ID, client/company context, and the scopes your 
   "result": {
     "content": [{
       "type": "text",
-      "text": "{\"userId\":42,\"client\":{\"id\":7,\"company\":\"Acme Corp\"},\"scopes\":[\"projects:*\",\"crm:read\",\"sites:write\"]}"
+      "text": "{\"userId\":42,\"client\":{\"id\":7,\"company\":\"Acme Corp\"},\"defaultClientId\":7,\"clients\":[{\"id\":7,\"company\":\"Acme Corp\",\"role\":\"owner\"},{\"id\":19,\"company\":\"Beta Roofing\",\"role\":\"viewer\"}],\"scopes\":[\"projects:*\",\"crm:read\",\"sites:write\"]}"
     }]
   }
 }

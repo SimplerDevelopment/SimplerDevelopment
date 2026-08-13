@@ -1,6 +1,12 @@
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
 import { resolvePortalFromRequest } from '@/lib/mcp-auth';
 import { buildMcpServer } from '@/lib/mcp/server';
+import {
+  applyTarget,
+  clientIdFromRpcBody,
+  hydrateReachable,
+  resolveTarget,
+} from '@/lib/mcp/client-scope';
 import { originFromRequest, resourceIndicatorMatches } from '@/lib/oauth/server';
 
 export const runtime = 'nodejs';
@@ -33,15 +39,86 @@ function invalidAudience(req: Request) {
   );
 }
 
+function batchedTenantConflict() {
+  // The transport runs every message in a batch against ONE server, so two calls
+  // naming different companies cannot both be honored. Refusing is the only safe
+  // answer: picking one would write a tenant the caller didn't ask for.
+  return new Response(
+    JSON.stringify({
+      jsonrpc: '2.0',
+      error: {
+        code: -32600,
+        message:
+          'A batched request may not mix companies: every tools/call in one batch must pass the same clientId. Send the calls separately.',
+      },
+    }),
+    { status: 400, headers: { 'Content-Type': 'application/json' } },
+  );
+}
+
+function noReachableClient() {
+  return new Response(
+    JSON.stringify({
+      jsonrpc: '2.0',
+      error: {
+        code: -32001,
+        message:
+          'This credential can no longer act for any company — the access it was granted has been removed. Re-authorize the connection.',
+      },
+    }),
+    { status: 403, headers: { 'Content-Type': 'application/json' } },
+  );
+}
+
 async function handle(req: Request): Promise<Response> {
-  const ctx = await resolvePortalFromRequest(req);
-  if (!ctx) return unauthorized(req);
+  const base = await resolvePortalFromRequest(req);
+  if (!base) return unauthorized(req);
 
   // RFC 8707 audience enforcement: a token bound to a `resource` must be
   // presented at that resource. `null` resource = unrestricted (backward-compat
   // for portal API keys and pre-resource OAuth tokens) and passes through.
-  if (ctx.resource && !resourceIndicatorMatches(ctx.resource, `${originFromRequest(req)}/api/mcp`)) {
+  if (base.resource && !resourceIndicatorMatches(base.resource, `${originFromRequest(req)}/api/mcp`)) {
     return invalidAudience(req);
+  }
+
+  // Resolve the companies this credential may act for RIGHT NOW: the consent-time
+  // allowlist intersected with live client_members. Done per request (the transport
+  // is stateless, so that is also per call) — losing a membership takes effect
+  // immediately, without waiting for the token to be revoked. The roster is needed
+  // before the server is built because it shapes the instructions and the schemas.
+  // hydrateReachable also guarantees roster.client is itself reachable — a revoked
+  // default company must not keep serving initialize/resources/whoami data.
+  const roster = await hydrateReachable(base);
+  if (roster.reachable?.length === 0) return noReachableClient();
+
+  // Read the body once so we can see which company the call names, then hand a
+  // fresh Request carrying the same bytes to the transport. The target has to be
+  // known BEFORE buildMcpServer: 31 registrars capture the tenant at registration
+  // time, so resolving later would leave them pinned to the default company while
+  // appearing to honor `clientId` (see lib/mcp/client-scope.ts).
+  let ctx = roster;
+  let forwarded = req;
+  if (req.method === 'POST') {
+    // Reconstruct unconditionally once we've read the stream — forwarding the
+    // original after `.text()` hands the transport an already-consumed body.
+    const bodyText = await req.text();
+    forwarded = new Request(req.url, {
+      method: req.method,
+      headers: req.headers,
+      ...(bodyText ? { body: bodyText } : {}),
+    });
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(bodyText);
+    } catch {
+      // Malformed JSON is the transport's error to report, in its own format.
+      parsed = null;
+    }
+    const named = clientIdFromRpcBody(parsed);
+    if (named.kind === 'conflict') return batchedTenantConflict();
+    // Only a tools/call is tenant-scoped; initialize / tools/list execute no
+    // handler, so they run against the credential's default company.
+    if (named.kind === 'call') ctx = applyTarget(roster, resolveTarget(roster, named.clientId));
   }
 
   const server = buildMcpServer(ctx);
@@ -52,7 +129,7 @@ async function handle(req: Request): Promise<Response> {
   });
   await server.connect(transport);
   try {
-    return await transport.handleRequest(req);
+    return await transport.handleRequest(forwarded);
   } finally {
     // McpServer#close is async; fire-and-forget in the serverless context.
     server.close().catch(() => {});

@@ -42,6 +42,10 @@ async function issueTokenPair(opts: {
   oauthClientId: number;
   userId: number;
   clientId: number;
+  /** The consented portal allowlist. Carried verbatim from the authorization code
+   *  (or the refresh token being rotated) so a rotation can never widen OR narrow
+   *  the grant. `clientId` is the default within this set. */
+  clientIds: number[];
   scopes: string[];
   resource: string | null;
   familyId: string;
@@ -53,6 +57,7 @@ async function issueTokenPair(opts: {
     oauthClientId: opts.oauthClientId,
     userId: opts.userId,
     clientId: opts.clientId,
+    clientIds: opts.clientIds,
     scopes: opts.scopes,
     resource: opts.resource,
     // MEB-006: secure-by-default — a write-capable OAuth token stages its writes
@@ -68,6 +73,7 @@ async function issueTokenPair(opts: {
     oauthClientId: opts.oauthClientId,
     userId: opts.userId,
     clientId: opts.clientId,
+    clientIds: opts.clientIds,
     scopes: opts.scopes,
     resource: opts.resource,
     familyId: opts.familyId,
@@ -156,6 +162,9 @@ async function handleRefreshGrant(
     oauthClientId: oauthClient.id,
     userId: stored.userId,
     clientId: stored.clientId,
+    // Inherit the allowlist for the same reason scopes are inherited: a refresh
+    // must not be a way to renegotiate what was consented.
+    clientIds: stored.clientIds?.length ? stored.clientIds : [stored.clientId],
     scopes: stored.scopes,
     resource: stored.resource ?? null,
     familyId: stored.familyId,
@@ -314,6 +323,7 @@ export async function POST(req: Request) {
     oauthClientId: oauthClient.id,
     userId: stored.userId,
     clientId: stored.clientId,
+    clientIds: stored.clientIds?.length ? stored.clientIds : [stored.clientId],
     scopes: stored.scopes,
     resource: resource ? String(resource) : stored.resource,
     familyId: generateRefreshFamilyId(),

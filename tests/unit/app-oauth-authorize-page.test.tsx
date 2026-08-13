@@ -16,7 +16,7 @@
  *  - scope rendering: explicit list, intersected list, fallback to defaults,
  *    and the `*` "full access" toggle
  *  - state CSRF param is round-tripped into the hidden form input
- *  - multi-client account → renders a portal <select>
+ *  - multi-client account → renders one ticked checkbox per portal
  *  - optional `resource` is rendered as a hidden form input
  *  - searchParams arrays only take the first value (pick() helper)
  *
@@ -465,7 +465,10 @@ describe('OAuth /oauth/authorize page', () => {
       expect(container.querySelector('input[name="resource"]')).toBeNull();
     });
 
-    it('renders a portal <select> when the user has more than one client', async () => {
+    it('offers every portal as a ticked checkbox when the user has more than one client', async () => {
+      // The grant covers a SET of portals — one connection, several companies,
+      // each MCP call naming which one. A single-choice <select> would be the old
+      // one-token-per-company model.
       selectQueue.push([VALID_CLIENT]);
       authMock.mockResolvedValue(VALID_SESSION);
       getPortalClientsMock.mockResolvedValue([
@@ -475,21 +478,32 @@ describe('OAuth /oauth/authorize page', () => {
       ]);
       getPortalClientMock.mockResolvedValue(VALID_ACTIVE_CLIENT);
       const { container } = await renderPage(pkceParams({ scope: 'profile:read' }));
-      expect(screen.getByText('Which portal?')).toBeTruthy();
-      const select = container.querySelector('select[name="active_client_id"]') as HTMLSelectElement;
-      expect(select).toBeTruthy();
-      // Three options, with the null-company option getting the fallback label.
-      const opts = container.querySelectorAll('select option');
-      expect(opts.length).toBe(3);
-      expect(Array.from(opts).map(o => o.textContent)).toEqual(
-        expect.arrayContaining(['Acme Co', 'Beta Co', 'Portal #101']),
-      );
+      expect(screen.getByText('Which portals can it access?')).toBeTruthy();
+
+      const boxes = Array.from(
+        container.querySelectorAll('input[type="checkbox"][name="client_ids"]'),
+      ) as HTMLInputElement[];
+      expect(boxes.map(b => b.value)).toEqual(['99', '100', '101']);
+      // Default is every portal: narrowing is opt-in, so approving without
+      // touching the boxes grants what the connection asked for.
+      expect(boxes.every(b => b.defaultChecked)).toBe(true);
+      expect(screen.getByText('Portal #101')).toBeTruthy();
+
+      // Tells the decision route this post came from the picker, so zero ticked
+      // boxes means "none" rather than "an older form".
+      expect(container.querySelector('input[name="portal_select"]')).toBeTruthy();
+      // The default portal still rides along as a hidden field.
+      expect(container.querySelector('input[type="hidden"][name="active_client_id"]')).toBeTruthy();
     });
 
-    it('does NOT render a portal <select> when the user has only one client', async () => {
+    it('renders no portal picker when the user has only one client', async () => {
       arrangeHappyPath();
       const { container } = await renderPage(pkceParams({ scope: 'profile:read' }));
       expect(container.querySelector('select[name="active_client_id"]')).toBeNull();
+      expect(container.querySelector('input[name="portal_select"]')).toBeNull();
+      // …but the single portal is still submitted as the granted set.
+      const hidden = container.querySelector('input[name="client_ids"]') as HTMLInputElement;
+      expect(hidden?.value).toBe('99');
     });
 
     it('renders the signed-in-as footer with the session email + scope total', async () => {

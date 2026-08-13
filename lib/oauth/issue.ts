@@ -95,6 +95,10 @@ export async function mintInternalAccessToken(
     oauthClientId,
     userId: opts.userId,
     clientId: opts.clientId,
+    // Deliberately single-tenant: an agent run acts for ONE tenant, and this
+    // token is minted server-side with no consent step that could widen it.
+    // Least privilege is the whole point of this mint path.
+    clientIds: [opts.clientId],
     scopes: opts.scopes,
     resource: opts.resource ?? null,
     expiresAt,

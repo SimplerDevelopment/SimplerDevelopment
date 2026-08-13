@@ -166,7 +166,8 @@ export default async function AuthorizePage({ searchParams }: { searchParams: Pr
     <div className="max-w-lg mx-auto py-12 px-6">
       <div className="rounded-lg border border-border bg-card p-6 shadow-sm">
         <h1 className="text-xl font-semibold mb-2">
-          Connect <span className="text-primary">{oauthClient.clientName}</span> to {activeClient.company ?? 'your portal'}?
+          Connect <span className="text-primary">{oauthClient.clientName}</span> to{' '}
+          {allClients.length > 1 ? 'your portals' : activeClient.company ?? 'your portal'}?
         </h1>
         <p className="text-sm text-muted-foreground mb-6">
           {oauthClient.clientName} is asking for access to your SimplerDevelopment portal.
@@ -190,25 +191,38 @@ export default async function AuthorizePage({ searchParams }: { searchParams: Pr
           {codeChallenge && <input type="hidden" name="code_challenge_method" value={codeChallengeMethod} />}
           {resource && <input type="hidden" name="resource" value={resource} />}
 
-          {/* Single-portal users: hidden input. Multi-portal users: dropdown.
-              CRITICAL: never render both at once — formData.get() returns the
-              FIRST match by document order, so a stray hidden input ahead of
-              the select would silently override the user's choice. */}
+          {/* The grant covers a SET of portals, not one: the connection is tied
+              to the user, and each MCP tool call names the portal it acts on.
+              `active_client_id` is only the default (used when a call omits
+              clientId and the set has narrowed to one) — the decision route
+              re-derives it from the checked boxes, so it can never point outside
+              the granted set. Ticking fewer boxes is how you narrow a grant. */}
+          <input type="hidden" name="active_client_id" value={String(activeClient.id)} />
           {allClients.length > 1 ? (
-            <div>
-              <label className="block text-sm font-medium mb-1">Which portal?</label>
-              <select
-                name="active_client_id"
-                defaultValue={String(activeClient.id)}
-                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
-              >
-                {allClients.map(c => (
-                  <option key={c.id} value={String(c.id)}>{c.company ?? `Portal #${c.id}`}</option>
-                ))}
-              </select>
-            </div>
+            <fieldset className="space-y-2">
+              {/* Marks the post as coming from the picker, so zero ticked boxes reads
+                  as "the user chose none" rather than as a pre-picker form. */}
+              <input type="hidden" name="portal_select" value="1" />
+              <legend className="text-sm font-medium mb-1">Which portals can it access?</legend>
+              {allClients.map(c => (
+                <label key={c.id} className="flex items-start gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    name="client_ids"
+                    value={String(c.id)}
+                    defaultChecked
+                    className="mt-1"
+                  />
+                  <span>{c.company ?? `Portal #${c.id}`}</span>
+                </label>
+              ))}
+              <p className="text-xs text-muted-foreground">
+                Access follows your team membership: if you are removed from a portal, this
+                connection loses it immediately. Joining a new portal later needs a re-approval.
+              </p>
+            </fieldset>
           ) : (
-            <input type="hidden" name="active_client_id" value={String(activeClient.id)} />
+            <input type="hidden" name="client_ids" value={String(activeClient.id)} />
           )}
 
           <fieldset className="space-y-2">

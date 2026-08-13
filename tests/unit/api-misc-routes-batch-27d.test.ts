@@ -171,6 +171,20 @@ vi.mock('@/lib/mcp/server', () => ({
   buildMcpServer: (...args: unknown[]) => buildMcpServerMock(...args),
 }));
 
+// The route resolves which company the call acts on before building the server.
+// That behavior is covered by tests/unit/mcp-client-scope.test.ts and the
+// @tenancy integration spec; stubbed here (it queries the DB) so these cases stay
+// about the route's transport plumbing. Stubbed by hand rather than via
+// importOriginal so the real module's db/next-headers imports stay out of this
+// spec's graph.
+const hydrateReachableMock = vi.fn(async (ctx: unknown) => ctx);
+vi.mock('@/lib/mcp/client-scope', () => ({
+  hydrateReachable: (ctx: unknown) => hydrateReachableMock(ctx),
+  applyTarget: (ctx: unknown) => ctx,
+  resolveTarget: () => ({ ok: true, target: { client: { id: 1 }, role: 'owner' } }),
+  clientIdFromRpcBody: () => ({ kind: 'none' }),
+}));
+
 // Transport — capture init opts and reply with whatever the test wants.
 const transportHandleMock = vi.fn();
 let transportInitOptions: unknown = null;

@@ -1,7 +1,7 @@
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { oauthAuthorizationCodes, clientMembers, clients as clientsTbl } from '@/lib/db/schema';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { generateAuthCode, redirectUriMatches } from '@/lib/oauth/server';
 import { resolveOrRegisterOAuthClient } from '@/lib/oauth/cimd';
 import { parseRequestedScopes } from '@/lib/oauth/scopes';
@@ -63,26 +63,57 @@ export async function POST(req: Request) {
   }
   const userId = parseInt(session.user.id, 10);
 
-  // Authorize the chosen portal client. Verify the user actually has access
-  // (membership or legacy ownership) — never trust the form value alone.
+  // Authorize the chosen portal clients. The grant covers a SET (the boxes the
+  // user ticked); `active_client_id` is only the preferred default. Verify EVERY
+  // id against membership or legacy ownership — never trust the form, and never
+  // let the default land outside the verified set.
   const activeClientId = parseInt(activeClientIdRaw, 10);
   if (!activeClientId) return back({ error: 'invalid_request', error_description: 'active_client_id required' });
 
-  const [member] = await db
-    .select({ clientId: clientMembers.clientId })
-    .from(clientMembers)
-    .where(and(eq(clientMembers.userId, userId), eq(clientMembers.clientId, activeClientId)))
-    .limit(1);
-  let authorized = !!member;
-  if (!authorized) {
-    const [owned] = await db
+  const requestedClientIds = [
+    ...new Set(
+      (form.getAll('client_ids') as string[])
+        .map((v) => parseInt(String(v), 10))
+        .filter((n) => Number.isFinite(n)),
+    ),
+  ];
+  // `portal_select` is rendered only by the multi-portal checkbox UI, and tells the
+  // two zero-checkbox cases apart: with it, the user unticked everything (refuse);
+  // without it, the post came from a form that predates the picker — a consent page
+  // cached across a deploy, or an API caller — so honour the single portal it named
+  // rather than failing a submission that used to work.
+  const usedPortalPicker = form.get('portal_select') !== null;
+  if (requestedClientIds.length === 0) {
+    if (usedPortalPicker) {
+      return back({ error: 'invalid_request', error_description: 'Select at least one portal' });
+    }
+    requestedClientIds.push(activeClientId);
+  }
+
+  // Two queries for the whole set rather than two per portal: membership, then the
+  // legacy direct-ownership fallback for accounts predating client_members.
+  const [memberRows, ownedRows] = await Promise.all([
+    db
+      .select({ clientId: clientMembers.clientId })
+      .from(clientMembers)
+      .where(and(eq(clientMembers.userId, userId), inArray(clientMembers.clientId, requestedClientIds))),
+    db
       .select({ id: clientsTbl.id })
       .from(clientsTbl)
-      .where(and(eq(clientsTbl.id, activeClientId), eq(clientsTbl.userId, userId)))
-      .limit(1);
-    authorized = !!owned;
+      .where(and(eq(clientsTbl.userId, userId), inArray(clientsTbl.id, requestedClientIds))),
+  ]);
+  const accessible = new Set([...memberRows.map((r) => r.clientId), ...ownedRows.map((r) => r.id)]);
+  const authorizedClientIds = requestedClientIds.filter((id) => accessible.has(id));
+  // Fail the whole grant rather than silently issuing a narrower one: a token
+  // quietly missing a portal the user thought they granted is harder to diagnose
+  // than a refused authorization.
+  if (authorizedClientIds.length !== requestedClientIds.length) {
+    return back({ error: 'access_denied', error_description: 'No access to one or more selected portals' });
   }
-  if (!authorized) return back({ error: 'access_denied', error_description: 'No access to selected portal' });
+
+  const defaultClientId = authorizedClientIds.includes(activeClientId)
+    ? activeClientId
+    : authorizedClientIds[0];
 
   // Self-service confidential clients (minted from /portal/settings/api-keys)
   // are bound to the tenant that created them. Such a client may only be
@@ -90,7 +121,12 @@ export async function POST(req: Request) {
   // from harvesting access tokens scoped to another tenant. Global/admin
   // clients (ownerClientId == null, e.g. the Claude.ai connector) are
   // unrestricted and keep their existing cross-tenant behavior.
-  if (oauthClient.ownerClientId != null && oauthClient.ownerClientId !== activeClientId) {
+  // A tenant-owned client may only ever reach its owning portal, so the granted
+  // SET must be exactly that one — not merely contain it.
+  if (
+    oauthClient.ownerClientId != null &&
+    (authorizedClientIds.length !== 1 || authorizedClientIds[0] !== oauthClient.ownerClientId)
+  ) {
     return back({ error: 'access_denied', error_description: 'This OAuth client is restricted to its owning organization' });
   }
 
@@ -99,7 +135,8 @@ export async function POST(req: Request) {
     codeHash: hash,
     oauthClientId: oauthClient.id,
     userId,
-    clientId: activeClientId,
+    clientId: defaultClientId,
+    clientIds: authorizedClientIds,
     scopes,
     redirectUri,
     codeChallenge: codeChallenge || null,

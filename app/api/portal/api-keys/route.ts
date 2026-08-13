@@ -3,7 +3,7 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { portalApiKeys } from '@/lib/db/schema';
 import { and, desc, eq } from 'drizzle-orm';
-import { getPortalClient } from '@/lib/portal-client';
+import { getPortalClient, getPortalClientsWithRoles } from '@/lib/portal-client';
 import { generatePortalApiKey } from '@/lib/mcp-auth';
 
 const DEFAULT_SCOPES = ['*'];
@@ -53,10 +53,34 @@ export async function POST(req: Request) {
 
   if (!name) return NextResponse.json({ success: false, message: 'Name is required' }, { status: 400 });
 
+  // A key belongs to the USER and may cover several of their companies; each MCP
+  // call then names the one it acts on. Verify every id against real access —
+  // the request body is not evidence of membership. Omitted = this company only.
+  let clientIds: number[] = [client.id];
+  if (Array.isArray(body.clientIds) && body.clientIds.length > 0) {
+    const requested = [...new Set(body.clientIds.map((v: unknown) => parseInt(String(v), 10)))] as number[];
+    if (requested.some((n) => !Number.isFinite(n))) {
+      return NextResponse.json({ success: false, message: 'clientIds must be numbers' }, { status: 400 });
+    }
+    const accessible = new Set((await getPortalClientsWithRoles(userId)).map((c) => c.id));
+    const forbidden = requested.filter((n) => !accessible.has(n));
+    if (forbidden.length > 0) {
+      return NextResponse.json(
+        { success: false, message: `No access to client(s): ${forbidden.join(', ')}` },
+        { status: 403 },
+      );
+    }
+    clientIds = requested;
+  }
+  // The default must live inside the granted set, or a call that omits clientId
+  // would resolve to a company the key was never granted.
+  const defaultClientId = clientIds.includes(client.id) ? client.id : clientIds[0];
+
   const { key, hash, preview } = generatePortalApiKey();
 
   const [record] = await db.insert(portalApiKeys).values({
-    clientId: client.id,
+    clientId: defaultClientId,
+    clientIds,
     userId,
     name,
     keyHash: hash,

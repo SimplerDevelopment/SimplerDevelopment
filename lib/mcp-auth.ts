@@ -13,9 +13,49 @@ export const OAUTH_TOKEN_PREFIX = 'sd_oauth_';
  */
 export type McpCredentialKind = 'portal_api_key' | 'oauth_access_token';
 
+/** One client this credential may currently act for, with the user's role on it. */
+export interface ReachableClient {
+  client: typeof clients.$inferSelect;
+  /** null only for synthetic contexts that never ran the membership join. */
+  role: 'owner' | 'admin' | 'member' | 'viewer' | null;
+}
+
 export interface PortalMcpContext {
   userId: number;
+  /**
+   * The client this context acts for.
+   *
+   * On an MCP tool call this is the call's TARGET: the route resolves which
+   * company the call named and swaps it in via `applyTarget` BEFORE the tool
+   * registry is built, which is why the tool modules read `ctx.client.id`
+   * unchanged — including the 31 registrars that hoist it at registration time.
+   * Everywhere else (REST/mobile bearer path, synthetic gate contexts) it is the
+   * credential's default client.
+   */
   client: typeof clients.$inferSelect;
+  /**
+   * Consent-time client allowlist from the credential row (`client_ids`). A
+   * CEILING on reach, not the effective set — intersect with live membership via
+   * `hydrateReachable`. Empty/absent means "just `client`".
+   */
+  allowedClientIds?: number[];
+  /**
+   * `allowedClientIds` ∩ live `client_members`, resolved per request by
+   * `hydrateReachable` in the MCP route. Absent on non-MCP paths.
+   */
+  reachable?: ReachableClient[];
+  /**
+   * The company this request's tool call named, once resolved — carries the role
+   * the role gate needs. `client` above is already this client's row; this field
+   * exists so the gate doesn't have to re-derive the role.
+   */
+  target?: ReachableClient;
+  /**
+   * Why the target could NOT be resolved (omitted on an ambiguous roster, or a
+   * company outside the grant). When set, every tool call returns this message
+   * and no handler runs.
+   */
+  targetError?: string;
   scopes: string[];
   // null when the caller is a portal *session* (no API key / OAuth token) — e.g.
   // a synthetic gate ctx built by the web AI-chat route for approval staging.
@@ -101,6 +141,10 @@ export async function resolvePortalApiKey(rawKey: string): Promise<PortalMcpCont
   return {
     userId: record.userId,
     client,
+    // `client_id` is the default; `client_ids` is the allowlist. An empty array
+    // (a key minted before the column, or by a path that forgot to set it) means
+    // single-client — keeps the resolver total instead of stranding the caller.
+    allowedClientIds: record.clientIds?.length ? record.clientIds : [record.clientId],
     scopes: record.scopes ?? [],
     keyId: record.id,
     credentialKind: 'portal_api_key',
@@ -145,6 +189,8 @@ export async function resolveOAuthToken(rawToken: string): Promise<PortalMcpCont
   return {
     userId: record.userId,
     client,
+    // See the note in resolvePortalApiKey — empty array = single-client.
+    allowedClientIds: record.clientIds?.length ? record.clientIds : [record.clientId],
     scopes: record.scopes ?? [],
     keyId: record.id,
     credentialKind: 'oauth_access_token',

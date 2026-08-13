@@ -72,7 +72,7 @@ claude mcp add --transport http simplerdevelopment \
 
 The server exposes **450+ tools across 22 product domains**. Rather than listing every tool here, the reference pages below describe each domain in detail:
 
-- [MCP overview](./api/mcp/overview.md) — transport, auth, scopes, approval workflow, `whoami`, `blocks://schema`
+- [MCP overview](./api/mcp/overview.md) — transport, auth, scopes, choosing which company a call acts on (`clientId`), approval workflow, `whoami`, `blocks://schema`
 - [Brain tools](./api/mcp/brain-tools.md) — Company knowledge base: notes, meetings, people, documents, tasks, goals, initiatives, playbooks, org units, topics, glossary, decisions
 - [CRM tools](./api/mcp/crm-tools.md) — Contacts, companies, deals, pipelines, activities, custom fields, saved views, scoring rules
 - [Content tools](./api/mcp/content-tools.md) — CMS posts/pages/block templates/post types/taxonomies/media/nav/site settings; storefront products/orders/customers/discounts/reviews; brand profiles and messaging
