@@ -461,7 +461,7 @@ export default function CrmContactDetailPage() {
         {/* Edit form */}
         {editing && (
         <form onSubmit={saveEdit} className={`${pCard} p-6 space-y-4`}>
-          <h3 className={pSectionTitle}>Edit Contact</h3>
+          <h2 className={pSectionTitle}>Edit Contact</h2>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <div>
               <label className="block text-xs font-medium text-muted-foreground mb-1">First Name</label>
@@ -595,7 +595,7 @@ export default function CrmContactDetailPage() {
       {showEmailForm && (
         <form onSubmit={sendEmail} className={`${pCard} p-6 space-y-4`}>
           <div className="flex items-center justify-between">
-            <h3 className={pSectionTitle}>Send Email to {contact.email}</h3>
+            <h2 className={pSectionTitle}>Send Email to {contact.email}</h2>
             <button type="button" onClick={() => setShowEmailForm(false)} className="text-muted-foreground hover:text-foreground">
               <span className="material-icons text-base">close</span>
             </button>
@@ -653,7 +653,7 @@ export default function CrmContactDetailPage() {
         <div className="space-y-6">
           {/* Contact Info */}
           <div className={`${pCard} p-6 space-y-4`}>
-            <h3 className={pSectionTitle}>Contact Information</h3>
+            <h2 className={pSectionTitle}>Contact Information</h2>
             <div className="space-y-3">
               <div className="flex items-center gap-3">
                 <span className="material-icons text-base text-muted-foreground">mail</span>
@@ -690,7 +690,7 @@ export default function CrmContactDetailPage() {
 
           {/* Tags */}
           <div className={`${pCard} p-6 space-y-3`}>
-            <h3 className={pSectionTitle}>Tags</h3>
+            <h2 className={pSectionTitle}>Tags</h2>
             <div className="flex flex-wrap gap-2">
               {(contact.tags ?? []).length === 0 && (
                 <p className="text-sm text-muted-foreground">No tags yet.</p>
@@ -731,7 +731,7 @@ export default function CrmContactDetailPage() {
         <div className="space-y-6">
           {/* Log Activity Form */}
           <div className={`${pCard} p-6 space-y-4`}>
-            <h3 className={pSectionTitle}>Log Activity</h3>
+            <h2 className={pSectionTitle}>Log Activity</h2>
             <form onSubmit={logActivity} className="space-y-3">
               <div className="flex gap-2">
                 {activityTypes.map(t => (
@@ -777,7 +777,7 @@ export default function CrmContactDetailPage() {
 
           {/* Activity Timeline */}
           <div className={`${pCard} p-6 space-y-4`}>
-            <h3 className={pSectionTitle}>Activity Timeline</h3>
+            <h2 className={pSectionTitle}>Activity Timeline</h2>
             {activities.length === 0 ? (
               <p className="text-sm text-muted-foreground py-4 text-center">No activities logged yet.</p>
             ) : (
@@ -815,7 +815,7 @@ export default function CrmContactDetailPage() {
         {activeTab === 'deals' && (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className={pSectionTitle}>Deals</h3>
+              <h2 className={pSectionTitle}>Deals</h2>
               <div className="flex items-center gap-3">
                 <Link href="/portal/crm/deals" className="text-xs text-primary hover:underline">View pipeline</Link>
                 <button onClick={() => setShowDealForm(true)} className={pBtnPrimary}><span className="material-icons text-base">add</span>Add Deal</button>

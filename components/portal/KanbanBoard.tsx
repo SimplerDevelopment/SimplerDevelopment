@@ -326,7 +326,7 @@ function KanbanColumn({
           {column.color && (
             <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: column.color }} />
           )}
-          <h3 className="text-sm font-semibold text-foreground truncate">{column.name}</h3>
+          <h2 className="text-sm font-semibold text-foreground truncate">{column.name}</h2>
           {(() => {
             const limit = column.wipLimit ?? 0;
             const count = column.cards.length;

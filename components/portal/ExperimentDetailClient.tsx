@@ -400,10 +400,10 @@ export default function ExperimentDetailClient({ experiment: initial, variants: 
 
   return (
     <div className="max-w-5xl mx-auto px-6 py-8 space-y-6">
-      <div className="flex items-center gap-2 text-sm text-gray-500">
+      <div className="flex items-center gap-2 text-sm text-muted-foreground">
         <Link href="/portal/experiments" className="hover:underline">Experiments</Link>
         <span className="material-icons text-base">chevron_right</span>
-        <span className="text-gray-900">{experiment.name}</span>
+        <span className="text-foreground">{experiment.name}</span>
       </div>
 
       <header className="flex items-start justify-between gap-4">
@@ -426,11 +426,11 @@ export default function ExperimentDetailClient({ experiment: initial, variants: 
                     cancelEditName();
                   }
                 }}
-                className="flex-1 min-w-0 text-2xl font-semibold bg-transparent border-b-2 border-blue-500 outline-none"
+                className="flex-1 min-w-0 text-2xl font-semibold bg-transparent border-b-2 border-primary outline-none"
               />
             ) : (
               <span
-                className="cursor-pointer hover:text-blue-600 transition-colors"
+                className="cursor-pointer hover:text-primary transition-colors"
                 onClick={() => {
                   setNameDraft(experiment.name);
                   setEditingName(true);
@@ -441,16 +441,16 @@ export default function ExperimentDetailClient({ experiment: initial, variants: 
               </span>
             )}
           </h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <p className="text-sm text-muted-foreground mt-1">
             {target.kindLabel}:{' '}
-            <Link href={target.editHref} className="text-blue-600 hover:underline">
+            <Link href={target.editHref} className="text-primary hover:underline">
               {target.title}
             </Link>
-            {siteName ? <span className="ml-1 text-gray-400">· {siteName}</span> : null}
+            {siteName ? <span className="ml-1 text-muted-foreground">· {siteName}</span> : null}
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded bg-gray-100 text-gray-700">
+          <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded bg-muted text-foreground">
             <span className="material-icons text-base">{STATUS_ICON[experiment.status] || 'help'}</span>
             {experiment.status}
           </span>
@@ -459,14 +459,14 @@ export default function ExperimentDetailClient({ experiment: initial, variants: 
               key={t}
               onClick={() => transitionStatus(t)}
               disabled={savingId === 'experiment'}
-              className="text-xs px-3 py-1 rounded border border-gray-300 hover:bg-gray-50 disabled:opacity-50"
+              className="text-xs px-3 py-1 rounded border border-border hover:bg-accent disabled:opacity-50"
             >
               {t === 'running' ? 'Start' : t === 'completed' ? 'Stop' : t === 'archived' ? 'Archive' : t === 'draft' ? 'Reopen' : t}
             </button>
           ))}
           <button
             onClick={() => { setDeleteError(null); setConfirmingDelete(true); }}
-            className="text-xs px-3 py-1 rounded border border-red-300 text-red-600 hover:bg-red-50 inline-flex items-center gap-1"
+            className="text-xs px-3 py-1 rounded border border-destructive/40 text-destructive hover:bg-destructive/10 inline-flex items-center gap-1"
           >
             <span className="material-icons text-base">delete</span>
             Delete
@@ -475,13 +475,13 @@ export default function ExperimentDetailClient({ experiment: initial, variants: 
       </header>
 
       {errorMsg ? (
-        <div className="rounded-md border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{errorMsg}</div>
+        <div className="rounded-md border border-destructive/20 bg-destructive/10 px-4 py-2 text-sm text-destructive">{errorMsg}</div>
       ) : null}
 
-      <section className="rounded-lg border border-gray-200 bg-white p-6 space-y-3">
-        <h2 className="text-sm font-semibold uppercase text-gray-500 tracking-wide">Hypothesis</h2>
+      <section className="rounded-lg border border-border bg-card p-6 space-y-3">
+        <h2 className="text-sm font-semibold uppercase text-muted-foreground tracking-wide">Hypothesis</h2>
         <textarea
-          className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+          className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background text-foreground"
           rows={3}
           defaultValue={experiment.hypothesis ?? ''}
           onBlur={e => {
@@ -491,15 +491,15 @@ export default function ExperimentDetailClient({ experiment: initial, variants: 
         />
       </section>
 
-      <section className="rounded-lg border border-gray-200 bg-white p-6 space-y-4">
+      <section className="rounded-lg border border-border bg-card p-6 space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold uppercase text-gray-500 tracking-wide">Goal</h2>
+          <h2 className="text-sm font-semibold uppercase text-muted-foreground tracking-wide">Goal</h2>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <label className="text-sm">
-            <span className="block text-gray-700 mb-1">Metric</span>
+            <span className="block text-foreground mb-1">Metric</span>
             <select
-              className="w-full border border-gray-300 rounded-md px-3 py-2"
+              className="w-full border border-border rounded-md px-3 py-2 bg-background text-foreground"
               value={experiment.goalMetric}
               onChange={e => updateExperiment({ goalMetric: e.target.value })}
             >
@@ -509,10 +509,10 @@ export default function ExperimentDetailClient({ experiment: initial, variants: 
             </select>
           </label>
           <label className="text-sm">
-            <span className="block text-gray-700 mb-1">Selector / target</span>
+            <span className="block text-foreground mb-1">Selector / target</span>
             <input
               type="text"
-              className="w-full border border-gray-300 rounded-md px-3 py-2 font-mono"
+              className="w-full border border-border rounded-md px-3 py-2 font-mono bg-background text-foreground"
               defaultValue={experiment.goalSelector ?? ''}
               onBlur={e => {
                 if (e.target.value !== (experiment.goalSelector ?? '')) updateExperiment({ goalSelector: e.target.value || null });
@@ -521,20 +521,20 @@ export default function ExperimentDetailClient({ experiment: initial, variants: 
             />
           </label>
         </div>
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-muted-foreground">
           For <code>page_view</code>, the goal fires automatically on render. For clicks/submits, set a CSS selector matching the target element.
         </p>
       </section>
 
-      <section className="rounded-lg border border-gray-200 bg-white p-6 space-y-4">
+      <section className="rounded-lg border border-border bg-card p-6 space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold uppercase text-gray-500 tracking-wide">Traffic split</h2>
+          <h2 className="text-sm font-semibold uppercase text-muted-foreground tracking-wide">Traffic split</h2>
           <div className="flex items-center gap-3">
-            <span className="text-xs text-gray-500">saved total: {splitTotal}%</span>
+            <span className="text-xs text-muted-foreground">saved total: {splitTotal}%</span>
             <button
               type="button"
               onClick={rebalanceEven}
-              className="text-xs text-blue-600 hover:underline"
+              className="text-xs text-primary hover:underline"
             >
               Rebalance to even
             </button>
@@ -543,21 +543,21 @@ export default function ExperimentDetailClient({ experiment: initial, variants: 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           {Object.keys(experiment.variantSplit ?? {}).map(k => (
             <label key={k} className="text-sm flex items-center gap-2">
-              <span className="font-mono text-gray-700">{k}</span>
+              <span className="font-mono text-foreground">{k}</span>
               <input
                 type="number"
                 min={0}
                 max={100}
-                className="w-24 border border-gray-300 rounded-md px-2 py-1"
+                className="w-24 border border-border rounded-md px-2 py-1 bg-background text-foreground"
                 value={draftSplit[k] ?? ''}
                 onChange={e => setDraftSplit(prev => ({ ...prev, [k]: e.target.value }))}
               />
-              <span className="text-gray-400">%</span>
+              <span className="text-muted-foreground">%</span>
             </label>
           ))}
         </div>
         {draftSplitTotal !== 100 ? (
-          <p className="text-xs text-amber-600 flex items-center gap-1">
+          <p className="text-xs text-amber-600 dark:text-amber-500 flex items-center gap-1">
             <span className="material-icons text-base">warning</span>
             Total must equal 100% — rebalance or adjust (currently {draftSplitTotal}%).
           </p>
@@ -565,15 +565,15 @@ export default function ExperimentDetailClient({ experiment: initial, variants: 
         <button
           onClick={saveSplit}
           disabled={savingId === 'experiment'}
-          className="text-sm px-3 py-1.5 rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+          className="text-sm px-3 py-1.5 rounded bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
         >
           Save split
         </button>
       </section>
 
-      <section className="rounded-lg border border-gray-200 bg-white p-6 space-y-4">
+      <section className="rounded-lg border border-border bg-card p-6 space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold uppercase text-gray-500 tracking-wide">Variants</h2>
+          <h2 className="text-sm font-semibold uppercase text-muted-foreground tracking-wide">Variants</h2>
         </div>
         <div className="space-y-4">
           {variants.map(v => {
@@ -590,7 +590,7 @@ export default function ExperimentDetailClient({ experiment: initial, variants: 
                   : 'Remove variant';
             const editing = labelDraft[v.key] !== undefined && labelDraft[v.key] !== null;
             return (
-              <div key={v.id} className="border border-gray-200 rounded-md p-4">
+              <div key={v.id} className="border border-border rounded-md p-4">
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2 min-w-0 flex-1">
                     <span className="font-mono text-sm">{v.key}</span>
@@ -598,7 +598,7 @@ export default function ExperimentDetailClient({ experiment: initial, variants: 
                       <input
                         type="text"
                         autoFocus
-                        className="text-sm border border-gray-300 rounded px-2 py-0.5 flex-1 max-w-xs"
+                        className="text-sm border border-border rounded px-2 py-0.5 flex-1 max-w-xs bg-background text-foreground"
                         value={labelDraft[v.key] ?? ''}
                         onChange={e => setLabelDraft(prev => ({ ...prev, [v.key]: e.target.value }))}
                         onKeyDown={e => {
@@ -615,7 +615,7 @@ export default function ExperimentDetailClient({ experiment: initial, variants: 
                     ) : (
                       <button
                         type="button"
-                        className="text-sm text-gray-700 hover:text-blue-600 inline-flex items-center gap-1 group"
+                        className="text-sm text-foreground hover:text-primary inline-flex items-center gap-1 group"
                         title="Click to edit label"
                         onClick={() => setLabelDraft(prev => ({ ...prev, [v.key]: v.label }))}
                       >
@@ -623,19 +623,19 @@ export default function ExperimentDetailClient({ experiment: initial, variants: 
                         <span className="material-icons text-sm opacity-0 group-hover:opacity-60">edit</span>
                       </button>
                     )}
-                    {isControl ? <span className="text-xs text-gray-400">(control)</span> : null}
+                    {isControl ? <span className="text-xs text-muted-foreground">(control)</span> : null}
                   </div>
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
-                      className="text-xs px-2 py-1 rounded border border-gray-300 hover:bg-gray-50"
+                      className="text-xs px-2 py-1 rounded border border-border hover:bg-accent"
                       onClick={() => seedFromPost(v.key)}
                     >
                       Seed from {target.kindLabel.toLowerCase()}
                     </button>
                     <button
                       type="button"
-                      className="text-xs px-2 py-1 rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+                      className="text-xs px-2 py-1 rounded bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
                       disabled={savingId === `variant-${v.key}`}
                       onClick={() => saveVariant(v.key)}
                     >
@@ -647,7 +647,7 @@ export default function ExperimentDetailClient({ experiment: initial, variants: 
                       aria-label={removeTitle}
                       disabled={removeDisabled || savingId === `remove-${v.key}`}
                       onClick={() => removeVariant(v.key)}
-                      className="text-xs p-1.5 rounded border border-gray-300 text-red-600 hover:bg-red-50 disabled:opacity-40 disabled:hover:bg-transparent disabled:text-gray-400 disabled:cursor-not-allowed"
+                      className="text-xs p-1.5 rounded border border-border text-destructive hover:bg-destructive/10 disabled:opacity-40 disabled:hover:bg-transparent disabled:text-muted-foreground disabled:cursor-not-allowed"
                     >
                       <span className="material-icons text-base align-middle">delete</span>
                     </button>
@@ -669,33 +669,33 @@ export default function ExperimentDetailClient({ experiment: initial, variants: 
             type="button"
             onClick={addVariant}
             disabled={savingId === 'add-variant' || variants.length >= 26}
-            className="text-sm px-3 py-1.5 rounded border border-blue-600 text-blue-600 hover:bg-blue-50 disabled:opacity-50 inline-flex items-center gap-1"
+            className="text-sm px-3 py-1.5 rounded border border-primary text-primary hover:bg-primary/10 disabled:opacity-50 inline-flex items-center gap-1"
           >
             <span className="material-icons text-base">add</span>
             {savingId === 'add-variant' ? 'Adding…' : 'Add variant'}
           </button>
           {variants.length >= 26 ? (
-            <span className="ml-3 text-xs text-gray-500">Maximum 26 variants reached.</span>
+            <span className="ml-3 text-xs text-muted-foreground">Maximum 26 variants reached.</span>
           ) : null}
         </div>
       </section>
 
-      <section className="rounded-lg border border-gray-200 bg-white p-6 space-y-4">
+      <section className="rounded-lg border border-border bg-card p-6 space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold uppercase text-gray-500 tracking-wide">Results</h2>
+          <h2 className="text-sm font-semibold uppercase text-muted-foreground tracking-wide">Results</h2>
           <button
             onClick={fetchResults}
-            className="text-xs px-3 py-1 rounded border border-gray-300 hover:bg-gray-50"
+            className="text-xs px-3 py-1 rounded border border-border hover:bg-accent"
           >
             <span className="material-icons text-base align-middle">refresh</span> Refresh
           </button>
         </div>
         {!results ? (
-          <p className="text-sm text-gray-500">Loading…</p>
+          <p className="text-sm text-muted-foreground">Loading…</p>
         ) : (
           <div className="space-y-3">
             <table className="w-full text-sm">
-              <thead className="text-xs uppercase text-gray-500">
+              <thead className="text-xs uppercase text-muted-foreground">
                 <tr>
                   <th className="text-left py-2">Variant</th>
                   <th className="text-right py-2">Views</th>
@@ -705,7 +705,7 @@ export default function ExperimentDetailClient({ experiment: initial, variants: 
               </thead>
               <tbody>
                 {results.stats.map(s => (
-                  <tr key={s.key} className="border-t border-gray-100">
+                  <tr key={s.key} className="border-t border-border">
                     <td className="py-2"><span className="font-mono">{s.key}</span> · {s.label}</td>
                     <td className="py-2 text-right">{s.views}</td>
                     <td className="py-2 text-right">{s.goals}</td>
@@ -716,9 +716,9 @@ export default function ExperimentDetailClient({ experiment: initial, variants: 
             </table>
             {results.comparisons.length > 0 ? (
               <div>
-                <h3 className="text-xs uppercase text-gray-500 mt-4 mb-2">Significance vs control</h3>
+                <h3 className="text-xs uppercase text-muted-foreground mt-4 mb-2">Significance vs control</h3>
                 <table className="w-full text-sm">
-                  <thead className="text-xs uppercase text-gray-500">
+                  <thead className="text-xs uppercase text-muted-foreground">
                     <tr>
                       <th className="text-left py-2">Variant</th>
                       <th className="text-right py-2">Lift</th>
@@ -744,15 +744,15 @@ export default function ExperimentDetailClient({ experiment: initial, variants: 
                           ? 'hourglass_top'
                           : 'remove_circle_outline';
                       const colorClass = showSignificant
-                        ? 'text-green-600'
+                        ? 'text-green-600 dark:text-green-500'
                         : tooSmall
-                          ? 'text-amber-500'
-                          : 'text-gray-300';
+                          ? 'text-amber-500 dark:text-amber-400'
+                          : 'text-muted-foreground/50';
                       const title = tooSmall
                         ? `Not enough data — need at least ${MIN_SAMPLE_PER_ARM} visitors per arm`
                         : undefined;
                       return (
-                        <tr key={c.variantKey} className="border-t border-gray-100">
+                        <tr key={c.variantKey} className="border-t border-border">
                           <td className="py-2 font-mono">{c.variantKey} vs {c.controlKey}</td>
                           <td className="py-2 text-right">{(c.lift * 100).toFixed(2)}%</td>
                           <td className="py-2 text-right">{c.z.toFixed(3)}</td>

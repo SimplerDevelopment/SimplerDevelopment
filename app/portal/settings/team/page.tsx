@@ -226,8 +226,9 @@ export default function SettingsTeamPage() {
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-foreground">Role</label>
+                <label htmlFor="invite-role" className="text-sm font-medium text-foreground">Role</label>
                 <select
+                  id="invite-role"
                   value={inviteForm.role}
                   onChange={e => setInviteForm(p => ({ ...p, role: e.target.value }))}
                   className={pSelect}

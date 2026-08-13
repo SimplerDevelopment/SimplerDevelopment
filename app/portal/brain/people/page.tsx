@@ -212,6 +212,7 @@ export default function BrainPeoplePage() {
           </div>
 
           <select
+            aria-label="Filter by org unit"
             value={orgUnitId !== null ? String(orgUnitId) : ''}
             onChange={(e) => setParam({ orgUnitId: e.target.value || null })}
             className="appearance-none rounded-xl border border-border bg-card px-3.5 py-2 pr-10 text-sm text-foreground outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/15"

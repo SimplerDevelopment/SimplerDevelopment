@@ -98,10 +98,10 @@ export default function EmailSettingsPage() {
 
       {/* Sender Defaults */}
       <div className={`${pCard} p-6 space-y-4`}>
-        <h3 className="font-semibold flex items-center gap-2">
+        <h2 className="font-semibold flex items-center gap-2">
           <span className="material-icons text-lg text-primary">alternate_email</span>
           Default Sender
-        </h3>
+        </h2>
         <p className="text-sm text-muted-foreground">Set default sender details for new campaigns</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>

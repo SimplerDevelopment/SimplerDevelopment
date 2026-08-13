@@ -242,6 +242,7 @@ export default function DecisionsListPage() {
           </div>
 
           <select
+            aria-label="Filter by decision maker"
             value={decisionMakerId ?? ''}
             onChange={(e) =>
               updateUrl({ decisionMakerId: e.target.value ? parseInt(e.target.value, 10) : null }, { resetPage: true })

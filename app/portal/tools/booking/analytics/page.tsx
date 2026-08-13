@@ -60,10 +60,10 @@ export default function BookingAnalyticsPage() {
       {/* Date range filter */}
       <div className={`flex items-center gap-3 flex-wrap ${pCardPad}`}>
         <span className="material-icons text-muted-foreground">date_range</span>
-        <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
+        <input type="date" aria-label="Analytics range start date" value={startDate} onChange={e => setStartDate(e.target.value)}
           className="rounded-xl border border-border bg-card px-3 py-1.5 text-sm text-foreground outline-none focus:border-primary focus:ring-4 focus:ring-primary/15" />
         <span className="text-muted-foreground">to</span>
-        <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)}
+        <input type="date" aria-label="Analytics range end date" value={endDate} onChange={e => setEndDate(e.target.value)}
           className="rounded-xl border border-border bg-card px-3 py-1.5 text-sm text-foreground outline-none focus:border-primary focus:ring-4 focus:ring-primary/15" />
       </div>
 

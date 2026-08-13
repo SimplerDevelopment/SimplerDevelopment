@@ -333,7 +333,7 @@ export default function CrmCompanyDetailPage() {
       {/* Edit form */}
       {editing && (
         <form onSubmit={saveEdit} className="bg-card border border-border rounded-2xl p-6 space-y-4">
-          <h3 className={pSectionTitle}>Edit Company</h3>
+          <h2 className={pSectionTitle}>Edit Company</h2>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <div>
               <label className="block text-xs font-medium text-muted-foreground mb-1">Name *</label>
@@ -519,7 +519,7 @@ export default function CrmCompanyDetailPage() {
           {activeTab === 'info' && (
             <div className="space-y-6">
               <div>
-                <h3 className={pSectionTitle + ' mb-4'}>Company Information</h3>
+                <h2 className={pSectionTitle + ' mb-4'}>Company Information</h2>
                 <div className="grid sm:grid-cols-2 gap-4">
                   <div className="flex items-center gap-3">
                     <span className="material-icons text-base text-muted-foreground">phone</span>

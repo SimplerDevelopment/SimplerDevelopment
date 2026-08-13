@@ -150,7 +150,7 @@ export default function NewDealModal({
 
   return (
     <form onSubmit={handleSubmit} className="bg-card border border-border rounded-xl p-6 space-y-4">
-      <h3 className="font-semibold text-foreground">New Deal</h3>
+      <h2 className="font-semibold text-foreground">New Deal</h2>
       {error && (
         <div className="flex items-center gap-2 text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2">
           <span className="material-icons text-base">error</span>

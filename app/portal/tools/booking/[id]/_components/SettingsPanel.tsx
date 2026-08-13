@@ -201,10 +201,13 @@ export function SettingsPanel(props: SettingsPanelProps) {
         </div>
 
         <div className="flex items-center gap-3">
-          <label className="text-sm font-medium text-foreground">Active</label>
+          <label id="booking-active-label" className="text-sm font-medium text-foreground">Active</label>
           <button
             type="button"
             onClick={() => setActive(!active)}
+            role="switch"
+            aria-checked={active}
+            aria-labelledby="booking-active-label"
             className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
               active ? 'bg-primary' : 'bg-gray-300 dark:bg-gray-600'
             }`}
@@ -318,6 +321,7 @@ export function SettingsPanel(props: SettingsPanelProps) {
           {(
             [
               {
+                id: 'gift-certificates',
                 label: 'Accept gift certificates',
                 desc: 'Allow customers to redeem gift certificates at checkout',
                 value: enableGiftCertificates,
@@ -325,6 +329,7 @@ export function SettingsPanel(props: SettingsPanelProps) {
                 icon: 'card_giftcard',
               },
               {
+                id: 'discount-codes',
                 label: 'Accept discount codes',
                 desc: 'Allow customers to enter promo/discount codes',
                 value: enableDiscountCodes,
@@ -332,6 +337,7 @@ export function SettingsPanel(props: SettingsPanelProps) {
                 icon: 'local_offer',
               },
               {
+                id: 'add-ons',
                 label: 'Enable add-ons',
                 desc: 'Let customers purchase optional add-ons with their booking',
                 value: enableAddOns,
@@ -340,17 +346,20 @@ export function SettingsPanel(props: SettingsPanelProps) {
               },
             ] as const
           ).map((item) => (
-            <div key={item.label} className="flex items-start justify-between gap-4 p-3 bg-muted/30 rounded-lg">
+            <div key={item.id} className="flex items-start justify-between gap-4 p-3 bg-muted/30 rounded-lg">
               <div className="flex items-start gap-2">
                 <span className="material-icons text-lg text-muted-foreground mt-0.5">{item.icon}</span>
                 <div>
-                  <p className="text-sm font-medium text-foreground">{item.label}</p>
+                  <p id={`payment-toggle-${item.id}-label`} className="text-sm font-medium text-foreground">{item.label}</p>
                   <p className="text-xs text-muted-foreground">{item.desc}</p>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => item.set(!item.value)}
+                role="switch"
+                aria-checked={item.value}
+                aria-labelledby={`payment-toggle-${item.id}-label`}
                 className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors ${
                   item.value ? 'bg-primary' : 'bg-gray-300 dark:bg-gray-600'
                 }`}
@@ -371,13 +380,16 @@ export function SettingsPanel(props: SettingsPanelProps) {
             <div className="flex items-start gap-2">
               <span className="material-icons text-lg text-muted-foreground mt-0.5">draw</span>
               <div>
-                <p className="text-sm font-medium text-foreground">Require waiver / e-signature</p>
+                <p id="require-waiver-label" className="text-sm font-medium text-foreground">Require waiver / e-signature</p>
                 <p className="text-xs text-muted-foreground">Customers must sign before their booking is confirmed</p>
               </div>
             </div>
             <button
               type="button"
               onClick={() => setEnableWaivers(!enableWaivers)}
+              role="switch"
+              aria-checked={enableWaivers}
+              aria-labelledby="require-waiver-label"
               className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors ${
                 enableWaivers ? 'bg-primary' : 'bg-gray-300 dark:bg-gray-600'
               }`}
@@ -404,12 +416,15 @@ export function SettingsPanel(props: SettingsPanelProps) {
               </div>
               <div className="flex items-center justify-between gap-4">
                 <div>
-                  <p className="text-sm font-medium text-foreground">Block booking until signed</p>
+                  <p id="block-booking-until-signed-label" className="text-sm font-medium text-foreground">Block booking until signed</p>
                   <p className="text-xs text-muted-foreground">Prevent confirmation until the waiver is e-signed</p>
                 </div>
                 <button
                   type="button"
                   onClick={() => setRequireWaiverBeforeBooking(!requireWaiverBeforeBooking)}
+                  role="switch"
+                  aria-checked={requireWaiverBeforeBooking}
+                  aria-labelledby="block-booking-until-signed-label"
                   className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors ${
                     requireWaiverBeforeBooking ? 'bg-primary' : 'bg-gray-300 dark:bg-gray-600'
                   }`}

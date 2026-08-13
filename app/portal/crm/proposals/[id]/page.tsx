@@ -479,14 +479,14 @@ export default function ProposalEditorPage() {
 
           {/* Recipient & Branding */}
           <div className="bg-card border border-border rounded-2xl p-5 space-y-4">
-            <h3 className={`${pSectionTitle} flex items-center gap-2`}>
+            <h2 className={`${pSectionTitle} flex items-center gap-2`}>
               <span className="material-icons text-base text-muted-foreground">settings</span>
               Details &amp; Branding
-            </h3>
+            </h2>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
               <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1">Contact</label>
-                <select value={contactId} onChange={e => setContactId(e.target.value)} className={pSelect}>
+                <label htmlFor="proposal-contact" className="block text-xs font-medium text-muted-foreground mb-1">Contact</label>
+                <select id="proposal-contact" value={contactId} onChange={e => setContactId(e.target.value)} className={pSelect}>
                   <option value="">None</option>
                   {contacts.map(c => <option key={c.id} value={c.id}>{c.firstName} {c.lastName}</option>)}
                 </select>
@@ -504,17 +504,17 @@ export default function ProposalEditorPage() {
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1">Deal</label>
-                <select value={dealId} onChange={e => setDealId(e.target.value)} className={pSelect}>
+                <label htmlFor="proposal-deal" className="block text-xs font-medium text-muted-foreground mb-1">Deal</label>
+                <select id="proposal-deal" value={dealId} onChange={e => setDealId(e.target.value)} className={pSelect}>
                   <option value="">None</option>
                   {deals.map(d => <option key={d.id} value={d.id}>{d.title}</option>)}
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1">Accent Color</label>
+                <label htmlFor="proposal-accent-color-hex" className="block text-xs font-medium text-muted-foreground mb-1">Accent Color</label>
                 <div className="flex items-center gap-2">
-                  <input type="color" value={accentColor} onChange={e => setAccentColor(e.target.value)} className="w-8 h-8 rounded border border-border cursor-pointer" />
-                  <input value={accentColor} onChange={e => setAccentColor(e.target.value)} className="flex-1 rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/15" />
+                  <input type="color" aria-label="Accent color picker" value={accentColor} onChange={e => setAccentColor(e.target.value)} className="w-8 h-8 rounded border border-border cursor-pointer" />
+                  <input id="proposal-accent-color-hex" value={accentColor} onChange={e => setAccentColor(e.target.value)} className="flex-1 rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/15" />
                 </div>
               </div>
               <div>
@@ -538,10 +538,10 @@ export default function ProposalEditorPage() {
 
           {/* Content Sections */}
           <div className="bg-card border border-border rounded-2xl p-5 space-y-4">
-            <h3 className={`${pSectionTitle} flex items-center gap-2`}>
+            <h2 className={`${pSectionTitle} flex items-center gap-2`}>
               <span className="material-icons text-base text-muted-foreground">view_list</span>
               Content Sections
-            </h3>
+            </h2>
 
             {sections.length === 0 && (
               <p className="text-sm text-muted-foreground py-4 text-center">No sections yet. Add sections below to build your proposal.</p>
@@ -635,10 +635,10 @@ export default function ProposalEditorPage() {
 
           {/* Line Items */}
           <div className="bg-card border border-border rounded-2xl p-5 space-y-4">
-            <h3 className={`${pSectionTitle} flex items-center gap-2`}>
+            <h2 className={`${pSectionTitle} flex items-center gap-2`}>
               <span className="material-icons text-base text-muted-foreground">receipt_long</span>
               Line Items
-            </h3>
+            </h2>
 
             {lineItems.length > 0 && (
               <div className="overflow-x-auto">
@@ -743,10 +743,10 @@ export default function ProposalEditorPage() {
 
           {/* Fees Editor */}
           <div className="bg-card border border-border rounded-2xl p-5 space-y-4">
-            <h3 className={`${pSectionTitle} flex items-center gap-2`}>
+            <h2 className={`${pSectionTitle} flex items-center gap-2`}>
               <span className="material-icons text-base text-muted-foreground">percent</span>
               Fees
-            </h3>
+            </h2>
 
             {fees.map(f => (
               <div key={f.id} className="flex items-center gap-2">

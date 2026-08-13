@@ -141,19 +141,22 @@ export default function BrainSettingsPage() {
         <Row
           label="Company Brain enabled"
           help="Disable to hide Brain from the sidebar and pause processing."
+          labelId="brain-enabled-label"
         >
           <Toggle
             checked={profile.enabled}
             onChange={(v) => save({ enabled: v })}
             disabled={saving}
+            labelId="brain-enabled-label"
           />
         </Row>
       </Section>
 
       {/* Identity */}
       <Section title="Identity" icon="badge">
-        <Row label="Display name" help="Shown at the top of the Brain dashboard.">
+        <Row label="Display name" help="Shown at the top of the Brain dashboard." htmlFor="brain-display-name">
           <NameField
+            id="brain-display-name"
             value={profile.name}
             onSave={(v) => save({ name: v })}
             disabled={saving}
@@ -176,21 +179,25 @@ export default function BrainSettingsPage() {
           <Row
             label="Auto-process on arrival"
             help="Run the full AI pipeline (attachment analysis, link previews, transcript summary) automatically when an email lands. Off by default — communications stay in Draft until you click Process."
+            labelId="auto-process-email-label"
           >
             <Toggle
               checked={profile.autoProcessEmail}
               onChange={(v) => save({ autoProcessEmail: v })}
               disabled={saving}
+              labelId="auto-process-email-label"
             />
           </Row>
           <Row
             label="Auto-link to CRM"
             help="When an email is processed, also: upsert the sender as a CRM contact, link the email to a CRM company on unambiguous domain match, and propose contact classification, deal links, and brain-aware action items in the review queue. Requires Auto-process on arrival."
+            labelId="auto-link-crm-label"
           >
             <Toggle
               checked={profile.autoLinkCrm}
               onChange={(v) => save({ autoLinkCrm: v })}
               disabled={saving || !profile.autoProcessEmail}
+              labelId="auto-link-crm-label"
             />
           </Row>
         </Section>
@@ -266,11 +273,12 @@ export default function BrainSettingsPage() {
         </p>
         <div className="space-y-2">
           {MODULE_OPTIONS.map((m) => (
-            <Row key={m.id} label={m.label} help={m.help}>
+            <Row key={m.id} label={m.label} help={m.help} labelId={`module-${m.id}-label`}>
               <Toggle
                 checked={modules[m.id]}
                 onChange={(v) => save({ enabledModules: { [m.id]: v } })}
                 disabled={saving}
+                labelId={`module-${m.id}-label`}
               />
             </Row>
           ))}
@@ -339,11 +347,32 @@ function Section({ title, icon, children }: { title: string; icon: string; child
   );
 }
 
-function Row({ label, help, children }: { label: string; help?: string; children: React.ReactNode }) {
+// A Row labels two different kinds of control, and they need different
+// mechanisms — dropping either one silently unlabels half this page.
+// Native inputs take `htmlFor`, which yields a real <label> and enlarges the
+// click target. Toggles are <button role="switch">, which <label for> cannot
+// target at all, so they are named by `aria-labelledby` pointing at `labelId`.
+function Row({
+  label,
+  help,
+  htmlFor,
+  labelId,
+  children,
+}: {
+  label: string;
+  help?: string;
+  htmlFor?: string;
+  labelId?: string;
+  children: React.ReactNode;
+}) {
   return (
     <div className="flex items-start justify-between gap-4 py-2 border-b border-border last:border-b-0">
       <div className="flex-1 min-w-0">
-        <div className="text-sm font-medium text-foreground">{label}</div>
+        {htmlFor ? (
+          <label htmlFor={htmlFor} id={labelId} className="block text-sm font-medium text-foreground">{label}</label>
+        ) : (
+          <div id={labelId} className="text-sm font-medium text-foreground">{label}</div>
+        )}
         {help && <p className="text-xs text-muted-foreground mt-0.5">{help}</p>}
       </div>
       <div className="flex-shrink-0">{children}</div>
@@ -351,7 +380,7 @@ function Row({ label, help, children }: { label: string; help?: string; children
   );
 }
 
-function Toggle({ checked, onChange, disabled }: { checked: boolean; onChange: (v: boolean) => void; disabled?: boolean }) {
+function Toggle({ checked, onChange, disabled, labelId }: { checked: boolean; onChange: (v: boolean) => void; disabled?: boolean; labelId?: string }) {
   return (
     <button
       type="button"
@@ -359,6 +388,7 @@ function Toggle({ checked, onChange, disabled }: { checked: boolean; onChange: (
       disabled={disabled}
       role="switch"
       aria-checked={checked}
+      aria-labelledby={labelId}
       className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
         checked ? 'bg-primary' : 'bg-border'
       } disabled:opacity-50`}
@@ -372,13 +402,24 @@ function Toggle({ checked, onChange, disabled }: { checked: boolean; onChange: (
   );
 }
 
-function NameField({ value, onSave, disabled }: { value: string; onSave: (v: string) => void; disabled?: boolean }) {
+function NameField({
+  value,
+  onSave,
+  disabled,
+  id,
+}: {
+  value: string;
+  onSave: (v: string) => void;
+  disabled?: boolean;
+  id?: string;
+}) {
   const [draft, setDraft] = useState(value);
   useEffect(() => setDraft(value), [value]);
   const dirty = draft.trim() !== value && draft.trim().length > 0;
   return (
     <div className="flex items-center gap-2">
       <input
+        id={id}
         type="text"
         value={draft}
         onChange={(e) => setDraft(e.target.value)}

@@ -94,8 +94,9 @@ export default function WebsiteSettingsForm({
 
       <div className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-foreground mb-1.5">Website name</label>
+          <label htmlFor="website-settings-name" className="block text-sm font-medium text-foreground mb-1.5">Website name</label>
           <input
+            id="website-settings-name"
             value={name}
             onChange={e => setName(e.target.value)}
             className="w-full px-3 py-2.5 bg-background border border-border rounded-lg text-foreground outline-none focus:border-primary text-sm"
@@ -103,8 +104,9 @@ export default function WebsiteSettingsForm({
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-foreground mb-1.5">Description</label>
+          <label htmlFor="website-settings-description" className="block text-sm font-medium text-foreground mb-1.5">Description</label>
           <textarea
+            id="website-settings-description"
             value={description}
             onChange={e => setDescription(e.target.value)}
             rows={2}
@@ -134,7 +136,7 @@ export default function WebsiteSettingsForm({
       {/* Public Access Toggle */}
       <div className="flex items-center justify-between py-3 border-t border-border">
         <div>
-          <label className="block text-sm font-medium text-foreground">Public access</label>
+          <label id="public-access-label" className="block text-sm font-medium text-foreground">Public access</label>
           <p className="text-xs text-muted-foreground mt-0.5">
             {publicAccess
               ? 'Site is publicly accessible and indexable by search engines.'
@@ -144,6 +146,9 @@ export default function WebsiteSettingsForm({
         <button
           type="button"
           onClick={() => setPublicAccess(!publicAccess)}
+          role="switch"
+          aria-checked={publicAccess}
+          aria-labelledby="public-access-label"
           className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${publicAccess ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`}
         >
           <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${publicAccess ? 'translate-x-5' : 'translate-x-0'}`} />

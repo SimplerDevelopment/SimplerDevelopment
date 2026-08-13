@@ -16,6 +16,9 @@ export default async function PublishingLayout({ children }: { children: React.R
     <div className="max-w-7xl mx-auto">
       <header className="mb-6 flex items-end justify-between gap-4">
         <div>
+          {/* This is the page-level h1 for every /portal/publishing/** route
+              (bypasses <PortalPageHeader/>) — child route content must start
+              its own headings at h2, not h3, or the outline skips a level. */}
           <h1 className="text-2xl font-semibold">Publishing</h1>
           <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
             One workflow for every outbound channel — website, email, social,

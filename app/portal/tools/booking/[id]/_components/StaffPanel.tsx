@@ -247,7 +247,7 @@ export function StaffPanel({
       <div className="border-t border-border pt-5">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-sm font-medium text-foreground">Allow Customer Staff Selection</h3>
+            <h3 id="allow-staff-selection-label" className="text-sm font-medium text-foreground">Allow Customer Staff Selection</h3>
             <p className="text-xs text-muted-foreground mt-0.5">
               When enabled, customers can choose a specific staff member when booking. When
               disabled, bookings are auto-assigned using the mode above.
@@ -256,6 +256,9 @@ export function StaffPanel({
           <button
             type="button"
             onClick={() => setAllowStaffSelection(!allowStaffSelection)}
+            role="switch"
+            aria-checked={allowStaffSelection}
+            aria-labelledby="allow-staff-selection-label"
             className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
               allowStaffSelection ? 'bg-primary' : 'bg-gray-300 dark:bg-gray-600'
             }`}

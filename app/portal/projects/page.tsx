@@ -217,7 +217,7 @@ export default function PortalProjectsPage() {
       {/* Create form */}
       {showCreateForm && (
         <form onSubmit={handleCreate} className="bg-card border border-border rounded-2xl p-5 space-y-4">
-          <h3 className="text-sm font-display font-extrabold tracking-[-0.01em] text-foreground">Create Project</h3>
+          <h2 className="text-sm font-display font-extrabold tracking-[-0.01em] text-foreground">Create Project</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-foreground">Project Name <span className="text-destructive">*</span></label>

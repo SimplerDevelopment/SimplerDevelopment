@@ -262,8 +262,8 @@ export default function NewPortalCampaignPage() {
                       Recipients
                     </div>
                     <div>
-                      <label className={labelClass}>Subscriber List *</label>
-                      <select value={form.listId} onChange={set('listId')} className={inputClass}>
+                      <label htmlFor="campaign-list" className={labelClass}>Subscriber List *</label>
+                      <select id="campaign-list" value={form.listId} onChange={set('listId')} className={inputClass}>
                         <option value="">Select a list...</option>
                         {lists.map(l => (
                           <option key={l.id} value={l.id}>{l.name} ({l.subscriberCount})</option>

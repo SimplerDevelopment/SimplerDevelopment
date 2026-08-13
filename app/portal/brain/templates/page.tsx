@@ -367,7 +367,7 @@ export default function BrainTemplatesPage() {
           {!showForm && (
             <div className={`${pCard} p-10 text-center`}>
               <span className="material-icons text-5xl text-muted-foreground">description</span>
-              <h3 className={`mt-3 ${pSectionTitle}`}>Select a template to edit</h3>
+              <h2 className={`mt-3 ${pSectionTitle}`}>Select a template to edit</h2>
               <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto">
                 Pick one from the list, or click <span className="font-medium text-foreground">New template</span> to start fresh.
               </p>

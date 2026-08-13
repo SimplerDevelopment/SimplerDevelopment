@@ -170,7 +170,7 @@ export default function PermissionMatrix({
       {members.length === 0 ? (
         <div className="rounded-lg border border-dashed border-gray-300 p-8 text-center dark:border-gray-700">
           <span className="material-icons text-4xl text-gray-400">group_off</span>
-          <h3 className="mt-2 text-base font-medium">No member-role users</h3>
+          <h2 className="mt-2 text-base font-medium">No member-role users</h2>
           <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
             Invite team members from <span className="font-medium">Settings → Team</span> to assign them granular publishing permissions.
           </p>
@@ -280,7 +280,7 @@ export default function PermissionMatrix({
         <section className="rounded-lg border border-gray-200 p-4 dark:border-gray-800">
           <header className="mb-3 flex items-center gap-2">
             <span className="material-icons text-base text-amber-600 dark:text-amber-400">key</span>
-            <h3 className="text-sm font-medium">Owners and admins</h3>
+            <h2 className="text-sm font-medium">Owners and admins</h2>
             <span className="text-xs text-gray-500 dark:text-gray-400">
               Implicit grant on every permission key.
             </span>

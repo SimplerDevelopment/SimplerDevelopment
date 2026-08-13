@@ -438,23 +438,37 @@ describe('ExperimentDetailClient — name editing', () => {
 
 // ─── Delete flow ──────────────────────────────────────────────────────────────
 
+// These previously located the two "Delete" buttons by `className.includes('red')`,
+// which broke the moment the page moved off hardcoded Tailwind greys/reds onto the
+// theme tokens (`text-destructive`) it needs to be legible in dark mode. Selecting on
+// a colour class couples a behaviour test to the palette, so a pure retheme reads as
+// five behaviour failures. Discriminate structurally instead: the trigger is the only
+// Delete button on screen before the dialog exists, and the confirm button is the one
+// the dialog adds afterwards.
+const deleteButtons = (container: HTMLElement) =>
+  Array.from(container.querySelectorAll('button')).filter(b => b.textContent?.includes('Delete'));
+const triggerDelete = (container: HTMLElement) => {
+  const [trigger] = deleteButtons(container);
+  expect(trigger).toBeTruthy();
+  fireEvent.click(trigger!);
+};
+const confirmDelete = (container: HTMLElement) => {
+  const confirm = deleteButtons(container).at(-1);
+  expect(confirm).toBeTruthy();
+  return confirm!;
+};
+
 describe('ExperimentDetailClient — delete flow', () => {
   it('opens the confirmation dialog when Delete button is clicked', () => {
     const { container } = renderComponent();
-    const deleteBtn = Array.from(container.querySelectorAll('button')).find(
-      b => b.textContent?.includes('Delete') && b.className.includes('red'),
-    );
-    fireEvent.click(deleteBtn!);
+    triggerDelete(container);
     expect(container.textContent).toContain('Delete Experiment');
     expect(container.textContent).toContain('Are you sure');
   });
 
   it('closes the dialog when Cancel is clicked', () => {
     const { container } = renderComponent();
-    const deleteBtn = Array.from(container.querySelectorAll('button')).find(
-      b => b.textContent?.includes('Delete') && b.className.includes('red'),
-    );
-    fireEvent.click(deleteBtn!);
+    triggerDelete(container);
     const cancelBtn = Array.from(container.querySelectorAll('button')).find(
       b => b.textContent?.trim() === 'Cancel',
     );
@@ -472,15 +486,10 @@ describe('ExperimentDetailClient — delete flow', () => {
     }) as typeof global.fetch;
 
     const { container } = renderComponent();
-    const deleteBtn = Array.from(container.querySelectorAll('button')).find(
-      b => b.textContent?.includes('Delete') && b.className.includes('red'),
-    );
-    fireEvent.click(deleteBtn!);
-    const confirmBtn = Array.from(container.querySelectorAll('button')).find(
-      b => b.textContent?.includes('Delete') && !b.className.includes('red'),
-    );
+    triggerDelete(container);
+    const confirmBtn = confirmDelete(container);
     await act(async () => {
-      fireEvent.click(confirmBtn!);
+      fireEvent.click(confirmBtn);
     });
     await waitFor(() => {
       expect(mockPush).toHaveBeenCalledWith('/portal/experiments');
@@ -496,15 +505,10 @@ describe('ExperimentDetailClient — delete flow', () => {
     }) as typeof global.fetch;
 
     const { container } = renderComponent();
-    const deleteBtn = Array.from(container.querySelectorAll('button')).find(
-      b => b.textContent?.includes('Delete') && b.className.includes('red'),
-    );
-    fireEvent.click(deleteBtn!);
-    const confirmBtn = Array.from(container.querySelectorAll('button')).find(
-      b => b.textContent?.includes('Delete') && !b.className.includes('red'),
-    );
+    triggerDelete(container);
+    const confirmBtn = confirmDelete(container);
     await act(async () => {
-      fireEvent.click(confirmBtn!);
+      fireEvent.click(confirmBtn);
     });
     await waitFor(() => {
       expect(container.textContent).toContain('not_allowed');
@@ -513,10 +517,7 @@ describe('ExperimentDetailClient — delete flow', () => {
 
   it('shows experiment name in the confirm dialog', () => {
     const { container } = renderComponent({ name: 'Special Test' });
-    const deleteBtn = Array.from(container.querySelectorAll('button')).find(
-      b => b.textContent?.includes('Delete') && b.className.includes('red'),
-    );
-    fireEvent.click(deleteBtn!);
+    triggerDelete(container);
     expect(container.textContent).toContain('Special Test');
   });
 });

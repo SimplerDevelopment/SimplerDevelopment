@@ -76,7 +76,7 @@ export default async function SuggestedProjectsPage() {
       {categories.length === 0 ? (
         <div className="bg-card border border-border rounded-2xl p-12 text-center">
           <span className="material-icons text-5xl text-muted-foreground">rocket_launch</span>
-          <h3 className="mt-4 font-display font-extrabold tracking-[-0.01em] text-foreground">No suggestions yet</h3>
+          <h2 className="mt-4 font-display font-extrabold tracking-[-0.01em] text-foreground">No suggestions yet</h2>
           <p className="mt-2 text-sm text-muted-foreground">Check back soon — we&apos;ll add tailored recommendations for you.</p>
         </div>
       ) : (

@@ -74,7 +74,7 @@ export function ProjectGrid({
               {project.status}
             </span>
           </div>
-          <h3 className="font-display font-extrabold tracking-[-0.01em] text-foreground truncate">{project.name}</h3>
+          <h2 className="font-display font-extrabold tracking-[-0.01em] text-foreground truncate">{project.name}</h2>
           {project.description && (
             <p className="mt-1 text-sm text-muted-foreground line-clamp-2">{project.description}</p>
           )}
@@ -181,7 +181,7 @@ function EmptyProjects({ message }: { message: string }) {
   return (
     <div className="bg-card border border-border rounded-2xl p-12 text-center">
       <span className="material-icons text-5xl text-muted-foreground">view_kanban</span>
-      <h3 className="mt-4 font-display font-extrabold tracking-[-0.01em] text-foreground">No projects yet</h3>
+      <h2 className="mt-4 font-display font-extrabold tracking-[-0.01em] text-foreground">No projects yet</h2>
       <p className="mt-2 text-sm text-muted-foreground max-w-md mx-auto">{message}</p>
     </div>
   );

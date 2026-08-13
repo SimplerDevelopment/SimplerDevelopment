@@ -732,7 +732,7 @@ export default function BrainAutomationsPage() {
           {rules.length === 0 ? (
             <div className="text-center py-16 bg-muted/30 rounded-xl border border-border">
               <span className="material-icons text-5xl text-muted-foreground">bolt</span>
-              <h3 className="mt-3 font-semibold text-lg">No automations yet</h3>
+              <h2 className="mt-3 font-semibold text-lg">No automations yet</h2>
               <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto">
                 Install a one-click template, or describe your own automation in plain English.
               </p>
@@ -754,7 +754,7 @@ export default function BrainAutomationsPage() {
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
-                        <h3 className="font-semibold text-sm truncate">{rule.name}</h3>
+                        <h2 id={`rule-name-${rule.id}`} className="font-semibold text-sm truncate">{rule.name}</h2>
                         <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${SCOPE_COLORS[scope] || 'bg-muted text-muted-foreground'}`}>
                           {scope}
                         </span>
@@ -819,7 +819,7 @@ export default function BrainAutomationsPage() {
                       {/* Toggle */}
                       <button
                         onClick={() => handleToggle(rule.id, !rule.enabled)}
-                        disabled={togglingId === rule.id}
+                        disabled={togglingId === rule.id} role="switch" aria-checked={rule.enabled} aria-labelledby={`rule-name-${rule.id}`}
                         className={`relative inline-flex h-6 w-10 items-center rounded-full transition-colors ${
                           rule.enabled ? 'bg-green-500' : 'bg-muted'
                         }`}

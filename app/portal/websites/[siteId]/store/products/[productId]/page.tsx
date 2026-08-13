@@ -644,18 +644,18 @@ export default function ProductEditPage() {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">Status</label>
-              <select value={form.status} onChange={(e) => updateField('status', e.target.value)} className={pSelect}>
+              <label htmlFor="product-status" className="text-sm font-medium text-foreground">Status</label>
+              <select id="product-status" value={form.status} onChange={(e) => updateField('status', e.target.value)} className={pSelect}>
                 <option value="draft">Draft</option>
                 <option value="active">Active</option>
                 <option value="archived">Archived</option>
               </select>
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">Featured</label>
+              <label id="product-featured-label" className="text-sm font-medium text-foreground">Featured</label>
               <div className="flex items-center gap-3 pt-1.5">
                 <button
-                  type="button"
+                  type="button" role="switch" aria-checked={form.featured} aria-labelledby="product-featured-label"
                   onClick={() => updateField('featured', !form.featured)}
                   className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
                     form.featured ? 'bg-primary' : 'bg-border'
@@ -740,10 +740,10 @@ export default function ProductEditPage() {
             </div>
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Track Inventory</label>
+            <label id="product-track-inventory-label" className="text-sm font-medium text-foreground">Track Inventory</label>
             <div className="flex items-center gap-3 pt-1.5">
               <button
-                type="button"
+                type="button" role="switch" aria-checked={form.trackInventory} aria-labelledby="product-track-inventory-label"
                 onClick={() => updateField('trackInventory', !form.trackInventory)}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
                   form.trackInventory ? 'bg-primary' : 'bg-border'
@@ -794,8 +794,8 @@ export default function ProductEditPage() {
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">Weight Unit</label>
-              <select value={form.weightUnit} onChange={(e) => updateField('weightUnit', e.target.value)} className={pSelect}>
+              <label htmlFor="product-weight-unit" className="text-sm font-medium text-foreground">Weight Unit</label>
+              <select id="product-weight-unit" value={form.weightUnit} onChange={(e) => updateField('weightUnit', e.target.value)} className={pSelect}>
                 <option value="g">Grams (g)</option>
                 <option value="kg">Kilograms (kg)</option>
                 <option value="oz">Ounces (oz)</option>
@@ -1012,8 +1012,8 @@ export default function ProductEditPage() {
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-foreground">Category</label>
-                <select value={form.categoryId} onChange={(e) => updateField('categoryId', e.target.value)} className={pSelect}>
+                <label htmlFor="product-category" className="text-sm font-medium text-foreground">Category</label>
+                <select id="product-category" value={form.categoryId} onChange={(e) => updateField('categoryId', e.target.value)} className={pSelect}>
                   <option value="">No category</option>
                   {categories.map((cat) => (
                     <option key={cat.id} value={String(cat.id)}>

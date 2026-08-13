@@ -293,7 +293,7 @@ describe('PitchDecksPage', () => {
       const sortSelect = Array.from(container.querySelectorAll('select')).find(s =>
         Array.from(s.options).some(o => o.value === 'title-asc')) as HTMLSelectElement;
       fireEvent.change(sortSelect, { target: { value: 'title-asc' } });
-      const titles = Array.from(container.querySelectorAll('h3')).map(h => h.textContent || '');
+      const titles = Array.from(container.querySelectorAll('h1,h2,h3,h4,h5,h6')).map(h => h.textContent || '');
       const filtered = titles.filter(t => ['Sales Deck', 'Onboarding', 'Archived Pitch'].includes(t));
       expect(filtered[0]).toBe('Archived Pitch');
     });
@@ -303,7 +303,7 @@ describe('PitchDecksPage', () => {
       const sortSelect = Array.from(container.querySelectorAll('select')).find(s =>
         Array.from(s.options).some(o => o.value === 'title-desc')) as HTMLSelectElement;
       fireEvent.change(sortSelect, { target: { value: 'title-desc' } });
-      const titles = Array.from(container.querySelectorAll('h3')).map(h => h.textContent || '');
+      const titles = Array.from(container.querySelectorAll('h1,h2,h3,h4,h5,h6')).map(h => h.textContent || '');
       const filtered = titles.filter(t => ['Sales Deck', 'Onboarding', 'Archived Pitch'].includes(t));
       expect(filtered[0]).toBe('Sales Deck');
     });
@@ -313,7 +313,7 @@ describe('PitchDecksPage', () => {
       const sortSelect = Array.from(container.querySelectorAll('select')).find(s =>
         Array.from(s.options).some(o => o.value === 'updated-asc')) as HTMLSelectElement;
       fireEvent.change(sortSelect, { target: { value: 'updated-asc' } });
-      const titles = Array.from(container.querySelectorAll('h3')).map(h => h.textContent || '');
+      const titles = Array.from(container.querySelectorAll('h1,h2,h3,h4,h5,h6')).map(h => h.textContent || '');
       const filtered = titles.filter(t => ['Sales Deck', 'Onboarding', 'Archived Pitch'].includes(t));
       expect(filtered[0]).toBe('Archived Pitch');
     });

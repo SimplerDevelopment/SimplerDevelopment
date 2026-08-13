@@ -525,8 +525,10 @@ describe('ExperimentDetailClient — name editing', () => {
     );
     const nameSpan = screen.getByTitle('Click to edit name');
     fireEvent.click(nameSpan);
-    // The name editor is an input with the border-blue-500 class (distinct from textareas)
-    const nameInput = document.querySelector('input.border-blue-500') as HTMLInputElement | null;
+    // Located by its 255-char limit (a real, asserted constraint) rather than a colour
+    // class: the page moved onto theme tokens for dark-mode legibility, and a selector
+    // keyed to the old palette turns a retheme into five phantom behaviour failures.
+    const nameInput = document.querySelector('input[maxlength="255"]') as HTMLInputElement | null;
     expect(nameInput).not.toBeNull();
     expect(nameInput?.value).toBe('My Experiment');
   });
@@ -541,11 +543,11 @@ describe('ExperimentDetailClient — name editing', () => {
       />,
     );
     fireEvent.click(screen.getByTitle('Click to edit name'));
-    const input = document.querySelector('input.border-blue-500') as HTMLInputElement;
+    const input = document.querySelector('input[maxlength="255"]') as HTMLInputElement;
     expect(input).not.toBeNull();
     fireEvent.change(input, { target: { value: 'Changed Name' } });
     fireEvent.keyDown(input, { key: 'Escape' });
-    expect(document.querySelector('input.border-blue-500')).toBeNull();
+    expect(document.querySelector('input[maxlength="255"]')).toBeNull();
     expect(screen.getByTitle('Click to edit name').textContent).toBe('Original Name');
   });
 
@@ -574,7 +576,7 @@ describe('ExperimentDetailClient — name editing', () => {
     );
 
     fireEvent.click(screen.getByTitle('Click to edit name'));
-    const input = document.querySelector('input.border-blue-500') as HTMLInputElement;
+    const input = document.querySelector('input[maxlength="255"]') as HTMLInputElement;
     expect(input).not.toBeNull();
     fireEvent.change(input, { target: { value: 'New Name' } });
 
@@ -609,7 +611,7 @@ describe('ExperimentDetailClient — name editing', () => {
     );
 
     fireEvent.click(screen.getByTitle('Click to edit name'));
-    const input = document.querySelector('input.border-blue-500') as HTMLInputElement;
+    const input = document.querySelector('input[maxlength="255"]') as HTMLInputElement;
     expect(input).not.toBeNull();
     fireEvent.change(input, { target: { value: '' } });
 
@@ -640,7 +642,7 @@ describe('ExperimentDetailClient — name editing', () => {
     );
 
     fireEvent.click(screen.getByTitle('Click to edit name'));
-    const input = document.querySelector('input.border-blue-500') as HTMLInputElement;
+    const input = document.querySelector('input[maxlength="255"]') as HTMLInputElement;
     expect(input).not.toBeNull();
     fireEvent.change(input, { target: { value: 'x'.repeat(256) } });
 
@@ -1721,7 +1723,9 @@ describe('ExperimentDetailClient — delete experiment', () => {
       expect(screen.getByText('Delete Experiment')).toBeInTheDocument();
     });
     // The experiment name appears in the confirmation text inside a <strong>
-    const strongEl = document.querySelector('.bg-card strong');
+    // Scope to the confirmation sentence: `.bg-card` now also matches page cards
+    // since the retheme, so a bare `.bg-card strong` grabs the first card's text.
+    const strongEl = screen.getByText(/Are you sure/).querySelector('strong');
     expect(strongEl?.textContent).toBe('Test Experiment Alpha');
   });
 });

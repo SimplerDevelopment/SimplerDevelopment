@@ -179,7 +179,7 @@ export default function BrainRelationshipsPage() {
       <div className="flex flex-wrap gap-2 items-center">
         <span className="text-xs text-muted-foreground">Filter:</span>
         <select
-          value={priorityFilter}
+          aria-label="Filter by priority" value={priorityFilter}
           onChange={(e) => setPriorityFilter(e.target.value)}
           className={pSelect}
         >
@@ -191,7 +191,7 @@ export default function BrainRelationshipsPage() {
         </select>
         {types.length > 0 && (
           <select
-            value={typeFilter}
+            aria-label="Filter by type" value={typeFilter}
             onChange={(e) => setTypeFilter(e.target.value)}
             className={pSelect}
           >
@@ -498,9 +498,9 @@ function CreateRelationshipModal({ onClose, onCreated }: { onClose: () => void; 
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">Priority</label>
+              <label htmlFor="new-relationship-priority" className="block text-xs font-medium text-muted-foreground mb-1">Priority</label>
               <select
-                value={priority}
+                id="new-relationship-priority" value={priority}
                 onChange={(e) => setPriority(e.target.value as typeof priority)}
                 className={pSelect}
               >

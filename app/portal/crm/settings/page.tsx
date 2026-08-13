@@ -307,7 +307,7 @@ export default function CrmSettingsPage() {
       {activeTab === 'pipelines' && (
       <div className="bg-card border border-border rounded-2xl p-6 space-y-6">
         <div>
-          <h3 className="font-display text-[17px] font-extrabold tracking-[-0.02em] text-foreground">Pipelines</h3>
+          <h2 className="font-display text-[17px] font-extrabold tracking-[-0.02em] text-foreground">Pipelines</h2>
           <p className="text-sm text-muted-foreground mt-1">Manage your deal pipelines and stages.</p>
         </div>
 
@@ -490,7 +490,7 @@ export default function CrmSettingsPage() {
       {activeTab === 'tags' && (
       <div className="bg-card border border-border rounded-2xl p-6 space-y-6">
         <div>
-          <h3 className="font-display text-[17px] font-extrabold tracking-[-0.02em] text-foreground">Tags</h3>
+          <h2 className="font-display text-[17px] font-extrabold tracking-[-0.02em] text-foreground">Tags</h2>
           <p className="text-sm text-muted-foreground mt-1">Manage tags for organizing contacts.</p>
         </div>
 

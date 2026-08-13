@@ -395,6 +395,7 @@ export default function TicketReportsPage() {
                 </p>
               </div>
               <select
+                aria-label="Report time range"
                 value={days}
                 onChange={(e) => setDays(parseInt(e.target.value, 10))}
                 className="appearance-none rounded-xl border border-border bg-card px-3.5 py-2 pr-10 text-sm text-foreground outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/15 w-auto"

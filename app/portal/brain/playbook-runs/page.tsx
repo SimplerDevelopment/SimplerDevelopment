@@ -200,6 +200,7 @@ function PlaybookRunsContent() {
 
         <div className="mt-2 flex items-center gap-2 flex-wrap text-xs">
           <select
+            aria-label="Filter by playbook"
             value={playbookIdParam ?? ''}
             onChange={(e) => setParam({ playbookId: e.target.value || null })}
             className="px-2 py-1 rounded-xl border border-border bg-card text-foreground text-xs focus:outline-none focus:ring-2 focus:ring-primary/15 focus:border-primary"

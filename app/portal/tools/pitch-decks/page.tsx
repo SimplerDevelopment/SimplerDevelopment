@@ -176,6 +176,7 @@ export default function PitchDecksPage() {
 
           {/* Sort dropdown */}
           <select
+            aria-label="Sort decks by"
             value={sort}
             onChange={e => setSort(e.target.value as typeof sort)}
             className={`${pSelect} w-auto`}
@@ -260,9 +261,9 @@ export default function PitchDecksPage() {
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center gap-2">
                       <span className="material-icons text-primary text-xl">slideshow</span>
-                      <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors">
+                      <h2 className="font-semibold text-foreground group-hover:text-primary transition-colors">
                         {deck.title}
-                      </h3>
+                      </h2>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${deckStatusColor[deck.status] || deckStatusColor.draft}`}>
@@ -303,10 +304,10 @@ export default function PitchDecksPage() {
         return (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div className={`${pCardPad} max-w-md w-full space-y-4`}>
-              <h3 className={`${pSectionTitle} flex items-center gap-2`}>
+              <h2 className={`${pSectionTitle} flex items-center gap-2`}>
                 <span className="material-icons text-destructive">delete_forever</span>
                 Delete Pitch Deck
-              </h3>
+              </h2>
               <p className="text-sm text-muted-foreground">
                 Are you sure you want to delete{' '}
                 <strong className="text-foreground">{deck?.title ?? 'this deck'}</strong>? This cannot be undone.

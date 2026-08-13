@@ -103,7 +103,7 @@ export default function NewSurveyPage() {
           {/* Templates by category */}
           {categories.map(cat => (
             <div key={cat}>
-              <h3 className={`${pSectionTitle} mb-3`}>{cat}</h3>
+              <h2 className={`${pSectionTitle} mb-3`}>{cat}</h2>
               <div className="grid sm:grid-cols-2 gap-3">
                 {SURVEY_TEMPLATES.filter(t => t.category === cat).map(tpl => (
                   <button

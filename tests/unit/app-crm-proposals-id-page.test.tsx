@@ -981,7 +981,10 @@ describe('ProposalEditorPage', () => {
       const { container } = await renderPage();
       // amount inputs: number inputs that are not inside the line items table
       const allNumber = Array.from(container.querySelectorAll('input[type="number"]'));
-      const feesPanel = Array.from(container.querySelectorAll('h3')).find(h =>
+      // Any heading level, not h3 specifically — section headings were re-levelled
+      // to keep the document outline contiguous for screen readers, and pinning the
+      // tag here made a semantics fix look like a fee-editing regression.
+      const feesPanel = Array.from(container.querySelectorAll('h1,h2,h3,h4,h5,h6')).find(h =>
         h.textContent?.includes('Fees'),
       )!.parentElement!;
       const feeNumbers = feesPanel.querySelectorAll('input[type="number"]') as NodeListOf<HTMLInputElement>;

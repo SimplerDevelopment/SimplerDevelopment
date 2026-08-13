@@ -290,11 +290,14 @@ export default function DiscountsPage() {
                 </div>
               </div>
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-foreground">Active</label>
+                <label id="discount-active-label" className="text-sm font-medium text-foreground">Active</label>
                 <div className="flex items-center gap-3 pt-1">
                   <button
                     type="button"
                     onClick={() => setForm((p) => ({ ...p, active: !p.active }))}
+                    role="switch"
+                    aria-checked={form.active}
+                    aria-labelledby="discount-active-label"
                     className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
                       form.active ? 'bg-primary' : 'bg-border'
                     }`}

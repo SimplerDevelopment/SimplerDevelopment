@@ -172,8 +172,9 @@ export default function RelationshipDetailPage() {
 
       <Section title="Snapshot" icon="dashboard">
         <div className="grid sm:grid-cols-2 gap-3">
-          <Field label="Priority">
+          <Field label="Priority" htmlFor="relationship-priority">
             <select
+              id="relationship-priority"
               value={overlay.priority}
               onChange={(e) => save({ priority: e.target.value })}
               className={pSelect}
@@ -184,8 +185,9 @@ export default function RelationshipDetailPage() {
               <option value="critical">Critical</option>
             </select>
           </Field>
-          <Field label="Status">
+          <Field label="Status" htmlFor="relationship-status">
             <select
+              id="relationship-status"
               value={overlay.status}
               onChange={(e) => save({ status: e.target.value })}
               className={pSelect}
@@ -195,8 +197,9 @@ export default function RelationshipDetailPage() {
               <option value="archived">Archived</option>
             </select>
           </Field>
-          <Field label="Next review">
+          <Field label="Next review" htmlFor="relationship-next-review">
             <input
+              id="relationship-next-review"
               type="date"
               value={overlay.nextReviewAt ? overlay.nextReviewAt.slice(0, 10) : ''}
               onChange={(e) => save({ nextReviewAt: e.target.value ? new Date(e.target.value).toISOString() : null })}
@@ -331,10 +334,20 @@ function Section({ title, icon, action, children }: { title: string; icon: strin
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({
+  label,
+  htmlFor,
+  children,
+}: {
+  label: string;
+  htmlFor?: string;
+  children: React.ReactNode;
+}) {
   return (
     <div>
-      <label className="block text-xs font-medium text-muted-foreground mb-1">{label}</label>
+      <label htmlFor={htmlFor} className="block text-xs font-medium text-muted-foreground mb-1">
+        {label}
+      </label>
       {children}
     </div>
   );

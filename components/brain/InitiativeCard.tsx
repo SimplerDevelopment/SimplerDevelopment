@@ -45,9 +45,9 @@ export default function InitiativeCard({ initiative, ownerLookup, onClick, href 
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
-            <h3 className="text-base font-semibold text-foreground truncate">
+            <h2 className="text-base font-semibold text-foreground truncate">
               {initiative.name}
-            </h3>
+            </h2>
             <span
               className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium ${status.className}`}
             >

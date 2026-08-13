@@ -68,6 +68,10 @@ export function PostEditorLayout({
                 <span className="material-icons text-xl">chevron_left</span>
               </Link>
 
+              {/* Page-level h1 for the post editor route (compact nav variant;
+                  see the wide-nav twin below) — bypasses <PortalPageHeader/>.
+                  Editor body content (e.g. CreatePageIntroCard) must start at
+                  h2, not h3, or the outline skips a level. */}
               <h1 className="text-base font-bold font-heading truncate" data-post-title>
                 {postTitle || 'New Post'}
               </h1>
@@ -90,6 +94,7 @@ export function PostEditorLayout({
 
               {/* Right — status + publish */}
               <select
+                aria-label="Post publish status"
                 value={published ? 'published' : 'draft'}
                 onChange={(e) => onStatusChange(e.target.value as 'draft' | 'published')}
                 className="px-2 py-1 text-sm rounded-md border border-border hover:bg-accent transition-colors bg-background shrink-0"
@@ -210,6 +215,7 @@ export function PostEditorLayout({
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                   </svg>
                 </Link>
+                {/* Wide-nav twin of the compact h1 above — same rule applies. */}
                 <h1 className="text-xl font-bold font-heading truncate" data-post-title>
                   {postTitle || 'New Post'}
                 </h1>

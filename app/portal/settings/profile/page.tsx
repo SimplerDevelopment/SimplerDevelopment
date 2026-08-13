@@ -67,8 +67,9 @@ export default function ProfileSettingsPage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">Full Name</label>
+              <label htmlFor="profile-full-name" className="text-sm font-medium text-foreground">Full Name</label>
               <input
+                id="profile-full-name"
                 name="name"
                 value={form.name}
                 onChange={handleChange}
@@ -77,8 +78,9 @@ export default function ProfileSettingsPage() {
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">Email</label>
+              <label htmlFor="profile-email" className="text-sm font-medium text-foreground">Email</label>
               <input
+                id="profile-email"
                 name="email"
                 type="email"
                 value={form.email}

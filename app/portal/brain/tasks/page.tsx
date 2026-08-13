@@ -398,7 +398,7 @@ function TaskColumn({
       <div className="flex items-center justify-between p-3 border-b border-border">
         <div className="flex items-center gap-2 min-w-0">
           <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: color }} />
-          <h3 className="text-sm font-semibold text-foreground truncate">{label}</h3>
+          <h2 className="text-sm font-semibold text-foreground truncate">{label}</h2>
           <span className="text-xs rounded-full px-1.5 py-0.5 shrink-0 font-medium bg-muted text-muted-foreground">
             {tasks.length}
           </span>

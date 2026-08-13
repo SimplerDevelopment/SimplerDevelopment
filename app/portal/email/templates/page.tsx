@@ -184,7 +184,7 @@ export default function EmailTemplatesPage() {
       {filtered.length === 0 ? (
         <div className="text-center py-16 bg-muted/30 rounded-xl border border-border">
           <span className="material-icons text-5xl text-muted-foreground">dynamic_feed</span>
-          <h3 className="mt-3 font-semibold text-lg">No templates yet</h3>
+          <h2 className="mt-3 font-semibold text-lg">No templates yet</h2>
           <p className="text-sm text-muted-foreground mt-1">Create reusable email designs to speed up campaign creation</p>
         </div>
       ) : (
@@ -197,7 +197,7 @@ export default function EmailTemplatesPage() {
               <div className="p-4">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <h3 className="font-semibold text-sm truncate">{t.name}</h3>
+                    <h2 className="font-semibold text-sm truncate">{t.name}</h2>
                     {t.description && <p className="text-xs text-muted-foreground mt-0.5 truncate">{t.description}</p>}
                   </div>
                   {t.isGlobal && (
