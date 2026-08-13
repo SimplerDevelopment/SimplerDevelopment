@@ -80,7 +80,17 @@ export async function hydrateReachable(ctx: PortalMcpContext): Promise<PortalMcp
     .filter((row) => allowlist.has(row.id))
     .map(({ role, ...client }) => ({ client, role: role as PortalRole }));
 
-  return { ...ctx, reachable };
+  // The DEFAULT company can itself have been revoked (its client_members row
+  // deleted) while others remain. Everything that is not a tools/call —
+  // `initialize` instructions, resources/read, whoami's defaultClient — runs
+  // against `ctx.client`, so leaving it pointed at the revoked company would
+  // keep serving that tenant's brand/catalog/identity. Re-point it here, the
+  // one place every caller passes through.
+  const client = reachable.some((r) => r.client.id === ctx.client.id)
+    ? ctx.client
+    : (reachable[0]?.client ?? ctx.client);
+
+  return { ...ctx, client, reachable };
 }
 
 export type TargetResolution =
@@ -251,8 +261,12 @@ export function clientIdFromRpcBody(
 
   for (const msg of messages) {
     if (!msg || typeof msg !== 'object') continue;
-    const m = msg as { method?: unknown; params?: { arguments?: unknown } };
+    const m = msg as { method?: unknown; params?: { name?: unknown; arguments?: unknown } };
     if (m.method !== 'tools/call') continue;
+    // Exempt tools (whoami) carry no clientId by design; counting their absent
+    // id as `null` would flag [whoami, posts_create{clientId}] as a mixed-company
+    // batch and refuse it wholesale.
+    if (typeof m.params?.name === 'string' && isTenantExemptTool(m.params.name)) continue;
     sawCall = true;
     const args = m.params?.arguments;
     const id = args && typeof args === 'object' ? (args as Record<string, unknown>).clientId : undefined;

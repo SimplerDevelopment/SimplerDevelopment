@@ -9,15 +9,20 @@
 -- workflow can apply it; re-runnable via IF NOT EXISTS + a WHERE-guarded update.
 -- See lib/mcp/client-scope.ts for how the column is enforced (allowlist ∩ live
 -- client_members, re-checked per request).
+--
+-- `json`, NOT `jsonb`: the Drizzle schema declares `json('client_ids')` (matching
+-- the existing `scopes json` on these tables), and scripts/check-schema-drift.sh
+-- compares column types verbatim — a hand-applied jsonb here would red the drift
+-- gate on every subsequent PR. json has no `=` operator, hence the ::text guard.
 
-ALTER TABLE oauth_authorization_codes ADD COLUMN IF NOT EXISTS client_ids jsonb NOT NULL DEFAULT '[]'::jsonb;
-ALTER TABLE oauth_access_tokens       ADD COLUMN IF NOT EXISTS client_ids jsonb NOT NULL DEFAULT '[]'::jsonb;
-ALTER TABLE oauth_refresh_tokens      ADD COLUMN IF NOT EXISTS client_ids jsonb NOT NULL DEFAULT '[]'::jsonb;
-ALTER TABLE portal_api_keys           ADD COLUMN IF NOT EXISTS client_ids jsonb NOT NULL DEFAULT '[]'::jsonb;
+ALTER TABLE oauth_authorization_codes ADD COLUMN IF NOT EXISTS client_ids json NOT NULL DEFAULT '[]'::json;
+ALTER TABLE oauth_access_tokens       ADD COLUMN IF NOT EXISTS client_ids json NOT NULL DEFAULT '[]'::json;
+ALTER TABLE oauth_refresh_tokens      ADD COLUMN IF NOT EXISTS client_ids json NOT NULL DEFAULT '[]'::json;
+ALTER TABLE portal_api_keys           ADD COLUMN IF NOT EXISTS client_ids json NOT NULL DEFAULT '[]'::json;
 
 -- Backfill each existing credential to the single client it was bound to, so the
 -- resolver has one code path instead of an empty-means-legacy special case.
-UPDATE oauth_authorization_codes SET client_ids = jsonb_build_array(client_id) WHERE client_ids = '[]'::jsonb;
-UPDATE oauth_access_tokens       SET client_ids = jsonb_build_array(client_id) WHERE client_ids = '[]'::jsonb;
-UPDATE oauth_refresh_tokens      SET client_ids = jsonb_build_array(client_id) WHERE client_ids = '[]'::jsonb;
-UPDATE portal_api_keys           SET client_ids = jsonb_build_array(client_id) WHERE client_ids = '[]'::jsonb;
+UPDATE oauth_authorization_codes SET client_ids = json_build_array(client_id) WHERE client_ids::text = '[]';
+UPDATE oauth_access_tokens       SET client_ids = json_build_array(client_id) WHERE client_ids::text = '[]';
+UPDATE oauth_refresh_tokens      SET client_ids = json_build_array(client_id) WHERE client_ids::text = '[]';
+UPDATE portal_api_keys           SET client_ids = json_build_array(client_id) WHERE client_ids::text = '[]';

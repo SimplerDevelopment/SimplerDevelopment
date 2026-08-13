@@ -123,8 +123,11 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
           // Optional in the SCHEMA, required in practice: a Zod-level rejection
           // would replace the roster-enumerating error with an opaque validation
           // failure, and that error is what lets the model ask the user which
-          // company they meant.
-          clientId: z
+          // company they meant. Coerced because resolveTarget deliberately
+          // accepts numeric strings — without coercion the SDK rejects "19"
+          // before resolution ever sees it (LLMs emit numeric strings often
+          // enough that 44 tool schemas in this registry already coerce).
+          clientId: z.coerce
             .number()
             .optional()
             .describe('Which company (portal client id) this call acts on. Required — see whoami.'),

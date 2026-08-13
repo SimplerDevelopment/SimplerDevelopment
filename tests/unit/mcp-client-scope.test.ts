@@ -16,12 +16,14 @@ vi.mock('@/lib/portal-client', () => ({ getPortalClientsWithRoles: vi.fn(async (
 import {
   applyTarget,
   clientIdFromRpcBody,
+  hydrateReachable,
   isReadOnlyTool,
   isTenantExemptTool,
   reachableOf,
   resolveTarget,
   roleDenial,
 } from '@/lib/mcp/client-scope';
+import { getPortalClientsWithRoles } from '@/lib/portal-client';
 import type { PortalMcpContext, ReachableClient } from '@/lib/mcp-auth';
 
 function client(id: number, company: string) {
@@ -134,6 +136,49 @@ describe('clientIdFromRpcBody', () => {
     // either one would write a company the caller didn't name.
     expect(clientIdFromRpcBody([call({ clientId: 12 }), call({ clientId: 19 })]))
       .toEqual({ kind: 'conflict' });
+  });
+
+  it('does not count exempt tools toward company mixing', () => {
+    // whoami carries no clientId by design; treating its absent id as `null`
+    // would refuse [whoami, posts_create{clientId}] as a mixed batch.
+    const whoami = { jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: 'whoami', arguments: {} } };
+    expect(clientIdFromRpcBody([whoami, call({ clientId: 19 })]))
+      .toEqual({ kind: 'call', clientId: 19 });
+    expect(clientIdFromRpcBody([whoami])).toEqual({ kind: 'none' });
+  });
+});
+
+describe('hydrateReachable', () => {
+  const baseCtx = {
+    userId: 7,
+    keyId: 1,
+    credentialKind: 'oauth_access_token',
+    requireCmsApproval: false,
+    scopes: ['*'],
+    client: client(12, 'Acme Dental'),
+    allowedClientIds: [12, 19],
+  } as PortalMcpContext;
+
+  it('keeps the default company when it is still reachable', async () => {
+    vi.mocked(getPortalClientsWithRoles).mockResolvedValueOnce([
+      { id: 12, company: 'Acme Dental', role: 'owner' },
+      { id: 19, company: 'Beta Roofing', role: 'viewer' },
+    ] as Awaited<ReturnType<typeof getPortalClientsWithRoles>>);
+    const hydrated = await hydrateReachable(baseCtx);
+    expect(hydrated.client.id).toBe(12);
+    expect(hydrated.reachable?.map((r) => r.client.id)).toEqual([12, 19]);
+  });
+
+  it('re-points a revoked default company at a still-reachable one', async () => {
+    // Membership on the DEFAULT (12) was deleted; 19 remains. Everything that is
+    // not a tools/call runs against ctx.client, so leaving it at 12 would keep
+    // serving the revoked company's brand/catalog/identity.
+    vi.mocked(getPortalClientsWithRoles).mockResolvedValueOnce([
+      { id: 19, company: 'Beta Roofing', role: 'viewer' },
+    ] as Awaited<ReturnType<typeof getPortalClientsWithRoles>>);
+    const hydrated = await hydrateReachable(baseCtx);
+    expect(hydrated.client.id).toBe(19);
+    expect(hydrated.reachable?.map((r) => r.client.id)).toEqual([19]);
   });
 });
 

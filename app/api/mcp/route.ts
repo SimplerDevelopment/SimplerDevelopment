@@ -86,6 +86,8 @@ async function handle(req: Request): Promise<Response> {
   // is stateless, so that is also per call) — losing a membership takes effect
   // immediately, without waiting for the token to be revoked. The roster is needed
   // before the server is built because it shapes the instructions and the schemas.
+  // hydrateReachable also guarantees roster.client is itself reachable — a revoked
+  // default company must not keep serving initialize/resources/whoami data.
   const roster = await hydrateReachable(base);
   if (roster.reachable?.length === 0) return noReachableClient();
 
