@@ -6,6 +6,24 @@ import reactHooks from "eslint-plugin-react-hooks";
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
+  // eslint-config-next bakes in `settings.react.version: "detect"`, which makes
+  // eslint-plugin-react probe the installed React version via
+  // `resolveBasedir(context)` -> `context.getFilename()`. ESLint 9+ removed
+  // `getFilename()` from the rule context (replaced by the `context.filename`
+  // property), so "detect" now crashes every rule that reads the React version
+  // (e.g. react/display-name) with `contextOrFilename.getFilename is not a
+  // function`. eslint-plugin-react has not published an ESLint 10-compatible
+  // release as of 2026-08 (latest on npm is 7.37.5, predates ESLint 10) — pin
+  // the version explicitly instead of "detect" so that code path is never hit.
+  // Bump this string alongside the `react` dependency in package.json; revert
+  // to `"detect"` once upstream ships a fix.
+  {
+    settings: {
+      react: {
+        version: "19.2.7",
+      },
+    },
+  },
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:
