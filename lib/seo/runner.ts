@@ -154,8 +154,14 @@ async function processRun(run: SeoCrawlRun): Promise<TickResult> {
 
   const exhausted = (state.frontier?.length ?? 0) === 0 || pagesCrawled >= project.maxPages;
   if (!exhausted) {
-    // Budget spent — leave the run 'running'; the next tick re-claims it via
-    // the stale-heartbeat path or continues immediately if picked first.
+    // Budget spent, not crashed: hand the run back to the queue so the next
+    // tick claims it immediately. Leaving it 'running' made every tick wait
+    // out the 5-minute stale-heartbeat lease between chunks (first-crawl QA,
+    // 2026-08-12) — the lease is for crash recovery, not the happy path.
+    await db
+      .update(seoCrawlRuns)
+      .set({ status: 'queued', updatedAt: new Date() })
+      .where(eq(seoCrawlRuns.id, run.id));
     return { claimed: true, runId: run.id, pagesCrawled, finished: false };
   }
 
@@ -238,26 +244,16 @@ async function finalizeRun(
   const metrics = deriveLinkMetrics(pages.map((p) => ({ id: p.id, depth: p.depth })), internalEdges);
 
   if (metrics.size > 0) {
-    const ids: number[] = [];
-    const ranks: number[] = [];
-    const incs: number[] = [];
-    const orphans: boolean[] = [];
+    // ponytail: one UPDATE per page. Bounded by maxPages (≤1000); the fancy
+    // unnest batch version shipped broken because drizzle's sql template
+    // expands a JS array into a ($1,$2,…) list, not a PG array — caught on
+    // the first real crawl (2026-08-12). Revisit only if the cap grows.
     for (const [id, m] of metrics) {
-      ids.push(id);
-      ranks.push(m.internalRank);
-      incs.push(m.incomingLinks);
-      orphans.push(m.orphan);
+      await db
+        .update(seoCrawlPages)
+        .set({ internalRank: m.internalRank, incomingLinks: m.incomingLinks, orphan: m.orphan })
+        .where(and(eq(seoCrawlPages.id, id), eq(seoCrawlPages.runId, run.id)));
     }
-    await db.execute(sql`
-      UPDATE seo_crawl_pages p
-      SET internal_rank = v.rank, incoming_links = v.inc, orphan = v.orph
-      FROM (
-        SELECT * FROM unnest(
-          ${ids}::bigint[], ${ranks}::real[], ${incs}::int[], ${orphans}::boolean[]
-        ) AS t(id, rank, inc, orph)
-      ) v
-      WHERE p.id = v.id AND p.run_id = ${run.id}
-    `);
     for (const p of pages) {
       const m = metrics.get(p.id);
       if (m) {
