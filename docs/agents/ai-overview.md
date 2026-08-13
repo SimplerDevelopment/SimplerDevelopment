@@ -7,7 +7,7 @@
 
 ## What This Is
 
-SimplerDevelopment is a multi-tenant agency SaaS platform built on Next.js 16.1.1 (App Router) + Postgres. A single deployment serves three audiences from one monorepo: an internal agency-admin panel, a per-tenant client portal, and per-tenant public-facing websites. The platform covers content management (48+ block types, visual editor, custom post types), CRM (contacts/companies/deals/proposals/contracts), Company Brain AI knowledge base with RAG (notes, decisions, documents, goals, playbooks, org chart, semantic search), marketing (email campaigns, surveys, pitch decks, A/B testing), commerce (white-label storefront, bookings/scheduling), project management (kanban, sprints, tickets), automations (event-driven rules + visual workflow builder), and Stripe billing — all under a single MCP surface of 474 tools. It is not a no-code builder; every tenant customization happens through structured JSON (blocks, post types, branding profiles) rather than freeform HTML.
+SimplerDevelopment is a multi-tenant agency SaaS platform built on Next.js 16.1.1 (App Router) + Postgres. A single deployment serves three audiences from one monorepo: an internal agency-admin panel, a per-tenant client portal, and per-tenant public-facing websites. The platform covers content management (48+ block types, visual editor, custom post types), CRM (contacts/companies/deals/proposals/contracts), Company Brain AI knowledge base with RAG (notes, decisions, documents, goals, playbooks, org chart, semantic search), marketing (email campaigns, surveys, pitch decks, A/B testing), commerce (white-label storefront, bookings/scheduling), project management (kanban, sprints, tickets), automations (event-driven rules + visual workflow builder), and Stripe billing — all under a single MCP surface of 477 tools. It is not a no-code builder; every tenant customization happens through structured JSON (blocks, post types, branding profiles) rather than freeform HTML.
 
 ---
 
@@ -50,7 +50,7 @@ Portal users have one of two roles within their tenant: `admin` or `editor`. Sco
 
 ### MCP Surface
 
-The platform exposes a **Model Context Protocol (MCP)** endpoint at `POST /api/mcp` (Streamable HTTP). Under a wildcard scope, **474 tools** are available across all product domains. The tool count is locked by a baseline test (`tests/unit/mcp-tool-registry-baseline.test.ts`) — any drift fails the pre-push hook.
+The platform exposes a **Model Context Protocol (MCP)** endpoint at `POST /api/mcp` (Streamable HTTP). Under a wildcard scope, **477 tools** are available across all product domains. The tool count is locked by a baseline test (`tests/unit/mcp-tool-registry-baseline.test.ts`) — any drift fails the pre-push hook.
 
 See [tool reference](./tool-reference.md) for the full list. The largest families:
 

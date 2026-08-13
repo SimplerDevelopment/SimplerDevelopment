@@ -17,6 +17,7 @@
  *     crm      → crm
  *     surveys  → surveys
  *     automations → automations
+ *     seo      → seo (SEO Intelligence: projects, crawl runs, recommendations)
  *
  *   ACTION — derived from the handler's mutation behaviour:
  *     list / get / search / summary / view / read / details → :read
@@ -32,7 +33,7 @@
  *   decks:read | decks:write | email:read | email:send | email:write |
  *   hosting:read | integrations:read | integrations:write | media:read |
  *   media:write | profile:read | profile:write | projects:read |
- *   projects:write | services:read | services:write | sites:read |
+ *   projects:write | seo:read | services:read | services:write | sites:read |
  *   sites:write | surveys:read | surveys:write | team:read | team:write |
  *   tickets:read | tickets:write
  *

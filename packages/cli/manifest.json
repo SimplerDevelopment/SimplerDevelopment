@@ -1,6 +1,6 @@
 {
   "manifestVersion": 1,
-  "toolCount": 474,
+  "toolCount": 477,
   "domains": [
     {
       "name": "agent",
@@ -133,6 +133,10 @@
     {
       "name": "proposals",
       "tools": 5
+    },
+    {
+      "name": "seo",
+      "tools": 3
     },
     {
       "name": "service",
@@ -8476,7 +8480,7 @@
       "name": "email_campaigns_send",
       "cmd": "email campaigns-send",
       "domain": "email",
-      "desc": "Dispatch a draft/scheduled campaign to every active subscriber on its list, skipping subscribers who have already received it (resume-safe). Synchronous — large lists will block the MCP call; use dryRun first to preview. Gated on the `email:send` scope, which should be granted separately from `email:write`.",
+      "desc": "Dispatch a draft/scheduled campaign to every active subscriber on its list, skipping subscribers who have already received it (resume-safe). Queues the send on the durable internal jobs queue (dispatch begins within ~60s, retried with backoff, resume-safe). Use dryRun first to preview. Gated on the `email:send` scope, which should be granted separately from `email:write`.",
       "destructive": false,
       "scope": "email:send",
       "args": [
@@ -12488,6 +12492,62 @@
           "name": "footerText",
           "type": "string",
           "required": false
+        }
+      ]
+    },
+    {
+      "name": "seo_audit_get",
+      "cmd": "seo audit-get",
+      "domain": "seo",
+      "desc": "Fetch a project's latest completed crawl summary (health score, page/issue counts) plus its top issue groups by rule, sorted critical→warning→notice then by count. Use seo_projects_list first to find the projectId.",
+      "destructive": false,
+      "scope": "seo:read",
+      "args": [
+        {
+          "name": "projectId",
+          "type": "number",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "seo_projects_list",
+      "cmd": "seo projects-list",
+      "domain": "seo",
+      "desc": "List this client's SEO Intelligence projects (audited domains) with their latest crawl run summary. Use this to find a project id before calling seo_audit_get or seo_recommendations_list.",
+      "destructive": false,
+      "scope": "seo:read",
+      "args": [
+        {
+          "name": "activeOnly",
+          "type": "boolean",
+          "required": false,
+          "desc": "When true, only return projects with active=true."
+        }
+      ]
+    },
+    {
+      "name": "seo_recommendations_list",
+      "cmd": "seo recommendations-list",
+      "domain": "seo",
+      "desc": "List AI-generated SEO recommendations for a project, sorted by opportunity score (impact × confidence ÷ effort) descending. Returns slim rows with an evidence summary — not the full recommendation body (see the portal UI for that). Defaults to open recommendations.",
+      "destructive": false,
+      "scope": "seo:read",
+      "args": [
+        {
+          "name": "projectId",
+          "type": "number",
+          "required": true
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "required": false,
+          "enum": [
+            "open",
+            "done",
+            "dismissed"
+          ]
         }
       ]
     },

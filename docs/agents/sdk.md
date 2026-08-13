@@ -312,7 +312,7 @@ The following API surfaces are intentionally out of scope for v0.1.0:
 |---|---|
 | **Public API** (`/api/public/…`) | Booking availability, gift certificate lookups, live-chat, A/B events, unauthenticated slug lookups — not wrapped |
 | **Portal internal API** (`/api/portal/…`) | ~60 route groups (CRM, Brain, Kanban, email campaigns, invoices, etc.) — session-cookie auth; not intended for third parties |
-| **MCP surface** (`POST /api/mcp`) | 474-tool surface for AI agents — see [Tool Reference](./tool-reference.md) |
+| **MCP surface** (`POST /api/mcp`) | 477-tool surface for AI agents — see [Tool Reference](./tool-reference.md) |
 | **Write operations** | The REST v1 surface is read-only by design; no write wrapper is possible until a write surface is added to the API |
 | **`pages.get(slug)`** | No dedicated shortcut exists; use `client.posts.get(slug)` for page slugs |
 

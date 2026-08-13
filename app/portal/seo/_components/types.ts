@@ -192,3 +192,33 @@ export interface SearchPerformanceData {
 export type GscImportResult =
   | { imported: { queries: number; pages: number } }
   | { skipped: 'not-linked' | 'not-connected' | 'up-to-date' };
+
+// ── Recommendations ──────────────────────────────────────────────────────
+// Mirrors GET/POST /api/portal/seo/projects/[id]/recommendations and
+// PATCH /api/portal/seo/recommendations/[id] (lib/db/schema/seo.ts's
+// seoRecommendations table). `impact`/`effort` are both a high/medium/low
+// tier but mean opposite things — see format.ts's `tierClasses` comment.
+
+export type RecommendationStatus = 'open' | 'done' | 'dismissed';
+
+export interface RecommendationEvidence {
+  ruleIds?: string[];
+  urls?: string[];
+  summary: string;
+}
+
+export interface Recommendation {
+  id: number;
+  projectId: number;
+  runId: number | null;
+  title: string;
+  body: string;
+  impact: 'high' | 'medium' | 'low';
+  effort: 'high' | 'medium' | 'low';
+  confidence: number;
+  opportunityScore: number;
+  evidence: RecommendationEvidence;
+  status: RecommendationStatus;
+  createdAt: string;
+  updatedAt: string;
+}

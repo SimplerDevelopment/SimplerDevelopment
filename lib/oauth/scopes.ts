@@ -70,6 +70,8 @@ export const SUPPORTED_SCOPES = [
   // Notifications
   'notifications:read',
   'notifications:write',
+  // SEO Intelligence (read-only MCP surface today; writes go through the portal)
+  'seo:read',
 ] as const;
 
 export type SupportedScope = (typeof SUPPORTED_SCOPES)[number];
@@ -108,6 +110,8 @@ export const DEFAULT_GRANTED_SCOPES: string[] = [
   'notifications:read',
   // Chat (read-only by default)
   'chat:read',
+  // SEO Intelligence (read-only; the module has no OAuth-writable surface yet)
+  'seo:read',
 ];
 
 /** Parse the OAuth `scope` query/form param (space-separated) and intersect

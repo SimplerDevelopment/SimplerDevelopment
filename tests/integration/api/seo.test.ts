@@ -128,6 +128,40 @@ describe('SEO Intelligence portal API @seo @tenancy', () => {
     expect((mine.data as Envelope<{ connected: boolean }>).data.connected).toBe(false);
   });
 
+  it("returns 404 to tenant B for tenant A's recommendations routes", async () => {
+    await asTenant(A);
+    const created = await createProject('https://a-recs.com/');
+    const projectId = String(created.data.id);
+
+    await asTenant(B);
+    const recs = await import('@/app/api/portal/seo/projects/[id]/recommendations/route');
+    const recPatch = await import('@/app/api/portal/seo/recommendations/[id]/route');
+    // Ownership is checked before any AI call, so cross-tenant POST is a
+    // cheap 404, never a metered generation.
+    expect(
+      (await callHandler(recs as unknown as Record<string, unknown>, 'GET', { params: { id: projectId } })).status,
+    ).toBe(404);
+    expect(
+      (await callHandler(recs as unknown as Record<string, unknown>, 'POST', { params: { id: projectId } })).status,
+    ).toBe(404);
+    expect(
+      (
+        await callHandler(recPatch as unknown as Record<string, unknown>, 'PATCH', {
+          params: { id: '999999' },
+          body: { status: 'done' },
+        })
+      ).status,
+    ).toBe(404);
+
+    // Owner sees an empty list without ever generating.
+    await asTenant(A);
+    const mine = await callHandler<Envelope<unknown[]>>(recs as unknown as Record<string, unknown>, 'GET', {
+      params: { id: projectId },
+    });
+    expect(mine.status).toBe(200);
+    expect((mine.data as Envelope<unknown[]>).data).toHaveLength(0);
+  });
+
   it('enqueues one crawl run per project (idempotent trigger) and scopes run reads @tenancy', async () => {
     await asTenant(A);
     const created = await createProject('https://a-crawl.com/');
