@@ -149,7 +149,13 @@ export function SiteFooterBlockRender({ block }: SiteFooterBlockRenderProps) {
                 )}
               </div>
 
-              {/* Social links */}
+              {/* Social links. Label renders only when explicitly provided —
+                  it used to fall back to the literal string "Follow us" per
+                  icon whenever `social.label` was unset, which leaked that
+                  text onto every site relying on the (more common) icon-only
+                  look. The bottom-bar social variant a few lines down was
+                  already icon-only with no such fallback; this makes the
+                  contact-column variant consistent with it. */}
               {block.socialLinks && block.socialLinks.length > 0 && (
                 <div className="mt-6">
                   {block.socialLinks.map((social, i) => (
@@ -165,7 +171,7 @@ export function SiteFooterBlockRender({ block }: SiteFooterBlockRenderProps) {
                       aria-label={social.label || social.platform}
                     >
                       <SocialIcon platform={social.platform} size={16} />
-                      <span>{social.label || 'Follow us'}</span>
+                      {social.label && <span>{social.label}</span>}
                     </a>
                   ))}
                 </div>
