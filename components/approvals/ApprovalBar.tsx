@@ -54,11 +54,15 @@ export function ApprovalBar(props: ApprovalBarProps) {
   const [decision, setDecision] = useState<'approve' | 'reject' | null>(null);
   const [visible, setVisible] = useState(true);
   const [reviewerName, setReviewerName] = useState(props.defaultReviewer?.name ?? '');
-  const [reviewerEmail, setReviewerEmail] = useState(props.defaultReviewer?.email ?? '');
   const [reviewNote, setReviewNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [decidedBy, setDecidedBy] = useState<string | null>(props.reviewerName ?? null);
+  // PUX-078: viewing needs only the link; deciding needs a signed-in user with
+  // access. The bar cannot know which it is facing, so it asks.
+  const [authority, setAuthority] = useState<
+    { canDecide: boolean; reason?: string | null; reviewerName?: string | null } | null
+  >(null);
 
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isPending = status === 'pending';
@@ -95,12 +99,32 @@ export function ApprovalBar(props: ApprovalBarProps) {
     };
   }, [variant, poke, decision]);
 
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/approve/decision')
+      .then((r) => r.json())
+      .then((d) => {
+        if (!cancelled) {
+          setAuthority({
+            canDecide: !!d?.canDecide,
+            reason: d?.reason ?? null,
+            reviewerName: d?.reviewerName ?? null,
+          });
+          if (d?.reviewerName) setReviewerName(d.reviewerName);
+        }
+      })
+      .catch(() => {
+        // Treat an unreachable probe as "cannot decide" — the server enforces
+        // this anyway, so a failed probe must not render buttons that 401.
+        if (!cancelled) setAuthority({ canDecide: false, reason: 'unauthenticated' });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   async function submit() {
     if (!decision) return;
-    if (!reviewerName.trim()) {
-      setError('Please enter your name.');
-      return;
-    }
     setSubmitting(true);
     setError(null);
     try {
@@ -110,8 +134,7 @@ export function ApprovalBar(props: ApprovalBarProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: decision,
-          reviewerName: reviewerName.trim(),
-          reviewerEmail: reviewerEmail.trim() || undefined,
+          // Identity is taken from the session server-side (PUX-078).
           reviewNote: reviewNote.trim() || undefined,
         }),
       });
@@ -236,7 +259,7 @@ export function ApprovalBar(props: ApprovalBarProps) {
           </div>
         </div>
 
-        {isPending && (
+        {isPending && authority?.canDecide && (
           <div style={{ display: 'flex', gap: 8, flex: '0 0 auto' }}>
             <button
               type="button"
@@ -258,6 +281,34 @@ export function ApprovalBar(props: ApprovalBarProps) {
             >
               Approve
             </button>
+          </div>
+        )}
+
+        {/* Viewing is open to anyone with the link; deciding is not (PUX-078).
+            An external stakeholder still sees the real artifact — they just get
+            told who can sign it off instead of buttons that would 401. */}
+        {isPending && authority && !authority.canDecide && (
+          <div style={{ flex: '0 0 auto', textAlign: 'right', maxWidth: 260 }}>
+            {authority.reason === 'unauthenticated' ? (
+              <>
+                <a
+                  href={`/portal/login?callbackUrl=${encodeURIComponent(
+                    typeof window === 'undefined' ? '/' : window.location.pathname + window.location.search,
+                  )}`}
+                  style={{ ...btnStyle('#2563eb', '#ffffff'), display: 'inline-block', textDecoration: 'none' }}
+                >
+                  Sign in to approve
+                </a>
+                <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 6 }}>
+                  Anyone with this link can review it.
+                </div>
+              </>
+            ) : (
+              <div style={{ fontSize: 12, color: '#d1d5db', lineHeight: 1.4 }}>
+                You can review this draft, but approving it needs an account with
+                access to this workspace.
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -304,25 +355,27 @@ export function ApprovalBar(props: ApprovalBarProps) {
                 : 'The draft stays unpublished. Tell the author what needs to change.'}
             </div>
 
-            <label style={labelStyle}>Your name</label>
-            <input
-              value={reviewerName}
-              onChange={(e) => setReviewerName(e.target.value)}
-              style={inputStyle}
-              autoFocus
-            />
-
-            <label style={labelStyle}>Email (optional)</label>
-            <input
-              value={reviewerEmail}
-              onChange={(e) => setReviewerEmail(e.target.value)}
-              style={inputStyle}
-            />
+            {/* Identity is the signed-in account (PUX-078) — the old free-text
+                name/email fields recorded an unverifiable string in the audit
+                trail and are gone. */}
+            <div
+              style={{
+                fontSize: 12,
+                color: '#4b5563',
+                background: '#f3f4f6',
+                borderRadius: 8,
+                padding: '8px 10px',
+                marginBottom: 12,
+              }}
+            >
+              Signing as <strong style={{ color: '#111827' }}>{reviewerName}</strong>
+            </div>
 
             <label style={labelStyle}>
               {decision === 'approve' ? 'Note (optional)' : 'What needs to change?'}
             </label>
             <textarea
+              autoFocus
               value={reviewNote}
               onChange={(e) => setReviewNote(e.target.value)}
               rows={3}

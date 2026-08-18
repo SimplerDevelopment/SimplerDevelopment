@@ -20,6 +20,27 @@ import { applyDecision, serializeLink } from '@/lib/mcp/approval-apply';
 import { readApprovalToken } from '@/lib/mcp/approval-mode';
 import { lookupApprovalLink } from '@/lib/mcp/approval-links';
 import { APPROVAL_COOKIE } from '@/lib/mcp/approval-cookie';
+import { resolveApprovalAuthority } from '@/lib/mcp/approval-authority';
+
+/**
+ * Capability probe for the bar (PUX-078). Viewing an artifact does not require a
+ * session, so the bar has to ask whether THIS viewer may actually decide before
+ * it offers Approve/Reject.
+ */
+export async function GET() {
+  const token = await readApprovalToken();
+  if (!token) return NextResponse.json({ success: false, canDecide: false }, { status: 401 });
+  const link = await lookupApprovalLink(token);
+  if (!link) return NextResponse.json({ success: false, canDecide: false }, { status: 404 });
+
+  const authority = await resolveApprovalAuthority(link.clientId);
+  return NextResponse.json({
+    success: true,
+    canDecide: authority.canDecide,
+    reason: authority.canDecide ? null : authority.reason,
+    reviewerName: authority.canDecide ? authority.reviewerName : null,
+  });
+}
 
 export async function POST(req: NextRequest) {
   const token = await readApprovalToken();
@@ -43,22 +64,32 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // PUX-078: holding the link is enough to LOOK at the draft, but deciding
+  // requires a signed-in user with owner/admin access to the owning client.
+  // Checked before the body is read — an unauthorized caller gets no further.
+  const authority = await resolveApprovalAuthority(link.clientId);
+  if (!authority.canDecide) {
+    return NextResponse.json(
+      {
+        success: false,
+        reason: authority.reason,
+        message:
+          authority.reason === 'unauthenticated'
+            ? 'Sign in to approve or reject this draft.'
+            : 'Your account does not have permission to approve this.',
+      },
+      { status: authority.reason === 'unauthenticated' ? 401 : 403 },
+    );
+  }
+
   const body = (await req.json().catch(() => ({}))) as {
     action?: 'approve' | 'reject';
-    reviewerName?: string;
-    reviewerEmail?: string;
     reviewNote?: string;
   };
 
   if (body.action !== 'approve' && body.action !== 'reject') {
     return NextResponse.json(
       { success: false, message: 'action must be "approve" or "reject"' },
-      { status: 400 },
-    );
-  }
-  if (!body.reviewerName || !body.reviewerName.trim()) {
-    return NextResponse.json(
-      { success: false, message: 'reviewerName is required' },
       { status: 400 },
     );
   }
@@ -74,8 +105,9 @@ export async function POST(req: NextRequest) {
   const updated = await recordReview({
     token,
     decision: body.action === 'approve' ? 'approved' : 'rejected',
-    reviewerName: body.reviewerName.trim(),
-    reviewerEmail: body.reviewerEmail?.trim() || null,
+    // Identity comes from the authenticated account, never the request body.
+    reviewerName: authority.reviewerName,
+    reviewerEmail: authority.reviewerEmail,
     reviewNote: body.reviewNote?.trim() || null,
   });
 
