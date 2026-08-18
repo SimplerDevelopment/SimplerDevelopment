@@ -50,20 +50,14 @@ Two **query** tools sit alongside. Neither is a place you *write*:
 - **Open-source community files** — `README`, `CONTRIBUTING`, `CODE_OF_CONDUCT`, `SECURITY`. This repo is public.
 - **Agent tooling** — this file, the nested `CLAUDE.md`s, `AGENTS.md`, `.claude/`. Operating instructions for agents, not documentation about the code.
 
-> **The vault is a separate private repo, cloned into `./vault`.** It was split
-> out on 2026-08-03 so that every branch of THIS repo is publishable to the
-> public mirror (`SimplerDevelopment/SimplerDevelopment`) — while it lived here,
-> no branch could be pushed there and PRs on the public repo were impossible.
-> `vault/` is gitignored here; commits to it happen inside `./vault` against its
-> own remote. Every `vault/...` path below still resolves as long as it is
-> cloned:
+> **The vault lives in this repo at `./vault`, and is public.** It was a
+> separate private repo from 2026-08-03 to 2026-08-18; it is now tracked here
+> and publishes with everything else, so its ADRs, daily logs and feature specs
+> are world-readable. Write vault notes here and commit them like any other
+> file — no separate clone, no separate remote. Every `vault/...` path below
+> resolves directly.
 >
-> ```bash
-> git clone https://github.com/SimplerDevelopment/SimplerDevelopment-vault.git vault
-> ```
->
-> Its pre-split history stays in this repo's history — `git log -- vault/` on an
-> older branch still works.
+> `SimplerDevelopment-vault` is the frozen former home. Nothing new goes there.
 
 **Code first for feature work.** Before planning/implementing in a domain, read the code — start from `@.claude/index.md` for the map, `graphify query` for cross-cutting questions, and the nearest nested `CLAUDE.md` for that subtree's invariants. Gotchas that used to live in a domain map now live as comments in the file they apply to.
 
@@ -109,15 +103,14 @@ Two sibling repos, both **private**, neither a development target:
 | Repo | Role |
 |---|---|
 | `SimplerDevelopment-internal` | Frozen archive. Holds the full 3,246-commit history and the pre-split vault history. Its `main` still carries `vault/` in 8 of 11 commits — never mirror it here. |
-| `SimplerDevelopment-vault` | The engineering vault — ADRs, daily logs, glossary. Clone it into `./vault`; it is gitignored here. |
+| `SimplerDevelopment-vault` | Frozen former home of the engineering vault (split out 2026-08-03, merged back 2026-08-18). Read-only history; commit vault changes in this repo. |
 
-`vault/` must never enter this repo — `.githooks/pre-push` rejects any push
-carrying it, and `scripts/publish-public.sh` exists for deliberate one-off syncs
-out of the archive. The automatic main-mirror was retired on 2026-08-03.
-
-```bash
-git clone https://github.com/SimplerDevelopment/SimplerDevelopment-vault.git vault
-```
+`vault/` is tracked and published here as of 2026-08-18 — its ADRs, daily logs
+and feature specs are public. The `.githooks/pre-push` guard that rejected
+vault-bearing pushes and the `vault` entry in `scripts/publish-public.sh`'s
+`EXCLUDE` were both removed with that change; treat a vault note as publishable
+writing. `scripts/publish-public.sh` remains for deliberate one-off syncs out of
+the archive. The automatic main-mirror was retired on 2026-08-03.
 
 ## Deployment (host topology)
 

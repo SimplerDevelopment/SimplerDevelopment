@@ -64,6 +64,10 @@ next-env.d.ts
 !public/**/*.jpeg
 # README / repo-meta assets (logos, badges) are committed on purpose.
 !.github/assets/**/*.png
+# Vault note attachments — feature specs embed these, so they ship with the notes.
+!vault/**/*.png
+!vault/**/*.jpg
+!vault/**/*.jpeg
 !.github/assets/**/*.jpg
 # logo-reveal layer assets are pipeline inputs, not QA screenshots (PROM-001).
 !docs/marketing/logo-reveal/*.png
@@ -124,12 +128,6 @@ node_modules/
 .playwright-mcp/
 .vitest-reports/
 test-results/
-
-# Engineering vault — now its own PRIVATE repo:
-#   https://github.com/SimplerDevelopment/SimplerDevelopment-vault
-# Kept OUT of this repo so every branch here is publishable to the public
-# mirror. Clone it into ./vault to work on both side by side.
-vault/
 
 # local Sentry auth token (never commit)
 .sentry-token

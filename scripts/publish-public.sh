@@ -1,19 +1,15 @@
 #!/usr/bin/env bash
-# Publish a vault-free snapshot of a commit to the PUBLIC repo.
+# Publish a snapshot of a commit to the PUBLIC repo.
 #
 # The public repo (SimplerDevelopment/SimplerDevelopment) is where Vercel and
-# the Railway `agents` / `realtime` services deploy from. It must NOT contain
-# vault/ — internal ADRs, domain maps, feature specs and security-posture
-# notes that are deliberately not published.
+# the Railway `agents` / `realtime` services deploy from.
 #
-# The exclusion is applied to the TREE, not as a follow-up delete commit, so
-# vault/ never enters the public repo's history and cannot be recovered from
-# an earlier commit there.
-#
-# As of 2026-08-03 the vault is its own private repo and is gitignored here, so
-# a tracked vault/ should be impossible. This stays as defence in depth — it
-# costs nothing and catches a `git add -f` or a stale branch predating the
-# split.
+# EXCLUDE is empty as of 2026-08-18: vault/ was merged back into this repo and
+# is published with everything else. The stripping machinery stays because it
+# is the only safe place to drop a path from a published TREE — exclusions are
+# applied to the tree, not as a follow-up delete commit, so an excluded path
+# never enters public history and cannot be recovered from an earlier commit
+# there.
 #
 # Usage:
 #   scripts/publish-public.sh [<commit-ish>]      # defaults to origin main / HEAD
@@ -24,8 +20,9 @@ set -euo pipefail
 
 SRC="${1:-HEAD}"
 PUBLIC_URL="https://github.com/SimplerDevelopment/SimplerDevelopment.git"
-# Paths stripped before publishing. Add here, not in the hook.
-EXCLUDE=(vault)
+# Paths stripped before publishing. Add here, not in the hook. Empty = publish
+# the tree as-is.
+EXCLUDE=()
 
 cd "$(git rev-parse --show-toplevel)"
 
@@ -37,7 +34,7 @@ echo "publish-public: source ${src_sha:0:12}"
 idx="$(mktemp -t sdpub)"
 trap 'rm -f "$idx"' EXIT
 GIT_INDEX_FILE="$idx" git read-tree "$src_sha"
-for p in "${EXCLUDE[@]}"; do
+for p in ${EXCLUDE[@]+"${EXCLUDE[@]}"}; do
   # -f is required: without it `git rm --cached` aborts the WHOLE removal when
   # any path differs from HEAD, silently leaving the tree unstripped.
   GIT_INDEX_FILE="$idx" git rm -r -q -f --cached --ignore-unmatch "$p"
@@ -55,14 +52,14 @@ tree=$(GIT_INDEX_FILE="$idx" git write-tree)
 #   grep -c, not -q : under `set -o pipefail`, `grep -q` exits on first match,
 #                   the upstream git gets SIGPIPE, and the PIPELINE reports
 #                   failure — inverting the test so a match reads as "clean".
-for p in "${EXCLUDE[@]}"; do
+for p in ${EXCLUDE[@]+"${EXCLUDE[@]}"}; do
   left=$(git ls-tree -r --name-only -z "$tree" | tr '\0' '\n' | grep -c "^${p}/" || true)
   if [ "${left:-0}" -gt 0 ]; then
     echo "publish-public: REFUSING — ${left} '${p}/' path(s) still present after strip." >&2
     exit 1
   fi
 done
-echo "publish-public: tree ${tree:0:12} — excluded: ${EXCLUDE[*]}"
+echo "publish-public: tree ${tree:0:12} — excluded: ${EXCLUDE[*]:-<nothing>}"
 
 # Parent on the current public HEAD so the push is a fast-forward and the
 # existing public history is preserved rather than overwritten.
@@ -74,7 +71,7 @@ if [ -n "$parent" ] && [ "$(git rev-parse "${parent}^{tree}")" = "$tree" ]; then
   exit 0
 fi
 
-msg="release: sync platform source from ${src_sha:0:12} (vault excluded)"
+msg="release: sync platform source from ${src_sha:0:12}"
 if [ -n "$parent" ]; then
   new=$(git commit-tree "$tree" -p "$parent" -m "$msg")
 else

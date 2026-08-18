@@ -16,9 +16,7 @@ dev_only=1
 changed=""
 fallow_targets=()   # "base_sha branch" for each ref pushed to a deploy branch
 mirror_main_sha=""
-pushed_shas=()      # every commit being pushed, for the public-repo vault guard
-
-# The PUBLIC repo must never receive vault/. $2 is the push destination URL.
+# $2 is the push destination URL.
 PUBLIC_RE='github\.com[:/]SimplerDevelopment/SimplerDevelopment(\.git)?$'
 target_is_public=0
 if printf '%s' "${2:-}" | grep -qiE "$PUBLIC_RE"; then
@@ -54,43 +52,7 @@ while read -r local_ref local_sha remote_ref remote_sha; do
     mirror_main_sha="$local_sha"
   fi
 
-  pushed_shas+=("$local_sha")
 done
-
-# ── Public-repo vault guard ──────────────────────────────────────────────────
-# Runs BEFORE local CI so it fails in seconds, not after a 30-minute gate.
-#
-# A pre-push hook cannot rewrite the refs being pushed, only accept or reject
-# them. So a direct push of vault-bearing commits to the public repo is
-# refused, and scripts/publish-public.sh is the supported path — it strips
-# vault/ from the TREE, so the directory never enters public history at all.
-#
-# Since the 2026-08-03 split the vault is its own private repo and gitignored
-# here, so this should never fire. Kept as defence in depth: it still catches a
-# `git add -f` or a branch created before the split.
-if [ "$target_is_public" = 1 ] && [ "${#pushed_shas[@]}" -gt 0 ]; then
-  for sha in "${pushed_shas[@]}"; do
-    # -z because ls-tree QUOTES paths with spaces (a plain ^vault/ match misses
-    # "vault/05 - Feature Specs/..."), and grep -c rather than -q because under
-    # `set -o pipefail` a -q early-exit SIGPIPEs git and makes the pipeline
-    # report failure — which inverted this test in an earlier version.
-    hits=$(git ls-tree -r --name-only -z "$sha" | tr '\0' '\n' | grep -c '^vault/' || true)
-    if [ "${hits:-0}" -gt 0 ]; then
-      echo "" >&2
-      echo "pre-push: BLOCKED — commit ${sha:0:12} contains ${hits} vault/ path(s) and" >&2
-      echo "          target is the PUBLIC repo." >&2
-      echo "" >&2
-      echo "  vault/ holds internal ADRs, domain maps, feature specs and" >&2
-      echo "  security-posture notes that are deliberately not published." >&2
-      echo "" >&2
-      echo "  Publish a stripped snapshot instead:" >&2
-      echo "      scripts/publish-public.sh ${sha:0:12}" >&2
-      echo "" >&2
-      exit 1
-    fi
-  done
-  echo "pre-push: public target — no vault/ in the pushed commits."
-fi
 
 # Dev branches deploy immediately — local CI is intentionally skipped for a
 # dev-only push so the deploy starts the moment you push. Mixed pushes (dev + a

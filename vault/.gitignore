@@ -1,0 +1,6 @@
+# Obsidian local state — per-machine, not knowledge.
+# The platform repo ignored this whole directory; keep that behaviour.
+.obsidian/
+
+# Local capture artifacts, not curated notes
+05 - Feature Specs/E2E Audit/screenshots/
