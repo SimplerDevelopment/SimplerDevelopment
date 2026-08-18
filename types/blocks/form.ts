@@ -112,6 +112,8 @@ export interface SurveyBlock extends BaseBlock {
     buttonBg?: string;
     buttonText?: string;
     buttonBorderRadius?: string;
+    /** Text on the final-page submit button. Defaults to "Submit". */
+    submitLabel?: string;
     /** Global radius fallback — used by buttons + form card when not set per-element. */
     borderRadius?: string;
   };

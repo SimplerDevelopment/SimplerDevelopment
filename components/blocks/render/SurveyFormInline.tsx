@@ -71,6 +71,21 @@ export function SurveyFormInline({
         }
         setSurvey(surveyJson.data);
 
+        // Seed answers from any field-level `default` (currently only
+        // meaningful for `select`) so a pre-selected option is both visibly
+        // shown AND actually submitted if the visitor never touches it —
+        // matches a real HTML <select>'s browser-native behavior. A
+        // partial-resume below (if any) fully replaces `answers`, so a
+        // returning visitor's saved answers take precedence over defaults.
+        const fieldsWithDefaults: SurveyField[] = surveyJson.data.fields || [];
+        const defaultAnswers: Record<string, unknown> = {};
+        for (const f of fieldsWithDefaults) {
+          if (f.default !== undefined) defaultAnswers[f.id] = f.default;
+        }
+        if (Object.keys(defaultAnswers).length > 0) {
+          setAnswers((prev) => ({ ...defaultAnswers, ...prev }));
+        }
+
         // Best-effort partial-resume. Silently skip on any error — the form
         // still works without resume.
         const sid = sessionIdRef.current;
@@ -401,6 +416,7 @@ export function SurveyFormInline({
   const hideCardChrome = so?.hideCardChrome === true;
   const hideQuestionNumbers = so?.hideQuestionNumbers === true;
   const formAccentBarColor = so?.formAccentBarColor;
+  const submitLabel = so?.submitLabel || 'Submit';
 
   const cardBg = hideCardChrome
     ? 'transparent'
@@ -693,7 +709,7 @@ export function SurveyFormInline({
                   className="px-6 py-2.5 rounded-lg font-medium text-sm transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
                   style={{ backgroundColor: btnBg, color: btnText, ...(btnRadius ? { borderRadius: btnRadius } : {}) }}
                 >
-                  {submitting ? 'Submitting...' : hasInflightUpload ? 'Uploading…' : 'Submit'}
+                  {submitting ? 'Submitting...' : hasInflightUpload ? 'Uploading…' : submitLabel}
                 </button>
               )}
             </div>

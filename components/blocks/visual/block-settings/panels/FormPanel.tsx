@@ -545,6 +545,11 @@ function SurveyBlockSettings({ block, onChange }: { block: SurveyBlock; onChange
                     <input type="text" value={so.buttonBorderRadius || ''} onChange={(e) => update({ buttonBorderRadius: e.target.value || undefined })}
                       className={inputClass} placeholder="e.g. 6px" />
                   </div>
+                  <div>
+                    <label className={fieldLabel}>Submit Label</label>
+                    <input type="text" value={so.submitLabel || ''} onChange={(e) => update({ submitLabel: e.target.value || undefined })}
+                      className={inputClass} placeholder="Submit" />
+                  </div>
                 </div>
 
                 {/* ── Typography / global ─────────────────────────────── */}

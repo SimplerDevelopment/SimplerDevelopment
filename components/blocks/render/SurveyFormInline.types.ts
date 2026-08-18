@@ -46,6 +46,10 @@ export interface SurveyField {
   order: number;
   page?: number;
   mediaUrl?: string;
+  /** Pre-filled value applied when the form first loads and no answer is
+   *  recorded yet for this field (e.g. a partial-resume value takes
+   *  precedence). Currently only honored for `select`. */
+  default?: string;
 }
 
 export interface BrandingInfo {
@@ -153,6 +157,8 @@ export interface SurveyFormInlineProps {
     buttonBg?: string;
     buttonText?: string;
     buttonBorderRadius?: string;
+    /** Text on the final-page submit button. Defaults to "Submit". */
+    submitLabel?: string;
     borderRadius?: string;
   };
   /** Optional source tracking */
