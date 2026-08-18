@@ -24,6 +24,7 @@ import { TestimonialBlockRender } from './TestimonialBlockRender';
 import { StatsBlockRender } from './StatsBlockRender';
 import { RoiCalculatorBlockRender } from './RoiCalculatorBlockRender';
 import { BlogPostsBlockRender } from './BlogPostsBlockRender';
+import { NavigationBlockRender } from './NavigationBlockRender';
 import { FeaturedContentBlockRender } from './FeaturedContentBlockRender';
 import { CardGridBlockRender } from './CardGridBlockRender';
 import { SectionBlockRender } from './SectionBlockRender';
@@ -96,7 +97,7 @@ export function BlockRenderer({ content, siteId, branding }: BlockRendererProps)
   // Full-width block types that should NOT get a constraining container.
   // These handle their own internal widths (hero = full viewport, section = has maxWidth prop, etc.)
   const FULL_WIDTH_TYPES = new Set([
-    'hero', 'hero-slideshow', 'section', 'marquee', 'cta', 'hero-cta', 'site-footer',
+    'hero', 'hero-slideshow', 'section', 'marquee', 'cta', 'hero-cta', 'site-footer', 'navigation',
     // html-embed manages its own width via block.width ('full' | 'contained');
     // keep it out of the default max-w-7xl wrapper so 'full' really is full.
     'html-embed',
@@ -107,7 +108,12 @@ export function BlockRenderer({ content, siteId, branding }: BlockRendererProps)
   const rendered = (
     <div className="block-content" data-site-id={siteId || undefined}>
       {blocks.map((block, idx) => {
-        const isFullWidth = FULL_WIDTH_TYPES.has(block.type);
+        // columns may opt into full-bleed via width:'full' (ColumnsBlock.width)
+        // so a row background can span the viewport. Scoped to columns only:
+        // image/media blocks use width:'full' to mean "fill the container".
+        const isFullWidth =
+          FULL_WIDTH_TYPES.has(block.type) ||
+          (block.type === 'columns' && (block as { width?: string }).width === 'full');
         // Fallback key for legacy data where block.id is missing (e.g. older
         // LLM-authored pitch decks). Write paths now backfill ids, but we
         // can't trust all on-disk content.
@@ -197,6 +203,8 @@ function renderBlock(block: Block, siteId?: number) {
       return <RoiCalculatorBlockRender block={normalized} />;
     case 'blog-posts':
       return <BlogPostsBlockRender block={normalized} />;
+    case 'navigation':
+      return <NavigationBlockRender block={normalized} siteId={siteId} />;
     case 'featured-content':
       return <FeaturedContentBlockRender block={normalized} />;
     case 'card-grid':

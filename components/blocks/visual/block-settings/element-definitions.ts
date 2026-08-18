@@ -1,5 +1,8 @@
 // Per-block element catalog driving the Elements tab in BlockSettings.
 export const ELEMENT_DEFINITIONS: Record<string, { key: string; label: string }[]> = {
+  'navigation': [
+    { key: 'logo', label: 'Logo' },
+  ],
   'hero': [
     { key: 'title', label: 'Title' },
     { key: 'subtitle', label: 'Subtitle' },

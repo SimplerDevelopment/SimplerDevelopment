@@ -46,6 +46,10 @@ export interface SurveyField {
   order: number;
   page?: number;
   mediaUrl?: string;
+  /** Pre-filled value applied when the form first loads and no answer is
+   *  recorded yet for this field (e.g. a partial-resume value takes
+   *  precedence). Currently only honored for `select`. */
+  default?: string;
 }
 
 export interface BrandingInfo {
@@ -131,7 +135,11 @@ export interface SurveyFormInlineProps {
     backgroundColor?: string;
     textColor?: string;
     labelColor?: string;
+    /** Omit the hard-coded "1." / "2." question-number prefix on each label. Default false. */
+    hideQuestionNumbers?: boolean;
     formBg?: string;
+    /** Renders a small decorative bar (156×12) top-left inside the form card, above the first field. Unset = no bar. */
+    formAccentBarColor?: string;
     formBorderColor?: string;
     formBorderWidth?: string;
     formBorderRadius?: string;
@@ -149,6 +157,8 @@ export interface SurveyFormInlineProps {
     buttonBg?: string;
     buttonText?: string;
     buttonBorderRadius?: string;
+    /** Text on the final-page submit button. Defaults to "Submit". */
+    submitLabel?: string;
     borderRadius?: string;
   };
   /** Optional source tracking */

@@ -1,7 +1,7 @@
 'use client';
 
 // SectionsPanel: dispatcher for related block types' settings panels.
-import type { Block, CtaBlock, ServicesGridBlock, StatsBlock, TestimonialBlock, SocialLinksBlock, LogoStripBlock, MetricCardsBlock, FlipCardGridBlock, TimelineBlock, TeamShowcaseBlock, TeamFlipGridBlock, BentoGridBlock, BentoCard, HeroBlock, HeroSlideshowBlock, HeroSlideshowSlide, SiteFooterBlock, HeroCtaBlock } from '@/types/blocks';
+import type { Block, CtaBlock, ServicesGridBlock, StatsBlock, TestimonialBlock, SocialLinksBlock, LogoStripBlock, MetricCardsBlock, FlipCardGridBlock, TimelineBlock, TeamShowcaseBlock, TeamFlipGridBlock, BentoGridBlock, BentoCard, HeroBlock, HeroSlideshowBlock, HeroSlideshowSlide, SiteFooterBlock, HeroCtaBlock, NavigationBlock } from '@/types/blocks';
 import type { Breakpoint } from '@/types/responsive';
 import { useState } from 'react';
 import MediaPicker from '@/components/admin/MediaPicker';
@@ -10,6 +10,7 @@ import { RichTextEditable } from '@/components/blocks/visual/RichTextEditable';
 import { HeroBlockSettings } from './HeroSettings';
 import { HeroSlideshowBlockSettings } from './HeroSlideshowSettings';
 import { SiteFooterBlockSettings } from './SiteFooterSettings';
+import { NavigationBlockSettings } from './NavigationSettings';
 import { TeamShowcaseBlockSettings, TeamFlipGridBlockSettings } from './TeamSettings';
 import { HeroCtaBlockSettings } from './HeroCtaSettings';
 
@@ -53,6 +54,8 @@ export function SectionsPanel({ block, onChange, currentViewport }: PanelProps) 
       return <BentoGridBlockSettings block={block as BentoGridBlock} onChange={onChange as (u: Partial<BentoGridBlock>) => void} />;
     case 'site-footer':
       return <SiteFooterBlockSettings block={block as SiteFooterBlock} onChange={onChange as (u: Partial<SiteFooterBlock>) => void} />;
+    case 'navigation':
+      return <NavigationBlockSettings block={block as NavigationBlock} onChange={onChange as (u: Partial<NavigationBlock>) => void} />;
     default:
       return null;
   }

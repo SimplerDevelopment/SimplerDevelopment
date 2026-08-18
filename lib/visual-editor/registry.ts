@@ -25,6 +25,7 @@ import { TestimonialBlockRender } from '@/components/blocks/render/TestimonialBl
 import { StatsBlockRender } from '@/components/blocks/render/StatsBlockRender';
 import { RoiCalculatorBlockRender } from '@/components/blocks/render/RoiCalculatorBlockRender';
 import { BlogPostsBlockRender } from '@/components/blocks/render/BlogPostsBlockRender';
+import { NavigationBlockRender } from '@/components/blocks/render/NavigationBlockRender';
 import { FeaturedContentBlockRender } from '@/components/blocks/render/FeaturedContentBlockRender';
 import { CardGridBlockRender } from '@/components/blocks/render/CardGridBlockRender';
 import { SectionBlockRender } from '@/components/blocks/render/SectionBlockRender';
@@ -90,6 +91,7 @@ const BUILT_IN: Record<string, BlockComponent> = {
   stats: StatsBlockRender,
   'roi-calculator': RoiCalculatorBlockRender,
   'blog-posts': BlogPostsBlockRender,
+  navigation: NavigationBlockRender,
   'featured-content': FeaturedContentBlockRender,
   'card-grid': CardGridBlockRender,
   section: SectionBlockRender,

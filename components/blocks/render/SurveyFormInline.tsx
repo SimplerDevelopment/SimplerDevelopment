@@ -71,6 +71,21 @@ export function SurveyFormInline({
         }
         setSurvey(surveyJson.data);
 
+        // Seed answers from any field-level `default` (currently only
+        // meaningful for `select`) so a pre-selected option is both visibly
+        // shown AND actually submitted if the visitor never touches it —
+        // matches a real HTML <select>'s browser-native behavior. A
+        // partial-resume below (if any) fully replaces `answers`, so a
+        // returning visitor's saved answers take precedence over defaults.
+        const fieldsWithDefaults: SurveyField[] = surveyJson.data.fields || [];
+        const defaultAnswers: Record<string, unknown> = {};
+        for (const f of fieldsWithDefaults) {
+          if (f.default !== undefined) defaultAnswers[f.id] = f.default;
+        }
+        if (Object.keys(defaultAnswers).length > 0) {
+          setAnswers((prev) => ({ ...defaultAnswers, ...prev }));
+        }
+
         // Best-effort partial-resume. Silently skip on any error — the form
         // still works without resume.
         const sid = sessionIdRef.current;
@@ -399,6 +414,9 @@ export function SurveyFormInline({
   const inputTextColor = so?.inputTextColor || st.inputTextColor || txtColor;
   const hasBranding = !!br || Object.keys(st).length > 0 || !!so;
   const hideCardChrome = so?.hideCardChrome === true;
+  const hideQuestionNumbers = so?.hideQuestionNumbers === true;
+  const formAccentBarColor = so?.formAccentBarColor;
+  const submitLabel = so?.submitLabel || 'Submit';
 
   const cardBg = hideCardChrome
     ? 'transparent'
@@ -572,6 +590,9 @@ export function SurveyFormInline({
         {/* Form */}
         <form onSubmit={handleSubmit} onKeyDown={blockImplicitSubmit}>
           <div className={`bg-white dark:bg-gray-900 shadow-sm border border-gray-200 dark:border-gray-800 ${showPageTitle ? 'border-t-0' : 'rounded-t-2xl'} p-6 space-y-6`} style={cardStyle}>
+            {formAccentBarColor && (
+              <div style={{ width: 156, height: 12, backgroundColor: formAccentBarColor }} />
+            )}
             {/* Email/Name on first page if required */}
             {pageIndex === 0 && survey.requireEmail && (
               <div className="space-y-4 pb-4 border-b border-gray-200 dark:border-gray-700">
@@ -630,7 +651,9 @@ export function SurveyFormInline({
                   ) : (
                     <div className="space-y-1.5">
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300" style={labelStyle}>
-                        <span className="text-gray-400 mr-1.5" style={secondaryColor ? { color: secondaryColor } : undefined}>{qNum}.</span>
+                        {!hideQuestionNumbers && (
+                          <span className="text-gray-400 mr-1.5" style={secondaryColor ? { color: secondaryColor } : undefined}>{qNum}.</span>
+                        )}
                         {resolvePiping(field.label, answers)}
                         {field.required && <span className="text-red-500 ml-0.5">*</span>}
                       </label>
@@ -686,7 +709,7 @@ export function SurveyFormInline({
                   className="px-6 py-2.5 rounded-lg font-medium text-sm transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
                   style={{ backgroundColor: btnBg, color: btnText, ...(btnRadius ? { borderRadius: btnRadius } : {}) }}
                 >
-                  {submitting ? 'Submitting...' : hasInflightUpload ? 'Uploading…' : 'Submit'}
+                  {submitting ? 'Submitting...' : hasInflightUpload ? 'Uploading…' : submitLabel}
                 </button>
               )}
             </div>

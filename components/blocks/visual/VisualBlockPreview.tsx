@@ -23,6 +23,7 @@ import { ServicesGridBlockPreview } from './ServicesGridBlockPreview';
 import { TestimonialBlockPreview } from './TestimonialBlockPreview';
 import { StatsBlockPreview } from './StatsBlockPreview';
 import { BlogPostsBlockPreview } from './BlogPostsBlockPreview';
+import { NavigationBlockPreview } from './NavigationBlockPreview';
 import { CardGridBlockPreview } from './CardGridBlockPreview';
 import { FeaturedContentBlockPreview } from './FeaturedContentBlockPreview';
 import { AccordionBlockPreview } from './AccordionBlockPreview';
@@ -185,6 +186,8 @@ export function VisualBlockPreview({ block, isSelected, onChange, selectedBlockI
       return <StatsBlockPreview block={block} isSelected={isSelected} onChange={onChange} />;
     case 'blog-posts':
       return <BlogPostsBlockPreview block={block} isSelected={isSelected} onChange={onChange} />;
+    case 'navigation':
+      return <NavigationBlockPreview block={block} isSelected={isSelected} onChange={onChange} />;
     case 'card-grid':
       return <CardGridBlockPreview block={block} isSelected={isSelected} onChange={onChange} />;
     case 'featured-content':

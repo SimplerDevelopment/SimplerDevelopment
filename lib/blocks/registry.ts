@@ -2,8 +2,9 @@
  * Canonical list of user-pickable block types.
  *
  * Previously a private `const` in `VisualEditorShell.tsx`. Extracted here so
- * `NestedBlockInserter` (and any future picker) can source the full 47-block
- * roster without importing from a UI component.
+ * `NestedBlockInserter` (and any future picker) can source the full block
+ * roster (see `BUILT_IN_BLOCK_TYPES` below for the current count) without
+ * importing from a UI component.
  *
  * `VisualEditorShell.tsx` imports from here — no functional change there.
  */
@@ -68,6 +69,7 @@ export const BUILT_IN_BLOCK_TYPES: BlockRegistryEntry[] = [
   { type: 'featured-content', label: 'Featured', icon: 'star', category: 'Components', description: 'Featured content' },
   { type: 'services-grid', label: 'Services', icon: 'apps', category: 'Components', description: 'Services grid' },
   { type: 'blog-posts', label: 'Blog Posts', icon: 'article', category: 'Components', description: 'Grid of recent blog posts' },
+  { type: 'navigation', label: 'Navigation', icon: 'menu', category: 'Components', description: 'Site nav bar with dropdowns and mobile menu, sourced live from your site’s nav manager' },
   { type: 'timeline', label: 'Timeline', icon: 'timeline', category: 'Components', description: 'Process or chronology with steps' },
   { type: 'team-showcase', label: 'Team Showcase', icon: 'groups', category: 'Components', description: 'Team members with bios' },
   { type: 'team-flip-grid', label: 'Team Flip Grid', icon: 'flip', category: 'Components', description: 'Team members with flip-to-reveal Q&A cards' },

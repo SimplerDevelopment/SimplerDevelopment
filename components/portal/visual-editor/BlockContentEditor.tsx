@@ -103,6 +103,7 @@ const PANEL_MAP: Record<string, ComponentType<PanelProps>> = {
   'html-embed': SpecialPanel,
   'html-render': SpecialPanel,
   'site-footer': SpecialPanel,
+  navigation: SpecialPanel,
 };
 
 // ─── Block Content Editor ────────────────────────────────────────────────────

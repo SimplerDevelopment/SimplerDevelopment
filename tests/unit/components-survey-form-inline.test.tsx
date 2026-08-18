@@ -222,6 +222,17 @@ describe('SurveyFormInline — initial render', () => {
     expect(submit?.textContent).toContain('Submit');
   });
 
+  it('honors styleOverrides.submitLabel', async () => {
+    const { container } = await renderSurvey(
+      { fields: [makeField()] },
+      {},
+      { styleOverrides: { submitLabel: 'SEND' } },
+    );
+    const submit = container.querySelector('button[type="submit"]');
+    expect(submit?.textContent).toContain('SEND');
+    expect(submit?.textContent).not.toContain('Submit');
+  });
+
   it('renders email + name when requireEmail is true', async () => {
     const { container } = await renderSurvey({ requireEmail: true });
     expect(container.querySelector('input[type="email"]')).toBeTruthy();
@@ -300,6 +311,14 @@ describe('SurveyFormInline — field renderers', () => {
     const sel = container.querySelector('select');
     expect(sel).toBeTruthy();
     expect(sel?.querySelectorAll('option').length).toBe(4); // 3 + placeholder
+  });
+
+  it('pre-selects a select field from field.default', async () => {
+    const { container } = await renderSurvey({
+      fields: [makeField({ id: 'f', type: 'select', label: 'Pick', options: ['A', 'B', 'C'], default: 'B' })],
+    });
+    const sel = container.querySelector('select') as HTMLSelectElement;
+    expect(sel.value).toBe('B');
   });
 
   it('renders radio options', async () => {

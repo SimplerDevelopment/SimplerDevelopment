@@ -186,8 +186,13 @@ export default async function ClientSiteLayout({ children, params }: LayoutProps
   // and the brandingProfile.headingFont value silently has no effect.
   const brandStyles = [
     branding.headingFont && `h1, h2, h3, h4, h5, h6 { font-family: ${cssFontStack(branding.headingFont, 'system-ui, sans-serif')}; }`,
-    branding.linkColor && `a { color: ${branding.linkColor}; }`,
-    branding.linkHoverColor && `a:hover { color: ${branding.linkHoverColor}; }`,
+    // Scoped to CLASSLESS anchors: these rules exist to color prose links,
+    // but a bare `a:hover` (specificity 0,1,1) also beats every styled
+    // button's resting color (.some-btn = 0,1,0) — flipping button text to
+    // the link-hover color on hover (unreadable accent-on-accent, operator-
+    // reported). Component-styled anchors carry classes and own their colors.
+    branding.linkColor && `a:not([class]) { color: ${branding.linkColor}; }`,
+    branding.linkHoverColor && `a:not([class]):hover { color: ${branding.linkHoverColor}; }`,
     branding.buttonStyle?.primaryHoverBg && `.brand-btn-primary:hover { background-color: ${branding.buttonStyle.primaryHoverBg} !important; }`,
     branding.buttonStyle?.secondaryHoverBg && `.brand-btn-secondary:hover { background-color: ${branding.buttonStyle.secondaryHoverBg} !important; }`,
   ].filter(Boolean).join('\n');
@@ -218,7 +223,25 @@ export default async function ClientSiteLayout({ children, params }: LayoutProps
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
         {googleFontsUrl && <DeferredStylesheet href={googleFontsUrl} />}
-        <div className="min-h-screen" style={{ scrollBehavior: 'smooth', fontFamily: cssFontStack(branding.bodyFont, 'system-ui, sans-serif') || 'system-ui, sans-serif' }}>
+        {/* Pin an explicit light background/text color here, same as the
+            standard branch below (same branding fields, same fallbacks).
+            Without this, the div has no background/color of its own, so any
+            block content that doesn't set its own (relying on an inherited
+            "ambient" light page, as most non-hero sections do) falls through
+            to `body`'s `--background`/`--foreground` CSS vars — which flip to
+            near-black/near-white under `prefers-color-scheme: dark` (see
+            app/globals.css) whenever the visitor's OS/browser is in dark mode.
+            The standard layout never has this problem because its wrapper
+            already paints over body with these same explicit colors. */}
+        <div
+          className="min-h-screen"
+          style={{
+            backgroundColor: branding.backgroundColor || '#ffffff',
+            color: branding.textColor || '#1e293b',
+            scrollBehavior: 'smooth',
+            fontFamily: cssFontStack(branding.bodyFont, 'system-ui, sans-serif') || 'system-ui, sans-serif',
+          }}
+        >
           {children}
         </div>
       </>

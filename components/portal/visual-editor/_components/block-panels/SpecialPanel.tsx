@@ -401,6 +401,67 @@ export function SpecialPanel({ block, onUpdate, siteId }: PanelProps) {
           </details>
         </>
       )}
+
+      {/* ── Navigation Block — presentational only; the nav tree itself is
+           managed in the site's Navigation manager, not here. ── */}
+      {block.type === 'navigation' && (
+        <>
+          <p className="text-xs text-muted-foreground">
+            Menu items come from this site&apos;s Navigation manager. This panel only controls how the bar looks.
+          </p>
+          <Field label="Logo URL" value={(b.logoUrl as string) || ''} onChange={(v) => onUpdate({ logoUrl: v || undefined } as Partial<Block>)} />
+          <Field label="Logo Alt" value={(b.logoAlt as string) || ''} onChange={(v) => onUpdate({ logoAlt: v || undefined } as Partial<Block>)} />
+          <Field label="Logo Height" value={(b.logoHeight as string) || ''} onChange={(v) => onUpdate({ logoHeight: v || undefined } as Partial<Block>)} />
+          <CheckboxField label="Sticky" checked={(b.sticky as boolean) ?? true} onChange={(v) => onUpdate({ sticky: v } as Partial<Block>)} />
+          <Field label="Container Max Width" value={(b.containerMaxWidth as string) || ''} onChange={(v) => onUpdate({ containerMaxWidth: v || undefined } as Partial<Block>)} />
+          <Field label="Font Family" value={(b.fontFamily as string) || ''} onChange={(v) => onUpdate({ fontFamily: v || undefined } as Partial<Block>)} />
+          <div className="grid grid-cols-3 gap-2">
+            <ColorField label="Background" value={(b.backgroundColor as string) || ''} onChange={(v) => onUpdate({ backgroundColor: v || undefined } as Partial<Block>)} />
+            <ColorField label="Link" value={(b.linkColor as string) || ''} onChange={(v) => onUpdate({ linkColor: v || undefined } as Partial<Block>)} />
+            <ColorField label="Link Hover" value={(b.linkHoverColor as string) || ''} onChange={(v) => onUpdate({ linkHoverColor: v || undefined } as Partial<Block>)} />
+          </div>
+          <Field label="Background Image (CSS)" value={(b.backgroundImage as string) || ''} onChange={(v) => onUpdate({ backgroundImage: v || undefined } as Partial<Block>)} />
+          <details className="pt-2 border-t border-border mt-2" open>
+            <summary className="flex items-center gap-1.5 cursor-pointer text-xs font-medium text-muted-foreground hover:text-foreground select-none py-1">
+              <span className="material-icons text-sm">format_size</span>
+              Link Typography
+            </summary>
+            <div className="pt-3 space-y-2">
+              <p className="text-xs text-muted-foreground">Applies to top-level menu link labels only — not the CTA button.</p>
+              <div className="grid grid-cols-3 gap-2">
+                <Field label="Font Size" value={(b.linkFontSize as string) || ''} onChange={(v) => onUpdate({ linkFontSize: v || undefined } as Partial<Block>)} />
+                <Field label="Font Style" value={(b.linkFontStyle as string) || ''} onChange={(v) => onUpdate({ linkFontStyle: v || undefined } as Partial<Block>)} />
+                <Field label="Letter Spacing" value={(b.linkLetterSpacing as string) || ''} onChange={(v) => onUpdate({ linkLetterSpacing: v || undefined } as Partial<Block>)} />
+              </div>
+            </div>
+          </details>
+          <details className="pt-2 border-t border-border mt-2" open>
+            <summary className="flex items-center gap-1.5 cursor-pointer text-xs font-medium text-muted-foreground hover:text-foreground select-none py-1">
+              <span className="material-icons text-sm">smart_button</span>
+              CTA Button
+            </summary>
+            <div className="pt-3 space-y-2">
+              <p className="text-xs text-muted-foreground">Renders for any top-level menu item marked as a button in the Navigation manager.</p>
+              <div className="grid grid-cols-3 gap-2">
+                <ColorField label="Background" value={(b.ctaBackgroundColor as string) || ''} onChange={(v) => onUpdate({ ctaBackgroundColor: v || undefined } as Partial<Block>)} />
+                <ColorField label="Text" value={(b.ctaTextColor as string) || ''} onChange={(v) => onUpdate({ ctaTextColor: v || undefined } as Partial<Block>)} />
+                <ColorField label="Hover Background" value={(b.ctaHoverBackgroundColor as string) || ''} onChange={(v) => onUpdate({ ctaHoverBackgroundColor: v || undefined } as Partial<Block>)} />
+              </div>
+              <Field label="Border Radius" value={(b.ctaBorderRadius as string) || ''} onChange={(v) => onUpdate({ ctaBorderRadius: v || undefined } as Partial<Block>)} />
+            </div>
+          </details>
+          <details className="pt-2 border-t border-border mt-2">
+            <summary className="flex items-center gap-1.5 cursor-pointer text-xs font-medium text-muted-foreground hover:text-foreground select-none py-1">
+              <span className="material-icons text-sm">arrow_drop_down_circle</span>
+              Dropdown Panel
+            </summary>
+            <div className="pt-3 grid grid-cols-2 gap-2">
+              <ColorField label="Background" value={(b.dropdownBackgroundColor as string) || ''} onChange={(v) => onUpdate({ dropdownBackgroundColor: v || undefined } as Partial<Block>)} />
+              <ColorField label="Link" value={(b.dropdownLinkColor as string) || ''} onChange={(v) => onUpdate({ dropdownLinkColor: v || undefined } as Partial<Block>)} />
+            </div>
+          </details>
+        </>
+      )}
     </>
   );
 }
