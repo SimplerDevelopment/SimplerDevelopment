@@ -12,6 +12,8 @@ import { AbGoalTracker } from '@/components/blocks/AbGoalTracker';
 import { getBrandingByProfileId, getBrandingByClientId } from '@/lib/branding';
 import type { Metadata } from 'next';
 import PitchDeckPresentation from '@/app/sites/[domain]/slides/[slug]/PitchDeckPresentation';
+import { resolveApprovalContext } from '@/lib/mcp/approval-mode';
+import { ApprovalBar } from '@/components/approvals/ApprovalBar';
 import type { SurveyDataForDeck } from '@/app/sites/[domain]/slides/[slug]/PitchDeckPresentation';
 
 /** Convert v1 slides on read if needed */
@@ -146,17 +148,34 @@ export default async function PublicPitchDeckPage({ params, searchParams }: Page
   const { preview } = await searchParams;
   const isPreview = preview === '1';
 
-  // Authenticated preview path — used by the portal's "Preview" button for
-  // draft decks. Still scoped to the logged-in client so one tenant can't
-  // preview another tenant's deck.
+  // Draft-preview path. Two principals may reach a draft deck, and both are
+  // scoped to the deck's own clientId so neither can cross tenants:
+  //
+  //   - a logged-in portal user (the portal's "Preview" button), or
+  //   - an external reviewer holding an approval cookie for THIS deck (PUX-061),
+  //     who sees the real presentation with the approval bar overlaid instead of
+  //     the stacked BlockRenderer cards the old approval page drew.
+  //
+  // No A/B here: this path never calls applyAbToDeckSlides, so a reviewer is
+  // never enrolled in an experiment and no goal tracker is mounted (PUX-067).
   if (isPreview) {
-    const session = await auth();
-    if (!session?.user?.id) notFound();
-    const client = await getPortalClient(parseInt(session.user.id, 10));
-    if (!client) notFound();
-
     const deck = await getDeck(slug, true);
-    if (!deck || deck.clientId !== client.id) notFound();
+    if (!deck) notFound();
+
+    const approval = await resolveApprovalContext('pitch_deck', deck.id);
+    // resolveApprovalContext proves "a live link for this deck exists"; it does
+    // NOT prove the deck belongs to that link's tenant. That check is here.
+    const viaApproval = !!approval && approval.clientId === deck.clientId;
+
+    let authorized = viaApproval;
+    if (!authorized) {
+      const session = await auth();
+      if (!session?.user?.id) notFound();
+      const client = await getPortalClient(parseInt(session.user.id, 10));
+      if (!client || deck.clientId !== client.id) notFound();
+      authorized = true;
+    }
+    if (!authorized) notFound();
 
     const theme = (deck.theme || {}) as PitchDeckTheme;
     const slides = resolveSlides(deck.slides, theme);
@@ -164,7 +183,26 @@ export default async function PublicPitchDeckPage({ params, searchParams }: Page
     const branding = deck.brandingProfileId
       ? await getBrandingByProfileId(deck.brandingProfileId)
       : await getBrandingByClientId(deck.clientId);
-    return <PitchDeckPresentation key={deck.id} slides={slides} theme={theme} title={deck.title} isDraft={deck.status !== 'published'} surveys={surveyData} branding={branding} />;
+    return (
+      <>
+        <PitchDeckPresentation key={deck.id} slides={slides} theme={theme} title={deck.title} isDraft={deck.status !== 'published'} surveys={surveyData} branding={branding} />
+        {viaApproval && approval && (
+          // auto-hide: a deck is a fixed 16:9 stage, so the bar gets out of the
+          // way and returns on any input — including the arrow keys the reviewer
+          // is already pressing to advance slides.
+          <ApprovalBar
+            entityLabel="Pitch deck"
+            title={deck.title}
+            summary={approval.summary}
+            status={approval.status}
+            expiresAt={approval.expiresAt ? approval.expiresAt.toISOString() : null}
+            reviewerName={approval.reviewerName}
+            reviewedAt={approval.reviewedAt ? approval.reviewedAt.toISOString() : null}
+            variant="auto-hide"
+          />
+        )}
+      </>
+    );
   }
 
   // Non-preview: the main-app host never renders published decks — it
