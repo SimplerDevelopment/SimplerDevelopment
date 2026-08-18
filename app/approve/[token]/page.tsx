@@ -45,6 +45,16 @@ interface PageProps {
   searchParams: Promise<{ fallback?: string }>;
 }
 
+/**
+ * Approval links must never reach a search index (PUX-079). robots.txt already
+ * disallows /approve/, but a Disallow only stops well-behaved crawlers from
+ * FETCHING — a URL can still be indexed from an inbound link, which would put
+ * the token itself in search results. This states it on the page too.
+ */
+export const metadata = {
+  robots: { index: false, follow: false, nocache: true },
+};
+
 export default async function ApprovalPage({ params, searchParams }: PageProps) {
   const { token } = await params;
   const { fallback } = await searchParams;

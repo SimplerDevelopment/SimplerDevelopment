@@ -73,6 +73,12 @@ async function loadSlug(
   }
 }
 
+/** noindex every response from the approval session hop (PUX-079). */
+function noIndex(res: NextResponse): NextResponse {
+  res.headers.set('X-Robots-Tag', 'noindex, nofollow, noarchive, nosnippet');
+  return res;
+}
+
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ token: string }> },
@@ -80,23 +86,24 @@ export async function GET(
   const { token } = await params;
   const link = await lookupApprovalLink(token);
 
-  // Anything not live goes back to the approval page, which owns the terminal
-  // states (expired, already decided, entity missing).
+  // Nothing in the approval flow may be indexed (PUX-079). The redirect itself
+  // is stamped as well as the pages, so a crawler that ignores robots.txt still
+  // gets an explicit directive on the hop that mints the credential.
   // `fallback=1` tells the page not to bounce back here, so a surface that
   // resolves on one side but not the other cannot ping-pong.
   if (!link || link.status !== 'pending' || !link.entityId) {
-    return NextResponse.redirect(new URL(`/approve/${token}?fallback=1`, req.url));
+    return noIndex(NextResponse.redirect(new URL(`/approve/${token}?fallback=1`, req.url)));
   }
 
   const slug = await loadSlug(link.entityType, link.entityId, link.clientId);
   const surface = resolveApprovalSurface(link, slug);
   if (!surface) {
-    return NextResponse.redirect(new URL(`/approve/${token}?fallback=1`, req.url));
+    return noIndex(NextResponse.redirect(new URL(`/approve/${token}?fallback=1`, req.url)));
   }
 
   // Same-origin by construction: surface.path is always an app-origin path, so
   // the cookie we are about to set travels with the redirect.
-  const res = NextResponse.redirect(new URL(surface.path, req.url));
+  const res = noIndex(NextResponse.redirect(new URL(surface.path, req.url)));
   res.cookies.set(APPROVAL_COOKIE, signApprovalCookie(token), approvalCookieOptions());
   return res;
 }

@@ -189,3 +189,46 @@ export async function resolveApprovalLink(): Promise<ApprovalLinkRow | null> {
   if (!token) return null;
   return lookupApprovalLink(token);
 }
+
+/**
+ * Page metadata that keeps an approval-mode render out of search results
+ * (PUX-079).
+ *
+ * `/s/<slug>`, `/book/<slug>` and `/pitch-deck/<slug>` are URLs a tenant WANTS
+ * indexed — but never while they are showing an unpublished draft to a reviewer.
+ * robots.txt cannot express "this URL, only in this state", so the surfaces
+ * answer it in their own `generateMetadata`, which Next merges OVER the app's
+ * default. One authoritative <meta robots> results, rather than a second tag
+ * contradicting the first and relying on crawlers preferring the restrictive one.
+ *
+ * Keyed on cookie presence alone — no entity lookup, so ordinary public traffic
+ * pays nothing beyond a cookie read. Over-applying noindex when a reviewer's
+ * browser holds a cookie for some *other* artifact is deliberate: crawlers never
+ * carry the cookie, so the only cost is a reviewer's own browser seeing noindex
+ * on a public page, and the failure direction is the safe one.
+ */
+export async function approvalNoIndexMetadata(): Promise<{
+  robots?: {
+    index: false;
+    follow: false;
+    nocache: true;
+    noarchive: true;
+    nosnippet: true;
+    noimageindex: true;
+  };
+}> {
+  const token = await readApprovalToken();
+  if (!token) return {};
+  return {
+    robots: {
+      index: false,
+      follow: false,
+      // noindex alone stops the listing; the rest stop a draft leaking through
+      // a cached copy, a search snippet, or image search while it is in review.
+      nocache: true,
+      noarchive: true,
+      nosnippet: true,
+      noimageindex: true,
+    },
+  };
+}

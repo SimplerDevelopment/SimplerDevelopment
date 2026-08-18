@@ -16,12 +16,21 @@
 import { db } from '@/lib/db';
 import { bookingPages } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
-import { resolveApprovalContext } from '@/lib/mcp/approval-mode';
+import { resolveApprovalContext, approvalNoIndexMetadata } from '@/lib/mcp/approval-mode';
 import { ApprovalBar } from '@/components/approvals/ApprovalBar';
 import { BookingPageClient } from './BookingPageClient';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
+}
+
+/**
+ * Keeps an approval-mode render out of search results (PUX-079). Public visits
+ * are unaffected — this returns nothing at all without an approval cookie, so
+ * the page keeps whatever the app's default metadata says.
+ */
+export async function generateMetadata() {
+  return approvalNoIndexMetadata();
 }
 
 export default async function PublicBookingPage({ params }: PageProps) {

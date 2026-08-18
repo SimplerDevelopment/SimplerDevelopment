@@ -12,7 +12,7 @@ import { AbGoalTracker } from '@/components/blocks/AbGoalTracker';
 import { getBrandingByProfileId, getBrandingByClientId } from '@/lib/branding';
 import type { Metadata } from 'next';
 import PitchDeckPresentation from '@/app/sites/[domain]/slides/[slug]/PitchDeckPresentation';
-import { resolveApprovalContext } from '@/lib/mcp/approval-mode';
+import { resolveApprovalContext, approvalNoIndexMetadata } from '@/lib/mcp/approval-mode';
 import { ApprovalBar } from '@/components/approvals/ApprovalBar';
 import type { SurveyDataForDeck } from '@/app/sites/[domain]/slides/[slug]/PitchDeckPresentation';
 
@@ -87,6 +87,11 @@ export async function generateMetadata({ params, searchParams }: PageProps): Pro
   const { slug } = await params;
   const { preview } = await searchParams;
   const isPreview = preview === '1';
+
+  // A deck being reviewed under an approval link must not be indexed (PUX-079).
+  // Returned early so it wins regardless of which branch below would have run.
+  const approvalRobots = await approvalNoIndexMetadata();
+  if (approvalRobots.robots) return { title: 'Draft review', ...approvalRobots };
 
   // On the main app host, non-preview requests for a published deck either get
   // redirected to the tenant subdomain (prod) or rendered inline (local dev).
