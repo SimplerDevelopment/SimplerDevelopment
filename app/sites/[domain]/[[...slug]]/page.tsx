@@ -259,8 +259,12 @@ export default async function ClientSitePage({ params, searchParams }: PageProps
     return <ProductPage siteId={site.id} productSlug={productSlug} />;
   }
 
-  // Blog listing
-  if (pageSlug === 'blog') {
+  // Blog listing. A site-authored CMS page with slug 'blog' takes precedence
+  // over this built-in listing — falling through to the regular-page path so
+  // the site fully owns its blog index design (post-type template wrap
+  // included). Required on customLayout sites, where the built-in listing
+  // would otherwise render with no nav/footer chrome at all.
+  if (pageSlug === 'blog' && !(await getClientPage(site.id, 'blog', preview))) {
     const allBlogPosts = await getClientBlogPosts(site.id);
 
     // Server-side pagination. Page size 12; ?page=N selects the slice. Sites with
