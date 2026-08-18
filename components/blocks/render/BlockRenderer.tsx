@@ -108,7 +108,12 @@ export function BlockRenderer({ content, siteId, branding }: BlockRendererProps)
   const rendered = (
     <div className="block-content" data-site-id={siteId || undefined}>
       {blocks.map((block, idx) => {
-        const isFullWidth = FULL_WIDTH_TYPES.has(block.type);
+        // columns may opt into full-bleed via width:'full' (ColumnsBlock.width)
+        // so a row background can span the viewport. Scoped to columns only:
+        // image/media blocks use width:'full' to mean "fill the container".
+        const isFullWidth =
+          FULL_WIDTH_TYPES.has(block.type) ||
+          (block.type === 'columns' && (block as { width?: string }).width === 'full');
         // Fallback key for legacy data where block.id is missing (e.g. older
         // LLM-authored pitch decks). Write paths now backfill ids, but we
         // can't trust all on-disk content.

@@ -16,6 +16,10 @@ export interface DividerBlock extends BaseBlock {
 export interface ColumnsBlock extends BaseBlock {
   type: 'columns';
   columns: Column[];
+  /** 'full' opts this row out of the renderer's max-w-7xl wrapper so a
+   * style.backgroundColor can bleed edge-to-edge (same semantics as
+   * html-render's width). Unset/'contained' keeps the existing behavior. */
+  width?: 'full' | 'contained';
   gap?: 'sm' | 'md' | 'lg';
   stackOnMobile?: boolean; // Default: true
   stackOnTablet?: boolean; // Default: false
