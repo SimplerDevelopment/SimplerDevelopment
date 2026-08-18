@@ -15,6 +15,7 @@ import { upsertContactByEmail } from '@/lib/crm/contacts';
 import { checkRateLimit, getClientIp } from '@/lib/security/rate-limit';
 import { cookies } from 'next/headers';
 import { ATTRIBUTION_COOKIE, parseAttributionCookie } from '@/lib/attribution';
+import { resolveApprovalContext } from '@/lib/mcp/approval-mode';
 
 // CORS — public survey submit needs to accept POST from sandboxed iframes
 // (their effective origin is `null`, so `*` matches). The endpoint is
@@ -47,6 +48,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ slug: s
   const [survey] = await db
     .select({
       id: surveys.id,
+      // Needed for the approval-mode tenancy check below — a live approval link
+      // proves nothing about which tenant owns this row.
+      clientId: surveys.clientId,
       title: surveys.title,
       description: surveys.description,
       fields: surveys.fields,
@@ -69,9 +73,27 @@ export async function GET(_req: Request, { params }: { params: Promise<{ slug: s
     .where(eq(surveys.slug, slug));
 
   if (!survey) return corsJson({ success: false, message: 'Survey not found' }, { status: 404 });
-  if (survey.status !== 'active') return corsJson({ success: false, message: 'Survey is not active' }, { status: 403 });
-  if (survey.closesAt && new Date(survey.closesAt) < new Date()) return corsJson({ success: false, message: 'Survey is closed' }, { status: 403 });
-  if (survey.maxResponses && survey.responseCount >= survey.maxResponses) return corsJson({ success: false, message: 'Survey has reached maximum responses' }, { status: 403 });
+
+  // A reviewer holding a live approval link for THIS survey sees the draft
+  // exactly as it will publish (PUX-060/061). Until now a draft survey could not
+  // be rendered at all — GET hard-403'd anything not `active` — which is why the
+  // approval page had to hand-roll a field list that showed no branching.
+  //
+  // All three gates skipped here answer "is this accepting public responses?",
+  // not "may this content be seen": draft status, past close date, response cap
+  // reached. A reviewer is not responding — writes are refused centrally by the
+  // middleware gate (PUX-067) — so none of them apply.
+  //
+  // Tenancy is re-checked because resolveApprovalContext proves only that a live
+  // link exists for this survey id, never which client owns the row.
+  const approval = await resolveApprovalContext('survey', survey.id);
+  const viaApproval = !!approval && approval.clientId === survey.clientId;
+
+  if (!viaApproval) {
+    if (survey.status !== 'active') return corsJson({ success: false, message: 'Survey is not active' }, { status: 403 });
+    if (survey.closesAt && new Date(survey.closesAt) < new Date()) return corsJson({ success: false, message: 'Survey is closed' }, { status: 403 });
+    if (survey.maxResponses && survey.responseCount >= survey.maxResponses) return corsJson({ success: false, message: 'Survey has reached maximum responses' }, { status: 403 });
+  }
 
   const branding = await getBrandingBySurveySlug(slug);
   const cssVars = branding ? brandingToCssVars(branding) : undefined;
@@ -147,6 +169,25 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
 
   const [survey] = await db.select().from(surveys).where(eq(surveys.slug, slug));
   if (!survey) return corsJson({ success: false, message: 'Survey not found' }, { status: 404 });
+
+  // Approval-mode shim (PUX-067). A reviewer walks the whole form — branching,
+  // page jumps, submit — and reaches the thank-you screen, but NOTHING is
+  // written: no response row, no CRM contact or deal, no webhooks, no follow-up
+  // email, and the response cap is untouched.
+  //
+  // This must stay above every write below it. It is the cosmetic half of the
+  // contract; the middleware gate is the half that actually protects the data,
+  // and it would block this request outright if the path were not shimmed.
+  const submitApproval = await resolveApprovalContext('survey', survey.id);
+  if (submitApproval && submitApproval.clientId === survey.clientId) {
+    return corsJson({
+      success: true,
+      approvalPreview: true,
+      message: 'Draft preview — this response was not saved.',
+      data: { id: null, score: null, recommendation: null },
+    });
+  }
+
   if (survey.status !== 'active') return corsJson({ success: false, message: 'Survey is not active' }, { status: 403 });
   if (survey.closesAt && new Date(survey.closesAt) < new Date()) return corsJson({ success: false, message: 'Survey is closed' }, { status: 403 });
   if (survey.maxResponses && survey.responseCount >= survey.maxResponses) return corsJson({ success: false, message: 'Survey has reached maximum responses' }, { status: 403 });

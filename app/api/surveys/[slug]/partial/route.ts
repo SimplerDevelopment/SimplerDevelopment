@@ -19,6 +19,7 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { surveys, surveyPartialResponses } from '@/lib/db/schema';
 import { and, eq } from 'drizzle-orm';
+import { resolveApprovalContext } from '@/lib/mcp/approval-mode';
 import { headers } from 'next/headers';
 
 const CORS_HEADERS = {
@@ -52,7 +53,7 @@ function validateSessionId(raw: unknown): string | null {
 
 async function loadActiveSurvey(slug: string) {
   const [survey] = await db
-    .select({ id: surveys.id, status: surveys.status })
+    .select({ id: surveys.id, status: surveys.status, clientId: surveys.clientId })
     .from(surveys)
     .where(eq(surveys.slug, slug))
     .limit(1);
@@ -126,6 +127,16 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
 
   const survey = await loadActiveSurvey(slug);
   if (!survey) return corsJson({ success: false, message: 'Survey not found' }, { status: 404 });
+
+  // Approval-mode shim (PUX-067): a reviewer typing through a draft form must
+  // not leave partial-response rows behind. Reuses the lookup above rather than
+  // issuing its own query — this is a hot public path and must not pay for a
+  // second round-trip on every keystroke-triggered save.
+  const approval = await resolveApprovalContext('survey', survey.id);
+  if (approval && approval.clientId === survey.clientId) {
+    return corsJson({ success: true, approvalPreview: true, data: null });
+  }
+
   // Closed/draft surveys shouldn't accumulate partials — the visitor can't
   // submit anyway, so saving progress is wasted writes.
   if (survey.status !== 'active') {

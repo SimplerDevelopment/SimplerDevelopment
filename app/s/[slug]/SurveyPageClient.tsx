@@ -3,7 +3,7 @@
 import { useParams, useSearchParams } from 'next/navigation';
 import { SurveyFormInline } from '@/components/blocks/render/SurveyFormInline';
 
-export default function PublicSurveyPage() {
+export function SurveyPageClient() {
   const { slug } = useParams<{ slug: string }>();
   const searchParams = useSearchParams();
   const isEmbed = searchParams.get('embed') === '1';
