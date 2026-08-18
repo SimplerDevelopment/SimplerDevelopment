@@ -1,11 +1,9 @@
 'use client';
 
-import { use } from 'react';
 import { useState, useEffect } from 'react';
 import { BookingFormInline } from '@/components/blocks/render/BookingFormInline';
 
-export default function PublicBookingPage({ params }: { params: Promise<{ slug: string }> }) {
-  const { slug } = use(params);
+export function BookingPageClient({ slug }: { slug: string }) {
 
   const [embedFlags, setEmbedFlags] = useState({ hideTitle: false, hideDescription: false, hideSteps: false });
   useEffect(() => {

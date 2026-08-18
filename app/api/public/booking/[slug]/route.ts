@@ -4,12 +4,17 @@ import { bookingPages, bookingPageMembers, users } from '@/lib/db/schema';
 import type { BookingPageStyling } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { getBrandingByBookingPageSlug, brandingToCssVars } from '@/lib/branding';
+import { resolveApprovalContext } from '@/lib/mcp/approval-mode';
 
 export async function GET(_req: Request, { params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
 
   const [page] = await db.select({
     id: bookingPages.id,
+    // Selected for the approval-mode checks below; both are stripped from the
+    // response body before it leaves (see the returned object).
+    clientId: bookingPages.clientId,
+    active: bookingPages.active,
     title: bookingPages.title,
     slug: bookingPages.slug,
     description: bookingPages.description,
@@ -38,10 +43,24 @@ export async function GET(_req: Request, { params }: { params: Promise<{ slug: s
     // internal load-balancing concern. assignedUserId likewise stays
     // server-side; the widget never displays which staff was picked.
   }).from(bookingPages)
-    .where(and(eq(bookingPages.slug, slug), eq(bookingPages.active, true)))
+    .where(eq(bookingPages.slug, slug))
     .limit(1);
 
   if (!page) return NextResponse.json({ success: false, message: 'Booking page not found' }, { status: 404 });
+
+  // An inactive booking page is invisible to the public — approving one is what
+  // flips active=true. A reviewer holding a live approval link for THIS page
+  // sees it as it will publish (PUX-060/070); everyone else still gets the
+  // active-only rule that used to live in the WHERE clause above.
+  //
+  // Reservations remain impossible either way: every booking write path is
+  // refused by the middleware gate while an approval cookie is present, and
+  // none of them is shimmed (PUX-067/070).
+  const approval = await resolveApprovalContext('booking_page', page.id);
+  const viaApproval = !!approval && approval.clientId === page.clientId;
+  if (!page.active && !viaApproval) {
+    return NextResponse.json({ success: false, message: 'Booking page not found' }, { status: 404 });
+  }
 
   const branding = await getBrandingByBookingPageSlug(slug);
   const styling = (page.styling || {}) as BookingPageStyling;
@@ -94,6 +113,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ slug: s
     data: {
       ...page,
       styling: undefined, // don't leak raw styling to client
+      // Selected only for the approval-mode checks above — internal, never public.
+      clientId: undefined,
+      active: undefined,
       branding: mergedBranding,
       cssVars,
       hideTitle: styling.hideTitle || false,

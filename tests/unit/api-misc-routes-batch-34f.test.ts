@@ -943,6 +943,10 @@ describe('GET /api/public/booking/[slug]', () => {
         allowStaffSelection: false,
         bookingType: 'one-on-one',
         groupCapacity: null,
+        // The booking GET route now reads `active` in JS — it used to be a SQL
+        // WHERE filter, and moving it made the column part of the row shape the
+        // handler consumes. Production behaviour is unchanged.
+        active: true,
       },
     ]);
 
@@ -1019,6 +1023,10 @@ describe('GET /api/public/booking/[slug]', () => {
         allowStaffSelection: false,
         bookingType: 'one-on-one',
         groupCapacity: null,
+        // The booking GET route now reads `active` in JS — it used to be a SQL
+        // WHERE filter, and moving it made the column part of the row shape the
+        // handler consumes. Production behaviour is unchanged.
+        active: true,
       },
     ]);
     getBrandingByBookingPageSlugMock.mockResolvedValue({
@@ -1082,6 +1090,10 @@ describe('GET /api/public/booking/[slug]', () => {
         allowStaffSelection: false,
         bookingType: 'one-on-one',
         groupCapacity: null,
+        // The booking GET route now reads `active` in JS — it used to be a SQL
+        // WHERE filter, and moving it made the column part of the row shape the
+        // handler consumes. Production behaviour is unchanged.
+        active: true,
       },
     ]);
     getBrandingByBookingPageSlugMock.mockResolvedValue(null);
@@ -1113,6 +1125,7 @@ describe('GET /api/public/booking/[slug]', () => {
         styling: {},
         color: null,
         allowStaffSelection: false,
+        active: true,
       },
     ]);
     getBrandingByBookingPageSlugMock.mockResolvedValue(null);
@@ -1134,6 +1147,7 @@ describe('GET /api/public/booking/[slug]', () => {
         styling: {},
         color: null,
         allowStaffSelection: false,
+        active: true,
       },
     ]);
     getBrandingByBookingPageSlugMock.mockResolvedValue({
@@ -1161,6 +1175,7 @@ describe('GET /api/public/booking/[slug]', () => {
         styling: {},
         color: null,
         allowStaffSelection: true,
+        active: true,
       },
     ]);
     getBrandingByBookingPageSlugMock.mockResolvedValue(null);
