@@ -64,6 +64,12 @@ export function TemplateLibrary({ onInsert, onClose, endpoint = '/api/block-temp
       ...block,
       id: `block-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       order: index,
+      // Stamp the TOP-LEVEL block only — one usage row per insertion site,
+      // not per descendant. lib/sites/sync-template-usages.ts reads this on
+      // post save to keep block_template_usages in sync. Nested children
+      // below are rebuilt via plain spread (`...b`) with no templateId, so
+      // they stay unstamped.
+      templateId: template.id,
       // Recursively generate IDs for nested blocks
       ...('columns' in block && block.columns
         ? {

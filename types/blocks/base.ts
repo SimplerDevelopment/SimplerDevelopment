@@ -112,6 +112,18 @@ export interface BaseBlock {
   responsiveStyle?: Partial<Record<Breakpoint, Partial<BlockStyle>>>;
   /** When true, block cannot be deleted in the editor */
   required?: boolean;
+  /**
+   * Set to a `block_templates.id` when this block was inserted from a block
+   * template (see `components/blocks/TemplateLibrary.tsx` `handleInsert`,
+   * which stamps it on the TOP-LEVEL inserted block only — nested children
+   * are left unstamped, one usage row per insertion site). On post save,
+   * `lib/sites/sync-template-usages.ts` scans the tree for blocks carrying
+   * this field and keeps `block_template_usages` in sync so the template
+   * deletion guard (`lib/sites/publish-block-template.ts`,
+   * `DELETE /api/block-templates/[id]`) can see real usage counts. Absent on
+   * hand-authored blocks.
+   */
+  templateId?: number;
 }
 
 /**

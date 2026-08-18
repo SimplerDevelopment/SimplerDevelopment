@@ -7,6 +7,7 @@ import { and, desc, eq, inArray } from 'drizzle-orm';
 import { resolveClientSite } from '@/lib/portal-client';
 import { revalidateClientSite, clientSiteUrl } from '@/lib/revalidate-client-site';
 import { assertBlocksAllowedForRole, BlockGateError } from '@/lib/security/block-allowlist';
+import { syncTemplateUsages } from '@/lib/sites/sync-template-usages';
 
 // How recent the previous revision needs to be for an autosave write to be
 // considered redundant. Combined with the content-hash check below, this keeps
@@ -120,6 +121,16 @@ export async function PUT(
     .returning();
 
   if (!post) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
+
+  // Keep block_template_usages in sync with the content that was just
+  // persisted (the template-deletion guards read this table — see
+  // lib/sites/sync-template-usages.ts for the full contract). Best-effort:
+  // a sync failure shouldn't fail a post save that already succeeded.
+  if (content !== undefined) {
+    await syncTemplateUsages(pid, content).catch((err) => {
+      console.error('[posts PUT] block_template_usages sync failed:', err);
+    });
+  }
 
   // Create revision snapshot.
   //

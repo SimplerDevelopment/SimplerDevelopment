@@ -6,7 +6,7 @@ The block registry + supporting schemas for the visual editor. Blocks are the JS
 
 ## What lives here
 
-- `registry.ts` — `BUILT_IN_BLOCK_TYPES` (currently 47 entries). The canonical list of user-pickable block types. Each entry has `{ type, label, icon, category, description, emailOnly? }`.
+- `registry.ts` — `BUILT_IN_BLOCK_TYPES` (see the array for the current count — don't hardcode it here, it drifts). The canonical list of user-pickable block types. Each entry has `{ type, label, icon, category, description, emailOnly? }`.
 - `defaults.ts` — default field values when a block is inserted.
 - `html-render-*.ts` — the `html-render` block's template/loops/schema/validation (Mustache-style author-friendly templates that render server-side).
 - `prefetch-embeds.ts` — link/embed metadata prefetch.
@@ -23,6 +23,8 @@ The block registry + supporting schemas for the visual editor. Blocks are the JS
 5. `/api/blocks` metadata
 
 The `simplerdev-block-type` skill produces all five together. **Use it. Do not hand-roll** — every block we have ever hand-rolled has missed at least one of the five.
+
+DATA-DRIVEN blocks (no authored content of their own — `navigation` is the pattern) fetch client-side via a server action instead of reading fields off the block JSON, so edits elsewhere (e.g. the nav manager) propagate without a republish. See `components/blocks/render/NavigationBlockRender.tsx`.
 
 ## Material Icons (not emojis) — but in the `icon:` field, use the icon NAME ('title', 'image', etc.), not the rendered glyph.
 

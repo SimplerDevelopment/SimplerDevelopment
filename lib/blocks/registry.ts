@@ -2,8 +2,9 @@
  * Canonical list of user-pickable block types.
  *
  * Previously a private `const` in `VisualEditorShell.tsx`. Extracted here so
- * `NestedBlockInserter` (and any future picker) can source the full 47-block
- * roster without importing from a UI component.
+ * `NestedBlockInserter` (and any future picker) can source the full block
+ * roster (see `BUILT_IN_BLOCK_TYPES` below for the current count) without
+ * importing from a UI component.
  *
  * `VisualEditorShell.tsx` imports from here — no functional change there.
  */

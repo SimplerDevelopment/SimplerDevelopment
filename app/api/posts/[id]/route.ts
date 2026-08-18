@@ -5,6 +5,7 @@ import { posts, postCategories, postTags, postCustomFieldValues, customFields, p
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { revalidateBlogPostsCache } from '@/lib/actions/blog';
+import { syncTemplateUsages } from '@/lib/sites/sync-template-usages';
 
 const updatePostSchema = z.object({
   title: z.string().min(1).optional(),
@@ -119,6 +120,15 @@ export async function PUT(
         { success: false, error: 'Post not found' },
         { status: 404 }
       );
+    }
+
+    // Keep block_template_usages in sync — the admin editor also hosts
+    // TemplateLibrary, so template-stamped blocks arrive through this PUT too
+    // (mirrors the portal posts PUT; best-effort, never fails a saved post).
+    if (postData.content !== undefined) {
+      await syncTemplateUsages(postId, postData.content).catch((err) => {
+        console.error('[admin posts PUT] block_template_usages sync failed:', err);
+      });
     }
 
     if (categoryIds !== undefined) {
