@@ -186,8 +186,13 @@ export default async function ClientSiteLayout({ children, params }: LayoutProps
   // and the brandingProfile.headingFont value silently has no effect.
   const brandStyles = [
     branding.headingFont && `h1, h2, h3, h4, h5, h6 { font-family: ${cssFontStack(branding.headingFont, 'system-ui, sans-serif')}; }`,
-    branding.linkColor && `a { color: ${branding.linkColor}; }`,
-    branding.linkHoverColor && `a:hover { color: ${branding.linkHoverColor}; }`,
+    // Scoped to CLASSLESS anchors: these rules exist to color prose links,
+    // but a bare `a:hover` (specificity 0,1,1) also beats every styled
+    // button's resting color (.some-btn = 0,1,0) — flipping button text to
+    // the link-hover color on hover (unreadable accent-on-accent, operator-
+    // reported). Component-styled anchors carry classes and own their colors.
+    branding.linkColor && `a:not([class]) { color: ${branding.linkColor}; }`,
+    branding.linkHoverColor && `a:not([class]):hover { color: ${branding.linkHoverColor}; }`,
     branding.buttonStyle?.primaryHoverBg && `.brand-btn-primary:hover { background-color: ${branding.buttonStyle.primaryHoverBg} !important; }`,
     branding.buttonStyle?.secondaryHoverBg && `.brand-btn-secondary:hover { background-color: ${branding.buttonStyle.secondaryHoverBg} !important; }`,
   ].filter(Boolean).join('\n');
