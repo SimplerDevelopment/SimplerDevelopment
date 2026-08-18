@@ -40,6 +40,7 @@ import {
   FileCode2,
   BellRing,
   Calculator,
+  Menu,
 } from 'lucide-react';
 import { BlockType } from '@/types/blocks';
 import { LucideIcon } from 'lucide-react';
@@ -82,6 +83,7 @@ export const BLOCK_ICONS: Record<BlockType, LucideIcon> = {
   stats: BarChart3,
   testimonial: MessageSquareQuote,
   'blog-posts': Newspaper,
+  navigation: Menu,
   'featured-content': Layers,
   gallery: GalleryHorizontalEnd,
 
@@ -180,6 +182,7 @@ export const BLOCK_TYPES: BlockTypeMetadata[] = [
   { type: 'stats', label: 'Stats', icon: BarChart3, category: 'Components' },
   { type: 'testimonial', label: 'Testimonial', icon: MessageSquareQuote, category: 'Components' },
   { type: 'blog-posts', label: 'Blog Posts', icon: Newspaper, category: 'Components' },
+  { type: 'navigation', label: 'Navigation', icon: Menu, category: 'Components' },
   { type: 'featured-content', label: 'Featured Content', icon: Layers, category: 'Components' },
   { type: 'gallery', label: 'Gallery', icon: GalleryHorizontalEnd, category: 'Media' },
 

@@ -31,6 +31,7 @@ const BLOCK_TYPE_LABELS: Record<BlockType, string> = {
   testimonial: 'Testimonial',
   stats: 'Stats',
   'blog-posts': 'Blog Posts',
+  navigation: 'Navigation',
   'featured-content': 'Featured Content',
   youtube: 'YouTube',
   'card-grid': 'Card Grid',

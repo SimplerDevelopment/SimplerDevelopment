@@ -225,6 +225,10 @@ export function createDefaultBlock(
       return { ...base, type: 'services-grid', title: 'Our Services', services: [], columns: 3 };
     case 'blog-posts':
       return { ...base, type: 'blog-posts', title: 'Latest Posts', limit: 3, columns: 3, showExcerpt: true };
+    case 'navigation':
+      // No authored fields — the nav tree is fetched live from site_navigation
+      // at render time. Only the presentational defaults live here.
+      return { ...base, type: 'navigation', sticky: true };
     case 'timeline':
       return {
         ...base, type: 'timeline',

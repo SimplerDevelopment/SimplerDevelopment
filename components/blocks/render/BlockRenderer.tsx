@@ -24,6 +24,7 @@ import { TestimonialBlockRender } from './TestimonialBlockRender';
 import { StatsBlockRender } from './StatsBlockRender';
 import { RoiCalculatorBlockRender } from './RoiCalculatorBlockRender';
 import { BlogPostsBlockRender } from './BlogPostsBlockRender';
+import { NavigationBlockRender } from './NavigationBlockRender';
 import { FeaturedContentBlockRender } from './FeaturedContentBlockRender';
 import { CardGridBlockRender } from './CardGridBlockRender';
 import { SectionBlockRender } from './SectionBlockRender';
@@ -96,7 +97,7 @@ export function BlockRenderer({ content, siteId, branding }: BlockRendererProps)
   // Full-width block types that should NOT get a constraining container.
   // These handle their own internal widths (hero = full viewport, section = has maxWidth prop, etc.)
   const FULL_WIDTH_TYPES = new Set([
-    'hero', 'hero-slideshow', 'section', 'marquee', 'cta', 'hero-cta', 'site-footer',
+    'hero', 'hero-slideshow', 'section', 'marquee', 'cta', 'hero-cta', 'site-footer', 'navigation',
     // html-embed manages its own width via block.width ('full' | 'contained');
     // keep it out of the default max-w-7xl wrapper so 'full' really is full.
     'html-embed',
@@ -197,6 +198,8 @@ function renderBlock(block: Block, siteId?: number) {
       return <RoiCalculatorBlockRender block={normalized} />;
     case 'blog-posts':
       return <BlogPostsBlockRender block={normalized} />;
+    case 'navigation':
+      return <NavigationBlockRender block={normalized} siteId={siteId} />;
     case 'featured-content':
       return <FeaturedContentBlockRender block={normalized} />;
     case 'card-grid':

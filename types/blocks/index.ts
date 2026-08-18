@@ -101,6 +101,7 @@ import type {
 } from './components';
 import type {
   BlogPostsBlock,
+  NavigationBlock,
 } from './dynamic';
 
 // Union type of all blocks
@@ -127,6 +128,7 @@ export type Block =
   | StatsBlock
   | RoiCalculatorBlock
   | BlogPostsBlock
+  | NavigationBlock
   | FeaturedContentBlock
   | AccordionBlock
   | TabsBlock

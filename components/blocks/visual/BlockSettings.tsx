@@ -85,6 +85,7 @@ const SLUG_TO_CATEGORY: Record<string, 'LayoutPanel' | 'ContentPanel' | 'FormPan
   'team-flip-grid': 'SectionsPanel',
   'bento-grid': 'SectionsPanel',
   'site-footer': 'SectionsPanel',
+  'navigation': 'SectionsPanel',
 };
 
 
