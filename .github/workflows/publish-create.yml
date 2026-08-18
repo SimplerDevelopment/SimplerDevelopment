@@ -1,0 +1,85 @@
+# =============================================================================
+# publish-create.yml — Publish create-simplerdevelopment to npm
+#
+# WHY THIS EXISTS
+#   `bunx create-simplerdevelopment <dir>` and `npm create simplerdevelopment`
+#   both resolve to the literal package name `create-simplerdevelopment`. The
+#   package is a thin shim (packages/create-simplerdevelopment/index.js) that
+#   forwards argv to `@simplerdevelopment/cli`'s `create` command.
+#
+# REQUIRES
+#   Repo secret: NPM_TOKEN
+#     An npm Automation token (bypasses 2FA) with publish rights. This package
+#     is UNSCOPED, so the token needs rights to the `create-simplerdevelopment`
+#     name itself — not just the @simplerdevelopment scope.
+#
+# HOW TO RELEASE
+#   1. Bump the version in packages/create-simplerdevelopment/package.json.
+#   2. Tag the commit `create-v<version>` (e.g. create-v0.1.0) and push the tag,
+#      OR trigger this workflow manually from the Actions tab.
+#
+# NOTE
+#   No build step: the package ships index.js as-is (`files: ["index.js"]`).
+#   The dependency on @simplerdevelopment/cli is a normal npm dependency, so
+#   the CLI must be published FIRST — a create-* release pins `^0.3.0`.
+#
+# WITHOUT THE SECRET
+#   A gate job detects the missing NPM_TOKEN and skips the publish cleanly.
+# =============================================================================
+
+name: Publish create-simplerdevelopment
+
+on:
+  push:
+    tags:
+      - 'create-v*'
+  workflow_dispatch:
+
+jobs:
+  check-secret:
+    name: Check npm token
+    runs-on: ubuntu-latest
+    outputs:
+      configured: ${{ steps.check.outputs.configured }}
+    steps:
+      - id: check
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          if [ -n "$NPM_TOKEN" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "NPM_TOKEN secret not set — skipping create-simplerdevelopment publish."
+          fi
+
+  publish:
+    name: Publish
+    needs: check-secret
+    if: needs.check-secret.outputs.configured == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # required for npm provenance
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node (with npm registry auth)
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      # The shim is plain ESM with no build step — a syntax check is the whole
+      # gate. Its one runtime dependency resolves at install time on the user's
+      # machine, not here.
+      - name: Syntax-check the shim
+        working-directory: packages/create-simplerdevelopment
+        run: node --check index.js
+
+      - name: Publish to npm
+        working-directory: packages/create-simplerdevelopment
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

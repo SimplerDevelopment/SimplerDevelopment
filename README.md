@@ -36,16 +36,11 @@ More screenshots for every module: [simplerdevelopment.com/solutions](https://si
 One command takes you from nothing to a running stack — it clones the repo, installs dependencies, and walks you through setup (secrets, database, seed data):
 
 ```bash
+npm i -g @simplerdevelopment/cli
 simpler create my-awesome-agency-platform
 ```
 
-Don't have the `simpler` CLI yet? The same front door works through your package manager:
-
-```bash
-bunx create-simplerdevelopment my-awesome-agency-platform
-# or
-npm create simplerdevelopment@latest my-awesome-agency-platform
-```
+> The package is **`@simplerdevelopment/cli`** — it installs the `simpler` binary. The npm package named plain `simpler` is an unrelated project, so install the scoped name.
 
 When it finishes, `cd` in and start the dev server — the portal is at [http://localhost:3000](http://localhost:3000):
 
@@ -73,11 +68,9 @@ Prefer a terminal? The [`simpler` CLI](docs/developers/cli.md) drives the *same*
 
 ## Features
 
-Each product area is documented as a **domain** — a map of its key files, schema, routes, MCP tools, tests, and gotchas. Start at the index and follow the one you care about.
-
-**[Feature domains index →](vault/03%20-%20Domains/00%20-%20Domains%20Index.md)**
-
 Websites & CMS · Visual Editor · Company Brain & AI · CRM · Bookings & Services · Storefront & Commerce · Email & Campaigns · Surveys · Pitch Decks · E-Sign & Approvals · Automations & Workflows · Billing & Stripe · Projects, Tickets & Kanban · Chat, Realtime & Voice · Agency, Onboarding & Branding · Integrations (Google, Microsoft, OAuth) · Plugins & Extension.
+
+Documentation here is **code-first**: how a module behaves is documented in the module it describes, next to the code. What survives outside the code is the cross-cutting material — [architecture notes](vault/02%20-%20Architecture/00%20-%20Architecture%20Index.md), [decision records](vault/04%20-%20Decisions/), and the [glossary](vault/Glossary.md). To find the right entry point for an area, start at [`.claude/index.md`](.claude/index.md).
 
 ## Claude Skills
 
@@ -116,7 +109,7 @@ Dig deeper as you need it:
 | **Dev & testing guide** | [`tests/TESTING_PLAN.md`](tests/TESTING_PLAN.md) |
 | **CI/CD & coverage gates** | [`tests/CI-GATES.md`](tests/CI-GATES.md) |
 | **Git hooks** | [`.githooks/`](.githooks/) (pre-commit / pre-push run the local CI gate) |
-| **Obsidian vault** — durable architecture, domain maps, decision records | [`vault/`](vault/) |
+| **Engineering vault** — architecture notes, decision records (ADRs), glossary | [`vault/`](vault/) |
 | **All project docs** | [`docs/`](docs/index.md) |
 
 ### Tech stack
@@ -129,7 +122,7 @@ Dig deeper as you need it:
 | Package manager | Bun — always `bun`, never `npm` |
 | Tests | Vitest (unit/integration) · Playwright (e2e) |
 | Realtime | Yjs + y-websocket (`packages/realtime-server`) |
-| AI | Anthropic SDK · OpenAI (embeddings) |
+| AI | Vercel AI SDK (`@ai-sdk/anthropic`) · Anthropic SDK · OpenAI API — embeddings + realtime voice |
 | Integrations | Stripe (billing) · AWS S3 (storage) · Resend (email) · Sentry (errors) |
 
 ## Contributing

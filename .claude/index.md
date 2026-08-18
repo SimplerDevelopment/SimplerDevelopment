@@ -17,7 +17,7 @@ Pointers from "I need to work on X" → the right CLAUDE.md / guide / skill. Loa
 
 ## By task
 
-- **Plan a feature** → `vault/03 - Domains/<domain>.md` first (the Domain Map: key files, schema, routes, tests, gotchas), then spec in `vault/05 - Feature Specs/`
+- **Plan a feature** → read the code first (nearest nested `CLAUDE.md` + `graphify query`); per-domain maps were retired 2026-08-05, only the three cross-cutting ones in `vault/03 - Domains/` remain
 - **Record a decision / update project knowledge** → `vault` skill, `vault-librarian` agent
 - **Pick which tests/gates to run** → `vault/06 - Validation/Gate Picking.md`
 - **Deploy / env / crons / migrations how-to** → `vault/07 - Operations/`

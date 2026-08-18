@@ -32,17 +32,12 @@ service, and a local mail catcher.
 From nothing — no clone, no install — the front door does it all:
 
 ```bash
+npm i -g @simplerdevelopment/cli
 simpler create my-awesome-agency-platform
 ```
 
-Don't have the `simpler` CLI yet? The same thing works through your package
-manager:
-
-```bash
-bunx create-simplerdevelopment my-awesome-agency-platform
-# or
-npm create simplerdevelopment@latest my-awesome-agency-platform
-```
+The `simpler` binary ships in the **`@simplerdevelopment/cli`** package. Install
+the scoped name: the npm package called plain `simpler` is an unrelated project.
 
 It clones the monorepo into `my-awesome-agency-platform/`, installs dependencies,
 and hands off to the setup wizard. When it's done, `cd` in and start the dev
