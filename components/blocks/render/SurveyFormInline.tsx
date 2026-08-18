@@ -399,6 +399,8 @@ export function SurveyFormInline({
   const inputTextColor = so?.inputTextColor || st.inputTextColor || txtColor;
   const hasBranding = !!br || Object.keys(st).length > 0 || !!so;
   const hideCardChrome = so?.hideCardChrome === true;
+  const hideQuestionNumbers = so?.hideQuestionNumbers === true;
+  const formAccentBarColor = so?.formAccentBarColor;
 
   const cardBg = hideCardChrome
     ? 'transparent'
@@ -572,6 +574,9 @@ export function SurveyFormInline({
         {/* Form */}
         <form onSubmit={handleSubmit} onKeyDown={blockImplicitSubmit}>
           <div className={`bg-white dark:bg-gray-900 shadow-sm border border-gray-200 dark:border-gray-800 ${showPageTitle ? 'border-t-0' : 'rounded-t-2xl'} p-6 space-y-6`} style={cardStyle}>
+            {formAccentBarColor && (
+              <div style={{ width: 156, height: 12, backgroundColor: formAccentBarColor }} />
+            )}
             {/* Email/Name on first page if required */}
             {pageIndex === 0 && survey.requireEmail && (
               <div className="space-y-4 pb-4 border-b border-gray-200 dark:border-gray-700">
@@ -630,7 +635,9 @@ export function SurveyFormInline({
                   ) : (
                     <div className="space-y-1.5">
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300" style={labelStyle}>
-                        <span className="text-gray-400 mr-1.5" style={secondaryColor ? { color: secondaryColor } : undefined}>{qNum}.</span>
+                        {!hideQuestionNumbers && (
+                          <span className="text-gray-400 mr-1.5" style={secondaryColor ? { color: secondaryColor } : undefined}>{qNum}.</span>
+                        )}
                         {resolvePiping(field.label, answers)}
                         {field.required && <span className="text-red-500 ml-0.5">*</span>}
                       </label>

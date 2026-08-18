@@ -444,6 +444,15 @@ function SurveyBlockSettings({ block, onChange }: { block: SurveyBlock; onChange
                     <TokenColorPicker label="Text" value={so.textColor || ''} onChange={(v) => update({ textColor: v || undefined })} />
                     <TokenColorPicker label="Label" value={so.labelColor || ''} onChange={(v) => update({ labelColor: v || undefined })} />
                   </div>
+                  <label className="flex items-center gap-1.5 text-xs text-foreground">
+                    <input
+                      type="checkbox"
+                      checked={so.hideQuestionNumbers === true}
+                      onChange={(e) => update({ hideQuestionNumbers: e.target.checked || undefined })}
+                      className="h-3.5 w-3.5 rounded border-border"
+                    />
+                    Hide question numbers
+                  </label>
                 </div>
 
                 {/* ── Form / Card chrome ──────────────────────────────── */}
@@ -467,6 +476,12 @@ function SurveyBlockSettings({ block, onChange }: { block: SurveyBlock; onChange
                     <TokenColorPicker label="Card Background" value={so.formBg || ''} onChange={(v) => update({ formBg: v || undefined })} />
                     <TokenColorPicker label="Card Border" value={so.formBorderColor || ''} onChange={(v) => update({ formBorderColor: v || undefined })} />
                   </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <TokenColorPicker label="Accent Bar" value={so.formAccentBarColor || ''} onChange={(v) => update({ formAccentBarColor: v || undefined })} />
+                  </div>
+                  <p className="text-[11px] text-muted-foreground -mt-1">
+                    Adds a small decorative bar (156×12px) top-left inside the card, above the first field. Leave blank for none.
+                  </p>
                   <div className="grid grid-cols-2 gap-2">
                     <div>
                       <label className={fieldLabel}>Card Border Width</label>

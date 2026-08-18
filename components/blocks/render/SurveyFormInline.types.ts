@@ -131,7 +131,11 @@ export interface SurveyFormInlineProps {
     backgroundColor?: string;
     textColor?: string;
     labelColor?: string;
+    /** Omit the hard-coded "1." / "2." question-number prefix on each label. Default false. */
+    hideQuestionNumbers?: boolean;
     formBg?: string;
+    /** Renders a small decorative bar (156×12) top-left inside the form card, above the first field. Unset = no bar. */
+    formAccentBarColor?: string;
     formBorderColor?: string;
     formBorderWidth?: string;
     formBorderRadius?: string;

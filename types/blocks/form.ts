@@ -78,8 +78,12 @@ export interface SurveyBlock extends BaseBlock {
     textColor?: string;
     /** Color for question labels + numbers. Falls back to textColor. */
     labelColor?: string;
+    /** Omit the hard-coded "1." / "2." question-number prefix on each label. Default false. */
+    hideQuestionNumbers?: boolean;
     // ── Card / form chrome ────────────────────────────────────────
     formBg?: string;
+    /** Renders a small decorative bar (156×12) top-left inside the form card, above the first field. Unset = no bar. */
+    formAccentBarColor?: string;
     /** Explicit border color for the form card (overrides secondaryColor tint). */
     formBorderColor?: string;
     /** CSS border-width, e.g. "0" to remove the border or "1px"/"2px". */
