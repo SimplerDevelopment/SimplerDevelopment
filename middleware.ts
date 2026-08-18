@@ -11,6 +11,8 @@ import { signPluginJwt } from '@/lib/plugins/jwt';
 import { pluginTenantCookieOptions } from '@/lib/plugins/tenant-cookie';
 import { ensureVisitorCookie } from '@/lib/ab/visitor';
 import { ensureAttributionCookie } from '@/lib/attribution';
+import { APPROVAL_COOKIE } from '@/lib/mcp/approval-cookie';
+import { isApprovalWriteBlocked } from '@/lib/mcp/approval-write-gate';
 
 /** Paths that never represent a lead arriving: APIs, authenticated app
  *  surfaces, OAuth, the embeddable widget, and Next internals. */
@@ -142,8 +144,46 @@ function applyDevCors(response: NextResponse, origin: string) {
   response.headers.append('Vary', 'Origin');
 }
 
+/**
+ * Refuse writes from a reviewer in approval mode. Returns a response to send, or
+ * null to continue. The decision itself lives in `lib/mcp/approval-write-gate.ts`
+ * so it can be unit-tested rather than only exercised through the edge runtime.
+ */
+function blockApprovalWrite(req: NextRequest): NextResponse | null {
+  const blocked = isApprovalWriteBlocked({
+    method: req.method,
+    pathname: req.nextUrl.pathname,
+    hasApprovalCookie: !!req.cookies.get(APPROVAL_COOKIE),
+  });
+  if (!blocked) return null;
+
+  return NextResponse.json(
+    {
+      success: false,
+      message: 'This is a draft preview for approval — changes are not saved.',
+      approvalMode: true,
+    },
+    { status: 403 },
+  );
+}
+
 export async function middleware(req: NextRequest) {
   const host = req.headers.get('host') || '';
+
+  // ── Approval mode is read-only, enforced here (PUX-067) ─────────────────
+  // A reviewer holding an approval cookie is looking at a draft on the REAL
+  // product surface — a live deck, a live survey form, a live booking funnel.
+  // Every one of those can write: partial responses, A/B enrolment, holds,
+  // payments. This is the single choke point that stops all of it.
+  //
+  // Deliberately default-deny: a write path added later is blocked without
+  // anyone remembering it exists. Endpoints that need the reviewer's UI to
+  // complete normally opt IN via APPROVAL_SHIMMED_PATHS and return a synthetic
+  // response themselves. Forgetting a shim breaks a preview; forgetting the
+  // gate would write data — only one of those is a correctness bug, and it is
+  // the one that cannot happen.
+  const approvalWriteBlock = blockApprovalWrite(req);
+  if (approvalWriteBlock) return approvalWriteBlock;
 
   // ── Dev CORS for the mobile client ──────────────────────────────────────
   // Mobile (Expo web on :8081) hits this server's /api/portal/* endpoints
