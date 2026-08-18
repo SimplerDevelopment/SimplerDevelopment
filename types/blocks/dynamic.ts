@@ -38,8 +38,15 @@ export interface NavigationBlock extends BaseBlock {
   logoHeight?: string;
   // Bar colors
   backgroundColor?: string;
+  /** Full CSS `background-image` value (e.g. a `linear-gradient(...)`), layered over `backgroundColor` on the nav root. */
+  backgroundImage?: string;
   linkColor?: string;
   linkHoverColor?: string;
+  // Link typography (desktop + mobile link labels only — never the CTA)
+  linkFontSize?: string;
+  /** e.g. 'italic' */
+  linkFontStyle?: string;
+  linkLetterSpacing?: string;
   // CTA button — rendered for any top-level nav item with `isButton: true`.
   ctaBackgroundColor?: string;
   ctaTextColor?: string;

@@ -93,6 +93,55 @@ export function NavigationBlockSettings({ block, onChange }: { block: Navigation
           <TokenColorPicker value={block.linkHoverColor || ''} onChange={(color) => onChange({ linkHoverColor: color || undefined })} />
         </div>
       </div>
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Background Image</label>
+        <input
+          type="text"
+          value={block.backgroundImage || ''}
+          onChange={(e) => onChange({ backgroundImage: e.target.value || undefined })}
+          className={inputClass}
+          placeholder="linear-gradient(90deg, #164E66 0%, #103C4F 100%)"
+        />
+      </div>
+
+      <div className="border-t border-border pt-4 space-y-3">
+        <label className="block text-sm font-medium text-foreground">
+          Link Typography
+          <span className="block text-xs font-normal text-muted-foreground mt-0.5">Applies to top-level menu link labels only — not the CTA button.</span>
+        </label>
+        <div className="grid grid-cols-3 gap-3">
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1">Font Size</label>
+            <input
+              type="text"
+              value={block.linkFontSize || ''}
+              onChange={(e) => onChange({ linkFontSize: e.target.value || undefined })}
+              className={inputClass}
+              placeholder="16px"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1">Font Style</label>
+            <input
+              type="text"
+              value={block.linkFontStyle || ''}
+              onChange={(e) => onChange({ linkFontStyle: e.target.value || undefined })}
+              className={inputClass}
+              placeholder="normal / italic"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1">Letter Spacing</label>
+            <input
+              type="text"
+              value={block.linkLetterSpacing || ''}
+              onChange={(e) => onChange({ linkLetterSpacing: e.target.value || undefined })}
+              className={inputClass}
+              placeholder="0.9px"
+            />
+          </div>
+        </div>
+      </div>
 
       <div className="border-t border-border pt-4 space-y-3">
         <label className="block text-sm font-medium text-foreground">

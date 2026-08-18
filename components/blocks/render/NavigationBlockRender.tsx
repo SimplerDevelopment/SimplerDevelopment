@@ -68,8 +68,12 @@ export function NavigationBlockRender({ block, siteId }: NavigationBlockRenderPr
 
   // ── Presentational defaults — neutral, no brand/client specifics. ─────────
   const backgroundColor = block.backgroundColor || '#ffffff';
+  const backgroundImage = block.backgroundImage || undefined;
   const linkColor = block.linkColor || '#1e293b';
   const linkHoverColor = block.linkHoverColor || '#2563eb';
+  const linkFontSize = block.linkFontSize || undefined;
+  const linkFontStyle = block.linkFontStyle || undefined;
+  const linkLetterSpacing = block.linkLetterSpacing || undefined;
   const ctaBackgroundColor = block.ctaBackgroundColor || '#111827';
   const ctaTextColor = block.ctaTextColor || '#ffffff';
   const ctaHoverBackgroundColor = block.ctaHoverBackgroundColor || '#1e293b';
@@ -86,7 +90,7 @@ export function NavigationBlockRender({ block, siteId }: NavigationBlockRenderPr
   return (
     <nav
       className={sticky ? 'sticky top-0 z-50' : 'relative'}
-      style={{ backgroundColor, fontFamily: block.fontFamily || undefined }}
+      style={{ backgroundColor, backgroundImage, fontFamily: block.fontFamily || undefined }}
       aria-label="Primary"
     >
       <div
@@ -113,6 +117,9 @@ export function NavigationBlockRender({ block, siteId }: NavigationBlockRenderPr
                   item={item}
                   linkColor={linkColor}
                   linkHoverColor={linkHoverColor}
+                  linkFontSize={linkFontSize}
+                  linkFontStyle={linkFontStyle}
+                  linkLetterSpacing={linkLetterSpacing}
                   dropdownBackgroundColor={dropdownBackgroundColor}
                   dropdownLinkColor={dropdownLinkColor}
                 />
@@ -166,7 +173,15 @@ export function NavigationBlockRender({ block, siteId }: NavigationBlockRenderPr
       >
         <ul className="px-4 py-2 sm:px-6">
           {regularItems.map((item) => (
-            <MobileNavItem key={item.id} item={item} linkColor={linkColor} onNavigate={() => setMenuOpen(false)} />
+            <MobileNavItem
+              key={item.id}
+              item={item}
+              linkColor={linkColor}
+              linkFontSize={linkFontSize}
+              linkFontStyle={linkFontStyle}
+              linkLetterSpacing={linkLetterSpacing}
+              onNavigate={() => setMenuOpen(false)}
+            />
           ))}
         </ul>
       </div>
@@ -182,15 +197,22 @@ function DesktopNavItem({
   item,
   linkColor,
   linkHoverColor,
+  linkFontSize,
+  linkFontStyle,
+  linkLetterSpacing,
   dropdownBackgroundColor,
   dropdownLinkColor,
 }: {
   item: NavItem;
   linkColor: string;
   linkHoverColor: string;
+  linkFontSize?: string;
+  linkFontStyle?: string;
+  linkLetterSpacing?: string;
   dropdownBackgroundColor: string;
   dropdownLinkColor: string;
 }) {
+  const linkTypeStyle = { fontSize: linkFontSize, fontStyle: linkFontStyle, letterSpacing: linkLetterSpacing };
   const [open, setOpen] = useState(false);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const rootRef = useRef<HTMLLIElement>(null);
@@ -220,7 +242,7 @@ function DesktopNavItem({
         <Link
           href={item.href}
           className="text-sm font-medium transition-colors"
-          style={{ color: linkColor }}
+          style={{ color: linkColor, ...linkTypeStyle }}
           onMouseEnter={(e) => { e.currentTarget.style.color = linkHoverColor; }}
           onMouseLeave={(e) => { e.currentTarget.style.color = linkColor; }}
           {...(item.openInNewTab ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
@@ -251,7 +273,7 @@ function DesktopNavItem({
       <Link
         href={item.href}
         className="flex items-center gap-1 text-sm font-medium transition-colors"
-        style={{ color: linkColor }}
+        style={{ color: linkColor, ...linkTypeStyle }}
         aria-haspopup="true"
         aria-expanded={open}
         {...(item.openInNewTab ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
@@ -289,9 +311,24 @@ function DesktopNavItem({
 }
 
 // ─── Mobile accordion item ──────────────────────────────────────────────────
-function MobileNavItem({ item, linkColor, onNavigate }: { item: NavItem; linkColor: string; onNavigate: () => void }) {
+function MobileNavItem({
+  item,
+  linkColor,
+  linkFontSize,
+  linkFontStyle,
+  linkLetterSpacing,
+  onNavigate,
+}: {
+  item: NavItem;
+  linkColor: string;
+  linkFontSize?: string;
+  linkFontStyle?: string;
+  linkLetterSpacing?: string;
+  onNavigate: () => void;
+}) {
   const [expanded, setExpanded] = useState(false);
   const hasChildren = !!item.children && item.children.length > 0;
+  const linkTypeStyle = { fontSize: linkFontSize, fontStyle: linkFontStyle, letterSpacing: linkLetterSpacing };
 
   if (!hasChildren) {
     return (
@@ -300,7 +337,7 @@ function MobileNavItem({ item, linkColor, onNavigate }: { item: NavItem; linkCol
           href={item.href}
           onClick={onNavigate}
           className="block py-3 text-base font-medium"
-          style={{ color: linkColor }}
+          style={{ color: linkColor, ...linkTypeStyle }}
           {...(item.openInNewTab ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
         >
           {item.label}
@@ -316,7 +353,7 @@ function MobileNavItem({ item, linkColor, onNavigate }: { item: NavItem; linkCol
         onClick={() => setExpanded((e) => !e)}
         aria-expanded={expanded}
         className="flex w-full items-center justify-between py-3 text-left text-base font-medium"
-        style={{ color: linkColor }}
+        style={{ color: linkColor, ...linkTypeStyle }}
       >
         <span>{item.label}</span>
         <span className="material-icons" style={{ fontSize: '20px', transform: expanded ? 'rotate(180deg)' : undefined, transition: 'transform 150ms' }} aria-hidden="true">

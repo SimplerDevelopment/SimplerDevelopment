@@ -420,6 +420,21 @@ export function SpecialPanel({ block, onUpdate, siteId }: PanelProps) {
             <ColorField label="Link" value={(b.linkColor as string) || ''} onChange={(v) => onUpdate({ linkColor: v || undefined } as Partial<Block>)} />
             <ColorField label="Link Hover" value={(b.linkHoverColor as string) || ''} onChange={(v) => onUpdate({ linkHoverColor: v || undefined } as Partial<Block>)} />
           </div>
+          <Field label="Background Image (CSS)" value={(b.backgroundImage as string) || ''} onChange={(v) => onUpdate({ backgroundImage: v || undefined } as Partial<Block>)} />
+          <details className="pt-2 border-t border-border mt-2" open>
+            <summary className="flex items-center gap-1.5 cursor-pointer text-xs font-medium text-muted-foreground hover:text-foreground select-none py-1">
+              <span className="material-icons text-sm">format_size</span>
+              Link Typography
+            </summary>
+            <div className="pt-3 space-y-2">
+              <p className="text-xs text-muted-foreground">Applies to top-level menu link labels only — not the CTA button.</p>
+              <div className="grid grid-cols-3 gap-2">
+                <Field label="Font Size" value={(b.linkFontSize as string) || ''} onChange={(v) => onUpdate({ linkFontSize: v || undefined } as Partial<Block>)} />
+                <Field label="Font Style" value={(b.linkFontStyle as string) || ''} onChange={(v) => onUpdate({ linkFontStyle: v || undefined } as Partial<Block>)} />
+                <Field label="Letter Spacing" value={(b.linkLetterSpacing as string) || ''} onChange={(v) => onUpdate({ linkLetterSpacing: v || undefined } as Partial<Block>)} />
+              </div>
+            </div>
+          </details>
           <details className="pt-2 border-t border-border mt-2" open>
             <summary className="flex items-center gap-1.5 cursor-pointer text-xs font-medium text-muted-foreground hover:text-foreground select-none py-1">
               <span className="material-icons text-sm">smart_button</span>
