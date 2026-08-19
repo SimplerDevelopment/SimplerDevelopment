@@ -22,10 +22,6 @@
 import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
 
 vi.mock('@/lib/auth', () => ({ auth: vi.fn() }));
-vi.mock('@/lib/revalidate-client-site', () => ({
-  revalidateClientSite: vi.fn().mockResolvedValue(undefined),
-  clientSiteUrl: () => null,
-}));
 
 import { auth } from '@/lib/auth';
 const mockedAuth = auth as unknown as Mock;
