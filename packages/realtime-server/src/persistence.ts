@@ -14,6 +14,28 @@ import { yArrayToJSON } from './doc-shared.js';
 
 const FLUSH_DELAY_MS = 2_000;
 
+// Safety net at the single DB write chokepoint: drop repeated block/slide ids,
+// keeping the first occurrence in order. A room's Y.Doc can accumulate
+// duplicate entries when long-lived editor tabs re-sync their state into a
+// freshly-recreated room (service redeploys evict rooms; each reconnecting
+// tab's copy of the same logical blocks was inserted as unrelated CRDT ops,
+// so the union keeps both). That exact ferry-merge tripled the integratouch
+// homepage to 36 blocks across 2026-08-19's deploy storm. Clients never
+// author duplicate ids, so a repeated id here is always merge corruption —
+// never legitimate content.
+function dedupeById<T>(items: T[]): T[] {
+  const seen = new Set<string>();
+  const out: T[] = [];
+  for (const item of items) {
+    const id = (item as { id?: unknown } | null)?.id;
+    const key = id != null ? String(id) : `__noid_${out.length}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(item);
+  }
+  return out;
+}
+
 export type EntityType = 'post' | 'deck' | 'email';
 
 interface ParsedDocKey {
@@ -89,7 +111,7 @@ export class SnapshotPersistence {
 
     if (parsed.entityType === 'post') {
       const yArr = doc.getArray<Y.Map<unknown>>('blocks');
-      const blocks = yArrayToJSON(yArr);
+      const blocks = dedupeById(yArrayToJSON(yArr));
       // posts.content is `text NOT NULL` storing JSON `{ blocks, version }`.
       const payload = JSON.stringify({ blocks, version: '1.0' });
       await this.sql`
@@ -102,7 +124,7 @@ export class SnapshotPersistence {
 
     if (parsed.entityType === 'deck') {
       const yArr = doc.getArray<Y.Map<unknown>>('slides');
-      const slides = yArrayToJSON(yArr);
+      const slides = dedupeById(yArrayToJSON(yArr));
       // pitch_decks.slides is JSON. The `postgres.JSONValue` type is overly
       // strict for our nested-array payload; cast at the boundary.
       await this.sql`
@@ -117,7 +139,7 @@ export class SnapshotPersistence {
 
     if (parsed.entityType === 'email') {
       const yArr = doc.getArray<Y.Map<unknown>>('blocks');
-      const blocks = yArrayToJSON(yArr);
+      const blocks = dedupeById(yArrayToJSON(yArr));
       // email_campaigns.block_content is JSON, expected shape `{ blocks, version }`.
       const payload = { blocks, version: '1' };
       await this.sql`
