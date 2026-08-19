@@ -166,7 +166,16 @@ export function HeroCtaBlockRender({ block, elementKeys }: HeroCtaBlockRenderPro
         />
       ) : null}
 
-      <div className="relative z-10 container mx-auto px-4 py-20">
+      {/* Same escape hatch as the banner layout: explicit style paddings
+          replace the built-in py-20 instead of stacking on top of it. Only
+          the vertical axis — px-4 always stands. */}
+      <div
+        className={`relative z-10 container mx-auto px-4 ${style.paddingTop || style.paddingBottom ? '' : 'py-20'}`}
+        style={{
+          ...(style.paddingTop ? { paddingTop: style.paddingTop as string } : {}),
+          ...(style.paddingBottom ? { paddingBottom: style.paddingBottom as string } : {}),
+        }}
+      >
         <div className="max-w-4xl mx-auto text-center">
           {block.subtitle && (
             <p data-editable-field="subtitle" className={`${hasCustomFontWeight ? '' : 'font-semibold'} mb-4 uppercase tracking-wide ${hasBackground ? 'text-white/80' : 'text-primary'}`} style={getElementCSS(block.elementStyles, keys.subtitle)} dangerouslySetInnerHTML={{ __html: block.subtitle }} />
