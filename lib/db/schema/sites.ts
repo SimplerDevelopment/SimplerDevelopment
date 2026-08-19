@@ -201,6 +201,13 @@ export const clientWebsites = pgTable('client_websites', {
   logApiKey: varchar('log_api_key', { length: 64 }), // secret key for request log ingestion
   customLayout: boolean('custom_layout').default(false).notNull(), // true = site blocks handle nav/footer, skip default layout chrome
   publicAccess: boolean('public_access').default(false).notNull(), // false = gated (noindex, coming-soon wall); admin must enable
+  // Opt-in to shared-CDN caching of this site's public HTML (middleware sets
+  // s-maxage on the tenant rewrite). Defaults OFF and is per-tenant on purpose:
+  // it is the kill switch. A DB flag flips instantly, whereas an env var would
+  // need a redeploy before edge middleware picked it up. Caching is refused
+  // regardless of this flag for gated sites, preview/edit requests, and sites
+  // running an A/B experiment — see lib/sites/host-resolver.ts.
+  cdnCacheEnabled: boolean('cdn_cache_enabled').default(false).notNull(),
   // Preview access code — a marketing/share code (e.g. "ACME-2026"). When a
   // visitor enters this code on simplerdevelopment.com's home page they
   // receive a signed cookie that lets them bypass the publicAccess gate on
