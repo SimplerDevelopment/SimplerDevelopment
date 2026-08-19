@@ -40,7 +40,24 @@ export function HeroPreload({ content }: { content: string }) {
     } catch {
       /* ignore malformed URL */
     }
-    preload(url, { as: 'image', fetchPriority: 'high' });
+    // When the page's CSS also references a mobile width variant of this
+    // image (media-proxy `?w=828`, served under a max-width media query), a
+    // plain preload of the full-size URL would DOUBLE-download on phones —
+    // the preload fetches 1920px while the CSS fetches the 828px variant.
+    // A srcset preload offers both candidates and lets the browser pick the
+    // same one the CSS will request (~viewport×DPR: 390×2 → 828; desktop →
+    // full). Sizes 100vw matches the full-bleed hero/banner use.
+    const mobileVariant = `${url}?w=828`;
+    if (content.includes(mobileVariant)) {
+      preload(url, {
+        as: 'image',
+        fetchPriority: 'high',
+        imageSrcSet: `${mobileVariant} 828w, ${url} 1920w`,
+        imageSizes: '100vw',
+      });
+    } else {
+      preload(url, { as: 'image', fetchPriority: 'high' });
+    }
   }
   return null;
 }
