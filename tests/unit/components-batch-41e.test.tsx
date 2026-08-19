@@ -49,51 +49,11 @@ vi.mock('@/contexts/BrandingContext', () => ({
   useBranding: () => brandingState.value,
 }));
 
-// react-icons/md mocks — Vitest validates returned names against actual imports,
-// so we enumerate all Md* names referenced by components/ui/Icon.tsx explicitly.
-// Factory is hoisted above all imports, so the name list must live inline.
-vi.mock('react-icons/md', () => {
-  const NAMES = [
-    'MdRocketLaunch', 'MdAltRoute', 'MdHandshake', 'MdSchool', 'MdTrendingUp',
-    'MdVolunteerActivism', 'MdArrowForward', 'MdArrowBack', 'MdArrowUpward',
-    'MdArrowDownward', 'MdNorthEast', 'MdClose', 'MdCheck', 'MdCheckCircle',
-    'MdPlayCircle', 'MdInsights', 'MdSync', 'MdWorkspacePremium', 'MdStar',
-    'MdStorefront', 'MdInventory2', 'MdLocalOffer', 'MdErrorOutline',
-    'MdChevronLeft', 'MdChevronRight', 'MdOpenInNew', 'MdEdit', 'MdVisibility',
-    'MdHistory', 'MdMenu', 'MdArticle', 'MdSmartButton', 'MdFormatQuote',
-    'MdImage', 'MdImagesearchRoller', 'MdPhotoLibrary', 'MdCode', 'MdHeight',
-    'MdHorizontalRule', 'MdViewColumn', 'MdCropFree', 'MdTab', 'MdExpandMore',
-    'MdViewCarousel', 'MdSlideshow', 'MdTextRotationNone', 'MdCampaign',
-    'MdGridView', 'MdFlip', 'MdBarChart', 'MdRateReview', 'MdApps', 'MdLoyalty',
-    'MdCategory', 'MdShoppingCart', 'MdSell', 'MdSchedule', 'MdPoll', 'MdTitle',
-    'MdNotes', 'MdSupport', 'MdLightbulb', 'MdPeople', 'MdChat', 'MdEmail',
-    'MdPhone', 'MdLocationOn', 'MdSettings', 'MdInfo', 'MdWarning', 'MdDone',
-    'MdAdd', 'MdRemove', 'MdSearch', 'MdBookmark', 'MdFavorite', 'MdShare',
-    'MdDownload', 'MdUpload', 'MdRefresh', 'MdHome', 'MdBusinessCenter',
-    'MdDashboard', 'MdAnalytics', 'MdAutoAwesome', 'MdLink', 'MdBadge',
-    'MdGpsFixed', 'MdStorage', 'MdWorkspaces', 'MdMyLocation', 'MdGroup',
-    'MdTune', 'MdAccountTree', 'MdHub', 'MdScale',
-  ];
-  const React = require('react');
-  const make = (label: string) =>
-    function MdIconMock({ className, style, 'aria-hidden': ariaHidden }: any) {
-      return React.createElement(
-        'span',
-        {
-          className,
-          style,
-          'aria-hidden': ariaHidden,
-          'data-icon-component': label,
-        },
-        label,
-      );
-    };
-  const exports: Record<string, ReturnType<typeof make>> = {};
-  for (const name of NAMES) {
-    exports[name] = make(name);
-  }
-  return exports;
-});
+// components/ui/Icon renders inline SVG path data (extracted from
+// react-icons/md at build time) rather than importing react-icons/md — see
+// the "Remove react-icons from the public tenant-site render path" commit.
+// No react-icons/md mock is needed any more; the assertions below query the
+// real <svg>/<path> output instead of a mocked component name.
 
 // keyboardShortcuts util — provide deterministic data we can assert on
 vi.mock('@/lib/utils/keyboardShortcuts', () => ({
@@ -203,8 +163,8 @@ describe('Card', () => {
     const { container } = render(
       <Card title="T" description="D" icon="star" />,
     );
-    // Our Icon mocks star -> Md icon span
-    const iconEl = container.querySelector('[data-icon-component="MdStar"]');
+    // Icon renders an inline <svg> for a mapped Material name (star -> MdStar).
+    const iconEl = container.querySelector('svg');
     expect(iconEl).toBeTruthy();
   });
 });
@@ -218,10 +178,16 @@ describe('Icon', () => {
     expect(container.firstChild).toBeNull();
   });
 
-  it('renders the mapped react-icons component for a known material name', () => {
+  it('renders an inline SVG for a known material name', () => {
     const { container } = render(<Icon name="rocket_launch" />);
-    const span = container.querySelector('[data-icon-component="MdRocketLaunch"]');
-    expect(span).toBeTruthy();
+    // Icon.tsx now embeds react-icons/md path data as inline <svg>/<path>
+    // elements instead of importing react-icons/md components, so we assert
+    // on the real SVG output (viewBox + at least one <path>) rather than a
+    // mocked component name.
+    const svg = container.querySelector('svg');
+    expect(svg).toBeTruthy();
+    expect(svg?.getAttribute('viewBox')).toBe('0 0 24 24');
+    expect(svg?.querySelector('path')).toBeTruthy();
   });
 
   it('falls back to a material-icons span for an unknown name', () => {
@@ -233,13 +199,13 @@ describe('Icon', () => {
 
   it('applies numeric size as fontSize pixels', () => {
     const { container } = render(<Icon name="star" size={32} />);
-    const el = container.querySelector('[data-icon-component]') as HTMLElement;
+    const el = container.querySelector('svg') as SVGElement;
     expect(el.style.fontSize).toBe('32px');
   });
 
   it('passes string sizes through directly', () => {
     const { container } = render(<Icon name="star" size="2rem" />);
-    const el = container.querySelector('[data-icon-component]') as HTMLElement;
+    const el = container.querySelector('svg') as SVGElement;
     expect(el.style.fontSize).toBe('2rem');
   });
 
@@ -247,20 +213,20 @@ describe('Icon', () => {
     const { container } = render(
       <Icon name="star" className="my-icon" style={{ color: 'rgb(255, 0, 0)' }} />,
     );
-    const el = container.querySelector('[data-icon-component]') as HTMLElement;
-    expect(el.className).toContain('my-icon');
+    const el = container.querySelector('svg') as SVGElement;
+    expect(el.getAttribute('class')).toContain('my-icon');
     expect(el.style.color).toBe('rgb(255, 0, 0)');
   });
 
   it('defaults aria-hidden to true', () => {
     const { container } = render(<Icon name="star" />);
-    const el = container.querySelector('[data-icon-component]') as HTMLElement;
+    const el = container.querySelector('svg') as SVGElement;
     expect(el.getAttribute('aria-hidden')).toBe('true');
   });
 
   it('honors a false aria-hidden override', () => {
     const { container } = render(<Icon name="star" aria-hidden={false} />);
-    const el = container.querySelector('[data-icon-component]') as HTMLElement;
+    const el = container.querySelector('svg') as SVGElement;
     expect(el.getAttribute('aria-hidden')).toBe('false');
   });
 });

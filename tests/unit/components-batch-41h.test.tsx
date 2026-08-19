@@ -64,11 +64,12 @@ describe('Icon', () => {
     expect(container.firstChild).toBeNull();
   });
 
-  it('renders a react-icons component for a mapped Material name', () => {
+  it('renders an inline SVG for a mapped Material name', () => {
     const { container } = render(<Icon name="rocket_launch" />);
     const svg = container.querySelector('svg');
     expect(svg).toBeTruthy();
-    // react-icons renders an SVG with aria-hidden defaulted to true
+    // Icon.tsx renders its own inline SVG (path data extracted from
+    // react-icons/md, not imported from it) with aria-hidden defaulted to true.
     expect(svg?.getAttribute('aria-hidden')).toBe('true');
   });
 
