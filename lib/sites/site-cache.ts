@@ -29,8 +29,23 @@ import { unstable_cache, revalidateTag } from 'next/cache';
  * `unstable_cache` directly anywhere in the public render path — use this.
  */
 
-/** Milliseconds a cached site read stays fresh before Next revalidates it. */
-const DEFAULT_REVALIDATE_SECONDS = 300;
+/**
+ * Seconds a cached site read stays fresh before Next revalidates it on its own.
+ *
+ * This is a BACKSTOP, not the primary freshness mechanism. Every write that
+ * changes what a public page renders purges by tag — post save/publish/delete
+ * and the scheduled-publish cron call revalidateSiteContent, and nav publish,
+ * custom-code publish and branding save call revalidateSiteChrome — so an edit
+ * is live immediately regardless of this number.
+ *
+ * It was 300s while only the content purges existed, which meant a cache miss
+ * every five minutes and measurable run-to-run swing (Lighthouse LCP on the
+ * integratouch homepage varied 2.9s-5.1s purely on hit vs miss). With the chrome
+ * purges wired the TTL only has to cover a write path nobody hooked up, so an
+ * hour is the right order of magnitude: misses become rare, and the failure mode
+ * of a missed hook is bounded staleness rather than a permanently wrong page.
+ */
+const DEFAULT_REVALIDATE_SECONDS = 3600;
 
 export function siteTag(siteId: number, name?: string): string {
   return name ? `site:${siteId}:${name}` : `site:${siteId}`;
@@ -67,14 +82,34 @@ export function siteCached<TArgs extends readonly unknown[], TOut>(
   }
 }
 
+
+/**
+ * revalidateTag() throws "Invariant: static generation store missing" when
+ * called outside a request or static-generation context — which happens for
+ * real: publishAllNavDrafts runs from the MCP approval path and
+ * process-scheduled-posts runs from cron. A cache purge failing must never take
+ * down the publish that triggered it, so failures are logged and swallowed. The
+ * cost of a missed purge is bounded staleness (see DEFAULT_REVALIDATE_SECONDS);
+ * the cost of throwing here would be a failed publish.
+ */
+function purgeTag(tag: string): void {
+  try {
+    revalidateTag(tag, 'max');
+  } catch (err) {
+    console.warn(`[site-cache] purge failed for ${tag}:`, err);
+  }
+}
+
+function purge(siteId: number, names: string[]): void {
+  for (const name of names) purgeTag(siteTag(siteId, name));
+}
+
 /**
  * Purge a tenant's CONTENT reads (pages, home, blog index, post types).
  * Call after any write that changes what a published page renders.
  */
 export function revalidateSiteContent(siteId: number): void {
-  for (const name of ['page', 'home', 'blog-index', 'posttype']) {
-    revalidateTag(siteTag(siteId, name), 'max');
-  }
+  purge(siteId, ['page', 'home', 'blog-index', 'posttype']);
 }
 
 /**
@@ -82,17 +117,15 @@ export function revalidateSiteContent(siteId: number): void {
  * Call after a branding, nav, custom-code or tracking change.
  */
 export function revalidateSiteChrome(siteId: number): void {
-  for (const name of ['branding', 'nav', 'tracking']) {
-    revalidateTag(siteTag(siteId, name), 'max');
-  }
+  purge(siteId, ['branding', 'nav', 'tracking']);
 }
 
 /** Purge everything for one tenant. Use when a domain changes, or as a big hammer. */
 export function revalidateSiteAll(siteId: number): void {
   revalidateSiteContent(siteId);
   revalidateSiteChrome(siteId);
-  revalidateTag(siteTag(siteId), 'max');
+  purgeTag(siteTag(siteId));
   // Domain -> site resolution is keyed by hostname, not siteId, so it has its
   // own tag and has to be purged explicitly.
-  revalidateTag('site-by-domain', 'max');
+  purgeTag('site-by-domain');
 }

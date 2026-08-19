@@ -8,6 +8,7 @@
 import { db } from '@/lib/db';
 import { clientWebsites } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
+import { revalidateSiteChrome } from '@/lib/sites/site-cache';
 
 export interface PublishCustomCodeResult {
   customCss: string;
@@ -47,6 +48,11 @@ export async function publishSiteCustomCode(siteId: number): Promise<PublishCust
     })
     .where(eq(clientWebsites.id, siteId))
     .returning();
+
+  // Custom CSS/JS is injected into every page of this tenant's site and is
+  // cached as chrome. Purge here rather than in the routes — both the REST
+  // endpoint and the MCP approval path publish through this helper.
+  revalidateSiteChrome(siteId);
 
   return {
     customCss: row.customCss || '',

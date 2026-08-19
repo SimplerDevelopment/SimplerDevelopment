@@ -12,6 +12,7 @@
 import { db } from '@/lib/db';
 import { siteNavigation, type SiteNavigationDraft } from '@/lib/db/schema';
 import { and, eq, sql } from 'drizzle-orm';
+import { revalidateSiteChrome } from '@/lib/sites/site-cache';
 
 export type PublishNavItemResult =
   | { id: number; deleted: true }
@@ -110,6 +111,11 @@ export async function publishAllNavDrafts(websiteId: number): Promise<PublishNav
     await db.update(siteNavigation).set(patch).where(eq(siteNavigation.id, navRow.id));
     published += 1;
   }
+
+  // Nav is site chrome and is cached per tenant (lib/sites/site-cache.ts).
+  // The purge lives in this helper rather than the routes because both the REST
+  // endpoint and the MCP approval path publish through here.
+  revalidateSiteChrome(websiteId);
 
   return { websiteId, total: drafts.length, deleted, published };
 }
