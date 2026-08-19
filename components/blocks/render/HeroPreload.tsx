@@ -15,21 +15,28 @@ import { firstContentImageUrls, resolveHtmlRenderCorpus } from '@/lib/blocks/pag
  * a SERVER component is hoisted into <head> and flushed at the very top of the
  * streamed HTML, so the fetch starts immediately. Returns null — it only emits
  * head resource hints.
+ *
+ * `max` (default 2) caps how many leading content images get a high-priority
+ * preload — see the per-callsite comment in page.tsx for why the blog route
+ * passes 1: its content shape doesn't have a second LCP candidate, so a 2nd
+ * preload only steals bandwidth from the real one.
  */
-export function HeroPreload({ content }: { content: string }) {
+export function HeroPreload({ content, max = 2 }: { content: string; max?: number }) {
   // Preload the first couple of on-page images. The LCP element differs by
   // viewport — a small hero photo on desktop, the first full-width grid image
   // on mobile — so covering both candidates keeps the mobile LCP image from
   // sitting undiscovered (lazy, in an html-render block) until the page JS
   // clears. The non-LCP grid cells stay `loading="lazy"`, so these few high-
   // priority preloads don't contend with a dozen eager image requests.
+  // (Callers with only one real LCP candidate — see `max` above — pass
+  // max=1 to opt out of this heuristic instead of wasting a preload slot.)
   // Substitute html-render templates FIRST (ITM-031): heroes are authored as
   // url('{{bgImage}}') with the real URL in the block's values dict, so the
   // raw content string never shows a URL next to its mobile-variant reference
   // and pairing below could never fire on templated heroes (which is nearly
   // all of them).
   const corpus = resolveHtmlRenderCorpus(content);
-  const urls = firstContentImageUrls(corpus, 2);
+  const urls = firstContentImageUrls(corpus, max);
   const seenOrigins = new Set<string>();
   for (const url of urls) {
     try {

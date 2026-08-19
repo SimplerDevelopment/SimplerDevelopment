@@ -394,7 +394,13 @@ export default async function ClientSitePage({ params, searchParams }: PageProps
     return (
       <div>
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: postLd }} />
-        <HeroPreload content={blogContent} />
+        {/* max=1: unlike home/generic pages, a blog post's 2nd content image is
+            always below-fold body copy (the first inline `<img loading="lazy">`
+            in the article, ~1500px+ down) — never an LCP candidate on any
+            viewport. Preloading it at fetchPriority=high overrode its own lazy
+            loading and diluted bandwidth away from the real LCP element (the
+            banner), measured adding 400ms-2s to LCP on ~64% of blog posts. */}
+        <HeroPreload content={blogContent} max={1} />
         <SiteBlockRenderer
           content={blogContent}
           siteId={site.id}
