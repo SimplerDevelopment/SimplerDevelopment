@@ -26,18 +26,28 @@ interface NavigationBlockRenderProps {
  * `EditableBlockRenderer`, which doesn't thread a siteId through — the same
  * gap `ProductGridBlockRender` already has), so we render an empty shell
  * rather than fetch there.
+ *
+ * On real site renders, `app/sites/[domain]/[[...slug]]/page.tsx` walks the
+ * block tree server-side via `lib/blocks/prefetch-navigation.ts` and attaches
+ * the nav tree as `block.initialItems` before this component ever mounts —
+ * so the SSR HTML already has the links and no skeleton/client fetch is
+ * needed (this used to be the dominant CLS source on every page, ITM-016).
+ * Content saved before this shipped, and the editor iframe, have no
+ * `initialItems` and fall through to the client fetch below unchanged.
  */
 export function NavigationBlockRender({ block, siteId }: NavigationBlockRenderProps) {
-  const [navItems, setNavItems] = useState<NavItem[]>([]);
+  const hasPrefetchedItems = !!block.initialItems;
+  const [navItems, setNavItems] = useState<NavItem[]>(block.initialItems ?? []);
   // Lazy-initialized on `siteId`'s presence at mount so the "no siteId" path
   // (the block-tree editor iframe — see the class doc above) never needs a
-  // synchronous setState inside the effect below.
-  const [loading, setLoading] = useState(() => !!siteId);
+  // synchronous setState inside the effect below. Server-prefetched content
+  // never needs the loading state at all.
+  const [loading, setLoading] = useState(() => !!siteId && !hasPrefetchedItems);
   const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    if (!siteId) return;
+    if (!siteId || hasPrefetchedItems) return;
     async function fetchNav() {
       try {
         setLoading(true);
@@ -54,7 +64,7 @@ export function NavigationBlockRender({ block, siteId }: NavigationBlockRenderPr
     return () => {
       cancelled = true;
     };
-  }, [siteId]);
+  }, [siteId, hasPrefetchedItems]);
 
   // Close the mobile panel on Escape from anywhere in the nav.
   useEffect(() => {

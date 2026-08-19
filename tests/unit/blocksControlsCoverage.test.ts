@@ -215,6 +215,9 @@ const NON_EDITOR_FIELDS: Record<string, ReadonlySet<string>> = {
   // Server-injected at render time by lib/blocks/prefetch-embeds. Never
   // persisted; never user-editable. See HtmlEmbedBlock.inlineHtml jsdoc.
   'html-embed': new Set(['inlineHtml']),
+  // Server-injected at render time by lib/blocks/prefetch-navigation. Never
+  // persisted; never user-editable. See NavigationBlock.initialItems jsdoc.
+  'navigation': new Set(['initialItems']),
   // `fields` and `values` are managed by the dedicated html-render skill
   // editor (a per-field declarative form), not via the generic block
   // settings panel's onChange flow. The block.html template is the
