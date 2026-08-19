@@ -9,6 +9,9 @@ import {
 } from '@/lib/site-data-cache';
 import { wrapWithTypeTemplate } from '@/lib/blocks/template-wrap';
 import { expandLoopsInContent, type LoopPaginationContext } from '@/lib/blocks/html-render-loops';
+// Swaps material-icons spans in block content for inline SVG so client sites
+// never fetch the 126KB webfont — see lib/blocks/inline-material-icons.ts.
+import { inlineMaterialIcons } from '@/lib/blocks/inline-material-icons';
 import { SiteBlockRenderer } from '@/components/blocks/render/SiteBlockRenderer';
 import { HeroPreload } from '@/components/blocks/render/HeroPreload';
 import { prefetchHtmlEmbeds } from '@/lib/blocks/prefetch-embeds';
@@ -201,12 +204,12 @@ export default async function ClientSitePage({ params, searchParams }: PageProps
 
     const homeType = await getPostTypeForPost(site.id, homePage.postType);
     const ab = await applyAbToPostContent({ postId: homePage.id, content: homePage.content, skip: preview });
-    const content = await prefetchNavigationData(
+    const content = inlineMaterialIcons(await prefetchNavigationData(
       site.id,
       await prefetchHtmlEmbeds(
         await expandLoopsInContent(site.id, wrapWithTypeTemplate(ab.content, homeType?.template), homePage.id, pagination),
       ),
-    );
+    ));
     return (
       <>
         <HeroPreload content={content} />
@@ -369,12 +372,12 @@ export default async function ClientSitePage({ params, searchParams }: PageProps
 
     const blogType = await getPostTypeForPost(site.id, post.postType);
     const ab = await applyAbToPostContent({ postId: post.id, content: post.content, skip: preview });
-    const blogContent = await prefetchNavigationData(
+    const blogContent = inlineMaterialIcons(await prefetchNavigationData(
       site.id,
       await prefetchHtmlEmbeds(
         await expandLoopsInContent(site.id, wrapWithTypeTemplate(ab.content, blogType?.template), post.id, pagination),
       ),
-    );
+    ));
     // BlogPosting JSON-LD from the post's real fields (title, dates, cover,
     // description) — publisher/author = the site itself. Pairs with the
     // layout's Organization/WebSite schemas.
@@ -433,12 +436,12 @@ export default async function ClientSitePage({ params, searchParams }: PageProps
 
   const pageType = await getPostTypeForPost(site.id, page.postType);
   const ab = await applyAbToPostContent({ postId: page.id, content: page.content, skip: preview });
-  const pageContent = await prefetchNavigationData(
+  const pageContent = inlineMaterialIcons(await prefetchNavigationData(
     site.id,
     await prefetchHtmlEmbeds(
       await expandLoopsInContent(site.id, wrapWithTypeTemplate(ab.content, pageType?.template), page.id, pagination),
     ),
-  );
+  ));
 
   return (
     <div>
