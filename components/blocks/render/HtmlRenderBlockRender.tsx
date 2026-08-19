@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { HtmlRenderBlock } from '@/types/blocks';
 import { combineResponsiveClasses } from '@/lib/utils/responsive';
 import { renderHtmlTemplate } from '@/lib/blocks/html-render-template';
+import { inlineMaterialIcons } from '@/lib/blocks/inline-material-icons';
 import { useEditorModeContext } from '@/components/visual-editor/editor-mode-context';
 import { sendToParent } from '@/lib/visual-editor/protocol';
 import { IFRAME_MESSAGES } from '@/types/visual-editor';
@@ -33,8 +34,15 @@ export function HtmlRenderBlockRender({ block }: HtmlRenderBlockRenderProps) {
   // Substitute `{{name}}` and `data-field` content from the block's saved
   // values. When fields/values are absent this is a no-op — legacy blocks
   // (raw HTML, no variables) render exactly as they did before.
+  // inlineMaterialIcons runs AFTER substitution, not before. The server-side
+  // pass in app/sites/[domain]/[[...slug]]/page.tsx converts every span whose
+  // glyph is a literal, but a template writes `{{stats.icon}}` and the real
+  // name only exists once renderHtmlTemplate has filled it in — so those spans
+  // survived the server pass and kept the 126KB material-icons.woff2 alive for
+  // the whole page. Idempotent: content the server already converted has no
+  // material-icons spans left to match.
   const rendered = useMemo(
-    () => renderHtmlTemplate(block.html || '', block.fields, block.values),
+    () => inlineMaterialIcons(renderHtmlTemplate(block.html || '', block.fields, block.values) || ''),
     [block.html, block.fields, block.values],
   );
 

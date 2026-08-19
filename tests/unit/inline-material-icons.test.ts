@@ -88,3 +88,26 @@ describe('inlineMaterialIcons', () => {
     expect(out.match(/<svg/g)).toHaveLength(2);
   });
 });
+
+describe('template-substituted icons (the case the server pass misses)', () => {
+  it('converts a glyph that only exists after substitution', () => {
+    // A template carries `{{stats.icon}}`, so the server-side pass in page.tsx
+    // sees a placeholder, not a glyph name, and correctly leaves it alone. The
+    // renderer must convert it once the value is filled in — otherwise three
+    // surviving spans keep a 126KB webfont alive for the entire page, which is
+    // exactly what happened on the integratouch homepage.
+    const template = '<span class="material-icons it-tt__stat-icon" aria-hidden="true" data-field="icon">{{stats.icon}}</span>';
+    expect(inlineMaterialIcons(template)).toBe(template); // placeholder: untouched
+
+    const substituted = template.replace('{{stats.icon}}', 'handshake');
+    const out = inlineMaterialIcons(substituted);
+    expect(out).toContain('<svg');
+    expect(out).not.toContain('material-icons');
+    expect(out).toContain('it-tt__stat-icon');
+  });
+
+  it('is idempotent — re-running over converted content is a no-op', () => {
+    const once = inlineMaterialIcons('<span class="material-icons">menu</span>');
+    expect(inlineMaterialIcons(once)).toBe(once);
+  });
+});
