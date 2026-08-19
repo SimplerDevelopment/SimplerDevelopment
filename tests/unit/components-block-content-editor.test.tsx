@@ -1265,9 +1265,14 @@ describe('BlockContentEditor — html-embed (HtmlEmbedEditor)', () => {
 // ---------------------------------------------------------------------------
 
 describe('BlockContentEditor — html-render dispatches to HtmlRenderEditor', () => {
-  it('renders HtmlRenderEditor mock', () => {
+  it('renders HtmlRenderEditor mock', async () => {
+    // HtmlRenderEditor is lazy-loaded through next/dynamic in BOTH panels (a
+    // static import in SpecialPanel once double-bundled the CodeMirror stack
+    // — the prod editor crash), so the mock appears a tick after first paint.
     const { container } = renderBlock({ id: 'hr1', type: 'html-render', order: 0 });
-    expect(container.querySelector('[data-testid="html-render-editor"]')).toBeTruthy();
+    await waitFor(() => {
+      expect(container.querySelector('[data-testid="html-render-editor"]')).toBeTruthy();
+    });
   });
 });
 
