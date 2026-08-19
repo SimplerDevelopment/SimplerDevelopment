@@ -102,7 +102,11 @@ const nextConfig: NextConfig = {
   // emits a `require()` against it and crashes every tenant SSR page with
   // ERR_REQUIRE_ESM. Marking these external punts the resolution to Node's
   // native module system, which handles the ESM/CJS interop correctly.
-  serverExternalPackages: ['isomorphic-dompurify', 'jsdom'],
+  // sharp: native module used by the media-proxy ?w= resize. Bundling it into
+  // the Vercel function loses its platform binaries — the route module then
+  // fails to LOAD and every proxied image 500s (the 2026-08-19 outage that
+  // reverted #64). External keeps it resolved from node_modules at runtime.
+  serverExternalPackages: ['isomorphic-dompurify', 'jsdom', 'sharp'],
 
   images: {
     remotePatterns: [

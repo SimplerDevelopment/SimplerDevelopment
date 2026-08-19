@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GetObjectCommand } from '@aws-sdk/client-s3';
 import { unstable_cache } from 'next/cache';
-import sharp from 'sharp';
 import { getS3Client, getBucketName } from '@/lib/s3/client';
 
 // ITM-027 (mobile LCP): whitelist of resize widths this route will produce
@@ -74,6 +73,13 @@ const resizeProxyAsset = unstable_cache(
     const source = await fetchProxyAsset(key);
     if (!source) return null;
     const buffer = Buffer.from(source.body, 'base64');
+    // Lazy import: a top-level `import sharp` once took down EVERY proxied
+    // image in prod — when the native binary can't load in the deployed
+    // function, a module-level import fails the whole route module, so even
+    // requests without ?w= 500'd (2026-08-19 outage, reverted #64). Importing
+    // inside the resize path confines any sharp failure to the resize
+    // attempt, and the caller falls back to serving the full-size original.
+    const { default: sharp } = await import('sharp');
     // withoutEnlargement: never upscale a source image smaller than the
     // requested width — sharp just returns it at its original size.
     const resized = await sharp(buffer)
@@ -125,10 +131,19 @@ export async function GET(
       }
       const sharpFormat = RESIZABLE_CONTENT_TYPES[ct];
       if (sharpFormat) {
-        const resized = await resizeProxyAsset(key, width, sharpFormat);
-        if (resized) {
-          buffer = Buffer.from(resized.body, 'base64');
-          contentLength = resized.contentLength;
+        // Graceful degradation: if the resize fails for ANY reason (sharp
+        // unavailable in this deploy, corrupt source, OOM), serve the
+        // full-size original rather than erroring — a bigger image beats a
+        // broken one, and it keeps a resize regression from ever becoming a
+        // site-wide image outage again.
+        try {
+          const resized = await resizeProxyAsset(key, width, sharpFormat);
+          if (resized) {
+            buffer = Buffer.from(resized.body, 'base64');
+            contentLength = resized.contentLength;
+          }
+        } catch (resizeError) {
+          console.error('media-proxy resize failed; serving full-size:', resizeError);
         }
       }
       // Non-resizable types (svg/gif/pdf/video/etc.) fall through here and
