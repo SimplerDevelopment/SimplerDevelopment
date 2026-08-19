@@ -179,6 +179,18 @@ export async function middleware(req: NextRequest) {
       return new NextResponse('Not Found', { status: 404 });
     }
 
+    // Tenant SEO files must reach the per-domain route handlers under
+    // /sites/[domain]/ — the root app's sitemap/robots emit the AGENCY's own
+    // URLs, which is wrong (and misleading to crawlers) on a tenant host.
+    // Must run BEFORE the generic file-extension bypass below, which would
+    // otherwise fall through to those root routes. Unknown/gated sites are
+    // handled inside the route handlers (404 / full disallow).
+    if (pathname === '/sitemap.xml' || pathname === '/robots.txt' || pathname === '/llms.txt') {
+      const url = req.nextUrl.clone();
+      url.pathname = `/sites/${host.split(':')[0]}${pathname}`;
+      return NextResponse.rewrite(url);
+    }
+
     // Bypass rewrite for requests to files in /public/ (e.g. /iconLogo.png,
     // /logo.png, /site.webmanifest). These live on the main app and must be
     // served as-is on every host, not routed through the tenant sites

@@ -17,6 +17,8 @@ import { TrackingScripts, TrackingNoscriptBody } from '@/components/sites/Tracki
 import { cssFontStack, googleFontsHref } from '@/lib/blocks/page-fonts';
 import { DeferredStylesheet } from '@/components/sites/DeferredStylesheet';
 import { SiteRouteProgress } from '@/components/sites/SiteRouteProgress';
+import { siteBaseUrl } from '@/lib/sites/site-base-url';
+import { organizationSchema, webSiteSchema, jsonLd } from '@/lib/sites/structured-data';
 
 // Per-site footer contact overrides — keyed by subdomain. Hardcoded for now
 // because brandingProfile schema doesn't yet have contact fields. When the
@@ -213,12 +215,26 @@ export default async function ClientSiteLayout({ children, params }: LayoutProps
   // appends display=swap.
   const googleFontsUrl = googleFontsHref([branding.headingFont, branding.bodyFont]);
 
+  // Organization + WebSite JSON-LD, once per page, from real site fields
+  // (name / canonical base URL / description / branding logo) — the AEO/SEO
+  // baseline every tenant site should carry. BlogPosting is emitted per-post
+  // by the page route.
+  const ldBaseUrl = siteBaseUrl(site);
+  const ldJson = [
+    organizationSchema({ name: site.name, baseUrl: ldBaseUrl, description: site.description, logoUrl: branding.logoUrl }),
+    webSiteSchema({ name: site.name, baseUrl: ldBaseUrl, description: site.description }),
+  ].map(jsonLd);
+  const ldScripts = ldJson.map((j, i) => (
+    <script key={`ld-${i}`} type="application/ld+json" dangerouslySetInnerHTML={{ __html: j }} />
+  ));
+
   // Custom layout mode: blocks handle their own nav/footer/styling
   if (site.customLayout) {
     return (
       <>
         <TrackingNoscriptBody config={trackingConfig} />
         <TrackingScripts config={trackingConfig} />
+        {ldScripts}
         {brandStyles && <style dangerouslySetInnerHTML={{ __html: brandStyles }} />}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
@@ -282,6 +298,7 @@ export default async function ClientSiteLayout({ children, params }: LayoutProps
       <link rel="preconnect" href="https://fonts.googleapis.com" />
       <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
       {googleFontsUrl && <link href={googleFontsUrl} rel="stylesheet" />}
+      {ldScripts}
       <div
         // force-light: tenant sites keep their brand palette — never the
         // viewer's dark mode (see .force-light in globals.css).
