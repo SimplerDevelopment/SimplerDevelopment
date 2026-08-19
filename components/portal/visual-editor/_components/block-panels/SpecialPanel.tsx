@@ -15,7 +15,29 @@ import {
 import { ListEditor } from '../ListEditor';
 import { SurveyResultsEditor } from '../SurveyResultsEditor';
 import { HtmlEmbedEditor } from '../HtmlEmbedEditor';
-import { HtmlRenderEditor } from '../../HtmlRenderEditor';
+import dynamic from 'next/dynamic';
+
+// Lazy-loaded through the SAME boundary (same module specifier) as
+// ContentPanel's copy. A static import here put a SECOND full copy of the
+// CodeMirror stack (incl. @codemirror/state) into the entry chunk while
+// ContentPanel's dynamic() pulled the shared lazy chunk — two module
+// instances of @codemirror/state on the same edit page, and its extension
+// resolution uses instanceof, so selecting an html-render block crashed with
+// "Unrecognized extension value in extension set" (operator-reported, prod).
+// Same version everywhere — the duplication was per-chunk-graph, which is why
+// the package.json overrides pin alone didn't cure it.
+const HtmlRenderEditor = dynamic(
+  () => import('@/components/portal/visual-editor/HtmlRenderEditor').then((m) => ({ default: m.HtmlRenderEditor })),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="space-y-2 animate-pulse">
+        <div className="h-3 w-24 bg-muted rounded" />
+        <div className="h-8 bg-muted rounded" />
+      </div>
+    ),
+  },
+);
 import { BookingPagePicker } from '../pickers/BookingPagePicker';
 import { SurveyPicker } from '../pickers/SurveyPicker';
 import type { PanelProps } from './ContentPanel';
