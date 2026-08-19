@@ -86,8 +86,16 @@ describe('SiteFooterBlockRender — social link target-size (a11y)', () => {
     );
     const anchor = container.querySelector('a[href="https://twitter.com/x"]');
     expect(anchor).toBeTruthy();
+    // p-1 grows the 16x16 icon to a 24x24 target.
     expect(anchor?.className).toContain('p-1');
-    expect(anchor?.className).toContain('-m-1');
+    // ...and the target must NOT be pulled back into its neighbours. The
+    // original fix (2026-08-18) paired p-1 with -m-1 to keep the row visually
+    // identical, but that restored the overlap and Lighthouse still failed
+    // target-size ("safe clickable space has a diameter of 16px instead of at
+    // least 24px") on the integratouch homepage. Spacing now comes from the
+    // parent's gap-2, so a negative margin here is a regression.
+    expect(anchor?.className).not.toContain('-m-1');
+    expect(anchor?.parentElement?.className).toContain('gap-2');
   });
 
   it('leaves the bottom-bar social anchor (already 32×32) unaffected', () => {
