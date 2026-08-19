@@ -169,7 +169,11 @@ export function NavigationBlockRender({ block, siteId }: NavigationBlockRenderPr
             className="-mr-2 rounded p-2"
             style={{ color: linkColor }}
           >
-            <span className="material-icons" aria-hidden="true">{menuOpen ? 'close' : 'menu'}</span>
+            {/* Fixed 24px box: before material-icons.woff2 loads the ligature
+                renders as TEXT ("menu"), and an unreserved box resizes the nav
+                bar → everything below it shifts (measured 0.176 CLS, ITM-030).
+                overflow-hidden clips the pre-swap text inside the final size. */}
+            <span className="material-icons block h-6 w-6 overflow-hidden" aria-hidden="true">{menuOpen ? 'close' : 'menu'}</span>
           </button>
         </div>
       </div>
@@ -289,7 +293,9 @@ function DesktopNavItem({
         {...(item.openInNewTab ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
       >
         {item.label}
-        <span className="material-icons" style={{ fontSize: '18px', transform: open ? 'rotate(180deg)' : undefined, transition: 'transform 150ms' }} aria-hidden="true">
+        {/* Reserved box — same pre-font-load ligature-text reflow guard as the
+            hamburger above (ITM-030). */}
+        <span className="material-icons inline-block overflow-hidden" style={{ fontSize: '18px', width: 18, height: 18, transform: open ? 'rotate(180deg)' : undefined, transition: 'transform 150ms' }} aria-hidden="true">
           expand_more
         </span>
       </Link>
@@ -366,7 +372,8 @@ function MobileNavItem({
         style={{ color: linkColor, ...linkTypeStyle }}
       >
         <span>{item.label}</span>
-        <span className="material-icons" style={{ fontSize: '20px', transform: expanded ? 'rotate(180deg)' : undefined, transition: 'transform 150ms' }} aria-hidden="true">
+        {/* Reserved box — pre-font-load ligature-text reflow guard (ITM-030). */}
+        <span className="material-icons inline-block overflow-hidden" style={{ fontSize: '20px', width: 20, height: 20, transform: expanded ? 'rotate(180deg)' : undefined, transition: 'transform 150ms' }} aria-hidden="true">
           expand_more
         </span>
       </button>
