@@ -234,7 +234,10 @@ export default async function ClientSiteLayout({ children, params }: LayoutProps
             The standard layout never has this problem because its wrapper
             already paints over body with these same explicit colors. */}
         <div
-          className="min-h-screen"
+          // force-light: tenant sites keep their brand palette — never the
+          // viewer's dark mode (typed blocks consume theme tokens; see
+          // .force-light in globals.css).
+          className="force-light min-h-screen"
           style={{
             backgroundColor: branding.backgroundColor || '#ffffff',
             color: branding.textColor || '#1e293b',
@@ -280,7 +283,9 @@ export default async function ClientSiteLayout({ children, params }: LayoutProps
       <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
       {googleFontsUrl && <link href={googleFontsUrl} rel="stylesheet" />}
       <div
-        className="min-h-screen flex flex-col"
+        // force-light: tenant sites keep their brand palette — never the
+        // viewer's dark mode (see .force-light in globals.css).
+        className="force-light min-h-screen flex flex-col"
         style={{
           backgroundColor: branding.backgroundColor || '#ffffff',
           color: branding.textColor || '#1e293b',

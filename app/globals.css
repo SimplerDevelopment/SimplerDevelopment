@@ -63,6 +63,36 @@
   --portal-border-strong: #c9c5c1;
 }
 
+/* Tenant public sites render with the site's own brand palette and must not
+   follow the portal viewer's OS/portal dark mode — typed blocks consume
+   theme tokens (bg-card, text-foreground, dark: variants), so in a dark-mode
+   browser cards/text silently flipped dark on client sites (operator-
+   reported). Nearest-ancestor var definitions beat both :root.dark and the
+   prefers-color-scheme override, so this class on the sites-layout wrapper
+   pins the whole subtree light. KEEP VALUES IN STEP WITH bare :root above. */
+.force-light {
+  --secondary: #e7e5e4;
+  --secondary-foreground: #292524;
+  --background: #fafaf9;
+  --foreground: #1c1917;
+  --card: #ffffff;
+  --card-foreground: #1c1917;
+  --popover: #ffffff;
+  --popover-foreground: #1c1917;
+  --primary: #2563eb;
+  --primary-foreground: #ffffff;
+  --muted: #f5f5f4;
+  --muted-foreground: #78716c;
+  --accent: #f5f5f4;
+  --accent-foreground: #1c1917;
+  --border: #e7e5e4;
+  --accent-warm: #f59e0b;
+  --accent-secondary: #10b981;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  color-scheme: light;
+}
+
 .nav-logo-icon {
   height: 3.5rem;
   width: 3.5rem;
