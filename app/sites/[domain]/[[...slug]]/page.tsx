@@ -218,6 +218,7 @@ export default async function ClientSitePage({ params, searchParams }: PageProps
           type={{ customCss: homeType?.customCss, customJs: homeType?.customJs }}
           customCss={homePage.customCss}
           customJs={homePage.customJs}
+          isEditMode={sp._edit === 'true'}
         />
         {ab.ab && ab.visitorId ? (
           <AbGoalTracker
@@ -402,6 +403,7 @@ export default async function ClientSitePage({ params, searchParams }: PageProps
           type={{ customCss: blogType?.customCss, customJs: blogType?.customJs }}
           customCss={post.customCss}
           customJs={post.customJs}
+          isEditMode={sp._edit === 'true'}
         />
         {ab.ab && ab.visitorId ? (
           <AbGoalTracker
@@ -443,6 +445,7 @@ export default async function ClientSitePage({ params, searchParams }: PageProps
         type={{ customCss: pageType?.customCss, customJs: pageType?.customJs }}
         customCss={page.customCss}
         customJs={page.customJs}
+        isEditMode={sp._edit === 'true'}
       />
       {ab.ab && ab.visitorId ? (
         <AbGoalTracker

@@ -85,6 +85,7 @@ export default async function TemplatePreviewPage({ params, searchParams }: Page
         branding={branding}
         site={{ customCss: site.customCss, customJs: site.customJs }}
         type={{ customCss: type.customCss, customJs: type.customJs }}
+        isEditMode={isEditMode}
       />
     </div>
   );

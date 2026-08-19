@@ -1,7 +1,6 @@
 'use client';
 
-import { useSearchParams } from 'next/navigation';
-import { Suspense, useEffect } from 'react';
+import { useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { BlockRenderer } from './BlockRenderer';
 import type { ResolvedBranding } from '@/lib/branding';
@@ -43,6 +42,14 @@ interface SiteBlockRendererProps {
    *  customCss/customJs props are still accepted to avoid churn at every call site. */
   customCss?: string | null;
   customJs?: string | null;
+  /** Server-detected `?_edit=true` (the visual-editor iframe). Must be read from
+   *  the page route's `searchParams` and passed down — detecting it here via
+   *  useSearchParams() forced a Suspense boundary whose fallback re-rendered the
+   *  ENTIRE block tree, so every public page shipped its DOM twice (visible
+   *  fallback + hidden real tree). The editor iframe always carries `_edit=true`
+   *  in its initial URL (PortalPostForm/TemplateEditor build it into src), so
+   *  server-side detection loses nothing. */
+  isEditMode?: boolean;
 }
 
 // Wrap user JS in an IIFE so each layer's `var`/function declarations don't
@@ -126,9 +133,8 @@ function HydrationSignal() {
   return null;
 }
 
-function SiteBlockRendererInner({ content, siteId, branding }: SiteBlockRendererProps) {
-  const searchParams = useSearchParams();
-  const isEditMode = searchParams.get('_edit') === 'true';
+export function SiteBlockRenderer(props: SiteBlockRendererProps) {
+  const { content, siteId, branding, isEditMode } = props;
 
   if (isEditMode) {
     const rendered = (
@@ -138,6 +144,7 @@ function SiteBlockRendererInner({ content, siteId, branding }: SiteBlockRenderer
     );
     return (
       <>
+        <SiteCodeAndFonts {...props} />
         {branding ? <BrandingProvider branding={branding}>{rendered}</BrandingProvider> : rendered}
         <HydrationSignal />
       </>
@@ -146,20 +153,9 @@ function SiteBlockRendererInner({ content, siteId, branding }: SiteBlockRenderer
 
   return (
     <>
+      <SiteCodeAndFonts {...props} />
       <BlockRenderer content={content} siteId={siteId} branding={branding} />
       <HydrationSignal />
-    </>
-  );
-}
-
-export function SiteBlockRenderer(props: SiteBlockRendererProps) {
-  return (
-    <>
-      {/* SSR-rendered, outside Suspense → in the initial HTML, applied before paint. */}
-      <SiteCodeAndFonts {...props} />
-      <Suspense fallback={<BlockRenderer content={props.content} siteId={props.siteId} branding={props.branding} />}>
-        <SiteBlockRendererInner {...props} />
-      </Suspense>
     </>
   );
 }
