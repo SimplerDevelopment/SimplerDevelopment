@@ -2,7 +2,7 @@
 // TODO(designer): clean up types — ported from CRA, see .planning/product-designer-integration.md
 'use client';
 
-import React, { useContext, memo, useMemo, useCallback } from "react";
+import React, { useContext, memo, useMemo, useCallback, useEffect, useState } from "react";
 import Draggable from "react-draggable";
 import EditorContext from "./EditorContext";
 import { FaRotate } from "react-icons/fa6";
@@ -91,12 +91,26 @@ export const Layer = memo(function Layer({ layer, side }: { layer: any; side: an
     }
   }, [selectedLayers, layer.id, layers]);
 
-  // Memoize icon component resolution. Replaces dynamic require() with
-  // an explicit pack map (see utils/iconResolver.ts).
-  const IconComponent = useMemo(() => {
-    if (layer.icon) return layer.icon;
-    return resolveIcon(layer.iconPack, layer.iconName);
+  // Icon component resolution. `resolveIcon` is async — it lazy-loads the
+  // specific react-icons pack a layer needs instead of bundling all packs
+  // eagerly (see utils/iconResolver.ts for why that matters: an eager
+  // `import * as X` there was shipping the full react-icons/md barrel to
+  // every tenant page that touches block rendering, not just the designer).
+  // `layer.icon` — a live component reference set by the icon picker at
+  // selection time, before the layer is ever persisted — short-circuits the
+  // lookup so a newly-placed icon renders immediately with no fetch.
+  const [resolvedIcon, setResolvedIcon] = useState<React.ComponentType<any> | null>(null);
+  useEffect(() => {
+    if (layer.icon) return;
+    let cancelled = false;
+    resolveIcon(layer.iconPack, layer.iconName).then((Icon) => {
+      if (!cancelled) setResolvedIcon(Icon);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [layer.icon, layer.iconName, layer.iconPack]);
+  const IconComponent = layer.icon ?? resolvedIcon;
 
   return (
     <Draggable
