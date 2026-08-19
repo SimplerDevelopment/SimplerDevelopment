@@ -17,7 +17,8 @@ describe('lib/blocks/registry shape', () => {
   it('exposes the expected number of built-in entries', () => {
     // VEQA-067: +1 for 'hero-cta' — 'hero'/'cta' stay registered (legacy: true)
     // rather than being removed, so the count grows instead of holding steady.
-    expect(BUILT_IN_BLOCK_TYPES.length).toBe(50);
+    // ITM-003: +1 for 'navigation' — the block-placeable site nav.
+    expect(BUILT_IN_BLOCK_TYPES.length).toBe(51);
   });
 
   it('every entry has the canonical 5-field shape', () => {
