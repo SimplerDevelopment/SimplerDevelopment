@@ -187,6 +187,17 @@ export default async function ClientSiteLayout({ children, params }: LayoutProps
   // via the site stylesheet) — without it, headings inherit the body font
   // and the brandingProfile.headingFont value silently has no effect.
   const brandStyles = [
+    // Map the brand primary onto the THEME token inside the tenant wrapper.
+    // Typed blocks color accents with Tailwind's `text-primary`/`bg-primary`
+    // (e.g. Card icons, card-title hover), which resolve to the PLATFORM's
+    // `--primary` unless the site overrides it — so every tenant's icon cards
+    // showed the platform default (a blue) instead of their brand color
+    // (operator-reported). Scoped to .force-light (the tenant wrapper on both
+    // layout branches); this <style> renders in <body>, after globals.css, so
+    // it wins the equal-specificity cascade. `--secondary` is deliberately NOT
+    // mapped: in the theme it is a muted surface token, and painting it with
+    // a dark brand color would repaint neutral backgrounds site-wide.
+    branding.primaryColor && `.force-light { --primary: ${branding.primaryColor}; }`,
     branding.headingFont && `h1, h2, h3, h4, h5, h6 { font-family: ${cssFontStack(branding.headingFont, 'system-ui, sans-serif')}; }`,
     // Scoped to CLASSLESS anchors: these rules exist to color prose links,
     // but a bare `a:hover` (specificity 0,1,1) also beats every styled
