@@ -109,7 +109,10 @@ export async function GET(
     // Width must be one of the whitelisted breakpoints — anything else is a
     // 400, not a silent passthrough, so probing arbitrary widths can't turn
     // this route into an unbounded resize oracle.
-    const widthParam = request.nextUrl.searchParams.get('w');
+    // Plain URL parse rather than request.nextUrl: equivalent for a query
+    // param, and it keeps this route callable with a plain Request (as the
+    // pre-existing api-misc-routes-batch-27d tests construct it).
+    const widthParam = new URL(request.url).searchParams.get('w');
     let buffer = Buffer.from(cached.body, 'base64');
     let contentLength = cached.contentLength;
     if (widthParam !== null) {
