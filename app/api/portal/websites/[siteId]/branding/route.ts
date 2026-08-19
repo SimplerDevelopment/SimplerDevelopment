@@ -4,6 +4,7 @@ import { getPortalClient } from '@/lib/portal-client';
 import { db } from '@/lib/db';
 import { clientWebsites, siteBranding, brandingProfiles } from '@/lib/db/schema';
 import { and, eq } from 'drizzle-orm';
+import { revalidateSiteChrome } from '@/lib/sites/site-cache';
 
 async function verifySiteAccess(siteId: string) {
   const session = await auth();
@@ -148,6 +149,11 @@ export async function PUT(
       updatedAt: new Date(),
     }).where(eq(brandingProfiles.id, siteRow.brandingProfileId));
   }
+
+  // Branding drives colours, fonts and logo on every page of this tenant's site,
+  // all cached as chrome — purge so the change is visible immediately rather
+  // than after the cache TTL.
+  revalidateSiteChrome(site.id);
 
   return NextResponse.json({ success: true, data: result });
 }
