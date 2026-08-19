@@ -164,17 +164,22 @@ export function SiteFooterBlockRender({ block }: SiteFooterBlockRenderProps) {
                   already icon-only with no such fallback; this makes the
                   contact-column variant consistent with it. */}
               {block.socialLinks && block.socialLinks.length > 0 && (
-                <div className="mt-6">
+                // gap-2 is load-bearing: p-1 below grows each icon's tap
+                // target to 24x24, but the old -m-1 pulled neighbours back
+                // together so the targets overlapped — Lighthouse still failed
+                // target-size with "safe clickable space has a diameter of
+                // 16px". Real spacing between the links is what the audit wants,
+                // so the negative margin is gone and the row spaces itself.
+                <div className="mt-6 flex flex-wrap items-center gap-2">
                   {block.socialLinks.map((social, i) => (
                     <a
                       key={i}
                       href={social.url}
                       // p-1 (4px) grows the icon-only tap target from 16×16 to
-                      // 24×24 without changing the visible icon size — fixes
-                      // Lighthouse's target-size audit (a11y fix, 2026-08-18).
-                      // -m-1 offsets the added padding so the row's spacing/
-                      // alignment stays visually identical to before.
-                      className="inline-flex items-center gap-2 text-sm transition-colors p-1 -m-1"
+                      // 24×24 without changing the visible icon size. The
+                      // spacing between targets comes from the parent's gap-2 —
+                      // see the note there for why the old -m-1 defeated this.
+                      className="inline-flex items-center gap-2 text-sm transition-colors p-1"
                       style={{ color: 'rgba(255,255,255,0.4)', ...getElementCSS(block.elementStyles, 'socialIcon') }}
                       onMouseEnter={(e) => { e.currentTarget.style.color = accent; }}
                       onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.4)'; }}

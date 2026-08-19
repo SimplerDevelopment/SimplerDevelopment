@@ -9,7 +9,7 @@ import { DISPLAY_ONLY_TYPES, LABELABLE_FIELD_TYPES } from './SurveyFormInline.ty
 import {
   getOrCreatePartialSessionId,
   clearPartialSessionId,
-  lightenColor, countSurveyPages, blockImplicitSubmit,
+  lightenColor, countSurveyPages, blockImplicitSubmit, dimTextClass,
 } from './SurveyFormInline.helpers';
 import { renderField } from './SurveyFormInline.FieldRenderer';
 
@@ -462,6 +462,7 @@ export function SurveyFormInline({
     ? { fontFamily: `"${headingFont}", sans-serif` }
     : undefined;
 
+
   const cardStyle: React.CSSProperties = {
     ...(cardBg ? { backgroundColor: cardBg } : {}),
     ...(cardBorder && !hideCardChrome ? { borderColor: cardBorder } : {}),
@@ -599,7 +600,7 @@ export function SurveyFormInline({
               <div className="mt-4">
                 {/* gray-600, not gray-500 — see the helper-text contrast note
                     on field.helpText below (a11y fix, 2026-08-18). */}
-                <div className="flex items-center justify-between text-xs text-gray-600 dark:text-gray-400 mb-1.5">
+                <div className={`flex items-center justify-between text-xs ${dimTextClass(cardBg)} mb-1.5`}>
                   <span>Page {pageIndex + 1} of {totalPages}</span>
                   <span>{Math.round(((pageIndex + 1) / totalPages) * 100)}%</span>
                 </div>
@@ -670,12 +671,12 @@ export function SurveyFormInline({
                   ) : field.type === 'image' ? (
                     <figure className="my-1">
                       <img src={field.mediaUrl} alt={field.label || ''} className="w-full rounded-lg border border-gray-200 dark:border-gray-700" />
-                      {field.label && <figcaption className="text-xs text-gray-600 dark:text-gray-400 mt-1">{resolvePiping(field.label, answers)}</figcaption>}
+                      {field.label && <figcaption className={`text-xs ${dimTextClass(cardBg)} mt-1`}>{resolvePiping(field.label, answers)}</figcaption>}
                     </figure>
                   ) : field.type === 'video' ? (
                     <figure className="my-1">
                       <video src={field.mediaUrl} controls className="w-full rounded-lg border border-gray-200 dark:border-gray-700" />
-                      {field.label && <figcaption className="text-xs text-gray-600 dark:text-gray-400 mt-1">{resolvePiping(field.label, answers)}</figcaption>}
+                      {field.label && <figcaption className={`text-xs ${dimTextClass(cardBg)} mt-1`}>{resolvePiping(field.label, answers)}</figcaption>}
                     </figure>
                   ) : (
                     <div className="space-y-1.5">
@@ -694,7 +695,7 @@ export function SurveyFormInline({
                           measures well under 4.5:1 for 12px (text-xs) helper
                           text (a11y fix, 2026-08-18; see the button-contrast
                           note below for the same-family math). */}
-                      {field.helpText && <p className="text-xs text-gray-600 dark:text-gray-400">{resolvePiping(field.helpText, answers)}</p>}
+                      {field.helpText && <p className={`text-xs ${dimTextClass(cardBg)}`}>{resolvePiping(field.helpText, answers)}</p>}
 
                       {renderField(
                         field, answers, setAnswer, accent, inputStyle, inputOptionTextColor,

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import type { NavigationBlock } from '@/types/blocks';
 import { getClientSiteNavItems, type NavItem } from '@/lib/actions/client-sites';
 import { getElementCSS } from '@/lib/utils/elementStyles';
+import { Icon } from '@/components/ui/Icon';
 
 interface NavigationBlockRenderProps {
   block: NavigationBlock;
@@ -173,11 +174,14 @@ export function NavigationBlockRender({ block, siteId }: NavigationBlockRenderPr
             className="-mr-2 rounded p-2"
             style={{ color: linkColor }}
           >
-            {/* Fixed 24px box: before material-icons.woff2 loads the ligature
-                renders as TEXT ("menu"), and an unreserved box resizes the nav
-                bar → everything below it shifts (measured 0.176 CLS, ITM-030).
-                overflow-hidden clips the pre-swap text inside the final size. */}
-            <span className="material-icons block h-6 w-6 overflow-hidden" aria-hidden="true">{menuOpen ? 'close' : 'menu'}</span>
+            {/* Inline SVG, not the material-icons webfont. The font cost 126KB
+                at VeryHigh priority on every client-site page and, before it
+                loaded, rendered the ligature as TEXT ("menu") — an unreserved
+                box then resized the nav bar and shifted everything below it
+                (0.176 CLS, ITM-030). An SVG has no swap, so the reflow guard
+                that fix added is no longer load-bearing; the explicit 24px box
+                stays purely to pin the layout. */}
+            <Icon name={menuOpen ? 'close' : 'menu'} size={24} className="block h-6 w-6" />
           </button>
         </div>
       </div>
@@ -316,11 +320,12 @@ function DesktopNavItem({
         {...(item.openInNewTab ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
       >
         {item.label}
-        {/* Reserved box — same pre-font-load ligature-text reflow guard as the
-            hamburger above (ITM-030). */}
-        <span className="material-icons inline-block overflow-hidden" style={{ fontSize: '18px', width: 18, height: 18, transform: open ? 'rotate(180deg)' : undefined, transition: 'transform 150ms' }} aria-hidden="true">
-          expand_more
-        </span>
+        <Icon
+          name="expand_more"
+          size={18}
+          className="inline-block"
+          style={{ transform: open ? 'rotate(180deg)' : undefined, transition: 'transform 150ms' }}
+        />
       </Link>
       {open && (
         <ul
@@ -395,10 +400,12 @@ function MobileNavItem({
         style={{ color: linkColor, ...linkTypeStyle }}
       >
         <span>{item.label}</span>
-        {/* Reserved box — pre-font-load ligature-text reflow guard (ITM-030). */}
-        <span className="material-icons inline-block overflow-hidden" style={{ fontSize: '20px', width: 20, height: 20, transform: expanded ? 'rotate(180deg)' : undefined, transition: 'transform 150ms' }} aria-hidden="true">
-          expand_more
-        </span>
+        <Icon
+          name="expand_more"
+          size={20}
+          className="inline-block"
+          style={{ transform: expanded ? 'rotate(180deg)' : undefined, transition: 'transform 150ms' }}
+        />
       </button>
       {expanded && (
         <ul className="pb-2 pl-4">

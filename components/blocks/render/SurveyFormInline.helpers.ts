@@ -90,3 +90,21 @@ export function blockImplicitSubmit(e: { key: string; target: EventTarget | null
     e.preventDefault();
   }
 }
+
+/**
+ * Tailwind classes for the form's secondary ("dim") text — help text, legends,
+ * figure captions.
+ *
+ * The survey card carries `bg-white dark:bg-gray-900`, but when a tenant pins a
+ * card background (branding, or an explicit formBg override) that arrives as an
+ * inline `backgroundColor`, which beats the `dark:` background utility. Under a
+ * dark colour-scheme preference the surface then stays light while
+ * `dark:text-gray-400` still applies — measured #99a1af on #ffffff, 2.6:1,
+ * failing Lighthouse's color-contrast audit.
+ *
+ * So the dark text variant is only offered when the surface is itself free to
+ * go dark.
+ */
+export function dimTextClass(cardBg: string | undefined): string {
+  return cardBg && cardBg !== 'transparent' ? 'text-gray-600' : 'text-gray-600 dark:text-gray-400';
+}
