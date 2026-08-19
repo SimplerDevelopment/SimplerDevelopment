@@ -1,7 +1,35 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GetObjectCommand } from '@aws-sdk/client-s3';
 import { unstable_cache } from 'next/cache';
+import sharp from 'sharp';
 import { getS3Client, getBucketName } from '@/lib/s3/client';
+
+// ITM-027 (mobile LCP): whitelist of resize widths this route will produce
+// on the fly. Fixed to these four so `?w=` can't be used to mint unbounded
+// distinct cached variants of every asset (arbitrary-dimension abuse) — the
+// values line up with common device/DPR breakpoints (mobile, mobile@2x /
+// small tablet, desktop, desktop@2x).
+const ALLOWED_WIDTHS = [480, 828, 1200, 1600] as const;
+type AllowedWidth = (typeof ALLOWED_WIDTHS)[number];
+
+function isAllowedWidth(n: number): n is AllowedWidth {
+  return (ALLOWED_WIDTHS as readonly number[]).includes(n);
+}
+
+// Raster formats sharp can safely decode + re-encode while PRESERVING the
+// stored format (we never transcode, only resize). SVG is vector (nothing to
+// raster-resize — sharp would rasterize it, silently changing the format)
+// and GIF is excluded so an animated GIF never gets flattened to a single
+// frame by sharp; both are intentionally left OUT of this set so the `?w=`
+// path below falls through and serves them full-size, untouched.
+type SharpFormat = 'png' | 'jpeg' | 'webp' | 'avif';
+const RESIZABLE_CONTENT_TYPES: Record<string, SharpFormat> = {
+  'image/png': 'png',
+  'image/jpeg': 'jpeg',
+  'image/jpg': 'jpeg',
+  'image/webp': 'webp',
+  'image/avif': 'avif',
+};
 
 // Cache the S3 round-trip in Next's data cache so the second hit on a hot
 // asset (and every subsequent hit until revalidation) skips the network.
@@ -31,8 +59,35 @@ const fetchProxyAsset = unstable_cache(
   { revalidate: 3600, tags: ['media-proxy-asset'] }
 );
 
+// Resize step, cached separately (and keyed on key+width+format by
+// unstable_cache's own argument hashing) so a repeat request for the same
+// width variant skips both the S3 round-trip (nested call reuses
+// fetchProxyAsset's cache entry) AND the sharp CPU work. Shares the
+// 'media-proxy-asset' tag with the full-size fetch so a future
+// revalidateTag('media-proxy-asset') busts both together.
+const resizeProxyAsset = unstable_cache(
+  async (
+    key: string,
+    width: AllowedWidth,
+    sharpFormat: SharpFormat
+  ): Promise<{ body: string; contentLength: number } | null> => {
+    const source = await fetchProxyAsset(key);
+    if (!source) return null;
+    const buffer = Buffer.from(source.body, 'base64');
+    // withoutEnlargement: never upscale a source image smaller than the
+    // requested width — sharp just returns it at its original size.
+    const resized = await sharp(buffer)
+      .resize({ width, withoutEnlargement: true })
+      .toFormat(sharpFormat)
+      .toBuffer();
+    return { body: resized.toString('base64'), contentLength: resized.length };
+  },
+  ['media-proxy-asset-resized'],
+  { revalidate: 3600, tags: ['media-proxy-asset'] }
+);
+
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ path: string[] }> }
 ) {
   try {
@@ -46,7 +101,38 @@ export async function GET(
         { status: 404 }
       );
     }
-    const buffer = Buffer.from(cached.body, 'base64');
+
+    const storedCt = cached.contentType || 'application/octet-stream';
+    const ct = storedCt.toLowerCase().split(';')[0].trim();
+
+    // ---- ITM-027: optional `?w=` resize-on-the-fly ----
+    // Width must be one of the whitelisted breakpoints — anything else is a
+    // 400, not a silent passthrough, so probing arbitrary widths can't turn
+    // this route into an unbounded resize oracle.
+    const widthParam = request.nextUrl.searchParams.get('w');
+    let buffer = Buffer.from(cached.body, 'base64');
+    let contentLength = cached.contentLength;
+    if (widthParam !== null) {
+      const width = Number(widthParam);
+      if (!isAllowedWidth(width)) {
+        return NextResponse.json(
+          { success: false, error: `Invalid width. Allowed values: ${ALLOWED_WIDTHS.join(', ')}` },
+          { status: 400 }
+        );
+      }
+      const sharpFormat = RESIZABLE_CONTENT_TYPES[ct];
+      if (sharpFormat) {
+        const resized = await resizeProxyAsset(key, width, sharpFormat);
+        if (resized) {
+          buffer = Buffer.from(resized.body, 'base64');
+          contentLength = resized.contentLength;
+        }
+      }
+      // Non-resizable types (svg/gif/pdf/video/etc.) fall through here and
+      // serve the untouched full-size buffer — `?w=` is simply a no-op for
+      // them rather than an error, since a caller sweeping `?w=` across a
+      // mixed-format media library shouldn't have to special-case format.
+    }
     // Only allow inline rendering for known-safe content types. Stored S3
     // Content-Type is attacker-controllable on tenant-uploaded objects, and
     // serving HTML/SVG inline on the app origin would enable stored XSS.
@@ -72,8 +158,6 @@ export async function GET(
     // renders <img src=".svg"> tags normally; only navigating to the URL or
     // inlining via <object>/<iframe> hits the CSP wall.
     const SVG_INLINE = new Set(['image/svg+xml']);
-    const storedCt = cached.contentType || 'application/octet-stream';
-    const ct = storedCt.toLowerCase().split(';')[0].trim();
     const sandboxed = IFRAME_SANDBOXED.has(ct);
     const cspSvg = SVG_INLINE.has(ct);
     const inline = SAFE_INLINE.has(ct) || sandboxed || cspSvg;
@@ -86,7 +170,7 @@ export async function GET(
       : storedCt;
     const headers: Record<string, string> = {
       'Content-Type': inline ? inlineCt : 'application/octet-stream',
-      'Content-Length': cached.contentLength.toString(),
+      'Content-Length': contentLength.toString(),
       'Cache-Control': 'public, max-age=31536000, immutable',
       'X-Content-Type-Options': 'nosniff',
     };
