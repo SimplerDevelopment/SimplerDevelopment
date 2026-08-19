@@ -60,6 +60,11 @@ export interface NavigationBlock extends BaseBlock {
   dropdownLinkColor?: string;
   /** Pins the bar to the top of the viewport on scroll. Defaults to true. */
   sticky?: boolean;
+  /** Overlay mode: the bar paints OVER the following block (zero layout
+   *  height) instead of stacking above it — the transparent-header-over-hero
+   *  pattern. Pair with backgroundColor:'transparent' and a light linkColor.
+   *  Overlay implies non-sticky (the bar scrolls away with the hero). */
+  overlay?: boolean;
   /** CSS unit for the inner container's max-width. Defaults to '1280px'. */
   containerMaxWidth?: string;
   /** Overrides the page's body font for nav text only. */

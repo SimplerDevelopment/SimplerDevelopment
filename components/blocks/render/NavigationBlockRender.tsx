@@ -90,14 +90,18 @@ export function NavigationBlockRender({ block, siteId }: NavigationBlockRenderPr
   const ctaBorderRadius = block.ctaBorderRadius || '9999px';
   const dropdownBackgroundColor = block.dropdownBackgroundColor || '#ffffff';
   const dropdownLinkColor = block.dropdownLinkColor || '#1e293b';
-  const sticky = block.sticky !== false;
+  // Overlay implies non-sticky: position:sticky cannot work inside the
+  // zero-height wrapper below, and the transparent-over-hero pattern this
+  // mode exists for scrolls away with the hero anyway.
+  const overlay = block.overlay === true;
+  const sticky = !overlay && block.sticky !== false;
   const containerMaxWidth = block.containerMaxWidth || '1280px';
   const logoHeight = block.logoHeight || '32px';
 
   const regularItems = navItems.filter((item) => !item.isButton);
   const buttonItems = navItems.filter((item) => item.isButton);
 
-  return (
+  const navBar = (
     <nav
       className={sticky ? 'sticky top-0 z-50' : 'relative'}
       style={{ backgroundColor, backgroundImage, fontFamily: block.fontFamily || undefined }}
@@ -183,7 +187,13 @@ export function NavigationBlockRender({ block, siteId }: NavigationBlockRenderPr
         className={`overflow-hidden transition-[max-height] duration-300 ease-in-out lg:hidden ${
           menuOpen ? 'max-h-[80vh] overflow-y-auto border-t' : 'max-h-0'
         }`}
-        style={{ backgroundColor, borderColor: `${linkColor}1a` }}
+        style={{
+          // A transparent bar (overlay-over-hero setups) must not leave the
+          // OPEN mobile menu transparent over page content — fall back to the
+          // dropdown surface color so the sheet stays readable.
+          backgroundColor: backgroundColor === 'transparent' ? dropdownBackgroundColor : backgroundColor,
+          borderColor: `${linkColor}1a`,
+        }}
       >
         <ul className="px-4 py-2 sm:px-6">
           {regularItems.map((item) => (
@@ -201,6 +211,19 @@ export function NavigationBlockRender({ block, siteId }: NavigationBlockRenderPr
       </div>
     </nav>
   );
+
+  if (overlay) {
+    // Zero layout height + visible overflow: the bar paints OVER whatever
+    // block follows (typically a full-bleed hero) instead of stacking above
+    // it — the transparent-header-over-hero pattern. z-40 keeps it above
+    // hero content while below modals/menus that use z-50.
+    return (
+      <div className="relative z-40 h-0 overflow-visible">
+        {navBar}
+      </div>
+    );
+  }
+  return navBar;
 }
 
 // ─── Desktop dropdown item ──────────────────────────────────────────────────
