@@ -1,15 +1,35 @@
 'use client';
 
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
-import * as MdIcons from 'react-icons/md';
 
-// Build a searchable index of Material Design icons
-const ALL_ICONS: { name: string; Component: React.ComponentType<{ size?: number; className?: string }> }[] = [];
+type IconComponent = React.ComponentType<{ size?: number; className?: string }>;
+type IconEntry = { name: string; Component: IconComponent };
 
-for (const [name, Component] of Object.entries(MdIcons)) {
-  if (name.startsWith('Md') && typeof Component === 'function') {
-    ALL_ICONS.push({ name, Component: Component as React.ComponentType<{ size?: number; className?: string }> });
-  }
+/*
+ * react-icons/md is ~4,300 components (1.9MB raw / 348KB gzipped). A static
+ * `import * as MdIcons` cannot be tree-shaken — the bundler can't prove which
+ * entries the Object.entries() loop below touches — so the entire set was
+ * retained and hoisted into a shared chunk that EVERY public client site
+ * downloaded. Measured 2026-08-19: 331KB of 348KB unused on every page of
+ * integratouch, ~22% of total page weight, the single largest LCP contributor
+ * on a bandwidth-bound mobile profile.
+ *
+ * The dynamic import below is load-bearing, not a style choice: it puts the
+ * icon set in its own chunk that nothing pulls until someone actually opens
+ * this picker. Do not convert it back to a static import.
+ */
+let iconIndex: IconEntry[] | null = null;
+let iconIndexPromise: Promise<IconEntry[]> | null = null;
+
+function loadIconIndex(): Promise<IconEntry[]> {
+  if (iconIndex) return Promise.resolve(iconIndex);
+  iconIndexPromise ??= import('react-icons/md').then((mod) => {
+    iconIndex = Object.entries(mod)
+      .filter(([name, Component]) => name.startsWith('Md') && typeof Component === 'function')
+      .map(([name, Component]) => ({ name, Component: Component as IconComponent }));
+    return iconIndex;
+  });
+  return iconIndexPromise;
 }
 
 // Convert MdIconName to readable label: MdDashboard -> Dashboard, MdBarChart -> Bar Chart
@@ -36,19 +56,30 @@ interface IconPickerProps {
 export function IconPicker({ value, onChange, label = 'Icon' }: IconPickerProps) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
+  // Starts populated on a reopen — the index is cached at module scope.
+  const [icons, setIcons] = useState<IconEntry[]>(() => iconIndex ?? []);
   const containerRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
-  // Resolve current icon
+  // Resolve current icon. The closed state renders the selection through the
+  // material-icons webfont (as the chevron/clear affordances below already do)
+  // so a picker that is merely *mounted* never pulls the icon chunk.
   const currentReactName = value ? materialToReactIcon(value) : '';
-  const CurrentIcon = value ? (MdIcons as Record<string, React.ComponentType<{ size?: number; className?: string }>>)[currentReactName] : null;
+
+  // Pull the icon set on first open only.
+  useEffect(() => {
+    if (!open || icons.length) return;
+    let cancelled = false;
+    loadIconIndex().then((list) => { if (!cancelled) setIcons(list); });
+    return () => { cancelled = true; };
+  }, [open, icons.length]);
 
   // Filter icons by search
   const filtered = useMemo(() => {
-    if (!search.trim()) return ALL_ICONS.slice(0, 60); // Show first 60 when no search
+    if (!search.trim()) return icons.slice(0, 60); // Show first 60 when no search
     const q = search.toLowerCase();
-    return ALL_ICONS.filter(i => iconLabel(i.name).toLowerCase().includes(q)).slice(0, 60);
-  }, [search]);
+    return icons.filter(i => iconLabel(i.name).toLowerCase().includes(q)).slice(0, 60);
+  }, [search, icons]);
 
   // Close on outside click
   useEffect(() => {
@@ -82,8 +113,8 @@ export function IconPicker({ value, onChange, label = 'Icon' }: IconPickerProps)
           onClick={() => setOpen(!open)}
           className="mt-1 w-full flex items-center gap-2 rounded border border-border px-2.5 py-1.5 text-sm text-left hover:bg-accent/50 transition-colors"
         >
-          {CurrentIcon ? (
-            <CurrentIcon size={18} className="text-foreground shrink-0" />
+          {value ? (
+            <span className="material-icons text-lg text-foreground shrink-0">{value}</span>
           ) : (
             <span className="material-icons text-lg text-muted-foreground/50 shrink-0">add_circle_outline</span>
           )}
@@ -119,7 +150,9 @@ export function IconPicker({ value, onChange, label = 'Icon' }: IconPickerProps)
 
           {/* Icon grid */}
           <div className="overflow-y-auto p-2" style={{ maxHeight: '260px' }}>
-            {filtered.length === 0 ? (
+            {icons.length === 0 ? (
+              <p className="text-xs text-muted-foreground text-center py-4">Loading icons&hellip;</p>
+            ) : filtered.length === 0 ? (
               <p className="text-xs text-muted-foreground text-center py-4">No icons match &ldquo;{search}&rdquo;</p>
             ) : (
               <div className="grid grid-cols-6 gap-1">

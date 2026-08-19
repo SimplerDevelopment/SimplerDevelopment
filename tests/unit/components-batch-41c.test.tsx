@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, act, cleanup } from '@testing-library/react';
+import { render, screen, fireEvent, act, cleanup, waitFor } from '@testing-library/react';
 
 // ---------------------------------------------------------------------------
 // Mocks for heavy deps
@@ -213,7 +213,7 @@ describe('IconPicker', () => {
     expect(screen.getByText('Pick one')).toBeTruthy();
   });
 
-  it('opens the picker and renders icon grid when the trigger is clicked', () => {
+  it('opens the picker and renders icon grid when the trigger is clicked', async () => {
     render(<IconPicker value={undefined} onChange={() => {}} />);
     const trigger = screen.getByText('Choose icon...').closest('button')!;
     fireEvent.click(trigger);
@@ -222,8 +222,11 @@ describe('IconPicker', () => {
     const search = screen.getByPlaceholderText('Search icons...') as HTMLInputElement;
     expect(search).toBeTruthy();
 
-    // At least one mocked icon should be rendered (we registered 5 Md* mocks)
-    expect(screen.getAllByTestId(/^icon-Md/).length).toBeGreaterThan(0);
+    // The icon set arrives via a dynamic import (it is 4,300 components — see
+    // the comment in IconPicker.tsx), so the grid fills in on a later tick.
+    await waitFor(() =>
+      expect(screen.getAllByTestId(/^icon-Md/).length).toBeGreaterThan(0),
+    );
   });
 
   it('calls onChange with the material-style name when an icon is selected', () => {
@@ -254,8 +257,12 @@ describe('IconPicker', () => {
     render(<IconPicker value="dashboard" onChange={() => {}} />);
     // "dashboard" -> MdDashboard -> readable label "Dashboard"
     expect(screen.getByText('Dashboard')).toBeTruthy();
-    // And the mock dashboard icon is rendered in the trigger
-    expect(screen.getByTestId('icon-MdDashboard')).toBeTruthy();
+    // The trigger draws the selection with the material-icons webfont, NOT a
+    // react-icons component: a merely-mounted picker must not pull the 4,300
+    // icon chunk. Asserting the webfont span here is what keeps that true.
+    const glyph = screen.getByText('dashboard');
+    expect(glyph.className).toContain('material-icons');
+    expect(screen.queryByTestId('icon-MdDashboard')).toBeNull();
   });
 });
 
