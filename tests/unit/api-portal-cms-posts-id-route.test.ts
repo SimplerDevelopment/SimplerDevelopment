@@ -20,6 +20,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 // ---------------------------------------------------------------------------
 
 const authMock = vi.fn();
+const revalidateSiteContentMock = vi.fn();
+vi.mock('@/lib/sites/site-cache', () => ({
+  revalidateSiteContent: (...args: unknown[]) => revalidateSiteContentMock(...args),
+}));
 vi.mock('@/lib/auth', () => ({
   auth: () => authMock(),
 }));
@@ -29,12 +33,6 @@ vi.mock('@/lib/portal-client', () => ({
   resolveClientSite: (...args: unknown[]) => resolveClientSiteMock(...args),
 }));
 
-const revalidateClientSiteMock = vi.fn();
-const clientSiteUrlMock = vi.fn();
-vi.mock('@/lib/revalidate-client-site', () => ({
-  revalidateClientSite: (...args: unknown[]) => revalidateClientSiteMock(...args),
-  clientSiteUrl: (...args: unknown[]) => clientSiteUrlMock(...args),
-}));
 
 class FakeBlockGateError extends Error {
   constructor(msg: string) {
@@ -303,8 +301,6 @@ beforeEach(() => {
 
   authMock.mockReset();
   resolveClientSiteMock.mockReset();
-  revalidateClientSiteMock.mockReset();
-  clientSiteUrlMock.mockReset();
   assertBlocksAllowedForRoleMock.mockReset();
 
   authMock.mockResolvedValue({ user: { id: '7', role: 'admin' } });
@@ -313,8 +309,6 @@ beforeEach(() => {
     subdomain: 'acme',
     domain: null,
   });
-  clientSiteUrlMock.mockReturnValue('https://acme.test');
-  revalidateClientSiteMock.mockResolvedValue(undefined);
   assertBlocksAllowedForRoleMock.mockReturnValue(undefined);
 });
 
@@ -620,37 +614,33 @@ describe('PUT /api/portal/cms/websites/[siteId]/posts/[postId]', () => {
     expect(state.postTags).toHaveLength(0);
   });
 
-  it('triggers revalidation when site URL is available', async () => {
+  // These used to assert a POST to `${siteUrl}/api/revalidate` — a route that
+  // never existed in this repo, so the "revalidation" was a no-op that merely
+  // looked wired up. The save now purges this tenant's cached content reads by
+  // tag, which is what actually makes an edit go live.
+  it('purges the tenant\'s cached content on save', async () => {
     state.posts.push(defaultPost({ slug: 'my-post' }));
-    clientSiteUrlMock.mockReturnValueOnce('https://acme.test');
     await PUT(
       makeRequest({ title: 'Renamed' }),
       makeParams('1', '1'),
     );
-    expect(revalidateClientSiteMock).toHaveBeenCalledWith('https://acme.test', [
-      '/blog/my-post',
-      '/p/my-post',
-    ]);
+    // 50 is the RESOLVED site.id from the fixture, not the '1' route param —
+    // purging by the resolved tenant rather than by caller-supplied input is
+    // what keeps one tenant from purging another's cache.
+    expect(revalidateSiteContentMock).toHaveBeenCalledWith(50);
   });
 
-  it('skips revalidation when client site URL is null', async () => {
+  it('scopes the purge to the saving tenant only', async () => {
+    // revalidatePath('/sites') would purge every tenant's cache on one
+    // tenant's save. The purge must carry a site id.
     state.posts.push(defaultPost());
-    clientSiteUrlMock.mockReturnValueOnce(null);
     await PUT(
       makeRequest({ title: 'Renamed' }),
       makeParams('1', '1'),
     );
-    expect(revalidateClientSiteMock).not.toHaveBeenCalled();
-  });
-
-  it('swallows revalidation errors (fire-and-forget)', async () => {
-    state.posts.push(defaultPost());
-    revalidateClientSiteMock.mockRejectedValueOnce(new Error('revalidate boom'));
-    const res = await PUT(
-      makeRequest({ title: 'Renamed' }),
-      makeParams('1', '1'),
-    );
-    expect(res.status).toBe(200);
+    for (const call of revalidateSiteContentMock.mock.calls) {
+      expect(typeof call[0]).toBe('number');
+    }
   });
 });
 

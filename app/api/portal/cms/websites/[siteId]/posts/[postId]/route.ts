@@ -5,7 +5,7 @@ import { db } from '@/lib/db';
 import { posts, postCategories, postTags, postRevisions } from '@/lib/db/schema';
 import { and, desc, eq, inArray } from 'drizzle-orm';
 import { resolveClientSite } from '@/lib/portal-client';
-import { revalidateClientSite, clientSiteUrl } from '@/lib/revalidate-client-site';
+import { revalidateSiteContent } from '@/lib/sites/site-cache';
 import { assertBlocksAllowedForRole, BlockGateError } from '@/lib/security/block-allowlist';
 import { syncTemplateUsages } from '@/lib/sites/sync-template-usages';
 
@@ -216,15 +216,12 @@ export async function PUT(
     }
   }
 
-  // Trigger on-demand revalidation on the client site (non-blocking)
-  const siteUrl = clientSiteUrl(site.subdomain, site.domain);
-  if (siteUrl) {
-    const postSlug = post.slug;
-    revalidateClientSite(siteUrl, [
-      `/blog/${postSlug}`,
-      `/p/${postSlug}`,
-    ]).catch(() => {}); // fire-and-forget
-  }
+  // Purge this tenant's cached content reads so the edit is live immediately.
+  // This replaces a fire-and-forget POST to `${siteUrl}/api/revalidate` — a
+  // route that never existed in this repo, so nothing was actually being
+  // invalidated. Tag-scoped to `site.id`, because revalidatePath('/sites') would
+  // purge every tenant's cache on one tenant's save.
+  revalidateSiteContent(site.id);
 
   return NextResponse.json({ success: true, data: post });
 }
