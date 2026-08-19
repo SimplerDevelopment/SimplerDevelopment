@@ -1,204 +1,224 @@
 'use client';
 
-import type { ComponentType, CSSProperties } from 'react';
-import type { IconBaseProps } from 'react-icons';
-import {
-  MdRocketLaunch,
-  MdAltRoute,
-  MdHandshake,
-  MdSchool,
-  MdTrendingUp,
-  MdVolunteerActivism,
-  MdArrowForward,
-  MdArrowBack,
-  MdArrowUpward,
-  MdArrowDownward,
-  MdNorthEast,
-  MdClose,
-  MdCheck,
-  MdCheckCircle,
-  MdPlayCircle,
-  MdInsights,
-  MdSync,
-  MdWorkspacePremium,
-  MdStar,
-  MdStorefront,
-  MdInventory2,
-  MdLocalOffer,
-  MdErrorOutline,
-  MdChevronLeft,
-  MdChevronRight,
-  MdOpenInNew,
-  MdEdit,
-  MdVisibility,
-  MdHistory,
-  MdMenu,
-  MdArticle,
-  MdSmartButton,
-  MdFormatQuote,
-  MdImage,
-  MdImagesearchRoller,
-  MdPhotoLibrary,
-  MdCode,
-  MdHeight,
-  MdHorizontalRule,
-  MdViewColumn,
-  MdCropFree,
-  MdTab,
-  MdExpandMore,
-  MdViewCarousel,
-  MdSlideshow,
-  MdTextRotationNone,
-  MdCampaign,
-  MdGridView,
-  MdFlip,
-  MdBarChart,
-  MdRateReview,
-  MdApps,
-  MdLoyalty,
-  MdCategory,
-  MdShoppingCart,
-  MdSell,
-  MdSchedule,
-  MdPoll,
-  MdTitle,
-  MdNotes,
-  MdSupport,
-  MdLightbulb,
-  MdPeople,
-  MdChat,
-  MdEmail,
-  MdPhone,
-  MdLocationOn,
-  MdSettings,
-  MdInfo,
-  MdWarning,
-  MdDone,
-  MdAdd,
-  MdRemove,
-  MdSearch,
-  MdBookmark,
-  MdFavorite,
-  MdShare,
-  MdDownload,
-  MdUpload,
-  MdRefresh,
-  MdHome,
-  MdBusinessCenter,
-  MdDashboard,
-  MdAnalytics,
-  MdAutoAwesome,
-  MdLink,
-  MdBadge,
-  MdGpsFixed,
-  MdStorage,
-  MdWorkspaces,
-  MdMyLocation,
-  MdGroup,
-  MdTune,
-  MdAccountTree,
-  MdHub,
-  MdScale,
-} from 'react-icons/md';
+import type { CSSProperties } from 'react';
 
-/** Map Material Icons font names → react-icons/md components. */
-const ICON_MAP: Record<string, ComponentType<IconBaseProps>> = {
-  rocket_launch: MdRocketLaunch,
-  conversion_path: MdAltRoute,
-  alt_route: MdAltRoute,
-  handshake: MdHandshake,
-  school: MdSchool,
-  trending_up: MdTrendingUp,
-  volunteer_activism: MdVolunteerActivism,
-  arrow_forward: MdArrowForward,
-  arrow_back: MdArrowBack,
-  arrow_upward: MdArrowUpward,
-  arrow_downward: MdArrowDownward,
-  north_east: MdNorthEast,
-  close: MdClose,
-  check: MdCheck,
-  check_circle: MdCheckCircle,
-  play_circle: MdPlayCircle,
-  insights: MdInsights,
-  sync: MdSync,
-  workspace_premium: MdWorkspacePremium,
-  star: MdStar,
-  storefront: MdStorefront,
-  inventory_2: MdInventory2,
-  local_offer: MdLocalOffer,
-  error_outline: MdErrorOutline,
-  chevron_left: MdChevronLeft,
-  chevron_right: MdChevronRight,
-  open_in_new: MdOpenInNew,
-  edit: MdEdit,
-  visibility: MdVisibility,
-  history: MdHistory,
-  menu: MdMenu,
-  article: MdArticle,
-  smart_button: MdSmartButton,
-  format_quote: MdFormatQuote,
-  image: MdImage,
-  photo_library: MdPhotoLibrary,
-  code: MdCode,
-  height: MdHeight,
-  horizontal_rule: MdHorizontalRule,
-  view_column: MdViewColumn,
-  crop_free: MdCropFree,
-  tab: MdTab,
-  expand_more: MdExpandMore,
-  view_carousel: MdViewCarousel,
-  slideshow: MdSlideshow,
-  text_rotation_none: MdTextRotationNone,
-  campaign: MdCampaign,
-  grid_view: MdGridView,
-  flip: MdFlip,
-  bar_chart: MdBarChart,
-  rate_review: MdRateReview,
-  apps: MdApps,
-  loyalty: MdLoyalty,
-  category: MdCategory,
-  shopping_cart: MdShoppingCart,
-  sell: MdSell,
-  schedule: MdSchedule,
-  poll: MdPoll,
-  title: MdTitle,
-  notes: MdNotes,
-  support: MdSupport,
-  lightbulb: MdLightbulb,
-  people: MdPeople,
-  chat: MdChat,
-  email: MdEmail,
-  phone: MdPhone,
-  location_on: MdLocationOn,
-  settings: MdSettings,
-  info: MdInfo,
-  warning: MdWarning,
-  done: MdDone,
-  add: MdAdd,
-  remove: MdRemove,
-  search: MdSearch,
-  bookmark: MdBookmark,
-  favorite: MdFavorite,
-  share: MdShare,
-  download: MdDownload,
-  upload: MdUpload,
-  refresh: MdRefresh,
-  home: MdHome,
-  business_center: MdBusinessCenter,
-  dashboard: MdDashboard,
-  analytics: MdAnalytics,
-  auto_awesome: MdAutoAwesome,
-  link: MdLink,
-  badge: MdBadge,
-  gps_fixed: MdGpsFixed,
-  storage: MdStorage,
-  workspaces: MdWorkspaces,
-  my_location: MdMyLocation,
-  group: MdGroup,
-  tune: MdTune,
-  account_tree: MdAccountTree,
-  hub: MdHub,
-  scale: MdScale,
+/**
+ * SVG shape data for the Material Icons glyphs this file renders, extracted
+ * from the installed react-icons/md package (24x24 viewBox, same coordinate
+ * space react-icons uses). Generated — see the commit message for how.
+ * Each entry is one or more shape descriptors: a <path> (the common case,
+ * `tag` omitted) or a <circle> (`tag: 'circle'`). A `fill: 'none'` entry is a
+ * zero-visual-impact bounding-box spacer some Material glyphs carry; `fillRule`
+ * covers the handful of evenodd cutout glyphs (e.g. grid_view, horizontal_rule).
+ *
+ * WHY inline SVG instead of react-icons/md: react-icons/md is a single ~2MB
+ * module with ~4,300 icon components. Turbopack chunk-groups that whole
+ * barrel with any client module that reaches it — so importing even one
+ * named icon from it pulled the entire barrel into every public tenant page's
+ * module graph (verified via page_client-reference-manifest.js, not just
+ * chunk presence — see the commit message). Inlining just the ~96 path
+ * strings this file actually uses removes the import entirely.
+ */
+type IconShape = { d: string; fill?: string; fillRule?: string; tag?: undefined }
+  | { tag: 'circle'; cx: string; cy: string; r: string; fill?: string; fillRule?: string };
+
+const ICON_PATHS: Record<string, readonly IconShape[]> = {
+  MdRocketLaunch: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'M9.19 6.35c-2.04 2.29-3.44 5.58-3.57 5.89L2 10.69l4.05-4.05c.47-.47 1.15-.68 1.81-.55zM11.17 17s3.74-1.55 5.89-3.7c5.4-5.4 4.5-9.62 4.21-10.57-.95-.3-5.17-1.19-10.57 4.21C8.55 9.09 7 12.83 7 12.83zm6.48-2.19c-2.29 2.04-5.58 3.44-5.89 3.57L13.31 22l4.05-4.05c.47-.47.68-1.15.55-1.81zM9 18c0 .83-.34 1.58-.88 2.12C6.94 21.3 2 22 2 22s.7-4.94 1.88-6.12A2.996 2.996 0 0 1 9 18m4-9c0-1.1.9-2 2-2s2 .9 2 2-.9 2-2 2-2-.9-2-2' }],
+  MdAltRoute: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'm9.78 11.16-1.42 1.42a7.3 7.3 0 0 1-1.79-2.94l1.94-.49c.32.89.77 1.5 1.27 2.01M11 6 7 2 3 6h3.02c.02.81.08 1.54.19 2.17l1.94-.49C8.08 7.2 8.03 6.63 8.02 6zm10 0-4-4-4 4h2.99c-.1 3.68-1.28 4.75-2.54 5.88-.5.44-1.01.92-1.45 1.55-.34-.49-.73-.88-1.13-1.24L9.46 13.6c.93.85 1.54 1.54 1.54 3.4v5h2v-5c0-2.02.71-2.66 1.79-3.63 1.38-1.24 3.08-2.78 3.2-7.37z' }],
+  MdHandshake: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'M16.48 10.41c-.39.39-1.04.39-1.43 0l-4.47-4.46-7.05 7.04-.66-.63a3 3 0 0 1 0-4.24l4.24-4.24a3 3 0 0 1 4.24 0L16.48 9c.39.39.39 1.02 0 1.41m.7-2.12c.78.78.78 2.05 0 2.83-1.27 1.27-2.61.22-2.83 0l-3.76-3.76-5.57 5.57a.996.996 0 0 0 0 1.41c.39.39 1.02.39 1.42 0l4.62-4.62.71.71-4.62 4.62a.996.996 0 0 0 0 1.41c.39.39 1.02.39 1.42 0l4.62-4.62.71.71-4.62 4.62a.996.996 0 1 0 1.41 1.41l4.62-4.62.71.71-4.62 4.62a.996.996 0 1 0 1.41 1.41l8.32-8.34a3 3 0 0 0 0-4.24l-4.24-4.24a3 3 0 0 0-4.18-.06z' }],
+  MdSchool: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'M5 13.18v4L12 21l7-3.82v-4L12 17zM12 3 1 9l11 6 9-4.91V17h2V9z' }],
+  MdTrendingUp: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'm16 6 2.29 2.29-4.88 4.88-4-4L2 16.59 3.41 18l6-6 4 4 6.3-6.29L22 12V6z' }],
+  MdVolunteerActivism: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'M1 11h4v11H1zM16 3.25C16.65 2.49 17.66 2 18.7 2 20.55 2 22 3.45 22 5.3c0 2.27-2.91 4.9-6 7.7-3.09-2.81-6-5.44-6-7.7C10 3.45 11.45 2 13.3 2c1.04 0 2.05.49 2.7 1.25M20 17h-7l-2.09-.73.33-.94L13 16h2.82c.65 0 1.18-.53 1.18-1.18 0-.49-.31-.93-.77-1.11L8.97 11H7v9.02L14 22l8.01-3c-.01-1.1-.9-2-2.01-2' }],
+  MdArrowForward: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'm12 4-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z' }],
+  MdArrowBack: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20z' }],
+  MdArrowUpward: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'm4 12 1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8z' }],
+  MdArrowDownward: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'm20 12-1.41-1.41L13 16.17V4h-2v12.17l-5.58-5.59L4 12l8 8z' }],
+  MdNorthEast: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'M9 5v2h6.59L4 18.59 5.41 20 17 8.41V15h2V5z' }],
+  MdClose: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z' }],
+  MdCheck: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z' }],
+  MdCheckCircle: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2m-2 15-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8z' }],
+  MdPlayCircle: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2M9.5 16.5v-9l7 4.5z' }],
+  MdInsights: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'M21 8c-1.45 0-2.26 1.44-1.93 2.51l-3.55 3.56c-.3-.09-.74-.09-1.04 0l-2.55-2.55C12.27 10.45 11.46 9 10 9c-1.45 0-2.27 1.44-1.93 2.52l-4.56 4.55C2.44 15.74 1 16.55 1 18c0 1.1.9 2 2 2 1.45 0 2.26-1.44 1.93-2.51l4.55-4.56c.3.09.74.09 1.04 0l2.55 2.55C12.73 16.55 13.54 18 15 18c1.45 0 2.27-1.44 1.93-2.52l3.56-3.55c1.07.33 2.51-.48 2.51-1.93 0-1.1-.9-2-2-2' }, { d: 'm15 9 .94-2.07L18 6l-2.06-.93L15 3l-.92 2.07L12 6l2.08.93zM3.5 11 4 9l2-.5L4 8l-.5-2L3 8l-2 .5L3 9z' }],
+  MdSync: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46A7.93 7.93 0 0 0 20 12c0-4.42-3.58-8-8-8m0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74A7.93 7.93 0 0 0 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4z' }],
+  MdWorkspacePremium: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'M9.68 13.69 12 11.93l2.31 1.76-.88-2.85L15.75 9h-2.84L12 6.19 11.09 9H8.25l2.31 1.84zM20 10c0-4.42-3.58-8-8-8s-8 3.58-8 8c0 2.03.76 3.87 2 5.28V23l6-2 6 2v-7.72A7.96 7.96 0 0 0 20 10m-8-6c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6 2.69-6 6-6' }],
+  MdStar: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z' }],
+  MdStorefront: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'm21.9 8.89-1.05-4.37c-.22-.9-1-1.52-1.91-1.52H5.05c-.9 0-1.69.63-1.9 1.52L2.1 8.89c-.24 1.02-.02 2.06.62 2.88.08.11.19.19.28.29V19c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-6.94c.09-.09.2-.18.28-.28.64-.82.87-1.87.62-2.89m-2.99-3.9 1.05 4.37c.1.42.01.84-.25 1.17-.14.18-.44.47-.94.47-.61 0-1.14-.49-1.21-1.14L16.98 5zM13 5h1.96l.54 4.52c.05.39-.07.78-.33 1.07-.22.26-.54.41-.95.41-.67 0-1.22-.59-1.22-1.31zM8.49 9.52 9.04 5H11v4.69c0 .72-.55 1.31-1.29 1.31-.34 0-.65-.15-.89-.41a1.42 1.42 0 0 1-.33-1.07m-4.45-.16L5.05 5h1.97l-.58 4.86c-.08.65-.6 1.14-1.21 1.14-.49 0-.8-.29-.93-.47-.27-.32-.36-.75-.26-1.17M5 19v-6.03c.08.01.15.03.23.03.87 0 1.66-.36 2.24-.95.6.6 1.4.95 2.31.95.87 0 1.65-.36 2.23-.93.59.57 1.39.93 2.29.93.84 0 1.64-.35 2.24-.95.58.59 1.37.95 2.24.95.08 0 .15-.02.23-.03V19z' }],
+  MdInventory2: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'M20 2H4c-1 0-2 .9-2 2v3.01c0 .72.43 1.34 1 1.69V20c0 1.1 1.1 2 2 2h14c.9 0 2-.9 2-2V8.7c.57-.35 1-.97 1-1.69V4c0-1.1-1-2-2-2m-5 12H9v-2h6zm5-7H4V4h16z' }],
+  MdLocalOffer: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'm21.41 11.58-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58s1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41s-.23-1.06-.59-1.42M5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7' }],
+  MdErrorOutline: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'M11 15h2v2h-2zm0-8h2v6h-2zm.99-5C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2M12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8' }],
+  MdChevronLeft: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'M15.41 7.41 14 6l-6 6 6 6 1.41-1.41L10.83 12z' }],
+  MdChevronRight: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'M10 6 8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z' }],
+  MdOpenInNew: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'M19 19H5V5h7V3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14c1.1 0 2-.9 2-2v-7h-2zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3z' }],
+  MdEdit: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'M3 17.25V21h3.75L17.81 9.94l-3.75-3.75zM20.71 7.04a.996.996 0 0 0 0-1.41l-2.34-2.34a.996.996 0 0 0-1.41 0l-1.83 1.83 3.75 3.75z' }],
+  MdVisibility: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5M12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5m0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3' }],
+  MdHistory: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'M13 3a9 9 0 0 0-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42A8.95 8.95 0 0 0 13 21a9 9 0 0 0 0-18m-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8z' }],
+  MdMenu: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'M3 18h18v-2H3zm0-5h18v-2H3zm0-7v2h18V6z' }],
+  MdArticle: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2m-5 14H7v-2h7zm3-4H7v-2h10zm0-4H7V7h10z' }],
+  MdSmartButton: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'M22 9v6c0 1.1-.9 2-2 2h-1v-2h1V9H4v6h6v2H4c-1.1 0-2-.9-2-2V9c0-1.1.9-2 2-2h16c1.1 0 2 .9 2 2m-7.5 10 1.09-2.41L18 15.5l-2.41-1.09L14.5 12l-1.09 2.41L11 15.5l2.41 1.09zm2.5-5 .62-1.38L19 12l-1.38-.62L17 10l-.62 1.38L15 12l1.38.62zm-2.5 5 1.09-2.41L18 15.5l-2.41-1.09L14.5 12l-1.09 2.41L11 15.5l2.41 1.09zm2.5-5 .62-1.38L19 12l-1.38-.62L17 10l-.62 1.38L15 12l1.38.62z' }],
+  MdFormatQuote: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'M6 17h3l2-4V7H5v6h3zm8 0h3l2-4V7h-6v6h3z' }],
+  MdImage: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2M8.5 13.5l2.5 3.01L14.5 12l4.5 6H5z' }],
+  MdImagesearchRoller: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'M20 2v6H6V6H4v4h10v5h2v8h-6v-8h2v-3H2V4h4V2' }],
+  MdPhotoLibrary: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'M22 16V4c0-1.1-.9-2-2-2H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2m-11-4 2.03 2.71L16 11l4 5H8zM2 6v14c0 1.1.9 2 2 2h14v-2H4V6z' }],
+  MdCode: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'M9.4 16.6 4.8 12l4.6-4.6L8 6l-6 6 6 6zm5.2 0 4.6-4.6-4.6-4.6L16 6l6 6-6 6z' }],
+  MdHeight: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'M13 6.99h3L12 3 8 6.99h3v10.02H8L12 21l4-3.99h-3z' }],
+  MdHorizontalRule: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'M4 11h16v2H4z', fillRule: 'evenodd' }],
+  MdViewColumn: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'M14.67 5v14H9.33V5zm1 14H21V5h-5.33zm-7.34 0V5H3v14z' }],
+  MdCropFree: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'M3 5v4h2V5h4V3H5c-1.1 0-2 .9-2 2m2 10H3v4c0 1.1.9 2 2 2h4v-2H5zm14 4h-4v2h4c1.1 0 2-.9 2-2v-4h-2zm0-16h-4v2h4v4h2V5c0-1.1-.9-2-2-2' }],
+  MdTab: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'M21 3H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2m0 16H3V5h10v4h8z' }],
+  MdExpandMore: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'M16.59 8.59 12 13.17 7.41 8.59 6 10l6 6 6-6z' }],
+  MdViewCarousel: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'M2 7h4v10H2zm5 12h10V5H7zM18 7h4v10h-4z' }],
+  MdSlideshow: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'M10 8v8l5-4zm9-5H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2m0 16H5V5h14z' }],
+  MdTextRotationNone: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'M12.75 3h-1.5L6.5 14h2.1l.9-2.2h5l.9 2.2h2.1zm-2.62 7L12 4.98 13.87 10zm10.37 8-3-3v2H5v2h12.5v2z' }],
+  MdCampaign: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'M18 11v2h4v-2zm-2 6.61c.96.71 2.21 1.65 3.2 2.39.4-.53.8-1.07 1.2-1.6-.99-.74-2.24-1.68-3.2-2.4-.4.54-.8 1.08-1.2 1.61M20.4 5.6c-.4-.53-.8-1.07-1.2-1.6-.99.74-2.24 1.68-3.2 2.4.4.53.8 1.07 1.2 1.6.96-.72 2.21-1.65 3.2-2.4M4 9c-1.1 0-2 .9-2 2v2c0 1.1.9 2 2 2h1v4h2v-4h1l5 3V6L8 9zm11.5 3c0-1.33-.58-2.53-1.5-3.35v6.69c.92-.81 1.5-2.01 1.5-3.34' }],
+  MdGridView: [{ d: 'M0 0h24v24H0z', fill: 'none', fillRule: 'evenodd' }, { d: 'M3 3v8h8V3zm6 6H5V5h4zm-6 4v8h8v-8zm6 6H5v-4h4zm4-16v8h8V3zm6 6h-4V5h4zm-6 4v8h8v-8zm6 6h-4v-4h4z', fillRule: 'evenodd' }],
+  MdFlip: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'M15 21h2v-2h-2zm4-12h2V7h-2zM3 5v14c0 1.1.9 2 2 2h4v-2H5V5h4V3H5c-1.1 0-2 .9-2 2m16-2v2h2c0-1.1-.9-2-2-2m-8 20h2V1h-2zm8-6h2v-2h-2zM15 5h2V3h-2zm4 8h2v-2h-2zm0 8c1.1 0 2-.9 2-2h-2z' }],
+  MdBarChart: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'M4 9h4v11H4zM16 13h4v7h-4zM10 4h4v16h-4z' }],
+  MdRateReview: [{ d: 'M0 0h24v24H0zm15.35 6.41-1.77-1.77c-.2-.2-.51-.2-.71 0L6 11.53V14h2.47l6.88-6.88c.2-.19.2-.51 0-.71', fill: 'none' }, { d: 'M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2M6 14v-2.47l6.88-6.88c.2-.2.51-.2.71 0l1.77 1.77c.2.2.2.51 0 .71L8.47 14zm12 0h-7.5l2-2H18z' }],
+  MdApps: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'M4 8h4V4H4zm6 12h4v-4h-4zm-6 0h4v-4H4zm0-6h4v-4H4zm6 0h4v-4h-4zm6-10v4h4V4zm-6 4h4V4h-4zm6 6h4v-4h-4zm0 6h4v-4h-4z' }],
+  MdLoyalty: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'm21.41 11.58-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58s1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41s-.23-1.06-.59-1.42M5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7m11.77 8.27L13 19.54l-4.27-4.27A2.5 2.5 0 0 1 10.5 11c.69 0 1.32.28 1.77.74l.73.72.73-.73a2.5 2.5 0 0 1 3.54 3.54' }],
+  MdCategory: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'm12 2-5.5 9h11z' }, { tag: 'circle', cx: '17.5', cy: '17.5', r: '4.5' }, { d: 'M3 13.5h8v8H3z' }],
+  MdShoppingCart: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2M1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49A1.003 1.003 0 0 0 20 4H5.21l-.94-2zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2' }],
+  MdSell: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'm21.41 11.41-8.83-8.83c-.37-.37-.88-.58-1.41-.58H4c-1.1 0-2 .9-2 2v7.17c0 .53.21 1.04.59 1.41l8.83 8.83c.78.78 2.05.78 2.83 0l7.17-7.17c.78-.78.78-2.04-.01-2.83M6.5 8C5.67 8 5 7.33 5 6.5S5.67 5 6.5 5 8 5.67 8 6.5 7.33 8 6.5 8' }],
+  MdSchedule: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2M12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8' }, { d: 'M12.5 7H11v6l5.25 3.15.75-1.23-4.5-2.67z' }],
+  MdPoll: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2M9 17H7v-7h2zm4 0h-2V7h2zm4 0h-2v-4h2z' }],
+  MdTitle: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'M5 4v3h5.5v12h3V7H19V4z' }],
+  MdNotes: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'M3 18h12v-2H3zM3 6v2h18V6zm0 7h18v-2H3z' }],
+  MdSupport: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2m7.46 7.12-2.78 1.15a4.98 4.98 0 0 0-2.95-2.94l1.15-2.78c2.1.8 3.77 2.47 4.58 4.57M12 15c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3M9.13 4.54l1.17 2.78a5 5 0 0 0-2.98 2.97L4.54 9.13a7.98 7.98 0 0 1 4.59-4.59M4.54 14.87l2.78-1.15a4.97 4.97 0 0 0 2.97 2.96l-1.17 2.78a8 8 0 0 1-4.58-4.59m10.34 4.59-1.15-2.78a4.98 4.98 0 0 0 2.95-2.97l2.78 1.17a8 8 0 0 1-4.58 4.58' }],
+  MdLightbulb: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'M9 21c0 .5.4 1 1 1h4c.6 0 1-.5 1-1v-1H9zm3-19C8.1 2 5 5.1 5 9c0 2.4 1.2 4.5 3 5.7V17c0 .5.4 1 1 1h6c.6 0 1-.5 1-1v-2.3c1.8-1.3 3-3.4 3-5.7 0-3.9-3.1-7-7-7' }],
+  MdPeople: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5s-3 1.34-3 3 1.34 3 3 3m-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3m0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5m8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5' }],
+  MdChat: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2M6 9h12v2H6zm8 5H6v-2h8zm4-6H6V6h12z' }],
+  MdEmail: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2m0 4-8 5-8-5V6l8 5 8-5z' }],
+  MdPhone: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02z' }],
+  MdLocationOn: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7m0 9.5a2.5 2.5 0 0 1 0-5 2.5 2.5 0 0 1 0 5' }],
+  MdSettings: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.49.49 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6' }],
+  MdInfo: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2m1 15h-2v-6h2zm0-8h-2V7h2z' }],
+  MdWarning: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'M1 21h22L12 2zm12-3h-2v-2h2zm0-4h-2v-4h2z' }],
+  MdDone: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z' }],
+  MdAdd: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6z' }],
+  MdRemove: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'M19 13H5v-2h14z' }],
+  MdSearch: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14' }],
+  MdBookmark: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'M17 3H7c-1.1 0-1.99.9-1.99 2L5 21l7-3 7 3V5c0-1.1-.9-2-2-2' }],
+  MdFavorite: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'm12 21.35-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54z' }],
+  MdShare: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92s2.92-1.31 2.92-2.92-1.31-2.92-2.92-2.92' }],
+  MdDownload: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'M5 20h14v-2H5zM19 9h-4V3H9v6H5l7 7z' }],
+  MdUpload: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'M5 20h14v-2H5zm0-10h4v6h6v-6h4l-7-7z' }],
+  MdRefresh: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'M17.65 6.35A7.96 7.96 0 0 0 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0 1 12 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4z' }],
+  MdHome: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z' }],
+  MdBusinessCenter: [{ d: 'M0 0h24v24H0zm10 5h4v2h-4zm0 0h4v2h-4z', fill: 'none' }, { d: 'M10 16v-1H3.01L3 19c0 1.11.89 2 2 2h14c1.11 0 2-.89 2-2v-4h-7v1zm10-9h-4.01V5l-2-2h-4l-2 2v2H4c-1.1 0-2 .9-2 2v3c0 1.11.89 2 2 2h6v-2h4v2h6c1.1 0 2-.9 2-2V9c0-1.1-.9-2-2-2m-6 0h-4V5h4z' }],
+  MdDashboard: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'M3 13h8V3H3zm0 8h8v-6H3zm10 0h8V11h-8zm0-18v6h8V3z' }],
+  MdAnalytics: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2M9 17H7v-5h2zm4 0h-2v-3h2zm0-5h-2v-2h2zm4 5h-2V7h2z' }],
+  MdAutoAwesome: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'm19 9 1.25-2.75L23 5l-2.75-1.25L19 1l-1.25 2.75L15 5l2.75 1.25zm-7.5.5L9 4 6.5 9.5 1 12l5.5 2.5L9 20l2.5-5.5L17 12zM19 15l-1.25 2.75L15 19l2.75 1.25L19 23l1.25-2.75L23 19l-2.75-1.25z' }],
+  MdLink: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1M8 13h8v-2H8zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5' }],
+  MdBadge: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'M20 7h-5V4c0-1.1-.9-2-2-2h-2c-1.1 0-2 .9-2 2v3H4c-1.1 0-2 .9-2 2v11c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V9c0-1.1-.9-2-2-2M9 12c.83 0 1.5.67 1.5 1.5S9.83 15 9 15s-1.5-.67-1.5-1.5S8.17 12 9 12m3 6H6v-.75c0-1 2-1.5 3-1.5s3 .5 3 1.5zm1-9h-2V4h2zm5 7.5h-4V15h4zm0-3h-4V12h4z' }],
+  MdGpsFixed: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4m8.94 3A8.994 8.994 0 0 0 13 3.06V1h-2v2.06A8.994 8.994 0 0 0 3.06 11H1v2h2.06A8.994 8.994 0 0 0 11 20.94V23h2v-2.06A8.994 8.994 0 0 0 20.94 13H23v-2zM12 19c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7' }],
+  MdStorage: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'M2 20h20v-4H2zm2-3h2v2H4zM2 4v4h20V4zm4 3H4V5h2zm-4 7h20v-4H2zm2-3h2v2H4z' }],
+  MdWorkspaces: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'M6 13c-2.2 0-4 1.8-4 4s1.8 4 4 4 4-1.8 4-4-1.8-4-4-4m6-10C9.8 3 8 4.8 8 7s1.8 4 4 4 4-1.8 4-4-1.8-4-4-4m6 10c-2.2 0-4 1.8-4 4s1.8 4 4 4 4-1.8 4-4-1.8-4-4-4' }],
+  MdMyLocation: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4m8.94 3A8.994 8.994 0 0 0 13 3.06V1h-2v2.06A8.994 8.994 0 0 0 3.06 11H1v2h2.06A8.994 8.994 0 0 0 11 20.94V23h2v-2.06A8.994 8.994 0 0 0 20.94 13H23v-2zM12 19c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7' }],
+  MdGroup: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5s-3 1.34-3 3 1.34 3 3 3m-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3m0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5m8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5' }],
+  MdTune: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'M3 17v2h6v-2zM3 5v2h10V5zm10 16v-2h8v-2h-8v-2h-2v6zM7 9v2H3v2h4v2h2V9zm14 4v-2H11v2zm-6-4h2V7h4V5h-4V3h-2z' }],
+  MdAccountTree: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'M22 11V3h-7v3H9V3H2v8h7V8h2v10h4v3h7v-8h-7v3h-2V8h2v3z' }],
+  MdHub: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'M8.4 18.2c.38.5.6 1.12.6 1.8 0 1.66-1.34 3-3 3s-3-1.34-3-3 1.34-3 3-3c.44 0 .85.09 1.23.26l1.41-1.77a4.5 4.5 0 0 1-1.09-3.69l-2.03-.68A2.997 2.997 0 0 1 0 9.5c0-1.66 1.34-3 3-3s3 1.34 3 3c0 .07 0 .14-.01.21l2.03.68a4.47 4.47 0 0 1 3.22-2.32V5.91A3.02 3.02 0 0 1 9 3c0-1.66 1.34-3 3-3s3 1.34 3 3c0 1.4-.96 2.57-2.25 2.91v2.16c1.4.23 2.58 1.11 3.22 2.32L18 9.71V9.5c0-1.66 1.34-3 3-3s3 1.34 3 3-1.34 3-3 3c-1.06 0-1.98-.55-2.52-1.37l-2.03.68a4.49 4.49 0 0 1-1.09 3.69l1.41 1.77Q17.34 17 18 17c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3c0-.68.22-1.3.6-1.8l-1.41-1.77c-1.35.75-3.01.76-4.37 0z' }],
+  MdScale: [{ d: 'M0 0h24v24H0z', fill: 'none' }, { d: 'M14 11V8c4.56-.58 8-3.1 8-6H2c0 2.9 3.44 5.42 8 6v3c-3.68.73-8 3.61-8 11h6v-2H4.13c.93-6.83 6.65-7.2 7.87-7.2s6.94.37 7.87 7.2H16v2h6c0-7.39-4.32-10.27-8-11m-2 11c-1.1 0-2-.9-2-2 0-.55.22-1.05.59-1.41C11.39 17.79 16 16 16 16s-1.79 4.61-2.59 5.41c-.36.37-.86.59-1.41.59' }],
+};
+
+/** Map Material Icons font names → keys into ICON_PATHS. */
+const ICON_MAP: Record<string, string> = {
+  rocket_launch: 'MdRocketLaunch',
+  conversion_path: 'MdAltRoute',
+  alt_route: 'MdAltRoute',
+  handshake: 'MdHandshake',
+  school: 'MdSchool',
+  trending_up: 'MdTrendingUp',
+  volunteer_activism: 'MdVolunteerActivism',
+  arrow_forward: 'MdArrowForward',
+  arrow_back: 'MdArrowBack',
+  arrow_upward: 'MdArrowUpward',
+  arrow_downward: 'MdArrowDownward',
+  north_east: 'MdNorthEast',
+  close: 'MdClose',
+  check: 'MdCheck',
+  check_circle: 'MdCheckCircle',
+  play_circle: 'MdPlayCircle',
+  insights: 'MdInsights',
+  sync: 'MdSync',
+  workspace_premium: 'MdWorkspacePremium',
+  star: 'MdStar',
+  storefront: 'MdStorefront',
+  inventory_2: 'MdInventory2',
+  local_offer: 'MdLocalOffer',
+  error_outline: 'MdErrorOutline',
+  chevron_left: 'MdChevronLeft',
+  chevron_right: 'MdChevronRight',
+  open_in_new: 'MdOpenInNew',
+  edit: 'MdEdit',
+  visibility: 'MdVisibility',
+  history: 'MdHistory',
+  menu: 'MdMenu',
+  article: 'MdArticle',
+  smart_button: 'MdSmartButton',
+  format_quote: 'MdFormatQuote',
+  image: 'MdImage',
+  photo_library: 'MdPhotoLibrary',
+  code: 'MdCode',
+  height: 'MdHeight',
+  horizontal_rule: 'MdHorizontalRule',
+  view_column: 'MdViewColumn',
+  crop_free: 'MdCropFree',
+  tab: 'MdTab',
+  expand_more: 'MdExpandMore',
+  view_carousel: 'MdViewCarousel',
+  slideshow: 'MdSlideshow',
+  text_rotation_none: 'MdTextRotationNone',
+  campaign: 'MdCampaign',
+  grid_view: 'MdGridView',
+  flip: 'MdFlip',
+  bar_chart: 'MdBarChart',
+  rate_review: 'MdRateReview',
+  apps: 'MdApps',
+  loyalty: 'MdLoyalty',
+  category: 'MdCategory',
+  shopping_cart: 'MdShoppingCart',
+  sell: 'MdSell',
+  schedule: 'MdSchedule',
+  poll: 'MdPoll',
+  title: 'MdTitle',
+  notes: 'MdNotes',
+  support: 'MdSupport',
+  lightbulb: 'MdLightbulb',
+  people: 'MdPeople',
+  chat: 'MdChat',
+  email: 'MdEmail',
+  phone: 'MdPhone',
+  location_on: 'MdLocationOn',
+  settings: 'MdSettings',
+  info: 'MdInfo',
+  warning: 'MdWarning',
+  done: 'MdDone',
+  add: 'MdAdd',
+  remove: 'MdRemove',
+  search: 'MdSearch',
+  bookmark: 'MdBookmark',
+  favorite: 'MdFavorite',
+  share: 'MdShare',
+  download: 'MdDownload',
+  upload: 'MdUpload',
+  refresh: 'MdRefresh',
+  home: 'MdHome',
+  business_center: 'MdBusinessCenter',
+  dashboard: 'MdDashboard',
+  analytics: 'MdAnalytics',
+  auto_awesome: 'MdAutoAwesome',
+  link: 'MdLink',
+  badge: 'MdBadge',
+  gps_fixed: 'MdGpsFixed',
+  storage: 'MdStorage',
+  workspaces: 'MdWorkspaces',
+  my_location: 'MdMyLocation',
+  group: 'MdGroup',
+  tune: 'MdTune',
+  account_tree: 'MdAccountTree',
+  hub: 'MdHub',
+  scale: 'MdScale',
 };
 
 interface IconProps {
@@ -210,24 +230,60 @@ interface IconProps {
   'aria-hidden'?: boolean;
 }
 
+function renderShape(shape: IconShape, index: number) {
+  if (shape.tag === 'circle') {
+    return (
+      <circle
+        key={index}
+        cx={shape.cx}
+        cy={shape.cy}
+        r={shape.r}
+        fill={shape.fill}
+        fillRule={shape.fillRule as 'evenodd' | 'nonzero' | undefined}
+      />
+    );
+  }
+  return (
+    <path
+      key={index}
+      d={shape.d}
+      fill={shape.fill}
+      fillRule={shape.fillRule as 'evenodd' | 'nonzero' | undefined}
+    />
+  );
+}
+
 /**
- * Renders a react-icons/md component for the given Material Icons name.
- * Falls back to the material-icons CSS font when a name isn't mapped,
- * so unknown icons keep working instead of rendering blank.
+ * Renders an inline SVG for the given Material Icons name, using path data
+ * extracted from react-icons/md (see ICON_PATHS above) so the public render
+ * path never imports that package. Falls back to the material-icons CSS font
+ * when a name isn't mapped, so unknown icons keep working instead of
+ * rendering blank.
  */
 export function Icon({ name, size, className = '', style, 'aria-hidden': ariaHidden = true }: IconProps) {
   if (!name) return null;
-  const resolved = ICON_MAP[name] ?? ICON_MAP[name.replace(/[A-Z]/g, (c, i) => (i === 0 ? c.toLowerCase() : `_${c.toLowerCase()}`)).replace(/^md_/, '')];
+  const mapKey = ICON_MAP[name] ?? ICON_MAP[name.replace(/[A-Z]/g, (c, i) => (i === 0 ? c.toLowerCase() : `_${c.toLowerCase()}`)).replace(/^md_/, '')];
+  const shapes = mapKey ? ICON_PATHS[mapKey] : undefined;
 
-  if (resolved) {
-    const C = resolved;
+  if (shapes) {
+    // Mirrors react-icons' IconBase: width/height default to "1em" so the
+    // rendered size tracks font-size, and callers set pixel/rem size via the
+    // `size` prop below (converted to a fontSize style), not svg attrs.
     const sizeStyle = size !== undefined ? { fontSize: typeof size === 'number' ? `${size}px` : size } : undefined;
     return (
-      <C
+      <svg
+        viewBox="0 0 24 24"
+        width="1em"
+        height="1em"
+        stroke="currentColor"
+        fill="currentColor"
+        strokeWidth={0}
         className={className}
         style={{ ...sizeStyle, ...style }}
         aria-hidden={ariaHidden}
-      />
+      >
+        {shapes.map(renderShape)}
+      </svg>
     );
   }
 

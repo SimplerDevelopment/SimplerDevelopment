@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, DM_Sans, Inter, Playfair_Display, Orbitron, Raleway } from "next/font/google";
+import { Geist, Geist_Mono, DM_Sans, Inter, Playfair_Display } from "next/font/google";
 import "./globals.css";
 import { defaultSEO } from "@/config/seo";
 import { StructuredData } from "@/components/seo/StructuredData";
@@ -57,25 +57,9 @@ const playfairDisplay = Playfair_Display({
 });
 
 // ─── Retro-future marketing type ────────────────────────────────────────────
-// The public marketing pages run on the retro-future design system; its tokens
-// name these two exactly. Orbitron is the squared, space-age display face that
-// carries the "1950s idea of the future" read; Raleway is the humanist body
-// face that keeps long-form copy legible next to it.
-//
-// preload: TRUE, unlike every font above. These are on the critical path for
-// the marketing pages — the hero headline is Orbitron, so deferring it means a
-// visible swap on the first thing a visitor sees.
-const orbitron = Orbitron({
-  variable: "--font-orbitron",
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800", "900"],
-});
-
-const raleway = Raleway({
-  variable: "--font-raleway",
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700", "800"],
-});
+// Orbitron/Raleway (the retro-future marketing pair) now live in
+// app/(pages)/layout.tsx — see the comment there for why they cannot be
+// declared here.
 
 export const metadata: Metadata = defaultSEO;
 
@@ -97,24 +81,33 @@ export default async function RootLayout({
   const isSitesRoute = headersList.get("x-site-pathname") !== null;
   const isClientSite = isSitesRoute || (!APP_HOSTS.includes(hostname) && !hostname.endsWith(".railway.app"));
   const gaId = process.env.NEXT_PUBLIC_GA_ID;
-  // These six app-shell font variables (Geist Sans, DM Sans, Inter, Playfair
-  // Display, and the retro-future marketing pair Orbitron/Raleway) back the
-  // app/portal marketing chrome and its typography tokens (--font-sans,
-  // --font-heading, --font-display, --font-playfair, .retro's stack) — none
-  // of which public client sites ever resolve: they bring their own brand
-  // fonts and render their own layout. Verified live via a getComputedStyle
-  // sweep over every element (+ ::before/::after) on two production
-  // client-site pages: zero elements resolved to any of these faces, and
-  // --font-sans computed to an empty string on a client-site <body>. Despite
-  // that, next/font/google fetched 3 font files (2 preloaded) on every
-  // client-site page for nothing — ~104KB and 3 requests × 54 pages. Gate the
-  // class list the same way the material-icons preload above is gated.
-  // (geistMono is NOT part of this gate — checkout/CheckoutSuccess.tsx under
-  // app/sites uses the `font-mono` Tailwind utility, which resolves through
-  // --font-mono → var(--font-geist-mono), so client sites still need it.)
+  // Fonts declared with next/font in THIS file are attributed to the root
+  // layout, which is in every route's graph — so Next emitted their
+  // <link rel=preload> on public client sites too, which use their own brand
+  // fonts and resolve none of these (verified live: a getComputedStyle sweep
+  // over every element plus ::before/::after on two production client-site
+  // pages matched none of these faces, and --font-sans computed to an empty
+  // string on a client-site <body>).
+  //
+  // Gating the className alone does NOT fix that, and we shipped that mistake
+  // once: next/font emits the preload from the font manifest keyed by the
+  // declaring module, not from whether the class is applied. Measured after
+  // deploy — still 2 preloaded woff2 (53KB) on every client-site page.
+  //
+  // The fix is where a font is DECLARED. Orbitron/Raleway moved to
+  // app/(pages)/layout.tsx, which client sites never enter. Everything left
+  // here is preload:false, so it costs a client site nothing: no preload link,
+  // and no fetch, because nothing on the page matches the face.
+  //
+  // The className gate below is still worth keeping — it stops client sites
+  // inheriting unused custom properties — but it is a tidiness measure, not
+  // the thing that saves the bytes.
+  // (geistMono is deliberately NOT gated — app/sites/**/checkout uses the
+  // `font-mono` utility, which resolves through --font-mono to
+  // var(--font-geist-mono), so client sites still need it.)
   const appShellFontVariables = isClientSite
     ? ""
-    : `${geistSans.variable} ${dmSans.variable} ${inter.variable} ${playfairDisplay.variable} ${orbitron.variable} ${raleway.variable}`;
+    : `${geistSans.variable} ${dmSans.variable} ${inter.variable} ${playfairDisplay.variable}`;
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
