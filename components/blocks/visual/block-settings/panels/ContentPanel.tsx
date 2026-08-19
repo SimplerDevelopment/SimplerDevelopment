@@ -26,6 +26,20 @@ const HtmlRenderEditor = dynamic(
   },
 );
 
+// Warm the editor chunk graph as soon as this module (the editor shell) loads.
+// Selecting an html-render block cold-loads FIVE chunks concurrently (two of
+// them >500KB); under real network timing their evaluation order can skew and
+// CodeMirror's extension set then contains a half-initialized module object —
+// EditorState.create throws "Unrecognized extension value ([object Object])"
+// and the error boundary eats the panel. Reproduced on prod only, first
+// selection only (warm re-selection mounts clean — verified live 2026-08-19);
+// localhost never shows it because all five chunks arrive near-instantly.
+// Importing during idle lets the module system settle the graph in dependency
+// order before any selection, closing the race window and the selection lag.
+if (typeof window !== 'undefined') {
+  void import('@/components/portal/visual-editor/HtmlRenderEditor');
+}
+
 interface PanelProps {
   block: Block;
   onChange: (updates: Partial<Block>) => void;
