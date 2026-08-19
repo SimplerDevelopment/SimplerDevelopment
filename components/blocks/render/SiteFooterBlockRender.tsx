@@ -104,12 +104,18 @@ export function SiteFooterBlockRender({ block }: SiteFooterBlockRenderProps) {
           {/* Link groups */}
           {(block.linkGroups || []).map((group, i) => (
             <div key={i}>
-              <h4
+              {/* Visual label, not document structure — footers land on pages
+                  with their own heading outline, and a bare <h4> here (no
+                  preceding h2/h3 on some pages) trips Lighthouse's
+                  heading-order audit. `<p>` keeps identical styling (Tailwind
+                  preflight strips native heading font-size/weight anyway) with
+                  no heading semantics (a11y fix, 2026-08-18). */}
+              <p
                 className="text-xs tracking-[0.2em] uppercase mb-5"
                 style={{ color: accent, ...getElementCSS(block.elementStyles, 'linkGroupLabel') }}
               >
                 {group.label}
-              </h4>
+              </p>
               <ul className="space-y-3">
                 {group.links.map((link, j) => (
                   <li key={j}>
@@ -131,12 +137,13 @@ export function SiteFooterBlockRender({ block }: SiteFooterBlockRenderProps) {
           {/* Contact column */}
           {block.contactInfo && (
             <div>
-              <h4
+              {/* See the link-group label above — non-heading on purpose. */}
+              <p
                 className="text-xs tracking-[0.2em] uppercase mb-5"
                 style={{ color: accent, ...getElementCSS(block.elementStyles, 'linkGroupLabel') }}
               >
                 Contact
-              </h4>
+              </p>
               <div className="space-y-3 text-sm" style={{ color: text }}>
                 {block.contactInfo.address && (
                   <p style={{ whiteSpace: 'pre-line', ...getElementCSS(block.elementStyles, 'contactLine') }}>{block.contactInfo.address}</p>
@@ -162,7 +169,12 @@ export function SiteFooterBlockRender({ block }: SiteFooterBlockRenderProps) {
                     <a
                       key={i}
                       href={social.url}
-                      className="inline-flex items-center gap-2 text-sm transition-colors"
+                      // p-1 (4px) grows the icon-only tap target from 16×16 to
+                      // 24×24 without changing the visible icon size — fixes
+                      // Lighthouse's target-size audit (a11y fix, 2026-08-18).
+                      // -m-1 offsets the added padding so the row's spacing/
+                      // alignment stays visually identical to before.
+                      className="inline-flex items-center gap-2 text-sm transition-colors p-1 -m-1"
                       style={{ color: 'rgba(255,255,255,0.4)', ...getElementCSS(block.elementStyles, 'socialIcon') }}
                       onMouseEnter={(e) => { e.currentTarget.style.color = accent; }}
                       onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.4)'; }}

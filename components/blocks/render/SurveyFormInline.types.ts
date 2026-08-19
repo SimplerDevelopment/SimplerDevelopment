@@ -12,6 +12,19 @@ import type { SurveyRecommendationConfig } from '@/lib/db/schema';
  */
 export const DISPLAY_ONLY_TYPES = new Set(['heading', 'image', 'video']);
 
+/**
+ * Field types whose visible `<label>` wraps a single, directly-associable
+ * form control (input/select/textarea) — these get `htmlFor`/`id` wiring so
+ * assistive tech and Lighthouse's `label`/`select-name` audits can resolve
+ * the control's accessible name (a11y fix, 2026-08-18). Group-style controls
+ * (radio/checkbox/toggle/rating/nps/slider/file) render their own per-option
+ * `<label>` wrapping each input and don't need this — the outer field label
+ * there acts more like a fieldset legend than a control label.
+ */
+export const LABELABLE_FIELD_TYPES = new Set([
+  'text', 'email', 'phone', 'url', 'textarea', 'number', 'date', 'select',
+]);
+
 export interface FileFieldState {
   /** Upload in flight — Submit / Next stays disabled until cleared. */
   uploading: boolean;

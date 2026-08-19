@@ -1,4 +1,5 @@
 import type { BaseBlock } from './base';
+import type { NavItem } from '@/lib/actions/client-sites';
 
 // ============================================================================
 // Dynamic / blog feed
@@ -31,6 +32,8 @@ export interface BlogPostsBlock extends BaseBlock {
  */
 export interface NavigationBlock extends BaseBlock {
   type: 'navigation';
+  /** Server-prefetched nav tree, injected at render time by lib/blocks/prefetch-navigation. Never persisted; when present the renderer uses it as initial state and skips its client fetch. */
+  initialItems?: NavItem[];
   // Logo
   logoUrl?: string;
   logoAlt?: string;

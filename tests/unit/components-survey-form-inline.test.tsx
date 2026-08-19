@@ -398,6 +398,133 @@ describe('SurveyFormInline — field renderers', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Tests — label association (a11y fix, 2026-08-18)
+//
+// Lighthouse flagged SurveyFormInline's visible <label> elements as not
+// programmatically associated with their input/select/textarea (the `label`
+// and `select-name` audits). Each single-control field type now gets a
+// stable id (derived from survey id + sourceId/slug + field id) and the
+// label's htmlFor points at it.
+// ---------------------------------------------------------------------------
+
+describe('SurveyFormInline — label association (a11y)', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    delete (global as any).fetch;
+  });
+
+  it('wires label htmlFor to the text input id', async () => {
+    const { container } = await renderSurvey({
+      fields: [makeField({ id: 'f', type: 'text', label: 'Name' })],
+    });
+    const input = container.querySelector('input[type="text"]') as HTMLInputElement;
+    const label = Array.from(container.querySelectorAll('label')).find(l =>
+      l.textContent?.includes('Name'),
+    ) as HTMLLabelElement;
+    expect(input.id).toBeTruthy();
+    expect(label.getAttribute('for')).toBe(input.id);
+  });
+
+  it('wires label htmlFor to the email input id', async () => {
+    const { container } = await renderSurvey({
+      fields: [makeField({ id: 'f', type: 'email', label: 'Email' })],
+    });
+    const input = container.querySelector('input[type="email"]') as HTMLInputElement;
+    const label = Array.from(container.querySelectorAll('label')).find(l =>
+      l.textContent?.includes('Email'),
+    ) as HTMLLabelElement;
+    expect(input.id).toBeTruthy();
+    expect(label.getAttribute('for')).toBe(input.id);
+  });
+
+  it('wires label htmlFor to the tel input id', async () => {
+    const { container } = await renderSurvey({
+      fields: [makeField({ id: 'f', type: 'phone', label: 'Phone' })],
+    });
+    const input = container.querySelector('input[type="tel"]') as HTMLInputElement;
+    const label = Array.from(container.querySelectorAll('label')).find(l =>
+      l.textContent?.includes('Phone'),
+    ) as HTMLLabelElement;
+    expect(input.id).toBeTruthy();
+    expect(label.getAttribute('for')).toBe(input.id);
+  });
+
+  it('wires label htmlFor to the textarea id', async () => {
+    const { container } = await renderSurvey({
+      fields: [makeField({ id: 'f', type: 'textarea', label: 'Comments' })],
+    });
+    const textarea = container.querySelector('textarea') as HTMLTextAreaElement;
+    const label = Array.from(container.querySelectorAll('label')).find(l =>
+      l.textContent?.includes('Comments'),
+    ) as HTMLLabelElement;
+    expect(textarea.id).toBeTruthy();
+    expect(label.getAttribute('for')).toBe(textarea.id);
+  });
+
+  it('wires label htmlFor to the select id (fixes select-name)', async () => {
+    const { container } = await renderSurvey({
+      fields: [makeField({ id: 'f', type: 'select', label: 'Pick', options: ['A', 'B'] })],
+    });
+    const select = container.querySelector('select') as HTMLSelectElement;
+    const label = Array.from(container.querySelectorAll('label')).find(l =>
+      l.textContent?.includes('Pick'),
+    ) as HTMLLabelElement;
+    expect(select.id).toBeTruthy();
+    expect(label.getAttribute('for')).toBe(select.id);
+  });
+
+  it('wires label htmlFor to the requireEmail Your Email / Your Name inputs', async () => {
+    const { container } = await renderSurvey({ requireEmail: true });
+    const emailInput = container.querySelector('input[type="email"]') as HTMLInputElement;
+    const nameInput = container.querySelector('input[type="text"]') as HTMLInputElement;
+    const labels = Array.from(container.querySelectorAll('label'));
+    const emailLabel = labels.find(l => l.textContent?.includes('Your Email')) as HTMLLabelElement;
+    const nameLabel = labels.find(l => l.textContent?.includes('Your Name')) as HTMLLabelElement;
+    expect(emailLabel.getAttribute('for')).toBe(emailInput.id);
+    expect(nameLabel.getAttribute('for')).toBe(nameInput.id);
+  });
+
+  it('does not set htmlFor on the group-control label for radio fields', async () => {
+    const { container } = await renderSurvey({
+      fields: [makeField({ id: 'f', type: 'radio', label: 'Pick one', options: ['X', 'Y'] })],
+    });
+    const label = Array.from(container.querySelectorAll('label')).find(l =>
+      l.textContent?.includes('Pick one'),
+    ) as HTMLLabelElement;
+    expect(label.hasAttribute('for')).toBe(false);
+  });
+
+  it('holds with hideQuestionNumbers on and off', async () => {
+    for (const hideQuestionNumbers of [true, false]) {
+      const { container } = await renderSurvey(
+        { fields: [makeField({ id: 'f', type: 'text', label: 'Q' })] },
+        {},
+        { styleOverrides: { hideQuestionNumbers } },
+      );
+      const input = container.querySelector('input[type="text"]') as HTMLInputElement;
+      const label = container.querySelector('label') as HTMLLabelElement;
+      expect(label.getAttribute('for')).toBe(input.id);
+    }
+  });
+
+  it('gives two field instances with different sourceId distinct input ids', async () => {
+    const first = await renderSurvey(
+      { fields: [makeField({ id: 'f', type: 'text', label: 'Name' })] },
+      {},
+      { sourceId: 'block-a' },
+    );
+    const firstInput = first.container.querySelector('input[type="text"]') as HTMLInputElement;
+    const second = await renderSurvey(
+      { fields: [makeField({ id: 'f', type: 'text', label: 'Name' })] },
+      {},
+      { sourceId: 'block-b' },
+    );
+    const secondInput = second.container.querySelector('input[type="text"]') as HTMLInputElement;
+    expect(firstInput.id).not.toBe(secondInput.id);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Tests — interactions
 // ---------------------------------------------------------------------------
 

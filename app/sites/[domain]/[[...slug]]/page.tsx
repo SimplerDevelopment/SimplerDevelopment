@@ -12,6 +12,7 @@ import { expandLoopsInContent, type LoopPaginationContext } from '@/lib/blocks/h
 import { SiteBlockRenderer } from '@/components/blocks/render/SiteBlockRenderer';
 import { HeroPreload } from '@/components/blocks/render/HeroPreload';
 import { prefetchHtmlEmbeds } from '@/lib/blocks/prefetch-embeds';
+import { prefetchNavigationData } from '@/lib/blocks/prefetch-navigation';
 import { ProductPage } from '@/components/storefront/ProductPage';
 import { ShopPage } from '@/components/storefront/ShopPage';
 import { auth } from '@/lib/auth';
@@ -198,8 +199,11 @@ export default async function ClientSitePage({ params, searchParams }: PageProps
 
     const homeType = await getPostTypeForPost(site.id, homePage.postType);
     const ab = await applyAbToPostContent({ postId: homePage.id, content: homePage.content, skip: preview });
-    const content = await prefetchHtmlEmbeds(
-      await expandLoopsInContent(site.id, wrapWithTypeTemplate(ab.content, homeType?.template), homePage.id, pagination),
+    const content = await prefetchNavigationData(
+      site.id,
+      await prefetchHtmlEmbeds(
+        await expandLoopsInContent(site.id, wrapWithTypeTemplate(ab.content, homeType?.template), homePage.id, pagination),
+      ),
     );
     return (
       <>
@@ -362,8 +366,11 @@ export default async function ClientSitePage({ params, searchParams }: PageProps
 
     const blogType = await getPostTypeForPost(site.id, post.postType);
     const ab = await applyAbToPostContent({ postId: post.id, content: post.content, skip: preview });
-    const blogContent = await prefetchHtmlEmbeds(
-      await expandLoopsInContent(site.id, wrapWithTypeTemplate(ab.content, blogType?.template), post.id, pagination),
+    const blogContent = await prefetchNavigationData(
+      site.id,
+      await prefetchHtmlEmbeds(
+        await expandLoopsInContent(site.id, wrapWithTypeTemplate(ab.content, blogType?.template), post.id, pagination),
+      ),
     );
     return (
       <div>
@@ -399,8 +406,11 @@ export default async function ClientSitePage({ params, searchParams }: PageProps
 
   const pageType = await getPostTypeForPost(site.id, page.postType);
   const ab = await applyAbToPostContent({ postId: page.id, content: page.content, skip: preview });
-  const pageContent = await prefetchHtmlEmbeds(
-    await expandLoopsInContent(site.id, wrapWithTypeTemplate(ab.content, pageType?.template), page.id, pagination),
+  const pageContent = await prefetchNavigationData(
+    site.id,
+    await prefetchHtmlEmbeds(
+      await expandLoopsInContent(site.id, wrapWithTypeTemplate(ab.content, pageType?.template), page.id, pagination),
+    ),
   );
 
   return (
