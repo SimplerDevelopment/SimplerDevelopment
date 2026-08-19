@@ -55,7 +55,7 @@
   "components/blocks/VisualBlockEditorEnhanced.tsx": 953,
   "components/blocks/render/BookingFormInline.tsx": 983,
   "components/blocks/render/EditableBlockRenderer.tsx": 776,
-  "components/blocks/render/SurveyFormInline.tsx": 601,
+  "components/blocks/render/SurveyFormInline.tsx": 619,
   "components/blocks/visual/ColumnsBlockPreview.tsx": 774,
   "components/blocks/visual/StyleSettings.tsx": 659,
   "components/blocks/visual/block-settings/panels/DynamicPanel.tsx": 748,
