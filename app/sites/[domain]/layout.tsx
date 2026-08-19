@@ -1,5 +1,9 @@
 import { notFound } from 'next/navigation';
 import { headers } from 'next/headers';
+// ITM-028: metric-adjusted @font-face fallbacks (Montserrat/Inter) that
+// reduce hero-text CLS on the font swap. See the file for the full
+// rationale/math — deliberately NOT folded into the brandStyles block below.
+import '../font-metric-fallbacks.css';
 import { resolveFaviconUrlForClient } from '@/lib/branding';
 import {
   getClientWebsiteByDomainCached as getClientWebsiteByDomain,
