@@ -97,6 +97,24 @@ export default async function RootLayout({
   const isSitesRoute = headersList.get("x-site-pathname") !== null;
   const isClientSite = isSitesRoute || (!APP_HOSTS.includes(hostname) && !hostname.endsWith(".railway.app"));
   const gaId = process.env.NEXT_PUBLIC_GA_ID;
+  // These six app-shell font variables (Geist Sans, DM Sans, Inter, Playfair
+  // Display, and the retro-future marketing pair Orbitron/Raleway) back the
+  // app/portal marketing chrome and its typography tokens (--font-sans,
+  // --font-heading, --font-display, --font-playfair, .retro's stack) — none
+  // of which public client sites ever resolve: they bring their own brand
+  // fonts and render their own layout. Verified live via a getComputedStyle
+  // sweep over every element (+ ::before/::after) on two production
+  // client-site pages: zero elements resolved to any of these faces, and
+  // --font-sans computed to an empty string on a client-site <body>. Despite
+  // that, next/font/google fetched 3 font files (2 preloaded) on every
+  // client-site page for nothing — ~104KB and 3 requests × 54 pages. Gate the
+  // class list the same way the material-icons preload above is gated.
+  // (geistMono is NOT part of this gate — checkout/CheckoutSuccess.tsx under
+  // app/sites uses the `font-mono` Tailwind utility, which resolves through
+  // --font-mono → var(--font-geist-mono), so client sites still need it.)
+  const appShellFontVariables = isClientSite
+    ? ""
+    : `${geistSans.variable} ${dmSans.variable} ${inter.variable} ${playfairDisplay.variable} ${orbitron.variable} ${raleway.variable}`;
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
@@ -159,7 +177,7 @@ gtag('config', '${gaId}');`,
         />
       </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${dmSans.variable} ${inter.variable} ${playfairDisplay.variable} ${orbitron.variable} ${raleway.variable} antialiased min-h-screen flex flex-col`}
+        className={`${geistMono.variable} ${appShellFontVariables} antialiased min-h-screen flex flex-col`}
       >
         {isClientSite ? (
           // Public client sites supply their own nav/footer (app/sites/[domain]
