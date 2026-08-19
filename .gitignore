@@ -172,3 +172,6 @@ packages/*/dist/
 
 # transient fixtures written by docs/marketing/agile-after-ai/check.mjs
 public/agile-after-ai/_*
+
+# Lighthouse sweep output (scripts/lighthouse-audit.sh)
+/.lighthouse

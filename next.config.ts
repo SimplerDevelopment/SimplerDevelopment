@@ -95,6 +95,11 @@ const nextConfig: NextConfig = {
     // for 1-2 min on a loop and freezes dev so the app never loads (vercel/next.js#87796).
     // Off = no compaction stalls; cost is a slower cold compile after a restart.
     turbopackFileSystemCacheForDev: false,
+    // Rewrites `import { MdFoo } from 'react-icons/md'` into a direct
+    // per-icon path so a handful of named icons don't drag a barrel of
+    // thousands in. Only helps NAMED imports — a `import * as X` is still
+    // unshakeable by construction (see components/portal/IconPicker.tsx).
+    optimizePackageImports: ['react-icons/md', 'react-icons/fa', 'react-icons/fa6', 'react-icons/bs', 'react-icons/ai'],
   },
   // `isomorphic-dompurify` (used by lib/security/sanitize-html, which several
   // block renderers import) transitively pulls in jsdom → html-encoding-sniffer
