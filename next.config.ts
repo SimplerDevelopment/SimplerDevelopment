@@ -105,6 +105,21 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ['isomorphic-dompurify', 'jsdom'],
 
   images: {
+    // Next 16 refuses /_next/image requests for LOCAL paths unless they match
+    // localPatterns — on prod EVERY local optimize request (including the
+    // next/image components below using /iconLogo.png and /retro/*) returned
+    // 400 INVALID_IMAGE_OPTIMIZE_REQUEST. Listing the used paths turns the
+    // built-in optimizer back on for them. /api/media/proxy/** is the
+    // load-bearing one: tenant hero backgrounds reference
+    // `/_next/image?url=<encoded proxy path>&w=828&q=75` as their mobile
+    // variant, which resizes on Vercel's own infra — no native sharp module
+    // in our function (a module-level sharp import once 500'd every proxied
+    // image in prod; see the 2026-08-19 revert of #64).
+    localPatterns: [
+      { pathname: '/api/media/proxy/**' },
+      { pathname: '/iconLogo.png' },
+      { pathname: '/retro/**' },
+    ],
     remotePatterns: [
       {
         protocol: 'http',
