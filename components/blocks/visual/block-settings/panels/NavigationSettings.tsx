@@ -78,6 +78,15 @@ export function NavigationBlockSettings({ block, onChange }: { block: Navigation
         />
         Sticky (pins to the top of the viewport on scroll)
       </label>
+      <label className="flex items-center gap-2 text-sm font-medium text-foreground">
+        <input
+          type="checkbox"
+          checked={block.overlay ?? false}
+          onChange={(e) => onChange({ overlay: e.target.checked || undefined })}
+          className="h-4 w-4 rounded border-border text-primary"
+        />
+        Overlay the next block (transparent header over a hero; disables sticky)
+      </label>
 
       <div className="grid grid-cols-3 gap-3">
         <div>
