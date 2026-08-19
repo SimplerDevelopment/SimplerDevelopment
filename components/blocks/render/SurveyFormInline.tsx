@@ -5,7 +5,7 @@ import { isFieldVisible as evalFieldVisible, resolvePiping } from '@/lib/survey-
 import { SurveyRecommendationRenderer } from '@/components/pitch-deck/SurveyRecommendationRenderer';
 import type { PitchDeckTheme } from '@/lib/db/schema';
 import type { SurveyField, SurveyData, FileFieldState, SurveyFormInlineProps } from './SurveyFormInline.types';
-import { DISPLAY_ONLY_TYPES } from './SurveyFormInline.types';
+import { DISPLAY_ONLY_TYPES, LABELABLE_FIELD_TYPES } from './SurveyFormInline.types';
 import {
   getOrCreatePartialSessionId,
   clearPartialSessionId,
@@ -418,6 +418,16 @@ export function SurveyFormInline({
   const formAccentBarColor = so?.formAccentBarColor;
   const submitLabel = so?.submitLabel || 'Submit';
 
+  // Stable id fragment for this form *instance* — combines the survey id
+  // with the block's sourceId (falling back to the slug on the standalone
+  // /s/<slug> route, where sourceId is unset). Two copies of the same survey
+  // embedded twice on one page (two blocks, same survey) still get distinct
+  // DOM ids because sourceId differs per block placement. Used below to wire
+  // each visible <label htmlFor> to its input/select/textarea's id — fixes
+  // Lighthouse's `label`/`select-name` audits (a11y fix, 2026-08-18).
+  const formInstanceId = `${survey.id}-${(sourceId || slug).replace(/[^a-zA-Z0-9_-]/g, '-')}`;
+  const fieldInputId = (fieldId: string) => `survey-field-${formInstanceId}-${fieldId}`;
+
   const cardBg = hideCardChrome
     ? 'transparent'
     : (so?.formBg || st.formBg
@@ -520,9 +530,24 @@ export function SurveyFormInline({
             </p>
           )}
           {certificate && (
+            // CONTRAST MATH (a11y fix, 2026-08-18): the default btnText/btnBg
+            // pair is white (#ffffff) on the brand accent — e.g. IntegraTouch's
+            // #DC582A measures a relative-luminance contrast of ~3.84:1
+            // ((1.05)/(0.2236+0.05), sRGB relative luminance of #DC582A ≈
+            // 0.2236). WCAG 2 AA needs 4.5:1 for normal text but only 3:1 for
+            // "large-scale" text (≥18.66px + bold, or ≥24px any weight —
+            // axe-core's exact large-text thresholds). 3.84:1 clears the 3:1
+            // large-text bar but not the 4.5:1 normal-text bar, and we can't
+            // change the configured brand color here without a design call.
+            // So instead of resizing every CTA to 24px, we cross the *bold*
+            // large-text threshold: text-[19px] (>18.66px) + font-bold (700,
+            // vs. the previous font-medium/500 which doesn't count as "bold"
+            // for this rule) — the smallest size/weight bump that qualifies.
+            // Applies identically to the Next/Submit buttons below, which
+            // share the same btnBg/btnText styling.
             <a
               href={`/api/surveys/${slug}/certificate?responseId=${certificate.responseId}`}
-              className="mt-6 inline-flex items-center gap-2 px-5 py-2.5 rounded-lg font-medium text-sm transition-opacity hover:opacity-90"
+              className="mt-6 inline-flex items-center gap-2 px-5 py-2.5 rounded-lg font-bold text-[19px] transition-opacity hover:opacity-90"
               style={{ backgroundColor: btnBg, color: btnText, ...(btnRadius ? { borderRadius: btnRadius } : {}) }}
             >
               <span className="material-icons text-lg">download</span>
@@ -572,7 +597,9 @@ export function SurveyFormInline({
 
             {isMultiPage && (
               <div className="mt-4">
-                <div className="flex items-center justify-between text-xs text-gray-500 mb-1.5">
+                {/* gray-600, not gray-500 — see the helper-text contrast note
+                    on field.helpText below (a11y fix, 2026-08-18). */}
+                <div className="flex items-center justify-between text-xs text-gray-600 dark:text-gray-400 mb-1.5">
                   <span>Page {pageIndex + 1} of {totalPages}</span>
                   <span>{Math.round(((pageIndex + 1) / totalPages) * 100)}%</span>
                 </div>
@@ -597,10 +624,11 @@ export function SurveyFormInline({
             {pageIndex === 0 && survey.requireEmail && (
               <div className="space-y-4 pb-4 border-b border-gray-200 dark:border-gray-700">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1" style={labelStyle}>
+                  <label htmlFor={`survey-email-${formInstanceId}`} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1" style={labelStyle}>
                     Your Email <span className="text-red-500">*</span>
                   </label>
                   <input
+                    id={`survey-email-${formInstanceId}`}
                     type="email"
                     required
                     value={email}
@@ -611,8 +639,9 @@ export function SurveyFormInline({
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1" style={labelStyle}>Your Name</label>
+                  <label htmlFor={`survey-name-${formInstanceId}`} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1" style={labelStyle}>Your Name</label>
                   <input
+                    id={`survey-name-${formInstanceId}`}
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
@@ -641,28 +670,40 @@ export function SurveyFormInline({
                   ) : field.type === 'image' ? (
                     <figure className="my-1">
                       <img src={field.mediaUrl} alt={field.label || ''} className="w-full rounded-lg border border-gray-200 dark:border-gray-700" />
-                      {field.label && <figcaption className="text-xs text-gray-500 dark:text-gray-400 mt-1">{resolvePiping(field.label, answers)}</figcaption>}
+                      {field.label && <figcaption className="text-xs text-gray-600 dark:text-gray-400 mt-1">{resolvePiping(field.label, answers)}</figcaption>}
                     </figure>
                   ) : field.type === 'video' ? (
                     <figure className="my-1">
                       <video src={field.mediaUrl} controls className="w-full rounded-lg border border-gray-200 dark:border-gray-700" />
-                      {field.label && <figcaption className="text-xs text-gray-500 dark:text-gray-400 mt-1">{resolvePiping(field.label, answers)}</figcaption>}
+                      {field.label && <figcaption className="text-xs text-gray-600 dark:text-gray-400 mt-1">{resolvePiping(field.label, answers)}</figcaption>}
                     </figure>
                   ) : (
                     <div className="space-y-1.5">
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300" style={labelStyle}>
+                      <label
+                        htmlFor={LABELABLE_FIELD_TYPES.has(field.type) ? fieldInputId(field.id) : undefined}
+                        className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+                        style={labelStyle}
+                      >
                         {!hideQuestionNumbers && (
                           <span className="text-gray-400 mr-1.5" style={secondaryColor ? { color: secondaryColor } : undefined}>{qNum}.</span>
                         )}
                         {resolvePiping(field.label, answers)}
                         {field.required && <span className="text-red-500 ml-0.5">*</span>}
                       </label>
-                      {field.helpText && <p className="text-xs text-gray-500 dark:text-gray-400">{resolvePiping(field.helpText, answers)}</p>}
+                      {/* gray-600, not the default gray-500 — gray-500 on white
+                          measures well under 4.5:1 for 12px (text-xs) helper
+                          text (a11y fix, 2026-08-18; see the button-contrast
+                          note below for the same-family math). */}
+                      {field.helpText && <p className="text-xs text-gray-600 dark:text-gray-400">{resolvePiping(field.helpText, answers)}</p>}
 
-                      {renderField(field, answers, setAnswer, accent, inputStyle, inputOptionTextColor, {
-                        fileFieldState: fileFieldState[field.id],
-                        onFileSelect: (file) => handleFileUpload(field.id, file),
-                      })}
+                      {renderField(
+                        field, answers, setAnswer, accent, inputStyle, inputOptionTextColor,
+                        {
+                          fileFieldState: fileFieldState[field.id],
+                          onFileSelect: (file) => handleFileUpload(field.id, file),
+                        },
+                        LABELABLE_FIELD_TYPES.has(field.type) ? fieldInputId(field.id) : undefined,
+                      )}
                     </div>
                   )}
                 </div>
@@ -694,7 +735,7 @@ export function SurveyFormInline({
                   type="button"
                   onClick={handleNext}
                   disabled={hasInflightUpload}
-                  className="flex items-center gap-1 px-6 py-2.5 rounded-lg font-medium text-sm transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex items-center gap-1 px-6 py-2.5 rounded-lg font-bold text-[19px] transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
                   style={{ backgroundColor: btnBg, color: btnText, ...(btnRadius ? { borderRadius: btnRadius } : {}) }}
                 >
                   {hasInflightUpload ? 'Uploading…' : 'Next'}
@@ -706,7 +747,7 @@ export function SurveyFormInline({
                 <button
                   type="submit"
                   disabled={submitting || hasInflightUpload}
-                  className="px-6 py-2.5 rounded-lg font-medium text-sm transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-6 py-2.5 rounded-lg font-bold text-[19px] transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
                   style={{ backgroundColor: btnBg, color: btnText, ...(btnRadius ? { borderRadius: btnRadius } : {}) }}
                 >
                   {submitting ? 'Submitting...' : hasInflightUpload ? 'Uploading…' : submitLabel}

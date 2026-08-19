@@ -12,6 +12,11 @@ export function renderField(
   fieldInputStyle?: React.CSSProperties,
   optionTextColor?: string,
   fileOpts?: FileFieldRenderOptions,
+  // Stable DOM id for the single-control field types (text/email/phone/url/
+  // textarea/number/date/select) — the caller only passes this for types in
+  // LABELABLE_FIELD_TYPES, so it's `undefined` (and simply omitted) for
+  // group-style controls that don't have one accessible-name-bearing input.
+  inputId?: string,
 ) {
   const inputCls = "w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:border-transparent";
   const ringStyle = { '--tw-ring-color': color, ...(fieldInputStyle || {}) } as React.CSSProperties;
@@ -27,6 +32,7 @@ export function renderField(
     case 'url':
       return (
         <input
+          id={inputId}
           type={field.type === 'phone' ? 'tel' : field.type}
           required={field.required}
           placeholder={field.placeholder}
@@ -40,6 +46,7 @@ export function renderField(
     case 'textarea':
       return (
         <textarea
+          id={inputId}
           required={field.required}
           placeholder={field.placeholder}
           rows={3}
@@ -53,6 +60,7 @@ export function renderField(
     case 'number':
       return (
         <input
+          id={inputId}
           type="number"
           required={field.required}
           placeholder={field.placeholder}
@@ -68,6 +76,7 @@ export function renderField(
     case 'date':
       return (
         <input
+          id={inputId}
           type="date"
           required={field.required}
           value={(answers[field.id] as string) || ''}
@@ -80,6 +89,7 @@ export function renderField(
     case 'select':
       return (
         <select
+          id={inputId}
           required={field.required}
           value={(answers[field.id] as string) || ''}
           onChange={(e) => setAnswer(field.id, e.target.value)}
@@ -238,7 +248,10 @@ export function renderField(
               );
             })}
           </div>
-          <div className="flex justify-between text-xs text-gray-500">
+          {/* gray-600, not the default gray-500 — gray-500 on white measures
+              well under 4.5:1 for 12px (text-xs) helper text (a11y fix,
+              2026-08-18; see SurveyFormInline.tsx for the full contrast note). */}
+          <div className="flex justify-between text-xs text-gray-600 dark:text-gray-400">
             <span>Not at all likely</span>
             <span>Extremely likely</span>
           </div>
@@ -259,7 +272,10 @@ export function renderField(
             className="w-full"
             style={{ accentColor: color }}
           />
-          <div className="flex justify-between text-xs text-gray-500">
+          {/* gray-600, not the default gray-500 — gray-500 on white measures
+              well under 4.5:1 for 12px (text-xs) helper text (a11y fix,
+              2026-08-18; see SurveyFormInline.tsx for the full contrast note). */}
+          <div className="flex justify-between text-xs text-gray-600 dark:text-gray-400">
             <span>{field.min ?? 0}</span>
             <span className="font-medium text-gray-700 dark:text-gray-300">{String(answers[field.id] ?? field.min ?? 0)}</span>
             <span>{field.max ?? 100}</span>
