@@ -12,6 +12,8 @@
 // stacked value, and (b) collect every unique family used across a page's
 // block tree so the renderer can emit a SINGLE combined request.
 
+import { renderHtmlTemplate } from '@/lib/blocks/html-render-template';
+
 // Generic CSS keywords and common system fonts that are NOT Google Fonts and
 // must never be sent to the css2 endpoint. Compared lowercase.
 const NON_GOOGLE_FAMILIES = new Set([
@@ -106,6 +108,58 @@ export function collectBlockFonts(content: string): string[] {
 }
 
 /**
+ * Resolve every html-render block's template against its field values and
+ * return a scan corpus in document order (substituted html for html-render
+ * blocks, raw JSON for everything else).
+ *
+ * WHY (ITM-031): the content string the page routes hand to HeroPreload is
+ * PRE-substitution — a hero authored as `url('{{bgImage}}')` shows the
+ * literal token here, while the actual URL sits in the block's `values`
+ * dict. Scanning the raw string half-works by accident (the URL is found in
+ * the serialized values), but any pairing that must see the SUBSTITUTED
+ * neighborhood of a URL (e.g. the `-w828.webp` mobile-variant reference in a
+ * media query) never matches. Substituting first makes the corpus look like
+ * what the page actually renders.
+ */
+export function resolveHtmlRenderCorpus(content: string): string {
+  try {
+    const parsed = JSON.parse(content);
+    const parts: string[] = [];
+    const walk = (node: unknown): void => {
+      if (Array.isArray(node)) {
+        for (const item of node) walk(item);
+        return;
+      }
+      if (!node || typeof node !== 'object') return;
+      const block = node as Record<string, unknown>;
+      if (block.type === 'html-render' && typeof block.html === 'string') {
+        parts.push(
+          renderHtmlTemplate(
+            block.html,
+            block.fields as Parameters<typeof renderHtmlTemplate>[1],
+            block.values as Parameters<typeof renderHtmlTemplate>[2],
+          ),
+        );
+        return;
+      }
+      // Non-html-render blocks: their image props (backgroundImage, cards[].
+      // image, …) are literal in the JSON — serialize the block as-is so the
+      // scanner still sees them in document order. Recurse for containers
+      // (columns) whose nested blocks may include html-render.
+      parts.push(JSON.stringify(block));
+      for (const v of Object.values(block)) {
+        if (Array.isArray(v)) walk(v);
+      }
+    };
+    walk(parsed);
+    return parts.join('\n');
+  } catch {
+    // Non-JSON content (raw HTML fallback) — already "rendered".
+    return content;
+  }
+}
+
+/**
  * Find the first image URL in a page's serialized block content — used to
  * <link rel=preload> the likely LCP image. Heroes are frequently authored as a
  * CSS background-image (often inside an html-render block), which the browser's
@@ -135,6 +189,10 @@ export function firstContentImageUrls(content: string, max = 2): string[] {
   const seen = new Set<string>();
   for (const m of content.matchAll(CONTENT_IMAGE_RX)) {
     const url = m[1];
+    // Pre-generated mobile variants (`<path>-w828.webp` siblings, see
+    // HeroPreload) pair with their full-size original via srcset — they are
+    // never LCP candidates themselves and must not eat a scan slot.
+    if (/-w828\.webp$/i.test(url)) continue;
     if (seen.has(url)) continue;
     seen.add(url);
     out.push(url);
