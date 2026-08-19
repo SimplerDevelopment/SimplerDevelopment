@@ -13,6 +13,8 @@ import { SiteBlockRenderer } from '@/components/blocks/render/SiteBlockRenderer'
 import { HeroPreload } from '@/components/blocks/render/HeroPreload';
 import { prefetchHtmlEmbeds } from '@/lib/blocks/prefetch-embeds';
 import { prefetchNavigationData } from '@/lib/blocks/prefetch-navigation';
+import { siteBaseUrl } from '@/lib/sites/site-base-url';
+import { blogPostingSchema, jsonLd } from '@/lib/sites/structured-data';
 import { ProductPage } from '@/components/storefront/ProductPage';
 import { ShopPage } from '@/components/storefront/ShopPage';
 import { auth } from '@/lib/auth';
@@ -372,8 +374,25 @@ export default async function ClientSitePage({ params, searchParams }: PageProps
         await expandLoopsInContent(site.id, wrapWithTypeTemplate(ab.content, blogType?.template), post.id, pagination),
       ),
     );
+    // BlogPosting JSON-LD from the post's real fields (title, dates, cover,
+    // description) — publisher/author = the site itself. Pairs with the
+    // layout's Organization/WebSite schemas.
+    const ldBase = siteBaseUrl(site);
+    const postLd = jsonLd(
+      blogPostingSchema({
+        title: post.seoTitle || post.title,
+        url: `${ldBase}/blog/${post.slug}`,
+        siteName: site.name,
+        baseUrl: ldBase,
+        description: post.seoDescription || post.excerpt,
+        imageUrl: post.ogImage || post.coverImage,
+        publishedAt: post.publishedAt,
+        updatedAt: post.updatedAt,
+      }),
+    );
     return (
       <div>
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: postLd }} />
         <HeroPreload content={blogContent} />
         <SiteBlockRenderer
           content={blogContent}
