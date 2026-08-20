@@ -54,10 +54,15 @@ export function registerKanbanTools(server: McpServer, ctx: PortalMcpContext): v
     'kanban_list_board',
     {
       title: 'Get kanban board',
-      description: 'Get columns + cards for a project.',
-      inputSchema: { projectId: z.number() },
+      description: 'Get columns + cards for a project. A mature board is large (the SD master board is ~370 cards / ~56k tokens unfiltered) — pass `column` or `columnId` to read one lane, and `limit` to cap the payload. Columns are always returned in full so one call can both name the lanes and read the one you want.',
+      inputSchema: {
+        projectId: z.number(),
+        column: z.string().optional().describe('Lane name, case-insensitive (e.g. "In Progress"). Ignored if columnId is given.'),
+        columnId: z.coerce.number().optional().describe('Lane id — takes precedence over `column`.'),
+        limit: z.coerce.number().int().min(1).max(500).optional().describe('Max cards to return. The response sets truncated:true when the cap was hit.'),
+      },
     },
-    async ({ projectId }) => {
+    async ({ projectId, column, columnId, limit }) => {
       if (!requireScope(ctx, 'projects:read')) return denied('projects:read');
       const [proj] = await db.select().from(projects)
         .where(and(eq(projects.id, projectId), eq(projects.clientId, clientId))).limit(1);
@@ -65,6 +70,15 @@ export function registerKanbanTools(server: McpServer, ctx: PortalMcpContext): v
       const cols = await db.select().from(kanbanColumns)
         .where(eq(kanbanColumns.projectId, projectId))
         .orderBy(kanbanColumns.order);
+      // Lane filter. `column` is resolved against the columns we just fetched
+      // rather than with a second query — the caller thinks in lane names
+      // ("Validating"), but ids are what the cards table keys on, and ids differ
+      // per project. An unmatched name is an empty card list, not an error: the
+      // columns array in the same response shows the caller what the real lanes
+      // are called.
+      const laneId = columnId ?? (column
+        ? cols.find(c => c.name.toLowerCase() === column.trim().toLowerCase())?.id ?? -1
+        : undefined);
       // Slim projection: list/board views never render the long-text
       // description; clients fetch it on demand when opening the card detail
       // drawer. Saves a meaningful payload on boards with many cards.
@@ -90,9 +104,15 @@ export function registerKanbanTools(server: McpServer, ctx: PortalMcpContext): v
         updatedAt: kanbanCards.updatedAt,
       })
         .from(kanbanCards)
-        .where(eq(kanbanCards.projectId, projectId))
-        .orderBy(kanbanCards.order);
-      return json({ columns: cols, cards });
+        .where(laneId === undefined
+          ? eq(kanbanCards.projectId, projectId)
+          : and(eq(kanbanCards.projectId, projectId), eq(kanbanCards.columnId, laneId)))
+        .orderBy(kanbanCards.order)
+        .limit(limit ?? 500);
+      // No silent caps: say so when the cap was hit, so a caller can't read a
+      // clipped lane as the whole lane.
+      const truncated = cards.length === (limit ?? 500);
+      return json({ columns: cols, cards, ...(truncated ? { truncated: true, limit: limit ?? 500 } : {}) });
     }
   );
 

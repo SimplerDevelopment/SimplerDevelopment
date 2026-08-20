@@ -446,6 +446,35 @@ describe('kanban_list_board', () => {
     expect(out.cards).toEqual([{ id: 100, title: 'Card' }]);
   });
 
+  // The lane filter is what keeps a ~370-card board readable from an agent.
+  // The db stub swallows .where(), so the observable proof that the name was
+  // resolved to the right column id is the eq() call the handler builds.
+  it('resolves a case-insensitive lane name to that column id', async () => {
+    const { eq } = await import('drizzle-orm');
+    vi.mocked(eq).mockClear();
+    dbState.selectQueue = [
+      [{ id: 1, clientId: 1 }],
+      [{ id: 10, name: 'Backlog' }, { id: 11, name: 'Validating' }],
+      [],
+    ];
+    const tools = registerAll();
+    await tools.get('kanban_list_board')!.handler({ projectId: 1, column: '  vAlIdAtInG ' });
+    const laneArgs = vi.mocked(eq).mock.calls.map(c => c[1]);
+    expect(laneArgs).toContain(11);
+    expect(laneArgs).not.toContain(10);
+  });
+
+  it('flags truncated when the card count hits the limit', async () => {
+    dbState.selectQueue = [
+      [{ id: 1, clientId: 1 }],
+      [{ id: 10, name: 'Backlog' }],
+      [{ id: 100 }, { id: 101 }],
+    ];
+    const tools = registerAll();
+    const res = await tools.get('kanban_list_board')!.handler({ projectId: 1, limit: 2 });
+    expect(parseJson(res)).toMatchObject({ truncated: true, limit: 2 });
+  });
+
   it('returns permission-denied envelope when scope missing', async () => {
     const { stub, tools } = makeServer();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

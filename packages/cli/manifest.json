@@ -9861,7 +9861,7 @@
       "name": "kanban_list_board",
       "cmd": "kanban list-board",
       "domain": "kanban",
-      "desc": "Get columns + cards for a project.",
+      "desc": "Get columns + cards for a project. A mature board is large (the SD master board is ~370 cards / ~56k tokens unfiltered) — pass `column` or `columnId` to read one lane, and `limit` to cap the payload. Columns are always returned in full so one call can both name the lanes and read the one you want.",
       "destructive": false,
       "scope": "projects:read",
       "args": [
@@ -9869,6 +9869,24 @@
           "name": "projectId",
           "type": "number",
           "required": true
+        },
+        {
+          "name": "column",
+          "type": "string",
+          "required": false,
+          "desc": "Lane name, case-insensitive (e.g. \"In Progress\"). Ignored if columnId is given."
+        },
+        {
+          "name": "columnId",
+          "type": "number",
+          "required": false,
+          "desc": "Lane id — takes precedence over `column`."
+        },
+        {
+          "name": "limit",
+          "type": "number",
+          "required": false,
+          "desc": "Max cards to return. The response sets truncated:true when the cap was hit."
         }
       ]
     },
@@ -14708,7 +14726,7 @@
       "name": "whoami",
       "cmd": "whoami",
       "domain": "whoami",
-      "desc": "Return the authenticated portal user and client context.",
+      "desc": "Return the authenticated portal user, every company they can act for, and the granted scopes. Call this when you need to know which clientId to pass.",
       "destructive": false,
       "args": []
     }
