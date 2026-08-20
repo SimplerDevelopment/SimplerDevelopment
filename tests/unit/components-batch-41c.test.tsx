@@ -292,9 +292,22 @@ describe('resolvePortalTitle', () => {
     expect(resolvePortalTitle('/portal/brain/communications')).toBe('Communications');
   });
 
-  it('falls back to "Portal" for unknown routes', () => {
+  it('falls back to the nav label for routes the table never got', () => {
+    // These sections all rendered a generic "Portal" tab for months —
+    // the drift the fallback chain exists to kill.
+    expect(resolvePortalTitle('/portal/seo')).toBe('SEO Intelligence');
+    expect(resolvePortalTitle('/portal/brain/decisions')).toBe('Decisions');
+    expect(resolvePortalTitle('/portal/brain/decisions/123')).toBe('Decisions');
+    expect(resolvePortalTitle('/portal/publishing/board')).toBe('Board');
+  });
+
+  it('humanizes trailing static segments past the nav match', () => {
+    expect(resolvePortalTitle('/portal/seo/projects/5/gsc-import')).toBe('GSC Import · SEO Intelligence');
+    expect(resolvePortalTitle('/portal/does-not-exist')).toBe('Does Not Exist');
+  });
+
+  it('falls back to "Portal" only for non-portal paths', () => {
     expect(resolvePortalTitle('/totally/unknown/path')).toBe('Portal');
-    expect(resolvePortalTitle('/portal/does-not-exist')).toBe('Portal');
   });
 });
 

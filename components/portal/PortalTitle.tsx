@@ -3,6 +3,7 @@
 import { usePathname } from 'next/navigation';
 import { useEffect } from 'react';
 import { useAgencyChrome } from './AgencyChromeProvider';
+import { buildPortalNavItems, type PortalNavItem } from '@/lib/portal-nav';
 
 const DEFAULT_APP = 'SimplerDevelopment';
 
@@ -148,11 +149,59 @@ const ROUTES: { match: RegExp; title: string }[] = [
   { match: /^\/portal$/,                           title: 'Portal' },
 ];
 
+// The curated table above drifts as routes ship — seo, publishing, standup and
+// most of brain/ spent months titled just "Portal" (operator-reported: every
+// inactive tab looked identical). So a table miss no longer means generic:
+// fall back to the nav tree (lib/portal-nav.ts — the one place section names
+// are maintained, so future nav'd routes title themselves), then to humanized
+// path segments for static tails the nav doesn't reach.
+
+const ACRONYMS: Record<string, string> = { seo: 'SEO', crm: 'CRM', ai: 'AI', api: 'API', gsc: 'GSC' };
+
+function humanize(segment: string): string {
+  return segment
+    .split('-')
+    .map((w) => ACRONYMS[w] ?? w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
+}
+
+/** Deepest nav item whose href prefixes the pathname (site-scoped hrefs align
+ *  because the siteId is lifted from the pathname itself). */
+function deepestNavMatch(pathname: string): { href: string; label: string } | null {
+  const siteId = pathname.match(/^\/portal\/websites\/(\d+)/)?.[1] ?? null;
+  let best: { href: string; label: string } | null = null;
+  const walk = (items: Array<PortalNavItem | { href: string; label: string; children?: unknown[] }>) => {
+    for (const item of items) {
+      if (pathname === item.href || pathname.startsWith(item.href + '/')) {
+        if (!best || item.href.length > best.href.length) best = { href: item.href, label: item.label };
+      }
+      if ('children' in item && Array.isArray(item.children)) {
+        walk(item.children as Array<{ href: string; label: string; children?: unknown[] }>);
+      }
+    }
+  };
+  walk(buildPortalNavItems(siteId, null));
+  return best;
+}
+
 export function resolvePortalTitle(pathname: string): string {
   for (const r of ROUTES) {
     if (r.match.test(pathname)) return r.title;
   }
-  return 'Portal';
+  if (!pathname.startsWith('/portal')) return 'Portal';
+
+  const nav = deepestNavMatch(pathname);
+  // Static segments past the nav match (or past /portal) distinguish deeper
+  // pages; numeric ids say nothing to a human, so they're dropped.
+  const tail = pathname
+    .slice((nav?.href ?? '/portal').length)
+    .split('/')
+    .filter((s) => s && !/^\d+$/.test(s));
+  const tailTitle = tail.length ? humanize(tail[tail.length - 1]) : null;
+
+  if (nav && tailTitle) return `${tailTitle} · ${nav.label}`;
+  if (nav) return nav.label;
+  return tailTitle ?? 'Portal';
 }
 
 export default function PortalTitle() {
