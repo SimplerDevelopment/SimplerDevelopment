@@ -263,17 +263,126 @@ jobs:
       - name: Tenancy gate
         run: bun run test:tenancy
 
-  # ── Golden-path e2e — full app boot + Playwright @critical subset ───────────
-  # Mirrors `bun test:critical` (scripts/prepare-e2e-local.sh flow): pgvector DB,
-  # drizzle-kit push, e2e fixture seed, production build + start, then the
-  # @critical specs. All secrets are ephemeral — optional integrations (Stripe,
-  # Google, S3…) stay dormant exactly as on a fresh `simpler create` instance.
-  e2e-critical:
-    name: Critical e2e (@critical)
+  # ── Golden-path + security e2e — shared build, cached browsers, sharded ────
+  # Restructured (PUX-082): both e2e suites previously each paid their own app
+  # build (~5m) and Playwright browser install (which hung to the 45m job
+  # timeout seven times on 2026-08-19/20 — ITM-036). Now one `e2e-build` job
+  # builds once and shares `.next` + the ephemeral secrets as artifacts (the
+  # secrets must be shared: NEXT_PUBLIC_*/NEXTAUTH values inlined at build time
+  # have to match what the serving jobs run with). The matrix job restores a
+  # cached browser download and fast-fails the install instead of hanging.
+  # Critical runs as three Playwright shards (each leg is its own pass/fail
+  # check; no merged HTML report — per-leg reports upload on failure).
+  # All secrets are ephemeral — optional integrations (Stripe, Google, S3…)
+  # stay dormant exactly as on a fresh `simpler create` instance.
+  e2e-build:
+    name: e2e build
     runs-on: ubuntu-latest
+    # Gated by the changed-path detector (doc-only PRs skip e2e entirely).
+    # The matrix legs below need this job, so skipping it cascades to them.
     needs: [changes]
     if: needs.changes.outputs.code == 'true'
-    timeout-minutes: 45
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: simplerdev_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/simplerdev_test
+      DRIZZLE_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/simplerdev_test
+      NEXTAUTH_URL: http://localhost:3000
+      NEXT_PUBLIC_SITE_URL: http://localhost:3000
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+      AUTH_TRUST_HOST: "true"
+      BASE_URL: http://localhost:3000
+      AUTH_INSECURE_COOKIES: "1"
+      DISABLE_AUTH_RATE_LIMIT: "1"
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.11
+
+      - name: Cache bun global install cache
+        uses: actions/cache@v6
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      # NEXTAUTH_SECRET + ENCRYPTION_KEY are generated ephemerally (never
+      # literals in the repo) ONCE here, then shared to every e2e leg via a
+      # short-lived artifact — the build inlines env, so build and serve must
+      # agree. ENCRYPTION_KEY is @security's AAF-001 capture/decrypt path.
+      - name: Generate ephemeral secrets (shared with e2e legs)
+        run: |
+          echo "NEXTAUTH_SECRET=$(openssl rand -hex 32)" > e2e-secrets.env
+          echo "ENCRYPTION_KEY=$(openssl rand -hex 32)" >> e2e-secrets.env
+          cat e2e-secrets.env >> "$GITHUB_ENV"
+
+      - name: Enable required Postgres extensions
+        run: PGPASSWORD=postgres psql -h localhost -U postgres -d simplerdev_test -c "CREATE EXTENSION IF NOT EXISTS vector; CREATE EXTENSION IF NOT EXISTS pg_trgm; CREATE EXTENSION IF NOT EXISTS pgcrypto;"
+
+      - name: Apply schema (drizzle-kit push)
+        run: bunx drizzle-kit push --force
+
+      - name: Build app
+        run: bun run build
+
+      # .next/cache is the build cache (can be hundreds of MB) — the serving
+      # jobs only need the compiled output.
+      - name: Pack build output
+        run: tar -czf next-build.tgz --exclude='.next/cache' .next
+
+      - name: Upload build + secrets
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-build
+          path: |
+            next-build.tgz
+            e2e-secrets.env
+          retention-days: 1
+
+  e2e:
+    name: ${{ matrix.job-name }}
+    needs: e2e-build
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - job-name: Critical e2e 1/3 (@critical)
+            tag: "@critical"
+            shard: "1/3"
+            report: playwright-report-critical-1
+          - job-name: Critical e2e 2/3 (@critical)
+            tag: "@critical"
+            shard: "2/3"
+            report: playwright-report-critical-2
+          - job-name: Critical e2e 3/3 (@critical)
+            tag: "@critical"
+            shard: "3/3"
+            report: playwright-report-critical-3
+          - job-name: Security e2e (@security)
+            tag: "@security"
+            shard: ""
+            report: playwright-report-security
     services:
       postgres:
         image: pgvector/pgvector:pg16
@@ -320,8 +429,15 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Generate ephemeral secrets
-        run: echo "NEXTAUTH_SECRET=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+      - name: Download build + secrets
+        uses: actions/download-artifact@v8
+        with:
+          name: e2e-build
+
+      - name: Unpack build + adopt shared secrets
+        run: |
+          tar -xzf next-build.tgz
+          cat e2e-secrets.env >> "$GITHUB_ENV"
 
       - name: Enable required Postgres extensions
         run: PGPASSWORD=postgres psql -h localhost -U postgres -d simplerdev_test -c "CREATE EXTENSION IF NOT EXISTS vector; CREATE EXTENSION IF NOT EXISTS pg_trgm; CREATE EXTENSION IF NOT EXISTS pgcrypto;"
@@ -332,107 +448,20 @@ jobs:
       - name: Seed e2e fixture (admin + client)
         run: bun scripts/seed-admin-e2e.ts
 
-      - name: Install Playwright browsers
-        run: bunx playwright install --with-deps chromium
-
-      - name: Build app
-        run: bun run build
-
-      - name: Start app + wait for health
-        run: |
-          bun run start &
-          for i in $(seq 1 60); do
-            if curl -sf http://localhost:3000/api/health >/dev/null; then echo "app healthy"; exit 0; fi
-            sleep 2
-          done
-          echo "app never became healthy" >&2; exit 1
-
-      - name: Critical e2e
-        run: scripts/test.sh --layer=e2e --tag=@critical --no-coverage
-
-      - name: Upload Playwright report
-        if: failure()
-        uses: actions/upload-artifact@v7
-        with:
-          name: playwright-report
-          path: playwright-report/
-          retention-days: 7
-
-  # Security-controls e2e — mirrors e2e-critical but runs the @security suite
-  # (projects 197-200: MCP boundary, agent gating, audit/forensics, bulk approval).
-  # ENCRYPTION_KEY is set (ephemeral, e2e-only) so the AAF-001 encrypted-capture +
-  # decrypt-route path functions in the seeded run. Kept a SEPARATE job from
-  # @critical so the golden-path gate stays fast and independent.
-  e2e-security:
-    name: Security e2e (@security)
-    runs-on: ubuntu-latest
-    needs: [changes]
-    if: needs.changes.outputs.code == 'true'
-    timeout-minutes: 45
-    services:
-      postgres:
-        image: pgvector/pgvector:pg16
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: simplerdev_test
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-    env:
-      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/simplerdev_test
-      DRIZZLE_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/simplerdev_test
-      NEXTAUTH_URL: http://localhost:3000
-      NEXT_PUBLIC_SITE_URL: http://localhost:3000
-      NEXT_PUBLIC_APP_URL: http://localhost:3000
-      AUTH_TRUST_HOST: "true"
-      BASE_URL: http://localhost:3000
-      AUTH_INSECURE_COOKIES: "1"
-      DISABLE_AUTH_RATE_LIMIT: "1"
-    steps:
-      - uses: actions/checkout@v7
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: 1.3.11
-
-      - name: Cache bun global install cache
+      # Browser binaries cached across runs; the install becomes a near-no-op
+      # on a hit (apt deps still apply). timeout-minutes turns the recurring
+      # 45-minute download hang (7 occurrences, 2026-08-19/20) into a fast
+      # fail that a rerun clears.
+      - name: Cache Playwright browsers
         uses: actions/cache@v6
         with:
-          path: ~/.bun/install/cache
-          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
-          restore-keys: bun-${{ runner.os }}-
-
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-
-      # NEXTAUTH_SECRET + ENCRYPTION_KEY are generated ephemerally (never literals in
-      # the repo). ENCRYPTION_KEY must be present for AAF-001's capture/decrypt path;
-      # the same value is used to build+start the app and by the tests in this job.
-      - name: Generate ephemeral secrets
-        run: |
-          echo "NEXTAUTH_SECRET=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
-          echo "ENCRYPTION_KEY=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
-
-      - name: Enable required Postgres extensions
-        run: PGPASSWORD=postgres psql -h localhost -U postgres -d simplerdev_test -c "CREATE EXTENSION IF NOT EXISTS vector; CREATE EXTENSION IF NOT EXISTS pg_trgm; CREATE EXTENSION IF NOT EXISTS pgcrypto;"
-
-      - name: Apply schema (drizzle-kit push)
-        run: bunx drizzle-kit push --force
-
-      - name: Seed e2e fixture (admin + client)
-        run: bun scripts/seed-admin-e2e.ts
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: playwright-${{ runner.os }}-
 
       - name: Install Playwright browsers
+        timeout-minutes: 8
         run: bunx playwright install --with-deps chromium
-
-      - name: Build app
-        run: bun run build
 
       - name: Start app + wait for health
         run: |
@@ -443,11 +472,11 @@ jobs:
           done
           echo "app never became healthy" >&2; exit 1
 
-      - name: Security e2e
-        run: scripts/test.sh --layer=e2e --tag=@security --no-coverage
+      - name: e2e (${{ matrix.tag }}${{ matrix.shard != '' && format(' shard {0}', matrix.shard) || '' }})
+        run: scripts/test.sh --layer=e2e --tag=${{ matrix.tag }} --no-coverage ${{ matrix.shard != '' && format('--shard={0}', matrix.shard) || '' }}
 
       - name: Dump server log (diagnostics)
-        if: failure()
+        if: failure() && matrix.tag == '@security'
         run: |
           echo "=== [mcp-telemetry] capture/audit lines ==="
           grep -aE "mcp-telemetry|agent_action_captures|posts_delete|capture (encrypt|insert)" /tmp/app-server.log || echo "(no matching lines)"
@@ -462,6 +491,6 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: playwright-report-security
+          name: ${{ matrix.report }}
           path: playwright-report/
           retention-days: 7

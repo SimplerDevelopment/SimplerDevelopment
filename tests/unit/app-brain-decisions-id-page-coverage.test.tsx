@@ -1235,32 +1235,26 @@ describe('DecisionDetailPage — Section collapse/expand', () => {
   it('collapsible Section with long context toggles Show/Hide', async () => {
     setupDefault({ context: 'A'.repeat(401) });
     const { container } = renderPage();
-    let showBtn: HTMLButtonElement | undefined;
-    await waitFor(() => {
-      showBtn = Array.from(container.querySelectorAll('button')).find(
-        (b) => b.textContent?.includes('Show') && !b.textContent?.includes('Hide'),
+    // Re-query the toggle fresh right before each click — clicking a node
+    // captured inside an earlier waitFor can fire on an element a re-render
+    // has already detached, silently toggling nothing. Same race that
+    // quarantined the Context-section twin (issue #16) and made the
+    // Alternatives toggle flaky; same fix as the Alternatives test above.
+    const findBtn = (want: string, not: string) =>
+      Array.from(container.querySelectorAll('button')).find(
+        (b) => b.textContent?.includes(want) && !b.textContent?.includes(not),
       ) as HTMLButtonElement | undefined;
-      expect(showBtn).toBeTruthy();
-    });
-    await act(async () => {
-      fireEvent.click(showBtn as HTMLButtonElement);
-    });
-    let hideBtn: HTMLButtonElement | undefined;
-    await waitFor(() => {
-      hideBtn = Array.from(container.querySelectorAll('button')).find(
-        (b) => b.textContent?.includes('Hide') && !b.textContent?.includes('Show'),
-      ) as HTMLButtonElement | undefined;
-      expect(hideBtn).toBeTruthy();
-    });
-    await act(async () => {
-      fireEvent.click(hideBtn as HTMLButtonElement);
-    });
-    await waitFor(() => {
-      const showBtnAgain = Array.from(container.querySelectorAll('button')).find(
-        (b) => b.textContent?.includes('Show') && !b.textContent?.includes('Hide'),
-      );
-      expect(showBtnAgain).toBeTruthy();
-    });
+    await waitFor(() => expect(findBtn('Show', 'Hide')).toBeTruthy());
+    await act(async () => { fireEvent.click(findBtn('Show', 'Hide')!); });
+    await waitFor(
+      () => expect(findBtn('Hide', 'Show')).toBeTruthy(),
+      { timeout: 3000 },
+    );
+    await act(async () => { fireEvent.click(findBtn('Hide', 'Show')!); });
+    await waitFor(
+      () => expect(findBtn('Show', 'Hide')).toBeTruthy(),
+      { timeout: 3000 },
+    );
   });
 });
 
