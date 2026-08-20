@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server';
+import { randomBytes } from 'node:crypto';
+import { hash } from 'bcryptjs';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { clients, clientMembers, clientWebsites, brandingProfiles, media, users } from '@/lib/db/schema';
@@ -58,13 +60,67 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     }
   }
 
-  const result = await db.transaction(async (tx) => {
+  let result;
+  try {
+    result = await runReassign();
+  } catch (err) {
+    const status = (err as { status?: number })?.status;
+    if (status) {
+      return NextResponse.json({ success: false, message: (err as Error).message }, { status });
+    }
+    console.error('reassign-client failed:', err);
+    return NextResponse.json({ success: false, message: 'Reassignment failed' }, { status: 500 });
+  }
+
+  async function runReassign() {
+    return db.transaction(async (tx) => {
     let clientId: number;
     if (hasCreate) {
+      // clients.user_id is UNIQUE (one client per user), so the requesting
+      // owner usually can't fill it — they may already anchor another client.
+      // Per the site-migration convention, each client gets a dedicated user
+      // at {sitename}@simplerdevelopment.com; the REAL ownership lives in
+      // client_members. Reuse the derived user if it already exists (and
+      // isn't anchoring a client), otherwise mint it with an unusable random
+      // password (login requires a reset).
+      const slug = (site.subdomain || body.createClient!.company)
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '')
+        .slice(0, 60);
+      const derivedEmail = `${slug}@simplerdevelopment.com`;
+      const [existingUser] = await tx
+        .select({ id: users.id })
+        .from(users)
+        .where(eq(users.email, derivedEmail))
+        .limit(1);
+      let anchorUserId: number;
+      if (existingUser) {
+        const [anchored] = await tx
+          .select({ id: clients.id })
+          .from(clients)
+          .where(eq(clients.userId, existingUser.id))
+          .limit(1);
+        if (anchored) {
+          throw Object.assign(new Error(`Derived user ${derivedEmail} already anchors client ${anchored.id}`), { status: 409 });
+        }
+        anchorUserId = existingUser.id;
+      } else {
+        const [minted] = await tx
+          .insert(users)
+          .values({
+            name: body.createClient!.company,
+            email: derivedEmail,
+            password: await hash(randomBytes(24).toString('base64url'), 10),
+            role: 'client',
+            active: true,
+          })
+          .returning({ id: users.id });
+        anchorUserId = minted.id;
+      }
       const [created] = await tx
         .insert(clients)
         .values({
-          userId: body.createClient!.ownerUserId,
+          userId: anchorUserId,
           company: body.createClient!.company,
           defaultWebsiteId: websiteId,
         })
@@ -109,7 +165,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       .returning({ id: media.id });
 
     return { clientId, brandingMoved, mediaMoved: movedMedia.length };
-  });
+    });
+  }
 
   return NextResponse.json({
     success: true,
