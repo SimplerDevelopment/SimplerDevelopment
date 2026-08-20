@@ -13,7 +13,6 @@ FALLOW_GATED_RE='^(staging|main)$'
 
 pushing=0
 dev_only=1
-changed=""
 fallow_targets=()   # "base_sha branch" for each ref pushed to a deploy branch
 mirror_main_sha=""
 # $2 is the push destination URL.
@@ -33,15 +32,11 @@ while read -r local_ref local_sha remote_ref remote_sha; do
   esac
 
   if [ "$remote_sha" = "$ZERO" ] || ! git rev-parse --quiet --verify "$remote_sha^{commit}" >/dev/null 2>&1; then
-    # New branch or remote_sha not present locally — diff against the single commit
-    ref_changed="$(git show --name-only --format= "$local_sha" 2>/dev/null)"
+    # New branch or remote_sha not present locally — base on the single commit
     fallow_base="${local_sha}^"
   else
-    ref_changed="$(git diff --name-only "$remote_sha..$local_sha" 2>/dev/null)"
     fallow_base="$remote_sha"
   fi
-
-  changed="${changed}${ref_changed}"$'\n'
 
   branch="${remote_ref#refs/heads/}"
   if [[ "$branch" =~ $FALLOW_GATED_RE ]]; then
@@ -86,18 +81,23 @@ else
   echo "pre-push: non-deploy branch — fallow gate skipped."
 fi
 
-# P2: conditional tenancy gate — trigger when data-access paths changed
-ci_args=""
-if echo "$changed" | grep -qE "^(lib/db/|app/api/|lib/active-client\.ts)"; then
-  echo "pre-push: data-access paths changed — adding tenancy gate."
-  ci_args="--tenancy"
-else
-  echo "pre-push: no data-access changes — tenancy gate skipped."
-fi
+# The tenancy gate is CI-ONLY (moved 2026-08-20). It ran here too, on the same
+# data-access path trigger, and cost ~1050s -- roughly 3x the typecheck it sat
+# next to, and the single largest thing standing between a commit and a push.
+#
+# It was removed rather than merely narrowed because the local run is strictly
+# worse than the CI job it duplicates: GitHub gives the suite an isolated
+# pgvector service container, while locally it shares whatever Postgres the dev
+# machine is running. In practice that produced `deadlock detected` and 60s
+# `DROP DATABASE` teardown timeouts with ZERO failing assertions -- noise that
+# teaches you to reach for --no-verify, which is the actual hazard.
+#
+# `.github/workflows/ci.yml` runs it on the same data-access paths this used to
+# match. To run it by hand before pushing: `bun test:tenancy`, or
+# `scripts/ci-local.sh --tenancy` (the flag is still supported).
 
 echo "pre-push: running local CI…"
-# shellcheck disable=SC2086
-"$ROOT/scripts/ci-local.sh" $ci_args
+"$ROOT/scripts/ci-local.sh"
 ci_status=$?
 if [ "$ci_status" -ne 0 ]; then
   exit "$ci_status"
