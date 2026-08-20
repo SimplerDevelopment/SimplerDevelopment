@@ -147,7 +147,18 @@ the archive. The automatic main-mirror was retired on 2026-08-03.
   for f in drizzle/900*_manual.sql; do psql "$METRO" -v ON_ERROR_STOP=1 -f "$f"; done   # or: DATABASE_URL="$METRO" bun scripts/apply-local-manual-migrations.ts
   ```
   Then verify the new column exists and re-call `whoami`. As of 2026-07-11 all manual migrations through `9010` are applied to metro and the drift is clean.
-- **Auto-sync is now wired (2026-07-11).** The `PROD_DATABASE_URL` repo secret is set, so the `Prod schema sync (additive)` workflow now actually runs on every merge to `main` and auto-applies **additive** changes (CREATE TABLE / ADD COLUMN) to metro — before this the secret was unset and the job silently skipped (green but a no-op). A `Schema drift preflight` check now also fails a PR on **non-additive** drift (type/nullability changes the additive sync can't apply). So: new columns/tables auto-apply; **type/constraint changes (e.g. `9010`'s `timestamp→timestamptz`, `integer→bigint`) still need a hand-written guarded `*_manual.sql` applied to metro** (make them re-runnable — guard `ALTER … TYPE` behind an `information_schema` type check so a re-run can't reinterpret, cf. `9010`).
+- ⚠️ **Auto-sync is NOT running — verified 2026-08-19.** `Prod schema sync (additive)` is gated on a `PROD_DATABASE_URL` repo secret. That secret is **not set** on this repo (`gh secret list -R SimplerDevelopment/SimplerDevelopment` returns nothing), so the `sync` job is **skipped** on every merge. The run still reports **success**, because a skipped job doesn't fail a run — so the board is green and nothing reaches metro. This was previously noted as fixed on 2026-07-11; it is not fixed now, and the earlier note is what made it invisible.
+  - Caught the hard way: PR #80 added `client_websites.cdn_cache_enabled`, the sync reported success, and the column was still absent from metro afterwards. It had to be applied by hand.
+  - **So treat EVERY schema change as manual.** After merging any branch that adds a column or table the code reads, apply it to metro yourself and verify:
+    ```bash
+    railway link --project "Simpler Development" --environment production --service "PRODUCTION DB"
+    METRO=$(railway variables --service "PRODUCTION DB" --kv | grep -E '^DATABASE_PUBLIC_URL=' | cut -d= -f2-)
+    psql "$METRO" -v ON_ERROR_STOP=1 -f drizzle/<your>_manual.sql
+    psql "$METRO" -tA -c "select column_name from information_schema.columns where table_name='<t>' and column_name='<c>';"
+    ```
+  - Why this is the sharpest edge in the repo: Drizzle's `db.select()` enumerates every column in the schema, so code that reads a column metro lacks **500s the whole route**, not just that field. That is the 2026-07-11 outage (`resolveOAuthToken` → all MCP OAuth → Cloudflare 502). Defensive code helps — `lib/sites/host-resolver.ts` catches the query error and fails open for routing while failing closed for caching, which is why #80 degraded instead of breaking — but do not rely on it.
+  - `Schema drift preflight` still fails a PR on **non-additive** drift. Type/constraint changes (`timestamp→timestamptz`, `integer→bigint`) always need a hand-written guarded `*_manual.sql` — make them re-runnable by guarding `ALTER … TYPE` behind an `information_schema` check, cf. `9010`.
+  - To actually restore auto-sync, set the `PROD_DATABASE_URL` repo secret to metro's `DATABASE_PUBLIC_URL`. Until then this bullet is the process.
 
 ## Hotfix lane (shipping a small fix without the full PR wait)
 
