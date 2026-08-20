@@ -159,3 +159,27 @@ working around it with prompts.
   better references. Do not ship it with an apology attached.
 - **Don't hoard tools.** If a new design skill only ever produces one look, it
   will make everything look the same. Prefer flexible tools plus real references.
+
+## Fidelity workflow — proven on the integratouch polish (2026-08-19/20)
+
+When the goal is matching a reference design (a live site, a mockup) rather
+than exploring, the loop that actually converged 21 pages:
+
+- **Screenshots are the diff, not the DOM.** Full-page captures of reference
+  and candidate at 1440×900, compared section by section multimodally. Markup
+  inspection repeatedly missed what screenshots caught: icon size/color/
+  alignment, testimonial card treatments, gradient direction, heading weight.
+- **Both widths, every pass.** 1440 AND 390 — mobile is where paddings,
+  overflow, and font-swap shifts hide. `scrollWidth === 390` is the
+  containment gate per page.
+- **Scroll the reference before capturing.** Scroll-triggered animations leave
+  blank regions in naive full-page captures that read as "missing sections" —
+  two real sections were nearly deleted chasing that artifact.
+- **Measure paddings, never eyeball them.** `getComputedStyle` per top-level
+  section, reference vs candidate, fix anything >8px off. Live sites collapse
+  desktop paddings to roughly half or a quarter on mobile.
+- **Sweep treatment CLASSES across all pages at the end.** Per-page passes
+  leave systematic misses (every icon-card row wrong the same way); one
+  cross-page sweep per treatment class closes them.
+- **Two consecutive clean sweeps = converged.** One clean pass is not done —
+  the fix for page A routinely regresses a shared helper used by page B.
