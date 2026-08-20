@@ -27,6 +27,9 @@ vi.mock('@/lib/auth', () => ({
 const getPortalClientMock = vi.fn();
 vi.mock('@/lib/portal-client', () => ({
   getPortalClient: (...args: unknown[]) => getPortalClientMock(...args),
+  // The issuance paths resolve impersonation-free; these suites never arrange
+  // impersonation, so both resolvers share one mock ("the tenant is X").
+  getPortalClientForCredentials: (...args: unknown[]) => getPortalClientMock(...args),
 }));
 
 const authorizePortalMock = vi.fn();

@@ -38,8 +38,10 @@ vi.mock('@/lib/auth', () => ({
 }));
 
 const headersMock = vi.fn();
+const cookiesMock = vi.fn();
 vi.mock('next/headers', () => ({
   headers: () => headersMock(),
+  cookies: () => cookiesMock(),
 }));
 
 class RedirectError extends Error {
@@ -59,9 +61,11 @@ vi.mock('next/navigation', () => ({
 
 const getPortalClientMock = vi.fn();
 const getPortalClientsMock = vi.fn();
+const getPortalClientForCredentialsMock = vi.fn();
 vi.mock('@/lib/portal-client', () => ({
   getPortalClient: (...a: unknown[]) => getPortalClientMock(...a),
   getPortalClients: (...a: unknown[]) => getPortalClientsMock(...a),
+  getPortalClientForCredentials: (...a: unknown[]) => getPortalClientForCredentialsMock(...a),
 }));
 
 // drizzle-orm operators — inert
@@ -200,6 +204,8 @@ beforeEach(() => {
   redirectMock.mockClear();
   getPortalClientMock.mockReset();
   getPortalClientsMock.mockReset();
+  getPortalClientForCredentialsMock.mockReset();
+  cookiesMock.mockReset();
 
   // Default: valid header bag for the unauth-bounce path.
   headersMock.mockReturnValue(
@@ -208,6 +214,8 @@ beforeEach(() => {
       'x-forwarded-host': 'portal.example.com',
     }),
   );
+  // Default: no cookies (no impersonation).
+  cookiesMock.mockReturnValue({ get: () => undefined });
 });
 
 // ─── Tests ──────────────────────────────────────────────────────────────────
@@ -372,16 +380,45 @@ describe('OAuth /oauth/authorize page', () => {
       ).toBeTruthy();
     });
 
-    it('renders "No portal access" when there are clients but no active one resolves', async () => {
+    it('falls back to the first membership client when no active one resolves', async () => {
       selectQueue.push([VALID_CLIENT]);
       authMock.mockResolvedValue(VALID_SESSION);
       getPortalClientsMock.mockResolvedValue([{ id: 99, company: 'Acme' }]);
-      getPortalClientMock.mockResolvedValue(null);
-      await renderPage(pkceParams());
-      expect(screen.getByText('No portal access')).toBeTruthy();
+      getPortalClientForCredentialsMock.mockResolvedValue(null);
+      const { container } = await renderPage(pkceParams());
+      // Consent renders against the membership fallback instead of erroring.
+      expect(container.querySelector('h1')!.textContent).toContain('Acme');
       expect(
-        screen.getByText(/Could not resolve an active client/),
-      ).toBeTruthy();
+        container.querySelector('input[name="active_client_id"]')!.getAttribute('value'),
+      ).toBe('99');
+    });
+
+    it('never lets an impersonated (non-member) client into the grant fields, and says so', async () => {
+      selectQueue.push([VALID_CLIENT]);
+      authMock.mockResolvedValue(VALID_SESSION);
+      // Membership set is only client 99; the staff user is impersonating 777.
+      getPortalClientsMock.mockResolvedValue([{ id: 99, company: 'Acme' }]);
+      getPortalClientForCredentialsMock.mockResolvedValue({ id: 99, company: 'Acme' });
+      // getPortalClient (impersonation-honoring) must not be consulted at all —
+      // give it the impersonated tenant so any use would leak 777 into the form.
+      getPortalClientMock.mockResolvedValue({ id: 777, company: 'Impersonated Co' });
+      cookiesMock.mockReturnValue({
+        get: (name: string) =>
+          name === 'sd_impersonate_client_id' ? { name, value: 'signed-token' } : undefined,
+      });
+
+      const { container } = await renderPage(pkceParams());
+
+      expect(
+        container.querySelector('input[name="active_client_id"]')!.getAttribute('value'),
+      ).toBe('99');
+      const clientIdInputs = [...container.querySelectorAll('input[name="client_ids"]')].map(
+        (el) => el.getAttribute('value'),
+      );
+      expect(clientIdInputs).toEqual(['99']);
+      expect(getPortalClientMock).not.toHaveBeenCalled();
+      // The impersonation notice is visible.
+      expect(screen.getByText(/viewing the portal as another company/)).toBeTruthy();
     });
   });
 
@@ -390,7 +427,7 @@ describe('OAuth /oauth/authorize page', () => {
       selectQueue.push([VALID_CLIENT]);
       authMock.mockResolvedValue(VALID_SESSION);
       getPortalClientsMock.mockResolvedValue([VALID_ACTIVE_CLIENT]);
-      getPortalClientMock.mockResolvedValue(VALID_ACTIVE_CLIENT);
+      getPortalClientForCredentialsMock.mockResolvedValue(VALID_ACTIVE_CLIENT);
     }
 
     it('renders the connect heading with client name + active client company', async () => {
@@ -415,7 +452,7 @@ describe('OAuth /oauth/authorize page', () => {
       selectQueue.push([{ ...VALID_CLIENT, clientUri: null }]);
       authMock.mockResolvedValue(VALID_SESSION);
       getPortalClientsMock.mockResolvedValue([VALID_ACTIVE_CLIENT]);
-      getPortalClientMock.mockResolvedValue(VALID_ACTIVE_CLIENT);
+      getPortalClientForCredentialsMock.mockResolvedValue(VALID_ACTIVE_CLIENT);
       const { container } = await renderPage(pkceParams({ scope: 'profile:read' }));
       // The application-website paragraph should not be in the DOM.
       expect(container.textContent).not.toMatch(/Application website:/);
@@ -425,7 +462,7 @@ describe('OAuth /oauth/authorize page', () => {
       selectQueue.push([VALID_CLIENT]);
       authMock.mockResolvedValue(VALID_SESSION);
       getPortalClientsMock.mockResolvedValue([{ id: 99, company: null }]);
-      getPortalClientMock.mockResolvedValue({ id: 99, company: null });
+      getPortalClientForCredentialsMock.mockResolvedValue({ id: 99, company: null });
       const { container } = await renderPage(pkceParams({ scope: 'profile:read' }));
       const h1 = container.querySelector('h1')!;
       expect(h1.textContent).toContain('your portal');
@@ -476,7 +513,7 @@ describe('OAuth /oauth/authorize page', () => {
         { id: 100, company: 'Beta Co' },
         { id: 101, company: null },
       ]);
-      getPortalClientMock.mockResolvedValue(VALID_ACTIVE_CLIENT);
+      getPortalClientForCredentialsMock.mockResolvedValue(VALID_ACTIVE_CLIENT);
       const { container } = await renderPage(pkceParams({ scope: 'profile:read' }));
       expect(screen.getByText('Which portals can it access?')).toBeTruthy();
 
@@ -520,7 +557,7 @@ describe('OAuth /oauth/authorize page', () => {
       selectQueue.push([VALID_CLIENT]);
       authMock.mockResolvedValue(VALID_SESSION);
       getPortalClientsMock.mockResolvedValue([VALID_ACTIVE_CLIENT]);
-      getPortalClientMock.mockResolvedValue(VALID_ACTIVE_CLIENT);
+      getPortalClientForCredentialsMock.mockResolvedValue(VALID_ACTIVE_CLIENT);
     }
 
     it('renders a single "Full access" toggle when scope contains "*"', async () => {
@@ -611,7 +648,7 @@ describe('OAuth /oauth/authorize page', () => {
       selectQueue.push([VALID_CLIENT]);
       authMock.mockResolvedValue(VALID_SESSION);
       getPortalClientsMock.mockResolvedValue([VALID_ACTIVE_CLIENT]);
-      getPortalClientMock.mockResolvedValue(VALID_ACTIVE_CLIENT);
+      getPortalClientForCredentialsMock.mockResolvedValue(VALID_ACTIVE_CLIENT);
       const { container } = await renderPage(pkceParams({ scope: 'profile:read' }));
       const approveBtn = container.querySelector(
         'button[name="decision"][value="approve"]',

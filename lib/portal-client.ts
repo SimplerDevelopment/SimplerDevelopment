@@ -78,16 +78,55 @@ export const getPortalClient = cache(async (userId: number, preferredClientId?: 
 });
 
 /**
+ * Resolve the active client for CREDENTIAL ISSUANCE — deliberately
+ * impersonation-free.
+ *
+ * `getPortalClient` gives the staff `sd_impersonate_client_id` cookie top
+ * priority, which is right for viewing a tenant's portal but wrong for
+ * anything that mints or authorizes a durable credential (OAuth consent,
+ * portal API keys, confidential OAuth clients): credentials belong to the
+ * USER and outlive the 8-hour impersonation window, so an impersonated
+ * tenant must never become a credential's tenant. Before this existed, an
+ * impersonating staff user could mint a full-scope API key against a tenant
+ * they had no membership on — and the OAuth consent screen leaked the
+ * impersonated id into the grant, which the decision route then refused
+ * (breaking connector re-authorization). See
+ * vault/04 - Decisions/ADR impersonation-never-influences-credential-issuance.md.
+ *
+ * Resolution: the `sd-active-client` preference cookie intersected with the
+ * user's real membership/ownership set, else the first (id-ordered) client.
+ * Returns null when the user has no clients at all.
+ */
+export const getPortalClientForCredentials = cache(async (userId: number) => {
+  const allClients = await getPortalClients(userId);
+  if (allClients.length === 0) return null;
+
+  let preferred: number | undefined;
+  try {
+    const store = await cookies();
+    const val = store.get(ACTIVE_CLIENT_COOKIE)?.value;
+    if (val) preferred = parseInt(val, 10);
+  } catch {
+    // cookies() may throw outside of request context (e.g. build time)
+  }
+
+  return allClients.find(c => c.id === preferred) ?? allClients[0];
+});
+
+/**
  * Returns ALL clients a user has access to (via team membership or direct ownership).
  * Wrapped in `React.cache` for per-request dedupe.
  */
 export const getPortalClients = cache(async (userId: number) => {
-  // Get all clients via team membership
+  // Get all clients via team membership. Ordered by id so `[0]` fallbacks
+  // (e.g. the OAuth consent default) are deterministic across requests —
+  // Postgres gives no stable order without one.
   const teamRows = await db
     .select({ client: clients, role: clientMembers.role })
     .from(clientMembers)
     .innerJoin(clients, eq(clients.id, clientMembers.clientId))
-    .where(eq(clientMembers.userId, userId));
+    .where(eq(clientMembers.userId, userId))
+    .orderBy(clients.id);
 
   const teamClientIds = new Set(teamRows.map(r => r.client.id));
   const result = teamRows.map(r => r.client);
@@ -96,7 +135,8 @@ export const getPortalClients = cache(async (userId: number) => {
   const ownedClients = await db
     .select()
     .from(clients)
-    .where(eq(clients.userId, userId));
+    .where(eq(clients.userId, userId))
+    .orderBy(clients.id);
 
   for (const c of ownedClients) {
     if (!teamClientIds.has(c.id)) {
