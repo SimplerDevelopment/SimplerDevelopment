@@ -30,6 +30,7 @@ export interface Survey {
   consentField: string | null;
   notifyOnResponse: boolean;
   notifyDigest: string;
+  notifyUserIds: number[];
   closesAt: string | null;
   maxResponses: number | null;
   linkedType: string | null;

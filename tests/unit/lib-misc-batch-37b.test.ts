@@ -672,11 +672,14 @@ describe('lib/automation/survey-notifications.ts', () => {
     expect(resendSendMock).toHaveBeenCalledTimes(1);
     const call = resendSendMock.mock.calls[0]![0] as {
       from: string;
-      to: string;
+      to: string[];
       subject: string;
       html: string;
     };
-    expect(call.to).toBe('owner@example.com');
+    // PUX-084: `to` is a list now that a survey can name several recipients. An
+    // empty notify_user_ids still resolves to just the account owner, which is
+    // what every survey did before the column existed.
+    expect(call.to).toEqual(['owner@example.com']);
     expect(call.subject).toContain('Q&A "Survey" <test>');
     // HTML should have escaped values
     expect(call.html).toContain('Q&amp;A &quot;Survey&quot; &lt;test&gt;');

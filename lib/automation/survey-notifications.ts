@@ -8,17 +8,24 @@
  * Registers its own handler with the event bus — runs in parallel with
  * the user-facing automation rule engine, which processes custom rules.
  *
- * Digest modes (`daily` / `weekly`) are honored as "do NOT send immediately"
- * but the actual batched send is gated on a future scheduled-job runner
- * (no cron mechanism exists in the current stack). When digest mode is set,
- * this handler no-ops so responses don't get lost in the floor between
- * "skip immediate" and "no one's flushing the queue yet".
+ * Digest modes (`daily` / `weekly`) mean "do NOT send immediately" — the batched
+ * send belongs to app/api/cron/process-survey-digests, which reads straight off
+ * `survey_responses.completed_at` against the `surveys.last_digest_sent_at`
+ * watermark. So the early return below hands the response to that job; it does
+ * not drop it.
+ *
+ * It used to drop it. Until PUX-084 this handler returned on digest mode without
+ * sending AND without queueing, and the queue it pointed at
+ * (`survey_notification_queue`) was never built — so choosing a digest silently
+ * switched a survey's notifications off entirely. The justification recorded here
+ * was "no cron mechanism exists in the current stack", which had gone stale: there
+ * are 47 cron routes registered in vercel.json.
  */
 
 import { escapeHtml } from '@/lib/utils/html';
 import { db } from '@/lib/db';
-import { surveys, clients, users } from '@/lib/db/schema';
-import { eq } from 'drizzle-orm';
+import { surveys, clients, users, clientMembers } from '@/lib/db/schema';
+import { and, eq, inArray } from 'drizzle-orm';
 import { onEvent, type AutomationEvent } from './event-bus';
 import { resend } from '@/lib/email';
 
@@ -31,6 +38,57 @@ interface SurveyResponsePayload {
   surveyTitle: string;
   respondentEmail: string | null;
   source: string | null;
+}
+
+/**
+ * Resolve which addresses receive notifications for one survey.
+ *
+ * Recipients are stored as portal user ids (`surveys.notify_user_ids`), never as
+ * addresses — see the column comment in lib/db/schema/surveys.ts for why. This is
+ * the only place ids become addresses, and it re-joins `client_members` on every
+ * send rather than trusting the stored list: an id that was valid when it was
+ * saved but whose membership has since been revoked resolves to nothing, so
+ * removing someone from the account stops their notifications immediately with no
+ * cleanup pass over every survey.
+ *
+ * The clientId filter is the tenancy boundary, and it is applied HERE as well as
+ * at write time deliberately. A stored id belonging to another tenant — from a bad
+ * backfill, a restored row, or direct SQL — must not be able to receive another
+ * client's survey responses, and enforcing it on the read is what makes that true
+ * regardless of how the row came to exist.
+ *
+ * Falls back to the client owner when the list is empty, which is exactly who every
+ * survey notified before this column existed (so the migration needs no backfill).
+ * It also falls back when every listed id fails to resolve: a notification reaching
+ * the owner unexpectedly is a smaller failure than one silently reaching nobody.
+ */
+export async function resolveSurveyRecipients(
+  surveyClientId: number,
+  notifyUserIds: number[] | null,
+): Promise<string[]> {
+  const ids = Array.isArray(notifyUserIds) ? notifyUserIds.filter(Number.isInteger) : [];
+
+  if (ids.length > 0) {
+    const rows = await db
+      .select({ email: users.email })
+      .from(clientMembers)
+      .innerJoin(users, eq(users.id, clientMembers.userId))
+      .where(and(
+        eq(clientMembers.clientId, surveyClientId),
+        inArray(clientMembers.userId, ids),
+      ));
+    const emails = rows.map((r) => r.email).filter((e): e is string => Boolean(e));
+    if (emails.length > 0) return emails;
+  }
+
+  const [owner] = await db
+    .select({ email: users.email })
+    .from(clients)
+    .innerJoin(users, eq(users.id, clients.userId))
+    .where(eq(clients.id, surveyClientId))
+    .limit(1);
+
+  return owner?.email ? [owner.email] : [];
 }
 
 async function handleSurveyResponseSubmitted(event: AutomationEvent): Promise<void> {
@@ -47,6 +105,7 @@ async function handleSurveyResponseSubmitted(event: AutomationEvent): Promise<vo
       title: surveys.title,
       notifyOnResponse: surveys.notifyOnResponse,
       notifyDigest: surveys.notifyDigest,
+      notifyUserIds: surveys.notifyUserIds,
       clientId: surveys.clientId,
     })
     .from(surveys)
@@ -64,16 +123,10 @@ async function handleSurveyResponseSubmitted(event: AutomationEvent): Promise<vo
     return;
   }
 
-  // Resolve the client's primary owner email.
-  const [owner] = await db
-    .select({ email: users.email, name: users.name })
-    .from(clients)
-    .innerJoin(users, eq(users.id, clients.userId))
-    .where(eq(clients.id, survey.clientId))
-    .limit(1);
+  const recipients = await resolveSurveyRecipients(survey.clientId, survey.notifyUserIds);
 
-  if (!owner?.email) {
-    console.warn(`[survey-notifications] No owner email for clientId=${survey.clientId}; skipping notification`);
+  if (recipients.length === 0) {
+    console.warn(`[survey-notifications] No resolvable recipient for clientId=${survey.clientId}; skipping notification`);
     return;
   }
 
@@ -122,7 +175,7 @@ async function handleSurveyResponseSubmitted(event: AutomationEvent): Promise<vo
   try {
     await resend.emails.send({
       from: FROM_EMAIL,
-      to: owner.email,
+      to: recipients,
       subject,
       html,
     });

@@ -215,6 +215,21 @@ export const surveys = pgTable('surveys', {
   consentField: varchar('consent_field', { length: 64 }),
   notifyOnResponse: boolean('notify_on_response').default(true).notNull(),
   notifyDigest: varchar('notify_digest', { length: 10 }).default('off').notNull(), // 'off', 'daily', 'weekly'
+  // PUX-084: who receives the response notification. Portal user ids, NOT email
+  // strings — a free-text address list would let anyone with survey-edit access
+  // forward responses (which can carry PII) off-tenant. Ids are validated against
+  // `clientMembers` for THIS survey's client on write, so a recipient can only
+  // ever be someone already on the account, and revoking their membership stops
+  // the notifications with no cleanup needed here. Empty array = fall back to the
+  // client owner, i.e. exactly what every survey did before this column existed.
+  notifyUserIds: json('notify_user_ids').$type<number[]>().default([]).notNull(),
+  // Watermark for the daily/weekly digest: a run includes only responses
+  // completed strictly after this, and advances it only once a send succeeds, so
+  // a failed run retries the same window rather than dropping it. NULL means
+  // "never digested" — the first run bounds the window by the digest period
+  // instead, so switching a long-running survey to digest mode doesn't dump its
+  // entire response history into one email.
+  lastDigestSentAt: timestamp('last_digest_sent_at'),
   closesAt: timestamp('closes_at'),
   maxResponses: integer('max_responses'),
   // Integration context — which system linked to this survey
