@@ -373,16 +373,17 @@ describe('CommandPalette — interaction', () => {
         ],
       },
     });
-    const { getByLabelText, findByText } = renderPalette();
+    const { getByLabelText, findByText, getByText } = renderPalette();
     const input = getByLabelText('Search') as HTMLInputElement;
     fireEvent.change(input, { target: { value: 'x' } });
     const b = await findByText('B');
     fireEvent.mouseEnter(b.closest('button')!);
+    // Sync query inside waitFor, not a nested findBy*: an async query here
+    // would re-arm its own 1000ms timeout + MutationObserver on every one of
+    // waitFor's ~50ms retries, so waitFor's own budget can expire while an
+    // inner promise is still pending — flaky under CI's forked/coverage load.
     await waitFor(() => {
-      const refreshed = (findByText('B') as unknown as Promise<HTMLElement>);
-      return refreshed.then((el) => {
-        expect(el.closest('button')!.className).toContain('bg-primary/10');
-      });
+      expect(getByText('B').closest('button')!.className).toContain('bg-primary/10');
     });
   });
 });
