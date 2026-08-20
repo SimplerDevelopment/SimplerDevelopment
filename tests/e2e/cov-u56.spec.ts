@@ -10,18 +10,30 @@ import { test, expect } from './setup/fixtures';
 // ── Card 12: OAuth tokens ──────────────────────────────────────────────────
 
 test.describe('Integrations — OAuth tokens @integrations @oauth-tokens', () => {
-  test('GET /api/portal/oauth-tokens returns array scoped to active client @critical', async ({ clientApi }) => {
+  test('GET /api/portal/oauth-tokens segments grants by ownership @critical', async ({ clientApi }) => {
     const res = await clientApi.get('/api/portal/oauth-tokens');
     expect(res.status).toBe(200);
     expect(res.data.success).toBe(true);
-    expect(Array.isArray(res.data.data)).toBe(true);
-    // If any rows come back they must have the clientName join field
-    for (const row of res.data.data as Array<Record<string, unknown>>) {
+    // Was a flat array of every grant in the client. An OAuth grant is a
+    // PERSONAL consent artifact, so the payload is split by ownership: `mine`
+    // always, `team` only for owners/admins. `issuedToYou` retired with the
+    // split -- the array a grant lands in already says whose it is.
+    const data = res.data.data as {
+      mine: Array<Record<string, unknown>>;
+      team: Array<Record<string, unknown>>;
+      canManageTeam: boolean;
+    };
+    expect(Array.isArray(data.mine)).toBe(true);
+    expect(Array.isArray(data.team)).toBe(true);
+    expect(typeof data.canManageTeam).toBe('boolean');
+    // A member without team authority must never be handed someone else's row.
+    if (!data.canManageTeam) expect(data.team).toHaveLength(0);
+    for (const row of [...data.mine, ...data.team]) {
       expect(row).toHaveProperty('id');
       expect(row).toHaveProperty('tokenPreview');
       expect(row).toHaveProperty('clientName');
       expect(row).toHaveProperty('revokedAt');
-      expect(row).toHaveProperty('issuedToYou');
+      expect(row).toHaveProperty('memberName');
     }
   });
 
@@ -40,12 +52,15 @@ test.describe('Integrations — OAuth tokens @integrations @oauth-tokens', () =>
     expect(res.status).toBe(400);
   });
 
-  test('DELETE /api/portal/oauth-tokens with unknown id is a no-op 200 (tenant-scoped update)', async ({ clientApi }) => {
-    // The handler does UPDATE ... WHERE id=? AND clientId=? — unknown id just
-    // matches zero rows, returning success without error.
+  test('DELETE /api/portal/oauth-tokens with an unmatched id returns 404', async ({ clientApi }) => {
+    // Previously a 200 no-op: the UPDATE matched zero rows and reported success
+    // anyway. That is the same path a member hits aiming at a COLLEAGUE's grant
+    // (the predicate now also pins `userId` unless you are owner/admin), and
+    // answering `{success:true}` rendered as "Revoked" in the UI while nothing
+    // had changed -- hiding the authorization boundary rather than reporting it.
     const res = await clientApi.delete('/api/portal/oauth-tokens?id=999999999');
-    expect(res.status).toBe(200);
-    expect(res.data.success).toBe(true);
+    expect(res.status).toBe(404);
+    expect(res.data.success).toBe(false);
   });
 
   test('DELETE /api/portal/oauth-tokens returns 401 when unauthenticated', async ({ unauthApi }) => {

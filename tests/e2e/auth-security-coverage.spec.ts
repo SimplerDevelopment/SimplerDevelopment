@@ -227,11 +227,17 @@ test.describe('Auth Security — Portal OAuth Client CRUD @auth @oauth-clients',
 // ── OAuth access token list + revocation ──────────────────────────────────
 
 test.describe('Auth Security — OAuth Access Tokens @auth @oauth-tokens', () => {
-  test('GET /api/portal/oauth-tokens returns list for authenticated user @auth', async ({ clientApi }) => {
+  test('GET /api/portal/oauth-tokens returns the caller\'s own grants, segmented @auth', async ({ clientApi }) => {
     const res = await clientApi.get('/api/portal/oauth-tokens');
     expect(res.status).toBe(200);
     expect(res.data.success).toBe(true);
-    expect(Array.isArray(res.data.data)).toBe(true);
+    // Was a flat array of every grant in the portal client. Grants are personal
+    // consent artifacts, so the payload is now split by ownership and `team` is
+    // populated only for owners/admins.
+    expect(Array.isArray(res.data.data.mine)).toBe(true);
+    expect(Array.isArray(res.data.data.team)).toBe(true);
+    expect(typeof res.data.data.canManageTeam).toBe('boolean');
+    if (!res.data.data.canManageTeam) expect(res.data.data.team).toHaveLength(0);
   });
 
   test('DELETE /api/portal/oauth-tokens without id returns 400', async ({ clientApi }) => {
@@ -240,11 +246,14 @@ test.describe('Auth Security — OAuth Access Tokens @auth @oauth-tokens', () =>
     expect(res.data.success).toBe(false);
   });
 
-  test('DELETE /api/portal/oauth-tokens with unknown id is a safe no-op (200)', async ({ clientApi }) => {
+  test('DELETE /api/portal/oauth-tokens with an unmatched id reports 404, not a silent success', async ({ clientApi }) => {
     const res = await clientApi.delete('/api/portal/oauth-tokens?id=999999');
-    // Scoped update: no rows matched, but not an error
-    expect(res.status).toBe(200);
-    expect(res.data.success).toBe(true);
+    // This used to assert 200 "safe no-op". That was the bug, not the contract:
+    // the same unmatched-update path is what a member hits when aiming at a
+    // COLLEAGUE's grant, and answering `{success:true}` while changing nothing
+    // rendered as "Revoked" in the UI and hid the authorization boundary.
+    expect(res.status).toBe(404);
+    expect(res.data.success).toBe(false);
   });
 
   test('GET /api/portal/oauth-tokens rejects unauthenticated', async ({ unauthApi }) => {
