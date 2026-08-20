@@ -63,8 +63,16 @@ export default function OAuthTokensManager({
 
   async function handleRevoke(id: number, clientName: string) {
     if (!confirm(`Revoke ${clientName}'s access? It will lose access immediately and need to reconnect.`)) return;
-    await fetch(`/api/portal/oauth-tokens?id=${id}`, { method: 'DELETE' });
-    load();
+    const res = await fetch(`/api/portal/oauth-tokens?id=${id}`, { method: 'DELETE' });
+    // The route 404s when the grant isn't the caller's to revoke (a plain member
+    // aiming at a colleague's connection). Refresh FIRST and report after:
+    // `load()` clears `error` on entry, so setting it beforehand would be wiped
+    // by the very reload that follows -- leaving the row Active with no reason why.
+    await load();
+    if (!res.ok) {
+      const json = await res.json().catch(() => null);
+      setError(json?.message ?? 'Failed to revoke token');
+    }
   }
 
   return (
