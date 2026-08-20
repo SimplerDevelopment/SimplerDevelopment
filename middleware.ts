@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { resolveCustomDomain } from '@/lib/agency/custom-domain';
-import { isKnownSiteHost } from '@/lib/sites/host-resolver';
+import { resolveSiteForHost } from '@/lib/sites/host-resolver';
+import { mayShareCache } from '@/lib/sites/edge-cache-policy';
 import { getPortalClient } from '@/lib/portal-client';
 import {
   loadActiveAppBySlug,
@@ -247,12 +248,18 @@ export async function middleware(req: NextRequest) {
     // actually claimed this host (verified custom domain or platform subdomain).
     // Definitively-unknown hosts 404 at the edge instead of being rewritten into
     // /sites/<attacker-host>; the lookup fails open on DB trouble.
-    if (!(await isKnownSiteHost(bareHost))) {
+    const siteInfo = await resolveSiteForHost(bareHost);
+    if (!siteInfo) {
       return new NextResponse('Not Found', { status: 404 });
     }
 
-    // Rewrite to internal /sites/[domain]/[...slug] route
-    const domain = bareHost;
+    // Rewrite to internal /sites/[domain]/[...slug] route.
+    // Lowercased: Host headers are case-insensitive, but `domain` becomes a
+    // route param that getClientWebsiteByDomain matches case-SENSITIVELY, so
+    // `Host: Acme.com` used to pass the gate and then 404 at the renderer. It
+    // also matters for caching — the CDN keys on the URL, so mixed-case hosts
+    // would each get their own entry for identical content.
+    const domain = bareHost.toLowerCase();
     const url = req.nextUrl.clone();
     const slug = pathname === '/' ? '' : pathname;
     url.pathname = `/sites/${domain}${slug}`;
@@ -262,9 +269,33 @@ export async function middleware(req: NextRequest) {
     // Surface the tenant domain so deep components that don't get route params
     // (e.g. not-found.tsx) can still resolve branding without re-parsing the URL.
     response.headers.set('x-site-domain', domain);
-    // QAD-044: persist the A/B visitor id on the public-site render (the SSR
-    // page can't set cookies itself).
-    ensureVisitorCookie(req, response);
+    const cacheable = mayShareCache(
+      { method: req.method, url: req.url, cookie: req.headers.get('cookie') ?? '' },
+      siteInfo,
+    );
+    if (cacheable) {
+      // Shared-cache the rendered HTML at the edge. The CDN key is
+      // scheme+host+path+query, and the host IS the tenant, so an entry can
+      // never be served to a different tenant.
+      //
+      // s-maxage is short and paired with a long stale-while-revalidate: edge
+      // entries are TTL-invalidated, not tag-invalidated, so revalidateTag()
+      // does not reach them. 60s bounds how long a publish can look stale;
+      // stale-while-revalidate keeps the fast path warm for everyone else.
+      response.headers.set(
+        'Cache-Control',
+        'public, s-maxage=60, stale-while-revalidate=86400',
+      );
+      // Deliberately NOT calling ensureVisitorCookie here. A Set-Cookie on a
+      // shared-cacheable response either poisons the cache or gets stripped;
+      // mayShareCache() already guarantees no experiment is running, so no
+      // visitor id is needed to render this page correctly.
+    } else {
+      response.headers.set('Cache-Control', 'private, no-store');
+      // QAD-044: persist the A/B visitor id on the public-site render (the SSR
+      // page can't set cookies itself).
+      ensureVisitorCookie(req, response);
+    }
     return response;
   }
 
@@ -275,7 +306,16 @@ export async function middleware(req: NextRequest) {
     // Extract the {domain} segment so not-found.tsx / error.tsx can recover it.
     const domainMatch = pathname.match(/^\/sites\/([^/]+)/);
     const siteDomain = domainMatch ? domainMatch[1] : '';
-    const headers: Record<string, string> = { 'x-site-pathname': sitePath };
+    const headers: Record<string, string> = {
+      'x-site-pathname': sitePath,
+      // NEVER shared-cache /sites/* on the APP host. The internal path is
+      // identical to the tenant-host request, but basePath is computed from
+      // whether the request host equals the site domain (see
+      // app/sites/[domain]/layout.tsx), so the two render different link URLs.
+      // One cache entry serving both audiences would give one of them a page
+      // full of broken links.
+      'Cache-Control': 'private, no-store',
+    };
     if (siteDomain) headers['x-site-domain'] = siteDomain;
     // Forward the same markers as REQUEST headers too, so server components
     // (e.g. the root layout's marketing-chrome detection) can tell this is a
