@@ -48,6 +48,10 @@
       "schedule": "0 13 * * *"
     },
     {
+      "path": "/api/cron/process-survey-digests",
+      "schedule": "0 13 * * *"
+    },
+    {
       "path": "/api/cron/surveys-zero-responses",
       "schedule": "30 10 * * 1"
     },

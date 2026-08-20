@@ -99,6 +99,22 @@ export default function SurveyDetailPage() {
   const [editCertificateEnabled, setEditCertificateEnabled] = useState(false);
   const [editNotify, setEditNotify] = useState(true);
   const [editDigest, setEditDigest] = useState('off');
+  const [editNotifyUserIds, setEditNotifyUserIds] = useState<number[]>([]);
+  const [teamMembers, setTeamMembers] = useState<{ userId: number; name: string | null; email: string | null }[]>([]);
+
+  // Recipient options for the notification picker. Failure is non-fatal: the
+  // picker just shows nothing, and an empty selection already means "notify the
+  // account owner", so a flaky fetch degrades to today's behaviour.
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/portal/team')
+      .then((r) => r.json())
+      .then((j) => {
+        if (!cancelled && j?.success && Array.isArray(j.data)) setTeamMembers(j.data);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
   const [editThankYouTitle, setEditThankYouTitle] = useState('');
   const [editThankYouMessage, setEditThankYouMessage] = useState('');
   const [editRedirectUrl, setEditRedirectUrl] = useState('');
@@ -130,6 +146,7 @@ export default function SurveyDetailPage() {
     setEditCertificateEnabled(survey.certificateEnabled ?? false);
     setEditNotify(survey.notifyOnResponse);
     setEditDigest(survey.notifyDigest || 'off');
+    setEditNotifyUserIds(Array.isArray(survey.notifyUserIds) ? survey.notifyUserIds : []);
     setEditThankYouTitle(survey.thankYouTitle || 'Thank you!');
     setEditThankYouMessage(survey.thankYouMessage || '');
     setEditRedirectUrl(survey.redirectUrl || '');
@@ -329,6 +346,9 @@ export default function SurveyDetailPage() {
           setEditNotify={setEditNotify}
           editDigest={editDigest}
           setEditDigest={setEditDigest}
+          editNotifyUserIds={editNotifyUserIds}
+          setEditNotifyUserIds={setEditNotifyUserIds}
+          teamMembers={teamMembers}
           editClosesAt={editClosesAt}
           setEditClosesAt={setEditClosesAt}
           editMaxResponses={editMaxResponses}
@@ -352,6 +372,7 @@ export default function SurveyDetailPage() {
               certificateEnabled: editCertificateEnabled,
               notifyOnResponse: editNotify,
               notifyDigest: editDigest,
+              notifyUserIds: editNotifyUserIds,
               closesAt: editClosesAt || null,
               maxResponses: editMaxResponses ? parseInt(editMaxResponses, 10) : null,
               // SCORE-02: persist the survey-level scoring/auto-route config.

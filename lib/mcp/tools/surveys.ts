@@ -285,6 +285,8 @@ export function registerSurveysTools(server: McpServer, ctx: PortalMcpContext): 
         // ─ notifications ─
         notifyOnResponse: z.boolean().optional(),
         notifyDigest: z.enum(['off', 'daily', 'weekly']).optional(),
+        notifyUserIds: z.array(z.number().int().positive()).optional()
+          .describe('Portal user ids to notify on each response. Every id must already be a member of this client — ids that are not are rejected, not silently dropped. Empty array falls back to the account owner.'),
         // ─ scoring + CRM auto-route ─
         scoringConfig: z.any().optional()
           .describe('SurveyScoringConfig — { autoRouteToCrm?: { enabled, minScore, pipelineId, stageId, dealTitleTemplate? } }'),
@@ -304,6 +306,20 @@ export function registerSurveysTools(server: McpServer, ctx: PortalMcpContext): 
       const [existing] = await db.select({ id: surveys.id }).from(surveys)
         .where(and(eq(surveys.id, id), eq(surveys.clientId, clientId))).limit(1);
       if (!existing) return json({ error: 'Survey not found' });
+      // Same membership guard as the REST PUT in app/api/portal/surveys/[id]/route.ts.
+      // `rest` is spread into the patch wholesale below, so without this an MCP caller
+      // could store arbitrary user ids — including another tenant's. The read side
+      // (resolveSurveyRecipients) re-checks membership at send time, so a stray id
+      // could never actually receive anyone's responses; but storing one would quietly
+      // mean "this survey notifies nobody", and failing the write says so out loud.
+      if (rest.notifyUserIds !== undefined && rest.notifyUserIds.length > 0) {
+        const ids = [...new Set(rest.notifyUserIds)];
+        const members = await db.select({ userId: clientMembers.userId }).from(clientMembers)
+          .where(and(eq(clientMembers.clientId, clientId), inArray(clientMembers.userId, ids)));
+        const allowed = new Set(members.map((m) => m.userId));
+        const rejected = ids.filter((n) => !allowed.has(n));
+        if (rejected.length > 0) return json({ error: `Not members of this account: ${rejected.join(', ')}` });
+      }
       const patch: Record<string, unknown> = { updatedAt: new Date() };
       for (const [k, v] of Object.entries(rest)) if (v !== undefined) patch[k] = v;
       if (fields !== undefined) patch.fields = fields as SurveyFieldDef[];
@@ -464,6 +480,11 @@ export function registerSurveysTools(server: McpServer, ctx: PortalMcpContext): 
         consentField: source.consentField,
         notifyOnResponse: source.notifyOnResponse,
         notifyDigest: source.notifyDigest,
+        // Recipients survive the fork: a fork lives in the same client, so every id
+        // is still a valid member. lastDigestSentAt deliberately does NOT carry over —
+        // the copy has never been digested, and inheriting a watermark would make its
+        // first digest silently skip everything submitted before the fork.
+        notifyUserIds: source.notifyUserIds,
         recommendation: source.recommendation,
         scoringConfig: source.scoringConfig,
         // Always start drafts — even if source was 'active'.

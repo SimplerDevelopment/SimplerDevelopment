@@ -1,5 +1,7 @@
 'use client';
 
+import NotifyDeliveryFields from './NotifyDeliveryFields';
+
 /**
  * SurveySettings — appearance, completion, and response settings tab.
  *
@@ -57,6 +59,9 @@ interface Props {
   editNotify: boolean;
   setEditNotify: (v: boolean) => void;
   editDigest: string;
+  editNotifyUserIds: number[];
+  setEditNotifyUserIds: (v: number[]) => void;
+  teamMembers: { userId: number; name: string | null; email: string | null }[];
   setEditDigest: (v: string) => void;
   editClosesAt: string;
   setEditClosesAt: (v: string) => void;
@@ -108,6 +113,9 @@ export default function SurveySettings(props: Props) {
     editNotify,
     setEditNotify,
     editDigest,
+    editNotifyUserIds,
+    setEditNotifyUserIds,
+    teamMembers,
     setEditDigest,
     editClosesAt,
     setEditClosesAt,
@@ -540,21 +548,13 @@ export default function SurveySettings(props: Props) {
             </span>
           </label>
         </div>
-        <div>
-          <label className="block text-sm font-medium text-foreground mb-1">Email Digest Summary</label>
-          <select
-            value={editDigest}
-            onChange={(e) => setEditDigest(e.target.value)}
-            className="w-full sm:w-48 px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
-          >
-            <option value="off">Off</option>
-            <option value="daily">Daily digest</option>
-            <option value="weekly">Weekly digest</option>
-          </select>
-          <p className="text-xs text-muted-foreground mt-1">
-            Receive a summary email with response stats and highlights
-          </p>
-        </div>
+        <NotifyDeliveryFields
+          editDigest={editDigest}
+          setEditDigest={setEditDigest}
+          editNotifyUserIds={editNotifyUserIds}
+          setEditNotifyUserIds={setEditNotifyUserIds}
+          teamMembers={teamMembers}
+        />
 
         {/* DIST-02: consent-field gate for follow-up email sequences. */}
         <div>

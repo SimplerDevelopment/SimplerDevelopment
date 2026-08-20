@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { surveys } from '@/lib/db/schema';
-import { eq, and } from 'drizzle-orm';
+import { surveys, clientMembers } from '@/lib/db/schema';
+import { eq, and, inArray } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
 import { authorizePortal, isAuthError } from '@/lib/portal-auth';
 import { emitEvent } from '@/lib/automation';
@@ -84,6 +84,38 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   }
   if (body.notifyOnResponse !== undefined) updates.notifyOnResponse = body.notifyOnResponse;
   if (body.notifyDigest !== undefined) updates.notifyDigest = body.notifyDigest;
+  // PUX-084: notification recipients are portal user ids, and every id must
+  // already belong to THIS client. Rejecting the request rather than silently
+  // filtering is deliberate — a payload naming someone who isn't on the account is
+  // either a bug or an attempt to route another tenant's survey responses (which
+  // can carry PII) to an outsider, and both deserve to fail loudly rather than
+  // half-apply. The read side re-checks membership at send time as well, in
+  // resolveSurveyRecipients, so revoking someone's access takes effect without
+  // anyone having to rewrite stored lists.
+  if (body.notifyUserIds !== undefined) {
+    if (!Array.isArray(body.notifyUserIds) || body.notifyUserIds.some((n: unknown) => !Number.isInteger(n))) {
+      return NextResponse.json(
+        { success: false, message: 'notifyUserIds must be an array of user ids' },
+        { status: 400 },
+      );
+    }
+    const ids = [...new Set(body.notifyUserIds as number[])];
+    if (ids.length > 0) {
+      const members = await db
+        .select({ userId: clientMembers.userId })
+        .from(clientMembers)
+        .where(and(eq(clientMembers.clientId, client.id), inArray(clientMembers.userId, ids)));
+      const allowed = new Set(members.map((m) => m.userId));
+      const rejected = ids.filter((n) => !allowed.has(n));
+      if (rejected.length > 0) {
+        return NextResponse.json(
+          { success: false, message: `Not members of this account: ${rejected.join(', ')}` },
+          { status: 400 },
+        );
+      }
+    }
+    updates.notifyUserIds = ids;
+  }
   if (body.closesAt !== undefined) updates.closesAt = body.closesAt ? new Date(body.closesAt) : null;
   if (body.maxResponses !== undefined) updates.maxResponses = body.maxResponses || null;
   if (body.linkedType !== undefined) updates.linkedType = body.linkedType || null;

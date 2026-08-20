@@ -63,6 +63,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       consentField: source.consentField,
       notifyOnResponse: source.notifyOnResponse,
       notifyDigest: source.notifyDigest,
+      // Recipients survive the fork: a fork lives in the same client, so every id
+      // is still a valid member. lastDigestSentAt deliberately does NOT carry over —
+      // the copy has never been digested, and inheriting a watermark would make its
+      // first digest silently skip everything submitted before the fork.
+      notifyUserIds: source.notifyUserIds,
       recommendation: source.recommendation,
       scoringConfig: source.scoringConfig,
       status: 'draft',

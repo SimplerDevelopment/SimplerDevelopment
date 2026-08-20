@@ -747,6 +747,7 @@ Update any combination of survey fields. Only pass what you want to change — u
 | `consentField` | string \| null | Field ID that gates submission via an explicit consent checkbox. |
 | `notifyOnResponse` | boolean | Notify account on each new response. |
 | `notifyDigest` | `off` \| `daily` \| `weekly` | Response digest emails. |
+| `notifyUserIds` | number[] | Portal user ids to notify on each response. Every id must already be a member of this client — ids that are not are rejected, not silently dropped. Empty (the default) notifies the account owner. |
 | `scoringConfig` | object | `SurveyScoringConfig` — `{ autoRouteToCrm?: { enabled, minScore, pipelineId, stageId, dealTitleTemplate? } }`. |
 | `recommendation` | object | `SurveyRecommendationConfig` — `{ offerings[], questions[], overrides[], hybrid?, alwaysAlsoOfferingKey?, bookUrl?, narrativeTemplate? }`. |
 | `linkedType` | `email_campaign` \| `crm_deal` \| `crm_proposal` \| `booking_page` \| `website` \| `pitch_deck` \| null | Link to another artifact. |
