@@ -179,6 +179,10 @@ export interface SurveyStyling {
   inputOptionTextColor?: string;
   hideTitle?: boolean;
   hideLogo?: boolean;
+  // Opt-in: render the public form in dark mode (`force-dark dark` wrapper).
+  // Off/absent = always light, even for dark-OS visitors — the class-driven
+  // `dark:` variant (app/globals.css) is what makes the default enforceable.
+  darkMode?: boolean;
 }
 
 export const surveys = pgTable('surveys', {
