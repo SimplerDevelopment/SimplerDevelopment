@@ -173,9 +173,8 @@ actually protect production, and which am I only waiting on out of habit."
 | Gate | Where | Time | Skippable? |
 |---|---|---|---|
 | gitleaks + eslint + file-budget + doc-drift | `.githooks/pre-commit` | ~10s | **Never.** Cheap, and catches secrets. |
-| vault guard | `.githooks/pre-push` | <1s | **Never** — see below. |
 | local CI (boundaries, budget, doc-drift, **typecheck**) | `.githooks/pre-push` | **~10 min**, nearly all typecheck | Yes — it duplicates GitHub's `Typecheck` job |
-| 15 GitHub Actions checks | CI on push | ~13 min | Partly — see "merge on the relevant checks" |
+| GitHub Actions checks | CI on push | ~13 min, set entirely by `Critical e2e` (12 min) | Partly — see "merge on the relevant checks". `tenancy` + both e2e legs already self-skip on a doc-only diff. |
 
 ### What qualifies as a hotfix
 
@@ -193,9 +192,11 @@ Narrow, or this becomes the default path and the gates stop meaning anything:
 # 1. Commit normally — the pre-commit hook is 10s and includes secret scanning.
 git commit -m "fix(scope): ..."
 
-# 2. Verify by hand the ONE thing --no-verify would skip that matters, then push.
-#    The vault guard exists because this repo is PUBLIC and vault/ is internal.
-git diff --name-only origin/main..HEAD | grep '^vault/' && echo "STOP" || git push --no-verify
+# 2. Push. --no-verify skips ~10 min of local CI (boundaries, budget, doc-drift,
+#    typecheck); typecheck is nearly all of it and GitHub re-runs it anyway.
+#    There is no longer a vault guard to hand-check: vault/ was merged back into
+#    this repo and published on 2026-08-18, and the pre-push guard went with it.
+git push --no-verify
 
 # 3. Merge on the RELEVANT checks, not all 15 (see below).
 gh pr checks <n>
