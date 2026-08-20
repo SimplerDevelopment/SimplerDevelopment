@@ -12,6 +12,45 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # ── Changed-path detection ──────────────────────────────────────────────────
+  # Wall-clock on this workflow is set by ONE job — `Critical e2e` at ~12m — with
+  # everything else finishing in <=5m alongside it. So path-filtering the cheap
+  # parallel jobs (lint/typecheck/unit/secret-scan) would buy exactly 0 seconds
+  # of PR latency, and Actions is free on this public repo. The only lever that
+  # moves the number is skipping the e2e legs, and the only diff where that is
+  # safe is one that cannot change runtime behaviour at all: docs/vault/markdown.
+  #
+  # Deliberately does NOT gate `lint` — that job runs check-doc-drift.ts, which is
+  # precisely the check a doc-only PR needs.
+  #
+  # Fails OPEN by design: any base sha we can't resolve (force-push, first push of
+  # a branch, shallow clone) yields code=true and the full suite runs. A missed
+  # skip costs 12 minutes; a missed e2e run costs a production incident.
+  changes:
+    name: Detect changed paths
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      # ponytail: plain `git diff`, not dorny/paths-filter — one fewer third-party
+      # action in the supply chain for ~6 lines of shell.
+      - id: filter
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          git rev-parse --verify -q "$BASE^{commit}" >/dev/null \
+            || { echo "base '$BASE' unresolvable — running everything"; echo "code=true" >> "$GITHUB_OUTPUT"; exit 0; }
+          CHANGED=$(git diff --name-only "$BASE" "${{ github.sha }}")
+          echo "--- changed files ---"; echo "$CHANGED"
+          if grep -qvE '^(vault/|docs/|\.claude/|[^/]*\.md$)' <<<"$CHANGED"; then
+            echo "code=true" >> "$GITHUB_OUTPUT"; echo "==> code change detected: full suite"
+          else
+            echo "code=false" >> "$GITHUB_OUTPUT"; echo "==> doc-only diff: skipping tenancy + e2e"
+          fi
   # ── Secret scan (gitleaks) — cheap, fails fast ──────────────────────────────
   # Uses the gitleaks BINARY (the gitleaks-action is org-license-gated) in
   # filesystem mode (`--no-git`) so it scans the working tree a PR proposes,
@@ -177,6 +216,8 @@ jobs:
   tenancy:
     name: Tenancy regression
     runs-on: ubuntu-latest
+    needs: [changes]
+    if: needs.changes.outputs.code == 'true'
     timeout-minutes: 30
     services:
       postgres:
@@ -230,6 +271,8 @@ jobs:
   e2e-critical:
     name: Critical e2e (@critical)
     runs-on: ubuntu-latest
+    needs: [changes]
+    if: needs.changes.outputs.code == 'true'
     timeout-minutes: 45
     services:
       postgres:
@@ -323,6 +366,8 @@ jobs:
   e2e-security:
     name: Security e2e (@security)
     runs-on: ubuntu-latest
+    needs: [changes]
+    if: needs.changes.outputs.code == 'true'
     timeout-minutes: 45
     services:
       postgres:
