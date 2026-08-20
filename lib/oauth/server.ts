@@ -227,3 +227,32 @@ export function resourceIndicatorMatches(tokenResource: string, expected: string
   const lenient = (s: string) => s.trim().replace(/\/+$/, '').toLowerCase();
   return lenient(tokenResource) === lenient(expected);
 }
+
+/** The single protected resource this authorization server front-ends. RFC 9728
+ *  metadata is per-resource, so the path-scoped well-known route below matches
+ *  incoming requests against this to decide 200-vs-404. */
+export const PROTECTED_RESOURCE_PATH = 'api/mcp';
+
+/** RFC 9728 §2 — Protected Resource Metadata document. Shared by BOTH well-known
+ *  routes so the two locations can never drift apart:
+ *
+ *    /.well-known/oauth-protected-resource           (advertised in WWW-Authenticate)
+ *    /.well-known/oauth-protected-resource/api/mcp   (RFC 9728 §3.1 canonical URL)
+ *
+ *  Two locations because the spec and the header disagree about which is
+ *  authoritative. RFC 9728 §3.1 forms the URL by inserting the well-known
+ *  segment BEFORE the resource's path, so a client holding
+ *  `https://host/api/mcp` derives the second form. The MCP spec instead tells
+ *  clients to follow `resource_metadata=` from the 401 challenge, which names
+ *  the first. Clients exist that do each, and serving only the root form made
+ *  the canonical URL return Next's HTML 404 — enough for a strict client to
+ *  abort discovery before it ever reaches registration. */
+export function protectedResourceMetadata(origin: string, scopes: readonly string[]) {
+  return {
+    resource: `${origin}/${PROTECTED_RESOURCE_PATH}`,
+    authorization_servers: [origin],
+    bearer_methods_supported: ['header'],
+    scopes_supported: scopes,
+    resource_documentation: `${origin}/docs/mcp`,
+  };
+}
