@@ -3,6 +3,7 @@
   "framework": "nextjs",
   "buildCommand": "next build",
   "installCommand": "bun install --frozen-lockfile",
+  "ignoreCommand": "git rev-parse -q --verify HEAD^ >/dev/null || exit 1; ! git diff --name-only HEAD^ HEAD | awk '!/\\.md$/ || /^docs\\// || /^\\.claude\\//' | grep -q .",
   "regions": [
     "iad1"
   ],
