@@ -1,0 +1,70 @@
+{
+  "schemaVersion": 1,
+  "tool": { "name": "video-qa-recorder", "version": "0.1.0" },
+
+  "session": {
+    "id": "2026-08-20T14-32-09_app-simplerdev-com",
+    "t0": "2026-08-20T14:32:09.412Z",
+    "t0Epoch": 1787323929412,
+    "durationMs": 26480,
+    "startUrl": "https://app.simplerdev.com/portal/websites/12/posts/487/edit",
+    "title": "Saving the homepage draft"
+  },
+
+  "environment": {
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36",
+    "chromeVersion": "141.0.7390.54",
+    "platform": "macOS 15.4",
+    "viewport": { "w": 1728, "h": 969 },
+    "devicePixelRatio": 2
+  },
+
+  "capture": {
+    "video": {
+      "enabled": true,
+      "file": "video.webm",
+      "codec": "video/webm;codecs=vp8,opus",
+      "width": 1728, "height": 969,
+      "frameRate": 15,
+      "bitrateBps": 1500000,
+      "bytes": 4980221
+    },
+    "frames": { "enabled": true, "dir": "frames/", "count": 9, "longEdge": 1280, "format": "image/jpeg", "quality": 0.8 },
+    "audio": { "mic": true, "tab": true, "sampleRateHz": 48000 },
+    "transcript": {
+      "enabled": true,
+      "file": "transcript.srt",
+      "engine": "transformers.js",
+      "model": "Xenova/whisper-base.en",
+      "backend": "wasm",
+      "durationMs": 18740,
+      "segments": 7
+    },
+    "network": { "enabled": true, "bodiesFor": ["status>=400"], "bodyCapBytes": 65536 },
+    "console": { "enabled": true },
+    "workers": { "autoAttach": true, "attached": ["service_worker:https://app.simplerdev.com/sw.js"] }
+  },
+
+  "redaction": {
+    "typedValues": "off",
+    "summary": {
+      "headersRedacted": { "authorization": 14, "cookie": 14, "set-cookie": 2 },
+      "urlParamsRedacted": { "token": 1 },
+      "bodyKeysRedacted": {},
+      "typedValuesWithheld": 1,
+      "highEntropyMatches": 0
+    },
+    "warnings": [
+      "Video and frames are NOT redacted. They show whatever was on screen in this tab.",
+      "Redaction is best-effort heuristics, not a guarantee. Review before sharing."
+    ]
+  },
+
+  "files": {
+    "timeline": "timeline.json",
+    "transcript": "transcript.srt",
+    "video": "video.webm",
+    "frames": "frames/",
+    "report": "report.md"
+  }
+}

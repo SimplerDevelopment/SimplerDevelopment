@@ -1,0 +1,26 @@
+1
+00:00:01,180 --> 00:00:04,020
+Okay, I'm in the editor for the homepage draft.
+I want to add a testimonial block and save it.
+
+2
+00:00:05,210 --> 00:00:07,480
+Dragging the testimonial block in, dropping it under the hero.
+
+3
+00:00:11,210 --> 00:00:12,640
+And clicking save.
+
+4
+00:00:14,060 --> 00:00:17,110
+It's just spinning. Nothing happened — no toast,
+no error, the button's still in the saving state.
+
+5
+00:00:19,380 --> 00:00:21,240
+Let me try it once more.
+
+6
+00:00:23,890 --> 00:00:26,480
+Same thing twice. So it's not a fluke —
+save is just broken on this page.

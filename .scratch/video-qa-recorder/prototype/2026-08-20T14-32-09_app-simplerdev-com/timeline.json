@@ -1,0 +1,263 @@
+{
+  "schemaVersion": 1,
+  "sessionId": "2026-08-20T14-32-09_app-simplerdev-com",
+  "t0Epoch": 1787323929412,
+  "events": [
+    {
+      "t": 0,
+      "type": "navigation",
+      "pageUrl": "https://app.simplerdev.com/portal/websites/12/posts/487/edit",
+      "trigger": "load",
+      "from": null,
+      "frame": "frames/000000400-navigation.jpg"
+    },
+    {
+      "t": 1180,
+      "tEnd": 4020,
+      "type": "speech",
+      "pageUrl": "https://app.simplerdev.com/portal/websites/12/posts/487/edit",
+      "text": "Okay, I'm in the editor for the homepage draft. I want to add a testimonial block and save it."
+    },
+    {
+      "t": 2340,
+      "type": "console",
+      "pageUrl": "https://app.simplerdev.com/portal/websites/12/posts/487/edit",
+      "level": "info",
+      "text": "[editor] hydrated 14 blocks for post 487",
+      "source": "console-api"
+    },
+    {
+      "t": 2412,
+      "tEnd": 2698,
+      "type": "network",
+      "pageUrl": "https://app.simplerdev.com/portal/websites/12/posts/487/edit",
+      "requestId": "48213.7",
+      "method": "GET",
+      "url": "https://app.simplerdev.com/api/portal/posts/487",
+      "resourceType": "Fetch",
+      "status": 200,
+      "encodedDataLength": 18422,
+      "initiator": "script"
+    },
+    {
+      "t": 3105,
+      "tEnd": 3390,
+      "type": "network",
+      "pageUrl": "https://app.simplerdev.com/portal/websites/12/posts/487/edit",
+      "requestId": "48213.9",
+      "method": "GET",
+      "url": "https://app.simplerdev.com/api/portal/media?siteId=12&token=[redacted:%2040-char%20hex]",
+      "resourceType": "Fetch",
+      "status": 200,
+      "encodedDataLength": 6104,
+      "initiator": "script"
+    },
+    {
+      "t": 4120,
+      "tEnd": 5960,
+      "type": "drag",
+      "pageUrl": "https://app.simplerdev.com/portal/websites/12/posts/487/edit",
+      "mechanism": "pointer",
+      "from": {
+        "target": {
+          "selector": "[data-testid='block-palette-testimonial']",
+          "selectorKind": "testid",
+          "css": "aside.palette > ul > li:nth-of-type(6) > button",
+          "role": "button",
+          "name": "Testimonial",
+          "tag": "button",
+          "text": "Testimonial",
+          "id": null,
+          "rect": { "x": 24, "y": 412, "w": 168, "h": 44 },
+          "frameUrl": "https://app.simplerdev.com/portal/websites/12/posts/487/edit"
+        }
+      },
+      "to": {
+        "target": {
+          "selector": "#block-canvas",
+          "selectorKind": "id",
+          "css": "main > div.editor-canvas > div#block-canvas",
+          "role": "region",
+          "name": "Page blocks",
+          "tag": "div",
+          "text": "",
+          "id": "block-canvas",
+          "rect": { "x": 320, "y": 96, "w": 980, "h": 1840 },
+          "frameUrl": "https://app.simplerdev.com/portal/websites/12/posts/487/edit"
+        },
+        "point": { "x": 812, "y": 1104 }
+      },
+      "frame": "frames/000006360-drag.jpg"
+    },
+    {
+      "t": 5210,
+      "tEnd": 7480,
+      "type": "speech",
+      "pageUrl": "https://app.simplerdev.com/portal/websites/12/posts/487/edit",
+      "text": "Dragging the testimonial block in, dropping it under the hero."
+    },
+    {
+      "t": 8940,
+      "type": "change",
+      "pageUrl": "https://app.simplerdev.com/portal/websites/12/posts/487/edit",
+      "target": {
+        "selector": "[data-testid='block-testimonial-quote']",
+        "selectorKind": "testid",
+        "css": "div#block-canvas > section:nth-of-type(3) > blockquote > textarea",
+        "role": "textbox",
+        "name": "Quote",
+        "tag": "textarea",
+        "text": "",
+        "id": null,
+        "rect": { "x": 360, "y": 1128, "w": 900, "h": 96 },
+        "frameUrl": "https://app.simplerdev.com/portal/websites/12/posts/487/edit"
+      },
+      "value": { "redacted": true, "chars": 62, "shape": "text" },
+      "frame": "frames/000009340-change.jpg"
+    },
+    {
+      "t": 11210,
+      "tEnd": 12640,
+      "type": "speech",
+      "pageUrl": "https://app.simplerdev.com/portal/websites/12/posts/487/edit",
+      "text": "And clicking save."
+    },
+    {
+      "t": 11880,
+      "type": "click",
+      "pageUrl": "https://app.simplerdev.com/portal/websites/12/posts/487/edit",
+      "target": {
+        "selector": "[data-testid='editor-save']",
+        "selectorKind": "testid",
+        "css": "header.editor-bar > div.actions > button.btn.primary",
+        "role": "button",
+        "name": "Save changes",
+        "tag": "button",
+        "text": "Save changes",
+        "id": null,
+        "rect": { "x": 1502, "y": 28, "w": 132, "h": 36 },
+        "frameUrl": "https://app.simplerdev.com/portal/websites/12/posts/487/edit"
+      },
+      "frame": "frames/000012280-click.jpg"
+    },
+    {
+      "t": 11942,
+      "tEnd": 12284,
+      "type": "network",
+      "pageUrl": "https://app.simplerdev.com/portal/websites/12/posts/487/edit",
+      "requestId": "48213.31",
+      "method": "PATCH",
+      "url": "https://app.simplerdev.com/api/portal/posts/487",
+      "resourceType": "Fetch",
+      "status": 500,
+      "statusText": "Internal Server Error",
+      "encodedDataLength": 213,
+      "initiator": "script",
+      "request": {
+        "headers": {
+          "content-type": "application/json",
+          "authorization": "[redacted: Bearer ***]",
+          "cookie": "[redacted: 4 cookies, 812 chars]"
+        },
+        "postData": "{\"blocks\":[…14 items…],\"cdnCacheEnabled\":true,\"status\":\"draft\"}",
+        "postDataTruncated": true,
+        "postDataSize": 19004
+      },
+      "response": {
+        "headers": { "content-type": "application/json; charset=utf-8" },
+        "body": "{\"success\":false,\"error\":{\"code\":\"DB_ERROR\",\"message\":\"column \\\"cdn_cache_enabled\\\" of relation \\\"posts\\\" does not exist\"}}",
+        "truncated": false,
+        "size": 213
+      },
+      "frame": "frames/000012340-network-500.jpg"
+    },
+    {
+      "t": 12318,
+      "type": "console",
+      "pageUrl": "https://app.simplerdev.com/portal/websites/12/posts/487/edit",
+      "level": "error",
+      "text": "Failed to save post",
+      "source": "console-api",
+      "stack": "at savePost (editor-bar.tsx:118:13)\n at async onClick (editor-bar.tsx:74:5)"
+    },
+    {
+      "t": 14060,
+      "tEnd": 17110,
+      "type": "speech",
+      "pageUrl": "https://app.simplerdev.com/portal/websites/12/posts/487/edit",
+      "text": "It's just spinning. Nothing happened — no toast, no error, the button's still in the saving state."
+    },
+    {
+      "t": 19380,
+      "tEnd": 21240,
+      "type": "speech",
+      "pageUrl": "https://app.simplerdev.com/portal/websites/12/posts/487/edit",
+      "text": "Let me try it once more."
+    },
+    {
+      "t": 21048,
+      "type": "click",
+      "pageUrl": "https://app.simplerdev.com/portal/websites/12/posts/487/edit",
+      "target": {
+        "selector": "[data-testid='editor-save']",
+        "selectorKind": "testid",
+        "css": "header.editor-bar > div.actions > button.btn.primary",
+        "role": "button",
+        "name": "Save changes",
+        "tag": "button",
+        "text": "Save changes",
+        "id": null,
+        "rect": { "x": 1502, "y": 28, "w": 132, "h": 36 },
+        "frameUrl": "https://app.simplerdev.com/portal/websites/12/posts/487/edit"
+      },
+      "frame": "frames/000021448-click.jpg"
+    },
+    {
+      "t": 21103,
+      "tEnd": 21402,
+      "type": "network",
+      "pageUrl": "https://app.simplerdev.com/portal/websites/12/posts/487/edit",
+      "requestId": "48213.44",
+      "method": "PATCH",
+      "url": "https://app.simplerdev.com/api/portal/posts/487",
+      "resourceType": "Fetch",
+      "status": 500,
+      "statusText": "Internal Server Error",
+      "encodedDataLength": 213,
+      "initiator": "script",
+      "request": {
+        "headers": {
+          "content-type": "application/json",
+          "authorization": "[redacted: Bearer ***]",
+          "cookie": "[redacted: 4 cookies, 812 chars]"
+        },
+        "postData": "{\"blocks\":[…14 items…],\"cdnCacheEnabled\":true,\"status\":\"draft\"}",
+        "postDataTruncated": true,
+        "postDataSize": 19004
+      },
+      "response": {
+        "headers": { "content-type": "application/json; charset=utf-8" },
+        "body": "{\"success\":false,\"error\":{\"code\":\"DB_ERROR\",\"message\":\"column \\\"cdn_cache_enabled\\\" of relation \\\"posts\\\" does not exist\"}}",
+        "truncated": false,
+        "size": 213
+      },
+      "frame": "frames/000021503-network-500.jpg"
+    },
+    {
+      "t": 21361,
+      "type": "console",
+      "pageUrl": "https://app.simplerdev.com/portal/websites/12/posts/487/edit",
+      "level": "error",
+      "text": "Failed to save post",
+      "source": "console-api",
+      "stack": "at savePost (editor-bar.tsx:118:13)\n at async onClick (editor-bar.tsx:74:5)"
+    },
+    {
+      "t": 23890,
+      "tEnd": 26480,
+      "type": "speech",
+      "pageUrl": "https://app.simplerdev.com/portal/websites/12/posts/487/edit",
+      "text": "Same thing twice. So it's not a fluke — save is just broken on this page."
+    }
+  ]
+}

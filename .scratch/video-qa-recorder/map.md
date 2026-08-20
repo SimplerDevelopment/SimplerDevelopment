@@ -101,26 +101,115 @@ the destination is a working published repo, not a spec.
   default ON; no speech simply means no `.srt`. Kills the sidecar option in ticket
   10 and the free-MCP assumption in ticket 11.
 
+- [Capture mechanism, and what counts as an interaction](issues/06-capture-mechanism-decision.md) —
+  **CDP backbone + an isolated-world content script; no MAIN world.** This corrects
+  ticket 02: isolated worlds share the DOM, so a `document_start` capture-phase
+  listener on `window` sees every click and wins registration order against the
+  page's own `stopPropagation` — and MAIN-world body cloning buys nothing, because
+  CORS-blocked `fetch` rejects opaquely with nothing to clone. The debugger infobar
+  is reframed as the recording indicator a mic-and-headers capture tool ought to
+  show anyway. Attach failure (DevTools already open) **refuses to start**, because
+  a silently network-less session is indistinguishable to the consuming agent from
+  a session where nothing failed. Six interaction types — click, non-text keydown,
+  change (not `input`), submit, drag, focus — with focus deduped against click so
+  only keyboard-driven moves land, and drag captured via **both** native DnD and a
+  pointer heuristic, since dnd-kit/react-beautiful-dnd/the visual editor dispatch
+  no HTML5 drag events at all. Element identity emits **every** selector rather
+  than ranking and picking one (testid → id → role+name → text → css path, plus
+  tag, text, `rect`, frameUrl). Network: metadata for every request, bodies only
+  for 4xx/5xx, `loadingFailed` recorded as diagnosis-not-body, aborts recorded but
+  not flagged, request `postData` free. Bodies pulled **eagerly on
+  `loadingFinished`**, 64 KB cap, binary omitted, SSE/WebSocket metadata-only.
+
+- [Does the video survive, and in what form](issues/08-does-the-video-survive.md) —
+  **Yes: full webm, native resolution, 15fps, VP8/Opus, ~1.5 Mbps** (≈11 MB/min).
+  Native res because legibility is the point; 15fps because readable beats smooth;
+  VP8 because encode CPU competes with the app under test, making codec choice a
+  *correctness* question and not a size one. The video is the **un-schema'd
+  channel** — the timeline holds what we thought to capture, the video holds what
+  we didn't, and every visual bug class is both unrepresentable in JSON and
+  unmarked by any event boundary, which is what kills frames-only. A **frame index
+  ships alongside it, extracted post-hoc from the finished webm** by one linear
+  `requestVideoFrameCallback` pass — so it costs no live `Page.captureScreenshot`
+  round-trip, perturbs nothing, and never depends on seek accuracy. One frame per
+  event at t+400ms (the effect), plus navigations/errors/failures, JPEG at 1280px
+  — note the deliberate asymmetry: video keeps native res, frames downscale,
+  because they have different jobs. Video is a per-session toggle, default on.
+  Killing video would *not* have broken the clock — stated explicitly so that
+  can't masquerade as a reason.
+
+- [Privacy and redaction defaults](issues/05-privacy-and-redaction-defaults.md) —
+  Threat model named first: the adversary is **the user's own next action**, since
+  the artifact leaves the machine by their hand. So the goal is that the default
+  folder is safe to hand over without thinking. Capture-time-vs-review-time is a
+  false choice — it conflates *when redaction runs* with *whether the raw
+  persists*; answer is **redact in memory before serialization, raw never hits
+  disk**, and the usual cost of that evaporates under **shape-preserving
+  redaction** (`"[redacted: 32-char hex]"` keeps the field, the fact it was
+  populated, and its well-formedness). **Typed values off by default** with a
+  shape descriptor and one toggle — asymmetric harm: a missed heuristic leaks a
+  credential silently and irreversibly, the safe default merely costs a re-record.
+  Detection layers `autocomplete` tokens (standardised, checked first), name/label
+  patterns, and **value-shape scanning**, which is the only layer that catches a
+  secret pasted into an unlabelled field. Headers redacted by name+pattern — and
+  **URLs get the same treatment**, the forgotten leak vector, via one shared
+  normaliser since URLs appear in navigation, network rows *and* `Referer`. No
+  origin allowlist (friction on a safety mechanism is how it gets disabled). **No
+  persistent content script and no `<all_urls>`** — `activeTab` + programmatic
+  injection, with `registerContentScripts` covering `document_start` for the rest
+  of the session. Pixels get **no** automatic redaction, said plainly rather than
+  faked. Session writes directly, carrying a **redaction summary** that reports
+  its own risk; a real pre-export gate stays fog.
+
+- [The artifact contract: folder layout and timeline schema](issues/09-the-artifact-contract.md) —
+  **The product.** Hand-authored a real example session at
+  [`prototype/2026-08-20T14-32-09_app-simplerdev-com/`](prototype/2026-08-20T14-32-09_app-simplerdev-com/)
+  (SD portal editor, Save returns 500) and reacted to it. Surfaced the rule that
+  had already been decided three times without being named: **one source of truth,
+  many derived views, zero interpretation** — webm→frames, timeline→report,
+  Whisper segments→both `.srt` *and* inlined `speech` events. A derived view is
+  safe to materialise precisely because it cannot drift. `timeline.json` is
+  **flat, time-ordered, discriminated by `type`**, wrapped in an object so it
+  carries `schemaVersion`/`t0Epoch` and stays self-describing read alone. Two
+  field corrections found only by writing real events: common `url` had to become
+  **`pageUrl`** (it collided with network's own `url`), and **`tEnd` is not
+  network-specific — events are intervals, not instants**. Folder name is
+  deliberately **colon-free** for Windows. `report.md` **is** generated, but
+  strictly deterministically with no model — the consuming agent brings the
+  narrative, the report brings the facts. Reading it cold proved the response
+  body *is* the entire diagnosis (console said `Failed to save post`; the 500 body
+  named the missing column), so 06's eager-body rule is the highest-value byte in
+  the folder. Also proved 08: the narration's *"still in the saving state"* has no
+  event that can represent it — only the frame does.
+
 ## Not yet specified
 
 - **Which transcription backend is actually faster here.** One primary benchmark
   found WASM beating WebGPU for Whisper, contradicting vendor claims. Must be
   measured inside a real MV3 offscreen document before release; deferred from the
   spike ticket on purpose, and easy to forget.
-- **`chrome.tabCapture` frame cadence on a static page.** Frame 0 is only a usable
-  time anchor if frames arrive continuously; tabCapture is paint-driven. Affects
-  whether video can be correlated by frame at all.
+- **`chrome.tabCapture` frame cadence on a static page.** tabCapture is
+  paint-driven, so a static page delivers sparse frames. Spike 13 removed the
+  frame-0-as-anchor worry (anchor on `Date.now()` at `start()`), and 08's frame
+  index no longer depends on seeking — but whether the webm's own timeline tracks
+  wall-clock, i.e. whether a *human* seeking to "2:14" lands where the timeline
+  says, is still untested. Cheap spike.
 
 - **The recording UX itself.** Popup vs side panel vs keyboard shortcut; how you
   start/stop; whether you can drop a marker mid-session ("this is the bug") that
-  lands in the timeline. Hangs on the capture-mechanism decision.
+  lands in the timeline. **Unblocked** — ticket 06 settled the mechanism; free to
+  graduate to a ticket whenever it is worth one.
 - **Multi-tab and multi-window sessions.** What happens when QA opens a link in a
-  new tab, or the flow spans an OAuth popup. Debugger attachment is per-target.
-- **Session storage, size, and retention.** A 15-minute 1080p webm is large;
-  where sessions accumulate and what prunes them.
-- **Post-session review before handoff.** Whether you get to trim, redact, or
-  annotate a session before it becomes an artifact folder. Hangs on the privacy
-  and artifact-contract decisions.
+  new tab, or the flow spans an OAuth popup. Debugger attachment is per-target, and
+  06 already requires `Target.setAutoAttach` for workers — whether that same flow
+  also carries new tabs is untested.
+- **Session storage, size, and retention.** Sharpened by 08 into real numbers:
+  ~170 MB of webm plus ~20 MB of frames per 15-minute session. Where sessions
+  accumulate and what prunes them.
+- **Post-session review before handoff.** Sharpened by 05 into a concrete upgrade
+  path: a pre-export gate that would *replace* the redaction summary, and which is
+  the only thing that actually stops a leak rather than reporting it afterwards.
+  Also covers trimming and annotating. Deliberately not built for v1.
 - **Testing strategy.** What a test even looks like for a thing whose input is a
   live browser and a human voice.
 - **Integration with SD's own QA loop.** Whether the `/qa` skill and board 153
