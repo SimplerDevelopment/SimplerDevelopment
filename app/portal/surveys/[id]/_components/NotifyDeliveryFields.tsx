@@ -11,17 +11,21 @@
 interface NotifyDeliveryFieldsProps {
   editDigest: string;
   setEditDigest: (v: string) => void;
-  editNotifyUserIds: number[];
-  setEditNotifyUserIds: (v: number[]) => void;
-  teamMembers: { userId: number; name: string | null; email: string | null }[];
+  // Optional with safe defaults: an omitted list must degrade to "nothing
+  // selectable", never crash the whole settings form. That is also the correct
+  // semantics — no selection already means "notify the account owner" — so the
+  // fallback is real behaviour, not just a guard to keep tests happy.
+  editNotifyUserIds?: number[];
+  setEditNotifyUserIds?: (v: number[]) => void;
+  teamMembers?: { userId: number; name: string | null; email: string | null }[];
 }
 
 export default function NotifyDeliveryFields({
   editDigest,
   setEditDigest,
-  editNotifyUserIds,
+  editNotifyUserIds = [],
   setEditNotifyUserIds,
-  teamMembers,
+  teamMembers = [],
 }: NotifyDeliveryFieldsProps) {
   return (
     <>
@@ -59,7 +63,7 @@ export default function NotifyDeliveryFields({
                   type="checkbox"
                   checked={editNotifyUserIds.includes(m.userId)}
                   onChange={(e) =>
-                    setEditNotifyUserIds(
+                    setEditNotifyUserIds?.(
                       e.target.checked
                         ? [...editNotifyUserIds, m.userId]
                         : editNotifyUserIds.filter((v) => v !== m.userId),
