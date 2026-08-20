@@ -199,5 +199,6 @@
       "path": "/api/cron/seo-gsc-import",
       "schedule": "15 7 * * *"
     }
-  ]
+  ],
+  "ignoreCommand": "D=$(git diff --name-only HEAD~1 HEAD 2>/dev/null) && [ -n \"$D\" ] || exit 1; ! printf '%s\\n' \"$D\" | awk '!/\\.md$/ || /^docs\\// || /^\\.claude\\//' | grep -q ."
 }

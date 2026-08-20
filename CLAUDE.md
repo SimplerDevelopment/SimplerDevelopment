@@ -174,7 +174,34 @@ actually protect production, and which am I only waiting on out of habit."
 |---|---|---|---|
 | gitleaks + eslint + file-budget + doc-drift | `.githooks/pre-commit` | ~10s | **Never.** Cheap, and catches secrets. |
 | local CI (boundaries, budget, doc-drift, **typecheck**) | `.githooks/pre-push` | **~10 min**, nearly all typecheck | Yes — it duplicates GitHub's `Typecheck` job |
-| GitHub Actions checks | CI on push | ~13 min, set entirely by `Critical e2e` (12 min) | Partly — see "merge on the relevant checks". `tenancy` + both e2e legs already self-skip on a doc-only diff. |
+| GitHub Actions checks | CI on push | ~13 min, set entirely by `Critical e2e` (12 min) | Partly, and now mechanically — see the two auto-skips below. |
+
+**Two skips are automatic — you no longer merge on a partial board by hand.**
+Both are decided in `ci.yml`'s `changes` job:
+
+1. **Label a PR `hotfix`** → every job stands down except `Secret scan
+   (gitleaks)`. ~13 min → **~46s, measured**. `labeled` is in the trigger types,
+   so labelling an already-open PR re-runs CI immediately. A guard **fails the
+   run** if the label lands on a diff touching `lib/db/ · lib/mcp/ ·
+   lib/billing/ · lib/auth · drizzle/ · app/**/api/ · auth.* · middleware.*` —
+   the label cannot be used to sneak past the zones listed below.
+2. **A markdown-only diff** (`\.md$` at any depth, plus `vault/ docs/ .claude/`)
+   → typecheck, unit, tenancy and e2e all stand down, and **Vercel skips the
+   deploy** via `ignoreCommand` in `vercel.json`. `lint` still runs, because
+   `check-doc-drift.ts` is the one check a prose PR actually needs.
+
+⚠️ **The deploy rule is narrower than the CI rule, because this app *serves*
+markdown.** `docs/**/*.md` is statically built into the public docs site
+(`app/docs/[[...slug]]/page.tsx` → `generateStaticParams`), and
+`.claude/**/SKILL.md` is read by `lib/mcp/tools/workflows.ts` and tarred up by
+`app/api/skills/bundle/route.ts`. Editing either **must** redeploy, so the
+deploy skip covers markdown *outside* `docs/` and `.claude/` only — the vault,
+`README`, `AGENTS.md` and the nested `CLAUDE.md` tree. If you ever add another
+markdown-reading surface, widen the `awk` in `vercel.json` with it.
+
+gitleaks is exempt from both skips on purpose: it is the only failure
+`git revert` cannot undo. A secret pushed to a public repo is public, and a
+connection string pasted into a vault note is a real leak.
 
 ### What qualifies as a hotfix
 
