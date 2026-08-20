@@ -104,7 +104,7 @@
   "lib/mcp/tools/cms.ts": 2167,
   "lib/mcp/tools/crm.ts": 1634,
   "lib/mcp/tools/email.ts": 854,
-  "lib/mcp/tools/kanban.ts": 921,
+  "lib/mcp/tools/kanban.ts": 933,
   "lib/mcp/tools/pitch-decks.ts": 917,
   "lib/storefront/mcp-sdk-adapter.ts": 875,
   "scripts/migrations/crosscap/agentic-os-slides.ts": 1314,
