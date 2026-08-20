@@ -182,12 +182,82 @@ the destination is a working published repo, not a spec.
   the folder. Also proved 08: the narration's *"still in the saving state"* has no
   event that can represent it — only the frame does.
 
+- [How artifacts reach disk](issues/10-how-artifacts-reach-disk.md) —
+  **File System Access API primary, single-`.zip` `chrome.downloads` fallback.**
+  The deciding argument is **memory, not aesthetics**: `chrome.downloads` holds
+  every `MediaRecorder` chunk in RAM until stop (~170 MB / 15 min, ~350 MB / 30),
+  while FSA's `createWritable()` streams chunks straight to disk at record time.
+  Secondary but real: `conflictAction: 'uniquify'` would append ` (1)` and
+  **silently invalidate every `frame` path in `timeline.json`** — correctness, not
+  ugliness. The fallback exists for **enterprise policy**
+  (`DefaultFileSystemWriteGuardSetting` can block FSA outright), is memory-bound,
+  and is documented as a degraded mode. No default path — the user picks once.
+  Handle persists via IndexedDB; expect ~one re-grant click per browser restart,
+  **flagged unverified** because confirming it needs a native OS dialog Playwright
+  cannot drive. Offscreen doc reads the handle from IndexedDB rather than through
+  `sendMessage` (JSON-serialized, handles cannot travel).
+
+- [How a coding agent consumes a session](issues/11-how-an-agent-consumes-a-session.md) —
+  **Ship an MCP server**, as a strictly optional consumption layer. Recommendation
+  had been files-only; the token argument carried it (a 15-min session's raw
+  timeline is ~50k tokens). Made compatible with 03/07 by splitting the install
+  story: **recording** needs only the extension, no runtime, no network;
+  **querying** is `npx -y video-qa-mcp` in a config block. That is legitimately
+  additive where the whisper.cpp sidecar was not — it was required to *produce*
+  the artifact, needed a compiler, and had no macOS binary. Hard constraint: files
+  must keep working standalone. Four tools (`sessions_list`, `session_report`,
+  `session_query`, `session_frame`), **read-only**, with session ids resolved
+  against the directory listing rather than concatenated — `../` is the obvious
+  escape once a session folder is shared. Papercut recorded: `showDirectoryPicker`
+  never exposes an absolute path, so the extension cannot tell the server where
+  sessions live and the user states it twice. No skill ships — a format needing a
+  manual is a format that is wrong.
+
+- [Where the code lives, what it is called, how it is licensed](issues/01-where-the-code-lives.md) —
+  **`SimplerDevelopment/bugcast`, MIT.** Its own repo, not a monorepo directory: a
+  contributor would otherwise clone a 357k-line SaaS platform and inherit CI,
+  dependency-cruiser boundaries, a file-size budget and a ~10-min pre-push
+  typecheck built for other constraints — and the project now houses **two**
+  publishable artifacts with independent cadences (Web Store listing + npm package
+  from 11). The monorepo's only real argument dissolves rather than losing:
+  **copying `extension/`'s scaffold never required co-location.** Name verified
+  free on npm at decision time; discoverability is handled by the listing title
+  ("Bugcast — Video QA Recorder") rather than by a long package name. MIT because
+  the Apache patent argument is thin for documented browser APIs plus an
+  off-the-shelf model — and **no copyleft anywhere** in the dependency set
+  (transformers.js is Apache-2.0, weights MIT/Apache), so nothing forces a change
+  later. **Ledger is the new repo's GitHub issues** — CLAUDE.md's off-ledger rule
+  is scoped to *this* repo, and an OSS project whose tracker strangers cannot see
+  is broken by construction — plus one `PUX-###` card on 153 for visibility. The
+  map and its 13 tickets ship with the repo as design documentation: every
+  decision *and its rejected alternatives*, including the wrong ones.
+
+- [Install and distribution across macOS, Linux and Windows](issues/12-install-and-distribution.md) —
+  **Release zip on day one, Store submission in parallel** — the launch is never
+  gated on a review nobody controls, and `chrome.debugger` + tab capture + mic is
+  close to the exact profile reviewers scrutinise hardest (05 helps by removing
+  `<all_urls>`, but does not make review predictable). The zip is permanent, not a
+  stopgap: enterprise-blocked users, audit-before-you-trust users, and any review
+  gap. **Four steps to a session, five to agent handoff, and the core path never
+  touches a terminal** — the concrete payoff of killing whisper.cpp in 03, and a
+  property to defend in future changes. Windows: colon-free folder name already
+  handled (09), `.srt` must be **CRLF**, and the MCP server is the *only*
+  component that builds paths as strings — the extension holds FSA handles, not
+  strings, which deletes the whole bug class from the larger component. Version
+  drift detected via 09's `schemaVersion`: the MCP server **refuses loudly** on an
+  unknown version rather than best-effort parsing, and both artifacts ship from
+  one git tag. **Four-check self-test** (CDP / capture / disk / ASR-on-a-bundled-
+  clip) after first run, because every subsystem fails *quietly* — the ASR check
+  earns its place and incidentally settles the WebGPU-vs-WASM question on real
+  hardware.
+
 ## Not yet specified
 
 - **Which transcription backend is actually faster here.** One primary benchmark
   found WASM beating WebGPU for Whisper, contradicting vendor claims. Must be
-  measured inside a real MV3 offscreen document before release; deferred from the
-  spike ticket on purpose, and easy to forget.
+  measured inside a real MV3 offscreen document before release. **Now has a home:**
+  ticket 12's first-run self-test runs the model against a bundled clip, which is
+  the first real measurement on that machine.
 - **`chrome.tabCapture` frame cadence on a static page.** tabCapture is
   paint-driven, so a static page delivers sparse frames. Spike 13 removed the
   frame-0-as-anchor worry (anchor on `Date.now()` at `start()`), and 08's frame
@@ -203,9 +273,10 @@ the destination is a working published repo, not a spec.
   new tab, or the flow spans an OAuth popup. Debugger attachment is per-target, and
   06 already requires `Target.setAutoAttach` for workers — whether that same flow
   also carries new tabs is untested.
-- **Session storage, size, and retention.** Sharpened by 08 into real numbers:
-  ~170 MB of webm plus ~20 MB of frames per 15-minute session. Where sessions
-  accumulate and what prunes them.
+- **Session storage, size, and retention.** ~170 MB of webm plus ~20 MB of frames
+  per 15-minute session (08). Largely answered by 10: the user owns the directory
+  they picked, and nothing in the tool deletes anything. What remains is whether
+  the tool should *warn* as a directory grows.
 - **Post-session review before handoff.** Sharpened by 05 into a concrete upgrade
   path: a pre-export gate that would *replace* the redaction summary, and which is
   the only thing that actually stops a leak rather than reporting it afterwards.
