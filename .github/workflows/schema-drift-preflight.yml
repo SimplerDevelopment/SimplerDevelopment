@@ -24,6 +24,17 @@ name: Schema drift preflight
 on:
   pull_request:
     branches: [main]
+    # This job opens a read-only connection to the LIVE production DB
+    # (PROD_DATABASE_URL) to diff it against the code's schema. A PR that touches
+    # no schema cannot drift, so reaching into prod for it is exposure with no
+    # payoff — restrict the trigger to the paths that can actually cause drift.
+    # (Speed is not the motive: the job already completes in under a minute.)
+    paths:
+      - 'lib/db/schema/**'
+      - 'drizzle/**'
+      - 'drizzle.config.ts'
+      - 'scripts/sync-prod-schema.sh'
+      - '.github/workflows/schema-drift-preflight.yml'
 
 concurrency:
   group: schema-drift-${{ github.ref }}
