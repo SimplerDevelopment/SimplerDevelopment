@@ -109,7 +109,12 @@ export default async function RootLayout({
     ? ""
     : `${geistSans.variable} ${dmSans.variable} ${inter.variable} ${playfairDisplay.variable}`;
   return (
-    <html lang="en" suppressHydrationWarning>
+    // Client sites are pinned light at the ROOT: the class both keeps the
+    // token media block (`:root:not(.light)`) from firing and, with the
+    // class-driven `dark:` variant (globals.css), keeps every dark: utility
+    // inert on tenant pages. The theme script below is portal-only — a
+    // visitor's OS preference must never restyle a tenant's brand.
+    <html lang="en" className={isClientSite ? 'light' : undefined} suppressHydrationWarning>
       <head>
         <StructuredData data={generateOrganizationSchema()} />
         {/* Material Icons only for the app/portal. Public client sites load it
@@ -149,9 +154,10 @@ gtag('config', '${gaId}');`,
             )}
           </>
         )}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
+        {!isClientSite && (
+          <script
+            dangerouslySetInnerHTML={{
+              __html: `
               (function() {
                 try {
                   const theme = localStorage.getItem('theme') || 'system';
@@ -166,8 +172,9 @@ gtag('config', '${gaId}');`,
                 } catch (e) {}
               })();
             `,
-          }}
-        />
+            }}
+          />
+        )}
       </head>
       <body
         className={`${geistMono.variable} ${appShellFontVariables} antialiased min-h-screen flex flex-col`}

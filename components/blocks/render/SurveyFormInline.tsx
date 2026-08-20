@@ -417,6 +417,10 @@ export function SurveyFormInline({
   const hideQuestionNumbers = so?.hideQuestionNumbers === true;
   const formAccentBarColor = so?.formAccentBarColor;
   const submitLabel = so?.submitLabel || 'Submit';
+  // Per-survey dark opt-in: off = force-light (blocks the class-driven dark:
+  // variant + pins tokens, even under a dark <html> on the app-host /s/
+  // route); on = force-dark for the utilities + dark for the tokens.
+  const themeClass = st.darkMode ? 'force-dark dark' : 'force-light';
 
   // Stable id fragment for this form *instance* — combines the survey id
   // with the block's sourceId (falling back to the slug on the standalone
@@ -508,7 +512,7 @@ export function SurveyFormInline({
     } : null;
 
     return (
-      <div className="flex flex-col items-center justify-center py-20 px-4 gap-10" style={wrapperStyle}>
+      <div className={`${themeClass} flex flex-col items-center justify-center py-20 px-4 gap-10`} style={wrapperStyle}>
         <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-800 p-10 max-w-md w-full text-center" style={cardStyle}>
           {logoUrl && <img src={logoUrl} alt="Logo" className="h-8 object-contain mx-auto mb-4" />}
           <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={{ backgroundColor: `${accent}15` }}>
@@ -580,7 +584,7 @@ export function SurveyFormInline({
   }
 
   return (
-    <div className="py-8 px-4" style={wrapperStyle}>
+    <div className={`${themeClass} py-8 px-4`} style={wrapperStyle}>
       <div className="max-w-2xl mx-auto">
         {logoUrl && (
           <div className="flex justify-center mb-4">

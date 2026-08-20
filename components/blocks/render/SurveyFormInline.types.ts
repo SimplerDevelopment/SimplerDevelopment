@@ -99,6 +99,9 @@ export interface SurveyStyling {
   inputOptionTextColor?: string;
   hideTitle?: boolean;
   hideLogo?: boolean;
+  // Keep in sync with SurveyStyling in lib/db/schema/surveys.ts.
+  // Opt-in dark rendering — see the themeClass logic in SurveyFormInline.
+  darkMode?: boolean;
 }
 
 export interface SurveyData {

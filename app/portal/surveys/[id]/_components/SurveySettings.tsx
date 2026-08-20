@@ -365,6 +365,15 @@ export default function SurveySettings(props: Props) {
               />
               <span className="text-sm text-foreground">Hide logo</span>
             </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={!!editStyling.darkMode}
+                onChange={(e) => setEditStyling((prev) => ({ ...prev, darkMode: e.target.checked }))}
+                className="rounded border-border accent-primary"
+              />
+              <span className="text-sm text-foreground">Enable dark mode</span>
+            </label>
           </div>
         </div>
 

@@ -11,7 +11,9 @@ export function SurveyPageClient() {
   const sourceParam = searchParams.get('source') || 'link';
   const sourceIdParam = searchParams.get('sid') || '';
 
-  const bgClass = isEmbed ? 'bg-transparent' : 'min-h-screen bg-gray-50 dark:bg-gray-950';
+  // The page frame stays light regardless of the viewer's theme — the survey
+  // itself decides its scheme (styling.darkMode wraps the form in force-dark).
+  const bgClass = isEmbed ? 'bg-transparent' : 'min-h-screen bg-gray-50';
 
   return (
     <div className={bgClass}>
