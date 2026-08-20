@@ -173,8 +173,21 @@ actually protect production, and which am I only waiting on out of habit."
 | Gate | Where | Time | Skippable? |
 |---|---|---|---|
 | gitleaks + eslint + file-budget + doc-drift | `.githooks/pre-commit` | ~10s | **Never.** Cheap, and catches secrets. |
-| local CI (boundaries, budget, doc-drift, **typecheck**) | `.githooks/pre-push` | **~10 min**, nearly all typecheck | Yes — it duplicates GitHub's `Typecheck` job |
+| local CI (boundaries, budget, doc-drift, **typecheck**) | `.githooks/pre-push` | **~7 min measured** (typecheck ~317s of it; boundaries ~65s) | Yes — it duplicates GitHub's `Typecheck` job |
 | GitHub Actions checks | CI on push | ~13 min, set entirely by `Critical e2e` (12 min) | Partly, and now mechanically — see the two auto-skips below. |
+
+> **The tenancy suite is CI-only as of 2026-08-20.** `pre-push` used to add it
+> whenever the diff touched `lib/db/ · app/api/ · lib/active-client.ts`, and it
+> measured **~1050s — roughly 3× the typecheck beside it**, which is what made
+> "~10 min" feel wrong on every data-access push. It was removed rather than
+> narrowed: locally the suite shares whatever Postgres the dev machine is
+> running, and produced `deadlock detected` and 60s `DROP DATABASE` teardown
+> timeouts **with zero failing assertions**, while CI gives it an isolated
+> `pgvector/pgvector:pg16` service container. A gate that cries wolf for 18
+> minutes trains you to reach for `--no-verify`, which is the real hazard.
+> `ci.yml`'s `tenancy` job now fires on those same data-access paths (it
+> previously ran on *any* code change, so a CSS-only PR paid for it). Run it by
+> hand with `bun test:tenancy` when you want it before pushing.
 
 **Two skips are automatic — you no longer merge on a partial board by hand.**
 Both are decided in `ci.yml`'s `changes` job:
@@ -219,8 +232,9 @@ Narrow, or this becomes the default path and the gates stop meaning anything:
 # 1. Commit normally — the pre-commit hook is 10s and includes secret scanning.
 git commit -m "fix(scope): ..."
 
-# 2. Push. --no-verify skips ~10 min of local CI (boundaries, budget, doc-drift,
-#    typecheck); typecheck is nearly all of it and GitHub re-runs it anyway.
+# 2. Push. --no-verify skips ~7 min of local CI (boundaries, budget,
+#    doc-drift, typecheck); typecheck is nearly all of it and GitHub re-runs it
+#    anyway. (The tenancy suite left this hook on 2026-08-20 — it is CI-only.)
 #    There is no longer a vault guard to hand-check: vault/ was merged back into
 #    this repo and published on 2026-08-18, and the pre-push guard went with it.
 git push --no-verify
