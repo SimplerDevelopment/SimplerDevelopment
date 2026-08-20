@@ -11,6 +11,32 @@
  * way the same URL renders differently for two visitors.
  */
 
+/*
+ * ⚠️ MEASURED 2026-08-19: THIS POLICY IS CURRENTLY INERT IN PRODUCTION.
+ *
+ * middleware sets Cache-Control on the rewrite response, but the public site
+ * route is `export const dynamic = 'force-dynamic'`
+ * (app/sites/[domain]/layout.tsx, [[...slug]]/page.tsx), and Next's own
+ * route-level header wins: responses still carry
+ * `private, no-cache, no-store, max-age=0, must-revalidate` and
+ * `x-vercel-cache: MISS`, with cdn_cache_enabled=true on the tenant.
+ *
+ * Confirmed it is specifically the Cache-Control that loses, not middleware
+ * headers generally — x-site-domain and x-site-pathname, set on the same
+ * response object, arrive at the client intact.
+ *
+ * So edge caching cannot engage until the route stops being force-dynamic,
+ * which needs `searchParams` (page.tsx), `cookies()` (the unlock gate and the
+ * A/B visitor id) and `headers()` (layout) off the render path. That is the
+ * ISR-shaped project this design deliberately avoided.
+ *
+ * Everything here is still correct and still the hard part — the exclusions,
+ * the per-tenant kill switch, the fail-closed resolver. Leaving it wired means
+ * the day the route can be cached, this is already right. But do NOT read the
+ * presence of this code as evidence that caching is happening: check
+ * `x-vercel-cache` before believing it.
+ */
+
 /** The subset of SiteHostInfo this decision needs (see lib/sites/host-resolver.ts). */
 export interface SiteHostInfoLike {
   siteId: number;
