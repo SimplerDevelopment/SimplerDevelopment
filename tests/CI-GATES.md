@@ -64,15 +64,56 @@ session start via `.claude/settings.json`).
 | Tenancy regression `@tenancy` | ✅ `tenancy` job      | `bun run test:tenancy`                           |
 | Schema drift preflight        | ✅ PR→`main` only     | `bash scripts/check-schema-drift.sh` (needs prod URL) |
 | Architecture boundaries       | ❌ local pre-push only | `bunx depcruise` via `.dependency-cruiser.cjs`  |
-| Critical e2e `@critical`      | ✅ `e2e-critical` job  | `bun run test:critical` (see below)             |
+| Critical e2e `@critical`      | ✅ `e2e-build` + `Critical e2e N/3` | `bun run test:critical` (see below)  |
+| Security e2e `@security`      | ✅ `Security e2e` job  | `scripts/test.sh --layer=e2e --tag=@security`    |
 | Dead code (informational)     | ❌ local only         | `bunx knip`                                      |
 
-**`@critical` Playwright e2e runs in CI** (`e2e-critical` job, added 2026-07-08):
-pgvector service DB, `drizzle-kit push`, the `seed-admin-e2e.ts` fixture, a
-production build + start, then the @critical specs against localhost. All
+**Playwright e2e runs in CI.** Restructured by PUX-082: one `e2e-build` job
+builds the app once and shares `.next` plus the ephemeral secrets as an artifact
+(build and serve must agree — `NEXT_PUBLIC_*`/`NEXTAUTH` values are inlined at
+build time). Four legs then consume it: `@critical` sharded 1/3–3/3, and
+`@security`. Each leg gets its own pgvector service DB, `drizzle-kit push`, the
+`seed-admin-e2e.ts` fixture, and a cached Playwright browser download. All
 secrets are ephemeral; optional integrations (Stripe/Google/S3) stay dormant,
 matching a fresh self-host instance. `scripts/promote-to-prod.sh` (below)
 remains the staging-environment gate before production promotion.
+
+## What CI skips automatically
+
+Two conditions in `ci.yml`'s `changes` job stand the suite down. Neither is a
+judgement call at merge time any more.
+
+| Condition | What stands down | What still runs |
+|---|---|---|
+| PR labelled **`hotfix`** | everything | `Secret scan (gitleaks)` |
+| **Markdown-only diff** (`\.md$` any depth, plus `vault/ docs/ .claude/`) | typecheck, unit, tenancy, e2e, and `lint`'s eslint + file-budget steps | gitleaks, and `lint`'s `check-doc-drift.ts` |
+
+Measured: 13 min → 46s on a labelled PR.
+
+`labeled`/`unlabeled` are in the workflow's trigger types, so labelling an
+already-open PR re-runs CI immediately — they are not in the default set.
+
+**The `hotfix` label is refused, not just ignored, on risky paths.** A diff
+touching `lib/db/ · lib/mcp/ · lib/billing/ · lib/auth · drizzle/ · app/**/api/ ·
+auth.* · middleware.*` **fails the run** if the label is present.
+
+gitleaks is exempt from both skips: it is the only failure `git revert` cannot
+undo, and a connection string pasted into a vault note is a real leak.
+
+⚠️ **The deploy skip is narrower than the CI skip**, because this app *serves*
+markdown. `vercel.json`'s `ignoreCommand` skips the production build for
+markdown **outside** `docs/` and `.claude/` only:
+
+- `docs/**/*.md` → `app/docs/[[...slug]]/page.tsx` builds it statically via
+  `generateStaticParams`. Skipping the build means the public docs site never
+  updates.
+- `.claude/**/SKILL.md` → read at runtime by `lib/mcp/tools/workflows.ts` and
+  tarred up by `app/api/skills/bundle/route.ts`; the file must be in the
+  deployment.
+
+Add a markdown-reading surface and you must widen the `awk` in `vercel.json`
+with it. Note Vercel's inverted convention: **exit 0 skips the build, exit 1
+builds.** The command fails open — any git error or empty diff builds.
 
 ## Schema drift preflight — `.github/workflows/schema-drift-preflight.yml`
 
@@ -169,9 +210,15 @@ bun test:integration:local # spins up a local DB first, then runs full integrati
 
 ## Trailing gate / promotion — `scripts/promote-to-prod.sh`
 
-The critical e2e + tenancy suites are intentionally **not** in CI (they need a
-running app + browser and runtime secrets). Instead, after every staging deploy
-`scripts/promote-to-prod.sh` is the mandatory final gate:
+> **Correction (2026-08-20).** This section used to open "the critical e2e +
+> tenancy suites are intentionally **not** in CI." That stopped being true when
+> the `tenancy` job landed and again when `@critical` moved into CI on
+> 2026-07-08, and it directly contradicted the gate table above. Both run in CI
+> today. `promote-to-prod.sh` is a *second*, staging-targeted run — not the only
+> one.
+
+After every staging deploy `scripts/promote-to-prod.sh` is the mandatory final
+gate:
 
 1. Runs `bun test:critical` against the **staging** deployment.
 2. Runs `bun test:tenancy` against the staging DB.
@@ -187,7 +234,8 @@ on a full green run.
 ## Critical e2e — `bun test:critical`
 
 Playwright suite filtered to `@critical`-tagged specs (the golden-path
-subset). Runs in CI (`e2e-critical` job) and via `scripts/promote-to-prod.sh`.
+subset). Runs in CI (the `Critical e2e N/3` legs) and via
+`scripts/promote-to-prod.sh`.
 
 ```bash
 bun test:critical
@@ -243,7 +291,7 @@ There is no acceptable "retry until green" workaround on the critical path.
 
 | Scope | Mechanism |
 |---|---|
-| Every push/PR to `main` | GitHub Actions `quality` + `tenancy` jobs (remote) |
+| Every push/PR to `main` | GitHub Actions `lint` + `typecheck` + `unit` + `tenancy` + e2e (remote) |
 | Every push to `origin` (any branch) | `.githooks/pre-push` → `scripts/ci-local.sh` (local) |
 | Staged files on commit | `.githooks/pre-commit` → eslint + file-budget + doc-drift (local) |
 | Staging → production promotion | `scripts/promote-to-prod.sh` (manual trigger) |
