@@ -22,8 +22,10 @@ vi.mock('@/lib/auth', () => ({
 }));
 
 const getPortalClientMock = vi.fn();
+const getPortalRoleMock = vi.fn();
 vi.mock('@/lib/portal-client', () => ({
   getPortalClient: (...args: unknown[]) => getPortalClientMock(...args),
+  getPortalRole: (...args: unknown[]) => getPortalRoleMock(...args),
 }));
 
 vi.mock('drizzle-orm', () => ({
@@ -72,6 +74,7 @@ interface InsertCall {
 let selectQueue: Array<Array<Record<string, unknown>>> = [];
 let insertReturnQueue: Array<Array<Record<string, unknown>>> = [];
 const updateCalls: UpdateCall[] = [];
+let updateReturnQueue: Array<Array<Record<string, unknown>>> = [];
 const insertCalls: InsertCall[] = [];
 
 function shiftNext(): Array<Record<string, unknown>> {
@@ -112,7 +115,11 @@ vi.mock('@/lib/db', () => {
         return {
           where(filter: unknown) {
             updateCalls.push({ table: table.__table, patch, filter });
+            const rows = updateReturnQueue.shift() ?? [{ id: 1 }];
             return {
+              returning() {
+                return Promise.resolve(rows.map((r) => ({ ...r })));
+              },
               then(onF: (v: unknown) => unknown, onR?: (e: unknown) => unknown) {
                 return Promise.resolve(undefined).then(onF, onR);
               },
@@ -184,8 +191,10 @@ beforeEach(() => {
   insertReturnQueue = [];
   updateCalls.length = 0;
   insertCalls.length = 0;
+  updateReturnQueue = [];
   authMock.mockReset();
   getPortalClientMock.mockReset();
+  getPortalRoleMock.mockReset();
 });
 
 // ===========================================================================
@@ -400,9 +409,10 @@ describe('GET /api/portal/oauth-tokens', () => {
     expect(res.status).toBe(404);
   });
 
-  it('returns rows with issuedToYou flagged for the caller', async () => {
+  it('splits rows into the caller\'s own grants and the rest of the team', async () => {
     authMock.mockResolvedValue(SESSION);
     getPortalClientMock.mockResolvedValue({ id: 33 });
+    getPortalRoleMock.mockResolvedValue('owner');
     selectQueue.push([
       {
         id: 1,
@@ -435,9 +445,41 @@ describe('GET /api/portal/oauth-tokens', () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.success).toBe(true);
-    expect(body.data).toHaveLength(2);
-    expect(body.data[0]).toMatchObject({ id: 1, issuedToYou: true });
-    expect(body.data[1]).toMatchObject({ id: 2, issuedToYou: false });
+    expect(body.data.canManageTeam).toBe(true);
+    expect(body.data.mine).toHaveLength(1);
+    expect(body.data.mine[0]).toMatchObject({ id: 1, userId: 7 });
+    expect(body.data.team).toHaveLength(1);
+    expect(body.data.team[0]).toMatchObject({ id: 2, userId: 9 });
+  });
+
+  // A plain member is narrowed in SQL, so nothing of anyone else's comes back
+  // and the UI is told not to render the team section at all.
+  it('reports no team section for a plain member', async () => {
+    authMock.mockResolvedValue(SESSION);
+    getPortalClientMock.mockResolvedValue({ id: 33 });
+    getPortalRoleMock.mockResolvedValue('member');
+    selectQueue.push([
+      {
+        id: 1,
+        tokenPreview: 'abc',
+        scopes: 'read',
+        resource: 'mcp',
+        lastUsedAt: null,
+        expiresAt: null,
+        revokedAt: null,
+        createdAt: new Date('2025-02-01'),
+        userId: 7,
+        memberName: 'User',
+        memberEmail: 'u@x.test',
+        clientName: 'Claude.ai',
+        clientUri: 'https://claude.ai',
+      },
+    ]);
+    const res = await oauthTokensRoute.GET();
+    const body = await res.json();
+    expect(body.data.canManageTeam).toBe(false);
+    expect(body.data.mine).toHaveLength(1);
+    expect(body.data.team).toHaveLength(0);
   });
 });
 

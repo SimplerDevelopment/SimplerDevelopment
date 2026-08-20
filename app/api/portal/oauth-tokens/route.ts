@@ -1,17 +1,29 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { oauthAccessTokens, oauthClients } from '@/lib/db/schema';
+import { oauthAccessTokens, oauthClients, users } from '@/lib/db/schema';
 import { and, desc, eq } from 'drizzle-orm';
 import { getPortalClient, getPortalRole } from '@/lib/portal-client';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-/** List OAuth-issued access tokens for the active portal. Joins
- *  `oauth_clients` so the UI can show which app (Claude.ai, etc.) the token
- *  belongs to. Tokens are scoped per portal-client, so we filter by the
- *  caller's active `clients.id`. */
+/** List OAuth-issued access tokens, segmented by ownership.
+ *
+ *  An OAuth grant is a PERSONAL consent artifact, so the default view is the
+ *  caller's own grants. This previously returned every grant in the portal
+ *  client to every member -- one member could read which apps a colleague had
+ *  connected, with what scopes, and when they last used them.
+ *
+ *  Owners and admins additionally get `team`: the other members' grants, for
+ *  offboarding and incident response. That is a deliberate, role-gated
+ *  disclosure, so the query itself is narrowed for everyone else rather than
+ *  filtered after the fact -- a plain member's rows never leave Postgres.
+ *
+ *  Shape is `{ mine, team, canManageTeam }` rather than a flat array: the UI
+ *  renders two distinct sections, and `canManageTeam` tells it whether the
+ *  team section exists at all without inferring that from an empty list (a
+ *  one-person client would look identical). */
 export async function GET() {
   const session = await auth();
   if (!session?.user?.id) {
@@ -22,6 +34,9 @@ export async function GET() {
   if (!client) {
     return NextResponse.json({ success: false, message: 'Client not found' }, { status: 404 });
   }
+
+  const role = await getPortalRole(userId, client.id);
+  const canManageTeam = role === 'owner' || role === 'admin';
 
   const rows = await db
     .select({
@@ -34,21 +49,31 @@ export async function GET() {
       revokedAt: oauthAccessTokens.revokedAt,
       createdAt: oauthAccessTokens.createdAt,
       userId: oauthAccessTokens.userId,
+      memberName: users.name,
+      memberEmail: users.email,
       clientName: oauthClients.clientName,
       clientUri: oauthClients.clientUri,
     })
     .from(oauthAccessTokens)
     .innerJoin(oauthClients, eq(oauthAccessTokens.oauthClientId, oauthClients.id))
-    .where(eq(oauthAccessTokens.clientId, client.id))
+    .innerJoin(users, eq(oauthAccessTokens.userId, users.id))
+    .where(
+      and(
+        eq(oauthAccessTokens.clientId, client.id),
+        // Same `and()`-drops-undefined trick as DELETE: owners/admins get the
+        // whole client, everyone else is narrowed to their own grants in SQL.
+        canManageTeam ? undefined : eq(oauthAccessTokens.userId, userId),
+      ),
+    )
     .orderBy(desc(oauthAccessTokens.createdAt));
 
   return NextResponse.json({
     success: true,
-    data: rows.map(r => ({
-      ...r,
-      // Surface whether *this* portal user is the one who consented.
-      issuedToYou: r.userId === userId,
-    })),
+    data: {
+      mine: rows.filter(r => r.userId === userId),
+      team: rows.filter(r => r.userId !== userId),
+      canManageTeam,
+    },
   });
 }
 

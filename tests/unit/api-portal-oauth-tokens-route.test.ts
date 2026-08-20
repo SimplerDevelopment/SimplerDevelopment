@@ -40,12 +40,15 @@ vi.mock('@/lib/db/schema', () => {
         return { __col: p, __table: t };
       },
     });
-  return { oauthAccessTokens: wrap('oauthAccessTokens'), oauthClients: wrap('oauthClients') };
+  return { oauthAccessTokens: wrap('oauthAccessTokens'), oauthClients: wrap('oauthClients'), users: wrap('users') };
 });
 
 interface UpdateCall { patch: Record<string, unknown>; filter: any }
 const updateCalls: UpdateCall[] = [];
 let updateReturnRows: Array<Record<string, unknown>> = [];
+
+const selectCalls: Array<{ filter: any }> = [];
+let selectRows: Array<Record<string, unknown>> = [];
 
 vi.mock('@/lib/db', () => ({
   db: {
@@ -57,11 +60,18 @@ vi.mock('@/lib/db', () => ({
         },
       }),
     }),
-    select: () => ({}),
+    select: () => {
+      const chain: any = {};
+      for (const m of ['from', 'innerJoin', 'orderBy']) chain[m] = () => chain;
+      chain.where = (filter: unknown) => { selectCalls.push({ filter }); return chain; };
+      chain.then = (onF: (v: unknown) => unknown, onR?: (e: unknown) => unknown) =>
+        Promise.resolve(selectRows.map((r) => ({ ...r }))).then(onF, onR);
+      return chain;
+    },
   },
 }));
 
-const { DELETE } = await import('@/app/api/portal/oauth-tokens/route');
+const { DELETE, GET } = await import('@/app/api/portal/oauth-tokens/route');
 
 /** Does the captured predicate constrain on oauthAccessTokens.userId? */
 function constrainsUserId(filter: any): boolean {
@@ -74,6 +84,8 @@ const req = (id = '7') => new Request(`https://portal.test/api/portal/oauth-toke
 
 beforeEach(() => {
   updateCalls.length = 0;
+  selectCalls.length = 0;
+  selectRows = [];
   updateReturnRows = [{ id: 7 }];
   authMock.mockReset();
   getPortalClientMock.mockReset();
@@ -81,6 +93,53 @@ beforeEach(() => {
   authMock.mockResolvedValue({ user: { id: '42' } });
   getPortalClientMock.mockResolvedValue({ id: 900 });
   getPortalRoleMock.mockResolvedValue('member');
+});
+
+const tokenRow = (id: number, uid: number) => ({
+  id, tokenPreview: `tok_${id}`, scopes: ['*'], resource: null, lastUsedAt: null,
+  expiresAt: null, revokedAt: null, createdAt: new Date('2026-01-01'), userId: uid,
+  memberName: `User ${uid}`, memberEmail: `u${uid}@x.test`, clientName: 'Claude.ai', clientUri: null,
+});
+
+describe('GET /api/portal/oauth-tokens', () => {
+  it('narrows a plain member to their own grants IN SQL, not after the fact', async () => {
+    getPortalRoleMock.mockResolvedValue('member');
+    selectRows = [tokenRow(1, 42)];
+    const res = await GET();
+    expect(res.status).toBe(200);
+    // The privacy property: a colleague's row never leaves Postgres.
+    expect(constrainsUserId(selectCalls[0].filter)).toBe(true);
+    const body = await res.json();
+    expect(body.data.canManageTeam).toBe(false);
+    expect(body.data.mine).toHaveLength(1);
+    expect(body.data.team).toHaveLength(0);
+  });
+
+  it.each(['owner', 'admin'])('lets a %s see the whole client, split by ownership', async (role) => {
+    getPortalRoleMock.mockResolvedValue(role);
+    selectRows = [tokenRow(1, 42), tokenRow(2, 99)];
+    const res = await GET();
+    expect(constrainsUserId(selectCalls[0].filter)).toBe(false);
+    const body = await res.json();
+    expect(body.data.canManageTeam).toBe(true);
+    expect(body.data.mine.map((t: any) => t.id)).toEqual([1]);
+    expect(body.data.team.map((t: any) => t.id)).toEqual([2]);
+  });
+
+  it('treats a null role (no membership) as non-privileged', async () => {
+    getPortalRoleMock.mockResolvedValue(null);
+    selectRows = [tokenRow(1, 42)];
+    const body = await (await GET()).json();
+    expect(constrainsUserId(selectCalls[0].filter)).toBe(true);
+    expect(body.data.canManageTeam).toBe(false);
+  });
+
+  it('rejects an unauthenticated caller without querying', async () => {
+    authMock.mockResolvedValue(null);
+    const res = await GET();
+    expect(res.status).toBe(401);
+    expect(selectCalls).toHaveLength(0);
+  });
 });
 
 describe('DELETE /api/portal/oauth-tokens', () => {
