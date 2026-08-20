@@ -3,7 +3,7 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { portalApiKeys } from '@/lib/db/schema';
 import { and, desc, eq } from 'drizzle-orm';
-import { getPortalClient, getPortalClientsWithRoles } from '@/lib/portal-client';
+import { getPortalClient, getPortalClientForCredentials, getPortalClientsWithRoles } from '@/lib/portal-client';
 import { generatePortalApiKey } from '@/lib/mcp-auth';
 
 const DEFAULT_SCOPES = ['*'];
@@ -41,7 +41,11 @@ export async function POST(req: Request) {
   if (!session?.user?.id) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
 
   const userId = parseInt(session.user.id, 10);
-  const client = await getPortalClient(userId);
+  // Impersonation-free: a key is a durable USER credential, and the implicit
+  // default tenant must obey the same membership rule the explicit
+  // `body.clientIds` path enforces below — before this, an impersonating staff
+  // user minted a full-scope key against the impersonated tenant.
+  const client = await getPortalClientForCredentials(userId);
   if (!client) return NextResponse.json({ success: false, message: 'Client not found' }, { status: 404 });
 
   const body = await req.json().catch(() => ({}));

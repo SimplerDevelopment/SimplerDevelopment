@@ -3,7 +3,7 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { oauthClients } from '@/lib/db/schema';
 import { desc, eq } from 'drizzle-orm';
-import { getPortalClient } from '@/lib/portal-client';
+import { getPortalClient, getPortalClientForCredentials } from '@/lib/portal-client';
 import {
   generateClientSecret,
   isAcceptableRedirectUri,
@@ -18,13 +18,21 @@ const MAX_REDIRECT_URIS = 5;
 /** Resolve the authenticated portal user + their active tenant in one step.
  *  Returns null when unauthenticated or no client is resolvable — callers map
  *  that to a 401/404. Every query below is scoped to `client.id` so a tenant
- *  can only ever see / mutate the confidential OAuth clients it owns. */
-async function requirePortalTenant() {
+ *  can only ever see / mutate the confidential OAuth clients it owns.
+ *
+ *  `forIssuance` switches to the impersonation-free resolver: creating a
+ *  confidential client stamps this tenant as its permanent owner, and an
+ *  impersonating staff session must never stamp the impersonated tenant
+ *  (see getPortalClientForCredentials). Listing stays impersonation-aware —
+ *  viewing a tenant's registrations is what impersonation is for. */
+async function requirePortalTenant(opts?: { forIssuance?: boolean }) {
   const session = await auth();
   if (!session?.user?.id) return null;
   const userId = parseInt(session.user.id, 10);
   if (!Number.isFinite(userId)) return null;
-  const client = await getPortalClient(userId);
+  const client = opts?.forIssuance
+    ? await getPortalClientForCredentials(userId)
+    : await getPortalClient(userId);
   if (!client) return null;
   return { userId, clientId: client.id };
 }
@@ -64,7 +72,7 @@ export async function GET() {
  *  `ownerClientId`, which (a) scopes all future list/rotate/delete to this
  *  tenant and (b) restricts who may authorize it (see /oauth/authorize). */
 export async function POST(req: Request) {
-  const ctx = await requirePortalTenant();
+  const ctx = await requirePortalTenant({ forIssuance: true });
   if (!ctx) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
 
   const body = await req.json().catch(() => ({}));

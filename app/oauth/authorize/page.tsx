@@ -1,8 +1,9 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { headers } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { auth } from '@/lib/auth';
-import { getPortalClient, getPortalClients } from '@/lib/portal-client';
+import { IMPERSONATE_COOKIE } from '@/lib/impersonation';
+import { getPortalClientForCredentials, getPortalClients } from '@/lib/portal-client';
 import { redirectUriMatches } from '@/lib/oauth/server';
 import { resolveOrRegisterOAuthClient } from '@/lib/oauth/cimd';
 import { DEFAULT_GRANTED_SCOPES, parseRequestedScopes, SUPPORTED_SCOPES } from '@/lib/oauth/scopes';
@@ -85,8 +86,18 @@ export default async function AuthorizePage({ searchParams }: { searchParams: Pr
   if (allClients.length === 0) {
     return <ErrorPage title="No portal access" detail="Your account is not associated with any client portal." />;
   }
-  const activeClient = await getPortalClient(userId);
-  if (!activeClient) return <ErrorPage title="No portal access" detail="Could not resolve an active client for your account." />;
+  // An OAuth grant is user-scoped and outlives any impersonation session, so
+  // the "active" client is resolved impersonation-free (see the resolver's
+  // doc). Letting an impersonated client leak into the hidden
+  // client_ids/active_client_id fields made the decision route (which verifies
+  // membership, never impersonation) refuse the whole grant with access_denied,
+  // which the connector surfaced as a generic "Authorization failed".
+  const activeClient = (await getPortalClientForCredentials(userId)) ?? allClients[0];
+
+  // Impersonation can't influence the grant, but silently authorizing the
+  // staff user's OWN portals while they're viewing another tenant would be its
+  // own confusion — say it out loud instead.
+  const impersonating = (await cookies()).get(IMPERSONATE_COOKIE) !== undefined;
 
   // --- Decide which scopes to present. If the client asked for `*`, show a
   // single "Full access" toggle. Otherwise show only the requested scopes
@@ -173,6 +184,14 @@ export default async function AuthorizePage({ searchParams }: { searchParams: Pr
           {oauthClient.clientName} is asking for access to your SimplerDevelopment portal.
           Approve only if you trust this application.
         </p>
+
+        {impersonating && (
+          <p className="mb-6 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
+            You are currently viewing the portal as another company. App
+            authorizations are tied to <strong>your own account</strong> and cover
+            only the portals listed below — not the company you are impersonating.
+          </p>
+        )}
 
         {oauthClient.clientUri && (
           <p className="text-xs text-muted-foreground mb-6">
