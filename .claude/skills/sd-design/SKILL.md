@@ -135,6 +135,17 @@ So:
 
 Verify the port with `/visual-compare` — exploration mockup vs. rendered block.
 
+**Two translation habits carry a real cost.** Exploration HTML reaches for a
+CSS `background-image` hero and its own `@import` of a Google Font, because in
+a standalone mockup both are free. On a Lighthouse-scored public page neither
+is: a background image is invisible to the preload scanner (so it can't be
+discovered early or carry `srcset`), and an `@import` inside a `<style>` is
+render-blocking *and* serially discovered. Measured on a migrated site — three
+overlapping stylesheet requests and two copies of the same typeface, on heroes
+that were the LCP element on 39 of 54 pages. When landing the design, the hero
+becomes an `<img>` with `srcset`, and fonts come from the brand profile. See
+`SD_DESIGN_PRINCIPLES.md` §13.
+
 ## Step 6 — Tweak visually, not by prompt
 
 The video's "tweaks bar" exists here already: the **visual editor** at
