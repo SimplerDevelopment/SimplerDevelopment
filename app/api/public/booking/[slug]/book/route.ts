@@ -16,6 +16,7 @@ import { pickAssignee } from '@/lib/booking/assign';
 import { checkSlotCapacity } from '@/lib/booking/capacity';
 import { isSlotWithinAvailability } from '@/lib/booking/availability';
 import { resolveHostNotificationEmail } from '@/lib/booking/host-notification';
+import { resolveApprovalContext } from '@/lib/mcp/approval-mode';
 
 interface AttendeeInput {
   name?: string;
@@ -36,11 +37,54 @@ function generateCheckinCode(): string {
 export async function POST(req: Request, { params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
 
+  // An approval reviewer is looking at an INACTIVE page (approving is what flips
+  // active=true), so the active filter cannot be part of the lookup here.
   const [page] = await db.select().from(bookingPages)
-    .where(and(eq(bookingPages.slug, slug), eq(bookingPages.active, true)))
+    .where(eq(bookingPages.slug, slug))
     .limit(1);
 
   if (!page) return NextResponse.json({ success: false, message: 'Booking page not found' }, { status: 404 });
+
+  // ─── Approval-mode shim (PUX-067/070) ──────────────────────────────────────
+  // The reviewer walks the whole funnel — real availability, real staff, real
+  // pricing — and reaches the confirmation screen, while NOTHING happens: no
+  // booking row, no hold, no Stripe intent, no calendar event, no Zoom meeting,
+  // no guest or host email, no discount-usage increment, no automation event.
+  //
+  // Returned deliberately WITHOUT `clientSecret`, which is what makes the widget
+  // treat it as a free booking and go straight to `confirmed` rather than into
+  // the payment step. No payment surface is reachable in approval mode.
+  //
+  // This must stay above the body parse and every write below it. The middleware
+  // gate is what actually protects the data — this path is only reachable
+  // because it is on the shim allowlist.
+  const approval = await resolveApprovalContext('booking_page', page.id);
+  if (approval && approval.clientId === page.clientId) {
+    const previewStart = new Date();
+    const previewEnd = new Date(previewStart.getTime() + (page.duration ?? 30) * 60_000);
+    return NextResponse.json({
+      success: true,
+      approvalPreview: true,
+      message: 'Draft preview — no booking was made.',
+      data: {
+        id: null,
+        guestName: 'Draft preview',
+        guestEmail: null,
+        startTime: previewStart.toISOString(),
+        endTime: previewEnd.toISOString(),
+        timezone: page.timezone,
+        status: 'preview',
+        paymentStatus: 'preview',
+        meetingLink: null,
+        checkinCode: null,
+      },
+    });
+  }
+
+  // Past this point the caller is a real visitor, so the page must be live.
+  if (!page.active) {
+    return NextResponse.json({ success: false, message: 'Booking page not found' }, { status: 404 });
+  }
 
   const body = await req.json();
   const {

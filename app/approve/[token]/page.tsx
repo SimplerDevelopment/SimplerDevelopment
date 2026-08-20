@@ -15,7 +15,7 @@
  * the staff can approve in confidence that the staged mutation is correct.
  */
 
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { db } from '@/lib/db';
 import {
   posts,
@@ -35,16 +35,29 @@ import type {
 } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { lookupApprovalLink } from '@/lib/mcp/approval-links';
+import { resolveApprovalSurface } from '@/lib/mcp/approval-surface';
 import { auth } from '@/lib/auth';
 import { users } from '@/lib/db/schema';
 import { ApprovalReviewer, type ApprovalEntityPreview } from './ApprovalReviewer';
 
 interface PageProps {
   params: Promise<{ token: string }>;
+  searchParams: Promise<{ fallback?: string }>;
 }
 
-export default async function ApprovalPage({ params }: PageProps) {
+/**
+ * Approval links must never reach a search index (PUX-079). robots.txt already
+ * disallows /approve/, but a Disallow only stops well-behaved crawlers from
+ * FETCHING — a URL can still be indexed from an inbound link, which would put
+ * the token itself in search results. This states it on the page too.
+ */
+export const metadata = {
+  robots: { index: false, follow: false, nocache: true },
+};
+
+export default async function ApprovalPage({ params, searchParams }: PageProps) {
   const { token } = await params;
+  const { fallback } = await searchParams;
   const link = await lookupApprovalLink(token);
   if (!link) notFound();
 
@@ -52,6 +65,19 @@ export default async function ApprovalPage({ params }: PageProps) {
     loadPreview(link.clientId, link.linkType, link.entityType, link.entityId, link.pendingChangeId),
     loadCurrentUser(),
   ]);
+
+  // If this entity has a converted surface, the reviewer belongs on the real
+  // artifact, not here (PUX-060). The hand-off goes via a Route Handler because
+  // a Server Component cannot set the approval cookie.
+  //
+  // `fallback` breaks a redirect loop in the race where the surface resolves
+  // here but not in the session route (entity edited or deleted mid-flight).
+  if (link.status === 'pending' && fallback !== '1') {
+    const slug = 'slug' in preview ? preview.slug : null;
+    if (resolveApprovalSurface(link, slug)) {
+      redirect(`/api/approve/session/${token}`);
+    }
+  }
 
   return (
     <ApprovalReviewer
