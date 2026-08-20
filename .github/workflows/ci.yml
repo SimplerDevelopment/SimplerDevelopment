@@ -5,6 +5,10 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+    # `labeled`/`unlabeled` are NOT in the default type set. Without them, adding
+    # the `hotfix` label to an already-open PR fires no event and the skip never
+    # takes effect until the next push.
+    types: [opened, synchronize, reopened, labeled, unlabeled]
 
 # Cancel superseded runs on the same ref.
 concurrency:
@@ -32,6 +36,10 @@ jobs:
     timeout-minutes: 5
     outputs:
       code: ${{ steps.filter.outputs.code }}
+      # `hotfix` label on the PR => skip lint/typecheck/unit/tenancy/e2e.
+      # Push-to-main has no pull_request context; contains(null, …) is false, so
+      # main always runs the full suite. Deliberate.
+      hotfix: ${{ contains(github.event.pull_request.labels.*.name, 'hotfix') }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -50,6 +58,15 @@ jobs:
             echo "code=true" >> "$GITHUB_OUTPUT"; echo "==> code change detected: full suite"
           else
             echo "code=false" >> "$GITHUB_OUTPUT"; echo "==> doc-only diff: skipping tenancy + e2e"
+          fi
+          # The hotfix lane is for presentation-only changes (CLAUDE.md "Hotfix
+          # lane"). Skipping typecheck+unit+e2e on a schema/auth/tenancy/API diff
+          # is how a 2-line "copy fix" takes prod down, so refuse the label there
+          # rather than trusting the labeller. Fails the run => red board.
+          if [ "${{ contains(github.event.pull_request.labels.*.name, 'hotfix') }}" = "true" ] \
+             && grep -qE '^(lib/db/|lib/mcp/|lib/billing/|lib/auth|drizzle/|app/.*/api/|auth\.|middleware\.)' <<<"$CHANGED"; then
+            echo "::error::hotfix label is not allowed on a diff touching schema/auth/billing/tenancy/API routes. Remove the label and run the full suite."
+            exit 1
           fi
   # ── Secret scan (gitleaks) — cheap, fails fast ──────────────────────────────
   # Uses the gitleaks BINARY (the gitleaks-action is org-license-gated) in
@@ -81,6 +98,8 @@ jobs:
     name: Lint & checks
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # Skipped when the PR carries the `hotfix` label (see the `changes` job).
+    if: ${{ !contains(github.event.pull_request.labels.*.name, 'hotfix') }}
     steps:
       - uses: actions/checkout@v7
       - name: Setup Bun
@@ -106,6 +125,8 @@ jobs:
     name: Typecheck
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # Skipped when the PR carries the `hotfix` label (see the `changes` job).
+    if: ${{ !contains(github.event.pull_request.labels.*.name, 'hotfix') }}
     steps:
       - uses: actions/checkout@v7
       - name: Setup Bun
@@ -133,6 +154,8 @@ jobs:
     name: Unit shard ${{ matrix.shard }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # Skipped when the PR carries the `hotfix` label (see the `changes` job).
+    if: ${{ !contains(github.event.pull_request.labels.*.name, 'hotfix') }}
     strategy:
       fail-fast: false
       matrix:
@@ -217,7 +240,7 @@ jobs:
     name: Tenancy regression
     runs-on: ubuntu-latest
     needs: [changes]
-    if: needs.changes.outputs.code == 'true'
+    if: needs.changes.outputs.code == 'true' && needs.changes.outputs.hotfix != 'true'
     timeout-minutes: 30
     services:
       postgres:
@@ -281,7 +304,7 @@ jobs:
     # Gated by the changed-path detector (doc-only PRs skip e2e entirely).
     # The matrix legs below need this job, so skipping it cascades to them.
     needs: [changes]
-    if: needs.changes.outputs.code == 'true'
+    if: needs.changes.outputs.code == 'true' && needs.changes.outputs.hotfix != 'true'
     timeout-minutes: 20
     services:
       postgres:
