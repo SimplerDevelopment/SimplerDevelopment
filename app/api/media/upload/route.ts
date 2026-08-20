@@ -4,7 +4,7 @@ import { media } from '@/lib/db/schema';
 import { uploadToS3 } from '@/lib/s3/upload';
 import { auth } from '@/lib/auth';
 import { getPortalClient } from '@/lib/portal-client';
-import sharp from 'sharp';
+import { getImageDimensions } from '@/lib/media/image-dimensions';
 
 const MAX_FILE_SIZE = parseInt(process.env.MAX_FILE_SIZE || '10485760'); // 10MB default
 const ALLOWED_TYPES = process.env.ALLOWED_FILE_TYPES?.split(',') || [];
@@ -54,19 +54,7 @@ export async function POST(request: NextRequest) {
     const buffer = Buffer.from(arrayBuffer);
 
     // Get image dimensions if it's an image
-    let width: number | null = null;
-    let height: number | null = null;
-
-    if (file.type.startsWith('image/')) {
-      try {
-        const metadata = await sharp(buffer).metadata();
-        width = metadata.width || null;
-        height = metadata.height || null;
-      } catch (error) {
-        console.error('Error extracting image metadata:', error);
-        // Continue without dimensions if extraction fails
-      }
-    }
+    const { width, height } = await getImageDimensions(buffer, file.type);
 
     // Upload to S3
     const uploadResult = await uploadToS3(buffer, file.name, file.type);

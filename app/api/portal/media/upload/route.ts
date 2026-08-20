@@ -4,7 +4,7 @@ import { media, clientWebsites, brandingProfiles } from '@/lib/db/schema';
 import { authorizePortal, isAuthError } from '@/lib/portal-auth';
 import { uploadToS3 } from '@/lib/s3/upload';
 import { eq, and } from 'drizzle-orm';
-import sharp from 'sharp';
+import { getImageDimensions } from '@/lib/media/image-dimensions';
 
 const MAX_FILE_SIZE = parseInt(process.env.MAX_FILE_SIZE || '10485760'); // 10MB
 const ALLOWED_TYPES = process.env.ALLOWED_FILE_TYPES?.split(',') || [];
@@ -49,15 +49,7 @@ export async function POST(req: Request) {
 
   const buffer = Buffer.from(await file.arrayBuffer());
 
-  let width: number | null = null;
-  let height: number | null = null;
-  if (file.type.startsWith('image/')) {
-    try {
-      const meta = await sharp(buffer).metadata();
-      width = meta.width || null;
-      height = meta.height || null;
-    } catch {}
-  }
+  const { width, height } = await getImageDimensions(buffer, file.type);
 
   const uploadResult = await uploadToS3(buffer, file.name, file.type);
 
