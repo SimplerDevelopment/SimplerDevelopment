@@ -1,0 +1,249 @@
+{
+ "Resources": {
+  "MediaBucketBCBB02BA": {
+   "Type": "AWS::S3::Bucket",
+   "Properties": {
+    "BucketEncryption": {
+     "ServerSideEncryptionConfiguration": [
+      {
+       "ServerSideEncryptionByDefault": {
+        "SSEAlgorithm": "AES256"
+       }
+      }
+     ]
+    },
+    "BucketName": "simplerdev-media-prod",
+    "CorsConfiguration": {
+     "CorsRules": [
+      {
+       "AllowedHeaders": [
+        "*"
+       ],
+       "AllowedMethods": [
+        "PUT",
+        "GET",
+        "HEAD"
+       ],
+       "AllowedOrigins": [
+        "https://simplerdevelopment.com",
+        "https://www.simplerdevelopment.com"
+       ],
+       "ExposedHeaders": [
+        "ETag"
+       ],
+       "MaxAge": 3000
+      }
+     ]
+    },
+    "LifecycleConfiguration": {
+     "Rules": [
+      {
+       "AbortIncompleteMultipartUpload": {
+        "DaysAfterInitiation": 7
+       },
+       "Id": "abort-incomplete-multipart",
+       "Status": "Enabled"
+      },
+      {
+       "Id": "expire-noncurrent-versions",
+       "NoncurrentVersionExpiration": {
+        "NoncurrentDays": 30
+       },
+       "Status": "Enabled"
+      }
+     ]
+    },
+    "PublicAccessBlockConfiguration": {
+     "BlockPublicAcls": true,
+     "BlockPublicPolicy": true,
+     "IgnorePublicAcls": true,
+     "RestrictPublicBuckets": true
+    },
+    "VersioningConfiguration": {
+     "Status": "Enabled"
+    }
+   },
+   "UpdateReplacePolicy": "Retain",
+   "DeletionPolicy": "Retain",
+   "Metadata": {
+    "aws:cdk:path": "SimplerDevMedia-prod/MediaBucket/Resource"
+   }
+  },
+  "MediaBucketPolicy68C27F6B": {
+   "Type": "AWS::S3::BucketPolicy",
+   "Properties": {
+    "Bucket": {
+     "Ref": "MediaBucketBCBB02BA"
+    },
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": "s3:*",
+       "Condition": {
+        "Bool": {
+         "aws:SecureTransport": "false"
+        }
+       },
+       "Effect": "Deny",
+       "Principal": {
+        "AWS": "*"
+       },
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "MediaBucketBCBB02BA",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::GetAtt": [
+             "MediaBucketBCBB02BA",
+             "Arn"
+            ]
+           },
+           "/*"
+          ]
+         ]
+        }
+       ]
+      }
+     ],
+     "Version": "2012-10-17"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "SimplerDevMedia-prod/MediaBucket/Policy/Resource"
+   }
+  },
+  "AppUser56EEC556": {
+   "Type": "AWS::IAM::User",
+   "Properties": {
+    "UserName": "simplerdev-media-app-prod"
+   },
+   "Metadata": {
+    "aws:cdk:path": "SimplerDevMedia-prod/AppUser/Resource"
+   }
+  },
+  "AppUserDefaultPolicy977081C0": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "s3:DeleteObject",
+        "s3:GetObject",
+        "s3:PutObject"
+       ],
+       "Effect": "Allow",
+       "Resource": {
+        "Fn::Join": [
+         "",
+         [
+          {
+           "Fn::GetAtt": [
+            "MediaBucketBCBB02BA",
+            "Arn"
+           ]
+          },
+          "/media/*"
+         ]
+        ]
+       },
+       "Sid": "MediaObjectAccess"
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "AppUserDefaultPolicy977081C0",
+    "Users": [
+     {
+      "Ref": "AppUser56EEC556"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "SimplerDevMedia-prod/AppUser/DefaultPolicy/Resource"
+   }
+  },
+  "CDKMetadata": {
+   "Type": "AWS::CDK::Metadata",
+   "Properties": {
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/0WKWw6CMBBF18J/O2J9LEAXINH4bUqpyVAohplKTNO9GygJX+fchwJ1PkFZ6ImkaZzssIb4YG2c0BO9Ih0gXoJxlsX17VfLqIYOzW+rc04CdQ/xSXacp4Xbc/2k2W+BP4GT8ENjoaXdVynYH6EsWkKUY/CMvYV75h9Ilyo5qAAAAA=="
+   },
+   "Metadata": {
+    "aws:cdk:path": "SimplerDevMedia-prod/CDKMetadata/Default"
+   }
+  }
+ },
+ "Outputs": {
+  "BucketName": {
+   "Value": {
+    "Ref": "MediaBucketBCBB02BA"
+   }
+  },
+  "BucketRegion": {
+   "Value": "us-east-1"
+  },
+  "AppUserArn": {
+   "Value": {
+    "Fn::GetAtt": [
+     "AppUser56EEC556",
+     "Arn"
+    ]
+   }
+  },
+  "AccessKeyHint": {
+   "Description": "Mint the app credentials out-of-band, then set S3_ACCESS_KEY_ID / S3_SECRET_ACCESS_KEY",
+   "Value": {
+    "Fn::Join": [
+     "",
+     [
+      "aws iam create-access-key --user-name ",
+      {
+       "Ref": "AppUser56EEC556"
+      }
+     ]
+    ]
+   }
+  }
+ },
+ "Parameters": {
+  "BootstrapVersion": {
+   "Type": "AWS::SSM::Parameter::Value<String>",
+   "Default": "/cdk-bootstrap/hnb659fds/version",
+   "Description": "Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]"
+  }
+ },
+ "Rules": {
+  "CheckBootstrapVersion": {
+   "Assertions": [
+    {
+     "Assert": {
+      "Fn::Not": [
+       {
+        "Fn::Contains": [
+         [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5"
+         ],
+         {
+          "Ref": "BootstrapVersion"
+         }
+        ]
+       }
+      ]
+     },
+     "AssertDescription": "CDK bootstrap stack version 6 required. Please run 'cdk bootstrap' with a recent version of the CDK CLI."
+    }
+   ]
+  }
+ }
+}
