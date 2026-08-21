@@ -21,3 +21,11 @@ const queryClient = postgres(connectionString, {
   connect_timeout: 5,
 });
 export const db = drizzle(queryClient, { schema });
+
+// Re-exported so callers reach BOTH database handles through '@/lib/db'.
+// Keeping the fan-out getter importable only from '@/lib/db/fanout' forks the
+// test mocking surface: 381 unit test files do `vi.mock('@/lib/db')`, and a
+// route using the fan-out pool would slip straight past that mock and open a
+// REAL connection inside a unit test. One module, one mock. The implementation
+// and the reasoning for the pool itself stay in ./fanout.ts.
+export { getFanoutDb, resolveFanoutPoolMax } from './fanout';

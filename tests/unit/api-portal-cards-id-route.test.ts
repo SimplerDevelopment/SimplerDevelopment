@@ -193,22 +193,24 @@ vi.mock('@/lib/db', () => {
     };
   }
 
-  return {
-    db: {
-      select() {
-        return buildSelect();
-      },
-      update(table: { __table: string }) {
-        return buildUpdate(table);
-      },
-      delete(table: { __table: string }) {
-        return buildDelete(table);
-      },
-      insert(table: { __table: string }) {
-        return buildInsert(table);
-      },
+  // The route reads its fan-out batch through getFanoutDb() (PUX-087). Point it
+  // at the SAME fake handle: these queries must keep draining selectQueue, and
+  // a mock that omits it lets the route reach a real pool.
+  const fake = {
+    select() {
+      return buildSelect();
+    },
+    update(table: { __table: string }) {
+      return buildUpdate(table);
+    },
+    delete(table: { __table: string }) {
+      return buildDelete(table);
+    },
+    insert(table: { __table: string }) {
+      return buildInsert(table);
     },
   };
+  return { db: fake, getFanoutDb: () => fake };
 });
 
 // ---- module under test (after mocks) ----

@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { db } from '@/lib/db';
-import { getFanoutDb } from '@/lib/db/fanout';
+import { db, getFanoutDb } from '@/lib/db';
 import { kanbanCards, kanbanCardComments, kanbanCardTimeLogs, kanbanCardFiles, kanbanCardLabels, kanbanLabels, kanbanCardActivities, kanbanCardChecklistItems, kanbanCardAssignees, kanbanCardWatchers, kanbanCardDependencies, kanbanCardArtifacts, kanbanColumns, users, projects, clientMembers, projectCustomFields, cardCustomFieldValues } from '@/lib/db/schema';
 import { getPortalClient } from '@/lib/portal-client';
 import { eq, and, or, inArray, asc, desc } from 'drizzle-orm';
