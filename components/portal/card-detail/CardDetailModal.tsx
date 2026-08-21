@@ -49,7 +49,7 @@ export default function CardDetailModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center sm:p-4">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-card border border-border rounded-none sm:rounded-xl shadow-2xl w-full h-full sm:h-auto sm:max-w-4xl sm:max-h-[90vh] overflow-hidden flex flex-col">
+      <div className="relative bg-card border border-border rounded-none sm:rounded-xl shadow-2xl w-full h-full sm:h-auto sm:max-w-6xl sm:max-h-[90vh] overflow-hidden flex flex-col">
         {s.loading ? (
           <div className="flex items-center justify-center h-64">
             <span className="material-icons text-4xl text-muted-foreground animate-spin">refresh</span>
