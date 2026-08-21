@@ -34,17 +34,20 @@ vi.mock('next/navigation', () => ({
 }));
 
 // Default session is a portal (tenant) client — matches every existing
-// scenario in this file, which exercises the bell's fetching/rendering
-// behavior. QAD-036 gates both feed fetches on role === 'client'.
+// scenario in this file. QAD-036 gated BOTH feeds on role === 'client';
+// PUX-090 narrowed that to the CRM feed only (see the staff describe at the
+// bottom), so the role is mutable per-test now.
+const sessionState = vi.hoisted(() => ({ role: 'client' as string }));
+
 vi.mock('next-auth/react', () => ({
-  useSession: () => ({ data: { user: { role: 'client' } }, status: 'authenticated' }),
+  useSession: () => ({ data: { user: { role: sessionState.role } }, status: 'authenticated' }),
 }));
 
 // ---------------------------------------------------------------------------
 // Component under test
 // ---------------------------------------------------------------------------
 
-import NotificationBell from '@/components/portal/NotificationBell';
+import NotificationBell, { toastableRows } from '@/components/portal/NotificationBell';
 
 // ---------------------------------------------------------------------------
 // Fixture shapes
@@ -113,9 +116,21 @@ function makeJsonResponse(body: unknown, ok = true): Response {
 
 type FeedSpec<T> = { rows: T[]; unread: number } | 'reject' | 'not-ok';
 
+interface TickRowFixture {
+  id: number;
+  kind: string;
+  title: string;
+  body: string | null;
+  cardId: number | null;
+  projectId: number | null;
+  createdAt: string;
+}
+
 interface FetchMockOpts {
   pm?: FeedSpec<PmRowFixture>;
   crm?: FeedSpec<CrmItemFixture>;
+  /** Rows the /tick endpoint reports as newest-first-by-id. */
+  latest?: TickRowFixture[];
   onPmMarkRead?: (body: unknown) => Response;
   onCrmPatch?: (id: string, body: unknown) => Response;
   onCrmMarkAll?: () => Response;
@@ -156,6 +171,22 @@ function createFetchMock(opts: FetchMockOpts = {}) {
       if (crm === 'not-ok') return Promise.resolve(makeJsonResponse(null, false));
       return Promise.resolve(
         makeJsonResponse({ success: true, data: crm.rows, unreadCount: crm.unread }),
+      );
+    }
+
+    // Badge + desktop-toast poll: GET /api/portal/notifications/tick.
+    // Derives its counts from the same pm/crm fixtures so a test only has to
+    // describe the feed once.
+    if (url.startsWith('/api/portal/notifications/tick')) {
+      return Promise.resolve(
+        makeJsonResponse({
+          success: true,
+          data: {
+            pmUnread: typeof pm === 'string' ? 0 : pm.unread,
+            crmUnread: typeof crm === 'string' ? 0 : crm.unread,
+            latest: opts.latest ?? [],
+          },
+        }),
       );
     }
 
@@ -205,6 +236,7 @@ async function openDropdown(container: HTMLElement) {
 // ---------------------------------------------------------------------------
 
 beforeEach(() => {
+  sessionState.role = 'client';
   vi.useFakeTimers({ shouldAdvanceTime: false });
   stubFetch();
   mockRouterPush.mockClear();
@@ -301,13 +333,19 @@ describe('NotificationBell — open / close', () => {
 // ---------------------------------------------------------------------------
 
 describe('NotificationBell — fetching', () => {
-  it('calls fetch for BOTH feeds on mount', async () => {
+  // PUX-090 changed the steady-state contract: the badge runs off one small
+  // /tick call, and the two 20-row feeds are only fetched once the dropdown is
+  // actually opened. That's the whole point of the change — a bell that mounts
+  // on every portal page shouldn't ship 40 rows of JSON every 45s to render a
+  // number.
+  it('polls ONLY the tick endpoint on mount, not the two full feeds', async () => {
     const fetchMock = stubFetch();
     render(<NotificationBell />);
     await flush();
     const urls = fetchMock.mock.calls.map((c) => c[0]);
-    expect(urls.some((u) => typeof u === 'string' && u.startsWith('/api/portal/notifications?'))).toBe(true);
-    expect(urls.some((u) => typeof u === 'string' && u.startsWith('/api/portal/crm/notifications?'))).toBe(true);
+    expect(urls.some((u) => typeof u === 'string' && u.startsWith('/api/portal/notifications/tick'))).toBe(true);
+    expect(urls.some((u) => typeof u === 'string' && u.startsWith('/api/portal/notifications?'))).toBe(false);
+    expect(urls.some((u) => typeof u === 'string' && u.startsWith('/api/portal/crm/notifications?'))).toBe(false);
   });
 
   it('polls again after POLL_INTERVAL_MS (45s)', async () => {
@@ -981,5 +1019,235 @@ describe('NotificationBell — relative time', () => {
     await flush();
     await openDropdown(container);
     expect(container.textContent).toContain('m ago');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// PUX-090 — desktop notifications, lean tick poll, staff role guard
+// ---------------------------------------------------------------------------
+
+function makeTickRow(over: Partial<TickRowFixture> = {}): TickRowFixture {
+  return {
+    id: 1,
+    kind: 'comment.mention',
+    title: 'Dan mentioned you on PUX-090',
+    body: 'can you look at the guard',
+    cardId: 1685,
+    projectId: 153,
+    createdAt: new Date().toISOString(),
+    ...over,
+  };
+}
+
+describe('toastableRows — desktop toast policy', () => {
+  it('returns nothing on the first tick so a backlog never toasts at once', () => {
+    const rows = [makeTickRow({ id: 9 }), makeTickRow({ id: 8 })];
+    expect(toastableRows(rows, null)).toEqual([]);
+  });
+
+  it('only toasts rows newer than the watermark', () => {
+    const rows = [makeTickRow({ id: 11 }), makeTickRow({ id: 10 }), makeTickRow({ id: 9 })];
+    expect(toastableRows(rows, 10).map((r) => r.id)).toEqual([11]);
+  });
+
+  it('ignores agent-generated chatter (comments, lane moves, dates, sprints)', () => {
+    const rows = [
+      makeTickRow({ id: 12, kind: 'card.commented' }),
+      makeTickRow({ id: 13, kind: 'card.column_changed' }),
+      makeTickRow({ id: 14, kind: 'card.due_date_changed' }),
+      makeTickRow({ id: 15, kind: 'card.sprint_changed' }),
+      makeTickRow({ id: 16, kind: 'card.dependency_added' }),
+    ];
+    expect(toastableRows(rows, 11)).toEqual([]);
+  });
+
+  it('toasts mentions and assignments, oldest first', () => {
+    const rows = [
+      makeTickRow({ id: 20, kind: 'card.assignee_added' }),
+      makeTickRow({ id: 19, kind: 'card.commented' }),
+      makeTickRow({ id: 18, kind: 'comment.mention' }),
+    ];
+    expect(toastableRows(rows, 17).map((r) => r.id)).toEqual([18, 20]);
+  });
+});
+
+describe('NotificationBell — staff sessions (PUX-090 guard split)', () => {
+  it('fetches the PM feed for an admin session but never the CRM feed', async () => {
+    sessionState.role = 'admin';
+    const fetchMock = stubFetch({ pm: { rows: [makePmRow()], unread: 1 } });
+    const { container } = render(<NotificationBell />);
+    await flush();
+    await openDropdown(container);
+
+    const urls = fetchMock.mock.calls.map((c) => c[0] as string);
+    expect(urls.some((u) => u.startsWith('/api/portal/notifications/tick'))).toBe(true);
+    expect(urls.some((u) => u.startsWith('/api/portal/notifications?'))).toBe(true);
+    // The CRM feed is (clientId, userId)-scoped and 404s without a portal
+    // client — this is the request that made the old blanket guard look
+    // necessary.
+    expect(urls.some((u) => u.startsWith('/api/portal/crm/notifications'))).toBe(false);
+  });
+
+  it('renders PM rows for staff — the bell used to be permanently empty for them', async () => {
+    sessionState.role = 'employee';
+    stubFetch({ pm: { rows: [makePmRow({ title: 'Dan assigned you PUX-090' })], unread: 1 } });
+    const { container } = render(<NotificationBell />);
+    await flush();
+    await openDropdown(container);
+    expect(container.textContent).toContain('Dan assigned you PUX-090');
+  });
+
+  it('skips the CRM bulk endpoint when marking all read as staff', async () => {
+    sessionState.role = 'admin';
+    const onCrmMarkAll = vi.fn(() => makeJsonResponse({ success: true }));
+    const fetchMock = stubFetch({
+      pm: { rows: [makePmRow()], unread: 1 },
+      onCrmMarkAll,
+    });
+    const { container } = render(<NotificationBell />);
+    await flush();
+    await openDropdown(container);
+
+    const markAllBtn = Array.from(container.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Mark all read'),
+    ) as HTMLButtonElement;
+    await act(async () => {
+      fireEvent.click(markAllBtn);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(onCrmMarkAll).not.toHaveBeenCalled();
+    expect(
+      fetchMock.mock.calls.some((c) => (c[0] as string).includes('/api/portal/notifications/mark-read')),
+    ).toBe(true);
+  });
+});
+
+describe('NotificationBell — poll cadence', () => {
+  it('backs off to 120s while the tab is hidden instead of pausing', async () => {
+    const visibility = vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden');
+    const fetchMock = stubFetch();
+    render(<NotificationBell />);
+    await flush();
+
+    const tickCalls = () =>
+      fetchMock.mock.calls.filter((c) => (c[0] as string).startsWith('/api/portal/notifications/tick')).length;
+    const afterMount = tickCalls();
+
+    // The visible-tab cadence must NOT fire a hidden tab's next poll...
+    await act(async () => {
+      vi.advanceTimersByTime(45_000);
+      await Promise.resolve();
+    });
+    expect(tickCalls()).toBe(afterMount);
+
+    // ...but the tab must keep polling, because a backgrounded tab is exactly
+    // when a desktop toast is worth raising.
+    await act(async () => {
+      vi.advanceTimersByTime(80_000);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(tickCalls()).toBeGreaterThan(afterMount);
+
+    visibility.mockRestore();
+  });
+});
+
+describe('NotificationBell — desktop notifications', () => {
+  const constructed: Array<{ title: string; options?: NotificationOptions }> = [];
+
+  class MockNotification {
+    static permission: NotificationPermission = 'granted';
+    static requestPermission = vi.fn(async () => MockNotification.permission);
+    onclick: (() => void) | null = null;
+    close = vi.fn();
+    constructor(title: string, options?: NotificationOptions) {
+      constructed.push({ title, options });
+    }
+  }
+
+  beforeEach(() => {
+    constructed.length = 0;
+    MockNotification.permission = 'granted';
+    MockNotification.requestPermission.mockClear();
+    vi.stubGlobal('Notification', MockNotification);
+    window.localStorage.clear();
+  });
+
+  afterEach(() => {
+    window.localStorage.clear();
+  });
+
+  it('raises a toast for a new mention once the watermark is established', async () => {
+    window.localStorage.setItem('portal:desktopNotifications', '1');
+    const latest: TickRowFixture[] = [makeTickRow({ id: 10 })];
+    stubFetch({ latest });
+    render(<NotificationBell />);
+    await flush();
+
+    // First tick only sets the watermark.
+    expect(constructed).toHaveLength(0);
+
+    latest.unshift(makeTickRow({ id: 11, title: 'Dan mentioned you on PUX-091', cardId: 1686 }));
+    await act(async () => {
+      vi.advanceTimersByTime(45_000);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(constructed).toHaveLength(1);
+    expect(constructed[0].title).toBe('Dan mentioned you on PUX-091');
+    // Repeats on one card collapse rather than stacking.
+    expect(constructed[0].options?.tag).toBe('card-1686');
+  });
+
+  it('stays silent when the toggle is off, and does not replay on enable', async () => {
+    const latest: TickRowFixture[] = [makeTickRow({ id: 10 })];
+    stubFetch({ latest });
+    render(<NotificationBell />);
+    await flush();
+
+    latest.unshift(makeTickRow({ id: 11 }));
+    await act(async () => {
+      vi.advanceTimersByTime(45_000);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(constructed).toHaveLength(0);
+    // Watermark still advanced, so turning the toggle on later can't backfill.
+    expect(toastableRows(latest as never, 11)).toEqual([]);
+  });
+
+  it('asks for permission from the toggle click, not on mount', async () => {
+    MockNotification.permission = 'default';
+    stubFetch();
+    const { container } = render(<NotificationBell />);
+    await flush();
+    // Prompting on load is what gets a site downranked by Chrome and ignored
+    // outright by Safari.
+    expect(MockNotification.requestPermission).not.toHaveBeenCalled();
+
+    await openDropdown(container);
+    const toggle = container.querySelector('button[role="switch"]') as HTMLButtonElement;
+    expect(toggle).toBeTruthy();
+    await act(async () => {
+      fireEvent.click(toggle);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(MockNotification.requestPermission).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows the toggle as Blocked when the browser has denied the origin', async () => {
+    MockNotification.permission = 'denied';
+    stubFetch();
+    const { container } = render(<NotificationBell />);
+    await flush();
+    await openDropdown(container);
+    const toggle = container.querySelector('button[role="switch"]') as HTMLButtonElement;
+    expect(toggle.textContent).toContain('Blocked');
+    expect(toggle.disabled).toBe(true);
   });
 });

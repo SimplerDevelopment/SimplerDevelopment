@@ -42,8 +42,55 @@ interface UnifiedNotif {
   group: string;
 }
 
+// Visible tabs poll at the original cadence; hidden tabs back off but keep
+// polling — a backgrounded tab is precisely when a desktop notification earns
+// its keep, so pausing on `hidden` would defeat the feature.
 const POLL_INTERVAL_MS = 45_000;
+const HIDDEN_POLL_INTERVAL_MS = 120_000;
 const LIST_LIMIT = 20;
+
+const DESKTOP_PREF_KEY = 'portal:desktopNotifications';
+
+/**
+ * Which PM notification kinds are worth interrupting someone with an OS-level
+ * toast. Deliberately narrower than the email set in lib/pm-notifications.ts:
+ * agents are instructed to leave their working trail as card comments
+ * (`kanban_card_add_comment`) and to move cards through lanes
+ * (`kanban_move_card`), and both flow through the same notifyCardEvent path.
+ * Toasting on those would mean a popup per agent breadcrumb. These two mean a
+ * human wants *you* specifically.
+ */
+const DESKTOP_TOAST_KINDS = new Set(['comment.mention', 'card.assignee_added']);
+
+// Trimmed row shape returned by /api/portal/notifications/tick.
+export interface TickRow {
+  id: number;
+  kind: string;
+  title: string;
+  body: string | null;
+  cardId: number | null;
+  projectId: number | null;
+  createdAt: string;
+}
+
+/**
+ * Pure toast policy — which rows deserve a desktop notification this tick.
+ *
+ * `lastSeenId === null` means this is the first tick of the session: return
+ * nothing and let the caller record the watermark. Without that, opening the
+ * portal would fire a burst of toasts for a backlog of old notifications —
+ * very visible for staff accounts, whose bell was showing nothing at all until
+ * the role-guard fix below.
+ *
+ * Exported for unit tests so the policy can be checked without standing up a
+ * jsdom `Notification` mock.
+ */
+export function toastableRows(latest: TickRow[], lastSeenId: number | null): TickRow[] {
+  if (lastSeenId === null) return [];
+  return latest
+    .filter((r) => r.id > lastSeenId && DESKTOP_TOAST_KINDS.has(r.kind))
+    .sort((a, b) => a.id - b.id);
+}
 
 function relativeTime(dateStr: string): string {
   const now = Date.now();
@@ -188,21 +235,38 @@ function groupNotifications(items: UnifiedNotif[]): NotificationGroup[] {
 export default function NotificationBell() {
   const router = useRouter();
   const { data: session } = useSession();
-  // These feeds are portal (tenant-client) scoped. Staff/admin sessions can
-  // browse /portal/** (e.g. to check on a client) but have no associated
-  // portal client, so both backing routes 404 for them — skip the fetch
-  // entirely rather than firing a request that can never succeed.
-  const isPortalClient = session?.user?.role === 'client';
+  // Only the CRM feed is tenant-client scoped: it queries (clientId, userId)
+  // and 404s for a session with no portal client. The PM feed is NOT — it
+  // reads `notifications` by userId alone, so it works for every authenticated
+  // role. Gating both on `role === 'client'` (as this did until PUX-090) left
+  // admin/employee sessions with a permanently empty bell while notifyCardEvent
+  // was writing rows addressed to them. Roles are admin | employee | client.
+  const canFetchCrm = session?.user?.role === 'client';
   const [notifications, setNotifications] = useState<UnifiedNotif[]>([]);
   const [pmUnread, setPmUnread] = useState(0);
   const [crmUnread, setCrmUnread] = useState(0);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [filterUnread, setFilterUnread] = useState(false);
+  const [listLoaded, setListLoaded] = useState(false);
+  // One object rather than three booleans: they're always read together and
+  // always written together, and it keeps the client-only adoption below to a
+  // single setState.
+  const [desktop, setDesktop] = useState({ supported: false, enabled: false, blocked: false });
   const containerRef = useRef<HTMLDivElement>(null);
+  // Highest notification id this session has already accounted for. A ref, not
+  // state, so advancing it never re-renders or re-creates the poll callback.
+  const lastSeenIdRef = useRef<number | null>(null);
+  // Mirrors desktopEnabled so `tick` can read it without listing it as a dep
+  // (which would tear down and rebuild the polling timer on every toggle).
+  const desktopEnabledRef = useRef(false);
+  // Same reasoning for the router: `useRouter()` is stable in the real app but
+  // nothing guarantees it, and a router in the dep chain would rebuild the
+  // poll timer on every render — resetting the interval so it never actually
+  // elapses. Held in a ref so `fireToast` and `tick` stay referentially stable.
+  const routerRef = useRef(router);
 
   const fetchAll = useCallback(async (unreadOnly: boolean) => {
-    if (!isPortalClient) return;
     const pmParams = new URLSearchParams();
     pmParams.set('limit', String(LIST_LIMIT));
     if (unreadOnly) pmParams.set('unread', '1');
@@ -224,6 +288,7 @@ export default function NotificationBell() {
         }
       })(),
       (async () => {
+        if (!canFetchCrm) return null;
         try {
           const res = await fetch(`/api/portal/crm/notifications?${crmParams.toString()}`);
           if (!res.ok) return null;
@@ -245,19 +310,127 @@ export default function NotificationBell() {
     setNotifications(merged);
     setPmUnread(pmResult?.unread ?? 0);
     setCrmUnread(crmResult?.unread ?? 0);
-  }, [isPortalClient]);
+    setListLoaded(true);
+  }, [canFetchCrm]);
 
-  // Initial fetch + polling for the badge count / list
   useEffect(() => {
-    void (async () => {
-      await fetchAll(filterUnread);
-    })();
-    const interval = setInterval(() => fetchAll(filterUnread), POLL_INTERVAL_MS);
-    return () => clearInterval(interval);
-  }, [fetchAll, filterUnread]);
+    desktopEnabledRef.current = desktop.enabled;
+  }, [desktop.enabled]);
 
-  // Refresh when the dropdown opens — gives users an immediate up-to-date view
-  // even if they're between poll ticks.
+  useEffect(() => {
+    routerRef.current = router;
+  }, [router]);
+
+  // Restore the per-device toggle. Permission is per-origin/per-device and can
+  // be revoked in browser settings behind our back, so the stored flag is only
+  // honoured when the live permission still agrees.
+  // `Notification.permission` and localStorage are client-only. Reading them in
+  // a lazy useState initializer would throw during SSR and, past that, hydrate
+  // to a different value than the server rendered — so adopting a browser-only
+  // value in an effect is correct here, not the cascading-render smell the rule
+  // is aimed at.
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('Notification' in window)) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- see above
+    setDesktop({
+      supported: true,
+      blocked: Notification.permission === 'denied',
+      enabled:
+        window.localStorage.getItem(DESKTOP_PREF_KEY) === '1' &&
+        Notification.permission === 'granted',
+    });
+  }, []);
+
+  const fireToast = useCallback((row: TickRow) => {
+    const url = pmEntityUrl(row.cardId, row.projectId);
+    try {
+      const toast = new Notification(row.title, {
+        body: row.body ?? undefined,
+        // Collapse repeats for one card into a single toast instead of
+        // stacking a column of near-identical popups.
+        tag: row.cardId ? `card-${row.cardId}` : `notif-${row.id}`,
+        icon: '/iconLogo.png',
+      });
+      toast.onclick = () => {
+        window.focus();
+        if (url) routerRef.current.push(url);
+        toast.close();
+      };
+    } catch {
+      // Some browsers throw on construction (e.g. Android Chrome requires a
+      // service worker). Failing to toast must never break the badge poll.
+    }
+  }, []);
+
+  /**
+   * One poll: counts for the badge, plus the few newest PM rows so we can
+   * decide whether to toast. Cheap enough to keep running in a hidden tab.
+   */
+  const tick = useCallback(async () => {
+    try {
+      const res = await fetch('/api/portal/notifications/tick');
+      if (!res.ok) return;
+      const json = await res.json();
+      if (!json.success) return;
+      const data = json.data as { pmUnread: number; crmUnread: number; latest: TickRow[] };
+
+      setPmUnread(data.pmUnread ?? 0);
+      // The tick route resolves the CRM count through getPortalClient, which
+      // honours staff impersonation — so it can report a count for a session
+      // whose dropdown never lists CRM rows (the list is gated on the session
+      // role, not the impersonated client). Ignore it in that case rather than
+      // showing a badge the list can't account for.
+      setCrmUnread(canFetchCrm ? data.crmUnread ?? 0 : 0);
+
+      const latest = data.latest ?? [];
+      if (desktopEnabledRef.current) {
+        for (const row of toastableRows(latest, lastSeenIdRef.current)) fireToast(row);
+      }
+      // Advance the watermark even when toasts are off, so switching the
+      // toggle on doesn't replay everything that arrived while it was off.
+      if (latest.length > 0) {
+        lastSeenIdRef.current = Math.max(...latest.map((r) => r.id));
+      }
+    } catch {
+      // Offline / navigating away — next tick retries.
+    }
+  }, [fireToast, canFetchCrm]);
+
+  // Self-rescheduling poll rather than a fixed setInterval, so the delay can
+  // follow tab visibility and so a slow response can't stack up overlapping
+  // requests.
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    let stopped = false;
+
+    const run = async () => {
+      await tick();
+      if (stopped) return;
+      const delay =
+        document.visibilityState === 'hidden' ? HIDDEN_POLL_INTERVAL_MS : POLL_INTERVAL_MS;
+      timer = setTimeout(run, delay);
+    };
+
+    const onVisibilityChange = () => {
+      // Returning to the tab shouldn't wait out a long hidden-tab delay that's
+      // already in flight.
+      if (document.visibilityState !== 'visible') return;
+      if (timer) clearTimeout(timer);
+      void run();
+    };
+
+    void run();
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => {
+      stopped = true;
+      if (timer) clearTimeout(timer);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, [tick]);
+
+  // The full row list is only needed once the dropdown is actually open — the
+  // badge runs off the tick above. This is what took the steady-state poll from
+  // two 20-row payloads every 45s down to one count-sized one.
   useEffect(() => {
     if (!open) return;
     void (async () => {
@@ -281,6 +454,26 @@ export default function NotificationBell() {
   const groups = useMemo(() => groupNotifications(notifications), [notifications]);
   const unreadCount = pmUnread + crmUnread;
 
+  const toggleDesktop = async () => {
+    if (desktop.enabled) {
+      setDesktop((prev) => ({ ...prev, enabled: false }));
+      window.localStorage.setItem(DESKTOP_PREF_KEY, '0');
+      return;
+    }
+    // Safari only honours requestPermission() when it originates from a user
+    // gesture — this click IS that gesture, which is why the prompt lives on a
+    // button and is never hoisted into an effect. (Chrome also downranks sites
+    // that prompt unprompted on load.)
+    let permission = Notification.permission;
+    if (permission === 'default') permission = await Notification.requestPermission();
+    if (permission !== 'granted') {
+      setDesktop((prev) => ({ ...prev, blocked: permission === 'denied' }));
+      return;
+    }
+    setDesktop((prev) => ({ ...prev, blocked: false, enabled: true }));
+    window.localStorage.setItem(DESKTOP_PREF_KEY, '1');
+  };
+
   const markAllRead = async () => {
     setLoading(true);
     try {
@@ -290,7 +483,9 @@ export default function NotificationBell() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ all: true }),
         }).catch(() => null),
-        fetch('/api/portal/crm/notifications/mark-all-read', { method: 'POST' }).catch(() => null),
+        canFetchCrm
+          ? fetch('/api/portal/crm/notifications/mark-all-read', { method: 'POST' }).catch(() => null)
+          : null,
       ]);
       setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
       setPmUnread(0);
@@ -403,8 +598,40 @@ export default function NotificationBell() {
             )}
           </div>
 
+          {desktop.supported && (
+            <div className="flex items-center justify-between px-4 py-2 border-b border-border bg-muted/20">
+              <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                <span aria-hidden="true" className="material-icons text-[14px] leading-none">
+                  desktop_windows
+                </span>
+                Desktop notifications
+              </span>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={desktop.enabled}
+                onClick={toggleDesktop}
+                disabled={desktop.blocked && !desktop.enabled}
+                title={
+                  desktop.blocked && !desktop.enabled
+                    ? 'Notifications are blocked for this site in your browser settings.'
+                    : 'Mentions and assignments will pop up on your desktop.'
+                }
+                className={`text-[11px] px-2 py-0.5 rounded-full border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                  desktop.enabled
+                    ? 'bg-primary/10 border-primary/30 text-primary'
+                    : 'border-border text-muted-foreground hover:bg-muted'
+                }`}
+              >
+                {desktop.blocked && !desktop.enabled ? 'Blocked' : desktop.enabled ? 'On' : 'Off'}
+              </button>
+            </div>
+          )}
+
           <div className="max-h-96 overflow-y-auto">
-            {notifications.length === 0 ? (
+            {!listLoaded ? (
+              <div className="px-4 py-10 text-center text-sm text-muted-foreground">Loading…</div>
+            ) : notifications.length === 0 ? (
               <div className="px-4 py-10 text-center text-sm text-muted-foreground">
                 <span className="material-icons text-3xl text-muted-foreground/40 mb-2 block">
                   notifications_none

@@ -1,78 +1,11 @@
 import { NextResponse } from 'next/server';
-import { unstable_cache, revalidateTag } from 'next/cache';
+import { revalidateTag } from 'next/cache';
 import { auth } from '@/lib/auth';
 import { getPortalClient } from '@/lib/portal-client';
 import { db } from '@/lib/db';
 import { crmNotifications } from '@/lib/db/schema';
-import { and, eq, desc, inArray, sql } from 'drizzle-orm';
-
-// Per-user notification snapshot cache (recent rows + unread count) used by
-// the layout-shell bell on every page nav. 15s TTL — short because users
-// expect new notifications to surface promptly, long enough to absorb the
-// per-nav fan-out. Mark-read mutations below + any code path that inserts a
-// row into `crmNotifications` should call
-// `revalidateTag('notifications:'+userId)` to flush immediately.
-//
-// We key on (clientId, userId, limit, unreadOnly) so the bell-bar's canonical
-// `?limit=20` query doesn't collide with a dropdown asking for `?limit=50`.
-async function _getNotificationsSnapshotUncached(
-  clientId: number,
-  userId: number,
-  limit: number,
-  unreadOnly: boolean,
-) {
-  const baseScope = unreadOnly
-    ? and(
-        eq(crmNotifications.clientId, clientId),
-        eq(crmNotifications.userId, userId),
-        eq(crmNotifications.read, false),
-      )
-    : and(eq(crmNotifications.clientId, clientId), eq(crmNotifications.userId, userId));
-
-  const [notifications, countRows] = await Promise.all([
-    db.select()
-      .from(crmNotifications)
-      .where(baseScope)
-      .orderBy(desc(crmNotifications.createdAt))
-      .limit(limit),
-    db.select({ count: sql<number>`count(*)::int` })
-      .from(crmNotifications)
-      .where(and(
-        eq(crmNotifications.clientId, clientId),
-        eq(crmNotifications.userId, userId),
-        eq(crmNotifications.read, false),
-      )),
-  ]);
-
-  return {
-    notifications,
-    unreadCount: countRows[0]?.count ?? 0,
-  };
-}
-
-async function getNotificationsSnapshotCached(
-  clientId: number,
-  userId: number,
-  limit: number,
-  unreadOnly: boolean,
-) {
-  try {
-    return await unstable_cache(
-      () => _getNotificationsSnapshotUncached(clientId, userId, limit, unreadOnly),
-      [
-        'portal-notifications-snapshot',
-        String(clientId),
-        String(userId),
-        String(limit),
-        unreadOnly ? '1' : '0',
-      ],
-      { revalidate: 15, tags: ['notifications', `notifications:${userId}`] },
-    )();
-  } catch {
-    // Outside a request context (tests/cron/MCP) — incrementalCache unavailable.
-    return _getNotificationsSnapshotUncached(clientId, userId, limit, unreadOnly);
-  }
-}
+import { getCrmNotificationsSnapshot } from '@/lib/crm/notifications';
+import { and, eq, inArray } from 'drizzle-orm';
 
 async function getAuthedClient() {
   const session = await auth();
@@ -99,7 +32,7 @@ export async function GET(req: Request) {
     }
   }
 
-  const { notifications, unreadCount } = await getNotificationsSnapshotCached(
+  const { notifications, unreadCount } = await getCrmNotificationsSnapshot(
     client.id,
     userId,
     limit,

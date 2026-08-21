@@ -6,8 +6,8 @@ import {
   notificationPreferences,
   type NotificationDelivery,
 } from '@/lib/db/schema';
-import { eq, and, ne, or } from 'drizzle-orm';
-import { revalidateTag } from 'next/cache';
+import { eq, and, ne, or, desc, sql } from 'drizzle-orm';
+import { revalidateTag, unstable_cache } from 'next/cache';
 
 /**
  * Invalidate the per-user `notifications:<userId>` cache tag used by
@@ -207,4 +207,81 @@ export async function notifyApprovers(params: {
   const inserted = await db.insert(crmNotifications).values(values).returning();
   invalidateNotificationsCache(filtered.map((f) => f.userId));
   return inserted;
+}
+
+/**
+ * Read side of the CRM notification feed, shared by the bell's two consumers:
+ * `/api/portal/crm/notifications` (the full dropdown list) and
+ * `/api/portal/notifications/tick` (the badge/toast poll, which wants only
+ * `unreadCount`).
+ *
+ * It lives here rather than in either route because a Next.js `route.ts` may
+ * only export HTTP handlers and route config — exporting a helper from one
+ * fails the generated route type-check, so the two routes would otherwise
+ * have to duplicate the query and the cache policy.
+ *
+ * The 15s TTL is short because users expect new notifications promptly, long
+ * enough to absorb the per-nav fan-out from a bell that mounts on every portal
+ * page. `invalidateNotificationsCache` above flushes it on insert so a fresh
+ * notification doesn't wait out the TTL. The cache key includes `limit`, so
+ * the tick poll (limit 1) and the dropdown (limit 20) hold separate entries —
+ * both carry the same `notifications:<userId>` tag and flush together.
+ */
+async function _crmNotificationsSnapshotUncached(
+  clientId: number,
+  userId: number,
+  limit: number,
+  unreadOnly: boolean,
+) {
+  const baseScope = unreadOnly
+    ? and(
+        eq(crmNotifications.clientId, clientId),
+        eq(crmNotifications.userId, userId),
+        eq(crmNotifications.read, false),
+      )
+    : and(eq(crmNotifications.clientId, clientId), eq(crmNotifications.userId, userId));
+
+  const [rows, countRows] = await Promise.all([
+    db.select()
+      .from(crmNotifications)
+      .where(baseScope)
+      .orderBy(desc(crmNotifications.createdAt))
+      .limit(limit),
+    db.select({ count: sql<number>`count(*)::int` })
+      .from(crmNotifications)
+      .where(and(
+        eq(crmNotifications.clientId, clientId),
+        eq(crmNotifications.userId, userId),
+        eq(crmNotifications.read, false),
+      )),
+  ]);
+
+  return {
+    notifications: rows,
+    unreadCount: countRows[0]?.count ?? 0,
+  };
+}
+
+export async function getCrmNotificationsSnapshot(
+  clientId: number,
+  userId: number,
+  limit: number,
+  unreadOnly: boolean,
+) {
+  try {
+    return await unstable_cache(
+      () => _crmNotificationsSnapshotUncached(clientId, userId, limit, unreadOnly),
+      [
+        'portal-notifications-snapshot',
+        String(clientId),
+        String(userId),
+        String(limit),
+        unreadOnly ? '1' : '0',
+      ],
+      { revalidate: 15, tags: ['notifications', `notifications:${userId}`] },
+    )();
+  } catch {
+    // Outside a request context (tests/cron/MCP) — incrementalCache unavailable.
+    return _crmNotificationsSnapshotUncached(clientId, userId, limit, unreadOnly);
+  }
 }
