@@ -14,7 +14,7 @@ SimplerDevelopment exposes four distinct API surfaces. They are **not** intercha
 | **REST v1** | `/api/v1/sites/{siteId}/...` | `sd_live_` API key | Third-party headless renderers, agents fetching published content |
 | **Public** | `/api/public/...` | None | Unauthenticated clients (booking widgets, live-chat, slug lookups) |
 | **Portal internal** | `/api/portal/...` | Session cookie | Portal UI — not for third parties |
-| **MCP** | `/api/mcp` | `sd_mcp_` or `sd_oauth_` | AI agents and tools (477-tool surface) |
+| **MCP** | `/api/mcp` | `sd_mcp_` or `sd_oauth_` | AI agents and tools (478-tool surface) |
 
 ---
 
@@ -187,7 +187,7 @@ The portal internal surface covers every operation available in the portal UI. B
 
 ## Surface 4 — MCP
 
-**Purpose:** AI agent and tool access. 477 tools covering every portal domain. See **[Tool Reference](./tool-reference.md)** for the full tool catalogue.
+**Purpose:** AI agent and tool access. 478 tools covering every portal domain. See **[Tool Reference](./tool-reference.md)** for the full tool catalogue.
 
 ### Endpoint
 
@@ -208,7 +208,7 @@ Send as `Authorization: Bearer <credential>`.
 
 ### Scope model
 
-See [Tool Reference → Scopes](./tool-reference.md#scopes) for the full scope list. In brief: `*` wildcard grants all 477 tools; named scopes restrict to a domain (e.g. `brain:read`, `kanban:write`).
+See [Tool Reference → Scopes](./tool-reference.md#scopes) for the full scope list. In brief: `*` wildcard grants all 478 tools; named scopes restrict to a domain (e.g. `brain:read`, `kanban:write`).
 
 ---
 

@@ -1,6 +1,6 @@
 {
   "manifestVersion": 1,
-  "toolCount": 477,
+  "toolCount": 478,
   "domains": [
     {
       "name": "agent",
@@ -84,7 +84,7 @@
     },
     {
       "name": "kanban",
-      "tools": 42
+      "tools": 43
     },
     {
       "name": "linkedin",
@@ -9528,6 +9528,92 @@
       ]
     },
     {
+      "name": "kanban_cards_search",
+      "cmd": "kanban cards-search",
+      "domain": "kanban",
+      "desc": "Find cards across this company's boards by title text, lane, label, type, priority or workflow state — without reading a whole board. Use it before creating a card to check whether one already exists; `kanban_list_board` on the SD master board is ~370 cards / ~56k tokens, which is why agents used to skip the check and file duplicates. Omit `projectId` to search every project the company owns. Returns a slim projection with the resolved lane name and labels — call `kanban_get_card` for a card's description. `truncated:true` means the cap was hit and more matches exist.",
+      "destructive": false,
+      "scope": "projects:read",
+      "args": [
+        {
+          "name": "query",
+          "type": "string",
+          "required": false,
+          "desc": "Case-insensitive substring matched against the card title (and description when searchDescription is true)."
+        },
+        {
+          "name": "projectId",
+          "type": "number",
+          "required": false,
+          "desc": "Restrict to one board. Omit to search every project this company owns."
+        },
+        {
+          "name": "column",
+          "type": "string",
+          "required": false,
+          "desc": "Lane name, case-insensitive (e.g. \"In Progress\"). Ignored if columnId is given. With no projectId this matches that lane on every board."
+        },
+        {
+          "name": "columnId",
+          "type": "number",
+          "required": false,
+          "desc": "Lane id — takes precedence over `column`."
+        },
+        {
+          "name": "labels",
+          "type": "json",
+          "required": false,
+          "desc": "Label names, case-insensitive. A card matches if it carries ANY of them."
+        },
+        {
+          "name": "cardType",
+          "type": "string",
+          "required": false,
+          "enum": [
+            "task",
+            "story",
+            "epic",
+            "bug",
+            "spike"
+          ]
+        },
+        {
+          "name": "priority",
+          "type": "string",
+          "required": false,
+          "enum": [
+            "low",
+            "medium",
+            "high",
+            "urgent"
+          ]
+        },
+        {
+          "name": "workflowState",
+          "type": "string",
+          "required": false,
+          "enum": [
+            "todo",
+            "in_progress",
+            "in_review",
+            "done",
+            "canceled"
+          ]
+        },
+        {
+          "name": "searchDescription",
+          "type": "boolean",
+          "required": false,
+          "desc": "Also match `query` against the long-text description. Off by default: title matching is what dedup needs, and descriptions are the expensive column to scan."
+        },
+        {
+          "name": "limit",
+          "type": "number",
+          "required": false
+        }
+      ]
+    },
+    {
       "name": "kanban_checklist_add",
       "cmd": "kanban checklist-add",
       "domain": "kanban",
@@ -14178,6 +14264,12 @@
             "daily",
             "weekly"
           ]
+        },
+        {
+          "name": "notifyUserIds",
+          "type": "json",
+          "required": false,
+          "desc": "Portal user ids to notify on each response. Every id must already be a member of this client — ids that are not are rejected, not silently dropped. Empty array falls back to the account owner."
         },
         {
           "name": "scoringConfig",
