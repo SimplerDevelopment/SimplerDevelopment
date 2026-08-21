@@ -200,5 +200,5 @@
       "schedule": "15 7 * * *"
     }
   ],
-  "ignoreCommand": "D=$(git diff --name-only HEAD~1 HEAD 2>/dev/null) && [ -n \"$D\" ] || exit 1; ! printf '%s\\n' \"$D\" | awk '!/\\.md$/ || /^docs\\// || /^\\.claude\\//' | grep -q ."
+  "ignoreCommand": "case \"$VERCEL_GIT_COMMIT_REF\" in main|staging|dev|dev/*) ;; *) exit 0 ;; esac; D=$(git diff --name-only HEAD~1 HEAD 2>/dev/null) && [ -n \"$D\" ] || exit 1; ! printf '%s\\n' \"$D\" | awk '!/\\.md$/ || /^docs\\// || /^\\.claude\\//' | grep -q ."
 }
