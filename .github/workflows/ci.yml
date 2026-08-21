@@ -67,9 +67,12 @@ jobs:
           # Restyling a component is a code change but cannot leak a clientId,
           # and running the suite for it spent ~18 min of CI on a result that
           # could not have failed for a reason the diff caused. Paths mirror the
-          # trigger .githooks/pre-push used before the gate became CI-only.
+          # trigger .githooks/pre-push used before the gate became CI-only,
+          # plus lib/mcp/: 31 tool registrars run tenant-scoped queries behind
+          # `ctx.client.id`, so a scoping bug there leaks exactly what this suite
+          # exists to catch — and none of them matched the paths above.
           # Fails OPEN with the block above: an unresolvable base runs it.
-          if grep -qE '^(lib/db/|app/api/|lib/active-client\.ts)' <<<"$CHANGED"; then
+          if grep -qE '^(lib/db/|app/api/|lib/mcp/|lib/active-client\.ts)' <<<"$CHANGED"; then
             echo "data_access=true" >> "$GITHUB_OUTPUT"; echo "==> data-access change: tenancy suite runs"
           else
             echo "data_access=false" >> "$GITHUB_OUTPUT"; echo "==> no data-access change: skipping tenancy"
