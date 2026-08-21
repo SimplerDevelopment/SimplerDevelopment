@@ -174,7 +174,7 @@ export function RetroCard({
 }) {
   const body = (
     <div
-      className={`flex h-full flex-col gap-3 rounded-md border p-6 transition-colors ${
+      className={`group/card flex h-full flex-col gap-3 rounded-md border p-6 transition-colors ${
         media ? 'overflow-hidden' : ''
       } ${
         accent
@@ -192,7 +192,19 @@ export function RetroCard({
           // fold, and without it the slot flashes as a bare cream gap that
           // reads as a broken image rather than a loading one. The art is a
           // near-black navy card, so ink is the correct placeholder.
-          className="-mx-6 -mt-6 mb-1 h-32 w-[calc(100%+3rem)] max-w-none bg-[var(--retro-ink)] object-cover"
+          // Hover fades the art to its inverted state. `invert(1) hue-rotate(180deg)`
+          // rather than a plain invert: a straight invert sends this palette's
+          // gold to blue and orange to cyan, and there is no blue in the retro
+          // system. The hue-rotate lands within ~2% of a true luminance invert,
+          // so the ground flips light while gold and orange survive.
+          //
+          // The resting state declares invert(0) hue-rotate(0deg) rather than
+          // leaving filter unset: CSS only interpolates between matching filter
+          // function lists, and `none` -> `invert(1) hue-rotate(180deg)` snaps
+          // instead of fading. A NAMED group (group/card) because RetroCard can
+          // sit inside other `group` wrappers and an unnamed group-hover would
+          // fire from whichever ancestor happened to be hovered.
+          className="-mx-6 -mt-6 mb-1 h-32 w-[calc(100%+3rem)] max-w-none bg-[var(--retro-ink)] object-cover [filter:invert(0)_hue-rotate(0deg)] transition-[filter] duration-500 group-hover/card:[filter:invert(1)_hue-rotate(180deg)] motion-reduce:transition-none"
         />
       )}
       <div className="flex items-start justify-between gap-4">

@@ -132,6 +132,13 @@ export function SolutionsMegaMenu() {
                           alt=""
                           fill
                           sizes="(min-width: 1280px) 22vw, (min-width: 1024px) 30vw, 45vw"
+                          // NO invert-on-hover here, unlike the /solutions cards.
+                          // There the art is a header with nothing on top of it;
+                          // here it sits BEHIND the card's cream title and feature
+                          // list. Inverting the ground to near-white takes that
+                          // text from readable to washed out — tried it, measured
+                          // it by eye against the live menu, reverted it. The
+                          // opacity lift is the hover state this surface gets.
                           className="absolute inset-0 object-cover opacity-80 transition-opacity duration-200 group-hover:opacity-100"
                         />
                         <span
