@@ -1,9 +1,11 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { getAllSolutions } from '@/lib/data/solutions';
+import { getSolutionArt } from '@/lib/data/solution-art';
 
 /**
  * Desktop "Solutions" nav item with a full-width mega-menu pane. Hovering (or
@@ -103,7 +105,9 @@ export function SolutionsMegaMenu() {
             {/* Card grid */}
             <div className="max-h-[72vh] overflow-y-auto p-5">
               <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-                {solutions.map((solution, index) => (
+                {solutions.map((solution, index) => {
+                  const art = getSolutionArt(solution.slug);
+                  return (
                   <Link
                     key={solution.slug}
                     href={`/solutions/${solution.slug}`}
@@ -111,6 +115,33 @@ export function SolutionsMegaMenu() {
                     className="group relative overflow-hidden rounded-md border border-[color-mix(in_srgb,var(--retro-gold)_25%,transparent)] p-4 transition-colors hover:border-[var(--retro-gold)]"
                     style={{ backgroundColor: 'color-mix(in srgb, var(--retro-cream) 6%, transparent)' }}
                   >
+                    {/* Card-background art, where the module has any. Rendered
+                        FIRST so it sits under the watermark and the z-10
+                        content layer without needing a z-index of its own.
+                        The art is already quiet and mostly dark negative space
+                        by design, but the scrim guarantees the feature list
+                        stays legible over the brighter motifs (the CRM and
+                        contracts pieces have the most light in them).
+                        Absent `art` renders nothing and the card looks exactly
+                        as it did before — which is how the seven modules
+                        without art still work. */}
+                    {art && (
+                      <>
+                        <Image
+                          src={art}
+                          alt=""
+                          fill
+                          sizes="(min-width: 1280px) 22vw, (min-width: 1024px) 30vw, 45vw"
+                          className="absolute inset-0 object-cover opacity-80 transition-opacity duration-200 group-hover:opacity-100"
+                        />
+                        <span
+                          aria-hidden
+                          className="absolute inset-0"
+                          style={{ backgroundColor: 'color-mix(in srgb, var(--retro-ink) 55%, transparent)' }}
+                        />
+                      </>
+                    )}
+
                     {/* Watermark number */}
                     <span
                       className="absolute -right-1 -top-3 text-5xl font-black leading-none select-none pointer-events-none"
@@ -144,7 +175,8 @@ export function SolutionsMegaMenu() {
                       ))}
                     </ul>
                   </Link>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </div>

@@ -1,5 +1,6 @@
 import Image from 'next/image';
 import { getAllSolutions } from '@/lib/data/solutions';
+import { getSolutionArt } from '@/lib/data/solution-art';
 import { generateSEO } from '@/lib/utils/seo';
 import { MaintenanceNotice, SOLUTIONS_UNDER_MAINTENANCE } from '@/components/marketing/MaintenanceNotice';
 import { PageHeader, CTABanner, CreamBand } from '@/components/retro/sections';
@@ -68,7 +69,13 @@ export default function SolutionsPage() {
         />
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {solutions.map((solution, i) => (
-            <RetroCard key={solution.slug} title={solution.title} index={i + 1} href={`/solutions/${solution.slug}`}>
+            <RetroCard
+              key={solution.slug}
+              title={solution.title}
+              index={i + 1}
+              href={`/solutions/${solution.slug}`}
+              media={getSolutionArt(solution.slug)}
+            >
               {solution.description}
             </RetroCard>
           ))}

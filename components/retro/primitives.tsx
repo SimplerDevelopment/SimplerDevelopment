@@ -152,6 +152,7 @@ export function RetroCard({
   index,
   href,
   accent = false,
+  media,
 }: {
   title: string;
   children: ReactNode;
@@ -159,15 +160,41 @@ export function RetroCard({
   index?: number;
   href?: string;
   accent?: boolean;
+  /**
+   * Full-bleed 3:2 header image — a web path, e.g. `/solutions/crm.webp`.
+   *
+   * Distinct from `icon`, which is a small mark in the corner from the
+   * transparent `/public/retro` set. `media` is an opaque dark card image that
+   * spans the card's full width, so it has to escape the card's own `p-6` —
+   * hence the negative margins and the `overflow-hidden` that clips it back to
+   * the rounded corner. Both are applied ONLY when media is passed, so the
+   * dozens of existing callers are untouched.
+   */
+  media?: string;
 }) {
   const body = (
     <div
       className={`flex h-full flex-col gap-3 rounded-md border p-6 transition-colors ${
+        media ? 'overflow-hidden' : ''
+      } ${
         accent
           ? 'border-[var(--retro-rust)] bg-[var(--retro-orange)] text-[var(--retro-cream)]'
           : 'border-[color-mix(in_srgb,var(--retro-mid)_35%,transparent)] bg-[var(--retro-cream)] text-[var(--retro-ink)] hover:border-[var(--retro-mid)]'
       }`}
     >
+      {media && (
+        <Image
+          src={media}
+          alt=""
+          width={900}
+          height={600}
+          // Dark base under the image: next/image lazy-loads these below the
+          // fold, and without it the slot flashes as a bare cream gap that
+          // reads as a broken image rather than a loading one. The art is a
+          // near-black navy card, so ink is the correct placeholder.
+          className="-mx-6 -mt-6 mb-1 h-32 w-[calc(100%+3rem)] max-w-none bg-[var(--retro-ink)] object-cover"
+        />
+      )}
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-center gap-3">
           {typeof index === 'number' && (
