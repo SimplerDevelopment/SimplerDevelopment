@@ -1,0 +1,189 @@
+{
+  "/SimplerDevMedia-prod": [
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "<anonymous> (/Users/dancoyle/simplerdevelopment/simplerdevelopment2026/infra/bin/app.ts:16:1)",
+        "<anonymous> (/Users/dancoyle/simplerdevelopment/simplerdevelopment2026/infra/bin/app.ts:28:2)",
+        "...node internals, tsx..."
+      ]
+    },
+    {
+      "type": "aws:cdk:stack-tags",
+      "data": [
+        {
+          "key": "ManagedBy",
+          "value": "cdk"
+        },
+        {
+          "key": "Project",
+          "value": "simplerdevelopment"
+        },
+        {
+          "key": "Stage",
+          "value": "prod"
+        }
+      ]
+    }
+  ],
+  "/SimplerDevMedia-prod/BucketName": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "BucketName"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "new MediaStack (/Users/dancoyle/simplerdevelopment/simplerdevelopment2026/infra/lib/media-stack.ts:93:5)",
+        "<anonymous> (/Users/dancoyle/simplerdevelopment/simplerdevelopment2026/infra/bin/app.ts:16:1)",
+        "<anonymous> (/Users/dancoyle/simplerdevelopment/simplerdevelopment2026/infra/bin/app.ts:28:2)",
+        "...node internals, tsx..."
+      ]
+    }
+  ],
+  "/SimplerDevMedia-prod/BucketRegion": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "BucketRegion"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "new MediaStack (/Users/dancoyle/simplerdevelopment/simplerdevelopment2026/infra/lib/media-stack.ts:94:5)",
+        "<anonymous> (/Users/dancoyle/simplerdevelopment/simplerdevelopment2026/infra/bin/app.ts:16:1)",
+        "<anonymous> (/Users/dancoyle/simplerdevelopment/simplerdevelopment2026/infra/bin/app.ts:28:2)",
+        "...node internals, tsx..."
+      ]
+    }
+  ],
+  "/SimplerDevMedia-prod/AppUserArn": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "AppUserArn"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "new MediaStack (/Users/dancoyle/simplerdevelopment/simplerdevelopment2026/infra/lib/media-stack.ts:95:5)",
+        "<anonymous> (/Users/dancoyle/simplerdevelopment/simplerdevelopment2026/infra/bin/app.ts:16:1)",
+        "<anonymous> (/Users/dancoyle/simplerdevelopment/simplerdevelopment2026/infra/bin/app.ts:28:2)",
+        "...node internals, tsx..."
+      ]
+    }
+  ],
+  "/SimplerDevMedia-prod/AccessKeyHint": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "AccessKeyHint"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "new MediaStack (/Users/dancoyle/simplerdevelopment/simplerdevelopment2026/infra/lib/media-stack.ts:96:5)",
+        "<anonymous> (/Users/dancoyle/simplerdevelopment/simplerdevelopment2026/infra/bin/app.ts:16:1)",
+        "<anonymous> (/Users/dancoyle/simplerdevelopment/simplerdevelopment2026/infra/bin/app.ts:28:2)",
+        "...node internals, tsx..."
+      ]
+    }
+  ],
+  "/SimplerDevMedia-prod/BootstrapVersion": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "BootstrapVersion"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...aws-cdk-lib...",
+        "(no user code in 10 frames, use --stack-trace-limit to capture more)"
+      ]
+    }
+  ],
+  "/SimplerDevMedia-prod/CheckBootstrapVersion": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "CheckBootstrapVersion"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...aws-cdk-lib...",
+        "(no user code in 10 frames, use --stack-trace-limit to capture more)"
+      ]
+    }
+  ],
+  "/SimplerDevMedia-prod/MediaBucket/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "MediaBucketBCBB02BA"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new Bucket2 in aws-cdk-lib...",
+        "new MediaStack (/Users/dancoyle/simplerdevelopment/simplerdevelopment2026/infra/lib/media-stack.ts:45:19)",
+        "<anonymous> (/Users/dancoyle/simplerdevelopment/simplerdevelopment2026/infra/bin/app.ts:16:1)",
+        "<anonymous> (/Users/dancoyle/simplerdevelopment/simplerdevelopment2026/infra/bin/app.ts:28:2)",
+        "...node internals, tsx..."
+      ]
+    }
+  ],
+  "/SimplerDevMedia-prod/AppUser/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "AppUser56EEC556"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new User2 in aws-cdk-lib...",
+        "new MediaStack (/Users/dancoyle/simplerdevelopment/simplerdevelopment2026/infra/lib/media-stack.ts:78:20)",
+        "<anonymous> (/Users/dancoyle/simplerdevelopment/simplerdevelopment2026/infra/bin/app.ts:16:1)",
+        "<anonymous> (/Users/dancoyle/simplerdevelopment/simplerdevelopment2026/infra/bin/app.ts:28:2)",
+        "...node internals, tsx..."
+      ]
+    }
+  ],
+  "/SimplerDevMedia-prod/CDKMetadata/Default": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "CDKMetadata"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...aws-cdk-lib, node internals...",
+        "(no user code in 10 frames, use --stack-trace-limit to capture more)"
+      ]
+    }
+  ],
+  "/SimplerDevMedia-prod/MediaBucket/Policy/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "MediaBucketPolicy68C27F6B"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new Bucket2 in aws-cdk-lib...",
+        "new MediaStack (/Users/dancoyle/simplerdevelopment/simplerdevelopment2026/infra/lib/media-stack.ts:45:19)",
+        "<anonymous> (/Users/dancoyle/simplerdevelopment/simplerdevelopment2026/infra/bin/app.ts:16:1)"
+      ]
+    }
+  ],
+  "/SimplerDevMedia-prod/AppUser/DefaultPolicy/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "AppUserDefaultPolicy977081C0"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...WrappedClass.<anonymous> in aws-cdk-lib...",
+        "new MediaStack (/Users/dancoyle/simplerdevelopment/simplerdevelopment2026/infra/lib/media-stack.ts:84:18)",
+        "<anonymous> (/Users/dancoyle/simplerdevelopment/simplerdevelopment2026/infra/bin/app.ts:16:1)",
+        "<anonymous> (/Users/dancoyle/simplerdevelopment/simplerdevelopment2026/infra/bin/app.ts:28:2)"
+      ]
+    }
+  ]
+}
