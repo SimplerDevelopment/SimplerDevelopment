@@ -102,6 +102,11 @@ export function Footer() {
                 </Link>
               </li>
               <li>
+                <Link href="/migrate" className="text-[color-mix(in_srgb,var(--retro-cream)_72%,transparent)] transition-colors hover:text-[var(--retro-gold)]">
+                  Migrate To Us
+                </Link>
+              </li>
+              <li>
                 <Link href="/compare" className="text-[color-mix(in_srgb,var(--retro-cream)_72%,transparent)] transition-colors hover:text-[var(--retro-gold)]">
                   Compare
                 </Link>
