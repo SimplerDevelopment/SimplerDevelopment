@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { db } from '@/lib/db';
+import { db, getFanoutDb } from '@/lib/db';
 import { kanbanCards, kanbanCardComments, kanbanCardTimeLogs, kanbanCardFiles, kanbanCardLabels, kanbanLabels, kanbanCardActivities, kanbanCardChecklistItems, kanbanCardAssignees, kanbanCardWatchers, kanbanCardDependencies, kanbanCardArtifacts, kanbanColumns, users, projects, clientMembers, projectCustomFields, cardCustomFieldValues } from '@/lib/db/schema';
 import { getPortalClient } from '@/lib/portal-client';
 import { eq, and, or, inArray, asc, desc } from 'drizzle-orm';
@@ -61,6 +61,11 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       if (!proj) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
     }
 
+    // Reads only, and none of this runs inside a transaction — so it is safe on
+    // the dedicated fan-out pool. On the shared max:1 client this batch was
+    // serial and cost ~3.5s on prod (PUX-087). See lib/db/fanout.ts.
+    const fdb = getFanoutDb();
+
     // These are all independent given the card id. Run them in one parallel
     // batch rather than ~10 sequential round-trips — this was the dominant
     // card-open latency source. timeLogs is staff-only (resolves to [] otherwise).
@@ -83,7 +88,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       customFieldDefs,
       customFieldValues,
     ] = await Promise.all([
-      db
+      fdb
         .select({
           id: kanbanCardComments.id,
           body: kanbanCardComments.body,
@@ -97,7 +102,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
         .where(eq(kanbanCardComments.cardId, cardId))
         .orderBy(asc(kanbanCardComments.createdAt)),
       isStaff
-        ? db
+        ? fdb
             .select({
               id: kanbanCardTimeLogs.id,
               minutes: kanbanCardTimeLogs.minutes,
@@ -111,7 +116,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
             .where(eq(kanbanCardTimeLogs.cardId, cardId))
             .orderBy(desc(kanbanCardTimeLogs.loggedAt))
         : Promise.resolve([] as { id: number; minutes: number; note: string | null; loggedAt: Date; userId: number | null; userName: string | null }[]),
-      db
+      fdb
         .select({
           id: kanbanCardFiles.id,
           originalName: kanbanCardFiles.originalName,
@@ -127,13 +132,13 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
         .leftJoin(users, eq(kanbanCardFiles.userId, users.id))
         .where(eq(kanbanCardFiles.cardId, cardId))
         .orderBy(asc(kanbanCardFiles.createdAt)),
-      db
+      fdb
         .select({ id: kanbanLabels.id, name: kanbanLabels.name, color: kanbanLabels.color })
         .from(kanbanCardLabels)
         .innerJoin(kanbanLabels, eq(kanbanLabels.id, kanbanCardLabels.labelId))
         .where(eq(kanbanCardLabels.cardId, cardId))
         .orderBy(asc(kanbanLabels.name)),
-      db
+      fdb
         .select({
           id: kanbanCardActivities.id,
           type: kanbanCardActivities.type,
@@ -147,21 +152,21 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
         .where(eq(kanbanCardActivities.cardId, cardId))
         .orderBy(desc(kanbanCardActivities.createdAt))
         .limit(200),
-      db.select({ projectKey: projects.projectKey }).from(projects).where(eq(projects.id, card.projectId)).limit(1),
-      db.select().from(kanbanCardChecklistItems)
+      fdb.select({ projectKey: projects.projectKey }).from(projects).where(eq(projects.id, card.projectId)).limit(1),
+      fdb.select().from(kanbanCardChecklistItems)
         .where(eq(kanbanCardChecklistItems.cardId, cardId))
         .orderBy(asc(kanbanCardChecklistItems.order), asc(kanbanCardChecklistItems.id)),
-      db
+      fdb
         .select({ id: users.id, name: users.name, email: users.email })
         .from(kanbanCardAssignees)
         .innerJoin(users, eq(users.id, kanbanCardAssignees.userId))
         .where(eq(kanbanCardAssignees.cardId, cardId))
         .orderBy(asc(users.name)),
-      db
+      fdb
         .select({ userId: kanbanCardWatchers.userId })
         .from(kanbanCardWatchers)
         .where(eq(kanbanCardWatchers.cardId, cardId)),
-      db
+      fdb
         .select({
           id: kanbanCards.id,
           title: kanbanCards.title,
@@ -172,7 +177,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
         .innerJoin(kanbanCards, eq(kanbanCards.id, kanbanCardDependencies.blockerCardId))
         .leftJoin(kanbanColumns, eq(kanbanColumns.id, kanbanCards.columnId))
         .where(eq(kanbanCardDependencies.blockedCardId, cardId)),
-      db
+      fdb
         .select({
           id: kanbanCards.id,
           title: kanbanCards.title,
@@ -186,9 +191,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       // Folded in (were 4 separate modal requests): project label palette,
       // sibling cards (dependency/parent pickers), mentionable users, and the
       // card's linked artifacts. Same tenancy scope as the card itself.
-      db.select({ id: kanbanLabels.id, name: kanbanLabels.name, color: kanbanLabels.color })
+      fdb.select({ id: kanbanLabels.id, name: kanbanLabels.name, color: kanbanLabels.color })
         .from(kanbanLabels).where(eq(kanbanLabels.projectId, card.projectId)).orderBy(asc(kanbanLabels.name)),
-      db
+      fdb
         .select({
           id: kanbanCards.id,
           title: kanbanCards.title,
@@ -207,7 +212,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
         // client (mirrors /api/portal/mentionable-users exactly).
         let memberIds: number[] = [];
         if (client) {
-          const members = await db.select({ userId: clientMembers.userId }).from(clientMembers).where(eq(clientMembers.clientId, client.id));
+          const members = await fdb.select({ userId: clientMembers.userId }).from(clientMembers).where(eq(clientMembers.clientId, client.id));
           memberIds = members.map(m => m.userId);
           // Include the primary owner even without a clientMembers row
           // (mirrors /api/portal/team — legacy clients predate the row; QAD-008).
@@ -217,14 +222,14 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
         const whereClause = memberIds.length > 0
           ? and(eq(users.active, true), or(staffFilter, inArray(users.id, memberIds)))
           : and(eq(users.active, true), staffFilter);
-        return db.select({ id: users.id, name: users.name }).from(users).where(whereClause).orderBy(asc(users.name));
+        return fdb.select({ id: users.id, name: users.name }).from(users).where(whereClause).orderBy(asc(users.name));
       })(),
-      db.select().from(kanbanCardArtifacts).where(eq(kanbanCardArtifacts.cardId, cardId))
+      fdb.select().from(kanbanCardArtifacts).where(eq(kanbanCardArtifacts.cardId, cardId))
         .orderBy(desc(kanbanCardArtifacts.pinned), desc(kanbanCardArtifacts.createdAt)),
       // Custom-field definitions (project) + this card's values (folds the 6th request).
-      db.select().from(projectCustomFields).where(eq(projectCustomFields.projectId, card.projectId))
+      fdb.select().from(projectCustomFields).where(eq(projectCustomFields.projectId, card.projectId))
         .orderBy(asc(projectCustomFields.order), asc(projectCustomFields.id)),
-      db.select().from(cardCustomFieldValues).where(eq(cardCustomFieldValues.cardId, cardId)),
+      fdb.select().from(cardCustomFieldValues).where(eq(cardCustomFieldValues.cardId, cardId)),
     ]);
 
     const projectKey = projectRow[0]?.projectKey ?? null;
