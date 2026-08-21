@@ -7,6 +7,7 @@ import {
   generateBreadcrumbListSchema,
 } from '@/lib/utils/structured-data';
 import { BookingFormInline } from '@/components/blocks/render/BookingFormInline';
+import { QuoteForm } from '@/components/forms/QuoteForm';
 import { RetroHero, CreamBand, InkPanel, CTABanner } from '@/components/retro/sections';
 import { SectionHeading, RetroCard, RetroBadge, StatBlock, Star } from '@/components/retro/primitives';
 
@@ -17,10 +18,17 @@ import { SectionHeading, RetroCard, RetroBadge, StatBlock, Star } from '@/compon
  * other public page sells the platform (open source, self-hostable, MCP-native);
  * this one sells implementation work, and the platform appears as evidence and
  * as an optional substrate, never as the deliverable. That seam is deliberate
- * and load-bearing: there is exactly ONE primary CTA on the page (book a
- * briefing) and the platform is always the secondary path. If you add a second
- * competing "start free" CTA above the fold, the page stops converting for
- * either audience — that was the explicit trade-off accepted when it shipped.
+ * and load-bearing: there is exactly ONE primary CTA on the page (get a quote)
+ * and the platform is always the secondary path. If you add a second competing
+ * "start free" CTA above the fold, the page stops converting for either
+ * audience — that was the explicit trade-off accepted when it shipped.
+ *
+ * The page publishes NO prices. Engagements are quoted per scope, so the offer
+ * band advertises the shape and duration of the work and the quote form carries
+ * the conversion. That is a deliberate reversal of the launch version, which
+ * carried "from $X" anchors; re-adding them is a positioning decision, not a
+ * copy tweak. The one cost figure still mentioned (in the Flight Plan step) is
+ * the client's own monthly inference spend, not our fee.
  *
  * Copy is written answer-first under question-shaped headings, and the FAQ is
  * fully visible with no accordion, for the same reason app/(pages)/faq/page.tsx
@@ -57,7 +65,7 @@ const BOOKING_STYLE = {
 export const metadata = generateSEO({
   title: 'AI Consulting & AI Agent Development',
   description:
-    'AI consulting that ships working agents, not slide decks. We design, build, and run production AI agents and RAG systems in Mastra, CrewAI, and LangGraph, wired to your data over MCP. Fixed-scope sprints from $9,500.',
+    'AI consulting that ships working agents, not slide decks. We design, build, and run production AI agents and RAG systems in Mastra, CrewAI, and LangGraph, wired to your data over MCP. Tell us what you need built and we will quote it.',
   path: '/ai-consulting',
 });
 
@@ -89,15 +97,15 @@ const capabilities: { title: string; icon: string; body: string }[] = [
   },
 ];
 
-// ── Offer tiers ────────────────────────────────────────────────────────────
-// Anchored "from" pricing, deliberately. Exact fixed fees were rejected as too
-// committing for scoped work; no pricing at all was rejected because a page an
-// answer engine can't quote a number from doesn't get cited. Keep a real figure
-// and a real duration on every tier if you edit these.
+// ── Engagement shapes ──────────────────────────────────────────────────────
+// No prices here, deliberately, and no `price` field to put one in. Every
+// engagement is quoted against its own scope after the enquiry, so the page
+// advertises the SHAPE of the work — what you get and roughly how long it runs
+// — and the quote form does the rest. If you are tempted to add a "from $X"
+// anchor back, that is a positioning decision, not a copy tweak.
 const tiers: {
   index: number;
   title: string;
-  price: string;
   duration: string;
   summary: string;
   includes: string[];
@@ -106,10 +114,9 @@ const tiers: {
   {
     index: 1,
     title: 'Agent Sprint',
-    price: 'from $9,500',
     duration: '2 weeks',
     summary:
-      'One workflow, picked because it is expensive and repetitive, taken to production. Fixed scope, fixed price.',
+      'One workflow, picked because it is expensive and repetitive, taken to production. Fixed scope, agreed and priced before we start.',
     includes: [
       'One high-volume workflow, live',
       'Framework and model selection, with the reasoning written down',
@@ -120,7 +127,6 @@ const tiers: {
   {
     index: 2,
     title: 'Agent Build',
-    price: 'from $35,000',
     duration: '6–12 weeks',
     summary:
       'A multi-agent system your team owns and can extend: orchestration, retrieval, integrations, observability, and the tests that keep it honest.',
@@ -136,8 +142,7 @@ const tiers: {
   {
     index: 3,
     title: 'Run & Improve',
-    price: 'from $4,500',
-    duration: 'per month',
+    duration: 'monthly',
     summary:
       'We operate what we built. Models change underneath you roughly every quarter — this is the tier that absorbs that instead of letting it quietly degrade.',
     includes: [
@@ -159,7 +164,7 @@ const process: { title: string; body: string }[] = [
   {
     title: 'Flight Plan',
     body:
-      'A short written plan: the workflow we’d automate first, the framework we’d use and why, what it costs to run per month, and how we’ll measure whether it worked.',
+      'A short written plan: the workflow we’d automate first, the framework we’d use and why, what the finished system will cost you to run each month in inference, and how we’ll measure whether it worked. Our fee for building it is fixed here too.',
   },
   {
     title: 'Build',
@@ -213,7 +218,7 @@ const faqs: { question: string; answer: string }[] = [
   {
     question: 'How much does AI consulting cost?',
     answer:
-      'Our engagements start at $9,500 for a two-week Agent Sprint that puts one workflow into production, $35,000 for a six-to-twelve week Agent Build of a multi-agent system, and $4,500 per month to operate and improve what we built. Scope is agreed before anything starts, so the number you see in the flight plan is the number you pay.',
+      'We quote each engagement against its own scope rather than publishing a list price, because the honest answer depends on how many systems the agent has to touch, how clean your data is, and whether the result needs approval gates and audit trails. Send us the workflow through the quote form and you will get a fixed scope and a fixed price back, usually within one working day. That price does not move once agreed.',
   },
   {
     question: 'How long until something is actually in production?',
@@ -255,7 +260,7 @@ const faqs: { question: string; answer: string }[] = [
 export default function AiConsultingPage() {
   const serviceSchema = generateServiceSchema(
     'AI Consulting & AI Agent Development',
-    'Design, build, and operation of production AI agents, multi-agent systems, and retrieval-augmented knowledge systems using Mastra, CrewAI, LangGraph, and the Model Context Protocol. Fixed-scope engagements from $9,500.',
+    'Design, build, and operation of production AI agents, multi-agent systems, and retrieval-augmented knowledge systems using Mastra, CrewAI, LangGraph, and the Model Context Protocol. Fixed-scope engagements, quoted per project.',
     'AI Consulting'
   );
   const faqSchema = generateFAQSchema(faqs);
@@ -273,14 +278,14 @@ export default function AiConsultingPage() {
         title="AI Consulting That Ships"
         accent="Working Agents."
         subtitle="Most AI projects stall as a demo that impressed everyone once. We design, build, and run production AI agents — in Mastra, CrewAI, or LangGraph, wired to your real systems over MCP — and hand you the code, the evals, and the runbook."
-        primary={{ href: '#briefing', label: 'Book A Flight Briefing' }}
+        primary={{ href: '#quote', label: 'Get A Quote' }}
         secondary={{ href: '#profiles', label: 'See Mission Profiles' }}
         art="ai-consulting-hero"
         footnote={
           <>
             <span>478 MCP tools shipped in production</span>
             <span>Apache-2.0, public repository</span>
-            <span>Fixed scope, from $9,500</span>
+            <span>Fixed scope, quoted up front</span>
           </>
         }
       />
@@ -331,20 +336,17 @@ export default function AiConsultingPage() {
         <SectionHeading
           eyebrow="Mission Profiles"
           title="Three Ways To Fly This."
-          subtitle="Fixed scope agreed before we start. Pricing anchors below are starting points, not estimates you discover later."
+          subtitle="Every engagement is scoped and quoted against the work in front of it, so there is no list price here. These are the three shapes that work — tell us which one fits and we will put a number on it."
         />
         <div className="grid gap-6 lg:grid-cols-3">
           {tiers.map((t) => (
             <RetroCard key={t.title} title={t.title} index={t.index} accent={t.accent}>
-              <div className="flex items-baseline gap-2">
-                <span className="font-display text-2xl font-extrabold">{t.price}</span>
-                <span className="text-xs uppercase tracking-[0.14em] opacity-80">{t.duration}</span>
+              <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                <span className="font-display text-xl font-extrabold">{t.duration}</span>
+                {t.accent && (
+                  <span className="text-xs font-bold uppercase tracking-[0.14em]">Most chosen</span>
+                )}
               </div>
-              {t.accent && (
-                <p className="mt-2 text-xs font-bold uppercase tracking-[0.14em]">
-                  Most chosen
-                </p>
-              )}
               <p className="mt-3">{t.summary}</p>
               <ul className="mt-4 space-y-2">
                 {t.includes.map((line) => (
@@ -530,17 +532,26 @@ export default function AiConsultingPage() {
       {/* The one primary conversion point. Same booking page as /contact — see
           that file for why the style overrides are pinned rather than resolved
           from the client's brand profile. */}
-      <CreamBand id="briefing">
+      {/* The one conversion band. Two ways in, same as /contact: a written
+          enquiry or a booked call. The quote form leads because the page no
+          longer publishes prices — asking for a number is now the primary
+          action, and the call is for people who would rather talk first.
+          Anchored `#quote` because that is what the hero CTA points at. */}
+      <CreamBand id="quote">
         <SectionHeading
           eyebrow="Open A Channel"
-          title="Book A Flight Briefing."
-          subtitle="Thirty minutes. Bring the workflow that eats your team’s week. You will leave knowing whether an agent is the right tool for it — including when the answer is no."
+          title="Get A Quote."
+          subtitle="Tell us what the work looks like and we’ll come back with a fixed scope and a fixed price — usually within one working day. If an agent is the wrong tool for it, we’ll tell you that instead."
         />
-        <div className="mx-auto max-w-2xl">
-          <RetroCard title="30-Minute Briefing" icon="satellite-dish">
+        <div className="grid items-start gap-8 lg:grid-cols-[1.25fr_1fr]">
+          <RetroCard title="Tell Us About The Work" icon="crew-man-tablet">
+            <QuoteForm />
+          </RetroCard>
+
+          <RetroCard title="Rather Talk First?" icon="satellite-dish">
             <p className="mb-6">
-              No pitch deck, no discovery-call funnel. An engineer who has shipped this, looking at
-              your actual problem.
+              Book thirty minutes instead. No pitch deck, no discovery-call funnel — an engineer
+              who has shipped this, looking at your actual problem.
             </p>
             <BookingFormInline
               slug={BOOKING_SLUG}
