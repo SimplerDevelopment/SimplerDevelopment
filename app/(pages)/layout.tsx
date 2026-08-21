@@ -48,9 +48,25 @@ export default function MarketingPagesLayout({ children }: { children: ReactNode
   // public marketing tree only — the portal and admin keep their own palette
   // and type. Applying it here means every page in this route group inherits
   // the tokens without importing anything.
+  //
+  // `force-light` is NOT optional decoration next to it. The retro palette is
+  // deliberately fixed — CreamBand pins its background to --retro-cream
+  // (#F6F4F0) and every primitive hardcodes --retro-*. The CONTENT rendered on
+  // those bands does not: blog bodies and 17 of the block renderers use
+  // `text-foreground`, which resolves to var(--foreground) and flips to #ededed
+  // under .dark. That is #ededed on #F6F4F0 — a contrast ratio of 1.07:1 where
+  // AA needs 4.5:1, i.e. invisible. Light mode hid it, because the same text is
+  // 15.92:1 there. Operator-reported on /blog/visual-block-editor-47-blocks.
+  //
+  // force-light pins the token set light for the whole subtree (see globals.css)
+  // and, via the `@custom-variant dark` rule there, also stops any `dark:`
+  // utility applying inside it — so a future block cannot reintroduce this.
+  // app/sites/[domain]/layout.tsx applies it for exactly the same reason after
+  // the same bug hit a tenant site on 2026-08-20. Do not remove it without
+  // making every band's background theme-aware first.
   return (
     <div
-      className={`${orbitron.variable} ${raleway.variable} retro retro-paper overflow-x-clip md:overflow-x-visible`}
+      className={`${orbitron.variable} ${raleway.variable} retro retro-paper force-light overflow-x-clip md:overflow-x-visible`}
     >
       {children}
     </div>
