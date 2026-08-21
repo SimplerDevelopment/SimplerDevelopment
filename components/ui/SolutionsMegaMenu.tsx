@@ -15,6 +15,11 @@ export function SolutionsMegaMenu() {
   const pathname = usePathname();
   const solutions = getAllSolutions();
   const [open, setOpen] = useState(false);
+  // The pane is always in the DOM (it animates on opacity), so a card's
+  // background-image would be fetched on every marketing page load. Gate the
+  // art on the first open instead: a visitor who never hovers Solutions never
+  // pays for 19 images, and once opened they stay warm in cache.
+  const [everOpened, setEverOpened] = useState(false);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const cancelClose = () => {
@@ -26,6 +31,7 @@ export function SolutionsMegaMenu() {
   const openNow = () => {
     cancelClose();
     setOpen(true);
+    setEverOpened(true);
   };
   const scheduleClose = () => {
     cancelClose();
@@ -111,6 +117,29 @@ export function SolutionsMegaMenu() {
                     className="group relative overflow-hidden rounded-md border border-[color-mix(in_srgb,var(--retro-gold)_25%,transparent)] p-4 transition-colors hover:border-[var(--retro-gold)]"
                     style={{ backgroundColor: 'color-mix(in srgb, var(--retro-cream) 6%, transparent)' }}
                   >
+                    {/* Per-solution art (public/solutions/nav/<slug>.webp), drawn
+                        under a scrim so the badge and feature list keep their
+                        contrast — the art is texture here, not the subject. A
+                        missing file simply renders nothing, which is why this is
+                        a background-image rather than next/image. */}
+                    {everOpened && (
+                      <>
+                        <span
+                          aria-hidden
+                          className="pointer-events-none absolute inset-0 bg-cover bg-center opacity-50 transition-opacity duration-300 group-hover:opacity-80"
+                          style={{ backgroundImage: `url(/solutions/nav/${solution.slug}.webp)` }}
+                        />
+                        <span
+                          aria-hidden
+                          className="pointer-events-none absolute inset-0"
+                          style={{
+                            background:
+                              'linear-gradient(90deg, color-mix(in srgb, var(--retro-ink) 92%, transparent), color-mix(in srgb, var(--retro-ink) 62%, transparent))',
+                          }}
+                        />
+                      </>
+                    )}
+
                     {/* Watermark number */}
                     <span
                       className="absolute -right-1 -top-3 text-5xl font-black leading-none select-none pointer-events-none"
