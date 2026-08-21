@@ -373,6 +373,7 @@ const EXPECTED_TOOLS: readonly string[] = [
   'kanban_card_templates_delete',
   'kanban_card_templates_list',
   'kanban_card_unassign',
+  'kanban_cards_search',
   'kanban_checklist_add',
   'kanban_checklist_delete',
   'kanban_checklist_list',
