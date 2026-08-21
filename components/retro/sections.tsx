@@ -109,7 +109,26 @@ export function RetroHero({
           )}
         </div>
 
-        <div className={stacked ? 'relative mt-10 flex justify-center'  : 'relative flex justify-center lg:justify-end'}>
+        {/* Still-illustration column.
+            From lg up the art is anchored into the bottom-right CORNER of the
+            hero rather than floated in the middle of its cell: `self-end` beats
+            the grid's `items-center`, and the two negative margins cancel the
+            container's own padding on exactly the two edges it touches —
+            `-mb-24` the `sm:py-24` bottom, `-mr-6` the `px-6` right. Keep those
+            two numbers in step with the container's padding above, or the art
+            stops sitting flush and starts overhanging.
+
+            Below lg the grid is a single column and the art sits under the
+            copy, where corner-bleeding would read as a rendering bug, so the
+            bleed is deliberately lg-only. `max-w-none` at lg lets it fill the
+            wider cell instead of staying capped at the mobile 32rem. */}
+        <div
+          className={
+            stacked
+              ? 'relative mt-10 flex justify-center'
+              : 'relative flex justify-center lg:justify-end lg:self-end lg:-mr-6 lg:-mb-24'
+          }
+        >
           {video ? (
             <HeroConsoleGate />
           ) : (
@@ -119,7 +138,7 @@ export function RetroHero({
               width={900}
               height={600}
               priority
-              className="h-auto w-full max-w-lg object-contain drop-shadow-none"
+              className="h-auto w-full max-w-lg object-contain drop-shadow-none lg:max-w-none"
             />
           )}
         </div>
