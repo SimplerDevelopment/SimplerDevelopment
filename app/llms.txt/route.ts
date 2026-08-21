@@ -11,6 +11,9 @@ const LLMS_TXT = `# SimplerDevelopment
 - [Features & Solutions](/solutions): All product modules — website builder, CRM, AI knowledge base, email, bookings, project management, and more.
 - [Pricing](/pricing): Modular subscription model. Per-seat plans (Starter/Growth/Scale). 14-day free trial.
 
+## Services
+- [AI consulting & agent development](/ai-consulting): Implementation services — production AI agents, multi-agent systems, RAG/retrieval, and MCP integration built in Mastra, CrewAI, or LangGraph. Fixed-scope engagements: Agent Sprint from $9,500 (2 weeks, one workflow live), Agent Build from $35,000 (6-12 weeks, multi-agent system), Run & Improve from $4,500/month (operation, model upgrades, eval regression). Client owns the code; the platform is an optional substrate, not a condition of the work.
+
 ## Developer docs
 - [API overview](/docs): The four API surfaces — REST v1, public API, portal-internal API, and MCP.
 - [MCP tool catalog](/docs/mcp): The 450+-tool MCP server. Namespace index, credential/scope model, approval-link pattern.

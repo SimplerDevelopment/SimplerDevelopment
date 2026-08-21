@@ -97,6 +97,11 @@ export function Footer() {
             <h4 className="eyebrow eyebrow--on-ink mb-4">Company</h4>
             <ul className="space-y-2.5 text-sm">
               <li>
+                <Link href="/ai-consulting" className="text-[color-mix(in_srgb,var(--retro-cream)_72%,transparent)] transition-colors hover:text-[var(--retro-gold)]">
+                  AI Consulting
+                </Link>
+              </li>
+              <li>
                 <Link href="/compare" className="text-[color-mix(in_srgb,var(--retro-cream)_72%,transparent)] transition-colors hover:text-[var(--retro-gold)]">
                   Compare
                 </Link>

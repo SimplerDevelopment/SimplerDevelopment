@@ -169,10 +169,25 @@ export function CTABanner({
   );
 }
 
-/** Cream band wrapper — the default page section. */
-export function CreamBand({ children, className = '' }: { children: ReactNode; className?: string }) {
+/**
+ * Cream band wrapper — the default page section.
+ *
+ * `id` makes the band an in-page anchor target. It carries `scroll-mt-16`
+ * because the nav is `fixed` at `h-16`: without the offset an anchored jump
+ * parks the band's heading underneath the bar, which reads as "the link went
+ * to the wrong place".
+ */
+export function CreamBand({
+  children,
+  className = '',
+  id,
+}: {
+  children: ReactNode;
+  className?: string;
+  id?: string;
+}) {
   return (
-    <section className={`bg-[var(--retro-cream)] ${className}`}>
+    <section id={id} className={`bg-[var(--retro-cream)] ${id ? 'scroll-mt-16' : ''} ${className}`}>
       <div className="mx-auto max-w-7xl px-6 py-16 sm:py-20">{children}</div>
     </section>
   );
