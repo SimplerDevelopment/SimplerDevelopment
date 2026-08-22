@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { resolveCustomDomain } from '@/lib/agency/custom-domain';
 import { resolveSiteForHost } from '@/lib/sites/host-resolver';
+import { resolveRedirect } from '@/lib/sites/redirect-policy';
 import { mayShareCache } from '@/lib/sites/edge-cache-policy';
 import { getPortalClient } from '@/lib/portal-client';
 import {
@@ -291,6 +292,15 @@ export async function middleware(req: NextRequest) {
     const siteInfo = await resolveSiteForHost(bareHost);
     if (!siteInfo) {
       return new NextResponse('Not Found', { status: 404 });
+    }
+
+    // ── Per-tenant redirects ────────────────────────────────────────────────
+    // Before the rewrite, so a redirected URL never renders a page. The
+    // decision itself lives in lib/sites/redirect-policy.ts so its branches
+    // are testable without booting middleware.
+    const redirection = resolveRedirect(req.nextUrl.toString(), bareHost, siteInfo);
+    if (redirection) {
+      return NextResponse.redirect(redirection.url, { status: redirection.status });
     }
 
     // Rewrite to internal /sites/[domain]/[...slug] route.

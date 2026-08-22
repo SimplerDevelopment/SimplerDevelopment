@@ -31,6 +31,7 @@ import { registerSeoTools } from './seo';
 import { registerAiTools } from './ai';
 import { registerAutomationsTools } from './automations';
 import { registerHostingTools } from './hosting';
+import { registerSiteRedirectTools } from './site-redirects';
 import { registerMetaTools } from './meta';
 import { registerResourceDocs } from './resources';
 import { registerPromptTemplates } from './prompts';
@@ -70,6 +71,7 @@ export {
   registerAiTools,
   registerAutomationsTools,
   registerHostingTools,
+  registerSiteRedirectTools,
   registerMetaTools,
   registerResourceDocs,
   registerPromptTemplates,
@@ -121,6 +123,7 @@ export const allToolRegistrars: readonly McpToolRegistrar[] = [
   registerAiTools,
   registerAutomationsTools,
   registerHostingTools,
+  registerSiteRedirectTools,
   registerTeamTools,
   registerBrandingTools,
   registerStorefrontTools,
