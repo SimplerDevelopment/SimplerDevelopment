@@ -6,6 +6,7 @@ import { and, eq } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
 import { logCardActivity } from '@/lib/pm-activity';
 import { canUserEditProject } from '@/lib/portal/project-access';
+import { publishBoardChangedForCard } from '@/lib/kanban/events';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function getRole(session: any): string {
@@ -53,6 +54,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   await db.insert(kanbanCardLabels).values({ cardId, labelId }).onConflictDoNothing();
   await logCardActivity(cardId, parseInt(session.user.id, 10), 'card.label_added', { labelId, name: label.name, color: label.color });
 
+  await publishBoardChangedForCard(cardId);
   return NextResponse.json({ success: true });
 }
 
@@ -76,5 +78,6 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
     await logCardActivity(cardId, parseInt(session.user.id, 10), 'card.label_removed', { labelId, name: label.name });
   }
 
+  await publishBoardChangedForCard(cardId);
   return NextResponse.json({ success: true });
 }

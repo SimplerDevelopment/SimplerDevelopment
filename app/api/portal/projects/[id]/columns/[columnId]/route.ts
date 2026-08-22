@@ -5,6 +5,7 @@ import { projects, kanbanColumns, kanbanCards } from '@/lib/db/schema';
 import { getPortalClient } from '@/lib/portal-client';
 import { eq, and } from 'drizzle-orm';
 import { canUserEditProject } from '@/lib/portal/project-access';
+import { publishBoardChanged } from '@/lib/kanban/events';
 
 async function authorizeColumn(projectId: number, colId: number, session: { user?: { id?: string; role?: string } } | null) {
   const role = session?.user?.role;
@@ -55,6 +56,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   }
 
   const [row] = await db.update(kanbanColumns).set(updates).where(eq(kanbanColumns.id, colId)).returning();
+  await publishBoardChanged(projectId);
   return NextResponse.json({ success: true, data: row });
 }
 
@@ -88,5 +90,6 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
 
   await db.delete(kanbanColumns).where(eq(kanbanColumns.id, colId));
 
+  await publishBoardChanged(projectId);
   return NextResponse.json({ success: true });
 }
