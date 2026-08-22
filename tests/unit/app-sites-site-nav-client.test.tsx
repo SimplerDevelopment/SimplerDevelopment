@@ -606,14 +606,24 @@ describe('SiteNavClient', () => {
     setMobile(true);
     renderNav({ navItems: [buttonItem] });
     await act(async () => { fireEvent.click(screen.getByLabelText('Open menu')); });
-    // Mobile footer has a "Talk to a Slate Expert" paragraph
-    expect(screen.getByText(/Talk to a Slate Expert/)).toBeTruthy();
+    // The footer CTA is the tenant's OWN button, not boilerplate copy
+    expect(screen.getAllByText('Book Now').length).toBeGreaterThan(0);
   });
 
   it('does NOT render mobile footer CTA section when no button items exist', async () => {
     setMobile(true);
     renderNav({ navItems: [regularItem] });
     await act(async () => { fireEvent.click(screen.getByLabelText('Open menu')); });
-    expect(screen.queryByText(/Talk to a Slate Expert/)).toBeNull();
+    expect(screen.queryByText('Book Now')).toBeNull();
+  });
+
+  // PUX-093 regression: the mobile footer once hardcoded "Talk to a Slate Expert to help
+  // launch your next project." — copy from the reference site the nav was built against.
+  // It shipped to every tenant with a nav button. Nothing in this component may name a brand.
+  it('never renders another brand\'s copy in the mobile footer', async () => {
+    setMobile(true);
+    renderNav({ navItems: [buttonItem] });
+    await act(async () => { fireEvent.click(screen.getByLabelText('Open menu')); });
+    expect(screen.queryByText(/Slate Expert|launch your next project/i)).toBeNull();
   });
 });

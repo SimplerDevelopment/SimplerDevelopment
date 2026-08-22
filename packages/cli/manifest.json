@@ -1,6 +1,6 @@
 {
   "manifestVersion": 1,
-  "toolCount": 478,
+  "toolCount": 481,
   "domains": [
     {
       "name": "agent",
@@ -180,7 +180,7 @@
     },
     {
       "name": "website",
-      "tools": 6
+      "tools": 9
     },
     {
       "name": "whoami",
@@ -14156,7 +14156,7 @@
       "name": "surveys_update",
       "cmd": "surveys update",
       "domain": "surveys",
-      "desc": "Update any combination of: title, description, status (draft/active/closed), fields, thank-you copy, close date, max responses, brandingProfileId, styling, pages (titled page-break sections), publishResults, certificateEnabled, scoringConfig (autoRouteToCrm), and recommendation (offerings/questions/overrides/narrative). Passing only a subset is fine — unspecified fields stay as-is. Mints a fresh approval URL on every update.",
+      "desc": "Update any combination of: title, description, status (draft/active/closed), fields, thank-you copy, requireEmail, allowMultiple, close date, max responses, brandingProfileId, styling, pages (titled page-break sections), publishResults, certificateEnabled, scoringConfig (autoRouteToCrm), and recommendation (offerings/questions/overrides/narrative). Passing only a subset is fine — unspecified fields stay as-is. Mints a fresh approval URL on every update.",
       "destructive": false,
       "scope": "surveys:write",
       "args": [
@@ -14200,6 +14200,18 @@
           "name": "thankYouMessage",
           "type": "string",
           "required": false
+        },
+        {
+          "name": "requireEmail",
+          "type": "boolean",
+          "required": false,
+          "desc": "Prompt for respondent name + email ahead of page 1. Leave this off when the survey already asks for them as ordinary fields, or the visitor is asked twice — the submit route derives respondent identity from an email-type field anyway (LEAD-01 in app/api/surveys/[slug]/route.ts)."
+        },
+        {
+          "name": "allowMultiple",
+          "type": "boolean",
+          "required": false,
+          "desc": "Allow the same respondent to submit more than once."
         },
         {
           "name": "closesAt",
@@ -14811,6 +14823,74 @@
           "name": "value",
           "type": "string",
           "required": true
+        }
+      ]
+    },
+    {
+      "name": "website_redirects_list",
+      "cmd": "website redirects-list",
+      "domain": "website",
+      "desc": "List the per-tenant redirect rules for a website.",
+      "destructive": false,
+      "scope": "sites:read",
+      "args": [
+        {
+          "name": "websiteId",
+          "type": "number",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "website_redirects_remove",
+      "cmd": "website redirects-remove",
+      "domain": "website",
+      "desc": "Delete one redirect rule. Takes up to 60s to take effect (the host cache TTL).",
+      "destructive": true,
+      "scope": "sites:delete",
+      "args": [
+        {
+          "name": "id",
+          "type": "number",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "website_redirects_set",
+      "cmd": "website redirects-set",
+      "domain": "website",
+      "desc": "Create or update one redirect rule for a website. `fromPath` is matched EXACTLY (lowercased, no wildcards; the query string is ignored when matching and preserved on the redirect); re-using an existing fromPath updates that rule rather than adding a duplicate. `toPath` may be a path on the same site (\"/\") or an absolute URL. Domain-to-domain canonicalisation is NOT set here — mark the target domain isPrimary via website_domains_add and every other verified domain 301s to it automatically. Takes up to 60s to take effect (the host cache TTL).",
+      "destructive": false,
+      "scope": "sites:write",
+      "args": [
+        {
+          "name": "websiteId",
+          "type": "number",
+          "required": true
+        },
+        {
+          "name": "fromPath",
+          "type": "string",
+          "required": true,
+          "desc": "Path to redirect FROM, leading slash, e.g. \"/services\"."
+        },
+        {
+          "name": "toPath",
+          "type": "string",
+          "required": true,
+          "desc": "Path or absolute URL to redirect TO."
+        },
+        {
+          "name": "statusCode",
+          "type": "json",
+          "required": false,
+          "desc": "Defaults to 301."
+        },
+        {
+          "name": "enabled",
+          "type": "boolean",
+          "required": false
         }
       ]
     },

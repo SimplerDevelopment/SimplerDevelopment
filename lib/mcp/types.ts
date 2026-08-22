@@ -19,6 +19,10 @@ import { revalidatePath } from 'next/cache';
 import { hasServiceAccess } from '@/lib/portal-auth';
 import type { PortalMcpContext } from '@/lib/mcp-auth';
 import { hasScope } from '@/lib/mcp-auth';
+import { serializePostContent } from './serialize-post-content';
+
+// Re-exported so existing `from '../types'` importers keep working.
+export { serializePostContent };
 
 /**
  * Every per-domain tool module exports a function with this signature. The
@@ -54,25 +58,6 @@ export type ToolEnvelope = {
 /** Shape of the JSON-stringified result every tool handler emits. */
 export function json(payload: unknown): ToolEnvelope {
   return { content: [{ type: 'text' as const, text: JSON.stringify(payload, null, 2) }] };
-}
-
-/**
- * Posts in this app store BlockEditorData JSON in the `content` column:
- *   { blocks: Block[], version: '1.0' }
- * The visual editor parses `content` as JSON; raw HTML/markdown renders as
- * "No blocks yet". This helper accepts either a structured `blocks` array or a
- * plain string (wrapped into a single text block) and serializes correctly.
- */
-export function serializePostContent(args: { blocks?: unknown; content?: string }): string {
-  if (Array.isArray(args.blocks) && args.blocks.length > 0) {
-    return JSON.stringify({ blocks: args.blocks, version: '1.0' });
-  }
-  const raw = args.content ?? '';
-  if (!raw.trim()) return JSON.stringify({ blocks: [], version: '1.0' });
-  return JSON.stringify({
-    blocks: [{ id: `block-${Date.now()}`, type: 'text', order: 0, content: raw }],
-    version: '1.0',
-  });
 }
 
 export function denied(scope: string): ToolEnvelope {

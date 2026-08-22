@@ -250,6 +250,38 @@ export const websiteDomains = pgTable('website_domains', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
+// Per-tenant redirects.
+//
+// Tenant sites need redirects the platform cannot hardcode: a page is retired
+// and its URL still has to resolve, or a client consolidates onto a new
+// domain. `next.config.ts` redirects are global to the whole platform, so one
+// client's paths there would ship to every tenant — the same mistake as
+// hardcoding one client's copy into a shared component.
+//
+// Applied in middleware BEFORE the /sites/<host> rewrite, and carried on the
+// cached host lookup (lib/sites/host-resolver.ts) so matching a redirect costs
+// no extra query on the request hot path.
+//
+// Host-level canonicalisation is NOT stored here — that is driven by
+// `websiteDomains.isPrimary`, so the primary domain has exactly one source of
+// truth instead of two that can disagree.
+export const siteRedirects = pgTable('site_redirects', {
+  id: serial('id').primaryKey(),
+  websiteId: integer('website_id').notNull().references(() => clientWebsites.id, { onDelete: 'cascade' }),
+  // Leading slash, no host, no query string. Matched exactly, lowercased.
+  fromPath: varchar('from_path', { length: 500 }).notNull(),
+  // A path on the same site ('/services') or an absolute URL.
+  toPath: varchar('to_path', { length: 2000 }).notNull(),
+  statusCode: integer('status_code').default(301).notNull(),
+  enabled: boolean('enabled').default(true).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => [
+  // One rule per path per site. Two rows for the same fromPath would make the
+  // winning redirect depend on row order, which is not a thing anyone can debug.
+  uniqueIndex('site_redirects_site_from_idx').on(t.websiteId, t.fromPath),
+]);
+
 // Website environments (production + staging per site)
 
 export const websiteEnvironments = pgTable('website_environments', {

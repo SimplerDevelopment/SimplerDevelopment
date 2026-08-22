@@ -38,8 +38,18 @@ const SITE_CONTACT_OVERRIDES: Record<string, {
   trustBadges?: Array<{ src: string; alt: string; href?: string; width?: number; height?: number }>;
   theme?: { background?: string; text?: string; heading?: string; border?: string };
 }> = {
-  // ponytail: intentionally empty — per-site contact data belongs in the
-  // branding profile, not platform source. Populate via tenant config.
+  // ponytail: per-site contact data belongs in the branding profile, not
+  // platform source. This map is a deliberate, operator-approved exception
+  // pending those columns — NOT a pattern to copy. Every entry here is one
+  // client's data compiled into every tenant's bundle, which is how
+  // "Talk to a Slate Expert" ended up on six live Found Delivery pages
+  // (PUX-093). Adding contactPhone/contactEmail to brandingProfiles and
+  // deleting this map is tracked; until then, keep it to contact facts a
+  // footer must render and nothing else.
+  founddelivery: {
+    contactPhone: '(215) 948-2202',
+    contactEmail: 'founddeliveryco@gmail.com',
+  },
 };
 
 function getSiteContactInfo(subdomain: string | null) {

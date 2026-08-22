@@ -15,7 +15,7 @@ SimplerDevelopment is a **multi-tenant SaaS platform** with four integrated laye
 | Admin panel | Internal staff UI — manages all tenants, billing, AI, platform health |
 | Client portal | Per-tenant UI — each client manages their own site, CRM, Brain, projects |
 | Per-tenant public sites | The websites each client publishes to their own custom domain |
-| API / MCP surface | REST v1 + 478-tool MCP server for automation and AI-agent integrations |
+| API / MCP surface | REST v1 + 481-tool MCP server for automation and AI-agent integrations |
 
 **Stack at a glance:** Next.js 16.1.1 App Router · React 19 · TypeScript 5 · Tailwind 4 · Drizzle ORM + Postgres/pgvector · NextAuth v5 (JWT strategy) · Bun (package manager and runtime). Lock file: `bun.lock` — always use `bun`, never `npm`.
 
@@ -223,7 +223,7 @@ All surfaces share the `{ success, data | message }` response envelope.
 
 | Surface | Base path | Auth | Notes |
 |---|---|---|---|
-| MCP (Streamable HTTP) | `POST /api/mcp` | `sd_mcp_` or `sd_oauth_` bearer | 478 tools; scope-gated; approval-link pattern for writes |
+| MCP (Streamable HTTP) | `POST /api/mcp` | `sd_mcp_` or `sd_oauth_` bearer | 481 tools; scope-gated; approval-link pattern for writes |
 | REST v1 (headless, read-only) | `/api/v1/sites/{siteId}/...` | `sd_live_` bearer | OpenAPI 3.1 spec in `public/openapi.yaml`; GET only confirmed |
 | Public (unauthenticated) | `/api/public/...` | None | Booking, gift cert, live chat, published content by slug, A/B events |
 | Portal internal | `/api/portal/...` | Session cookie | ~60 route groups; not for third parties |
@@ -232,7 +232,7 @@ All surfaces share the `{ success, data | message }` response envelope.
 
 ### MCP tool surface
 
-The MCP server (`lib/mcp/server.ts`) exposes **478 tools** locked by `tests/unit/mcp-tool-registry-baseline.test.ts`. Drift (tool added/removed/renamed without updating `EXPECTED_TOOLS`) fails pre-push CI.
+The MCP server (`lib/mcp/server.ts`) exposes **481 tools** locked by `tests/unit/mcp-tool-registry-baseline.test.ts`. Drift (tool added/removed/renamed without updating `EXPECTED_TOOLS`) fails pre-push CI.
 
 **Top tool families:**
 

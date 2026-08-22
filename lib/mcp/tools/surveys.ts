@@ -256,7 +256,7 @@ export function registerSurveysTools(server: McpServer, ctx: PortalMcpContext): 
     {
       title: 'Update survey',
       description:
-        'Update any combination of: title, description, status (draft/active/closed), fields, thank-you copy, close date, max responses, brandingProfileId, styling, pages (titled page-break sections), publishResults, certificateEnabled, scoringConfig (autoRouteToCrm), and recommendation (offerings/questions/overrides/narrative). Passing only a subset is fine — unspecified fields stay as-is. Mints a fresh approval URL on every update.',
+        'Update any combination of: title, description, status (draft/active/closed), fields, thank-you copy, requireEmail, allowMultiple, close date, max responses, brandingProfileId, styling, pages (titled page-break sections), publishResults, certificateEnabled, scoringConfig (autoRouteToCrm), and recommendation (offerings/questions/overrides/narrative). Passing only a subset is fine — unspecified fields stay as-is. Mints a fresh approval URL on every update.',
       inputSchema: {
         id: z.number().int().positive(),
         title: z.string().min(1).optional(),
@@ -265,6 +265,14 @@ export function registerSurveysTools(server: McpServer, ctx: PortalMcpContext): 
         fields: z.array(z.any()).optional().describe('SurveyFieldDef[]'),
         thankYouTitle: z.string().optional(),
         thankYouMessage: z.string().optional(),
+        // ─ respondent identity / repeat submissions ─
+        // Both are settable on surveys_create but were missing here, so a survey
+        // created with requireEmail:true could never have it turned off (PUX-094).
+        // The handler spreads `rest` into the patch, so schema entries are enough.
+        requireEmail: z.boolean().optional()
+          .describe('Prompt for respondent name + email ahead of page 1. Leave this off when the survey already asks for them as ordinary fields, or the visitor is asked twice — the submit route derives respondent identity from an email-type field anyway (LEAD-01 in app/api/surveys/[slug]/route.ts).'),
+        allowMultiple: z.boolean().optional()
+          .describe('Allow the same respondent to submit more than once.'),
         closesAt: z.string().nullable().optional(),
         maxResponses: z.number().int().positive().nullable().optional(),
         // ─ branding / styling ─
