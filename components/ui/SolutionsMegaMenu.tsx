@@ -126,7 +126,7 @@ export function SolutionsMegaMenu() {
                       <>
                         <span
                           aria-hidden
-                          className="pointer-events-none absolute inset-0 bg-cover bg-center opacity-50 transition-opacity duration-300 group-hover:opacity-80"
+                          className="pointer-events-none absolute inset-0 bg-cover bg-center opacity-75 transition-opacity duration-300 group-hover:opacity-100"
                           style={{ backgroundImage: `url(/solutions/nav/${solution.slug}.webp)` }}
                         />
                         <span
@@ -134,7 +134,7 @@ export function SolutionsMegaMenu() {
                           className="pointer-events-none absolute inset-0"
                           style={{
                             background:
-                              'linear-gradient(90deg, color-mix(in srgb, var(--retro-ink) 92%, transparent), color-mix(in srgb, var(--retro-ink) 62%, transparent))',
+                              'linear-gradient(90deg, color-mix(in srgb, var(--retro-ink) 88%, transparent), color-mix(in srgb, var(--retro-ink) 42%, transparent))',
                           }}
                         />
                       </>
