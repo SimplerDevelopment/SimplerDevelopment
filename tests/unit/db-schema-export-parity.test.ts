@@ -581,6 +581,7 @@ const EXPECTED_EXPORTS: readonly string[] = [
   'users',
   'websiteBackups',
   'websiteDomains',
+  'siteRedirects',
   'websiteEmailTemplates',
   'websiteEnvVars',
   'websiteEnvironments',
@@ -903,6 +904,7 @@ const EXPECTED_TABLE_NAMES: Readonly<Record<string, string>> = {
   users: 'users',
   websiteBackups: 'website_backups',
   websiteDomains: 'website_domains',
+  siteRedirects: 'site_redirects',
   websiteEmailTemplates: 'website_email_templates',
   websiteEnvVars: 'website_env_vars',
   websiteEnvironments: 'website_environments',
@@ -947,13 +949,13 @@ describe('lib/db/schema export parity', () => {
     expect(actualTables).toEqual(EXPECTED_TABLE_NAMES);
   });
 
-  it('reports the recorded number of tables (311)', () => {
+  it('reports the recorded number of tables (312)', () => {
     const schemaMap = Schema as unknown as Record<string, unknown>;
     let count = 0;
     for (const value of Object.values(schemaMap)) {
       if (value && typeof value === 'object' && isTable(value)) count += 1;
     }
     expect(count).toBe(Object.keys(EXPECTED_TABLE_NAMES).length);
-    expect(count).toBe(311);
+    expect(count).toBe(312);
   });
 });
