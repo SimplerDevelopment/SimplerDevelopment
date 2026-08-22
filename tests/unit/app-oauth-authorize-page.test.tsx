@@ -552,6 +552,71 @@ describe('OAuth /oauth/authorize page', () => {
     });
   });
 
+  describe('tenant-owned client (ownerClientId) — regression for the guaranteed access_denied', () => {
+    // A client minted from /portal/settings/api-keys carries ownerClientId, and
+    // the decision route refuses any granted set that is not exactly that one
+    // portal. Before this narrowing, the picker offered every portal with every
+    // box pre-ticked, so approving without hand-unticking always produced
+    // access_denied — surfaced by connectors as a bare "Authorization failed".
+
+    it('offers no picker and grants exactly the owning portal, even on a multi-portal account', async () => {
+      selectQueue.push([{ ...VALID_CLIENT, ownerClientId: 100 }]);
+      authMock.mockResolvedValue(VALID_SESSION);
+      getPortalClientsMock.mockResolvedValue([
+        VALID_ACTIVE_CLIENT,
+        { id: 100, company: 'Beta Co' },
+        { id: 101, company: null },
+      ]);
+      // The user's preferred/active portal is 99 — NOT the owning one.
+      getPortalClientForCredentialsMock.mockResolvedValue(VALID_ACTIVE_CLIENT);
+
+      const { container } = await renderPage(pkceParams({ scope: 'profile:read' }));
+
+      // No set to choose from: the only legal grant is the owning portal.
+      expect(screen.queryByText('Which portals can it access?')).toBeNull();
+      expect(
+        container.querySelectorAll('input[type="checkbox"][name="client_ids"]').length,
+      ).toBe(0);
+
+      // Exactly one portal is posted, and it is the owner — not the active one.
+      const granted = Array.from(
+        container.querySelectorAll('input[type="hidden"][name="client_ids"]'),
+      ).map(el => el.getAttribute('value'));
+      expect(granted).toEqual(['100']);
+      expect(
+        container.querySelector('input[name="active_client_id"]')!.getAttribute('value'),
+      ).toBe('100');
+    });
+
+    it('errors in-page when the user is not a member of the owning portal', async () => {
+      selectQueue.push([{ ...VALID_CLIENT, ownerClientId: 555 }]);
+      authMock.mockResolvedValue(VALID_SESSION);
+      getPortalClientsMock.mockResolvedValue([VALID_ACTIVE_CLIENT, { id: 100, company: 'Beta Co' }]);
+      getPortalClientForCredentialsMock.mockResolvedValue(VALID_ACTIVE_CLIENT);
+
+      const { container } = await renderPage(pkceParams({ scope: 'profile:read' }));
+
+      expect(screen.getByText("No access to this app's portal")).toBeTruthy();
+      // No grant form is offered at all.
+      expect(container.querySelector('input[name="client_ids"]')).toBeNull();
+    });
+
+    it('leaves a global client (ownerClientId null) offering every portal', async () => {
+      selectQueue.push([{ ...VALID_CLIENT, ownerClientId: null }]);
+      authMock.mockResolvedValue(VALID_SESSION);
+      getPortalClientsMock.mockResolvedValue([VALID_ACTIVE_CLIENT, { id: 100, company: 'Beta Co' }]);
+      getPortalClientForCredentialsMock.mockResolvedValue(VALID_ACTIVE_CLIENT);
+
+      const { container } = await renderPage(pkceParams({ scope: 'profile:read' }));
+
+      const boxes = Array.from(
+        container.querySelectorAll('input[type="checkbox"][name="client_ids"]'),
+      ) as HTMLInputElement[];
+      expect(boxes.map(b => b.value)).toEqual(['99', '100']);
+      expect(boxes.every(b => b.defaultChecked)).toBe(true);
+    });
+  });
+
   describe('scope selection', () => {
     function arrangeHappyPath() {
       selectQueue.push([VALID_CLIENT]);
