@@ -782,12 +782,10 @@ export function SiteNavClient({
             );
           })}
 
-          {/* Footer CTA — outline pill button matching live "BOOK A FREE DISCOVERY SESSION" */}
+          {/* Footer CTA — the tenant's own nav button. No strapline above it on purpose:
+              anything generic here is another brand's copy on a client's site (PUX-093). */}
           {buttonItems.length > 0 && (
             <div style={{ marginTop: '32px', textAlign: 'center' }}>
-              <p style={{ fontFamily: bodyFontStack, color: '#555555', fontSize: '15px', marginBottom: '16px' }}>
-                Talk to a Slate Expert to help launch your next project.
-              </p>
               {buttonItems.map((item) => (
                 <Link
                   key={item.id}

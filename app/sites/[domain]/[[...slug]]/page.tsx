@@ -76,6 +76,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       twitter: {
         title,
         description,
+        // `card` is conditional on purpose: summary_large_image with no image
+        // renders a worse card than plain summary, so only claim the large
+        // format when the page actually supplies art to fill it.
+        card: page.ogImage ? 'summary_large_image' : 'summary',
         ...(page.ogImage ? { images: [page.ogImage] } : {}),
       },
     };

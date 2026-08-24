@@ -92,7 +92,30 @@ export default async function AuthorizePage({ searchParams }: { searchParams: Pr
   // client_ids/active_client_id fields made the decision route (which verifies
   // membership, never impersonation) refuse the whole grant with access_denied,
   // which the connector surfaced as a generic "Authorization failed".
-  const activeClient = (await getPortalClientForCredentials(userId)) ?? allClients[0];
+  const preferredClient = (await getPortalClientForCredentials(userId)) ?? allClients[0];
+
+  // A tenant-owned client (minted from /portal/settings/api-keys) is bound to the
+  // portal that created it: the decision route refuses any granted set that is not
+  // exactly [ownerClientId]. Offering the full picker with every box pre-ticked
+  // therefore made approval fail 100% of the time once multi-portal grants landed
+  // (6f5dbeaf) — an `access_denied` the connector surfaces only as a generic
+  // "Authorization failed", with nothing on screen telling the user they had to
+  // narrow to one specific portal. Offer only what can legally be granted rather
+  // than a set that is guaranteed to be refused.
+  const grantableClients =
+    oauthClient.ownerClientId != null
+      ? allClients.filter(c => c.id === oauthClient.ownerClientId)
+      : allClients;
+  if (grantableClients.length === 0) {
+    return (
+      <ErrorPage
+        title="No access to this app's portal"
+        detail="This OAuth client is restricted to a portal your account is not a member of."
+      />
+    );
+  }
+  const activeClient =
+    grantableClients.find(c => c.id === preferredClient.id) ?? grantableClients[0];
 
   // Impersonation can't influence the grant, but silently authorizing the
   // staff user's OWN portals while they're viewing another tenant would be its
@@ -217,13 +240,13 @@ export default async function AuthorizePage({ searchParams }: { searchParams: Pr
               re-derives it from the checked boxes, so it can never point outside
               the granted set. Ticking fewer boxes is how you narrow a grant. */}
           <input type="hidden" name="active_client_id" value={String(activeClient.id)} />
-          {allClients.length > 1 ? (
+          {grantableClients.length > 1 ? (
             <fieldset className="space-y-2">
               {/* Marks the post as coming from the picker, so zero ticked boxes reads
                   as "the user chose none" rather than as a pre-picker form. */}
               <input type="hidden" name="portal_select" value="1" />
               <legend className="text-sm font-medium mb-1">Which portals can it access?</legend>
-              {allClients.map(c => (
+              {grantableClients.map(c => (
                 <label key={c.id} className="flex items-start gap-2 text-sm">
                   <input
                     type="checkbox"

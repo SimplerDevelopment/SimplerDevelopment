@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import { kanbanCardComments, kanbanCards, projects } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
+import { publishBoardChangedForCard } from '@/lib/kanban/events';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function authorizeCard(cardId: number, session: any): Promise<boolean> {
@@ -45,5 +46,6 @@ export async function DELETE(
     : and(eq(kanbanCardComments.id, cId), eq(kanbanCardComments.cardId, cardId), eq(kanbanCardComments.userId, userId));
 
   await db.delete(kanbanCardComments).where(condition);
+  await publishBoardChangedForCard(cardId);
   return NextResponse.json({ success: true });
 }

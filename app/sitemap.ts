@@ -3,6 +3,7 @@ import { db } from '@/lib/db';
 import { posts } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { getAllSolutions } from '@/lib/data/solutions';
+import { getAllMigrations } from '@/lib/data/migrations';
 import { siteConfig } from '@/config/site';
 import { ALL_SLUGS } from '@/app/docs/_lib/nav';
 
@@ -18,6 +19,18 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     },
     {
       url: `${baseUrl}/solutions`,
+      lastModified: new Date(),
+      changeFrequency: 'weekly' as const,
+      priority: 0.9,
+    },
+    {
+      url: `${baseUrl}/migrate`,
+      lastModified: new Date(),
+      changeFrequency: 'weekly' as const,
+      priority: 0.9,
+    },
+    {
+      url: `${baseUrl}/ai-consulting`,
       lastModified: new Date(),
       changeFrequency: 'weekly' as const,
       priority: 0.9,
@@ -60,6 +73,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     },
   ];
 
+  // One URL per templated migration page. Driven from the same data module the
+  // pages are, so adding a competitor never means remembering to edit this file.
+  const migrationPages = getAllMigrations().map((m) => ({
+    url: `${baseUrl}/migrate/${m.slug}`,
+    lastModified: new Date(),
+    changeFrequency: 'monthly' as const,
+    priority: 0.8,
+  }));
+
   const solutionPages = getAllSolutions().map((solution) => ({
     url: `${baseUrl}/solutions/${solution.slug}`,
     lastModified: new Date(),
@@ -93,5 +115,5 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.75,
   }));
 
-  return [...staticPages, ...solutionPages, ...blogPages, ...docPages];
+  return [...staticPages, ...migrationPages, ...solutionPages, ...blogPages, ...docPages];
 }

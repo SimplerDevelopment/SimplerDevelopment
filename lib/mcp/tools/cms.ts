@@ -113,6 +113,7 @@ import { revoke as revokeGoogleToken } from '@/lib/google/oauth';
 import { getTenantWorkspaceCredentialsByClientId } from '@/lib/google/tenant-credentials';
 import { generateUniqueSubdomain, validateSubdomain, isSubdomainAvailable } from '@/lib/subdomain';
 import { stageOrApply } from '../pending-changes';
+import { buildPostUpdatePatch } from '../post-update-patch';
 import { mintLinkForResult, approvalEnvelope, createApprovalLink } from '../approval-links';
 import { publishBlocksUpdate } from '@/lib/realtime/internal-publisher';
 import { assertBlocksAllowedForUserId, BlockGateError } from '@/lib/security/block-allowlist';
@@ -415,23 +416,7 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
         payload: { id, ...rest },
         originalSnapshot: { title: post.title, published: post.published, excerpt: post.excerpt, content: post.content, customCss: post.customCss, customJs: post.customJs, seoTitle: post.seoTitle, seoDescription: post.seoDescription, ogImage: post.ogImage, canonicalUrl: post.canonicalUrl, noIndex: post.noIndex },
         apply: async () => {
-          const patch: Record<string, unknown> = { updatedAt: new Date() };
-          if (rest.title !== undefined) patch.title = rest.title;
-          if (rest.blocks !== undefined || rest.content !== undefined) {
-            patch.content = serializePostContent({ blocks: rest.blocks, content: rest.content });
-          }
-          if (rest.excerpt !== undefined) patch.excerpt = rest.excerpt;
-          if (rest.published !== undefined) {
-            patch.published = rest.published;
-            if (rest.published) patch.publishedAt = new Date();
-          }
-          if (rest.customCss !== undefined) patch.customCss = rest.customCss;
-          if (rest.customJs !== undefined) patch.customJs = rest.customJs;
-          if (rest.seoTitle !== undefined) patch.seoTitle = rest.seoTitle;
-          if (rest.seoDescription !== undefined) patch.seoDescription = rest.seoDescription;
-          if (rest.ogImage !== undefined) patch.ogImage = rest.ogImage;
-          if (rest.canonicalUrl !== undefined) patch.canonicalUrl = rest.canonicalUrl;
-          if (rest.noIndex !== undefined) patch.noIndex = rest.noIndex;
+          const patch = buildPostUpdatePatch(rest as Record<string, unknown>);
           const [row] = await db.update(posts).set(patch).where(eq(posts.id, id)).returning(postProjection(includeContent));
           return row;
         },

@@ -50,6 +50,7 @@ import { cleanEmbedHtml } from '@/lib/html-embed-clean';
 import { importHtmlAssets } from '@/lib/html-asset-import';
 import { hasScope, type PortalMcpContext } from '@/lib/mcp-auth';
 import { json, denied, serializePostContent } from '@/lib/mcp/types';
+import { buildPostUpdatePatch } from '@/lib/mcp/post-update-patch';
 import { renderBlocksToEmailHtml } from '@/lib/email';
 import { executeCampaignSend } from '@/lib/email/campaign-send';
 import { publishEntityFromDb } from '@/lib/realtime/internal-publisher';
@@ -115,16 +116,7 @@ export async function applyPendingChange(change: typeof mcpPendingChanges.$infer
       const [site] = await db.select({ id: clientWebsites.id }).from(clientWebsites)
         .where(and(eq(clientWebsites.id, post.websiteId), eq(clientWebsites.clientId, clientId))).limit(1);
       if (!site) throw new Error('Permission denied');
-      const patch: Record<string, unknown> = { updatedAt: new Date() };
-      if (payload.title !== undefined) patch.title = payload.title;
-      if (payload.blocks !== undefined || payload.content !== undefined) {
-        patch.content = serializePostContent({ blocks: payload.blocks, content: payload.content as string | undefined });
-      }
-      if (payload.excerpt !== undefined) patch.excerpt = payload.excerpt;
-      if (payload.published !== undefined) {
-        patch.published = payload.published;
-        if (payload.published) patch.publishedAt = new Date();
-      }
+      const patch = buildPostUpdatePatch(payload);
       const [row] = await db.update(posts).set(patch).where(eq(posts.id, id)).returning();
       return row;
     }

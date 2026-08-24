@@ -19,6 +19,7 @@ import {
 } from '@/lib/db/schema';
 import { and, eq, desc, isNull } from 'drizzle-orm';
 import type { AnyPgColumn, AnyPgTable } from 'drizzle-orm/pg-core';
+import { publishBoardChangedForCard } from '@/lib/kanban/events';
 
 // Types whose ownership or title can't be resolved by the generic
 // (clientId + titleField) lookup below and get their own branch instead.
@@ -165,6 +166,7 @@ export async function POST(
     })
     .returning();
 
+  await publishBoardChangedForCard(cardId);
   return NextResponse.json({ success: true, data: artifact }, { status: 201 });
 }
 
@@ -194,6 +196,7 @@ export async function PUT(
 
   if (!updated) return NextResponse.json({ success: false, message: 'Artifact not found' }, { status: 404 });
 
+  await publishBoardChangedForCard(cardId);
   return NextResponse.json({ success: true, data: updated });
 }
 
@@ -216,5 +219,6 @@ export async function DELETE(
 
   if (!deleted) return NextResponse.json({ success: false, message: 'Artifact not found' }, { status: 404 });
 
+  await publishBoardChangedForCard(cardId);
   return NextResponse.json({ success: true, data: deleted });
 }
