@@ -17,6 +17,13 @@ export function SolutionsMegaMenu() {
   const pathname = usePathname();
   const solutions = getAllSolutions();
   const [open, setOpen] = useState(false);
+  // The pane is always mounted and only opacity-hidden (see the `fixed` wrapper
+  // below), so it is geometrically in the viewport at all times. next/image
+  // lazy-loading keys off IntersectionObserver, which ignores opacity — without
+  // this gate every visitor to every marketing page would fetch all nineteen
+  // card images having never opened the menu. Gate on the first open instead:
+  // once opened they stay warm in cache for the rest of the session.
+  const [everOpened, setEverOpened] = useState(false);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const cancelClose = () => {
@@ -28,6 +35,7 @@ export function SolutionsMegaMenu() {
   const openNow = () => {
     cancelClose();
     setOpen(true);
+    setEverOpened(true);
   };
   const scheduleClose = () => {
     cancelClose();
@@ -125,7 +133,7 @@ export function SolutionsMegaMenu() {
                         Absent `art` renders nothing and the card looks exactly
                         as it did before — which is how the seven modules
                         without art still work. */}
-                    {art && (
+                    {everOpened && art && (
                       <>
                         <Image
                           src={art}
