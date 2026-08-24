@@ -1,0 +1,26 @@
+/* Minimal baseline. The custom properties come from the CMS branding record and
+   are injected on :root by app/layout.tsx — reference them, do not hardcode. */
+*, *::before, *::after { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--brand-background, #fff);
+  color: var(--brand-text, #111);
+  font-family: var(--brand-body-font, system-ui, sans-serif);
+  line-height: 1.6;
+}
+h1, h2, h3, h4, h5, h6 { font-family: var(--brand-heading-font, inherit); line-height: 1.2; }
+a { color: var(--brand-link, var(--brand-primary, #06c)); }
+img { max-width: 100%; height: auto; }
+main { max-width: 72rem; margin-inline: auto; padding: 0 1.5rem; }
+
+.sd-nav { display: flex; align-items: center; justify-content: space-between; gap: 2rem; padding: 1rem 1.5rem; }
+.sd-nav-brand { font-weight: 700; text-decoration: none; }
+.sd-nav ul { display: flex; gap: 1rem; list-style: none; margin: 0; padding: 0; }
+.sd-nav ul ul { display: none; }
+
+.sd-button {
+  display: inline-block; padding: 0.75rem 1.5rem; text-decoration: none;
+  background: var(--brand-primary, #06c); color: #fff;
+  border-radius: var(--brand-radius, 6px);
+}
+.sd-card { border: 1px solid color-mix(in srgb, currentColor 15%, transparent); border-radius: var(--brand-radius, 6px); padding: 1.25rem; }
