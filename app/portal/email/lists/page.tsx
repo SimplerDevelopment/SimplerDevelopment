@@ -69,9 +69,14 @@ export default function PortalEmailListsPage() {
   const [importing, setImporting] = useState(false);
 
   useEffect(() => {
+    // .catch is load-bearing: without it a rejected fetch never clears the
+    // spinner AND escapes as an unhandled rejection (which fails the vitest
+    // shard outright when a late effect outlives the test's fetch stub).
     fetch('/api/portal/email/lists')
       .then(r => r.json())
-      .then(d => { setLists(d.data ?? []); setLoading(false); });
+      .then(d => { setLists(d.data ?? []); })
+      .catch(() => { setLists([]); })
+      .finally(() => { setLoading(false); });
   }, []);
 
   // Reusable fetch — pages through subscribers using the slim endpoint
@@ -84,10 +89,20 @@ export default function PortalEmailListsPage() {
     url.searchParams.set('limit', String(subLimit));
     if (search) url.searchParams.set('search', search);
     if (status) url.searchParams.set('status', status);
-    const data = await fetch(url.pathname + url.search).then(r => r.json());
-    setSubscribers(data.data ?? []);
-    setSubTotal(typeof data.total === 'number' ? data.total : (data.data?.length ?? 0));
-    setSubLoading(false);
+    // try/finally is load-bearing, same reason as the lists effect above: an
+    // effect can fire after unmount (or after a test restores the real fetch),
+    // and an uncaught rejection here both wedges the pane on "Loading…" and
+    // surfaces as an unhandled rejection.
+    try {
+      const data = await fetch(url.pathname + url.search).then(r => r.json());
+      setSubscribers(data.data ?? []);
+      setSubTotal(typeof data.total === 'number' ? data.total : (data.data?.length ?? 0));
+    } catch {
+      setSubscribers([]);
+      setSubTotal(0);
+    } finally {
+      setSubLoading(false);
+    }
   }, [subLimit]);
 
   function openList(list: EmailList) {
