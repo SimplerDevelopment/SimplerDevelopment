@@ -8,6 +8,7 @@ import { logCardActivity } from '@/lib/pm-activity';
 import { filterUserIdsVisibleToClient } from '@/lib/security/assert-owned';
 import { canUserEditProject } from '@/lib/portal/project-access';
 import { recordCardAddedToSprint, recordCardRemovedFromSprint } from '@/lib/portal/sprint-snapshots';
+import { publishBoardChanged, publishBoardChangedForCard } from '@/lib/kanban/events';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function getRole(session: any): string {
@@ -358,6 +359,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     await logCardActivity(cardId, actorId, 'card.workflow_state_changed', { from: before.workflowState, to: card.workflowState });
   }
 
+  await publishBoardChangedForCard(cardId);
   return NextResponse.json({ success: true, data: card });
 }
 
@@ -403,5 +405,6 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   if (!result.canEdit) return NextResponse.json({ success: false, message: 'Forbidden' }, { status: 403 });
 
   await db.delete(kanbanCards).where(eq(kanbanCards.id, cardId));
+  await publishBoardChanged(result.card.projectId);
   return NextResponse.json({ success: true });
 }

@@ -119,9 +119,9 @@ Admin billing override columns (hand-applied migration; `bun run db:generate` wa
 
 | Location | Change | Notes |
 |---|---|---|
-| `lib/db/schema/sites.ts` (461) — `clients` | `billable_seats_override` column: `integer`, nullable | When non-null, `countBillableSeats` returns this value directly instead of deriving from accepted-member count. Admin/sales seat grant. |
-| `lib/db/schema/sites.ts` (461) — `clients` | `comp_discount_percent` column: `integer`, nullable, 0–100 | When non-null, `recomputeClientSubscription` applies a `comp-<percent>` Stripe `percent_off` coupon on the customer. The one sanctioned coupon mechanism — distinct from volume-discount line items. |
-| `lib/db/schema/sites.ts` (461) — `clients` | `byok_eligible_override` column: `boolean`, nullable | OR'd with derived `byokEligible` in `getClientEntitlements`. Admin/sales switch for the BYOK contact-sales flow. |
+| `lib/db/schema/sites.ts` (543) — `clients` | `billable_seats_override` column: `integer`, nullable | When non-null, `countBillableSeats` returns this value directly instead of deriving from accepted-member count. Admin/sales seat grant. |
+| `lib/db/schema/sites.ts` (543) — `clients` | `comp_discount_percent` column: `integer`, nullable, 0–100 | When non-null, `recomputeClientSubscription` applies a `comp-<percent>` Stripe `percent_off` coupon on the customer. The one sanctioned coupon mechanism — distinct from volume-discount line items. |
+| `lib/db/schema/sites.ts` (543) — `clients` | `byok_eligible_override` column: `boolean`, nullable | OR'd with derived `byokEligible` in `getClientEntitlements`. Admin/sales switch for the BYOK contact-sales flow. |
 
 `clients.stripeCustomerId` (in `lib/db/schema/sites.ts`) persists the Stripe customer id. `clients.plan` (`starter` / `pro` / `enterprise`) governs plan-gating entitlements. `clients.billing_mode` is independent of `plan` — the two axes coexist.
 

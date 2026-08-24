@@ -6,6 +6,7 @@ import { getPortalClient } from '@/lib/portal-client';
 import { eq, and, inArray } from 'drizzle-orm';
 import { logCardActivity } from '@/lib/pm-activity';
 import { filterUserIdsVisibleToClient } from '@/lib/security/assert-owned';
+import { publishBoardChangedForCard } from '@/lib/kanban/events';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function authorizeCard(cardId: number, session: any) {
@@ -77,5 +78,6 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
   await logCardActivity(cardId, parseInt(session.user.id, 10), 'card.commented', { commentId: comment.id });
 
+  await publishBoardChangedForCard(cardId);
   return NextResponse.json({ success: true, data: { ...comment, userName: session.user.name ?? null } });
 }

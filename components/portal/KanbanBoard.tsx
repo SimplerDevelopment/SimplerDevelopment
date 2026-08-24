@@ -21,6 +21,7 @@ import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-
 import { CSS } from '@dnd-kit/utilities';
 import { priorityColor, stripMarkdown } from '@/lib/portal-utils';
 import CardDetailModal from './CardDetailModal';
+import { useBoardLiveRefresh } from './useBoardLiveRefresh';
 import { CARD_TYPE_META } from './card-detail/_lib/agile';
 
 interface CardAttachment {
@@ -475,6 +476,9 @@ function KanbanColumn({
 export default function KanbanBoard({ projectId, initialColumns, isStaff, canEdit, currentUserId, sprints = [], initialCardId = null }: Props) {
   const [columns, setColumns] = useState(initialColumns);
   const [activeCard, setActiveCard] = useState<Card | null>(null);
+
+  // Another user's move, or an MCP agent's — see useBoardLiveRefresh.
+  useBoardLiveRefresh({ projectId, initialColumns, setColumns, isDragging: activeCard !== null });
   const [filterSprintId, setFilterSprintId] = useState<number | 'backlog' | null>(null);
   const [filterSearch, setFilterSearch] = useState('');
   const [filterPriority, setFilterPriority] = useState<Set<string>>(new Set());

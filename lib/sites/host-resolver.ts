@@ -13,7 +13,7 @@
 // regex-only behaviour instead of 504-ing every request.
 
 import { db } from '@/lib/db';
-import { clientWebsites, websiteDomains, posts, abExperiments } from '@/lib/db/schema';
+import { clientWebsites, websiteDomains, posts, abExperiments, siteRedirects } from '@/lib/db/schema';
 import { and, eq } from 'drizzle-orm';
 
 const CACHE_TTL_MS = 60_000;
@@ -31,6 +31,15 @@ export interface SiteHostInfo {
   publicAccess: boolean;
   cdnCacheEnabled: boolean;
   hasRunningExperiment: boolean;
+  /**
+   * The site's primary verified domain, or null when it has none. When the
+   * incoming host differs from this, middleware 301s to it — that is what
+   * makes `websiteDomains.isPrimary` mean something instead of being inert
+   * bookkeeping, and it stops two domains serving identical HTML.
+   */
+  canonicalHost: string | null;
+  /** Enabled path redirects for this site. Exact, lowercased `from` match. */
+  redirects: Array<{ from: string; to: string; status: number }>;
 }
 
 // Resolution result per host. `info: null` = definitively not a tenant host.
@@ -90,10 +99,36 @@ async function lookup(host: string): Promise<SiteHostInfo | null> {
 async function withExperimentState(
   row: { id: number; publicAccess: boolean; cdnCacheEnabled: boolean },
 ): Promise<SiteHostInfo> {
+  // Canonical host + redirect rules are resolved here so they ride the same
+  // 60s cache entry as everything else: no extra query per request, only per
+  // cache miss. Both are read-only facts about the site, so a stale-by-<60s
+  // answer is the same tradeoff already accepted for publicAccess.
+  const [primary, rules] = await Promise.all([
+    db
+      .select({ domain: websiteDomains.domain })
+      .from(websiteDomains)
+      .where(and(
+        eq(websiteDomains.websiteId, row.id),
+        eq(websiteDomains.isPrimary, true),
+        eq(websiteDomains.status, 'verified'),
+      ))
+      .limit(1),
+    db
+      .select({
+        from: siteRedirects.fromPath,
+        to: siteRedirects.toPath,
+        status: siteRedirects.statusCode,
+      })
+      .from(siteRedirects)
+      .where(and(eq(siteRedirects.websiteId, row.id), eq(siteRedirects.enabled, true))),
+  ]);
+
   const base = {
     siteId: row.id,
     publicAccess: row.publicAccess,
     cdnCacheEnabled: row.cdnCacheEnabled,
+    canonicalHost: primary[0]?.domain?.toLowerCase() ?? null,
+    redirects: rules.map((r) => ({ from: r.from.toLowerCase(), to: r.to, status: r.status })),
   };
   if (!row.cdnCacheEnabled) return { ...base, hasRunningExperiment: false };
 
@@ -133,7 +168,16 @@ export async function resolveSiteForHost(hostname: string): Promise<SiteHostInfo
     // DB slow/unreachable — fail open for ROUTING so the request still reaches
     // the /sites renderer (which 404s unknown hosts at the layout anyway), but
     // closed for CACHING. Not cached, so the next request retries.
-    return { siteId: -1, publicAccess: false, cdnCacheEnabled: false, hasRunningExperiment: false };
+    // canonicalHost null + no redirects on purpose: a DB hiccup must never
+    // cause a 301 loop or bounce traffic to a host we could not verify.
+    return {
+      siteId: -1,
+      publicAccess: false,
+      cdnCacheEnabled: false,
+      hasRunningExperiment: false,
+      canonicalHost: null,
+      redirects: [],
+    };
   }
 
   cache.set(key, { info, expiresAt: now + CACHE_TTL_MS });

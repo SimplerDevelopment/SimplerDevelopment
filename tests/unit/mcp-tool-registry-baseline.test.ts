@@ -562,6 +562,9 @@ const EXPECTED_TOOLS: readonly string[] = [
   'website_env_vars_delete',
   'website_env_vars_list',
   'website_env_vars_set',
+  'website_redirects_list',
+  'website_redirects_remove',
+  'website_redirects_set',
   // ── whoami ──
   'whoami',
   // ── workflow guides (unscoped — static guided-content, no tenant data) ──

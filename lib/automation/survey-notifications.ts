@@ -178,6 +178,12 @@ async function handleSurveyResponseSubmitted(event: AutomationEvent): Promise<vo
       to: recipients,
       subject,
       html,
+      // Reply-To carries the respondent, so hitting reply on a "new response"
+      // notification reaches the customer instead of the no-reply sender that
+      // FROM_EMAIL points at. Only set when a real address was captured:
+      // `respondent` above falls back to the literal string 'Anonymous', and
+      // handing that to Resend as a Reply-To would be an invalid header.
+      ...(payload.respondentEmail ? { replyTo: payload.respondentEmail } : {}),
     });
   } catch (err) {
     console.error('[survey-notifications] Failed to send notification email:', err);

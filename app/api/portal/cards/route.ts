@@ -7,6 +7,7 @@ import { getPortalClient } from '@/lib/portal-client';
 import { logCardActivity } from '@/lib/pm-activity';
 import { canUserEditProject } from '@/lib/portal/project-access';
 import { checkWipLimit } from '@/lib/portal/wip-limit';
+import { publishBoardChanged } from '@/lib/kanban/events';
 
 const VALID_TYPES = ['task', 'story', 'epic', 'bug', 'spike'] as const;
 const VALID_STATES = ['todo', 'in_progress', 'in_review', 'done', 'canceled'] as const;
@@ -154,5 +155,6 @@ export async function POST(req: Request) {
 
   await logCardActivity(card.id, userId, 'card.created', { title: card.title, fromTemplateId: fromTemplateId ?? null });
 
+  await publishBoardChanged(col.projectId);
   return NextResponse.json({ success: true, data: card });
 }
