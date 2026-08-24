@@ -57,6 +57,7 @@ export function Navigation() {
     // second so the consulting funnel gets header placement without displacing
     // Solutions, which is still the primary product path. See PUX-091.
     { href: '/ai-consulting', label: 'AI Consulting' },
+    { href: '/migrate', label: 'Migrate' },
     { href: '/about', label: 'About' },
     { href: '/blog', label: 'Blog' },
     { href: '/docs', label: 'Docs' },

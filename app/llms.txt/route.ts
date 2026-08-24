@@ -14,6 +14,9 @@ const LLMS_TXT = `# SimplerDevelopment
 ## Services
 - [AI consulting & agent development](/ai-consulting): Implementation services — production AI agents, multi-agent systems, RAG/retrieval, and MCP integration built in Mastra, CrewAI, or LangGraph. Three engagement shapes: Agent Sprint (2 weeks, one workflow live), Agent Build (6-12 weeks, multi-agent system), Run & Improve (monthly operation, model upgrades, eval regression). No published pricing — each engagement is scoped and quoted per project via the quote form on the page. Client owns the code; the platform is an optional substrate, not a condition of the work.
 
+## Migration
+- [Migration services](/migrate): Done-for-you migration onto SimplerDevelopment from 11 source products, with per-product pages at /migrate/<slug>. Website & CMS: wordpress, squarespace, wix, webflow. CRM & marketing: hubspot, mailchimp, activecampaign. Projects & ops: monday, trello, asana, clickup. Each page states what moves, what does NOT come across, and when to stay put. Key differentiator: because the platform is Apache-2.0 and self-hostable, the migration can be deployed onto the CLIENT'S own hosting and database and handed over — after which they pay their infrastructure provider, not a per-seat licence. Managed hosting is optional, not required. No one-click importers exist; migration is a done-for-you service quoted per project.
+
 ## Developer docs
 - [API overview](/docs): The four API surfaces — REST v1, public API, portal-internal API, and MCP.
 - [MCP tool catalog](/docs/mcp): The 450+-tool MCP server. Namespace index, credential/scope model, approval-link pattern.
