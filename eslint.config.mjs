@@ -57,6 +57,12 @@ const eslintConfig = defineConfig([
     "extension/**",
     // Node CLI package with its own toolchain (tsc + tsup); the Next ruleset is wrong for it.
     "packages/cli/**",
+    // Headless-site starter TEMPLATE. It is a standalone Next app that is copied
+    // out and installed on its own — deliberately NOT a workspace member (see the
+    // `workspaces` array), so its deps are absent here and its `@/` alias points
+    // at its own root, not this one. Linting it with the monorepo's config
+    // reports import errors that are wrong by construction.
+    "packages/starter/**",
     // Legacy design-tool god-files carry `// @ts-nocheck` and predate the lint
     // baseline; kept out of the prod lint surface (still compiled by the build).
     "components/product-designer/**",
