@@ -6,6 +6,7 @@ import { and, asc, eq, sql } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
 import { logCardActivity } from '@/lib/pm-activity';
 import { canUserEditProject } from '@/lib/portal/project-access';
+import { publishBoardChangedForCard } from '@/lib/kanban/events';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function getRole(session: any): string {
@@ -81,5 +82,6 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   }).returning();
 
   await logCardActivity(cardId, userId, 'card.checklist_item_added', { itemId: item.id, text: item.text });
+  await publishBoardChangedForCard(cardId);
   return NextResponse.json({ success: true, data: item }, { status: 201 });
 }

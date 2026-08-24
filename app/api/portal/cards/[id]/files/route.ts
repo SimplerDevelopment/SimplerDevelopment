@@ -5,6 +5,7 @@ import { kanbanCards, kanbanCardFiles, projects } from '@/lib/db/schema';
 import { getPortalClient } from '@/lib/portal-client';
 import { eq, and } from 'drizzle-orm';
 import { uploadToS3 } from '@/lib/s3/upload';
+import { publishBoardChangedForCard } from '@/lib/kanban/events';
 
 const MAX_SIZE = 20 * 1024 * 1024; // 20MB
 
@@ -54,6 +55,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       url: result.url,
     }).returning();
 
+    await publishBoardChangedForCard(cardId);
     return NextResponse.json({ success: true, data: { ...record, userName: session.user.name ?? null } });
   } catch (err) {
     console.error('[POST /api/portal/cards/[id]/files]', err);

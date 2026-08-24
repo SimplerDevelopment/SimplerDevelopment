@@ -15,6 +15,7 @@ import {
 import { mapColumnNameToStageKey } from '@/lib/publishing/bootstrap';
 import { checkPublishingPermission } from '@/lib/publishing/permissions';
 import { syncCardStageToCampaign } from '@/lib/publishing/channels/email';
+import { publishBoardChangedForCard } from '@/lib/kanban/events';
 
 // Moving cards between columns is available to ANY user who can view the project
 // (staff, or client-team member). It is intentionally not gated by canEdit —
@@ -123,5 +124,6 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     }
   }
 
+  await publishBoardChangedForCard(cardId);
   return NextResponse.json({ success: true, data: updated });
 }
