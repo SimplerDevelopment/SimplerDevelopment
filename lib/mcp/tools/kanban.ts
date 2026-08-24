@@ -45,6 +45,7 @@ import {
   requireScope,
   revalidateForWrite,
 } from '../types';
+import { publishBoardChanged, publishBoardChangedForCard } from '@/lib/kanban/events';
 
 export function registerKanbanTools(server: McpServer, ctx: PortalMcpContext): void {
   const clientId = ctx.client.id;
@@ -161,6 +162,7 @@ export function registerKanbanTools(server: McpServer, ctx: PortalMcpContext): v
         color: args.color ?? null,
         order: args.order ?? existing.length,
       }).returning();
+      await publishBoardChanged(args.projectId);
       revalidateForWrite('portal');
       return json(row);
     }
@@ -263,6 +265,7 @@ export function registerKanbanTools(server: McpServer, ctx: PortalMcpContext): v
       if (row.sprintId) {
         await recordCardAddedToSprint(row.id, row.sprintId, ctx.userId ?? null);
       }
+      await publishBoardChangedForCard(row.id);
       revalidateForWrite('portal');
       return json(row);
     }
@@ -310,6 +313,7 @@ export function registerKanbanTools(server: McpServer, ctx: PortalMcpContext): v
       if (card.columnId !== columnId && srcCol && destCol) {
         await recordCardColumnMove(cardId, srcCol.isDone, destCol.isDone, ctx.userId ?? null);
       }
+      await publishBoardChangedForCard(cardId);
       revalidateForWrite('portal');
       return json(row);
     }
@@ -383,6 +387,7 @@ export function registerKanbanTools(server: McpServer, ctx: PortalMcpContext): v
           await logCardActivity(id, ctx.userId ?? null, 'card.assignee_added', { userId, name: u?.name ?? null });
         }
       }
+      await publishBoardChanged(card.projectId);
       revalidateForWrite('portal');
       return json(row);
     }
@@ -404,6 +409,7 @@ export function registerKanbanTools(server: McpServer, ctx: PortalMcpContext): v
         .where(and(eq(projects.id, card.projectId), eq(projects.clientId, clientId))).limit(1);
       if (!proj) return json({ error: 'Permission denied' });
       await db.delete(kanbanCards).where(eq(kanbanCards.id, id));
+      await publishBoardChanged(card.projectId);
       revalidateForWrite('portal');
       return json({ success: true, id });
     }
@@ -435,6 +441,7 @@ export function registerKanbanTools(server: McpServer, ctx: PortalMcpContext): v
       if (order !== undefined) patch.order = order;
       const [row] = await db.update(kanbanColumns).set(patch)
         .where(eq(kanbanColumns.id, id)).returning();
+      await publishBoardChanged(col.projectId);
       revalidateForWrite('portal');
       return json(row);
     }
@@ -456,6 +463,7 @@ export function registerKanbanTools(server: McpServer, ctx: PortalMcpContext): v
         .where(and(eq(projects.id, col.projectId), eq(projects.clientId, clientId))).limit(1);
       if (!proj) return json({ error: 'Permission denied' });
       await db.delete(kanbanColumns).where(eq(kanbanColumns.id, id));
+      await publishBoardChanged(col.projectId);
       revalidateForWrite('portal');
       return json({ success: true, id });
     }
@@ -514,6 +522,7 @@ export function registerKanbanTools(server: McpServer, ctx: PortalMcpContext): v
         name: name.trim().slice(0, 50),
         color: color ?? '#6366f1',
       }).returning();
+      await publishBoardChanged(projectId);
       revalidateForWrite('portal');
       return json(row);
     }
@@ -533,7 +542,7 @@ export function registerKanbanTools(server: McpServer, ctx: PortalMcpContext): v
     async ({ id, ...rest }) => {
       if (!requireScope(ctx, 'projects:write')) return denied('projects:write');
       const [label] = await db
-        .select({ id: kanbanLabels.id })
+        .select({ id: kanbanLabels.id, projectId: kanbanLabels.projectId })
         .from(kanbanLabels)
         .innerJoin(projects, eq(projects.id, kanbanLabels.projectId))
         .where(and(eq(kanbanLabels.id, id), eq(projects.clientId, clientId))).limit(1);
@@ -541,6 +550,7 @@ export function registerKanbanTools(server: McpServer, ctx: PortalMcpContext): v
       const patch: Record<string, unknown> = {};
       for (const [k, v] of Object.entries(rest)) if (v !== undefined) patch[k] = v;
       const [row] = await db.update(kanbanLabels).set(patch).where(eq(kanbanLabels.id, id)).returning();
+      await publishBoardChanged(label.projectId);
       revalidateForWrite('portal');
       return json(row);
     }
@@ -556,12 +566,13 @@ export function registerKanbanTools(server: McpServer, ctx: PortalMcpContext): v
     async ({ id }) => {
       if (!requireScope(ctx, 'projects:delete')) return denied('projects:delete');
       const [label] = await db
-        .select({ id: kanbanLabels.id })
+        .select({ id: kanbanLabels.id, projectId: kanbanLabels.projectId })
         .from(kanbanLabels)
         .innerJoin(projects, eq(projects.id, kanbanLabels.projectId))
         .where(and(eq(kanbanLabels.id, id), eq(projects.clientId, clientId))).limit(1);
       if (!label) return json({ error: 'Label not found' });
       await db.delete(kanbanLabels).where(eq(kanbanLabels.id, id));
+      await publishBoardChanged(label.projectId);
       revalidateForWrite('portal');
       return json({ deleted: true, id });
     }
@@ -582,6 +593,7 @@ export function registerKanbanTools(server: McpServer, ctx: PortalMcpContext): v
       if (!label || label.projectId !== card.projectId) return json({ error: 'Label not in this project' });
       await db.insert(kanbanCardLabels).values({ cardId, labelId }).onConflictDoNothing();
       await logCardActivity(cardId, null, 'card.label_added', { labelId, name: label.name, color: label.color });
+      await publishBoardChangedForCard(cardId);
       revalidateForWrite('portal');
       return json({ attached: true });
     }
@@ -602,6 +614,7 @@ export function registerKanbanTools(server: McpServer, ctx: PortalMcpContext): v
       await db.delete(kanbanCardLabels)
         .where(and(eq(kanbanCardLabels.cardId, cardId), eq(kanbanCardLabels.labelId, labelId)));
       if (label) await logCardActivity(cardId, null, 'card.label_removed', { labelId, name: label.name });
+      await publishBoardChangedForCard(cardId);
       revalidateForWrite('portal');
       return json({ detached: true });
     }
@@ -646,6 +659,7 @@ export function registerKanbanTools(server: McpServer, ctx: PortalMcpContext): v
         order: (max ?? -1) + 1,
       }).returning();
       await logCardActivity(cardId, null, 'card.checklist_item_added', { itemId: item.id, text: item.text });
+      await publishBoardChangedForCard(cardId);
       revalidateForWrite('portal');
       return json(item);
     }
@@ -688,6 +702,7 @@ export function registerKanbanTools(server: McpServer, ctx: PortalMcpContext): v
           completed ? 'card.checklist_item_completed' : 'card.checklist_item_uncompleted',
           { itemId: id, text: item.text });
       }
+      await publishBoardChangedForCard(item.cardId);
       revalidateForWrite('portal');
       return json(row);
     }
@@ -711,6 +726,7 @@ export function registerKanbanTools(server: McpServer, ctx: PortalMcpContext): v
       if (!item) return json({ error: 'Checklist item not found' });
       await db.delete(kanbanCardChecklistItems).where(eq(kanbanCardChecklistItems.id, id));
       await logCardActivity(item.cardId, null, 'card.checklist_item_removed', { itemId: id, text: item.text });
+      await publishBoardChangedForCard(item.cardId);
       revalidateForWrite('portal');
       return json({ deleted: true, id });
     }
@@ -763,6 +779,7 @@ export function registerKanbanTools(server: McpServer, ctx: PortalMcpContext): v
       await db.insert(kanbanCardWatchers).values({ cardId, userId }).onConflictDoNothing();
       const [u] = await db.select({ name: users.name }).from(users).where(eq(users.id, userId)).limit(1);
       await logCardActivity(cardId, null, 'card.assignee_added', { userId, name: u?.name ?? null });
+      await publishBoardChangedForCard(cardId);
       revalidateForWrite('portal');
       return json({ assigned: true });
     }
@@ -782,6 +799,7 @@ export function registerKanbanTools(server: McpServer, ctx: PortalMcpContext): v
         .where(and(eq(kanbanCardAssignees.cardId, cardId), eq(kanbanCardAssignees.userId, userId)));
       const [u] = await db.select({ name: users.name }).from(users).where(eq(users.id, userId)).limit(1);
       await logCardActivity(cardId, null, 'card.assignee_removed', { userId, name: u?.name ?? null });
+      await publishBoardChangedForCard(cardId);
       revalidateForWrite('portal');
       return json({ unassigned: true });
     }
@@ -839,6 +857,7 @@ export function registerKanbanTools(server: McpServer, ctx: PortalMcpContext): v
       if (reciprocal) return json({ error: 'Reciprocal dependency would create a cycle' });
       await db.insert(kanbanCardDependencies).values({ blockedCardId: cardId, blockerCardId }).onConflictDoNothing();
       await logCardActivity(cardId, null, 'card.dependency_added', { blockerCardId, title: blocker.title });
+      await publishBoardChangedForCard(cardId);
       revalidateForWrite('portal');
       return json({ added: true });
     }
@@ -859,6 +878,7 @@ export function registerKanbanTools(server: McpServer, ctx: PortalMcpContext): v
         eq(kanbanCardDependencies.blockerCardId, blockerCardId),
       ));
       await logCardActivity(cardId, null, 'card.dependency_removed', { blockerCardId });
+      await publishBoardChangedForCard(cardId);
       revalidateForWrite('portal');
       return json({ removed: true });
     }
@@ -913,6 +933,7 @@ export function registerKanbanTools(server: McpServer, ctx: PortalMcpContext): v
         body,
         mentions: mentions ?? [],
       }).returning();
+      await publishBoardChangedForCard(cardId);
       revalidateForWrite('portal');
       return json(row);
     }
@@ -1004,6 +1025,7 @@ export function registerKanbanTools(server: McpServer, ctx: PortalMcpContext): v
         fileSize: result.fileSize,
         url: result.url,
       }).returning();
+      await publishBoardChangedForCard(cardId);
       revalidateForWrite('portal');
       return json(row);
     }

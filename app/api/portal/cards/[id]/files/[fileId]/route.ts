@@ -5,6 +5,7 @@ import { kanbanCards, kanbanCardFiles, projects } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
 import { deleteFromS3 } from '@/lib/s3/delete';
+import { publishBoardChangedForCard } from '@/lib/kanban/events';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function authorizeCard(cardId: number, session: any): Promise<{ isStaff: boolean } | null> {
@@ -48,6 +49,7 @@ export async function PATCH(
     .set({ commentId })
     .where(eq(kanbanCardFiles.id, fId));
 
+  await publishBoardChangedForCard(cardId);
   return NextResponse.json({ success: true });
 }
 
@@ -78,6 +80,7 @@ export async function DELETE(
     await deleteFromS3(file.storedFilename);
     await db.delete(kanbanCardFiles).where(eq(kanbanCardFiles.id, fId));
 
+    await publishBoardChangedForCard(cardId);
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error('[DELETE /api/portal/cards/[id]/files/[fileId]]', err);

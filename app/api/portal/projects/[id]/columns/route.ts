@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import { projects, kanbanColumns } from '@/lib/db/schema';
 import { getPortalClient } from '@/lib/portal-client';
 import { eq, and } from 'drizzle-orm';
+import { publishBoardChanged } from '@/lib/kanban/events';
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
@@ -52,5 +53,6 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     order: existing.length,
   }).returning();
 
+  await publishBoardChanged(projectId);
   return NextResponse.json({ success: true, data: col });
 }
