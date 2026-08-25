@@ -276,7 +276,7 @@ export function registerKanbanTools(server: McpServer, ctx: PortalMcpContext): v
     'kanban_move_card',
     {
       title: 'Move kanban card',
-      description: 'Move a card to a different column and/or position. Pass projectId to move it to another board entirely, preserving the card and its comment history — the destination column must belong to that project. A cross-board move detaches what is project-scoped: the sprint is cleared, the parent link is cleared unless the parent is on the destination board, and labels are re-pointed to same-named labels there (any without a match are dropped). The response reports each of those, so nothing is lost silently.',
+      description: 'Move a card to a different column and/or position. Pass projectId to move it to another board entirely, preserving the card and its comment history — the destination column must belong to that project. A cross-board move detaches what is project-scoped: the sprint is cleared, the parent link is cleared unless the parent is on the destination board, any children left behind have their parent link cleared, and labels are re-pointed to same-named labels there (any without a match are dropped). The response reports each of those, so nothing is lost silently.',
       inputSchema: {
         cardId: z.coerce.number(),
         columnId: z.coerce.number(),
@@ -325,9 +325,9 @@ export function registerKanbanTools(server: McpServer, ctx: PortalMcpContext): v
       // lib/portal/card-move.ts for why each of the three has to go.
       let labelsRemapped: string[] = [];
       let labelsDropped: string[] = [];
-      let parentCleared = false;
+      let parentCleared = false, childrenDetached = 0;
       if (crossBoard) {
-        ({ labelsRemapped, labelsDropped, parentCleared } =
+        ({ labelsRemapped, labelsDropped, parentCleared, childrenDetached } =
           await reconcileCardForBoardMove(cardId, destProjectId, card, ctx.userId ?? null));
       }
 
@@ -355,7 +355,7 @@ export function registerKanbanTools(server: McpServer, ctx: PortalMcpContext): v
       if (crossBoard) {
         await logCardActivity(cardId, ctx.userId ?? null, 'card.moved_project', {
           fromProjectId: card.projectId, toProjectId: destProjectId,
-          labelsRemapped, labelsDropped, parentCleared, sprintCleared: card.sprintId !== null,
+          labelsRemapped, labelsDropped, parentCleared, childrenDetached, sprintCleared: card.sprintId !== null,
         });
         // The source board must be woken explicitly: publishBoardChangedForCard
         // resolves the card's *current* project, which is now the destination —
@@ -366,7 +366,7 @@ export function registerKanbanTools(server: McpServer, ctx: PortalMcpContext): v
       revalidateForWrite('portal');
       return json(crossBoard
         ? { ...row, movedFromProjectId: card.projectId, labelsRemapped, labelsDropped,
-            parentCleared, sprintCleared: card.sprintId !== null }
+            parentCleared, childrenDetached, sprintCleared: card.sprintId !== null }
         : row);
     }
   );

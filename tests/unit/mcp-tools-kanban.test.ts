@@ -801,6 +801,55 @@ describe('kanban_move_card — cross-board', () => {
     expect((parseJson(res) as { parentCleared: boolean }).parentCleared).toBe(false);
   });
 
+  it('detaches children left behind and reports how many (PUX-115)', async () => {
+    // The mirror of the test above: here the moving card IS the parent. Its
+    // children stay on project 1 still pointing at it, and parentCardId has no
+    // FK to catch that — so the sweep has to null them explicitly.
+    dbState.selectQueue = [
+      [{ projectId: 1, columnId: 10, sprintId: null, parentCardId: null }],
+      [{ id: 1 }],
+      [{ isDone: false }],
+      [{ isDone: false }],
+      [],
+      [],
+    ];
+    dbState.updateReturningQueue = [
+      [{ id: 91 }, { id: 92 }],      // the child sweep, which runs first
+      [{ id: 5, columnId: 903 }],    // the card's own move
+    ];
+    const tools = registerAll();
+    const res = await tools.get('kanban_move_card')!.handler({
+      cardId: 5, columnId: 903, projectId: 209,
+    });
+    expect((parseJson(res) as { childrenDetached: number }).childrenDetached).toBe(2);
+    // First update is the sweep — nulling the orphaned children's parent link.
+    expect(dbState.updateCalls[0].set).toMatchObject({ parentCardId: null });
+    // Second is the card itself, which must still be the one that moved board.
+    expect((dbState.updateCalls[1].set as { projectId: number }).projectId).toBe(209);
+  });
+
+  it('reports zero children detached when the card is not a parent', async () => {
+    // Guards against the count being a hardcoded truthy: an epic-less move must
+    // report 0, not 1, or the "nothing is lost silently" response starts lying.
+    dbState.selectQueue = [
+      [{ projectId: 1, columnId: 10, sprintId: null, parentCardId: null }],
+      [{ id: 1 }],
+      [{ isDone: false }],
+      [{ isDone: false }],
+      [],
+      [],
+    ];
+    dbState.updateReturningQueue = [
+      [],                            // sweep matched nothing
+      [{ id: 5, columnId: 903 }],
+    ];
+    const tools = registerAll();
+    const res = await tools.get('kanban_move_card')!.handler({
+      cardId: 5, columnId: 903, projectId: 209,
+    });
+    expect((parseJson(res) as { childrenDetached: number }).childrenDetached).toBe(0);
+  });
+
   it('leaves a same-board move untouched — no projectId, no sprint clearing', async () => {
     // Regression guard: the common path must not start nulling sprints.
     dbState.selectQueue = [
