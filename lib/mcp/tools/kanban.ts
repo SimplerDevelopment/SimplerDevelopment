@@ -38,6 +38,7 @@ import {
   assertColumnInProject,
   assertProjectInClient,
   assertUserVisibleToClient,
+  isParentCardInProject,
   OwnershipError,
 } from '@/lib/security/assert-owned';
 import {
@@ -205,12 +206,8 @@ export function registerKanbanTools(server: McpServer, ctx: PortalMcpContext): v
           return json({ error: 'Sprint not found in this project' });
         }
       }
-      if (args.parentCardId != null) {
-        const [parent] = await db.select({ projectId: kanbanCards.projectId })
-          .from(kanbanCards).where(eq(kanbanCards.id, args.parentCardId)).limit(1);
-        if (!parent || parent.projectId !== args.projectId) {
-          return json({ error: 'Parent card not found in this project' });
-        }
+      if (args.parentCardId != null && !(await isParentCardInProject(args.parentCardId, args.projectId))) {
+        return json({ error: 'Parent card not found in this project' });
       }
 
       // Resolve template (if any) and merge under explicit args.

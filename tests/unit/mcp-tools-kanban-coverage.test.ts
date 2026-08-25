@@ -296,6 +296,14 @@ vi.mock('@/lib/security/assert-owned', () => {
     assertProjectInClient: vi.fn(async (projectId: number) => {
       if (projectId === 7777) throw new OwnershipError('projectId', projectId);
     }),
+    // Stand-in board for the real lookup: card 5 lives on project 1, card 6 on
+    // project 999, and nothing else exists. Lets the create-card tests below
+    // distinguish "no such parent" from "parent on another board" even though
+    // the predicate itself collapses both to false.
+    isParentCardInProject: vi.fn(async (parentCardId: number, projectId: number) => {
+      const board: Record<number, number> = { 5: 1, 6: 999 };
+      return board[parentCardId] === projectId;
+    }),
   };
 });
 
@@ -913,7 +921,6 @@ describe('kanban_create_card — parentCardId validation', () => {
   beforeEach(resetState);
 
   it('rejects when parentCardId is not found', async () => {
-    dbState.selectDefault = []; // parent card lookup returns empty
     const tools = registerAll();
     const res = await tools.get('kanban_create_card')!.handler({
       projectId: 1, columnId: 1, title: 'Child', parentCardId: 999,
@@ -922,18 +929,15 @@ describe('kanban_create_card — parentCardId validation', () => {
   });
 
   it('rejects when parent belongs to a different project', async () => {
-    dbState.selectDefault = [{ projectId: 999 }]; // parent in another project
     const tools = registerAll();
     const res = await tools.get('kanban_create_card')!.handler({
-      projectId: 1, columnId: 1, title: 'Child', parentCardId: 5,
+      // card 6 exists, but on project 999 — hierarchy is per-board.
+      projectId: 1, columnId: 1, title: 'Child', parentCardId: 6,
     });
     expect((parseJson(res) as { error: string }).error).toMatch(/Parent card not found/);
   });
 
   it('succeeds when parentCardId is in the same project', async () => {
-    dbState.selectQueue = [
-      [{ projectId: 1 }], // parent card lookup
-    ];
     dbState.insertReturningDefault = [{ id: 50, parentCardId: 5 }];
     const tools = registerAll();
     const res = await tools.get('kanban_create_card')!.handler({
