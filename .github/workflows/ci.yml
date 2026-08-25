@@ -71,8 +71,12 @@ jobs:
           # plus lib/mcp/: 31 tool registrars run tenant-scoped queries behind
           # `ctx.client.id`, so a scoping bug there leaks exactly what this suite
           # exists to catch — and none of them matched the paths above.
+          # plus lib/portal/: the data-access helpers the tools delegate to
+          # (wip-limit, sprint-snapshots, card-move) issue card and label writes
+          # of their own. Extracting logic out of a matched file and into an
+          # unmatched one would otherwise silently drop it out of this gate.
           # Fails OPEN with the block above: an unresolvable base runs it.
-          if grep -qE '^(lib/db/|app/api/|lib/mcp/|lib/active-client\.ts)' <<<"$CHANGED"; then
+          if grep -qE '^(lib/db/|app/api/|lib/mcp/|lib/portal/|lib/active-client\.ts)' <<<"$CHANGED"; then
             echo "data_access=true" >> "$GITHUB_OUTPUT"; echo "==> data-access change: tenancy suite runs"
           else
             echo "data_access=false" >> "$GITHUB_OUTPUT"; echo "==> no data-access change: skipping tenancy"

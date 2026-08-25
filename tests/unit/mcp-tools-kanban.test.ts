@@ -201,6 +201,14 @@ vi.mock('drizzle-orm', () => ({
 
 // ── collaborator mocks ──────────────────────────────────────────────────────
 
+// Sprint bookkeeping writes its own history rows; irrelevant to move semantics
+// and the db stub does not model that table.
+vi.mock('@/lib/portal/sprint-snapshots', () => ({
+  recordCardAddedToSprint: vi.fn(async () => {}),
+  recordCardRemovedFromSprint: vi.fn(async () => {}),
+  recordCardColumnMove: vi.fn(async () => {}),
+}));
+
 vi.mock('@/lib/pm-activity', () => ({
   logCardActivity: vi.fn(async () => {}),
 }));
@@ -683,6 +691,143 @@ describe('kanban_move_card', () => {
     expect((parseJson(res) as { id: number }).id).toBe(5);
     expect((dbState.lastUpdateSet as { columnId: number }).columnId).toBe(9);
     expect((dbState.lastUpdateSet as { order: number }).order).toBe(3);
+  });
+});
+
+// ── kanban_move_card, across boards (PUX-114) ───────────────────────────────
+
+/**
+ * Select order for a cross-board move, so the queue below reads in sequence:
+ * card, source project, srcCol, destCol, wip column, attached labels,
+ * destination labels (only when some are attached), parent (only when set).
+ * `checkWipLimit` returns after one select when the column has no limit.
+ */
+describe('kanban_move_card — cross-board', () => {
+  beforeEach(resetState);
+
+  it('refuses a destination project belonging to another client', async () => {
+    // The whole point of the new argument: it is a second tenant-scoped id on a
+    // write path, so it must fail on ownership rather than on the column.
+    dbState.selectQueue = [
+      [{ projectId: 1, columnId: 10, sprintId: null, parentCardId: null }],
+      [{ id: 1 }],
+    ];
+    const tools = registerAll();
+    const res = await tools.get('kanban_move_card')!.handler({
+      cardId: 1, columnId: 2, projectId: 7777,
+    });
+    expect((parseJson(res) as { error: string }).error).toMatch(/Forbidden/);
+    expect(dbState.updateCalls).toHaveLength(0);
+  });
+
+  it('re-points labels that exist on the destination and reports those that do not', async () => {
+    dbState.selectQueue = [
+      [{ projectId: 1, columnId: 10, sprintId: null, parentCardId: null }],
+      [{ id: 1 }],
+      [{ isDone: false }],
+      [{ isDone: false }],
+      [],
+      [{ name: 'sev:major' }, { name: 'VANTA' }],
+      [{ id: 77, name: 'sev:major' }],
+    ];
+    dbState.updateReturningDefault = [{ id: 5, columnId: 903 }];
+    const tools = registerAll();
+    const res = await tools.get('kanban_move_card')!.handler({
+      cardId: 5, columnId: 903, projectId: 209,
+    });
+    const out = parseJson(res) as { labelsRemapped: string[]; labelsDropped: string[]; movedFromProjectId: number };
+
+    expect(out.labelsRemapped).toEqual(['sev:major']);
+    // Reported rather than silently discarded — losing a sev:blocker off a bug
+    // during a bulk migration is exactly the quiet loss this reports.
+    expect(out.labelsDropped).toEqual(['VANTA']);
+    expect(out.movedFromProjectId).toBe(1);
+    expect((dbState.lastUpdateSet as { projectId: number }).projectId).toBe(209);
+  });
+
+  it('clears the sprint, which belongs to the board being left', async () => {
+    dbState.selectQueue = [
+      [{ projectId: 1, columnId: 10, sprintId: 55, parentCardId: null }],
+      [{ id: 1 }],
+      [{ isDone: false }],
+      [{ isDone: false }],
+      [],
+      [],
+    ];
+    const tools = registerAll();
+    const res = await tools.get('kanban_move_card')!.handler({
+      cardId: 5, columnId: 903, projectId: 209,
+    });
+    const set = dbState.lastUpdateSet as { sprintId: number | null; sprintOrder: number | null };
+    expect(set.sprintId).toBeNull();
+    expect(set.sprintOrder).toBeNull();
+    expect((parseJson(res) as { sprintCleared: boolean }).sprintCleared).toBe(true);
+  });
+
+  it('clears a parent left behind on the old board', async () => {
+    dbState.selectQueue = [
+      [{ projectId: 1, columnId: 10, sprintId: null, parentCardId: 42 }],
+      [{ id: 1 }],
+      [{ isDone: false }],
+      [{ isDone: false }],
+      [],
+      [],
+      [{ projectId: 1 }], // parent stayed on project 1
+    ];
+    const tools = registerAll();
+    const res = await tools.get('kanban_move_card')!.handler({
+      cardId: 5, columnId: 903, projectId: 209,
+    });
+    // parentCardId has no FK, so nothing at the DB layer would catch this.
+    expect((dbState.lastUpdateSet as { parentCardId: number | null }).parentCardId).toBeNull();
+    expect((parseJson(res) as { parentCleared: boolean }).parentCleared).toBe(true);
+  });
+
+  it('keeps a parent that is moving to the same board', async () => {
+    dbState.selectQueue = [
+      [{ projectId: 1, columnId: 10, sprintId: null, parentCardId: 42 }],
+      [{ id: 1 }],
+      [{ isDone: false }],
+      [{ isDone: false }],
+      [],
+      [],
+      [{ projectId: 209 }], // parent already on the destination
+    ];
+    const tools = registerAll();
+    const res = await tools.get('kanban_move_card')!.handler({
+      cardId: 5, columnId: 903, projectId: 209,
+    });
+    expect(dbState.lastUpdateSet).not.toHaveProperty('parentCardId');
+    expect((parseJson(res) as { parentCleared: boolean }).parentCleared).toBe(false);
+  });
+
+  it('leaves a same-board move untouched — no projectId, no sprint clearing', async () => {
+    // Regression guard: the common path must not start nulling sprints.
+    dbState.selectQueue = [
+      [{ projectId: 1, columnId: 10, sprintId: 55, parentCardId: 42 }],
+      [{ id: 1 }],
+      [{ isDone: false }],
+      [{ isDone: false }],
+      [],
+    ];
+    const tools = registerAll();
+    const res = await tools.get('kanban_move_card')!.handler({ cardId: 5, columnId: 9 });
+    expect(dbState.lastUpdateSet).not.toHaveProperty('projectId');
+    expect(dbState.lastUpdateSet).not.toHaveProperty('sprintId');
+    expect(parseJson(res)).not.toHaveProperty('labelsDropped');
+  });
+
+  it('treats projectId equal to the current board as an ordinary move', async () => {
+    dbState.selectQueue = [
+      [{ projectId: 1, columnId: 10, sprintId: 55, parentCardId: null }],
+      [{ id: 1 }],
+      [{ isDone: false }],
+      [{ isDone: false }],
+      [],
+    ];
+    const tools = registerAll();
+    await tools.get('kanban_move_card')!.handler({ cardId: 5, columnId: 9, projectId: 1 });
+    expect(dbState.lastUpdateSet).not.toHaveProperty('sprintId');
   });
 });
 
