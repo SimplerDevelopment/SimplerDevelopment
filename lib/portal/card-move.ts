@@ -7,8 +7,11 @@
  * - `sprintId` — FK to a sprint owned by the old project.
  * - `parentCardId` — **no FK at all**. The column comment in `schema/pm.ts`
  *   already records that deleting an epic leaves its children pointing at a
- *   nonexistent id "with nothing at the DB layer to catch it". Moving a child
- *   off its parent's board would be a second route to that same dangling state.
+ *   nonexistent id "with nothing at the DB layer to catch it". A board move is
+ *   a second route to that same dangling state, and it opens from BOTH ends:
+ *   the card can be a child whose parent stays behind (`parentCleared`), or a
+ *   parent whose children stay behind (`childrenDetached`). Fixing only the
+ *   first was PUX-115.
  * - labels — `kanban_card_labels` rows point at `kanban_labels`, which are
  *   per-project.
  *
@@ -19,7 +22,7 @@
 
 import { db } from '@/lib/db';
 import { kanbanCards, kanbanLabels, kanbanCardLabels } from '@/lib/db/schema';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { recordCardRemovedFromSprint } from '@/lib/portal/sprint-snapshots';
 
 export interface BoardMoveReconciliation {
@@ -29,6 +32,11 @@ export interface BoardMoveReconciliation {
   labelsDropped: string[];
   /** True when the parent link was severed because the parent stayed behind. */
   parentCleared: boolean;
+  /**
+   * Children left on the old board whose `parentCardId` was nulled because the
+   * parent they pointed at is the card that just left.
+   */
+  childrenDetached: number;
 }
 
 /**
@@ -42,7 +50,7 @@ export interface BoardMoveReconciliation {
 export async function reconcileCardForBoardMove(
   cardId: number,
   destProjectId: number,
-  card: { sprintId: number | null; parentCardId: number | null },
+  card: { projectId: number; sprintId: number | null; parentCardId: number | null },
   userId: number | null,
 ): Promise<BoardMoveReconciliation> {
   const labelsRemapped: string[] = [];
@@ -85,9 +93,37 @@ export async function reconcileCardForBoardMove(
     parentCleared = !parent || parent.projectId !== destProjectId;
   }
 
+  // The mirror image of the check above. `parentCleared` covers the moving card
+  // losing a parent that stayed put; this covers the moving card BEING a parent
+  // whose children stay put. Both end in the same dangling state, because
+  // `parentCardId` has no FK — and the children query in
+  // app/api/portal/cards/[id]/route.ts scopes candidates to the card's own
+  // projectId, so a surviving link is unresolvable from either side: the old
+  // board holds children pointing at a card it can no longer see, and the epic
+  // arrives on the new board with an empty Children section.
+  //
+  // Unconditional: one UPDATE whose WHERE matches nothing is cheaper than the
+  // SELECT it would take to decide whether to run it.
+  //
+  // Scoped to the board being LEFT, not to "any board that isn't the
+  // destination" — those are equivalent for every legitimate child (a child on
+  // a third board would have had this link cleared by `parentCleared` when it
+  // moved there), but they are not equivalent under a hostile write.
+  // `parentCardId` is unvalidated on the portal REST path
+  // (app/api/portal/cards/[id]/route.ts writes it straight from the body), so
+  // one client can point their own card at another client's card id. Matching
+  // on the source project keeps this sweep inside a projectId the caller has
+  // already been ownership-checked against; a `ne(...)` predicate would let it
+  // reach across the tenant boundary to null that foreign row.
+  const detached = await db
+    .update(kanbanCards)
+    .set({ parentCardId: null, updatedAt: new Date() })
+    .where(and(eq(kanbanCards.parentCardId, cardId), eq(kanbanCards.projectId, card.projectId)))
+    .returning({ id: kanbanCards.id });
+
   if (card.sprintId !== null) {
     await recordCardRemovedFromSprint(cardId, card.sprintId, userId);
   }
 
-  return { labelsRemapped, labelsDropped, parentCleared };
+  return { labelsRemapped, labelsDropped, parentCleared, childrenDetached: detached.length };
 }
