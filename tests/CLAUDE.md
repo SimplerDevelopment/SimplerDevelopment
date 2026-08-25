@@ -34,9 +34,9 @@ reseed whatever DB they connect to. The aliases pin `simplerdev_test`; calling
 
 ## Writing new tests
 
-- New tests: use `/e2e-writer` (for E2E) — produces `.spec.ts` with proper fixtures, cleanup, idempotent patterns.
-- Running existing E2E suite: `/e2e-runner`.
-- Visual / interactive QA: `/qa`.
+- New tests: dispatch the `qa-automation-engineer` agent — it owns Playwright/Vitest authoring and knows the fixture, cleanup and idempotency patterns this suite expects.
+- Running the existing E2E suite: `scripts/test.sh --layer=e2e --no-coverage`; `bun test:critical` for the `@critical` golden-path subset.
+- Exploratory / visual QA: the `manual-qa` agent, or the `bugcast-follower` skill to follow a live recorded session.
 - Don't mock the DB in integration tests — we got burned. Integration must hit a real DB. (See memory `feedback`.)
 - In route tests, after the act phase assert the guard mock actually ran: `assertMockUsed(authorizePortalMock, 'authorizePortal')` (`tests/helpers/assertMockUsed.ts`). A test that mocks `@/lib/auth` keeps passing green after the route moves to `@/lib/portal-auth` — the stale mock just gets 0 calls and guards nothing.
 

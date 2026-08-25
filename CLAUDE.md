@@ -297,7 +297,8 @@ migration — you cannot `git revert` a column that has already been dropped.
 | Block-editor audit | `block-orchestrator` to drive, `block-implementer` for one-off fixes |
 | Slim down an MCP tool response | `simplerdev-mcp-token-budget` |
 | Autonomous dev loop (hands-off) | `dev-block` skill |
-| E2E test authoring | `/e2e-writer`. Running existing E2E: `/e2e-runner`. Visual QA: `/qa` |
+| E2E test authoring + picking the gate for a diff | `qa-automation-engineer` agent (wraps `.agents/skills/simplerdev-test-gate-picker`). Conventions and the layer-picking rule live in `tests/CLAUDE.md`; run with `scripts/test.sh --layer=e2e --no-coverage` |
+| Exploratory / visual QA | `manual-qa` agent (clicks flows, files Kanban tickets), or the `bugcast-follower` skill for a live recorded session |
 | Visual diff (port verification) | `/visual-compare` |
 | Delegate role-based work to a department agent | the persona roster in `.claude/agents/` (21 invokable role agents) — see `docs/agency-personas.md` for the org chart, 3-tier model assignment, and the review pipeline |
 
