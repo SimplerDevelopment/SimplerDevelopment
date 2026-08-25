@@ -1,4 +1,11 @@
 import * as Sentry from '@sentry/nextjs';
+import { markBuild } from '@/lib/bugcast';
+
+// Before Sentry, and before anything can throw: this is the earliest client
+// code that runs, and a QA recording is most useful when it knows which build
+// it captured. Costs one performance.mark and no network call — see
+// lib/bugcast.ts for why it is standard User Timing rather than an SDK.
+markBuild();
 
 const dsn = process.env.NEXT_PUBLIC_SENTRY_DSN;
 

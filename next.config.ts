@@ -1,3 +1,4 @@
+import { execSync } from "node:child_process";
 import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
 
@@ -64,6 +65,31 @@ const FRAME_DENY_HEADERS = [{ key: 'X-Frame-Options', value: 'SAMEORIGIN' }];
 // (TypeScript is already skipped in-build for ALL branches below.)
 const isDevDeploy = process.env.VERCEL_GIT_COMMIT_REF === 'dev';
 
+// Which commit produced this bundle, for the client.
+//
+// Vercel and GitHub Actions both hand it over; a local `next build` or `next
+// dev` has neither, so it falls back to asking git. Guarded because a Docker
+// build without a .git directory is a normal way for that to fail, and a
+// missing SHA must never fail a build. `local` rather than empty: a reader can
+// tell "built outside CI" from "not instrumented", which an empty string cannot.
+//
+// Read by lib/bugcast.ts, which marks it on the performance timeline so a QA
+// recording knows which build it captured.
+const COMMIT_SHA =
+  process.env.VERCEL_GIT_COMMIT_SHA ??
+  process.env.GITHUB_SHA ??
+  (() => {
+    try {
+      return execSync('git rev-parse --short HEAD', {
+        stdio: ['ignore', 'pipe', 'ignore'],
+      })
+        .toString()
+        .trim();
+    } catch {
+      return 'local';
+    }
+  })();
+
 const nextConfig: NextConfig = {
   poweredByHeader: false,
   // Expose Google-auth availability to the client bundle so the login/signup
@@ -71,6 +97,8 @@ const nextConfig: NextConfig = {
   // Computed at build time — matches the runtime provider-registration check in
   // lib/auth.ts so they can never diverge.
   env: {
+    // Inlined at build time so the client bundle can report which build it is.
+    NEXT_PUBLIC_COMMIT_SHA: COMMIT_SHA,
     NEXT_PUBLIC_GOOGLE_AUTH_ENABLED: String(
       !!(process.env.AUTH_GOOGLE_ID ?? process.env.GOOGLE_CLIENT_ID) &&
       !!(process.env.AUTH_GOOGLE_SECRET ?? process.env.GOOGLE_CLIENT_SECRET),
