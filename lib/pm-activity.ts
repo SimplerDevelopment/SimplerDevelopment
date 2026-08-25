@@ -15,6 +15,10 @@ export type CardActivityType =
   | 'card.unassigned'
   | 'card.sprint_changed'
   | 'card.column_changed'
+  // A cross-board move. Distinct from card.column_changed because the card
+  // leaves the board entirely, and the payload records what had to be
+  // detached on the way out (sprint, parent, labels without a match).
+  | 'card.moved_project'
   | 'card.label_added'
   | 'card.label_removed'
   | 'card.commented'

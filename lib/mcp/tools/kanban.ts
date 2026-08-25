@@ -31,6 +31,7 @@ import { hasScope } from '@/lib/mcp-auth';
 import { logCardActivity } from '@/lib/pm-activity';
 import { recordCardAddedToSprint, recordCardRemovedFromSprint, recordCardColumnMove } from '@/lib/portal/sprint-snapshots';
 import { checkWipLimit } from '@/lib/portal/wip-limit';
+import { reconcileCardForBoardMove } from '@/lib/portal/card-move';
 import { uploadToS3 } from '@/lib/s3/upload';
 import { assertSafeUrl } from '@/lib/ssrf-guard';
 import {
@@ -275,23 +276,37 @@ export function registerKanbanTools(server: McpServer, ctx: PortalMcpContext): v
     'kanban_move_card',
     {
       title: 'Move kanban card',
-      description: 'Move a card to a different column and/or position.',
+      description: 'Move a card to a different column and/or position. Pass projectId to move it to another board entirely, preserving the card and its comment history — the destination column must belong to that project. A cross-board move detaches what is project-scoped: the sprint is cleared, the parent link is cleared unless the parent is on the destination board, and labels are re-pointed to same-named labels there (any without a match are dropped). The response reports each of those, so nothing is lost silently.',
       inputSchema: {
         cardId: z.coerce.number(),
         columnId: z.coerce.number(),
         order: z.coerce.number().optional(),
+        projectId: z.coerce.number().optional()
+          .describe('Destination board. Omit to move within the card\'s current board.'),
       },
     },
-    async ({ cardId, columnId, order }) => {
+    async ({ cardId, columnId, order, projectId }) => {
       if (!requireScope(ctx, 'projects:write')) return denied('projects:write');
-      const [card] = await db.select({ projectId: kanbanCards.projectId, columnId: kanbanCards.columnId })
-        .from(kanbanCards).where(eq(kanbanCards.id, cardId)).limit(1);
+      const [card] = await db.select({
+        projectId: kanbanCards.projectId,
+        columnId: kanbanCards.columnId,
+        sprintId: kanbanCards.sprintId,
+        parentCardId: kanbanCards.parentCardId,
+      }).from(kanbanCards).where(eq(kanbanCards.id, cardId)).limit(1);
       if (!card) return json({ error: 'Card not found' });
       const [proj] = await db.select({ id: projects.id }).from(projects)
         .where(and(eq(projects.id, card.projectId), eq(projects.clientId, clientId))).limit(1);
       if (!proj) return json({ error: 'Permission denied' });
+
+      const destProjectId = projectId ?? card.projectId;
+      const crossBoard = destProjectId !== card.projectId;
       try {
-        await assertColumnInProject(columnId, card.projectId);
+        // The destination project is a second tenant-scoped id on a write path,
+        // which is exactly the mass-assignment shape assert-owned.ts exists to
+        // stop — check it before the column, so a foreign projectId fails on
+        // ownership rather than leaking through a column that happens to match.
+        if (crossBoard) await assertProjectInClient(destProjectId, clientId);
+        await assertColumnInProject(columnId, destProjectId);
       } catch (e) {
         if (e instanceof OwnershipError) return json({ error: e.message });
         throw e;
@@ -306,16 +321,53 @@ export function registerKanbanTools(server: McpServer, ctx: PortalMcpContext): v
           return json({ error: wip.reason, code: 'wip_limit', limit: wip.limit, currentCount: wip.currentCount });
         }
       }
+      // Detach what cannot cross boards, before projectId changes. See
+      // lib/portal/card-move.ts for why each of the three has to go.
+      let labelsRemapped: string[] = [];
+      let labelsDropped: string[] = [];
+      let parentCleared = false;
+      if (crossBoard) {
+        ({ labelsRemapped, labelsDropped, parentCleared } =
+          await reconcileCardForBoardMove(cardId, destProjectId, card, ctx.userId ?? null));
+      }
+
       const [row] = await db.update(kanbanCards)
-        .set({ columnId, order: order ?? 0, updatedAt: new Date() })
+        .set({
+          columnId,
+          order: order ?? 0,
+          updatedAt: new Date(),
+          ...(crossBoard
+            ? {
+                projectId: destProjectId,
+                // Sprints belong to a project; carrying one across boards would
+                // put the card in a sprint its new board cannot see.
+                sprintId: null,
+                sprintOrder: null,
+                ...(parentCleared ? { parentCardId: null } : {}),
+              }
+            : {}),
+        })
         .where(eq(kanbanCards.id, cardId))
         .returning();
       if (card.columnId !== columnId && srcCol && destCol) {
         await recordCardColumnMove(cardId, srcCol.isDone, destCol.isDone, ctx.userId ?? null);
       }
+      if (crossBoard) {
+        await logCardActivity(cardId, ctx.userId ?? null, 'card.moved_project', {
+          fromProjectId: card.projectId, toProjectId: destProjectId,
+          labelsRemapped, labelsDropped, parentCleared, sprintCleared: card.sprintId !== null,
+        });
+        // The source board must be woken explicitly: publishBoardChangedForCard
+        // resolves the card's *current* project, which is now the destination —
+        // so an open view of the old board would keep showing a card that left.
+        await publishBoardChanged(card.projectId);
+      }
       await publishBoardChangedForCard(cardId);
       revalidateForWrite('portal');
-      return json(row);
+      return json(crossBoard
+        ? { ...row, movedFromProjectId: card.projectId, labelsRemapped, labelsDropped,
+            parentCleared, sprintCleared: card.sprintId !== null }
+        : row);
     }
   );
 

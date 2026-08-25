@@ -1,0 +1,93 @@
+/**
+ * Cross-board card moves.
+ *
+ * A kanban card carries three things scoped to the board it lives on, none of
+ * which survive a move to another project:
+ *
+ * - `sprintId` — FK to a sprint owned by the old project.
+ * - `parentCardId` — **no FK at all**. The column comment in `schema/pm.ts`
+ *   already records that deleting an epic leaves its children pointing at a
+ *   nonexistent id "with nothing at the DB layer to catch it". Moving a child
+ *   off its parent's board would be a second route to that same dangling state.
+ * - labels — `kanban_card_labels` rows point at `kanban_labels`, which are
+ *   per-project.
+ *
+ * This lives outside `lib/mcp/tools/kanban.ts` because that file is already a
+ * god file the size budget refuses to let grow, and because the reconciliation
+ * is worth reading on its own: it is the part that decides what a card loses.
+ */
+
+import { db } from '@/lib/db';
+import { kanbanCards, kanbanLabels, kanbanCardLabels } from '@/lib/db/schema';
+import { eq } from 'drizzle-orm';
+import { recordCardRemovedFromSprint } from '@/lib/portal/sprint-snapshots';
+
+export interface BoardMoveReconciliation {
+  /** Labels re-pointed to a same-named label on the destination board. */
+  labelsRemapped: string[];
+  /** Labels with no counterpart on the destination. Reported, never silent. */
+  labelsDropped: string[];
+  /** True when the parent link was severed because the parent stayed behind. */
+  parentCleared: boolean;
+}
+
+/**
+ * Detach what cannot cross, and report it.
+ *
+ * Runs BEFORE the card's `projectId` changes — every lookup here reads against
+ * the board the card is still on. The caller performs the actual update and is
+ * responsible for applying `sprintId: null` and, when `parentCleared`,
+ * `parentCardId: null`.
+ */
+export async function reconcileCardForBoardMove(
+  cardId: number,
+  destProjectId: number,
+  card: { sprintId: number | null; parentCardId: number | null },
+  userId: number | null,
+): Promise<BoardMoveReconciliation> {
+  const labelsRemapped: string[] = [];
+  const labelsDropped: string[] = [];
+
+  const attached = await db
+    .select({ name: kanbanLabels.name })
+    .from(kanbanCardLabels)
+    .innerJoin(kanbanLabels, eq(kanbanLabels.id, kanbanCardLabels.labelId))
+    .where(eq(kanbanCardLabels.cardId, cardId));
+
+  if (attached.length) {
+    const destLabels = await db
+      .select({ id: kanbanLabels.id, name: kanbanLabels.name })
+      .from(kanbanLabels)
+      .where(eq(kanbanLabels.projectId, destProjectId));
+    const byName = new Map(destLabels.map((l) => [l.name.toLowerCase(), l.id]));
+
+    // Cleared wholesale first: every existing row points at a label on the old
+    // board, so none of them can survive the move as-is.
+    await db.delete(kanbanCardLabels).where(eq(kanbanCardLabels.cardId, cardId));
+    for (const { name } of attached) {
+      const destId = byName.get(name.toLowerCase());
+      if (destId === undefined) {
+        labelsDropped.push(name);
+        continue;
+      }
+      await db.insert(kanbanCardLabels).values({ cardId, labelId: destId }).onConflictDoNothing();
+      labelsRemapped.push(name);
+    }
+  }
+
+  let parentCleared = false;
+  if (card.parentCardId !== null) {
+    const [parent] = await db
+      .select({ projectId: kanbanCards.projectId })
+      .from(kanbanCards)
+      .where(eq(kanbanCards.id, card.parentCardId))
+      .limit(1);
+    parentCleared = !parent || parent.projectId !== destProjectId;
+  }
+
+  if (card.sprintId !== null) {
+    await recordCardRemovedFromSprint(cardId, card.sprintId, userId);
+  }
+
+  return { labelsRemapped, labelsDropped, parentCleared };
+}
