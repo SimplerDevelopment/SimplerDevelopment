@@ -30,9 +30,10 @@ Pointers from "I need to work on X" → the right CLAUDE.md / guide / skill. Loa
 - **Block editor audit** → `block-orchestrator` (drive) + `block-implementer` (atomic units)
 - **Delegate to a role persona (frontend/backend/ai/devops/review/QA/etc.)** → `.claude/agents/` (21 agents via the Agent tool); org chart + model tiering + pipeline in `docs/agency-personas.md`
 - **Draft a week of LinkedIn posts** → `linkedin-weekly-drafts` skill
-- **Write E2E tests** → `/e2e-writer`
-- **Run E2E tests** → `/e2e-runner`
-- **Visual QA / interactive review** → `/qa`
+- **Write E2E tests** → `qa-automation-engineer` agent; layer-picking + fixture conventions in `tests/CLAUDE.md`
+- **Run E2E tests** → `scripts/test.sh --layer=e2e --no-coverage` (`bun test:critical` for the golden-path gate)
+- **Pick the right gate for a diff** → `qa-automation-engineer` agent (wraps `.agents/skills/simplerdev-test-gate-picker`)
+- **Exploratory / visual QA** → `manual-qa` agent (files Kanban tickets), or `bugcast-follower` for a live recorded session
 - **Visual diff (port verification)** → `/visual-compare`
 
 ## By question
