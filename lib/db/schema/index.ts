@@ -24,6 +24,7 @@ export * from './ab';
 export * from './snapshots';
 export * from './workflows';
 export * from './chat';
+export * from './channels';
 export * from './cronHealth';
 export * from './agenticOs';
 export * from './plugins';
