@@ -175,3 +175,6 @@ public/agile-after-ai/_*
 
 # Lighthouse sweep output (scripts/lighthouse-audit.sh)
 /.lighthouse
+
+# Local QA screen recordings — artifacts, never tracked.
+screen-recordings/
