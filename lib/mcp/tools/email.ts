@@ -338,7 +338,7 @@ export function registerEmailTools(server: McpServer, ctx: PortalMcpContext): vo
       if (name !== undefined) patch.name = name.trim();
       if (description !== undefined) patch.description = description;
       const [row] = await db.update(emailLists).set(patch)
-        .where(eq(emailLists.id, id)).returning();
+        .where(and(eq(emailLists.id, id), eq(emailLists.clientId, clientId))).returning();
       revalidateForWrite('portal');
       return json(row);
     }
@@ -358,7 +358,7 @@ export function registerEmailTools(server: McpServer, ctx: PortalMcpContext): vo
         .where(and(eq(emailLists.id, id), eq(emailLists.clientId, clientId))).limit(1);
       if (!existing) return json({ error: 'List not found' });
       try {
-        await db.delete(emailLists).where(eq(emailLists.id, id));
+        await db.delete(emailLists).where(and(eq(emailLists.id, id), eq(emailLists.clientId, clientId)));
       } catch (err) {
         return json({ error: `Cannot delete: ${(err as Error).message}` });
       }
@@ -431,7 +431,7 @@ export function registerEmailTools(server: McpServer, ctx: PortalMcpContext): vo
         if (status !== undefined) patch.status = status;
         if (Object.keys(patch).length === 0) return json(existing);
         const [row] = await db.update(emailSubscribers).set(patch)
-          .where(eq(emailSubscribers.id, existing.id)).returning();
+          .where(and(eq(emailSubscribers.id, existing.id), eq(emailSubscribers.listId, listId))).returning();
         revalidateForWrite('portal');
         return json(row);
       }
@@ -478,7 +478,7 @@ export function registerEmailTools(server: McpServer, ctx: PortalMcpContext): vo
         if (status === 'unsubscribed' && sub.status !== 'unsubscribed') patch.unsubscribedAt = new Date();
       }
       const [row] = await db.update(emailSubscribers).set(patch)
-        .where(eq(emailSubscribers.id, id)).returning();
+        .where(and(eq(emailSubscribers.id, id), eq(emailSubscribers.listId, sub.listId))).returning();
       revalidateForWrite('portal');
       return json(row);
     }
@@ -498,21 +498,27 @@ export function registerEmailTools(server: McpServer, ctx: PortalMcpContext): vo
     async ({ id, hardDelete }) => {
       if (!requireScope(ctx, 'email:delete')) return denied('email:delete');
       if (!(await requireService(clientId, 'email'))) return serviceDenied('email');
+      // email_subscribers has no clientId — tenancy is only reachable via
+      // listId -> email_lists.clientId, so the join below IS the tenant check
+      // and the mutations re-assert the listId it returned rather than trusting
+      // `id` alone. A correlated subquery would be fully self-scoping but is
+      // disproportionate here: unlike the campaign paths these run inline in the
+      // same request as the check, so no approval window exists. JUL9-011.
       const [sub] = await db
-        .select({ id: emailSubscribers.id })
+        .select({ id: emailSubscribers.id, listId: emailSubscribers.listId })
         .from(emailSubscribers)
         .innerJoin(emailLists, eq(emailLists.id, emailSubscribers.listId))
         .where(and(eq(emailSubscribers.id, id), eq(emailLists.clientId, clientId)))
         .limit(1);
       if (!sub) return json({ error: 'Subscriber not found' });
       if (hardDelete) {
-        await db.delete(emailSubscribers).where(eq(emailSubscribers.id, id));
+        await db.delete(emailSubscribers).where(and(eq(emailSubscribers.id, id), eq(emailSubscribers.listId, sub.listId)));
         revalidateForWrite('portal');
         return json({ success: true, id, mode: 'hard' });
       }
       await db.update(emailSubscribers)
         .set({ status: 'unsubscribed', unsubscribedAt: new Date() })
-        .where(eq(emailSubscribers.id, id));
+        .where(and(eq(emailSubscribers.id, id), eq(emailSubscribers.listId, sub.listId)));
       revalidateForWrite('portal');
       return json({ success: true, id, mode: 'soft' });
     }
@@ -674,7 +680,7 @@ export function registerEmailTools(server: McpServer, ctx: PortalMcpContext): vo
         if (existing.status !== 'scheduled') return json({ error: `Cannot unschedule — current status is ${existing.status}` });
         const [row] = await db.update(emailCampaigns)
           .set({ status: 'draft', scheduledAt: null, updatedAt: new Date() })
-          .where(eq(emailCampaigns.id, id)).returning();
+          .where(and(eq(emailCampaigns.id, id), eq(emailCampaigns.clientId, clientId))).returning();
         return json(row);
       }
       if (!scheduledAt) return json({ error: 'scheduledAt required unless unschedule=true' });
@@ -753,7 +759,7 @@ export function registerEmailTools(server: McpServer, ctx: PortalMcpContext): vo
             patch.htmlContent = renderBlocksToEmailHtml(blocks as Parameters<typeof renderBlocksToEmailHtml>[0]);
           }
           const [row] = await db.update(emailCampaigns).set(patch)
-            .where(eq(emailCampaigns.id, id)).returning();
+            .where(and(eq(emailCampaigns.id, id), eq(emailCampaigns.clientId, clientId))).returning();
           return row;
         },
       });
@@ -845,7 +851,7 @@ export function registerEmailTools(server: McpServer, ctx: PortalMcpContext): vo
         payload: { id },
         originalSnapshot: { name: existing.name, subject: existing.subject, status: existing.status },
         apply: async () => {
-          await db.delete(emailCampaigns).where(eq(emailCampaigns.id, id));
+          await db.delete(emailCampaigns).where(and(eq(emailCampaigns.id, id), eq(emailCampaigns.clientId, clientId)));
           return { success: true, id };
         },
       });
