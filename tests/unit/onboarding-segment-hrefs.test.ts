@@ -17,7 +17,7 @@
  * per-domain allowlist that just restates the data it is checking.
  */
 import { describe, it, expect } from 'vitest';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { RICH_SEGMENTS } from '@/lib/onboarding/module-segments';
 
@@ -44,5 +44,43 @@ describe('onboarding checklist hrefs', () => {
     // Guards the test itself: an import that silently yields {} would make the
     // assertion above vacuously pass.
     expect(allActions.length).toBeGreaterThan(20);
+  });
+
+  /**
+   * PUX-123: the "existence" check above is exactly why the original bug
+   * survived — /portal/websites IS a real route, so a step that pointed there
+   * instead of a domain-appropriate surface passed the test above every time.
+   * This targets the Store domain specifically (the one PUX-123 fixed) and
+   * requires its detected steps to reach an actual *store* surface: either a
+   * direct /portal/websites/[siteId]/store/... deep link, or one of this
+   * repo's server-side resolver routes (app/portal/store/route.ts and
+   * app/portal/store/products/route.ts) that redirects into one. Reading the
+   * resolver's source (rather than importing it) confirms it actually
+   * redirects somewhere under /store — a resolver that existed but redirected
+   * to, say, /portal/dashboard would still fail this.
+   *
+   * This is deliberately narrower than a repo-wide "every step must live
+   * under its own domain's subtree" rule (rejected in the block comment
+   * above for false-positiving on legitimate cross-domain links like esign →
+   * /portal/crm/contracts) — it only asserts the one domain this ticket is
+   * about actually reaches a store surface.
+   */
+  it('store checklist steps reach a store surface, not just any valid route', () => {
+    function resolvesToStoreSurface(href: string): boolean {
+      // Direct deep link already under a site's store subtree.
+      if (/^\/portal\/websites\/[^/]+\/store(\/|$)/.test(href)) return true;
+
+      // A server-side resolver route — confirm its source actually redirects
+      // into a /store path, not just that the route file exists.
+      const path = href.split('?')[0].split('#')[0].replace(/\/$/, '');
+      const routeFile = resolve(REPO_ROOT, `app${path}`, 'route.ts');
+      if (!existsSync(routeFile)) return false;
+      const src = readFileSync(routeFile, 'utf8');
+      return /redirect\([^)]*\/store/.test(src);
+    }
+
+    const storeSteps = RICH_SEGMENTS.store.actions.filter((a) => a.detect);
+    const wrong = storeSteps.filter((a) => !resolvesToStoreSurface(a.href));
+    expect(wrong.map((a) => `store/${a.key} → ${a.href}`)).toEqual([]);
   });
 });

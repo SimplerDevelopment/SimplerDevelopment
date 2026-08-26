@@ -225,13 +225,14 @@ export const RICH_SEGMENTS: Record<string, ModuleSegment> = {
     ],
   },
 
-  // Store's hrefs land on the websites list rather than the store itself, and
-  // that is a constraint, not an oversight: every store surface lives under
-  // /portal/websites/[siteId]/store/*, and this file is static and db-free by
-  // design (see the header) so it cannot resolve a siteId. Deep-linking would
-  // mean either a new /portal/store resolver route or plumbing site context in
-  // here. Don't "fix" these to a [siteId] path — it has nothing to interpolate.
-  // OBQA-019.
+  // Every store surface lives under /portal/websites/[siteId]/store/*, and
+  // this file is static and db-free by design (see the header) so it cannot
+  // resolve a siteId itself. PUX-123: the two hrefs below now point at
+  // app/portal/store(/products)/route.ts, resolver routes that look up the
+  // caller's site server-side and redirect into the real store surface — see
+  // those files for the tenancy scoping and the zero/multi-site decisions.
+  // Don't point these at a literal [siteId] path — this file has nothing to
+  // interpolate one with. OBQA-019 (original bug), PUX-123 (the fix).
   store: {
     domainKey: 'store',
     title: 'Open your store',
@@ -242,7 +243,7 @@ export const RICH_SEGMENTS: Record<string, ModuleSegment> = {
         key: 'add-product',
         label: 'Add your first product',
         description: 'Create a product with pricing and images.',
-        href: '/portal/websites',
+        href: '/portal/store/products',
         icon: 'inventory_2',
         detect: 'store.hasProduct',
       },
@@ -250,7 +251,7 @@ export const RICH_SEGMENTS: Record<string, ModuleSegment> = {
         key: 'first-order',
         label: 'Receive your first order',
         description: 'Your storefront is live once orders can flow.',
-        href: '/portal/websites',
+        href: '/portal/store',
         icon: 'shopping_cart',
         detect: 'store.hasOrder',
       },
