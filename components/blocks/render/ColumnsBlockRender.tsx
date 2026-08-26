@@ -45,6 +45,7 @@ import { DeckNextSlideBlockRender, DeckJumpToBlockRender } from './DeckNavBlockR
 import { PopupBlockRender } from './PopupBlockRender';
 import { PostContentPlaceholderRender } from './PostContentPlaceholderRender';
 import { BlockStyleWrapper } from './BlockStyleWrapper';
+import { ContainerTypography } from './typography-cascade';
 import { useBlockEditorOptional } from '@/contexts/BlockEditorContext';
 
 // This component's column-width/gap/padding styling is hand-mirrored by
@@ -128,7 +129,7 @@ export function ColumnsBlockRender({ block }: ColumnsBlockRenderProps) {
     // via the Style tab actually renders on production too (the editor canvas
     // already wraps it; without this the bg silently dropped on published pages).
     <BlockStyleWrapper block={block}>
-    <div className={responsiveClasses}>
+    <ContainerTypography block={block}><div className={responsiveClasses}>
       <div className={`flex ${stackingClasses} ${gapClasses[block.gap || 'md']}`}>
         {columns.map((column, colIndex) => {
           const paddingClass = column.padding === 'sm' ? 'p-2' : column.padding === 'md' ? 'p-4' : column.padding === 'lg' ? 'p-6' : '';
@@ -163,7 +164,7 @@ export function ColumnsBlockRender({ block }: ColumnsBlockRenderProps) {
           );
         })}
       </div>
-    </div>
+    </div></ContainerTypography>
     </BlockStyleWrapper>
   );
 }

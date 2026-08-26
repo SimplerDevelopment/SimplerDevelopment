@@ -51,6 +51,7 @@ import { DeckNextSlideBlockRender, DeckJumpToBlockRender } from './DeckNavBlockR
 import { PopupBlockRender } from './PopupBlockRender';
 import { PostContentPlaceholderRender } from './PostContentPlaceholderRender';
 import { BlockStyleWrapper } from './BlockStyleWrapper';
+import { ContainerTypography } from './typography-cascade';
 import React from 'react';
 
 // This component's box-model/background/layout styling is hand-mirrored by
@@ -169,7 +170,7 @@ export function SectionBlockRender({ block }: SectionBlockRenderProps) {
           }}
         />
       )}
-      <div className="relative z-10" style={innerStyle}>
+      <ContainerTypography block={block}><div className="relative z-10" style={innerStyle}>
         {(block.blocks || []).map((nestedBlock) => (
           <div key={nestedBlock.id} data-block-id={nestedBlock.id} data-block-type={nestedBlock.type}>
             <BlockStyleWrapper block={nestedBlock}>
@@ -177,7 +178,7 @@ export function SectionBlockRender({ block }: SectionBlockRenderProps) {
             </BlockStyleWrapper>
           </div>
         ))}
-      </div>
+      </div></ContainerTypography>
     </Tag>
   );
 }

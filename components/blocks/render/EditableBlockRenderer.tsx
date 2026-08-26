@@ -3,6 +3,7 @@
 import { Fragment, createElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Block, BlockEditorData } from '@/types/blocks';
 import { BlockStyleWrapper } from './BlockStyleWrapper';
+import { ContainerTypography } from './typography-cascade';
 import { BlockRenderer } from './BlockRenderer';
 import { SelectableBlock } from '@/components/visual-editor/SelectableBlock';
 import { useEditorModeContext } from '@/components/visual-editor/editor-mode-context';
@@ -710,7 +711,7 @@ function ContainerBlockRenderer({
     const widths = totalWidth > 100 ? rawWidths.map(w => (w / totalWidth) * 100) : rawWidths;
     return (
       <BlockStyleWrapper block={block}>
-        <div className={`flex ${gapClass} py-4`}>
+        <ContainerTypography block={block}><div className={`flex ${gapClass} py-4`}>
           {cols.map((col, i) => {
             const verticalAlignClass = col.verticalAlign === 'center' ? 'flex flex-col justify-center' : col.verticalAlign === 'bottom' ? 'flex flex-col justify-end' : '';
             const paddingClass = col.padding === 'sm' ? 'p-2' : col.padding === 'md' ? 'p-4' : col.padding === 'lg' ? 'p-6' : '';
@@ -742,7 +743,7 @@ function ContainerBlockRenderer({
               </div>
             );
           })}
-        </div>
+        </div></ContainerTypography>
       </BlockStyleWrapper>
     );
   }
@@ -827,7 +828,7 @@ function ContainerBlockRenderer({
     return (
       <div style={sectionOuterStyle}>
         <BlockStyleWrapper block={block}>
-          <div className="border border-dashed border-gray-200/40 rounded min-h-[60px]" style={sectionInnerStyle}>
+          <ContainerTypography block={block}><div className="border border-dashed border-gray-200/40 rounded min-h-[60px]" style={sectionInnerStyle}>
             {(block.blocks || []).map((nested, ni) => (
               <Fragment key={nested.id}>
                 <NestedSortableBlock block={nested} registry={registry} editor={editor} draggingId={draggingId} externalDropTarget={externalDropTarget} />
@@ -842,7 +843,7 @@ function ContainerBlockRenderer({
               hasChildren={(block.blocks || []).length > 0}
               isExternalOver={externalDropTarget?.kind === 'container' && externalDropTarget.containerId === block.id && externalDropTarget.slotIndex === 0}
             />
-          </div>
+          </div></ContainerTypography>
         </BlockStyleWrapper>
       </div>
     );
