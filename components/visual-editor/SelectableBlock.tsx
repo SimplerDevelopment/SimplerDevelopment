@@ -346,28 +346,57 @@ function ResizeHandle({
     [direction, containerRef, onResizeEnd],
   );
 
-  const styles: React.CSSProperties = {
+  // The visible dot (what earlier shipped as the whole handle) vs. the
+  // invisible hit zone it now sits inside. Both boxes live INSIDE the
+  // iframe's own document, but the canvas that hosts the iframe is scaled
+  // with CSS `transform: scale(zoomLevel / 100)` by the PARENT
+  // (IframePreview.tsx) — a transform on an ancestor shrinks a descendant's
+  // ON-SCREEN rendered (and therefore hit-tested) size right along with its
+  // visual size. At the editor's default 55% zoom the old 8px corner dot
+  // hit-tested at ~4.4px on screen, well under any usable pointer target.
+  // The iframe has no channel telling it the current zoom level (and adding
+  // one to counter-scale exactly would be the "always correct at every
+  // zoom" fix, but it's a bigger, cross-frame change for a narrow bug) — so
+  // instead the DOT stays the same small visible size (unchanged look at
+  // 100%) while the clickable/hoverable box around it grows well past the
+  // dot. Sized so the default 55% zoom clears a WCAG-ish ~24px on-screen
+  // target (44 * 0.55 ≈ 24px along the generous axis); it's smaller again
+  // at the 30% zoom floor, but still several times better than before.
+  const hitZoneStyles: React.CSSProperties = {
     position: 'absolute',
     zIndex: 51,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    background: 'transparent',
+  };
+
+  const dotStyles: React.CSSProperties = {
     backgroundColor: '#3b82f6',
     border: '1.5px solid white',
     borderRadius: direction === 'corner' ? '2px' : '1px',
+    pointerEvents: 'none',
   };
 
   if (direction === 'right') {
+    // Hit zone is centered ON the edge (12px in, 12px out) rather than
+    // pushed outward, so it doesn't reach further into a tightly-packed
+    // neighboring block than it does into this one.
     return (
       <div
         onMouseDown={handleMouseDown}
         style={{
-          ...styles,
-          right: '-5px',
+          ...hitZoneStyles,
+          right: '-12px',
           top: '50%',
           transform: 'translateY(-50%)',
-          width: '6px',
-          height: '24px',
+          width: '24px',
+          height: '44px',
           cursor: 'ew-resize',
         }}
-      />
+      >
+        <div style={{ ...dotStyles, width: '6px', height: '24px' }} />
+      </div>
     );
   }
 
@@ -376,15 +405,17 @@ function ResizeHandle({
       <div
         onMouseDown={handleMouseDown}
         style={{
-          ...styles,
-          bottom: '-5px',
+          ...hitZoneStyles,
+          bottom: '-12px',
           left: '50%',
           transform: 'translateX(-50%)',
-          width: '24px',
-          height: '6px',
+          width: '44px',
+          height: '24px',
           cursor: 'ns-resize',
         }}
-      />
+      >
+        <div style={{ ...dotStyles, width: '24px', height: '6px' }} />
+      </div>
     );
   }
 
@@ -393,14 +424,16 @@ function ResizeHandle({
     <div
       onMouseDown={handleMouseDown}
       style={{
-        ...styles,
-        right: '-5px',
-        bottom: '-5px',
-        width: '8px',
-        height: '8px',
+        ...hitZoneStyles,
+        right: '-17px',
+        bottom: '-17px',
+        width: '34px',
+        height: '34px',
         cursor: 'nwse-resize',
       }}
-    />
+    >
+      <div style={{ ...dotStyles, width: '8px', height: '8px' }} />
+    </div>
   );
 }
 
