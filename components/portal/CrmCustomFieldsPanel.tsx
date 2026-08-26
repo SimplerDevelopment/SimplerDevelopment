@@ -44,6 +44,8 @@ interface FieldValue {
 export interface CrmCustomFieldsPanelHandle {
   save: () => Promise<boolean>;
   reload: () => Promise<void>;
+  /** True if the panel has unsaved local edits (only meaningful in 'edit' mode). */
+  isDirty: () => boolean;
 }
 
 interface Props {
@@ -205,7 +207,8 @@ export default function CrmCustomFieldsPanel({
   useImperativeHandle(ref, () => ({
     save,
     reload: load,
-  }), [save, load]);
+    isDirty: () => dirty,
+  }), [save, load, dirty]);
 
   if (loading) {
     return (
