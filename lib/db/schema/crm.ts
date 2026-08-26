@@ -498,7 +498,15 @@ export const crmEnrichmentConfig = pgTable('crm_enrichment_config', {
   clientId: integer('client_id').primaryKey().references(() => clients.id, { onDelete: 'cascade' }),
   enabled: boolean('enabled').default(false).notNull(),
   keySource: varchar('key_source', { length: 20 }).default('platform').notNull(), // 'platform' | 'own'
-  ownApiKey: varchar('own_api_key', { length: 500 }), // NOTE: currently unused. Encrypt with lib/crypto/secrets.ts before wiring any read/write.
+  // AES-256-GCM blob (base64: iv | tag | ciphertext), NEVER plaintext. This is a
+  // BYOK third-party (enrichment provider) key, same shape as `client_api_keys`
+  // — read/write it ONLY through lib/crm/enrichment-key.ts (getOwnApiKey /
+  // setOwnApiKey), which wrap lib/crypto/api-key.ts's encryptApiKey/decryptApiKey.
+  // Currently unused (no caller reads/writes this column yet — AUTH79-019); do
+  // not add a second path that touches this column directly. A plaintext
+  // credential column here is the exact exception `.claude/rules/auth-surface.md`
+  // says must not be reintroduced — GitHub tokens were that exception once.
+  ownApiKey: varchar('own_api_key', { length: 500 }),
   platformCreditBalance: integer('platform_credit_balance').default(0).notNull(),
   costPerEnrichment: integer('cost_per_enrichment').default(1).notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
