@@ -87,6 +87,100 @@ async function flush() {
   await new Promise((r) => setTimeout(r, 0));
 }
 
+describe('buildMcpServer — injected clientId is stripped before the handler (PUX-055)', () => {
+  beforeEach(() => {
+    inserts.length = 0;
+    checkRateLimitMock.mockReset();
+    checkRateLimitMock.mockResolvedValue(true);
+    process.env.ENCRYPTION_KEY = TEST_KEY;
+  });
+
+  /** A credential reaching two companies — this is what triggers the injection. */
+  function makeMultiCtx(): PortalMcpContext {
+    const base = makeCtx();
+    return {
+      ...base,
+      reachable: [
+        { client: base.client, role: 'owner' },
+        { client: { id: 43, company: 'Second Co' } as PortalMcpContext['client'], role: 'owner' },
+      ],
+    } as PortalMcpContext;
+  }
+
+  it('does not pass clientId into an *_update handler', async () => {
+    // The wrapper adds `clientId` to every tenant-scoped schema for a
+    // multi-company credential. Handlers that spread their input would fold it
+    // straight into an update patch, and no test exercised an *_update tool
+    // under a multi-company credential — the card's actual complaint.
+    const server = buildMcpServer(makeMultiCtx());
+    let seen: Record<string, unknown> | undefined;
+
+    server.registerTool(
+      'test_thing_update',
+      { description: 'test' },
+      async (input: Record<string, unknown>) => {
+        seen = input;
+        return { content: [{ type: 'text', text: 'ok' }] };
+      },
+    );
+
+    const handler = getRegisteredTools(server)['test_thing_update'].handler;
+    await handler({ id: 7, name: 'New name', clientId: 42 });
+
+    expect(seen).toBeDefined();
+    expect(seen).toEqual({ id: 7, name: 'New name' });
+    expect(Object.prototype.hasOwnProperty.call(seen!, 'clientId')).toBe(false);
+  });
+
+  it('leaves the rest of the input untouched', async () => {
+    // Guard against a strip that clones badly and drops or reorders real args.
+    const server = buildMcpServer(makeMultiCtx());
+    let seen: Record<string, unknown> | undefined;
+    server.registerTool(
+      'test_other_update',
+      { description: 'test' },
+      async (input: Record<string, unknown>) => { seen = input; return { content: [] }; },
+    );
+    const handler = getRegisteredTools(server)['test_other_update'].handler;
+    await handler({ id: 1, nested: { a: [1, 2] }, flag: false, clientId: 42 });
+    expect(seen).toEqual({ id: 1, nested: { a: [1, 2] }, flag: false });
+  });
+
+  it('still records clientId in the high-risk capture', async () => {
+    // The strip is for the HANDLER only. Forensics must keep what the agent
+    // actually sent, including which company it named.
+    const server = buildMcpServer(makeMultiCtx());
+    server.registerTool(
+      'test_thing_delete',
+      { description: 'test' },
+      async () => ({ content: [{ type: 'text', text: 'deleted' }] }),
+    );
+    const handler = getRegisteredTools(server)['test_thing_delete'].handler;
+    await handler({ id: 99, clientId: 42 });
+    await flush();
+
+    const capture = inserts.find((i) => i.table === agentActionCaptures);
+    expect(capture, 'high-risk call should still capture').toBeDefined();
+    const decrypted = JSON.parse(decryptApiKey(capture!.values.ciphertext as string));
+    expect(decrypted.clientId).toBe(42);
+  });
+
+  it('does not strip anything for a single-company credential', async () => {
+    // No injection happens there, so a `clientId` in the input would be the
+    // tool's own field. Removing it would be a regression, not a fix.
+    const server = buildMcpServer(makeCtx());
+    let seen: Record<string, unknown> | undefined;
+    server.registerTool(
+      'test_single_update',
+      { description: 'test' },
+      async (input: Record<string, unknown>) => { seen = input; return { content: [] }; },
+    );
+    const handler = getRegisteredTools(server)['test_single_update'].handler;
+    await handler({ id: 5, clientId: 42 });
+    expect(seen).toEqual({ id: 5, clientId: 42 });
+  });
+});
+
 describe('buildMcpServer real inline tool shadow — AAF-001 capture + AAF-003 rate limit', () => {
   beforeEach(() => {
     inserts.length = 0;

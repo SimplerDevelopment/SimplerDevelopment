@@ -115,7 +115,14 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     // keys the schema doesn't declare, so without this the handler would never see
     // it. Exempt tools (whoami) are skipped — advertising a required company on
     // the tool you call to LEARN the companies would contradict itself.
-    if (multiClient && !isTenantExemptTool(toolName)) {
+    // Recorded for the strip below: only registrations that RECEIVED the
+    // injected param may have it removed again. A single-client credential
+    // never gets one (the SDK drops undeclared keys), and an exempt tool is
+    // skipped entirely — stripping unconditionally would silently eat a
+    // `clientId` that some future tool declares in its own schema.
+    const injectedClientId = multiClient && !isTenantExemptTool(toolName);
+
+    if (injectedClientId) {
       const config = args[1] as { inputSchema?: Record<string, unknown> } | undefined;
       if (config && typeof config === 'object') {
         config.inputSchema = {
@@ -247,8 +254,30 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
         checkHighRiskAnomaly(toolName, cred, ctx);
       }
 
+      // `clientId` is OUR routing parameter, not the tool's. It is fully spent
+      // by this point — the route resolved the target from the request body
+      // (see the comment above), and everything here reads `target.client.id`,
+      // never `inputArg.clientId`. Handlers, though, commonly spread their
+      // input (`{ ...rest }` in ~14 registrations), which folds the key into
+      // update patches and into staged `mcp_pending_changes` payloads.
+      //
+      // Not currently exploitable — Drizzle drops unknown keys and ownership
+      // pins the row — but a stray `clientId` sitting in a staged approval
+      // payload is wrong the moment anything reads one back, and it is
+      // unguarded by construction rather than by design. PUX-055.
+      //
+      // Stripped from the HANDLER's copy only. The audit path below keeps the
+      // original: `hashParams` and the high-risk capture exist to reconstruct
+      // what the agent actually sent, and it did send this.
+      let handlerArgs = cbArgs;
+      if (injectedClientId && 'clientId' in inputArg) {
+        const forHandler = { ...inputArg };
+        delete forHandler.clientId;
+        handlerArgs = [forHandler, ...cbArgs.slice(1)];
+      }
+
       try {
-        callResult = await origCb(...cbArgs);
+        callResult = await origCb(...handlerArgs);
         // Treat a result carrying `isError: true` (MCP SDK error envelope) as error.
         if (
           callResult !== null &&
