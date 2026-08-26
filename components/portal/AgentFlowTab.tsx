@@ -22,7 +22,6 @@ import ReactFlow, {
   type EdgeChange,
   type Connection,
   type ReactFlowInstance,
-  type Viewport,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import type {
@@ -230,6 +229,32 @@ function fromRF(nodes: Node[], edges: Edge[]): { nodes: AgentFlowNode[]; edges: 
       };
     }),
   };
+}
+
+/**
+ * Build the graph payload `handleSave` PUTs to the API.
+ *
+ * PUX-038: this used to call `rfInstance.getViewport()` and write whatever
+ * pan/zoom the author happened to be at into `graph.viewport`. That is
+ * catastrophic in combination with the canvas's `fitView={!flow.graph.viewport}`
+ * below: the FIRST save permanently disables auto-framing for the flow, so if
+ * the author saved while zoomed into a corner, every later viewer opens on
+ * that same empty-looking corner — and there was no UI to recover, only a
+ * direct API call clearing `graph.viewport`.
+ *
+ * Fix: never persist a viewport at all. Auto-framing (`fitView`) then keeps
+ * re-running on every load, which is also just correct behaviour for a canvas
+ * whose node set changes over time. Dropping the field unconditionally (not
+ * just skipping a NEW capture) means any flow saved before this fix — which
+ * may already carry a bad baked-in viewport — self-heals the next time an
+ * editor hits Save, with no migration needed. A geometric "is the stored
+ * viewport off-screen" fallback was considered and deliberately skipped: node
+ * dimensions aren't known until ReactFlow measures them post-render (see the
+ * `onNodesChange` comment above), so that check would need real bounding-box
+ * math for a failure mode this already fully prevents going forward.
+ */
+export function buildSaveGraph(nodes: Node[], edges: Edge[]): AgentFlowGraph {
+  return fromRF(nodes, edges);
 }
 
 function extractError(res: unknown, fallback: string): string {
@@ -471,9 +496,7 @@ export default function AgentFlowTab({ projectId, canEdit }: { projectId: number
     setSaving(true);
     setError(null);
     try {
-      const { nodes: outNodes, edges: outEdges } = fromRF(nodes, edges);
-      const viewport: Viewport | undefined = rfInstance ? rfInstance.getViewport() : flow.graph.viewport;
-      const graph: AgentFlowGraph = { nodes: outNodes, edges: outEdges, viewport };
+      const graph = buildSaveGraph(nodes, edges);
       const res = await fetch(`/api/portal/projects/${projectId}/flows/${flow.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -484,7 +507,7 @@ export default function AgentFlowTab({ projectId, canEdit }: { projectId: number
         setFlow(updated);
         setSelfReviewWarnings(Array.isArray(res.warnings) ? res.warnings : []);
         setFlows((prev) => prev.map((f) => (f.id === updated.id
-          ? { ...f, name: updated.name, status: updated.status, updatedAt: updated.updatedAt, nodeCount: outNodes.length, edgeCount: outEdges.length }
+          ? { ...f, name: updated.name, status: updated.status, updatedAt: updated.updatedAt, nodeCount: graph.nodes.length, edgeCount: graph.edges.length }
           : f)));
       } else {
         setError(extractError(res, 'Failed to save flow'));
@@ -494,7 +517,7 @@ export default function AgentFlowTab({ projectId, canEdit }: { projectId: number
     } finally {
       setSaving(false);
     }
-  }, [projectId, flow, nodes, edges, name, description, status, rfInstance, canEdit]);
+  }, [projectId, flow, nodes, edges, name, description, status, canEdit]);
 
   const handleDeleteFlow = useCallback(async () => {
     if (!flow || !canEdit) return;
@@ -716,6 +739,10 @@ export default function AgentFlowTab({ projectId, canEdit }: { projectId: number
               nodesConnectable={canEdit}
               elementsSelectable
               deleteKeyCode={canEdit ? ['Backspace', 'Delete'] : []}
+              // `graph.viewport` only exists on flows saved before PUX-038 —
+              // `buildSaveGraph` above never writes it anymore, so this branch
+              // (and the stale pan/zoom it can pin) retires itself as each
+              // remaining flow gets resaved. See buildSaveGraph's comment.
               fitView={!flow.graph.viewport}
               defaultViewport={flow.graph.viewport}
             >

@@ -135,6 +135,10 @@ export function NodeInspector({
         />
       </div>
 
+      {/* PUX-039: `description` and `role` are both plain optional strings on
+          AgentFlowNodeData with no kind restriction, so both need an editor
+          regardless of `kind` — otherwise anything written to the "wrong"
+          one via API/MCP is invisible and uneditable here. */}
       {data.kind === 'agent' ? (
         <>
           <div>
@@ -168,19 +172,43 @@ export function NodeInspector({
               className="w-full text-xs px-2 py-1.5 border border-border rounded bg-background disabled:opacity-70"
             />
           </div>
+          <div>
+            <label htmlFor="node-description" className="block text-[11px] text-muted-foreground mb-1">Description</label>
+            <input
+              id="node-description"
+              value={data.description ?? ''}
+              onChange={(e) => onChange({ description: e.target.value })}
+              disabled={!canEdit}
+              placeholder="What happens at this step"
+              className="w-full text-xs px-2 py-1.5 border border-border rounded bg-background disabled:opacity-70"
+            />
+          </div>
         </>
       ) : (
-        <div>
-          <label htmlFor="node-description" className="block text-[11px] text-muted-foreground mb-1">Description</label>
-          <input
-            id="node-description"
-            value={data.description ?? ''}
-            onChange={(e) => onChange({ description: e.target.value })}
-            disabled={!canEdit}
-            placeholder="What happens at this step"
-            className="w-full text-xs px-2 py-1.5 border border-border rounded bg-background disabled:opacity-70"
-          />
-        </div>
+        <>
+          <div>
+            <label htmlFor="node-description" className="block text-[11px] text-muted-foreground mb-1">Description</label>
+            <input
+              id="node-description"
+              value={data.description ?? ''}
+              onChange={(e) => onChange({ description: e.target.value })}
+              disabled={!canEdit}
+              placeholder="What happens at this step"
+              className="w-full text-xs px-2 py-1.5 border border-border rounded bg-background disabled:opacity-70"
+            />
+          </div>
+          <div>
+            <label htmlFor="node-role" className="block text-[11px] text-muted-foreground mb-1">Role note</label>
+            <input
+              id="node-role"
+              value={data.role ?? ''}
+              onChange={(e) => onChange({ role: e.target.value })}
+              disabled={!canEdit}
+              placeholder="What this step owns in the flow"
+              className="w-full text-xs px-2 py-1.5 border border-border rounded bg-background disabled:opacity-70"
+            />
+          </div>
+        </>
       )}
 
       {/* Only meaningful once a node actually branches — showing it on every
@@ -272,6 +300,8 @@ export function EdgeInspector({
 }) {
   const kind: EdgeKind = (edge.data as { kind?: EdgeKind } | undefined)?.kind ?? 'handoff';
   const label = typeof edge.label === 'string' ? edge.label : '';
+  // No editor for AgentFlowEdge.data ("extra" here) — see its declaration in
+  // lib/agent-flows/types.ts for why (PUX-039: round-trip-only, YAGNI editor).
   return (
     <div className="space-y-3">
       <div>

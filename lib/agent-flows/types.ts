@@ -96,6 +96,18 @@ export interface AgentFlowEdge {
   target: string;
   label?: string;
   kind?: 'handoff' | 'dependency';
+  /**
+   * Opaque passthrough for a future orchestration runtime (e.g. a branch
+   * condition `sd-run-flow` could evaluate). The portal round-trips this
+   * verbatim — `toRFEdges`/`fromRF` in `AgentFlowTab.tsx` carry it as
+   * `data.extra` on the ReactFlow edge — but `EdgeInspector`
+   * (`agent-flow-inspectors.tsx`) deliberately has NO editor for it (PUX-039).
+   * A free-form JSON editor for an arbitrary object was judged not worth
+   * building (YAGNI) against zero current writers of this field; anything set
+   * here today can only come from the API/MCP directly, and stays inert and
+   * invisible in the portal UI by design until a concrete consumer justifies
+   * the editor.
+   */
   data?: Record<string, unknown>;
 }
 
