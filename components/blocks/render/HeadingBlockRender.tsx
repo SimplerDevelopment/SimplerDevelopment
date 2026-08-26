@@ -3,6 +3,7 @@
 import React from 'react';
 import { HeadingBlock } from '@/types/blocks';
 import { combineResponsiveClasses } from '@/lib/utils/responsive';
+import { ancestorStyle, useResolvedTypography } from './typography-cascade';
 
 interface HeadingBlockRenderProps {
   block: HeadingBlock;
@@ -15,9 +16,12 @@ export function HeadingBlockRender({ block }: HeadingBlockRenderProps) {
     right: 'text-right',
   }[block.alignment || 'left'];
 
-  const style = typeof block.style === 'object' ? block.style : {};
-  const hasCustomFontSize = !!style.fontSize;
-  const hasCustomFontWeight = !!style.fontWeight;
+  // VEQA-032 step 3a — resolve against own > elementStyles > ancestor so a
+  // section/column typography value also suppresses the theme fallback
+  // below. No own/ancestor value → resolved.*.value is undefined and the
+  // fallback classes behave exactly as before.
+  const resolved = useResolvedTypography(block);
+  const inlineStyle = ancestorStyle(resolved);
 
   const sizeClasses = {
     1: 'text-4xl md:text-5xl',
@@ -37,7 +41,7 @@ export function HeadingBlockRender({ block }: HeadingBlockRenderProps) {
     6: 'font-semibold',
   }[block.level];
 
-  const headingClasses = `${hasCustomFontSize ? '' : sizeClasses} ${hasCustomFontWeight ? '' : weightClasses}`.trim();
+  const headingClasses = `${resolved.fontSize.value ? '' : sizeClasses} ${resolved.fontWeight.value ? '' : weightClasses}`.trim();
 
   // Generate responsive classes from block settings
   const responsiveClasses = block.responsive
@@ -55,7 +59,7 @@ export function HeadingBlockRender({ block }: HeadingBlockRenderProps) {
       )
     : '';
 
-  const className = `${alignmentClass} ${headingClasses} ${block.style?.color ? '' : 'text-foreground'}`;
+  const className = `${alignmentClass} ${headingClasses} ${resolved.color.value ? '' : 'text-foreground'}`;
   // Optional `as` override: render the styled text as a non-heading element
   // (e.g. a section eyebrow/overline that should look small but must NOT be a
   // real <h6>, which breaks accessible heading order). Styling still derives
@@ -75,8 +79,8 @@ export function HeadingBlockRender({ block }: HeadingBlockRenderProps) {
   return (
     <div className={responsiveClasses}>
       {hasHtml
-        ? React.createElement(tag, { className, 'data-editable-field': 'content', dangerouslySetInnerHTML: { __html: text } })
-        : React.createElement(tag, { className, 'data-editable-field': 'content' }, text)
+        ? React.createElement(tag, { className, style: inlineStyle, 'data-editable-field': 'content', dangerouslySetInnerHTML: { __html: text } })
+        : React.createElement(tag, { className, style: inlineStyle, 'data-editable-field': 'content' }, text)
       }
     </div>
   );

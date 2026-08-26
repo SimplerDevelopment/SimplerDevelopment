@@ -248,3 +248,29 @@ export function useResolvedTypography(
     ]
   );
 }
+
+/**
+ * VEQA-032 step 3a — leaf-sweep helper. Own values and elementStyles values
+ * are already applied by each leaf's existing code paths (own via
+ * BlockStyleWrapper's inline style on the block's outer wrapper, which
+ * cascades through ordinary CSS inheritance unless a fallback class blocks
+ * it; elementStyles via the leaf's own `getElementCSS` call). Only an
+ * `ancestor`-sourced value has nowhere else to land, since the section/column
+ * that owns it is a React-context ancestor, not necessarily a styled DOM
+ * ancestor of this leaf's content node — so it must be applied directly.
+ *
+ * Returns a `React.CSSProperties`-shaped object containing only the
+ * properties whose resolved `source === 'ancestor'`, ready to spread into a
+ * content node's `style` prop (e.g. `style={{ ...ancestorStyle(resolved),
+ * ...getElementCSS(...) }}`).
+ */
+export function ancestorStyle(resolved: ResolvedTypography): Partial<TypographyValues> {
+  const out: Partial<TypographyValues> = {};
+  for (const prop of TYPOGRAPHY_PROPERTIES) {
+    const entry = resolved[prop];
+    if (entry.source === 'ancestor' && entry.value !== undefined) {
+      out[prop] = entry.value;
+    }
+  }
+  return out;
+}

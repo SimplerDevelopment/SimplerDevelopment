@@ -2,6 +2,7 @@
 
 import { TextBlock } from '@/types/blocks';
 import { combineResponsiveClasses } from '@/lib/utils/responsive';
+import { ancestorStyle, useResolvedTypography } from './typography-cascade';
 
 interface TextBlockRenderProps {
   block: TextBlock;
@@ -14,10 +15,14 @@ export function TextBlockRender({ block }: TextBlockRenderProps) {
     right: 'text-right',
   }[block.alignment || 'left'];
 
-  const style = typeof block.style === 'object' ? block.style : {};
-  const hasCustomFontSize = !!style.fontSize;
+  // VEQA-032 step 3a — resolve against own > elementStyles > ancestor so a
+  // section/column typography value also suppresses the theme fallback
+  // below. No own/ancestor value → resolved.*.value is undefined and the
+  // fallback classes behave exactly as before.
+  const resolved = useResolvedTypography(block);
+  const inlineStyle = ancestorStyle(resolved);
 
-  const sizeClass = hasCustomFontSize
+  const sizeClass = resolved.fontSize.value
     ? 'leading-relaxed'
     : {
         sm: 'text-sm leading-relaxed',
@@ -66,13 +71,15 @@ export function TextBlockRender({ block }: TextBlockRenderProps) {
         headingHasHtml ? (
           <h2
             data-editable-field="heading"
-            className={`${alignmentClass} text-3xl md:text-4xl font-bold ${block.style?.color ? '' : 'text-foreground'}`}
+            className={`${alignmentClass} text-3xl md:text-4xl font-bold ${resolved.color.value ? '' : 'text-foreground'}`}
+            style={inlineStyle}
             dangerouslySetInnerHTML={{ __html: headingContent }}
           />
         ) : (
           <h2
             data-editable-field="heading"
-            className={`${alignmentClass} text-3xl md:text-4xl font-bold ${block.style?.color ? '' : 'text-foreground'}`}
+            className={`${alignmentClass} text-3xl md:text-4xl font-bold ${resolved.color.value ? '' : 'text-foreground'}`}
+            style={inlineStyle}
           >
             {headingContent}
           </h2>
@@ -81,11 +88,12 @@ export function TextBlockRender({ block }: TextBlockRenderProps) {
       {bodyContent && (bodyHasHtml ? (
         <div
           data-editable-field="content"
-          className={`${alignmentClass} ${sizeClass} ${block.style?.color ? '' : 'text-foreground'} whitespace-pre-wrap`}
+          className={`${alignmentClass} ${sizeClass} ${resolved.color.value ? '' : 'text-foreground'} whitespace-pre-wrap`}
+          style={inlineStyle}
           dangerouslySetInnerHTML={{ __html: bodyContent }}
         />
       ) : (
-        <p data-editable-field="content" className={`${alignmentClass} ${sizeClass} ${block.style?.color ? '' : 'text-foreground'} whitespace-pre-wrap`}>
+        <p data-editable-field="content" className={`${alignmentClass} ${sizeClass} ${resolved.color.value ? '' : 'text-foreground'} whitespace-pre-wrap`} style={inlineStyle}>
           {bodyContent}
         </p>
       ))}
