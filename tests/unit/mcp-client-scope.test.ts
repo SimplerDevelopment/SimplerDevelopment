@@ -13,6 +13,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 vi.mock('@/lib/db', () => ({ db: {} }));
 vi.mock('@/lib/portal-client', () => ({ getPortalClientsWithRoles: vi.fn(async () => []) }));
 
+import { MCP_TOOL_NAMES } from '../fixtures/mcp-tool-names';
 import {
   applyTarget,
   clientIdFromRpcBody,
@@ -207,6 +208,77 @@ describe('isReadOnlyTool', () => {
     // A new tool that matches no verb must be over-restricted, never
     // accidentally writable by a viewer.
     expect(isReadOnlyTool('frobnicate_widgets')).toBe(false);
+  });
+});
+
+describe('isReadOnlyTool — full registry (PUX-053)', () => {
+  // The classifier matches any segment in any position, so a word that is a
+  // verb in one tool name and a noun in another misfires. These ran over the
+  // whole registry rather than a hand-picked sample because the risk is the
+  // cases nobody thought to list.
+
+  it('classifies brain note reads as reads, not writes', () => {
+    // 'note' used to be a WRITE_VERB (for pathviz_note), which made every one
+    // of these a write and would have cost viewers the reads outright once
+    // AUTH_ROLE_ENFORCE=1 flips.
+    for (const name of [
+      'brain_get_note',
+      'brain_get_note_template',
+      'brain_list_note_history',
+      'brain_list_note_templates',
+    ]) {
+      expect(isReadOnlyTool(name), name).toBe(true);
+    }
+  });
+
+  it('still classifies the two tools that made those words verbs as writes', () => {
+    // They carry no read verb either, so the fail-closed branch answers for
+    // them. This is the assertion that makes the subtraction safe — if someone
+    // "tidies" the fail-closed branch away, these flip to reads.
+    expect(isReadOnlyTool('pathviz_note')).toBe(false);
+    expect(isReadOnlyTool('kanban_card_log_time')).toBe(false);
+  });
+
+  it('classifies a no-verb read that used to fail closed', () => {
+    expect(isReadOnlyTool('brain_playbook_runs_active_for_entity')).toBe(true);
+  });
+
+  it('never lets a read verb outvote a write verb', () => {
+    // The tempting fix for PUX-053 was "read wins". It would classify these as
+    // READS, because 'lists' is a read verb — turning an availability bug into
+    // an integrity one. This is the guard against that fix being applied later.
+    for (const name of ['email_lists_create', 'email_lists_delete', 'email_lists_update']) {
+      expect(isReadOnlyTool(name), name).toBe(false);
+    }
+  });
+
+  it('classifies every unambiguous mutation in the registry as a write', () => {
+    // Swept across all ~481 registered names, not a sample: any tool ending in
+    // a plain create/update/delete/send/publish mutates, whatever else its name
+    // contains. A regression here means viewers gained write access.
+    const mutations = MCP_TOOL_NAMES.filter((n) =>
+      /_(create|update|delete|remove|send|publish|revoke|void)$/.test(n),
+    );
+    expect(mutations.length).toBeGreaterThan(50);
+    expect(mutations.filter((n) => isReadOnlyTool(n))).toEqual([]);
+  });
+
+  it('classifies every plain _get and _list in the registry as a read', () => {
+    // The mirror invariant. A regression here is the PUX-053 failure mode
+    // recurring: a noun collides with a write verb and silently costs a read.
+    //
+    // The trailing-verb test alone is not enough, and getting that wrong is
+    // instructive: `brain_delete_saved_search` and `brain_update_saved_search`
+    // end in `_search` but mutate a saved search — "search" is the noun there.
+    // Exactly the noun/verb collision this card is about, pointing the other
+    // way. So an explicit mutation verb anywhere in the name disqualifies it.
+    const reads = MCP_TOOL_NAMES.filter(
+      (n) =>
+        /_(get|list|search)$/.test(n) &&
+        !/(^|_)(create|update|delete|remove|send|publish|revoke|void|add|set|move|archive|restore|import|export)(_|$)/.test(n),
+    );
+    expect(reads.length).toBeGreaterThan(50);
+    expect(reads.filter((n) => !isReadOnlyTool(n))).toEqual([]);
   });
 });
 
