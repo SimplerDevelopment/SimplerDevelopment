@@ -86,6 +86,7 @@ const SLUG_TO_CATEGORY: Record<string, 'LayoutPanel' | 'ContentPanel' | 'FormPan
   'bento-grid': 'SectionsPanel',
   'site-footer': 'SectionsPanel',
   'navigation': 'SectionsPanel',
+  'roi-calculator': 'SectionsPanel',
 };
 
 

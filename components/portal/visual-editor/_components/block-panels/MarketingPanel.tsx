@@ -15,7 +15,8 @@ import type { PanelProps } from './ContentPanel';
 
 // ─── Marketing Panel ──────────────────────────────────────────────────────────
 // stats, card-grid, flip-card-grid, metric-cards, logo-strip, services-grid,
-// featured-content, bento-grid, team-showcase, team-flip-grid, testimonial
+// featured-content, bento-grid, team-showcase, team-flip-grid, testimonial,
+// roi-calculator
 
 export function MarketingPanel({ block, onUpdate, siteId }: PanelProps) {
   const b = block as unknown as Record<string, unknown>;
@@ -299,6 +300,47 @@ export function MarketingPanel({ block, onUpdate, siteId }: PanelProps) {
               </div>
             ))}
           </div>
+        </>
+      )}
+
+      {/* ── ROI Calculator Block ── */}
+      {block.type === 'roi-calculator' && (
+        <>
+          <Field label="Title" value={(b.title as string) || ''} onChange={(v) => onUpdate({ title: v || undefined } as Partial<Block>)} />
+          <Field label="Description" value={(b.description as string) || ''} onChange={(v) => onUpdate({ description: v || undefined } as Partial<Block>)} />
+          <ColorField label="Accent Color" value={(b.accentColor as string) || ''} onChange={(v) => onUpdate({ accentColor: v || undefined } as Partial<Block>)} />
+
+          <div className="text-xs font-medium text-muted-foreground pt-2">Primary Slider</div>
+          <Field label="Label" value={(b.unitLabel as string) || ''} onChange={(v) => onUpdate({ unitLabel: v || undefined } as Partial<Block>)} />
+          <div className="grid grid-cols-2 gap-2">
+            <NumberField label="Default" value={Number(b.unitDefault) || 100} onChange={(v) => onUpdate({ unitDefault: v } as Partial<Block>)} />
+            <NumberField label="Min" value={Number(b.unitMin) || 10} onChange={(v) => onUpdate({ unitMin: v } as Partial<Block>)} />
+            <NumberField label="Max" value={Number(b.unitMax) || 1000} onChange={(v) => onUpdate({ unitMax: v } as Partial<Block>)} />
+            <NumberField label="Step" value={Number(b.unitStep) || 10} onChange={(v) => onUpdate({ unitStep: v } as Partial<Block>)} />
+          </div>
+
+          <div className="text-xs font-medium text-muted-foreground pt-2">Secondary Slider</div>
+          <Field label="Label" value={(b.minutesLabel as string) || ''} onChange={(v) => onUpdate({ minutesLabel: v || undefined } as Partial<Block>)} />
+          <div className="grid grid-cols-2 gap-2">
+            <NumberField label="Default" value={Number(b.minutesDefault) || 45} onChange={(v) => onUpdate({ minutesDefault: v } as Partial<Block>)} />
+            <NumberField label="Min" value={Number(b.minutesMin) || 15} onChange={(v) => onUpdate({ minutesMin: v } as Partial<Block>)} />
+            <NumberField label="Max" value={Number(b.minutesMax) || 90} onChange={(v) => onUpdate({ minutesMax: v } as Partial<Block>)} />
+            <NumberField label="Step" value={Number(b.minutesStep) || 5} onChange={(v) => onUpdate({ minutesStep: v } as Partial<Block>)} />
+          </div>
+
+          <div className="text-xs font-medium text-muted-foreground pt-2">Assumptions</div>
+          <div className="grid grid-cols-2 gap-2">
+            <NumberField label="Visits / Unit / Week" value={Number(b.visitsPerUnitPerWeek) || 25} onChange={(v) => onUpdate({ visitsPerUnitPerWeek: v } as Partial<Block>)} />
+            <NumberField label="Weeks / Year" value={Number(b.weeksPerYear) || 46} onChange={(v) => onUpdate({ weeksPerYear: v } as Partial<Block>)} />
+            <NumberField label="Capture Rate" value={Number(b.captureRate) || 0.06} onChange={(v) => onUpdate({ captureRate: v } as Partial<Block>)} min={0} max={1} step={0.01} />
+            <NumberField label="Hours / Admission" value={Number(b.hoursPerAdmission) || 5} onChange={(v) => onUpdate({ hoursPerAdmission: v } as Partial<Block>)} />
+            <NumberField label="Revenue / Admission" value={Number(b.revenuePerAdmission) || 2500} onChange={(v) => onUpdate({ revenuePerAdmission: v } as Partial<Block>)} />
+          </div>
+
+          <div className="text-xs font-medium text-muted-foreground pt-2">CTA Button (optional)</div>
+          <Field label="CTA Text" value={(b.ctaText as string) || ''} onChange={(v) => onUpdate({ ctaText: v || undefined } as Partial<Block>)} />
+          <Field label="CTA Link" value={(b.ctaLink as string) || ''} onChange={(v) => onUpdate({ ctaLink: v || undefined } as Partial<Block>)} />
+          <CheckboxField label="Open in new tab" checked={b.ctaNewTab as boolean | undefined} onChange={(v) => onUpdate({ ctaNewTab: v || undefined } as Partial<Block>)} />
         </>
       )}
 
