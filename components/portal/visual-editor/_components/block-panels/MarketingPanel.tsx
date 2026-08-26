@@ -94,7 +94,7 @@ export function MarketingPanel({ block, onUpdate, siteId }: PanelProps) {
           <ColorField label="Accent Color" value={(b.accentColor as string) || ''} onChange={(v) => onUpdate({ accentColor: v } as Partial<Block>)} />
           <ListEditor
             label="Cards"
-            items={(block.cards || []).map(c => ({ id: c.id, fields: { frontTitle: c.frontTitle, frontSubtitle: c.frontSubtitle || '', frontIcon: c.frontIcon || '', frontImage: c.frontImage || '', backText: c.backText, backLink: c.backLink || '', backLinkText: c.backLinkText || '' } }))}
+            items={(block.cards || []).map(c => ({ id: c.id, fields: { frontTitle: c.frontTitle, frontSubtitle: c.frontSubtitle || '', frontIcon: c.frontIcon || '', frontImage: c.frontImage || '', backText: c.backText, backLink: c.backLink || '', backLinkText: c.backLinkText || '', accentColor: c.accentColor || '' } }))}
             fieldDefs={[
               { name: 'frontTitle', label: 'Front Title', placeholder: 'Card title' },
               { name: 'frontSubtitle', label: 'Front Subtitle', placeholder: 'Optional subtitle' },
@@ -103,6 +103,7 @@ export function MarketingPanel({ block, onUpdate, siteId }: PanelProps) {
               { name: 'backText', label: 'Back Text', placeholder: 'Revealed when flipped', multiline: true },
               { name: 'backLink', label: 'Back Link URL', placeholder: 'https://…' },
               { name: 'backLinkText', label: 'Back Link Text', placeholder: 'Learn More' },
+              { name: 'accentColor', label: 'Accent Color (overrides default above)', type: 'color' as const },
             ]}
             onAdd={() => onUpdate({ cards: [...(block.cards || []), { id: uid(), frontTitle: 'New Card', backText: 'Back side content' }] } as Partial<Block>)}
             onRemove={(id) => onUpdate({ cards: block.cards.filter(c => c.id !== id) } as Partial<Block>)}
