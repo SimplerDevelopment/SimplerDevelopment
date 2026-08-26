@@ -1,9 +1,11 @@
-import type { ShowIfCondition, FieldScoring } from '@/lib/db/schema';
+import type { ShowIfCondition, FieldScoring, SurveyMediaCarouselItem } from '@/lib/db/schema';
+
+export type { SurveyMediaCarouselItem };
 
 export type FieldType =
   | 'text' | 'textarea' | 'number' | 'email' | 'phone' | 'url'
   | 'select' | 'radio' | 'checkbox' | 'toggle' | 'date' | 'rating' | 'heading' | 'slider'
-  | 'page_break' | 'file' | 'image' | 'video';
+  | 'page_break' | 'file' | 'image' | 'video' | 'media-carousel';
 
 export interface SurveyField {
   id: string;
@@ -24,4 +26,6 @@ export interface SurveyField {
   // SCORE-01: optional per-field scoring rule.
   scoring?: FieldScoring;
   mediaUrl?: string;
+  // PUX-028: ordered slides for the `media-carousel` field type.
+  mediaItems?: SurveyMediaCarouselItem[];
 }

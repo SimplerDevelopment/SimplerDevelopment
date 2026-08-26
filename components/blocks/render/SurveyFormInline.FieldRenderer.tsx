@@ -1,8 +1,61 @@
 // ─── Field Renderer ─────────────────────────────────────────────────────────
 // Extracted verbatim from SurveyFormInline.tsx — no behavior change.
 
+import { resolvePiping } from '@/lib/survey-logic';
 import type { SurveyField, FileFieldRenderOptions } from './SurveyFormInline.types';
-import { SURVEY_FILE_ACCEPT_ATTR, normalizeOption } from './SurveyFormInline.helpers';
+import { SURVEY_FILE_ACCEPT_ATTR, normalizeOption, dimTextClass } from './SurveyFormInline.helpers';
+import { SurveyMediaCarousel } from './SurveyMediaCarousel';
+
+/**
+ * Display-only field types (heading/image/video/media-carousel) — no
+ * `answers`/`setAnswer`, rendered by the caller instead of `renderField`
+ * whenever `DISPLAY_ONLY_TYPES.has(field.type)`. Extracted out of
+ * SurveyFormInline.tsx (PUX-028, media-carousel) to keep that file under its
+ * pinned file-size budget. `headingStyle` is the caller's already-merged
+ * `{ ...headingStyle, ...(txtColor ? { color: txtColor } : {}) }` — kept as
+ * one precomputed object so this helper doesn't need to know about branding
+ * internals.
+ */
+export function renderDisplayOnlyField(
+  field: SurveyField,
+  answers: Record<string, unknown>,
+  cardBg: string | undefined,
+  headingStyle: React.CSSProperties | undefined,
+) {
+  if (field.type === 'heading') {
+    return (
+      <h3 className="text-lg font-semibold text-gray-900 dark:text-white pt-2" style={headingStyle}>
+        {resolvePiping(field.label, answers)}
+      </h3>
+    );
+  }
+  if (field.type === 'image') {
+    return (
+      <figure className="my-1">
+        <img src={field.mediaUrl} alt={field.label || ''} className="w-full rounded-lg border border-gray-200 dark:border-gray-700" />
+        {field.label && <figcaption className={`text-xs ${dimTextClass(cardBg)} mt-1`}>{resolvePiping(field.label, answers)}</figcaption>}
+      </figure>
+    );
+  }
+  if (field.type === 'video') {
+    return (
+      <figure className="my-1">
+        <video src={field.mediaUrl} controls className="w-full rounded-lg border border-gray-200 dark:border-gray-700" />
+        {field.label && <figcaption className={`text-xs ${dimTextClass(cardBg)} mt-1`}>{resolvePiping(field.label, answers)}</figcaption>}
+      </figure>
+    );
+  }
+  if (field.type === 'media-carousel') {
+    return (
+      <SurveyMediaCarousel
+        items={field.mediaItems || []}
+        label={field.label ? resolvePiping(field.label, answers) : undefined}
+        cardBg={cardBg}
+      />
+    );
+  }
+  return null;
+}
 
 export function renderField(
   field: SurveyField,

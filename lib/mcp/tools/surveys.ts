@@ -388,7 +388,7 @@ export function registerSurveysTools(server: McpServer, ctx: PortalMcpContext): 
       // Required-field validation (mirrors public route).
       const fields = (survey.fields || []) as { id: string; required: boolean; label: string; type: string }[];
       for (const field of fields) {
-        if (field.required && field.type !== 'heading' && field.type !== 'image' && field.type !== 'video') {
+        if (field.required && field.type !== 'heading' && field.type !== 'image' && field.type !== 'video' && field.type !== 'media-carousel') {
           const val = answers[field.id];
           if (val === undefined || val === null || val === '') {
             return json({ error: `${field.label} is required` });

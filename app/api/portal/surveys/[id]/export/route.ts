@@ -42,7 +42,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     .orderBy(desc(surveyResponses.createdAt));
 
   const fields = (survey.fields || []) as SurveyFieldDef[];
-  const questionFields = fields.filter(f => f.type !== 'heading' && f.type !== 'page_break' && f.type !== 'image' && f.type !== 'video');
+  const questionFields = fields.filter(f => f.type !== 'heading' && f.type !== 'page_break' && f.type !== 'image' && f.type !== 'video' && f.type !== 'media-carousel');
 
   // Union of every answer key seen across responses that ISN'T covered by the
   // structured field schema — these become extra CSV columns so custom-form

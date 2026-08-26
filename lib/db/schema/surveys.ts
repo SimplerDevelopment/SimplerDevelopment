@@ -112,11 +112,24 @@ export type FieldScoring =
   | { type: 'numeric'; weight: number }
   | { type: 'nps' };
 
+/**
+ * PUX-028: one slide of a `media-carousel` field. Ordered list lives on
+ * `SurveyFieldDef.mediaItems` — `kind` is captured at authoring time (from
+ * the picked media row's mimeType) rather than re-derived from the URL at
+ * render time, so a CDN-proxied or extension-less URL still renders correctly.
+ */
+export interface SurveyMediaCarouselItem {
+  id: string;
+  mediaUrl: string;
+  kind: 'image' | 'video';
+  caption?: string;
+}
+
 export interface SurveyFieldDef {
   id: string;
   type: 'text' | 'textarea' | 'number' | 'email' | 'phone' | 'url'
     | 'select' | 'radio' | 'checkbox' | 'toggle' | 'date' | 'rating' | 'heading' | 'slider'
-    | 'page_break' | 'file' | 'image' | 'video';
+    | 'page_break' | 'file' | 'image' | 'video' | 'media-carousel';
   label: string;
   placeholder: string;
   helpText: string;
@@ -134,6 +147,9 @@ export interface SurveyFieldDef {
   // SCORE-01: optional per-field scoring rule. See `FieldScoring` above.
   scoring?: FieldScoring;
   mediaUrl?: string;
+  // PUX-028: ordered slides for the `media-carousel` field type. See
+  // `SurveyMediaCarouselItem` above.
+  mediaItems?: SurveyMediaCarouselItem[];
 }
 
 /**
