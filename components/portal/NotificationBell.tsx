@@ -92,6 +92,58 @@ export function toastableRows(latest: TickRow[], lastSeenId: number | null): Tic
     .sort((a, b) => a.id - b.id);
 }
 
+// Trimmed row shape returned by /api/portal/notifications/tick for the CRM
+// feed. Mirrors TickRow but carries the CRM feed's own id space, its field
+// name for "kind of event" (`type`, not `kind`), and the entity-linking
+// fields crmEntityUrl needs for click-through.
+export interface CrmTickRow {
+  id: number;
+  type: string;
+  title: string;
+  body: string | null;
+  entityType: string | null;
+  entityId: number | null;
+  createdAt: string;
+}
+
+/**
+ * CRM analogue of DESKTOP_TOAST_KINDS (PUX-102). Same bar as the PM set:
+ * someone specifically wants YOU, not routine pipeline/document chatter.
+ * Picked deliberately from `NOTIFICATION_TYPES` (lib/db/schema/crm.ts), not
+ * the full set:
+ *   - `mention` / `document_comment_mention` — someone @-mentioned you, the
+ *     CRM tier of PM's `comment.mention`.
+ *   - `deal_assigned` / `task_assigned` — someone assigned the entity to you,
+ *     the CRM tier of PM's `card.assignee_added`.
+ * Excluded on purpose: `deal_stage_changed` / `contact_created` are the CRM
+ * analogue of agent/pipeline chatter; `proposal_viewed`, the `*_stale` /
+ * `*_due_soon` reminders, `ticket_status_changed`, the SLA-breach types, and
+ * the automation/survey/booking cron alerts are informational or digest-
+ * shaped, not "reply to me right now". `ticket_assigned` fits the same
+ * "assigned to you" bar as deal/task but wasn't in the PUX-102 card's
+ * candidate list — left out of this first pass rather than added unasked;
+ * revisit in a follow-up if tickets need the same treatment.
+ */
+const CRM_DESKTOP_TOAST_TYPES = new Set([
+  'mention',
+  'deal_assigned',
+  'task_assigned',
+  'document_comment_mention',
+]);
+
+/**
+ * Pure toast policy for the CRM feed — same shape and same first-tick rule as
+ * toastableRows. Kept separate rather than generic-ized over both feeds
+ * because the two row shapes don't share a field name for "kind of event"
+ * (`kind` vs `type`), and this stays trivial to unit-test in isolation.
+ */
+export function toastableCrmRows(latest: CrmTickRow[], lastSeenId: number | null): CrmTickRow[] {
+  if (lastSeenId === null) return [];
+  return latest
+    .filter((r) => r.id > lastSeenId && CRM_DESKTOP_TOAST_TYPES.has(r.type))
+    .sort((a, b) => a.id - b.id);
+}
+
 function relativeTime(dateStr: string): string {
   const now = Date.now();
   const then = new Date(dateStr).getTime();
@@ -257,6 +309,12 @@ export default function NotificationBell() {
   // Highest notification id this session has already accounted for. A ref, not
   // state, so advancing it never re-renders or re-creates the poll callback.
   const lastSeenIdRef = useRef<number | null>(null);
+  // Same watermark, separate ref, for the CRM feed (PUX-102). The two feeds
+  // are independent id spaces — sharing one watermark would either replay
+  // every CRM row forever (CRM ids start low relative to whatever the PM
+  // watermark has already advanced to) or skip real CRM ones, depending on
+  // which table happens to have the higher id.
+  const lastSeenCrmIdRef = useRef<number | null>(null);
   // Mirrors desktopEnabled so `tick` can read it without listing it as a dep
   // (which would tear down and rebuild the polling timer on every toggle).
   const desktopEnabledRef = useRef(false);
@@ -341,26 +399,55 @@ export default function NotificationBell() {
     });
   }, []);
 
-  const fireToast = useCallback((row: TickRow) => {
-    const url = pmEntityUrl(row.cardId, row.projectId);
-    try {
-      const toast = new Notification(row.title, {
-        body: row.body ?? undefined,
-        // Collapse repeats for one card into a single toast instead of
-        // stacking a column of near-identical popups.
+  // Shared low-level raiser both feeds' toasts funnel through — the OS
+  // Notification construction + click-through + collapse-on-failure logic is
+  // identical for PM and CRM rows, only the title/body/tag/url differ.
+  const fireDesktopToast = useCallback(
+    (opts: { title: string; body: string | null; tag: string; url: string | null }) => {
+      try {
+        const toast = new Notification(opts.title, {
+          body: opts.body ?? undefined,
+          // Collapse repeats for one entity into a single toast instead of
+          // stacking a column of near-identical popups.
+          tag: opts.tag,
+          icon: '/iconLogo.png',
+        });
+        toast.onclick = () => {
+          window.focus();
+          if (opts.url) routerRef.current.push(opts.url);
+          toast.close();
+        };
+      } catch {
+        // Some browsers throw on construction (e.g. Android Chrome requires a
+        // service worker). Failing to toast must never break the badge poll.
+      }
+    },
+    []
+  );
+
+  const fireToast = useCallback(
+    (row: TickRow) => {
+      fireDesktopToast({
+        title: row.title,
+        body: row.body,
         tag: row.cardId ? `card-${row.cardId}` : `notif-${row.id}`,
-        icon: '/iconLogo.png',
+        url: pmEntityUrl(row.cardId, row.projectId),
       });
-      toast.onclick = () => {
-        window.focus();
-        if (url) routerRef.current.push(url);
-        toast.close();
-      };
-    } catch {
-      // Some browsers throw on construction (e.g. Android Chrome requires a
-      // service worker). Failing to toast must never break the badge poll.
-    }
-  }, []);
+    },
+    [fireDesktopToast]
+  );
+
+  const fireCrmToast = useCallback(
+    (row: CrmTickRow) => {
+      fireDesktopToast({
+        title: row.title,
+        body: row.body,
+        tag: row.entityType && row.entityId ? `${row.entityType}-${row.entityId}` : `crmnotif-${row.id}`,
+        url: crmEntityUrl(row.entityType, row.entityId),
+      });
+    },
+    [fireDesktopToast]
+  );
 
   /**
    * One poll: counts for the badge, plus the few newest PM rows so we can
@@ -372,7 +459,12 @@ export default function NotificationBell() {
       if (!res.ok) return;
       const json = await res.json();
       if (!json.success) return;
-      const data = json.data as { pmUnread: number; crmUnread: number; latest: TickRow[] };
+      const data = json.data as {
+        pmUnread: number;
+        crmUnread: number;
+        latest: TickRow[];
+        latestCrm: CrmTickRow[];
+      };
 
       setPmUnread(data.pmUnread ?? 0);
       // The tick route resolves the CRM count through getPortalClient, which
@@ -391,10 +483,23 @@ export default function NotificationBell() {
       if (latest.length > 0) {
         lastSeenIdRef.current = Math.max(...latest.map((r) => r.id));
       }
+
+      // Same impersonation boundary as crmUnread above (PUX-102 checklist):
+      // a staff session that can resolve a client via impersonation but can't
+      // fetch the CRM dropdown must never process CRM rows client-side
+      // either — not even to advance the watermark, so nothing carried over
+      // from an impersonated session could toast if the role ever flips.
+      const latestCrm = canFetchCrm ? data.latestCrm ?? [] : [];
+      if (desktopEnabledRef.current) {
+        for (const row of toastableCrmRows(latestCrm, lastSeenCrmIdRef.current)) fireCrmToast(row);
+      }
+      if (latestCrm.length > 0) {
+        lastSeenCrmIdRef.current = Math.max(...latestCrm.map((r) => r.id));
+      }
     } catch {
       // Offline / navigating away — next tick retries.
     }
-  }, [fireToast, canFetchCrm]);
+  }, [fireToast, fireCrmToast, canFetchCrm]);
 
   // Self-rescheduling poll rather than a fixed setInterval, so the delay can
   // follow tab visibility and so a slow response can't stack up overlapping

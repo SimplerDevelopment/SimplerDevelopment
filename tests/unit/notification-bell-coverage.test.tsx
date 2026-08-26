@@ -47,7 +47,7 @@ vi.mock('next-auth/react', () => ({
 // Component under test
 // ---------------------------------------------------------------------------
 
-import NotificationBell, { toastableRows } from '@/components/portal/NotificationBell';
+import NotificationBell, { toastableRows, toastableCrmRows } from '@/components/portal/NotificationBell';
 
 // ---------------------------------------------------------------------------
 // Fixture shapes
@@ -126,11 +126,23 @@ interface TickRowFixture {
   createdAt: string;
 }
 
+interface CrmTickRowFixture {
+  id: number;
+  type: string;
+  title: string;
+  body: string | null;
+  entityType: string | null;
+  entityId: number | null;
+  createdAt: string;
+}
+
 interface FetchMockOpts {
   pm?: FeedSpec<PmRowFixture>;
   crm?: FeedSpec<CrmItemFixture>;
-  /** Rows the /tick endpoint reports as newest-first-by-id. */
+  /** Rows the /tick endpoint reports as newest-first-by-id (PM feed). */
   latest?: TickRowFixture[];
+  /** Rows the /tick endpoint reports as newest-first-by-id (CRM feed). */
+  latestCrm?: CrmTickRowFixture[];
   onPmMarkRead?: (body: unknown) => Response;
   onCrmPatch?: (id: string, body: unknown) => Response;
   onCrmMarkAll?: () => Response;
@@ -185,6 +197,7 @@ function createFetchMock(opts: FetchMockOpts = {}) {
             pmUnread: typeof pm === 'string' ? 0 : pm.unread,
             crmUnread: typeof crm === 'string' ? 0 : crm.unread,
             latest: opts.latest ?? [],
+            latestCrm: opts.latestCrm ?? [],
           },
         }),
       );
@@ -1249,5 +1262,153 @@ describe('NotificationBell — desktop notifications', () => {
     const toggle = container.querySelector('button[role="switch"]') as HTMLButtonElement;
     expect(toggle.textContent).toContain('Blocked');
     expect(toggle.disabled).toBe(true);
+  });
+
+  // -------------------------------------------------------------------------
+  // PUX-102 — CRM feed toasts (extends the PM-only toast policy above)
+  // -------------------------------------------------------------------------
+
+  it('raises a toast for a new CRM mention once the watermark is established', async () => {
+    window.localStorage.setItem('portal:desktopNotifications', '1');
+    const latestCrm: CrmTickRowFixture[] = [makeCrmTickRow({ id: 10 })];
+    stubFetch({ latestCrm });
+    render(<NotificationBell />);
+    await flush();
+
+    // First tick only sets the watermark, same rule as the PM feed.
+    expect(constructed).toHaveLength(0);
+
+    latestCrm.unshift(
+      makeCrmTickRow({
+        id: 11,
+        type: 'deal_assigned',
+        title: 'You were assigned to deal: Acme renewal',
+        entityType: 'deal',
+        entityId: 77,
+      }),
+    );
+    await act(async () => {
+      vi.advanceTimersByTime(45_000);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(constructed).toHaveLength(1);
+    expect(constructed[0].title).toBe('You were assigned to deal: Acme renewal');
+    // Repeats on one entity collapse rather than stacking, same as PM cards.
+    expect(constructed[0].options?.tag).toBe('deal-77');
+  });
+
+  it('does not toast CRM chatter types (deal_stage_changed, contact_created)', async () => {
+    window.localStorage.setItem('portal:desktopNotifications', '1');
+    const latestCrm: CrmTickRowFixture[] = [makeCrmTickRow({ id: 10 })];
+    stubFetch({ latestCrm });
+    render(<NotificationBell />);
+    await flush();
+
+    latestCrm.unshift(
+      makeCrmTickRow({ id: 11, type: 'deal_stage_changed' }),
+      makeCrmTickRow({ id: 12, type: 'contact_created', entityType: 'contact', entityId: 3 }),
+    );
+    await act(async () => {
+      vi.advanceTimersByTime(45_000);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(constructed).toHaveLength(0);
+  });
+
+  it('keeps the PM and CRM toast watermarks independent', async () => {
+    window.localStorage.setItem('portal:desktopNotifications', '1');
+    const latest: TickRowFixture[] = [makeTickRow({ id: 500 })];
+    const latestCrm: CrmTickRowFixture[] = [makeCrmTickRow({ id: 3 })];
+    stubFetch({ latest, latestCrm });
+    render(<NotificationBell />);
+    await flush();
+    expect(constructed).toHaveLength(0);
+
+    // A new CRM row with an id far below the PM watermark must still toast —
+    // proof the two feeds aren't sharing one `lastSeenIdRef`.
+    latestCrm.unshift(makeCrmTickRow({ id: 4, title: 'New mention on a deal' }));
+    await act(async () => {
+      vi.advanceTimersByTime(45_000);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(constructed).toHaveLength(1);
+    expect(constructed[0].title).toBe('New mention on a deal');
+  });
+
+  it('never toasts CRM rows for a staff session impersonating a client', async () => {
+    sessionState.role = 'admin';
+    window.localStorage.setItem('portal:desktopNotifications', '1');
+    const latestCrm: CrmTickRowFixture[] = [makeCrmTickRow({ id: 10 })];
+    stubFetch({ latestCrm });
+    render(<NotificationBell />);
+    await flush();
+
+    latestCrm.unshift(makeCrmTickRow({ id: 11, title: 'You were assigned to deal: X' }));
+    await act(async () => {
+      vi.advanceTimersByTime(45_000);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    // The tick route can still report latestCrm for an impersonating staff
+    // session (mirrors crmUnread) — the client must ignore it regardless.
+    expect(constructed).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// PUX-102 — CRM toast policy (pure function, mirrors the PM `toastableRows`
+// coverage above)
+// ---------------------------------------------------------------------------
+
+function makeCrmTickRow(over: Partial<CrmTickRowFixture> = {}): CrmTickRowFixture {
+  return {
+    id: 1,
+    type: 'mention',
+    title: 'Dan mentioned you on a deal',
+    body: 'can you take a look',
+    entityType: 'deal',
+    entityId: 42,
+    createdAt: new Date().toISOString(),
+    ...over,
+  };
+}
+
+describe('toastableCrmRows — desktop toast policy (CRM feed)', () => {
+  it('returns nothing on the first tick so a backlog never toasts at once', () => {
+    const rows = [makeCrmTickRow({ id: 9 }), makeCrmTickRow({ id: 8 })];
+    expect(toastableCrmRows(rows, null)).toEqual([]);
+  });
+
+  it('only toasts rows newer than the watermark', () => {
+    const rows = [makeCrmTickRow({ id: 11 }), makeCrmTickRow({ id: 10 }), makeCrmTickRow({ id: 9 })];
+    expect(toastableCrmRows(rows, 10).map((r) => r.id)).toEqual([11]);
+  });
+
+  it('ignores CRM pipeline chatter (deal_stage_changed, contact_created) and other digest-shaped types', () => {
+    const rows = [
+      makeCrmTickRow({ id: 12, type: 'deal_stage_changed' }),
+      makeCrmTickRow({ id: 13, type: 'contact_created' }),
+      makeCrmTickRow({ id: 14, type: 'proposal_viewed' }),
+      makeCrmTickRow({ id: 15, type: 'deal_stale' }),
+      makeCrmTickRow({ id: 16, type: 'ticket_status_changed' }),
+    ];
+    expect(toastableCrmRows(rows, 11)).toEqual([]);
+  });
+
+  it('toasts mentions and assignments, oldest first', () => {
+    const rows = [
+      makeCrmTickRow({ id: 20, type: 'task_assigned' }),
+      makeCrmTickRow({ id: 19, type: 'deal_stage_changed' }),
+      makeCrmTickRow({ id: 18, type: 'document_comment_mention' }),
+      makeCrmTickRow({ id: 17, type: 'deal_assigned' }),
+    ];
+    expect(toastableCrmRows(rows, 16).map((r) => r.id)).toEqual([17, 18, 20]);
   });
 });
