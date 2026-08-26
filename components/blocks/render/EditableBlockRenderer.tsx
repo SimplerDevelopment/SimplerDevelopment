@@ -33,6 +33,7 @@ import {
   allBlockIds,
   insertNearBlock,
   insertIntoContainer,
+  matchUndoRedoChord,
 } from './EditableBlockRenderer.helpers';
 import {
   type ExternalDropTarget,
@@ -253,15 +254,21 @@ function DraggableBlockList({
 
       if (!mod) return;
 
-      // Cmd+Z: undo, Cmd+Shift+Z: redo
-      if (e.key === 'z' && !e.shiftKey) {
+      // Cmd+Z: undo, Cmd+Shift+Z: redo — forwarded to the parent (PUX-126)
+      // rather than calling editor.undo()/redo() directly. Keydown listeners
+      // on the PARENT document (VisualEditorShell.tsx) never fire once the
+      // browser's keyboard-focus context moves into this iframe — a native
+      // cross-frame boundary, not something either side's JS controls — so
+      // relying on a parent-only listener made the shortcut go dead the
+      // moment the user clicked a block. Forwarding through the same
+      // postMessage channel COPY_BLOCKS/PASTE_BLOCKS already use keeps a
+      // single source of truth: the parent's sendUndo/sendRedo (also what
+      // the toolbar buttons call), which replies with PARENT_MESSAGES.UNDO/
+      // REDO for this hook's own undo()/redo() to act on.
+      const undoRedoAction = matchUndoRedoChord(e);
+      if (undoRedoAction) {
         e.preventDefault();
-        editor.undo();
-        return;
-      }
-      if (e.key === 'z' && e.shiftKey) {
-        e.preventDefault();
-        editor.redo();
+        sendToParent(undoRedoAction === 'undo' ? IFRAME_MESSAGES.REQUEST_UNDO : IFRAME_MESSAGES.REQUEST_REDO, {});
         return;
       }
 

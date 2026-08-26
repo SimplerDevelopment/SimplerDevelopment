@@ -229,6 +229,19 @@ export function useVisualEditorParent({
           onRequestImagePickerRef.current?.(payload.blockId, payload.field, payload.currentValue);
           break;
         }
+        // PUX-126: iframe forwarded a Cmd/Ctrl+Z (or +Shift+Z) that its own
+        // window keydown listener can't otherwise route to the parent. Reuse
+        // the exact same PARENT_MESSAGES.UNDO/REDO round trip the toolbar
+        // buttons trigger (see sendUndo/sendRedo below) — one path, one
+        // history, regardless of where the keypress originated.
+        case IFRAME_MESSAGES.REQUEST_UNDO: {
+          sendToIframe(iframeRef.current, PARENT_MESSAGES.UNDO, {});
+          break;
+        }
+        case IFRAME_MESSAGES.REQUEST_REDO: {
+          sendToIframe(iframeRef.current, PARENT_MESSAGES.REDO, {});
+          break;
+        }
       }
     }
 

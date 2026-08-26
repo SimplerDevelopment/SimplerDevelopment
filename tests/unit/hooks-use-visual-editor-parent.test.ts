@@ -604,6 +604,39 @@ describe('useVisualEditorParent', () => {
     expect(cbs.onPasteBlocks).toHaveBeenCalledTimes(1);
   });
 
+  // ── REQUEST_UNDO / REQUEST_REDO (PUX-126) ─────────────────────────────────────
+  // Iframe forwards these because a parent-only keydown listener never fires
+  // once browser keyboard focus moves into the iframe. Both relay straight
+  // into sendToIframe(PARENT_MESSAGES.UNDO/REDO) — the exact call sendUndo()/
+  // sendRedo() make (see those tests) — so a keypress in either frame ends up
+  // taking the same round trip back down to the iframe's own undo/redo.
+
+  it('REQUEST_UNDO: relays to sendToIframe with PARENT_MESSAGES.UNDO', () => {
+    const cbs = makeCallbacks();
+    renderHook(() =>
+      useVisualEditorParent({ blocks: [], selectedBlockId: null, ...cbs }),
+    );
+
+    act(() => {
+      dispatchIframeEvent(IFRAME_MESSAGES.REQUEST_UNDO, {});
+    });
+
+    expect(sendToIframe).toHaveBeenCalledWith(null, PARENT_MESSAGES.UNDO, {});
+  });
+
+  it('REQUEST_REDO: relays to sendToIframe with PARENT_MESSAGES.REDO', () => {
+    const cbs = makeCallbacks();
+    renderHook(() =>
+      useVisualEditorParent({ blocks: [], selectedBlockId: null, ...cbs }),
+    );
+
+    act(() => {
+      dispatchIframeEvent(IFRAME_MESSAGES.REQUEST_REDO, {});
+    });
+
+    expect(sendToIframe).toHaveBeenCalledWith(null, PARENT_MESSAGES.REDO, {});
+  });
+
   // ── REQUEST_IMAGE_PICKER ──────────────────────────────────────────────────────
 
   it('REQUEST_IMAGE_PICKER: calls onRequestImagePicker with blockId, field, currentValue', () => {
