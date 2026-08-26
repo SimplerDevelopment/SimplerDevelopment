@@ -411,6 +411,17 @@ function ResizeHandle({
  * contentEditable. On blur, sends the new text to the parent editor.
  * If no data-editable-field attributes exist, falls back to making common text
  * elements (h1-h6, p, span with text) editable.
+ *
+ * QAD-031: this effect's deps are `[isSelected, blockId]` — it does NOT
+ * re-run when `children` changes, and it doesn't need to. It only owns the
+ * imperative contentEditable attribute + blur/input/keydown listeners; it
+ * never gates whether React writes new content into the DOM. A parent-panel
+ * edit that re-renders `children` with new block.content (a BLOCKS_UPDATE
+ * round trip, not local typing) still lands via React's own text/
+ * dangerouslySetInnerHTML reconciliation of the same node, same as it would
+ * with contentEditable unset. Verified with the real component in
+ * tests/unit/components-selectable-block.test.tsx (search QAD-031) for both
+ * the plain-text-child and dangerouslySetInnerHTML render shapes.
  */
 function EditableContent({
   blockId,

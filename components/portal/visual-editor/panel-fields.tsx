@@ -59,6 +59,19 @@ export function TextareaField({ label, value, onChange, rows = 3 }: {
   );
 }
 
+// QAD-031 note: this wraps RichTextEditable for the PARENT-side settings
+// panel only — it renders in this window's own DOM, never inside the iframe
+// canvas. Its onChange -> onUpdate -> handleUpdateBlock path is identical to
+// every other panel field (Field/SelectField/etc); there is no RichText-
+// specific branch anywhere between here and VisualEditorShell's blocks-push
+// effect. A prior investigation of "panel content edits don't live-sync to
+// the canvas" chased RichTextEditable itself as the iframe-side culprit —
+// it isn't: the canvas's own editable text comes from SelectableBlock's
+// EditableContent (components/visual-editor/SelectableBlock.tsx), a
+// completely separate, un-React-controlled DOM mechanism. See the regression
+// tests tagged QAD-031 in tests/unit/components-selectable-block.test.tsx,
+// which mount the real SelectableBlock and prove an externally re-rendered
+// block.content DOES reach the DOM while the block stays selected.
 export function RichTextField({ label, value, onChange, singleLine = false, tall = false }: {
   label: string;
   value: string | undefined;
