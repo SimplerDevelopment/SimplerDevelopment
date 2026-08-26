@@ -225,6 +225,13 @@ export const RICH_SEGMENTS: Record<string, ModuleSegment> = {
     ],
   },
 
+  // Store's hrefs land on the websites list rather than the store itself, and
+  // that is a constraint, not an oversight: every store surface lives under
+  // /portal/websites/[siteId]/store/*, and this file is static and db-free by
+  // design (see the header) so it cannot resolve a siteId. Deep-linking would
+  // mean either a new /portal/store resolver route or plumbing site context in
+  // here. Don't "fix" these to a [siteId] path — it has nothing to interpolate.
+  // OBQA-019.
   store: {
     domainKey: 'store',
     title: 'Open your store',
@@ -288,12 +295,12 @@ export const RICH_SEGMENTS: Record<string, ModuleSegment> = {
     title: 'Build your first deck',
     blurb: 'Design, share, and track branded presentations.',
     actions: [
-      enabledStep('Pitch Decks', '/portal/websites'),
+      enabledStep('Pitch Decks', '/portal/tools/pitch-decks'),
       {
         key: 'create-deck',
         label: 'Create your first deck',
         description: 'Start from a template or a blank canvas.',
-        href: '/portal/websites',
+        href: '/portal/tools/pitch-decks/new',
         icon: 'slideshow',
         detect: 'decks.hasDeck',
       },
@@ -301,7 +308,7 @@ export const RICH_SEGMENTS: Record<string, ModuleSegment> = {
         key: 'publish-deck',
         label: 'Publish and share it',
         description: 'Mint a share link and put it in front of someone.',
-        href: '/portal/websites',
+        href: '/portal/tools/pitch-decks',
         icon: 'ios_share',
         detect: 'decks.hasPublishedDeck',
       },
