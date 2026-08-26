@@ -159,4 +159,15 @@ export const IFRAME_MESSAGES = {
    *  the parent writes the new URL into block.values via the existing
    *  BLOCK_CONTENT_UPDATED route. */
   REQUEST_IMAGE_PICKER: 'REQUEST_IMAGE_PICKER',
+  /** Iframe → parent: user pressed Cmd/Ctrl+Z inside the iframe (PUX-126).
+   *  A native cross-frame boundary means keydown listeners on the PARENT
+   *  document (VisualEditorShell.tsx) never fire once the browser's keyboard
+   *  focus context moves into this iframe — clicking any block does that.
+   *  Forwarded here instead of calling the iframe's own undo() directly so
+   *  there is one source of truth: the parent's sendUndo (the same function
+   *  the toolbar button calls), which replies with PARENT_MESSAGES.UNDO. */
+  REQUEST_UNDO: 'REQUEST_UNDO',
+  /** Iframe → parent: user pressed Cmd/Ctrl+Shift+Z inside the iframe. See
+   *  REQUEST_UNDO. */
+  REQUEST_REDO: 'REQUEST_REDO',
 } as const;

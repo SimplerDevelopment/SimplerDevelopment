@@ -496,22 +496,30 @@ describe('EditableBlockRenderer — keyboard shortcuts', () => {
     input.remove();
   });
 
-  it('Cmd+Z triggers undo', () => {
+  // PUX-126: Cmd/Ctrl+Z is forwarded to the parent (REQUEST_UNDO/REQUEST_REDO)
+  // instead of calling editor.undo()/redo() directly. A parent-only keydown
+  // listener (VisualEditorShell.tsx) never fires once browser keyboard focus
+  // moves into this iframe, so routing through the same postMessage channel
+  // COPY_BLOCKS/PASTE_BLOCKS already use keeps undo/redo working regardless
+  // of where the keypress originated — see EditableBlockRenderer.tsx.
+  it('Cmd+Z forwards REQUEST_UNDO to the parent', () => {
     setup([{ id: 'b1', type: 'text', order: 0, content: 'x' }]);
     fireEvent.keyDown(window, { key: 'z', metaKey: true });
-    expect(mockEditor.undo).toHaveBeenCalled();
+    expect(sendToParentMock).toHaveBeenCalledWith('REQUEST_UNDO', {});
+    expect(mockEditor.undo).not.toHaveBeenCalled();
   });
 
-  it('Cmd+Shift+Z triggers redo', () => {
+  it('Cmd+Shift+Z forwards REQUEST_REDO to the parent', () => {
     setup([{ id: 'b1', type: 'text', order: 0, content: 'x' }]);
     fireEvent.keyDown(window, { key: 'z', metaKey: true, shiftKey: true });
-    expect(mockEditor.redo).toHaveBeenCalled();
+    expect(sendToParentMock).toHaveBeenCalledWith('REQUEST_REDO', {});
+    expect(mockEditor.redo).not.toHaveBeenCalled();
   });
 
-  it('Ctrl+Z (non-mac) also undoes', () => {
+  it('Ctrl+Z (non-mac) also forwards REQUEST_UNDO', () => {
     setup([{ id: 'b1', type: 'text', order: 0, content: 'x' }]);
     fireEvent.keyDown(window, { key: 'z', ctrlKey: true });
-    expect(mockEditor.undo).toHaveBeenCalled();
+    expect(sendToParentMock).toHaveBeenCalledWith('REQUEST_UNDO', {});
   });
 
   it('Cmd+Shift+ArrowDown moves the selected block down', () => {

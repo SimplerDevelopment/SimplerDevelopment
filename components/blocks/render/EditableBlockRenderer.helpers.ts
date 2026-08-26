@@ -3,6 +3,23 @@ import { Block } from '@/types/blocks';
 // ─── Pure block-tree helpers used by EditableBlockRenderer ──────────────────
 // Extracted verbatim from EditableBlockRenderer.tsx — no logic changes.
 
+export type UndoRedoAction = 'undo' | 'redo' | null;
+
+/**
+ * Resolves a keydown event to an undo/redo action, or null. Pure so the
+ * chord-matching (PUX-126) can be unit tested without simulating DOM focus
+ * or postMessage — see EditableBlockRenderer's keydown handler, which
+ * forwards the result to the parent (IFRAME_MESSAGES.REQUEST_UNDO /
+ * REQUEST_REDO) instead of calling editor.undo()/redo() directly, so the
+ * same keydown works whether the browser's keyboard-focus context is on the
+ * parent shell or inside this iframe.
+ */
+export function matchUndoRedoChord(e: { key: string; metaKey: boolean; ctrlKey: boolean; shiftKey: boolean }): UndoRedoAction {
+  if (!(e.metaKey || e.ctrlKey)) return null;
+  if (e.key.toLowerCase() !== 'z') return null;
+  return e.shiftKey ? 'redo' : 'undo';
+}
+
 export function hasPostContentPlaceholder(blocks: Block[]): boolean {
   for (const b of blocks) {
     if (b?.type === 'post-content') return true;
