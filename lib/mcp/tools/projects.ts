@@ -33,6 +33,7 @@ import {
   revalidateForWrite,
 } from '../types';
 import { COMMON_ARTIFACT_TABLES, resolveArtifactTitle, type ArtifactTablesDict } from './artifact-vocab';
+import { generateProjectSurvey } from '@/lib/projects/generate-survey-service';
 
 export function registerProjectsTools(server: McpServer, ctx: PortalMcpContext): void {
   const clientId = ctx.client.id;
@@ -464,6 +465,50 @@ export function registerProjectsTools(server: McpServer, ctx: PortalMcpContext):
         status: 'pending',
       }).returning();
       return json(item);
+    }
+  );
+
+  // Generate a survey from a project's current state (PUX-033 step 3). Composes
+  // the step-2 service (lib/projects/generate-survey-service.ts): loads the
+  // project + its cards, builds the preset's fields, persists a draft survey
+  // behind an approval link, and links it to the project (and, for qa_review,
+  // to each reviewed card) — same artifact-linking shape as
+  // projects_artifact_link / kanban_card_artifact_link above.
+  (hasScope(ctx.scopes, 'projects:write') && hasScope(ctx.scopes, 'surveys:write')) && server.registerTool(
+    'projects_generate_survey',
+    {
+      title: 'Generate a survey from a project',
+      description: "Generate a survey from a project's current state using one of three presets — qa_review (reviews the project's cards and links the survey back onto each reviewed card), stakeholder_feedback, or retro. The survey is created as a draft behind an approval link (a human must approve before it goes live), and is linked to the project as an artifact.",
+      inputSchema: {
+        projectId: z.number(),
+        preset: z.enum(['qa_review', 'stakeholder_feedback', 'retro']),
+        date: z.string().optional().describe('ISO date injected into the generated title; defaults to today'),
+      },
+    },
+    async ({ projectId, preset, date }) => {
+      if (!requireScope(ctx, 'projects:write')) return denied('projects:write');
+      if (!requireScope(ctx, 'surveys:write')) return denied('surveys:write');
+      // Resolved here rather than reusing the outer hoisted `clientId` — see
+      // the client-scope warning in lib/mcp/CLAUDE.md.
+      const clientId = ctx.client.id;
+      const result = await generateProjectSurvey({
+        clientId,
+        projectId,
+        preset,
+        createdByUserId: ctx.userId,
+        date,
+      });
+      if (!result.ok) return json({ error: 'Project not found' });
+      // Echo data, not the world — compact shape, not the full survey row.
+      return json({
+        surveyId: result.survey.id,
+        slug: result.survey.slug,
+        status: result.survey.status,
+        approvalUrl: result.approvalUrl,
+        publicPath: result.publicPath,
+        artifactId: result.artifactId,
+        reviewedCardIds: result.reviewedCardIds,
+      });
     }
   );
 }

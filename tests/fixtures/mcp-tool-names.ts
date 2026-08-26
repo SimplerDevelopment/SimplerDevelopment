@@ -434,6 +434,7 @@ export const MCP_TOOL_NAMES: readonly string[] = [
   'kanban_card_custom_fields_set',
   'projects_artifacts_list',
   'projects_create',
+  'projects_generate_survey',
   'projects_list',
   'projects_propose_artifact_link',
   'projects_update',

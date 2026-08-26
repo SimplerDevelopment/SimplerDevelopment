@@ -202,12 +202,16 @@ async function main() {
     'linkedin:read',
     'linkedin:write',
   ];
-  // One tool (projects_propose_artifact_link) is gated on the AND of two
-  // scopes (lib/mcp/tools/projects.ts: `hasScope(..., 'projects:write') &&
-  // hasScope(..., 'brain:write')`), so no single-scope build ever registers
-  // it — confirmed by reading the guard directly, not inferred/guessed.
+  // Two tools are gated on the AND of two scopes, so no single-scope build
+  // ever registers them — confirmed by reading each guard directly, not
+  // inferred/guessed:
+  //   - projects_propose_artifact_link (lib/mcp/tools/projects.ts):
+  //     `hasScope(..., 'projects:write') && hasScope(..., 'brain:write')`
+  //   - projects_generate_survey (lib/mcp/tools/projects.ts, PUX-033 step 3):
+  //     `hasScope(..., 'projects:write') && hasScope(..., 'surveys:write')`
   const scopeOverrides: Record<string, string[]> = {
     projects_propose_artifact_link: ['projects:write', 'brain:write'],
+    projects_generate_survey: ['projects:write', 'surveys:write'],
   };
 
   const emptyScopeNames = new Set(Object.keys(registeredTools(buildMcpServer(ctx([])))));
