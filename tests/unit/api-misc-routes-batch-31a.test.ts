@@ -189,6 +189,10 @@ function shiftInsertReturning(): Array<Record<string, unknown>> {
 }
 
 const insertValuesCalls: Array<{ table: string; values: unknown }> = [];
+// Seeded per test so a DELETE can be made to raise the Postgres FK-violation
+// (23503) that emailCampaigns.listId's onDelete:'restrict' produces in reality.
+let nextDeleteError: unknown = null;
+const deleteCalls: Array<{ table: string }> = [];
 const updateSetCalls: Array<{ table: string; set: Record<string, unknown> }> = [];
 
 vi.mock('@/lib/db', () => {
@@ -247,6 +251,20 @@ vi.mock('@/lib/db', () => {
     };
   }
 
+  function buildDelete(table: { __table: string }) {
+    return {
+      where() {
+        if (nextDeleteError !== null) {
+          const err = nextDeleteError;
+          nextDeleteError = null;
+          return Promise.reject(err);
+        }
+        deleteCalls.push({ table: table.__table });
+        return Promise.resolve([]);
+      },
+    };
+  }
+
   function buildUpdate(table: { __table: string }) {
     return {
       set(v: Record<string, unknown>) {
@@ -271,6 +289,9 @@ vi.mock('@/lib/db', () => {
       update(t: { __table: string }) {
         return buildUpdate(t);
       },
+      delete(t: { __table: string }) {
+        return buildDelete(t);
+      },
     },
   };
 });
@@ -290,6 +311,9 @@ const campaignsGET = campaignsRoute.GET;
 const campaignsPOST = campaignsRoute.POST;
 
 const listsRoute = await import('@/app/api/portal/email/lists/route');
+
+const listByIdRoute = await import('@/app/api/portal/email/lists/[id]/route');
+const listDELETE = listByIdRoute.DELETE;
 const listsGET = listsRoute.GET;
 const listsPOST = listsRoute.POST;
 
@@ -318,6 +342,8 @@ beforeEach(() => {
   insertReturningQueue = [];
   insertValuesCalls.length = 0;
   updateSetCalls.length = 0;
+  deleteCalls.length = 0;
+  nextDeleteError = null;
 
   authMock.mockReset();
   getPortalClientMock.mockReset();
@@ -909,5 +935,67 @@ describe('POST /api/portal/email/lists', () => {
     const insert = insertValuesCalls.find((c) => c.table === 'emailLists');
     const inserted = insert!.values as Record<string, unknown>;
     expect(inserted.description).toBeNull();
+  });
+});
+
+// ===========================================================================
+// DELETE /api/portal/email/lists/[id] — FK-restrict handling (PUX-057)
+// ===========================================================================
+// emailCampaigns.listId is onDelete:'restrict', so deleting a list a campaign
+// still points at raises Postgres 23503. Before this, the route let it escape
+// as an unhandled 500 instead of the { success, message } envelope every other
+// portal route returns.
+
+describe('DELETE /api/portal/email/lists/[id]', () => {
+  const params = (id: string) => ({ params: Promise.resolve({ id }) });
+
+  it('returns a 409 envelope naming the blocking campaigns on FK violation', async () => {
+    authMock.mockResolvedValue({ user: { id: '7' } });
+    selectQueue.push([{ id: 5 }]);                            // ownsList
+    const fk = Object.assign(new Error('update or delete violates foreign key'), { code: '23503' });
+    nextDeleteError = fk;
+    selectQueue.push([{ name: 'Spring Promo' }, { name: 'Re-engagement' }]); // blockers
+
+    const res = await listDELETE(new Request('http://x'), params('5'));
+
+    expect(res.status).toBe(409);
+    const body = await res.json();
+    expect(body.success).toBe(false);
+    // Naming the blockers is the point — "delete failed" alone is unactionable.
+    expect(body.message).toMatch(/Spring Promo/);
+    expect(body.message).toMatch(/Re-engagement/);
+    expect(body.message).toMatch(/2 campaign/);
+  });
+
+  it('still 409s with a generic message when the blockers cannot be listed', async () => {
+    // The FK fired, so something references the list even if this lookup comes
+    // back empty (a row deleted between the two statements). Must not 500.
+    authMock.mockResolvedValue({ user: { id: '7' } });
+    selectQueue.push([{ id: 5 }]);
+    nextDeleteError = Object.assign(new Error('fk'), { code: '23503' });
+    selectQueue.push([]);
+
+    const res = await listDELETE(new Request('http://x'), params('5'));
+    expect(res.status).toBe(409);
+    expect((await res.json()).message).toMatch(/still referenced/i);
+  });
+
+  it('rethrows a non-FK error rather than mislabelling it a 409', async () => {
+    // A connection drop is not "this list is in use" — swallowing every error
+    // into the 409 would tell the user something false.
+    authMock.mockResolvedValue({ user: { id: '7' } });
+    selectQueue.push([{ id: 5 }]);
+    nextDeleteError = Object.assign(new Error('connection terminated'), { code: '57P01' });
+
+    await expect(listDELETE(new Request('http://x'), params('5'))).rejects.toThrow(/connection terminated/);
+  });
+
+  it('deletes and returns success when nothing references the list', async () => {
+    authMock.mockResolvedValue({ user: { id: '7' } });
+    selectQueue.push([{ id: 5 }]);
+    const res = await listDELETE(new Request('http://x'), params('5'));
+    expect(res.status).toBe(200);
+    expect((await res.json()).success).toBe(true);
+    expect(deleteCalls).toHaveLength(1);
   });
 });
