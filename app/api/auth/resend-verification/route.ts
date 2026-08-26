@@ -9,11 +9,17 @@
 //     silently ignored.
 //
 // Rate-limit note:
-//   This uses a per-instance in-memory map (same pattern as /api/auth/signup).
-//   In a serverless/edge environment each function instance maintains its own
-//   counter, so the effective limit is MAX_PER_WINDOW * <instance count>. This
-//   is intentional: the goal is stopping naive form abuse, not a hard cap.
-//   True per-IP rate-limiting would require an external store (Redis/KV).
+//   Uses the shared `checkRateLimit`, which is Upstash-backed and therefore
+//   GLOBAL across instances where Upstash is configured, and degrades to the
+//   same per-instance in-memory counter where it is not.
+//
+//   This route used to keep its own in-memory Map, with a comment calling the
+//   per-instance ceiling intentional because "true per-IP rate-limiting would
+//   require an external store (Redis/KV)". That store now exists, so the
+//   ceiling had stopped being a deliberate trade and become an unbounded one:
+//   on a multi-instance host the effective limit was 3 * <instance count>,
+//   which is an email-bombing vector aimed at whatever address the caller
+//   names. (Not a credential-guess vector — the token is 256-bit.) AUTH79-017.
 
 import { NextResponse } from 'next/server';
 import { randomBytes } from 'crypto';
@@ -21,24 +27,17 @@ import { db } from '@/lib/db';
 import { users } from '@/lib/db/schema';
 import { and, eq, isNull } from 'drizzle-orm';
 import { sendEmail } from '@/lib/email';
+import { checkRateLimit } from '@/lib/security/rate-limit';
 
 const VERIFICATION_TTL_MS = 1000 * 60 * 60 * 24; // 24h
 const WINDOW_MS = 60 * 60 * 1000; // 1 hour window
 const MAX_PER_WINDOW = 3; // max resend attempts per IP+email per window
 
-type RateKey = string;
-const hits = new Map<RateKey, { count: number; resetAt: number }>();
-
-function rateLimited(ip: string, email: string): boolean {
-  const key: RateKey = `${ip}::${email}`;
-  const now = Date.now();
-  const entry = hits.get(key);
-  if (!entry || entry.resetAt < now) {
-    hits.set(key, { count: 1, resetAt: now + WINDOW_MS });
-    return false;
-  }
-  entry.count += 1;
-  return entry.count > MAX_PER_WINDOW;
+/** Keyed on IP+email so neither one alone is the whole budget: an attacker
+ *  rotating IPs still can't bomb one address, and one NAT'd office can't
+ *  exhaust everyone else's allowance. */
+async function rateLimited(ip: string, email: string): Promise<boolean> {
+  return !(await checkRateLimit(`resend-verification:${ip}::${email}`, MAX_PER_WINDOW, WINDOW_MS));
 }
 
 // Always-success response — caller cannot distinguish found/not-found.
@@ -60,7 +59,7 @@ export async function POST(req: Request) {
     return OK;
   }
 
-  if (rateLimited(ip, email)) {
+  if (await rateLimited(ip, email)) {
     // Still 200 — the rate limit is soft abuse prevention, not a security wall.
     return OK;
   }
