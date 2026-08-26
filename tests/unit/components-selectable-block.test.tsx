@@ -1152,6 +1152,65 @@ describe('SelectableBlock - inline editable content', () => {
     const standalone = Array.from(ps).find((p) => p.textContent === 'standalone') as HTMLElement;
     expect(standalone.contentEditable).toBe('true');
   });
+
+  // QAD-031 — "RichTextField panel edits don't live-sync to the iframe
+  // canvas" was reported against this exact interaction: a block stays
+  // selected (contentEditable=true, per the effect above) while an *external*
+  // BLOCKS_UPDATE re-render — the panel editing this same block's content
+  // field — supplies new `block.content` as children. Investigation traced
+  // the full postMessage chain (VisualEditorShell's push effect,
+  // useEditorMode's BLOCKS_UPDATE handler, SelectableBlock/EditableContent
+  // here) end-to-end and found no drop point; these two tests pin that down
+  // for the two render shapes HeadingBlockRender (and friends) actually use
+  // — plain text child (no HTML in the content) and dangerouslySetInnerHTML
+  // (content contains markup, e.g. from the rich-text toolbar's bold/italic).
+  // Mounting the *real* SelectableBlock (not a stand-in) means this catches
+  // a regression in EditableContent's imperative contentEditable wiring
+  // stepping on React's own reconciliation of the same DOM node — the
+  // classic contentEditable-vs-React conflict — not just a copy of the bug.
+  it('QAD-031: reflects an externally re-rendered block.content while selected — plain-text child', () => {
+    const Heading = ({ content }: { content: string }) => <h1 data-editable-field="content">{content}</h1>;
+    const { getByText, queryByText, rerender } = render(
+      <SelectableBlock {...defaultProps({ isSelected: true, blockType: 'heading' })}>
+        <Heading content="Old Heading" />
+      </SelectableBlock>,
+    );
+    expect(getByText('Old Heading')).toBeInTheDocument();
+
+    // Simulate the panel-driven BLOCKS_UPDATE round-trip: parent state
+    // changes, new `content` prop flows down as new children — no DOM typing
+    // happens inside the iframe itself.
+    rerender(
+      <SelectableBlock {...defaultProps({ isSelected: true, blockType: 'heading' })}>
+        <Heading content="Old HeadingX" />
+      </SelectableBlock>,
+    );
+
+    expect(queryByText('Old Heading')).not.toBeInTheDocument();
+    expect(getByText('Old HeadingX')).toBeInTheDocument();
+  });
+
+  it('QAD-031: reflects an externally re-rendered block.content while selected — dangerouslySetInnerHTML', () => {
+    const Heading = ({ content }: { content: string }) => (
+      // eslint-disable-next-line react/no-danger
+      <h1 data-editable-field="content" dangerouslySetInnerHTML={{ __html: content }} />
+    );
+    const { container, rerender } = render(
+      <SelectableBlock {...defaultProps({ isSelected: true, blockType: 'heading' })}>
+        <Heading content="<b>Old</b> Heading" />
+      </SelectableBlock>,
+    );
+    const el = container.querySelector('[data-editable-field="content"]') as HTMLElement;
+    expect(el.innerHTML).toBe('<b>Old</b> Heading');
+
+    rerender(
+      <SelectableBlock {...defaultProps({ isSelected: true, blockType: 'heading' })}>
+        <Heading content="<b>Old</b> HeadingX" />
+      </SelectableBlock>,
+    );
+
+    expect(el.innerHTML).toBe('<b>Old</b> HeadingX');
+  });
 });
 
 // ---------------------------------------------------------------------------
