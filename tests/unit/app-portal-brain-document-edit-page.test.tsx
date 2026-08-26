@@ -572,7 +572,6 @@ describe('BrainDocumentEditPage — debounced meta save (PATCH)', () => {
         );
         expect(patchCalls.length).toBeGreaterThan(0);
       },
-      { timeout: 2000 },
     );
   });
 });
@@ -598,7 +597,6 @@ describe('BrainDocumentEditPage — debounced version save (POST)', () => {
         );
         expect(postCalls.length).toBeGreaterThan(0);
       },
-      { timeout: 2000 },
     );
   });
 });
@@ -777,7 +775,6 @@ describe('BrainDocumentEditPage — saved indicators', () => {
     // Wait for debounce (600ms) + savingTitle to flip to true
     await waitFor(
       () => { expect(container.textContent).toContain('Saving'); },
-      { timeout: 2000 },
     );
   });
 
@@ -797,7 +794,6 @@ describe('BrainDocumentEditPage — saved indicators', () => {
     // After successful PATCH, titleSavedAt is set and "Saved" / "cloud_done" appears
     await waitFor(
       () => { expect(container.textContent).toMatch(/Saved|cloud_done/); },
-      { timeout: 2000 },
     );
   });
 });

@@ -884,6 +884,6 @@ describe('NoteEditorPane — noteId switching', () => {
 
     await waitFor(() => {
       expect(screen.getByRole('textbox', { name: /note title/i })).toHaveValue('Note Two');
-    }, { timeout: 3000 });
+    });
   });
 });

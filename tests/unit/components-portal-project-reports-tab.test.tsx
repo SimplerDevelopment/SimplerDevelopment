@@ -409,7 +409,7 @@ describe('ProjectReportsTab — burndown chart', () => {
     await waitFor(() => {
       const svg = screen.getByRole('img', { name: /Burndown chart/i });
       expect(svg).toBeTruthy();
-    }, { timeout: 3000 });
+    });
   });
 
   it('renders empty state when burndown series is empty', async () => {
@@ -418,7 +418,7 @@ describe('ProjectReportsTab — burndown chart', () => {
 
     await waitFor(() =>
       expect(screen.getByText(/No events recorded yet/i)).toBeTruthy(),
-    { timeout: 3000 });
+    );
   });
 
   it('renders "No sprint selected" empty state when no burndown data', async () => {
@@ -451,7 +451,7 @@ describe('ProjectReportsTab — burndown chart', () => {
     await waitFor(() => {
       expect(screen.getByText('Remaining')).toBeTruthy();
       expect(screen.getByText('Ideal')).toBeTruthy();
-    }, { timeout: 3000 });
+    });
   });
 });
 

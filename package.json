@@ -22,6 +22,7 @@
     "start": "next start",
     "lint": "eslint",
     "lint:all": "turbo run lint",
+    "lint:test-hygiene": "eslint --config eslint.tests-hygiene.config.mjs tests",
     "typecheck": "node --max-old-space-size=6144 node_modules/.bin/tsc --noEmit",
     "typecheck:all": "turbo run typecheck",
     "typecheck:fast": "bunx @typescript/native-preview --noEmit",
@@ -196,6 +197,7 @@
     "tsx": "^4.23.12",
     "turbo": "^2.10.11",
     "typescript": "^5",
+    "typescript-eslint": "^8.68.0",
     "vitest": "^4.1.11",
     "wait-on": "^9.1.0"
   },

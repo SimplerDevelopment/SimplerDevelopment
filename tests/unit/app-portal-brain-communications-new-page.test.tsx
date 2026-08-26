@@ -727,7 +727,7 @@ describe('NewBrainMeetingPage — RelationshipPicker', () => {
     fireEvent.click(linkBtn);
     await waitFor(() => {
       expect(container.textContent).toContain('Acme Corp');
-    }, { timeout: 1000 });
+    });
   });
 
   it('renders deal results from CRM suggestions', async () => {
@@ -754,7 +754,7 @@ describe('NewBrainMeetingPage — RelationshipPicker', () => {
     fireEvent.click(linkBtn);
     await waitFor(() => {
       expect(container.textContent).toContain('Big Deal');
-    }, { timeout: 1000 });
+    });
   });
 
   it('shows "No matches." when CRM returns empty results', async () => {
@@ -775,7 +775,7 @@ describe('NewBrainMeetingPage — RelationshipPicker', () => {
     fireEvent.click(linkBtn);
     await waitFor(() => {
       expect(container.textContent).toContain('No matches.');
-    }, { timeout: 1000 });
+    });
   });
 
   it('selects a company and shows linked state with clear button', async () => {
@@ -800,7 +800,7 @@ describe('NewBrainMeetingPage — RelationshipPicker', () => {
       (b) => b.textContent?.includes('Link to a CRM company or deal'),
     ) as HTMLButtonElement;
     fireEvent.click(linkBtn);
-    await waitFor(() => expect(container.textContent).toContain('Acme Corp'), { timeout: 1000 });
+    await waitFor(() => expect(container.textContent).toContain('Acme Corp'));
     const acmeBtn = Array.from(container.querySelectorAll('button')).find(
       (b) => b.textContent?.includes('Acme Corp'),
     ) as HTMLButtonElement;
@@ -833,7 +833,7 @@ describe('NewBrainMeetingPage — RelationshipPicker', () => {
       (b) => b.textContent?.includes('Link to a CRM company or deal'),
     ) as HTMLButtonElement;
     fireEvent.click(linkBtn);
-    await waitFor(() => expect(container.textContent).toContain('Acme Corp'), { timeout: 1000 });
+    await waitFor(() => expect(container.textContent).toContain('Acme Corp'));
     const acmeBtn = Array.from(container.querySelectorAll('button')).find(
       (b) => b.textContent?.includes('Acme Corp'),
     ) as HTMLButtonElement;
@@ -873,7 +873,7 @@ describe('NewBrainMeetingPage — RelationshipPicker', () => {
       (b) => b.textContent?.includes('Link to a CRM company or deal'),
     ) as HTMLButtonElement;
     fireEvent.click(linkBtn);
-    await waitFor(() => expect(container.textContent).toContain('Beta Inc'), { timeout: 1000 });
+    await waitFor(() => expect(container.textContent).toContain('Beta Inc'));
     const betaBtn = Array.from(container.querySelectorAll('button')).find(
       (b) => b.textContent?.includes('Beta Inc'),
     ) as HTMLButtonElement;
