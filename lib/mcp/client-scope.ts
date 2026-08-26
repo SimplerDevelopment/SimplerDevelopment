@@ -170,9 +170,24 @@ const WRITE_VERBS = new Set([
   'issue', 'revoke', 'merge', 'import', 'promote', 'archive', 'unarchive',
   'restore', 'reorder', 'advance', 'abort', 'complete', 'skip', 'start', 'reply',
   'mark', 'apply', 'adjust', 'moderate', 'checkin', 'propose', 'claim', 'release',
-  'touch', 'note', 'log', 'upsert', 'replace', 'rename', 'sync', 'configure',
+  'touch', 'upsert', 'replace', 'rename', 'sync', 'configure',
   'revise', 'activate', 'acknowledge', 'supersede', 'edit', 'bulk',
 ]);
+// 'note' and 'log' are NOT here, though `pathviz_note` and `kanban_card_log_time`
+// are both writes. They read as verbs in those two names and as NOUNS everywhere
+// else, and this set matches any segment in any position — so listing them made
+// `brain_get_note`, `brain_get_note_template`, `brain_list_note_history` and
+// `brain_list_note_templates` classify as writes, costing viewers four reads the
+// day AUTH_ROLE_ENFORCE=1 flips. (PUX-053.)
+//
+// Nothing is needed to keep the two real writes correct: with no write verb AND
+// no read verb they fall to the fail-closed branch below, which already answers
+// "not read-only". An explicit allowlist would just restate that.
+//
+// The tempting fix — let a read verb win over a write verb — is the dangerous
+// one, and is why this is a subtraction instead. `lists` is a read verb, so
+// read-wins would classify `email_lists_create` and `email_lists_delete` as
+// READS. This bug costs availability; that one would cost integrity.
 
 /** Read-verb segments. A tool with no write verb AND no read verb is treated as
  *  a WRITE — the classifier fails closed, so a new tool is over-restricted
@@ -183,8 +198,15 @@ const READ_VERBS = new Set([
   'responses', 'who', 'export', 'audit', 'contrast', 'messaging', 'compliance',
 ]);
 
-/** Oddballs with no verb segment at all. */
-const READ_ONLY_TOOLS = new Set(['whoami']);
+/** Oddballs with no verb segment at all — the fail-closed branch would call
+ *  these writes, so a genuine read has to be named here explicitly. */
+const READ_ONLY_TOOLS = new Set([
+  'whoami',
+  // Lists the runs currently active for an entity. No segment is a verb in
+  // either set ('active', 'for', 'entity' — note READ_VERBS has 'entities',
+  // plural, which does not match), so it failed closed. PUX-053.
+  'brain_playbook_runs_active_for_entity',
+]);
 
 /**
  * Tools that need no company because they describe the CREDENTIAL, not tenant
