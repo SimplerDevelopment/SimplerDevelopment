@@ -486,7 +486,11 @@ export default function KanbanBoard({ projectId, initialColumns, isStaff, canEdi
   const [filterLabels, setFilterLabels] = useState<Set<number>>(new Set());
   const [selectedCardId, setSelectedCardId] = useState<number | null>(null);
   const [addingToColumn, setAddingToColumn] = useState<number | null>(null);
-  const [newCardTitle, setNewCardTitle] = useState('');
+  // isAddingCardRef is a ref, not state, because a fast double-submit can
+  // re-invoke handleAddCard before React re-renders with an updated state
+  // value — only a synchronous check reliably blocks the second POST that
+  // used to create two cards (PUX-589).
+  const [newCardTitle, setNewCardTitle] = useState(''), isAddingCardRef = useRef(false);
   const [addingColumn, setAddingColumn] = useState(false);
   const [newColumnName, setNewColumnName] = useState('');
   const [newColumnColor, setNewColumnColor] = useState('#6366f1');
@@ -660,13 +664,14 @@ export default function KanbanBoard({ projectId, initialColumns, isStaff, canEdi
 
   async function handleAddCard(e: React.FormEvent) {
     e.preventDefault();
-    if (!newCardTitle.trim() || !addingToColumn) return;
+    if (!newCardTitle.trim() || !addingToColumn || isAddingCardRef.current) return;
+    isAddingCardRef.current = true; setNewCardTitle(''); // clearing also disables Add (empty-title check) while in flight
 
     const res = await fetch('/api/portal/cards', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ columnId: addingToColumn, title: newCardTitle.trim() }),
-    });
+    }).finally(() => { isAddingCardRef.current = false; });
     const data = await res.json();
     if (data.success) {
       setColumns(prev =>
@@ -676,7 +681,6 @@ export default function KanbanBoard({ projectId, initialColumns, isStaff, canEdi
             : col,
         ),
       );
-      setNewCardTitle('');
       setAddingToColumn(null);
     }
   }
