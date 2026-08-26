@@ -65,6 +65,10 @@ export function TimelineBlockRender({ block }: TimelineBlockRenderProps) {
             const stepKey = step.id ?? `step-${i}`;
             const isRight = layout === 'alternating' ? i % 2 === 1 : false;
             const num = step.number || String(i + 1).padStart(2, '0');
+            // Per-step overrides (JUL9-003) — lineColor stays block-level only,
+            // see the TimelineStep comment in types/blocks/components.ts.
+            const stepNumberColor = step.numberColor ?? numberColor;
+            const stepNodeColor = step.nodeColor ?? nodeColor;
 
             return (
               <div key={stepKey} className="relative py-12 lg:py-16">
@@ -73,7 +77,7 @@ export function TimelineBlockRender({ block }: TimelineBlockRenderProps) {
                   className={`hidden lg:block absolute top-6 font-serif text-7xl lg:text-8xl leading-none select-none ${
                     isRight ? 'left-[calc(50%+2rem)]' : 'right-[calc(50%+2rem)]'
                   }`}
-                  style={{ color: numberColor, fontFamily: 'inherit' }}
+                  style={{ color: stepNumberColor, fontFamily: 'inherit' }}
                 >
                   {num}
                 </div>
@@ -81,7 +85,7 @@ export function TimelineBlockRender({ block }: TimelineBlockRenderProps) {
                 {/* Mobile number */}
                 <div
                   className="lg:hidden absolute left-0 top-10 font-serif text-6xl leading-none select-none"
-                  style={{ color: numberColor }}
+                  style={{ color: stepNumberColor }}
                 >
                   {num}
                 </div>
@@ -90,7 +94,7 @@ export function TimelineBlockRender({ block }: TimelineBlockRenderProps) {
                 <div
                   className="absolute left-6 lg:left-1/2 top-[3.5rem] w-3 h-3 -translate-x-1/2 rounded-full z-10"
                   style={{
-                    backgroundColor: nodeColor,
+                    backgroundColor: stepNodeColor,
                     border: `2px solid ${lineColor}`,
                   }}
                 />

@@ -124,7 +124,7 @@ export function MarketingPanel({ block, onUpdate, siteId }: PanelProps) {
           <Field label="Label Max Width" value={(b.labelMaxWidth as string) || ''} onChange={(v) => onUpdate({ labelMaxWidth: v || undefined } as Partial<Block>)} />
           <ListEditor
             label="Metrics"
-            items={(block.metrics || []).map(m => ({ id: m.id, fields: { value: m.value, label: m.label, institution: m.institution || '', institutionLogo: m.institutionLogo || '', link: m.link || '', linkText: m.linkText || '' } }))}
+            items={(block.metrics || []).map(m => ({ id: m.id, fields: { value: m.value, label: m.label, institution: m.institution || '', institutionLogo: m.institutionLogo || '', link: m.link || '', linkText: m.linkText || '', accentColor: m.accentColor || '' } }))}
             fieldDefs={[
               { name: 'value', label: 'Metric Value', placeholder: '83%' },
               { name: 'label', label: 'Label', placeholder: 'Increase in Readmit Completions', multiline: true },
@@ -132,6 +132,7 @@ export function MarketingPanel({ block, onUpdate, siteId }: PanelProps) {
               { name: 'institutionLogo', label: 'Institution Logo', type: 'image' as const },
               { name: 'link', label: 'Link URL', placeholder: 'https://…' },
               { name: 'linkText', label: 'Link Text', placeholder: 'Case Study' },
+              { name: 'accentColor', label: 'Accent Color (overrides default above)', type: 'color' as const },
             ]}
             onAdd={() => onUpdate({ metrics: [...(block.metrics || []), { id: uid(), value: '100%', label: 'Metric Label' }] } as Partial<Block>)}
             onRemove={(id) => onUpdate({ metrics: block.metrics.filter(m => m.id !== id) } as Partial<Block>)}

@@ -308,24 +308,36 @@ export function SpecialPanel({ block, onUpdate, siteId }: PanelProps) {
           <SelectField label="Layout" value={(b.layout as string) || 'alternating'} options={['alternating','left']} onChange={(v) => onUpdate({ layout: v } as Partial<Block>)} />
           <div className="grid grid-cols-3 gap-2">
             <ColorField label="Line Color" value={(b.lineColor as string) || ''} onChange={(v) => onUpdate({ lineColor: v || undefined } as Partial<Block>)} />
-            <ColorField label="Number Color" value={(b.numberColor as string) || ''} onChange={(v) => onUpdate({ numberColor: v || undefined } as Partial<Block>)} />
-            <ColorField label="Node Color" value={(b.nodeColor as string) || ''} onChange={(v) => onUpdate({ nodeColor: v || undefined } as Partial<Block>)} />
+            <ColorField label="Default Number Color" value={(b.numberColor as string) || ''} onChange={(v) => onUpdate({ numberColor: v || undefined } as Partial<Block>)} />
+            <ColorField label="Default Node Color" value={(b.nodeColor as string) || ''} onChange={(v) => onUpdate({ nodeColor: v || undefined } as Partial<Block>)} />
           </div>
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-muted-foreground">Steps ({((b.steps as Array<{id?: string; number?: string; icon?: string; title: string; description: string}>) || []).length})</span>
-              <button type="button" onClick={() => onUpdate({ steps: [...((b.steps as Array<{id?: string; number?: string; icon?: string; title: string; description: string}>) || []), { id: `step-${Date.now()}`, title: '', description: '' }] } as Partial<Block>)} className="text-xs text-primary hover:text-primary/80 font-medium">+ Add</button>
-            </div>
-            {((b.steps as Array<{id?: string; number?: string; icon?: string; title: string; description: string}>) || []).map((step, i) => (
-              <div key={step.id ?? i} className="space-y-1 p-2 rounded border border-border">
-                <input type="text" value={step.number || ''} onChange={(e) => { const next = [...((b.steps as Array<{id?: string; number?: string; icon?: string; title: string; description: string}>) || [])]; next[i] = { ...next[i], number: e.target.value || undefined }; onUpdate({ steps: next } as Partial<Block>); }} className="w-full text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground" placeholder="Number (e.g. 01) — optional" />
-                <input type="text" value={step.icon || ''} onChange={(e) => { const next = [...((b.steps as Array<{id?: string; number?: string; icon?: string; title: string; description: string}>) || [])]; next[i] = { ...next[i], icon: e.target.value || undefined }; onUpdate({ steps: next } as Partial<Block>); }} className="w-full text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground" placeholder="Material Icon name (optional, alt to number)" />
-                <input type="text" value={step.title} onChange={(e) => { const next = [...((b.steps as Array<{id?: string; number?: string; icon?: string; title: string; description: string}>) || [])]; next[i] = { ...next[i], title: e.target.value }; onUpdate({ steps: next } as Partial<Block>); }} className="w-full text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground font-bold" placeholder="Step title" />
-                <textarea value={step.description} onChange={(e) => { const next = [...((b.steps as Array<{id?: string; number?: string; icon?: string; title: string; description: string}>) || [])]; next[i] = { ...next[i], description: e.target.value }; onUpdate({ steps: next } as Partial<Block>); }} className="w-full text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground" placeholder="Step description" rows={2} />
-                <button type="button" onClick={() => onUpdate({ steps: ((b.steps as Array<{id?: string; number?: string; icon?: string; title: string; description: string}>) || []).filter((_, j) => j !== i) } as Partial<Block>)} className="text-xs text-destructive hover:underline">Remove</button>
+          <p className="text-xs text-muted-foreground -mt-1">Line Color has no per-step override — the connecting line is one continuous element.</p>
+          {(() => {
+            type TimelineStepFields = { id?: string; number?: string; icon?: string; title: string; description: string; numberColor?: string; nodeColor?: string };
+            const steps = (b.steps as TimelineStepFields[]) || [];
+            const patchStep = (i: number, patch: Partial<TimelineStepFields>) => onUpdate({ steps: steps.map((s, j) => (j === i ? { ...s, ...patch } : s)) } as Partial<Block>);
+            return (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-muted-foreground">Steps ({steps.length})</span>
+                  <button type="button" onClick={() => onUpdate({ steps: [...steps, { id: `step-${Date.now()}`, title: '', description: '' }] } as Partial<Block>)} className="text-xs text-primary hover:text-primary/80 font-medium">+ Add</button>
+                </div>
+                {steps.map((step, i) => (
+                  <div key={step.id ?? i} className="space-y-1 p-2 rounded border border-border">
+                    <input type="text" value={step.number || ''} onChange={(e) => patchStep(i, { number: e.target.value || undefined })} className="w-full text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground" placeholder="Number (e.g. 01) — optional" />
+                    <input type="text" value={step.icon || ''} onChange={(e) => patchStep(i, { icon: e.target.value || undefined })} className="w-full text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground" placeholder="Material Icon name (optional, alt to number)" />
+                    <input type="text" value={step.title} onChange={(e) => patchStep(i, { title: e.target.value })} className="w-full text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground font-bold" placeholder="Step title" />
+                    <textarea value={step.description} onChange={(e) => patchStep(i, { description: e.target.value })} className="w-full text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground" placeholder="Step description" rows={2} />
+                    <div className="grid grid-cols-2 gap-2">
+                      <ColorField label="Number Color (override)" value={step.numberColor || ''} onChange={(v) => patchStep(i, { numberColor: v || undefined })} />
+                      <ColorField label="Node Color (override)" value={step.nodeColor || ''} onChange={(v) => patchStep(i, { nodeColor: v || undefined })} />
+                    </div>
+                    <button type="button" onClick={() => onUpdate({ steps: steps.filter((_, j) => j !== i) } as Partial<Block>)} className="text-xs text-destructive hover:underline">Remove</button>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            );
+          })()}
         </>
       )}
 

@@ -93,6 +93,7 @@ export function MetricCardsBlockRender({ block }: MetricCardsBlockRenderProps) {
 
       <div className={`grid grid-cols-1 ${columnsClass} gap-6`}>
         {(block.metrics || []).map((metric) => {
+          const accent = metric.accentColor ?? accentColor;
           const cardContent = (
             <div
               className="h-full flex flex-col justify-between rounded-xl border bg-white p-7 transition-all hover:shadow-md hover:-translate-y-0.5"
@@ -102,7 +103,7 @@ export function MetricCardsBlockRender({ block }: MetricCardsBlockRenderProps) {
                 <div
                   className="font-heading font-bold leading-none tracking-tight mb-3"
                   style={{
-                    color: accentColor,
+                    color: accent,
                     fontSize: 'clamp(2.5rem, 4vw, 3.5rem)',
                     ...valueStyle,
                   }}
@@ -136,7 +137,7 @@ export function MetricCardsBlockRender({ block }: MetricCardsBlockRenderProps) {
                 <div className="mt-4">
                   <span
                     className="inline-flex items-center gap-1.5 text-xs font-semibold tracking-wider uppercase"
-                    style={{ color: accentColor, ...linkStyle }}
+                    style={{ color: accent, ...linkStyle }}
                   >
                     {metric.linkText || 'Case Study'}
                     <Icon name="arrow_forward" size={14} className="transition-transform group-hover:translate-x-0.5" />
