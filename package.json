@@ -17,6 +17,7 @@
   "scripts": {
     "prepare": "git config core.hooksPath .githooks 2>/dev/null || true",
     "dev": "next dev",
+    "dev:docker": "next dev --webpack",
     "build": "next build",
     "build:all": "turbo run build",
     "start": "next start",
