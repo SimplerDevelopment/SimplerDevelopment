@@ -235,23 +235,25 @@ function fromRF(nodes: Node[], edges: Edge[]): { nodes: AgentFlowNode[]; edges: 
  * Build the graph payload `handleSave` PUTs to the API.
  *
  * PUX-038: this used to call `rfInstance.getViewport()` and write whatever
- * pan/zoom the author happened to be at into `graph.viewport`. That is
- * catastrophic in combination with the canvas's `fitView={!flow.graph.viewport}`
- * below: the FIRST save permanently disables auto-framing for the flow, so if
- * the author saved while zoomed into a corner, every later viewer opens on
- * that same empty-looking corner — and there was no UI to recover, only a
- * direct API call clearing `graph.viewport`.
+ * pan/zoom the author happened to be at into `graph.viewport`. Combined with
+ * the canvas honouring that field back (`fitView={!flow.graph.viewport}` /
+ * `defaultViewport={flow.graph.viewport}`), the FIRST save permanently
+ * disabled auto-framing for the flow: if the author saved while zoomed into a
+ * corner, every later viewer opened on that same empty-looking corner, with no
+ * UI to recover it.
  *
- * Fix: never persist a viewport at all. Auto-framing (`fitView`) then keeps
- * re-running on every load, which is also just correct behaviour for a canvas
- * whose node set changes over time. Dropping the field unconditionally (not
- * just skipping a NEW capture) means any flow saved before this fix — which
- * may already carry a bad baked-in viewport — self-heals the next time an
- * editor hits Save, with no migration needed. A geometric "is the stored
- * viewport off-screen" fallback was considered and deliberately skipped: node
- * dimensions aren't known until ReactFlow measures them post-render (see the
- * `onNodesChange` comment above), so that check would need real bounding-box
- * math for a failure mode this already fully prevents going forward.
+ * Fix has two halves, both required: (1) here — never persist a viewport at
+ * all, so nothing new gets written; (2) on the `<ReactFlow>` element below —
+ * the canvas no longer reads `graph.viewport` back in either, always
+ * `fitView`s. Persisting alone was not enough: it stops the bleeding for
+ * flows saved after this fix but does nothing for one already carrying a
+ * baked-in viewport from before it — that flow has no UI affordance to
+ * trigger a Save, may be viewed only by people without edit rights, and could
+ * sit broken indefinitely. Making the read side ignore the field fixes an
+ * already-affected flow on its very next load instead of waiting on a Save
+ * that may never come. See the comment on `fitView` below for why reading it
+ * back is never correct once this function ships (every stored value left is
+ * definitionally an accident, not intent).
  */
 export function buildSaveGraph(nodes: Node[], edges: Edge[]): AgentFlowGraph {
   return fromRF(nodes, edges);
@@ -739,12 +741,18 @@ export default function AgentFlowTab({ projectId, canEdit }: { projectId: number
               nodesConnectable={canEdit}
               elementsSelectable
               deleteKeyCode={canEdit ? ['Backspace', 'Delete'] : []}
-              // `graph.viewport` only exists on flows saved before PUX-038 —
-              // `buildSaveGraph` above never writes it anymore, so this branch
-              // (and the stale pan/zoom it can pin) retires itself as each
-              // remaining flow gets resaved. See buildSaveGraph's comment.
-              fitView={!flow.graph.viewport}
-              defaultViewport={flow.graph.viewport}
+              // Always auto-frame, and never read `flow.graph.viewport` back in.
+              // PUX-038 (see `buildSaveGraph` above): `buildSaveGraph` has never
+              // written a viewport since that fix, so ANY `graph.viewport` still
+              // in the database is by definition leftover damage from the bug,
+              // not anyone's saved intent — there is nothing left worth honouring
+              // by reading it back. The card's own repro shows the tell: a flow
+              // created via the API (no viewport ever written) already frames
+              // correctly. Un-conditional `fitView` fixes an already-affected
+              // flow on its NEXT LOAD instead of waiting on a Save that a
+              // read-only viewer, or an author who never notices the bug, may
+              // never make.
+              fitView
             >
               <Background />
               <Controls showInteractive={canEdit} />
