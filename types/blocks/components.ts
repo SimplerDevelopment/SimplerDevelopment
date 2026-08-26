@@ -419,6 +419,8 @@ export interface MetricCard {
   link?: string;
   /** CTA text — defaults to "Case Study" */
   linkText?: string;
+  /** Per-metric accent override — falls back to the block-level `accentColor` when unset */
+  accentColor?: string;
 }
 
 export interface MetricCardsBlock extends BaseBlock {
@@ -428,7 +430,7 @@ export interface MetricCardsBlock extends BaseBlock {
   description?: string;
   metrics: MetricCard[];
   columns?: 2 | 3 | 4;
-  /** Accent color for the metric value + link arrow */
+  /** Accent color for the metric value + link arrow. Used for any metric without its own override above. */
   accentColor?: string;
   /**
    * CSS-unit width reserved for the institution-logo region inside each

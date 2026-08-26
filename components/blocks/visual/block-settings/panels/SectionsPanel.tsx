@@ -610,8 +610,9 @@ function MetricCardsBlockSettings({ block, onChange }: { block: MetricCardsBlock
           </select>
         </div>
         <div>
-          <label className="block text-sm font-medium text-foreground mb-1">Accent Color</label>
+          <label className="block text-sm font-medium text-foreground mb-1">Default Accent Color</label>
           <TokenColorPicker value={block.accentColor || ''} onChange={(color) => onChange({ accentColor: color || undefined })} />
+          <p className="text-xs text-muted-foreground mt-1">Used for any metric without its own accent color override below.</p>
         </div>
       </div>
       <div className="grid grid-cols-2 gap-3">
@@ -738,6 +739,10 @@ function MetricCardsBlockSettings({ block, onChange }: { block: MetricCardsBlock
               className="w-full text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground"
               placeholder='CTA text (default "Case Study")'
             />
+            <div>
+              <label className="block text-xs text-muted-foreground mb-1">Accent Color (optional — overrides default above)</label>
+              <TokenColorPicker value={metric.accentColor || ''} onChange={(color) => onChange({ metrics: patchAt(block.metrics, i, { accentColor: color || undefined }) })} />
+            </div>
             <button
               type="button"
               onClick={() => onChange({ metrics: (block.metrics || []).filter((_, j) => j !== i) })}
