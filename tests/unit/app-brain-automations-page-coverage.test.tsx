@@ -835,16 +835,20 @@ describe('Create tab — standalone schedule rule', () => {
     fireEvent.change(nameInput, { target: { value: 'My Schedule' } });
     const templateSelect = container.querySelector('select') as HTMLSelectElement;
     fireEvent.change(templateSelect, { target: { value: 'survey-to-deal' } });
-    await waitFor(() => {
-      const saveBtn = Array.from(container.querySelectorAll('button')).find(
+    // Re-query through a getter and click INSIDE act, rather than capturing the
+    // node on one statement and clicking it on the next. A re-render between
+    // those two statements detaches the captured button, and `fireEvent.click`
+    // on a detached node fires nothing — the save never runs, 'quota hit' never
+    // appears, and the test fails having done no work. That interleaving only
+    // loses when parallel forks starve this worker of CPU, which is why this
+    // passed 3/3 alone and 2/3 in-shard. Same race and same fix as the decision
+    // Section toggles in app-brain-decisions-id-page-coverage. PUX-045.
+    const findSaveBtn = () =>
+      Array.from(container.querySelectorAll('button')).find(
         (b) => b.textContent?.includes('Save scheduled rule'),
-      ) as HTMLButtonElement;
-      expect(saveBtn.disabled).toBe(false);
-    });
-    const saveBtn = Array.from(container.querySelectorAll('button')).find(
-      (b) => b.textContent?.includes('Save scheduled rule'),
-    ) as HTMLButtonElement;
-    fireEvent.click(saveBtn);
+      ) as HTMLButtonElement | undefined;
+    await waitFor(() => expect(findSaveBtn()?.disabled).toBe(false));
+    await act(async () => { fireEvent.click(findSaveBtn()!); });
     await waitFor(() => {
       expect(container.textContent).toContain('quota hit');
     });
