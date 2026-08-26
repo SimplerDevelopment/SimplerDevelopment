@@ -54,7 +54,7 @@ Three tiers by **cognitive load**, matching the global "Opus decides, Sonnet doe
 | **Implement** | **Sonnet** | Throughput on *specified* work — build the thing that's already been decided | frontend-, backend-, ai-, automation-, devops-, mobile-engineer, qa-automation-engineer, refactoring-specialist, performance-engineer, bug-hunter, product-designer, marketing-content |
 | **Mechanical** | **Haiku** | Cheap, fast, high-volume checks and drafts | manual-qa, support-engineer |
 
-The conductor itself runs on Opus. Adopt-a-lens personas inherit the conductor's model (Opus) because they *are* the conductor wearing a hat.
+The conductor itself runs on Opus. Adopt-a-lens personas inherit the conductor's model (Opus) because they *are* the conductor wearing a hat. Sonnet-tier personas additionally pin `effort: high` in their frontmatter so they build at a consistent effort instead of silently inheriting whatever the conductor's session effort happens to be (`max` during missions); Opus-tier personas carry no such pin and deliberately inherit it.
 
 ---
 
