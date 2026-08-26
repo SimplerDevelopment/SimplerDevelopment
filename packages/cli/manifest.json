@@ -1,6 +1,6 @@
 {
   "manifestVersion": 1,
-  "toolCount": 481,
+  "toolCount": 482,
   "domains": [
     {
       "name": "agent",
@@ -128,7 +128,7 @@
     },
     {
       "name": "projects",
-      "tools": 8
+      "tools": 9
     },
     {
       "name": "proposals",
@@ -9980,7 +9980,7 @@
       "name": "kanban_move_card",
       "cmd": "kanban move-card",
       "domain": "kanban",
-      "desc": "Move a card to a different column and/or position.",
+      "desc": "Move a card to a different column and/or position. Pass projectId to move it to another board entirely, preserving the card and its comment history — the destination column must belong to that project. A cross-board move detaches what is project-scoped: the sprint is cleared, the parent link is cleared unless the parent is on the destination board, any children left behind have their parent link cleared, and labels are re-pointed to same-named labels there (any without a match are dropped). The response reports each of those, so nothing is lost silently.",
       "destructive": false,
       "scope": "projects:write",
       "args": [
@@ -9998,6 +9998,12 @@
           "name": "order",
           "type": "number",
           "required": false
+        },
+        {
+          "name": "projectId",
+          "type": "number",
+          "required": false,
+          "desc": "Destination board. Omit to move within the card's current board."
         }
       ]
     },
@@ -12237,6 +12243,40 @@
           "name": "cloneFromProjectId",
           "type": "number",
           "required": false
+        }
+      ]
+    },
+    {
+      "name": "projects_generate_survey",
+      "cmd": "projects generate-survey",
+      "domain": "projects",
+      "desc": "Generate a survey from a project's current state using one of three presets — qa_review (reviews the project's cards and links the survey back onto each reviewed card), stakeholder_feedback, or retro. The survey is created as a draft behind an approval link (a human must approve before it goes live), and is linked to the project as an artifact.",
+      "destructive": false,
+      "scope": [
+        "projects:write",
+        "surveys:write"
+      ],
+      "args": [
+        {
+          "name": "projectId",
+          "type": "number",
+          "required": true
+        },
+        {
+          "name": "preset",
+          "type": "string",
+          "required": true,
+          "enum": [
+            "qa_review",
+            "stakeholder_feedback",
+            "retro"
+          ]
+        },
+        {
+          "name": "date",
+          "type": "string",
+          "required": false,
+          "desc": "ISO date injected into the generated title; defaults to today"
         }
       ]
     },
