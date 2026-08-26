@@ -959,16 +959,59 @@ describe('PATCH /api/portal/email/campaigns/[id]', () => {
     expect((row.scheduledAt as Date).toISOString()).toBe(when);
   });
 
-  it('resets status to draft and nulls scheduledAt when scheduledAt is not provided', async () => {
-    seedCampaign({ status: 'scheduled', scheduledAt: new Date('2026-06-01') });
+  // JUL9-014. This assertion used to be the exact opposite — that a PATCH
+  // omitting scheduledAt reset status to 'draft' and nulled the send time.
+  // That was the bug, pinned as though it were the contract. A campaign in
+  // 'scheduled' state is still editable (only 'sent' is refused), and the
+  // shipped UI sends partial PATCHes: app/portal/email/campaigns/[id]/page.tsx
+  // sends `{ useBlockEditor }` on its own, and EmailAbConfig sends only its
+  // A/B fields. So toggling an unrelated setting silently unscheduled a
+  // campaign, with a 200 and no indication. Omitted now means "leave alone";
+  // explicit null still clears (covered below).
+  it('leaves a scheduled campaign scheduled when scheduledAt is omitted', async () => {
+    const when = new Date('2026-06-01');
+    seedCampaign({ status: 'scheduled', scheduledAt: when });
     const res = await campaignsPATCH(
       makePatch({ name: 'still editing' }),
       campaignParams('1'),
     );
     expect(res.status).toBe(200);
     const row = state.emailCampaigns[0] as Record<string, unknown>;
+    expect(row.name).toBe('still editing');
+    expect(row.status).toBe('scheduled');
+    expect(row.scheduledAt).toEqual(when);
+  });
+
+  it('still unschedules when scheduledAt is explicitly null', async () => {
+    seedCampaign({ status: 'scheduled', scheduledAt: new Date('2026-06-01') });
+    const res = await campaignsPATCH(
+      makePatch({ scheduledAt: null }),
+      campaignParams('1'),
+    );
+    expect(res.status).toBe(200);
+    const row = state.emailCampaigns[0] as Record<string, unknown>;
     expect(row.status).toBe('draft');
     expect(row.scheduledAt).toBeNull();
+  });
+
+  it('does not touch previewText or replyTo when they are omitted', async () => {
+    seedCampaign({ status: 'draft', previewText: 'keep me', replyTo: 'keep@me.co' });
+    const res = await campaignsPATCH(makePatch({ name: 'rename' }), campaignParams('1'));
+    expect(res.status).toBe(200);
+    const row = state.emailCampaigns[0] as Record<string, unknown>;
+    expect(row.previewText).toBe('keep me');
+    expect(row.replyTo).toBe('keep@me.co');
+  });
+
+  // The real-world repro, lifted from the UI's own payload:
+  // app/portal/email/campaigns/[id]/page.tsx sends exactly `{ useBlockEditor }`.
+  it('does not unschedule when only useBlockEditor is toggled', async () => {
+    seedCampaign({ status: 'scheduled', scheduledAt: new Date('2026-06-01'), useBlockEditor: false });
+    const res = await campaignsPATCH(makePatch({ useBlockEditor: true }), campaignParams('1'));
+    expect(res.status).toBe(200);
+    const row = state.emailCampaigns[0] as Record<string, unknown>;
+    expect(row.useBlockEditor).toBe(true);
+    expect(row.status).toBe('scheduled');
   });
 
   it('flips useBlockEditor when explicitly true/false', async () => {
