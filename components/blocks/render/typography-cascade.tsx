@@ -180,6 +180,29 @@ export interface TypographyStyleSource {
   elementStyles?: Record<string, TypographyValues>;
 }
 
+/** True when `v` has at least one typography property explicitly set —
+ *  the gate `ContainerTypography` uses to decide whether to mount a
+ *  provider at all (see below). */
+export function hasTypographyValues(v: TypographyValues | undefined): boolean {
+  return !!v && TYPOGRAPHY_PROPERTIES.some((prop) => v[prop] !== undefined);
+}
+
+/**
+ * VEQA-032 step 2 — one-line container wrapper for the four call sites
+ * (production SectionBlockRender/ColumnsBlockRender + their editor-canvas
+ * mirrors in EditableBlockRenderer.tsx's `ContainerBlockRenderer`).
+ *
+ * Mounts `TypographyCascadeProvider` with `own` = `block.style` ONLY when
+ * the block has at least one typography value set. When it doesn't, renders
+ * `children` unwrapped — no provider is mounted at all, so a page with no
+ * container typography produces byte-identical output to before this unit
+ * (required: this unit must be a zero-visual-change no-op; leaves don't
+ * consume the context until VEQA-032 step 3).
+ */
+export function ContainerTypography({ block, children }: { block: TypographyStyleSource; children: ReactNode }) {
+  return hasTypographyValues(block.style) ? <TypographyCascadeProvider own={block.style}>{children}</TypographyCascadeProvider> : children;
+}
+
 /**
  * Resolve a leaf's effective typography: its own `block.style`, its own
  * `block.elementStyles[elementKey]` (pass `elementKey` when the leaf renders
