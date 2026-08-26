@@ -4,14 +4,24 @@
 // frequently-hit route in the portal. It used to fire two requests every 45s —
 // `/api/portal/notifications` and `/api/portal/crm/notifications` — each
 // returning 20 fully-hydrated rows, purely to render a number badge. This
-// returns the two unread counts plus only the handful of newest PM rows the
-// client needs to raise a desktop notification; the full list is fetched once,
-// when the dropdown actually opens.
+// returns the two unread counts plus only the handful of newest PM and CRM
+// rows the client needs to raise a desktop notification; the full list is
+// fetched once, when the dropdown actually opens.
 //
 // Scoping mirrors the two feeds it replaces: the PM `notifications` table is
 // per-user, so `userId` alone is the tenant boundary. CRM notifications are
 // (clientId, userId) and only exist for sessions that resolve a portal client —
-// staff (admin/employee) simply get `crmUnread: 0` rather than a 404.
+// staff (admin/employee) simply get `crmUnread: 0` / `latestCrm: []` rather
+// than a 404.
+//
+// PUX-102: `latestCrm` is returned here purely on whether `getPortalClient`
+// resolves a client — same condition `crmUnread` already used, which includes
+// a staff session impersonating a client. The stricter "can this session
+// actually see the CRM dropdown" gate (`role === 'client'`) is enforced
+// client-side in NotificationBell, same as it already is for `crmUnread`
+// (see the comment on `canFetchCrm` there). Keeping that gate in one place
+// avoids the route and the component disagreeing about who staff-impersonation
+// covers.
 
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
@@ -60,21 +70,32 @@ export async function GET() {
     getPortalClient(userId),
   ]);
 
-  // limit 1 — we only want `unreadCount` here, but going through the shared
-  // snapshot keeps this on the same 15s cache + `notifications:<userId>`
-  // invalidation tag as the dropdown's own fetch.
-  const crmUnread = client
-    ? (await getCrmNotificationsSnapshot(client.id, userId, 1, false)).unreadCount
-    : 0;
+  // limit LATEST_LIMIT — same headroom reasoning as the PM `latest` query
+  // above, and going through the shared snapshot keeps this on the same 15s
+  // cache + `notifications:<userId>` invalidation tag as the dropdown's own
+  // fetch (the cache key includes `limit`, so this hits its own entry rather
+  // than the dropdown's `limit=20` one or this route's old `limit=1`).
+  const crmSnapshot = client
+    ? await getCrmNotificationsSnapshot(client.id, userId, LATEST_LIMIT, false)
+    : null;
 
   return NextResponse.json({
     success: true,
     data: {
       pmUnread: pmCount[0]?.unread ?? 0,
-      crmUnread,
+      crmUnread: crmSnapshot?.unreadCount ?? 0,
       latest: latest.map((r) => ({
         ...r,
         body: r.body ? r.body.slice(0, BODY_PREVIEW_CHARS) : null,
+      })),
+      latestCrm: (crmSnapshot?.notifications ?? []).map((r) => ({
+        id: r.id,
+        type: r.type,
+        title: r.title,
+        body: r.body ? r.body.slice(0, BODY_PREVIEW_CHARS) : null,
+        entityType: r.entityType,
+        entityId: r.entityId,
+        createdAt: r.createdAt,
       })),
     },
   });
