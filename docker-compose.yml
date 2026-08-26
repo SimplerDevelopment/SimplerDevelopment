@@ -26,7 +26,13 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: simplerdev
     ports:
-      - "5432:5432"
+      # Host side moved off the Postgres default (JUL9-013): a locally-installed
+      # Postgres (Homebrew, Postgres.app, ...) conventionally claims 5432, and a
+      # specific loopback bind from it silently wins over docker-proxy's wildcard
+      # listener on macOS — every "localhost:5432" connection then hits the wrong
+      # database with no error, just a missing table/db. The container side stays
+      # 5432; anything on the compose network still reaches it at db:5432.
+      - "55432:5432"
     volumes:
       - simplerdev-pgdata:/var/lib/postgresql/data
       - ./docker/initdb:/docker-entrypoint-initdb.d:ro

@@ -5,7 +5,8 @@
 // Checks (all local, hard 5s budget):
 //   1. DATABASE_URL host — remote (non-localhost) is the #1 recurring footgun
 //   2. NEXTAUTH_URL port coherence (expected 3000)
-//   3. docker compose db/app container state (skipped fast if docker absent)
+//   3. docker compose db/app container state (skipped fast if docker absent),
+//      plus port-55432 occupancy and DATABASE_URL staleness (JUL9-013)
 //   4. agent-worktree count vs the fan-out cap (3)
 
 import { readFileSync, existsSync } from 'node:fs';
@@ -63,41 +64,69 @@ if (env.STRIPE_SECRET_KEY && !env.STRIPE_WEBHOOK_SECRET) {
 }
 
 // 3. Docker containers (fast; skip quietly when docker is absent/slow)
+//
+// db's HOST-published port is 55432, not the Postgres default 5432 (JUL9-013)
+// — moved there so it can never collide with a locally-installed Postgres
+// (Homebrew, Postgres.app, ...), which conventionally claims 5432 and used to
+// silently steal dev traffic from the docker db (a specific loopback bind beats
+// docker-proxy's wildcard listener on macOS, so localhost:5432 resolved to
+// whichever one bound most recently, with no error — just the wrong database).
+// Inside the compose network the container is still reachable at db:5432; only
+// the host-side mapping moved.
+const COMPOSE_DB_HOST_PORT = 55432;
 try {
   const ps = execSync('docker ps --format "{{.Names}} {{.Status}}" 2>/dev/null', {
     timeout: 3000,
     encoding: 'utf-8',
   });
   const up = (name: string) => ps.split('\n').some((l) => l.startsWith(name) && l.includes('Up'));
-  if (!up('simplerdev-db')) warnings.push('docker: simplerdev-db is not running (docker compose up -d db).');
-  // Homebrew PG (tenancy test DB) and docker db both claim 5432 — the host's
-  // localhost then resolves to the WRONG postgres (::1 → homebrew, 0.0.0.0 →
-  // docker), so hand-run psql/scripts silently hit the other database.
-  if (up('simplerdev-db')) {
+  if (!up('simplerdev-db')) {
+    warnings.push('docker: simplerdev-db is not running (docker compose up -d db).');
+    // If something else already holds the port compose wants to publish on,
+    // `docker compose up -d db` fails to bind — surface what's squatting it
+    // instead of leaving the developer to guess why the container won't start.
     try {
-      execSync('/usr/local/opt/postgresql@17/bin/pg_isready -q -h localhost -p 5432 -U ' + process.env.USER, {
+      const listeners = execSync(`lsof -nP -iTCP:${COMPOSE_DB_HOST_PORT} -sTCP:LISTEN 2>/dev/null`, {
         timeout: 2000,
-      });
-      const dbs = execSync(
-        `/usr/local/opt/postgresql@17/bin/psql "postgresql://${process.env.USER}@localhost:5432/postgres" -tAc "SELECT 1 FROM pg_database WHERE datname='simplerdev'" 2>/dev/null`,
-        { timeout: 2000, encoding: 'utf-8' },
-      ).trim();
-      if (dbs !== '1') {
+        encoding: 'utf-8',
+      }).trim();
+      if (listeners) {
         warnings.push(
-          'PORT COLLISION: Homebrew Postgres and docker simplerdev-db both listen on 5432 — host-side psql/scripts may hit the wrong DB. Stop one, or use `docker exec simplerdev-db psql -U postgres -d simplerdev` for the docker DB.',
+          `port ${COMPOSE_DB_HOST_PORT} is already in use by another process — that's the port docker-compose.yml publishes the dev db on, so it won't be able to bind:\n${listeners}`,
         );
       }
     } catch {
-      /* homebrew PG not running → no collision */
+      /* lsof missing, or nothing listening on it — nothing more to report */
     }
   }
   const appUp = up('simplerdev-app');
   if (appUp) {
-    // informational: hybrid host-dev (scripts/dev-hybrid.sh) is the faster loop on macOS
+    // informational: hybrid host-dev (scripts/dev-hybrid.sh) is the faster dev loop on macOS
     console.log('ℹ docker app container is running — scripts/dev-hybrid.sh is the faster dev loop on macOS.');
   }
 } catch {
   /* docker not installed or daemon down — nothing to report */
+}
+
+// 3b. Stale DATABASE_URL — still pointing at the pre-JUL9-013 docker port.
+// This doesn't error: port 5432 usually answers with SOMETHING (a Homebrew/
+// Postgres.app install, or the tenancy suite's throwaway DB from
+// start-local-db.sh) — it just silently connects to the wrong database, which
+// is exactly the bug this ticket exists to stop from recurring in a new shape.
+if (dbUrl) {
+  try {
+    const u = new URL(dbUrl);
+    const port = u.port || '5432';
+    if ((u.hostname === 'localhost' || u.hostname === '127.0.0.1') && port === '5432') {
+      warnings.push(
+        `DATABASE_URL uses port 5432 — docker-compose.yml publishes the dev db on ${COMPOSE_DB_HOST_PORT} now (JUL9-013). ` +
+          `If you're pointing at the docker db, this is stale — update .env.local to localhost:${COMPOSE_DB_HOST_PORT} ` +
+          `(ignore this if you're intentionally running a standalone, non-docker Postgres on 5432 instead).`,
+      );
+    }
+  } catch {
+    /* already warned about an unparseable DATABASE_URL above */
+  }
 }
 
 // 4. Fan-out cap (agent worktrees)

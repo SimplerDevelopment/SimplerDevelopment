@@ -173,8 +173,13 @@ export function detectPath(
   return env.dockerRunning ? 'docker' : 'local';
 }
 
-/** Docker Postgres URL the app + host tooling share (db port is published to localhost). */
-export const DOCKER_DATABASE_URL = 'postgresql://postgres:postgres@localhost:5432/simplerdev';
+/**
+ * Docker Postgres URL the app + host tooling share (db port is published to
+ * localhost). Port 55432, not the Postgres default 5432 — docker-compose.yml
+ * moved off 5432 in JUL9-013 so it never collides with a locally-installed
+ * Postgres (Homebrew, Postgres.app, ...) that conventionally claims it.
+ */
+export const DOCKER_DATABASE_URL = 'postgresql://postgres:postgres@localhost:55432/simplerdev';
 
 /** True when the current value is the `.env.example` DB placeholder. */
 export function isDbPlaceholder(current: string): boolean {
