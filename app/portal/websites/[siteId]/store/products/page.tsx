@@ -19,6 +19,7 @@ interface Product {
   category?: { id: number; name: string } | null;
   images: { id: number; url: string; position: number }[];
   createdAt: string;
+  updatedAt: string;
 }
 
 interface Category {
@@ -293,6 +294,8 @@ export default function ProductsListPage() {
                   <th className="px-4 py-3 text-xs font-medium text-muted-foreground">Price</th>
                   <th className="px-4 py-3 text-xs font-medium text-muted-foreground">Inventory</th>
                   <th className="px-4 py-3 text-xs font-medium text-muted-foreground">Category</th>
+                  <th className="px-4 py-3 text-xs font-medium text-muted-foreground">Created</th>
+                  <th className="px-4 py-3 text-xs font-medium text-muted-foreground">Updated</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -350,6 +353,12 @@ export default function ProductsListPage() {
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">
                       {product.category?.name || <span className="text-muted-foreground/50">--</span>}
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground text-xs">
+                      {new Date(product.createdAt).toLocaleDateString()}
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground text-xs">
+                      {new Date(product.updatedAt).toLocaleDateString()}
                     </td>
                   </tr>
                 ))}
