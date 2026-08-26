@@ -100,7 +100,13 @@ export function registerKanbanArtifactsTools(server: McpServer, ctx: PortalMcpCo
       if (!requireScope(ctx, 'projects:write')) return denied('projects:write');
       if (!(await authorizeCardForClient(cardId))) return json({ error: 'Card not found' });
 
-      const resolved = await resolveArtifactTitle(artifactType, artifactId, clientId, CARD_ARTIFACT_TABLES);
+      // `handlePost: true` because CARD_ARTIFACT_TYPE_ENUM advertises 'post'.
+      // Posts carry no clientId — ownership flows websiteId -> clientWebsites
+      // .clientId — so without this the generic table-dict branch has nothing
+      // to look 'post' up in and every link attempt answered "Artifact not
+      // found or not owned by this client". The enum promised a type the
+      // resolver refused. PUX-034 / JUL9-018.
+      const resolved = await resolveArtifactTitle(artifactType, artifactId, clientId, CARD_ARTIFACT_TABLES, { handlePost: true });
       if (!resolved.found) return json({ error: 'Artifact not found or not owned by this client' });
 
       const [row] = await db.insert(kanbanCardArtifacts).values({
