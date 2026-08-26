@@ -30,12 +30,37 @@ Every command emits one envelope on stdout in `--json` mode: `{"success":true,"d
 
 ## Auth
 
-Config resolves highest-wins: `--api-url`/`--api-key` flags → env `SIMPLER_API_URL`/`SIMPLER_API_KEY` → env `SD_MCP_URL`/`SD_MCP_API_KEY` (fallback) → `./.simpler.json` → `~/.simpler/config.json` (written by `simpler auth login`).
+Config resolves highest-wins: `--api-url`/`--api-key` flags → env `SIMPLER_API_URL`/`SIMPLER_API_KEY` → env `SD_MCP_URL`/`SD_MCP_API_KEY` (fallback) → `./.simpler.json` → the ACTIVE PROFILE in `~/.simpler/config.json` (written by `simpler auth login`).
 
-- `simpler auth status --json` — config source + redacted key + live `whoami`.
-- `simpler doctor --json` — broader check: version, config, key presence, `/api/health`, `whoami`, manifest load.
+- `simpler auth status --json` — config source + redacted key + active profile + live `whoami`.
+- `simpler doctor --json` — broader check: version, config, active profile, key presence, `/api/health`, `whoami`, manifest load.
 - Never print the API key. It's redacted everywhere the CLI touches it (`sd_mcp_...last4`) — match that in your own output.
 - No key configured: tell the user to run `simpler auth login --email <address>` or set `SIMPLER_API_KEY`. Don't fabricate one.
+
+### Multi-tenant profiles (JUL9-001) — never trust a local label for "which tenant"
+
+A stored key silently belonging to the wrong tenant is a real incident this repo has had: `~/.simpler/config.json` held a client-117 key while a job believed it was targeting client 104, and a scheduled hard-delete Brain operation nearly ran against the wrong company. The fix is **never trust a profile's name — always resolve identity from the server.**
+
+- `~/.simpler/config.json` can hold several NAMED credentials under `profiles`, one marked `activeProfile`. A pre-existing single-credential file keeps working unchanged (it's read as one implicit profile).
+- `simpler auth login --profile <name>` stores under a name instead of overwriting the default profile. Omit `--profile` and it behaves exactly as before (writes/activates a profile literally named `default`).
+- `simpler profiles list --json` — every stored profile, redacted credential, which one is active. (Note the plural: `simpler profile get/update` is a *different*, pre-existing command — the portal user's own profile, not a CLI credential.)
+- `simpler auth switch <profile>` — changes the active profile AND immediately live-verifies (via `whoami`) which tenant it resolves to, printing the resolved company. This is the direct answer to "which company is this key actually for" — never infer it from the profile's name.
+- **`--client <id>`** — the hard safety gate. Add it to any command and the CLI live-verifies (via `whoami`) that the resolved credential can act for that client id *before* dispatching — including before any destructive-command confirmation prompt. Mismatch → exit 3, `tenant_mismatch`, and the tool is never called. This does NOT pass `clientId` as a tool argument; tools that take one still need it explicitly (e.g. `--client-id`) — `--client` is a pre-flight identity assertion only.
+
+**Headless/cron jobs — recommended pattern:** don't rely on whichever profile happens to be "active" in a shared `~/.simpler/config.json` (that ambiguity is exactly what caused JUL9-001). Prefer an explicit, job-scoped override so the credential in use is visible in the job's own config, not implicit machine state:
+
+```bash
+# .env file scoped to the job (not the operator's shell/homedir state)
+SIMPLER_API_URL=https://your-portal-domain.example.com
+SIMPLER_API_KEY=sd_mcp_...           # a key/profile you've confirmed via `simpler auth switch` resolves to the right tenant
+```
+
+```bash
+# in the job script
+cd /path/to/job && simpler --client 104 crm deals list --json   # hard-fails instead of running against the wrong tenant if the env file is ever wrong
+```
+
+`SIMPLER_API_URL`/`SIMPLER_API_KEY` env vars sit above any profile in the precedence chain, so a job's `.env` always wins regardless of which profile is active elsewhere on the machine — and `--client` on the actual mutating call is the safety net that catches the case where the env file itself is stale or copy-pasted from the wrong place. This is the "shouldn't have to be hand-rolled per job" fix `--client` exists for.
 
 ## Safety — dry-run and destructive guardrail
 

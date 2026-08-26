@@ -1,18 +1,21 @@
 /**
- * `simpler auth login|status|logout`
+ * `simpler auth login|status|logout` (+ profile-aware — see JUL9-001)
  *
  * login: email + password (never accepted as an argv flag) -> POST
- * /api/portal/auth/mobile-sign-in -> stores { apiUrl, apiKey } in
- * ~/.simpler/config.json (0600).
+ * /api/portal/auth/mobile-sign-in -> stores { apiUrl, apiKey } under a named
+ * profile in ~/.simpler/config.json (0600; `default` when --profile is
+ * omitted, matching pre-profiles behavior exactly).
  */
 
 import type { ResolvedConfig } from '../config.js';
-import { redactKey, writeUserConfig, clearUserConfig, userConfigPath } from '../config.js';
+import { redactKey, writeProfile, clearProfile, listProfiles, userConfigPath, LEGACY_PROFILE_NAME } from '../config.js';
 import { restPost, mcpCall, resolveCanonicalOrigin, CliError } from '../client.js';
 
 export interface AuthLoginFlags {
   email?: string;
   passwordStdin?: boolean;
+  /** Store under this named profile instead of `default` — see JUL9-001. */
+  profile?: string;
 }
 
 /** Reads a single line of password from stdin (piped, e.g. `--password-stdin`). */
@@ -73,6 +76,8 @@ export interface AuthLoginResult {
   client: { id: number; company: string };
   expiresAt: string;
   configPath: string;
+  /** Which named profile the credential was stored under (and made active). */
+  profile: string;
 }
 
 export async function authLogin(
@@ -116,7 +121,8 @@ export async function authLogin(
     throw new CliError(body?.message ?? `Login failed (HTTP ${res.status})`, 3, 'unauthorized', body);
   }
 
-  writeUserConfig({ apiUrl: canonicalUrl, apiKey: body.data.token });
+  const profile = flags.profile ?? LEGACY_PROFILE_NAME;
+  writeProfile(profile, { apiUrl: canonicalUrl, apiKey: body.data.token }, { activate: true });
 
   return {
     apiUrl: canonicalUrl,
@@ -125,6 +131,7 @@ export async function authLogin(
     client: { id: body.data.client.id, company: body.data.client.company },
     expiresAt: body.data.expiresAt,
     configPath: userConfigPath(),
+    profile,
   };
 }
 
@@ -132,6 +139,9 @@ export interface AuthStatusResult {
   configSource: string;
   apiUrl: string | null;
   apiKey: string;
+  /** Active credential profile (JUL9-001) — null when none is configured/resolvable. */
+  profile: string | null;
+  /** `whoami`'s answer is the source of truth for "which tenant" — never the profile's local name. */
   whoami: unknown;
 }
 
@@ -144,6 +154,7 @@ export async function authStatus(
     configSource: config.source,
     apiUrl: config.apiUrl,
     apiKey: redactKey(config.apiKey),
+    profile: config.activeProfile ?? null,
     whoami: data,
   };
 }
@@ -151,14 +162,31 @@ export async function authStatus(
 export interface AuthLogoutResult {
   message: string;
   configPath: string;
+  /** The profile that was cleared, or null when there was nothing to clear. */
+  profile: string | null;
 }
 
-export function authLogout(): AuthLogoutResult {
-  clearUserConfig();
+/** Clears one profile's stored credentials — the active one by default, or `--profile <name>` to target another without disturbing the rest. Does NOT wipe every stored profile; that would defeat the point of having them. */
+export function authLogout(opts: { profile?: string } = {}): AuthLogoutResult {
+  const { profiles, activeProfile } = listProfiles();
+  const target = opts.profile ?? activeProfile;
+
+  if (!target || !profiles[target]) {
+    return {
+      message: target
+        ? `No stored profile named "${target}" — nothing to clear.`
+        : 'No profile is configured — nothing to clear.',
+      configPath: userConfigPath(),
+      profile: null,
+    };
+  }
+
+  clearProfile(target);
   return {
     message:
-      'Local API key cleared from ~/.simpler/config.json. This does NOT revoke the key server-side — ' +
-      'revoke it from the portal (Settings > API Keys) if it may have been compromised.',
+      `Local credentials for profile "${target}" cleared from ~/.simpler/config.json. This does NOT revoke the ` +
+      'key server-side — revoke it from the portal (Settings > API Keys) if it may have been compromised.',
     configPath: userConfigPath(),
+    profile: target,
   };
 }

@@ -15,7 +15,7 @@ import { createInterface } from 'node:readline/promises';
 
 import { loadConfig } from './config.js';
 import type { ResolvedConfig } from './config.js';
-import { CliError, mcpCall } from './client.js';
+import { CliError, mcpCall, assertClientMatches } from './client.js';
 import {
   loadManifest,
   findByCmd,
@@ -28,6 +28,7 @@ import type { Manifest, ManifestToolSpec, ManifestArgSpec } from './manifest.js'
 import { successEnvelope, resolveError, renderEnvelope, shouldUseJson } from './output.js';
 import type { Envelope } from './output.js';
 import { authLogin, authStatus, authLogout } from './commands/auth.js';
+import { authSwitch, profileList } from './commands/profile.js';
 import { oauthLogin } from './commands/oauth-login.js';
 import { runDoctor } from './commands/doctor.js';
 import { runSetup } from './commands/setup.js';
@@ -102,6 +103,16 @@ export interface GlobalFlags {
   file?: string;
   email?: string;
   passwordStdin: boolean;
+  /** Selects a named credential profile (JUL9-001) — see config.ts's module doc. */
+  profile?: string;
+  /**
+   * `--client <id>` safety gate (JUL9-001): before dispatching, verify via a
+   * live `whoami` call that the resolved credential can actually act for
+   * this client id — hard-fails otherwise. Undefined when not passed;
+   * NaN when passed but not a valid number (index.ts turns that into a
+   * usage_error before it ever reaches executeTool).
+   */
+  assertClient?: number;
 }
 
 const GLOBAL_FLAG_NAMES = new Set([
@@ -118,6 +129,8 @@ const GLOBAL_FLAG_NAMES = new Set([
   'file',
   'email',
   'password-stdin',
+  'profile',
+  'client',
 ]);
 
 function asBool(val: string | boolean): boolean {
@@ -188,6 +201,12 @@ export function extractGlobalFlags(flags: Record<string, string | boolean>): {
         break;
       case 'email':
         global.email = typeof val === 'string' ? val : undefined;
+        break;
+      case 'profile':
+        global.profile = typeof val === 'string' ? val : undefined;
+        break;
+      case 'client':
+        global.assertClient = typeof val === 'string' ? Number(val) : NaN;
         break;
     }
   }
@@ -271,7 +290,20 @@ export async function executeTool(tool: ManifestToolSpec, ctx: ExecuteContext): 
   }
 
   if (ctx.global.dryRun) {
+    // Deliberately skips the --client verification below: dry-run's whole
+    // contract is "nothing is sent" (see buildDryRunPayload) and the
+    // verification call is itself a real network request.
     return buildDryRunPayload(tool, args);
+  }
+
+  if (ctx.global.assertClient !== undefined) {
+    if (Number.isNaN(ctx.global.assertClient)) {
+      throw new CliError('--client requires a numeric client id.', 2, 'usage_error');
+    }
+    // Hard gate BEFORE destructive confirmation — a tenant mismatch should
+    // fail fast, not prompt "run this destructive command?" against the
+    // wrong company first. See assertClientMatches (JUL9-001).
+    await assertClientMatches(ctx.config, ctx.global.assertClient, { verbose: ctx.global.verbose });
   }
 
   if (tool.destructive) {
@@ -302,8 +334,18 @@ export async function executeTool(tool: ManifestToolSpec, ctx: ExecuteContext): 
 
 const BUILTIN_HELP: Record<string, { usage: string; desc: string }> = {
   auth: {
-    usage: 'simpler auth <login|status|logout>',
-    desc: 'Manage credentials. `login` opens your browser (pass --email or --password-stdin for the password flow).',
+    usage: 'simpler auth <login|status|logout|switch> [--profile <name>]',
+    desc:
+      'Manage credentials. `login` opens your browser (pass --email or --password-stdin for the password flow); ' +
+      '--profile stores it under a named profile instead of overwriting `default`. `switch <profile>` changes the ' +
+      'active one and live-verifies (via whoami) which tenant it resolves to — see JUL9-001. `logout` clears the ' +
+      'active profile only (or --profile <name>).',
+  },
+  profiles: {
+    usage: 'simpler profiles list',
+    desc:
+      'List stored credential profiles (name, apiUrl, redacted key, which is active) — NOT the portal user profile ' +
+      '(that\'s `simpler profile get/update`). `auth switch` to change; `auth status` for the live-resolved tenant of the active one.',
   },
   manifest: { usage: 'simpler manifest [domain] [action]', desc: 'Browse the generated command surface.' },
   doctor: { usage: 'simpler doctor', desc: 'Check CLI config, connectivity, and auth.' },
@@ -365,6 +407,8 @@ function buildGlobalHelp(): unknown {
       '--fields a,b,c',
       '--api-url <url>',
       '--api-key <key>',
+      '--profile <name>',
+      '--client <id>  (hard-fails unless the credential can act for this tenant — JUL9-001)',
       '--timeout <ms>',
       '--help',
     ],
@@ -462,7 +506,10 @@ export function getCliVersion(): string {
 }
 
 function buildConfig(global: GlobalFlags, cwd?: string): ResolvedConfig {
-  return loadConfig({ apiUrl: global.apiUrl, apiKey: global.apiKey, timeout: global.timeout }, cwd);
+  return loadConfig(
+    { apiUrl: global.apiUrl, apiKey: global.apiKey, timeout: global.timeout, profile: global.profile },
+    cwd,
+  );
 }
 
 // ─── top-level dispatch ──────────────────────────────────────────────────
@@ -523,12 +570,13 @@ export async function run(argv: string[], deps: { isTTY?: boolean; cwd?: string 
         // Browser OAuth flow is the default on a TTY; --email or
         // --password-stdin selects the password flow (CI/headless).
         if (isTTY && !global.email && !global.passwordStdin) {
-          const data = await oauthLogin(config);
+          const data = await oauthLogin(config, { profile: global.profile });
           const lines = [
             'Signed in via browser.',
             data.client
               ? `Session bound to client ${data.client.id} — ${data.client.company}. Every command now operates on this tenant.`
               : 'Session stored.',
+            `Profile: ${data.profile}`,
             `API: ${data.apiUrl}`,
             `Access token auto-refreshes (sessions last up to 60 days); saved to ${data.configPath}`,
           ];
@@ -541,13 +589,14 @@ export async function run(argv: string[], deps: { isTTY?: boolean; cwd?: string 
         }
 
         const data = await authLogin(
-          { email: global.email, passwordStdin: global.passwordStdin },
+          { email: global.email, passwordStdin: global.passwordStdin, profile: global.profile },
           config,
           { verbose: global.verbose },
         );
         const lines = [
           `Signed in as ${data.user.email}`,
           `Key bound to client ${data.client.id} — ${data.client.company}. Every command now operates on this tenant.`,
+          `Profile: ${data.profile}`,
           `API: ${data.apiUrl}${data.redirectedFrom ? ` (canonicalized from ${data.redirectedFrom})` : ''}`,
           `Key expires ${data.expiresAt}; saved to ${data.configPath}`,
         ];
@@ -564,10 +613,41 @@ export async function run(argv: string[], deps: { isTTY?: boolean; cwd?: string 
         return { envelope: successEnvelope(data, global.fields), exitCode: 0, useJson };
       }
       if (sub === 'logout') {
-        const data = authLogout();
+        const data = authLogout({ profile: global.profile });
         return { envelope: successEnvelope(data, global.fields), exitCode: 0, useJson };
       }
-      throw new CliError('Usage: simpler auth <login|status|logout>', 2, 'usage_error');
+      if (sub === 'switch') {
+        const profileName = command[2];
+        if (!profileName) {
+          throw new CliError('Usage: simpler auth switch <profile>', 2, 'usage_error');
+        }
+        const data = await authSwitch(profileName, { verbose: global.verbose, timeout: global.timeout });
+        const lines = [
+          data.identity
+            ? `Switched to profile "${data.profile}" — the server resolves this credential to client ${data.identity.clientId} (${data.identity.company}).`
+            : `Switched to profile "${data.profile}" — WARNING: could not verify which tenant it resolves to (${data.verifyError}). Run \`simpler auth status\` once reachable before trusting this profile's label.`,
+          data.reachable && data.reachable.length > 1
+            ? `Also reachable: ${data.reachable.filter((c) => c.id !== data.identity?.clientId).map((c) => `${c.id} (${c.company})`).join(', ')}`
+            : '',
+        ].filter(Boolean);
+        return {
+          envelope: successEnvelope(data, global.fields),
+          exitCode: 0,
+          useJson,
+          humanText: useJson ? undefined : lines.join('\n'),
+        };
+      }
+      throw new CliError('Usage: simpler auth <login|status|logout|switch>', 2, 'usage_error');
+    }
+
+    // NOTE: named `profiles` (plural), not `profile` — `profile get`/`profile
+    // update` are already real MCP-tool commands for the portal user's OWN
+    // profile. This is a distinct, CLI-local concept (stored credentials —
+    // JUL9-001) and reusing the singular name would be exactly the kind of
+    // ambiguity this ticket exists to remove.
+    if (command[0] === 'profiles' && command[1] === 'list') {
+      const data = profileList();
+      return { envelope: successEnvelope(data, global.fields), exitCode: 0, useJson };
     }
 
     if (command[0] === 'manifest') {

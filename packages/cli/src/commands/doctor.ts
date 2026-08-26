@@ -33,6 +33,16 @@ export async function runDoctor(
   checks.push({ name: 'configSource', ok: config.apiUrl !== null, detail: config.source });
   checks.push({ name: 'origin', ok: config.apiUrl !== null, detail: config.apiUrl ?? '(not configured)' });
   checks.push({ name: 'keyPresent', ok: config.apiKey !== null, detail: redactKey(config.apiKey) });
+  // Which tenant a command runs against is the single most important thing
+  // to see up front (JUL9-001) — this only names the LOCAL profile; `whoami`
+  // below is what actually confirms the tenant with the server.
+  checks.push({
+    name: 'profile',
+    ok: true,
+    detail: config.activeProfile
+      ? `${config.activeProfile} (via ${config.activeProfileSource})`
+      : (config.knownProfiles?.length ? `none active — stored: ${config.knownProfiles.join(', ')}` : 'none configured'),
+  });
 
   if (!config.apiUrl) {
     checks.push({ name: 'health', ok: false, detail: 'skipped — no API URL configured' });
