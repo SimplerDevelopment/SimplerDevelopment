@@ -79,6 +79,32 @@ describe('buildPostUpdatePatch', () => {
     expect(patch.content as string).toContain('"blocks"');
   });
 
+  // CMS79-002: posts_update was reported REPLACING nothing and appending
+  // instead — content grew by a full copy per call, so a page edited three
+  // times rendered four times over, stale pre-edit copies included. The
+  // builder takes no prior content, so it structurally cannot append; this
+  // pins that property rather than trusting it, because the failure was
+  // silent (the tool returned success and only the rendered page disagreed).
+  it('REPLACES content with exactly the supplied blocks, never appending', () => {
+    const patch = buildPostUpdatePatch({
+      blocks: [
+        { id: 'b1', type: 'text', order: 0 },
+        { id: 'b2', type: 'text', order: 1 },
+        { id: 'b3', type: 'text', order: 2 },
+      ],
+    });
+    const parsed = JSON.parse(patch.content as string) as { blocks: { id: string }[] };
+    expect(parsed.blocks).toHaveLength(3);
+    expect(parsed.blocks.map((b) => b.id)).toEqual(['b1', 'b2', 'b3']);
+  });
+
+  it('takes no prior-content argument, so appending is not expressible', () => {
+    // The structural guarantee behind the test above. If someone later threads
+    // the existing row into the builder to "merge", this fails and they have to
+    // justify it — merging is how CMS79-002 happened.
+    expect(buildPostUpdatePatch.length).toBe(1);
+  });
+
   it('always bumps updatedAt', () => {
     expect(buildPostUpdatePatch({}).updatedAt).toBeInstanceOf(Date);
   });
