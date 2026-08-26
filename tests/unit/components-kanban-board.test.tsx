@@ -563,6 +563,34 @@ describe('KanbanBoard — add card', () => {
     });
     expect(container.textContent).not.toContain('Ghost');
   });
+
+  it('guards a fast double-submit: a second submit fired while the first is still in flight does not POST twice (PUX-589)', async () => {
+    let resolveFetch!: (v: unknown) => void;
+    fetchMock.mockImplementationOnce(() => new Promise(resolve => { resolveFetch = resolve; }));
+    const { container, getAllByText } = render(<KanbanBoard {...defaultProps()} />);
+    fireEvent.click(getAllByText('Add card')[0].closest('button')!);
+    const titleInput = container.querySelector('input[placeholder="Card title…"]') as HTMLInputElement;
+    fireEvent.change(titleInput, { target: { value: 'Dup' } });
+    const form = container.querySelector('form')!;
+
+    // Two submits back-to-back, no await in between — the first request is
+    // still in flight (the fetch mock hasn't resolved) when the second fires.
+    fireEvent.submit(form);
+    fireEvent.submit(form);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      resolveFetch({
+        ok: true,
+        json: async () => ({
+          success: true,
+          data: { id: 42, columnId: 1, title: 'Dup', description: null, priority: null, dueDate: null, order: 0 },
+        }),
+      });
+    });
+    // The guard releases once the in-flight request settles, so a later submit works again.
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('KanbanBoard — add column', () => {
