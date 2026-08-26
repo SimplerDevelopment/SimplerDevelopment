@@ -58,7 +58,15 @@ jobs:
                  exit 0; }
           CHANGED=$(git diff --name-only "$BASE" "${{ github.sha }}")
           echo "--- changed files ---"; echo "$CHANGED"
-          if grep -qvE '^(vault/|docs/|\.claude/)|\.md$' <<<"$CHANGED"; then
+          # `.claude/` counts as prose, but ONLY for prose. It also holds real
+          # TypeScript (skill helper scripts), and tsconfig.json's `include` is
+          # '**/*.ts' with no `.claude/` in `exclude` — so those files ARE in the
+          # typecheck graph even though this classifier called their diffs docs.
+          # That let broken TS land under `.claude/` on a green board and break
+          # `tsc` on main for the next PR, which would look like that PR's fault.
+          # The second clause forces the full suite for them. PUX-113.
+          if grep -qvE '^(vault/|docs/|\.claude/)|\.md$' <<<"$CHANGED" \
+             || grep -qE '^\.claude/.*\.ts$' <<<"$CHANGED"; then
             echo "code=true" >> "$GITHUB_OUTPUT"; echo "==> code change detected: full suite"
           else
             echo "code=false" >> "$GITHUB_OUTPUT"; echo "==> doc-only diff: doc-drift + gitleaks only"
