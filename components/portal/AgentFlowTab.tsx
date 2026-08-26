@@ -22,7 +22,6 @@ import ReactFlow, {
   type EdgeChange,
   type Connection,
   type ReactFlowInstance,
-  type Viewport,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import type {
@@ -230,6 +229,34 @@ function fromRF(nodes: Node[], edges: Edge[]): { nodes: AgentFlowNode[]; edges: 
       };
     }),
   };
+}
+
+/**
+ * Build the graph payload `handleSave` PUTs to the API.
+ *
+ * PUX-038: this used to call `rfInstance.getViewport()` and write whatever
+ * pan/zoom the author happened to be at into `graph.viewport`. Combined with
+ * the canvas honouring that field back (`fitView={!flow.graph.viewport}` /
+ * `defaultViewport={flow.graph.viewport}`), the FIRST save permanently
+ * disabled auto-framing for the flow: if the author saved while zoomed into a
+ * corner, every later viewer opened on that same empty-looking corner, with no
+ * UI to recover it.
+ *
+ * Fix has two halves, both required: (1) here — never persist a viewport at
+ * all, so nothing new gets written; (2) on the `<ReactFlow>` element below —
+ * the canvas no longer reads `graph.viewport` back in either, always
+ * `fitView`s. Persisting alone was not enough: it stops the bleeding for
+ * flows saved after this fix but does nothing for one already carrying a
+ * baked-in viewport from before it — that flow has no UI affordance to
+ * trigger a Save, may be viewed only by people without edit rights, and could
+ * sit broken indefinitely. Making the read side ignore the field fixes an
+ * already-affected flow on its very next load instead of waiting on a Save
+ * that may never come. See the comment on `fitView` below for why reading it
+ * back is never correct once this function ships (every stored value left is
+ * definitionally an accident, not intent).
+ */
+export function buildSaveGraph(nodes: Node[], edges: Edge[]): AgentFlowGraph {
+  return fromRF(nodes, edges);
 }
 
 function extractError(res: unknown, fallback: string): string {
@@ -471,9 +498,7 @@ export default function AgentFlowTab({ projectId, canEdit }: { projectId: number
     setSaving(true);
     setError(null);
     try {
-      const { nodes: outNodes, edges: outEdges } = fromRF(nodes, edges);
-      const viewport: Viewport | undefined = rfInstance ? rfInstance.getViewport() : flow.graph.viewport;
-      const graph: AgentFlowGraph = { nodes: outNodes, edges: outEdges, viewport };
+      const graph = buildSaveGraph(nodes, edges);
       const res = await fetch(`/api/portal/projects/${projectId}/flows/${flow.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -484,7 +509,7 @@ export default function AgentFlowTab({ projectId, canEdit }: { projectId: number
         setFlow(updated);
         setSelfReviewWarnings(Array.isArray(res.warnings) ? res.warnings : []);
         setFlows((prev) => prev.map((f) => (f.id === updated.id
-          ? { ...f, name: updated.name, status: updated.status, updatedAt: updated.updatedAt, nodeCount: outNodes.length, edgeCount: outEdges.length }
+          ? { ...f, name: updated.name, status: updated.status, updatedAt: updated.updatedAt, nodeCount: graph.nodes.length, edgeCount: graph.edges.length }
           : f)));
       } else {
         setError(extractError(res, 'Failed to save flow'));
@@ -494,7 +519,7 @@ export default function AgentFlowTab({ projectId, canEdit }: { projectId: number
     } finally {
       setSaving(false);
     }
-  }, [projectId, flow, nodes, edges, name, description, status, rfInstance, canEdit]);
+  }, [projectId, flow, nodes, edges, name, description, status, canEdit]);
 
   const handleDeleteFlow = useCallback(async () => {
     if (!flow || !canEdit) return;
@@ -716,8 +741,18 @@ export default function AgentFlowTab({ projectId, canEdit }: { projectId: number
               nodesConnectable={canEdit}
               elementsSelectable
               deleteKeyCode={canEdit ? ['Backspace', 'Delete'] : []}
-              fitView={!flow.graph.viewport}
-              defaultViewport={flow.graph.viewport}
+              // Always auto-frame, and never read `flow.graph.viewport` back in.
+              // PUX-038 (see `buildSaveGraph` above): `buildSaveGraph` has never
+              // written a viewport since that fix, so ANY `graph.viewport` still
+              // in the database is by definition leftover damage from the bug,
+              // not anyone's saved intent — there is nothing left worth honouring
+              // by reading it back. The card's own repro shows the tell: a flow
+              // created via the API (no viewport ever written) already frames
+              // correctly. Un-conditional `fitView` fixes an already-affected
+              // flow on its NEXT LOAD instead of waiting on a Save that a
+              // read-only viewer, or an author who never notices the bug, may
+              // never make.
+              fitView
             >
               <Background />
               <Controls showInteractive={canEdit} />
