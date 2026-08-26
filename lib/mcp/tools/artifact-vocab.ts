@@ -13,12 +13,13 @@
  *
  * - `post` — posts have no clientId; ownership flows through
  *   `websiteId -> clientWebsites.clientId`. Posts with `websiteId = null`
- *   are global/admin and excluded. Only the projects registrar special-cases
- *   this today (`handlePost: true`) — the kanban registrar's type enum
- *   includes `post` but has never wired up this join, so passing
- *   `artifactType: 'post'` to `kanban_card_artifact_link` falls through to
- *   the generic branch and throws (pre-existing behavior, preserved here —
- *   not a design call this module makes).
+ *   are global/admin and excluded. BOTH registrars pass `handlePost: true`.
+ *   The kanban one did not until PUX-034/JUL9-018: its type enum advertised
+ *   `post` while the resolver had no branch for it, so every
+ *   `kanban_card_artifact_link({ artifactType: 'post' })` fell through to the
+ *   generic branch and answered "Artifact not found or not owned by this
+ *   client". An enum entry a resolver refuses is worse than an absent one —
+ *   it reads as a supported type right up until it fails.
  * - `path_chart` — path charts (Path Visualizations) likewise have no
  *   clientId column, only `projectId -> projects.clientId` (see
  *   lib/db/schema/pathviz.ts). Both registrars special-case this.

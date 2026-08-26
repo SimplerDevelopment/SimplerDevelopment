@@ -423,6 +423,44 @@ describe('kanban_card_artifacts', () => {
     expect(v.createdBy).toBe(11);
   });
 
+  it('link: resolves artifactType "post" via the clientWebsites join (PUX-034/JUL9-018)', async () => {
+    // The enum has always advertised 'post', but the kanban registrar called
+    // resolveArtifactTitle WITHOUT `{ handlePost: true }`. Posts carry no
+    // clientId, so the generic table-dict branch had nothing to look them up
+    // in and every attempt answered "not owned by this client".
+    dbState.selectQueue = [
+      [{ projectId: 1 }],                                  // card
+      [{ id: 1 }],                                         // project
+      [{ title: 'Launch Page', postType: 'landing' }],     // post via clientWebsites join
+    ];
+    dbState.insertReturningDefault = [{ id: 101 }];
+    const tools = registerAll();
+    const res = await tools.get('kanban_card_artifact_link')!.handler({
+      cardId: 1, artifactType: 'post', artifactId: 42,
+    });
+    expect(parseJson(res)).not.toHaveProperty('error');
+    expect((parseJson(res) as { id: number }).id).toBe(101);
+    const v = dbState.lastInsertValues as { artifactType: string; displayTitle: string };
+    expect(v.artifactType).toBe('post');
+    // Non-blog posts get their type appended, so the label says what it is.
+    expect(v.displayTitle).toBe('Launch Page (landing)');
+  });
+
+  it('link: still refuses a post that belongs to another client', async () => {
+    // The join is the tenancy check, not just a title lookup — an empty result
+    // must stay a refusal rather than linking an unowned post.
+    dbState.selectQueue = [
+      [{ projectId: 1 }],
+      [{ id: 1 }],
+      [],                 // join finds nothing for this clientId
+    ];
+    const tools = registerAll();
+    const res = await tools.get('kanban_card_artifact_link')!.handler({
+      cardId: 1, artifactType: 'post', artifactId: 42,
+    });
+    expect((parseJson(res) as { error: string }).error).toMatch(/not owned/);
+  });
+
   it('link: falls back to "Untitled" when artifact title is empty', async () => {
     dbState.selectQueue = [
       [{ projectId: 1 }],
