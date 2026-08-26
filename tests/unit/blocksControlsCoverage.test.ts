@@ -205,6 +205,12 @@ const INLINE_EDITED_FIELDS: Record<string, ReadonlySet<string>> = {
   'tabs': new Set(['tabs']),
   'accordion': new Set(['items']),
   'hero': new Set(['blocks']),
+  // HeroCtaBlock.blocks jsdoc (types/blocks/components.ts): "'hero' layout
+  // only — optional child blocks rendered at the bottom (e.g. trust bars),
+  // mirrors HeroBlock.blocks". Same nested-block canvas mechanism as
+  // `hero`'s `blocks` field above; no settings-panel input exists for
+  // either, by design (PUX-117).
+  'hero-cta': new Set(['blocks']),
 };
 
 // Fields that are computed/auto-derived at render time and don't need
@@ -403,6 +409,14 @@ const PANEL_FILES = [
   // regression for both blocks (PUX-122) even though the panel UI has
   // always been present.
   'components/blocks/visual/block-settings/panels/TeamSettings.tsx',
+  // Navigation settings were always their own file, dispatched from
+  // SectionsPanel.tsx via <NavigationBlockSettings> (see the import at
+  // SectionsPanel.tsx:13), but this file was never added to the scan list.
+  // That made every one of navigation's 15 style/behavior fields (linkColor
+  // through fontFamily) look like a missing settings input even though the
+  // panel UI has always been present (PUX-117 — same class of false
+  // positive as the TeamSettings.tsx gap above from PUX-122).
+  'components/blocks/visual/block-settings/panels/NavigationSettings.tsx',
   // ContentPanel.HtmlRenderBlockSettings delegates to this rich editor
   // (same one the iframe path uses) — scan it so html-render's `html`/`width`/
   // `fields`/`values`/`loop` fields are detected as covered. Without this,
@@ -614,6 +628,23 @@ function getElementDefinitions(): Record<string, string[]> {
   return result;
 }
 
+// `hero` and `cta` are thin back-compat adapters (VEQA-067 Strategy A) — see
+// the jsdoc on HeroBlockRender.tsx/CtaBlockRender.tsx. They normalize legacy
+// field names and delegate rendering (and every getElementCSS(...) call) to
+// the shared HeroCtaBlockRender.tsx; the adapter files themselves never call
+// getElementCSS. Scanning only TYPE_TO_RENDERER's adapter file therefore
+// found zero call sites and flagged every one of hero's/cta's element keys
+// as "dead", even though hero's title/subtitle/description/cta/secondaryCta
+// and cta's title/description/primaryButton/secondaryButton all resolve via
+// HeroCtaBlockRender.tsx's `keys.<field>` lookups (hero's cta/secondaryCta
+// aliasing happens through the `elementKeys` prop HeroBlockRender.tsx passes
+// in). Concatenate the delegate's source so the scan sees the real call
+// sites (PUX-117).
+const RENDERER_DELEGATE_FILES: Record<string, string> = {
+  'hero': 'components/blocks/render/HeroCtaBlockRender.tsx',
+  'cta': 'components/blocks/render/HeroCtaBlockRender.tsx',
+};
+
 function rendererCallSitesForKeys(blockType: string, keys: string[]): Set<string> {
   const path = TYPE_TO_RENDERER[blockType];
   if (!path) return new Set();
@@ -622,6 +653,14 @@ function rendererCallSitesForKeys(blockType: string, keys: string[]): Set<string
     src = readRepoFile(path);
   } catch {
     return new Set();
+  }
+  const delegatePath = RENDERER_DELEGATE_FILES[blockType];
+  if (delegatePath) {
+    try {
+      src += '\n' + readRepoFile(delegatePath);
+    } catch {
+      // delegate file missing — fall through with just the adapter's source
+    }
   }
   const used = new Set<string>();
   // We accept any of:
