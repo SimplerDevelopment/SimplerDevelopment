@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { emailLists, emailSubscribers } from '@/lib/db/schema';
+import { emailCampaigns, emailLists, emailSubscribers } from '@/lib/db/schema';
 import { eq, and, or, ilike, desc, sql, type SQL } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
 import { authorizePortal, isAuthError } from '@/lib/portal-auth';
@@ -115,10 +115,30 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   const listId = parseInt(id);
   if (!await ownsList(client, listId)) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
 
-  // No pre-check here: emailCampaigns.listId has onDelete:'restrict' (see
-  // lib/db/schema/email.ts), so a list with any campaign still pointing to it
-  // throws a raw Postgres FK-violation that this route does NOT catch — it
-  // surfaces as an unhandled 500, not the usual { success: false } envelope.
-  await db.delete(emailLists).where(eq(emailLists.id, listId));
+  // emailCampaigns.listId is onDelete:'restrict' (lib/db/schema/email.ts), so a
+  // list any campaign still points at raises Postgres 23503 instead of
+  // cascading. Attempt-then-handle rather than pre-check: the happy path
+  // shouldn't pay for a lookup that almost always finds nothing, and a
+  // pre-check would still race a campaign created between the SELECT and the
+  // DELETE. The blocking names are only worth fetching once we know there ARE
+  // blockers — that message is the whole point of the 409, since "delete
+  // failed" without naming what holds the list is unactionable.
+  try {
+    await db.delete(emailLists).where(eq(emailLists.id, listId));
+  } catch (err) {
+    if ((err as { code?: string }).code !== '23503') throw err;
+    const blocking = await db
+      .select({ name: emailCampaigns.name })
+      .from(emailCampaigns)
+      .where(eq(emailCampaigns.listId, listId))
+      .limit(10);
+    const names = blocking.map((c) => c.name).join(', ');
+    return NextResponse.json({
+      success: false,
+      message: names
+        ? `Cannot delete: still used by ${blocking.length} campaign(s): ${names}`
+        : 'Cannot delete: this list is still referenced by another record.',
+    }, { status: 409 });
+  }
   return NextResponse.json({ success: true });
 }
