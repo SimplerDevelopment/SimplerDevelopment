@@ -48,6 +48,13 @@ async function _GET(req: Request) {
     campaignId: number;
     status: 'promoted' | 'failed';
     winner?: string;
+    // PUX-049: the remainder now dispatches via the durable internal_jobs
+    // queue for tenant-owned campaigns, so sent/failed counts aren't known
+    // synchronously — `queued: true` + `total` reflect that. Global/agency
+    // campaigns (clientId null) still dispatch inline (can't ride
+    // internal_jobs), so those keep sent/failed.
+    queued?: boolean;
+    total?: number;
     sent?: number;
     failed?: number;
     error?: string;
@@ -72,6 +79,8 @@ async function _GET(req: Request) {
         campaignId: campaign.id,
         status: 'promoted',
         winner: r.winner,
+        queued: r.queued,
+        total: r.total,
         sent: r.sent,
         failed: r.failed,
       });
