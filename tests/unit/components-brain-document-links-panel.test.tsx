@@ -373,7 +373,6 @@ describe('DocumentLinksPanel — picker dialog options', () => {
     // The search triggers immediately on mount; wait for the result to appear
     await waitFor(() =>
       expect(screen.getByText('Searched Topic')).toBeInTheDocument(),
-      { timeout: 2000 },
     );
     // The search input is present and can be changed
     const searchInput = screen.getByPlaceholderText('Title or name…');

@@ -256,7 +256,7 @@ describe('NoteCustomFieldsPanel — noteId switching', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Note2Field')).toBeInTheDocument();
-    }, { timeout: 3000 });
+    });
   });
 });
 

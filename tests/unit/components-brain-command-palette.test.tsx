@@ -208,7 +208,6 @@ describe('CommandPalette — search', () => {
         );
         expect(calls.some((u: string) => u.includes('search=hello'))).toBe(true);
       },
-      { timeout: 1000 },
     );
   });
 

@@ -133,7 +133,7 @@ describe('ContactForm', () => {
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(1);
-    }, { timeout: 3000 });
+    });
     const [url, init] = fetchMock.mock.calls[0];
     // Submission now goes through our own API route, not the n8n webhook directly.
     expect(url).toBe('/api/contact');
@@ -172,7 +172,7 @@ describe('ContactForm', () => {
 
     await waitFor(() => {
       expect(screen.getByText(/sorry, there was an error/i)).toBeTruthy();
-    }, { timeout: 3000 });
+    });
     errSpy.mockRestore();
   });
 });
