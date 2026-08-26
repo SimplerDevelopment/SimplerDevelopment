@@ -89,8 +89,13 @@ function selectChain(rows: QueryResult) {
   return proxy;
 }
 
-vi.mock('@/lib/db', () => ({
-  db: {
+// Shared select/insert/update/delete/execute surface. Used both for the
+// top-level `db` object and for the `tx` handed to `db.transaction(cb)` —
+// insertKanbanCardWithNumber (lib/portal/kanban-card-number.ts) runs its
+// number allocation + insert inside a transaction, and both paths must read
+// from / write into the same dbState queues.
+function makeDbInterface() {
+  return {
     select: vi.fn(() => selectChain(nextSelect())),
     insert: vi.fn(() => ({
       values: vi.fn((vals: unknown) => {
@@ -132,6 +137,14 @@ vi.mock('@/lib/db', () => ({
         })),
       };
     }),
+    execute: vi.fn(async () => ({})),
+  };
+}
+
+vi.mock('@/lib/db', () => ({
+  db: {
+    ...makeDbInterface(),
+    transaction: vi.fn(async (cb: (tx: unknown) => unknown) => cb(makeDbInterface())),
   },
 }));
 
