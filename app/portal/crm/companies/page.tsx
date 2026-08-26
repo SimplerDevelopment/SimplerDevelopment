@@ -4,11 +4,12 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import CrmCustomFieldFilters from '@/components/portal/CrmCustomFieldFilters';
+import CrmImportExport from '@/components/portal/CrmImportExport';
 import CompanyMap, { type MapCompany } from '@/components/portal/CompanyMap';
 import MediaPicker from '@/components/admin/MediaPicker';
 import { formatMoney } from '@/lib/utils/money';
 import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
-import { pBtnPrimary, pBtnGhost, pCard, pInput, pSelect } from '@/components/portal/portal-ui';
+import { pBtnPrimary, pCard, pInput } from '@/components/portal/portal-ui';
 
 interface Company {
   id: number;
@@ -154,13 +155,12 @@ export default function CrmCompaniesPage() {
         title="Companies"
         subtitle={loading ? undefined : `${total} compan${total !== 1 ? 'ies' : 'y'}`}
         actions={
-          <button
-            onClick={() => setShowForm(f => !f)}
-            className={pBtnPrimary}
-          >
-            <span className="material-icons text-base">{showForm ? 'close' : 'domain_add'}</span>
-            {showForm ? 'Cancel' : 'Add Company'}
-          </button>
+          <>
+            <CrmImportExport entityType="company" currentFilters={{ search }} onImportComplete={fetchCompanies} />
+            <button onClick={() => setShowForm(f => !f)} className={pBtnPrimary}>
+              <span className="material-icons text-base">{showForm ? 'close' : 'domain_add'}</span>{showForm ? 'Cancel' : 'Add Company'}
+            </button>
+          </>
         }
       />
 
