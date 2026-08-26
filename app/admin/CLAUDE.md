@@ -23,7 +23,15 @@ Global internal panel — our staff UI for managing all tenants, CRM, billing, A
 ## Layout behavior
 
 - Sidebar is suppressed on post edit/new screens (`pathname.includes('/posts/new|edit')`).
-- Full-width mode (no max-width container) for `/admin`, `/admin/crm/**`, `/admin/portal-ecommerce`.
+- **The shell applies no width container at all.** `<main className="min-h-screen">` is
+  unconditional for every non-login route (`components/admin/AdminShellClient.tsx:70`);
+  page width is each page's own business (`app/admin/page.tsx:135` uses `max-w-[1400px]`,
+  `app/admin/crm/companies/page.tsx:40` uses `max-w-7xl`). This line used to claim a
+  pathname-dependent "full-width mode" for `/admin`, `/admin/crm/**` and
+  `/admin/portal-ecommerce`. No such branch has ever existed, and the claim is what
+  produced QAD-026 — a hydration-mismatch bug filed against code that isn't there.
+  Keep the shell's *structure* route-independent: vary a className, never the tag
+  (cf. `a847c53f`; pinned by `tests/unit/components-admin-shell-client-hydration.test.tsx`).
 - Sidebar collapse state lives in `localStorage('adminSidebarCollapsed')` + a `CustomEvent('sidebarToggle')`.
 - Chrome component: `components/admin/AdminSidebar`.
 
