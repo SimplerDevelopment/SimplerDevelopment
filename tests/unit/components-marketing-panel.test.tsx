@@ -128,3 +128,32 @@ describe('MarketingPanel — FlipCardGrid block', () => {
     });
   });
 });
+
+describe('MarketingPanel — BentoGrid block', () => {
+  const baseBento = {
+    id: 'bg1',
+    type: 'bento-grid',
+    overline: 'CAPS',
+    title: 'T',
+    subtitle: 'S',
+    columns: 2,
+    accentColor: '',
+    cards: [{ id: 'cd1', title: 'C', lead: 'L', items: ['a', 'b'], variant: 'dark', span: 6, accentColor: '' }],
+  };
+
+  it('exposes the previously-missing block-level Default Accent Color field (JUL9-003)', () => {
+    const { onUpdate } = renderPanel(baseBento);
+    const colorInput = screen.getByTestId('color-Default Accent Color') as HTMLInputElement;
+    fireEvent.change(colorInput, { target: { value: 'token.brand' } });
+    expect(onUpdate).toHaveBeenCalledWith({ accentColor: 'token.brand' });
+  });
+
+  it('exposes a per-card accent color override (JUL9-003)', () => {
+    const { onUpdate } = renderPanel(baseBento);
+    const colorInput = screen.getByTestId('color-Accent Color (overrides default above)') as HTMLInputElement;
+    fireEvent.change(colorInput, { target: { value: 'token.accent-2' } });
+    expect(onUpdate).toHaveBeenCalledWith({
+      cards: [{ id: 'cd1', title: 'C', lead: 'L', items: ['a', 'b'], variant: 'dark', span: 6, accentColor: 'token.accent-2' }],
+    });
+  });
+});

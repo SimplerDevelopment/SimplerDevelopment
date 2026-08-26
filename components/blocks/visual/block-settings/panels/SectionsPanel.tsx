@@ -1090,8 +1090,9 @@ function BentoGridBlockSettings({ block, onChange }: { block: BentoGridBlock; on
         </div>
       </div>
       <div>
-        <label className="block text-sm font-medium text-foreground mb-1">Accent Color</label>
+        <label className="block text-sm font-medium text-foreground mb-1">Default Accent Color</label>
         <TokenColorPicker value={block.accentColor || ''} onChange={(color) => onChange({ accentColor: color || undefined })} />
+        <p className="text-xs text-muted-foreground mt-1">Used for the left bar, item dots, and link arrow on any card without its own accent color override below.</p>
       </div>
       <div className="border-t border-border pt-4 space-y-2">
         <label className="block text-sm font-medium text-foreground">Cards</label>
@@ -1177,6 +1178,17 @@ function BentoGridBlockSettings({ block, onChange }: { block: BentoGridBlock; on
                 }}
                 className="w-20 text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground"
                 placeholder="Span"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-muted-foreground mb-1">Accent Color (optional — overrides default above)</label>
+              <TokenColorPicker
+                value={card.accentColor || ''}
+                onChange={(color) => {
+                  const next = [...(block.cards || [])];
+                  next[i] = { ...next[i], accentColor: color || undefined };
+                  onChange({ cards: next });
+                }}
               />
             </div>
             <button

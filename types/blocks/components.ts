@@ -339,6 +339,8 @@ export interface BentoCard {
   variant?: 'dark' | 'light';
   /** Relative width weight (7 = wider, 5 = narrower). Two cards in a row should sum to 12. */
   span?: number;
+  /** Per-card accent override — falls back to the block-level `accentColor` when unset */
+  accentColor?: string;
 }
 
 export interface BentoGridBlock extends BaseBlock {
@@ -352,7 +354,7 @@ export interface BentoGridBlock extends BaseBlock {
   darkBg?: string;
   /** Border color for light-variant cards */
   lightBorder?: string;
-  /** Accent color for the left bar on cards */
+  /** Accent color for the left bar, item dots, and link text/arrow on cards. Used for any card without its own override above. */
   accentColor?: string;
   /** Number of columns per row */
   columns?: number;

@@ -404,6 +404,45 @@ describe('BentoGridBlockRender', () => {
     // Default `cols` fallback is 2 — one card means one row with one cell.
     expect(container.querySelectorAll('.md\\:grid-cols-12').length).toBe(1);
   });
+
+  // JUL9-003 — per-card accent override falls back to the block default when unset.
+  it('honors a per-card accentColor override on the left accent bar, item dots, and link text', () => {
+    const block: any = {
+      type: 'bento-grid',
+      columns: 1,
+      accentColor: '#cfa122',
+      cards: [
+        {
+          id: 'override',
+          title: 'Overridden',
+          items: ['One'],
+          variant: 'dark',
+          span: 12,
+          link: 'https://example.com',
+          linkText: 'Go',
+          accentColor: '#00ff00',
+        },
+      ],
+    };
+    const { container } = render(<BentoGridBlockRender block={block} />);
+    const accentBar = container.querySelector('.absolute.left-0.top-0.bottom-0');
+    expect(accentBar!.getAttribute('style') ?? '').toContain('background-color: rgb(0, 255, 0)');
+    const dot = container.querySelector('.w-1\\.5.h-1\\.5.rounded-full');
+    // jsdom normalizes the `${accent}80` 8-digit hex to rgba() with alpha ~0.5.
+    expect(dot!.getAttribute('style') ?? '').toContain('rgba(0, 255, 0, 0.5)');
+  });
+
+  it('falls back to the block-level accentColor when a card has no override', () => {
+    const block: any = {
+      type: 'bento-grid',
+      columns: 1,
+      accentColor: '#cfa122',
+      cards: [{ id: 'noOverride', title: 'Default', items: ['One'], variant: 'dark', span: 12 }],
+    };
+    const { container } = render(<BentoGridBlockRender block={block} />);
+    const accentBar = container.querySelector('.absolute.left-0.top-0.bottom-0');
+    expect(accentBar!.getAttribute('style') ?? '').toContain('background-color: rgb(207, 161, 34)');
+  });
 });
 
 // ---------------------------------------------------------------------------

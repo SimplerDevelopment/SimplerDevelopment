@@ -822,4 +822,37 @@ describe('SectionsPanel — BentoGrid block', () => {
     expect(last.cards).toHaveLength(2);
     expect(last.cards[1]).toMatchObject({ title: '', items: [], variant: 'dark', span: 6 });
   });
+
+  it('renames the block-level picker to "Default Accent Color" and updates it (JUL9-003)', () => {
+    const { onChange } = renderPanel(baseBento);
+    // Dark BG / Light Border / Default Accent Color / the per-card override
+    // all use the same manual-<label>-plus-unlabeled-picker convention, so
+    // every mocked TokenColorPicker shares the generic "color-unnamed"
+    // testid — scope by the visible label text instead of the testid.
+    const label = screen.getByText('Default Accent Color');
+    const colorInput = label.parentElement!.querySelector('input') as HTMLInputElement;
+    fireEvent.change(colorInput, { target: { value: 'token.brand' } });
+    expect(onChange).toHaveBeenCalledWith({ accentColor: 'token.brand' });
+  });
+
+  it('sets a per-card accent color override, independent of the block default (JUL9-003)', () => {
+    const { onChange } = renderPanel(baseBento);
+    const label = screen.getByText('Accent Color (optional — overrides default above)');
+    const colorInput = label.parentElement!.querySelector('input') as HTMLInputElement;
+    fireEvent.change(colorInput, { target: { value: 'token.accent-2' } });
+    expect(onChange).toHaveBeenCalledWith({
+      cards: [{ id: 'cd1', title: 'C', lead: 'L', items: ['a', 'b'], variant: 'dark', span: 6, accentColor: 'token.accent-2' }],
+    });
+  });
+
+  it('emits undefined when a per-card accent color override is cleared (JUL9-003)', () => {
+    const withOverride = { ...baseBento, cards: [{ ...baseBento.cards[0], accentColor: 'token.accent-2' }] };
+    const { onChange } = renderPanel(withOverride);
+    const label = screen.getByText('Accent Color (optional — overrides default above)');
+    const colorInput = label.parentElement!.querySelector('input') as HTMLInputElement;
+    fireEvent.change(colorInput, { target: { value: '' } });
+    expect(onChange).toHaveBeenCalledWith({
+      cards: [{ id: 'cd1', title: 'C', lead: 'L', items: ['a', 'b'], variant: 'dark', span: 6, accentColor: undefined }],
+    });
+  });
 });

@@ -66,6 +66,10 @@ export function BentoGridBlockRender({ block }: BentoGridBlockRenderProps) {
               const isDark = card.variant === 'dark';
               const span = card.span || 6;
               const colSpan = `md:col-span-${span}`;
+              // Per-card override (JUL9-003) — the header's decorative line
+              // above the section title stays block-level (`accentColor`
+              // above); only per-card visual elements read this fallback.
+              const accent = card.accentColor ?? accentColor;
 
               return (
                 <a
@@ -89,7 +93,7 @@ export function BentoGridBlockRender({ block }: BentoGridBlockRenderProps) {
                         ? 'opacity-30 group-hover:opacity-100'
                         : 'opacity-0 group-hover:opacity-60'
                     }`}
-                    style={{ backgroundColor: accentColor }}
+                    style={{ backgroundColor: accent }}
                   />
 
                   <div className="relative z-10 p-8 lg:p-10 flex flex-col h-full min-h-[340px] lg:min-h-[380px]">
@@ -132,7 +136,7 @@ export function BentoGridBlockRender({ block }: BentoGridBlockRenderProps) {
                           <div key={idx} className="flex items-start gap-2.5">
                             <div
                               className="w-1.5 h-1.5 rounded-full mt-[7px] shrink-0"
-                              style={{ backgroundColor: isDark ? `${accentColor}80` : `${accentColor}66` }}
+                              style={{ backgroundColor: isDark ? `${accent}80` : `${accent}66` }}
                             />
                             <span
                               className="text-sm leading-snug"
@@ -150,7 +154,7 @@ export function BentoGridBlockRender({ block }: BentoGridBlockRenderProps) {
                       {card.linkText && (
                         <div
                           className="flex items-center gap-2 text-sm transition-all duration-300 translate-y-2 opacity-0 group-hover:translate-y-0 group-hover:opacity-100"
-                          style={{ color: isDark ? accentColor : `${accentColor}dd` }}
+                          style={{ color: isDark ? accent : `${accent}dd` }}
                         >
                           <span className="tracking-wide">{card.linkText}</span>
                           <svg className="w-4 h-4 group-hover:translate-x-1.5 transition-transform duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
