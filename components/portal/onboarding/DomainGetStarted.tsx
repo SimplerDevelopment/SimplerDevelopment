@@ -10,9 +10,11 @@
  * (dismissal is per-user, persisted in onboarding answers.dismissedDomains).
  */
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import Link from 'next/link';
 import { getSegmentForDomain } from '@/lib/onboarding/module-segments';
 import { FEATURE_DOMAINS } from '@/lib/billing/domain-catalog';
+import { subscribeOnboardingProgress } from '@/lib/onboarding/client-events';
 
 interface StatusStep {
   key: string;
@@ -32,17 +34,35 @@ export default function DomainGetStarted({ domainKey }: { domainKey: string }) {
   const [status, setStatus] = useState<DomainStatus | null>(null);
   const [dismissed, setDismissed] = useState<boolean | null>(null);
   const [dismissedDomains, setDismissedDomains] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // OBQA-025: scoped to `?domain=` so this only pays for its own domain's
+  // detection queries (the un-scoped endpoint computed every entitled
+  // domain's steps — the measured cause of this card's slow first paint).
+  // Split out so it can be re-run standalone (see the progress-event
+  // subscription below) without re-fetching the dismissed-state call.
+  const fetchStatus = useCallback(
+    (signal?: AbortSignal) =>
+      fetch(`/api/portal/onboarding/status?domain=${encodeURIComponent(domainKey)}`, { signal })
+        .then((r) => r.json())
+        .then((json) => {
+          if (json.success) setStatus((json.data?.domains?.[domainKey] as DomainStatus) ?? null);
+        })
+        .catch((err) => {
+          if (err?.name === 'AbortError') return;
+          // Best-effort refresh — leave the last-known status in place rather
+          // than blanking the card over a transient network error.
+        }),
+    [domainKey],
+  );
 
   useEffect(() => {
     const controller = new AbortController();
     Promise.all([
-      fetch('/api/portal/onboarding/status', { signal: controller.signal }).then((r) => r.json()),
+      fetchStatus(controller.signal),
       fetch('/api/portal/onboarding', { signal: controller.signal }).then((r) => r.json()),
     ])
-      .then(([statusJson, onboardingJson]) => {
-        if (statusJson.success) {
-          setStatus((statusJson.data?.domains?.[domainKey] as DomainStatus) ?? null);
-        }
+      .then(([, onboardingJson]) => {
         const dd: string[] = onboardingJson.success ? (onboardingJson.data?.answers?.dismissedDomains ?? []) : [];
         setDismissedDomains(dd);
         setDismissed(dd.includes(domainKey));
@@ -55,9 +75,17 @@ export default function DomainGetStarted({ domainKey }: { domainKey: string }) {
         // blocks the page.
         if (err?.name === 'AbortError') return;
         setDismissed(true);
-      });
+      })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
-  }, [domainKey]);
+  }, [domainKey, fetchStatus]);
+
+  // OBQA-025: several of this domain's actions (e.g. "Create your first
+  // project") complete via an inline form on the SAME page the card is
+  // mounted on — no navigation, so this card never remounts to see the new
+  // status. Pages that complete a step inline call notifyOnboardingProgress()
+  // after a successful create; this refetches just this domain's status.
+  useEffect(() => subscribeOnboardingProgress(domainKey, () => void fetchStatus()), [domainKey, fetchStatus]);
 
   function handleDismiss() {
     setDismissed(true);
@@ -66,6 +94,16 @@ export default function DomainGetStarted({ domainKey }: { domainKey: string }) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ answers: { dismissedDomains: [...dismissedDomains, domainKey] } }),
     });
+  }
+
+  if (loading) {
+    return (
+      <div className="rounded-xl border border-border bg-card animate-pulse p-5 mb-4" aria-hidden="true">
+        <div className="h-4 bg-muted rounded w-32 mb-3" />
+        <div className="h-2 bg-muted rounded w-full mb-2" />
+        <div className="h-2 bg-muted rounded w-3/4" />
+      </div>
+    );
   }
 
   if (dismissed !== false || !status || status.complete) return null;
@@ -122,14 +160,14 @@ export default function DomainGetStarted({ domainKey }: { domainKey: string }) {
                 <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{action.description}</p>
               </div>
               {!done && (
-                <a
+                <Link
                   href={action.href}
                   className="shrink-0 text-xs text-primary hover:text-primary/80 font-medium whitespace-nowrap"
                   aria-label={`Open ${action.label}`}
                 >
                   Open
                   <span className="material-icons text-sm align-middle ml-0.5">arrow_forward</span>
-                </a>
+                </Link>
               )}
             </div>
           );

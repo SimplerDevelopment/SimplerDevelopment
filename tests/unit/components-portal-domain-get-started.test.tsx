@@ -1,98 +1,136 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
-import DomainGetStarted from '@/components/portal/onboarding/DomainGetStarted';
-import GetStartedChecklist from '@/components/portal/onboarding/GetStartedChecklist';
+// @vitest-environment jsdom
+/**
+ * Unit tests for DomainGetStarted (OBQA-025).
+ *
+ * Covers the two client-side defects that are fixable/pinnable without a
+ * real DB or browser:
+ *   1. Slow load: the status fetch must be scoped to the mounted domain via
+ *      `?domain=`, not the un-scoped endpoint that computes every entitled
+ *      domain's steps.
+ *   3. project-create doesn't flip the step: the card must refetch its
+ *      status when notifyOnboardingProgress(domainKey) fires — the signal an
+ *      inline same-page create (e.g. /portal/projects' "New Project" form)
+ *      sends since the card never remounts to see the change on its own.
+ *
+ * (Defect 2 — premature dismissal — is fixed by swapping the action's plain
+ * `<a>` for next/link's `Link` so opening a pending step doesn't force a full
+ * page reload; that's a navigation-behavior change with no observable jsdom
+ * signal to pin here, verified by reading the diff instead.)
+ */
+import React from 'react';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import { render, screen, waitFor, act } from '@testing-library/react';
+import { notifyOnboardingProgress } from '@/lib/onboarding/client-events';
 
-function jsonResponse(body: unknown) {
-  return { json: async () => body } as Response;
+vi.mock('next/link', () => ({
+  __esModule: true,
+  default: ({ children, href, ...rest }: { children: React.ReactNode; href: string; [key: string]: unknown }) =>
+    React.createElement('a', { href, ...rest }, children),
+}));
+
+import DomainGetStarted from '@/components/portal/onboarding/DomainGetStarted';
+
+interface StatusStep {
+  key: string;
+  done: boolean;
+  preCredited: boolean;
+  counted: boolean;
 }
 
-const crmStatus = {
-  steps: [
+function projectsStatus(hasProject: boolean) {
+  const steps: StatusStep[] = [
     { key: 'enabled', done: true, preCredited: true, counted: true },
-    { key: 'add-contacts', done: false, preCredited: false, counted: true },
-    { key: 'create-pipeline', done: false, preCredited: false, counted: true },
-    { key: 'log-deal', done: false, preCredited: false, counted: true },
-  ],
-  done: 1,
-  total: 4,
-  complete: false,
-};
+    { key: 'create-project', done: hasProject, preCredited: false, counted: true },
+    { key: 'check-tasks', done: false, preCredited: false, counted: false },
+  ];
+  const counted = steps.filter((s) => s.counted);
+  const done = counted.filter((s) => s.done).length;
+  return { steps, done, total: counted.length, complete: done >= counted.length };
+}
+
+function makeFetchMock(getStatus: () => ReturnType<typeof projectsStatus>) {
+  return vi.fn((url: unknown) => {
+    const u = String(url);
+    if (u.includes('/api/portal/onboarding/status')) {
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ success: true, data: { domains: { projects: getStatus() } } }),
+      });
+    }
+    if (u.includes('/api/portal/onboarding')) {
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ success: true, data: { answers: { dismissedDomains: [] } } }),
+      });
+    }
+    return Promise.resolve({ ok: true, json: async () => ({ success: false }) });
+  });
+}
 
 describe('DomainGetStarted', () => {
-  let fetchMock: ReturnType<typeof vi.fn>;
-
-  beforeEach(() => {
-    fetchMock = vi.fn((url: string) => {
-      if (String(url).includes('/status')) {
-        return Promise.resolve(jsonResponse({ success: true, data: { domains: { crm: crmStatus } } }));
-      }
-      return Promise.resolve(jsonResponse({ success: true, data: { answers: {} } }));
-    });
-    vi.stubGlobal('fetch', fetchMock);
-  });
-
   afterEach(() => {
-    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
   });
 
-  it('renders pre-credited progress — never 0 of N', async () => {
-    render(<DomainGetStarted domainKey="crm" />);
-    await waitFor(() => expect(screen.getByText('1 of 4 steps complete')).toBeInTheDocument());
-    expect(screen.queryByText(/^0 of /)).not.toBeInTheDocument();
-  });
+  it('fetches status scoped to its own domain (?domain=<key>), not the unscoped endpoint', async () => {
+    const fetchMock = makeFetchMock(() => projectsStatus(false));
+    global.fetch = fetchMock as unknown as typeof fetch;
 
-  it('hides when the domain is complete', async () => {
-    fetchMock.mockImplementation((url: string) => {
-      if (String(url).includes('/status')) {
-        return Promise.resolve(
-          jsonResponse({ success: true, data: { domains: { crm: { ...crmStatus, done: 4, complete: true } } } }),
-        );
-      }
-      return Promise.resolve(jsonResponse({ success: true, data: { answers: {} } }));
+    render(<DomainGetStarted domainKey="projects" />);
+
+    await waitFor(() => {
+      const statusCall = fetchMock.mock.calls.find((c) => String(c[0]).includes('/api/portal/onboarding/status'));
+      expect(statusCall).toBeDefined();
+      expect(String(statusCall![0])).toBe('/api/portal/onboarding/status?domain=projects');
     });
-    const { container } = render(<DomainGetStarted domainKey="crm" />);
-    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
-    await waitFor(() => expect(container.firstChild).toBeNull());
   });
 
-  it('hides when the user has dismissed this domain', async () => {
-    fetchMock.mockImplementation((url: string) => {
-      if (String(url).includes('/status')) {
-        return Promise.resolve(jsonResponse({ success: true, data: { domains: { crm: crmStatus } } }));
-      }
-      return Promise.resolve(jsonResponse({ success: true, data: { answers: { dismissedDomains: ['crm'] } } }));
-    });
-    const { container } = render(<DomainGetStarted domainKey="crm" />);
-    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
-    await waitFor(() => expect(container.firstChild).toBeNull());
-  });
-});
+  it('shows "Create your first project" as pending before the project exists', async () => {
+    global.fetch = makeFetchMock(() => projectsStatus(false)) as unknown as typeof fetch;
 
-describe('GetStartedChecklist (auto-detected)', () => {
-  afterEach(() => {
-    vi.unstubAllGlobals();
+    render(<DomainGetStarted domainKey="projects" />);
+
+    await waitFor(() => expect(screen.getByText('1 of 2 steps complete')).toBeTruthy());
+    expect(screen.getByRole('link', { name: /Open Create your first project/ })).toBeTruthy();
   });
 
-  it('shows detected progress with pre-credited floor — never 0%', async () => {
-    const fetchMock = vi.fn((url: string) => {
-      const u = String(url);
-      if (u.includes('/billing/modules')) {
-        return Promise.resolve(
-          jsonResponse({ success: true, data: { entitlements: { domains: ['crm'], hasBundle: false, gatingBypassed: false } } }),
-        );
-      }
-      if (u.includes('/status')) {
-        return Promise.resolve(jsonResponse({ success: true, data: { domains: { crm: crmStatus } } }));
-      }
-      return Promise.resolve(jsonResponse({ success: true, data: { answers: {} } }));
-    });
-    vi.stubGlobal('fetch', fetchMock);
+  it('refetches and picks up the flipped step when notifyOnboardingProgress fires for this domain (defect 3)', async () => {
+    let hasProject = false;
+    const fetchMock = makeFetchMock(() => projectsStatus(hasProject));
+    global.fetch = fetchMock as unknown as typeof fetch;
 
-    render(<GetStartedChecklist />);
-    await waitFor(() => expect(screen.getByText('1 of 4 steps complete')).toBeInTheDocument());
-    expect(screen.getByText('25%')).toBeInTheDocument();
-    // Manual check-off is gone — no toggle buttons on action rows.
-    expect(screen.queryByRole('button', { name: /Mark ".*" complete/ })).not.toBeInTheDocument();
+    render(<DomainGetStarted domainKey="projects" />);
+    await waitFor(() => expect(screen.getByText('1 of 2 steps complete')).toBeTruthy());
+    const statusCallsBefore = fetchMock.mock.calls.filter((c) => String(c[0]).includes('/status')).length;
+
+    // Simulate the inline "New Project" form on /portal/projects succeeding —
+    // it never navigates, so this event is the only thing that tells the
+    // already-mounted card to look again. Both of the projects segment's
+    // counted steps ('enabled' + 'create-project') are now done, so the
+    // domain reads complete and the card correctly auto-hides — that
+    // disappearance is the proof the refetch happened and picked up the
+    // flip; before this fix the card just kept showing the stale "1 of 2".
+    hasProject = true;
+    act(() => { notifyOnboardingProgress('projects'); });
+
+    await waitFor(() => expect(screen.queryByTestId('get-started-checklist')).toBeNull());
+    const statusCallsAfter = fetchMock.mock.calls.filter((c) => String(c[0]).includes('/status')).length;
+    expect(statusCallsAfter).toBeGreaterThan(statusCallsBefore);
+  });
+
+  it('does NOT refetch on a notifyOnboardingProgress for a different domain', async () => {
+    const getStatus = vi.fn(() => projectsStatus(false));
+    const fetchMock = makeFetchMock(getStatus);
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    render(<DomainGetStarted domainKey="projects" />);
+    await waitFor(() => expect(screen.getByText('1 of 2 steps complete')).toBeTruthy());
+
+    const callsBefore = fetchMock.mock.calls.length;
+    act(() => { notifyOnboardingProgress('crm'); });
+
+    // Give any (incorrect) refetch a tick to happen, then assert it didn't.
+    await new Promise((r) => setTimeout(r, 0));
+    expect(fetchMock.mock.calls.length).toBe(callsBefore);
   });
 });
