@@ -43,17 +43,23 @@ export function StatsBlockRender({ block }: StatsBlockRenderProps) {
       )}
 
       <div className={`grid grid-cols-1 ${columnsClass} gap-8`}>
-        {(block.stats || []).map((stat, i) => (
+        {(block.stats || []).map((stat, i) => {
           // LLM-authored decks often omit stat ids; backfill a stable key.
+          const accent = stat.accentColor ?? block.accentColor;
+          return (
           <div key={stat.id ?? `stat-${i}`} className="text-center">
-            <div className={`${hasCustomFontSize ? '' : 'text-4xl md:text-5xl'} ${hasCustomFontWeight ? '' : 'font-bold'} ${hasCustomColor ? '' : 'text-primary'} mb-2`} style={getElementCSS(block.elementStyles, 'statValue')}>
+            <div
+              className={`${hasCustomFontSize ? '' : 'text-4xl md:text-5xl'} ${hasCustomFontWeight ? '' : 'font-bold'} ${hasCustomColor || accent ? '' : 'text-primary'} mb-2`}
+              style={{ ...(accent ? { color: accent } : {}), ...getElementCSS(block.elementStyles, 'statValue') }}
+            >
               {stat.value}
             </div>
             <div className="text-lg text-muted-foreground" style={getElementCSS(block.elementStyles, 'statLabel')}>
               {stat.label}
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

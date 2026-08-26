@@ -117,7 +117,9 @@ export function ServicesGridBlockPreview({ block, isSelected, onChange }: Servic
       )}
 
       <div className={`grid grid-cols-1 ${columnsClass} gap-6`}>
-        {block.services.map((service) => (
+        {block.services.map((service) => {
+          const accent = service.accentColor ?? accentColor;
+          return (
           <div
             key={service.id}
             className="flex flex-col h-full rounded-xl border bg-white p-7 transition-all hover:shadow-md hover:-translate-y-0.5 relative group"
@@ -169,7 +171,7 @@ export function ServicesGridBlockPreview({ block, isSelected, onChange }: Servic
             ) : service.icon ? (
               <span
                 className="material-icons mb-4"
-                style={{ fontSize: '44px', color: accentColor, ...iconStyle }}
+                style={{ fontSize: '44px', color: accent, ...iconStyle }}
                 aria-hidden
               >
                 {service.icon}
@@ -226,7 +228,7 @@ export function ServicesGridBlockPreview({ block, isSelected, onChange }: Servic
                   <li key={bullet.id} className="flex items-start gap-2 text-sm text-gray-700">
                     <span
                       className="material-icons shrink-0"
-                      style={{ fontSize: '18px', color: accentColor, marginTop: '1px' }}
+                      style={{ fontSize: '18px', color: accent, marginTop: '1px' }}
                       aria-hidden
                     >
                       {bullet.icon || 'check_circle'}
@@ -242,7 +244,7 @@ export function ServicesGridBlockPreview({ block, isSelected, onChange }: Servic
                 {service.link ? (
                   <span
                     className="inline-flex items-center gap-1.5 text-xs font-semibold tracking-wider uppercase"
-                    style={{ color: accentColor, ...linkStyle }}
+                    style={{ color: accent, ...linkStyle }}
                   >
                     {service.linkText || 'Learn More'}
                     <span className="material-icons" style={{ fontSize: '14px' }} aria-hidden>
@@ -263,7 +265,8 @@ export function ServicesGridBlockPreview({ block, isSelected, onChange }: Servic
               </div>
             )}
           </div>
-        ))}
+          );
+        })}
 
         {isSelected && (
           <button

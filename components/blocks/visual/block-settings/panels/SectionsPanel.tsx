@@ -20,6 +20,15 @@ interface PanelProps {
   currentViewport: Breakpoint;
 }
 
+// Returns a copy of `items` with index `i` shallow-patched — shared by every
+// per-item field's onChange in this file's array-of-cards settings loops
+// (JUL9-003) to keep those loops down to one line per field.
+function patchAt<T>(items: T[] | undefined, i: number, patch: Partial<T>): T[] {
+  const next = [...(items || [])];
+  next[i] = { ...next[i], ...patch };
+  return next;
+}
+
 export function SectionsPanel({ block, onChange, currentViewport }: PanelProps) {
   switch (block.type) {
     case 'hero':
@@ -175,90 +184,28 @@ function ServicesGridBlockSettings({ block, onChange, currentViewport }: { block
       </div>
       <div>
         <TokenColorPicker
-          label="Accent Color"
+          label="Default Accent Color"
           value={block.accentColor || ''}
           onChange={(v) => onChange({ accentColor: v || undefined })}
           placeholder="Brand primary"
         />
-        <p className="text-xs text-muted-foreground mt-1">Used for icons, bullets, and the link arrow.</p>
+        <p className="text-xs text-muted-foreground mt-1">Used for icons, bullets, and the link arrow on any service without its own accent color override below.</p>
       </div>
       <div className="border-t border-border pt-4 space-y-2">
         <label className="block text-sm font-medium text-foreground">Services</label>
         {(block.services || []).map((service, i) => (
           <div key={service.id ?? i} className="space-y-1 p-2 rounded border border-border">
-            <input
-              type="text"
-              value={service.title}
-              onChange={(e) => {
-                const next = [...(block.services || [])];
-                next[i] = { ...next[i], title: e.target.value };
-                onChange({ services: next });
-              }}
-              className="w-full text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground font-bold"
-              placeholder="Service title"
-            />
-            <textarea
-              value={service.description}
-              onChange={(e) => {
-                const next = [...(block.services || [])];
-                next[i] = { ...next[i], description: e.target.value };
-                onChange({ services: next });
-              }}
-              className="w-full text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground"
-              placeholder="Service description"
-              rows={2}
-            />
-            <input
-              type="text"
-              value={service.icon || ''}
-              onChange={(e) => {
-                const next = [...(block.services || [])];
-                next[i] = { ...next[i], icon: e.target.value || undefined };
-                onChange({ services: next });
-              }}
-              className="w-full text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground"
-              placeholder="Material Icon name (e.g. 'design_services')"
-            />
-            <input
-              type="url"
-              value={service.image || ''}
-              onChange={(e) => {
-                const next = [...(block.services || [])];
-                next[i] = { ...next[i], image: e.target.value || undefined };
-                onChange({ services: next });
-              }}
-              className="w-full text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground"
-              placeholder="Service image URL (optional)"
-            />
-            <input
-              type="url"
-              value={service.link || ''}
-              onChange={(e) => {
-                const next = [...(block.services || [])];
-                next[i] = { ...next[i], link: e.target.value || undefined };
-                onChange({ services: next });
-              }}
-              className="w-full text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground"
-              placeholder="Link URL (optional)"
-            />
-            <input
-              type="text"
-              value={service.linkText || ''}
-              onChange={(e) => {
-                const next = [...(block.services || [])];
-                next[i] = { ...next[i], linkText: e.target.value || undefined };
-                onChange({ services: next });
-              }}
-              className="w-full text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground"
-              placeholder='CTA text (default "Learn More")'
-            />
-            <button
-              type="button"
-              onClick={() => onChange({ services: (block.services || []).filter((_, j) => j !== i) })}
-              className="text-xs text-destructive hover:underline"
-            >
-              Remove
-            </button>
+            <input type="text" value={service.title} onChange={(e) => onChange({ services: patchAt(block.services, i, { title: e.target.value }) })} className="w-full text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground font-bold" placeholder="Service title" />
+            <textarea value={service.description} onChange={(e) => onChange({ services: patchAt(block.services, i, { description: e.target.value }) })} className="w-full text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground" placeholder="Service description" rows={2} />
+            <input type="text" value={service.icon || ''} onChange={(e) => onChange({ services: patchAt(block.services, i, { icon: e.target.value || undefined }) })} className="w-full text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground" placeholder="Material Icon name (e.g. 'design_services')" />
+            <input type="url" value={service.image || ''} onChange={(e) => onChange({ services: patchAt(block.services, i, { image: e.target.value || undefined }) })} className="w-full text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground" placeholder="Service image URL (optional)" />
+            <input type="url" value={service.link || ''} onChange={(e) => onChange({ services: patchAt(block.services, i, { link: e.target.value || undefined }) })} className="w-full text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground" placeholder="Link URL (optional)" />
+            <input type="text" value={service.linkText || ''} onChange={(e) => onChange({ services: patchAt(block.services, i, { linkText: e.target.value || undefined }) })} className="w-full text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground" placeholder='CTA text (default "Learn More")' />
+            <div>
+              <label className="block text-xs text-muted-foreground mb-1">Accent Color (optional — overrides default above)</label>
+              <TokenColorPicker value={service.accentColor || ''} onChange={(color) => onChange({ services: patchAt(block.services, i, { accentColor: color || undefined }) })} />
+            </div>
+            <button type="button" onClick={() => onChange({ services: (block.services || []).filter((_, j) => j !== i) })} className="text-xs text-destructive hover:underline">Remove</button>
           </div>
         ))}
         <button
@@ -296,6 +243,27 @@ function StatsBlockSettings({ block, onChange, currentViewport }: { block: Stats
           <option value="4">4 Columns</option>
         </select>
       </div>
+      </div>
+      <div>
+        <TokenColorPicker label="Default Accent Color" value={block.accentColor || ''} onChange={(v) => onChange({ accentColor: v || undefined })} placeholder="Theme primary" />
+        <p className="text-xs text-muted-foreground mt-1">Used for stat values on any stat without its own accent color override below.</p>
+      </div>
+      <div className="border-t border-border pt-4 space-y-2">
+        <label className="block text-sm font-medium text-foreground">Stats</label>
+        {(block.stats || []).map((stat, i) => (
+          <div key={stat.id ?? i} className="space-y-1 p-2 rounded border border-border">
+            <input type="text" value={stat.value} onChange={(e) => onChange({ stats: patchAt(block.stats, i, { value: e.target.value }) })} className="w-full text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground font-bold" placeholder="Value (e.g. 100+)" />
+            <input type="text" value={stat.label} onChange={(e) => onChange({ stats: patchAt(block.stats, i, { label: e.target.value }) })} className="w-full text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground" placeholder="Label" />
+            <div>
+              <label className="block text-xs text-muted-foreground mb-1">Accent Color (optional — overrides default above)</label>
+              <TokenColorPicker value={stat.accentColor || ''} onChange={(color) => onChange({ stats: patchAt(block.stats, i, { accentColor: color || undefined }) })} />
+            </div>
+            <button type="button" onClick={() => onChange({ stats: (block.stats || []).filter((_, j) => j !== i) })} className="text-xs text-destructive hover:underline">Remove</button>
+          </div>
+        ))}
+        <button type="button" onClick={() => onChange({ stats: [...(block.stats || []), { id: `stat-${Date.now()}`, value: '100+', label: 'New stat' }] })} className="w-full px-3 py-2 text-xs font-medium rounded border border-dashed border-border text-muted-foreground hover:text-foreground hover:bg-accent/50">
+          + Add Stat
+        </button>
       </div>
     </div>
   );

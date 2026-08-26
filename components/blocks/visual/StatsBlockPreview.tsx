@@ -85,7 +85,9 @@ export function StatsBlockPreview({ block, isSelected, onChange }: StatsBlockPre
         3: 'md:grid-cols-2 lg:grid-cols-3',
         4: 'md:grid-cols-2 lg:grid-cols-4',
       }[block.columns || 3]} gap-8`}>
-        {block.stats.map((stat) => (
+        {block.stats.map((stat) => {
+          const accent = stat.accentColor ?? block.accentColor;
+          return (
           <div
             key={stat.id}
             className="text-center relative group"
@@ -109,9 +111,9 @@ export function StatsBlockPreview({ block, isSelected, onChange }: StatsBlockPre
               value={stat.value}
               onChange={(e) => updateStat(stat.id, { value: e.target.value })}
               onClick={(e) => e.stopPropagation()}
-              className={`${hasCustomFontSize ? '' : 'text-4xl md:text-5xl'} ${hasCustomFontWeight ? '' : 'font-bold'} ${hasCustomColor ? '' : 'text-primary'} mb-2 w-full bg-transparent border-none focus:outline-none focus:border-b-2 border-primary text-center`}
+              className={`${hasCustomFontSize ? '' : 'text-4xl md:text-5xl'} ${hasCustomFontWeight ? '' : 'font-bold'} ${hasCustomColor || accent ? '' : 'text-primary'} mb-2 w-full bg-transparent border-none focus:outline-none focus:border-b-2 border-primary text-center`}
               placeholder="100+"
-              style={getElementCSS(block.elementStyles, 'statValue')}
+              style={{ ...(accent ? { color: accent } : {}), ...getElementCSS(block.elementStyles, 'statValue') }}
             />
 
             <input
@@ -124,7 +126,8 @@ export function StatsBlockPreview({ block, isSelected, onChange }: StatsBlockPre
               style={getElementCSS(block.elementStyles, 'statLabel')}
             />
           </div>
-        ))}
+          );
+        })}
 
         {isSelected && (
           <button
