@@ -4,15 +4,29 @@ import { CardGridBlock } from '@/types/blocks';
 import { Card } from '@/components/ui/Card';
 import { combineResponsiveClasses } from '@/lib/utils/responsive';
 import { getElementCSS } from '@/lib/utils/elementStyles';
+import { ancestorStyle, useResolvedTypography } from './typography-cascade';
 
 interface CardGridBlockRenderProps {
   block: CardGridBlock;
 }
 
 export function CardGridBlockRender({ block }: CardGridBlockRenderProps) {
-  const style = typeof block.style === 'object' ? block.style : {};
-  const hasCustomFontSize = !!style.fontSize;
-  const hasCustomFontWeight = !!style.fontWeight;
+  // VEQA-032 step 3b — block-level title/description keep their existing
+  // own-value guard, now resolved against elementStyles + ancestor too. The
+  // per-card title/subtitle/description (rendered inside the shared <Card>
+  // component, components/ui/Card.tsx) have no own-value guard today — Card
+  // hardcodes text-foreground/text-primary-80/text-muted-foreground
+  // unconditionally — so there's no guard to replace there; we resolve once
+  // per elementKey (cards share block.style/elementStyles — CardGridBlock has
+  // no per-card title/description override, only `iconColor`, which is
+  // chrome) and pass `ancestorStyle(resolved)` through the existing
+  // titleStyle/subtitleStyle/descriptionStyle passthrough props. Card.tsx
+  // itself is untouched — inline `style` already beats its fallback classes.
+  const resolvedTitle = useResolvedTypography(block, 'title');
+  const resolvedDescription = useResolvedTypography(block, 'description');
+  const resolvedCardTitle = useResolvedTypography(block, 'cardTitle');
+  const resolvedCardSubtitle = useResolvedTypography(block, 'cardSubtitle');
+  const resolvedCardDescription = useResolvedTypography(block, 'cardDescription');
 
   const columnsClass = {
     2: 'md:grid-cols-2',
@@ -49,10 +63,10 @@ export function CardGridBlockRender({ block }: CardGridBlockRenderProps) {
       {(block.title || block.description) && (
         <div className="text-center mb-12">
           {block.title && (
-            <h2 data-editable-field="title" className={`font-heading ${hasCustomFontSize ? '' : 'text-4xl md:text-5xl'} ${hasCustomFontWeight ? '' : 'font-bold'} mb-4`} style={getElementCSS(block.elementStyles, 'title')} dangerouslySetInnerHTML={{ __html: block.title }} />
+            <h2 data-editable-field="title" className={`font-heading ${resolvedTitle.fontSize.value ? '' : 'text-4xl md:text-5xl'} ${resolvedTitle.fontWeight.value ? '' : 'font-bold'} mb-4`} style={{ ...ancestorStyle(resolvedTitle), ...getElementCSS(block.elementStyles, 'title') }} dangerouslySetInnerHTML={{ __html: block.title }} />
           )}
           {block.description && (
-            <p data-editable-field="description" className={`${hasCustomFontSize ? '' : 'text-xl'} text-muted-foreground max-w-2xl mx-auto`} style={getElementCSS(block.elementStyles, 'description')} dangerouslySetInnerHTML={{ __html: block.description }} />
+            <p data-editable-field="description" className={`${resolvedDescription.fontSize.value ? '' : 'text-xl'} text-muted-foreground max-w-2xl mx-auto`} style={{ ...ancestorStyle(resolvedDescription), ...getElementCSS(block.elementStyles, 'description') }} dangerouslySetInnerHTML={{ __html: block.description }} />
           )}
         </div>
       )}
@@ -81,9 +95,9 @@ export function CardGridBlockRender({ block }: CardGridBlockRenderProps) {
               icon={card.icon}
               iconSize={block.iconSize}
               cardStyle={getElementCSS(block.elementStyles, 'card')}
-              titleStyle={getElementCSS(block.elementStyles, 'cardTitle')}
-              subtitleStyle={getElementCSS(block.elementStyles, 'cardSubtitle')}
-              descriptionStyle={getElementCSS(block.elementStyles, 'cardDescription')}
+              titleStyle={{ ...ancestorStyle(resolvedCardTitle), ...getElementCSS(block.elementStyles, 'cardTitle') }}
+              subtitleStyle={{ ...ancestorStyle(resolvedCardSubtitle), ...getElementCSS(block.elementStyles, 'cardSubtitle') }}
+              descriptionStyle={{ ...ancestorStyle(resolvedCardDescription), ...getElementCSS(block.elementStyles, 'cardDescription') }}
               iconStyle={iconStyle}
               linkStyle={getElementCSS(block.elementStyles, 'cardLink')}
               imageStyle={getElementCSS(block.elementStyles, 'cardImage')}
