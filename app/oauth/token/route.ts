@@ -6,6 +6,7 @@ import {
   generateRefreshFamilyId,
   generateRefreshToken,
   parseBasicAuthHeader,
+  resourceIndicatorMatches,
   sha256,
   verifyClientSecret,
   verifyPkceS256,
@@ -308,6 +309,18 @@ export async function POST(req: Request) {
     }
   }
 
+  // RFC 8707 §2.2: a `resource` on the token request may narrow a code that
+  // was issued without one, but it can never REBIND a code to a different
+  // audience than the user consented to at /authorize. Before this check the
+  // request value silently overrode the stored one (AUTH79-016), so a client
+  // holding a code consented for audience A could mint a token for audience B.
+  // Same normalisation /api/mcp applies when it accepts the token.
+  const requestedResource = resource ? String(resource) : null;
+  if (requestedResource && stored.resource && !resourceIndicatorMatches(stored.resource, requestedResource)) {
+    return err(400, 'invalid_target', 'resource does not match the one bound at /authorize');
+  }
+  const boundResource = stored.resource ?? requestedResource;
+
   // Mark the code consumed BEFORE issuing the token, so a concurrent replay
   // hits the `consumed_at IS NULL` filter and fails.
   const consumed = await db
@@ -325,7 +338,7 @@ export async function POST(req: Request) {
     clientId: stored.clientId,
     clientIds: stored.clientIds?.length ? stored.clientIds : [stored.clientId],
     scopes: stored.scopes,
-    resource: resource ? String(resource) : stored.resource,
+    resource: boundResource,
     familyId: generateRefreshFamilyId(),
   });
 }
