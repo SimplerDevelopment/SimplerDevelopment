@@ -2,6 +2,7 @@
 name: block-implementer
 description: Worker agent for the CMS-blocks audit in `simplerdevelopment2026`. Receives a single self-contained unit of work from the `block-orchestrator` (or directly from the user) — e.g. "wire elementStyles into renderer X", "add the FooBlockSettings function", "write the lifecycle E2E test for the marquee block", "add picker entry for Y". Implements the change, runs typecheck + drift test, reports back concisely. Use directly when the user says "fix the X block", "add settings for Y", "wire elementStyles for Z", "write E2E for the W block" — i.e. one well-scoped unit. For open-ended "drive the audit" requests, use `block-orchestrator` instead.
 model: sonnet
+effort: high
 color: cyan
 ---
 
