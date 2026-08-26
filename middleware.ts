@@ -15,6 +15,7 @@ import { ensureVisitorCookie } from '@/lib/ab/visitor';
 import { ensureAttributionCookie } from '@/lib/attribution';
 import { APPROVAL_COOKIE } from '@/lib/mcp/approval-cookie';
 import { isApprovalWriteBlocked } from '@/lib/mcp/approval-write-gate';
+import { isCrossSiteWriteBlocked } from '@/lib/security/cross-site-write-gate';
 
 /** Paths that never represent a lead arriving: APIs, authenticated app
  *  surfaces, OAuth, the embeddable widget, and Next internals. */
@@ -169,6 +170,32 @@ function blockApprovalWrite(req: NextRequest): NextResponse | null {
   );
 }
 
+/**
+ * Refuse a state-changing /api/portal/** request the browser says came from
+ * another origin. The decision lives in lib/security/cross-site-write-gate.ts
+ * so it is unit-testable rather than only reachable through the edge runtime —
+ * same reasoning as blockApprovalWrite above.
+ */
+function blockCrossSiteWrite(req: NextRequest): NextResponse | null {
+  const blocked = isCrossSiteWriteBlocked({
+    method: req.method,
+    pathname: req.nextUrl.pathname,
+    secFetchSite: req.headers.get('sec-fetch-site'),
+    isTrustedDevOrigin: isAllowedDevOrigin(req.headers.get('origin')),
+  });
+  if (!blocked) return null;
+
+  console.warn(
+    `[security] cross-site write refused: ${req.method} ${req.nextUrl.pathname} ` +
+      `sec-fetch-site=${req.headers.get('sec-fetch-site')}`,
+  );
+
+  return NextResponse.json(
+    { success: false, message: 'Cross-site requests are not allowed on this endpoint.' },
+    { status: 403 },
+  );
+}
+
 export async function middleware(req: NextRequest) {
   const host = req.headers.get('host') || '';
 
@@ -186,6 +213,15 @@ export async function middleware(req: NextRequest) {
   // the one that cannot happen.
   const approvalWriteBlock = blockApprovalWrite(req);
   if (approvalWriteBlock) return approvalWriteBlock;
+
+  // ── Cross-site writes are refused here (AUTH79-013) ─────────────────────
+  // Tenant sites are siblings of the app on one registrable domain and run
+  // free-form customJs, so SameSite=Lax withholds nothing and script there
+  // could ride a logged-in staff session into /api/portal/**. CORS does not
+  // help: it governs reading the response, not sending the request. This is
+  // the choke point, for the same reason the approval gate above is one.
+  const crossSiteWriteBlock = blockCrossSiteWrite(req);
+  if (crossSiteWriteBlock) return crossSiteWriteBlock;
 
   // ── Dev CORS for the mobile client ──────────────────────────────────────
   // Mobile (Expo web on :8081) hits this server's /api/portal/* endpoints
