@@ -84,8 +84,15 @@ jobs:
           # (wip-limit, sprint-snapshots, card-move) issue card and label writes
           # of their own. Extracting logic out of a matched file and into an
           # unmatched one would otherwise silently drop it out of this gate.
+          # plus app/portal/.*route\.ts: a Route Handler under app/portal/
+          # issues tenant-scoped queries exactly like one under app/api/, but
+          # lives outside that prefix — PUX-123's /portal/store resolver was
+          # the first, and it would have merged with the tenancy gate silently
+          # skipped. Same failure as the lib/portal/ one above, one directory
+          # over: page.tsx files under app/portal/ are not data access and
+          # stay unmatched on purpose.
           # Fails OPEN with the block above: an unresolvable base runs it.
-          if grep -qE '^(lib/db/|app/api/|lib/mcp/|lib/portal/|lib/active-client\.ts)' <<<"$CHANGED"; then
+          if grep -qE '^(lib/db/|app/api/|lib/mcp/|lib/portal/|lib/active-client\.ts|app/portal/.*route\.ts)' <<<"$CHANGED"; then
             echo "data_access=true" >> "$GITHUB_OUTPUT"; echo "==> data-access change: tenancy suite runs"
           else
             echo "data_access=false" >> "$GITHUB_OUTPUT"; echo "==> no data-access change: skipping tenancy"
