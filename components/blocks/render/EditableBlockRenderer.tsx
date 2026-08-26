@@ -390,7 +390,7 @@ function DraggableBlockList({
   const ids = allBlockIds(blocks);
 
   return (
-    <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+    <DndContext id="editable-block-renderer" sensors={sensors} collisionDetection={pointerWithin} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
       <SortableContext items={ids} strategy={noMovementStrategy}>
         <div className="block-content" ref={contentRef} onClick={(e) => {
             if (e.target === e.currentTarget) {

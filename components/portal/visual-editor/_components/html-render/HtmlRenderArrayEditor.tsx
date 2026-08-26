@@ -110,7 +110,7 @@ export function HtmlRenderArrayEditor({
           No items yet — click <strong>Add item</strong> to create one.
         </div>
       ) : (
-        <DndContext
+        <DndContext id="html-render-array-editor"
           sensors={sensors}
           collisionDetection={closestCenter}
           onDragEnd={(e) => {

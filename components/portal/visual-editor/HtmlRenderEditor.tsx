@@ -255,7 +255,7 @@ export function HtmlRenderEditor({
             fields={fields}
             onApply={(updates) => onUpdate(updates as Partial<Block>)}
           />
-          <DndContext
+          <DndContext id="html-render-editor"
             sensors={schemaSensors}
             collisionDetection={closestCenter}
             onDragEnd={(e) => {

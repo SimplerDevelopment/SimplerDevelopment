@@ -265,7 +265,7 @@ export default function PlanningTab({ projectId, projectKey, canEdit, isStaff, c
       ) : loading ? (
         <div className="text-center py-12 text-muted-foreground">Loading sprints…</div>
       ) : (
-        <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd} onDragCancel={() => setActiveDrag(null)}>
+        <DndContext id="planning-tab" sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd} onDragCancel={() => setActiveDrag(null)}>
           <div className="space-y-4">
             {showCreateForm && (
               <PlanningCreateSprintForm

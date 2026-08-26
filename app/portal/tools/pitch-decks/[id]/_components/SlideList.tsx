@@ -175,7 +175,7 @@ export function SlideList(props: SlideListProps) {
               </div>
             )}
             <div className="max-h-[calc(100vh-340px)] overflow-y-auto">
-              <DndContext sensors={slideDndSensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+              <DndContext id="deck-slide-list" sensors={slideDndSensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
                 <SortableContext items={slides.map(s => s.id)} strategy={verticalListSortingStrategy}>
                   <PathGroupDropZone id="drop-zone-main" label="Main Sequence">
                     {slides.map((slide, idx) => {

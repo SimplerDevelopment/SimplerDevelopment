@@ -97,7 +97,7 @@ export function BoardView(props: BoardViewProps) {
           </button>
         </div>
       </div>
-      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+      <DndContext id="deck-board-view" sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
         <SortableContext items={slides.map(s => s.id)} strategy={rectSortingStrategy}>
           <div className="p-3 sm:p-6 space-y-6">
             {mainSlides.length > 0 && (
