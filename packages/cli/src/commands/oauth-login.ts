@@ -15,7 +15,7 @@ import type { Server } from 'node:http';
 import { spawn } from 'node:child_process';
 
 import type { ResolvedConfig } from '../config.js';
-import { writeUserConfig, userConfigPath } from '../config.js';
+import { writeProfile, userConfigPath, LEGACY_PROFILE_NAME } from '../config.js';
 import { CliError, CLI_OAUTH_CLIENT_ID, mcpCall, resolveCanonicalOrigin } from '../client.js';
 
 /** Must mirror scripts/seed-cli-oauth-client.ts — exact-match redirect URIs. */
@@ -116,11 +116,13 @@ export interface OAuthLoginResult {
   scopes?: string[];
   expiresAt: string;
   configPath: string;
+  /** Which named profile the credential was stored under (and made active). */
+  profile: string;
 }
 
 export async function oauthLogin(
   config: Pick<ResolvedConfig, 'apiUrl' | 'timeout'>,
-  opts: { log?: (line: string) => void } = {},
+  opts: { log?: (line: string) => void; profile?: string } = {},
 ): Promise<OAuthLoginResult> {
   if (!config.apiUrl) {
     throw new CliError('No API URL configured. Pass --api-url or set SIMPLER_API_URL.', 2, 'usage_error');
@@ -206,12 +208,17 @@ export async function oauthLogin(
     }
 
     const expiresAt = new Date(Date.now() + (Number(tokenBody.expires_in) || 3600) * 1000).toISOString();
-    writeUserConfig({
-      apiUrl: origin,
-      accessToken: tokenBody.access_token,
-      refreshToken: typeof tokenBody.refresh_token === 'string' ? tokenBody.refresh_token : undefined,
-      expiresAt,
-    });
+    const profile = opts.profile ?? LEGACY_PROFILE_NAME;
+    writeProfile(
+      profile,
+      {
+        apiUrl: origin,
+        accessToken: tokenBody.access_token,
+        refreshToken: typeof tokenBody.refresh_token === 'string' ? tokenBody.refresh_token : undefined,
+        expiresAt,
+      },
+      { activate: true },
+    );
 
     // Show the tenant this session operates on (the consent page's picker chose it).
     let who: { userId?: number; client?: { id: number; company: string }; scopes?: string[] } = {};
@@ -235,6 +242,7 @@ export async function oauthLogin(
       scopes: who.scopes,
       expiresAt,
       configPath: userConfigPath(),
+      profile,
     };
   } finally {
     server.close();

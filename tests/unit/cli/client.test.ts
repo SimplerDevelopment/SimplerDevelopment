@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { mcpCall, restPost, CliError } from '../../../packages/cli/src/client.js';
+import { mcpCall, restPost, assertClientMatches, CliError } from '../../../packages/cli/src/client.js';
 import type { ResolvedConfig } from '../../../packages/cli/src/config.js';
 
 function baseConfig(overrides: Partial<ResolvedConfig> = {}): ResolvedConfig {
@@ -153,6 +153,83 @@ describe('restPost', () => {
         password: 'wrong',
       }),
     ).rejects.toMatchObject({ exitCode: 3, code: 'unauthorized' });
+  });
+});
+
+// JUL9-001: the `--client <id>` safety gate. This is the fix for a stored
+// key silently belonging to a different tenant than the operator believed —
+// resolution must come from a LIVE whoami call, never a locally-stored label.
+describe('assertClientMatches', () => {
+  let fetchMock: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  function whoamiResponse(body: unknown): Response {
+    return jsonResponse(200, { jsonrpc: '2.0', id: 1, result: { content: [{ type: 'text', text: JSON.stringify(body) }] } });
+  }
+
+  it('resolves successfully when the expected client id is the credential\'s default tenant', async () => {
+    fetchMock.mockResolvedValueOnce(
+      whoamiResponse({ client: { id: 117, company: 'W.H. Peters Outdoor Adventures' }, clients: [{ id: 117, company: 'W.H. Peters Outdoor Adventures' }] }),
+    );
+    const result = await assertClientMatches(baseConfig(), 117);
+    expect(result).toEqual({
+      resolvedClientId: 117,
+      resolvedCompany: 'W.H. Peters Outdoor Adventures',
+      reachable: [{ id: 117, company: 'W.H. Peters Outdoor Adventures' }],
+    });
+  });
+
+  it('resolves successfully when the expected id is reachable but not the default (multi-tenant credential)', async () => {
+    fetchMock.mockResolvedValueOnce(
+      whoamiResponse({
+        client: { id: 104, company: 'SimplerDevelopment' },
+        clients: [
+          { id: 104, company: 'SimplerDevelopment' },
+          { id: 117, company: 'W.H. Peters Outdoor Adventures' },
+        ],
+      }),
+    );
+    const result = await assertClientMatches(baseConfig(), 117);
+    expect(result.resolvedClientId).toBe(117);
+    expect(result.resolvedCompany).toBe('W.H. Peters Outdoor Adventures');
+  });
+
+  it('throws a tenant_mismatch CliError (exit 3) — the exact JUL9-001 scenario: key resolves to the wrong company', async () => {
+    fetchMock.mockResolvedValueOnce(
+      whoamiResponse({ client: { id: 117, company: 'W.H. Peters Outdoor Adventures' }, clients: [{ id: 117, company: 'W.H. Peters Outdoor Adventures' }] }),
+    );
+    await expect(assertClientMatches(baseConfig(), 104)).rejects.toMatchObject({
+      exitCode: 3,
+      code: 'tenant_mismatch',
+    });
+  });
+
+  it('includes the reachable companies in the mismatch error message', async () => {
+    fetchMock.mockResolvedValueOnce(
+      whoamiResponse({ client: { id: 117, company: 'W.H. Peters Outdoor Adventures' }, clients: [{ id: 117, company: 'W.H. Peters Outdoor Adventures' }] }),
+    );
+    await expect(assertClientMatches(baseConfig(), 104)).rejects.toThrow(/117 \(W\.H\. Peters Outdoor Adventures\)/);
+  });
+
+  it('throws tenant_mismatch when whoami returns no companies at all', async () => {
+    fetchMock.mockResolvedValueOnce(whoamiResponse({ client: undefined, clients: [] }));
+    await expect(assertClientMatches(baseConfig(), 104)).rejects.toMatchObject({ code: 'tenant_mismatch' });
+  });
+
+  it('propagates an underlying auth failure (e.g. expired key) rather than reporting a tenant mismatch', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(401, { error: 'unauthorized' }));
+    await expect(assertClientMatches(baseConfig(), 104)).rejects.toMatchObject({
+      exitCode: 3,
+      code: 'unauthorized',
+    });
   });
 });
 

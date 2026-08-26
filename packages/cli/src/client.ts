@@ -9,7 +9,7 @@
  * `Accept: application/json, text/event-stream`).
  */
 
-import { redactKey, writeUserConfig } from './config.js';
+import { redactKey, writeProfile, LEGACY_PROFILE_NAME } from './config.js';
 import type { ResolvedConfig } from './config.js';
 
 export type CliErrorCode =
@@ -24,7 +24,8 @@ export type CliErrorCode =
   | 'usage_error'
   | 'confirmation_required'
   | 'manifest_missing'
-  | 'not_found';
+  | 'not_found'
+  | 'tenant_mismatch';
 
 /** Central error type — every non-zero CLI exit flows through one of these. */
 export class CliError extends Error {
@@ -164,9 +165,12 @@ export const CLI_OAUTH_CLIENT_ID = 'oc_simpler-cli';
 /**
  * Refresh the stored OAuth access token via `grant_type=refresh_token`
  * (the server rotates the refresh token on every use). Persists the new pair
- * to the user config file and mutates `config` in place so the running
- * process keeps working. Returns the new access token, or null when refresh
- * isn't possible (no oauth credentials) or the server rejected it.
+ * to the SAME named profile the token came from (`config.activeProfile` —
+ * falls back to the legacy `default` name for a config built without one,
+ * which shouldn't happen via `loadConfig` but keeps this safe standalone)
+ * without touching which profile is active, and mutates `config` in place so
+ * the running process keeps working. Returns the new access token, or null
+ * when refresh isn't possible (no oauth credentials) or the server rejected it.
  */
 export async function refreshOAuthTokens(config: ResolvedConfig, opts: CallOpts = {}): Promise<string | null> {
   if (!config.oauth || !config.apiUrl) return null;
@@ -189,7 +193,11 @@ export async function refreshOAuthTokens(config: ResolvedConfig, opts: CallOpts 
     if (typeof body?.access_token !== 'string') return null;
     const expiresAt = new Date(Date.now() + (Number(body.expires_in) || 3600) * 1000).toISOString();
     const refreshToken = typeof body.refresh_token === 'string' ? body.refresh_token : config.oauth.refreshToken;
-    writeUserConfig({ apiUrl: config.apiUrl, accessToken: body.access_token, refreshToken, expiresAt });
+    writeProfile(
+      config.activeProfile ?? LEGACY_PROFILE_NAME,
+      { apiUrl: config.apiUrl, accessToken: body.access_token, refreshToken, expiresAt },
+      { activate: false },
+    );
     config.apiKey = body.access_token;
     config.oauth = { refreshToken, expiresAt };
     return body.access_token;
@@ -291,6 +299,52 @@ export async function mcpCall(
   }
 
   return { data, raw: result };
+}
+
+export interface WhoamiClientRoster {
+  id: number;
+  company: string;
+  role?: string;
+}
+
+export interface ClientAssertionResult {
+  resolvedClientId: number;
+  resolvedCompany: string;
+  reachable: WhoamiClientRoster[];
+}
+
+/**
+ * The `--client <id>` safety gate (JUL9-001): before running a command, ask
+ * the SERVER which tenant(s) the configured credential can actually act for
+ * (a live `whoami` call — see `lib/mcp/tools/meta.ts`), and hard-fail if
+ * `expectedClientId` isn't one of them. This is deliberately NOT a check
+ * against a locally-stored label (a profile name, a cached "last known"
+ * value) — a local label is exactly what was wrong in the incident this
+ * ticket is named for: a stored key silently belonged to a different tenant
+ * than the operator believed, and nothing caught it before a destructive
+ * Brain operation nearly ran against the wrong company.
+ */
+export async function assertClientMatches(
+  config: ResolvedConfig,
+  expectedClientId: number,
+  opts: CallOpts = {},
+): Promise<ClientAssertionResult> {
+  const { data } = await mcpCall(config, 'whoami', {}, opts);
+  const who = data as { client?: WhoamiClientRoster; clients?: WhoamiClientRoster[] } | null;
+  const reachable = who?.clients ?? (who?.client ? [who.client] : []);
+  const match = reachable.find((c) => c.id === expectedClientId);
+  if (!match) {
+    const known = reachable.length > 0 ? reachable.map((c) => `${c.id} (${c.company})`).join(', ') : '(whoami returned no companies)';
+    throw new CliError(
+      `--client ${expectedClientId} does not match this credential's tenant. It resolves to: ${known}. ` +
+        'Refusing to run — this is exactly the mismatch JUL9-001 was filed over. ' +
+        'Run `simpler profiles list` / `simpler auth switch <profile>` to use the right credential.',
+      3,
+      'tenant_mismatch',
+      { expectedClientId, reachable },
+    );
+  }
+  return { resolvedClientId: match.id, resolvedCompany: match.company, reachable };
 }
 
 /** POST {origin}/api/mcp — JSON-RPC 2.0 `tools/list`, following `nextCursor` pagination. */

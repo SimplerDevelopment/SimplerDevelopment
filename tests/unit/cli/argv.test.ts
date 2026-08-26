@@ -85,6 +85,29 @@ describe('extractGlobalFlags', () => {
     expect(global.apiUrl).toBe('https://example.com');
     expect(global.apiKey).toBe('sd_mcp_secret');
   });
+
+  // JUL9-001: --profile (which named credential) and --client (hard-fail
+  // safety gate — see assertClientMatches in client.ts).
+  it('parses --profile as a string', () => {
+    const { global } = extractGlobalFlags({ profile: 'work' });
+    expect(global.profile).toBe('work');
+  });
+
+  it('parses --client into a number', () => {
+    const { global } = extractGlobalFlags({ client: '117' });
+    expect(global.assertClient).toBe(117);
+  });
+
+  it('parses a non-numeric --client as NaN rather than dropping it silently (index.ts turns this into a usage_error)', () => {
+    const { global } = extractGlobalFlags({ client: 'not-a-number' });
+    expect(Number.isNaN(global.assertClient)).toBe(true);
+  });
+
+  it('leaves --profile/--client undefined when absent', () => {
+    const { global } = extractGlobalFlags({});
+    expect(global.profile).toBeUndefined();
+    expect(global.assertClient).toBeUndefined();
+  });
 });
 
 describe('decideDestructive', () => {
