@@ -22,7 +22,30 @@
  *
  * Output: writes .planning/audits/blocks-controls-coverage.json with the
  * per-block report. Asserts each block's gap counts are <= a baseline in
- * blocks-controls-coverage.baseline.json so future regressions fail CI.
+ * tests/fixtures/blocks-controls-coverage.baseline.json so regressions fail CI.
+ *
+ * ─── Why the baseline is tracked in git (PUX-117 part C) ──────────────────
+ * The baseline used to live at the gitignored .planning/audits/ path. In CI
+ * that file has never existed, so loadBaseline() returned null and every
+ * baseline-comparison assertion below silently no-op'd — this gate has
+ * never actually run in CI. Locally it "worked" only on machines that
+ * happened to have a stale copy lying around, and an unknown block (one
+ * with no baseline entry at all, e.g. a block added since the baseline was
+ * last regenerated) defaulted its gap count to `?? 0`, which made "missing
+ * from baseline" indistinguishable from "zero gaps" — a new block could
+ * ship with real gaps and never trip the ratchet. Tracking the baseline
+ * fixes both: it now exists in every checkout (including CI), a missing
+ * file is a hard test failure instead of a null, and every audited block
+ * must have an explicit baseline entry or the suite fails naming it.
+ *
+ * To ratchet a baseline number DOWN after fixing a real gap: edit the
+ * relevant field in tests/fixtures/blocks-controls-coverage.baseline.json
+ * to the new (lower) measured value. To accept a new gap on a new block,
+ * add its entry at the value this harness currently measures — that is a
+ * snapshot of reality, not a relaxation, and should carry a comment in the
+ * baseline file's `_notes` explaining why the gap is expected. Values may
+ * only shrink or hold, never grow, without an explicit editor decision to
+ * change the number.
  *
  * The harness is intentionally text-based (regex over source files) rather
  * than runtime-based — it catches the "wired in code, untyped at runtime"
@@ -760,17 +783,43 @@ function buildReport(): BlockReport[] {
 
 // ─── Baseline ────────────────────────────────────────────────────────────────
 
-const BASELINE_PATH = '.planning/audits/blocks-controls-coverage.baseline.json';
+// Tracked in git (unlike the legacy .planning/audits/ copy, which is
+// gitignored and therefore absent in CI — see the header comment for why).
+const BASELINE_PATH = 'tests/fixtures/blocks-controls-coverage.baseline.json';
 const REPORT_PATH = '.planning/audits/blocks-controls-coverage.json';
 
-function loadBaseline(): CoverageBaseline | null {
+// Missing baseline file is a hard failure, never a silent null — a null
+// baseline used to make every comparison below a no-op, which is exactly
+// how this gate went unenforced in CI for as long as it did (PUX-117).
+// A malformed (non-JSON) baseline is likewise left to throw its parse
+// error rather than being swallowed into "no baseline".
+function loadBaseline(): CoverageBaseline {
   const full = join(REPO_ROOT, BASELINE_PATH);
-  if (!existsSync(full)) return null;
-  try {
-    return JSON.parse(readFileSync(full, 'utf-8'));
-  } catch {
-    return null;
+  if (!existsSync(full)) {
+    throw new Error(
+      `[blocksControlsCoverage] Baseline file not found at ${BASELINE_PATH}. ` +
+        `This file is tracked in git — if it's missing, something deleted or ` +
+        `failed to check it out. Restore it from git history; do not let this ` +
+        `test silently skip its regression checks.`,
+    );
   }
+  return JSON.parse(readFileSync(full, 'utf-8'));
+}
+
+// Every block this harness audits must have an explicit baseline entry.
+// Without this, a block with no entry at all (new block, typo'd rename,
+// baseline edited by hand and an entry dropped) would fall through the
+// `?? 0` / `=== true` defaults used below and read as "zero gaps" — the
+// exact silent-pass bug this file exists to prevent. Called once up front
+// so every downstream ratchet check can assume the entry exists.
+function assertBaselineCoversAllBlocks(baseline: CoverageBaseline, reports: BlockReport[]): void {
+  const missing = reports.filter(r => !(r.type in baseline.blocks)).map(r => r.type);
+  expect(
+    missing,
+    `Blocks missing from the tracked baseline (${BASELINE_PATH}) — add an entry ` +
+      `for each at its current measured counts (see the header comment for how ` +
+      `to ratchet): ${missing.join(', ')}`,
+  ).toEqual([]);
 }
 
 function writeReport(reports: BlockReport[]): void {
@@ -817,33 +866,31 @@ describe('Block controls coverage harness', () => {
     expect(orphans, `Could not parse interface fields for: ${orphans.join(', ')}. Check TYPE_TO_INTERFACE map.`).toEqual([]);
   });
 
+  it('every audited block has a baseline entry (no silently-skipped blocks)', () => {
+    const baseline = loadBaseline();
+    assertBaselineCoversAllBlocks(baseline, reports);
+  });
+
   it('every block has a lifecycle E2E test', () => {
     const baseline = loadBaseline();
+    assertBaselineCoversAllBlocks(baseline, reports);
     const missing = reports.filter(r => !r.hasE2E).map(r => r.type);
-    if (baseline) {
-      // Fail only on blocks that the baseline expects to have an E2E test
-      // but no longer do (regression). New gaps go into the baseline.
-      const regressions = missing.filter(t => baseline.blocks[t]?.hasE2E === true);
-      expect(regressions, `E2E regression — these blocks lost their lifecycle test: ${regressions.join(', ')}`).toEqual([]);
-    } else {
-      // If no baseline, just report rather than fail (initial run).
-      console.warn(`[blocksControlsCoverage] ${missing.length} blocks missing E2E lifecycle: ${missing.join(', ')}`);
-    }
+    // Fail only on blocks that the baseline expects to have an E2E test
+    // but no longer do (regression). New gaps go into the baseline. Every
+    // block in `missing` is guaranteed a baseline entry by the assertion
+    // above, so this is a real lookup, not a defaulted one.
+    const regressions = missing.filter(t => baseline.blocks[t].hasE2E === true);
+    expect(regressions, `E2E regression — these blocks lost their lifecycle test: ${regressions.join(', ')}`).toEqual([]);
   });
 
   it('every ELEMENT_DEFINITIONS key is consumed by its renderer (no dead keys vs baseline)', () => {
     const baseline = loadBaseline();
-    if (!baseline) {
-      // Initial run — emit warning, don't fail
-      const total = reports.reduce((n, r) => n + r.deadElementKeys.length, 0);
-      if (total > 0) {
-        console.warn(`[blocksControlsCoverage] Found ${total} dead ELEMENT_DEFINITIONS keys (no baseline yet).`);
-      }
-      return;
-    }
+    assertBaselineCoversAllBlocks(baseline, reports);
     const regressions: string[] = [];
     for (const r of reports) {
-      const baselineCount = baseline.blocks[r.type]?.deadElementKeys ?? 0;
+      // Guaranteed present by the assertion above — a missing entry is a
+      // hard failure there, never a silent `?? 0` here.
+      const baselineCount = baseline.blocks[r.type].deadElementKeys;
       if (r.deadElementKeys.length > baselineCount) {
         regressions.push(`${r.type}: ${r.deadElementKeys.length} dead keys (baseline: ${baselineCount}) — ${r.deadElementKeys.join(', ')}`);
       }
@@ -853,16 +900,12 @@ describe('Block controls coverage harness', () => {
 
   it('every TS field has a settings input in at least one editor (no regressions vs baseline)', () => {
     const baseline = loadBaseline();
-    if (!baseline) {
-      const total = reports.reduce((n, r) => n + r.fieldsMissingFromBoth.length, 0);
-      if (total > 0) {
-        console.warn(`[blocksControlsCoverage] Found ${total} TS fields with no settings input in either editor (no baseline yet).`);
-      }
-      return;
-    }
+    assertBaselineCoversAllBlocks(baseline, reports);
     const regressions: string[] = [];
     for (const r of reports) {
-      const baselineCount = baseline.blocks[r.type]?.fieldsMissingFromBoth ?? 0;
+      // Guaranteed present by the assertion above — a missing entry is a
+      // hard failure there, never a silent `?? 0` here.
+      const baselineCount = baseline.blocks[r.type].fieldsMissingFromBoth;
       if (r.fieldsMissingFromBoth.length > baselineCount) {
         regressions.push(`${r.type}: ${r.fieldsMissingFromBoth.length} fields missing (baseline: ${baselineCount}) — ${r.fieldsMissingFromBoth.join(', ')}`);
       }
