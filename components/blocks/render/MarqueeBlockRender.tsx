@@ -5,6 +5,30 @@ import Marquee from 'react-fast-marquee';
 import { MarqueeBlock, MarqueeItem } from '@/types/blocks';
 import { getElementCSS } from '@/lib/utils/elementStyles';
 
+// JUL9-007 (2026-08-26): evaluated dropping react-fast-marquee now that the
+// custom CSS-keyframe vertical path below exists — decided to KEEP the
+// library for horizontal (left/right). The MarqueeBlockSettings panel
+// (components/blocks/visual/block-settings/panels/MarqueeSettings.tsx)
+// exposes gradient/gradientColor/gradientWidth, pauseOnClick and autoFill as
+// per-block settings regardless of direction, but the vertical branch below
+// does not implement any of them yet:
+//   - gradient edge fade: unimplemented — no overlay/mask is rendered in the
+//     isVertical branch, vs. react-fast-marquee's `gradient` prop which
+//     renders a `.rfm-overlay` with a CSS mask on each edge.
+//   - pauseOnClick: unimplemented — no click handler is wired to the
+//     vertical track; only pauseOnHover is honored via the CSS `:hover` rule.
+//   - autoFill: the vertical track always renders exactly 2 copies of the
+//     item list (correct for the seamless -50% translateY loop), but
+//     react-fast-marquee's `autoFill` *dynamically* measures the container
+//     vs. content and sets a multiplier = ceil(containerWidth / contentWidth)
+//     so a short item list still visually fills a wide/tall container with
+//     no gap (see node_modules react-fast-marquee dist/components/Marquee.js
+//     `calculateWidth`/`multiplyChildren`). A fixed 2x duplication does not
+//     replicate that for a small item count in a tall vertical container.
+// Until these are ported, react-fast-marquee stays as the horizontal render
+// path. Re-evaluate once the vertical path gains gradient/pauseOnClick/true
+// autoFill parity — see card 1378 (board 153) for the full evaluation.
+
 interface MarqueeBlockRenderProps {
   block: MarqueeBlock;
 }
