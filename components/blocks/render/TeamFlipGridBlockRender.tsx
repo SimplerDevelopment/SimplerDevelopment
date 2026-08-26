@@ -65,6 +65,10 @@ export function TeamFlipGridBlockRender({ block }: Props) {
       <div className={`grid grid-cols-1 ${gridColsClass} gap-6 max-w-7xl mx-auto px-4`}>
         {block.members.map((m) => {
           const isFlipped = !!flipped[m.id];
+          // Per-member overrides (JUL9-003) — the block header's own
+          // title/overline (rendered once, above the grid) stay block-level.
+          const memberNameColor = m.nameColor ?? nameColor;
+          const memberTitleColor = m.titleColor ?? titleColor;
           return (
             <div
               key={m.id}
@@ -97,7 +101,7 @@ export function TeamFlipGridBlockRender({ block }: Props) {
                     <div className="pc-flip-card__name-row">
                       <h3
                         className="pc-flip-card__name"
-                        style={{ color: nameColor, ...getElementCSS(block.elementStyles, 'memberName') }}
+                        style={{ color: memberNameColor, ...getElementCSS(block.elementStyles, 'memberName') }}
                       >
                         {m.name}
                       </h3>
@@ -106,14 +110,14 @@ export function TeamFlipGridBlockRender({ block }: Props) {
                         aria-label="Read more"
                         className="pc-flip-card__toggle"
                         onClick={() => setFlipped((prev) => ({ ...prev, [m.id]: true }))}
-                        style={{ color: nameColor, borderColor: nameColor }}
+                        style={{ color: memberNameColor, borderColor: memberNameColor }}
                       >
                         <Icon name="add" size={18} />
                       </button>
                     </div>
                     <p
                       className="pc-flip-card__title"
-                      style={{ color: titleColor, ...getElementCSS(block.elementStyles, 'memberTitle') }}
+                      style={{ color: memberTitleColor, ...getElementCSS(block.elementStyles, 'memberTitle') }}
                     >
                       {m.title}
                     </p>

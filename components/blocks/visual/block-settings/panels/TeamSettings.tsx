@@ -37,10 +37,11 @@ export function TeamShowcaseBlockSettings({ block, onChange }: { block: TeamShow
           <TokenColorPicker value={block.bioPanelColor || ''} onChange={(color) => onChange({ bioPanelColor: color || undefined })} />
         </div>
         <div>
-          <label className="block text-sm font-medium text-foreground mb-1">Accent Color</label>
+          <label className="block text-sm font-medium text-foreground mb-1">Default Accent Color</label>
           <TokenColorPicker value={block.accentColor || ''} onChange={(color) => onChange({ accentColor: color || undefined })} />
         </div>
       </div>
+      <p className="text-xs text-muted-foreground -mt-2">Used for the gold accent line and title text on any member without their own accent color override below.</p>
       <div>
         <label className="block text-sm font-medium text-foreground mb-1">Photo Filter (CSS)</label>
         <input
@@ -122,6 +123,17 @@ export function TeamShowcaseBlockSettings({ block, onChange }: { block: TeamShow
               className="w-full text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground"
               placeholder="Specialties (comma-separated, optional)"
             />
+            <div>
+              <label className="block text-xs text-muted-foreground mb-1">Accent Color (optional — overrides default above)</label>
+              <TokenColorPicker
+                value={member.accentColor || ''}
+                onChange={(color) => {
+                  const next = [...(block.members || [])];
+                  next[i] = { ...next[i], accentColor: color || undefined };
+                  onChange({ members: next });
+                }}
+              />
+            </div>
             <button
               type="button"
               onClick={() => onChange({ members: (block.members || []).filter((_, j) => j !== i) })}
@@ -191,14 +203,15 @@ export function TeamFlipGridBlockSettings({ block, onChange }: { block: TeamFlip
           <TokenColorPicker value={block.backTextColor || ''} onChange={(color) => onChange({ backTextColor: color || undefined })} />
         </div>
         <div>
-          <label className="block text-sm font-medium text-foreground mb-1">Name Color</label>
+          <label className="block text-sm font-medium text-foreground mb-1">Default Name Color</label>
           <TokenColorPicker value={block.nameColor || ''} onChange={(color) => onChange({ nameColor: color || undefined })} />
         </div>
         <div>
-          <label className="block text-sm font-medium text-foreground mb-1">Title Color</label>
+          <label className="block text-sm font-medium text-foreground mb-1">Default Title Color</label>
           <TokenColorPicker value={block.titleColor || ''} onChange={(color) => onChange({ titleColor: color || undefined })} />
         </div>
       </div>
+      <p className="text-xs text-muted-foreground -mt-2">Used for any member without their own name/title color override below.</p>
       <div className="border-t border-border pt-4 space-y-2">
         <label className="block text-sm font-medium text-foreground">Members</label>
         {(block.members || []).map((member, i) => (
@@ -269,6 +282,30 @@ export function TeamFlipGridBlockSettings({ block, onChange }: { block: TeamFlip
               placeholder="Answer (back)"
               rows={2}
             />
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-xs text-muted-foreground mb-1">Name Color (overrides default above)</label>
+                <TokenColorPicker
+                  value={member.nameColor || ''}
+                  onChange={(color) => {
+                    const next = [...(block.members || [])];
+                    next[i] = { ...next[i], nameColor: color || undefined };
+                    onChange({ members: next });
+                  }}
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-muted-foreground mb-1">Title Color (overrides default above)</label>
+                <TokenColorPicker
+                  value={member.titleColor || ''}
+                  onChange={(color) => {
+                    const next = [...(block.members || [])];
+                    next[i] = { ...next[i], titleColor: color || undefined };
+                    onChange({ members: next });
+                  }}
+                />
+              </div>
+            </div>
             <button
               type="button"
               onClick={() => onChange({ members: (block.members || []).filter((_, j) => j !== i) })}

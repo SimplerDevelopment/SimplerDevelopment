@@ -704,6 +704,33 @@ describe('SectionsPanel — TeamShowcase block', () => {
     expect(last.members).toHaveLength(2);
     expect(last.members[1]).toMatchObject({ name: '', title: '', photo: '', bio: '' });
   });
+
+  it('renames the block-level picker to "Default Accent Color" (JUL9-003)', () => {
+    const { onChange } = renderPanel(baseTeamShowcase);
+    const label = screen.getByText('Default Accent Color');
+    const colorInput = label.parentElement!.querySelector('input') as HTMLInputElement;
+    fireEvent.change(colorInput, { target: { value: 'token.brand' } });
+    expect(onChange).toHaveBeenCalledWith({ accentColor: 'token.brand' });
+  });
+
+  it('sets a per-member accent color override, independent of the block default (JUL9-003)', () => {
+    const { onChange } = renderPanel(baseTeamShowcase);
+    const label = screen.getByText('Accent Color (optional — overrides default above)');
+    const colorInput = label.parentElement!.querySelector('input') as HTMLInputElement;
+    fireEvent.change(colorInput, { target: { value: 'token.gold' } });
+    const last = (onChange as any).mock.calls.pop()[0];
+    expect(last.members[0].accentColor).toBe('token.gold');
+  });
+
+  it('emits undefined when a per-member accent color override is cleared (JUL9-003)', () => {
+    const withOverride = { ...baseTeamShowcase, members: [{ ...baseTeamShowcase.members[0], accentColor: 'token.gold' }] };
+    const { onChange } = renderPanel(withOverride);
+    const label = screen.getByText('Accent Color (optional — overrides default above)');
+    const colorInput = label.parentElement!.querySelector('input') as HTMLInputElement;
+    fireEvent.change(colorInput, { target: { value: '' } });
+    const last = (onChange as any).mock.calls.pop()[0];
+    expect(last.members[0].accentColor).toBeUndefined();
+  });
 });
 
 describe('SectionsPanel — TeamFlipGrid block', () => {
@@ -749,6 +776,30 @@ describe('SectionsPanel — TeamFlipGrid block', () => {
     const last = (onChange as any).mock.calls.pop()[0];
     expect(last.members).toHaveLength(2);
     expect(last.members[1]).toMatchObject({ name: '', title: '', bio: '', photo: '', question: '', answer: '' });
+  });
+
+  it('renames the block-level pickers to "Default Name/Title Color" (JUL9-003)', () => {
+    const { onChange } = renderPanel(baseTeamFlip);
+    const nameLabel = screen.getByText('Default Name Color');
+    fireEvent.change(nameLabel.parentElement!.querySelector('input') as HTMLInputElement, { target: { value: 'token.navy' } });
+    expect(onChange).toHaveBeenCalledWith({ nameColor: 'token.navy' });
+
+    const titleLabel = screen.getByText('Default Title Color');
+    fireEvent.change(titleLabel.parentElement!.querySelector('input') as HTMLInputElement, { target: { value: 'token.blue' } });
+    expect(onChange).toHaveBeenCalledWith({ titleColor: 'token.blue' });
+  });
+
+  it('sets per-member nameColor/titleColor overrides, independent of the block defaults (JUL9-003)', () => {
+    const { onChange } = renderPanel(baseTeamFlip);
+    const nameLabel = screen.getByText('Name Color (overrides default above)');
+    fireEvent.change(nameLabel.parentElement!.querySelector('input') as HTMLInputElement, { target: { value: 'token.red' } });
+    let last = (onChange as any).mock.calls.pop()[0];
+    expect(last.members[0].nameColor).toBe('token.red');
+
+    const titleLabel = screen.getByText('Title Color (overrides default above)');
+    fireEvent.change(titleLabel.parentElement!.querySelector('input') as HTMLInputElement, { target: { value: 'token.green' } });
+    last = (onChange as any).mock.calls.pop()[0];
+    expect(last.members[0].titleColor).toBe('token.green');
   });
 });
 

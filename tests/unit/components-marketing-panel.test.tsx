@@ -157,3 +157,66 @@ describe('MarketingPanel — BentoGrid block', () => {
     });
   });
 });
+
+describe('MarketingPanel — TeamShowcase block', () => {
+  const baseTeamShowcase = {
+    id: 'ts1',
+    type: 'team-showcase',
+    overline: 'TEAM',
+    title: 'T',
+    subtitle: 'S',
+    accentColor: '',
+    members: [{ id: 'p1', name: 'Alice', title: 'CEO', photo: 'http://a.png', bio: 'Bio', accentColor: '' }],
+  };
+
+  it('renames the block-level picker to "Default Accent Color" (JUL9-003)', () => {
+    const { onUpdate } = renderPanel(baseTeamShowcase);
+    const colorInput = screen.getByTestId('color-Default Accent Color') as HTMLInputElement;
+    fireEvent.change(colorInput, { target: { value: 'token.brand' } });
+    expect(onUpdate).toHaveBeenCalledWith({ accentColor: 'token.brand' });
+  });
+
+  it('exposes a per-member accent color override (JUL9-003)', () => {
+    const { onUpdate } = renderPanel(baseTeamShowcase);
+    const colorInput = screen.getByTestId('color-Accent Color (overrides default above)') as HTMLInputElement;
+    fireEvent.change(colorInput, { target: { value: 'token.gold' } });
+    const last = (onUpdate as any).mock.calls.pop()[0];
+    expect(last.members[0].accentColor).toBe('token.gold');
+  });
+});
+
+describe('MarketingPanel — TeamFlipGrid block', () => {
+  const baseTeamFlip = {
+    id: 'tf1',
+    type: 'team-flip-grid',
+    overline: 'MEET',
+    title: 'T',
+    subtitle: 'S',
+    columns: 4,
+    nameColor: '',
+    titleColor: '',
+    members: [
+      { id: 'm1', name: 'A', title: 'T', photo: 'http://a.png', bio: 'b', question: 'Q', answer: 'A!', nameColor: '', titleColor: '' },
+    ],
+  };
+
+  it('renames the block-level pickers to "Default Name/Title Color" (JUL9-003)', () => {
+    const { onUpdate } = renderPanel(baseTeamFlip);
+    fireEvent.change(screen.getByTestId('color-Default Name Color'), { target: { value: 'token.navy' } });
+    expect(onUpdate).toHaveBeenCalledWith({ nameColor: 'token.navy' });
+
+    fireEvent.change(screen.getByTestId('color-Default Title Color'), { target: { value: 'token.blue' } });
+    expect(onUpdate).toHaveBeenCalledWith({ titleColor: 'token.blue' });
+  });
+
+  it('exposes per-member nameColor/titleColor overrides (JUL9-003)', () => {
+    const { onUpdate } = renderPanel(baseTeamFlip);
+    fireEvent.change(screen.getByTestId('color-Name Color (overrides default above)'), { target: { value: 'token.red' } });
+    let last = (onUpdate as any).mock.calls.pop()[0];
+    expect(last.members[0].nameColor).toBe('token.red');
+
+    fireEvent.change(screen.getByTestId('color-Title Color (overrides default above)'), { target: { value: 'token.green' } });
+    last = (onUpdate as any).mock.calls.pop()[0];
+    expect(last.members[0].titleColor).toBe('token.green');
+  });
+});
