@@ -238,6 +238,16 @@ export interface TimelineStep {
   description: string;
   number?: string; // e.g. "01", "02" — auto-generated if omitted
   icon?: string; // Material Icon name (alternative to number)
+  /**
+   * Per-step overrides — fall back to the block-level `numberColor` /
+   * `nodeColor` when unset. `lineColor` deliberately has NO per-step
+   * counterpart: the connecting line is one continuous element spanning
+   * every step (see TimelineBlockRender.tsx), not owned by any single
+   * step, so there is nothing for a per-step override to attach to
+   * without redrawing the line as per-step segments (JUL9-003).
+   */
+  numberColor?: string;
+  nodeColor?: string;
 }
 
 export interface TimelineBlock extends BaseBlock {
@@ -248,9 +258,9 @@ export interface TimelineBlock extends BaseBlock {
   steps: TimelineStep[];
   /** Color of the connecting line and node borders */
   lineColor?: string;
-  /** Color of the large step numbers */
+  /** Color of the large step numbers. Used for any step without its own `numberColor` override. */
   numberColor?: string;
-  /** Color of the node dot fill */
+  /** Color of the node dot fill. Used for any step without its own `nodeColor` override. */
   nodeColor?: string;
   /** Layout: 'alternating' zigzags left/right, 'left' keeps all steps on one side */
   layout?: 'alternating' | 'left';

@@ -997,13 +997,14 @@ function TimelineBlockSettings({ block, onChange }: { block: TimelineBlock; onCh
         <div>
           <label className="block text-sm font-medium text-foreground mb-1">Line Color</label>
           <TokenColorPicker value={block.lineColor || ''} onChange={(color) => onChange({ lineColor: color || undefined })} />
+          <p className="text-xs text-muted-foreground mt-1">The connecting line is one continuous element — no per-step override.</p>
         </div>
         <div>
-          <label className="block text-sm font-medium text-foreground mb-1">Number Color</label>
+          <label className="block text-sm font-medium text-foreground mb-1">Default Number Color</label>
           <TokenColorPicker value={block.numberColor || ''} onChange={(color) => onChange({ numberColor: color || undefined })} />
         </div>
         <div>
-          <label className="block text-sm font-medium text-foreground mb-1">Node Color</label>
+          <label className="block text-sm font-medium text-foreground mb-1">Default Node Color</label>
           <TokenColorPicker value={block.nodeColor || ''} onChange={(color) => onChange({ nodeColor: color || undefined })} />
         </div>
       </div>
@@ -1011,57 +1012,21 @@ function TimelineBlockSettings({ block, onChange }: { block: TimelineBlock; onCh
         <label className="block text-sm font-medium text-foreground">Steps</label>
         {(block.steps || []).map((step, i) => (
           <div key={step.id ?? i} className="space-y-1 p-2 rounded border border-border">
-            <input
-              type="text"
-              value={step.number || ''}
-              onChange={(e) => {
-                const next = [...(block.steps || [])];
-                next[i] = { ...next[i], number: e.target.value || undefined };
-                onChange({ steps: next });
-              }}
-              className="w-full text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground"
-              placeholder="Number (e.g. 01) — optional"
-            />
-            <input
-              type="text"
-              value={step.icon || ''}
-              onChange={(e) => {
-                const next = [...(block.steps || [])];
-                next[i] = { ...next[i], icon: e.target.value || undefined };
-                onChange({ steps: next });
-              }}
-              className="w-full text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground"
-              placeholder="Material Icon name (optional, alt to number)"
-            />
-            <input
-              type="text"
-              value={step.title}
-              onChange={(e) => {
-                const next = [...(block.steps || [])];
-                next[i] = { ...next[i], title: e.target.value };
-                onChange({ steps: next });
-              }}
-              className="w-full text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground font-bold"
-              placeholder="Step title"
-            />
-            <textarea
-              value={step.description}
-              onChange={(e) => {
-                const next = [...(block.steps || [])];
-                next[i] = { ...next[i], description: e.target.value };
-                onChange({ steps: next });
-              }}
-              className="w-full text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground"
-              placeholder="Step description"
-              rows={2}
-            />
-            <button
-              type="button"
-              onClick={() => onChange({ steps: (block.steps || []).filter((_, j) => j !== i) })}
-              className="text-xs text-destructive hover:underline"
-            >
-              Remove
-            </button>
+            <input type="text" value={step.number || ''} onChange={(e) => onChange({ steps: patchAt(block.steps, i, { number: e.target.value || undefined }) })} className="w-full text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground" placeholder="Number (e.g. 01) — optional" />
+            <input type="text" value={step.icon || ''} onChange={(e) => onChange({ steps: patchAt(block.steps, i, { icon: e.target.value || undefined }) })} className="w-full text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground" placeholder="Material Icon name (optional, alt to number)" />
+            <input type="text" value={step.title} onChange={(e) => onChange({ steps: patchAt(block.steps, i, { title: e.target.value }) })} className="w-full text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground font-bold" placeholder="Step title" />
+            <textarea value={step.description} onChange={(e) => onChange({ steps: patchAt(block.steps, i, { description: e.target.value }) })} className="w-full text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground" placeholder="Step description" rows={2} />
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-xs text-muted-foreground mb-1">Number Color (overrides default above)</label>
+                <TokenColorPicker value={step.numberColor || ''} onChange={(color) => onChange({ steps: patchAt(block.steps, i, { numberColor: color || undefined }) })} />
+              </div>
+              <div>
+                <label className="block text-xs text-muted-foreground mb-1">Node Color (overrides default above)</label>
+                <TokenColorPicker value={step.nodeColor || ''} onChange={(color) => onChange({ steps: patchAt(block.steps, i, { nodeColor: color || undefined }) })} />
+              </div>
+            </div>
+            <button type="button" onClick={() => onChange({ steps: (block.steps || []).filter((_, j) => j !== i) })} className="text-xs text-destructive hover:underline">Remove</button>
           </div>
         ))}
         <button
