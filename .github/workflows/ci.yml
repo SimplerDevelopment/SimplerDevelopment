@@ -37,6 +37,7 @@ jobs:
     outputs:
       code: ${{ steps.filter.outputs.code }}
       data_access: ${{ steps.filter.outputs.data_access }}
+      packages: ${{ steps.filter.outputs.packages }}
       # `hotfix` label on the PR => skip lint/typecheck/unit/tenancy/e2e.
       # Push-to-main has no pull_request context; contains(null, …) is false, so
       # main always runs the full suite. Deliberate.
@@ -53,8 +54,8 @@ jobs:
         run: |
           git rev-parse --verify -q "$BASE^{commit}" >/dev/null \
             || { echo "base '$BASE' unresolvable — running everything"; \
-                 echo "code=true" >> "$GITHUB_OUTPUT"; \
-                 echo "data_access=true" >> "$GITHUB_OUTPUT"; exit 0; }
+                 { echo "code=true"; echo "data_access=true"; echo "packages=true"; } >> "$GITHUB_OUTPUT"; \
+                 exit 0; }
           CHANGED=$(git diff --name-only "$BASE" "${{ github.sha }}")
           echo "--- changed files ---"; echo "$CHANGED"
           if grep -qvE '^(vault/|docs/|\.claude/)|\.md$' <<<"$CHANGED"; then
@@ -80,6 +81,17 @@ jobs:
             echo "data_access=true" >> "$GITHUB_OUTPUT"; echo "==> data-access change: tenancy suite runs"
           else
             echo "data_access=false" >> "$GITHUB_OUTPUT"; echo "==> no data-access change: skipping tenancy"
+          fi
+          # PUX-120: root tsconfig's `exclude` hides these directories from
+          # `bun run typecheck`, so they get their own gated job below with
+          # their own tsconfigs. Scoped tighter than `code` — a portal-only PR
+          # gets no benefit from typechecking a Cloudflare worker or the Yjs
+          # relay, and matrix.dir below lists exactly the paths matched here.
+          # Fails OPEN with the block above: an unresolvable base runs it.
+          if grep -qE '^(packages/realtime-server/|workers/email-inbound/|packages/cli/|packages/sdk/|sd-chat-mobile/)' <<<"$CHANGED"; then
+            echo "packages=true" >> "$GITHUB_OUTPUT"; echo "==> covered package/worker change: packages typecheck runs"
+          else
+            echo "packages=false" >> "$GITHUB_OUTPUT"; echo "==> no covered package/worker change: skipping packages typecheck"
           fi
           # The hotfix lane is for presentation-only changes (CLAUDE.md "Hotfix
           # lane"). Skipping typecheck+unit+e2e on a schema/auth/tenancy/API diff
@@ -174,6 +186,75 @@ jobs:
         run: bun install --frozen-lockfile
       - name: Typecheck
         run: bun run typecheck
+
+  # ── Typecheck for packages the root tsconfig excludes (PUX-120) ────────────
+  # The root tsconfig.json `exclude`s node_modules/workers/packages/scripts/
+  # sd-chat-mobile/etc so `bun run typecheck` above never sees them — including
+  # packages/realtime-server, a deployed production service (Railway `realtime`)
+  # that owns Yjs snapshot persistence for posts/decks/email campaigns. This job
+  # typechecks each one against ITS OWN tsconfig instead of widening the root
+  # exclude list (which would pull them into the main typecheck under different
+  # compiler settings — a much bigger change, tracked separately).
+  #
+  # Only the packages verified to pass today are listed. `packages/starter` and
+  # `extension`/`simplerdevelopment-agents` are deliberately NOT here — see the
+  # PUX-120 card for why. `components/product-designer` and
+  # `components/booking-app` have no tsconfig of their own at all, so they stay
+  # out entirely rather than getting one invented here.
+  #
+  # `realtime-server`/`email-inbound`/`cli`/`sdk` are root bun workspaces, so the
+  # root `bun install` step already installs their deps — `install-dir: .` runs
+  # it there. `sd-chat-mobile` is deliberately NOT a root workspace member (its
+  # own React Native / Expo dependency tree) and carries its own bun.lock, so
+  # its matrix entry installs from its own directory instead.
+  packages-typecheck:
+    name: Typecheck ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [changes]
+    if: needs.changes.outputs.packages == 'true' && needs.changes.outputs.hotfix != 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: realtime-server
+            dir: packages/realtime-server
+            install-dir: .
+            command: bun run typecheck
+          - name: email-inbound
+            dir: workers/email-inbound
+            install-dir: .
+            command: bunx tsc --noEmit -p tsconfig.json
+          - name: cli
+            dir: packages/cli
+            install-dir: .
+            command: bun run typecheck
+          - name: sdk
+            dir: packages/sdk
+            install-dir: .
+            command: bun run typecheck
+          - name: sd-chat-mobile
+            dir: sd-chat-mobile
+            install-dir: sd-chat-mobile
+            command: bunx tsc --noEmit -p tsconfig.json
+    steps:
+      - uses: actions/checkout@v7
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.11
+      - name: Cache bun global install cache
+        uses: actions/cache@v6
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-${{ runner.os }}-
+      - name: Install dependencies (${{ matrix.install-dir }})
+        working-directory: ${{ matrix.install-dir }}
+        run: bun install --frozen-lockfile
+      - name: Typecheck (${{ matrix.name }})
+        working-directory: ${{ matrix.dir }}
+        run: ${{ matrix.command }}
 
   # The unit suite is sharded 4 ways to cut wall-clock. Each shard runs its slice
   # WITH v8 coverage and emits a Vitest "blob" report (test results + coverage
