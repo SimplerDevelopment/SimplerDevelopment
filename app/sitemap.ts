@@ -1,7 +1,7 @@
 import { MetadataRoute } from 'next';
 import { db } from '@/lib/db';
 import { posts } from '@/lib/db/schema';
-import { eq } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 import { getAllSolutions } from '@/lib/data/solutions';
 import { getAllMigrations } from '@/lib/data/migrations';
 import { siteConfig } from '@/config/site';
@@ -91,10 +91,26 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   let blogPages: MetadataRoute.Sitemap = [];
   try {
+    // Must mirror getBlogPostBySlug (lib/actions/blog.ts) exactly, because that
+    // is what decides whether /blog/<slug> renders or 404s. It requires all
+    // four conditions; this query used to apply only `published`, so the
+    // sitemap advertised URLs the blog route would never serve:
+    //
+    //   postType='blog'   — other post types have no /blog/<slug> route
+    //   websiteId IS NULL — a NULL websiteId means "this marketing site". Rows
+    //                       with one belong to a CLIENT's website, so including
+    //                       them published other tenants' slugs and edit times
+    //                       in simplerdevelopment.com's public sitemap.
+    //
+    // SEO-018 measured the damage: ~154 dead URLs, 77% of the sitemap.
     const publishedPosts = await db
       .select({ slug: posts.slug, updatedAt: posts.updatedAt })
       .from(posts)
-      .where(eq(posts.published, true));
+      .where(and(
+        eq(posts.published, true),
+        eq(posts.postType, 'blog'),
+        isNull(posts.websiteId),
+      ));
 
     blogPages = publishedPosts
       .filter((post) => post.slug)
