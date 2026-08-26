@@ -76,7 +76,9 @@ export function ServicesGridBlockRender({ block }: ServicesGridBlockRenderProps)
       )}
 
       <div className={`grid grid-cols-1 ${columnsClass} gap-6`}>
-        {(block.services || []).map((service, idx) => (
+        {(block.services || []).map((service, idx) => {
+          const accent = service.accentColor ?? accentColor;
+          return (
           <div
             // Authors who hand-roll JSON sometimes omit per-item `id` fields.
             // Fall back to a stable per-index key so React doesn't warn — note
@@ -91,7 +93,7 @@ export function ServicesGridBlockRender({ block }: ServicesGridBlockRenderProps)
             ) : service.icon ? (
               <span
                 className="material-icons mb-4"
-                style={{ fontSize: '44px', color: accentColor, ...iconStyle }}
+                style={{ fontSize: '44px', color: accent, ...iconStyle }}
                 aria-hidden
               >
                 {service.icon}
@@ -118,7 +120,7 @@ export function ServicesGridBlockRender({ block }: ServicesGridBlockRenderProps)
                   <li key={bullet.id ?? `bullet-${bi}`} className="flex items-start gap-2 text-sm text-gray-700">
                     <span
                       className="material-icons shrink-0"
-                      style={{ fontSize: '18px', color: accentColor, marginTop: '1px' }}
+                      style={{ fontSize: '18px', color: accent, marginTop: '1px' }}
                       aria-hidden
                     >
                       {bullet.icon || 'check_circle'}
@@ -133,7 +135,7 @@ export function ServicesGridBlockRender({ block }: ServicesGridBlockRenderProps)
               <a
                 href={service.link}
                 className={`inline-flex items-center gap-1.5 text-xs font-semibold tracking-wider uppercase ${service.bullets?.length ? '' : 'mt-auto'}`}
-                style={{ color: accentColor, ...linkStyle }}
+                style={{ color: accent, ...linkStyle }}
               >
                 {service.linkText || 'Learn More'}
                 <span className="material-icons" style={{ fontSize: '14px' }} aria-hidden>
@@ -142,7 +144,8 @@ export function ServicesGridBlockRender({ block }: ServicesGridBlockRenderProps)
               </a>
             )}
           </div>
-        ))}
+          );
+        })}
       </div>
     </section>
   );

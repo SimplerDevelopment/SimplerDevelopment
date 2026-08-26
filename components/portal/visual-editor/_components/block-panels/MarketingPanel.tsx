@@ -171,13 +171,14 @@ export function MarketingPanel({ block, onUpdate, siteId }: PanelProps) {
           <ColorField label="Accent Color" value={(b.accentColor as string) || ''} onChange={(v) => onUpdate({ accentColor: v } as Partial<Block>)} />
           <ListEditor
             label="Services"
-            items={(block.services || []).map(s => ({ id: s.id, fields: { title: s.title, description: s.description, icon: s.icon || '', link: s.link || '', linkText: s.linkText || '' } }))}
+            items={(block.services || []).map(s => ({ id: s.id, fields: { title: s.title, description: s.description, icon: s.icon || '', link: s.link || '', linkText: s.linkText || '', accentColor: s.accentColor || '' } }))}
             fieldDefs={[
               { name: 'title', label: 'Title', placeholder: 'Service name' },
               { name: 'description', label: 'Description', placeholder: 'Service description', multiline: true },
               { name: 'icon', label: 'Icon', type: 'icon' as const },
               { name: 'link', label: 'Link URL', placeholder: 'https://...' },
               { name: 'linkText', label: 'Link Text', placeholder: 'Learn More' },
+              { name: 'accentColor', label: 'Accent Color (overrides default above)', type: 'color' as const },
             ]}
             onAdd={() => onUpdate({ services: [...(block.services || []), { id: uid(), title: 'New service', description: '', bullets: [] }] } as Partial<Block>)}
             onRemove={(id) => onUpdate({ services: block.services.filter(s => s.id !== id) } as Partial<Block>)}

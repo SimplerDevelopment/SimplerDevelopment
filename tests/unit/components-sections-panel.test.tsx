@@ -205,14 +205,14 @@ describe('SectionsPanel — ServicesGrid block', () => {
 
   it('forwards accentColor changes via TokenColorPicker', () => {
     const { onChange } = renderPanel(baseServices);
-    const colorInput = screen.getByTestId('color-Accent Color') as HTMLInputElement;
+    const colorInput = screen.getByTestId('color-Default Accent Color') as HTMLInputElement;
     fireEvent.change(colorInput, { target: { value: 'token.brand' } });
     expect(onChange).toHaveBeenCalledWith({ accentColor: 'token.brand' });
   });
 
   it('emits undefined when clearing accent color', () => {
     const { onChange } = renderPanel({ ...baseServices, accentColor: 'foo' });
-    const colorInput = screen.getByTestId('color-Accent Color') as HTMLInputElement;
+    const colorInput = screen.getByTestId('color-Default Accent Color') as HTMLInputElement;
     fireEvent.change(colorInput, { target: { value: '' } });
     expect(onChange).toHaveBeenCalledWith({ accentColor: undefined });
   });

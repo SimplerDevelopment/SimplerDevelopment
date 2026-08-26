@@ -85,9 +85,11 @@ export interface ServicesGridBlock extends BaseBlock {
     image?: string;
     /** Optional list of bullet benefits displayed beneath the description */
     bullets?: ServiceBullet[];
+    /** Per-service accent override — falls back to the block-level `accentColor` when unset */
+    accentColor?: string;
   }>;
   columns?: 2 | 3 | 4;
-  /** Accent color for icons, bullets, and link arrow */
+  /** Accent color for icons, bullets, and link arrow. Used for any service without its own override above. */
   accentColor?: string;
 }
 
