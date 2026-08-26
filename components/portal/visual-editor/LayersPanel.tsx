@@ -80,6 +80,17 @@ function LayerItemComponent({
         </div>
       )}
       <div
+        // PUX-126: drag listeners live on the whole row, not just the handle
+        // icon below. dnd-kit's MouseSensor has a 10px activationConstraint
+        // (see useLayersDragDrop.ts), so a plain click/double-click here still
+        // resolves as a click — only a real drag (>10px of movement) starts a
+        // reorder. Previously the row gave no drag feedback at all (only the
+        // tiny icon worked), which read as "reordering is broken" even though
+        // the handle itself worked fine. The delete button's onPointerDown
+        // stopPropagation below already existed for exactly this — dragging
+        // out from delete would otherwise now also arm a reorder.
+        {...attributes}
+        {...listeners}
         className={`group/layer flex items-center gap-1 rounded px-1 py-1 text-left text-xs cursor-pointer ${
           isSelected ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted'
         }`}
@@ -92,12 +103,13 @@ function LayerItemComponent({
           onContextMenu(block.id, e.clientX, e.clientY);
         }}
       >
-        {/* Drag handle */}
-        <span {...attributes} {...listeners} className="material-icons text-xs shrink-0 text-muted-foreground/50 cursor-grab">drag_indicator</span>
+        {/* Drag handle — kept as the visual affordance; the row itself is
+            also a drag source now (see comment above). */}
+        <span className="material-icons text-xs shrink-0 text-muted-foreground/50 cursor-grab">drag_indicator</span>
 
         {/* Expand toggle for containers */}
         {isContainer ? (
-          <button type="button" onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
+          <button type="button" onPointerDown={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
             className="material-icons text-xs text-muted-foreground shrink-0"
           >{expanded ? 'expand_more' : 'chevron_right'}</button>
         ) : (
@@ -120,6 +132,7 @@ function LayerItemComponent({
               e.stopPropagation();
             }}
             onClick={(e) => e.stopPropagation()}
+            onPointerDown={(e) => e.stopPropagation()}
             className="flex-1 min-w-0 bg-background border border-primary rounded px-1 py-0 text-xs text-foreground outline-none"
           />
         ) : (
