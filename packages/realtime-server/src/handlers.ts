@@ -211,11 +211,24 @@ export class DocRoom {
   async destroy(): Promise<void> {
     if (this.destroyed) return;
     this.destroyed = true;
-    // Force one last flush.
+    // Force one last flush. This is the write that saves work done in the
+    // final 2s before everyone left, so its failure is the one that loses
+    // data — log it loudly.
+    //
+    // This catch used to be empty, on the belief that `flush` had already
+    // logged. It hadn't: `flush` lets DB errors propagate, and the only
+    // logging lives in the DEBOUNCED wrapper's `.catch` (persistence.ts).
+    // Nothing logs on this path, so a failed final flush was invisible —
+    // the deck silently reverted to its last good state and the server said
+    // nothing. That is precisely what makes QAD-053-class data loss
+    // undiagnosable after the fact.
     try {
       await this.persistence.flush(this.docKey, this.doc);
-    } catch {
-      // Already logged in flush.
+    } catch (err) {
+      console.error(
+        `[realtime-server] FINAL flush failed for ${this.docKey} — unsaved changes since the last successful write are lost:`,
+        err
+      );
     }
     this.persistence.cancelFlush(this.docKey);
     this.doc.off('update', this.docUpdateHandler);
