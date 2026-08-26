@@ -241,10 +241,19 @@ describe('TaxonomyPage — taxonomy sidebar', () => {
     });
     const { container } = renderPage();
     await waitFor(() => expect(container.textContent).toContain('Tags'));
-    const tagsBtn = Array.from(container.querySelectorAll('button')).find(
-      (b) => b.textContent?.includes('Tags')
-    ) as HTMLButtonElement;
-    fireEvent.click(tagsBtn);
+    // Re-query through a getter and click inside act. The 'Tags' button only
+    // exists after the taxonomies fetch resolves, so a re-render can land
+    // between capturing the node and clicking it — and fireEvent.click on a
+    // detached node fires nothing, so the terms fetch never happens and the
+    // wait below burns the full 5s asyncUtilTimeout. That is how this failed on
+    // CI shard 1 (run 32941531214, 5047ms), red-lighting an unrelated PR.
+    // Same race and same fix as PUX-045 / PUX-119.
+    const findTagsBtn = () =>
+      Array.from(container.querySelectorAll('button')).find(
+        (b) => b.textContent?.includes('Tags')
+      ) as HTMLButtonElement | undefined;
+    await waitFor(() => expect(findTagsBtn()).toBeTruthy());
+    await act(async () => { fireEvent.click(findTagsBtn()!); });
     await waitFor(() => {
       const calls = fetchMock.mock.calls.map((c) => String(c[0]));
       expect(calls.some((u) => u.includes('/taxonomies/2/terms'))).toBe(true);
