@@ -201,8 +201,10 @@ the [Dev & Testing guide](../tests/TESTING_PLAN.md) for the full test story.
 
 ## Troubleshooting
 
-- **Ports 3000 or 5432 already taken?** Add a `docker-compose.override.yml` that
-  remaps the host side.
+- **Port 3000 or 55432 already taken?** (The db service publishes on 55432, not
+  the Postgres default 5432, specifically so it doesn't collide with a
+  locally-installed Postgres — see JUL9-013.) Add a `docker-compose.override.yml`
+  that remaps the host side.
 - **App won't come up on first boot?** It's probably still installing/migrating —
   `docker compose logs -f app`. Give a cold cache 10–20 minutes.
 - **Integrations route returns 500?** `ENCRYPTION_KEY` is missing or not 64 hex
