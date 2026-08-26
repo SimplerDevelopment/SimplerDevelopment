@@ -9,6 +9,7 @@ import dynamic from 'next/dynamic';
 import ProjectFilesArtifactsTab from '@/components/portal/ProjectFilesArtifactsTab';
 import ProjectDescription from '@/components/portal/ProjectDescription';
 import ProjectStatusControl from '@/components/portal/ProjectStatusControl';
+import ProjectSurveyAction from '@/components/portal/projects/ProjectSurveyAction';
 import ProjectWebhooksPanel from '@/components/portal/ProjectWebhooksPanel';
 import SetUpBoardButton from '@/components/portal/SetUpBoardButton';
 import ProjectMembersTab from '@/components/portal/ProjectMembersTab';
@@ -329,6 +330,7 @@ export default async function ProjectKanbanPage({ params, searchParams }: { para
                 status={project.status}
                 canEdit={canEdit}
               />
+              <ProjectSurveyAction projectId={projectId} />
               {project.dueDate && (
                 <span className="text-sm text-muted-foreground flex items-center gap-1">
                   <span className="material-icons text-base">event</span>
