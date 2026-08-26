@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
 import { pBtnPrimary, pBtnGhost, pInput, pSelect } from '@/components/portal/portal-ui';
 import DomainGetStarted from '@/components/portal/onboarding/DomainGetStarted';
+import { notifyOnboardingProgress } from '@/lib/onboarding/client-events';
 import { ProjectGrid, ProjectTable, type Project } from '@/components/portal/ProjectListViews';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -77,6 +78,10 @@ export default function PortalProjectsPage() {
         setShowCreateForm(false);
         setCreateForm({ name: '', description: '', status: 'active', startDate: '', dueDate: '', cloneFromProjectId: '' });
         load();
+        // OBQA-025: this create is inline on this same page, so DomainGetStarted
+        // (mounted above) never remounts to pick up the newly-flipped
+        // "Create your first project" step — tell it to refetch.
+        notifyOnboardingProgress('projects');
       }
     } finally {
       setCreating(false);

@@ -33,7 +33,7 @@ export interface DomainStatus {
   complete: boolean;
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
@@ -45,7 +45,19 @@ export async function GET() {
   }
 
   const entitlements = await getClientEntitlements(client.id);
-  const domainKeys = [...entitlements.domains];
+
+  // OBQA-025: DomainGetStarted only needs ONE domain's steps, but without this
+  // filter every call computed detections for every entitled domain (up to
+  // ~12 domains × 2-4 tenant-scoped queries each, all awaited before the
+  // in-domain card can render) — the likeliest contributor to the card's
+  // reported slow first paint. `?domain=` narrows the detection work to just
+  // the caller's domain; omit it (GetStartedChecklist, the cross-domain
+  // dashboard card, needs every domain's status in one call) to keep the
+  // original behavior.
+  const requestedDomain = new URL(request.url).searchParams.get('domain');
+  const domainKeys = requestedDomain
+    ? [...entitlements.domains].filter((key) => key === requestedDomain)
+    : [...entitlements.domains];
 
   const domains: Record<string, DomainStatus> = {};
   await Promise.all(
