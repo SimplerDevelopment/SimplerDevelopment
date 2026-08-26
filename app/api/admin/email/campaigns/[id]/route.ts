@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { emailCampaigns, emailCampaignSends, emailSubscribers, emailLists } from '@/lib/db/schema';
+import { buildCampaignUpdatePatch } from '@/lib/email/campaign-update-patch';
 import { eq } from 'drizzle-orm';
 
 async function requireStaff() {
@@ -88,18 +89,9 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
   const [updated] = await db
     .update(emailCampaigns)
-    .set({
-      ...(name && { name: name.trim() }),
-      ...(subject && { subject: subject.trim() }),
-      previewText: previewText?.trim() || null,
-      ...(fromName && { fromName: fromName.trim() }),
-      ...(fromEmail && { fromEmail: fromEmail.trim() }),
-      replyTo: replyTo?.trim() || null,
-      ...(htmlContent && { htmlContent: htmlContent.trim() }),
-      scheduledAt: scheduledAt ? new Date(scheduledAt) : null,
-      status: scheduledAt ? 'scheduled' : 'draft',
-      updatedAt: new Date(),
-    })
+    .set(buildCampaignUpdatePatch({
+      name, subject, previewText, fromName, fromEmail, replyTo, htmlContent, scheduledAt,
+    }))
     .where(eq(emailCampaigns.id, parseInt(id)))
     .returning();
 

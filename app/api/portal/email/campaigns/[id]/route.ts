@@ -7,6 +7,7 @@ import { getPortalClient } from '@/lib/portal-client';
 import { renderBlocksToEmailHtml } from '@/lib/email';
 import { authorizePortal, isAuthError } from '@/lib/portal-auth';
 import { sanitizeRichHtml } from '@/lib/security/sanitize-html';
+import { buildCampaignUpdatePatch } from '@/lib/email/campaign-update-patch';
 
 async function requireClient() {
   const session = await auth();
@@ -184,25 +185,13 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
   const [updated] = await db
     .update(emailCampaigns)
-    .set({
-      ...(name && { name: name.trim() }),
-      ...(subject && { subject: subject.trim() }),
-      previewText: previewText?.trim() || null,
-      ...(fromName && { fromName: fromName.trim() }),
-      ...(fromEmail && { fromEmail: fromEmail.trim() }),
-      replyTo: replyTo?.trim() || null,
-      ...(finalHtml && { htmlContent: finalHtml }),
-      ...(blockContent !== undefined && { blockContent }),
-      ...(contentBlocks !== undefined && { contentBlocks }),
-      ...(typeof useBlockEditor === 'boolean' && { useBlockEditor }),
-      ...(typeof abEnabled === 'boolean' && { abEnabled }),
-      ...(abSubjectB !== undefined && { abSubjectB: abSubjectB?.trim() || null }),
-      ...(abWinnerMetric !== undefined && (abWinnerMetric === 'open' || abWinnerMetric === 'click') && { abWinnerMetric }),
-      ...(typeof abTestSizePct === 'number' && abTestSizePct >= 5 && abTestSizePct <= 50 && { abTestSizePct: Math.round(abTestSizePct) }),
-      scheduledAt: scheduledAt ? new Date(scheduledAt) : null,
-      status: scheduledAt ? 'scheduled' : 'draft',
-      updatedAt: new Date(),
-    })
+    .set(buildCampaignUpdatePatch({
+      name, subject, previewText, fromName, fromEmail, replyTo,
+      htmlContent: finalHtml,
+      blockContent, contentBlocks, useBlockEditor,
+      scheduledAt,
+      abEnabled, abSubjectB, abWinnerMetric, abTestSizePct,
+    }))
     .where(eq(emailCampaigns.id, campaignId))
     .returning();
 
