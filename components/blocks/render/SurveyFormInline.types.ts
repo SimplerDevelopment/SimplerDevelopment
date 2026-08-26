@@ -3,14 +3,16 @@
  * Split out of SurveyFormInline.tsx — no behavior, just declarations.
  */
 
-import type { SurveyRecommendationConfig } from '@/lib/db/schema';
+import type { SurveyRecommendationConfig, SurveyMediaCarouselItem } from '@/lib/db/schema';
+
+export type { SurveyMediaCarouselItem };
 
 /**
  * Display-only field types: no answer collected, never required, and
  * excluded from progress/question-numbering, validation, export, and
  * aggregation logic.
  */
-export const DISPLAY_ONLY_TYPES = new Set(['heading', 'image', 'video']);
+export const DISPLAY_ONLY_TYPES = new Set(['heading', 'image', 'video', 'media-carousel']);
 
 /**
  * Field types whose visible `<label>` wraps a single, directly-associable
@@ -59,6 +61,8 @@ export interface SurveyField {
   order: number;
   page?: number;
   mediaUrl?: string;
+  /** PUX-028: ordered slides for the `media-carousel` field type. */
+  mediaItems?: SurveyMediaCarouselItem[];
   /** Pre-filled value applied when the form first loads and no answer is
    *  recorded yet for this field (e.g. a partial-resume value takes
    *  precedence). Currently only honored for `select`. */

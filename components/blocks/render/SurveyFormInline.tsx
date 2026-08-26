@@ -11,7 +11,7 @@ import {
   clearPartialSessionId,
   lightenColor, countSurveyPages, blockImplicitSubmit, dimTextClass,
 } from './SurveyFormInline.helpers';
-import { renderField } from './SurveyFormInline.FieldRenderer';
+import { renderField, renderDisplayOnlyField } from './SurveyFormInline.FieldRenderer';
 
 
 export function SurveyFormInline({
@@ -670,18 +670,8 @@ export function SurveyFormInline({
 
               return (
                 <div key={field.id}>
-                  {field.type === 'heading' ? (
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white pt-2" style={{ ...headingStyle, ...(txtColor ? { color: txtColor } : {}) }}>{resolvePiping(field.label, answers)}</h3>
-                  ) : field.type === 'image' ? (
-                    <figure className="my-1">
-                      <img src={field.mediaUrl} alt={field.label || ''} className="w-full rounded-lg border border-gray-200 dark:border-gray-700" />
-                      {field.label && <figcaption className={`text-xs ${dimTextClass(cardBg)} mt-1`}>{resolvePiping(field.label, answers)}</figcaption>}
-                    </figure>
-                  ) : field.type === 'video' ? (
-                    <figure className="my-1">
-                      <video src={field.mediaUrl} controls className="w-full rounded-lg border border-gray-200 dark:border-gray-700" />
-                      {field.label && <figcaption className={`text-xs ${dimTextClass(cardBg)} mt-1`}>{resolvePiping(field.label, answers)}</figcaption>}
-                    </figure>
+                  {DISPLAY_ONLY_TYPES.has(field.type) ? (
+                    renderDisplayOnlyField(field, answers, cardBg, { ...headingStyle, ...(txtColor ? { color: txtColor } : {}) })
                   ) : (
                     <div className="space-y-1.5">
                       <label

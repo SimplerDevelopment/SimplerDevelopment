@@ -36,7 +36,7 @@ export interface SurveyResultsData {
 const OPTION_TYPES = new Set(['select', 'radio', 'checkbox']);
 const NUMERIC_TYPES = new Set(['rating', 'slider', 'number']);
 const TEXT_TYPES = new Set(['text', 'textarea', 'email', 'phone', 'url']);
-const SKIP_TYPES = new Set(['heading', 'page_break', 'image', 'video']);
+const SKIP_TYPES = new Set(['heading', 'page_break', 'image', 'video', 'media-carousel']);
 
 const MAX_TEXT_SAMPLES = 20;
 

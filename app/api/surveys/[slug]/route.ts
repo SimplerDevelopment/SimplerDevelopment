@@ -253,7 +253,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
   }
   if (fields.length > 0) {
     for (const field of fields) {
-      if (field.required && field.type !== 'heading' && field.type !== 'image' && field.type !== 'video') {
+      if (field.required && field.type !== 'heading' && field.type !== 'image' && field.type !== 'video' && field.type !== 'media-carousel') {
         const val = answers[field.id];
         if (val === undefined || val === null || val === '') {
           const message = field.type === 'checkbox'

@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import ConditionalLogicPanel from './ConditionalLogicPanel';
+import SurveyMediaUrlEditor from './SurveyMediaUrlEditor';
+import SurveyMediaCarouselEditor from './SurveyMediaCarouselEditor';
 import type { FieldType, SurveyField } from './SurveyBuilder.types';
 import {
   FIELD_TYPES,
@@ -241,7 +243,7 @@ export default function SurveyBuilder({ fields, onChange }: Props) {
                     </div>
 
                     {/* Label */}
-                    <div className={(field.type === 'heading' || field.type === 'image' || field.type === 'video') ? 'sm:col-span-2' : ''}>
+                    <div className={(field.type === 'heading' || field.type === 'image' || field.type === 'video' || field.type === 'media-carousel') ? 'sm:col-span-2' : ''}>
                       <label className="block text-xs font-medium text-foreground mb-1">
                         Label <span className="text-destructive">*</span>
                       </label>
@@ -257,19 +259,9 @@ export default function SurveyBuilder({ fields, onChange }: Props) {
                       )}
                     </div>
 
-                    {/* Media URL (image/video) */}
-                    {hasMediaUrl(field.type) && (
-                      <div className="sm:col-span-2">
-                        <label className="block text-xs font-medium text-foreground mb-1">Media URL</label>
-                        <input
-                          type="text"
-                          value={field.mediaUrl || ''}
-                          onChange={e => updateField(field.id, { mediaUrl: e.target.value })}
-                          className={inputCls}
-                          placeholder="https://…/image.png or …/video.mp4"
-                        />
-                      </div>
-                    )}
+                    {hasMediaUrl(field.type) && <SurveyMediaUrlEditor value={field.mediaUrl} onChange={mediaUrl => updateField(field.id, { mediaUrl })} inputCls={inputCls} />}
+
+                    {field.type === 'media-carousel' && <SurveyMediaCarouselEditor items={field.mediaItems || []} onChange={mediaItems => updateField(field.id, { mediaItems })} inputCls={inputCls} />}
 
                     {/* Placeholder (if applicable) */}
                     {hasPlaceholder(field.type) && field.type !== 'heading' && (
@@ -366,7 +358,7 @@ export default function SurveyBuilder({ fields, onChange }: Props) {
                         f.type !== 'page_break' &&
                         f.type !== 'heading' &&
                         f.type !== 'image' &&
-                        f.type !== 'video' &&
+                        f.type !== 'video' && f.type !== 'media-carousel' &&
                         f.id !== field.id &&
                         fields.indexOf(f) < fields.indexOf(field)
                       )}
