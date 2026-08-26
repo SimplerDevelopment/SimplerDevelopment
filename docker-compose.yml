@@ -55,12 +55,23 @@ services:
     container_name: simplerdev-app
     restart: unless-stopped
     working_dir: /workspace
+    # Runs `dev:docker` (webpack), NOT `dev` (Turbopack). Turbopack's dev-mode
+    # externalized-module loader is broken when BUN is the runtime executing
+    # `next dev`: it creates a shim symlink at .next/dev/node_modules/<pkg>-<hash>,
+    # then its own require() of that shim fails with "Cannot find package" even
+    # though a manual require.resolve from the identical path succeeds. The first
+    # failure is cached for the life of the dev server, so the post editor 500s
+    # until restart. Reproduced 100% of cold starts on a minimal Next 16.3.1 app.
+    # Upstream and still open for Bun: vercel/next.js#86652 (fixed for Node in
+    # #86697), vercel/next.js#86866, oven-sh/bun#25370. Webpack dev never builds
+    # that shim, so there is nothing to race. Host `bun dev` keeps Turbopack for
+    # speed — this swap is deliberately docker-only. OBQA-020.
     command: >
       sh -lc "bun install --frozen-lockfile &&
       bun scripts/verify-db-target.ts &&
       bunx drizzle-kit migrate &&
       bun scripts/apply-local-manual-migrations.ts &&
-      bun dev"
+      bun run dev:docker"
     depends_on:
       db:
         condition: service_healthy
