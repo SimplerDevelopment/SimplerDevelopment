@@ -109,12 +109,14 @@ export async function reconcileCardForBoardMove(
   // destination" — those are equivalent for every legitimate child (a child on
   // a third board would have had this link cleared by `parentCleared` when it
   // moved there), but they are not equivalent under a hostile write.
-  // `parentCardId` is unvalidated on the portal REST path
-  // (app/api/portal/cards/[id]/route.ts writes it straight from the body), so
-  // one client can point their own card at another client's card id. Matching
-  // on the source project keeps this sweep inside a projectId the caller has
-  // already been ownership-checked against; a `ne(...)` predicate would let it
-  // reach across the tenant boundary to null that foreign row.
+  // PUX-116 closed the write path that made this urgent — all three callers
+  // now go through `isParentCardInProject`, so no NEW cross-project parent link
+  // can be created. The narrow predicate stays anyway: that guard is not
+  // retroactive, and rows written before it can still point off-board, or off
+  // -client. Matching on the source project keeps this sweep inside a projectId
+  // the caller has already been ownership-checked against; a `ne(...)` predicate
+  // would let it reach across the tenant boundary to null one of those legacy
+  // foreign rows.
   const detached = await db
     .update(kanbanCards)
     .set({ parentCardId: null, updatedAt: new Date() })

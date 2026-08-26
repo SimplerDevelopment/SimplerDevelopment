@@ -8,6 +8,7 @@ import { logCardActivity } from '@/lib/pm-activity';
 import { canUserEditProject } from '@/lib/portal/project-access';
 import { checkWipLimit } from '@/lib/portal/wip-limit';
 import { publishBoardChanged } from '@/lib/kanban/events';
+import { isParentCardInProject } from '@/lib/security/assert-owned';
 
 const VALID_TYPES = ['task', 'story', 'epic', 'bug', 'spike'] as const;
 const VALID_STATES = ['todo', 'in_progress', 'in_review', 'done', 'canceled'] as const;
@@ -88,7 +89,15 @@ export async function POST(req: Request) {
     ? body.storyPoints
     : typeof template?.storyPoints === 'number' ? template.storyPoints : null;
   const dueDate = body.dueDate ? new Date(body.dueDate) : null;
+  // Same unvalidated-parent hazard as the PATCH route — see the comment there
+  // and lib/security/assert-owned.ts#isParentCardInProject. PUX-116.
   const parentCardId = typeof body.parentCardId === 'number' ? body.parentCardId : null;
+  if (parentCardId !== null && !(await isParentCardInProject(parentCardId, col.projectId))) {
+    return NextResponse.json(
+      { success: false, message: 'Parent card not found in this project' },
+      { status: 400 },
+    );
+  }
 
   const wip = await checkWipLimit(columnId);
   if (!wip.allowed) {

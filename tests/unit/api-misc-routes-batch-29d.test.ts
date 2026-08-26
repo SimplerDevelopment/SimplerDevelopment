@@ -347,6 +347,42 @@ describe('POST /api/portal/cards', () => {
     expect((await res.json()).message).toBe('Column not found');
   });
 
+  // ── parentCardId scope guard (PUX-116) ───────────────────────────────────
+  // The route used to take body.parentCardId on trust. Card hierarchy renders
+  // per-board and parentCardId has no FK, so an off-board id is unresolvable
+  // and an off-client id is a dangling cross-tenant reference.
+
+  it('returns 400 when parentCardId is not on the column\'s board', async () => {
+    authMock.mockResolvedValue(STAFF_SESSION);
+    selectQueue.push([{ id: 1, projectId: 5 }]); // column found
+    selectQueue.push([]);                        // parent lookup: nothing on project 5
+    const res = await cardsRoute.POST(
+      makeJsonRequest('http://x/api/portal/cards', 'POST', {
+        columnId: 1, title: 'Child', parentCardId: 999,
+      }),
+    );
+    expect(res.status).toBe(400);
+    expect((await res.json()).message).toMatch(/Parent card not found/);
+    // Rejected before the card was written, not cleaned up afterwards.
+    expect(insertCalls).toHaveLength(0);
+  });
+
+  it('creates the card when parentCardId is on the same board', async () => {
+    authMock.mockResolvedValue(STAFF_SESSION);
+    selectQueue.push([{ id: 1, projectId: 5 }]); // column found
+    selectQueue.push([{ id: 42 }]);              // parent lookup: card 42 is on project 5
+    selectQueue.push([]);                        // existing cards in column
+    selectQueue.push([{ max: 3 }]);              // max number in project
+    insertReturnQueue.push([{ id: 50, parentCardId: 42 }]);
+    const res = await cardsRoute.POST(
+      makeJsonRequest('http://x/api/portal/cards', 'POST', {
+        columnId: 1, title: 'Child', parentCardId: 42,
+      }),
+    );
+    expect(res.status).toBe(200);
+    expect(insertCalls[0].values).toMatchObject({ parentCardId: 42 });
+  });
+
   it('returns 403 for non-staff when client lookup fails', async () => {
     authMock.mockResolvedValue(CLIENT_SESSION);
     selectQueue.push([{ id: 1, projectId: 5 }]); // column found

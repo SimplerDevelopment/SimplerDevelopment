@@ -30,8 +30,10 @@ vi.mock('@/lib/pm-activity', () => ({
 }));
 
 const filterUserIdsVisibleToClientMock = vi.fn();
+const isParentCardInProjectMock = vi.fn();
 vi.mock('@/lib/security/assert-owned', () => ({
   filterUserIdsVisibleToClient: (...args: unknown[]) => filterUserIdsVisibleToClientMock(...args),
+  isParentCardInProject: (...args: unknown[]) => isParentCardInProjectMock(...args),
 }));
 
 const canUserEditProjectMock = vi.fn();
@@ -434,6 +436,47 @@ describe('PATCH /api/portal/cards/[id]', () => {
     // Update was called with title and updatedAt
     expect(updateCalls[0].patch).toMatchObject({ title: 'New Title' });
     expect(updateCalls[0].patch.updatedAt).toBeInstanceOf(Date);
+  });
+
+  // ── parentCardId scope guard (PUX-116) ──────────────────────────────────
+  // Before this guard the route wrote body.parentCardId straight into the
+  // UPDATE. It authorizes the card being EDITED but never the id being pointed
+  // at, and parentCardId has no FK — so an unvalidated write could leave a
+  // card referencing another client's card id.
+
+  it('rejects a parentCardId that is not on the card\'s board', async () => {
+    authMock.mockResolvedValue(STAFF_SESSION);
+    isParentCardInProjectMock.mockResolvedValue(false);
+    selectQueue.push([{ id: 1, projectId: 5, title: 'T' }]); // authorize
+    const res = await PATCH(makeJsonRequest({ parentCardId: 999 }), makeParams('1'));
+    expect(res.status).toBe(400);
+    expect((await res.json()).message).toMatch(/Parent card not found/);
+    // The guard must run BEFORE the write, not clean up after it.
+    expect(updateCalls).toHaveLength(0);
+    expect(isParentCardInProjectMock).toHaveBeenCalledWith(999, 5);
+  });
+
+  it('accepts a parentCardId on the same board', async () => {
+    authMock.mockResolvedValue(STAFF_SESSION);
+    isParentCardInProjectMock.mockResolvedValue(true);
+    selectQueue.push([{ id: 1, projectId: 5, title: 'T', parentCardId: null }]);
+    updateReturnQueue.push([{ id: 1, title: 'T', parentCardId: 42 }]);
+    const res = await PATCH(makeJsonRequest({ parentCardId: 42 }), makeParams('1'));
+    expect(res.status).toBe(200);
+    expect(updateCalls[0].patch).toMatchObject({ parentCardId: 42 });
+  });
+
+  it('allows clearing the parent without a lookup', async () => {
+    // null is always safe — detaching cannot point anywhere, so the guard must
+    // not reject it or waste a query on it.
+    authMock.mockResolvedValue(STAFF_SESSION);
+    isParentCardInProjectMock.mockClear();
+    selectQueue.push([{ id: 1, projectId: 5, title: 'T', parentCardId: 42 }]);
+    updateReturnQueue.push([{ id: 1, title: 'T', parentCardId: null }]);
+    const res = await PATCH(makeJsonRequest({ parentCardId: null }), makeParams('1'));
+    expect(res.status).toBe(200);
+    expect(updateCalls[0].patch).toMatchObject({ parentCardId: null });
+    expect(isParentCardInProjectMock).not.toHaveBeenCalled();
   });
 
   it('returns 404 when the underlying update returns no rows', async () => {

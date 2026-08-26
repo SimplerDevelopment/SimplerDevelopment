@@ -2,7 +2,7 @@ import { db } from '@/lib/db';
 import {
   crmPipelines, crmPipelineStages, crmContacts, crmCompanies,
 } from '@/lib/db/schema/crm';
-import { kanbanColumns, projects } from '@/lib/db/schema';
+import { kanbanCards, kanbanColumns, projects } from '@/lib/db/schema';
 import { clientMembers } from '@/lib/db/schema/sites';
 import { users } from '@/lib/db/schema/auth';
 import { and, eq } from 'drizzle-orm';
@@ -55,6 +55,30 @@ export async function assertColumnInProject(columnId: number, projectId: number)
   const [row] = await db.select({ id: kanbanColumns.id }).from(kanbanColumns)
     .where(and(eq(kanbanColumns.id, columnId), eq(kanbanColumns.projectId, projectId))).limit(1);
   if (!row) throw new OwnershipError('columnId', columnId);
+}
+
+/**
+ * True when `parentCardId` names a card on `projectId`.
+ *
+ * A predicate rather than an `assert*` because the three callers have three
+ * different error contracts — the MCP tools answer with a `{ error }` JSON
+ * envelope and a message their tests pin, while the portal routes answer with
+ * `NextResponse.json({ success: false, message }, { status })`. Throwing one
+ * `OwnershipError` would force each of them to catch and re-shape it.
+ *
+ * The rule it encodes: a card's parent must live on the same board. Card
+ * hierarchy is rendered per-board — app/api/portal/cards/[id]/route.ts scopes
+ * the children query to `eq(kanbanCards.projectId, card.projectId)` — so a
+ * parent on another board is unresolvable, and `parentCardId` carries no FK to
+ * catch it (see the column comment in lib/db/schema/pm.ts). Unvalidated, one
+ * client can point their card at another client's card id, which is what made
+ * PUX-115's child sweep have to match on the source project instead of
+ * `ne(destination)`.
+ */
+export async function isParentCardInProject(parentCardId: number, projectId: number): Promise<boolean> {
+  const [row] = await db.select({ id: kanbanCards.id }).from(kanbanCards)
+    .where(and(eq(kanbanCards.id, parentCardId), eq(kanbanCards.projectId, projectId))).limit(1);
+  return Boolean(row);
 }
 
 export async function assertProjectInClient(projectId: number, clientId: number): Promise<void> {

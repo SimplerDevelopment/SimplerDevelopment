@@ -5,7 +5,7 @@ import { kanbanCards, kanbanCardComments, kanbanCardTimeLogs, kanbanCardFiles, k
 import { getPortalClient } from '@/lib/portal-client';
 import { eq, and, or, inArray, asc, desc } from 'drizzle-orm';
 import { logCardActivity } from '@/lib/pm-activity';
-import { filterUserIdsVisibleToClient } from '@/lib/security/assert-owned';
+import { filterUserIdsVisibleToClient, isParentCardInProject } from '@/lib/security/assert-owned';
 import { canUserEditProject } from '@/lib/portal/project-access';
 import { recordCardAddedToSprint, recordCardRemovedFromSprint } from '@/lib/portal/sprint-snapshots';
 import { publishBoardChanged, publishBoardChangedForCard } from '@/lib/kanban/events';
@@ -300,7 +300,22 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   if (body.cardType !== undefined && ['task', 'story', 'epic', 'bug', 'spike'].includes(body.cardType)) {
     updates.cardType = body.cardType;
   }
-  if (body.parentCardId !== undefined) updates.parentCardId = body.parentCardId ?? null;
+  // A body-supplied card id going straight into an UPDATE — the mass-assignment
+  // shape assert-owned.ts exists to stop. This route authorizes the card being
+  // EDITED, never the id it is pointed at, and parentCardId has no FK. Hierarchy
+  // renders per-board (the children query below scopes to the card's own
+  // projectId), so an off-board parent is unresolvable, and an off-CLIENT one is
+  // a dangling cross-tenant reference. PUX-116.
+  if (body.parentCardId !== undefined) {
+    const parentId = body.parentCardId ?? null;
+    if (parentId !== null && !(await isParentCardInProject(Number(parentId), before.projectId))) {
+      return NextResponse.json(
+        { success: false, message: 'Parent card not found in this project' },
+        { status: 400 },
+      );
+    }
+    updates.parentCardId = parentId;
+  }
   if (body.workflowState !== undefined && ['todo', 'in_progress', 'in_review', 'done', 'canceled'].includes(body.workflowState)) {
     updates.workflowState = body.workflowState;
   }
