@@ -420,7 +420,7 @@ describe('CrmCompanyDetailPage', () => {
       expect(container.textContent).toContain('panel:company:42:edit');
     });
 
-    it('Cancel button closes the edit form and reloads the panel', async () => {
+    it('Cancel button closes the edit modal without prompting (no changes made)', async () => {
       const { container } = await renderPage();
       fireEvent.click(screen.getByText('Edit'));
       const cancelBtns = Array.from(container.querySelectorAll('button')).filter(
@@ -428,7 +428,71 @@ describe('CrmCompanyDetailPage', () => {
       );
       fireEvent.click(cancelBtns[0]);
       expect(container.textContent).not.toContain('Edit Company');
-      expect(customFieldsReloadSpy).toHaveBeenCalled();
+      // Nothing was edited, so the unsaved-changes prompt never fires. The
+      // modal fully unmounts on close (matches CrmAddDealModal) rather than
+      // staying mounted + reloading — so there's no reload() call to assert
+      // here anymore; reopening Edit fetches fresh values on its own.
+      expect(window.confirm).not.toHaveBeenCalled();
+    });
+
+    it('Cancel on a dirty edit modal prompts to discard changes, and honors the answer', async () => {
+      // window.confirm is already a spy from beforeEach; just flip its return value.
+      const confirmSpy = window.confirm as unknown as ReturnType<typeof vi.fn>;
+      confirmSpy.mockReturnValue(false);
+      const { container } = await renderPage();
+      fireEvent.click(screen.getByText('Edit'));
+      const nameInput = container.querySelector('input[required]') as HTMLInputElement;
+      fireEvent.change(nameInput, { target: { value: 'Dirty Name' } });
+
+      const cancelBtns = Array.from(container.querySelectorAll('button')).filter(
+        b => b.textContent === 'Cancel'
+      );
+      fireEvent.click(cancelBtns[0]);
+      // confirm() returned false — the edit is kept open, nothing discarded.
+      expect(confirmSpy).toHaveBeenCalledWith('Discard unsaved changes?');
+      expect(container.textContent).toContain('Edit Company');
+      expect(nameInput.value).toBe('Dirty Name');
+
+      confirmSpy.mockReturnValue(true);
+      fireEvent.click(cancelBtns[0]);
+      expect(container.textContent).not.toContain('Edit Company');
+    });
+
+    it('Escape closes a clean edit modal directly, without prompting', async () => {
+      const { container } = await renderPage();
+      fireEvent.click(screen.getByText('Edit'));
+      expect(container.textContent).toContain('Edit Company');
+      fireEvent.keyDown(document, { key: 'Escape' });
+      expect(container.textContent).not.toContain('Edit Company');
+      expect(window.confirm).not.toHaveBeenCalled();
+    });
+
+    it('Escape on a dirty edit modal prompts before discarding', async () => {
+      const confirmSpy = window.confirm as unknown as ReturnType<typeof vi.fn>;
+      confirmSpy.mockReturnValue(false);
+      const { container } = await renderPage();
+      fireEvent.click(screen.getByText('Edit'));
+      const nameInput = container.querySelector('input[required]') as HTMLInputElement;
+      fireEvent.change(nameInput, { target: { value: 'Dirty Name' } });
+
+      fireEvent.keyDown(document, { key: 'Escape' });
+      expect(confirmSpy).toHaveBeenCalledWith('Discard unsaved changes?');
+      expect(container.textContent).toContain('Edit Company');
+
+      confirmSpy.mockReturnValue(true);
+      fireEvent.keyDown(document, { key: 'Escape' });
+      expect(container.textContent).not.toContain('Edit Company');
+    });
+
+    it('clicking the modal backdrop closes a clean edit modal', async () => {
+      const { container } = await renderPage();
+      fireEvent.click(screen.getByText('Edit'));
+      // The backdrop is the outer fixed-inset overlay — the dialog's own
+      // container stops propagation, so this must be the wrapping element.
+      const dialog = container.querySelector('[role="dialog"]') as HTMLElement;
+      const backdrop = dialog.parentElement as HTMLElement;
+      fireEvent.click(backdrop);
+      expect(container.textContent).not.toContain('Edit Company');
     });
 
     it('updates form fields on change', async () => {
@@ -1366,19 +1430,20 @@ describe('CrmCompanyDetailPage', () => {
       expect(result.container.textContent).toContain('Company Information');
     });
 
-    it('starts editing moves to info tab even if user was on deals tab', async () => {
+    it('opening Edit does not change which page-level view tab is active', async () => {
+      // Editing now happens in a modal layered on top of the page — it no
+      // longer owns/resets the page's own Info/Contacts/Deals/Custom Fields
+      // view tabs the way the old inline edit form did.
       const result = await renderPage();
-      // Switch to deals
       const dealsTab = Array.from(result.container.querySelectorAll('button')).find(
         b => b.textContent?.includes('Deals (')
       );
       fireEvent.click(dealsTab!);
       await flush();
-      // Click Edit -> should switch back to info
       fireEvent.click(screen.getByText('Edit'));
-      // Edit form is visible and Info tab content (Company Information) renders below
+      // Edit modal is open, and the page still shows the Deals tab underneath.
       expect(result.container.textContent).toContain('Edit Company');
-      expect(result.container.textContent).toContain('Company Information');
+      expect(result.container.textContent).toContain('Q1 Project');
     });
   });
 });

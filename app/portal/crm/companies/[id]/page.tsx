@@ -3,13 +3,13 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import MediaPicker from '@/components/admin/MediaPicker';
 import { formatMoney } from '@/lib/utils/money';
 import CrmCustomFieldsPanel, { type CrmCustomFieldsPanelHandle } from '@/components/portal/CrmCustomFieldsPanel';
 import PositionMultiSelect from '@/components/portal/PositionMultiSelect';
 import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
 import CrmAddDealModal from '@/components/portal/CrmAddDealModal';
 import { pBtnPrimary, pBtnGhost, pInput, pSelect, pSectionTitle } from '@/components/portal/portal-ui';
+import CompanyEditModal from './_components/CompanyEditModal';
 
 interface Company {
   id: number;
@@ -60,8 +60,6 @@ const dealStatusColor: Record<string, string> = {
   lost: 'bg-red-100 text-red-700',
 };
 
-const sizeOptions = ['1-10', '11-50', '51-200', '201-500', '501-1000', '1001+'];
-
 const CONTACTS_PAGE_SIZE = 10;
 
 export default function CrmCompanyDetailPage() {
@@ -97,21 +95,7 @@ export default function CrmCompanyDetailPage() {
   const [showDealForm, setShowDealForm] = useState(false);
 
   const customFieldsRef = useRef<CrmCustomFieldsPanelHandle>(null);
-  const [editing, setEditing] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [editForm, setEditForm] = useState({
-    name: '',
-    domain: '',
-    industry: '',
-    size: '',
-    phone: '',
-    website: '',
-    address: '',
-    latitude: '',
-    longitude: '',
-    logoUrl: '',
-    notes: '',
-  });
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   const fetchCompany = useCallback(async () => {
     const res = await fetch(`/api/portal/crm/companies/${companyId}`);
@@ -169,64 +153,14 @@ export default function CrmCompanyDetailPage() {
     return () => clearTimeout(t);
   }, [contactSearchInput]);
 
-  function startEditing() {
-    if (!company) return;
-    setActiveTab('info');
-    setEditForm({
-      name: company.name,
-      domain: company.domain ?? '',
-      industry: company.industry ?? '',
-      size: company.size ?? '',
-      phone: company.phone ?? '',
-      website: company.website ?? '',
-      address: company.address ?? '',
-      latitude: company.latitude !== null && company.latitude !== undefined ? String(company.latitude) : '',
-      longitude: company.longitude !== null && company.longitude !== undefined ? String(company.longitude) : '',
-      logoUrl: company.logoUrl ?? '',
-      notes: company.notes ?? '',
-    });
-    setEditing(true);
-  }
-
-  async function saveEdit(e: React.FormEvent) {
-    e.preventDefault();
-    setSaving(true);
-    const payload: Record<string, unknown> = {
-      name: editForm.name,
-      domain: editForm.domain,
-      industry: editForm.industry,
-      size: editForm.size,
-      phone: editForm.phone,
-      website: editForm.website,
-      address: editForm.address,
-      logoUrl: editForm.logoUrl,
-      notes: editForm.notes,
-    };
-    // Only forward lat/lng if the user typed something. An empty string means
-    // "leave unset and let the server auto-derive from the address".
-    if (editForm.latitude.trim() !== '') payload.latitude = editForm.latitude.trim();
-    if (editForm.longitude.trim() !== '') payload.longitude = editForm.longitude.trim();
-
-    const res = await fetch(`/api/portal/crm/companies/${companyId}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-    const d = await res.json();
-    if (!d.success) {
-      setSaving(false);
-      return;
-    }
-    const cfOk = await (customFieldsRef.current?.save() ?? Promise.resolve(true));
-    setSaving(false);
-    if (!cfOk) return;
+  // Fires after the edit modal saves both the company fields and its own
+  // (separate) custom-fields instance. Refreshes the page-level data —
+  // including the page-level custom fields panel, which stays in 'view'
+  // mode at all times now that editing only happens in the modal.
+  async function handleCompanySaved() {
+    setIsEditModalOpen(false);
     await fetchCompany();
-    setEditing(false);
-  }
-
-  function cancelEdit() {
     customFieldsRef.current?.reload();
-    setEditing(false);
   }
 
   async function deleteCompany() {
@@ -312,12 +246,10 @@ export default function CrmCompanyDetailPage() {
           subtitle={[company.domain, company.industry].filter(Boolean).join(' · ') || undefined}
           actions={
             <div className="flex gap-2">
-              {!editing && (
-                <button onClick={startEditing} className={pBtnGhost}>
-                  <span className="material-icons text-base">edit</span>
-                  Edit
-                </button>
-              )}
+              <button onClick={() => setIsEditModalOpen(true)} className={pBtnGhost}>
+                <span className="material-icons text-base">edit</span>
+                Edit
+              </button>
               <button
                 onClick={deleteCompany}
                 className="inline-flex items-center gap-2 rounded-xl border border-border px-4 py-2.5 text-sm font-semibold text-destructive hover:bg-destructive/10 transition-colors"
@@ -330,140 +262,14 @@ export default function CrmCompanyDetailPage() {
         />
       </div>
 
-      {/* Edit form */}
-      {editing && (
-        <form onSubmit={saveEdit} className="bg-card border border-border rounded-2xl p-6 space-y-4">
-          <h2 className={pSectionTitle}>Edit Company</h2>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">Name *</label>
-              <input
-                required
-                value={editForm.name}
-                onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))}
-                className={pInput}
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">Domain</label>
-              <input
-                value={editForm.domain}
-                onChange={e => setEditForm(f => ({ ...f, domain: e.target.value }))}
-                className={pInput}
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">Industry</label>
-              <input
-                value={editForm.industry}
-                onChange={e => setEditForm(f => ({ ...f, industry: e.target.value }))}
-                className={pInput}
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">Size</label>
-              <select
-                value={editForm.size}
-                onChange={e => setEditForm(f => ({ ...f, size: e.target.value }))}
-                className={pSelect}
-              >
-                <option value="">Select size</option>
-                {sizeOptions.map(s => (
-                  <option key={s} value={s}>{s}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">Phone</label>
-              <input
-                value={editForm.phone}
-                onChange={e => setEditForm(f => ({ ...f, phone: e.target.value }))}
-                className={pInput}
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">Website</label>
-              <input
-                value={editForm.website}
-                onChange={e => setEditForm(f => ({ ...f, website: e.target.value }))}
-                className={pInput}
-              />
-            </div>
-            <div className="sm:col-span-2 lg:col-span-3">
-              <label className="block text-xs font-medium text-muted-foreground mb-1">Address</label>
-              <textarea
-                value={editForm.address}
-                onChange={e => setEditForm(f => ({ ...f, address: e.target.value }))}
-                rows={2}
-                placeholder="123 Main St, City, State"
-                className="w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/15 resize-y"
-              />
-              <div className="mt-3 grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-1">Latitude</label>
-                  <input
-                    type="number"
-                    step="any"
-                    min={-90}
-                    max={90}
-                    value={editForm.latitude}
-                    onChange={e => setEditForm(f => ({ ...f, latitude: e.target.value }))}
-                    placeholder="e.g. 40.7128"
-                    className={pInput}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-1">Longitude</label>
-                  <input
-                    type="number"
-                    step="any"
-                    min={-180}
-                    max={180}
-                    value={editForm.longitude}
-                    onChange={e => setEditForm(f => ({ ...f, longitude: e.target.value }))}
-                    placeholder="e.g. -74.0060"
-                    className={pInput}
-                  />
-                </div>
-              </div>
-              <p className="mt-1 text-xs text-muted-foreground">Auto-derived from address on save if left blank.</p>
-            </div>
-            <div className="sm:col-span-2 lg:col-span-3">
-              <MediaPicker
-                value={editForm.logoUrl}
-                onChange={(url) => setEditForm(f => ({ ...f, logoUrl: url }))}
-                label="Logo"
-                mimeTypeFilter="image"
-              />
-            </div>
-            <div className="sm:col-span-2 lg:col-span-3">
-              <label className="block text-xs font-medium text-muted-foreground mb-1">Notes</label>
-              <textarea
-                value={editForm.notes}
-                onChange={e => setEditForm(f => ({ ...f, notes: e.target.value }))}
-                rows={3}
-                className="w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/15 resize-y"
-              />
-            </div>
-          </div>
-          <div className="flex gap-2 justify-end">
-            <button
-              type="button"
-              onClick={cancelEdit}
-              className={pBtnGhost}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={saving}
-              className={pBtnPrimary}
-            >
-              {saving && <span className="material-icons animate-spin text-sm">refresh</span>}
-              Save Changes
-            </button>
-          </div>
-        </form>
+      {/* Edit modal (PUX-018) — sectioned into General / Details / Branding / Custom Fields tabs. */}
+      {isEditModalOpen && (
+        <CompanyEditModal
+          companyId={company.id}
+          company={company}
+          onClose={() => setIsEditModalOpen(false)}
+          onSaved={handleCompanySaved}
+        />
       )}
 
       {/* Tabs: Info / Contacts / Deals / Custom Fields */}
@@ -792,15 +598,17 @@ export default function CrmCompanyDetailPage() {
             </div>
           )}
 
-          {/* Always mounted so customFieldsRef.current stays live for the Save flow above,
-              even while this tab is hidden. Visibility toggled with `hidden` instead of
-              conditional mounting. */}
+          {/* Always mounted so customFieldsRef.current stays live for the reload
+              call after the edit modal saves, even while this tab is hidden.
+              Visibility toggled with `hidden` instead of conditional mounting.
+              Always 'view' mode — editing happens exclusively in the edit
+              modal's own separate CrmCustomFieldsPanel instance now. */}
           <div className={activeTab === 'custom-fields' ? '' : 'hidden'}>
             <CrmCustomFieldsPanel
               ref={customFieldsRef}
               entityType="company"
               entityId={Number(companyId)}
-              externalMode={editing ? 'edit' : 'view'}
+              externalMode="view"
             />
           </div>
         </div>
