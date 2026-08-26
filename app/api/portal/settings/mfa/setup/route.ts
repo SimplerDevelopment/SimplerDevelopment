@@ -42,7 +42,24 @@ export async function POST() {
   }
 
   const secret = generateTOTPSecret();
-  await db.update(users).set({ totpSecret: secret, updatedAt: new Date() }).where(eq(users.id, userId));
+  try {
+    await db.update(users).set({ totpSecret: secret, updatedAt: new Date() }).where(eq(users.id, userId));
+  } catch (err) {
+    // totpSecret is an `encryptedText` column, so Drizzle's mapper encrypts on
+    // write — and throws right here when WORKSPACE_TENANT_SECRETS_KEY is absent
+    // or not 64 hex chars. Uncaught, Next answers with a body-less 500 and the
+    // client's res.json() dies on "Unexpected end of JSON input", so the user
+    // is shown a JSON parser error instead of a cause.
+    //
+    // The thrown message names the env var and its length, so it is logged and
+    // NOT returned — a config detail is not something an end user should be
+    // able to read off a failed 2FA setup.
+    console.error('[mfa/setup] failed to stage TOTP secret', err);
+    return NextResponse.json(
+      { success: false, message: "Couldn't start two-factor setup. Please try again, or contact support if it keeps happening." },
+      { status: 500 },
+    );
+  }
 
   return NextResponse.json({
     success: true,

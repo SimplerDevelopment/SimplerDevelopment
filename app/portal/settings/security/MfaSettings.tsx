@@ -13,13 +13,28 @@ export function MfaSettings({ initialEnabled }: { initialEnabled: boolean }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
+  // A route that dies before writing a body (a thrown handler, a proxy error
+  // page) leaves res.json() to throw "Unexpected end of JSON input", and the
+  // catch blocks below would surface that parser text to the user as if it were
+  // the reason 2FA failed. Degrade to a sentence that names the status instead.
+  // AUTH79-022.
+  async function readEnvelope(res: Response): Promise<{ success?: boolean; message?: string; data?: { secret: string; otpauthUri: string } }> {
+    try {
+      return await res.json();
+    } catch {
+      return { success: false, message: `Server error (${res.status}). Please try again.` };
+    }
+  }
+
   async function beginSetup() {
     setBusy(true);
     setError('');
     try {
       const res = await fetch('/api/portal/settings/mfa/setup', { method: 'POST' });
-      const data = await res.json();
-      if (!data.success) throw new Error(data.message ?? 'Could not start setup.');
+      const data = await readEnvelope(res);
+      // `data` too, not just `success`: the fallback envelope carries no payload,
+      // and a malformed 200 would otherwise crash on data.data.secret.
+      if (!data.success || !data.data) throw new Error(data.message ?? 'Could not start setup.');
       setSecret(data.data.secret);
       setOtpauthUri(data.data.otpauthUri);
       setStage('enrolling');
@@ -39,7 +54,7 @@ export function MfaSettings({ initialEnabled }: { initialEnabled: boolean }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ code }),
       });
-      const data = await res.json();
+      const data = await readEnvelope(res);
       if (!data.success) throw new Error(data.message ?? 'That code did not work.');
       setStage('enabled');
       setCode('');
@@ -61,7 +76,7 @@ export function MfaSettings({ initialEnabled }: { initialEnabled: boolean }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ password }),
       });
-      const data = await res.json();
+      const data = await readEnvelope(res);
       if (!data.success) throw new Error(data.message ?? 'Could not disable.');
       setStage('idle');
       setPassword('');
