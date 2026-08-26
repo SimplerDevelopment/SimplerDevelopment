@@ -100,8 +100,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await clearToken();
         setCachedSession(null);
         setHasToken(false);
-        qc.removeQueries({ queryKey: userKeys.currentUser });
-        qc.removeQueries({ queryKey: userKeys.workspaces });
+        // Same reasoning as signOut: a 401 on /me means this identity is over
+        // and we are about to show the sign-in screen, so every cached query
+        // belongs to someone who is no longer authenticated. This path matters
+        // more than the explicit sign-out, because an expiring token reaches it
+        // without the user ever choosing to leave. PUX-027.
+        qc.clear();
         router.replace('/(auth)/sign-in');
       })();
     });
@@ -176,8 +180,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await apiSignOut();
     setCachedSession(null);
     setHasToken(false);
-    qc.removeQueries({ queryKey: userKeys.currentUser });
-    qc.removeQueries({ queryKey: userKeys.workspaces });
+    // Clear the WHOLE query cache, not a list of keys. Sign-out is an identity
+    // change: anything cached belongs to the account that just left, and the
+    // next sign-in must not be able to read it. Removing only currentUser and
+    // workspaces left everything else behind — `conversationKeys` and
+    // `mediaKeys` most of all, so a second account could be served the previous
+    // user's conversations from cache until a refetch replaced them.
+    //
+    // An explicit key list is also the wrong shape here: it silently fails open
+    // every time someone adds a new query, because forgetting to extend it
+    // looks like nothing. PUX-027.
+    qc.clear();
   }, [qc]);
 
   const refresh = useCallback(async () => {
