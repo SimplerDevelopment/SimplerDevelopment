@@ -274,6 +274,15 @@ export interface TeamMember {
   photo: string;
   bio: string;
   specialties?: string[];
+  /**
+   * Per-member override for the gold accent line above the name and the
+   * title text color — falls back to the block-level `accentColor` when
+   * unset. Deliberately does NOT cover the decorative divider rendered
+   * between members (see TeamShowcaseBlockRender.tsx): that divider sits
+   * between two members, not owned by either one, same reasoning as
+   * timeline's Line Color staying block-level only (JUL9-003).
+   */
+  accentColor?: string;
 }
 
 export interface TeamShowcaseBlock extends BaseBlock {
@@ -284,7 +293,7 @@ export interface TeamShowcaseBlock extends BaseBlock {
   members: TeamMember[];
   /** Background color for the bio panel */
   bioPanelColor?: string;
-  /** Color of the decorative accent line above names */
+  /** Color of the decorative accent line above names and member titles. Used for any member without its own `accentColor` override above. */
   accentColor?: string;
   /** Photo filter: sepia(0.08) etc. */
   photoFilter?: string;
@@ -308,6 +317,14 @@ export interface TeamFlipMember {
    * — backward-compatible no-op when unset.
    */
   verticalOffset?: number;
+  /**
+   * Per-member overrides for the front-card name and title text — fall back
+   * to the block-level `nameColor` / `titleColor` when unset. Only the front
+   * card's name/title read these; the block header's own title/overline
+   * (rendered once, above the grid) stay block-level (JUL9-003).
+   */
+  nameColor?: string;
+  titleColor?: string;
 }
 
 export interface TeamFlipGridBlock extends BaseBlock {
@@ -322,9 +339,9 @@ export interface TeamFlipGridBlock extends BaseBlock {
   backBgColor?: string;
   /** Text color on the back. Default #fff */
   backTextColor?: string;
-  /** Name text color. Default #0A3A5C */
+  /** Name text color. Default #0A3A5C. Used for any member without its own `nameColor` override above. */
   nameColor?: string;
-  /** Title text color. Default #1B6FA8 */
+  /** Title text color. Default #1B6FA8. Used for any member without its own `titleColor` override above. */
   titleColor?: string;
 }
 
@@ -339,6 +356,8 @@ export interface BentoCard {
   variant?: 'dark' | 'light';
   /** Relative width weight (7 = wider, 5 = narrower). Two cards in a row should sum to 12. */
   span?: number;
+  /** Per-card accent override — falls back to the block-level `accentColor` when unset */
+  accentColor?: string;
 }
 
 export interface BentoGridBlock extends BaseBlock {
@@ -352,7 +371,7 @@ export interface BentoGridBlock extends BaseBlock {
   darkBg?: string;
   /** Border color for light-variant cards */
   lightBorder?: string;
-  /** Accent color for the left bar on cards */
+  /** Accent color for the left bar, item dots, and link text/arrow on cards. Used for any card without its own override above. */
   accentColor?: string;
   /** Number of columns per row */
   columns?: number;

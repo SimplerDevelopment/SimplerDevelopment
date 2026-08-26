@@ -47,6 +47,10 @@ export function TeamShowcaseBlockRender({ block }: TeamShowcaseBlockRenderProps)
       <div className="space-y-0">
         {(block.members || []).map((member, i) => {
           const photoLeft = i % 2 === 0;
+          // Per-member override (JUL9-003) — the divider between members
+          // stays block-level (`accentColor` above); it isn't owned by
+          // either adjacent member.
+          const accent = member.accentColor ?? accentColor;
 
           return (
             <div key={member.id}>
@@ -81,7 +85,7 @@ export function TeamShowcaseBlockRender({ block }: TeamShowcaseBlockRenderProps)
                     {/* Gold accent line */}
                     <div
                       className="w-10 h-[2px] mb-8"
-                      style={{ background: `linear-gradient(to right, ${accentColor}, ${accentColor}cc)` }}
+                      style={{ background: `linear-gradient(to right, ${accent}, ${accent}cc)` }}
                     />
 
                     <h3
@@ -93,7 +97,7 @@ export function TeamShowcaseBlockRender({ block }: TeamShowcaseBlockRenderProps)
 
                     <p
                       className="text-sm font-medium mb-1"
-                      style={{ color: accentColor, ...getElementCSS(block.elementStyles, 'memberTitle') }}
+                      style={{ color: accent, ...getElementCSS(block.elementStyles, 'memberTitle') }}
                     >
                       {member.title}
                     </p>
