@@ -38,10 +38,15 @@ export function MarketingPanel({ block, onUpdate, siteId }: PanelProps) {
         <>
           <RichTextField label="Title" value={b.title as string} onChange={(v) => onUpdate({ title: v } as Partial<Block>)} singleLine />
           <SelectField label="Columns" value={String(b.columns || 3)} options={['2','3','4']} onChange={(v) => onUpdate({ columns: Number(v) } as Partial<Block>)} />
+          <ColorField label="Accent Color" value={(b.accentColor as string) || ''} onChange={(v) => onUpdate({ accentColor: v || undefined } as Partial<Block>)} />
           <ListEditor
             label="Stats"
-            items={(block.stats || []).map(s => ({ id: s.id, fields: { value: s.value, label: s.label } }))}
-            fieldDefs={[{ name: 'value', label: 'Value', placeholder: '100+' }, { name: 'label', label: 'Label', placeholder: 'Clients' }]}
+            items={(block.stats || []).map(s => ({ id: s.id, fields: { value: s.value, label: s.label, accentColor: s.accentColor || '' } }))}
+            fieldDefs={[
+              { name: 'value', label: 'Value', placeholder: '100+' },
+              { name: 'label', label: 'Label', placeholder: 'Clients' },
+              { name: 'accentColor', label: 'Accent Color (overrides default above)', type: 'color' as const },
+            ]}
             onAdd={() => onUpdate({ stats: [...(block.stats || []), { id: uid(), value: '0', label: 'New stat' }] } as Partial<Block>)}
             onRemove={(id) => onUpdate({ stats: block.stats.filter(s => s.id !== id) } as Partial<Block>)}
             onItemChange={(id, field, value) => onUpdate({ stats: block.stats.map(s => s.id === id ? { ...s, [field]: value } : s) } as Partial<Block>)}

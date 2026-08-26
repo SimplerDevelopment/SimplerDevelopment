@@ -151,8 +151,12 @@ export interface StatsBlock extends BaseBlock {
     id: string;
     value: string;
     label: string;
+    /** Per-stat accent override for the value text — falls back to the block-level `accentColor` when unset */
+    accentColor?: string;
   }>;
   columns?: 2 | 3 | 4;
+  /** Accent color for stat values. Defaults to the theme's primary color when unset. Used for any stat without its own override above. */
+  accentColor?: string;
 }
 
 /**
