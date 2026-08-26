@@ -121,19 +121,19 @@ export async function findOrCreateGoogleUser(input: {
   googleSub: string;
   email: string;
   name?: string | null;
-}): Promise<{ id: number; role: string } | null> {
+}): Promise<{ id: number; role: string; mfaEnabled: boolean } | null> {
   const email = input.email.trim().toLowerCase();
   if (!email || !input.googleSub) return null;
 
   const [bySub] = await db
-    .select({ id: users.id, role: users.role, active: users.active })
+    .select({ id: users.id, role: users.role, active: users.active, mfaEnabled: users.mfaEnabled })
     .from(users)
     .where(eq(users.googleId, input.googleSub))
     .limit(1);
-  if (bySub) return bySub.active ? { id: bySub.id, role: bySub.role } : null;
+  if (bySub) return bySub.active ? { id: bySub.id, role: bySub.role, mfaEnabled: bySub.mfaEnabled } : null;
 
   const [byEmail] = await db
-    .select({ id: users.id, role: users.role, active: users.active, emailVerifiedAt: users.emailVerifiedAt })
+    .select({ id: users.id, role: users.role, active: users.active, emailVerifiedAt: users.emailVerifiedAt, mfaEnabled: users.mfaEnabled })
     .from(users)
     .where(eq(users.email, email))
     .limit(1);
@@ -150,7 +150,7 @@ export async function findOrCreateGoogleUser(input: {
         updatedAt: new Date(),
       })
       .where(eq(users.id, byEmail.id));
-    return { id: byEmail.id, role: byEmail.role };
+    return { id: byEmail.id, role: byEmail.role, mfaEnabled: byEmail.mfaEnabled };
   }
 
   // Brand-new Google signup — random unusable password placeholder (the
@@ -178,7 +178,8 @@ export async function findOrCreateGoogleUser(input: {
   // Cardless free-credit grant — Google accounts arrive pre-verified.
   await grantSignupCredits(client.id);
 
-  return { id: user.id, role: user.role };
+  // A brand-new account cannot have MFA configured yet.
+  return { id: user.id, role: user.role, mfaEnabled: false };
 }
 
 /**

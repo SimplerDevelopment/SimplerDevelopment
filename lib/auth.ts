@@ -157,6 +157,31 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           name: p.name,
         });
         if (!resolved) return null;
+        // MFA must not be bypassable by choosing a different door. The
+        // credentials branch above is fail-closed on TOTP (see verifyTOTP at
+        // the top of this file); this branch resolved the user by Google-
+        // verified email and stamped their full role without ever asking. So
+        // any account with 2FA enabled — client, employee or admin — could be
+        // signed in with one compromised Google account and neither the portal
+        // password nor the 6-digit code. AUTH79-012.
+        //
+        // Refusing is not a lockout. Credentials + TOTP still works, and a
+        // Google-created account can reach it via the password-reset flow —
+        // findOrCreateGoogleUser writes an unusable placeholder password
+        // precisely so that path stays open. A TOTP challenge step here would
+        // be friendlier, but it needs UI that does not exist; this closes the
+        // bypass now and that remains the follow-up.
+        if (resolved.mfaEnabled) {
+          console.warn(
+            JSON.stringify({
+              level: 'warn',
+              event: 'auth.google_signin_refused_mfa_enabled',
+              userId: resolved.id,
+              reason: 'account has MFA enabled; Google sign-in cannot satisfy the TOTP gate',
+            }),
+          );
+          return null;
+        }
         token.sub = String(resolved.id);
         token.role = resolved.role;
         token.checkedAt = Date.now();
