@@ -11,7 +11,7 @@
  */
 import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act, within } from '@testing-library/react';
 
 // ─── Mocks (must precede page import) ───────────────────────────────────────
 
@@ -253,6 +253,9 @@ function defaultFetch(url: string, init?: any): any {
   }
   if (url === '/api/portal/crm/contacts/titles') {
     return jsonResponse({ success: true, data: baseTitles });
+  }
+  if (url === '/api/portal/crm/companies' && init?.method === 'POST') {
+    return jsonResponse({ success: true, data: { id: 500, name: 'Newco' } });
   }
   if (url.startsWith('/api/portal/crm/companies')) {
     return jsonResponse({ data: { companies: baseCompanies } });
@@ -679,6 +682,42 @@ describe('CrmContactsPage', () => {
       fireEvent.submit(container.querySelector('form')!);
       await waitFor(() => {
         expect(screen.getByText('Failed to create contact.')).toBeTruthy();
+      });
+    });
+  });
+
+  describe('Add Contact modal (OBQA-026)', () => {
+    it('clicking Add Contact renders a dialog', async () => {
+      await renderPage();
+      fireEvent.click(screen.getByText('Add Contact'));
+      expect(screen.getByRole('dialog')).toBeTruthy();
+    });
+
+    it('choosing "+ Create new company…" and submitting a name POSTs to the companies endpoint and selects the new company', async () => {
+      const fetchSpy = vi.fn((url: string, init?: any) =>
+        Promise.resolve(defaultFetch(url, init)),
+      );
+      // @ts-ignore
+      global.fetch = fetchSpy;
+      await renderPage();
+      fireEvent.click(screen.getByText('Add Contact'));
+      fireEvent.click(screen.getByText('+ Create new company…'));
+      const nameInput = screen.getByPlaceholderText('New company name');
+      fireEvent.change(nameInput, { target: { value: 'Newco' } });
+      fireEvent.click(screen.getByText('Create'));
+      await waitFor(() => {
+        const post = fetchSpy.mock.calls.find(
+          (c) =>
+            c[0] === '/api/portal/crm/companies' && c[1]?.method === 'POST',
+        );
+        expect(post).toBeTruthy();
+        const body = JSON.parse(post![1]!.body);
+        expect(body.name).toBe('Newco');
+      });
+      await waitFor(() => {
+        const dialog = screen.getByRole('dialog');
+        const companySelect = within(dialog).getByTestId('company-typeahead') as HTMLSelectElement;
+        expect(companySelect.value).toBe('500');
       });
     });
   });
