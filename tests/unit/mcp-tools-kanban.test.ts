@@ -86,8 +86,13 @@ function selectChain(rows: QueryResult) {
   return proxy;
 }
 
-vi.mock('@/lib/db', () => ({
-  db: {
+// Shared select/insert/update/delete/execute surface. Used both for the
+// top-level `db` object and for the `tx` handed to `db.transaction(cb)` —
+// insertKanbanCardWithNumber (lib/portal/kanban-card-number.ts) runs its
+// number allocation + insert inside a transaction, and both paths must read
+// from / write into the same dbState queues.
+function makeDbInterface() {
+  return {
     select: vi.fn(() => selectChain(nextSelect())),
     insert: vi.fn(() => ({
       values: vi.fn((vals: unknown) => {
@@ -127,6 +132,14 @@ vi.mock('@/lib/db', () => ({
         })),
       };
     }),
+    execute: vi.fn(async () => ({})),
+  };
+}
+
+vi.mock('@/lib/db', () => ({
+  db: {
+    ...makeDbInterface(),
+    transaction: vi.fn(async (cb: (tx: unknown) => unknown) => cb(makeDbInterface())),
   },
 }));
 
@@ -645,6 +658,43 @@ describe('kanban_create_card', () => {
       projectId: 1, columnId: 2, title: 'X', sprintId: 9,
     });
     expect((parseJson(res) as { id: number }).id).toBe(50);
+  });
+
+  // JUL9-008: number is allocated by lib/portal/kanban-card-number.ts inside
+  // a transaction (WIP-limit select, then MAX(number) select, then insert) —
+  // not the racy bare SELECT-max-then-INSERT app/api/portal/cards/route.ts
+  // uses. These two tests exercise that allocation through the tool handler.
+  it('includes an atomically-allocated number in the insert values', async () => {
+    dbState.selectQueue = [
+      [],            // WIP check: column has no wip_limit
+      [{ max: 4 }],  // number allocation: existing high-water mark is 4
+    ];
+    const tools = registerAll();
+    await tools.get('kanban_create_card')!.handler({
+      projectId: 1, columnId: 2, title: 'Hi',
+    });
+    const v = dbState.lastInsertValues as { number: number };
+    expect(v.number).toBe(5);
+  });
+
+  it('allocates distinct numbers to two sequential creates on the same project', async () => {
+    dbState.selectQueue = [
+      [], [{ max: null }], // create #1: no wip limit, no existing cards yet
+      [], [{ max: 1 }],    // create #2: no wip limit, high-water mark now 1
+    ];
+    dbState.insertReturningQueue = [
+      [{ id: 91, number: 1 }],
+      [{ id: 92, number: 2 }],
+    ];
+    const tools = registerAll();
+    const handler = tools.get('kanban_create_card')!.handler;
+    const res1 = await handler({ projectId: 1, columnId: 2, title: 'First' });
+    const res2 = await handler({ projectId: 1, columnId: 2, title: 'Second' });
+    const n1 = (parseJson(res1) as { number: number }).number;
+    const n2 = (parseJson(res2) as { number: number }).number;
+    expect(n1).toBe(1);
+    expect(n2).toBe(2);
+    expect(n1).not.toBe(n2);
   });
 });
 

@@ -31,6 +31,7 @@ import { hasScope } from '@/lib/mcp-auth';
 import { logCardActivity } from '@/lib/pm-activity';
 import { recordCardAddedToSprint, recordCardRemovedFromSprint, recordCardColumnMove } from '@/lib/portal/sprint-snapshots';
 import { checkWipLimit } from '@/lib/portal/wip-limit';
+import { insertKanbanCardWithNumber } from '@/lib/portal/kanban-card-number';
 import { reconcileCardForBoardMove } from '@/lib/portal/card-move';
 import { uploadToS3 } from '@/lib/s3/upload';
 import { assertSafeUrl } from '@/lib/ssrf-guard';
@@ -224,7 +225,10 @@ export function registerKanbanTools(server: McpServer, ctx: PortalMcpContext): v
       if (!wip.allowed) {
         return json({ error: wip.reason, code: 'wip_limit', limit: wip.limit, currentCount: wip.currentCount });
       }
-      const [row] = await db.insert(kanbanCards).values({
+      // Number is allocated atomically (per-project advisory lock) inside the
+      // helper — see lib/portal/kanban-card-number.ts for why this can't be a
+      // bare SELECT-max-then-INSERT.
+      const row = await insertKanbanCardWithNumber({
         projectId: args.projectId,
         columnId: args.columnId,
         title,
@@ -237,7 +241,7 @@ export function registerKanbanTools(server: McpServer, ctx: PortalMcpContext): v
         parentCardId: args.parentCardId ?? null,
         workflowState: args.workflowState ?? template?.workflowState ?? 'todo',
         createdBy: ctx.userId,
-      }).returning();
+      });
 
       if (template) {
         const labelIds = Array.isArray(template.labelIds) ? template.labelIds : [];
