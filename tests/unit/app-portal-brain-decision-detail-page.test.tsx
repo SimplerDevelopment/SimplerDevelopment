@@ -530,10 +530,19 @@ describe('DecisionDetailPage — context section', () => {
         (b) => b.textContent?.includes('Show'),
       )).toBe(true);
     });
-    const showBtn = Array.from(container.querySelectorAll('button')).find(
-      (b) => b.textContent?.includes('Show'),
-    ) as HTMLButtonElement;
-    fireEvent.click(showBtn);
+    // Re-query through a getter and click inside act. Capturing the node on one
+    // statement and clicking it on the next loses to a re-render landing
+    // between them: fireEvent.click on a detached node fires nothing, the
+    // section never expands, and the wait below burns the full 5s
+    // asyncUtilTimeout before failing. That is exactly how this test failed on
+    // main (CI run 32925919822, shard 3, 5073ms). Same race and same fix as
+    // PUX-045. PUX-119.
+    const findShowBtn = () =>
+      Array.from(container.querySelectorAll('button')).find(
+        (b) => b.textContent?.includes('Show'),
+      ) as HTMLButtonElement | undefined;
+    await waitFor(() => expect(findShowBtn()).toBeTruthy());
+    await act(async () => { fireEvent.click(findShowBtn()!); });
     await waitFor(() => {
       expect(container.textContent).toContain(longContext);
     });
@@ -561,10 +570,16 @@ describe('DecisionDetailPage — alternatives considered', () => {
       expect(container.textContent).toContain('Alternatives considered');
     });
     // Expand the section to reveal the content.
-    const showBtn = Array.from(container.querySelectorAll('button')).find(
-      (b) => b.textContent?.includes('Show'),
-    ) as HTMLButtonElement;
-    if (showBtn) fireEvent.click(showBtn);
+    // Same detached-node race as the context toggle above. The old form also
+    // swallowed the failure: `if (showBtn)` meant a missing button silently
+    // skipped the click, so the test failed on the assertion below with no clue
+    // that nothing had been clicked. PUX-119.
+    const findShowBtn = () =>
+      Array.from(container.querySelectorAll('button')).find(
+        (b) => b.textContent?.includes('Show'),
+      ) as HTMLButtonElement | undefined;
+    await waitFor(() => expect(findShowBtn()).toBeTruthy());
+    await act(async () => { fireEvent.click(findShowBtn()!); });
     await waitFor(() => {
       expect(container.textContent).toContain('MySQL, SQLite, MongoDB');
     });
