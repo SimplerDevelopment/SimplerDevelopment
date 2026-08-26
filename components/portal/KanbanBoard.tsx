@@ -995,7 +995,7 @@ export default function KanbanBoard({ projectId, initialColumns, isStaff, canEdi
           </div>
         )}
       </div>
-      <DndContext
+      <DndContext id="kanban-board"
         sensors={sensors}
         collisionDetection={collisionDetection}
         onDragStart={onDragStart}

@@ -70,7 +70,7 @@ export function ListEditor({
         <span className="text-xs font-medium text-muted-foreground">{label} ({items.length})</span>
         <button type="button" onClick={onAdd} className="text-xs text-primary hover:text-primary/80 font-medium">+ Add</button>
       </div>
-      <DndContext sensors={listSensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+      <DndContext id="ve-list-editor" sensors={listSensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
         <SortableContext items={items.map(i => i.id)} strategy={verticalListSortingStrategy}>
           <div className="space-y-1">
             {items.map((item, i) => (

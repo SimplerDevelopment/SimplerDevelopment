@@ -239,7 +239,7 @@ export function LeftPanel({
             {/* Layers tab */}
             {leftTab === 'layers' && (
               <div className="flex-1 overflow-y-auto">
-                <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragStart={handleDragStart} onDragOver={handleLayerDragOver} onDragEnd={handleDragEnd}>
+                <DndContext id="ve-layers-panel" sensors={sensors} collisionDetection={pointerWithin} onDragStart={handleDragStart} onDragOver={handleLayerDragOver} onDragEnd={handleDragEnd}>
                   <SortableContext items={allBlockIds} strategy={noMovementStrategy}>
                     <div className="px-1 py-2">
                       {blocks.map((block, i) => (

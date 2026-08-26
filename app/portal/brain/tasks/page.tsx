@@ -339,7 +339,7 @@ function TasksTab() {
           Loading…
         </div>
       ) : (
-        <DndContext
+        <DndContext id="brain-tasks"
           sensors={sensors}
           collisionDetection={collisionDetection}
           onDragStart={onDragStart}

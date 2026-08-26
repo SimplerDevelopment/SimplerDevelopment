@@ -774,7 +774,7 @@ export function EditorInner({
               </button>
             </div>
           ) : (
-            <DndContext sensors={sensors} collisionDetection={nestingCollisionDetection} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd}>
+            <DndContext id="visual-block-editor" sensors={sensors} collisionDetection={nestingCollisionDetection} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd}>
               <SortableContext items={state.blocks.map((b) => b.id)} strategy={noMovementStrategy}>
                 <div
                   className={`space-y-2 ${pageSettings.fontFamily || ''} ${pageSettings.cssClass || ''}`}
