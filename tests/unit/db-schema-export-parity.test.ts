@@ -67,6 +67,7 @@ function collectSchemaExportNames(): string[] {
 // + manually appended agent_flows 2026-08-02 (Workflow Designer / APWD-003, lib/db/schema/agentFlows.ts).
 // + manually appended agent_flow_runs + agent_flow_run_events 2026-08-03 (executions, same module).
 // + regenerated 2026-08-12: seo_* tables (SEO Intelligence core audit + GSC history, lib/db/schema/seo.ts).
+// + regenerated 2026-08-26: SurveyMediaCarouselItem (media-carousel survey field type, PUX-028).
 const EXPECTED_EXPORTS: readonly string[] = [
   'AB_TARGET_TYPES',
   'AbAssignment',
@@ -263,6 +264,7 @@ const EXPECTED_EXPORTS: readonly string[] = [
   'SiteNavigationDraft',
   'SurveyField',
   'SurveyFieldDef',
+  'SurveyMediaCarouselItem',
   'SurveyPageDef',
   'SurveyRecommendationConfig',
   'SurveyRecommendationHybridRule',
@@ -600,6 +602,7 @@ const EXPECTED_EXPORTS: readonly string[] = [
 // + manually appended agent_flows 2026-08-02 (Workflow Designer / APWD-003, lib/db/schema/agentFlows.ts).
 // + manually appended agent_flow_runs + agent_flow_run_events 2026-08-03 (executions, same module).
 // + regenerated 2026-08-12: seo_* tables (SEO Intelligence core audit + GSC history, lib/db/schema/seo.ts).
+// + regenerated 2026-08-26: SurveyMediaCarouselItem (media-carousel survey field type, PUX-028).
 const EXPECTED_TABLE_NAMES: Readonly<Record<string, string>> = {
   abAssignments: 'ab_assignments',
   abEvents: 'ab_events',
