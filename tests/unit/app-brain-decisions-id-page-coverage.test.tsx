@@ -740,18 +740,18 @@ describe('DecisionDetailPage — alternatives section', () => {
     // The section starts collapsed when alternativesConsidered has content.
     // Wait for the Show toggle to be present, then re-query it fresh right
     // before clicking so we never fire on a node detached by a re-render
-    // (that race made this test flaky ~1/3 of runs). Give the post-click
-    // expand a generous timeout to absorb CI shard contention.
+    // (that race made this test flaky ~1/3 of runs). The post-click expand
+    // inherits the 5s global (tests/setup.ts `asyncUtilTimeout`) — an explicit
+    // `{ timeout: 3000 }` used to sit here meaning to be generous, but 3000 is
+    // BELOW that global, so it shortened the wait on the slowest assertion in
+    // the test. PUX-100.
     const findShowBtn = () =>
       Array.from(container.querySelectorAll('button')).find(
         (b) => b.textContent?.includes('Show') && !b.textContent?.includes('Hide'),
       );
     await waitFor(() => expect(findShowBtn()).toBeTruthy());
     await act(async () => { fireEvent.click(findShowBtn() as HTMLButtonElement); });
-    await waitFor(
-      () => { expect(container.textContent).toContain('Option B'); },
-      { timeout: 3000 },
-    );
+    await waitFor(() => { expect(container.textContent).toContain('Option B'); });
   });
 });
 
@@ -1240,21 +1240,21 @@ describe('DecisionDetailPage — Section collapse/expand', () => {
     // has already detached, silently toggling nothing. Same race that
     // quarantined the Context-section twin (issue #16) and made the
     // Alternatives toggle flaky; same fix as the Alternatives test above.
+    //
+    // No explicit `{ timeout }` on the waits below: tests/setup.ts configures a
+    // 5s `asyncUtilTimeout` globally, so an override only ever LOWERS it. The
+    // three 3000ms overrides that used to be here were added to survive shard
+    // contention and did the reverse — 2s less headroom on exactly the
+    // assertions that lose the race when a worker is CPU-starved. PUX-100.
     const findBtn = (want: string, not: string) =>
       Array.from(container.querySelectorAll('button')).find(
         (b) => b.textContent?.includes(want) && !b.textContent?.includes(not),
       ) as HTMLButtonElement | undefined;
     await waitFor(() => expect(findBtn('Show', 'Hide')).toBeTruthy());
     await act(async () => { fireEvent.click(findBtn('Show', 'Hide')!); });
-    await waitFor(
-      () => expect(findBtn('Hide', 'Show')).toBeTruthy(),
-      { timeout: 3000 },
-    );
+    await waitFor(() => expect(findBtn('Hide', 'Show')).toBeTruthy());
     await act(async () => { fireEvent.click(findBtn('Hide', 'Show')!); });
-    await waitFor(
-      () => expect(findBtn('Show', 'Hide')).toBeTruthy(),
-      { timeout: 3000 },
-    );
+    await waitFor(() => expect(findBtn('Show', 'Hide')).toBeTruthy());
   });
 });
 
