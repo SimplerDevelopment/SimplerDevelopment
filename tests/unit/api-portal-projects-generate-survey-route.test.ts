@@ -74,6 +74,8 @@ vi.mock('@/lib/db/schema', () => {
     projectArtifacts: wrap('projectArtifacts'),
     kanbanCardArtifacts: wrap('kanbanCardArtifacts'),
     clients: wrap('clients'),
+    // PUX-033 step 5 — lib/branding.ts's brandingForClient() reads this.
+    brandingProfiles: wrap('brandingProfiles'),
   };
   return new Proxy(tables, {
     has: (t, p) => p in t || typeof p === 'string',
@@ -104,7 +106,9 @@ let dbData: {
   // Pre-joined view standing in for kanbanCards INNER JOIN kanbanColumns —
   // already shaped exactly like the service's select projection.
   kanbanCardsView: Row[];
-} = { projects: [], clients: [], kanbanCardsView: [] };
+  // PUX-033 step 5 — brandingForClient()'s isDefault lookup.
+  brandingProfiles: Row[];
+} = { projects: [], clients: [], kanbanCardsView: [], brandingProfiles: [] };
 
 interface InsertCall {
   table: string;
@@ -237,7 +241,7 @@ const APPROVAL_LINK = {
 };
 
 beforeEach(() => {
-  dbData = { projects: [PROJECT_ROW], clients: [CLIENT_ROW], kanbanCardsView: [] };
+  dbData = { projects: [PROJECT_ROW], clients: [CLIENT_ROW], kanbanCardsView: [], brandingProfiles: [] };
   insertReturnQueue = [];
   insertCalls.length = 0;
   authMock.mockReset();
@@ -381,5 +385,93 @@ describe('generateProjectSurvey tenancy', () => {
       createdByUserId: 7,
     });
     expect(result.ok).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// generateProjectSurvey — branding inheritance (PUX-033 step 5)
+//
+// Acceptance criterion 4: generated project surveys must follow the client's
+// brand profile like other survey output. `brandingForClient()`
+// (lib/branding.ts) resolves the client's own `isDefault` branding_profiles
+// row, and the service stamps `brandingProfileId` + a colors/font `styling`
+// snapshot onto the survey insert the same way a follow-up `surveys_update`
+// call would (lib/mcp/tools/surveys.ts).
+// ---------------------------------------------------------------------------
+
+describe('generateProjectSurvey branding', () => {
+  const DEFAULT_PROFILE = {
+    id: 55,
+    clientId: TEST_CLIENT_ID,
+    isDefault: true,
+    primaryColor: '#112233',
+    backgroundColor: '#f5f5f5',
+    textColor: '#0a0a0a',
+    headingFont: 'Poppins',
+  };
+
+  it("stamps brandingProfileId + styling from the client's default profile", async () => {
+    dbData.brandingProfiles = [DEFAULT_PROFILE];
+    insertReturnQueue.push([{ id: 601, clientId: TEST_CLIENT_ID, title: 'Retro — Retro Project', slug: 'retro-branded', status: 'draft' }]);
+    insertReturnQueue.push([{ id: 910, projectId: PROJECT_ID, artifactType: 'survey', artifactId: 601, displayTitle: 'x', pinned: false, createdBy: 7 }]);
+
+    const result = await generateProjectSurvey({
+      clientId: TEST_CLIENT_ID,
+      projectId: PROJECT_ID,
+      preset: 'retro',
+      createdByUserId: 7,
+    });
+    expect(result.ok).toBe(true);
+
+    const surveyInsert = insertCalls.find((c) => c.table === 'surveys');
+    const values = surveyInsert!.values as Record<string, unknown>;
+    expect(values.brandingProfileId).toBe(55);
+    expect(values.styling).toEqual({
+      primaryColor: '#112233',
+      backgroundColor: '#f5f5f5',
+      textColor: '#0a0a0a',
+      headingFont: 'Poppins',
+    });
+  });
+
+  it('leaves branding fields unset when the client has no default profile', async () => {
+    dbData.brandingProfiles = [];
+    insertReturnQueue.push([{ id: 602, clientId: TEST_CLIENT_ID, title: 'Retro — Retro Project', slug: 'retro-unbranded', status: 'draft' }]);
+    insertReturnQueue.push([{ id: 911, projectId: PROJECT_ID, artifactType: 'survey', artifactId: 602, displayTitle: 'y', pinned: false, createdBy: 7 }]);
+
+    const result = await generateProjectSurvey({
+      clientId: TEST_CLIENT_ID,
+      projectId: PROJECT_ID,
+      preset: 'retro',
+      createdByUserId: 7,
+    });
+    expect(result.ok).toBe(true);
+
+    const surveyInsert = insertCalls.find((c) => c.table === 'surveys');
+    const values = surveyInsert!.values as Record<string, unknown>;
+    expect(values.brandingProfileId).toBeUndefined();
+    expect(values.styling).toBeUndefined();
+  });
+
+  it("never picks up another client's default profile (tenancy)", async () => {
+    // TEST_CLIENT_ID has no profile of its own; a DIFFERENT client
+    // (OTHER_CLIENT_ID) does. A lookup that drops the clientId predicate
+    // would still find and use it — that's the bug this test guards against.
+    dbData.brandingProfiles = [{ ...DEFAULT_PROFILE, id: 66, clientId: OTHER_CLIENT_ID }];
+    insertReturnQueue.push([{ id: 603, clientId: TEST_CLIENT_ID, title: 'Retro — Retro Project', slug: 'retro-tenancy', status: 'draft' }]);
+    insertReturnQueue.push([{ id: 912, projectId: PROJECT_ID, artifactType: 'survey', artifactId: 603, displayTitle: 'z', pinned: false, createdBy: 7 }]);
+
+    const result = await generateProjectSurvey({
+      clientId: TEST_CLIENT_ID,
+      projectId: PROJECT_ID,
+      preset: 'retro',
+      createdByUserId: 7,
+    });
+    expect(result.ok).toBe(true);
+
+    const surveyInsert = insertCalls.find((c) => c.table === 'surveys');
+    const values = surveyInsert!.values as Record<string, unknown>;
+    expect(values.brandingProfileId).toBeUndefined();
+    expect(values.styling).toBeUndefined();
   });
 });

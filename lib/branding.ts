@@ -13,7 +13,7 @@
 
 import { db } from '@/lib/db';
 import { siteBranding, clientWebsites, brandingProfiles, brandingMessaging, bookingPages, surveys, clients } from '@/lib/db/schema';
-import type { PitchDeckTheme } from '@/lib/db/schema';
+import type { PitchDeckTheme, SurveyStyling } from '@/lib/db/schema';
 import { eq, and, desc, asc } from 'drizzle-orm';
 import { unstable_cache } from 'next/cache';
 import { brandingToCssVars as _brandingToCssVars } from './branding/css-vars';
@@ -270,6 +270,57 @@ export async function getBrandingBySurveySlug(slug: string): Promise<ResolvedBra
     return { ...clientBranding, primaryColor: survey.color };
   }
   return clientBranding;
+}
+
+/**
+ * PUX-033 step 5 — resolve the fields a freshly-inserted survey row should
+ * carry to "follow the client's brand profile like other survey output"
+ * (acceptance criterion 4). Callers that create a survey outside the
+ * `surveys_create`/`surveys_update` MCP flow (e.g.
+ * `lib/projects/generate-survey-service.ts`) use this to set
+ * `brandingProfileId` + `styling` on insert the same way a follow-up
+ * `surveys_update` call would (see `.claude/skills/sd-create-survey/SKILL.md`
+ * "Brand-aware styling").
+ *
+ * Deliberately narrower than `getBrandingByClientId`: this looks up the
+ * client's own `isDefault` branding profile row directly (never falls back to
+ * a website's branding), because the caller needs an actual
+ * `brandingProfileId` FK to persist, not just a merged color set. Returns
+ * `null` when the client has no default profile — callers should leave
+ * `brandingProfileId`/`styling` unset in that case, matching a survey created
+ * before this existed.
+ *
+ * Tenant-scoped: the `clientId` predicate is not optional. Dropping it would
+ * let a survey silently inherit another tenant's colors/logo.
+ */
+export async function brandingForClient(
+  clientId: number,
+): Promise<{ brandingProfileId: number; styling: SurveyStyling } | null> {
+  const [profile] = await db
+    .select({
+      id: brandingProfiles.id,
+      primaryColor: brandingProfiles.primaryColor,
+      backgroundColor: brandingProfiles.backgroundColor,
+      textColor: brandingProfiles.textColor,
+      headingFont: brandingProfiles.headingFont,
+    })
+    .from(brandingProfiles)
+    .where(and(eq(brandingProfiles.clientId, clientId), eq(brandingProfiles.isDefault, true)))
+    .limit(1);
+
+  if (!profile) return null;
+
+  // Mirrors the field set SurveyFormInline actually reads off survey.styling
+  // (components/blocks/render/SurveyFormInline.tsx ~L401-408: primaryColor,
+  // backgroundColor, textColor, headingFont) — no point stamping profile
+  // fields the renderer never looks at.
+  const styling: SurveyStyling = {};
+  if (profile.primaryColor) styling.primaryColor = profile.primaryColor;
+  if (profile.backgroundColor) styling.backgroundColor = profile.backgroundColor;
+  if (profile.textColor) styling.textColor = profile.textColor;
+  if (profile.headingFont) styling.headingFont = profile.headingFont;
+
+  return { brandingProfileId: profile.id, styling };
 }
 
 /** List all branding profiles for a client (for dropdown selectors). */

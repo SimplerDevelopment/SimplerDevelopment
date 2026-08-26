@@ -32,6 +32,7 @@ import type { SurveyFieldDef } from '@/lib/db/schema';
 import type { PortalMcpContext } from '@/lib/mcp-auth';
 import { createApprovalLink, approvalEnvelope } from '@/lib/mcp/approval-links';
 import { slugify } from '@/lib/publishing/slug';
+import { brandingForClient } from '@/lib/branding';
 import {
   buildProjectSurvey,
   type ProjectSurveyPreset,
@@ -121,6 +122,15 @@ export async function generateProjectSurvey(
   // ~line 206-244): same slug pattern, status stays 'draft', same field set.
   const baseSlug = slugify(built.title.trim());
   const slug = `${baseSlug}-${Date.now().toString(36)}`;
+
+  // PUX-033 step 5 (acceptance criterion 4): generated surveys must follow
+  // the client's brand profile like other survey output. Mirrors the
+  // follow-up `surveys_update` call the sd-create-survey skill makes after
+  // `surveys_create` — set brandingProfileId + a colors/font styling snapshot
+  // from the client's own default profile. No default profile → insert
+  // exactly as before this existed.
+  const branding = await brandingForClient(clientId);
+
   const [surveyRow] = await db
     .insert(surveys)
     .values({
@@ -134,6 +144,7 @@ export async function generateProjectSurvey(
       requireEmail: built.requireEmail,
       allowMultiple: built.allowMultiple,
       createdBy: createdByUserId,
+      ...(branding ? { brandingProfileId: branding.brandingProfileId, styling: branding.styling } : {}),
     })
     .returning();
 
