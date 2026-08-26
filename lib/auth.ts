@@ -1,3 +1,4 @@
+import { secureCookiesEnabled } from '@/lib/auth-cookies';
 import NextAuth from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
 import Google from 'next-auth/providers/google';
@@ -27,14 +28,10 @@ const googleClientSecret = process.env.AUTH_GOOGLE_SECRET ?? process.env.GOOGLE_
 const AUTH_RATE_LIMIT_DISABLED =
   process.env.DISABLE_AUTH_RATE_LIMIT === '1' || process.env.NODE_ENV === 'test';
 
-// A production BUILD served over plain HTTP (the Critical-e2e CI job runs
-// `bun start` on http://localhost:3000, and self-hosters may terminate TLS
-// upstream) otherwise mints a `__Secure-`-prefixed `secure` session cookie that
-// the runtime/browser rejects on an insecure origin — which surfaced as a 500
-// on the credentials callback and cascaded ~1000 e2e specs (QAD-047). Opt out
-// with AUTH_INSECURE_COOKIES=1. Real production (HTTPS) leaves it unset.
-const USE_SECURE_COOKIES =
-  process.env.AUTH_INSECURE_COOKIES !== '1' && process.env.NODE_ENV === 'production';
+// Why the escape hatch exists, and why a real production deploy ignores it:
+// see lib/auth-cookies.ts. Do not restate the condition here — three copies of
+// it drifted once already (QAD-047).
+const USE_SECURE_COOKIES = secureCookiesEnabled();
 
 // A fixed bcrypt hash to compare against when the user doesn't exist / is
 // inactive, so the credentials path spends the same ~bcrypt time on every branch

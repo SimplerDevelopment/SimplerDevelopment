@@ -1,3 +1,4 @@
+import { secureCookiesEnabled } from '@/lib/auth-cookies';
 import { NextResponse } from 'next/server';
 
 /**
@@ -8,14 +9,12 @@ import { NextResponse } from 'next/server';
 export async function POST() {
   const response = NextResponse.json({ success: true });
 
-  // Whether NextAuth used the `__Secure-` cookie prefix. This MUST mirror
-  // lib/auth.ts's USE_SECURE_COOKIES — a bare `NODE_ENV === 'production'` check
-  // diverges under the e2e / QAD-047 combo (NODE_ENV=production +
-  // AUTH_INSECURE_COOKIES=1), where NextAuth actually sets the UNPREFIXED
-  // `authjs.session-token`; clearing only `__Secure-…` there left the real
-  // session cookie intact and sign-out silently no-op'd.
-  const useSecureCookies =
-    process.env.AUTH_INSECURE_COOKIES !== '1' && process.env.NODE_ENV === 'production';
+  // Whether NextAuth used the `__Secure-` cookie prefix. Shared with lib/auth.ts
+  // via lib/auth-cookies.ts — this was a hand copy of the condition, and a bare
+  // `NODE_ENV === 'production'` version of it diverged under the e2e / QAD-047
+  // combo, clearing only `__Secure-…` while the real unprefixed session cookie
+  // survived, so sign-out silently no-op'd.
+  const secure = secureCookiesEnabled();
 
   // Clear BOTH the prefixed and unprefixed variants regardless of config —
   // clearing a cookie that doesn't exist is a harmless no-op, and it makes
@@ -28,11 +27,11 @@ export async function POST() {
     response.cookies.set(name, '', {
       expires: new Date(0),
       path: '/',
-      secure: useSecureCookies,
-      domain: useSecureCookies ? 'simplerdevelopment.com' : undefined,
+      secure: secure,
+      domain: secure ? 'simplerdevelopment.com' : undefined,
     });
     // Prod also scopes cookies to the wildcard domain — clear that too.
-    if (useSecureCookies) {
+    if (secure) {
       response.cookies.set(name, '', {
         expires: new Date(0),
         path: '/',
