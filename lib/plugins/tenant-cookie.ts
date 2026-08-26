@@ -26,10 +26,8 @@
 // the session cookie is cross-site and never sent, and replace this
 // domain-pinned handoff with a signed URL param / postMessage handshake.
 
-// Mirror of lib/auth.ts USE_SECURE_COOKIES — insecure only in local/e2e dev.
-function secureCookiesEnabled(): boolean {
-  return process.env.AUTH_INSECURE_COOKIES !== '1' && process.env.NODE_ENV === 'production';
-}
+import { secureCookiesEnabled } from '@/lib/auth-cookies';
+
 
 // Mirror of lib/auth.ts session-cookie `domain`: self-host override, else pin
 // the apex ONLY on the real production deploy; previews/local stay host-only
