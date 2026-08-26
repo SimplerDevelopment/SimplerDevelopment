@@ -5,6 +5,7 @@ import { combineResponsiveClasses } from '@/lib/utils/responsive';
 import { getElementCSS } from '@/lib/utils/elementStyles';
 import { useState } from 'react';
 import { sanitizeRichHtml } from '@/lib/security/sanitize-html';
+import { ancestorStyle, useResolvedTypography } from './typography-cascade';
 
 interface FlipCardGridBlockRenderProps {
   block: FlipCardGridBlock;
@@ -14,8 +15,29 @@ export function FlipCardGridBlockRender({ block }: FlipCardGridBlockRenderProps)
   const flipTrigger = block.flipTrigger ?? 'hover';
   const flipAxis = block.flipAxis ?? 'horizontal';
   const cardHeight = block.cardHeight ?? '280px';
+  // `accentColor` feeds the per-card frontIcon tint + backCard background —
+  // both chrome — so it stays ancestor-UNAWARE (VEQA-032 step 3b: cascading
+  // ancestor typography into decorative icon/background color would be an
+  // over-application the spec excludes). Overline is the one place this
+  // block reuses the same color for real content text; see `overlineColor`
+  // below, which folds ancestor in at that one content site only.
   const accentColor = block.accentColor ?? '#004D80';
   const columns = block.columns ?? 3;
+  // Content slots: block-level overline/title/description, and per-card
+  // frontTitle/frontSubtitle/backText — FlipCard has no per-item text-color
+  // override (only `card.accentColor`, chrome per above), so these resolve
+  // once against block.style/elementStyles/ancestor, shared by every card.
+  // Chrome (untouched): frontIcon/frontImage, the click-mode "flip_to_back"
+  // glyph, backLink (a CTA-style action link with an icon, same treatment as
+  // a button per the spec).
+  const resolvedOverline = useResolvedTypography(block, 'overline');
+  const resolvedTitle = useResolvedTypography(block, 'title');
+  const resolvedDescription = useResolvedTypography(block, 'description');
+  const resolvedFrontTitle = useResolvedTypography(block, 'frontTitle');
+  const resolvedFrontSubtitle = useResolvedTypography(block, 'frontSubtitle');
+  const resolvedBackText = useResolvedTypography(block, 'backText');
+  const ancestorOverlineColor = resolvedOverline.color.source === 'ancestor' ? resolvedOverline.color.value : undefined;
+  const overlineColor = block.accentColor ?? ancestorOverlineColor ?? '#004D80';
 
   const columnsClass = {
     2: 'md:grid-cols-2',
@@ -54,7 +76,7 @@ export function FlipCardGridBlockRender({ block }: FlipCardGridBlockRenderProps)
             <p
               data-editable-field="overline"
               className="text-xs font-semibold tracking-[0.2em] uppercase mb-3"
-              style={{ color: accentColor, ...getElementCSS(block.elementStyles, 'overline') }}
+              style={{ ...ancestorStyle(resolvedOverline), color: overlineColor, ...getElementCSS(block.elementStyles, 'overline') }}
               dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(block.overline) }}
             />
           )}
@@ -62,7 +84,7 @@ export function FlipCardGridBlockRender({ block }: FlipCardGridBlockRenderProps)
             <h2
               data-editable-field="title"
               className="font-heading text-3xl md:text-5xl font-bold mb-4"
-              style={getElementCSS(block.elementStyles, 'title')}
+              style={{ ...ancestorStyle(resolvedTitle), ...getElementCSS(block.elementStyles, 'title') }}
               dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(block.title) }}
             />
           )}
@@ -70,7 +92,7 @@ export function FlipCardGridBlockRender({ block }: FlipCardGridBlockRenderProps)
             <p
               data-editable-field="description"
               className="text-lg text-muted-foreground"
-              style={getElementCSS(block.elementStyles, 'description')}
+              style={{ ...ancestorStyle(resolvedDescription), ...getElementCSS(block.elementStyles, 'description') }}
               dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(block.description) }}
             />
           )}
@@ -142,13 +164,13 @@ export function FlipCardGridBlockRender({ block }: FlipCardGridBlockRenderProps)
                   ) : null}
                   <h3
                     className="font-heading text-2xl font-bold mb-2"
-                    style={frontTitleStyle}
+                    style={{ ...ancestorStyle(resolvedFrontTitle), ...frontTitleStyle }}
                     dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(card.frontTitle) }}
                   />
                   {card.frontSubtitle && (
                     <p
                       className="text-sm text-muted-foreground"
-                      style={getElementCSS(block.elementStyles, 'frontSubtitle')}
+                      style={{ ...ancestorStyle(resolvedFrontSubtitle), ...getElementCSS(block.elementStyles, 'frontSubtitle') }}
                       dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(card.frontSubtitle) }}
                     />
                   )}
@@ -174,9 +196,18 @@ export function FlipCardGridBlockRender({ block }: FlipCardGridBlockRenderProps)
                     ...backCardStyle,
                   }}
                 >
+                  {/* Back face sets color:#FFFFFF on its own container above
+                      for deliberate contrast against the accent-colored
+                      background — ancestorStyle(resolvedBackText) is still
+                      applied here for consistency with every other content
+                      node (fontSize/fontWeight/etc. are safe; an ancestor
+                      color, if ever set, can only win when neither this
+                      block's own style nor its `backText` elementStyles slot
+                      does — that override remains the escape hatch for any
+                      resulting contrast issue, same as elsewhere). */}
                   <p
                     className="text-base leading-relaxed mb-4"
-                    style={backTextStyle}
+                    style={{ ...ancestorStyle(resolvedBackText), ...backTextStyle }}
                     dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(card.backText) }}
                   />
                   {card.backLink && (

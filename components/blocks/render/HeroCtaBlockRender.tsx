@@ -12,6 +12,7 @@ import { TextBlockRender } from './TextBlockRender';
 import { ImageBlockRender } from './ImageBlockRender';
 import { LogoStripBlockRender } from './LogoStripBlockRender';
 import { BlockStyleWrapper } from './BlockStyleWrapper';
+import { ancestorStyle, useResolvedTypography } from './typography-cascade';
 
 // ColumnsBlockRender recursively imports the full block-render universe
 // (including the BlogPosts -> lib/db chain) — see lazy-blocks.tsx. It's only
@@ -62,6 +63,17 @@ export function HeroCtaBlockRender({ block, elementKeys }: HeroCtaBlockRenderPro
   const branding = useBranding();
   const keys = { ...DEFAULT_ELEMENT_KEYS, ...elementKeys };
 
+  // VEQA-032 step 3b — resolved once per named text slot, unconditionally
+  // (both layouts share these hook calls — 'banner' never reads
+  // resolvedSubtitle, that's fine, rules-of-hooks just wants a stable call
+  // order). own = block.style is shared across slots, so this reproduces the
+  // pre-existing `hasCustomFontSize`/`hasCustomFontWeight` behavior exactly
+  // for the 'own' tier while adding elementStyles- and ancestor-awareness
+  // per slot. Buttons are chrome — no resolution for primaryButton/secondaryButton.
+  const resolvedSubtitle = useResolvedTypography(block, keys.subtitle);
+  const resolvedTitle = useResolvedTypography(block, keys.title);
+  const resolvedDescription = useResolvedTypography(block, keys.description);
+
   const responsiveClasses = block.responsive
     ? combineResponsiveClasses(
         block.responsive.paddingTop,
@@ -80,8 +92,6 @@ export function HeroCtaBlockRender({ block, elementKeys }: HeroCtaBlockRenderPro
   if (block.layout === 'banner') {
     // ─── 'banner' — legacy CtaBlockRender look ─────────────────────────────
     const style = typeof block.style === 'object' ? block.style : {};
-    const hasCustomFontSize = !!style.fontSize;
-    const hasCustomFontWeight = !!style.fontWeight;
     const hasCustomPadding = !!(style.paddingTop || style.paddingBottom || style.padding);
 
     const bgStyle = block.backgroundStyle || 'gradient';
@@ -123,10 +133,10 @@ export function HeroCtaBlockRender({ block, elementKeys }: HeroCtaBlockRenderPro
     return (
       <section className={`relative overflow-hidden ${hasCustomPadding ? '' : 'py-16'} ${backgroundClass} ${responsiveClasses}`} style={wrapperStyle}>
         <div className="container mx-auto px-4 text-center relative z-10">
-          <h2 data-editable-field="title" className={`font-display ${hasCustomFontSize ? '' : 'text-4xl md:text-6xl'} ${hasCustomFontWeight ? '' : 'font-bold'} mb-6 tracking-wide`} style={getElementCSS(block.elementStyles, keys.title)} dangerouslySetInnerHTML={{ __html: block.title }} />
+          <h2 data-editable-field="title" className={`font-display ${resolvedTitle.fontSize.value ? '' : 'text-4xl md:text-6xl'} ${resolvedTitle.fontWeight.value ? '' : 'font-bold'} mb-6 tracking-wide`} style={{ ...ancestorStyle(resolvedTitle), ...getElementCSS(block.elementStyles, keys.title) }} dangerouslySetInnerHTML={{ __html: block.title }} />
 
           {block.description && (
-            <p data-editable-field="description" className={`${hasCustomFontSize ? '' : 'text-xl md:text-2xl'} text-muted-foreground mb-12 max-w-3xl mx-auto`} style={getElementCSS(block.elementStyles, keys.description)} dangerouslySetInnerHTML={{ __html: block.description }} />
+            <p data-editable-field="description" className={`${resolvedDescription.fontSize.value ? '' : 'text-xl md:text-2xl'} text-muted-foreground mb-12 max-w-3xl mx-auto`} style={{ ...ancestorStyle(resolvedDescription), ...getElementCSS(block.elementStyles, keys.description) }} dangerouslySetInnerHTML={{ __html: block.description }} />
           )}
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -146,11 +156,19 @@ export function HeroCtaBlockRender({ block, elementKeys }: HeroCtaBlockRenderPro
 
   // ─── 'hero' — legacy HeroBlockRender look ──────────────────────────────
   const style = typeof block.style === 'object' ? block.style : {};
-  const hasCustomFontSize = !!style.fontSize;
-  const hasCustomFontWeight = !!style.fontWeight;
 
   const hasBackground = !!block.backgroundImage;
   const hasCustomBg = !!(style.backgroundColor || style.backgroundGradient || style.backgroundImage);
+  // VEQA-032 step 3b — subtitle/title/description color here is
+  // background-contingent (`hasBackground ? 'text-white...' : 'text-primary'
+  // /'text-muted-foreground'`), not an own-value fallback guard, so there's
+  // no guard to replace. We still apply the full `ancestorStyle(resolved)`
+  // (which includes color when the ancestor source wins) below, same as
+  // every other content node — an inline style always beats these classes
+  // regardless, and the existing own/elementStyles > ancestor precedence
+  // remains the escape hatch if an ancestor color ever fights a background
+  // image's contrast: set the block's own color/elementStyles override and
+  // it wins.
 
   return (
     <section className={`relative min-h-[60vh] flex items-center justify-center overflow-hidden ${responsiveClasses}`}>
@@ -178,13 +196,13 @@ export function HeroCtaBlockRender({ block, elementKeys }: HeroCtaBlockRenderPro
       >
         <div className="max-w-4xl mx-auto text-center">
           {block.subtitle && (
-            <p data-editable-field="subtitle" className={`${hasCustomFontWeight ? '' : 'font-semibold'} mb-4 uppercase tracking-wide ${hasBackground ? 'text-white/80' : 'text-primary'}`} style={getElementCSS(block.elementStyles, keys.subtitle)} dangerouslySetInnerHTML={{ __html: block.subtitle }} />
+            <p data-editable-field="subtitle" className={`${resolvedSubtitle.fontWeight.value ? '' : 'font-semibold'} mb-4 uppercase tracking-wide ${hasBackground ? 'text-white/80' : 'text-primary'}`} style={{ ...ancestorStyle(resolvedSubtitle), ...getElementCSS(block.elementStyles, keys.subtitle) }} dangerouslySetInnerHTML={{ __html: block.subtitle }} />
           )}
 
-          <h1 data-editable-field="title" className={`font-display ${hasCustomFontSize ? '' : 'text-5xl md:text-7xl'} ${hasCustomFontWeight ? '' : 'font-bold'} mb-6 tracking-wide ${hasBackground ? 'text-white' : ''}`} style={getElementCSS(block.elementStyles, keys.title)} dangerouslySetInnerHTML={{ __html: block.title }} />
+          <h1 data-editable-field="title" className={`font-display ${resolvedTitle.fontSize.value ? '' : 'text-5xl md:text-7xl'} ${resolvedTitle.fontWeight.value ? '' : 'font-bold'} mb-6 tracking-wide ${hasBackground ? 'text-white' : ''}`} style={{ ...ancestorStyle(resolvedTitle), ...getElementCSS(block.elementStyles, keys.title) }} dangerouslySetInnerHTML={{ __html: block.title }} />
 
           {block.description && (
-            <p data-editable-field="description" className={`${hasCustomFontSize ? '' : 'text-xl md:text-2xl'} mb-8 max-w-2xl mx-auto ${hasBackground ? 'text-white/80' : 'text-muted-foreground'}`} style={getElementCSS(block.elementStyles, keys.description)} dangerouslySetInnerHTML={{ __html: block.description }} />
+            <p data-editable-field="description" className={`${resolvedDescription.fontSize.value ? '' : 'text-xl md:text-2xl'} mb-8 max-w-2xl mx-auto ${hasBackground ? 'text-white/80' : 'text-muted-foreground'}`} style={{ ...ancestorStyle(resolvedDescription), ...getElementCSS(block.elementStyles, keys.description) }} dangerouslySetInnerHTML={{ __html: block.description }} />
           )}
 
           <div className="flex flex-col sm:flex-row flex-wrap gap-4 justify-center items-center">
