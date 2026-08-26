@@ -417,6 +417,11 @@ const PANEL_FILES = [
   // panel UI has always been present (PUX-117 — same class of false
   // positive as the TeamSettings.tsx gap above from PUX-122).
   'components/blocks/visual/block-settings/panels/NavigationSettings.tsx',
+  // Roi-calculator settings, like navigation above, are dispatched from
+  // SectionsPanel.tsx via <RoiCalculatorBlockSettings> but live in their own
+  // file (PUX-117 part B). Scan it directly so the harness doesn't flag the
+  // same false-positive class it fixed for navigation/team-showcase above.
+  'components/blocks/visual/block-settings/panels/RoiCalculatorSettings.tsx',
   // ContentPanel.HtmlRenderBlockSettings delegates to this rich editor
   // (same one the iframe path uses) — scan it so html-render's `html`/`width`/
   // `fields`/`values`/`loop` fields are detected as covered. Without this,

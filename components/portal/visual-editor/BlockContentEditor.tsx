@@ -77,6 +77,7 @@ const PANEL_MAP: Record<string, ComponentType<PanelProps>> = {
   'team-showcase': MarketingPanel,
   'team-flip-grid': MarketingPanel,
   testimonial: MarketingPanel,
+  'roi-calculator': MarketingPanel,
 
   // Commerce
   'product-grid': CommercePanel,

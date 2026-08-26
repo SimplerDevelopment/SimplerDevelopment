@@ -1,7 +1,7 @@
 'use client';
 
 // SectionsPanel: dispatcher for related block types' settings panels.
-import type { Block, CtaBlock, ServicesGridBlock, StatsBlock, TestimonialBlock, SocialLinksBlock, LogoStripBlock, MetricCardsBlock, FlipCardGridBlock, TimelineBlock, TeamShowcaseBlock, TeamFlipGridBlock, BentoGridBlock, BentoCard, HeroBlock, HeroSlideshowBlock, HeroSlideshowSlide, SiteFooterBlock, HeroCtaBlock, NavigationBlock } from '@/types/blocks';
+import type { Block, CtaBlock, ServicesGridBlock, StatsBlock, TestimonialBlock, SocialLinksBlock, LogoStripBlock, MetricCardsBlock, FlipCardGridBlock, TimelineBlock, TeamShowcaseBlock, TeamFlipGridBlock, BentoGridBlock, BentoCard, HeroBlock, HeroSlideshowBlock, HeroSlideshowSlide, SiteFooterBlock, HeroCtaBlock, NavigationBlock, RoiCalculatorBlock } from '@/types/blocks';
 import type { Breakpoint } from '@/types/responsive';
 import { useState } from 'react';
 import MediaPicker from '@/components/admin/MediaPicker';
@@ -11,6 +11,7 @@ import { HeroBlockSettings } from './HeroSettings';
 import { HeroSlideshowBlockSettings } from './HeroSlideshowSettings';
 import { SiteFooterBlockSettings } from './SiteFooterSettings';
 import { NavigationBlockSettings } from './NavigationSettings';
+import { RoiCalculatorBlockSettings } from './RoiCalculatorSettings';
 import { TeamShowcaseBlockSettings, TeamFlipGridBlockSettings } from './TeamSettings';
 import { HeroCtaBlockSettings } from './HeroCtaSettings';
 
@@ -65,6 +66,8 @@ export function SectionsPanel({ block, onChange, currentViewport }: PanelProps) 
       return <SiteFooterBlockSettings block={block as SiteFooterBlock} onChange={onChange as (u: Partial<SiteFooterBlock>) => void} />;
     case 'navigation':
       return <NavigationBlockSettings block={block as NavigationBlock} onChange={onChange as (u: Partial<NavigationBlock>) => void} />;
+    case 'roi-calculator':
+      return <RoiCalculatorBlockSettings block={block as RoiCalculatorBlock} onChange={onChange as (u: Partial<RoiCalculatorBlock>) => void} />;
     default:
       return null;
   }
