@@ -223,6 +223,13 @@ const NON_EDITOR_FIELDS: Record<string, ReadonlySet<string>> = {
   // settings panel's onChange flow. The block.html template is the
   // primary user-facing input handled by the panel.
   'html-render': new Set(['fields', 'values']),
+  // Intrinsic pixel dimensions copied from the `media` row at pick time —
+  // see ImageBlock.naturalWidth jsdoc in types/blocks/media.ts. Set by
+  // components/blocks/edit/ImageBlockEdit.tsx's media-select handler
+  // (`naturalWidth: media?.width`), not through onChange/onUpdate, and
+  // consumed only by ImageBlockRender.tsx for CLS prevention. Not a
+  // user-settable field (PUX-122).
+  'image': new Set(['naturalWidth', 'naturalHeight']),
 };
 
 // Renderers that legitimately don't use getElementCSS by design
@@ -386,6 +393,16 @@ const PANEL_FILES = [
   'components/blocks/visual/block-settings/panels/SurveyResultsSettings.tsx',
   'components/blocks/visual/block-settings/panels/ColumnsSettings.tsx',
   'components/blocks/visual/block-settings/panels/HtmlEmbedSettings.tsx',
+  // team-showcase / team-flip-grid settings were extracted out of
+  // SectionsPanel.tsx into their own file; SectionsPanel.tsx still switches
+  // on these types but only to render <TeamShowcaseBlockSettings>/
+  // <TeamFlipGridBlockSettings> from here, so the onChange({...}) call
+  // sites for members/bioPanelColor/photoFilter/backBgColor/backTextColor/
+  // nameColor/titleColor live in this file, not in SectionsPanel.tsx
+  // itself. Missing from this scan list caused a false "no settings input"
+  // regression for both blocks (PUX-122) even though the panel UI has
+  // always been present.
+  'components/blocks/visual/block-settings/panels/TeamSettings.tsx',
   // ContentPanel.HtmlRenderBlockSettings delegates to this rich editor
   // (same one the iframe path uses) — scan it so html-render's `html`/`width`/
   // `fields`/`values`/`loop` fields are detected as covered. Without this,
@@ -465,6 +482,16 @@ function getAllPanelFields(): Set<string> {
 const CONTENT_EDITOR_DELEGATED_FILES = [
   'components/portal/visual-editor/HtmlRenderEditor.tsx',
   'components/portal/visual-editor/HtmlEmbedEditor.tsx',
+  // BlockContentEditor.tsx's PANEL_MAP dispatches to these per-category
+  // panel components (the 2018-line shell was extracted into them — see
+  // components/portal/visual-editor/CLAUDE.md). MarketingPanel.tsx is the
+  // one that carries team-showcase/team-flip-grid's onUpdate({...}) call
+  // sites (members, bioPanelColor, photoFilter, backBgColor, backTextColor,
+  // nameColor, titleColor). This list was never updated when the extraction
+  // landed, which caused a false "no settings input" regression for both
+  // blocks (PUX-122) even though the portal editor UI has always been
+  // present.
+  'components/portal/visual-editor/_components/block-panels/MarketingPanel.tsx',
 ];
 
 let _allContentEditorFieldsCache: Set<string> | null = null;
