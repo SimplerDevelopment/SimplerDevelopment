@@ -1048,6 +1048,32 @@ describe('POST /oauth/token', () => {
     expect(state.oauthAccessTokens[0].resource).toBe('https://stored.example.com');
   });
 
+  // RFC 8707 §2.2 (AUTH79-016): the token request may narrow a code issued
+  // without a resource, but it can never REBIND a code to a different audience
+  // than the one consented at /authorize. Before the fix the request value
+  // silently overrode the stored one.
+  it('rejects a token request whose resource differs from the one bound at /authorize', async () => {
+    seedFullScenario({ resource: 'https://stored.example.com' });
+    const res = await tokenPOST(
+      formRequest('http://x/oauth/token', validParams({ resource: 'https://other.example.com' })),
+    );
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toBe('invalid_target');
+    expect(state.oauthAccessTokens).toHaveLength(0);
+    // Rejected before consumption, like the redirect_uri / PKCE mismatches above.
+    expect(state.oauthAuthorizationCodes[0].consumedAt).toBeNull();
+  });
+
+  it('accepts a matching resource (normalised) and keeps the consented value', async () => {
+    seedFullScenario({ resource: 'https://stored.example.com' });
+    const res = await tokenPOST(
+      formRequest('http://x/oauth/token', validParams({ resource: 'https://STORED.example.com/' })),
+    );
+    expect(res.status).toBe(200);
+    expect(state.oauthAccessTokens[0].resource).toBe('https://stored.example.com');
+  });
+
   it('accepts multipart/form-data via formData() fallback path', async () => {
     seedFullScenario();
     const fd = new FormData();
