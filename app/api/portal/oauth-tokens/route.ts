@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import { oauthAccessTokens, oauthClients, users } from '@/lib/db/schema';
 import { and, desc, eq } from 'drizzle-orm';
 import { getPortalClient, getPortalRole } from '@/lib/portal-client';
+import { credentialActsForClient } from '@/lib/portal/credential-client-scope';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -59,7 +60,10 @@ export async function GET() {
     .innerJoin(users, eq(oauthAccessTokens.userId, users.id))
     .where(
       and(
-        eq(oauthAccessTokens.clientId, client.id),
+        // Matches the grant's DEFAULT client OR any company in its consent
+        // allowlist — a grant acting on this company must be visible here even
+        // when it defaults to another one. PUX-052.
+        credentialActsForClient(oauthAccessTokens.clientId, oauthAccessTokens.clientIds, client.id),
         // Same `and()`-drops-undefined trick as DELETE: owners/admins get the
         // whole client, everyone else is narrowed to their own grants in SQL.
         canManageTeam ? undefined : eq(oauthAccessTokens.userId, userId),
@@ -117,7 +121,9 @@ export async function DELETE(req: Request) {
     .where(
       and(
         eq(oauthAccessTokens.id, id),
-        eq(oauthAccessTokens.clientId, client.id),
+        // Same allowlist-aware match as the listing above: a company that can
+        // SEE a grant must be able to revoke it. PUX-052.
+        credentialActsForClient(oauthAccessTokens.clientId, oauthAccessTokens.clientIds, client.id),
         // drizzle's `and()` drops undefined, so this predicate simply vanishes
         // for owners/admins instead of needing two query shapes.
         actsForWholeClient ? undefined : eq(oauthAccessTokens.userId, userId),

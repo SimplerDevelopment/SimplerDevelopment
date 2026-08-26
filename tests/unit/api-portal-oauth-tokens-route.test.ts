@@ -25,6 +25,10 @@ vi.mock('@/lib/portal-client', () => ({
 }));
 
 vi.mock('drizzle-orm', () => ({
+  or: (...args: unknown[]) => ({ op: 'or', args: args.filter(Boolean) }),
+  sql: Object.assign((..._args: unknown[]) => ({ op: 'sql' }), {
+    raw: (s: string) => ({ op: 'raw', s }),
+  }),
   eq: (a: unknown, b: unknown) => ({ op: 'eq', a, b }),
   // The real `and()` ignores undefined entries -- mirror that, since the route
   // relies on it to drop the userId constraint for owners/admins.
@@ -187,13 +191,36 @@ describe('DELETE /api/portal/oauth-tokens', () => {
     expect(constrainsUserId(updateCalls[0].filter)).toBe(true);
   });
 
+  // PUX-052 widened this from `eq(clientId)` to `or(eq(clientId), <allowlist
+  // containment>)`, so the default-client match now sits one level down inside
+  // an `or` rather than directly in the top-level `and`. Both halves matter:
+  // dropping the eq would stop scoping to the active client, and dropping the
+  // or would make a credential that merely lists this client invisible and
+  // unrevocable here again.
+  const findDeep = (node: any, pred: (n: any) => boolean): boolean => {
+    if (!node || typeof node !== 'object') return false;
+    if (pred(node)) return true;
+    return (node.args ?? []).some((c: any) => findDeep(c, pred));
+  };
+
   it('always scopes to the active client regardless of role', async () => {
     getPortalRoleMock.mockResolvedValue('owner');
     await DELETE(req());
-    const clientScoped = updateCalls[0].filter.args.some(
-      (c: any) => c?.op === 'eq' && c?.a?.__col === 'clientId' && c?.b === 900,
+    const clientScoped = findDeep(
+      updateCalls[0].filter,
+      (c) => c?.op === 'eq' && c?.a?.__col === 'clientId' && c?.b === 900,
     );
-    expect(clientScoped).toBe(true);
+    expect(clientScoped, 'lost the default-client match').toBe(true);
+  });
+
+  it('also matches credentials that merely list this client in client_ids', async () => {
+    getPortalRoleMock.mockResolvedValue('owner');
+    await DELETE(req());
+    expect(
+      findDeep(updateCalls[0].filter, (c) => c?.op === 'or'),
+      'revoke filters on the default client only — a credential whose client_ids ' +
+        'includes this client but defaults to another is unrevocable here (PUX-052)',
+    ).toBe(true);
   });
 
   it('rejects a missing id without touching the database', async () => {

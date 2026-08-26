@@ -5,6 +5,7 @@ import { portalApiKeys } from '@/lib/db/schema';
 import { and, desc, eq } from 'drizzle-orm';
 import { getPortalClient, getPortalClientForCredentials, getPortalClientsWithRoles } from '@/lib/portal-client';
 import { generatePortalApiKey } from '@/lib/mcp-auth';
+import { credentialActsForClient } from '@/lib/portal/credential-client-scope';
 
 const DEFAULT_SCOPES = ['*'];
 
@@ -30,7 +31,7 @@ export async function GET() {
       createdAt: portalApiKeys.createdAt,
     })
     .from(portalApiKeys)
-    .where(eq(portalApiKeys.clientId, client.id))
+    .where(credentialActsForClient(portalApiKeys.clientId, portalApiKeys.clientIds, client.id))
     .orderBy(desc(portalApiKeys.createdAt));
 
   return NextResponse.json({ success: true, data: keys });
@@ -123,7 +124,7 @@ export async function DELETE(req: Request) {
 
   await db.update(portalApiKeys)
     .set({ active: false, revokedAt: new Date() })
-    .where(and(eq(portalApiKeys.id, id), eq(portalApiKeys.clientId, client.id)));
+    .where(and(eq(portalApiKeys.id, id), credentialActsForClient(portalApiKeys.clientId, portalApiKeys.clientIds, client.id)));
 
   return NextResponse.json({ success: true });
 }

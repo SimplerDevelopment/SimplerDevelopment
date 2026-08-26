@@ -34,6 +34,9 @@ vi.mock('@/lib/portal-client', () => ({
 }));
 
 vi.mock('drizzle-orm', () => ({
+  sql: Object.assign((..._args: unknown[]) => ({ op: 'sql' }), {
+    raw: (s: string) => ({ op: 'raw', s }),
+  }),
   eq: (a: unknown, b: unknown) => ({ op: 'eq', a, b }),
   and: (...args: unknown[]) => ({ op: 'and', args }),
   desc: (a: unknown) => ({ op: 'desc', a }),
