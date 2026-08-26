@@ -27,7 +27,7 @@
   "app/portal/branding/profiles/[profileId]/_components/ButtonsTab.tsx": 536,
   "app/portal/crm/companies/[id]/page.tsx": 765,
   "app/portal/crm/companies/page.tsx": 525,
-  "app/portal/crm/contacts/[id]/page.tsx": 801,
+  "app/portal/crm/contacts/[id]/page.tsx": 636,
   "app/portal/crm/contacts/page.tsx": 609,
   "app/portal/crm/contracts/page.tsx": 503,
   "app/portal/crm/deals/_components/DealDetailDrawer.tsx": 1065,

@@ -4,12 +4,11 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import CrmCustomFieldsPanel, { type CrmCustomFieldsPanelHandle } from '@/components/portal/CrmCustomFieldsPanel';
-import CrmCompanyTypeaheadPicker from '@/components/portal/CrmCompanyTypeaheadPicker';
 import { formatMoney } from '@/lib/utils/money';
 import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
 import CrmAddDealModal from '@/components/portal/CrmAddDealModal';
-import { pBtnPrimary, pBtnGhost, pCard, pCardPad, pInput, pSelect, pSectionTitle } from '@/components/portal/portal-ui';
-import MediaPicker from '@/components/admin/MediaPicker';
+import { pBtnPrimary, pBtnGhost, pCard, pInput, pSectionTitle } from '@/components/portal/portal-ui';
+import ContactEditModal from './_components/ContactEditModal';
 
 interface Tag {
   id: number;
@@ -118,28 +117,9 @@ export default function CrmContactDetailPage() {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [deals, setDeals] = useState<Deal[]>([]);
   const [loading, setLoading] = useState(true);
-  const [editing, setEditing] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const customFieldsRef = useRef<CrmCustomFieldsPanelHandle>(null);
   const [activeTab, setActiveTab] = useState<'general' | 'deals' | 'custom-fields'>('general');
-  // Display label for the currently-selected company in the edit form.
-  // Seeded from the contact's denormalised `companyName` when editing starts,
-  // updated when the user picks a different company from the typeahead.
-  const [editCompanyLabel, setEditCompanyLabel] = useState<string | null>(null);
-
-  const [editForm, setEditForm] = useState({
-    firstName: '',
-    lastName: '',
-    email: '',
-    phone: '',
-    linkedinUrl: '',
-    title: '',
-    companyId: '',
-    status: '',
-    source: '',
-    address: '',
-    avatarUrl: '',
-  });
 
   const [newTag, setNewTag] = useState('');
 
@@ -176,47 +156,14 @@ export default function CrmContactDetailPage() {
     })();
   }, [fetchContact, fetchActivities]);
 
-  function startEditing() {
-    if (!contact) return;
-    setEditForm({
-      firstName: contact.firstName,
-      lastName: contact.lastName,
-      email: contact.email ?? '',
-      phone: contact.phone ?? '',
-      linkedinUrl: contact.linkedinUrl ?? '',
-      title: contact.title ?? '',
-      companyId: contact.companyId ? String(contact.companyId) : '',
-      status: contact.status,
-      source: contact.source ?? '',
-      address: contact.address ?? '',
-      avatarUrl: contact.avatarUrl ?? '',
-    });
-    // Seed the typeahead's display label from the denormalised companyName on
-    // the contact payload — avoids round-tripping just to render the name.
-    setEditCompanyLabel(contact.companyName ?? null);
-    setEditing(true);
-  }
-
-  async function saveEdit(e: React.FormEvent) {
-    e.preventDefault();
-    setSaving(true);
-    const body = { ...editForm, companyId: editForm.companyId ? Number(editForm.companyId) : null };
-    const res = await fetch(`/api/portal/crm/contacts/${contactId}`, {
-      method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
-    });
-    const d = await res.json();
-    if (!d.success) { setSaving(false); return; }
-    // One Save also flushes any pending custom-field edits via the always-mounted ref.
-    const cfOk = await (customFieldsRef.current?.save() ?? Promise.resolve(true));
-    setSaving(false);
-    if (!cfOk) return;
+  // Fires after the edit modal saves both the contact fields and its own
+  // (separate) custom-fields instance. Refreshes the page-level data —
+  // including the page-level custom fields panel, which stays in 'view'
+  // mode at all times now that editing only happens in the modal.
+  async function handleContactSaved() {
+    setIsEditModalOpen(false);
     await fetchContact();
-    setEditing(false);
-  }
-
-  function cancelEdit() {
     customFieldsRef.current?.reload();
-    setEditing(false);
   }
 
   async function deleteContact() {
@@ -376,18 +323,16 @@ export default function CrmContactDetailPage() {
         }
         actions={
           <div className="flex gap-2">
-            {!editing && contact.email && (
+            {contact.email && (
               <button onClick={() => setShowEmailForm(true)} className={pBtnPrimary}>
                 <span className="material-icons text-base">mail</span>
                 Send Email
               </button>
             )}
-            {!editing && (
-              <button onClick={startEditing} className={pBtnGhost}>
-                <span className="material-icons text-base">edit</span>
-                Edit
-              </button>
-            )}
+            <button onClick={() => setIsEditModalOpen(true)} className={pBtnGhost}>
+              <span className="material-icons text-base">edit</span>
+              Edit
+            </button>
             <button
               onClick={deleteContact}
               className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-semibold text-destructive transition hover:border-destructive/40 hover:shadow-sm"
@@ -398,6 +343,16 @@ export default function CrmContactDetailPage() {
           </div>
         }
       />
+
+      {/* Edit modal (PUX-025) — sectioned into General / Details / Custom Fields tabs. */}
+      {isEditModalOpen && (
+        <ContactEditModal
+          contactId={contact.id}
+          contact={contact}
+          onClose={() => setIsEditModalOpen(false)}
+          onSaved={handleContactSaved}
+        />
+      )}
 
       {/* Status + score chips */}
       <div className="flex items-center gap-2 -mt-3">
@@ -458,131 +413,6 @@ export default function CrmContactDetailPage() {
         <div className="p-6">
         {activeTab === 'general' && (
         <div className="space-y-6">
-        {/* Edit form */}
-        {editing && (
-        <form onSubmit={saveEdit} className={`${pCard} p-6 space-y-4`}>
-          <h2 className={pSectionTitle}>Edit Contact</h2>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">First Name</label>
-              <input
-                required
-                value={editForm.firstName}
-                onChange={e => setEditForm(f => ({ ...f, firstName: e.target.value }))}
-                className={pInput}
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">Last Name</label>
-              <input
-                required
-                value={editForm.lastName}
-                onChange={e => setEditForm(f => ({ ...f, lastName: e.target.value }))}
-                className={pInput}
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">Email</label>
-              <input
-                type="email"
-                value={editForm.email}
-                onChange={e => setEditForm(f => ({ ...f, email: e.target.value }))}
-                className={pInput}
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">Phone</label>
-              <input
-                value={editForm.phone}
-                onChange={e => setEditForm(f => ({ ...f, phone: e.target.value }))}
-                className={pInput}
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">LinkedIn URL</label>
-              <input
-                type="url"
-                value={editForm.linkedinUrl}
-                onChange={e => setEditForm(f => ({ ...f, linkedinUrl: e.target.value }))}
-                placeholder="https://linkedin.com/in/..."
-                className={pInput}
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">Title</label>
-              <input
-                value={editForm.title}
-                onChange={e => setEditForm(f => ({ ...f, title: e.target.value }))}
-                className={pInput}
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">Company</label>
-              <CrmCompanyTypeaheadPicker
-                value={editForm.companyId}
-                selectedLabel={editCompanyLabel}
-                onChange={opt => {
-                  setEditForm(f => ({ ...f, companyId: opt ? String(opt.id) : '' }));
-                  setEditCompanyLabel(opt ? opt.name : null);
-                }}
-                placeholder="Select company…"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">Status</label>
-              <select
-                value={editForm.status}
-                onChange={e => setEditForm(f => ({ ...f, status: e.target.value }))}
-                className={pSelect}
-              >
-                <option value="lead">Lead</option>
-                <option value="active">Active</option>
-                <option value="customer">Customer</option>
-                <option value="inactive">Inactive</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">Source</label>
-              <select
-                value={editForm.source}
-                onChange={e => setEditForm(f => ({ ...f, source: e.target.value }))}
-                className={pSelect}
-              >
-                <option value="">None</option>
-                {['web', 'referral', 'cold-call', 'event', 'social', 'other'].map(s => (
-                  <option key={s} value={s}>{s.replace('-', ' ')}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">Address</label>
-              <input
-                value={editForm.address}
-                onChange={e => setEditForm(f => ({ ...f, address: e.target.value }))}
-                className={pInput}
-              />
-            </div>
-            <div>
-              <MediaPicker
-                value={editForm.avatarUrl ?? ''}
-                onChange={(url) => setEditForm(f => ({ ...f, avatarUrl: url }))}
-                label="Avatar"
-                mimeTypeFilter="image"
-              />
-            </div>
-          </div>
-          <div className="flex gap-2 justify-end">
-            <button type="button" onClick={cancelEdit} className={pBtnGhost}>
-              Cancel
-            </button>
-            <button type="submit" disabled={saving} className={pBtnPrimary}>
-              {saving && <span className="material-icons animate-spin text-sm">refresh</span>}
-              Save Changes
-            </button>
-          </div>
-        </form>
-      )}
-
       {/* Email Success Banner */}
       {emailSuccess && (
         <div className="flex items-center gap-2 text-sm text-green-700 bg-green-100 border border-green-200 rounded-lg px-3 py-2">
@@ -646,8 +476,6 @@ export default function CrmContactDetailPage() {
         </form>
       )}
 
-      {/* Two-column layout — hidden while editing so only the edit form's fields show. */}
-      {!editing && (
       <div className="grid lg:grid-cols-2 gap-6">
         {/* Left Column */}
         <div className="space-y-6">
@@ -807,8 +635,7 @@ export default function CrmContactDetailPage() {
             )}
           </div>
         </div>
-        </div>
-      )}
+      </div>
         </div>
         )}
 
@@ -847,9 +674,12 @@ export default function CrmContactDetailPage() {
           </div>
         )}
 
-        {/* Always mounted so customFieldsRef stays live for the main Save/Cancel flow above. */}
+        {/* Always mounted so customFieldsRef.current stays live for the reload
+            call after the edit modal saves, even while this tab is hidden.
+            Always 'view' mode — editing happens exclusively in the edit
+            modal's own separate CrmCustomFieldsPanel instance now. */}
         <div className={activeTab === 'custom-fields' ? '' : 'hidden'}>
-          <CrmCustomFieldsPanel ref={customFieldsRef} entityType="contact" entityId={Number(contactId)} externalMode={editing ? 'edit' : 'view'} />
+          <CrmCustomFieldsPanel ref={customFieldsRef} entityType="contact" entityId={Number(contactId)} externalMode="view" />
         </div>
         </div>
       </div>
