@@ -127,6 +127,20 @@ server.on('upgrade', (req, socket, head) => {
 
     const result = verifyHandshake({ token, requestedRoom });
     if (!result.ok) {
+      // Log it. A rejected upgrade is otherwise completely silent on this side:
+      // we write a status line and destroy the socket, so the only evidence
+      // lives in the client's network panel, and y-websocket retries without
+      // surfacing anything. QAD-032 ("second browser session never opens its
+      // websocket — silent, no console error") is exactly the shape of report
+      // this makes undiagnosable: with no server-side record you cannot tell a
+      // rejected handshake from one that was never attempted.
+      //
+      // The token is deliberately NOT logged — it is a credential. The room and
+      // the reason are enough to identify which session was refused and why.
+      console.warn(
+        `[realtime-server] handshake REJECTED for room=${requestedRoom} ` +
+          `status=${result.status} reason=${result.message} hadToken=${Boolean(token)}`
+      );
       socket.write(
         `HTTP/1.1 ${result.status} ${result.message}\r\n` +
           'Connection: close\r\n' +
