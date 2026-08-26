@@ -12,7 +12,7 @@
 
 import { db } from '@/lib/db';
 import { projects, kanbanColumns, clients } from '@/lib/db/schema';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, sql } from 'drizzle-orm';
 import { PUBLISHING_SYSTEM_KIND, PUBLISHING_STAGES } from './constants';
 
 export interface PublishingProject {
@@ -41,15 +41,27 @@ export async function getOrCreatePublishingProject(
   return createPublishingProject(clientId, createdByUserId);
 }
 
-async function findPublishingProject(clientId: number): Promise<PublishingProject | null> {
-  const rows = await db
+/** Namespace for the bootstrap advisory lock. Arbitrary, but must stay stable
+ *  and not collide with the repo's other advisory-lock namespaces (cf.
+ *  ACTIVATION_LOCK_NS in lib/billing/activate-modules.ts, 82041 in
+ *  lib/portal/kanban-card-number.ts). */
+const PUBLISHING_BOOTSTRAP_LOCK_NS = 82042;
+
+/** Anything that can run a select — the pool or a transaction. */
+type Executor = Pick<typeof db, 'select'>;
+
+async function findPublishingProject(
+  clientId: number,
+  exec: Executor = db,
+): Promise<PublishingProject | null> {
+  const rows = await exec
     .select({ id: projects.id })
     .from(projects)
     .where(and(eq(projects.clientId, clientId), eq(projects.systemKind, PUBLISHING_SYSTEM_KIND)))
     .limit(1);
   if (rows.length === 0) return null;
   const projectId = rows[0].id;
-  const columns = await db
+  const columns = await exec
     .select()
     .from(kanbanColumns)
     .where(eq(kanbanColumns.projectId, projectId))
@@ -75,6 +87,25 @@ async function createPublishingProject(
   // Transactional so a partially-bootstrapped client never exists; if any
   // step fails, the whole thing rolls back and the next visit retries.
   return db.transaction(async (tx) => {
+    // Serialize concurrent bootstraps per client. getOrCreate does a
+    // SELECT-then-INSERT, so two first-visits landing together each saw "no
+    // board" and each created one — that is how clientId 104 ended up with
+    // projects 154 and 155, byte-identical, 0.5s apart (JUL9-010). There is no
+    // unique index on (client_id, system_kind) to lean on and adding one needs
+    // a migration, so an advisory xact lock closes the race with no schema
+    // change; it auto-releases on commit/rollback. Same idiom as
+    // ACTIVATION_LOCK_NS in lib/billing/activate-modules.ts.
+    await tx.execute(
+      sql`select pg_advisory_xact_lock(${PUBLISHING_BOOTSTRAP_LOCK_NS}, ${clientId})`,
+    );
+
+    // Re-check INSIDE the lock. The loser of the race reaches here only after
+    // the winner committed, so this read sees the winner's board and returns
+    // it. Without this the lock would merely serialize the duplicate creates
+    // rather than prevent them.
+    const raced = await findPublishingProject(clientId, tx);
+    if (raced) return raced;
+
     const [project] = await tx
       .insert(projects)
       .values({
