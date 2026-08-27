@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireBrainEntitlement } from '@/lib/brain/entitlement';
 import { listNotes, countNotes, createNote, listAllTags, listTagsWithCounts, type NoteSort, type NoteOrder } from '@/lib/brain/notes';
+import { topicsForNotes } from '@/lib/brain/note-topics';
 
 const ALLOWED_SORTS: NoteSort[] = ['updated', 'created', 'title'];
 const ALLOWED_ORDERS: NoteOrder[] = ['asc', 'desc'];
@@ -78,6 +79,12 @@ export async function GET(request: Request) {
     listNotes(result.client.id, { ...filters, limit, offset, sort, order }),
     countNotes(result.client.id, filters),
   ]);
+
+  // PUX-159: the Knowledge list shows each note's topics — one batched read.
+  if (url.searchParams.get('withTopics') === '1') {
+    const byNote = await topicsForNotes(result.client.id, items.map((n) => n.id));
+    return NextResponse.json({ success: true, data: { items: items.map((n) => ({ ...n, topics: byNote[n.id] ?? [] })), total, limit, offset } });
+  }
 
   return NextResponse.json({ success: true, data: { items, total, limit, offset } });
 }
