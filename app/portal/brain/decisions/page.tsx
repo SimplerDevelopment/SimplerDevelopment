@@ -20,7 +20,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import DecisionCard, { type DecisionRow } from '@/components/brain/DecisionCard';
 import type { BrainDecisionReversibility, BrainDecisionStatus } from '@/lib/db/schema';
 import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
-import { pBtnPrimary, pBtnGhost } from '@/components/portal/portal-ui';
+import { pBtnPrimary, pBtnGhost, sBtn } from '@/components/portal/portal-ui';
+import { useFeatureFlag } from '@/components/portal/FeatureFlagsProvider';
+import { EmptyState } from '@/components/portal/EmptyState';
 
 interface ListResponse {
   success: boolean;
@@ -71,6 +73,8 @@ function parsePageIndex(raw: string | null): number {
 
 export default function DecisionsListPage() {
   const router = useRouter();
+  // PUX-162 (design doc screen 21): reasoning on the row, supersede as a link, one teal.
+  const studio = useFeatureFlag('portal-redesign');
   const searchParams = useSearchParams();
 
   const [items, setItems] = useState<DecisionRow[] | null>(null);
@@ -192,9 +196,9 @@ export default function DecisionsListPage() {
           title={<span className="flex items-center gap-2"><span className="material-icons text-primary">gavel</span>Decisions</span>}
           subtitle="The rationale-bearing log of what your team has decided, why, and when."
           actions={
-            <Link href="/portal/brain/decisions/new" className={pBtnPrimary}>
+            <Link href="/portal/brain/decisions/new" className={studio ? sBtn : pBtnPrimary}>
               <span className="material-icons text-base">add</span>
-              Record decision
+              {studio ? 'Record a decision' : 'Record decision'}
             </Link>
           }
           className="mb-0"
@@ -326,15 +330,26 @@ export default function DecisionsListPage() {
           <p>{error}</p>
         </div>
       ) : items && items.length === 0 ? (
-        <EmptyState />
+        <EmptyState
+          className="bg-card border border-border rounded-2xl p-6"
+          title="What you decided, why, and what you didn't choose."
+          body="Every decision here keeps its context, rationale and the alternatives — so nobody has to re-argue it in six months."
+          cta={{ label: 'Record a decision', icon: 'add', href: '/portal/brain/decisions/new' }}
+          ghostLabel="Accepted · Proposed · Superseded"
+          legacy={<LegacyEmptyState />}
+        />
       ) : (
         <div className="space-y-2">
           {items?.map((d) => (
             <div key={d.id} className="relative">
+              {studio ? (
+                <DecisionCard decision={d} studio href={`/portal/brain/decisions/${d.id}`} />
+              ) : (
               <DecisionCard
                 decision={d}
                 onClick={() => router.push(`/portal/brain/decisions/${d.id}`)}
               />
+              )}
               {d.decisionMakerId && teamLookup.has(d.decisionMakerId) && (
                 <div className="absolute top-3 right-12 text-[10px] text-muted-foreground pointer-events-none hidden sm:flex items-center gap-1">
                   <span className="material-icons text-[12px] leading-none">person</span>
@@ -372,7 +387,7 @@ export default function DecisionsListPage() {
   );
 }
 
-function EmptyState() {
+function LegacyEmptyState() {
   return (
     <div className="bg-card border border-border rounded-2xl p-10 text-center">
       <span className="material-icons text-5xl text-primary mb-3 block">psychology_alt</span>
