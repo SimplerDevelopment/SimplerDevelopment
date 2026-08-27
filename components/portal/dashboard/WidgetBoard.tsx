@@ -22,6 +22,7 @@ import { CSS } from '@dnd-kit/utilities';
 import type { DashboardWidgetPrefs } from '@/lib/dashboard/widgets';
 import { SOLUTION_LABELS } from '@/lib/dashboard/widgets';
 import WidgetShell from './WidgetShell';
+import { useFeatureFlag } from '@/components/portal/FeatureFlagsProvider';
 import { EmptyState } from '@/components/portal/EmptyState';
 
 interface WidgetMeta {
@@ -53,6 +54,7 @@ function SortableWidgetItem({
   onRemove,
   isCustomizing,
   slot,
+  tone,
 }: {
   widget: WidgetMeta;
   collapsed: boolean;
@@ -60,6 +62,7 @@ function SortableWidgetItem({
   onRemove: (id: string) => void;
   isCustomizing: boolean;
   slot: ReactNode;
+  tone?: 'gold';
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: widget.id,
@@ -84,6 +87,7 @@ function SortableWidgetItem({
         onRemove={onRemove}
         dragHandleAttributes={attributes}
         dragHandleListeners={listeners}
+        tone={tone}
       >
         {slot}
       </WidgetShell>
@@ -126,6 +130,15 @@ export default function WidgetBoard({
   const visibleWidgets = order
     .map((id) => widgets.find((w) => w.id === id))
     .filter((w): w is WidgetMeta => !!w && !hidden.has(w.id));
+
+  // PUX-145 (design doc screen 01): under the redesign the four number tiles
+  // "move to the bottom" — same widgets, same prefs, same drag/hide/collapse,
+  // just rendered after the cards in their own row. Off = one grid, as today.
+  const studio = useFeatureFlag('portal-redesign');
+  const isMetric = (w: WidgetMeta) => w.id.startsWith('metric-');
+  const cards = studio ? visibleWidgets.filter((w) => !isMetric(w)) : visibleWidgets;
+  const metrics = studio ? visibleWidgets.filter(isMetric) : [];
+  const toneFor = (w: WidgetMeta) => (studio && w.id.startsWith('brain-') ? 'gold' as const : undefined);
 
   async function persistPrefs(nextOrder: string[], nextHidden: Set<string>, nextCollapsed: Set<string>) {
     setSaving(true);
@@ -366,7 +379,7 @@ export default function WidgetBoard({
       <DndContext id="dashboard-widget-board" sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
         <SortableContext items={order} strategy={verticalListSortingStrategy}>
           <div className="grid lg:grid-cols-2 gap-4 items-start">
-            {visibleWidgets.map((w) => (
+            {cards.map((w) => (
               <SortableWidgetItem
                 key={w.id}
                 widget={w}
@@ -375,9 +388,25 @@ export default function WidgetBoard({
                 onRemove={(id) => handleToggleVisibility(id, false)}
                 isCustomizing={screenOptionsOpen}
                 slot={slots[w.id]}
+                tone={toneFor(w)}
               />
             ))}
           </div>
+          {metrics.length > 0 && (
+            <div className="mt-4 grid sm:grid-cols-2 lg:grid-cols-4 gap-4 items-start">
+              {metrics.map((w) => (
+                <SortableWidgetItem
+                  key={w.id}
+                  widget={w}
+                  collapsed={collapsed.has(w.id)}
+                  onToggleCollapse={handleToggleCollapse}
+                  onRemove={(id) => handleToggleVisibility(id, false)}
+                  isCustomizing={screenOptionsOpen}
+                  slot={slots[w.id]}
+                />
+              ))}
+            </div>
+          )}
         </SortableContext>
       </DndContext>
 
