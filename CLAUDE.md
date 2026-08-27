@@ -81,6 +81,19 @@ Two **query** tools sit alongside. Neither is a place you *write*:
 
 **Board of record: project 153, "SimplerDevelopment — Master Board"** (`kanban_list_board({projectId: 153, column: 'In Progress'})`). Every other SD board was consolidated into it on 2026-08-13 and archived — **project 150 (Visual Editor QA) is archived; do not file there.** New cards use `PUX-###`, continuing from the board's current max; migrated cards keep their original prefix (`VEQA-`, `QAD-`, `JUL9-`, `AUTH79-`, …). The Publishing board (155, `systemKind='publishing'`) stays separate by design.
 
+**153 is for THIS repo.** Work whose artifact lives in another repo belongs on that repo's board, not here:
+
+| repo | board |
+| --- | --- |
+| `~/src/bugcast` (github.com/SimplerDevelopment/bugcast) | **215 — bugcast** |
+| vanta migration | 194 |
+| cookoojobs | 195 |
+| peters outdoor | 201 |
+| leaseflow | 205 hardening · 209 E2E QA |
+| workfriends | 210 |
+
+The test is where the change lands, not what it is about. `PUX-107` (stamp the commit SHA onto the performance timeline so a bugcast recording knows its build) edits *this* repo and correctly stays on 153, even though it exists to serve bugcast. `PUX-089` (the `bugcast-follower` skill) likewise — it lives in this repo's `.claude/skills/`. Cards that edit the bugcast repo itself moved to 215 on 2026-08-26 and kept their `PUX-` numbers; new ones there use `BC-###`.
+
 No code work in this repo happens off-ledger. Concretely, every session:
 
 1. **Before writing code** — find or create the card. `kanban_list_board({projectId: 153, column: 'In Progress'})` first (it's a ~370-card board; **always pass `column` and/or `limit`** — unfiltered it is ~56k tokens and will be refused). No card for what you're about to do → `kanban_create_card` with the next `PUX-###`, prose description, and one `kanban_checklist_add` per verifiable step.
