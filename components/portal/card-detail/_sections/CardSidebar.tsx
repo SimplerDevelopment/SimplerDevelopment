@@ -29,9 +29,12 @@ interface Props {
   setConfirmDelete: (v: boolean) => void;
   deleting: boolean;
   removeCard: () => void;
+  /** PUX-153: rendered above the fields — the redesign puts Labels here so meta is one column */
+  top?: React.ReactNode;
 }
 
 export function CardSidebar({
+  top,
   card,
   canEdit,
   assignees,
@@ -52,6 +55,7 @@ export function CardSidebar({
   const assigneeCandidates = mentionUsers.filter(u => !assignees.some(a => a.id === u.id));
   return (
     <div className="w-full sm:w-52 shrink-0 border-t sm:border-t-0 sm:border-l border-border p-4 space-y-5 sm:overflow-y-auto bg-card">
+      {top}
       <CardWatchers watching={watching} toggleWatch={toggleWatch} />
 
       <div>
