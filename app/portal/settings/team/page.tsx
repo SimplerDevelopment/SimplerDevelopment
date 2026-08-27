@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { pBtnPrimary, pCard, pInput, pSelect } from '@/components/portal/portal-ui';
+import { ROLES } from '@/lib/portal/roles';
 
 interface Member {
   memberId: number;
@@ -21,11 +22,6 @@ interface InviteResult {
   tempPassword: string | null;
 }
 
-const ROLES = [
-  { value: 'admin', label: 'Admin', description: 'Can invite members, change roles, manage projects' },
-  { value: 'member', label: 'Member', description: 'Can view and collaborate on projects' },
-  { value: 'viewer', label: 'Viewer', description: 'Read-only access to projects and invoices' },
-] as const;
 
 const roleBadgeClass: Record<string, string> = {
   owner: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300',

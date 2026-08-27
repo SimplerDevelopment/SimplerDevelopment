@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { signIn } from 'next-auth/react';
 import {
@@ -13,10 +13,18 @@ import {
   authInput,
   authPrimaryBtn,
 } from '@/components/portal/AuthShell';
+import { roleInfo } from '@/lib/portal/roles';
+
+// PUX-149 (design doc screen 08): what the link is for, fetched before the
+// form. If the preview fails for any reason the page still works exactly as it
+// did — generic copy, and the accept route decides.
+interface InvitePreview { email: string; name: string | null; role: string; company: string; invitedBy: string | null }
 
 export default function AcceptInvitePage() {
   const { token } = useParams<{ token: string }>();
   const router = useRouter();
+  const [invite, setInvite] = useState<InvitePreview | null>(null);
+  const [name, setName] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -24,6 +32,21 @@ export default function AcceptInvitePage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
+
+  useEffect(() => {
+    if (!token) return;
+    const ctrl = new AbortController();
+    fetch(`/api/portal/invite/${encodeURIComponent(token)}`, { signal: ctrl.signal })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (!j?.data) return;
+        setInvite(j.data);
+        setName((n) => n || j.data.name || '');
+      })
+      .catch(() => {});
+    return () => ctrl.abort();
+  }, [token]);
+  const role = roleInfo(invite?.role);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,7 +67,7 @@ export default function AcceptInvitePage() {
       const res = await fetch('/api/portal/invite/accept', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, password }),
+        body: JSON.stringify({ token, password, name: name.trim() || undefined }),
       });
 
       const data = await res.json();
@@ -89,10 +112,17 @@ export default function AcceptInvitePage() {
   }
 
   return (
-    <AuthShell panelSubtitle="You've been invited to join a team portal — set your password to get started.">
+    <AuthShell panelSubtitle={invite ? `Join ${invite.company}${role ? ` as ${role.label}` : ''}.` : "You've been invited to join a team portal — set your password to get started."}>
       <div className={authEyebrow}>{"// You're invited"}</div>
-      <h1 className={authHeading}>Set your password.</h1>
-      <p className={authSubtext}>Create a password to access your team&apos;s portal.</p>
+      <h1 className={authHeading}>{invite ? `${invite.invitedBy ?? 'Someone'} invited you to ${invite.company}.` : 'Set your password.'}</h1>
+      {role ? (
+        <div className="mt-3 flex items-center gap-2.5 rounded-xl border border-border bg-muted/40 px-3 py-2.5 text-sm">
+          <span className="material-icons text-lg text-muted-foreground">badge</span>
+          <span><b className="font-semibold text-foreground">{role.label}</b><span className="block text-xs text-muted-foreground">{role.description}.</span></span>
+        </div>
+      ) : (
+        <p className={authSubtext}>Create a password to access your team&apos;s portal.</p>
+      )}
 
       <div className="mt-7">
         {error && (
@@ -104,6 +134,22 @@ export default function AcceptInvitePage() {
 
         <form method="post" onSubmit={handleSubmit} className="space-y-4">
           <div>
+            <label className={authLabel}>Your name</label>
+            <AuthField icon="person">
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="First and last name"
+                className={authInput}
+                autoFocus
+                maxLength={120}
+                autoComplete="name"
+              />
+            </AuthField>
+          </div>
+
+          <div>
             <label className={authLabel}>Password</label>
             <AuthField icon="lock_outline">
               <input
@@ -114,7 +160,6 @@ export default function AcceptInvitePage() {
                 className={`${authInput} pr-11`}
                 required
                 minLength={8}
-                autoFocus
                 autoComplete="new-password"
               />
               <button
@@ -162,7 +207,7 @@ export default function AcceptInvitePage() {
               </>
             ) : (
               <>
-                Set Password &amp; Sign In
+                {invite ? 'Join the team' : 'Set Password & Sign In'}
                 <span className="material-icons text-[19px] transition group-hover:translate-x-0.5">arrow_forward</span>
               </>
             )}
