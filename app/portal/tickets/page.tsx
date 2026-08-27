@@ -1,20 +1,32 @@
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { clients, supportTickets, users } from '@/lib/db/schema';
-import { eq, and, isNull, type SQL } from 'drizzle-orm';
+import { eq, and, inArray, isNull, count, type SQL } from 'drizzle-orm';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { ticketStatusColor, priorityColor } from '@/lib/portal';
 import TicketSlaBadge from '@/components/portal/TicketSlaBadge';
 import TicketIndexFilters from '@/components/portal/TicketIndexFilters';
 import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
-import { pBtnPrimary, pBtnGhost, pCard } from '@/components/portal/portal-ui';
+import { pBtnPrimary, pBtnGhost, pCard, sBtnGhost } from '@/components/portal/portal-ui';
+import { EmptyState } from '@/components/portal/EmptyState';
+import { hasFlag } from '@/lib/feature-flags';
+import { TURNS, categoryLabel, isTurn, statusesForTurn, turnLabel, whoseTurn, type Turn } from '@/lib/tickets/turn';
+
+// PUX-155 (design doc screen 14): the status pill says whose turn it is.
+const TURN_PILL: Record<Turn, string> = {
+  you: 'bg-[var(--portal-warn-bg)] text-[var(--portal-warn)]',
+  us: 'bg-accent text-accent-foreground',
+  done: 'bg-[var(--portal-ok-bg)] text-[var(--portal-ok)]',
+};
 
 interface SearchParams {
   status?: string | string[];
   priority?: string | string[];
   assignee?: string | string[];
   overdue?: string | string[];
+  /** PUX-155: the redesign's three tabs — you | us | done */
+  turn?: string | string[];
 }
 
 function single(value: string | string[] | undefined): string | undefined {
@@ -37,11 +49,16 @@ export default async function TicketsIndexPage({
 
   // ── Tenant scoping ──────────────────────────────────────────────────────
   let clientId: number | null = null;
+  let client: typeof clients.$inferSelect | null = null;
   if (!isStaff) {
-    const [client] = await db.select().from(clients).where(eq(clients.userId, userId)).limit(1);
+    [client] = await db.select().from(clients).where(eq(clients.userId, userId)).limit(1);
     if (!client) redirect('/portal/dashboard');
     clientId = client.id;
   }
+  // PUX-155: the redesign's list (tabs by whose turn, Category + SLA columns).
+  // Staff see every tenant and have no client row to flag → today's list.
+  const studio = client ? hasFlag(client, 'portal-redesign') : false;
+  const turn: Turn = studio && isTurn(single(params.turn)) ? (single(params.turn) as Turn) : 'you';
 
   // ── Filters ─────────────────────────────────────────────────────────────
   const filterStatus = single(params.status);
@@ -53,7 +70,8 @@ export default async function TicketsIndexPage({
   if (clientId !== null) conditions.push(eq(supportTickets.clientId, clientId));
   // The UI filter uses the short label 'waiting'; the schema column stores 'waiting_on_customer'.
   const resolvedStatus = filterStatus === 'waiting' ? 'waiting_on_customer' : filterStatus;
-  if (resolvedStatus && resolvedStatus !== 'all') conditions.push(eq(supportTickets.status, resolvedStatus));
+  if (studio) conditions.push(inArray(supportTickets.status, statusesForTurn(turn)));
+  else if (resolvedStatus && resolvedStatus !== 'all') conditions.push(eq(supportTickets.status, resolvedStatus));
   if (filterPriority && filterPriority !== 'all') conditions.push(eq(supportTickets.priority, filterPriority));
   if (filterAssignee === 'me') conditions.push(eq(supportTickets.assignedTo, userId));
   else if (filterAssignee === 'unassigned') conditions.push(isNull(supportTickets.assignedTo));
@@ -104,6 +122,13 @@ export default async function TicketsIndexPage({
   // Reverse-chrono — most recent first
   tickets = [...tickets].reverse();
 
+  // Tab counts (studio only): one grouped query, scoped like the list.
+  const turnCounts: Record<Turn, number> = { you: 0, us: 0, done: 0 };
+  if (studio && clientId !== null) {
+    const rows = await db.select({ status: supportTickets.status, n: count() }).from(supportTickets).where(eq(supportTickets.clientId, clientId)).groupBy(supportTickets.status);
+    for (const r of rows) turnCounts[whoseTurn(r.status)] += Number(r.n);
+  }
+
   return (
     <div className="space-y-6">
       <PortalPageHeader
@@ -118,6 +143,16 @@ export default async function TicketsIndexPage({
         }
       />
 
+      {studio ? (
+        <nav className="flex gap-1 border-b border-border" aria-label="Whose turn">
+          {TURNS.map((t) => (
+            <Link key={t.key} href={`/portal/tickets?turn=${t.key}`} aria-current={turn === t.key ? 'page' : undefined}
+              className={`-mb-px flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm ${turn === t.key ? 'border-primary font-semibold text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>
+              {t.label}{turnCounts[t.key] > 0 && <span className="font-mono text-[11px] text-muted-foreground">{turnCounts[t.key]}</span>}
+            </Link>
+          ))}
+        </nav>
+      ) : (
       <TicketIndexFilters
         isStaff={isStaff}
         initial={{
@@ -127,8 +162,17 @@ export default async function TicketsIndexPage({
           overdue: filterOverdue,
         }}
       />
+      )}
 
-      {tickets.length === 0 ? (
+      {tickets.length === 0 && studio ? (
+        <EmptyState
+          className={`${pCard} p-6`}
+          title={turn === 'you' ? 'Nothing is waiting on you.' : turn === 'us' ? 'Nothing is with us right now.' : 'No resolved tickets yet.'}
+          body="A ticket is a conversation with our team about your site, your store or your account. Open one and it lands here with whose turn it is and when you'll hear back."
+          cta={{ label: 'New ticket', icon: 'add', href: '/portal/tickets/new' }}
+          ghostLabel="Subject · Category · SLA"
+        />
+      ) : tickets.length === 0 ? (
         <div className={`${pCard} p-12 text-center`}>
           <span className="material-icons text-5xl text-muted-foreground">support_agent</span>
           <h3 className="mt-4 font-display font-extrabold tracking-[-0.01em] text-foreground">No tickets match these filters</h3>
@@ -151,6 +195,7 @@ export default async function TicketsIndexPage({
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">#</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Subject</th>
+                {studio && <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Category</th>}
                 {isStaff && (
                   <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Tenant</th>
                 )}
@@ -173,6 +218,7 @@ export default async function TicketsIndexPage({
                       {ticket.subject}
                     </Link>
                   </td>
+                  {studio && <td className="px-4 py-3 text-xs text-muted-foreground">{categoryLabel(ticket.category)}</td>}
                   {isStaff && (
                     <td className="px-4 py-3 text-xs text-muted-foreground">{ticket.clientCompany ?? '—'}</td>
                   )}
@@ -182,9 +228,13 @@ export default async function TicketsIndexPage({
                     </span>
                   </td>
                   <td className="px-4 py-3">
+                    {studio ? (
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${TURN_PILL[whoseTurn(ticket.status)]}`}>{turnLabel(ticket.status)}</span>
+                    ) : (
                     <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${ticketStatusColor(ticket.status)}`}>
                       {ticket.status.replace(/_/g, ' ')}
                     </span>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     <TicketSlaBadge
@@ -206,6 +256,17 @@ export default async function TicketsIndexPage({
             </tbody>
           </table>
           </div>
+        </div>
+      )}
+
+      {studio && (
+        <div className="flex items-center gap-3 rounded-2xl border border-border bg-card p-4">
+          <span className="material-icons text-muted-foreground">forum</span>
+          <div className="flex-1 text-sm">
+            <p className="font-medium text-foreground">Live chat is here too.</p>
+            <p className="text-xs text-muted-foreground">Real-time messages with our team live under Work, one step from your tickets.</p>
+          </div>
+          <Link href="/portal/inbox" className={sBtnGhost}>Open</Link>
         </div>
       )}
 
