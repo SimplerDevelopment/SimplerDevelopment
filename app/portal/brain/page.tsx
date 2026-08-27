@@ -22,7 +22,9 @@ import { BrainDashboardWidgetsServer } from '@/components/portal/brain-dashboard
 import { EnableBrainButton } from './EnableBrainButton';
 import { RelatedModulesStrip } from '@/components/portal/billing/RelatedModulesStrip';
 import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
-import { pBtnGhost } from '@/components/portal/portal-ui';
+import { pBtnGhost, sBtnGhost } from '@/components/portal/portal-ui';
+import { hasFlag } from '@/lib/feature-flags';
+import StudioBrainHome from '@/components/portal/brain-dashboard/StudioBrainHome';
 import DomainGetStarted from '@/components/portal/onboarding/DomainGetStarted';
 
 export default async function BrainDashboardPage() {
@@ -105,10 +107,14 @@ export default async function BrainDashboardPage() {
 
   const template = getIndustryTemplate(profile.industryTemplate ?? 'generic');
 
+  // PUX-158 (design doc screen 17): under the redesign the room opens on
+  // what the Brain is holding for you, not a grid of counters.
+  const studio = hasFlag(client, 'portal-redesign');
+
   return (
     <div className="max-w-5xl mx-auto py-8 space-y-6">
       <PortalPageHeader
-        eyebrow="Knowledge"
+        eyebrow={studio ? 'Brain' : 'Knowledge'}
         title={
           <span className="flex items-center gap-2">
             <span className="material-icons text-primary">psychology</span>
@@ -119,7 +125,7 @@ export default async function BrainDashboardPage() {
         actions={
           <Link
             href="/portal/brain/settings"
-            className={pBtnGhost}
+            className={studio ? sBtnGhost : pBtnGhost}
           >
             <span className="material-icons text-base">settings</span>
             Settings
@@ -129,7 +135,7 @@ export default async function BrainDashboardPage() {
 
       <DomainGetStarted domainKey="brain" />
 
-      <BrainDashboardWidgetsServer clientId={client.id} />
+      {studio ? <StudioBrainHome clientId={client.id} /> : <BrainDashboardWidgetsServer clientId={client.id} />}
       <RelatedModulesStrip currentDomain="brain" />
     </div>
   );
