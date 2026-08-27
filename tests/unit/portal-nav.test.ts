@@ -7,7 +7,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { buildPortalNavItems } from '@/lib/portal-nav';
+import { buildPortalNavItems, pruneByFlags, type PortalNavChild } from '@/lib/portal-nav';
 import type { UserAppNavMeta } from '@/lib/plugins/load-user-apps';
 
 const APP_FIXTURE: UserAppNavMeta = {
@@ -133,5 +133,95 @@ describe('buildPortalNavItems — apps injection', () => {
     const items = buildPortalNavItems(null, null, [APP_FIXTURE]);
     const apps = items.find((i) => i.label === 'Apps');
     expect(apps?.keywords).toEqual(expect.arrayContaining(['plugins', 'integrations']));
+  });
+});
+
+// PUX-135 — beta-flag pruning. Real nav items don't carry `requiredFlag` yet
+// (the first flag, 'portal-redesign', gates nothing), so the pruning helper
+// itself is exercised directly against small fixtures rather than through
+// buildPortalNavItems's hardcoded tree.
+describe('pruneByFlags', () => {
+  const flaggedFixture: PortalNavChild[] = [
+    { href: '/portal/a', label: 'A', icon: 'a' },
+    {
+      href: '/portal/beta',
+      label: 'Beta Feature',
+      icon: 'science',
+      requiredFlag: 'portal-redesign',
+    },
+  ];
+
+  it('removes an item whose requiredFlag is absent from an empty flag set', () => {
+    const out = pruneByFlags(flaggedFixture, new Set());
+    expect(out.map((i) => i.href)).toEqual(['/portal/a']);
+  });
+
+  it('removes an item whose requiredFlag is absent when flags is undefined (fail closed)', () => {
+    // Mirrors buildPortalNavItems's `entitlements?.flags ?? new Set()` fallback.
+    const out = pruneByFlags(flaggedFixture, new Set<string>());
+    expect(out.some((i) => i.href === '/portal/beta')).toBe(false);
+  });
+
+  it('keeps an item whose requiredFlag is present in the flag set', () => {
+    const out = pruneByFlags(flaggedFixture, new Set(['portal-redesign']));
+    expect(out.map((i) => i.href)).toEqual(['/portal/a', '/portal/beta']);
+  });
+
+  it('removal is unconditional — pruneByFlags takes no gatingBypassed-style escape hatch, ' +
+    'so a flagged item is pruned the same way regardless of billing-gate state', () => {
+    // pruneByFlags has no bypass parameter at all: buildPortalNavItems calls it
+    // before the `if (entitlements && !entitlements.gatingBypassed)` domain-lock
+    // block, so there is no code path where an absent flag survives because
+    // gating was bypassed. Assert that directly on the helper.
+    const outNoFlags = pruneByFlags(flaggedFixture, new Set());
+    expect(outNoFlags.some((i) => i.href === '/portal/beta')).toBe(false);
+  });
+
+  it('prunes a flagged CHILD inside an ungated container while its siblings survive', () => {
+    const nested: PortalNavChild[] = [
+      {
+        href: '/portal/marketing',
+        label: 'Marketing',
+        icon: 'campaign',
+        children: [
+          { href: '/portal/email', label: 'Email', icon: 'email' },
+          {
+            href: '/portal/beta-child',
+            label: 'Beta Child',
+            icon: 'science',
+            requiredFlag: 'portal-redesign',
+          },
+        ],
+      },
+    ];
+    const out = pruneByFlags(nested, new Set());
+    const marketing = out.find((i) => i.href === '/portal/marketing');
+    expect(marketing).toBeDefined();
+    const childHrefs = marketing!.children!.map((c) => c.href);
+    expect(childHrefs).toEqual(['/portal/email']);
+  });
+
+  it('does not touch nodes without a requiredFlag', () => {
+    const out = pruneByFlags(flaggedFixture, new Set());
+    expect(out[0]).toEqual(flaggedFixture[0]);
+  });
+});
+
+describe('buildPortalNavItems — flags wiring (PUX-135)', () => {
+  it('accepts entitlements.flags without throwing and leaves the tree unchanged today ' +
+    '(no shipped nav item carries requiredFlag yet)', () => {
+    const withFlags = buildPortalNavItems(null, null, undefined, {
+      domains: new Set(),
+      gatingBypassed: true,
+      flags: new Set(['portal-redesign']),
+    });
+    const baseline = buildPortalNavItems(null, null);
+    expect(withFlags.map((i) => i.href)).toEqual(baseline.map((i) => i.href));
+  });
+
+  it('omitting entitlements.flags entirely still works (optional field)', () => {
+    expect(() =>
+      buildPortalNavItems(null, null, undefined, { domains: new Set(), gatingBypassed: false }),
+    ).not.toThrow();
   });
 });

@@ -179,7 +179,7 @@ export default function CmdKPalette({ apps, entitlements, open: controlledOpen, 
   const entitlementSet = useMemo(
     () =>
       entitlements
-        ? { domains: new Set(entitlements.domains), gatingBypassed: entitlements.gatingBypassed }
+        ? { domains: new Set(entitlements.domains), gatingBypassed: entitlements.gatingBypassed, flags: new Set(entitlements.flags) }
         : undefined,
     [entitlements],
   );

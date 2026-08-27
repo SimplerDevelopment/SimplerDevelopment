@@ -19,6 +19,8 @@ import { revalidatePath } from 'next/cache';
 import { hasServiceAccess } from '@/lib/portal-auth';
 import type { PortalMcpContext } from '@/lib/mcp-auth';
 import { hasScope } from '@/lib/mcp-auth';
+import type { FlagKey } from '@/lib/feature-flags';
+import { hasFlag } from '@/lib/feature-flags';
 import { serializePostContent } from './serialize-post-content';
 
 // Re-exported so existing `from '../types'` importers keep working.
@@ -107,6 +109,19 @@ export function dbErrorEnvelope(err: unknown, tool: string): ToolEnvelope {
 
 export function requireScope(ctx: PortalMcpContext, scope: string): boolean {
   return hasScope(ctx.scopes, scope);
+}
+
+/** Sync beta gate for MCP tools — ctx.client is the full clients row. Pair with flagDenied(). */
+export function requireFlag(ctx: PortalMcpContext, key: FlagKey): boolean {
+  return hasFlag(ctx.client, key);
+}
+
+/** MCP envelope twin of authorizePortal({ requireFlag })'s 403. */
+export function flagDenied(key: FlagKey): ToolEnvelope {
+  return {
+    content: [{ type: 'text' as const, text: `This feature is not enabled for the authenticated client (flag: ${key}).` }],
+    isError: true,
+  };
 }
 
 /**

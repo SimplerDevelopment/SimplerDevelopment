@@ -1,6 +1,6 @@
 // Per-tenant clients, services, hosted websites, and infrastructure metadata.
 
-import { pgTable, serial, varchar, text, timestamp, boolean, integer, json, uniqueIndex, index } from 'drizzle-orm/pg-core';
+import { pgTable, serial, varchar, text, timestamp, boolean, integer, json, jsonb, uniqueIndex, index } from 'drizzle-orm/pg-core';
 import { encryptedText } from './columns';
 import { users } from './auth';
 import { SurveyField } from './cms';
@@ -72,6 +72,15 @@ export const clients = pgTable('clients', {
   // AI assistant (web + streaming chat) are staged for human approval instead of
   // executing directly. Default off (non-breaking). Benign edits always pass.
   aiChatRequiresApproval: boolean('ai_chat_requires_approval').default(false).notNull(),
+  // PUX-135 — per-client beta gates. Which flags EXIST is code
+  // (lib/feature-flags.ts); which clients HAVE them is this column. jsonb (not
+  // json) so the admin matrix can ask `feature_flags ? 'key'`. Unknown keys
+  // (a flag deleted from the registry) are ignored by hasFlag(). Read by
+  // hasFlag() from the already-loaded row — never a separate query.
+  // Migration: drizzle/9026_client_feature_flags_manual.sql — apply to metro
+  // BY HAND before merging: authorizePortal's bare db.select() on this table
+  // 500s every portal route if the column is missing in prod.
+  featureFlags: jsonb('feature_flags').$type<string[]>().default([]).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });

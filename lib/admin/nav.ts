@@ -110,6 +110,7 @@ export function getNavSections(): NavSection[] {
       items: [
         { href: '/admin/portal-invoices', label: 'Invoices', icon: 'receipt_long' },
         { href: '/admin/subscriptions', label: 'Subscriptions', icon: 'loyalty' },
+        { href: '/admin/feature-flags', label: 'Feature flags', icon: 'flag' },
         { href: '/admin/ai-credits', label: 'AI Credits', icon: 'token' },
         {
           href: '/admin/portal-services',

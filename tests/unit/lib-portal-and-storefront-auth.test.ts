@@ -314,6 +314,17 @@ describe('lib/portal-auth.ts', () => {
     expect(isAuthError(result)).toBe(false);
   });
 
+  // -------- authorizePortal: requireFlag gate (PUX-135) --------
+  it('denies with 403 feature_not_enabled when the client lacks the required flag', async () => {
+    authMock.mockResolvedValue({ user: { id: '7' } });
+    getPortalClientMock.mockResolvedValue({ id: 99, userId: 7, featureFlags: [] }); // owner, no flags
+
+    const result: any = await authorizePortal({ action: 'read', requireFlag: 'portal-redesign' });
+    expect(result.response.status).toBe(403);
+    expect(result.response._body.error).toBe('feature_not_enabled');
+    expect(result.response._body.flag).toBe('portal-redesign');
+  });
+
   // -------- hasServiceAccess (direct export) --------
   it('hasServiceAccess returns true on exact category match', async () => {
     dbQueue.push([{ category: 'crm' }, { category: 'analytics' }]);
