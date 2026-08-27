@@ -23,13 +23,15 @@ import { priorityColor, stripMarkdown } from '@/lib/portal-utils';
 import CardDetailModal from './CardDetailModal';
 import { useBoardLiveRefresh } from './useBoardLiveRefresh';
 import { CARD_TYPE_META } from './card-detail/_lib/agile';
+import BoardFilters from './board/BoardFilters';
+import { useFeatureFlag } from './FeatureFlagsProvider';
 
 interface CardAttachment {
   url: string;
   mimeType: string;
 }
 
-interface CardLabel {
+export interface CardLabel {
   id: number;
   name: string;
   color: string;
@@ -73,7 +75,7 @@ interface Column {
   cards: Card[];
 }
 
-interface SprintOption {
+export interface SprintOption {
   id: number;
   name: string;
   status: string;
@@ -479,6 +481,7 @@ export default function KanbanBoard({ projectId, initialColumns, isStaff, canEdi
 
   // Another user's move, or an MCP agent's — see useBoardLiveRefresh.
   useBoardLiveRefresh({ projectId, initialColumns, setColumns, isDragging: activeCard !== null });
+  const studio = useFeatureFlag('portal-redesign'); // PUX-152: one-row filters
   const [filterSprintId, setFilterSprintId] = useState<number | 'backlog' | null>(null);
   const [filterSearch, setFilterSearch] = useState('');
   const [filterPriority, setFilterPriority] = useState<Set<string>>(new Set());
@@ -512,13 +515,6 @@ export default function KanbanBoard({ projectId, initialColumns, isStaff, canEdi
     + filterLabels.size
     + (filterSprintId !== null ? 1 : 0);
 
-  function toggleSetValue<T>(setter: React.Dispatch<React.SetStateAction<Set<T>>>, value: T) {
-    setter(prev => {
-      const next = new Set(prev);
-      if (next.has(value)) next.delete(value); else next.add(value);
-      return next;
-    });
-  }
   function clearFilters() {
     setFilterSearch(''); setFilterPriority(new Set()); setFilterAssignees(new Set());
     setFilterLabels(new Set()); setFilterSprintId(null);
@@ -920,81 +916,15 @@ export default function KanbanBoard({ projectId, initialColumns, isStaff, canEdi
 
   return (
     <>
-      <div className="space-y-2 mb-3">
-        <div className="flex items-center gap-2 flex-wrap">
-          <div className="relative flex-1 min-w-[200px] max-w-sm">
-            <span className="material-icons text-sm text-muted-foreground absolute left-2.5 top-1/2 -translate-y-1/2">search</span>
-            <input
-              type="text"
-              value={filterSearch}
-              onChange={e => setFilterSearch(e.target.value)}
-              placeholder="Filter cards…"
-              className="w-full pl-8 pr-3 py-1.5 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-            />
-          </div>
-          {(['low','medium','high','urgent']).map(p => (
-            <button
-              key={p}
-              onClick={() => toggleSetValue(setFilterPriority, p)}
-              className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${filterPriority.has(p) ? 'bg-primary text-primary-foreground border-primary' : 'border-border text-muted-foreground hover:text-foreground'}`}
-            >
-              {p}
-            </button>
-          ))}
-          {activeFilterCount > 0 && (
-            <button onClick={clearFilters} className="text-xs px-2.5 py-1 rounded-full text-muted-foreground hover:text-destructive ml-auto">
-              Clear filters ({activeFilterCount})
-            </button>
-          )}
-        </div>
-        {(sprints.length > 0 || allAssignees.length > 0 || allLabels.length > 0) && (
-          <div className="flex items-center gap-3 flex-wrap text-xs">
-            {sprints.length > 0 && (
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="text-muted-foreground">Sprint:</span>
-                <button onClick={() => setFilterSprintId(null)}
-                  className={`px-2 py-0.5 rounded-full border ${filterSprintId === null ? 'bg-primary text-primary-foreground border-primary' : 'border-border text-muted-foreground hover:text-foreground'}`}>All</button>
-                {sprints.map(s => (
-                  <button key={s.id} onClick={() => setFilterSprintId(s.id)}
-                    className={`px-2 py-0.5 rounded-full border ${filterSprintId === s.id ? 'bg-primary text-primary-foreground border-primary' : 'border-border text-muted-foreground hover:text-foreground'}`}>{s.name}</button>
-                ))}
-                <button onClick={() => setFilterSprintId('backlog')}
-                  className={`px-2 py-0.5 rounded-full border ${filterSprintId === 'backlog' ? 'bg-primary text-primary-foreground border-primary' : 'border-border text-muted-foreground hover:text-foreground'}`}>Backlog</button>
-              </div>
-            )}
-            {allAssignees.length > 0 && (
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="text-muted-foreground">Assignee:</span>
-                {allAssignees.map(a => (
-                  <button key={a.id} onClick={() => toggleSetValue(setFilterAssignees, a.id)}
-                    className={`px-2 py-0.5 rounded-full border ${filterAssignees.has(a.id) ? 'bg-primary text-primary-foreground border-primary' : 'border-border text-muted-foreground hover:text-foreground'}`}>
-                    {a.name}
-                  </button>
-                ))}
-              </div>
-            )}
-            {allLabels.length > 0 && (
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="text-muted-foreground">Label:</span>
-                {allLabels.map(l => {
-                  const on = filterLabels.has(l.id);
-                  return (
-                    <button key={l.id} onClick={() => toggleSetValue(setFilterLabels, l.id)}
-                      className="px-2 py-0.5 rounded-full border transition-colors"
-                      style={{
-                        backgroundColor: on ? l.color : 'transparent',
-                        color: on ? '#fff' : l.color,
-                        borderColor: l.color,
-                      }}>
-                      {l.name}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
+      <BoardFilters
+        studio={studio}
+        search={filterSearch} onSearch={setFilterSearch}
+        priority={filterPriority} setPriority={setFilterPriority}
+        sprints={sprints} sprintId={filterSprintId} onSprint={setFilterSprintId}
+        assignees={allAssignees} assigneeIds={filterAssignees} setAssignees={setFilterAssignees}
+        labels={allLabels} labelIds={filterLabels} setLabels={setFilterLabels}
+        activeCount={activeFilterCount} onClear={clearFilters}
+      />
       <DndContext id="kanban-board"
         sensors={sensors}
         collisionDetection={collisionDetection}
