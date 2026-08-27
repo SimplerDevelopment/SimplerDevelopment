@@ -3,18 +3,32 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { supportTickets, ticketMessages } from '@/lib/db/schema';
 import { getPortalClient } from '@/lib/portal-client';
-import { eq, max } from 'drizzle-orm';
+import { and, desc, eq, ilike, max, or } from 'drizzle-orm';
 import { emitEvent } from '@/lib/automation';
 import { computeSlaDeadlines } from '@/lib/tickets/sla';
 import { revalidateAdminDashboard } from '@/lib/admin/dashboard-cache';
 
-export async function GET() {
+export async function GET(req?: Request) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
 
   const userId = parseInt(session.user.id, 10);
   const client = await getPortalClient(userId);
   if (!client) return NextResponse.json({ success: false, message: 'Client not found' }, { status: 404 });
+
+  // PUX-147: `?q=` makes this the ⌘K ticket index — subject substring or an
+  // exact ticket number ("482" / "#482"), newest activity first, capped.
+  // Without `q` the response is exactly what it always was.
+  const params = req ? new URL(req.url).searchParams : null;
+  const q = params?.get('q')?.trim();
+  if (q) {
+    const limit = Math.min(50, Math.max(1, Number(params?.get('limit')) || 10));
+    const num = /^#?\d+$/.test(q) ? Number(q.replace('#', '')) : null;
+    const data = await db.select().from(supportTickets)
+      .where(and(eq(supportTickets.clientId, client.id), or(ilike(supportTickets.subject, `%${q}%`), num === null ? undefined : eq(supportTickets.number, num))))
+      .orderBy(desc(supportTickets.updatedAt)).limit(limit);
+    return NextResponse.json({ success: true, data });
+  }
 
   const data = await db.select().from(supportTickets).where(eq(supportTickets.clientId, client.id)).orderBy(supportTickets.createdAt);
   return NextResponse.json({ success: true, data });
