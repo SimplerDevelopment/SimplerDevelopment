@@ -21,12 +21,15 @@ import { auth } from '@/lib/auth';
 import { getPortalClient } from '@/lib/portal-client';
 import { loadUserApps, type UserAppNavMeta } from '@/lib/plugins/load-user-apps';
 import { getClientEntitlements } from '@/lib/billing/entitlements';
+import { activeFlags } from '@/lib/feature-flags';
 import PortalLayoutClient from './PortalLayoutClient';
 
 /** Serializable entitlements passed across the server→client boundary. */
 export interface SerializableEntitlements {
   domains: string[];
   gatingBypassed: boolean;
+  /** Beta flags on for the active client (lib/feature-flags.ts). Nav items with `requiredFlag` are removed — not locked — when absent. */
+  flags: string[];
 }
 
 // The Apps group in the sidebar must reflect the CURRENT active client. The
@@ -43,7 +46,7 @@ export default async function PortalShell({ children }: { children: React.ReactN
   // render as dynamic even if a future refactor drops the auth() call.
   await cookies();
   let apps: UserAppNavMeta[] = [];
-  let entitlements: SerializableEntitlements = { domains: [], gatingBypassed: true };
+  let entitlements: SerializableEntitlements = { domains: [], gatingBypassed: true, flags: [] };
 
   try {
     const session = await auth();
@@ -58,6 +61,7 @@ export default async function PortalShell({ children }: { children: React.ReactN
           entitlements = {
             domains: [...ent.domains],
             gatingBypassed: ent.gatingBypassed,
+            flags: activeFlags(client),
           };
         }
       }
@@ -68,7 +72,7 @@ export default async function PortalShell({ children }: { children: React.ReactN
     // access to every feature — it is safer to hide nav items than to expose
     // ungated UI to a client who may not be entitled.
     apps = [];
-    entitlements = { domains: [], gatingBypassed: false };
+    entitlements = { domains: [], gatingBypassed: false, flags: [] };
   }
 
   return <PortalLayoutClient apps={apps} entitlements={entitlements}>{children}</PortalLayoutClient>;

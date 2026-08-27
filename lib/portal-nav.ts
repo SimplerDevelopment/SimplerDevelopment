@@ -4,6 +4,7 @@
 // searchable list of jumpable targets.
 
 import type { UserAppNavMeta } from '@/lib/plugins/load-user-apps';
+import type { FlagKey } from '@/lib/feature-flags';
 
 export interface PortalNavChild {
   href: string;
@@ -17,6 +18,12 @@ export interface PortalNavChild {
   children?: PortalNavChild[];
   /** Billing domain key that gates this item (matches FEATURE_DOMAINS[n].key). */
   requiredDomain?: string;
+  /**
+   * Beta gate (PUX-135). Unlike requiredDomain, an item whose flag is absent
+   * is REMOVED, not locked — a beta shouldn't advertise itself with a lock
+   * icon. Applies even when billing gating is bypassed (agency mode).
+   */
+  requiredFlag?: FlagKey;
   /** Set by buildPortalNavItems when the client is not entitled to this domain. */
   locked?: boolean;
   /** Render a section divider above this item (separates product nav from the
@@ -26,6 +33,27 @@ export interface PortalNavChild {
 
 export interface PortalNavItem extends PortalNavChild {
   children?: PortalNavChild[];
+}
+
+/**
+ * Recursively remove any node (and its subtree) whose `requiredFlag` is not
+ * present in `flags`. Unlike the domain-lock pass, this is a removal, not a
+ * `locked: true` annotation — a beta shouldn't advertise itself with a lock
+ * icon, so an ungated flag makes the item disappear entirely. Siblings and
+ * ancestors without a `requiredFlag` are left untouched; only the flagged
+ * subtree is pruned.
+ */
+export function pruneByFlags<T extends PortalNavChild>(nodes: T[], flags: Set<string>): T[] {
+  const out: T[] = [];
+  for (const node of nodes) {
+    if (node.requiredFlag && !flags.has(node.requiredFlag)) continue;
+    out.push(
+      node.children
+        ? { ...node, children: pruneByFlags(node.children, flags) }
+        : node,
+    );
+  }
+  return out;
 }
 
 /**
@@ -50,12 +78,18 @@ export interface PortalNavItem extends PortalNavChild {
  * When provided and `gatingBypassed` is false, any item whose `requiredDomain`
  * is not in `domains` gets `locked: true` (children inherit the lock). When
  * omitted or bypassed, all items are rendered as today.
+ *
+ * `entitlements.flags` gates items by `requiredFlag` (PUX-135) — a separate,
+ * always-on pass: any item whose flag is not in the set is PRUNED (removed
+ * from the tree entirely, not locked), regardless of `gatingBypassed`. When
+ * `entitlements` is omitted, or `flags` is omitted, flagged items are hidden
+ * (fail closed).
  */
 export function buildPortalNavItems(
   activeSiteId: string | null,
   activeSiteName: string | null,
   apps?: UserAppNavMeta[],
-  entitlements?: { domains: Set<string>; gatingBypassed: boolean },
+  entitlements?: { domains: Set<string>; gatingBypassed: boolean; flags?: Set<string> },
 ): PortalNavItem[] {
   const items: PortalNavItem[] = [
     { href: '/portal/dashboard', label: 'Dashboard', icon: 'dashboard', keywords: ['home', 'overview'] },
@@ -327,6 +361,15 @@ export function buildPortalNavItems(
       items.push(appsGroup);
     }
   }
+
+  // Beta-flag pruning (PUX-135) — runs REGARDLESS of gatingBypassed, and
+  // before the domain-lock pass below. A flagged item is removed outright, so
+  // there is nothing left for the lock pass to touch even if the two ever
+  // gate the same node.
+  const flags = entitlements?.flags ?? new Set<string>();
+  const pruned = pruneByFlags<PortalNavItem>(items, flags);
+  items.length = 0;
+  items.push(...pruned);
 
   // Apply entitlement gating: when entitlements are provided and gating is
   // active, mark items and their children as locked when the required domain

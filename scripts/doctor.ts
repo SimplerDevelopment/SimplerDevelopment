@@ -8,10 +8,12 @@
 //   3. docker compose db/app container state (skipped fast if docker absent),
 //      plus port-55432 occupancy and DATABASE_URL staleness (JUL9-013)
 //   4. agent-worktree count vs the fan-out cap (3)
+//   5. feature-flag staleness (PUX-135) — flags past STALE_AFTER_DAYS or left defaultOn
 
 import { readFileSync, existsSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 import { join } from 'node:path';
+import { staleFlags } from '@/lib/feature-flags';
 
 const ROOT = join(import.meta.dir, '..');
 const warnings: string[] = [];
@@ -140,8 +142,13 @@ try {
   /* not a git repo — ignore */
 }
 
+// 5. Feature flag staleness (PUX-135)
+for (const { key, reason } of staleFlags()) {
+  warnings.push(`feature flag '${key}' ${reason} (lib/feature-flags.ts)`);
+}
+
 if (warnings.length === 0) {
-  console.log('doctor: environment coherent — local DB, port 3000, fan-out within cap.');
+  console.log('doctor: environment coherent — local DB, port 3000, fan-out within cap, no stale feature flags.');
 } else {
   for (const w of warnings) console.log(`⚠ doctor: ${w}`);
 }

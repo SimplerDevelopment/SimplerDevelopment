@@ -5,6 +5,7 @@ import { eq, and } from 'drizzle-orm';
 import { getPortalClient, resolveClientSite, resolvePortalSite, getPortalRole } from '@/lib/portal-client';
 import { resolvePortalFromCurrentRequest, hasScope } from '@/lib/mcp-auth';
 import { requiredScopeFor } from '@/lib/oauth/required-scope';
+import { FlagKey, hasFlag } from '@/lib/feature-flags';
 import { NextResponse } from 'next/server';
 
 // OAuth scope enforcement (AUTH79-011): bearer tokens (sd_oauth_/sd_mcp_) carry
@@ -101,12 +102,16 @@ function roleGate(
  * @param opts.observeRole - Log-only role enforcement (AUTH79-020 rollout): when
  *   true, an insufficient role is logged but allowed until AUTH_ROLE_ENFORCE=1.
  *   Set on newly-guarded routes; omit on routes that already enforced roles.
+ * @param opts.requireFlag - Per-client beta gate (lib/feature-flags.ts). `client`
+ *   is already the full clients row here, so this is a sync check with no
+ *   extra query. Denied with a 403 `feature_not_enabled` envelope.
  */
 export async function authorizePortal(opts?: {
   action?: PortalAction;
   requireService?: string;
   scope?: string;
   observeRole?: boolean;
+  requireFlag?: FlagKey;
 }): Promise<AuthorizeResult | AuthorizeError> {
   // ── Bearer-token path (mobile / API clients) ────────────────────────────
   // The mobile client sends `Authorization: Bearer sd_mcp_…` after a
@@ -171,6 +176,21 @@ export async function authorizePortal(opts?: {
   });
   if (gate) return gate;
 
+  // Per-client beta gate (PUX-135) — sync, `client` is already the full row.
+  if (opts?.requireFlag && !hasFlag(client, opts.requireFlag)) {
+    return {
+      response: NextResponse.json(
+        {
+          success: false,
+          error: 'feature_not_enabled',
+          message: 'This feature is not enabled for your account.',
+          flag: opts.requireFlag,
+        },
+        { status: 403 },
+      ),
+    };
+  }
+
   // Check service subscription
   if (opts?.requireService) {
     const hasAccess = await hasServiceAccess(client.id, opts.requireService);
@@ -208,11 +228,14 @@ interface AuthorizeSiteResult {
  * AND gates the caller's role (new — AUTH79-020). Session-only: these routes don't
  * accept bearer tokens. Role enforcement defaults to LOG-ONLY (observeRole) since
  * every caller is a newly-guarded route — flip AUTH_ROLE_ENFORCE=1 to enforce.
+ * `requireFlag` (PUX-135) is a sync check against the owning client's row,
+ * which `resolvePortalSite` already loads — no extra query.
  */
 export async function authorizePortalSite(opts: {
   siteId: number;
   action?: PortalAction;
   observeRole?: boolean;
+  requireFlag?: FlagKey;
 }): Promise<AuthorizeSiteResult | AuthorizeError> {
   const session = await auth();
   if (!session?.user?.id) {
@@ -239,6 +262,21 @@ export async function authorizePortalSite(opts: {
     userId,
   });
   if (gate) return gate;
+
+  // Per-client beta gate (PUX-135) — `client` is already the full row.
+  if (opts.requireFlag && !hasFlag(client, opts.requireFlag)) {
+    return {
+      response: NextResponse.json(
+        {
+          success: false,
+          error: 'feature_not_enabled',
+          message: 'This feature is not enabled for your account.',
+          flag: opts.requireFlag,
+        },
+        { status: 403 },
+      ),
+    };
+  }
 
   return { site, userId, role };
 }

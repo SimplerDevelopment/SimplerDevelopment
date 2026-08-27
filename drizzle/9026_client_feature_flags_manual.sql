@@ -1,0 +1,32 @@
+-- PUX-135: per-client feature flags (beta gates).
+--
+-- Why a jsonb column on clients and not a table: every gated surface
+-- (authorizePortal, PortalShell, PortalMcpContext.client, the site resolver)
+-- already loads the full clients row for the request, so hasFlag() is a sync
+-- array lookup on a column that's already in hand — zero extra queries, same
+-- reasoning as clientWebsites.cdnCacheEnabled. A join table would cost a query
+-- on every gated route/tool/page for a value that's read far more often than
+-- it's written (staff flip it a handful of times per flag lifecycle).
+--
+-- Why not billing entitlements: those are PAID gating
+-- (lib/billing/entitlements or similar), and billingMode='agency' bypasses
+-- them entirely — an agency-mode client would see every beta the moment it
+-- shipped. Feature flags are a separate axis: staff-controlled beta rollout,
+-- orthogonal to what a client has paid for.
+--
+-- WHICH flags exist is code (lib/feature-flags.ts FLAGS registry); WHICH
+-- clients have a flag is this column (jsonb string[] of flag keys). Unknown
+-- keys (a flag since deleted from the registry) are ignored by hasFlag().
+--
+-- Prod schema sync is gated on a PROD_DATABASE_URL secret that is NOT set —
+-- apply to metro BY HAND at merge:
+--   psql "$METRO" -v ON_ERROR_STOP=1 -f drizzle/9026_client_feature_flags_manual.sql
+-- Re-runnable via IF NOT EXISTS.
+--
+-- ⚠️ Outage warning: authorizePortal's bare db.select() on clients enumerates
+-- every column in the schema. If this column is missing in prod while the
+-- code reads it, EVERY portal route 500s (same failure mode as the
+-- 2026-07-11 oauth_access_tokens outage — see CLAUDE.md). Do not merge this
+-- branch to main without applying this migration to metro first.
+
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS feature_flags jsonb NOT NULL DEFAULT '[]'::jsonb;

@@ -210,7 +210,7 @@ export default function PortalSidebar({
   // Reconstruct Set<string> from the serializable prop so buildPortalNavItems
   // can do a fast O(1) domain lookup. Recomputed only when the prop changes.
   const entitlementSet = entitlements
-    ? { domains: new Set(entitlements.domains), gatingBypassed: entitlements.gatingBypassed }
+    ? { domains: new Set(entitlements.domains), gatingBypassed: entitlements.gatingBypassed, flags: new Set(entitlements.flags) }
     : undefined;
 
   // Accordion auto-expand: on route change, expand only the active chain
