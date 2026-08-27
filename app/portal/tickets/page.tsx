@@ -11,14 +11,7 @@ import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
 import { pBtnPrimary, pBtnGhost, pCard, sBtnGhost } from '@/components/portal/portal-ui';
 import { EmptyState } from '@/components/portal/EmptyState';
 import { hasFlag } from '@/lib/feature-flags';
-import { TURNS, categoryLabel, isTurn, statusesForTurn, turnLabel, whoseTurn, type Turn } from '@/lib/tickets/turn';
-
-// PUX-155 (design doc screen 14): the status pill says whose turn it is.
-const TURN_PILL: Record<Turn, string> = {
-  you: 'bg-[var(--portal-warn-bg)] text-[var(--portal-warn)]',
-  us: 'bg-accent text-accent-foreground',
-  done: 'bg-[var(--portal-ok-bg)] text-[var(--portal-ok)]',
-};
+import { TURNS, categoryLabel, isTurn, statusesForTurn, turnLabel, turnPillClass, whoseTurn, type Turn } from '@/lib/tickets/turn';
 
 interface SearchParams {
   status?: string | string[];
@@ -229,7 +222,7 @@ export default async function TicketsIndexPage({
                   </td>
                   <td className="px-4 py-3">
                     {studio ? (
-                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${TURN_PILL[whoseTurn(ticket.status)]}`}>{turnLabel(ticket.status)}</span>
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${turnPillClass(whoseTurn(ticket.status))}`}>{turnLabel(ticket.status)}</span>
                     ) : (
                     <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${ticketStatusColor(ticket.status)}`}>
                       {ticket.status.replace(/_/g, ' ')}
