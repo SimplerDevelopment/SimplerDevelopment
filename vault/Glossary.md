@@ -95,6 +95,9 @@ A billing concept that gates access to a platform module or feature. Tenants sub
 
 ## F
 
+### Feature Flag
+A per-client beta gate (PUX-135). Which flags *exist* is code — the `FLAGS` registry in `lib/feature-flags.ts` (`since`, `defaultOn`); which clients *have* one is data — `clients.feature_flags` (jsonb `string[]`), toggled at `/admin/feature-flags`. Client-scoped only, checked synchronously from the already-loaded client row (`hasFlag`), denied with 403 `feature_not_enabled` on APIs/MCP and `notFound()` on pages. Distinct from an **Entitlement**, which is paid gating that agency-mode clients bypass. `scripts/doctor.ts` nags when a flag is older than 60 days or already GA. See `ADR feature-flags-per-client-column`.
+
 ### First meaningful touch
 Our attribution rule, and deliberately *not* the same as first touch. A visit with no campaign and no external referrer records **nothing**, leaving the attribution slot open, so a campaign click days later is still the one that gets credited. Strict first-touch would stamp "direct" on someone's first anonymous visit and permanently discard the only signal worth money. The accepted cost: someone who bookmarks the site, returns via an ad, and converts is credited to the ad. See `lib/attribution.ts` and `04 - Decisions/ADR first-meaningful-touch-attribution.md`.
 
