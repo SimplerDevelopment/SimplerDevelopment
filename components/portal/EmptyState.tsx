@@ -44,12 +44,13 @@ function CtaButton({ cta }: { cta: Cta }) {
 }
 
 /** Striped dashed placeholder with a mono tag — the document's `.s-ghost`. */
-export function Ghost({ label, className = '' }: { label: string; className?: string }) {
+export function Ghost({ label, className = '', children }: { label: string; className?: string; children?: ReactNode }) {
   return (
     <div
       className={`relative min-h-24 rounded-[10px] border border-dashed border-[var(--studio-line-strong)] bg-[repeating-linear-gradient(0deg,transparent_0_13px,var(--border)_13px_14px)] p-2.5 ${className}`}
       aria-hidden
     >
+      {children}
       <span className="absolute bottom-2 right-2 rounded border border-border bg-card px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
         {label}
       </span>

@@ -5,6 +5,8 @@ import { surveys } from '@/lib/db/schema';
 import { eq, desc } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
 import { hasServiceAccess } from '@/lib/portal-auth';
+import { hasFlag } from '@/lib/feature-flags';
+import LockedRoom from '@/components/portal/LockedRoom';
 import Link from 'next/link';
 import { RelatedModulesStrip } from '@/components/portal/billing/RelatedModulesStrip';
 import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
@@ -26,7 +28,13 @@ export default async function SurveysListPage() {
   if (!client) redirect('/portal/dashboard');
 
   const entitled = await hasServiceAccess(client.id, 'surveys');
-  if (!entitled) redirect('/portal/services');
+  if (!entitled) {
+    // PUX-146 (design doc screen 06): under the redesign the room sells itself
+    // where it would live, instead of bouncing to the catalog. Flag off = the
+    // redirect, as before.
+    if (hasFlag(client, 'portal-redesign')) return <LockedRoom domainKey="surveys" clientId={client.id} />;
+    redirect('/portal/services');
+  }
 
   const list = await db
     .select()

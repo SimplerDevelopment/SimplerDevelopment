@@ -6,6 +6,8 @@ import { auth } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { getPortalClient } from '@/lib/portal-client';
 import { hasServiceAccess } from '@/lib/portal-auth';
+import { hasFlag } from '@/lib/feature-flags';
+import LockedRoom from '@/components/portal/LockedRoom';
 import SeoProjectsList from './_components/SeoProjectsList';
 
 export default async function SeoProjectsPage() {
@@ -17,7 +19,13 @@ export default async function SeoProjectsPage() {
   if (!client) redirect('/portal/dashboard');
 
   const entitled = await hasServiceAccess(client.id, 'seo');
-  if (!entitled) redirect('/portal/services');
+  if (!entitled) {
+    // PUX-146 (design doc screen 06): under the redesign the room sells itself
+    // where it would live, instead of bouncing to the catalog. Flag off = the
+    // redirect, as before.
+    if (hasFlag(client, 'portal-redesign')) return <LockedRoom domainKey="seo" clientId={client.id} />;
+    redirect('/portal/services');
+  }
 
   return <SeoProjectsList />;
 }
