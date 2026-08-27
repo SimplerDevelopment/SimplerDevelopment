@@ -108,21 +108,25 @@ export async function collectKanbanTasks(opts: CollectOpts): Promise<MyTaskGroup
   const visibleCardIds = filtered.map((c) => c.id);
   const projectIds = Array.from(new Set(filtered.map((c) => c.projectId)));
 
-  // Look up the "done" column id (if any) per project, so the page's inline-
-  // complete checkbox can PATCH `/api/portal/cards/[id]/move` without an extra
-  // GET. Lowest-order is_done column wins when there are multiple (matches the
-  // visible "first done column" heuristic on the project board).
-  const doneColumnRows = await db
+  // Look up two columns per project from one query: the "done" column, so
+  // the page's inline-complete checkbox can PATCH `/api/portal/cards/[id]/move`
+  // without an extra GET, and (PUX-154) the lowest-order non-done column,
+  // where a quick-added card lands. Lowest order wins in both cases (matches
+  // the visible "first done column" heuristic on the project board).
+  const columnRows = await db
     .select({
       projectId: kanbanColumns.projectId,
       id: kanbanColumns.id,
       order: kanbanColumns.order,
+      isDone: kanbanColumns.isDone,
     })
     .from(kanbanColumns)
-    .where(and(inArray(kanbanColumns.projectId, projectIds), eq(kanbanColumns.isDone, true)));
+    .where(inArray(kanbanColumns.projectId, projectIds));
   const doneColumnByProject = new Map<number, number>();
-  for (const r of doneColumnRows.sort((a, b) => a.order - b.order)) {
-    if (!doneColumnByProject.has(r.projectId)) doneColumnByProject.set(r.projectId, r.id);
+  const defaultColumnByProject = new Map<number, number>();
+  for (const r of columnRows.sort((a, b) => a.order - b.order)) {
+    const target = r.isDone ? doneColumnByProject : defaultColumnByProject;
+    if (!target.has(r.projectId)) target.set(r.projectId, r.id);
   }
 
   // Project info
@@ -203,6 +207,7 @@ export async function collectKanbanTasks(opts: CollectOpts): Promise<MyTaskGroup
       projectKey: p.project.projectKey,
       clientName: p.project.clientName,
       cards: p.cards,
+      defaultColumnId: defaultColumnByProject.get(p.project.id) ?? null,
     }));
 }
 
