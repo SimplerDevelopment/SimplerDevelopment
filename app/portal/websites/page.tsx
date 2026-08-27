@@ -8,6 +8,7 @@ import { getPortalClient } from '@/lib/portal-client';
 import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
 import { pBtnPrimary } from '@/components/portal/portal-ui';
 import DomainGetStarted from '@/components/portal/onboarding/DomainGetStarted';
+import { EmptyState, GhostCard } from '@/components/portal/EmptyState';
 
 export default async function PortalCmsPage({
   searchParams,
@@ -70,22 +71,32 @@ export default async function PortalCmsPage({
 
       {websites.length === 0 ? (
         <div className="space-y-4">
-          <div className="bg-card border border-border rounded-2xl p-10 flex flex-col items-center text-center">
-            <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-4">
-              <span className="material-icons text-3xl text-primary">web</span>
-            </div>
-            <h2 className="font-display font-extrabold tracking-[-0.01em] text-foreground mb-1">Set up your first website</h2>
-            <p className="text-sm text-muted-foreground max-w-sm mb-6">
-              Create a website and start managing your pages using the built-in block editor — no coding required.
-            </p>
-            <Link
-              href="/portal/websites/new"
-              className={pBtnPrimary}
-            >
-              <span className="material-icons text-base">add</span>
-              Create Website
-            </Link>
-          </div>
+          {/* PUX-144: a preview with a button, not an icon and a sentence (design doc screen 41). */}
+          <EmptyState
+            className="bg-card border border-border rounded-2xl p-6"
+            title="Your site, here."
+            body="Pages, a store if you sell, and the numbers an owner checks — visits, orders, what's live. This card becomes its photograph."
+            cta={{ label: 'Create a website', icon: 'add', href: '/portal/websites/new' }}
+            ghostLabel="Home · Pages · Store"
+            legacy={(
+              <div className="bg-card border border-border rounded-2xl p-10 flex flex-col items-center text-center">
+                <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-4">
+                  <span className="material-icons text-3xl text-primary">web</span>
+                </div>
+                <h2 className="font-display font-extrabold tracking-[-0.01em] text-foreground mb-1">Set up your first website</h2>
+                <p className="text-sm text-muted-foreground max-w-sm mb-6">
+                  Create a website and start managing your pages using the built-in block editor — no coding required.
+                </p>
+                <Link
+                  href="/portal/websites/new"
+                  className={pBtnPrimary}
+                >
+                  <span className="material-icons text-base">add</span>
+                  Create Website
+                </Link>
+              </div>
+            )}
+          />
 
           <div className="flex items-center gap-3 p-4 bg-card border border-border rounded-2xl">
             <span className="material-icons text-muted-foreground">support_agent</span>
@@ -178,14 +189,22 @@ export default async function PortalCmsPage({
               );
             })}
 
-            {/* Add another */}
-            <Link
+            {/* Add another — PUX-144: stays a dashed ghost card (design doc screen 41) */}
+            <GhostCard
+              title="Add a site"
+              body="A new domain, or a microsite for a campaign"
               href="/portal/websites/new"
-              className="group border-2 border-dashed border-border rounded-2xl p-5 flex flex-col items-center justify-center text-center hover:border-primary/40 hover:bg-primary/3 transition-all min-h-36"
-            >
-              <span className="material-icons text-2xl text-muted-foreground group-hover:text-primary transition-colors mb-1">add_circle_outline</span>
-              <p className="text-sm font-medium text-muted-foreground group-hover:text-primary transition-colors">Add another website</p>
-            </Link>
+              className="min-h-36"
+              legacy={(
+                <Link
+                  href="/portal/websites/new"
+                  className="group border-2 border-dashed border-border rounded-2xl p-5 flex flex-col items-center justify-center text-center hover:border-primary/40 hover:bg-primary/3 transition-all min-h-36"
+                >
+                  <span className="material-icons text-2xl text-muted-foreground group-hover:text-primary transition-colors mb-1">add_circle_outline</span>
+                  <p className="text-sm font-medium text-muted-foreground group-hover:text-primary transition-colors">Add another website</p>
+                </Link>
+              )}
+            />
           </div>
 
           <div className="flex items-center gap-3 p-4 bg-card border border-border rounded-2xl">

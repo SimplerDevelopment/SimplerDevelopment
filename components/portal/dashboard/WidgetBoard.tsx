@@ -22,6 +22,7 @@ import { CSS } from '@dnd-kit/utilities';
 import type { DashboardWidgetPrefs } from '@/lib/dashboard/widgets';
 import { SOLUTION_LABELS } from '@/lib/dashboard/widgets';
 import WidgetShell from './WidgetShell';
+import { EmptyState } from '@/components/portal/EmptyState';
 
 interface WidgetMeta {
   id: string;
@@ -381,16 +382,26 @@ export default function WidgetBoard({
       </DndContext>
 
       {visibleWidgets.length === 0 && (
-        <div className="bg-card border border-border rounded-xl p-10 text-center">
-          {/* Empty icon container */}
-          <div className="w-11 h-11 rounded-[11px] border border-border bg-[var(--portal-surface-2)] flex items-center justify-center mx-auto mb-3">
-            <span className="material-icons text-[22px] leading-none text-muted-foreground">dashboard_customize</span>
-          </div>
-          <p className="text-[14px] font-semibold text-foreground">No widgets visible</p>
-          <p className="mt-1 text-[12.5px] text-muted-foreground max-w-[240px] mx-auto leading-relaxed">
-            Use Customize to enable widgets on your dashboard.
-          </p>
-        </div>
+        // PUX-144: an empty surface is a preview with a button (design doc screens 01/05).
+        <EmptyState
+          className="bg-card border border-border rounded-xl p-5"
+          title="Nothing on your home yet."
+          body="Turn on the cards you check most — what's unpaid, who's waiting on a reply, how your site is doing."
+          cta={{ label: 'Choose cards', icon: 'tune', onClick: () => setScreenOptionsOpen(true) }}
+          ghostLabel="Home · 4 cards"
+          legacy={(
+            <div className="bg-card border border-border rounded-xl p-10 text-center">
+              {/* Empty icon container */}
+              <div className="w-11 h-11 rounded-[11px] border border-border bg-[var(--portal-surface-2)] flex items-center justify-center mx-auto mb-3">
+                <span className="material-icons text-[22px] leading-none text-muted-foreground">dashboard_customize</span>
+              </div>
+              <p className="text-[14px] font-semibold text-foreground">No widgets visible</p>
+              <p className="mt-1 text-[12.5px] text-muted-foreground max-w-[240px] mx-auto leading-relaxed">
+                Use Customize to enable widgets on your dashboard.
+              </p>
+            </div>
+          )}
+        />
       )}
     </div>
   );

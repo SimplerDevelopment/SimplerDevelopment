@@ -7,6 +7,7 @@ import { formatMoney } from '@/lib/utils/money';
 import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
 import { pBtnPrimary, pBtnGhost } from '@/components/portal/portal-ui';
 import DomainGetStarted from '@/components/portal/onboarding/DomainGetStarted';
+import { EmptyState } from '@/components/portal/EmptyState';
 
 // --- Types ---
 
@@ -110,7 +111,19 @@ function DonutChart({ won, lost, open }: { won: number; lost: number; open: numb
 }
 
 function LineChart({ data }: { data: RevenueMonth[] }) {
-  if (data.length === 0) return <div className="flex items-center justify-center h-40 text-muted-foreground text-sm">No revenue data yet</div>;
+  // PUX-144: a labeled sample instead of "No revenue data yet" (design doc screen 27).
+  if (data.length === 0) return (
+    <EmptyState
+      layout="stack"
+      body="Won value by month, once a few deals have closed."
+      sample={(
+        <svg viewBox="0 0 200 40" preserveAspectRatio="none" className="h-10 w-full">
+          <polyline points="0,32 20,30 40,26 60,28 80,18 100,22 120,12 140,16 160,8 180,10 200,4" fill="none" stroke="var(--primary)" strokeWidth="2" />
+        </svg>
+      )}
+      legacy={<div className="flex items-center justify-center h-40 text-muted-foreground text-sm">No revenue data yet</div>}
+    />
+  );
 
   const values = data.map((d) => Number(d.won_value));
   const maxVal = Math.max(...values, 1);
@@ -140,8 +153,29 @@ function LineChart({ data }: { data: RevenueMonth[] }) {
   );
 }
 
+const SAMPLE_FUNNEL: [string, number, string][] = [['100%', 40, 'bg-accent'], ['60%', 18, 'bg-accent'], ['22%', 6, 'bg-primary'], ['8%', 2, 'bg-[var(--portal-ok)]']];
+
 function FunnelChart({ stages }: { stages: FunnelStage[] }) {
-  if (stages.length === 0) return <div className="flex items-center justify-center h-40 text-muted-foreground text-sm">No pipeline data</div>;
+  // PUX-144: the funnel a business this size draws, as a sample (design doc screen 27).
+  // Ghost button, not teal — the page's one teal action is "New deal" in the header.
+  if (stages.length === 0) return (
+    <EmptyState
+      layout="stack"
+      body="Lead → Qualified → Proposal → Won, a typical month for a business this size."
+      cta={{ label: 'New deal', icon: 'add', href: '/portal/crm/deals', ghost: true }}
+      sample={(
+        <div className="space-y-1.5 pt-1">
+          {SAMPLE_FUNNEL.map(([width, n, bg]) => (
+            <div key={width} className="grid grid-cols-[minmax(0,1fr)_22px] items-center gap-2.5">
+              <div className={`h-3.5 rounded ${bg}`} style={{ width }} />
+              <span className="text-right font-mono text-[11px] text-muted-foreground">{n}</span>
+            </div>
+          ))}
+        </div>
+      )}
+      legacy={<div className="flex items-center justify-center h-40 text-muted-foreground text-sm">No pipeline data</div>}
+    />
+  );
   const maxValue = Math.max(...stages.map((s) => Number(s.total_value)), 1);
 
   return (

@@ -34,6 +34,7 @@ import type {
 } from '@/lib/brain/org-units';
 import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
 import { pBtnPrimary, pBtnGhost, pCard, pInput, pSelect } from '@/components/portal/portal-ui';
+import { GhostCard } from '@/components/portal/EmptyState';
 
 // ─── Shared types ────────────────────────────────────────────────────────────
 
@@ -521,14 +522,9 @@ function UnitSidePanel({
           Lead person
         </label>
         {unit.leadPersonId === null ? (
-          <button
-            type="button"
-            onClick={() => setShowLeadPicker(true)}
-            className="text-sm text-primary hover:underline inline-flex items-center gap-1"
-          >
-            <span className="material-icons text-base">person_add</span>
-            Set lead
-          </button>
+          // PUX-144: an unled unit is a preview, not a blank row (design doc screen 22). `legacy` = the pre-redesign link, verbatim.
+          <GhostCard icon="group_add" title="No lead set" body={`Pick who runs ${unit.name}.`} onClick={() => setShowLeadPicker(true)}
+            legacy={<button type="button" onClick={() => setShowLeadPicker(true)} className="text-sm text-primary hover:underline inline-flex items-center gap-1"><span className="material-icons text-base">person_add</span>Set lead</button>} />
         ) : (
           <div className="flex items-center justify-between gap-2">
             <span className="text-sm">
