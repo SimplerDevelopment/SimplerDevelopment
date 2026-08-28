@@ -3,7 +3,9 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
-import { pBtnPrimary, pBtnGhost, pCard, pInput } from '@/components/portal/portal-ui';
+import { pBtnPrimary, pBtnGhost, pCard, pInput, sBtn, sBtnGhost } from '@/components/portal/portal-ui';
+import { useFeatureFlag } from '@/components/portal/FeatureFlagsProvider';
+import { giftTotals } from '@/lib/tools/gift-totals';
 
 interface GiftCert {
   id: number;
@@ -35,6 +37,7 @@ export default function GiftCertificatesPage() {
   const [certs, setCerts] = useState<GiftCert[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
+  const studio = useFeatureFlag('portal-redesign'); // PUX-208
 
   // Create form
   const [amount, setAmount] = useState('');
@@ -87,6 +90,7 @@ export default function GiftCertificatesPage() {
   }
 
   const totalActive = certs.filter(c => c.status === 'active').reduce((sum, c) => sum + c.remainingAmount, 0);
+  const totals = giftTotals(certs);
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -99,13 +103,24 @@ export default function GiftCertificatesPage() {
         title="Gift Certificates"
         subtitle="Manage gift certificates redeemable for bookings and store purchases"
         actions={
-          <button onClick={() => setShowCreate(!showCreate)} className={showCreate ? pBtnGhost : pBtnPrimary}>
+          <button onClick={() => setShowCreate(!showCreate)} className={studio ? sBtnGhost : showCreate ? pBtnGhost : pBtnPrimary}>
             <span className="material-icons text-base">{showCreate ? 'close' : 'add'}</span>
-            {showCreate ? 'Cancel' : 'Create Gift Cert'}
+            {showCreate ? 'Cancel' : studio ? 'Issue certificate' : 'Create Gift Cert'}
           </button>
         }
       />
 
+      {studio ? (
+        <div className="grid grid-cols-3 gap-4" aria-label="Totals">
+          {[['Issued', String(totals.issued)], ['Outstanding', formatCents(totals.outstanding)], ['Redeemed', formatCents(totals.redeemed)]].map(([label, value]) => (
+            <div key={label} className="rounded-2xl border border-border bg-card p-4 text-center">
+              <p className="font-display text-2xl font-extrabold tracking-[-0.02em] tabular-nums text-foreground">{value}</p>
+              <p className="text-xs text-muted-foreground">{label}</p>
+            </div>
+          ))}
+        </div>
+      ) : (
+      <>
       {/* Summary */}
       <div className="grid grid-cols-3 gap-4">
         <div className="bg-card border border-border rounded-2xl p-4 text-center">
@@ -121,9 +136,14 @@ export default function GiftCertificatesPage() {
           <p className="text-xs text-muted-foreground">Outstanding Balance</p>
         </div>
       </div>
+      </>
+      )}
 
       {/* Create form */}
-      {showCreate && (
+      {showCreate && (studio ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="presentation">
+          <button type="button" aria-label="Close" onClick={() => setShowCreate(false)} className="absolute inset-0 bg-black/40" />
+          <div role="dialog" aria-modal="true" aria-label="Issue a gift certificate" className="relative w-full max-w-lg">
         <form onSubmit={handleCreate} className="bg-card border border-border rounded-2xl p-5 space-y-4">
           <h2 className="text-sm font-display font-extrabold tracking-[-0.01em] text-foreground">Create Gift Certificate (Admin)</h2>
           <p className="text-xs text-muted-foreground">This creates an immediately active certificate - no payment required.</p>
@@ -150,11 +170,44 @@ export default function GiftCertificatesPage() {
               className="w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary focus:ring-4 focus:ring-primary/15 resize-none" />
           </div>
           <button type="submit" disabled={creating || !amount}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-foreground px-4 py-2.5 text-sm font-bold text-background transition hover:-translate-y-px hover:shadow-lg hover:shadow-foreground/20 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0">
-            {creating ? 'Creating...' : 'Create Certificate'}
+            className={studio ? `${sBtn} disabled:opacity-50` : "inline-flex items-center justify-center gap-2 rounded-xl bg-foreground px-4 py-2.5 text-sm font-bold text-background transition hover:-translate-y-px hover:shadow-lg hover:shadow-foreground/20 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0"}>
+            {creating ? 'Creating...' : studio ? 'Issue certificate' : 'Create Certificate'}
           </button>
         </form>
-      )}
+          </div>
+        </div>
+      ) : (
+        <form onSubmit={handleCreate} className="bg-card border border-border rounded-2xl p-5 space-y-4">
+          <h2 className="text-sm font-display font-extrabold tracking-[-0.01em] text-foreground">Create Gift Certificate (Admin)</h2>
+          <p className="text-xs text-muted-foreground">This creates an immediately active certificate - no payment required.</p>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1">Amount ($) *</label>
+              <input type="number" step="0.01" min="1" required value={amount} onChange={e => setAmount(e.target.value)}
+                placeholder="50.00" className="w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary focus:ring-4 focus:ring-primary/15" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1">Recipient Name</label>
+              <input type="text" value={recipientName} onChange={e => setRecipientName(e.target.value)}
+                className="w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary focus:ring-4 focus:ring-primary/15" />
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1">Recipient Email</label>
+            <input type="email" value={recipientEmail} onChange={e => setRecipientEmail(e.target.value)}
+              className="w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary focus:ring-4 focus:ring-primary/15" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1">Personal Message</label>
+            <textarea value={message} onChange={e => setMessage(e.target.value)} rows={2}
+              className="w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary focus:ring-4 focus:ring-primary/15 resize-none" />
+          </div>
+          <button type="submit" disabled={creating || !amount}
+            className={studio ? `${sBtn} disabled:opacity-50` : "inline-flex items-center justify-center gap-2 rounded-xl bg-foreground px-4 py-2.5 text-sm font-bold text-background transition hover:-translate-y-px hover:shadow-lg hover:shadow-foreground/20 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0"}>
+            {creating ? 'Creating...' : studio ? 'Issue certificate' : 'Create Certificate'}
+          </button>
+        </form>
+      ))}
 
       {/* List */}
       {loading ? (
