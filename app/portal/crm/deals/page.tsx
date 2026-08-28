@@ -1,5 +1,8 @@
 'use client';
 
+import { useFeatureFlag } from '@/components/portal/FeatureFlagsProvider';
+import { formatMoney } from '@/lib/utils/money';
+import DealsTable from './_components/DealsTable';
 import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import DealDetailDrawer from './_components/DealDetailDrawer';
@@ -64,6 +67,10 @@ function CrmDealsContent() {
 
   const [showForm, setShowForm] = useState(false);
   const [editingDeal, setEditingDeal] = useState<Deal | null>(null);
+  // PUX-171 (design doc screen 30): Board | Table, stale pills, one teal New deal. Flag off is today's page.
+  const studio = useFeatureFlag('portal-redesign');
+  const [view, setView] = useState<'board' | 'table'>('board');
+  const openDeals = deals.filter((d) => d.status === 'open');
 
   useEffect(() => {
     if (!dealId) return;
@@ -115,9 +122,18 @@ function CrmDealsContent() {
   return (
     <div className="space-y-6">
       <PortalPageHeader
-        eyebrow="CRM"
+        eyebrow={studio ? 'Grow · CRM' : 'CRM'}
         title="Deals"
-        subtitle="Manage your sales pipeline"
+        subtitle={studio ? `${openDeals.length} open · ${formatMoney(openDeals.reduce((sum, d) => sum + d.value, 0))} pipeline` : 'Manage your sales pipeline'}
+        actions={studio ? (
+          <div className="inline-flex rounded-[9px] border border-border p-0.5 text-[12.5px] font-semibold" role="group" aria-label="View">
+            {(['board', 'table'] as const).map((v) => (
+              <button key={v} type="button" aria-pressed={view === v} onClick={() => setView(v)} className={`rounded-[7px] px-3 py-1 capitalize transition-colors ${view === v ? 'bg-foreground text-background' : 'text-muted-foreground hover:text-foreground'}`}>
+                {v}
+              </button>
+            ))}
+          </div>
+        ) : undefined}
       />
       <DealFilters
         pipelines={pipelines}
@@ -129,6 +145,7 @@ function CrmDealsContent() {
         onChangeCustomFilters={setCustomFilters}
         showForm={showForm}
         onToggleForm={() => setShowForm((s) => !s)}
+        studio={studio}
       />
 
       {showForm && (
@@ -151,13 +168,18 @@ function CrmDealsContent() {
         />
       )}
 
-      <DealKanban
-        stages={stages}
-        deals={deals}
-        loading={dealsLoading}
-        onMoveDeal={moveDeal}
-        onOpenDeal={setEditingDeal}
-      />
+      {studio && view === 'table' ? (
+        <DealsTable stages={stages} deals={deals} onOpenDeal={setEditingDeal} />
+      ) : (
+        <DealKanban
+          stages={stages}
+          deals={deals}
+          loading={dealsLoading}
+          onMoveDeal={moveDeal}
+          onOpenDeal={setEditingDeal}
+          studio={studio}
+        />
+      )}
 
       {editingDeal && (
         <DealDetailDrawer
