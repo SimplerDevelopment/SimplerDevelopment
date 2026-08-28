@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { GhostCard } from '@/components/portal/EmptyState';
+import { useFeatureFlag } from '@/components/portal/FeatureFlagsProvider';
 
 interface DomainRecord {
   id: number;
@@ -39,6 +40,9 @@ export default function CustomDomainForm({
   const [verifyResults, setVerifyResults] = useState<Record<number, VerifyResult>>({});
   const [removing, setRemoving] = useState<Record<number, boolean>>({});
   const [showDns, setShowDns] = useState<Record<number, boolean>>({});
+  // PUX-190: under the flag the DNS records are always on show — no toggle.
+  // No SSL column exists on website_domains (TLS is the host's), so none is drawn.
+  const studio = useFeatureFlag('portal-redesign');
 
   const refreshDomains = async () => {
     const res = await fetch(`/api/portal/websites/${siteId}/domains`);
@@ -229,17 +233,17 @@ export default function CustomDomainForm({
                   </span>
                   {verifying[d.id] ? 'Checking...' : 'Verify DNS'}
                 </button>
-                <button
+                {!studio && <button
                   onClick={() => setShowDns(prev => ({ ...prev, [d.id]: !prev[d.id] }))}
                   className="flex items-center gap-1.5 px-3 py-1.5 border border-border rounded-lg text-xs font-medium text-foreground hover:bg-muted transition-colors"
                 >
                   <span className="material-icons text-sm">dns</span>
                   {showDns[d.id] ? 'Hide' : 'Show'} DNS Records
-                </button>
+                </button>}
               </div>
 
               {/* DNS Records */}
-              {showDns[d.id] && (
+              {(studio || showDns[d.id]) && (
                 <div className="space-y-2">
                   <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                     Add these records at your domain registrar
