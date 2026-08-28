@@ -1,8 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { pBtnPrimary, pCard, pInput, pSelect } from '@/components/portal/portal-ui';
+import { pBtnPrimary, pCard, pInput, pSelect, sBtn } from '@/components/portal/portal-ui';
 import { ROLES } from '@/lib/portal/roles';
+import { useFeatureFlag } from '@/components/portal/FeatureFlagsProvider';
+import { GhostCard } from '@/components/portal/EmptyState';
 
 interface Member {
   memberId: number;
@@ -34,6 +36,8 @@ export default function SettingsTeamPage() {
   const [members, setMembers] = useState<Member[]>([]);
   const [currentRole, setCurrentRole] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  // PUX-194: two columns, the ROLES explainer and the agency ghost under the flag.
+  const studio = useFeatureFlag('portal-redesign');
   const [inviteForm, setInviteForm] = useState({ name: '', email: '', role: 'member' });
   const [inviting, setInviting] = useState(false);
   const [inviteResult, setInviteResult] = useState<InviteResult | null>(null);
@@ -121,7 +125,7 @@ export default function SettingsTeamPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className={studio ? 'grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start' : 'space-y-6'}>
       {/* Members list */}
       <div className={`${pCard} overflow-hidden`}>
         <div className="px-6 py-4 border-b border-border">
@@ -242,11 +246,11 @@ export default function SettingsTeamPage() {
               <button
                 type="submit"
                 disabled={inviting}
-                className={pBtnPrimary}
+                className={studio ? `${sBtn} disabled:opacity-50` : pBtnPrimary}
               >
                 {inviting && <span className="material-icons text-base animate-spin">refresh</span>}
                 <span className="material-icons text-base">person_add</span>
-                {inviting ? 'Adding...' : 'Add Member'}
+                {inviting ? 'Adding...' : studio ? 'Invite' : 'Add Member'}
               </button>
             </div>
           </form>
@@ -282,6 +286,24 @@ export default function SettingsTeamPage() {
         <div className={`${pCard} p-5 text-center`}>
           <span className="material-icons text-muted-foreground text-2xl mb-2">lock</span>
           <p className="text-sm text-muted-foreground">Only owners and admins can manage team members.</p>
+        </div>
+      )}
+
+      {studio && (
+        <div className="space-y-6 lg:col-start-2">
+          <section className={`${pCard} p-5`} aria-label="Roles">
+            <h2 className="font-display text-[11px] font-semibold uppercase tracking-[.08em] text-muted-foreground">Roles</h2>
+            <dl className="mt-3 space-y-2 text-sm">
+              {ROLES.map((r) => (
+                <div key={r.value}>
+                  <dt className="font-medium text-foreground">{r.label}</dt>
+                  <dd className="text-muted-foreground">{r.description}</dd>
+                </div>
+              ))}
+            </dl>
+          </section>
+          {/* No schema names the agency staff attached to a client (see card PUX-194) — drawn as a preview, never invented. */}
+          <GhostCard icon="support_agent" title="Your Simpler Development team" body="The people at Simpler Development who look after this account will be listed here." href="/portal/tickets/new?subject=Who%20is%20my%20account%20manager%3F" />
         </div>
       )}
     </div>
