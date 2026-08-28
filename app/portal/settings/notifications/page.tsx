@@ -2,6 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { pCard } from '@/components/portal/portal-ui';
+import { useFeatureFlag } from '@/components/portal/FeatureFlagsProvider';
+import { GhostCard } from '@/components/portal/EmptyState';
+import { groupByRoom } from '@/lib/notifications/rooms';
 
 type Delivery = 'instant' | 'digest_daily' | 'off';
 
@@ -83,6 +86,9 @@ const TYPE_META: Record<string, { label: string; hint: string; icon: string }> =
     hint: 'A booking hold has gone stale without checkout.',
     icon: 'event_busy',
   },
+  // PUX-201: the two SLA types existed in NOTIFICATION_TYPES but had no label here.
+  ticket_sla_first_response_breach: { label: 'Ticket first-response SLA breached', hint: 'A ticket waited past its first-response target.', icon: 'timer_off' },
+  ticket_sla_resolution_breach: { label: 'Ticket resolution SLA breached', hint: 'A ticket passed its resolution target without closing.', icon: 'timer_off' },
 };
 
 const DELIVERY_OPTIONS: Array<{ value: Delivery; label: string; icon: string }> = [
@@ -96,6 +102,7 @@ export default function NotificationPreferencesPage() {
   const [loading, setLoading] = useState(true);
   const [savingType, setSavingType] = useState<string | null>(null);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const studio = useFeatureFlag('portal-redesign'); // PUX-201: rows grouped by room
 
   useEffect(() => {
     fetch('/api/portal/notifications/preferences')
@@ -140,20 +147,8 @@ export default function NotificationPreferencesPage() {
     );
   }
 
-  return (
-    <div className="space-y-6">
-      <div className={`${pCard} p-6 space-y-4`}>
-        <div>
-          <h2 className="text-base font-display font-extrabold tracking-[-0.01em] text-foreground">Notification Preferences</h2>
-          <p className="text-sm text-muted-foreground mt-1">
-            Choose how each kind of notification is delivered. <strong>Instant</strong> shows
-            it in your panel right away. <strong>Daily digest</strong> batches it for one
-            email per day. <strong>Off</strong> silences it completely.
-          </p>
-        </div>
-
-        <div className="divide-y divide-border border border-border rounded-xl overflow-hidden">
-          {prefs.map((pref) => {
+  // PUX-201: one row renderer for the flat legacy list and the studio room groups.
+  const renderRow = (pref: PrefRow) => {
             const meta = TYPE_META[pref.notificationType] ?? {
               label: pref.notificationType,
               hint: '',
@@ -205,8 +200,39 @@ export default function NotificationPreferencesPage() {
                 </div>
               </div>
             );
-          })}
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className={`${pCard} p-6 space-y-4`}>
+        <div>
+          <h2 className="text-base font-display font-extrabold tracking-[-0.01em] text-foreground">Notification Preferences</h2>
+          <p className="text-sm text-muted-foreground mt-1">
+            Choose how each kind of notification is delivered. <strong>Instant</strong> shows
+            it in your panel right away. <strong>Daily digest</strong> batches it for one
+            email per day. <strong>Off</strong> silences it completely.
+          </p>
         </div>
+
+        {studio ? (
+          <div className="space-y-5">
+            <p className="text-xs text-muted-foreground">One delivery per notification: the preference stores a single Instant / Daily digest / Off choice per row, not a per-channel matrix — that shape is where this page is headed, not what ships behind it yet.</p>
+            {groupByRoom(prefs).map(([room, rows]) => (
+              <section key={room} aria-label={room} className="space-y-2">
+                <h2 className="font-display text-[11px] font-semibold uppercase tracking-[.08em] text-muted-foreground">{room}</h2>
+                <div className="divide-y divide-border border border-border rounded-xl overflow-hidden">{rows.map(renderRow)}</div>
+              </section>
+            ))}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <GhostCard icon="phone_iphone" title="Push notifications" body="Not a delivery channel yet — nothing stores a push subscription. It lands here when it does." />
+              <GhostCard icon="bedtime" title="Quiet hours" body="Hold instant alerts overnight. Not in the schema yet; drawn so you know where it will live." />
+            </div>
+          </div>
+        ) : (
+        <div className="divide-y divide-border border border-border rounded-xl overflow-hidden">
+          {prefs.map(renderRow)}
+        </div>
+        )}
       </div>
 
       {message && (
