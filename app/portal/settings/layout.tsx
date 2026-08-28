@@ -2,22 +2,14 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useFeatureFlag } from '@/components/portal/FeatureFlagsProvider';
 
-const tabs = [
-  { href: '/portal/settings/profile', label: 'Profile', icon: 'person' },
-  { href: '/portal/settings/security', label: 'Security', icon: 'security' },
-  { href: '/portal/settings/notifications', label: 'Notifications', icon: 'notifications' },
-  { href: '/portal/settings/billing', label: 'Billing', icon: 'payments' },
-  { href: '/portal/settings/team', label: 'Team', icon: 'group' },
-  { href: '/portal/settings/ai', label: 'AI Assistant', icon: 'smart_toy' },
-  { href: '/portal/settings/api-keys', label: 'API Keys', icon: 'vpn_key' },
-  { href: '/portal/settings/webhooks', label: 'Webhooks', icon: 'webhook' },
-  { href: '/portal/settings/integrations', label: 'Integrations', icon: 'integration_instructions' },
-  { href: '/portal/settings/support', label: 'Support', icon: 'support_agent' },
-];
+import { SETTINGS_TABS as tabs } from './_lib/tabs';
 
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  // PUX-195: the same links as a left index column under the flag.
+  const studio = useFeatureFlag('portal-redesign');
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -29,6 +21,24 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
         <p className="text-muted-foreground text-sm mt-1">Manage your account, billing, team, and support.</p>
       </div>
 
+      {studio ? (
+        <div className="grid gap-6 lg:grid-cols-[220px_minmax(0,1fr)] lg:items-start">
+          <nav aria-label="Settings sections" className="space-y-0.5">
+            {tabs.map(tab => {
+              const isActive = pathname === tab.href || pathname.startsWith(tab.href + '/');
+              return (
+                <Link key={tab.href} href={tab.href} aria-current={isActive ? 'page' : undefined}
+                  className={`flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-[13px] transition-colors ${isActive ? 'bg-foreground text-background' : 'text-muted-foreground hover:bg-accent hover:text-foreground'}`}>
+                  <span className="material-icons text-base">{tab.icon}</span>
+                  {tab.label}
+                </Link>
+              );
+            })}
+          </nav>
+          <div>{children}</div>
+        </div>
+      ) : (
+        <>
       {/* Tabs */}
       <div className="overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0 scrollbar-thin">
         <div className="flex items-center gap-1 border-b border-border whitespace-nowrap">
@@ -53,6 +63,8 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
       </div>
 
       <div>{children}</div>
+        </>
+      )}
     </div>
   );
 }
