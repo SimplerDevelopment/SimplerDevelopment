@@ -12,6 +12,9 @@ import { revoke } from '@/lib/google/oauth';
 import { getEnvMicrosoftCredentials } from '@/lib/microsoft/oauth';
 import { deleteTranscriptsSubscription } from '@/lib/microsoft/transcripts-watch';
 import { pBtnPrimary, pBtnGhost } from '@/components/portal/portal-ui';
+import { hasFlag } from '@/lib/feature-flags';
+import IntegrationGhosts from './_components/IntegrationGhosts';
+import LinkedInBanners from './_components/LinkedInBanners';
 
 interface PageProps {
   searchParams: Promise<{
@@ -516,22 +519,7 @@ export default async function SettingsIntegrationsPage({ searchParams }: PagePro
 
       {/* ─── LinkedIn ──────────────────────────────────────────────────── */}
 
-      {linkedinJustConnected && (
-        <div className="border border-green-500/30 bg-green-500/10 text-green-700 dark:text-green-400 rounded-xl p-4 flex items-start gap-3">
-          <span className="material-icons text-base mt-0.5">check_circle</span>
-          <div className="text-sm">
-            LinkedIn connected. You can now schedule and publish posts directly from SimplerDevelopment.
-          </div>
-        </div>
-      )}
-      {linkedinErrorMessage && (
-        <div className="border border-red-500/30 bg-red-500/10 text-red-700 dark:text-red-400 rounded-xl p-4 flex items-start gap-3">
-          <span className="material-icons text-base mt-0.5">error</span>
-          <div className="text-sm">
-            LinkedIn returned an error: <code className="font-mono">{linkedinErrorMessage}</code>. Try again, or contact support if it persists.
-          </div>
-        </div>
-      )}
+      <LinkedInBanners justConnected={linkedinJustConnected} errorMessage={linkedinErrorMessage} />
 
       <div className="flex items-start justify-between gap-4 pt-4 border-t border-border">
         <div>
@@ -627,6 +615,7 @@ export default async function SettingsIntegrationsPage({ searchParams }: PagePro
           </form>
         </div>
       )}
+      {hasFlag(client, 'portal-redesign') && <IntegrationGhosts />}
     </div>
   );
 }

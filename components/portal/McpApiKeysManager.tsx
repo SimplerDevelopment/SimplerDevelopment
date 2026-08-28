@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useFeatureFlag } from '@/components/portal/FeatureFlagsProvider';
+import { groupScopes } from '@/lib/mcp/scope-groups';
 
 interface ApiKey {
   id: number;
@@ -115,6 +117,7 @@ export default function McpApiKeysManager({
   heading = 'API Keys',
   subheading = 'Use these keys to authenticate the SimplerDevelopment MCP server. Connect from Claude Desktop, Claude Code, ChatGPT, or any MCP-compatible client to control your portal programmatically.',
 }: McpApiKeysManagerProps) {
+  const studio = useFeatureFlag('portal-redesign'); // PUX-214: scopes on the row grouped by room
   const [keys, setKeys] = useState<ApiKey[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
@@ -352,6 +355,16 @@ export default function McpApiKeysManager({
                 <td className="px-3 py-2 font-medium">{k.name}</td>
                 <td className="px-3 py-2"><code className="text-xs">{k.keyPreview}</code></td>
                 <td className="px-3 py-2">
+                  {studio && !k.scopes.includes('*') ? (
+                    <div className="flex flex-wrap gap-x-3 gap-y-1">
+                      {groupScopes(SCOPE_GROUPS, k.scopes).map(([label, vals]) => (
+                        <span key={label} className="inline-flex items-center gap-1 text-xs">
+                          <span className="font-medium text-foreground">{label}</span>
+                          {vals.map((v) => <code key={v} className="rounded bg-muted px-1.5 py-0.5 text-[11px]">{v.split(':')[1] ?? v}</code>)}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
                   <div className="flex flex-wrap gap-1">
                     {k.scopes.map(s => s === '*' ? (
                       <span key={s} className="inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded border border-amber-400/40 bg-amber-500/10 text-amber-700 dark:text-amber-400">
@@ -362,6 +375,7 @@ export default function McpApiKeysManager({
                       <code key={s} className="text-xs px-1.5 py-0.5 bg-muted rounded">{s}</code>
                     ))}
                   </div>
+                  )}
                 </td>
                 <td className="px-3 py-2">
                   {k.requireCmsApproval ? (
