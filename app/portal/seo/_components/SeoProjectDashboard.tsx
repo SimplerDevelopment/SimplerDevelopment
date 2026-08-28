@@ -6,7 +6,10 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { pBtnPrimary } from '@/components/portal/portal-ui';
+import { pBtnPrimary, sBtn } from '@/components/portal/portal-ui';
+import { useFeatureFlag } from '@/components/portal/FeatureFlagsProvider';
+import { HealthRing } from './HealthRing';
+import { StudioOverview } from './StudioOverview';
 import { HealthScoreBadge } from './HealthScoreBadge';
 import { RunStatusPill } from './RunStatusPill';
 import { isRunActive, relativeTime } from './format';
@@ -34,6 +37,8 @@ export default function SeoProjectDashboard({ projectId }: { projectId: number }
   const [error, setError] = useState('');
   const [missing, setMissing] = useState(false);
   const [tab, setTab] = useState<Tab>('overview');
+  // PUX-180 (design doc screen 39): the ring in the header, the overview as one scan. Flag off is today's dashboard.
+  const studio = useFeatureFlag('portal-redesign');
   const [starting, setStarting] = useState(false);
   const [runError, setRunError] = useState('');
   // Cached at the shell level (not inside SearchPerformanceTab) so switching
@@ -155,8 +160,10 @@ export default function SeoProjectDashboard({ projectId }: { projectId: number }
 
         <div className="flex flex-col items-end gap-2 shrink-0">
           <div className="flex items-center gap-3">
-            <HealthScoreBadge score={latestRun?.healthScore ?? null} size="lg" />
-            <button type="button" onClick={runAudit} disabled={active || starting} className={pBtnPrimary}>
+            {studio
+              ? <HealthRing score={latestRun?.healthScore ?? null} caption={latestRun ? `${latestRun.criticalCount} critical · ${latestRun.warningCount} warnings across ${latestRun.pagesCrawled} pages` : 'Run an audit to score the site'} />
+              : <HealthScoreBadge score={latestRun?.healthScore ?? null} size="lg" />}
+            <button type="button" onClick={runAudit} disabled={active || starting} className={studio ? `${sBtn} disabled:opacity-50` : pBtnPrimary}>
               {active || starting ? (
                 <>
                   <span className="material-icons text-base animate-spin">progress_activity</span>
@@ -195,7 +202,9 @@ export default function SeoProjectDashboard({ projectId }: { projectId: number }
       {tab === 'recommendations' && (
         <RecommendationsTab projectId={projectId} data={recommendations} onDataChange={setRecommendations} />
       )}
-      {tab === 'overview' && <OverviewTab run={latestRun} />}
+      {tab === 'overview' && (studio
+        ? <StudioOverview projectId={projectId} run={latestRun} onShowTab={setTab} searchPerf={searchPerf} onSearchPerf={setSearchPerf} recommendations={recommendations} onRecommendations={setRecommendations} />
+        : <OverviewTab run={latestRun} />)}
       {tab === 'issues' && <IssuesTab runId={latestRun?.id ?? null} runStatus={latestRun?.status ?? null} />}
       {tab === 'pages' && <PagesTab runId={latestRun?.id ?? null} runStatus={latestRun?.status ?? null} />}
       {tab === 'search' && (
