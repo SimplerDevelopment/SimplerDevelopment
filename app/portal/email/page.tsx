@@ -10,6 +10,7 @@ import { useFeatureFlag } from '@/components/portal/FeatureFlagsProvider';
 import { EmptyState } from '@/components/portal/EmptyState';
 import CampaignsStudioTable from '@/components/portal/email/CampaignsStudioTable';
 import DomainGetStarted from '@/components/portal/onboarding/DomainGetStarted';
+import EmailTabs from '@/components/portal/email/EmailTabs';
 
 interface Campaign {
   id: number;
@@ -41,13 +42,7 @@ const statusColor: Record<string, string> = {
 };
 
 // PUX-174 (design doc screen 33): the seven nav children as five tabs of links; Campaigns is this page.
-const EMAIL_TABS = [
-  { href: '/portal/email', label: 'Campaigns' },
-  { href: '/portal/email/lists', label: 'Lists' },
-  { href: '/portal/email/segments', label: 'Segments' },
-  { href: '/portal/email/templates', label: 'Templates' },
-  { href: '/portal/email/analytics', label: 'Analytics' },
-];
+// PUX-204 moved the strip to components/portal/email/EmailTabs so every Email page shares it.
 
 export default function PortalEmailPage() {
   const router = useRouter();
@@ -100,16 +95,7 @@ export default function PortalEmailPage() {
         }
       />
 
-      {studio && (
-        <nav className="flex gap-1 border-b border-border" aria-label="Email">
-          {EMAIL_TABS.map((t) => (
-            <Link key={t.href} href={t.href} aria-current={t.href === '/portal/email' ? 'page' : undefined}
-              className={`-mb-px border-b-2 px-3 py-2 text-sm font-medium transition-colors ${t.href === '/portal/email' ? 'border-foreground text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>
-              {t.label}
-            </Link>
-          ))}
-        </nav>
-      )}
+      {studio && <EmailTabs active="/portal/email" />}
 
       <DomainGetStarted domainKey="email" />
 

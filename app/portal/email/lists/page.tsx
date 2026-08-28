@@ -3,13 +3,17 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
-import { pBtnPrimary, pBtnGhost, pCard } from '@/components/portal/portal-ui';
+import { pBtnPrimary, pBtnGhost, pCard, sBtnGhost } from '@/components/portal/portal-ui';
+import { useFeatureFlag } from '@/components/portal/FeatureFlagsProvider';
+import EmailTabs from '@/components/portal/email/EmailTabs';
+import { relativeTime } from '@/lib/notifications/feed';
 
 interface EmailList {
   id: number;
   name: string;
   description: string | null;
   subscriberCount: number;
+  lastSentAt?: string | null; // PUX-204
 }
 
 interface Subscriber {
@@ -31,6 +35,7 @@ export default function PortalEmailListsPage() {
   const [lists, setLists] = useState<EmailList[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const studio = useFeatureFlag('portal-redesign'); // PUX-204
   const [form, setForm] = useState({ name: '', description: '' });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -218,13 +223,15 @@ export default function PortalEmailListsPage() {
         actions={
           <button
             onClick={() => setShowForm(!showForm)}
-            className={pBtnPrimary}
+            className={studio ? sBtnGhost : pBtnPrimary}
           >
             <span className="material-icons text-base">add</span>
             New List
           </button>
         }
       />
+
+      {studio && <EmailTabs active="/portal/email/lists" />}
 
       {showForm && (
         <form onSubmit={createList} className="bg-card border border-border rounded-2xl p-5 space-y-4">
@@ -275,6 +282,7 @@ export default function PortalEmailListsPage() {
                     <p className="font-medium text-sm text-foreground">{list.name}</p>
                     {list.description && <p className="text-xs text-muted-foreground">{list.description}</p>}
                     <p className="text-xs text-muted-foreground">{list.subscriberCount} subscriber{list.subscriberCount !== 1 ? 's' : ''}</p>
+                    {studio && <p className="text-xs text-muted-foreground">{list.lastSentAt ? `Last sent ${relativeTime(list.lastSentAt)}` : 'Never sent to'}</p>}
                   </div>
                   <button onClick={e => { e.stopPropagation(); deleteList(list.id); }}
                     className="p-1 rounded text-muted-foreground hover:text-red-500 hover:bg-red-50 transition-colors">
