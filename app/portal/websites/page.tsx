@@ -6,7 +6,9 @@ import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { getPortalClient } from '@/lib/portal-client';
 import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
-import { pBtnPrimary } from '@/components/portal/portal-ui';
+import { pBtnPrimary, sBtn, sBtnGhost } from '@/components/portal/portal-ui';
+import { hasFlag } from '@/lib/feature-flags';
+import SiteCard from '@/components/portal/websites/SiteCard';
 import DomainGetStarted from '@/components/portal/onboarding/DomainGetStarted';
 import { EmptyState, GhostCard } from '@/components/portal/EmptyState';
 
@@ -39,6 +41,33 @@ export default async function PortalCmsPage({
     : [];
 
   const countMap = Object.fromEntries(postCounts.map(r => [r.websiteId, r.count]));
+
+  // PUX-182 (design doc screen 41): under the redesign each site is a card with its status and numbers.
+  // The zero-sites case falls through to the legacy return, whose EmptyState is already flag-aware (PUX-144).
+  if (websites.length > 0 && hasFlag(client, 'portal-redesign')) {
+    const pages = websites.reduce((n, w) => n + (countMap[w.id] ?? 0), 0);
+    return (
+      <div className="space-y-6">
+        <PortalPageHeader
+          eyebrow="Websites"
+          title="All sites"
+          subtitle={`${websites.length} ${websites.length === 1 ? 'site' : 'sites'} · ${pages} ${pages === 1 ? 'page' : 'pages'}`}
+          actions={<Link href="/portal/websites/new" className={sBtn}><span className="material-icons text-base">add</span>Add a site</Link>}
+        />
+        <div className="grid gap-4 sm:grid-cols-2">
+          {websites.map((site) => (
+            <SiteCard key={site.id} site={{ id: site.id, name: site.name, subdomain: site.subdomain, domain: site.domain, deploymentStatus: site.deploymentStatus, updatedAt: site.updatedAt, pageCount: countMap[site.id] ?? 0 }} />
+          ))}
+          <GhostCard icon="add_circle" title="Add a site" body="A new domain, or a microsite for a campaign" href="/portal/websites/new" />
+        </div>
+        <div className="flex items-center gap-3 rounded-2xl border border-dashed border-[var(--studio-line-strong)] bg-card px-4 py-3 text-sm">
+          <span className="material-icons text-muted-foreground">support_agent</span>
+          <p className="flex-1 text-foreground">Need help with your website? Open a ticket and Simpler Development takes it from here.</p>
+          <Link href="/portal/tickets/new" className={sBtnGhost}>Open a ticket</Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
