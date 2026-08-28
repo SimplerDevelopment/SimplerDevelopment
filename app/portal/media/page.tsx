@@ -3,43 +3,16 @@
 import { useState, useEffect, useRef } from 'react';
 import { formatBytes } from '@/lib/utils/bytes';
 import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
-import { pBtnPrimary, pBtnGhost, pInput, pSelect } from '@/components/portal/portal-ui';
+import { pBtnPrimary, pBtnGhost, pInput, pSelect, sBtn } from '@/components/portal/portal-ui';
+import { useFeatureFlag } from '@/components/portal/FeatureFlagsProvider';
+import MediaFilterColumn from '@/components/portal/media/MediaFilterColumn';
+import MediaUsedOn from '@/components/portal/media/MediaUsedOn';
+import { MediaDetail } from '@/components/portal/media/MediaDetail';
+import { MediaUploadDialog } from '@/components/portal/media/MediaUploadDialog';
+import type { MediaItem, MediaVersionEntry, BrandingProfileOption } from '@/components/portal/media/types';
 
-interface MediaItem {
-  id: number;
-  filename: string;
-  url: string;
-  // Smaller derivative used for grid renders. E2 perf — when present, the
-  // grid <img> prefers thumbnailUrl over the full url to avoid downloading
-  // multi-MB originals for h-40 tiles.
-  thumbnailUrl?: string | null;
-  mimeType: string;
-  fileSize: number;
-  width?: number | null;
-  height?: number | null;
-  alt?: string | null;
-  caption?: string | null;
-  brandingProfileId?: number | null;
-  brandingProfileName?: string | null;
-  version?: number;
-  createdAt: string;
-}
-
-interface MediaVersionEntry {
-  id: number;
-  version: number;
-  filename: string;
-  url: string;
-  fileSize: number;
-  mimeType: string;
-  createdAt: string;
-}
-
-interface BrandingProfileOption {
-  id: number;
-  name: string;
-}
-
+// PUX-188: the tile class as a const so the flag-off className string stays byte-identical.
+const TILE = "bg-card border border-border rounded-2xl overflow-hidden cursor-pointer hover:shadow-lg hover:border-primary/40 transition-all group";
 
 export default function PortalMediaPage() {
   const base = '/api/portal/media';
@@ -67,6 +40,7 @@ export default function PortalMediaPage() {
 
   // Detail state
   const [detail, setDetail] = useState<MediaItem | null>(null);
+  const studio = useFeatureFlag('portal-redesign');
   const [editAlt, setEditAlt] = useState('');
   const [editCaption, setEditCaption] = useState('');
   const [editMode, setEditMode] = useState(false);
@@ -255,63 +229,10 @@ export default function PortalMediaPage() {
     navigator.clipboard.writeText(url);
   };
 
-  return (
-    <div className="max-w-5xl mx-auto space-y-6">
-      {/* Header */}
-      <PortalPageHeader
-        eyebrow="Media"
-        title="Media Library"
-        subtitle="Upload and manage images, videos, and documents across all services."
-        actions={
-          <button
-            onClick={() => setShowUpload(true)}
-            className={pBtnPrimary}
-          >
-            <span className="material-icons text-base">cloud_upload</span>
-            Upload
-          </button>
-        }
-      />
+  const detailProps = { onClose: () => setDetail(null), editMode, setEditMode, editAlt, setEditAlt, editCaption, setEditCaption, savingDetail, handleSaveDetail, copyUrl, replaceInputRef, replacing, handleReplaceFile, handleDeleteMedia, versionsOpen, setVersionsOpen, versions, loadVersions, handleRestoreVersion };
 
-      {/* Filters */}
-      <div className="bg-card border border-border rounded-2xl p-4 space-y-3">
-        <input
-          type="text"
-          placeholder="Search by filename, alt text, or caption..."
-          value={search}
-          onChange={e => { setSearch(e.target.value); setOffset(0); }}
-          className={pInput}
-        />
-        <div className="flex gap-2 flex-wrap items-center">
-          {['all', 'image', 'video', 'application'].map(type => (
-            <button
-              key={type}
-              onClick={() => { setFilter(type); setOffset(0); }}
-              className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-                filter === type
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-accent text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              {type.charAt(0).toUpperCase() + type.slice(1)}
-            </button>
-          ))}
-          {brandingProfiles.length > 0 && (
-            <select
-              value={profileFilter}
-              onChange={e => { setProfileFilter(e.target.value); setOffset(0); }}
-              className={`ml-auto ${pSelect}`}
-            >
-              <option value="">All Brands</option>
-              {brandingProfiles.map(p => (
-                <option key={p.id} value={String(p.id)}>{p.name}</option>
-              ))}
-              <option value="unassigned">Unassigned</option>
-            </select>
-          )}
-        </div>
-      </div>
-
+  const gridAndPaging = (
+    <>
       {/* Grid */}
       {loading ? (
         <div className="flex items-center justify-center py-16">
@@ -330,7 +251,7 @@ export default function PortalMediaPage() {
             <div
               key={item.id}
               onClick={() => openDetail(item)}
-              className="bg-card border border-border rounded-2xl overflow-hidden cursor-pointer hover:shadow-lg hover:border-primary/40 transition-all group"
+              className={studio && detail?.id === item.id ? `${TILE} ring-2 ring-primary` : TILE}
             >
               {item.mimeType.startsWith('image/') ? (
                 // eslint-disable-next-line @next/next/no-img-element -- grid thumbnail; we prefer manual <img> + lazy over next/image to avoid layout cost
@@ -391,266 +312,108 @@ export default function PortalMediaPage() {
         </div>
       )}
 
+    </>
+  );
+
+  return (
+    <div className="max-w-5xl mx-auto space-y-6">
+      {/* Header */}
+      <PortalPageHeader
+        eyebrow="Media"
+        title="Media Library"
+        subtitle="Upload and manage images, videos, and documents across all services."
+        actions={
+          <button
+            onClick={() => setShowUpload(true)}
+            className={studio ? sBtn : pBtnPrimary}
+          >
+            <span className="material-icons text-base">cloud_upload</span>
+            Upload
+          </button>
+        }
+      />
+
+      {studio ? (
+        <div className={`grid gap-6 lg:grid-cols-[200px_minmax(0,1fr)] ${detail ? 'xl:grid-cols-[200px_minmax(0,1fr)_320px]' : ''}`}>
+          <MediaFilterColumn
+            search={search} setSearch={(v) => { setSearch(v); setOffset(0); }}
+            filter={filter} setFilter={(v) => { setFilter(v); setOffset(0); }}
+            profileFilter={profileFilter} setProfileFilter={(v) => { setProfileFilter(v); setOffset(0); }}
+            brandingProfiles={brandingProfiles} total={total}
+          />
+          <div className="space-y-6">{gridAndPaging}</div>
+          {detail && <MediaDetail detail={detail} variant="panel" extra={<MediaUsedOn key={detail.id} mediaId={detail.id} />} {...detailProps} />}
+        </div>
+      ) : (
+        <>
+      {/* Filters */}
+      <div className="bg-card border border-border rounded-2xl p-4 space-y-3">
+        <input
+          type="text"
+          placeholder="Search by filename, alt text, or caption..."
+          value={search}
+          onChange={e => { setSearch(e.target.value); setOffset(0); }}
+          className={pInput}
+        />
+        <div className="flex gap-2 flex-wrap items-center">
+          {['all', 'image', 'video', 'application'].map(type => (
+            <button
+              key={type}
+              onClick={() => { setFilter(type); setOffset(0); }}
+              className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                filter === type
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-accent text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              {type.charAt(0).toUpperCase() + type.slice(1)}
+            </button>
+          ))}
+          {brandingProfiles.length > 0 && (
+            <select
+              value={profileFilter}
+              onChange={e => { setProfileFilter(e.target.value); setOffset(0); }}
+              className={`ml-auto ${pSelect}`}
+            >
+              <option value="">All Brands</option>
+              {brandingProfiles.map(p => (
+                <option key={p.id} value={String(p.id)}>{p.name}</option>
+              ))}
+              <option value="unassigned">Unassigned</option>
+            </select>
+          )}
+        </div>
+      </div>
+
+          {gridAndPaging}
+        </>
+      )}
+
       {/* Upload modal */}
       {showUpload && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowUpload(false)}>
-          <div className="bg-card rounded-xl shadow-2xl max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-            <div className="p-6 space-y-4">
-              <div className="flex justify-between items-center">
-                <h2 className="text-lg font-bold text-foreground">Upload Media</h2>
-                <button onClick={() => setShowUpload(false)} className="text-muted-foreground hover:text-foreground">
-                  <span className="material-icons">close</span>
-                </button>
-              </div>
-
-              <div
-                onDragEnter={handleDrag}
-                onDragOver={handleDrag}
-                onDragLeave={handleDrag}
-                onDrop={handleDrop}
-                onClick={() => fileInputRef.current?.click()}
-                className={`border-2 border-dashed rounded-xl p-10 text-center cursor-pointer transition-colors ${
-                  dragActive ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'
-                }`}
-              >
-                <input ref={fileInputRef} type="file" className="hidden" onChange={e => e.target.files?.[0] && selectFile(e.target.files[0])} />
-                {preview ? (
-                  <img src={preview} alt="Preview" className="max-h-40 mx-auto rounded-lg" />
-                ) : (
-                  <>
-                    <span className="material-icons text-4xl text-muted-foreground">cloud_upload</span>
-                    <p className="text-sm font-medium text-foreground mt-2">
-                      {selectedFile ? selectedFile.name : 'Drop files here or click to browse'}
-                    </p>
-                    {!selectedFile && <p className="text-xs text-muted-foreground mt-1">Images, videos, and documents</p>}
-                  </>
-                )}
-              </div>
-
-              {selectedFile && (
-                <>
-                  {brandingProfiles.length > 0 && (
-                    <div className="space-y-1.5">
-                      <label className="text-sm font-medium text-foreground">Brand</label>
-                      <select
-                        value={uploadProfileId}
-                        onChange={e => setUploadProfileId(e.target.value)}
-                        className={pSelect}
-                      >
-                        <option value="">No brand assigned</option>
-                        {brandingProfiles.map(p => (
-                          <option key={p.id} value={String(p.id)}>{p.name}</option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-                  <div className="space-y-1.5">
-                    <label className="text-sm font-medium text-foreground">Alt Text</label>
-                    <input
-                      value={uploadAlt}
-                      onChange={e => setUploadAlt(e.target.value)}
-                      placeholder="Describe the image"
-                      className={pInput}
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-sm font-medium text-foreground">Caption</label>
-                    <textarea
-                      value={uploadCaption}
-                      onChange={e => setUploadCaption(e.target.value)}
-                      rows={2}
-                      placeholder="Optional caption"
-                      className={`${pInput} resize-none`}
-                    />
-                  </div>
-                  <div className="flex gap-3">
-                    <button
-                      onClick={handleUpload}
-                      disabled={uploading}
-                      className={`flex-1 ${pBtnPrimary}`}
-                    >
-                      {uploading && <span className="material-icons text-base animate-spin">refresh</span>}
-                      {uploading ? 'Uploading...' : 'Upload'}
-                    </button>
-                    <button
-                      onClick={() => setShowUpload(false)}
-                      className={pBtnGhost}
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
+        <MediaUploadDialog
+          onClose={() => setShowUpload(false)}
+          dragActive={dragActive}
+          handleDrag={handleDrag}
+          handleDrop={handleDrop}
+          fileInputRef={fileInputRef}
+          preview={preview}
+          selectedFile={selectedFile}
+          selectFile={selectFile}
+          brandingProfiles={brandingProfiles}
+          uploadProfileId={uploadProfileId}
+          setUploadProfileId={setUploadProfileId}
+          uploadAlt={uploadAlt}
+          setUploadAlt={setUploadAlt}
+          uploadCaption={uploadCaption}
+          setUploadCaption={setUploadCaption}
+          uploading={uploading}
+          handleUpload={handleUpload}
+        />
       )}
 
       {/* Detail modal */}
-      {detail && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setDetail(null)}>
-          <div className="bg-card rounded-xl shadow-2xl max-w-3xl w-full mx-4 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-            <div className="p-6 space-y-4">
-              <div className="flex justify-between items-center">
-                <h2 className="text-lg font-bold text-foreground">Media Details</h2>
-                <button onClick={() => setDetail(null)} className="text-muted-foreground hover:text-foreground">
-                  <span className="material-icons">close</span>
-                </button>
-              </div>
-
-              <div className="bg-muted rounded-xl p-4 flex items-center justify-center">
-                {detail.mimeType.startsWith('image/') ? (
-                  <img src={detail.url} alt={detail.alt || detail.filename} className="max-h-80 rounded-lg" />
-                ) : detail.mimeType.startsWith('video/') ? (
-                  <video src={detail.url} controls className="max-h-80 rounded-lg" />
-                ) : (
-                  <span className="material-icons text-6xl text-muted-foreground">description</span>
-                )}
-              </div>
-
-              <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
-                <div><span className="font-medium">Filename:</span> {detail.filename}</div>
-                <div><span className="font-medium">Type:</span> {detail.mimeType}</div>
-                <div><span className="font-medium">Size:</span> {formatBytes(detail.fileSize)}</div>
-                {detail.width && detail.height && <div><span className="font-medium">Dimensions:</span> {detail.width} x {detail.height}</div>}
-                <div><span className="font-medium">Uploaded:</span> {new Date(detail.createdAt).toLocaleDateString()}</div>
-                {detail.brandingProfileName && <div><span className="font-medium">Brand:</span> {detail.brandingProfileName}</div>}
-              </div>
-
-              {editMode ? (
-                <div className="space-y-3 pt-2">
-                  <div className="space-y-1.5">
-                    <label className="text-sm font-medium text-foreground">Alt Text</label>
-                    <input
-                      value={editAlt}
-                      onChange={e => setEditAlt(e.target.value)}
-                      className={pInput}
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-sm font-medium text-foreground">Caption</label>
-                    <textarea
-                      value={editCaption}
-                      onChange={e => setEditCaption(e.target.value)}
-                      rows={2}
-                      className={`${pInput} resize-none`}
-                    />
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={handleSaveDetail}
-                      disabled={savingDetail}
-                      className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors"
-                    >
-                      {savingDetail ? 'Saving...' : 'Save'}
-                    </button>
-                    <button
-                      onClick={() => setEditMode(false)}
-                      className="px-4 py-2 text-sm text-foreground border border-border rounded-lg hover:bg-accent transition-colors"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-1 text-sm">
-                  {detail.alt && <p><span className="font-medium">Alt:</span> {detail.alt}</p>}
-                  {detail.caption && <p><span className="font-medium">Caption:</span> {detail.caption}</p>}
-                </div>
-              )}
-
-              <div className="flex gap-2 pt-3 border-t border-border flex-wrap">
-                <input
-                  ref={replaceInputRef}
-                  type="file"
-                  className="hidden"
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (f) handleReplaceFile(f);
-                    if (replaceInputRef.current) replaceInputRef.current.value = '';
-                  }}
-                />
-                <button
-                  onClick={() => copyUrl(detail.url)}
-                  className={pBtnPrimary}
-                >
-                  <span className="material-icons text-base">content_copy</span>
-                  Copy URL
-                </button>
-                <button
-                  onClick={() => replaceInputRef.current?.click()}
-                  disabled={replacing}
-                  className={pBtnGhost}
-                >
-                  <span className="material-icons text-base">{replacing ? 'refresh' : 'upload_file'}</span>
-                  {replacing ? 'Replacing…' : 'Replace File'}
-                </button>
-                {!editMode && (
-                  <button
-                    onClick={() => setEditMode(true)}
-                    className={pBtnGhost}
-                  >
-                    Edit Metadata
-                  </button>
-                )}
-                <button
-                  onClick={handleDeleteMedia}
-                  className="ml-auto px-4 py-2 text-sm text-red-600 border border-red-200 rounded-lg hover:bg-red-50 dark:border-red-800 dark:hover:bg-red-900/20 transition-colors"
-                >
-                  Delete
-                </button>
-              </div>
-
-              <div className="pt-3 border-t border-border">
-                <button
-                  onClick={() => {
-                    const next = !versionsOpen;
-                    setVersionsOpen(next);
-                    if (next) loadVersions(detail.id);
-                  }}
-                  className="flex items-center gap-1.5 text-sm text-foreground hover:text-primary transition-colors"
-                >
-                  <span className="material-icons text-base">{versionsOpen ? 'expand_less' : 'expand_more'}</span>
-                  Version history{detail.version ? ` (current: v${detail.version})` : ''}
-                </button>
-                {versionsOpen && (
-                  <div className="mt-3 space-y-2">
-                    {versions.length === 0 ? (
-                      <p className="text-xs text-muted-foreground">No prior versions yet. Replace the file to start a history.</p>
-                    ) : (
-                      versions.map((v) => (
-                        <div key={v.id} className="flex items-center gap-3 px-3 py-2 rounded-xl border border-border bg-background">
-                          <span className="material-icons text-base text-muted-foreground">history</span>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-foreground truncate">v{v.version} · {v.filename}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {formatBytes(v.fileSize)} · {new Date(v.createdAt).toLocaleString()}
-                            </p>
-                          </div>
-                          <a
-                            href={v.url}
-                            target="_blank"
-                            rel="noopener"
-                            className="text-xs text-muted-foreground hover:text-foreground"
-                          >
-                            View
-                          </a>
-                          <button
-                            onClick={() => handleRestoreVersion(v.id)}
-                            className={`${pBtnGhost} text-xs px-2 py-1`}
-                          >
-                            Restore
-                          </button>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {!studio && detail && <MediaDetail detail={detail} {...detailProps} />}
     </div>
   );
 }
