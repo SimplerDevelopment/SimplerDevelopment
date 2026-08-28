@@ -9,6 +9,7 @@ import PortalSidebar from '@/components/portal/PortalSidebar';
 import PortalTopbar from '@/components/portal/PortalTopbar';
 import PortalTitle from '@/components/portal/PortalTitle';
 import CmdKLauncher from '@/components/CmdKLauncher';
+import AskLauncher from '@/components/brain/ask/AskLauncher';
 import { AgencyChromeProvider } from '@/components/portal/AgencyChromeProvider';
 import { FeatureFlagsProvider } from '@/components/portal/FeatureFlagsProvider';
 import ImpersonationBanner from '@/components/portal/ImpersonationBanner';
@@ -203,6 +204,8 @@ export default function PortalLayoutClient({ children, apps, entitlements }: Por
         {/* {!previewMode && <AIChatWidget />} */}
       </div>
       <CmdKLauncher apps={apps} entitlements={entitlements} />
+      {/* PUX-199: ⌘J Ask panel; renders nothing unless portal-redesign is on */}
+      <AskLauncher />
     </FeatureFlagsProvider>
     </AgencyChromeProvider>
   );
