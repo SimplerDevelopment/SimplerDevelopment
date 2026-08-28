@@ -1,6 +1,9 @@
 import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
+import { getPortalClient } from '@/lib/portal-client';
+import { hasFlag } from '@/lib/feature-flags';
 import BrainAgentChat from '@/components/brain/BrainAgentChat';
+import AskPage from '@/components/brain/ask/AskPage';
 
 export const metadata = {
   title: 'Brain Agent',
@@ -9,6 +12,10 @@ export const metadata = {
 export default async function BrainAgentPage() {
   const session = await auth();
   if (!session?.user?.id) redirect('/portal/login');
+
+  // PUX-167 (design doc screen 26): under the redesign this is Ask — conversations beside the chat.
+  const client = await getPortalClient(parseInt(session.user.id, 10));
+  if (client && hasFlag(client, 'portal-redesign')) return <AskPage />;
 
   return (
     <div className="flex flex-col h-full min-h-0">
