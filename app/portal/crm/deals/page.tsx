@@ -4,7 +4,7 @@ import { useFeatureFlag } from '@/components/portal/FeatureFlagsProvider';
 import { formatMoney } from '@/lib/utils/money';
 import DealsTable from './_components/DealsTable';
 import { Suspense, useEffect, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import DealDetailDrawer from './_components/DealDetailDrawer';
 import DealFilters from './_components/DealFilters';
 import DealKanban from './_components/DealKanban';
@@ -44,6 +44,7 @@ const EMPTY_FORM: DealFormState = {
  */
 function CrmDealsContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const dealId = searchParams.get('dealId');
 
   const {
@@ -71,6 +72,8 @@ function CrmDealsContent() {
   const studio = useFeatureFlag('portal-redesign');
   const [view, setView] = useState<'board' | 'table'>('board');
   const openDeals = deals.filter((d) => d.status === 'open');
+  // PUX-172: under the flag a deal has its own URL; flag off keeps the drawer.
+  const openDeal = studio ? (d: Deal) => router.push(`/portal/crm/deals/${d.id}`) : setEditingDeal;
 
   useEffect(() => {
     if (!dealId) return;
@@ -169,14 +172,14 @@ function CrmDealsContent() {
       )}
 
       {studio && view === 'table' ? (
-        <DealsTable stages={stages} deals={deals} onOpenDeal={setEditingDeal} />
+        <DealsTable stages={stages} deals={deals} onOpenDeal={openDeal} />
       ) : (
         <DealKanban
           stages={stages}
           deals={deals}
           loading={dealsLoading}
           onMoveDeal={moveDeal}
-          onOpenDeal={setEditingDeal}
+          onOpenDeal={openDeal}
           studio={studio}
         />
       )}
