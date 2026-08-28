@@ -127,6 +127,9 @@ export async function GET(req: NextRequest) {
       createdAt: crmContacts.createdAt,
       updatedAt: crmContacts.updatedAt,
       companyName: crmCompanies.name,
+      // PUX-169: the contact's latest activity as {title, at} — one correlated, tenant-scoped
+      // subquery on crm_activities_client_contact_idx (design doc screen 28, "Last activity").
+      lastActivity: sql<{ title: string; at: string } | null>`(select json_build_object('title', a.title, 'at', a.created_at) from crm_activities a where a.contact_id = ${crmContacts.id} and a.client_id = ${client.id} order by a.created_at desc limit 1)`,
     })
     .from(crmContacts)
     .leftJoin(crmCompanies, eq(crmContacts.companyId, crmCompanies.id))

@@ -8,7 +8,13 @@ import PositionMultiSelect from '@/components/portal/PositionMultiSelect';
 import CrmCompanyTypeaheadPicker from '@/components/portal/CrmCompanyTypeaheadPicker';
 import CrmAddContactModal from '@/components/portal/CrmAddContactModal';
 import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
-import { pBtnPrimary, pBtnGhost } from '@/components/portal/portal-ui';
+import { pBtnPrimary, pBtnGhost, sBtn, sBtnGhost } from '@/components/portal/portal-ui';
+import { useFeatureFlag } from '@/components/portal/FeatureFlagsProvider';
+import { EmptyState } from '@/components/portal/EmptyState';
+import StudioTable, { type StudioColumn } from '@/components/portal/StudioTable';
+import SavedViewTabs from '@/components/portal/crm/SavedViewTabs';
+import ContactsBulkBar from '@/components/portal/crm/ContactsBulkBar';
+import { relativeTime } from '@/lib/notifications/feed';
 
 interface Contact {
   id: number;
@@ -23,6 +29,7 @@ interface Contact {
   source: string | null;
   score: number | null;
   lastContactedAt: string | null;
+  lastActivity?: { title: string; at: string } | null;
   createdAt: string;
   avatarUrl: string | null;
 }
@@ -68,6 +75,9 @@ const LIMIT = 25;
 
 export default function CrmContactsPage() {
   const router = useRouter();
+  // PUX-169 (design doc screen 28): saved views as tabs, selection + bulk bar, Last activity, the list idiom. Flag off is today's page.
+  const studio = useFeatureFlag('portal-redesign');
+  const [selected, setSelected] = useState<Set<number>>(new Set());
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -111,6 +121,7 @@ export default function CrmContactsPage() {
     const d = await res.json();
     setContacts(d.data?.contacts ?? d.data ?? []);
     setTotal(d.data?.total ?? 0);
+    setSelected(new Set());
     setLoading(false);
   }, [page, search, statusFilter, companyFilter, titleFilter, customFilters]);
 
@@ -225,22 +236,42 @@ export default function CrmContactsPage() {
 
   const totalPages = Math.max(1, Math.ceil(total / LIMIT));
 
+  const studioColumns: StudioColumn<Contact>[] = [
+    { key: 'name', label: 'Name', render: (c) => (
+      <div className="flex items-center gap-3">
+        {c.avatarUrl
+          ? <img src={c.avatarUrl} alt="" className="shrink-0 w-8 h-8 rounded-full object-cover" />
+          : <span className="shrink-0 w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">{contactInitials(c.firstName, c.lastName)}</span>}
+        <div className="min-w-0">
+          <p className="font-medium text-foreground truncate">{c.firstName} {c.lastName}</p>
+          <p className="text-xs text-muted-foreground truncate">{c.email ?? '—'}</p>
+        </div>
+      </div>
+    ) },
+    { key: 'company', label: 'Company', className: 'hidden lg:table-cell text-muted-foreground', render: (c) => c.companyName ?? '—' },
+    { key: 'title', label: 'Title', className: 'hidden xl:table-cell text-muted-foreground', render: (c) => c.title ?? '—' },
+    { key: 'status', label: 'Status', render: (c) => <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusColor[c.status] ?? 'bg-gray-100 text-gray-700'}`}>{c.status}</span> },
+    { key: 'activity', label: 'Last activity', className: 'hidden md:table-cell text-muted-foreground', render: (c) =>
+      c.lastActivity ? `${c.lastActivity.title} · ${relativeTime(c.lastActivity.at)}` : c.lastContactedAt ? `Contacted · ${relativeTime(c.lastContactedAt)}` : '—' },
+    { key: 'score', label: 'Score', align: 'right', className: 'hidden lg:table-cell', render: (c) => c.score ?? '—' },
+  ];
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <PortalPageHeader
-        eyebrow="CRM"
+        eyebrow={studio ? 'Grow · CRM' : 'CRM'}
         title="Contacts"
         subtitle={loading ? '' : `${total} contact${total !== 1 ? 's' : ''}`}
         actions={
           <div className="flex items-center gap-2">
-            <CrmImportExport entityType="contact" currentFilters={{ search, status: statusFilter, companyId: companyFilter, title: titleFilter.join(',') }} onImportComplete={fetchContacts} />
+            <CrmImportExport entityType="contact" currentFilters={{ search, status: statusFilter, companyId: companyFilter, title: titleFilter.join(',') }} onImportComplete={fetchContacts} studio={studio} />
             <button
               onClick={() => setShowForm(f => !f)}
-              className={pBtnPrimary}
+              className={studio ? sBtn : pBtnPrimary}
             >
               <span className="material-icons text-base">{showForm ? 'close' : 'person_add'}</span>
-              {showForm ? 'Cancel' : 'Add Contact'}
+              {showForm ? 'Cancel' : studio ? 'New contact' : 'Add Contact'}
             </button>
           </div>
         }
@@ -257,7 +288,10 @@ export default function CrmContactsPage() {
       {/* Saved Views + Filters */}
       <div className="space-y-3">
         <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-2">
+          {studio && (
+            <SavedViewTabs views={savedViews} selectedId={selectedViewId} onSelect={applyView} onDelete={handleDeleteView} canSave={hasActiveFilters && !showSaveViewForm} onSave={() => setShowSaveViewForm(true)} />
+          )}
+          {!studio && <div className="flex items-center gap-2">
             <span className="material-icons text-base text-muted-foreground">bookmark</span>
             <select
               aria-label="Saved view" value={selectedViewId ?? ''}
@@ -282,8 +316,8 @@ export default function CrmContactsPage() {
                 <span className="material-icons text-base">delete</span>
               </button>
             )}
-          </div>
-          {hasActiveFilters && !showSaveViewForm && (
+          </div>}
+          {!studio && hasActiveFilters && !showSaveViewForm && (
             <button
               onClick={() => setShowSaveViewForm(true)}
               className={pBtnGhost}
@@ -304,7 +338,7 @@ export default function CrmContactsPage() {
               <button
                 type="submit"
                 disabled={savingView || !viewName.trim()}
-              className={pBtnPrimary}
+              className={studio ? sBtnGhost : pBtnPrimary}
               >
                 {savingView ? <span className="material-icons animate-spin text-sm">refresh</span> : <span className="material-icons text-sm">check</span>}
                 Save
@@ -365,6 +399,35 @@ export default function CrmContactsPage() {
       </div>
 
       {/* Table */}
+      {studio ? (
+        <div className="space-y-2">
+          {selected.size > 0 && (
+            <ContactsBulkBar rows={contacts.filter((c) => selected.has(c.id))} onClear={() => setSelected(new Set())} onChanged={fetchContacts} />
+          )}
+          {loading ? (
+            <div className="flex items-center justify-center py-12"><span className="material-icons animate-spin text-primary text-2xl">refresh</span></div>
+          ) : contacts.length === 0 ? (
+            <EmptyState
+              title="No contacts yet."
+              body="Everyone you talk to — guests, leads, partners — with what they last did."
+              cta={{ label: 'New contact', icon: 'person_add', onClick: () => setShowForm(true) }}
+              ghostLabel="A contact"
+            />
+          ) : (
+            <StudioTable
+              columns={studioColumns}
+              rows={contacts}
+              rowKey={(c) => c.id}
+              onRowClick={(c) => router.push(`/portal/crm/contacts/${c.id}`)}
+              selectable
+              selected={selected}
+              onToggle={(id) => setSelected((prev) => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; })}
+              onToggleAll={() => setSelected((prev) => prev.size === contacts.length ? new Set() : new Set(contacts.map((c) => c.id)))}
+              footer={`${(page - 1) * LIMIT + 1}–${Math.min(page * LIMIT, total)} of ${total}`}
+            />
+          )}
+        </div>
+      ) : (
       <div className="bg-card border border-border rounded-2xl overflow-hidden">
         {loading ? (
           <div className="flex items-center justify-center py-12">
@@ -448,6 +511,7 @@ export default function CrmContactsPage() {
           </div>
         )}
       </div>
+      )}
 
       {/* Pagination */}
       {totalPages > 1 && (
