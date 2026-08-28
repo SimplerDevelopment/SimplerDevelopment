@@ -4,7 +4,11 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { RelatedModulesStrip } from '@/components/portal/billing/RelatedModulesStrip';
 import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
-import { pBtnPrimary } from '@/components/portal/portal-ui';
+import { pBtnPrimary, sBtn } from '@/components/portal/portal-ui';
+import { useRouter } from 'next/navigation';
+import { useFeatureFlag } from '@/components/portal/FeatureFlagsProvider';
+import { EmptyState } from '@/components/portal/EmptyState';
+import CampaignsStudioTable from '@/components/portal/email/CampaignsStudioTable';
 import DomainGetStarted from '@/components/portal/onboarding/DomainGetStarted';
 
 interface Campaign {
@@ -16,6 +20,7 @@ interface Campaign {
   totalOpened: number;
   totalClicked: number;
   sentAt: string | null;
+  scheduledAt?: string | null;
   createdAt: string;
   listName: string | null;
 }
@@ -35,7 +40,19 @@ const statusColor: Record<string, string> = {
   ab_testing: 'bg-violet-100 text-violet-700',
 };
 
+// PUX-174 (design doc screen 33): the seven nav children as five tabs of links; Campaigns is this page.
+const EMAIL_TABS = [
+  { href: '/portal/email', label: 'Campaigns' },
+  { href: '/portal/email/lists', label: 'Lists' },
+  { href: '/portal/email/segments', label: 'Segments' },
+  { href: '/portal/email/templates', label: 'Templates' },
+  { href: '/portal/email/analytics', label: 'Analytics' },
+];
+
 export default function PortalEmailPage() {
+  const router = useRouter();
+  // PUX-174: open + click as bars, scheduled time beside the pill, one teal New campaign. Flag off is today's page.
+  const studio = useFeatureFlag('portal-redesign');
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [lists, setLists] = useState<EmailList[]>([]);
   const [loading, setLoading] = useState(true);
@@ -54,7 +71,9 @@ export default function PortalEmailPage() {
   const sentCampaigns = campaigns.filter(c => c.status === 'sent');
   const totalSent = sentCampaigns.reduce((sum, c) => sum + c.totalSent, 0);
   const totalOpened = sentCampaigns.reduce((sum, c) => sum + c.totalOpened, 0);
+  const totalClicked = sentCampaigns.reduce((sum, c) => sum + c.totalClicked, 0);
   const avgOpenRate = totalSent > 0 ? Math.round(totalOpened / totalSent * 100) : 0;
+  const avgClickRate = totalSent > 0 ? Math.round(totalClicked / totalSent * 100) : 0;
   const totalSubscribers = lists.reduce((sum, l) => sum + (l.subscriberCount ?? 0), 0);
 
   async function deleteCampaign(id: number, status: string) {
@@ -67,22 +86,48 @@ export default function PortalEmailPage() {
   return (
     <div className="max-w-5xl mx-auto space-y-8">
       <PortalPageHeader
-        eyebrow="Marketing"
-        title="Email Marketing"
-        subtitle="Manage your campaigns and subscriber lists."
+        eyebrow={studio ? 'Grow · Reach' : 'Marketing'}
+        title={studio ? 'Email' : 'Email Marketing'}
+        subtitle={studio ? (loading ? '' : `${totalSubscribers.toLocaleString()} subscribers across ${lists.length} ${lists.length === 1 ? 'list' : 'lists'}`) : 'Manage your campaigns and subscriber lists.'}
         actions={
           <Link
             href="/portal/email/campaigns/new"
-            className={pBtnPrimary}
+            className={studio ? sBtn : pBtnPrimary}
           >
             <span className="material-icons text-base">add</span>
-            New Campaign
+            {studio ? 'New campaign' : 'New Campaign'}
           </Link>
         }
       />
 
+      {studio && (
+        <nav className="flex gap-1 border-b border-border" aria-label="Email">
+          {EMAIL_TABS.map((t) => (
+            <Link key={t.href} href={t.href} aria-current={t.href === '/portal/email' ? 'page' : undefined}
+              className={`-mb-px border-b-2 px-3 py-2 text-sm font-medium transition-colors ${t.href === '/portal/email' ? 'border-foreground text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>
+              {t.label}
+            </Link>
+          ))}
+        </nav>
+      )}
+
       <DomainGetStarted domainKey="email" />
 
+      {studio ? (
+        <div className="grid grid-cols-3 gap-4">
+          {[
+            { label: 'Subscribers', value: totalSubscribers.toLocaleString(), note: `across ${lists.length} ${lists.length === 1 ? 'list' : 'lists'}` },
+            { label: 'Avg open', value: `${avgOpenRate}%`, note: `${sentCampaigns.length} sent` },
+            { label: 'Avg click', value: `${avgClickRate}%`, note: `${sentCampaigns.length} sent` },
+          ].map((t) => (
+            <div key={t.label} className="rounded-2xl border border-border bg-card p-4">
+              <p className="text-xs text-muted-foreground">{t.label}</p>
+              <p className="font-display text-2xl font-extrabold tracking-[-0.02em] text-foreground">{loading ? '—' : t.value}</p>
+              <p className="text-[11px] text-muted-foreground">{t.note}</p>
+            </div>
+          ))}
+        </div>
+      ) : (<>
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
@@ -141,7 +186,16 @@ export default function PortalEmailPage() {
         </Link>
       </div>
 
+      </>)}
+
       {/* Recent campaigns */}
+      {studio ? (
+        loading ? null : campaigns.length === 0 ? (
+          <EmptyState title="No campaigns yet." body="Write one, pick a list, and the open and click rates land here." cta={{ label: 'New campaign', icon: 'add', href: '/portal/email/campaigns/new', ghost: true }} ghostLabel="A campaign" />
+        ) : (
+          <CampaignsStudioTable campaigns={campaigns} onOpen={(c) => router.push(`/portal/email/campaigns/${c.id}`)} onDelete={(c) => deleteCampaign(c.id, c.status)} />
+        )
+      ) : (
       <div className="bg-card border border-border rounded-2xl overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
           <h2 className="font-display font-extrabold tracking-[-0.01em] text-foreground">Recent Campaigns</h2>
@@ -183,6 +237,7 @@ export default function PortalEmailPage() {
           </div>
         )}
       </div>
+      )}
       <RelatedModulesStrip currentDomain="email" />
     </div>
   );
