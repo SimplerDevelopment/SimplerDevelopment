@@ -4,7 +4,10 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { formatMoney } from '@/lib/utils/money';
 import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
-import { pInput } from '@/components/portal/portal-ui';
+import { pInput, sBtn } from '@/components/portal/portal-ui';
+import { useFeatureFlag } from '@/components/portal/FeatureFlagsProvider';
+import OrdersStudioTable from '@/components/portal/store/OrdersStudioTable';
+import { ORDER_CHIPS, chipStatusParam } from '@/lib/store/order-chips';
 
 interface Order {
   id: number;
@@ -15,6 +18,8 @@ interface Order {
   status: string;
   itemCount: number;
   createdAt: string;
+  paymentStatus?: string | null; // PUX-209: the route returns the full row
+  paidAt?: string | null;
 }
 
 const statusColors: Record<string, string> = {
@@ -38,6 +43,10 @@ export default function OrdersListPage() {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  // PUX-209: chips reuse statusFilter as a comma list; selection feeds the one teal, Mark fulfilled.
+  const studio = useFeatureFlag('portal-redesign');
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -64,6 +73,22 @@ export default function OrdersListPage() {
     load();
   }, [load]);
 
+  const toggle = (id: number) => setSelected((prev) => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  const toggleAll = () => setSelected((prev) => (prev.size === orders.length ? new Set() : new Set(orders.map((o) => o.id))));
+  const markFulfilled = async () => {
+    // ponytail: no bulk route exists; the per-order PUT also writes history, timestamps, emails and events, so it is called once per order.
+    setBulkBusy(true);
+    try {
+      for (const id of selected) {
+        await fetch(`${base}/orders/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'shipped', statusNote: 'Marked fulfilled' }) });
+      }
+      setSelected(new Set());
+      load();
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
   const tabs = [
     { label: 'All', value: 'all' },
     { label: 'Pending', value: 'pending' },
@@ -83,6 +108,22 @@ export default function OrdersListPage() {
         subtitle="View and manage customer orders."
       />
 
+      {studio ? (
+        <div className="flex flex-wrap items-center gap-1" role="tablist" aria-label="Order state">
+          {[{ key: 'all', label: 'All' }, ...ORDER_CHIPS].map((c) => {
+            const value = c.key === 'all' ? 'all' : chipStatusParam(c.key);
+            const on = statusFilter === value;
+            return (
+              <button key={c.key} type="button" role="tab" aria-selected={on} onClick={() => { setStatusFilter(value); setPage(1); setSelected(new Set()); }}
+                className={`rounded-full px-3 py-1 text-[12.5px] font-medium transition-colors ${on ? 'bg-foreground text-background' : 'text-muted-foreground hover:text-foreground'}`}>
+                {c.label}
+              </button>
+            );
+          })}
+          <span className="ml-auto text-xs text-muted-foreground">Abandoned checkouts aren&apos;t recorded — an order appears once checkout completes.</span>
+        </div>
+      ) : (
+        <>
       {/* Status Tabs */}
       <div className="flex items-center gap-1 bg-card border border-border rounded-lg p-1 overflow-x-auto">
         {tabs.map((tab) => (
@@ -99,6 +140,17 @@ export default function OrdersListPage() {
           </button>
         ))}
       </div>
+
+        </>
+      )}
+
+      {studio && selected.size > 0 && (
+        <div className="flex items-center gap-3 rounded-2xl border border-border bg-card p-3" aria-label="Bulk actions">
+          <span className="text-sm font-medium text-foreground">{selected.size} selected</span>
+          <button type="button" onClick={markFulfilled} disabled={bulkBusy} className={`${sBtn} disabled:opacity-50`}>{bulkBusy ? 'Marking…' : 'Mark fulfilled'}</button>
+          <button type="button" onClick={() => setSelected(new Set())} className="ml-auto text-xs text-muted-foreground hover:text-foreground">Clear</button>
+        </div>
+      )}
 
       {/* Search */}
       <div className="relative">
@@ -128,6 +180,8 @@ export default function OrdersListPage() {
               : 'Orders will appear here when customers make purchases.'}
           </p>
         </div>
+      ) : studio ? (
+        <OrdersStudioTable rows={orders} selected={selected} onToggle={toggle} onToggleAll={toggleAll} onOpen={(o) => router.push(`/portal/websites/${siteId}/store/orders/${o.id}`)} footer={`${orders.length} ${orders.length === 1 ? 'order' : 'orders'} on this page`} />
       ) : (
         <div className="bg-card border border-border rounded-2xl overflow-hidden">
           <div className="overflow-x-auto">
