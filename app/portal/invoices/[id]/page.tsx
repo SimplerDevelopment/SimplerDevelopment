@@ -1,8 +1,9 @@
 import { auth } from '@/lib/auth';
-import { db } from '@/lib/db';
-import { clients, invoices, invoiceItems } from '@/lib/db/schema';
-import { eq, and } from 'drizzle-orm';
 import { redirect, notFound } from 'next/navigation';
+import { resolvePortalInvoice } from '@/lib/billing/portal-invoice';
+import { canPayInvoice } from '@/lib/billing/invoice-shape';
+import { hasFlag } from '@/lib/feature-flags';
+import InvoiceDocument from '@/components/portal/billing/InvoiceDocument';
 import Link from 'next/link';
 import { formatCents, invoiceStatusColor, invoiceStatusLabel } from '@/lib/portal';
 import PayInvoiceButton from '@/components/portal/PayInvoiceButton';
@@ -13,27 +14,14 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
 
   const { id } = await params;
   const invoiceId = parseInt(id, 10);
-  const userId = parseInt(session.user.id, 10);
-  const role = (session.user as { role?: string })?.role;
-  const isStaff = role === 'admin' || role === 'employee';
+  // PUX-192: the scoping lives in resolvePortalInvoice, shared with the PDF route.
+  const resolved = await resolvePortalInvoice(session, invoiceId);
+  if (resolved === 'no-client') redirect('/portal/dashboard');
+  if (!resolved) notFound();
+  const { invoice, items, client } = resolved;
 
-  let clientId: number | null = null;
-  if (!isStaff) {
-    const [client] = await db.select().from(clients).where(eq(clients.userId, userId)).limit(1);
-    if (!client) redirect('/portal/dashboard');
-    clientId = client.id;
-  }
-
-  const invoiceQuery = isStaff
-    ? db.select().from(invoices).where(eq(invoices.id, invoiceId)).limit(1)
-    : db.select().from(invoices).where(and(eq(invoices.id, invoiceId), eq(invoices.clientId, clientId!))).limit(1);
-
-  const [invoice] = await invoiceQuery;
-  if (!invoice) notFound();
-
-  const items = await db.select().from(invoiceItems).where(eq(invoiceItems.invoiceId, invoiceId));
-
-  const canPay = invoice.status === 'sent' || invoice.status === 'overdue';
+  const canPay = canPayInvoice(invoice.status);
+  const studio = client ? hasFlag(client, 'portal-redesign') : false;
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
@@ -45,6 +33,7 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
       </div>
 
       {/* Invoice Card */}
+      {studio ? <InvoiceDocument invoice={invoice} items={items} /> : (
       <div className="bg-card border border-border rounded-2xl overflow-hidden">
         {/* Header */}
         <div className="p-6 border-b border-border flex items-start justify-between">
@@ -129,6 +118,7 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
           </div>
         )}
       </div>
+      )}
     </div>
   );
 }
