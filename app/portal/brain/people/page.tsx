@@ -25,7 +25,11 @@ import { PersonCard, type PersonCardData } from '@/components/brain/PersonCard';
 import type { BrainPersonStatus } from '@/lib/db/schema/brain';
 import type { BrainOrgUnitTreeNode } from '@/lib/brain/org-units';
 import PortalPageHeader from '@/components/portal/PortalPageHeader';
-import { pBtnPrimary, pBtnGhost } from '@/components/portal/portal-ui';
+import { pBtnPrimary, pBtnGhost, sBtn } from '@/components/portal/portal-ui';
+import { EmptyState } from '@/components/portal/EmptyState';
+import { useFeatureFlag } from '@/components/portal/FeatureFlagsProvider';
+import WhoKnowsBox from '@/components/brain/WhoKnowsBox';
+import OrgTreeCards from '@/components/brain/OrgTreeCards';
 
 type StatusFilter = 'all' | BrainPersonStatus;
 
@@ -57,8 +61,30 @@ function flattenTree(nodes: BrainOrgUnitTreeNode[], depth = 0, out: OrgUnitFlat[
   return out;
 }
 
+/** Pre-redesign empty state, verbatim — EmptyState's `legacy` under the flag. */
+function LegacyEmpty() {
+  return (
+    <div className="text-center py-12 bg-card border border-dashed border-border rounded-lg">
+      <span className="material-icons text-5xl text-muted-foreground mb-2 block">person_add</span>
+      <p className="text-sm text-foreground font-medium">No people on file yet.</p>
+      <p className="text-xs text-muted-foreground mt-1 mb-4">
+        Add the first member of your team.
+      </p>
+      <Link
+        href="/portal/brain/people/new"
+        className={pBtnPrimary}
+      >
+        <span className="material-icons text-base">person_add</span>
+        Add person
+      </Link>
+    </div>
+  );
+}
+
 export default function BrainPeoplePage() {
   const router = useRouter();
+  // PUX-163 (design doc screen 22): who-knows box, org tree beside the roster, one teal Add person. Flag off is today's page.
+  const studio = useFeatureFlag('portal-redesign');
   const params = useSearchParams();
 
   const statusParam = params.get('status') as StatusFilter | null;
@@ -80,7 +106,8 @@ export default function BrainPeoplePage() {
   const [rows, setRows] = useState<PersonCardData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [orgUnits, setOrgUnits] = useState<OrgUnitFlat[]>([]);
+  const [tree, setTree] = useState<BrainOrgUnitTreeNode[]>([]);
+  const orgUnits = useMemo(() => flattenTree(tree), [tree]);
   const [tags, setTags] = useState<TagOption[]>([]);
 
   // Sync `?q=` from input with a small debounce so each keystroke doesn't
@@ -104,7 +131,7 @@ export default function BrainPeoplePage() {
         const r = await fetch('/api/portal/brain/org-units?as=tree');
         const json = await r.json();
         if (r.ok && json.success) {
-          setOrgUnits(flattenTree((json.data?.tree ?? []) as BrainOrgUnitTreeNode[]));
+          setTree((json.data?.tree ?? []) as BrainOrgUnitTreeNode[]);
         }
       } catch {
         // non-fatal — filter just stays unpopulated
@@ -165,6 +192,8 @@ export default function BrainPeoplePage() {
 
   const hasNextPage = rows.length > PAGE_SIZE;
   const visibleRows = useMemo(() => rows.slice(0, PAGE_SIZE), [rows]);
+  // ponytail: unit leads resolve from the loaded roster page; a lead outside the current filter shows the member count only.
+  const leadNames = useMemo(() => new Map(rows.map((p) => [p.id, p.fullName])), [rows]);
 
   const setParam = useCallback((updates: Record<string, string | null>) => {
     const next = new URLSearchParams(params.toString());
@@ -177,17 +206,74 @@ export default function BrainPeoplePage() {
     router.replace(`/portal/brain/people${next.toString() ? `?${next.toString()}` : ''}`, { scroll: false });
   }, [params, router]);
 
+  const roster = (
+    <>
+    {loading ? (
+      <div className="flex items-center justify-center py-12 text-muted-foreground text-sm">
+        <span className="material-icons animate-spin mr-2">progress_activity</span>
+        Loading…
+      </div>
+    ) : error ? (
+      <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-4 text-sm text-destructive">
+        <div className="flex items-center gap-2 font-medium mb-1">
+          <span className="material-icons text-base">error_outline</span>
+          Couldn&apos;t load people
+        </div>
+        <p>{error}</p>
+      </div>
+    ) : visibleRows.length === 0 ? (
+      <EmptyState
+        title="No people on file yet."
+        body="Add the first member of your team."
+        cta={{ label: 'Add person', href: '/portal/brain/people/new', icon: 'person_add' }}
+        ghostLabel="Your team"
+        legacy={<LegacyEmpty />}
+      />
+    ) : (
+      <div className="space-y-2">
+        {visibleRows.map((p) => (
+          <PersonCard key={p.id} person={p} />
+        ))}
+      </div>
+    )}
+
+    {(page > 1 || hasNextPage) && (
+      <div className="flex items-center justify-between mt-6">
+        <button
+          type="button"
+          disabled={page <= 1}
+          onClick={() => setParam({ page: page > 2 ? String(page - 1) : null })}
+          className={pBtnGhost + " disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none"}
+        >
+          <span className="material-icons text-base">chevron_left</span>
+          Prev
+        </button>
+        <span className="text-xs text-muted-foreground">Page {page}</span>
+        <button
+          type="button"
+          disabled={!hasNextPage}
+          onClick={() => setParam({ page: String(page + 1) })}
+          className={pBtnGhost + " disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none"}
+        >
+          Next
+          <span className="material-icons text-base">chevron_right</span>
+        </button>
+      </div>
+    )}
+    </>
+  );
+
   return (
-    <div className="max-w-5xl mx-auto py-6 px-4 space-y-4">
+    <div className={`${studio ? 'max-w-6xl' : 'max-w-5xl'} mx-auto py-6 px-4 space-y-4`}>
       <div className="sticky top-0 z-10 -mx-4 px-4 pb-3 pt-2 bg-background/95 backdrop-blur border-b border-border">
         <PortalPageHeader
-          eyebrow="Company Brain"
-          title={<span className="flex items-center gap-2"><span className="material-icons text-primary">groups</span>People</span>}
-          subtitle="Your internal team — employees, advisors, and contractors. Distinct from CRM contacts."
+          eyebrow={studio ? 'Brain · People' : 'Company Brain'}
+          title={<span className="flex items-center gap-2"><span className="material-icons text-primary">groups</span>{studio ? 'People & org chart' : 'People'}</span>}
+          subtitle={studio ? 'Who is who, who knows what, and how the team is shaped.' : 'Your internal team — employees, advisors, and contractors. Distinct from CRM contacts.'}
           actions={
-            <Link href="/portal/brain/people/new" className={pBtnPrimary}>
+            <Link href="/portal/brain/people/new" className={studio ? sBtn : pBtnPrimary}>
               <span className="material-icons text-base">person_add</span>
-              New person
+              {studio ? 'Add person' : 'New person'}
             </Link>
           }
           className="mb-0 pb-3"
@@ -239,7 +325,7 @@ export default function BrainPeoplePage() {
           </div>
         </div>
 
-        {tags.length > 0 && (
+        {!studio && tags.length > 0 && (
           <div className="mt-2 flex items-center gap-1.5 flex-wrap">
             <span className="text-[11px] text-muted-foreground mr-1">Expertise:</span>
             <button
@@ -272,65 +358,13 @@ export default function BrainPeoplePage() {
       </div>
 
       <div className="mt-4">
-        {loading ? (
-          <div className="flex items-center justify-center py-12 text-muted-foreground text-sm">
-            <span className="material-icons animate-spin mr-2">progress_activity</span>
-            Loading…
+        {studio && <WhoKnowsBox className="mb-4" />}
+        {studio ? (
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_280px] lg:items-start">
+            <div>{roster}</div>
+            <OrgTreeCards tree={tree} leadNames={leadNames} />
           </div>
-        ) : error ? (
-          <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-4 text-sm text-destructive">
-            <div className="flex items-center gap-2 font-medium mb-1">
-              <span className="material-icons text-base">error_outline</span>
-              Couldn&apos;t load people
-            </div>
-            <p>{error}</p>
-          </div>
-        ) : visibleRows.length === 0 ? (
-          <div className="text-center py-12 bg-card border border-dashed border-border rounded-lg">
-            <span className="material-icons text-5xl text-muted-foreground mb-2 block">person_add</span>
-            <p className="text-sm text-foreground font-medium">No people on file yet.</p>
-            <p className="text-xs text-muted-foreground mt-1 mb-4">
-              Add the first member of your team.
-            </p>
-            <Link
-              href="/portal/brain/people/new"
-              className={pBtnPrimary}
-            >
-              <span className="material-icons text-base">person_add</span>
-              Add person
-            </Link>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {visibleRows.map((p) => (
-              <PersonCard key={p.id} person={p} />
-            ))}
-          </div>
-        )}
-
-        {(page > 1 || hasNextPage) && (
-          <div className="flex items-center justify-between mt-6">
-            <button
-              type="button"
-              disabled={page <= 1}
-              onClick={() => setParam({ page: page > 2 ? String(page - 1) : null })}
-              className={pBtnGhost + " disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none"}
-            >
-              <span className="material-icons text-base">chevron_left</span>
-              Prev
-            </button>
-            <span className="text-xs text-muted-foreground">Page {page}</span>
-            <button
-              type="button"
-              disabled={!hasNextPage}
-              onClick={() => setParam({ page: String(page + 1) })}
-              className={pBtnGhost + " disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none"}
-            >
-              Next
-              <span className="material-icons text-base">chevron_right</span>
-            </button>
-          </div>
-        )}
+        ) : roster}
       </div>
     </div>
   );
