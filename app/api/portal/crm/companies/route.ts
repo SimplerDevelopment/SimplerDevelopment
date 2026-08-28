@@ -109,6 +109,10 @@ export async function GET(req: NextRequest) {
       // aggregates so node-postgres returns JS numbers instead of strings.
       contactCount: sql<number>`(SELECT COUNT(*)::int FROM crm_contacts WHERE crm_contacts.company_id = crm_companies.id)`.as('contact_count'),
       totalDealValue: sql<number>`COALESCE((SELECT SUM(value) FROM crm_deals WHERE crm_deals.company_id = crm_companies.id), 0)::float8`.as('total_deal_value'),
+    // PUX-203 (design doc screen 67): the two columns that predict a deal, computed
+    // the same way as contactCount above — outer table fully qualified, client-scoped.
+    openDeals: sql<number>`(SELECT COUNT(*)::int FROM crm_deals WHERE crm_deals.company_id = crm_companies.id AND crm_deals.status = 'open')`.as('open_deals'),
+    lastActivity: sql<{ title: string; at: string } | null>`(SELECT json_build_object('title', a.title, 'at', a.created_at) FROM crm_activities a WHERE a.company_id = crm_companies.id AND a.client_id = ${client.id} ORDER BY a.created_at DESC LIMIT 1)`.as('last_activity'),
     })
     .from(crmCompanies)
     .where(where)
