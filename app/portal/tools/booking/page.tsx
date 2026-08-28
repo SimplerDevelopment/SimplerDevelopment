@@ -2,11 +2,16 @@ import { auth } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { db } from '@/lib/db';
 import { bookingPages, bookings, googleCalendarTokens, zoomTokens } from '@/lib/db/schema';
-import { eq, desc, and, gte, sql } from 'drizzle-orm';
+import { eq, desc, and, gte, lt, ne, sql } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
 import Link from 'next/link';
 import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
-import { pBtnPrimary, pBtnGhost } from '@/components/portal/portal-ui';
+import { pBtnPrimary, pBtnGhost, sBtn } from '@/components/portal/portal-ui';
+import { hasFlag } from '@/lib/feature-flags';
+import { RelatedModulesStrip } from '@/components/portal/billing/RelatedModulesStrip';
+import BookingsStudioHome from '@/components/portal/booking/BookingsStudioHome';
+import { getWeekDays } from '@/components/portal/booking/WeekGrid';
+import type { CalendarBooking } from './_lib/types';
 import DomainGetStarted from '@/components/portal/onboarding/DomainGetStarted';
 
 export default async function BookingPagesListPage() {
@@ -41,6 +46,47 @@ export default async function BookingPagesListPage() {
     .groupBy(bookings.bookingPageId);
 
   const countMap = new Map(upcomingCounts.map((c) => [c.bookingPageId, c.count]));
+
+  // PUX-181 (design doc screen 40): under the redesign the week is the room's home. One scoped read for this
+  // week's bookings (same shape the calendar route returns); the legacy page below is untouched.
+  if (hasFlag(client, 'portal-redesign')) {
+    const weekDays = getWeekDays(now);
+    const weekEnd = new Date(weekDays[0]); weekEnd.setDate(weekEnd.getDate() + 7);
+    const rows = await db
+      .select({
+        id: bookings.id, bookingPageId: bookings.bookingPageId, guestName: bookings.guestName, guestEmail: bookings.guestEmail,
+        startTime: bookings.startTime, endTime: bookings.endTime, status: bookings.status, groupSize: bookings.groupSize,
+        pageTitle: bookingPages.title, pageColor: bookingPages.color,
+      })
+      .from(bookings)
+      .leftJoin(bookingPages, eq(bookings.bookingPageId, bookingPages.id))
+      .where(and(eq(bookings.clientId, client.id), ne(bookings.status, 'cancelled'), gte(bookings.startTime, weekDays[0]), lt(bookings.startTime, weekEnd)))
+      .orderBy(bookings.startTime);
+    const weekBookings = rows.map((r) => ({
+      ...r, startTime: r.startTime.toISOString(), endTime: r.endTime ? r.endTime.toISOString() : r.startTime.toISOString(),
+      timezone: 'UTC', assignedTo: null, total: 0, assignedMember: null, pageTitle: r.pageTitle ?? '', pageColor: r.pageColor ?? '#6366f1',
+    })) as unknown as CalendarBooking[];
+    const range = `${weekDays[0].toLocaleDateString(undefined, { day: 'numeric' })}–${weekDays[6].toLocaleDateString(undefined, { day: 'numeric', month: 'long' })}`;
+    return (
+      <div className="space-y-6">
+        <PortalPageHeader
+          eyebrow="Grow · Book"
+          title="Bookings"
+          subtitle={`${weekBookings.length} this week · ${range}`}
+          actions={
+            <Link href="/portal/tools/booking/new" className={sBtn}><span className="material-icons text-lg">add</span>New booking page</Link>
+          }
+        />
+        <DomainGetStarted domainKey="bookings" />
+        <BookingsStudioHome
+          days={weekDays.map((d) => d.toISOString())}
+          bookings={weekBookings}
+          pages={pages.map((p) => ({ id: p.id, title: p.title, bookingType: p.bookingType, groupCapacity: p.groupCapacity, active: p.active, duration: p.duration, upcoming: countMap.get(p.id) ?? 0 }))}
+        />
+        <RelatedModulesStrip currentDomain="bookings" />
+      </div>
+    );
+  }
 
   // Check Google Calendar connection
   const calTokens = await db
