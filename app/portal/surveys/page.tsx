@@ -1,8 +1,8 @@
 import { auth } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { db } from '@/lib/db';
-import { surveys } from '@/lib/db/schema';
-import { eq, desc } from 'drizzle-orm';
+import { surveys, surveyResponses } from '@/lib/db/schema';
+import { eq, desc, inArray, max } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
 import { hasServiceAccess } from '@/lib/portal-auth';
 import { hasFlag } from '@/lib/feature-flags';
@@ -11,7 +11,9 @@ import Link from 'next/link';
 import { RelatedModulesStrip } from '@/components/portal/billing/RelatedModulesStrip';
 import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
 import DomainGetStarted from '@/components/portal/onboarding/DomainGetStarted';
-import { pBtnPrimary, pCard } from '@/components/portal/portal-ui';
+import { pBtnPrimary, pCard, sBtn, sBtnGhost } from '@/components/portal/portal-ui';
+import { EmptyState } from '@/components/portal/EmptyState';
+import SurveysStudioTable from '@/components/portal/surveys/SurveysStudioTable';
 
 const statusColors: Record<string, string> = {
   draft: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
@@ -41,6 +43,56 @@ export default async function SurveysListPage() {
     .from(surveys)
     .where(eq(surveys.clientId, client.id))
     .orderBy(desc(surveys.updatedAt));
+
+  // PUX-178 (design doc screen 37): under the redesign the list is a table with a Last response column and a
+  // real CRM link per row. Flag off is today's cards, untouched below.
+  if (hasFlag(client, 'portal-redesign')) {
+    // One scoped rollup: the newest response per survey (ids are already this tenant's).
+    const ids = list.map((s) => s.id);
+    const lastBydSurvey = ids.length === 0 ? [] : await db
+      .select({ surveyId: surveyResponses.surveyId, last: max(surveyResponses.createdAt) })
+      .from(surveyResponses)
+      .where(inArray(surveyResponses.surveyId, ids))
+      .groupBy(surveyResponses.surveyId);
+    const lastMap = new Map(lastBydSurvey.map((r) => [r.surveyId, r.last ? new Date(r.last).toISOString() : null]));
+    const rows = list.map((sv) => ({
+      id: sv.id, title: sv.title, status: sv.status, responseCount: sv.responseCount ?? 0,
+      questionCount: Array.isArray(sv.fields) ? sv.fields.length : 0,
+      linkedType: sv.linkedType ?? null, linkedId: sv.linkedId ?? null,
+      lastResponseAt: lastMap.get(sv.id) ?? null,
+    }));
+    const active = list.filter((sv) => sv.status === 'active').length;
+    const responses = rows.reduce((n, r) => n + r.responseCount, 0);
+    return (
+      <div className="max-w-5xl mx-auto py-6 px-4 space-y-4">
+        <PortalPageHeader
+          eyebrow="Grow · Reach"
+          title="Surveys"
+          subtitle={`${list.length} ${list.length === 1 ? 'survey' : 'surveys'} · ${active} active · ${responses} ${responses === 1 ? 'response' : 'responses'}`}
+          actions={
+            <div className="flex items-center gap-2">
+              {/* Templates live in /new's choose step — the ghost lands there too. */}
+              <Link href="/portal/surveys/new" className={sBtnGhost}><span className="material-icons text-base">dashboard_customize</span>From a template</Link>
+              <Link href="/portal/surveys/new" className={sBtn}><span className="material-icons text-base">add</span>New survey</Link>
+            </div>
+          }
+          className="mb-0 pb-3"
+        />
+        <DomainGetStarted domainKey="surveys" />
+        {rows.length === 0 ? (
+          <EmptyState
+            title="No surveys yet."
+            body="Ask after every booking, qualify a lead, or take a pulse — responses land on the contact's Activity tab."
+            cta={{ label: 'New survey', icon: 'add', href: '/portal/surveys/new', ghost: true }}
+            ghostLabel="A survey"
+          />
+        ) : (
+          <SurveysStudioTable rows={rows} />
+        )}
+        <RelatedModulesStrip currentDomain="surveys" />
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
