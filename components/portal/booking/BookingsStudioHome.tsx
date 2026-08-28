@@ -18,8 +18,18 @@ import type { CalendarBooking } from '@/app/portal/tools/booking/_lib/types';
 import { capacityLabel, slotKey, slotUsage } from '@/lib/booking/slot-capacity';
 import { GhostCard } from '@/components/portal/EmptyState';
 import { sBtnGhost } from '@/components/portal/portal-ui';
+import { formatMoney } from '@/lib/utils/money';
 
-export interface BookingPageRow { id: number; title: string; bookingType: string; groupCapacity: number | null; active: boolean; duration: number | null; upcoming: number }
+export interface BookingPageRow {
+  id: number; title: string; bookingType: string; groupCapacity: number | null; active: boolean; duration: number | null; upcoming: number;
+  // PUX-207: capacity, price and the public link on the row (all real columns; the editor builds the same URL)
+  slug?: string; price?: number; priceLabel?: string | null; maxGuests?: number | null;
+}
+
+function copyBookingLink(e: React.MouseEvent, slug: string) {
+  e.preventDefault(); e.stopPropagation();
+  void navigator.clipboard?.writeText(`${window.location.origin}/book/${slug}`);
+}
 interface CheckinSummary { total: number; checkedIn: number; pending: number; totalGuests: number }
 
 export default function BookingsStudioHome({ days, bookings, pages }: { days: string[]; bookings: CalendarBooking[]; pages: BookingPageRow[] }) {
@@ -70,8 +80,15 @@ export default function BookingsStudioHome({ days, bookings, pages }: { days: st
                 <Link href={`/portal/tools/booking/${p.id}`} className="flex items-center gap-3 px-3.5 py-2.5 hover:bg-accent/60">
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-medium text-foreground">{p.title}</span>
-                    <span className="block truncate text-xs text-muted-foreground">{p.duration ? `${p.duration} min` : 'Custom'}{p.bookingType === 'group' && p.groupCapacity ? ` · cap. ${p.groupCapacity}` : ''}{p.upcoming ? ` · ${p.upcoming} upcoming` : ''}</span>
+                    <span className="block truncate text-xs text-muted-foreground">{p.duration ? `${p.duration} min` : 'Custom'}{p.bookingType === 'group' && p.groupCapacity ? ` · cap. ${p.groupCapacity}` : p.maxGuests ? ` · up to ${p.maxGuests}` : ''}{p.upcoming ? ` · ${p.upcoming} upcoming` : ''}</span>
+                    {typeof p.price === 'number' && <span className="block truncate text-xs text-muted-foreground">{p.price > 0 ? `${formatMoney(p.price)}${p.priceLabel ? ` ${p.priceLabel}` : ''}` : 'Free'}</span>}
                   </span>
+                  {p.slug && (
+                    <button type="button" onClick={(e) => copyBookingLink(e, p.slug!)} title={`Copy /book/${p.slug}`} aria-label={`Copy link for ${p.title}`}
+                      className="rounded-full border border-border px-2 py-0.5 font-mono text-[10.5px] text-muted-foreground hover:text-foreground">
+                      /book/{p.slug}
+                    </button>
+                  )}
                   <span className={`rounded-full px-2 py-0.5 text-[10.5px] font-semibold ${p.active ? 'bg-[var(--portal-ok-bg)] text-[var(--portal-ok)]' : 'bg-muted text-muted-foreground'}`}>{p.active ? 'Live' : 'Draft'}</span>
                 </Link>
               </li>

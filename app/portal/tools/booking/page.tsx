@@ -81,7 +81,7 @@ export default async function BookingPagesListPage() {
         <BookingsStudioHome
           days={weekDays.map((d) => d.toISOString())}
           bookings={weekBookings}
-          pages={pages.map((p) => ({ id: p.id, title: p.title, bookingType: p.bookingType, groupCapacity: p.groupCapacity, active: p.active, duration: p.duration, upcoming: countMap.get(p.id) ?? 0 }))}
+          pages={pages.map((p) => ({ id: p.id, title: p.title, bookingType: p.bookingType, groupCapacity: p.groupCapacity, active: p.active, duration: p.duration, upcoming: countMap.get(p.id) ?? 0, slug: p.slug, price: p.price, priceLabel: p.priceLabel, maxGuests: p.maxGuests }))}
         />
         <RelatedModulesStrip currentDomain="bookings" />
       </div>
