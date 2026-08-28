@@ -17,6 +17,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
+import { useFeatureFlag } from '@/components/portal/FeatureFlagsProvider';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -258,6 +259,8 @@ export default function PublishingCalendar(_props: PublishingCalendarProps) {
   // affordances in.
   const [currentDate, setCurrentDate] = useState<Date>(() => new Date());
   const [view, setView] = useState<ViewMode>('month');
+  // PUX-206: the studio calendar admits what it can't do yet — no tag filter (PUB-7), no drag (PUB-5).
+  const studio = useFeatureFlag('portal-redesign');
   const [entries, setEntries] = useState<PublishingCalendarEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterChannel, setFilterChannel] = useState<string>('all');
@@ -420,6 +423,11 @@ export default function PublishingCalendar(_props: PublishingCalendarProps) {
               </option>
             ))}
           </select>
+          {studio && (
+            <select disabled aria-label="Tags filter" title="Cross-channel tags arrive with PUB-7" className="px-2 py-1.5 text-xs rounded-md border border-dashed border-border bg-background text-muted-foreground">
+              <option>Tags · coming with PUB-7</option>
+            </select>
+          )}
           <div className="flex rounded-md border border-border overflow-hidden">
             {(['month', 'week'] as ViewMode[]).map((v) => (
               <button
