@@ -24,12 +24,13 @@ export function viewCountUrl(filters: SavedViewLite['filters']): string {
   return `/api/portal/crm/contacts?${p}`;
 }
 
-export default function SavedViewTabs({
+// Generic in the view type so a caller's richer SavedView flows back out of onSelect unchanged.
+export default function SavedViewTabs<V extends SavedViewLite>({
   views, selectedId, onSelect, onDelete, canSave, onSave,
 }: {
-  views: SavedViewLite[];
+  views: V[];
   selectedId: number | null;
-  onSelect: (view: SavedViewLite | null) => void;
+  onSelect: (view: V | null) => void;
   onDelete: (id: number) => void;
   canSave: boolean;
   onSave: () => void;
