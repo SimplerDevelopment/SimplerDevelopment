@@ -26,7 +26,7 @@ interface ScopeGroup {
   scopes: ScopeOption[];
 }
 
-const SCOPE_GROUPS: ScopeGroup[] = [
+export const SCOPE_GROUPS: ScopeGroup[] = [
   {
     label: 'Content',
     scopes: [
