@@ -34,8 +34,10 @@ Four new capabilities layered on top of the existing SimplerDevelopment core:
   (`lib/db/schema/channels.ts`, extended `lib/db/schema/chat.ts`, `lib/channels/`,
   `tests/unit/channels.test.ts`).
   - Typecheck + unit tests pass.
-  - ⚠️ **Migration not yet generated** — run `bun run db:generate` (with a DB
-    context) and hand-apply to metro before merge, per `lib/db/CLAUDE.md`.
+  - Migration: `drizzle/9026_channels_omnichannel_manual.sql` (idempotent,
+    hand-written per repo convention — `drizzle-kit generate` needs DB+TTY).
+    Hand-apply to metro before merge, per `lib/db/CLAUDE.md` (Vercel deploys do
+    NOT run migrations).
 - **Phases 4–25**: not started (Meta/email adapters, agents, portal, sequences).
 
 See `architecture.md` for the canonical diagram and layering rules.
