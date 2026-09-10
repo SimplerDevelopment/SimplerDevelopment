@@ -263,18 +263,9 @@ export function buildPortalNavItems(
         { href: '/portal/inbox', label: 'Live Chat', icon: 'forum', keywords: ['chat', 'conversations', 'messages', 'live chat', 'inbox'] },
       ],
     },
-    {
-      // Billing & account surfaces (invoices, purchasable services, hosting).
-      href: '/portal/invoices',
-      label: 'Billing',
-      icon: 'receipt_long',
-      keywords: ['billing', 'payments', 'charges', 'invoices', 'services', 'subscriptions', 'add-ons', 'hosting', 'dns', 'domains'],
-      children: [
-        { href: '/portal/settings/billing', label: 'Invoices', icon: 'receipt_long', exact: true, keywords: ['billing', 'payments', 'charges'] },
-        { href: '/portal/services', label: 'Services', icon: 'miscellaneous_services', keywords: ['subscriptions', 'add-ons'] },
-        { href: '/portal/hosting', label: 'Hosting', icon: 'dns', keywords: ['dns', 'domains', 'servers'] },
-      ],
-    },
+    // The Billing group (invoices, services, hosting, plans) is intentionally
+    // not part of the nav on this deployment — the payment/plans surfaces are
+    // hidden from the UI. The routes themselves still exist for direct access.
     // MCP Approvals is intentionally hidden from sidebar + cmd-k. The page
     // at /portal/approvals still renders for direct URL access.
     {
@@ -289,7 +280,7 @@ export function buildPortalNavItems(
         { href: '/portal/agency/branding', label: 'Agency Branding', icon: 'palette', keywords: ['logo', 'wordmark', 'agency name'] },
       ],
     },
-    { href: '/portal/settings', label: 'Settings', icon: 'settings', keywords: ['account', 'team', 'billing'] },
+    { href: '/portal/settings', label: 'Settings', icon: 'settings', keywords: ['account', 'team'] },
   ];
 
   // Inject the "Apps" group before Settings when the caller supplied a list

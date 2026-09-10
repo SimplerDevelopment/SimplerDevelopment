@@ -199,15 +199,8 @@ export default function ByokKeysPage() {
           <p className="text-sm text-muted-foreground max-w-md">
             On the Scale plan you connect your own Anthropic and OpenAI keys and pay providers directly
             at cost — token usage appears on your provider invoice, not against platform AI credits.
-            Upgrade to Scale to unlock BYOK.
+            Contact your workspace admin to unlock BYOK.
           </p>
-          <a
-            href="/portal/settings/billing/plans"
-            className={`mt-4 ${pBtnPrimary}`}
-          >
-            <span className="material-icons text-base">workspace_premium</span>
-            View plans
-          </a>
         </div>
       )}
 

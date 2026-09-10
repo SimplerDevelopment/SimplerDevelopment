@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { signIn } from 'next-auth/react';
 import { useSearchParams } from 'next/navigation';
 import { isGoogleAuthEnabled, isSignupDisabled } from '@/lib/auth-providers';
@@ -50,6 +50,39 @@ function LoginForm() {
   const [portals, setPortals] = useState<Portal[]>([]);
   const [choosingPortal, setChoosingPortal] = useState(false);
   const [settingDefault, setSettingDefault] = useState(false);
+  const [autoSigningIn, setAutoSigningIn] = useState(false);
+
+  // Dev-only convenience: auto-sign-in as the seeded demo tenant so local
+  // previews land straight in the portal without typing credentials. Gated on
+  // NODE_ENV, which Next.js inlines at build time — the branch (and the demo
+  // credentials below, matching scripts/seed-dev.ts defaults) never ships in
+  // production builds. Uses the same client `signIn` as the form — no extra
+  // server route, no auth shortcut. Falls back silently to the normal form on
+  // any failure.
+  useEffect(() => {
+    if (process.env.NODE_ENV !== 'development') return;
+    let cancelled = false;
+    (async () => {
+      try {
+        setAutoSigningIn(true);
+        const result = await signIn('credentials', {
+          email: 'demo@simplerdevelopment.com',
+          password: 'SimplerDev!2026',
+          redirect: false,
+        });
+        if (cancelled || result?.error) return;
+         
+        window.location.href = callbackUrl;
+      } catch {
+        // Network hiccup or missing seed — just show the form.
+      } finally {
+        if (!cancelled) setAutoSigningIn(false);
+      }
+    })();
+    return () => { cancelled = true; };
+    // Run once on mount — callbackUrl is captured for the redirect target.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -181,6 +214,14 @@ function LoginForm() {
       <p className={authSubtext}>One login for your sites, CRM, content, and everything in between.</p>
 
       <div className="mt-7">
+        {/* Dev auto sign-in in progress */}
+        {autoSigningIn && (
+          <div className="mb-4 flex items-center gap-2 rounded-lg border border-primary/20 bg-primary/5 p-3 text-sm text-primary">
+            <span className="material-icons animate-spin text-base">refresh</span>
+            Signing you in…
+          </div>
+        )}
+
         {/* Email-verified success banner */}
         {verified && (
           <div className="mb-4 flex items-center gap-2 rounded-lg border border-green-500/20 bg-green-500/10 p-3 text-sm text-green-700 dark:text-green-400">
