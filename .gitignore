@@ -178,3 +178,7 @@ public/agile-after-ai/_*
 
 # Local preview run artifacts (dev-server logs, per-machine run notes) — never commit.
 /.freebuff/
+
+# Local QA reports + Fallow churn cache — tooling artifacts, never source.
+/.qa-reports/
+.fallow/
