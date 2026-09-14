@@ -1,12 +1,9 @@
-# Coolify builds this image from Git; runtime must not depend on its checkout
-# surviving in Coolify's temporary deployment directory.
+# Build with the repository root as context. No runtime checkout mount is needed.
 FROM oven/bun:1.3.11 AS source
 WORKDIR /workspace
 COPY . .
 RUN test -f package.json && test -f bun.lock \
-    && test -f packages/realtime-server/package.json \
-    && test -f simplerdevelopment-agents/package.json
+    && test -f packages/realtime-server/package.json
 
-# The database init scripts also need to survive checkout cleanup.
 FROM pgvector/pgvector:pg16 AS database
-COPY docker/initdb/01-extensions.sql /docker-entrypoint-initdb.d/01-extensions.sql
+COPY docker/initdb/ /docker-entrypoint-initdb.d/
