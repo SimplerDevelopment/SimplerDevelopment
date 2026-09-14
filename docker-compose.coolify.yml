@@ -6,6 +6,25 @@
 # Configure production secrets, public URLs and services before public use.
 # Keep docker-compose.yml for local bind-mounted development.
 services:
+  # Runs for existing databases too: entrypoint init scripts only run on empty PGDATA.
+  db-init:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.coolify
+      target: database
+    restart: "no"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGHOST: db
+      PGPORT: "5432"
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: simplerdev
+      PGCONNECT_TIMEOUT: "10"
+    entrypoint: ["psql"]
+    command: ["-X", "-v", "ON_ERROR_STOP=1", "--single-transaction", "-f", "/docker-entrypoint-initdb.d/01-extensions.sql"]
   db:
     build:
       context: .
@@ -50,6 +69,8 @@ services:
       bun scripts/apply-local-manual-migrations.ts &&
       bun dev"
     depends_on:
+      db-init:
+        condition: service_completed_successfully
       db:
         condition: service_healthy
       mailpit:
