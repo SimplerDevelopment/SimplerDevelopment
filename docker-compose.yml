@@ -103,6 +103,7 @@ services:
       REALTIME_INTERNAL_URL: 'http://realtime:3030'
       REALTIME_JWT_SECRET: '${REALTIME_JWT_SECRET:-sd-local-dev-realtime-jwt-secret}'
       REALTIME_INTERNAL_SECRET: '${REALTIME_INTERNAL_SECRET:-sd-local-dev-realtime-internal-secret}'
+      AUTH_SECRET: ${AUTH_SECRET:-${NEXTAUTH_SECRET:?Configure AUTH_SECRET or NEXTAUTH_SECRET in Coolify}}
       AUTH_TRUST_HOST: 'true'
       EMAIL_TRANSPORT: mailpit
       MAILPIT_SMTP_HOST: mailpit
