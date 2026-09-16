@@ -13,14 +13,11 @@ import { db } from '@/lib/db';
 import { chatConversations } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { verifyVisitorToken } from '@/lib/chat/token';
-import { conversationChannel, subscribeChannel, ChatRealtimePayload } from '@/lib/chat/realtime';
+import { conversationChannel, subscribeChannel } from '@/lib/chat/realtime';
+import { createEventStream } from '@/lib/chat/event-stream';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-
-function sseFormat(event: string, data: unknown) {
-  return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
-}
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
@@ -41,46 +38,9 @@ export async function GET(req: Request) {
     return new Response('Not found', { status: 404 });
   }
 
-  const encoder = new TextEncoder();
-  let cleanup: (() => Promise<void>) | null = null;
-  let heartbeat: ReturnType<typeof setInterval> | null = null;
-
-  const stream = new ReadableStream<Uint8Array>({
-    async start(controller) {
-      // Hello frame so the browser registers the connection immediately.
-      controller.enqueue(encoder.encode(sseFormat('hello', { conversationId })));
-
-      const subscription = subscribeChannel(conversationChannel(conversationId), (payload: ChatRealtimePayload) => {
-        try {
-          controller.enqueue(encoder.encode(sseFormat(payload.kind, payload)));
-        } catch {
-          // controller closed — handled by cancel()
-        }
-      });
-      cleanup = subscription.unsubscribe;
-
-      // Heartbeat — keeps proxies / load balancers from killing the
-      // socket on idle timeout. Comments are ignored by EventSource.
-      heartbeat = setInterval(() => {
-        try {
-          controller.enqueue(encoder.encode(`: ping\n\n`));
-        } catch {
-          // closed
-        }
-      }, 25_000);
-
-      // Surface listen errors as a stream close — EventSource auto-reconnects.
-      subscription.ready.catch(() => {
-        try {
-          controller.close();
-        } catch {}
-      });
-    },
-    async cancel() {
-      if (heartbeat) clearInterval(heartbeat);
-      if (cleanup) await cleanup();
-    },
-  });
+  const stream = createEventStream(req.signal, { conversationId }, emit =>
+    subscribeChannel(conversationChannel(conversationId), payload => emit(payload.kind, payload)),
+  );
 
   return new Response(stream, {
     headers: {

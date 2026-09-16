@@ -236,11 +236,10 @@ describe('resolveCustomDomain', () => {
     const first = await resolveCustomDomain('ghost.example.test');
     expect(first).toBeNull();
 
-    // Flip the DB to throw — if the miss was cached, the next call should
-    // NOT throw / return null from the catch. The current implementation
-    // stores a sentinel ({clientId: -1, defaultWebsiteId: null}) for misses
-    // and returns that shape from the cache-hit branch, so we assert against
-    // the sentinel rather than null.
+    // A negative hit must remain null and avoid another query.
+    const { db } = await import('@/lib/db');
+    const select = vi.spyOn(db, 'select');
+    select.mockClear();
     state.throwOnQuery = true;
     state.clients.push({
       id: 99,
@@ -250,10 +249,8 @@ describe('resolveCustomDomain', () => {
     });
 
     const second = await resolveCustomDomain('ghost.example.test');
-    // The cache short-circuit fires (DB throw didn't happen → no null from
-    // the catch). Sentinel shape comes back; defaultWebsiteId is null and
-    // clientId is the -1 sentinel.
-    expect(second).toEqual({ clientId: -1, defaultWebsiteId: null });
+    expect(second).toBeNull();
+    expect(select).not.toHaveBeenCalled();
   });
 
   it('re-queries the DB after the cache TTL elapses', async () => {

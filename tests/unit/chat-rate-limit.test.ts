@@ -132,37 +132,18 @@ describe('checkVisitorRateLimit — defaults + state isolation', () => {
   });
 });
 
-describe('checkVisitorRateLimit — GC behavior when map grows', () => {
-  it('GC pass after >5_000 keys drops fully-expired entries', () => {
-    // Seed 5_001 unique keys at t=0 → triggers the GC branch on the 5_001st insert.
-    // The GC walks the map and trims/expires entries against the cutoff.
-    const t0 = 0;
-    for (let i = 0; i < 5_001; i++) {
-      checkVisitorRateLimit(`visitor-${i}`, t0);
+describe('checkVisitorRateLimit — bounded identities', () => {
+  it('rejects new identities at capacity, then reclaims expired buckets', () => {
+    for (let i = 0; i < 5_000; i++) {
+      expect(checkVisitorRateLimit('visitor-' + i, 0).ok).toBe(true);
     }
-    // Now jump past the window — every existing entry has expired.
-    // A fresh hit at t=11_000 should run the GC (size > 5_000) and clear stale buckets.
-    const r = checkVisitorRateLimit('visitor-fresh', t0 + 11_000);
-    expect(r.ok).toBe(true);
-
-    // After GC, an old key starts fresh (its bucket was cleared).
-    expect(checkVisitorRateLimit('visitor-0', t0 + 11_001).ok).toBe(true);
+    expect(checkVisitorRateLimit('overflow', 1)).toEqual({ ok: false, retryAfter: 1 });
+    expect(checkVisitorRateLimit('overflow', 10_001).ok).toBe(true);
   });
 
-  it('GC keeps still-in-window entries intact', () => {
-    const t0 = 0;
-    // Seed 5_001 keys at t=0 to trip the GC branch on a later insert.
-    for (let i = 0; i < 5_001; i++) {
-      checkVisitorRateLimit(`bg-${i}`, t0);
-    }
-    // Now at t=5_000 (mid-window), saturate one specific key to MAX_HITS (10).
-    for (let i = 0; i < 10; i++) {
-      checkVisitorRateLimit('hot-key', t0 + 5_000 + i);
-    }
-    // Trigger another insert that walks the GC (still > 5_000 entries).
-    checkVisitorRateLimit('cold-fresh', t0 + 5_100);
-    // GC's cutoff at t=5_100 is t=-4_900 — none of hot-key's hits are stale,
-    // so the bucket stays saturated → next hit at t=5_200 is rejected.
-    expect(checkVisitorRateLimit('hot-key', t0 + 5_200).ok).toBe(false);
+  it('does not reset an active quota during identity churn', () => {
+    for (let i = 0; i < 10; i++) expect(checkVisitorRateLimit('hot', 0).ok).toBe(true);
+    for (let i = 0; i < 10_000; i++) checkVisitorRateLimit('background-' + i, 0);
+    expect(checkVisitorRateLimit('hot', 5_000)).toEqual({ ok: false, retryAfter: 5 });
   });
 });

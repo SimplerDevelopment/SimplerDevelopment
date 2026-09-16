@@ -13,31 +13,17 @@
  */
 import { Ratelimit } from '@upstash/ratelimit';
 import { Redis } from '@upstash/redis';
+import { MemoryRateLimiter } from './memory-rate-limit';
 
 // ---------------------------------------------------------------------------
 // In-memory fallback — also the active path locally until Upstash is provisioned.
+// At capacity, new identities are denied until expiry rather than evicting a
+// live quota. This keeps both memory and brute-force protection bounded.
 // ---------------------------------------------------------------------------
-interface MemWindow {
-  timestamps: number[];
-}
-
-const memStore = new Map<string, MemWindow>();
+const memStore = new MemoryRateLimiter();
 
 function checkRateLimitInMemory(key: string, limit: number, windowMs: number): boolean {
-  const now = Date.now();
-  const cutoff = now - windowMs;
-
-  const entry = memStore.get(key) ?? { timestamps: [] };
-  entry.timestamps = entry.timestamps.filter((t) => t > cutoff);
-
-  if (entry.timestamps.length >= limit) {
-    memStore.set(key, entry);
-    return false; // over limit — block
-  }
-
-  entry.timestamps.push(now);
-  memStore.set(key, entry);
-  return true; // within limit — allow
+  return memStore.check(key, limit, windowMs) === 0;
 }
 
 // ---------------------------------------------------------------------------

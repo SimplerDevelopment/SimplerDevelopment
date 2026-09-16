@@ -8,6 +8,7 @@
 // custom-domain churn picks up we'll wire in an event-driven invalidation
 // hook from the API mutation routes.
 
+import { BoundedTtlCache } from '@/lib/bounded-ttl-cache';
 import { db } from '@/lib/db';
 import { clients } from '@/lib/db/schema';
 import { and, eq, isNotNull } from 'drizzle-orm';
@@ -30,10 +31,9 @@ const DB_LOOKUP_TIMEOUT_MS = 1_000;
 interface CachedHit {
   clientId: number;
   defaultWebsiteId: number | null;
-  expiresAt: number;
 }
 
-const cache = new Map<string, CachedHit | null>();
+const cache = new BoundedTtlCache<CachedHit | null>(1_024, CACHE_TTL_MS);
 
 /**
  * Inner DB lookup — extracted so we can wrap it with `unstable_cache`. The
@@ -53,10 +53,11 @@ async function fetchCustomDomainRow(
       ),
     )
     .limit(1);
+  let timer: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<never>((_, reject) =>
-    setTimeout(() => reject(new Error('custom-domain lookup timeout')), DB_LOOKUP_TIMEOUT_MS),
+    timer = setTimeout(() => reject(new Error('custom-domain lookup timeout')), DB_LOOKUP_TIMEOUT_MS),
   );
-  const result = (await Promise.race([lookup, timeout])) as Array<{
+  const result = (await Promise.race([lookup, timeout]).finally(() => clearTimeout(timer))) as Array<{
     id: number;
     defaultWebsiteId: number | null;
   }>;
@@ -93,10 +94,9 @@ export async function resolveCustomDomain(
 ): Promise<{ clientId: number; defaultWebsiteId: number | null } | null> {
   if (!hostname) return null;
   const key = hostname.toLowerCase();
-  const now = Date.now();
 
   const cached = cache.get(key);
-  if (cached && cached.expiresAt > now) {
+  if (cached !== undefined) {
     if (cached === null) return null;
     return { clientId: cached.clientId, defaultWebsiteId: cached.defaultWebsiteId };
   }
@@ -113,14 +113,13 @@ export async function resolveCustomDomain(
   }
 
   if (!row) {
-    cache.set(key, { clientId: -1, defaultWebsiteId: null, expiresAt: now + CACHE_TTL_MS });
+    cache.set(key, null);
     return null;
   }
 
   const hit: CachedHit = {
     clientId: row.id,
     defaultWebsiteId: row.defaultWebsiteId,
-    expiresAt: now + CACHE_TTL_MS,
   };
   cache.set(key, hit);
   return { clientId: hit.clientId, defaultWebsiteId: hit.defaultWebsiteId };

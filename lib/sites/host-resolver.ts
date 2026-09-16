@@ -12,6 +12,7 @@
 // lib/agency/custom-domain.ts so a slow/unreachable DB degrades to the prior
 // regex-only behaviour instead of 504-ing every request.
 
+import { BoundedTtlCache } from '@/lib/bounded-ttl-cache';
 import { db } from '@/lib/db';
 import { clientWebsites, websiteDomains, posts, abExperiments, siteRedirects } from '@/lib/db/schema';
 import { and, eq } from 'drizzle-orm';
@@ -43,7 +44,7 @@ export interface SiteHostInfo {
 }
 
 // Resolution result per host. `info: null` = definitively not a tenant host.
-const cache = new Map<string, { info: SiteHostInfo | null; expiresAt: number }>();
+const cache = new BoundedTtlCache<SiteHostInfo | null>(1_024, CACHE_TTL_MS);
 
 async function lookup(host: string): Promise<SiteHostInfo | null> {
   // 1. Exact custom domain on the legacy column.
@@ -153,17 +154,17 @@ async function withExperimentState(
 export async function resolveSiteForHost(hostname: string): Promise<SiteHostInfo | null> {
   if (!hostname) return null;
   const key = hostname.split(':')[0].toLowerCase();
-  const now = Date.now();
 
   const cached = cache.get(key);
-  if (cached && cached.expiresAt > now) return cached.info;
+  if (cached !== undefined) return cached;
 
   let info: SiteHostInfo | null;
+  let timer: ReturnType<typeof setTimeout> | undefined;
   try {
     const timeout = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error('site-host lookup timeout')), DB_LOOKUP_TIMEOUT_MS),
+      timer = setTimeout(() => reject(new Error('site-host lookup timeout')), DB_LOOKUP_TIMEOUT_MS),
     );
-    info = await Promise.race([lookup(key), timeout]);
+    info = await Promise.race([lookup(key), timeout]).finally(() => clearTimeout(timer));
   } catch {
     // DB slow/unreachable — fail open for ROUTING so the request still reaches
     // the /sites renderer (which 404s unknown hosts at the layout anyway), but
@@ -180,7 +181,7 @@ export async function resolveSiteForHost(hostname: string): Promise<SiteHostInfo
     };
   }
 
-  cache.set(key, { info, expiresAt: now + CACHE_TTL_MS });
+  cache.set(key, info);
   return info;
 }
 
