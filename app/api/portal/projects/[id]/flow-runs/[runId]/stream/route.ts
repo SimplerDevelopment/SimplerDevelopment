@@ -112,12 +112,33 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   let unsubscribe: (() => Promise<void>) | null = null;
   let heartbeat: ReturnType<typeof setInterval> | null = null;
   let closed = false;
+  let liveQueueBudget = 0;
+  const queueWindow = 64 * 1024;
+  let cleanupPromise: Promise<void> | undefined;
+  let closeController: () => void = () => {};
+  const cleanup = () => {
+    closed = true;
+    if (heartbeat) clearInterval(heartbeat);
+    req.signal.removeEventListener('abort', onAbort);
+    if (unsubscribe) cleanupPromise ??= unsubscribe().catch(() => {});
+    return cleanupPromise;
+  };
+  const onAbort = () => { void cleanup(); closeController(); };
 
   const stream = new ReadableStream({
     async start(controller) {
+      closeController = () => { try { controller.close(); } catch {} };
+      if (req.signal.aborted) { onAbort(); return; }
+      req.signal.addEventListener('abort', onAbort, { once: true });
       const send = (chunk: string) => {
         if (closed) return;
-        try { controller.enqueue(encoder.encode(chunk)); } catch { closed = true; }
+        const bytes = encoder.encode(chunk);
+        if (liveQueueBudget && queueWindow - (controller.desiredSize ?? 0) + bytes.byteLength > liveQueueBudget) {
+          controller.error(new Error('SSE consumer is too slow'));
+          void cleanup();
+          return;
+        }
+        try { controller.enqueue(bytes); } catch { void cleanup(); }
       };
 
       const flush = async () => {
@@ -129,35 +150,39 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
         return rows;
       };
 
-      await flush();
+      try { await flush(); } catch { onAbort(); return; }
+      if (closed) return;
 
       // If the run is already over, say so and close rather than holding a
       // connection open forever on something that will never emit again.
       if (TERMINAL_RUN_STATUSES.includes(access.run.status as AgentFlowRunStatus)) {
         send(`event: done\ndata: ${JSON.stringify({ status: access.run.status })}\n\n`);
-        closed = true;
+        void cleanup();
         try { controller.close(); } catch { /* already closed */ }
         return;
       }
 
+      // Preserve the finite initial replay; cap additional live backlog at 64 KiB.
+      liveQueueBudget = Math.max(queueWindow, queueWindow - (controller.desiredSize ?? 0)) + queueWindow;
       let flushing = false;
-      const sub = subscribeRunChannel(runId, () => {
-        // Coalesce: a burst of NOTIFYs collapses into one re-query.
-        if (flushing) return;
-        flushing = true;
-        void flush().finally(() => { flushing = false; });
-      });
-      unsubscribe = sub.unsubscribe;
-      await sub.ready;
+      try {
+        const sub = subscribeRunChannel(runId, () => {
+          // Coalesce: a burst of NOTIFYs collapses into one re-query.
+          if (closed || flushing) return;
+          flushing = true;
+          void flush().catch(() => { /* Retry on the next notification. */ }).finally(() => { flushing = false; });
+        });
+        unsubscribe = sub.unsubscribe;
+        try { await sub.ready; } catch { onAbort(); return; }
+        if (closed) { await cleanup(); return; }
 
-      heartbeat = setInterval(() => send(': ping\n\n'), HEARTBEAT_MS);
+        heartbeat = setInterval(() => send(': ping\n\n'), HEARTBEAT_MS);
+      } catch { onAbort(); }
     },
     async cancel() {
-      closed = true;
-      if (heartbeat) clearInterval(heartbeat);
-      if (unsubscribe) await unsubscribe();
+      await cleanup();
     },
-  });
+  }, { highWaterMark: queueWindow, size: (chunk: Uint8Array) => chunk.byteLength });
 
   return new Response(stream, {
     headers: {

@@ -23,6 +23,7 @@
 // inserting into registered_app_callbacks_audit with UNIQUE(jti); this module
 // only mints / verifies signatures.
 
+import { BoundedTtlCache } from '@/lib/bounded-ttl-cache';
 import {
   decode as jwtDecode,
   sign as jwtSign,
@@ -88,8 +89,8 @@ interface CacheEntry {
   expiresAt: number;
 }
 
-const SECRET_CACHE = new Map<string, CacheEntry>();
 const SECRET_CACHE_TTL_MS = 60_000;
+const SECRET_CACHE = new BoundedTtlCache<CacheEntry>(1_024, SECRET_CACHE_TTL_MS);
 
 function cacheKey(appId: number, kid: string): string {
   return `${appId}:${kid}`;

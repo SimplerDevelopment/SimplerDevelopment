@@ -22,6 +22,8 @@ interface Bucket {
 }
 
 const buckets = new Map<string, Bucket>();
+const MAX_BUCKETS = 5_000;
+let nextSweepAt = 0;
 
 function keyOf(appId: number, clientId: number): string {
   return `${appId}:${clientId}`;
@@ -55,9 +57,19 @@ export function checkPluginCallbackRateLimit(
   limit: number = DEFAULT_LIMIT,
 ): RateLimitResult {
   const now = Date.now();
+  if (now >= nextSweepAt) {
+    nextSweepAt = now + 1_000;
+    for (const [key, entry] of buckets) {
+      if (now > entry.resetAt) buckets.delete(key);
+    }
+  }
   const k = keyOf(appId, clientId);
   const bucket = buckets.get(k);
   if (!bucket || now > bucket.resetAt) {
+    // Do not evict live quotas: reject new identities until a slot expires.
+    if (!bucket && buckets.size >= MAX_BUCKETS) {
+      return { ok: false, retryAfter: 60, resetAt: new Date(now + WINDOW_MS) };
+    }
     buckets.set(k, { count: 1, resetAt: now + WINDOW_MS });
     return {
       ok: true,
@@ -88,6 +100,7 @@ export function resetPluginCallbackRateLimit(
 ): void {
   if (appId === undefined || clientId === undefined) {
     buckets.clear();
+    nextSweepAt = 0;
     return;
   }
   buckets.delete(keyOf(appId, clientId));

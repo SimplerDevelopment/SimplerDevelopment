@@ -25,6 +25,7 @@
 // `.planning/plugin-registry-spec.md`, removed pre-OSS-release — the
 // per-function docstrings above are now the source of truth.)
 
+import { BoundedTtlCache } from '@/lib/bounded-ttl-cache';
 import { and, eq } from 'drizzle-orm';
 import { unstable_cache, revalidateTag } from 'next/cache';
 import { db } from '@/lib/db';
@@ -55,8 +56,8 @@ interface EntitlementCacheEntry {
   expiresAt: number;
 }
 
-const APP_CACHE = new Map<string, AppCacheEntry>();
-const ENTITLEMENT_CACHE = new Map<string, EntitlementCacheEntry>();
+const APP_CACHE = new BoundedTtlCache<AppCacheEntry>(1_024, APP_CACHE_TTL_MS);
+const ENTITLEMENT_CACHE = new BoundedTtlCache<EntitlementCacheEntry>(1_024, ENTITLEMENT_CACHE_TTL_MS);
 
 function entitlementCacheKey(clientId: number, appId: number): string {
   return `${clientId}:${appId}`;

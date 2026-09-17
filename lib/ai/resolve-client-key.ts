@@ -21,6 +21,7 @@
  * so a corrupt row can't take down a client's AI surface.
  */
 
+import { BoundedTtlCache } from '@/lib/bounded-ttl-cache';
 import { db } from '@/lib/db';
 import { clientApiKeys } from '@/lib/db/schema';
 import { and, eq } from 'drizzle-orm';
@@ -46,7 +47,7 @@ interface CacheEntry {
 }
 
 const CACHE_TTL_MS = 60_000;
-const cache = new Map<string, CacheEntry>();
+const cache = new BoundedTtlCache<CacheEntry>(1_024, CACHE_TTL_MS);
 
 function cacheKey(clientId: number, provider: AiProvider): string {
   return `${clientId}:${provider}`;

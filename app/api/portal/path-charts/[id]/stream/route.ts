@@ -111,15 +111,35 @@ export async function GET(
   let unsubscribe: (() => Promise<void>) | null = null;
   let fetching = false;
   let pendingRefetch = false;
+  let liveQueueBudget = 0;
+  const queueWindow = 64 * 1024;
+  let cleanupPromise: Promise<void> | undefined;
+  let closeController: () => void = () => {};
+  const cleanup = () => {
+    closed = true;
+    if (heartbeatTimer) clearInterval(heartbeatTimer);
+    req.signal.removeEventListener('abort', onAbort);
+    if (unsubscribe) cleanupPromise ??= unsubscribe().catch(() => {});
+    return cleanupPromise;
+  };
+  const onAbort = () => { void cleanup(); closeController(); };
 
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
+      closeController = () => { try { controller.close(); } catch {} };
+      if (req.signal.aborted) { onAbort(); return; }
+      req.signal.addEventListener('abort', onAbort, { once: true });
       const safeEnqueue = (bytes: Uint8Array) => {
         if (closed) return;
+        if (liveQueueBudget && queueWindow - (controller.desiredSize ?? 0) + bytes.byteLength > liveQueueBudget) {
+          controller.error(new Error('SSE consumer is too slow'));
+          void cleanup();
+          return;
+        }
         try {
           controller.enqueue(bytes);
         } catch {
-          closed = true;
+          void cleanup();
         }
       };
 
@@ -167,34 +187,27 @@ export async function GET(
 
       if (closed) return;
 
-      const sub = subscribeChartChannel(chartId, () => {
-        void pump();
-      });
-      unsubscribe = sub.unsubscribe;
+      // Initial replay is finite (REPLAY_LIMIT); live notifications cannot grow it indefinitely.
+      liveQueueBudget = Math.max(queueWindow, queueWindow - (controller.desiredSize ?? 0)) + queueWindow;
+      try {
+        const sub = subscribeChartChannel(chartId, () => {
+          void pump();
+        });
+        unsubscribe = sub.unsubscribe;
 
-      heartbeatTimer = setInterval(() => {
-        safeEnqueue(encoder.encode(': heartbeat\n\n'));
-      }, 15_000);
+        heartbeatTimer = setInterval(() => {
+          safeEnqueue(encoder.encode(': heartbeat\n\n'));
+        }, 15_000);
 
-      sub.ready.catch(() => {
-        // LISTEN setup failed — shut the stream down fully so the heartbeat
-        // timer doesn't keep firing into a server-closed controller (cancel()
-        // only runs on client-side aborts, not server-initiated closes).
-        closed = true;
-        if (heartbeatTimer) clearInterval(heartbeatTimer);
-        try {
-          controller.close();
-        } catch {
-          // already closed
-        }
-      });
+        void sub.ready.catch(onAbort);
+        if (closed) void cleanup();
+      } catch { onAbort(); }
+
     },
     async cancel() {
-      closed = true;
-      if (heartbeatTimer) clearInterval(heartbeatTimer);
-      if (unsubscribe) await unsubscribe();
+      await cleanup();
     },
-  });
+  }, { highWaterMark: queueWindow, size: chunk => chunk.byteLength });
 
   return new Response(stream, {
     headers: {

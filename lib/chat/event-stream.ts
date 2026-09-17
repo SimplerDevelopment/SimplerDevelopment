@@ -6,6 +6,7 @@ export function createEventStream(
   signal: AbortSignal,
   hello: unknown,
   subscribe: Subscribe,
+  options: { initialEvent?: string; heartbeatMs?: number } = {},
 ): ReadableStream<Uint8Array> {
   const encoder = new TextEncoder();
   let closed = false;
@@ -51,15 +52,15 @@ export function createEventStream(
       controller = target;
       if (signal.aborted) { void stop(); return; }
       signal.addEventListener('abort', abort, { once: true });
-      const emit = (event: string, data: unknown) => send(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
-      emit('hello', hello);
+      const emit = (event: string, data: unknown) => send(`${event ? `event: ${event}\n` : ""}data: ${JSON.stringify(data)}\n\n`);
+      emit(options.initialEvent ?? 'hello', hello);
       if (closed) return;
       try {
         subscription = subscribe(emit);
         void subscription.ready.catch(() => stop());
         // subscribe may synchronously abort or emit enough to close the stream.
         if (closed) { void unsubscribe(); return; }
-        timer = setInterval(() => send(': ping\n\n'), 25_000);
+        timer = setInterval(() => send(': ping\n\n'), options.heartbeatMs ?? 25_000);
         timer.unref?.();
       } catch { void stop(); }
     },

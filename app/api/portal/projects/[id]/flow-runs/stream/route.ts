@@ -21,6 +21,8 @@ import { isPortalStaff } from '@/lib/portal';
 import { getPortalClient } from '@/lib/portal-client';
 import { subscribeProjectChannel } from '@/lib/agent-flows/stream';
 
+import { createEventStream } from '@/lib/chat/event-stream';
+
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
@@ -41,7 +43,7 @@ async function authorize(projectId: number) {
   return { project };
 }
 
-export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const projectId = parseInt(id, 10);
   if (isNaN(projectId)) return new Response('Invalid id', { status: 400 });
@@ -49,36 +51,10 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const access = await authorize(projectId);
   if (!access) return new Response('Not found', { status: 404 });
 
-  const encoder = new TextEncoder();
-  let unsubscribe: (() => Promise<void>) | null = null;
-  let heartbeat: ReturnType<typeof setInterval> | null = null;
-  let closed = false;
-
-  const stream = new ReadableStream({
-    async start(controller) {
-      const send = (chunk: string) => {
-        if (closed) return;
-        try { controller.enqueue(encoder.encode(chunk)); } catch { closed = true; }
-      };
-
-      // Tell the client it's connected so it can distinguish "live" from
-      // "still connecting" rather than silently showing stale rows.
-      send(`event: ready\ndata: {}\n\n`);
-
-      const sub = subscribeProjectChannel(projectId, (eventId) => {
-        send(`data: ${JSON.stringify({ ping: true, eventId })}\n\n`);
-      });
-      unsubscribe = sub.unsubscribe;
-      await sub.ready;
-
-      heartbeat = setInterval(() => send(': ping\n\n'), HEARTBEAT_MS);
-    },
-    async cancel() {
-      closed = true;
-      if (heartbeat) clearInterval(heartbeat);
-      if (unsubscribe) await unsubscribe();
-    },
-  });
+  const stream = createEventStream(req.signal, {}, emit =>
+    subscribeProjectChannel(projectId, eventId => emit('', { ping: true, eventId })),
+    { initialEvent: 'ready', heartbeatMs: HEARTBEAT_MS },
+  );
 
   return new Response(stream, {
     headers: {

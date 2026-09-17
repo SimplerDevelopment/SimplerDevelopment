@@ -15,6 +15,8 @@
 import { auth } from '@/lib/auth';
 import { subscribeAdminChannel } from '@/lib/agent-flows/stream';
 
+import { createEventStream } from '@/lib/chat/event-stream';
+
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
@@ -29,39 +31,13 @@ async function requireStaff() {
   return session;
 }
 
-export async function GET() {
+export async function GET(req: Request) {
   if (!await requireStaff()) return new Response('Unauthorized', { status: 401 });
 
-  const encoder = new TextEncoder();
-  let unsubscribe: (() => Promise<void>) | null = null;
-  let heartbeat: ReturnType<typeof setInterval> | null = null;
-  let closed = false;
-
-  const stream = new ReadableStream({
-    async start(controller) {
-      const send = (chunk: string) => {
-        if (closed) return;
-        try { controller.enqueue(encoder.encode(chunk)); } catch { closed = true; }
-      };
-
-      // Lets the client distinguish "live" from "still connecting" rather than
-      // silently showing stale rows.
-      send(`event: ready\ndata: {}\n\n`);
-
-      const sub = subscribeAdminChannel((eventId) => {
-        send(`data: ${JSON.stringify({ ping: true, eventId })}\n\n`);
-      });
-      unsubscribe = sub.unsubscribe;
-      await sub.ready;
-
-      heartbeat = setInterval(() => send(': ping\n\n'), HEARTBEAT_MS);
-    },
-    async cancel() {
-      closed = true;
-      if (heartbeat) clearInterval(heartbeat);
-      if (unsubscribe) await unsubscribe();
-    },
-  });
+  const stream = createEventStream(req.signal, {}, emit =>
+    subscribeAdminChannel(eventId => emit('', { ping: true, eventId })),
+    { initialEvent: 'ready', heartbeatMs: HEARTBEAT_MS },
+  );
 
   return new Response(stream, {
     headers: {

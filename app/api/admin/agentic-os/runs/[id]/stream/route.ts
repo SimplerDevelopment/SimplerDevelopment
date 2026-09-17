@@ -51,7 +51,7 @@ function jsonError(status: number, message: string) {
 }
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   if (!isLocalDev()) return new Response(null, { status: 404 });
@@ -80,19 +80,30 @@ export async function GET(
 
   const encoder = new TextEncoder();
 
+  const queueWindow = 64 * 1024;
+  let stopStream: () => void = () => {};
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       let closed = false;
+      let cleaned = false;
+      let polling = false;
+      let liveQueueBudget = 0;
+      let tapSet: Set<(chunk: string) => void> | null = null;
       let tapFn: ((chunk: string) => void) | null = null;
       let pollTimer: ReturnType<typeof setInterval> | null = null;
       let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
 
       const safeEnqueue = (bytes: Uint8Array) => {
         if (closed) return;
+        if (liveQueueBudget && queueWindow - (controller.desiredSize ?? 0) + bytes.byteLength > liveQueueBudget) {
+          controller.error(new Error('SSE consumer is too slow'));
+          cleanup();
+          return;
+        }
         try {
           controller.enqueue(bytes);
         } catch {
-          closed = true;
+          cleanup();
         }
       };
 
@@ -108,18 +119,23 @@ export async function GET(
       };
 
       const cleanup = () => {
-        if (closed) return;
+        if (cleaned) return;
+        cleaned = true;
         closed = true;
+        request.signal.removeEventListener('abort', cleanup);
         if (pollTimer) clearInterval(pollTimer);
         if (heartbeatTimer) clearInterval(heartbeatTimer);
-        const entry = getChild(runId);
-        if (entry && tapFn) entry.taps.delete(tapFn);
+        if (tapSet && tapFn) tapSet.delete(tapFn);
         try {
           controller.close();
         } catch {
           /* already closed */
         }
       };
+
+      stopStream = cleanup;
+      if (request.signal.aborted) { cleanup(); return; }
+      request.signal.addEventListener('abort', cleanup, { once: true });
 
       const emitDoneFromRow = async () => {
         const [latest] = await db
@@ -170,13 +186,16 @@ export async function GET(
           send(entry.outputBuf);
         }
         tapFn = (chunk: string) => send(chunk);
-        entry.taps.add(tapFn);
+        tapSet = entry.taps;
+        tapSet.add(tapFn);
       } else if (run.output && run.output.length > 0) {
         // Child gone but row not yet terminal (e.g. mid-update) — replay
         // what we have; the poll loop below will pick up the done event.
         send(run.output);
       }
 
+      // Preserve captured replay; bound subsequent stdout and heartbeat backlog.
+      liveQueueBudget = Math.max(queueWindow, queueWindow - (controller.desiredSize ?? 0)) + queueWindow;
       // Heartbeat comment every 15s so proxies don't kill the stream.
       heartbeatTimer = setInterval(() => {
         safeEnqueue(encoder.encode(': heartbeat\n\n'));
@@ -184,8 +203,9 @@ export async function GET(
 
       // Poll the row every 1s as fallback termination detector.
       pollTimer = setInterval(() => {
+        if (closed || polling) return;
+        polling = true;
         void (async () => {
-          if (closed) return;
           const [latest] = await db
             .select({
               status: agenticOsRuns.status,
@@ -202,19 +222,15 @@ export async function GET(
           if (TERMINAL.has(latest.status)) {
             await emitDoneFromRow();
           }
-        })();
+        })().catch(() => { /* Retry on the next tick after a transient DB failure. */ })
+          .finally(() => { polling = false; });
       }, 1_000);
     },
 
     cancel() {
-      // Client disconnected — detach the tap. The actual cleanup runs
-      // inside `start` via the closed flag because we don't have direct
-      // access to its closures here; in practice the tap-set Set lookup
-      // in start's cleanup happens when the poll/heartbeat fire next.
-      // We could expose a per-stream cleanup hook, but the cost of a
-      // few extra ticks of work is acceptable for the simple case.
+      stopStream();
     },
-  });
+  }, { highWaterMark: queueWindow, size: chunk => chunk.byteLength });
 
   return new Response(stream, {
     headers: {

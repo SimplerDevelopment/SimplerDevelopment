@@ -17,6 +17,7 @@
 // check when comparing a JWT's `scopes` claim against a handler's required
 // scope.
 
+import { BoundedTtlCache } from '@/lib/bounded-ttl-cache';
 import type { RegisteredApp } from '@/lib/db/schema';
 import { ManifestSchema, type Manifest } from './manifest-schema';
 
@@ -28,7 +29,8 @@ interface CacheEntry {
   fetchedAt: number;
 }
 
-const cache = new Map<number, CacheEntry>();
+// Keep stale fallback manifests, but cap retained apps; freshness is checked below.
+const cache = new BoundedTtlCache<CacheEntry, number>(1_024, Infinity);
 
 export type ManifestFetchResult =
   | { ok: true; manifest: Manifest; stale: false }

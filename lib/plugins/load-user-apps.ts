@@ -20,6 +20,7 @@
 // the same Node instance gets a fresh load on first nav after the switch
 // because each clientId has its own cache entry (no cross-tenant leak).
 
+import { BoundedTtlCache } from '@/lib/bounded-ttl-cache';
 import 'server-only';
 import { and, eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
@@ -56,7 +57,7 @@ interface CacheEntry {
 // about. A future PR can reintroduce a request-scoped React.cache() wrap
 // once the runtime behaviour is settled.
 const CACHE_TTL_MS = 0;
-const cache = new Map<number, CacheEntry>();
+const cache = new BoundedTtlCache<CacheEntry, number>(1_024, CACHE_TTL_MS);
 
 /** Wipe the in-process cache. Pass a clientId to clear one entry; pass
  *  nothing to clear everything. Exported for tests + admin tooling. */

@@ -14,6 +14,7 @@
  * Caching: in-process 60s TTL, same pattern as resolve-client-key.ts.
  */
 
+import { BoundedTtlCache } from '@/lib/bounded-ttl-cache';
 import { db } from '@/lib/db';
 import { clientApiKeys, clients } from '@/lib/db/schema';
 import { and, eq } from 'drizzle-orm';
@@ -30,7 +31,7 @@ interface CacheEntry {
 }
 
 const CACHE_TTL_MS = 60_000;
-const cache = new Map<string, CacheEntry>();
+const cache = new BoundedTtlCache<CacheEntry>(1_024, CACHE_TTL_MS);
 
 export function _clearResendKeyCache(): void {
   cache.clear();
