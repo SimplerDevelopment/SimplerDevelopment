@@ -175,7 +175,7 @@ the archive. The automatic main-mirror was retired on 2026-08-03.
     ```
   - Why this is the sharpest edge in the repo: Drizzle's `db.select()` enumerates every column in the schema, so code that reads a column metro lacks **500s the whole route**, not just that field. That is the 2026-07-11 outage (`resolveOAuthToken` → all MCP OAuth → Cloudflare 502). Defensive code helps — `lib/sites/host-resolver.ts` catches the query error and fails open for routing while failing closed for caching, which is why #80 degraded instead of breaking — but do not rely on it.
   - `Schema drift preflight` still fails a PR on **non-additive** drift. Type/constraint changes (`timestamp→timestamptz`, `integer→bigint`) always need a hand-written guarded `*_manual.sql` — make them re-runnable by guarding `ALTER … TYPE` behind an `information_schema` check, cf. `9010`.
-  - To actually restore auto-sync, set the `PROD_DATABASE_URL` repo secret to metro's `DATABASE_PUBLIC_URL`. Until then this bullet is the process.
+  - To actually restore auto-sync, store metro's `DATABASE_PUBLIC_URL` as `PROD_DATABASE_URL` in the **`prod-db` environment** (deployment branches: `main` only), not as a repo secret. This repo is public and `main` is unprotected, so a repo secret is readable by a workflow pushed on any branch. The setup commands are at the top of `.github/workflows/prod-schema-sync.yml`. Once the workflow declares the environment (PUX-138), a missing secret **fails** the run on this repo instead of skipping green. Until the secret is set, this bullet is the process.
 
 ## Hotfix lane (shipping a small fix without the full PR wait)
 
