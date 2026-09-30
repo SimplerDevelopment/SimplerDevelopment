@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { authorizePortal, isAuthError } from '@/lib/portal-auth';
 import { renderBlocksToEmailHtml, buildCampaignHtml } from '@/lib/email';
 
-export async function POST(req: NextRequest) {
+export async function POST(req: NextRequest) { // role-gate: read-ok pure render of the posted blocks, persists nothing and sends nothing
+  // role-matrix: read level on purpose. Unlike email/preview (which persists the render cache and can
+  // email a test send) this is a pure render, so it stays at read.
   const authResult = await authorizePortal({ action: 'read', requireService: 'email' });
   if (isAuthError(authResult)) return authResult.response;
 

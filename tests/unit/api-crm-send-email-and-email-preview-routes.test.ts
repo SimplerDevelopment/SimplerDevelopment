@@ -657,8 +657,11 @@ describe('POST /api/portal/email/preview', () => {
 
   it('passes the right service requirement to authorizePortal', async () => {
     await callPreview({ blocks: [] });
+    // AUTH79-020: this render persists the cache and can email a test send, so it is a write (member+),
+    // raised log-only (observeRole) until AUTH_ROLE_ENFORCE=1.
     expect(H.authorizePortalMock).toHaveBeenCalledWith({
-      action: 'read',
+      action: 'write',
+      observeRole: true,
       requireService: 'email',
     });
   });
