@@ -39,7 +39,10 @@ vi.mock('@/lib/mcp-auth', () => ({ resolvePortalFromCurrentRequest: vi.fn(), has
 vi.mock('@/lib/oauth/required-scope', () => ({ requiredScopeFor: vi.fn() }));
 vi.mock('@/lib/feature-flags', () => ({ hasFlag: vi.fn() }));
 
-import { gatePortalRole } from '@/lib/portal-auth';
+import { gatePortalRole, authorizePortal, isAuthError } from '@/lib/portal-auth';
+import { auth } from '@/lib/auth';
+import { getPortalClient } from '@/lib/portal-client';
+import { resolvePortalFromCurrentRequest } from '@/lib/mcp-auth';
 
 type Client = Parameters<typeof gatePortalRole>[1];
 const OWNER_ID = 99;
@@ -98,10 +101,45 @@ describe('gatePortalRole', () => {
     expect(res?.status).toBe(403);
   });
 
+  it('skips the membership query for a read gate, which can never deny', async () => {
+    process.env.AUTH_ROLE_ENFORCE = '1';
+    membershipRows = [{ role: 'viewer' }];
+    expect(await gatePortalRole(MEMBER_ID, client, 'read')).toBeNull();
+    expect(await gatePortalRole(MEMBER_ID, client, 'read', { observe: false })).toBeNull();
+    expect(selectSpy).not.toHaveBeenCalled();
+  });
+
+  it('still runs the membership query for a write gate', async () => {
+    membershipRows = [{ role: 'member' }];
+    await gatePortalRole(MEMBER_ID, client, 'write');
+    expect(selectSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('treats a role value outside the ladder as a viewer, not as nothing', async () => {
+    process.env.AUTH_ROLE_ENFORCE = '1';
+    membershipRows = [{ role: 'superuser' }];
+    const res = await gatePortalRole(MEMBER_ID, client, 'write');
+    expect(res?.status).toBe(403);
+    expect(await res?.json()).toMatchObject({ message: expect.stringContaining('(viewer)') });
+  });
+
   it('treats a user with no membership row as a viewer', async () => {
     process.env.AUTH_ROLE_ENFORCE = '1';
     membershipRows = [];
     expect(await gatePortalRole(MEMBER_ID, client, 'read')).toBeNull();
     expect((await gatePortalRole(MEMBER_ID, client, 'write'))?.status).toBe(403);
+  });
+});
+
+describe('resolveRole via authorizePortal', () => {
+  // The gatePortalRole read short-circuit never reaches resolveRole, so a read through authorizePortal is
+  // where an out-of-ladder role row would have been denied (ROLE_LEVELS[unknown] is undefined).
+  it("lets a membership row with an unknown role pass 'read' instead of denying it", async () => {
+    vi.mocked(resolvePortalFromCurrentRequest).mockResolvedValue(null);
+    vi.mocked(auth).mockResolvedValue({ user: { id: String(MEMBER_ID) } } as never);
+    vi.mocked(getPortalClient).mockResolvedValue(client as never);
+    membershipRows = [{ role: 'superuser' }];
+    const result = await authorizePortal({ action: 'read' });
+    expect(isAuthError(result)).toBe(false);
   });
 });

@@ -303,6 +303,10 @@ export async function gatePortalRole(
   action: PortalAction,
   opts: { observe?: boolean } = {},
 ): Promise<NextResponse | null> {
+  // A read gate can never deny: every role, including the no-membership fallback, is viewer or above.
+  // Skip the membership query — the DB pool defaults to one connection, so it would be a serialized
+  // round trip on every GET (including the card-open GET PUX-087 optimized) that cannot change the answer.
+  if (ACTION_REQUIRED_LEVEL[action] === 0) return null;
   const role = await resolveRole(userId, client);
   const gate = roleGate(role, action, opts.observe ?? true, { clientId: client.id, userId });
   return gate ? gate.response : null;
@@ -338,7 +342,10 @@ async function resolveRole(userId: number, client: typeof clients.$inferSelect):
     .where(and(eq(clientMembers.clientId, client.id), eq(clientMembers.userId, userId)))
     .limit(1);
 
-  return (membership?.role as PortalRole) ?? 'viewer';
+  // Any role value outside the ladder (legacy/typo'd rows) is a viewer. Left as-is, ROLE_LEVELS[unknown]
+  // is undefined and `undefined >= n` is false, so such a row would be denied even 'read' at enforce.
+  const role = membership?.role;
+  return role && Object.prototype.hasOwnProperty.call(ROLE_LEVELS, role) ? (role as PortalRole) : 'viewer';
 }
 
 /**
