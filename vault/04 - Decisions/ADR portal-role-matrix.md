@@ -37,14 +37,21 @@ The three calls that were genuinely open, as decided:
 - **Billing is `admin` even to read.** Viewers and members don't see invoices, payment methods or the plan; owners alone change or cancel it.
 
 ## Rollout
-Already built into `lib/portal-auth.ts`; the sweep only has to use it:
-
-1. Guard each ungated route with `authorizePortal({ action, observeRole: true })` (or `authorizePortalSite` for `websites/[siteId]/**`, which defaults to log-only). An insufficient role is logged as `portal.role.insufficient` and still allowed.
+1. Guard each ungated route with **`gatePortalRole(userId, client, action)`** (`lib/portal-auth.ts`) right after its existing `getPortalClient` resolution. It is log-only by default: an insufficient role is logged as `portal.role.insufficient` and still allowed.
+   - ❌ **Not** `authorizePortal({ action, observeRole: true })` — the first draft of this ADR said that. `authorizePortal` also accepts bearer tokens, so swapping ~450 session-only routes onto it would open them to API keys as a side effect of a role sweep.
+   - ✅ `gatePortalRole` adds the role check and nothing else. (`authorizePortalSite` remains right for `websites/[siteId]/**`, which already resolve through it.)
 2. Fix the 5 read-level write routes in the same pass.
-3. Add a CI check: every `app/api/portal/**/route.ts` calls `authorizePortal` / `authorizePortalSite` or sits on the exempt list above, so new routes cannot ship ungated. The gap grew from 437 to 449 routes between 2026-08-13 and 2026-09-30 precisely because nothing enforced this.
-4. Watch the `portal.role.insufficient` warnings against real multi-member traffic, then set `AUTH_ROLE_ENFORCE=1`.
+3. CI ratchet `scripts/check-portal-role-gates.ts` (`bun run check:role-gates`): every `app/api/portal/**/route.ts` calls a gate or sits on its exempt list, or is in a baseline that may only shrink. The gap grew from 437 to 449 routes between 2026-08-13 and 2026-09-30 precisely because nothing enforced this.
+4. Watch the `portal.role.insufficient` warnings against real multi-member traffic, then set `AUTH_ROLE_ENFORCE=1` — **only after every item on PUX-231 is closed** (OAuth state purpose-binding, ratchet hardening, publishing-board moves, AI-tool action map, and the rest).
 
 The MCP surface already enforces the same ladder (`lib/mcp/client-scope.ts#roleDenial` imports `ROLE_LEVELS`), so a tool and its REST route must land on the same action; where they disagree, the REST matrix above wins and the tool is corrected.
+
+## Refinements (owner, 2026-09-30 — after the pilot review of #219)
+- **Automations stay `admin`** even though members can create rules today. Otherwise the "email send = admin" rule is bypassable: a member could build an automation that sends campaigns. Previews that only compute (schedule preview, email render) are `read`.
+- **Personal mailbox connections** (`integrations/{google,microsoft,linkedin}/connect`) are **`write`**, not admin. They link the caller's own account but feed its mail into the company's shared CRM/Brain, so viewers shouldn't. **Disconnect and status are exempt**: revoking your own grant is never role-gated. Company-level credentials (API keys, OAuth clients) stay `admin`.
+- **A project Editor grant wins for that project's board.** A company Viewer whom an admin makes an Editor on one project can edit that board; card routes skip the company-role gate where the project grants edit.
+- **Invites move to the membership** (token hash, expiry, `accepted_at` on the membership, not the user). Existing users accept by logging in, and seats count accepted memberships. Tracked on PUX-227/PUX-228.
+- The July `docs/design/auth79-020-role-matrix.md` had automations at `write`, billing reads at `read`, and API-key listing at `read`. **This ADR supersedes it**; that doc is reconciled to match.
 
 ## Rejected alternatives
 - **Custom roles or per-resource ACLs.** More expressive, but a new permissions model on top of 585 routes, when the missing piece was only a decision over the model we have.
