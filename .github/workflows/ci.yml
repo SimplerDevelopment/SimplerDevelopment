@@ -173,6 +173,9 @@ jobs:
       - name: File-size budget (god-file guard)
         if: needs.changes.outputs.code == 'true'
         run: bun scripts/check-file-budget.ts
+      - name: Portal role-gate ratchet (new routes must be gated)
+        if: needs.changes.outputs.code == 'true'
+        run: bun run check:role-gates
       - name: Doc drift (cited paths must exist)
         run: bun scripts/check-doc-drift.ts
 
