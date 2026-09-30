@@ -10,6 +10,7 @@ import PortalTopbar from '@/components/portal/PortalTopbar';
 import PortalTitle from '@/components/portal/PortalTitle';
 import CmdKLauncher from '@/components/CmdKLauncher';
 import { AgencyChromeProvider } from '@/components/portal/AgencyChromeProvider';
+import { FeatureFlagsProvider } from '@/components/portal/FeatureFlagsProvider';
 import ImpersonationBanner from '@/components/portal/ImpersonationBanner';
 import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
@@ -124,13 +125,16 @@ export default function PortalLayoutClient({ children, apps, entitlements }: Por
   if (isLoginPage || isIframePage) {
     return (
       <AgencyChromeProvider>
+    {/* PUX-135: client-side flag reads (useFeatureFlag) for everything under the shell */}
+    <FeatureFlagsProvider flags={entitlements?.flags}>
         <PortalTitle />
         {isIframePage ? children : (
           <div className="min-h-screen flex items-center justify-center bg-background">
             {children}
           </div>
         )}
-      </AgencyChromeProvider>
+      </FeatureFlagsProvider>
+    </AgencyChromeProvider>
     );
   }
 
@@ -146,6 +150,8 @@ export default function PortalLayoutClient({ children, apps, entitlements }: Por
 
   return (
     <AgencyChromeProvider>
+    {/* PUX-135: client-side flag reads (useFeatureFlag) for everything under the shell */}
+    <FeatureFlagsProvider flags={entitlements?.flags}>
       <PortalTitle />
       <ImpersonationBanner />
       <div className="portal-shell min-h-screen bg-background overflow-x-hidden">
@@ -189,6 +195,7 @@ export default function PortalLayoutClient({ children, apps, entitlements }: Por
         {/* {!previewMode && <AIChatWidget />} */}
       </div>
       <CmdKLauncher apps={apps} entitlements={entitlements} />
+    </FeatureFlagsProvider>
     </AgencyChromeProvider>
   );
 }

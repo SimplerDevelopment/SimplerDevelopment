@@ -45,6 +45,11 @@ export const FLAGS = {
   // PUX-134 — the Harbor-palette portal redesign. Gates nothing yet; it exists
   // to prove the admin toggle end-to-end on client 104.
   'portal-redesign': { since: '2026-08-27', defaultOn: false },
+  // PUX-137 — unified Billing view (Usage · Plan · Invoices · Payment methods
+  // as ?mode= of one page; the active settings tab cycles the mode). Unflagged
+  // clients keep the legacy page + /plans verbatim. At GA: flip defaultOn,
+  // repoint the nine /plans inbound links at ?mode=plan, delete BillingLegacy.
+  'billing-unified-view': { since: '2026-08-27', defaultOn: false },
 } as const satisfies Record<string, FlagDef>;
 
 export type FlagKey = keyof typeof FLAGS;
