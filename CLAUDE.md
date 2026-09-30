@@ -104,6 +104,10 @@ No code work in this repo happens off-ledger. Concretely, every session:
 
 One card in flight at a time. Reference the SKU in the branch name, commit messages and PR title so the ledger and the git history agree.
 
+**Validating holds at most 10 cards before new feature work starts** (PUX-221, decided 2026-09-30). Before you *start* a feature or story card, count the lane: `kanban_cards_search({projectId: 153, column: 'Validating', limit: 200})`. Over 10 → don't start it; spend the session draining the lane instead (verify, merge, ship what is already there). Exempt, because they shrink risk rather than add inventory: bug fixes, security, CI/test repair, dependency hygiene. Finishing work still moves into Validating as normal — the cap gates *starting*, not *reporting*.
+
+Why: August landed 197 commits on `main` in four weeks; September landed one merge while 75 cards waited in Validating, 70 of them a single redesign whose PR nobody had opened. Output that outruns validation is not throughput, it is inventory — and the queue itself became the stall.
+
 ## Run / build / test (non-guessable commands only)
 
 - `bun dev` — dev server
