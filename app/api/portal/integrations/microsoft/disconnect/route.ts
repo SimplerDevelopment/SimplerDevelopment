@@ -4,7 +4,6 @@ import { db } from '@/lib/db';
 import { microsoftTeamsUserConnections } from '@/lib/db/schema';
 import { auth } from '@/lib/auth';
 import { getPortalClient } from '@/lib/portal-client';
-import { gatePortalRole } from '@/lib/portal-auth';
 import { getEnvMicrosoftCredentials } from '@/lib/microsoft/oauth';
 import { deleteTranscriptsSubscription } from '@/lib/microsoft/transcripts-watch';
 
@@ -31,10 +30,6 @@ export async function POST() {
   if (!client) {
     return NextResponse.json({ error: 'No client for this user' }, { status: 404 });
   }
-
-  // role-matrix: disconnecting an integration is admin.
-  const denied = await gatePortalRole(userId, client, 'admin');
-  if (denied) return denied;
 
   const [row] = await db
     .select()

@@ -4,7 +4,6 @@ import { db } from '@/lib/db';
 import { googleWorkspaceUserConnections } from '@/lib/db/schema';
 import { auth } from '@/lib/auth';
 import { getPortalClient } from '@/lib/portal-client';
-import { gatePortalRole } from '@/lib/portal-auth';
 import { revoke } from '@/lib/google/oauth';
 import { getTenantWorkspaceCredentialsByClientId } from '@/lib/google/tenant-credentials';
 
@@ -33,10 +32,6 @@ export async function POST() {
   if (!client) {
     return NextResponse.json({ error: 'No client for this user' }, { status: 404 });
   }
-
-  // role-matrix: disconnecting an integration is admin.
-  const denied = await gatePortalRole(userId, client, 'admin');
-  if (denied) return denied;
 
   // Find the active (not yet revoked) connection. We deliberately skip already-revoked
   // rows so a second disconnect call is a clean no-op.

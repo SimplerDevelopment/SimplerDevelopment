@@ -42,8 +42,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'No client for this user' }, { status: 404 });
   }
 
-  // role-matrix: connecting an integration is admin.
-  const denied = await gatePortalRole(userId, client, 'admin');
+  // role-matrix: write (member+), not admin. It links the caller's OWN account, but that mail/calendar/
+  // transcript stream then feeds the company's shared CRM/Brain, so a viewer must not start it.
+  const denied = await gatePortalRole(userId, client, 'write');
   if (denied) return denied;
 
   const url = new URL(req.url);

@@ -73,16 +73,11 @@ const rows: Row[] = [
   { name: 'api-keys POST', action: 'admin', call: async () => (await import('@/app/api/portal/integrations/api-keys/route')).POST(json('/x', 'POST', { provider: 'resend', apiKey: 'x'.repeat(12) })) },
   { name: 'api-keys/[id] PATCH', action: 'admin', call: async () => (await import('@/app/api/portal/integrations/api-keys/[id]/route')).PATCH(json('/x', 'PATCH', { label: 'a' }), ctx()) },
   { name: 'api-keys/[id] DELETE', action: 'admin', call: async () => (await import('@/app/api/portal/integrations/api-keys/[id]/route')).DELETE(json('/x', 'DELETE'), ctx()) },
-  // integrations/{google,microsoft,linkedin}: connect + disconnect admin, status read
-  { name: 'google connect GET', action: 'admin', call: async () => (await import('@/app/api/portal/integrations/google/connect/route')).GET(json('/x', 'GET') as never) },
-  { name: 'google disconnect POST', action: 'admin', call: async () => (await import('@/app/api/portal/integrations/google/disconnect/route')).POST() },
-  { name: 'google status GET', action: 'read', call: async () => (await import('@/app/api/portal/integrations/google/status/route')).GET() },
-  { name: 'microsoft connect GET', action: 'admin', call: async () => (await import('@/app/api/portal/integrations/microsoft/connect/route')).GET(json('/x', 'GET') as never) },
-  { name: 'microsoft disconnect POST', action: 'admin', call: async () => (await import('@/app/api/portal/integrations/microsoft/disconnect/route')).POST() },
-  { name: 'microsoft status GET', action: 'read', call: async () => (await import('@/app/api/portal/integrations/microsoft/status/route')).GET() },
-  { name: 'linkedin connect GET', action: 'admin', call: async () => (await import('@/app/api/portal/integrations/linkedin/connect/route')).GET(json('/x', 'GET') as never) },
-  { name: 'linkedin disconnect POST', action: 'admin', call: async () => (await import('@/app/api/portal/integrations/linkedin/disconnect/route')).POST() },
-  { name: 'linkedin status GET', action: 'read', call: async () => (await import('@/app/api/portal/integrations/linkedin/status/route')).GET() },
+  // integrations/{google,microsoft,linkedin} connect: write. It links the caller's own account but feeds the
+  // company's shared CRM/Brain, so a viewer must not. disconnect and status are caller-own grants: EXEMPT, ungated.
+  { name: 'google connect GET', action: 'write', call: async () => (await import('@/app/api/portal/integrations/google/connect/route')).GET(json('/x', 'GET') as never) },
+  { name: 'microsoft connect GET', action: 'write', call: async () => (await import('@/app/api/portal/integrations/microsoft/connect/route')).GET(json('/x', 'GET') as never) },
+  { name: 'linkedin connect GET', action: 'write', call: async () => (await import('@/app/api/portal/integrations/linkedin/connect/route')).GET(json('/x', 'GET') as never) },
   // cards: reads are viewer+, every mutation member+ (helper-based routes included)
   { name: 'cards POST', action: 'write', call: async () => (await import('@/app/api/portal/cards/route')).POST(json('/x', 'POST', { columnId: 1 })) },
   { name: 'cards/[id] GET', action: 'read', call: async () => (await import('@/app/api/portal/cards/[id]/route')).GET(json('/x', 'GET'), ctx()) },
