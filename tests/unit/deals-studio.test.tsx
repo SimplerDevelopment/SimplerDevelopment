@@ -1,15 +1,25 @@
 // @vitest-environment jsdom
 import React from 'react';
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, cleanup, fireEvent } from '@testing-library/react';
 import { STALE_AFTER_DAYS, daysSinceActivity, isStale } from '@/lib/crm/deal-stale';
 import DealsTable from '@/app/portal/crm/deals/_components/DealsTable';
 import DealKanban from '@/app/portal/crm/deals/_components/DealKanban';
 import type { Deal, Stage } from '@/app/portal/crm/deals/_lib/types';
 
-afterEach(cleanup);
 const DAY = 86_400_000;
 const now = Date.parse('2026-08-28T00:00:00Z');
+// DealsTable / DealKanban read the real clock (daysSinceActivity(deal) defaults to Date.now()) while the
+// fixtures below use fixed dates, so without a frozen Date "Stalled 60d" drifts by a day every day
+// (it became "Stalled 93d"). Fake ONLY Date so RTL's waitFor/async timers keep working.
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(now);
+});
+afterEach(() => {
+  cleanup();
+  vi.useRealTimers();
+});
 const deal = (o: Partial<Deal>): Deal => ({
   id: 1, title: 'Summit Bank retreat', value: 18400, status: 'open', priority: 'medium', expectedCloseDate: null, contactId: null, contactName: null,
   companyId: null, companyName: 'Summit Bank', stageId: 10, pipelineId: 1, notes: null, ownerId: null, ownerName: 'Marta', recurringValue: null, billingCycle: null,
