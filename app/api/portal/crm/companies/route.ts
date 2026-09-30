@@ -8,6 +8,7 @@ import { buildCustomFieldFilters } from '@/lib/crm-custom-field-filter';
 import { geocodeAddress } from '@/lib/geocode';
 import { validateCrmName } from '@/lib/crm/parse';
 import { hasServiceAccess } from '@/lib/portal-auth';
+import { hasFlag } from '@/lib/feature-flags';
 
 function parseCoordinate(raw: unknown): number | null {
   if (raw === null || raw === undefined || raw === '') return null;
@@ -87,6 +88,11 @@ export async function GET(req: NextRequest) {
     .from(crmCompanies)
     .where(where);
 
+  // The two Studio columns (open deals, last activity) cost a correlated scan
+  // per row, so only clients on portal-redesign pay for them; everyone else gets
+  // NULL — same select shape, no extra work (review of #208, finding 1).
+  const redesign = hasFlag(client, 'portal-redesign');
+
   const companies = await db
     .select({
       id: crmCompanies.id,
@@ -107,12 +113,19 @@ export async function GET(req: NextRequest) {
       // unqualified "id" from ${crmCompanies.id} in this position, which would
       // resolve to crm_contacts.id inside the subquery. Also cast bigint
       // aggregates so node-postgres returns JS numbers instead of strings.
-      contactCount: sql<number>`(SELECT COUNT(*)::int FROM crm_contacts WHERE crm_contacts.company_id = crm_companies.id)`.as('contact_count'),
-      totalDealValue: sql<number>`COALESCE((SELECT SUM(value) FROM crm_deals WHERE crm_deals.company_id = crm_companies.id), 0)::float8`.as('total_deal_value'),
-    // PUX-203 (design doc screen 67): the two columns that predict a deal, computed
-    // the same way as contactCount above — outer table fully qualified, client-scoped.
-    openDeals: sql<number>`(SELECT COUNT(*)::int FROM crm_deals WHERE crm_deals.company_id = crm_companies.id AND crm_deals.status = 'open')`.as('open_deals'),
-    lastActivity: sql<{ title: string; at: string } | null>`(SELECT json_build_object('title', a.title, 'at', a.created_at) FROM crm_activities a WHERE a.company_id = crm_companies.id AND a.client_id = ${client.id} ORDER BY a.created_at DESC LIMIT 1)`.as('last_activity'),
+      //
+      // Every subquery is ALSO scoped to this client: a company id is only
+      // unique platform-wide, so an unscoped count adds any other tenant's rows
+      // that point at it (PUX-223), and client_id is what the indexes cover.
+      contactCount: sql<number>`(SELECT COUNT(*)::int FROM crm_contacts WHERE crm_contacts.company_id = crm_companies.id AND crm_contacts.client_id = ${client.id})`.as('contact_count'),
+      totalDealValue: sql<number>`COALESCE((SELECT SUM(value) FROM crm_deals WHERE crm_deals.company_id = crm_companies.id AND crm_deals.client_id = ${client.id}), 0)::float8`.as('total_deal_value'),
+      // PUX-203 (design doc screen 67): the two columns that predict a deal.
+      openDeals: redesign
+        ? sql<number | null>`(SELECT COUNT(*)::int FROM crm_deals WHERE crm_deals.company_id = crm_companies.id AND crm_deals.client_id = ${client.id} AND crm_deals.status = 'open')`.as('open_deals')
+        : sql<number | null>`NULL::int`.as('open_deals'),
+      lastActivity: redesign
+        ? sql<{ title: string; at: string } | null>`(SELECT json_build_object('title', a.title, 'at', a.created_at) FROM crm_activities a WHERE a.company_id = crm_companies.id AND a.client_id = ${client.id} ORDER BY a.created_at DESC LIMIT 1)`.as('last_activity')
+        : sql<{ title: string; at: string } | null>`NULL::json`.as('last_activity'),
     })
     .from(crmCompanies)
     .where(where)
