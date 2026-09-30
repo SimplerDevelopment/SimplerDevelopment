@@ -15,6 +15,8 @@
  * Screenshots saved to .qa-reports/portal-a-screens/
  */
 import path from 'path';
+import { execSync } from 'child_process';
+import { createHash } from 'crypto';
 import { test, expect } from './setup/fixtures';
 import type { Page } from '@playwright/test';
 
@@ -23,6 +25,11 @@ const SCREENS_DIR = path.resolve(
   '.qa-reports/portal-a-screens',
 );
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3100';
+
+const TEST_DB = process.env.DATABASE_URL ?? `postgresql://${process.env.USER ?? 'postgres'}@localhost:5432/simplerdev_test`;
+function sql(q: string): string {
+  return execSync(`psql "${TEST_DB}" -At -c "${q.replace(/"/g, '\\"')}"`, { encoding: 'utf8' }).trim();
+}
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -91,13 +98,42 @@ test.describe('Auth — reset-password API @auth @portal-a', () => {
     expect(res.data.error).toMatch(/token/i);
   });
 
-  test('POST /api/portal/reset-password rejects short password', async ({ unauthApi }) => {
+  // The route looks the token up BEFORE it validates password strength (so the
+  // policy is never disclosed to a caller without a live reset link, and a weak
+  // password never burns a token). To reach the length check the test must
+  // therefore hold a real token: seed a throwaway user with the sha256 of a raw
+  // token — the same hashToken() the route compares against.
+  test('POST /api/portal/reset-password rejects short password (valid token)', async ({ unauthApi }) => {
+    const tag = Date.now().toString(36);
+    const rawToken = `e2e-reset-${tag}-${Math.random().toString(36).slice(2)}`;
+    const tokenHash = createHash('sha256').update(rawToken).digest('hex');
+    const email = `reset-short-${tag}@example.com`;
+    sql(
+      `INSERT INTO users (name, email, password, password_reset_token, password_reset_expires) ` +
+        `VALUES ('Reset Short', '${email}', 'x', '${tokenHash}', now() + interval '1 hour')`,
+    );
+    try {
+      const res = await unauthApi.post('/api/portal/reset-password', {
+        token: rawToken,
+        password: 'short',
+      });
+      expect(res.status).toBe(400);
+      expect(res.data.error).toMatch(/8 characters/i);
+      // A rejected weak password must NOT consume the token.
+      expect(sql(`SELECT count(*) FROM users WHERE email='${email}' AND password_reset_token='${tokenHash}'`)).toBe('1');
+    } finally {
+      sql(`DELETE FROM users WHERE email='${email}'`);
+    }
+  });
+
+  test('POST /api/portal/reset-password checks the token before password length', async ({ unauthApi }) => {
     const res = await unauthApi.post('/api/portal/reset-password', {
       token: 'sometoken',
       password: 'short',
     });
     expect(res.status).toBe(400);
-    expect(res.data.error).toMatch(/8 characters/i);
+    expect(res.data.error).toMatch(/invalid|expired/i);
+    expect(res.data.error).not.toMatch(/8 characters/i);
   });
 
   test('POST /api/portal/reset-password returns 400 for invalid/expired token', async ({ unauthApi }) => {
