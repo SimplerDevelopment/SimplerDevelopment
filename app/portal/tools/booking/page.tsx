@@ -79,10 +79,12 @@ export default async function BookingPagesListPage() {
           <span className="material-icons text-xl text-primary">event</span>
           <div>
             <p className="text-sm font-medium text-foreground">Google Calendar</p>
+            {/* PUX-217: slot availability never reads Google busy times yet (PUX-216),
+                so this copy must not promise conflict checking until that lands. */}
             <p className="text-xs text-muted-foreground">
               {isCalendarConnected
                 ? 'Connected — new bookings sync to your calendar automatically'
-                : 'Connect to sync bookings and check for conflicts'}
+                : 'Connect to add new bookings to your calendar automatically'}
             </p>
           </div>
         </div>
@@ -259,8 +261,9 @@ export default async function BookingPagesListPage() {
         <div className="text-sm text-muted-foreground">
           <p className="font-medium text-foreground">Tips</p>
           <p>
-            Connect Google Calendar to automatically check for conflicts and add new bookings to your calendar.
-            Share your booking link with clients or embed it on your website.
+            Connect Google Calendar to add new bookings to your calendar automatically. Your existing
+            calendar events aren&apos;t checked for conflicts yet, so keep each booking page&apos;s available
+            hours up to date. Share your booking link with clients or embed it on your website.
           </p>
         </div>
       </div>
