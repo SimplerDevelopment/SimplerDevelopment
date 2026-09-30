@@ -19,6 +19,14 @@
  */
 
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+// `z` must be the SAME zod copy the MCP SDK resolves. If every `inputSchema`
+// in this file (and in lib/mcp/tools/*, lib/branding, lib/post-types,
+// lib/storefront) suddenly fails with "Type 'ZodString' is not assignable to
+// type 'AnySchema'", it is not an SDK API change: bun.lock has grown a second,
+// nested `@modelcontextprotocol/sdk/zod` entry beside the root zod, and the
+// two copies' types don't unify. Regenerate the lock so the SDK dedupes onto
+// the root zod — never cast around it. Seen 2026-09-30 on a Dependabot
+// minor/patch group: 2,627 tsc errors, fixed by the lock alone (PUX-220, #214).
 import { z } from 'zod';
 import { hasScope, type PortalMcpContext } from '@/lib/mcp-auth';
 import { json, denied } from '@/lib/mcp/types';
