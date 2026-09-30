@@ -13,13 +13,13 @@
   },
   "dependencies": {
     "jsonwebtoken": "^9.0.2",
-    "lib0": "^0.2.99",
+    "lib0": "^0.2.118",
     "postgres": "^3.4.4",
-    "tsx": "^4.23.12",
+    "tsx": "^4.23.15",
     "typescript": "^5.4.0",
-    "ws": "^8.21.3",
+    "ws": "^8.22.0",
     "y-protocols": "^1.0.6",
-    "yjs": "^13.6.32"
+    "yjs": "^13.6.33"
   },
   "devDependencies": {
     "@types/jsonwebtoken": "^9.0.10",
