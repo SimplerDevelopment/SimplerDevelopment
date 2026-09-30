@@ -282,6 +282,33 @@ export async function authorizePortalSite(opts: {
 }
 
 /**
+ * Role/action gate for routes that already resolved the caller's company
+ * themselves — the raw `auth()` + `getPortalClient(userId)` routes AUTH79-020
+ * found gating on membership only. It adds the role check and nothing else.
+ *
+ * Why not move those routes onto authorizePortal: it also accepts bearer
+ * tokens, so the swap would quietly open ~450 session-only routes to API keys.
+ * Widening the auth surface is its own decision, not a side effect of a role
+ * sweep.
+ *
+ * Log-only by default, per ADR portal-role-matrix: an insufficient role is
+ * logged as `portal.role.insufficient` and allowed until AUTH_ROLE_ENFORCE=1.
+ *
+ *   const denied = await gatePortalRole(userId, client, 'write');
+ *   if (denied) return denied;
+ */
+export async function gatePortalRole(
+  userId: number,
+  client: typeof clients.$inferSelect,
+  action: PortalAction,
+  opts: { observe?: boolean } = {},
+): Promise<NextResponse | null> {
+  const role = await resolveRole(userId, client);
+  const gate = roleGate(role, action, opts.observe ?? true, { clientId: client.id, userId });
+  return gate ? gate.response : null;
+}
+
+/**
  * Resolve a user's site like `resolveClientSite`, but ALSO require the owning
  * client to have an active `store` subscription (bundle-aware via
  * `hasServiceAccess`). Returns null if the site isn't the user's OR the client
