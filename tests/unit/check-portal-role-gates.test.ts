@@ -1,8 +1,10 @@
 /**
  * scripts/check-portal-role-gates — the AUTH79-020 ratchet's decision logic.
  *
- * What must hold: a new ungated route fails; the baseline only shrinks (a baseline entry that has
- * since been gated/exempted/deleted fails); a gated mutating handler that never names an action
+ * What must hold: a new ungated route fails; the baseline only shrinks, which takes two checks: an
+ * entry that has since been gated/exempted/deleted fails, and an entry that origin/main's baseline
+ * does not already carry fails (otherwise a new route could fail and then be absorbed by
+ * regenerating the baseline in the same PR); a gated mutating handler that never names an action
  * above 'read' fails unless its export line carries the read-ok marker; and a gate that is only
  * MENTIONED in a comment is not a gate.
  */
@@ -63,6 +65,22 @@ describe('evaluateRoleGates', () => {
 
     const deleted = run([], [P]);
     expect(deleted.violations[0].message).toContain('is deleted');
+  });
+
+  it('(d) fails a baseline entry that origin/main does not already carry — the baseline cannot grow', () => {
+    const routes = [{ path: P, source: ungatedSrc }];
+    const grew = evaluateRoleGates({ routes, baseline: [P], exempt: {}, mainBaseline: [] });
+    expect(grew.violations.map((v) => v.kind)).toEqual(['baseline-grew']);
+    expect(grew.violations[0].message).toContain('can only shrink');
+
+    // same route already on main: fine, and an entry main has that we dropped is just shrinkage
+    expect(evaluateRoleGates({ routes, baseline: [P], exempt: {}, mainBaseline: [P, 'app/api/portal/old/route.ts'] }).violations).toEqual([]);
+  });
+
+  it('(d) is skipped when main has no baseline yet (the PR that introduces it)', () => {
+    const routes = [{ path: P, source: ungatedSrc }];
+    expect(evaluateRoleGates({ routes, baseline: [P], exempt: {}, mainBaseline: null }).violations).toEqual([]);
+    expect(evaluateRoleGates({ routes, baseline: [P], exempt: {} }).violations).toEqual([]);
   });
 
   it("(c) fails a gated file whose mutating handler only ever names 'read'", () => {

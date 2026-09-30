@@ -10,13 +10,19 @@
  *   (a) a new ungated, non-exempt route that is not in the baseline -> fail
  *   (b) a baseline entry that is now gated, exempt or deleted        -> fail
  *       (delete the line, so the list can never quietly grow back)
+ *   (d) a baseline entry that is absent from origin/main's baseline  -> fail
+ *       (this is what makes "only shrinks" true: without it, a new route could
+ *       fail (a) and then be absorbed by regenerating the baseline in the same PR)
  *   (c) a gated file with a mutating handler that never names an action above
  *       'read' -> fail, unless the handler's export line carries
  *       `// role-gate: read-ok <reason>`. That is the "I gated it, at read, on
  *       purpose" escape hatch; it forces the reason to be written down.
  *
- * Regenerate the baseline after gating routes:
+ * After gating or exempting routes, drop the now-stale entries:
  *     bun scripts/check-portal-role-gates.ts --write-baseline
+ * That flag is REMOVAL-ONLY: it keeps the intersection of the current baseline and the routes that
+ * are still ungated, and never adds a path. A new ungated route must be gated or exempted, not
+ * baselined. (Bootstrapping a baseline from nothing needs `--write-baseline --init`.)
  *
  * Decision logic is the pure `evaluateRoleGates` below (unit-tested in
  * tests/unit/check-portal-role-gates.test.ts); the file IO is at the bottom.
@@ -45,15 +51,27 @@ export const EXEMPT: Record<string, string> = {
   'app/api/portal/cards/[id]/unsubscribe/route.ts':
     'public email-footer link; authenticated by an HMAC token bound to (cardId, userId), timing-safe compared (verifyUnsubscribe)',
 
-  // -- OAuth callbacks: the signed `state` minted by the admin-gated /connect is the authorization
+  // -- OAuth callbacks: authorized today by the signed `state` alone. That is weaker than it looks, see the reasons.
   'app/api/portal/integrations/google/callback/route.ts':
-    'HMAC-signed state {clientId,userId,nonce,10min expiry} minted only by the admin-gated /connect; callback 403s unless session user === state.userId',
+    'OAuth callback: HMAC state binds (clientId,userId) and the callback 403s unless session user === state.userId; purpose-binding of the state + a callback re-gate are tracked on the enforcement-readiness card and must land before AUTH_ROLE_ENFORCE=1 (all providers share OAUTH_STATE_SECRET with no purpose field, and websites/[siteId]/google/auth mints a state these verifiers accept)',
   'app/api/portal/integrations/microsoft/callback/route.ts':
-    'HMAC-signed state {clientId,userId,nonce,10min expiry} minted only by the admin-gated /connect; callback 403s unless session user === state.userId',
+    'OAuth callback: HMAC state binds (clientId,userId) and the callback 403s unless session user === state.userId; purpose-binding of the state + a callback re-gate are tracked on the enforcement-readiness card and must land before AUTH_ROLE_ENFORCE=1 (all providers share OAUTH_STATE_SECRET with no purpose field, and websites/[siteId]/google/auth mints a state these verifiers accept)',
   'app/api/portal/integrations/linkedin/callback/route.ts':
-    'HMAC-signed state {clientId,userId,nonce,10min expiry} minted only by the admin-gated /connect; callback 403s unless session user === state.userId',
+    'OAuth callback: HMAC state binds (clientId,userId) and the callback 403s unless session user === state.userId; purpose-binding of the state + a callback re-gate are tracked on the enforcement-readiness card and must land before AUTH_ROLE_ENFORCE=1 (all providers share OAUTH_STATE_SECRET with no purpose field, and websites/[siteId]/google/auth mints a state these verifiers accept)',
 
   // -- The caller's own account: every query is keyed by the session user id
+  'app/api/portal/integrations/google/disconnect/route.ts':
+    'caller\'s own (clientId,userId) grant only; revoking your own grant is never role-gated',
+  'app/api/portal/integrations/google/status/route.ts':
+    'caller\'s own (clientId,userId) grant only; revoking your own grant is never role-gated',
+  'app/api/portal/integrations/microsoft/disconnect/route.ts':
+    'caller\'s own (clientId,userId) grant only; revoking your own grant is never role-gated',
+  'app/api/portal/integrations/microsoft/status/route.ts':
+    'caller\'s own (clientId,userId) grant only; revoking your own grant is never role-gated',
+  'app/api/portal/integrations/linkedin/disconnect/route.ts':
+    'caller\'s own (clientId,userId) grant only; revoking your own grant is never role-gated',
+  'app/api/portal/integrations/linkedin/status/route.ts':
+    'caller\'s own (clientId,userId) grant only; revoking your own grant is never role-gated',
   'app/api/portal/switch-client/route.ts':
     'only lets the caller pick a company from their OWN memberships (getPortalClients) and sets their cookie',
   'app/api/portal/my-tasks/route.ts': 'GET; collectors filter by assignee/owner === session user id',
@@ -83,7 +101,7 @@ export interface RouteSource {
   source: string;
 }
 
-export type ViolationKind = 'new-ungated' | 'stale-baseline' | 'gated-no-action';
+export type ViolationKind = 'new-ungated' | 'stale-baseline' | 'gated-no-action' | 'baseline-grew';
 
 export interface Violation {
   kind: ViolationKind;
@@ -210,8 +228,13 @@ export function evaluateRoleGates(input: {
   routes: RouteSource[];
   baseline: string[];
   exempt: Record<string, string>;
+  /**
+   * The baseline as it is on origin/main, or null when main has none yet (this check then skips).
+   * Any entry in `baseline` that main does not already carry means the list GREW.
+   */
+  mainBaseline?: string[] | null;
 }): Evaluation {
-  const { routes, baseline, exempt } = input;
+  const { routes, baseline, exempt, mainBaseline } = input;
   const baselineSet = new Set(baseline);
   const byPath = new Map(routes.map((r) => [r.path, r] as const));
   const violations: Violation[] = [];
@@ -264,6 +287,19 @@ export function evaluateRoleGates(input: {
     }
   }
 
+  if (mainBaseline) {
+    const onMain = new Set(mainBaseline);
+    for (const entry of baseline) {
+      if (!onMain.has(entry)) {
+        violations.push({
+          kind: 'baseline-grew',
+          path: entry,
+          message: `${entry}: is in ${BASELINE} but not in origin/main's copy — the baseline can only shrink. Gate the route (gatePortalRole/authorizePortal) or add it to EXEMPT with a reason; never baseline it.`,
+        });
+      }
+    }
+  }
+
   return { violations, ungated: ungated.sort() };
 }
 
@@ -283,13 +319,43 @@ function listRouteFiles(): string[] {
     .sort();
 }
 
+/** origin/main's copy of the baseline, or null when it isn't there (branch that introduces the file, or no origin/main ref). */
+function readMainBaseline(): string[] | null {
+  try {
+    const out = execSync(`git show origin/main:${BASELINE}`, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+    return JSON.parse(out) as string[];
+  } catch {
+    return null;
+  }
+}
+
 function main(): void {
   const routes: RouteSource[] = listRouteFiles().map((path) => ({ path, source: readFileSync(path, 'utf8') }));
 
   if (process.argv.includes('--write-baseline')) {
     const { ungated } = evaluateRoleGates({ routes, baseline: [], exempt: EXEMPT });
-    writeFileSync(BASELINE, JSON.stringify(ungated, null, 2) + '\n');
-    console.log(`Wrote ${ungated.length} ungated route(s) to ${BASELINE}.`);
+    if (process.argv.includes('--init')) {
+      writeFileSync(BASELINE, JSON.stringify(ungated, null, 2) + '\n');
+      console.log(`Initialised ${BASELINE} with ${ungated.length} ungated route(s).`);
+      return;
+    }
+    if (!existsSync(BASELINE)) {
+      console.error(`Missing ${BASELINE}. Restore it from version control, or bootstrap with --write-baseline --init.`);
+      process.exit(1);
+    }
+    // Removal-only: keep an entry only if it is already baselined AND still ungated. A route that is
+    // ungated but not baselined is a NEW ungated route and must be gated or exempted, never absorbed here.
+    const current: string[] = JSON.parse(readFileSync(BASELINE, 'utf8'));
+    const stillUngated = new Set(ungated);
+    const kept = current.filter((p) => stillUngated.has(p)).sort();
+    const notBaselined = ungated.filter((p) => !current.includes(p));
+    writeFileSync(BASELINE, JSON.stringify(kept, null, 2) + '\n');
+    console.log(`Dropped ${current.length - kept.length} stale entr(ies); ${kept.length} remain in ${BASELINE}.`);
+    if (notBaselined.length > 0) {
+      console.error(`${notBaselined.length} ungated route(s) are NOT in the baseline and were not added (gate or exempt them):`);
+      for (const p of notBaselined) console.error(`  - ${p}`);
+      process.exit(1);
+    }
     return;
   }
 
@@ -298,7 +364,8 @@ function main(): void {
     process.exit(1);
   }
   const baseline: string[] = JSON.parse(readFileSync(BASELINE, 'utf8'));
-  const { violations, ungated } = evaluateRoleGates({ routes, baseline, exempt: EXEMPT });
+  const mainBaseline = readMainBaseline();
+  const { violations, ungated } = evaluateRoleGates({ routes, baseline, exempt: EXEMPT, mainBaseline });
 
   if (violations.length > 0) {
     console.error(`Portal role-gate ratchet failed (${violations.length}):`);
@@ -308,6 +375,9 @@ function main(): void {
   console.log(
     `Portal role gates OK — ${routes.length} routes, ${ungated.length} still ungated (baseline), ${Object.keys(EXEMPT).length} exempt.`,
   );
+  if (!mainBaseline) {
+    console.log(`(baseline-vs-origin/main comparison skipped: origin/main has no ${BASELINE} yet, or the ref is not fetched)`);
+  }
 }
 
 // Run only as a script, not when the unit test imports evaluateRoleGates.
