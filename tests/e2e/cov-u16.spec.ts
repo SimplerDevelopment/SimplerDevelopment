@@ -138,11 +138,16 @@ test.describe('Pitch Decks — tenancy: client A cannot retrieve client B decks 
 
 // ─── Card 9: POST /designs/[id]/finalize locks design for order placement ─────
 //
-// NOTE: The new product-designer flow creates rows in the `productDesigns` table
-// (integer IDs). The `finalize` route is built for the LEGACY `designs` table
-// (UUID IDs). Since there is no longer a public API that creates `designs` rows
-// in the new flow, the happy-path finalize test cannot be exercised without
-// direct DB seeding. The tests below cover the route's existence + error guards.
+// NOTE (PUX-219): the LEGACY `designs` table and its per-design routes
+// (`/designs/[designId]/finalize`, `/designs/[designId]/save-as-template`) were
+// RETIRED in bfe010c6f (#21, "retiring the legacy designs table") — the cart now
+// points at `productDesigns`. Those route files no longer exist, so any request
+// to them 404s from the router before any body/id validation can run. The
+// nightly used to assert the old 400-on-bad-id guard, which can no longer be
+// reached; it failed every night. The tests below now pin the retirement itself
+// (404 for ANY id, valid or not) so the routes cannot silently reappear without
+// a deliberate change here. Body/ownership validation for designs lives on the
+// live routes (`/designs`, `/designs/[designId]`, `/clone`, `/share`).
 
 test.describe('Product designer — POST /designs/[id]/finalize @product-designer', () => {
   let siteId: number;
@@ -161,24 +166,21 @@ test.describe('Product designer — POST /designs/[id]/finalize @product-designe
     await runCleanups(fileCleanups);
   });
 
-  test('POST /designs/[id]/finalize rejects non-UUID id with 400', async () => {
-    // Integer IDs (from productDesigns) are not valid for the legacy finalize route.
+  test('POST /designs/[id]/finalize is retired: 404 for a non-UUID id', async () => {
+    // Route deleted in #21 — previously this returned 400 from the id-format guard.
     const ctx = await makeAnonCtx();
     try {
       const res = await ctx.post(
         `/api/storefront/${siteId}/designs/123/finalize`,
         { data: {} },
       );
-      expect(res.status()).toBe(400);
-      const body = await res.json();
-      expect(body.success).toBe(false);
+      expect(res.status()).toBe(404);
     } finally {
       await ctx.dispose();
     }
   });
 
-  test('POST /designs/[id]/finalize returns 404 for unknown UUID', async () => {
-    // A well-formed UUID that doesn't exist in the designs table → 404.
+  test('POST /designs/[id]/finalize is retired: 404 for an unknown UUID', async () => {
     const unknownUUID = '00000000-0000-4000-8000-000000000001';
     const ctx = await makeAnonCtx();
     try {
@@ -186,9 +188,8 @@ test.describe('Product designer — POST /designs/[id]/finalize @product-designe
         `/api/storefront/${siteId}/designs/${unknownUUID}/finalize`,
         { data: { sessionId: 'any-session' } },
       );
-      // The route will either 404 (design not found) or 403 (forbidden).
-      // Both indicate the route exists and the auth/ownership guard runs.
-      expect([403, 404]).toContain(res.status());
+      // No route handler exists any more, so the router answers 404.
+      expect(res.status()).toBe(404);
     } finally {
       await ctx.dispose();
     }
@@ -310,24 +311,21 @@ test.describe('Product designer — POST /designs/[id]/save-as-template @product
     await runCleanups(fileCleanups);
   });
 
-  test('POST /designs/[id]/save-as-template rejects non-UUID id with 400', async () => {
-    // Integer IDs (productDesigns) are invalid for this legacy route.
+  test('POST /designs/[id]/save-as-template is retired: 404 for a non-UUID id', async () => {
+    // Route deleted in #21 — previously this returned 400 from the id-format guard.
     const ctx = await makeAnonCtx();
     try {
       const res = await ctx.post(
         `/api/storefront/${siteId}/designs/456/save-as-template`,
         { data: {} },
       );
-      expect(res.status()).toBe(400);
-      const body = await res.json();
-      expect(body.success).toBe(false);
+      expect(res.status()).toBe(404);
     } finally {
       await ctx.dispose();
     }
   });
 
-  test('POST /designs/[id]/save-as-template returns 403/404 for unknown UUID', async () => {
-    // A well-formed UUID not in the designs table → 403 or 404.
+  test('POST /designs/[id]/save-as-template is retired: 404 for an unknown UUID', async () => {
     const unknownUUID = '00000000-0000-4000-8000-000000000002';
     const ctx = await makeAnonCtx();
     try {
@@ -335,7 +333,7 @@ test.describe('Product designer — POST /designs/[id]/save-as-template @product
         `/api/storefront/${siteId}/designs/${unknownUUID}/save-as-template`,
         { data: { sessionId: 'any-session' } },
       );
-      expect([403, 404]).toContain(res.status());
+      expect(res.status()).toBe(404);
     } finally {
       await ctx.dispose();
     }
