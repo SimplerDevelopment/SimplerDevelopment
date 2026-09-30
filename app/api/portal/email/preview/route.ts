@@ -45,7 +45,10 @@ interface PreviewBody {
 }
 
 export async function POST(req: NextRequest) {
-  const authResult = await authorizePortal({ action: 'read', requireService: 'email' });
+  // role-matrix: email drafts are member+. This one has side effects (persists the render cache
+  // and can email a test send), so it was never a read. observeRole keeps the raised bar log-only
+  // until AUTH_ROLE_ENFORCE=1.
+  const authResult = await authorizePortal({ action: 'write', observeRole: true, requireService: 'email' });
   if (isAuthError(authResult)) return authResult.response;
   const { client, userId } = authResult;
 

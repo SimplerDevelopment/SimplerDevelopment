@@ -17,7 +17,9 @@ export async function POST(req: Request) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ success: false }, { status: 401 });
 
-  const authResult = await authorizePortal({ action: 'read' });
+  // role-matrix: automations are admin+. The preview is a pure computation, but it only serves the
+  // rule editor, which only admins can open. observeRole keeps it log-only until AUTH_ROLE_ENFORCE=1.
+  const authResult = await authorizePortal({ action: 'admin', observeRole: true });
   if (isAuthError(authResult)) return authResult.response;
 
   const body = await req.json().catch(() => ({}));
