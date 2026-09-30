@@ -79,6 +79,24 @@ describe('GET /api/portal/tickets @tickets @list', () => {
       expect(t.clientId).toBe(A.client.id);
     }
   });
+
+  // PUX-147: `?q=` is the ⌘K ticket index. Same tenant scope as the plain list —
+  // a matching subject on another client must never surface.
+  it('?q= searches only the caller tenant', async () => {
+    await seedTicket(A, { subject: 'Coupon code not applying' });
+    await seedTicket(B, { subject: 'Coupon code broken too' });
+    mockedAuth.mockResolvedValue(A.session);
+
+    const route = await import('@/app/api/portal/tickets/route');
+    const res = await callHandler<{ data: Array<{ subject: string; clientId: number }> }>(
+      route as unknown as Record<string, unknown>, 'GET', { query: { q: 'coupon', limit: '5' } },
+    );
+    expect(res.status).toBe(200);
+    expect(res.data?.data?.map(t => t.subject)).toEqual(['Coupon code not applying']);
+    for (const t of res.data?.data ?? []) {
+      expect(t.clientId).toBe(A.client.id);
+    }
+  });
 });
 
 describe('POST /api/portal/tickets @tickets @create', () => {

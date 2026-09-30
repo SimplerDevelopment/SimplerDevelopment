@@ -2,7 +2,10 @@
 'use client';
 
 import Link from 'next/link';
+import { useState } from 'react';
 import type { DeckPayload } from '../_lib/api';
+import { useFeatureFlag } from '@/components/portal/FeatureFlagsProvider';
+import { sBtn, sBtnGhost } from '@/components/portal/portal-ui';
 
 export interface EditorHeaderProps {
   deck: DeckPayload;
@@ -43,6 +46,13 @@ export interface EditorHeaderProps {
 }
 
 export function EditorHeader(props: EditorHeaderProps) {
+  // PUX-177 (design doc screen 36): Studio chrome only — Publish is the one teal, everything else quiet,
+  // plus a real Copy link for /slides/{slug}. Flag off is today's toolbar byte-for-byte.
+  const studio = useFeatureFlag('portal-redesign');
+  const [copied, setCopied] = useState(false);
+  const quiet = studio
+    ? `hidden md:inline-flex ${sBtnGhost}`
+    : 'hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-border rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors';
   const {
     deck, saving, publishing, hasUnsavedChanges,
     editingTitle, titleDraft, editingSlug, slugDraft, slugError,
@@ -152,28 +162,28 @@ export function EditorHeader(props: EditorHeaderProps) {
         {/* Secondary toggles — hidden below md, surfaced via overflow menu instead */}
         <button
           onClick={onToggleTheme}
-          className="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-border rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+          className={quiet}
         >
           <span className="material-icons text-base">palette</span>
           Theme
         </button>
         <button
           onClick={onToggleRegenerate}
-          className="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-border rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+          className={quiet}
         >
           <span className="material-icons text-base">auto_awesome</span>
           Regenerate
         </button>
         <button
           onClick={onToggleHistory}
-          className="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-border rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+          className={quiet}
         >
           <span className="material-icons text-base">history</span>
           History
         </button>
         <button
           onClick={onToggleSeo}
-          className="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-border rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+          className={quiet}
           title="SEO settings (title, description, OG image, canonical, noindex)"
         >
           <span className="material-icons text-base">search</span>
@@ -184,7 +194,9 @@ export function EditorHeader(props: EditorHeaderProps) {
         <button
           onClick={onSave}
           disabled={saving || !hasUnsavedChanges}
-          className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg font-medium transition-all disabled:opacity-40 ${
+          className={studio
+            ? `${sBtnGhost} disabled:opacity-40`
+            : `inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg font-medium transition-all disabled:opacity-40 ${
             hasUnsavedChanges
               ? 'bg-green-600 text-white hover:bg-green-700 shadow-sm'
               : 'border border-border text-muted-foreground'
@@ -234,17 +246,28 @@ export function EditorHeader(props: EditorHeaderProps) {
         )}
 
         {/* Preview/Present/A-B — desktop only inline; phone reaches via overflow */}
+        {studio && (
+          <button
+            type="button"
+            onClick={() => { void navigator.clipboard?.writeText(`${window.location.origin}/slides/${deck.slug}`); setCopied(true); setTimeout(() => setCopied(false), 1500); }}
+            className={quiet}
+            title="Copy the public link"
+          >
+            <span className="material-icons text-base">{copied ? 'check' : 'link'}</span>
+            {copied ? 'Copied' : 'Copy link'}
+          </button>
+        )}
         <Link
           href={`/slides/${deck.slug}${deck.status !== 'published' ? '?preview=1' : ''}`}
           target="_blank"
-          className="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-border rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+          className={quiet}
         >
           <span className="material-icons text-base">{deck.status === 'published' ? 'open_in_new' : 'visibility'}</span>
           {deck.status === 'published' ? 'View Live' : 'Preview'}
         </Link>
         <button
           onClick={onPresent}
-          className="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-border rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+          className={quiet}
           title={`Open presenter view (${presenterUrl})`}
         >
           <span className="material-icons text-base">co_present</span>
@@ -253,7 +276,7 @@ export function EditorHeader(props: EditorHeaderProps) {
         {onStartAbTest && (
           <button
             onClick={onStartAbTest}
-            className="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-border rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+            className={quiet}
             title="Start an A/B test for this deck"
           >
             <span className="material-icons text-base">science</span>
@@ -265,7 +288,9 @@ export function EditorHeader(props: EditorHeaderProps) {
         <button
           onClick={onTogglePublish}
           disabled={publishing || deck.slides.length === 0}
-          className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg font-medium transition-colors disabled:opacity-50 ${
+          className={studio
+            ? `${deck.status === 'published' ? sBtnGhost : sBtn} disabled:opacity-50`
+            : `inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg font-medium transition-colors disabled:opacity-50 ${
             deck.status === 'published'
               ? 'border border-border text-muted-foreground hover:text-foreground hover:bg-accent'
               : 'bg-primary text-primary-foreground hover:bg-primary/90'

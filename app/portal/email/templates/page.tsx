@@ -4,7 +4,10 @@ import { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import type { Block } from '@/types/blocks';
 import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
-import { pBtnPrimary, pBtnGhost } from '@/components/portal/portal-ui';
+import { pBtnPrimary, pBtnGhost, sBtn } from '@/components/portal/portal-ui';
+import { useFeatureFlag } from '@/components/portal/FeatureFlagsProvider';
+import EmailTabs from '@/components/portal/email/EmailTabs';
+import { Ghost } from '@/components/portal/EmptyState';
 
 const EmailBlockEditor = dynamic(() => import('@/components/email/EmailBlockEditor').then(m => ({ default: m.EmailBlockEditor })), { ssr: false });
 
@@ -42,6 +45,7 @@ export default function EmailTemplatesPage() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
   const [showCreate, setShowCreate] = useState(false);
+  const studio = useFeatureFlag('portal-redesign'); // PUX-205
   const [saving, setSaving] = useState(false);
 
   // Create form
@@ -109,12 +113,14 @@ export default function EmailTemplatesPage() {
         title="Email Templates"
         subtitle="Reusable email designs for your campaigns"
         actions={
-          <button onClick={() => setShowCreate(!showCreate)} className={pBtnPrimary}>
+          <button onClick={() => setShowCreate(!showCreate)} className={studio ? sBtn : pBtnPrimary}>
             <span className="material-icons text-lg">add</span>
             New Template
           </button>
         }
       />
+
+      {studio && <EmailTabs active="/portal/email/templates" />}
 
       {/* Create form */}
       {showCreate && (
@@ -191,9 +197,16 @@ export default function EmailTemplatesPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map(t => (
             <div key={t.id} className="bg-card border border-border rounded-xl overflow-hidden hover:border-primary/30 transition-colors group">
+              {studio ? (
+                <div className="relative h-32 border-b border-border" title="No rendered preview yet — the card stands in for one">
+                  <Ghost label={t.category} className="h-full" />
+                  <span className="material-icons absolute right-2 top-2 text-base text-muted-foreground/60">{CATEGORY_ICONS[t.category] || 'palette'}</span>
+                </div>
+              ) : (
               <div className="h-32 bg-muted/30 flex items-center justify-center border-b border-border">
                 <span className="material-icons text-4xl text-muted-foreground/40">{CATEGORY_ICONS[t.category] || 'palette'}</span>
               </div>
+              )}
               <div className="p-4">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">

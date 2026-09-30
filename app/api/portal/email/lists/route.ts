@@ -43,6 +43,13 @@ export async function GET() {
         WHERE "email_subscribers"."list_id" = "email_lists"."id"
           AND "email_subscribers"."status" = 'active'
       )`.as('subscriber_count'),
+      // PUX-204: the last campaign sent to this list. Lists are already filtered to
+      // the caller's client, and a campaign's list_id can only point at that client's list.
+      lastSentAt: sql<string | null>`(
+        SELECT max("email_campaigns"."sent_at")
+        FROM "email_campaigns"
+        WHERE "email_campaigns"."list_id" = "email_lists"."id"
+      )`.as('last_sent_at'),
     })
     .from(emailLists)
     .where(eq(emailLists.clientId, client.id))

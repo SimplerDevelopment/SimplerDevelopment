@@ -10,6 +10,10 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { RelatedModulesStrip } from '@/components/portal/billing/RelatedModulesStrip';
+import { EmptyState } from '@/components/portal/EmptyState';
+import { useFeatureFlag } from '@/components/portal/FeatureFlagsProvider';
+import { initials, relativeTime } from '@/lib/notifications/feed';
+import type { ProjectRollup } from '@/lib/projects/list-rollup-shape';
 
 export type ProjectRole = 'owner' | 'editor' | 'commenter' | 'viewer';
 
@@ -21,6 +25,8 @@ export interface Project {
   startDate: string | null;
   dueDate: string | null;
   myRole?: ProjectRole;
+  /** PUX-151: present only when the client has the portal-redesign flag */
+  rollup?: ProjectRollup | null;
 }
 
 const statusColor: Record<string, string> = {
@@ -49,11 +55,14 @@ const roleLabel: Record<ProjectRole, string> = {
 export function ProjectGrid({
   projects,
   emptyMessage,
+  onCreate,
 }: {
   projects: Project[];
   emptyMessage: string;
+  onCreate?: () => void;
 }) {
-  if (projects.length === 0) return <EmptyProjects message={emptyMessage} />;
+  const studio = useFeatureFlag('portal-redesign');
+  if (projects.length === 0) return <EmptyProjects message={emptyMessage} onCreate={onCreate} />;
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -78,6 +87,32 @@ export function ProjectGrid({
           {project.description && (
             <p className="mt-1 text-sm text-muted-foreground line-clamp-2">{project.description}</p>
           )}
+          {studio && project.rollup ? (
+            // PUX-151 (design doc screen 10): what is done, what is where, what moved, who is on it.
+            <div className="mt-3 space-y-2 text-[11px] text-muted-foreground">
+              <div>
+                <div className="flex items-center justify-between">
+                  <span>{project.rollup.shipped} of {project.rollup.total} cards shipped</span>
+                  <span className="font-mono">{project.rollup.pct}%</span>
+                </div>
+                <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-muted"><i className="block h-full bg-primary" style={{ width: `${project.rollup.pct}%` }} /></div>
+              </div>
+              {project.rollup.lanes.length > 0 && (
+                <div className="truncate">{project.rollup.lanes.map((l) => `${l.count} ${l.name}`).join(' · ')}</div>
+              )}
+              <div className="flex items-center justify-between gap-2">
+                <span className="inline-flex items-center gap-1 truncate">
+                  <span className="material-icons text-[13px]">history</span>
+                  {project.rollup.lastActivityAt ? `Last activity ${relativeTime(project.rollup.lastActivityAt)}` : 'No activity yet'}
+                </span>
+                <span className="flex shrink-0">
+                  {project.rollup.members.map((m, i) => (
+                    <span key={m.id} title={m.name} className={`flex h-6 w-6 items-center justify-center rounded-full border-2 border-card bg-muted text-[10px] font-semibold text-muted-foreground ${i > 0 ? '-ml-1.5' : ''}`}>{initials(m.name)}</span>
+                  ))}
+                </span>
+              </div>
+            </div>
+          ) : (
           <div className="mt-3 flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
             {project.myRole && (
               <span className="flex items-center gap-1">
@@ -98,6 +133,7 @@ export function ProjectGrid({
               </span>
             )}
           </div>
+          )}
         </Link>
       ))}
       <RelatedModulesStrip currentDomain="projects" />
@@ -177,12 +213,22 @@ export function ProjectTable({
 
 // ─── Shared empty state ──────────────────────────────────────────────────────
 
-function EmptyProjects({ message }: { message: string }) {
+function EmptyProjects({ message, onCreate }: { message: string; onCreate?: () => void }) {
+  // PUX-144/151: a preview with a button, not an icon and a sentence.
   return (
-    <div className="bg-card border border-border rounded-2xl p-12 text-center">
-      <span className="material-icons text-5xl text-muted-foreground">view_kanban</span>
-      <h2 className="mt-4 font-display font-extrabold tracking-[-0.01em] text-foreground">No projects yet</h2>
-      <p className="mt-2 text-sm text-muted-foreground max-w-md mx-auto">{message}</p>
-    </div>
+    <EmptyState
+      className="bg-card border border-border rounded-2xl p-6"
+      title="The work we're doing for you, on a board you can see."
+      body="Each project is a board — backlog to shipped — with the people and the checklist on every card. Yours will show up here as we start."
+      cta={onCreate ? { label: 'New project', icon: 'add', onClick: onCreate } : undefined}
+      ghostLabel="Backlog · Planned · In progress · Shipped"
+      legacy={(
+        <div className="bg-card border border-border rounded-2xl p-12 text-center">
+          <span className="material-icons text-5xl text-muted-foreground">view_kanban</span>
+          <h2 className="mt-4 font-display font-extrabold tracking-[-0.01em] text-foreground">No projects yet</h2>
+          <p className="mt-2 text-sm text-muted-foreground max-w-md mx-auto">{message}</p>
+        </div>
+      )}
+    />
   );
 }

@@ -3,50 +3,15 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import CrmCompanyTypeaheadPicker from '@/components/portal/CrmCompanyTypeaheadPicker';
-import { formatMoney } from '@/lib/utils/money';
-import { normalizeLineItems, sumLineItems } from '@/lib/proposals/line-items';
 import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
-import { pBtnPrimary, pBtnGhost, pCard, pCardPad, pInput, pSelect, pSectionTitle } from '@/components/portal/portal-ui';
+import { pBtnPrimary, pBtnGhost, pCard, pCardPad, pInput, pSelect, pSectionTitle, sBtn } from '@/components/portal/portal-ui';
+import ProposalsListBody, { computeValue, type Proposal, type LineItem, type Fee } from '@/components/portal/crm/ProposalsListBody';
+import { useFeatureFlag } from '@/components/portal/FeatureFlagsProvider';
+import { EmptyState } from '@/components/portal/EmptyState';
+import ProposalsStudioTable from '@/components/portal/crm/ProposalsStudioTable';
+import ContractsListBody, { type Contract } from '@/components/portal/crm/ContractsListBody';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
-
-interface Proposal {
-  id: number;
-  title: string;
-  status: string;
-  contactId: number | null;
-  companyId: number | null;
-  dealId: number | null;
-  lineItems: LineItem[];
-  fees: Fee[];
-  sentAt: string | null;
-  lastViewedAt: string | null;
-  viewCount: number;
-  acceptedAt: string | null;
-  declinedAt: string | null;
-  createdAt: string;
-  contactFirstName: string | null;
-  contactLastName: string | null;
-  contactEmail?: string | null;
-  companyName: string | null;
-  dealTitle: string | null;
-}
-
-interface LineItem {
-  id: string;
-  description: string;
-  details: string;
-  quantity: number;
-  unitPrice: number;
-  optional: boolean;
-}
-
-interface Fee {
-  id: string;
-  label: string;
-  type: 'flat' | 'percent';
-  amount: number;
-}
 
 interface Contact {
   id: number;
@@ -76,33 +41,32 @@ interface Section {
   content: string;
 }
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
-const proposalStatusColor: Record<string, string> = {
-  draft: 'bg-gray-100 text-gray-600',
-  sent: 'bg-blue-100 text-blue-700',
-  viewed: 'bg-yellow-100 text-yellow-700',
-  accepted: 'bg-green-100 text-green-700',
-  declined: 'bg-red-100 text-red-700',
-  expired: 'bg-gray-100 text-gray-500',
-};
-
-function computeValue(lineItems: LineItem[], fees: Fee[]): number {
-  const items = normalizeLineItems(lineItems);
-  const feeList = Array.isArray(fees) ? fees : [];
-  const subtotal = sumLineItems(items.filter(li => !li.optional));
-  const feesTotal = feeList.reduce((sum, f) => {
-    if (f.type === 'flat') return sum + (f.amount || 0);
-    if (f.type === 'percent') return sum + Math.round(subtotal * (f.amount || 0) / 100);
-    return sum;
-  }, 0);
-  return subtotal + feesTotal;
-}
-
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export default function ProposalsPage() {
   const router = useRouter();
+  // PUX-173 (design doc screen 32): one room, two tabs — Proposals | Contracts — with the Views column and
+  // the sent → viewed → signed story; the two status vocabularies stay separate (QAD-011). Flag off is today's page.
+  const studio = useFeatureFlag('portal-redesign');
+  const [tab, setTab] = useState<'proposals' | 'contracts'>('proposals');
+  const [contracts, setContracts] = useState<Contract[]>([]);
+  const [contractsLoading, setContractsLoading] = useState(true);
+  useEffect(() => {
+    if (!studio) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await fetch('/api/portal/crm/contracts');
+        const d = await r.json();
+        if (!cancelled) setContracts(d.data ?? []);
+      } catch {
+        // the Contracts tab just stays empty
+      } finally {
+        if (!cancelled) setContractsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [studio]);
 
   // Proposal state
   const [proposals, setProposals] = useState<Proposal[]>([]);
@@ -276,16 +240,18 @@ export default function ProposalsPage() {
     <div className="space-y-6">
       {/* Header */}
       <PortalPageHeader
-        eyebrow="CRM"
-        title="Proposals"
-        subtitle="Send proposals to clients"
+        eyebrow={studio ? 'Grow · CRM' : 'CRM'}
+        title={studio ? 'Proposals & contracts' : 'Proposals'}
+        subtitle={studio
+          ? `${proposals.filter((p) => p.status === 'sent' || p.status === 'viewed').length} proposals out · ${contracts.filter((c) => c.status === 'sent' || c.status === 'partially_signed').length} contracts in progress`
+          : 'Send proposals to clients'}
         actions={
           <button
             onClick={() => setShowForm(f => !f)}
-            className={pBtnPrimary}
+            className={studio ? sBtn : pBtnPrimary}
           >
             <span className="material-icons text-base">{showForm ? 'close' : 'add'}</span>
-            {showForm ? 'Cancel' : 'New Proposal'}
+            {showForm ? 'Cancel' : studio ? 'New proposal' : 'New Proposal'}
           </button>
         }
       />
@@ -426,103 +392,37 @@ export default function ProposalsPage() {
       </div>
 
       {/* Table */}
-      {proposalsLoading ? (
-        <div className="flex items-center justify-center py-12 text-muted-foreground">
-          <span className="material-icons animate-spin mr-2">progress_activity</span>
-          Loading proposals...
-        </div>
-      ) : proposals.length === 0 ? (
-        <div className="text-center py-12 text-muted-foreground">
-          <span className="material-icons text-4xl mb-2 block">description</span>
-          <p>No proposals yet. Create your first proposal to get started.</p>
+      {studio ? (
+        <div className="space-y-3">
+          <div className="flex gap-1" role="tablist" aria-label="Proposals and contracts">
+            {([['proposals', `Proposals ${proposals.length}`], ['contracts', `Contracts ${contracts.length}`]] as const).map(([key, label]) => (
+              <button key={key} type="button" role="tab" aria-selected={tab === key} onClick={() => setTab(key)}
+                className={`rounded-full px-3 py-1 text-[12.5px] font-medium transition-colors ${tab === key ? 'bg-foreground text-background' : 'text-muted-foreground hover:text-foreground'}`}>
+                {label}
+              </button>
+            ))}
+          </div>
+          {tab === 'proposals' ? (
+            proposalsLoading ? (
+              <div className="text-center py-12 text-muted-foreground">Loading proposals...</div>
+            ) : proposals.length === 0 ? (
+              <EmptyState title="No proposals yet." body="Send one and watch it get opened — every view is recorded here." cta={{ label: 'New proposal', icon: 'add', onClick: () => setShowForm(true), ghost: true }} ghostLabel="A proposal" />
+            ) : (
+              <ProposalsStudioTable proposals={proposals} valueOf={(p) => computeValue(p.lineItems, p.fees)} onOpen={(p) => router.push(`/portal/crm/proposals/${p.id}`)} />
+            )
+          ) : (
+            // The contracts page's own list body, mounted here; its create form still lives on /portal/crm/contracts.
+            <ContractsListBody loading={contractsLoading} contracts={contracts} search="" statusFilter="" onCreateFirst={() => router.push('/portal/crm/contracts')} onResetFilters={() => {}} onOpen={(id) => router.push(`/portal/crm/contracts/${id}`)} />
+          )}
         </div>
       ) : (
-        <div className={`${pCard} overflow-hidden`}>
-          <div className="overflow-x-auto -mx-4 sm:mx-0">
-            <table className="w-full text-sm min-w-[640px]">
-              <thead>
-                <tr className="border-b border-border bg-accent/30">
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Title</th>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Contact</th>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Company</th>
-                  <th className="text-right px-4 py-3 font-medium text-muted-foreground">Value</th>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Status</th>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Sent</th>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Last Viewed</th>
-                  <th className="text-right px-4 py-3 font-medium text-muted-foreground">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {proposals.map(p => (
-                  <tr key={p.id} className="border-b border-border last:border-0 hover:bg-accent/20 transition-colors">
-                    <td className="px-4 py-3">
-                      <button
-                        onClick={() => router.push(`/portal/crm/proposals/${p.id}`)}
-                        className="text-foreground font-medium hover:text-primary transition-colors text-left"
-                      >
-                        {p.title}
-                      </button>
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground">
-                      {p.contactFirstName ? `${p.contactFirstName} ${p.contactLastName ?? ''}`.trim() : '-'}
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground">
-                      {p.companyName ?? '-'}
-                    </td>
-                    <td className="px-4 py-3 text-right font-medium text-foreground">
-                      {formatMoney(computeValue(p.lineItems, p.fees))}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${proposalStatusColor[p.status] ?? 'bg-gray-100 text-gray-600'}`}>
-                        {p.status}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground text-xs">
-                      {p.sentAt ? new Date(p.sentAt).toLocaleDateString() : '-'}
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground text-xs">
-                      {p.lastViewedAt ? (
-                        <span>
-                          {new Date(p.lastViewedAt).toLocaleDateString()}
-                          {p.viewCount > 0 && (
-                            <span className="ml-1 text-muted-foreground">({p.viewCount}x)</span>
-                          )}
-                        </span>
-                      ) : '-'}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center justify-end gap-1">
-                        <button
-                          onClick={() => router.push(`/portal/crm/proposals/${p.id}`)}
-                          className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
-                          title="Edit"
-                        >
-                          <span className="material-icons text-base">edit</span>
-                        </button>
-                        {(p.status === 'draft' || p.status === 'sent') && (
-                          <button
-                            onClick={() => { setSendDialogId(p.id); setSendingUrl(''); }}
-                            className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-blue-600 transition-colors"
-                            title="Send"
-                          >
-                            <span className="material-icons text-base">send</span>
-                          </button>
-                        )}
-                        <button
-                          onClick={() => handleDuplicate(p)}
-                          className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
-                          title="Duplicate"
-                        >
-                          <span className="material-icons text-base">content_copy</span>
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+      <ProposalsListBody
+        proposalsLoading={proposalsLoading}
+        proposals={proposals}
+        onOpen={(id) => router.push(`/portal/crm/proposals/${id}`)}
+        onDuplicate={handleDuplicate}
+        onOpenSendDialog={(id) => { setSendDialogId(id); setSendingUrl(''); }}
+      />
       )}
 
       {/* ─── Send Dialog ──────────────────────────────────────────────────── */}

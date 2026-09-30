@@ -2,6 +2,7 @@ import { db } from '@/lib/db';
 import { surveys, surveyResponses } from '@/lib/db/schema';
 import { eq, count, desc, inArray } from 'drizzle-orm';
 import Link from 'next/link';
+import { EmptyState } from '@/components/portal/EmptyState';
 
 export default async function SurveyResponsesWidget({
   clientId,
@@ -64,16 +65,25 @@ export default async function SurveyResponsesWidget({
         </div>
       </div>
       {clientSurveys.length === 0 ? (
-        <div className="py-2 text-center">
-          <p className="text-sm text-muted-foreground mb-2">No surveys yet.</p>
-          <Link
-            href="/portal/surveys"
-            className="text-sm text-primary hover:underline inline-flex items-center gap-1"
-          >
-            <span className="material-icons text-base">add_circle_outline</span>
-            Create a survey
-          </Link>
-        </div>
+        // PUX-144/145: the empty-state rule's first appearance on Home (design doc screen 01).
+        <EmptyState
+          title="Ask your customers how it went."
+          body="A three-question follow-up after each order or booking, sent automatically. Results land in the CRM."
+          cta={{ label: 'Start from this one', href: '/portal/surveys/new' }}
+          ghostLabel="NPS · 3 questions"
+          legacy={(
+            <div className="py-2 text-center">
+              <p className="text-sm text-muted-foreground mb-2">No surveys yet.</p>
+              <Link
+                href="/portal/surveys"
+                className="text-sm text-primary hover:underline inline-flex items-center gap-1"
+              >
+                <span className="material-icons text-base">add_circle_outline</span>
+                Create a survey
+              </Link>
+            </div>
+          )}
+        />
       ) : (
         <ul className="space-y-2">
           {clientSurveys.map((s) => {

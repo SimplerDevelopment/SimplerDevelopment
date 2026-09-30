@@ -195,6 +195,182 @@
   }
 }
 
+/* ─── STUDIO: the portal redesign palette (PUX-142) ────────────────────────
+   PUX-134's design document, in tokens. "One palette, four jobs: navy for the
+   rail and the titles, porcelain for the ground, one teal for the one action
+   that matters on a screen, and gold for exactly one thing — anything the
+   Brain did."
+
+   This is a SCOPED OVERRIDE, not a new theme. `.portal-studio` sits on the
+   portal shell wrapper and redefines the SAME token names the bare :root
+   block above defines, so every existing `bg-card` / `text-primary` /
+   `border` usage in the portal repaints with zero per-component edits. That
+   works because a nearest-ancestor definition beats both `:root.dark` and the
+   prefers-color-scheme block — the same mechanism `.force-light` above uses
+   to pin tenant sites light, and the one AgencyChromeProvider uses to inject
+   --agency-primary at runtime.
+
+   Applied only when the client has the `portal-redesign` flag
+   (lib/feature-flags.ts). Unflagged clients render today's portal verbatim,
+   because without the class none of this exists.
+
+   Tokens with no equivalent in the base theme — the navy rail and the Brain's
+   gold — are namespaced `--studio-*`. Nothing outside the portal reads them.
+   KEEP THE THREE BLOCKS BELOW IN STEP (light / .dark / prefers-dark), the
+   same standing rule the base tokens carry. */
+.portal-studio {
+  /* ground + paper */
+  --background: #eef1f4;       /* porcelain */
+  --card: #ffffff;
+  --card-foreground: #0f1521;
+  --popover: #ffffff;
+  --popover-foreground: #0f1521;
+  --foreground: #0f1521;       /* navy-black ink */
+  --muted: #e4e8ed;
+  --muted-foreground: #5b6675;
+  --secondary: #e4e8ed;
+  --secondary-foreground: #0f1521;
+  --border: #e2e6ec;           /* hairline */
+  /* the one action */
+  --primary: #0e7c86;
+  --primary-foreground: #ffffff;
+  --accent: #dceef0;
+  --accent-foreground: #0a5a61;
+  /* status */
+  --accent-warm: #c48a2e;
+  --accent-secondary: #2e7d5b;
+  --destructive: #b23a3a;
+  --destructive-foreground: #ffffff;
+  --portal-ok: #2e7d5b;        --portal-ok-bg: #dff1e8;
+  --portal-warn: #b7791f;      --portal-warn-bg: #fbefd9;
+  --portal-bad: #b23a3a;       --portal-bad-bg: #f8e3e3;
+  --portal-accent-soft: #dceef0;
+  --portal-surface-2: #e4e8ed;
+  --portal-border-strong: #cdd4dd;
+  /* Studio-only: the navy rail. No base-theme equivalent — the sidebar is
+     `bg-card` today, which is why the portal reads as a generic admin tool. */
+  --studio-rail: #0f1b2d;
+  --studio-rail-2: #1a2a42;
+  --studio-rail-3: #2a3b55;
+  --studio-rail-ink: #e6ebf2;
+  --studio-rail-muted: #8593a8;
+  --studio-rail-dim: #c3ccda;
+  /* Studio-only: gold means the Brain, and nothing else. One tinted surface
+     per page, reserved for what the Brain did on its own. */
+  --studio-gold: #c48a2e;
+  --studio-gold-soft: #f5ead3;
+  --studio-gold-line: #e6d3a6;
+  --studio-gold-ink: #7a5414;
+  --studio-gold-surface: #fffbf2;
+  /* Studio-only: the deep teal for text on --accent, and the strong rule. */
+  --studio-accent-deep: #0a5a61;
+  --studio-line-strong: #b7c0cc;
+  --studio-dim: #8a94a3;
+  /* Titles are Bricolage Grotesque; the work stays Geist. Declared in
+     app/portal/fonts.ts, NOT the root layout — see the preload note in
+     app/layout.tsx for why the declaring module is what matters. */
+  --font-display: var(--font-bricolage), var(--font-geist-sans), ui-sans-serif, sans-serif;
+}
+
+.dark .portal-studio {
+  --background: #0f141b;
+  --card: #161c25;
+  --card-foreground: #e6ebf2;
+  --popover: #161c25;
+  --popover-foreground: #e6ebf2;
+  --foreground: #e6ebf2;
+  --muted: #1b222c;
+  --muted-foreground: #9aa6b8;
+  --secondary: #1b222c;
+  --secondary-foreground: #e6ebf2;
+  --border: #232b36;
+  --primary: #2fb3bd;
+  /* Dark-mode `bg-primary` needs a DARK foreground to clear AA — the same
+     trade the base .dark block documents at --primary-foreground. White on
+     #2fb3bd is 2.2:1; #08181a on it is 8.6:1. */
+  --primary-foreground: #08181a;
+  --accent: #123a3e;
+  --accent-foreground: #7cd3da;
+  --accent-warm: #d8b25a;
+  --accent-secondary: #58b58c;
+  --destructive: #e5726b;
+  --destructive-foreground: #2a0f0e;
+  --portal-ok: #58b58c;        --portal-ok-bg: #163a2b;
+  --portal-warn: #e0b15a;      --portal-warn-bg: #3d2e12;
+  --portal-bad: #e5726b;       --portal-bad-bg: #42201e;
+  --portal-accent-soft: #123a3e;
+  --portal-surface-2: #1b222c;
+  --portal-border-strong: #2c3542;
+  --studio-rail: #0a0f17;
+  --studio-rail-2: #141b26;
+  --studio-rail-3: #1f2836;
+  --studio-rail-ink: #e6ebf2;
+  --studio-rail-muted: #7d8a9c;
+  --studio-rail-dim: #b7c1cf;
+  --studio-gold: #d8b25a;
+  --studio-gold-soft: #2e2510;
+  --studio-gold-line: #4a3b18;
+  --studio-gold-ink: #e2c36e;
+  --studio-gold-surface: #1c1a14;
+  --studio-accent-deep: #7cd3da;
+  --studio-line-strong: #3a4555;
+  --studio-dim: #6b7788;
+}
+
+@media (prefers-color-scheme: dark) {
+  /* Keep in step with `.dark .portal-studio` above. */
+  :root:not(.light) .portal-studio {
+    --background: #0f141b;
+    --card: #161c25;
+    --card-foreground: #e6ebf2;
+    --popover: #161c25;
+    --popover-foreground: #e6ebf2;
+    --foreground: #e6ebf2;
+    --muted: #1b222c;
+    --muted-foreground: #9aa6b8;
+    --secondary: #1b222c;
+    --secondary-foreground: #e6ebf2;
+    --border: #232b36;
+    --primary: #2fb3bd;
+    --primary-foreground: #08181a;
+    --accent: #123a3e;
+    --accent-foreground: #7cd3da;
+    --accent-warm: #d8b25a;
+    --accent-secondary: #58b58c;
+    --destructive: #e5726b;
+    --destructive-foreground: #2a0f0e;
+    --portal-ok: #58b58c;        --portal-ok-bg: #163a2b;
+    --portal-warn: #e0b15a;      --portal-warn-bg: #3d2e12;
+    --portal-bad: #e5726b;       --portal-bad-bg: #42201e;
+    --portal-accent-soft: #123a3e;
+    --portal-surface-2: #1b222c;
+    --portal-border-strong: #2c3542;
+    --studio-rail: #0a0f17;
+    --studio-rail-2: #141b26;
+    --studio-rail-3: #1f2836;
+    --studio-rail-ink: #e6ebf2;
+    --studio-rail-muted: #7d8a9c;
+    --studio-rail-dim: #b7c1cf;
+    --studio-gold: #d8b25a;
+    --studio-gold-soft: #2e2510;
+    --studio-gold-line: #4a3b18;
+    --studio-gold-ink: #e2c36e;
+    --studio-gold-surface: #1c1a14;
+    --studio-accent-deep: #7cd3da;
+    --studio-line-strong: #3a4555;
+    --studio-dim: #6b7788;
+  }
+}
+
+/* Titles in the display face. Scoped to the Studio shell so the base portal
+   is untouched; `.font-display` already resolves through --font-display. */
+.portal-studio h1,
+.portal-studio h2,
+.portal-studio h3 {
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);

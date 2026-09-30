@@ -36,6 +36,8 @@ export interface Deal {
   recurringValue: number | null;
   billingCycle: string | null;
   createdAt: string;
+  /** PUX-171: latest crm_activities.created_at for the deal (list route); null when none. */
+  lastActivityAt?: string | null;
 }
 
 export interface Contact {

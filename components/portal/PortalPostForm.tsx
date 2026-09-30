@@ -337,6 +337,8 @@ function PortalPostFormInner({
           published={formData.published}
           siteIsPrivate={publicAccess === false}
           onPublish={handleSubmit}
+          // PUX-185: keep it a draft and save — handleSubmit forces published, so this path writes the ref first.
+          onSaveDraft={() => { formDataRef.current = { ...formDataRef.current, published: false }; setFormData(prev => ({ ...prev, published: false })); void savePost('manual'); }}
           onStatusChange={(status) => setFormData(prev => ({ ...prev, published: status === 'published' }))}
           previewMode={previewMode}
           onPreviewToggle={editorMode === 'iframe' ? () => setPreviewMode(prev => !prev) : undefined}

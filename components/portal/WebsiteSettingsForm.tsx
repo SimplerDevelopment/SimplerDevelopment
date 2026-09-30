@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { slugify } from '@/lib/publishing/slug';
+import { useFeatureFlag } from '@/components/portal/FeatureFlagsProvider';
+import { sBtn } from '@/components/portal/portal-ui';
 
 export default function WebsiteSettingsForm({
   siteId,
@@ -21,6 +23,7 @@ export default function WebsiteSettingsForm({
   initialPreviewCode?: string | null;
   isAdmin?: boolean;
 }) {
+  const studio = useFeatureFlag('portal-redesign'); // PUX-190: Save is the General tab's one teal
   const router = useRouter();
   const [name, setName] = useState(initialName);
   const [description, setDescription] = useState(initialDescription);
@@ -187,7 +190,7 @@ export default function WebsiteSettingsForm({
         <button
           onClick={handleSave}
           disabled={saving || !dirty || !name.trim()}
-          className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors"
+          className={studio ? `${sBtn} disabled:opacity-50` : "flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors"}
         >
           {saving && <span className="material-icons text-base animate-spin">refresh</span>}
           {saving ? 'Saving...' : 'Save Changes'}

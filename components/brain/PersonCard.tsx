@@ -30,7 +30,7 @@ const STATUS_TONE: Record<BrainPersonStatus, string> = {
   departed: 'bg-rose-500/10 text-rose-700 dark:text-rose-300',
 };
 
-function initialsOf(name: string): string {
+export function initialsOf(name: string): string {
   return name
     .split(/\s+/)
     .filter(Boolean)

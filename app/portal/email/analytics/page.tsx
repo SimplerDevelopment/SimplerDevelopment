@@ -3,6 +3,9 @@
 import { useState, useEffect } from 'react';
 import { PortalPageHeader } from '@/components/portal/PortalPageHeader';
 import { pCard } from '@/components/portal/portal-ui';
+import { useFeatureFlag } from '@/components/portal/FeatureFlagsProvider';
+import EmailTabs from '@/components/portal/email/EmailTabs';
+import { weeklySeries, seriesPoints } from '@/lib/email/weekly';
 
 interface AnalyticsData {
   overview: {
@@ -48,6 +51,7 @@ function StatCard({ icon, label, value, sub, color }: { icon: string; label: str
 
 export default function EmailAnalyticsPage() {
   const [data, setData] = useState<AnalyticsData | null>(null);
+  const studio = useFeatureFlag('portal-redesign'); // PUX-205
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -74,6 +78,8 @@ export default function EmailAnalyticsPage() {
         title="Analytics"
         subtitle="Campaign performance and subscriber insights"
       />
+
+      {studio && <EmailTabs active="/portal/email/analytics" />}
 
       {/* Overview stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -117,6 +123,31 @@ export default function EmailAnalyticsPage() {
           </div>
         </div>
       )}
+
+      {studio && (() => {
+        const series = weeklySeries(recentCampaigns);
+        const any = series.some((p) => p.sent > 0);
+        return (
+          <section className="rounded-2xl border border-border bg-card p-5" aria-label="Twelve-week trend">
+            <div className="flex items-baseline justify-between gap-3">
+              <h2 className="font-display text-[11px] font-semibold uppercase tracking-[.08em] text-muted-foreground">Last twelve weeks</h2>
+              <p className="text-xs text-muted-foreground">Built from the campaigns below — there is no separate history, so weeks with nothing sent are zeros.</p>
+            </div>
+            {any ? (
+              <div className="mt-3 grid gap-4 sm:grid-cols-3">
+                {(['sent', 'opened', 'clicked'] as const).map((k) => (
+                  <div key={k}>
+                    <p className="text-xs font-medium capitalize text-foreground">{k}</p>
+                    <svg viewBox="0 0 160 36" className="mt-1 h-9 w-full" aria-hidden><polyline points={seriesPoints(series, k)} fill="none" stroke="currentColor" strokeWidth="1.5" className={k === 'sent' ? 'text-muted-foreground' : k === 'opened' ? 'text-[var(--portal-ok)]' : 'text-primary'} /></svg>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-3 text-sm text-muted-foreground">Nothing sent in the last twelve weeks yet — the trend draws itself from the first send.</p>
+            )}
+          </section>
+        );
+      })()}
 
       {/* Campaign performance table */}
       <div className="bg-card border border-border rounded-xl overflow-hidden">

@@ -172,7 +172,6 @@ const nextConfig: NextConfig = {
       { source: '/portal/ai-activity', destination: '/portal/settings/ai', permanent: false },
       { source: '/portal/billing', destination: '/portal/settings/billing', permanent: false },
       { source: '/portal/invoices', destination: '/portal/settings/billing', permanent: false },
-      { source: '/portal/settings', destination: '/portal/settings/profile', permanent: false },
       { source: '/portal/team', destination: '/portal/settings/team', permanent: false },
       { source: '/portal/tickets', destination: '/portal/settings/support', permanent: false },
       // Public pitch-deck route renamed to /slides/. Keeps already-shared
