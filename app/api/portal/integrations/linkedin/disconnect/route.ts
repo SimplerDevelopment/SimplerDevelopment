@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { getPortalClient } from '@/lib/portal-client';
+import { gatePortalRole } from '@/lib/portal-auth';
 import { markRevoked } from '@/lib/linkedin/connections';
 
 /**
@@ -23,6 +24,10 @@ export async function POST() {
   if (!client) {
     return NextResponse.json({ error: 'No client for this user' }, { status: 404 });
   }
+
+  // role-matrix: disconnecting an integration is admin.
+  const denied = await gatePortalRole(userId, client, 'admin');
+  if (denied) return denied;
 
   await markRevoked(client.id, userId);
 

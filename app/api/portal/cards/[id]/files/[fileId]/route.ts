@@ -4,23 +4,24 @@ import { db } from '@/lib/db';
 import { kanbanCards, kanbanCardFiles, projects } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
+import { gatePortalRole } from '@/lib/portal-auth';
 import { deleteFromS3 } from '@/lib/s3/delete';
 import { publishBoardChangedForCard } from '@/lib/kanban/events';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function authorizeCard(cardId: number, session: any): Promise<{ isStaff: boolean } | null> {
+async function authorizeCard(cardId: number, session: any): Promise<{ isStaff: boolean; client: Awaited<ReturnType<typeof getPortalClient>> } | null> {
   const [card] = await db.select().from(kanbanCards).where(eq(kanbanCards.id, cardId)).limit(1);
   if (!card) return null;
   const s = session as unknown as { user?: { id: string; role?: string } } | null;
   const role = s?.user?.role;
-  if (role === 'admin' || role === 'employee') return { isStaff: true };
+  if (role === 'admin' || role === 'employee') return { isStaff: true, client: null };
   const userId = parseInt(s!.user!.id, 10);
   const client = await getPortalClient(userId);
   if (!client) return null;
   const [proj] = await db.select().from(projects)
     .where(and(eq(projects.id, card.projectId), eq(projects.clientId, client.id)))
     .limit(1);
-  return proj ? { isStaff: false } : null;
+  return proj ? { isStaff: false, client } : null;
 }
 
 export async function PATCH(
@@ -36,6 +37,11 @@ export async function PATCH(
 
   const authz = await authorizeCard(cardId, session);
   if (!authz) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
+  // role-matrix: re-parenting a file is a content edit (member+). `client` is null for staff.
+  if (authz.client) {
+    const denied = await gatePortalRole(parseInt(session.user.id, 10), authz.client, 'write');
+    if (denied) return denied;
+  }
 
   // Verify the file belongs to this card (prevents flipping another card's file via mismatched URL).
   const [file] = await db.select({ cardId: kanbanCardFiles.cardId })
@@ -68,6 +74,11 @@ export async function DELETE(
 
     const authz = await authorizeCard(cardId, session);
     if (!authz) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
+    // role-matrix: deleting a file is a content edit (member+). `client` is null for staff.
+    if (authz.client) {
+      const denied = await gatePortalRole(userId, authz.client, 'write');
+      if (denied) return denied;
+    }
 
     // File must belong to this card, and non-staff must additionally be the uploader.
     const condition = authz.isStaff

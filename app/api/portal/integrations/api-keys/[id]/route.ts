@@ -12,6 +12,7 @@ import { db } from '@/lib/db';
 import { clientApiKeys } from '@/lib/db/schema';
 import { and, eq } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
+import { gatePortalRole } from '@/lib/portal-auth';
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -24,6 +25,9 @@ export async function PATCH(req: Request, { params }: RouteContext) {
   const userId = parseInt(session.user.id, 10);
   const client = await getPortalClient(userId);
   if (!client) return NextResponse.json({ success: false, message: 'Client not found' }, { status: 404 });
+  // role-matrix: API keys hold provider credentials - listing them is admin too.
+  const denied = await gatePortalRole(userId, client, 'admin');
+  if (denied) return denied;
 
   const { id: idRaw } = await params;
   const id = parseInt(idRaw, 10);
@@ -63,6 +67,9 @@ export async function DELETE(_req: Request, { params }: RouteContext) {
   const userId = parseInt(session.user.id, 10);
   const client = await getPortalClient(userId);
   if (!client) return NextResponse.json({ success: false, message: 'Client not found' }, { status: 404 });
+  // role-matrix: API keys hold provider credentials - listing them is admin too.
+  const denied = await gatePortalRole(userId, client, 'admin');
+  if (denied) return denied;
 
   const { id: idRaw } = await params;
   const id = parseInt(idRaw, 10);

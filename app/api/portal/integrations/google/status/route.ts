@@ -4,6 +4,7 @@ import { googleWorkspaceUserConnections } from '@/lib/db/schema';
 import { eq, and, isNull } from 'drizzle-orm';
 import { auth } from '@/lib/auth';
 import { getPortalClient } from '@/lib/portal-client';
+import { gatePortalRole } from '@/lib/portal-auth';
 import { getTenantWorkspaceCredentialsByClientId } from '@/lib/google/tenant-credentials';
 
 /**
@@ -30,6 +31,10 @@ export async function GET() {
   if (!client) {
     return NextResponse.json({ error: 'No client for this user' }, { status: 404 });
   }
+
+  // role-matrix: status is a read (viewer+).
+  const denied = await gatePortalRole(userId, client, 'read');
+  if (denied) return denied;
 
   const tenant = await getTenantWorkspaceCredentialsByClientId(client.id);
   if (!tenant) {
