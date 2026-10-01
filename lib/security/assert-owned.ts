@@ -98,6 +98,7 @@ export async function assertProjectInClient(projectId: number, clientId: number)
  * stop anyone assigning or mentioning the company's own owner (PUX-230).
  */
 export async function assertUserVisibleToClient(userId: number, clientId: number): Promise<void> {
+  if (!Number.isInteger(userId) || userId <= 0 || userId > 2147483647) throw new OwnershipError('userId', userId);
   const [owner] = await db.select({ userId: clients.userId }).from(clients)
     .where(eq(clients.id, clientId)).limit(1);
   if (owner?.userId === userId) return;
@@ -109,12 +110,26 @@ export async function assertUserVisibleToClient(userId: number, clientId: number
   throw new OwnershipError('userId', userId);
 }
 
+/** Boolean form of assertUserVisibleToClient, for callers that answer with their own error envelope. */
+export async function isUserVisibleToClient(userId: number, clientId: number): Promise<boolean> {
+  try {
+    await assertUserVisibleToClient(userId, clientId);
+    return true;
+  } catch (e) {
+    if (e instanceof OwnershipError) return false;
+    throw e;
+  }
+}
+
 /**
  * Filter a list of userIds to those visible to the client: its owner, its
  * members, and platform staff. Staff are looked up among the given ids only —
  * this used to load the entire users table on every call.
  */
 export async function filterUserIdsVisibleToClient(userIds: number[], clientId: number): Promise<number[]> {
+  // Only real int4 ids reach Postgres: a fractional or out-of-range value would
+  // make `inArray` throw (a 500), where it used to be silently filtered out.
+  userIds = userIds.filter((id) => Number.isInteger(id) && id > 0 && id <= 2147483647);
   if (userIds.length === 0) return [];
   const allowed = new Set<number>();
   const [owner] = await db.select({ userId: clients.userId }).from(clients)

@@ -380,32 +380,50 @@ describe('team_update_role', () => {
     expect(out.error).toMatch(/not found/i);
   });
 
-  // Regression: mcp-team-role-escalation-no-e2e — sole-owner orphan guard.
-  // Demoting the last remaining owner out of 'owner' must be rejected so the
-  // client is never left with zero owners (account lock-out).
-  it('refuses to demote the last owner and does not update', async () => {
-    dbState.selectQueue = [
-      [{ id: 5, role: 'owner' }], // existing member lookup → is the owner
-      [{ ownerCount: 1 }],        // owner-count query → only one owner
-    ];
-    const tools = registerAll();
+  // PUX-233: owner rows can't be changed through this tool at all — the same rule
+  // as PATCH /api/portal/team/[memberId]. This supersedes the old last-owner
+  // guard (which allowed demoting an owner when another remained).
+  it.each([[1], [2]])('refuses to change an owner row (owners in client: %i) and does not update', async () => {
+    dbState.selectQueue = [[{ id: 5, role: 'owner', userId: 40 }]]; // existing member is an owner
+    const tools = registerAll(); // caller is the client owner (userId 11)
     const res = await tools.get('team_update_role')!.handler({ memberId: 5, role: 'member' });
     const out = parseJson(res) as { error: string };
-    expect(out.error).toMatch(/last owner/i);
+    expect(out.error).toMatch(/owner role/i);
     expect(dbState.capturedUpdatePatch).toBeNull();
   });
 
-  it('allows demoting an owner when another owner remains', async () => {
-    dbState.selectQueue = [
-      [{ id: 5, role: 'owner' }], // existing member lookup
-      [{ ownerCount: 2 }],        // owner-count query → two owners
-    ];
-    dbState.updateReturning = [{ id: 5, role: 'member' }];
-    const tools = registerAll();
-    const res = await tools.get('team_update_role')!.handler({ memberId: 5, role: 'member' });
-    const out = parseJson(res) as Row;
-    expect(out.role).toBe('member');
-    expect(dbState.capturedUpdatePatch).toEqual({ role: 'member' });
+  // PUX-233 (P0): the scope used to be the only check, so any member holding a
+  // team:write key could set their OWN row to owner.
+  it('refuses a plain member promoting themselves to owner', async () => {
+    dbState.selectQueue = [[{ role: 'member' }]]; // callerRole: membership row
+    const tools = registerAll(['*'], { userId: 22, clientUserId: 11 });
+    const res = await tools.get('team_update_role')!.handler({ memberId: 9, role: 'owner' });
+    expect((parseJson(res) as { error: string }).error).toMatch(/only owners and admins/i);
+    expect(dbState.capturedUpdatePatch).toBeNull();
+  });
+
+  it('refuses changing your own role, even as an admin', async () => {
+    dbState.selectQueue = [[{ role: 'admin' }], [{ id: 9, role: 'admin', userId: 22 }]];
+    const tools = registerAll(['*'], { userId: 22, clientUserId: 11 });
+    const res = await tools.get('team_update_role')!.handler({ memberId: 9, role: 'member' });
+    expect((parseJson(res) as { error: string }).error).toMatch(/your own role/i);
+    expect(dbState.capturedUpdatePatch).toBeNull();
+  });
+
+  it('never assigns owner, even when the owner asks', async () => {
+    dbState.selectQueue = [[{ id: 5, role: 'member', userId: 40 }]];
+    const tools = registerAll(); // caller is the client owner
+    const res = await tools.get('team_update_role')!.handler({ memberId: 5, role: 'owner' });
+    expect((parseJson(res) as { error: string }).error).toMatch(/ownership cannot be assigned/i);
+    expect(dbState.capturedUpdatePatch).toBeNull();
+  });
+
+  it('refuses an admin granting admin — only owners can', async () => {
+    dbState.selectQueue = [[{ role: 'admin' }], [{ id: 5, role: 'member', userId: 40 }]];
+    const tools = registerAll(['*'], { userId: 22, clientUserId: 11 });
+    const res = await tools.get('team_update_role')!.handler({ memberId: 5, role: 'admin' });
+    expect((parseJson(res) as { error: string }).error).toMatch(/only owners can assign the admin role/i);
+    expect(dbState.capturedUpdatePatch).toBeNull();
   });
 
   it('denies when scope missing at handler time', async () => {
@@ -439,6 +457,20 @@ describe('team_remove_member', () => {
     const res = await tools.get('team_remove_member')!.handler({ memberId: 999 });
     const out = parseJson(res) as { error: string };
     expect(out.error).toMatch(/not found/i);
+    expect(dbState.deleteCalls).toBe(0);
+  });
+
+  // PUX-233: mirror DELETE /api/portal/team/[memberId] — the scope used to be the only check.
+  it.each([
+    ['a plain member caller', [[{ role: 'member' }]], /only owners and admins/i],
+    ['removing yourself', [[{ role: 'admin' }], [{ id: 9, role: 'admin', userId: 22 }]], /remove yourself/i],
+    ['removing an owner row', [[{ role: 'admin' }], [{ id: 5, role: 'owner', userId: 40 }]], /account owner/i],
+    ['an admin removing another admin', [[{ role: 'admin' }], [{ id: 5, role: 'admin', userId: 40 }]], /only owners can remove admins/i],
+  ])('refuses %s and deletes nothing', async (_label, queue, message) => {
+    dbState.selectQueue = queue as Row[][];
+    const tools = registerAll(['*'], { userId: 22, clientUserId: 11 });
+    const res = await tools.get('team_remove_member')!.handler({ memberId: 5 });
+    expect((parseJson(res) as { error: string }).error).toMatch(message);
     expect(dbState.deleteCalls).toBe(0);
   });
 
