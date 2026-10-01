@@ -3,9 +3,11 @@ import {
   crmPipelines, crmPipelineStages, crmContacts, crmCompanies,
 } from '@/lib/db/schema/crm';
 import { kanbanCards, kanbanColumns, projects } from '@/lib/db/schema';
-import { clientMembers } from '@/lib/db/schema/sites';
+import { clientMembers, clients } from '@/lib/db/schema/sites';
 import { users } from '@/lib/db/schema/auth';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
+
+const STAFF_ROLES = ['admin', 'editor', 'employee'];
 
 /**
  * Tenant-ownership assertions for foreign-key writes.
@@ -88,28 +90,56 @@ export async function assertProjectInClient(projectId: number, clientId: number)
 }
 
 /**
- * Verify the user is either a member of the active client or a staff user
- * (admin/editor/employee). Used for ownerId / assignedTo / mentions fields.
+ * Verify the user belongs to the client — as its OWNER, a member, or platform
+ * staff (admin/editor/employee). Used for ownerId / assignedTo / mentions fields.
+ *
+ * The owner check is load-bearing: an owner need not have a client_members row
+ * (4 of 16 clients on metro, 2026-09-30), and treating them as an outsider would
+ * stop anyone assigning or mentioning the company's own owner (PUX-230).
  */
 export async function assertUserVisibleToClient(userId: number, clientId: number): Promise<void> {
+  if (!Number.isInteger(userId) || userId <= 0 || userId > 2147483647) throw new OwnershipError('userId', userId);
+  const [owner] = await db.select({ userId: clients.userId }).from(clients)
+    .where(eq(clients.id, clientId)).limit(1);
+  if (owner?.userId === userId) return;
   const [member] = await db.select({ id: clientMembers.id }).from(clientMembers)
     .where(and(eq(clientMembers.userId, userId), eq(clientMembers.clientId, clientId))).limit(1);
   if (member) return;
   const [staff] = await db.select({ role: users.role }).from(users).where(eq(users.id, userId)).limit(1);
-  if (staff && (staff.role === 'admin' || staff.role === 'editor' || staff.role === 'employee')) return;
+  if (staff && STAFF_ROLES.includes(staff.role)) return;
   throw new OwnershipError('userId', userId);
 }
 
-/** Filter a list of userIds to those visible to the active client. */
+/** Boolean form of assertUserVisibleToClient, for callers that answer with their own error envelope. */
+export async function isUserVisibleToClient(userId: number, clientId: number): Promise<boolean> {
+  try {
+    await assertUserVisibleToClient(userId, clientId);
+    return true;
+  } catch (e) {
+    if (e instanceof OwnershipError) return false;
+    throw e;
+  }
+}
+
+/**
+ * Filter a list of userIds to those visible to the client: its owner, its
+ * members, and platform staff. Staff are looked up among the given ids only —
+ * this used to load the entire users table on every call.
+ */
 export async function filterUserIdsVisibleToClient(userIds: number[], clientId: number): Promise<number[]> {
+  // Only real int4 ids reach Postgres: a fractional or out-of-range value would
+  // make `inArray` throw (a 500), where it used to be silently filtered out.
+  userIds = userIds.filter((id) => Number.isInteger(id) && id > 0 && id <= 2147483647);
   if (userIds.length === 0) return [];
   const allowed = new Set<number>();
+  const [owner] = await db.select({ userId: clients.userId }).from(clients)
+    .where(eq(clients.id, clientId)).limit(1);
+  if (owner?.userId) allowed.add(owner.userId);
   const memberRows = await db.select({ userId: clientMembers.userId }).from(clientMembers)
-    .where(eq(clientMembers.clientId, clientId));
+    .where(and(eq(clientMembers.clientId, clientId), inArray(clientMembers.userId, userIds)));
   for (const r of memberRows) allowed.add(r.userId);
-  const staffRows = await db.select({ id: users.id, role: users.role }).from(users);
-  for (const r of staffRows) {
-    if (r.role === 'admin' || r.role === 'editor' || r.role === 'employee') allowed.add(r.id);
-  }
+  const staffRows = await db.select({ id: users.id }).from(users)
+    .where(and(inArray(users.id, userIds), inArray(users.role, STAFF_ROLES)));
+  for (const r of staffRows) allowed.add(r.id);
   return userIds.filter((id) => allowed.has(id));
 }
